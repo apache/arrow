@@ -34,7 +34,9 @@ add_arrow_test(flight_sql_odbc_test
                SOURCES
                odbc_test_suite.cc
                odbc_test_suite.h
+               connection_attr_test.cc
                connection_test.cc
+               statement_attr_test.cc
                # Enable Protobuf cleanup after test execution
                # GH-46889: move protobuf_test_util to a more common location
                ../../../../engine/substrait/protobuf_test_util.cc

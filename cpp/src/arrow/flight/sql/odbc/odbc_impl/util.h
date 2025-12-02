@@ -49,8 +49,6 @@ namespace util {
 typedef std::function<std::shared_ptr<Array>(const std::shared_ptr<Array>&)>
     ArrayConvertTask;
 
-using std::optional;
-
 inline void ThrowIfNotOK(const Status& status) {
   if (!status.ok()) {
     throw DriverException(status.message());
@@ -63,7 +61,7 @@ inline bool CheckIfSetToOnlyValidValue(const AttributeTypeT& value, T allowed_va
 }
 
 template <typename BUILDER, typename T>
-Status AppendToBuilder(BUILDER& builder, optional<T> opt_value) {
+Status AppendToBuilder(BUILDER& builder, std::optional<T> opt_value) {
   if (opt_value) {
     return builder.Append(*opt_value);
   } else {
@@ -87,29 +85,30 @@ CDataType ConvertCDataTypeFromV2ToV3(int16_t data_type_v2);
 
 std::string GetTypeNameFromSqlDataType(int16_t data_type);
 
-optional<int16_t> GetRadixFromSqlDataType(SqlDataType data_type);
+std::optional<int16_t> GetRadixFromSqlDataType(SqlDataType data_type);
 
 int16_t GetNonConciseDataType(SqlDataType data_type);
 
-optional<int16_t> GetSqlDateTimeSubCode(SqlDataType data_type);
+std::optional<int16_t> GetSqlDateTimeSubCode(SqlDataType data_type);
 
-optional<int32_t> GetCharOctetLength(SqlDataType data_type,
-                                     const arrow::Result<int32_t>& column_size,
-                                     const int32_t decimal_precison = 0);
+std::optional<int32_t> GetCharOctetLength(SqlDataType data_type,
+                                          const arrow::Result<int32_t>& column_size,
+                                          const int32_t decimal_precison = 0);
 
-optional<int32_t> GetBufferLength(SqlDataType data_type,
-                                  const optional<int32_t>& column_size);
+std::optional<int32_t> GetBufferLength(SqlDataType data_type,
+                                       const std::optional<int32_t>& column_size);
 
-optional<int32_t> GetLength(SqlDataType data_type, const optional<int32_t>& column_size);
+std::optional<int32_t> GetLength(SqlDataType data_type,
+                                 const std::optional<int32_t>& column_size);
 
-optional<int32_t> GetTypeScale(SqlDataType data_type,
-                               const optional<int32_t>& type_scale);
+std::optional<int32_t> GetTypeScale(SqlDataType data_type,
+                                    const std::optional<int32_t>& type_scale);
 
-optional<int32_t> GetColumnSize(SqlDataType data_type,
-                                const optional<int32_t>& column_size);
+std::optional<int32_t> GetColumnSize(SqlDataType data_type,
+                                     const std::optional<int32_t>& column_size);
 
-optional<int32_t> GetDisplaySize(SqlDataType data_type,
-                                 const optional<int32_t>& column_size);
+std::optional<int32_t> GetDisplaySize(SqlDataType data_type,
+                                      const std::optional<int32_t>& column_size);
 
 std::string ConvertSqlPatternToRegexString(const std::string& pattern);
 

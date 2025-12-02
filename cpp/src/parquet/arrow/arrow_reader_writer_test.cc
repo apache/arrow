@@ -28,6 +28,7 @@
 #include <functional>
 #include <set>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/builder_binary.h"
@@ -74,6 +75,7 @@
 #include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/test_util.h"
+#include "parquet/types.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -4149,14 +4151,29 @@ INSTANTIATE_TEST_SUITE_P(Repetition_type, TestNestedSchemaRead,
                          ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
 
 TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
-  // June 20, 2017 16:32:56 and 123456789 nanoseconds
-  int64_t nanoseconds = INT64_C(1497976376123456789);
+  std::vector<std::pair<int64_t, Int96>> test_cases = {
+      // June 20, 2017 16:32:56 and 123456789 nanoseconds
+      {INT64_C(1497976376123456789),
+       {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}}},
+      // January 1, 1970 00:00:00 and 000000000 nanoseconds
+      {INT64_C(0), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440588)}}},
+      // December 31, 1969 23:59:59 and 999999000 nanoseconds
+      {INT64_C(-1000), {{UINT32_C(2437872664), UINT32_C(20116), UINT32_C(2440587)}}},
+      // December 31, 1969 00:00:00 and 000000000 nanoseconds
+      {INT64_C(-86400000000000), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440587)}}},
+      // January 1, 1970 00:00:00 and 000001000 nanoseconds
+      {INT64_C(1000), {{UINT32_C(1000), UINT32_C(0), UINT32_C(2440588)}}},
+      // January 2, 1970 00:00:00 and 000000000 nanoseconds
+      {INT64_C(86400000000000), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440589)}}},
+  };
 
-  Int96 calculated;
+  for (auto& [timestamp, impala_timestamp] : test_cases) {
+    ASSERT_EQ(timestamp, ::parquet::Int96GetNanoSeconds(impala_timestamp));
 
-  Int96 expected = {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}};
-  ::parquet::internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
-  ASSERT_EQ(expected, calculated);
+    Int96 calculated;
+    ::parquet::internal::NanosecondsToImpalaTimestamp(timestamp, &calculated);
+    ASSERT_EQ(impala_timestamp, calculated);
+  }
 }
 
 void TryReadDataFile(const std::string& path,

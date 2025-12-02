@@ -99,4 +99,5 @@ r/inst/include/cpp11/*.hpp
 r/tools/nixlibs-allowlist.txt
 .gitattributes
 ruby/red-arrow/.yardopts
+ruby/red-arrow-format/lib/arrow-format/org/*
 .github/pull_request_template.md

@@ -1,4 +1,3 @@
-# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -15,14 +14,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-ARG arch=amd64
-ARG dotnet=8.0
-ARG platform=jammy
-FROM mcr.microsoft.com/dotnet/sdk:${dotnet}-${platform}-${arch}
+module ArrowFormat
+  class RecordBatch
+    attr_reader :schema
+    attr_reader :n_rows
+    attr_reader :columns
+    def initialize(schema, n_rows, columns)
+      @schema = schema
+      @n_rows = n_rows
+      @columns = columns
+    end
 
-RUN apt-get update -y -q && \
-    apt-get install -y python3 python3-pip && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN dotnet tool install --tool-path /usr/local/bin sourcelink
+    def to_h
+      hash = {}
+      @schema.fields.zip(@columns) do |field, column|
+        hash[field.name] = column
+      end
+      hash
+    end
+  end
+end

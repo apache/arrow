@@ -528,58 +528,58 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
   }
 }
 
-void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
-                                    SQLINTEGER buffer_length, SQLINTEGER* output_length,
-                                    bool is_unicode) {
+SQLRETURN ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                                         SQLINTEGER buffer_length,
+                                         SQLINTEGER* output_length, bool is_unicode) {
   boost::optional<Connection::Attribute> spi_attribute;
 
   switch (attribute) {
     // Internal connection attributes
-#ifdef SQL_ATR_ASYNC_DBC_EVENT
+#ifdef SQL_ATTR_ASYNC_DBC_EVENT
     case SQL_ATTR_ASYNC_DBC_EVENT:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
-      return;
+      return SQL_SUCCESS;
 #endif
 #ifdef SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE
     case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_ASYNC_DBC_ENABLE_OFF), value,
                    buffer_length, output_length);
-      return;
+      return SQL_SUCCESS;
 #endif
-#ifdef SQL_ATTR_ASYNC_PCALLBACK
+#ifdef SQL_ATTR_ASYNC_DBC_PCALLBACK
     case SQL_ATTR_ASYNC_DBC_PCALLBACK:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
-      return;
+      return SQL_SUCCESS;
 #endif
 #ifdef SQL_ATTR_ASYNC_DBC_PCONTEXT
     case SQL_ATTR_ASYNC_DBC_PCONTEXT:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
-      return;
+      return SQL_SUCCESS;
 #endif
     case SQL_ATTR_ASYNC_ENABLE:
       GetAttribute(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), value, buffer_length,
                    output_length);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_AUTO_IPD:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_FALSE), value, buffer_length,
                    output_length);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_AUTOCOMMIT:
       GetAttribute(static_cast<SQLUINTEGER>(SQL_AUTOCOMMIT_ON), value, buffer_length,
                    output_length);
-      return;
+      return SQL_SUCCESS;
 #ifdef SQL_ATTR_DBC_INFO_TOKEN
     case SQL_ATTR_DBC_INFO_TOKEN:
       throw DriverException("Cannot read set-only attribute", "HY092");
 #endif
     case SQL_ATTR_ENLIST_IN_DTC:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_ODBC_CURSORS:  // DM-only.
       throw DriverException("Invalid attribute", "HY092");
     case SQL_ATTR_QUIET_MODE:
       GetAttribute(static_cast<SQLPOINTER>(NULL), value, buffer_length, output_length);
-      return;
+      return SQL_SUCCESS;
     case SQL_ATTR_TRACE:  // DM-only
       throw DriverException("Invalid attribute", "HY092");
     case SQL_ATTR_TRACEFILE:
@@ -589,7 +589,7 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_TRANSLATE_OPTION:
       throw DriverException("Optional feature not supported.", "HYC00");
     case SQL_ATTR_TXN_ISOLATION:
-      throw DriverException("Optional feature not supported.", "HCY00");
+      throw DriverException("Optional feature not supported.", "HYC00");
 
     case SQL_ATTR_CURRENT_CATALOG: {
       const auto& catalog = spi_connection_->GetAttribute(Connection::CURRENT_CATALOG);
@@ -597,9 +597,8 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
         throw DriverException("Optional feature not supported.", "HYC00");
       }
       const std::string& info_value = boost::get<std::string>(*catalog);
-      GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
-                         output_length, GetDiagnostics());
-      return;
+      return GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
+                                output_length, GetDiagnostics());
     }
 
     // These all are uint32_t attributes.
@@ -628,6 +627,7 @@ void ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
 
   GetAttribute(static_cast<SQLUINTEGER>(boost::get<uint32_t>(*spi_attribute)), value,
                buffer_length, output_length);
+  return SQL_SUCCESS;
 }
 
 void ODBCConnection::Disconnect() {

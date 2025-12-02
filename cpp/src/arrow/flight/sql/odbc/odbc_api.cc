@@ -219,8 +219,45 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
 SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
   ARROW_LOG(DEBUG) << "SQLFreeStmt called with handle: " << handle
                    << ", option: " << option;
-  // GH-47706 TODO: Implement SQLFreeStmt
-  return SQL_INVALID_HANDLE;
+
+  switch (option) {
+    case SQL_CLOSE: {
+      using ODBC::ODBCStatement;
+
+      return ODBCStatement::ExecuteWithDiagnostics(handle, SQL_ERROR, [=]() {
+        ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+
+        // Close cursor with suppressErrors set to true
+        statement->CloseCursor(true);
+
+        return SQL_SUCCESS;
+      });
+    }
+
+    case SQL_DROP: {
+      return SQLFreeHandle(SQL_HANDLE_STMT, handle);
+    }
+
+    case SQL_UNBIND: {
+      // GH-47716 TODO: Add tests for SQLBindCol unbinding
+      using ODBC::ODBCDescriptor;
+      using ODBC::ODBCStatement;
+      return ODBCStatement::ExecuteWithDiagnostics(handle, SQL_ERROR, [=]() {
+        ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(handle);
+        ODBCDescriptor* ard = statement->GetARD();
+        // Unbind columns
+        ard->SetHeaderField(SQL_DESC_COUNT, (void*)0, 0);
+        return SQL_SUCCESS;
+      });
+    }
+
+    // SQLBindParameter is not supported
+    case SQL_RESET_PARAMS: {
+      return SQL_SUCCESS;
+    }
+  }
+
+  return SQL_ERROR;
 }
 
 inline bool IsValidStringFieldArgs(SQLPOINTER diag_info_ptr, SQLSMALLINT buffer_length,
@@ -714,8 +751,15 @@ SQLRETURN SQLGetConnectAttr(SQLHDBC conn, SQLINTEGER attribute, SQLPOINTER value
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-47708 TODO: Implement SQLGetConnectAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCConnection;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    const bool is_unicode = true;
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    return connection->GetConnectAttr(attribute, value_ptr, buffer_length,
+                                      string_length_ptr, is_unicode);
+  });
 }
 
 SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
@@ -723,7 +767,7 @@ SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
   ARROW_LOG(DEBUG) << "SQLSetConnectAttrW called with conn: " << conn
                    << ", attr: " << attr << ", value_ptr: " << value_ptr
                    << ", value_len: " << value_len;
-  // GH-47708 TODO: Add tests for SQLSetConnectAttr
+
   using ODBC::ODBCConnection;
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
@@ -738,7 +782,7 @@ SQLRETURN SQLSetConnectAttr(SQLHDBC conn, SQLINTEGER attr, SQLPOINTER value_ptr,
 // entries in the properties.
 void LoadPropertiesFromDSN(const std::string& dsn,
                            Connection::ConnPropertyMap& properties) {
-  arrow::flight::sql::odbc::config::Configuration config;
+  config::Configuration config;
   config.LoadDsn(dsn);
   Connection::ConnPropertyMap dsn_properties = config.GetProperties();
   for (auto& [key, value] : dsn_properties) {
@@ -796,7 +840,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
     // Load the DSN window according to driver_completion
     if (driver_completion == SQL_DRIVER_PROMPT) {
       // Load DSN window before first attempt to connect
-      arrow::flight::sql::odbc::config::Configuration config;
+      config::Configuration config;
       if (!DisplayConnectionWindow(window_handle, config, properties)) {
         return static_cast<SQLRETURN>(SQL_NO_DATA);
       }
@@ -809,7 +853,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
         // If first connection fails due to missing attributes, load
         // the DSN window and try to connect again
         if (!missing_properties.empty()) {
-          arrow::flight::sql::odbc::config::Configuration config;
+          config::Configuration config;
           missing_properties.clear();
 
           if (!DisplayConnectionWindow(window_handle, config, properties)) {
@@ -855,7 +899,7 @@ SQLRETURN SQLConnect(SQLHDBC conn, SQLWCHAR* dsn_name, SQLSMALLINT dsn_name_len,
     ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
     std::string dsn = SqlWcharToString(dsn_name, dsn_name_len);
 
-    Configuration config;
+    config::Configuration config;
     config.LoadDsn(dsn);
 
     if (user_name) {
@@ -923,8 +967,19 @@ SQLRETURN SQLGetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_p
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-47710 TODO: Implement SQLGetStmtAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    bool is_unicode = true;
+
+    statement->GetStmtAttr(attribute, value_ptr, buffer_length, string_length_ptr,
+                           is_unicode);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLSetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_ptr,
@@ -932,8 +987,18 @@ SQLRETURN SQLSetStmtAttr(SQLHSTMT stmt, SQLINTEGER attribute, SQLPOINTER value_p
   ARROW_LOG(DEBUG) << "SQLSetStmtAttrW called with stmt: " << stmt
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", string_length: " << string_length;
-  // GH-47710 TODO: Implement SQLSetStmtAttr
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    bool is_unicode = true;
+
+    statement->SetStmtAttr(attribute, value_ptr, string_length, is_unicode);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLWCHAR* query_text, SQLINTEGER text_length) {
