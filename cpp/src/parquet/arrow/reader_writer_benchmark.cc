@@ -296,10 +296,10 @@ static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
   for (auto _ : state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> arrow_reader;
-    auto reader_result =
+    auto arrow_reader_result =
         FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
-    EXIT_NOT_OK(reader_result.status());
+    EXIT_NOT_OK(arrow_reader_result.status());
+    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
 
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadTable(&table));
@@ -736,10 +736,10 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> arrow_reader;
-    auto reader_result =
+    auto arrow_reader_result =
         FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
-    EXIT_NOT_OK(reader_result.status());
+    EXIT_NOT_OK(arrow_reader_result.status());
+    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
 
     std::vector<std::shared_ptr<Table>> tables;
     for (int i = 0; i < arrow_reader->num_row_groups(); i++) {
@@ -799,8 +799,8 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
     std::unique_ptr<FileReader> unique_reader;
-    ASSERT_OK_AND_ASSIGN(unique_reader, FileReader::Make(::arrow::default_memory_pool(),
-                                                         std::move(reader)));
+    ASSIGN_OR_ABORT(unique_reader, FileReader::Make(::arrow::default_memory_pool(),
+                                                    std::move(reader)));
     std::shared_ptr<FileReader> arrow_reader = std::move(unique_reader);
     ASSIGN_OR_ABORT(auto generator,
                     arrow_reader->GetRecordBatchGenerator(arrow_reader, rgs, {0}));
