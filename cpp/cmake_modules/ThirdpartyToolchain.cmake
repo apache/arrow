@@ -3059,19 +3059,22 @@ function(build_absl)
   # Create a target that depends on ALL Abseil libraries that will be installed.
   # This ensures they're all built before we try to install.
   add_custom_target(absl_built
-                    DEPENDS absl::base
+                    DEPENDS absl::bad_any_cast_impl
+                            absl::bad_optional_access
+                            absl::bad_variant_access
+                            absl::base
                             absl::city
                             absl::civil_time
-                            absl::cord_internal
                             absl::cord
+                            absl::cord_internal
                             absl::cordz_functions
                             absl::cordz_handle
                             absl::cordz_info
                             absl::cordz_sample_token
+                            absl::crc32c
                             absl::crc_cord_state
                             absl::crc_cpu_detect
                             absl::crc_internal
-                            absl::crc32c
                             absl::debugging_internal
                             absl::decode_rust_punycode
                             absl::demangle_internal
@@ -3080,8 +3083,8 @@ function(build_absl)
                             absl::examine_stack
                             absl::exponential_biased
                             absl::failure_signal_handler
-                            absl::flags_commandlineflag_internal
                             absl::flags_commandlineflag
+                            absl::flags_commandlineflag_internal
                             absl::flags_config
                             absl::flags_internal
                             absl::flags_marshalling
@@ -3089,14 +3092,15 @@ function(build_absl)
                             absl::flags_private_handle_accessor
                             absl::flags_program_name
                             absl::flags_reflection
-                            absl::flags_usage_internal
                             absl::flags_usage
+                            absl::flags_usage_internal
                             absl::graphcycles_internal
                             absl::hash
                             absl::hashtablez_sampler
                             absl::int128
                             absl::kernel_timeout_internal
                             absl::leak_check
+                            absl::log_entry
                             absl::log_flags
                             absl::log_globals
                             absl::log_initialize
@@ -3118,12 +3122,12 @@ function(build_absl)
                             absl::poison
                             absl::random_distributions
                             absl::random_internal_distribution_test_util
-                            absl::random_internal_entropy_pool
                             absl::random_internal_platform
-                            absl::random_internal_randen_hwaes_impl
-                            absl::random_internal_randen_hwaes
-                            absl::random_internal_randen_slow
+                            absl::random_internal_pool_urbg
                             absl::random_internal_randen
+                            absl::random_internal_randen_hwaes
+                            absl::random_internal_randen_hwaes_impl
+                            absl::random_internal_randen_slow
                             absl::random_internal_seed_material
                             absl::random_seed_gen_exception
                             absl::random_seed_sequences
@@ -3137,13 +3141,13 @@ function(build_absl)
                             absl::str_format_internal
                             absl::strerror
                             absl::string_view
-                            absl::strings_internal
                             absl::strings
+                            absl::strings_internal
                             absl::symbolize
                             absl::synchronization
                             absl::throw_delegate
-                            absl::time_zone
                             absl::time
+                            absl::time_zone
                             absl::tracing_internal
                             absl::utf8_for_code_point
                             absl::vlog_config_internal)
@@ -3656,6 +3660,8 @@ macro(build_google_cloud_cpp_storage)
     # (and then some regexing)
     list(APPEND
          ARROW_BUNDLED_STATIC_LIBS
+         absl::bad_optional_access
+         absl::bad_variant_access
          absl::base
          absl::civil_time
          absl::cord
