@@ -798,10 +798,10 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> unique_reader;
-    ASSIGN_OR_ABORT(unique_reader,
-                    FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
-    std::shared_ptr<FileReader> arrow_reader = std::move(unique_reader);
+    auto arrow_reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(arrow_reader_result.status());
+    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
     ASSIGN_OR_ABORT(auto generator,
                     arrow_reader->GetRecordBatchGenerator(arrow_reader, rgs, {0}));
     auto fut = ::arrow::CollectAsyncGenerator(generator);
