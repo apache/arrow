@@ -92,11 +92,7 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
   // If estimated_data_length is provided, it will also reserve the estimated data length.
   Status Prepare(int64_t length, std::optional<int64_t> estimated_data_length = {}) {
     entries_remaining_ = length;
-    RETURN_NOT_OK(builder_->Reserve(entries_remaining_));
-    if (estimated_data_length.has_value()) {
-      RETURN_NOT_OK(builder_->ReserveData(
-          std::min<int64_t>(*estimated_data_length, this->chunk_space_remaining_)));
-    }
+    RETURN_NOT_OK(ReserveInitialChunkData(estimated_data_length));
     return Status::OK();
   }
 
@@ -110,11 +106,7 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
       // This element would exceed the capacity of a chunk
       RETURN_NOT_OK(PushChunk());
       // Reserve entries and data in new chunk
-      RETURN_NOT_OK(builder_->Reserve(entries_remaining_));
-      if (estimated_remaining_data_length.has_value()) {
-        RETURN_NOT_OK(builder_->ReserveData(
-            std::min<int64_t>(*estimated_remaining_data_length, chunk_space_remaining_)));
-      }
+      RETURN_NOT_OK(ReserveInitialChunkData(estimated_remaining_data_length));
     }
     chunk_space_remaining_ -= length;
     --entries_remaining_;
@@ -144,6 +136,20 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
     ARROW_ASSIGN_OR_RAISE(auto chunk, acc_->builder->Finish());
     acc_->chunks.push_back(std::move(chunk));
     chunk_space_remaining_ = ::arrow::kBinaryMemoryLimit;
+    return Status::OK();
+  }
+
+  Status ReserveInitialChunkData(std::optional<int64_t> estimated_remaining_data_length) {
+    RETURN_NOT_OK(builder_->Reserve(entries_remaining_));
+    if (estimated_remaining_data_length.has_value()) {
+      int64_t required_capacity =
+          std::min(*estimated_remaining_data_length, chunk_space_remaining_);
+      // Ensure we'll be allocating a non-zero-sized data buffer, to avoid encountering
+      // a null pointer
+      constexpr int64_t kMinReserveCapacity = 64;
+      RETURN_NOT_OK(
+          builder_->ReserveData(std::max(required_capacity, kMinReserveCapacity)));
+    }
     return Status::OK();
   }
 
@@ -754,43 +760,47 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                           int64_t valid_bits_offset,
                           typename EncodingTraits<ByteArrayType>::Accumulator* out,
                           int* out_values_decoded) {
-    // We're going to decode up to `num_values - null_count` PLAIN values,
+    // We're going to decode `num_values - null_count` PLAIN values,
     // and each value has a 4-byte length header that doesn't count for the
     // Arrow binary data length.
-    int64_t estimated_data_length =
-        std::max<int64_t>(0, len_ - 4 * (num_values - null_count));
+    int64_t estimated_data_length = len_ - 4 * (num_values - null_count);
+    if (ARROW_PREDICT_FALSE(estimated_data_length < 0)) {
+      return Status::Invalid("Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
+    }
 
     auto visit_binary_helper = [&](auto* helper) {
       int values_decoded = 0;
 
-      RETURN_NOT_OK(VisitBitRuns(
-          valid_bits, valid_bits_offset, num_values,
-          [&](int64_t position, int64_t run_length, bool is_valid) {
-            if (is_valid) {
-              for (int64_t i = 0; i < run_length; ++i) {
-                if (ARROW_PREDICT_FALSE(len_ < 4)) {
-                  return Status::Invalid(
-                      "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
-                }
-                auto value_len = SafeLoadAs<int32_t>(data_);
-                if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > len_ - 4)) {
-                  return Status::Invalid(
-                      "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
-                }
-                RETURN_NOT_OK(
-                    helper->AppendValue(data_ + 4, value_len, estimated_data_length));
-                auto increment = value_len + 4;
-                data_ += increment;
-                len_ -= increment;
-                estimated_data_length -= value_len;
-                DCHECK_GE(estimated_data_length, 0);
-              }
-              values_decoded += static_cast<int>(run_length);
-              return Status::OK();
-            } else {
-              return helper->AppendNulls(run_length);
+      auto visit_run = [&](int64_t position, int64_t run_length, bool is_valid) {
+        if (is_valid) {
+          for (int64_t i = 0; i < run_length; ++i) {
+            // We ensure `len_` is sufficient thanks to:
+            //   1. the initial `estimated_data_length` check above,
+            //   2. the running `value_len > estimated_data_length` check below.
+            // This precondition follows from those two checks.
+            DCHECK_GE(len_, 4);
+            auto value_len = SafeLoadAs<int32_t>(data_);
+            if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > estimated_data_length)) {
+              return Status::Invalid(
+                  "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
             }
-          }));
+            RETURN_NOT_OK(
+                helper->AppendValue(data_ + 4, value_len, estimated_data_length));
+            auto increment = value_len + 4;
+            data_ += increment;
+            len_ -= increment;
+            estimated_data_length -= value_len;
+            DCHECK_GE(estimated_data_length, 0);
+          }
+          values_decoded += static_cast<int>(run_length);
+          return Status::OK();
+        } else {
+          return helper->AppendNulls(run_length);
+        }
+      };
+
+      RETURN_NOT_OK(
+          VisitBitRuns(valid_bits, valid_bits_offset, num_values, std::move(visit_run)));
 
       num_values_ -= values_decoded;
       *out_values_decoded = values_decoded;
