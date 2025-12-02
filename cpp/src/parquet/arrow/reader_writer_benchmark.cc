@@ -772,10 +772,10 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> arrow_reader;
-    auto reader_result =
+    auto arrow_reader_result =
         FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
-    EXIT_NOT_OK(reader_result.status());
+    EXIT_NOT_OK(arrow_reader_result.status());
+    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
 
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadRowGroups(rgs, &table));
