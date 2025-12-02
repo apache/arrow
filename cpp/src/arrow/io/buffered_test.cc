@@ -514,6 +514,37 @@ TEST_F(TestBufferedInputStream, PeekPastBufferedBytes) {
   ASSERT_EQ(0, buffered_->bytes_buffered());
 }
 
+TEST_F(TestBufferedInputStream, PeekAfterExhaustingBuffer) {
+  // GH-48311: When bytes_buffered_ == 0 and raw_read_bound_ >= 0,
+  // SetBufferSize should reset buffer_pos_ to 0 and reuse the beginning of the buffer
+  MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/25);
+
+  // Read all buffered bytes to exhaust the buffer (bytes_buffered_ == 0)
+  // At this point, buffer_pos_ may be non-zero if we've consumed the buffer
+  ASSERT_OK_AND_ASSIGN(auto view, buffered_->Peek(10));
+  EXPECT_EQ(view, kExample1.substr(0, 10));
+  ASSERT_EQ(10, buffered_->bytes_buffered());
+  ASSERT_EQ(10, buffered_->buffer_size());
+  ASSERT_OK_AND_ASSIGN(auto bytes, buffered_->Read(10));
+  EXPECT_EQ(std::string_view(*bytes), kExample1.substr(0, 10));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+  ASSERT_EQ(10, buffered_->buffer_size());
+
+  // Peek should trigger SetBufferSize with bytes_buffered_ == 0,
+  // which should reset buffer_pos_ to 0 and reuse the beginning of the buffer,
+  // so resulting size of the buffer should be 15 instead of 25
+  ASSERT_OK_AND_ASSIGN(view, buffered_->Peek(15));
+  EXPECT_EQ(view, kExample1.substr(10, 15));
+  ASSERT_EQ(15, buffered_->bytes_buffered());
+  ASSERT_EQ(15, buffered_->buffer_size());
+
+  // Do read just in case
+  ASSERT_OK_AND_ASSIGN(bytes, buffered_->Read(15));
+  EXPECT_EQ(std::string_view(*bytes), kExample1.substr(10, 15));
+  ASSERT_EQ(0, buffered_->bytes_buffered());
+  ASSERT_EQ(15, buffered_->buffer_size());
+}
+
 class TestBufferedInputStreamBound : public ::testing::Test {
  public:
   void SetUp() { CreateExample(/*bounded=*/true); }
