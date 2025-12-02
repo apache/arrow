@@ -288,22 +288,29 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2025-09-16.1"
-      - name: Install and setup micromamba
+      - name: Install conda
         shell: cmd
         run: |
-          curl -L -o micromamba.exe https://github.com/mamba-org/micromamba-releases/releases/download/2.4.0-0/micromamba-win-64.exe
-          micromamba.exe shell init -s cmd.exe -r C:\micromamba
-          micromamba.exe create -n pyarrow-dev -f ".\ci\conda_env_python.txt" -y
-          dir "C:\micromamba"
+          curl -L https://github.com/conda-forge/miniforge/releases/download/25.11.0-0/Miniforge3-25.11.0-0-Windows-x86_64.exe -o miniforge.exe
+          start /wait "" .\miniforge.exe /S /D=C:\miniforge
+          del .\miniforge.exe
+          C:\miniforge\Scripts\conda.exe init cmd.exe
+          echo C:\miniforge\Scripts;C:\miniforge\Library\bin;C:\miniforge\condabin>> %GITHUB_PATH%
+      - name: Create conda environment
+        shell: cmd
+        run: |
+          conda env create -n pyarrow-dev -f .\ci\conda_env_python.txt -y
       - name: Build Arrow C++ and PyArrow
         shell: cmd
+        env:
+          PYTHON_CMD: "python"
         run: |
-          call "C:\micromamba\condabin\micromamba.bat"
-          micromamba activate pyarrow-dev || exit /B 1
-          call "ci\scripts\python_build.bat" %cd% "C:\micromamba"
+          call activate pyarrow-dev || exit /B 1
+          call "ci\scripts\python_build.bat" %cd% "%CONDA_PREFIX%"
       - name: Test PyArrow
         shell: cmd
+        env:
+          PYTHON_CMD: "python"
         run: |
-          call "C:\micromamba\condabin\micromamba.bat"
-          micromamba activate pyarrow-dev || exit /B 1
+          call activate pyarrow-dev
           call "ci\scripts\python_test.bat" %cd%
