@@ -519,12 +519,14 @@ TEST_F(TestBufferedInputStream, PeekAfterExhaustingBuffer) {
   // SetBufferSize should reset buffer_pos_ to 0 and reuse the beginning of the buffer
   MakeExample1(/*buffer_size=*/10, default_memory_pool(), /*raw_read_bound=*/25);
 
-  // Read all buffered bytes to exhaust the buffer (bytes_buffered_ == 0)
-  // At this point, buffer_pos_ may be non-zero if we've consumed the buffer
+  // Fill the buffer
   ASSERT_OK_AND_ASSIGN(auto view, buffered_->Peek(10));
   EXPECT_EQ(view, kExample1.substr(0, 10));
   ASSERT_EQ(10, buffered_->bytes_buffered());
   ASSERT_EQ(10, buffered_->buffer_size());
+
+  // Read all buffered bytes to exhaust the buffer (bytes_buffered_ == 0),
+  // at this point buffer_pos_ is non-zero
   ASSERT_OK_AND_ASSIGN(auto bytes, buffered_->Read(10));
   EXPECT_EQ(std::string_view(*bytes), kExample1.substr(0, 10));
   ASSERT_EQ(0, buffered_->bytes_buffered());
