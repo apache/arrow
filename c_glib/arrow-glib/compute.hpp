@@ -197,3 +197,9 @@ garrow_dictionary_encode_options_new_raw(
   const arrow::compute::DictionaryEncodeOptions *arrow_options);
 arrow::compute::DictionaryEncodeOptions *
 garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options);
+
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new_raw(
+  const arrow::compute::ElementWiseAggregateOptions *arrow_options);
+arrow::compute::ElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options);

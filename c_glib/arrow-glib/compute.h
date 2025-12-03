@@ -1239,4 +1239,21 @@ GARROW_AVAILABLE_IN_23_0
 GArrowDictionaryEncodeOptions *
 garrow_dictionary_encode_options_new(void);
 
+#define GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS                                       \
+  (garrow_element_wise_aggregate_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowElementWiseAggregateOptions,
+                         garrow_element_wise_aggregate_options,
+                         GARROW,
+                         ELEMENT_WISE_AGGREGATE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowElementWiseAggregateOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new(void);
+
 G_END_DECLS

@@ -263,6 +263,9 @@ G_BEGIN_DECLS
  * #GArrowDictionaryEncodeOptions is a class to customize the `dictionary_encode`
  * function.
  *
+ * #GArrowElementWiseAggregateOptions is a class to customize element-wise
+ * aggregate functions such as `min_element_wise` and `max_element_wise`.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6890,6 +6893,105 @@ garrow_dictionary_encode_options_new(void)
   return GARROW_DICTIONARY_ENCODE_OPTIONS(options);
 }
 
+enum {
+  PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS = 1,
+};
+
+G_DEFINE_TYPE(GArrowElementWiseAggregateOptions,
+              garrow_element_wise_aggregate_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_element_wise_aggregate_options_set_property(GObject *object,
+                                                   guint prop_id,
+                                                   const GValue *value,
+                                                   GParamSpec *pspec)
+{
+  auto options = garrow_element_wise_aggregate_options_get_raw(
+    GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_element_wise_aggregate_options_get_property(GObject *object,
+                                                   guint prop_id,
+                                                   GValue *value,
+                                                   GParamSpec *pspec)
+{
+  auto options = garrow_element_wise_aggregate_options_get_raw(
+    GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_element_wise_aggregate_options_init(GArrowElementWiseAggregateOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ElementWiseAggregateOptions());
+}
+
+static void
+garrow_element_wise_aggregate_options_class_init(
+  GArrowElementWiseAggregateOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_element_wise_aggregate_options_set_property;
+  gobject_class->get_property = garrow_element_wise_aggregate_options_get_property;
+
+  arrow::compute::ElementWiseAggregateOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowElementWiseAggregateOptions:skip-nulls:
+   *
+   * Whether to skip (ignore) nulls in the input.
+   * If false, any null in the input forces the output to null.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip nulls",
+                              "Whether to skip (ignore) nulls in the input. If false, "
+                              "any null in the input forces the output to null",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS,
+                                  spec);
+}
+
+/**
+ * garrow_element_wise_aggregate_options_new:
+ *
+ * Returns: A newly created #GArrowElementWiseAggregateOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS, NULL);
+  return GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7041,6 +7143,12 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
       static_cast<const arrow::compute::DictionaryEncodeOptions *>(arrow_options);
     auto options =
       garrow_dictionary_encode_options_new_raw(arrow_dictionary_encode_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ElementWiseAggregateOptions") {
+    const auto arrow_element_wise_aggregate_options =
+      static_cast<const arrow::compute::ElementWiseAggregateOptions *>(arrow_options);
+    auto options =
+      garrow_element_wise_aggregate_options_new_raw(arrow_element_wise_aggregate_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7644,5 +7752,23 @@ arrow::compute::DictionaryEncodeOptions *
 garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options)
 {
   return static_cast<arrow::compute::DictionaryEncodeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new_raw(
+  const arrow::compute::ElementWiseAggregateOptions *arrow_options)
+{
+  return GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(
+    g_object_new(GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS,
+                 "skip-nulls",
+                 arrow_options->skip_nulls,
+                 NULL));
+}
+
+arrow::compute::ElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options)
+{
+  return static_cast<arrow::compute::ElementWiseAggregateOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
