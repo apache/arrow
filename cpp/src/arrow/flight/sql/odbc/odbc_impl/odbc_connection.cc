@@ -29,6 +29,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
+// Include ODBC headers after arrow headers to avoid conflicts with sql_info_undef.h
 #include <odbcinst.h>
 #include <sql.h>
 #include <sqlext.h>
