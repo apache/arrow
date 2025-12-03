@@ -17,9 +17,14 @@
 
 #include "arrow/util/fuzz_internal.h"
 
+#include <cstdint>
+#include <utility>
+
 #include "arrow/memory_pool.h"
 #include "arrow/status.h"
+#include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/value_parsing.h"
 
 namespace arrow::internal {
 
@@ -30,8 +35,24 @@ MemoryPool* fuzzing_memory_pool() {
 }
 
 void LogFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
-  // Most fuzz inputs will be invalid and generate errors, only log potential OOMs
-  if (st.IsOutOfMemory()) {
+  static const int kVerbosity = []() {
+    auto maybe_env_value = GetEnvVar("ARROW_FUZZING_VERBOSITY");
+    if (maybe_env_value.status().IsKeyError()) {
+      return 0;
+    }
+    auto env_value = std::move(maybe_env_value).ValueOrDie();
+    int32_t value;
+    if (!ParseValue<Int32Type>(env_value.data(), env_value.length(), &value)) {
+      Status::Invalid("Invalid value for ARROW_FUZZING_VERBOSITY: '", env_value, "'")
+          .Abort();
+    }
+    return value;
+  }();
+
+  if (kVerbosity >= 1) {
+    ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
+                       << " failed: " << st.ToString();
+  } else if (st.IsOutOfMemory()) {
     ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
                        << " hit allocation failure: " << st.ToString();
   }

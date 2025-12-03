@@ -160,6 +160,10 @@ class BitReader {
   /// are not enough bits left.
   bool Advance(int64_t num_bits);
 
+  /// Advance the stream by a number of bytes, ignoring remaning bits.
+  /// Returns true if succeed or false if there are not enough bits left.
+  bool AdvanceBytes(int num_bytes);
+
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
   /// the beginning of a byte. Return false if there were not enough bytes in
   /// the buffer.
@@ -328,6 +332,17 @@ inline bool BitReader::Advance(int64_t num_bits) {
   return true;
 }
 
+inline bool BitReader::AdvanceBytes(int num_bytes) {
+  if (ARROW_PREDICT_FALSE(num_bytes > max_bytes_ - byte_offset_)) {
+    return false;
+  }
+  byte_offset_ += num_bytes;
+  bit_offset_ = 0;
+  buffered_values_ =
+      detail::ReadLittleEndianWord(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
+  return true;
+}
+
 template <typename Int>
 inline bool BitWriter::PutVlqInt(Int v) {
   static_assert(std::is_integral_v<Int>);
@@ -362,25 +377,10 @@ inline bool BitReader::GetVlqInt(Int* v) {
   static_assert(std::is_integral_v<Int>);
 
   // The data that we will pass to the LEB128 parser
-  // In all case, we read a byte-aligned value, skipping remaining bits
-  const uint8_t* data = NULLPTR;
-  int max_size = 0;
-
-  // Number of bytes left in the buffered values, not including the current
-  // byte (i.e., there may be an additional fraction of a byte).
-  const int bytes_left_in_cache =
-      sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
-
-  // If there are clearly enough bytes left we can try to parse from the cache
-  if (bytes_left_in_cache >= kMaxLEB128ByteLenFor<Int>) {
-    max_size = bytes_left_in_cache;
-    data = reinterpret_cast<const uint8_t*>(&buffered_values_) +
-           bit_util::BytesForBits(bit_offset_);
-    // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
-  } else {
-    max_size = bytes_left();
-    data = buffer_ + (max_bytes_ - max_size);
-  }
+  // We read a byte-aligned value, skipping remaining bits.
+  // Also, we don't bother with the cache since the decoding would be the same.
+  int max_size = bytes_left();
+  const uint8_t* data = buffer_ + (max_bytes_ - max_size);
 
   const auto bytes_read = bit_util::ParseLeadingLEB128(data, max_size, v);
   if (ARROW_PREDICT_FALSE(bytes_read == 0)) {
@@ -388,8 +388,8 @@ inline bool BitReader::GetVlqInt(Int* v) {
     return false;
   }
 
-  // Advance for the bytes we have read + the bits we skipped
-  return Advance((8 * bytes_read) + (bit_offset_ % 8));
+  // Advance for the bytes we have read
+  return AdvanceBytes(bytes_read);
 }
 
 template <typename Int>

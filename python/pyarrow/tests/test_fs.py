@@ -1461,20 +1461,20 @@ def test_s3fs_wrong_region():
     # anonymous=True incase CI/etc has invalid credentials
     fs = S3FileSystem(region='eu-north-1', anonymous=True)
 
-    msg = ("When getting information for bucket 'voltrondata-labs-datasets': "
+    msg = ("When getting information for bucket 'arrow-datasets': "
            r"AWS Error UNKNOWN \(HTTP status 301\) during HeadBucket "
            "operation: No response body. Looks like the configured region is "
-           "'eu-north-1' while the bucket is located in 'us-east-2'."
+           "'eu-north-1' while the bucket is located in 'us-east-1'."
            "|NETWORK_CONNECTION")
     with pytest.raises(OSError, match=msg) as exc:
-        fs.get_file_info("voltrondata-labs-datasets")
+        fs.get_file_info("arrow-datasets")
 
     # Sometimes fails on unrelated network error, so next call would also fail.
     if 'NETWORK_CONNECTION' in str(exc.value):
         return
 
-    fs = S3FileSystem(region='us-east-2', anonymous=True)
-    fs.get_file_info("voltrondata-labs-datasets")
+    fs = S3FileSystem(region='us-east-1', anonymous=True)
+    fs.get_file_info("arrow-datasets")
 
 
 @pytest.mark.azure
@@ -1912,15 +1912,15 @@ def test_s3_real_aws():
     fs = S3FileSystem(anonymous=True)
     assert fs.region == default_region
 
-    fs = S3FileSystem(anonymous=True, region='us-east-2')
+    fs = S3FileSystem(anonymous=True, region='us-east-1')
     entries = fs.get_file_info(FileSelector(
-        'voltrondata-labs-datasets/nyc-taxi'))
+        'arrow-datasets/nyc-taxi'))
     assert len(entries) > 0
-    key = 'voltrondata-labs-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
+    key = 'arrow-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
     with fs.open_input_stream(key) as f:
         md = f.metadata()
         assert 'Content-Type' in md
-        assert md['Last-Modified'] == b'2022-07-12T23:32:00Z'
+        assert md['Last-Modified'] == b'2025-11-26T10:28:55Z'
         # For some reason, the header value is quoted
         # (both with AWS and Minio)
         assert md['ETag'] == b'"4c6a76826a695c6ac61592bc30cda3df-16"'
@@ -1963,7 +1963,7 @@ def test_s3_real_aws_region_selection():
 @pytest.mark.s3
 def test_resolve_s3_region():
     from pyarrow.fs import resolve_s3_region
-    assert resolve_s3_region('voltrondata-labs-datasets') == 'us-east-2'
+    assert resolve_s3_region('arrow-datasets') == 'us-east-1'
     assert resolve_s3_region('mf-nwp-models') == 'eu-west-1'
 
     with pytest.raises(ValueError, match="Not a valid bucket name"):
@@ -2120,7 +2120,7 @@ def test_s3_finalize_region_resolver():
         with pytest.raises(ValueError, match="S3 .* finalized"):
             resolve_s3_region('mf-nwp-models')
         with pytest.raises(ValueError, match="S3 .* finalized"):
-            resolve_s3_region('voltrondata-labs-datasets')
+            resolve_s3_region('arrow-datasets')
         """
     subprocess.check_call([sys.executable, "-c", code])
 

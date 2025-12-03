@@ -44,7 +44,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6.0.0
         with:
           fetch-depth: 0
       - name: Install dependencies

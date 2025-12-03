@@ -178,7 +178,7 @@ To learn more about analyzing Arrow data, see the [data wrangling article](./dat
 Another use for the arrow R package is to read, write, and analyze data sets stored remotely on cloud services. The package currently supports both Amazon Simple Storage Service (S3) and Google Cloud Storage (GCS). The example below illustrates how you can use `s3_bucket()` to refer to a an S3 bucket, and use `open_dataset()` to connect to the data set stored there:
 
 ```{r, eval=FALSE}
-bucket <- s3_bucket("voltrondata-labs-datasets/nyc-taxi")
+bucket <- s3_bucket("arrow-datasets/nyc-taxi")
 nyc_taxi <- open_dataset(bucket)
 ```
 
