@@ -299,7 +299,8 @@ jobs:
       - name: Create conda environment
         shell: cmd
         run: |
-          conda env create -n pyarrow-dev -f .\ci\conda_env_python.txt -y
+          conda env create -n pyarrow-dev -f .\ci\conda_env_cpp.txt -y
+          conda env update -n pyarrow-dev -f .\ci\conda_env_python.txt
       - name: Build Arrow C++ and PyArrow
         shell: cmd
         env:
