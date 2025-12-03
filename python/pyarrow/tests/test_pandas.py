@@ -212,13 +212,14 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_column_index_names_with_tz(self):
+    @pytest.mark.parametrize("tz", [None, "Europe/Brussels"])
+    def test_column_index_names_datetime(self, tz):
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex
 
         df = pd.DataFrame(
             np.random.randn(5, 3),
-            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz="CET")
+            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz=tz)
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -451,7 +452,7 @@ class TestConvertMetadata:
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
-                start='2017-01-01', periods=3, tz='America/New_York'
+                start='2017-01-01', periods=3, tz='America/New_York', unit='us'
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
@@ -460,7 +461,7 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'datetimetz'
-        assert column_indexes['numpy_type'] == 'datetime64[ns]'
+        assert column_indexes['numpy_type'] == 'datetime64[us]'
 
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
@@ -709,7 +710,8 @@ class TestConvertMetadata:
         # It is possible that the metadata and actual schema is not fully
         # matching (eg no timezone information for tz-aware column)
         # -> to_pandas() conversion should not fail on that
-        df = pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=3)})
+        df = pd.DataFrame({"datetime": pd.date_range(
+            "2020-01-01", periods=3, unit='ns')})
 
         # OPTION 1: casting after conversion
         table = pa.Table.from_pandas(df)
