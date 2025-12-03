@@ -1408,7 +1408,7 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        freethreaded: 0
+        python_variant: default
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -1425,7 +1425,7 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        freethreaded: 1
+        python_variant: freethreaded
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
