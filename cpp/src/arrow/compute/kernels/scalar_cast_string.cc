@@ -29,7 +29,6 @@
 #include "arrow/result.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/formatting.h"
 #include "arrow/util/int_util.h"
 #include "arrow/util/logging_internal.h"
