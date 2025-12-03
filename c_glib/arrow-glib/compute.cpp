@@ -258,6 +258,8 @@ G_BEGIN_DECLS
  * such as `cumulative_sum`, `cumulative_prod`, `cumulative_max`, and
  * `cumulative_min`.
  *
+ * #GArrowDayOfWeekOptions is a class to customize the `day_of_week` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6662,6 +6664,127 @@ garrow_cumulative_options_new(void)
   return GARROW_CUMULATIVE_OPTIONS(options);
 }
 
+enum {
+  PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO = 1,
+  PROP_DAY_OF_WEEK_OPTIONS_WEEK_START,
+};
+
+G_DEFINE_TYPE(GArrowDayOfWeekOptions,
+              garrow_day_of_week_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_day_of_week_options_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = garrow_day_of_week_options_get_raw(GARROW_DAY_OF_WEEK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO:
+    options->count_from_zero = g_value_get_boolean(value);
+    break;
+  case PROP_DAY_OF_WEEK_OPTIONS_WEEK_START:
+    options->week_start = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_day_of_week_options_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = garrow_day_of_week_options_get_raw(GARROW_DAY_OF_WEEK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO:
+    g_value_set_boolean(value, options->count_from_zero);
+    break;
+  case PROP_DAY_OF_WEEK_OPTIONS_WEEK_START:
+    g_value_set_uint(value, options->week_start);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_day_of_week_options_init(GArrowDayOfWeekOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::DayOfWeekOptions());
+}
+
+static void
+garrow_day_of_week_options_class_init(GArrowDayOfWeekOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_day_of_week_options_set_property;
+  gobject_class->get_property = garrow_day_of_week_options_get_property;
+
+  arrow::compute::DayOfWeekOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowDayOfWeekOptions:count-from-zero:
+   *
+   * Number days from 0 if true and from 1 if false.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("count-from-zero",
+                              "Count from zero",
+                              "Number days from 0 if true and from 1 if false",
+                              options.count_from_zero,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO,
+                                  spec);
+
+  /**
+   * GArrowDayOfWeekOptions:week-start:
+   *
+   * What day does the week start with (Monday=1, Sunday=7).
+   * The numbering is unaffected by the count_from_zero parameter.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_uint("week-start",
+                           "Week start",
+                           "What day does the week start with (Monday=1, Sunday=7). The "
+                           "numbering is unaffected by the count_from_zero parameter",
+                           1,
+                           7,
+                           options.week_start,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DAY_OF_WEEK_OPTIONS_WEEK_START,
+                                  spec);
+}
+
+/**
+ * garrow_day_of_week_options_new:
+ *
+ * Returns: A newly created #GArrowDayOfWeekOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_DAY_OF_WEEK_OPTIONS, NULL);
+  return GARROW_DAY_OF_WEEK_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -6802,6 +6925,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_cumulative_options =
       static_cast<const arrow::compute::CumulativeOptions *>(arrow_options);
     auto options = garrow_cumulative_options_new_raw(arrow_cumulative_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "DayOfWeekOptions") {
+    const auto arrow_day_of_week_options =
+      static_cast<const arrow::compute::DayOfWeekOptions *>(arrow_options);
+    auto options = garrow_day_of_week_options_new_raw(arrow_day_of_week_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7368,5 +7496,23 @@ arrow::compute::CumulativeOptions *
 garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options)
 {
   return static_cast<arrow::compute::CumulativeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options)
+{
+  return GARROW_DAY_OF_WEEK_OPTIONS(g_object_new(GARROW_TYPE_DAY_OF_WEEK_OPTIONS,
+                                                 "count-from-zero",
+                                                 arrow_options->count_from_zero,
+                                                 "week-start",
+                                                 arrow_options->week_start,
+                                                 NULL));
+}
+
+arrow::compute::DayOfWeekOptions *
+garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options)
+{
+  return static_cast<arrow::compute::DayOfWeekOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

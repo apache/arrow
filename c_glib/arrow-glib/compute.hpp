@@ -186,3 +186,8 @@ GArrowCumulativeOptions *
 garrow_cumulative_options_new_raw(const arrow::compute::CumulativeOptions *arrow_options);
 arrow::compute::CumulativeOptions *
 garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options);
+
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options);
+arrow::compute::DayOfWeekOptions *
+garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options);
