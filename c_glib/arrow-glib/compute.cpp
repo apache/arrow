@@ -254,6 +254,10 @@ G_BEGIN_DECLS
  * #GArrowAssumeTimezoneOptions is a class to customize the `assume_timezone`
  * function.
  *
+ * #GArrowCumulativeOptions is a class to customize the cumulative functions
+ * such as `cumulative_sum`, `cumulative_prod`, `cumulative_max`, and
+ * `cumulative_min`.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6491,6 +6495,173 @@ garrow_assume_timezone_options_new(void)
   return GARROW_ASSUME_TIMEZONE_OPTIONS(options);
 }
 
+typedef struct GArrowCumulativeOptionsPrivate_
+{
+  GArrowScalar *start;
+} GArrowCumulativeOptionsPrivate;
+
+enum {
+  PROP_CUMULATIVE_OPTIONS_START = 1,
+  PROP_CUMULATIVE_OPTIONS_SKIP_NULLS,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCumulativeOptions,
+                           garrow_cumulative_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object)                                    \
+  static_cast<GArrowCumulativeOptionsPrivate *>(                                         \
+    garrow_cumulative_options_get_instance_private(GARROW_CUMULATIVE_OPTIONS(object)))
+
+static void
+garrow_cumulative_options_dispose(GObject *object)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->start) {
+    g_object_unref(priv->start);
+    priv->start = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_cumulative_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_cumulative_options_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_cumulative_options_get_raw(GARROW_CUMULATIVE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_CUMULATIVE_OPTIONS_START:
+    {
+      auto scalar = GARROW_SCALAR(g_value_get_object(value));
+      if (priv->start == scalar) {
+        return;
+      }
+      if (priv->start) {
+        g_object_unref(priv->start);
+      }
+      priv->start = scalar;
+      if (priv->start) {
+        g_object_ref(priv->start);
+        options->start = garrow_scalar_get_raw(scalar);
+      } else {
+        options->start = std::nullopt;
+      }
+      break;
+    }
+  case PROP_CUMULATIVE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_cumulative_options_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_cumulative_options_get_raw(GARROW_CUMULATIVE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_CUMULATIVE_OPTIONS_START:
+    {
+      if (priv->start) {
+        g_value_set_object(value, G_OBJECT(priv->start));
+      } else {
+        g_value_set_object(value, NULL);
+      }
+      break;
+    }
+  case PROP_CUMULATIVE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_cumulative_options_init(GArrowCumulativeOptions *object)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+  priv->start = nullptr;
+  auto function_options_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  function_options_priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::CumulativeOptions());
+}
+
+static void
+garrow_cumulative_options_class_init(GArrowCumulativeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_cumulative_options_dispose;
+  gobject_class->set_property = garrow_cumulative_options_set_property;
+  gobject_class->get_property = garrow_cumulative_options_get_property;
+
+  arrow::compute::CumulativeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowCumulativeOptions:start:
+   *
+   * Optional starting value for cumulative operation computation.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_object("start",
+                        "Start",
+                        "Optional starting value for cumulative operation computation",
+                        GARROW_TYPE_SCALAR,
+                        static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_CUMULATIVE_OPTIONS_START, spec);
+
+  /**
+   * GArrowCumulativeOptions:skip-nulls:
+   *
+   * If true, nulls in the input are ignored and produce a corresponding null output.
+   * When false, the first null encountered is propagated through the remaining output.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean(
+    "skip-nulls",
+    "Skip nulls",
+    "If true, nulls in the input are ignored and produce a corresponding null output. "
+    "When false, the first null encountered is propagated through the remaining output",
+    options.skip_nulls,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CUMULATIVE_OPTIONS_SKIP_NULLS,
+                                  spec);
+}
+
+/**
+ * garrow_cumulative_options_new:
+ *
+ * Returns: A newly created #GArrowCumulativeOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowCumulativeOptions *
+garrow_cumulative_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_CUMULATIVE_OPTIONS, NULL);
+  return GARROW_CUMULATIVE_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -6626,6 +6797,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_assume_timezone_options =
       static_cast<const arrow::compute::AssumeTimezoneOptions *>(arrow_options);
     auto options = garrow_assume_timezone_options_new_raw(arrow_assume_timezone_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "CumulativeOptions") {
+    const auto arrow_cumulative_options =
+      static_cast<const arrow::compute::CumulativeOptions *>(arrow_options);
+    auto options = garrow_cumulative_options_new_raw(arrow_cumulative_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7165,5 +7341,32 @@ arrow::compute::AssumeTimezoneOptions *
 garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options)
 {
   return static_cast<arrow::compute::AssumeTimezoneOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowCumulativeOptions *
+garrow_cumulative_options_new_raw(const arrow::compute::CumulativeOptions *arrow_options)
+{
+  GArrowScalar *start = nullptr;
+  if (arrow_options->start.has_value()) {
+    std::shared_ptr<arrow::Scalar> arrow_start = arrow_options->start.value();
+    start = garrow_scalar_new_raw(&arrow_start);
+  }
+  auto options = GARROW_CUMULATIVE_OPTIONS(g_object_new(GARROW_TYPE_CUMULATIVE_OPTIONS,
+                                                        "start",
+                                                        start,
+                                                        "skip-nulls",
+                                                        arrow_options->skip_nulls,
+                                                        NULL));
+  if (start) {
+    g_object_unref(start);
+  }
+  return options;
+}
+
+arrow::compute::CumulativeOptions *
+garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options)
+{
+  return static_cast<arrow::compute::CumulativeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
