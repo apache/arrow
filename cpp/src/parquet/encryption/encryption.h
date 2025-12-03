@@ -95,13 +95,6 @@ class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
       : ParquetException(columnPath.c_str()) {}
 };
 
-inline const uint8_t* str2bytes(const std::string& str) {
-  if (str.empty()) return NULLPTR;
-
-  char* cbytes = const_cast<char*>(str.c_str());
-  return reinterpret_cast<const uint8_t*>(cbytes);
-}
-
 inline ::arrow::util::span<const uint8_t> str2span(const std::string& str) {
   if (str.empty()) {
     return {};
