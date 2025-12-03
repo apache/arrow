@@ -69,6 +69,10 @@ FlightSqlStatement::FlightSqlStatement(const Diagnostics& diagnostics,
   call_options_.timeout = TimeoutDuration{-1};
 }
 
+FlightSqlStatement::~FlightSqlStatement() {
+  ClosePreparedStatementIfAny(prepared_statement_, call_options_);
+}
+
 bool FlightSqlStatement::SetAttribute(StatementAttributeId attribute,
                                       const Attribute& value) {
   switch (attribute) {
@@ -119,7 +123,6 @@ bool FlightSqlStatement::ExecutePrepared() {
 
   Result<std::shared_ptr<FlightInfo>> result =
       prepared_statement_->Execute(call_options_);
-
   ThrowIfNotOK(result.status());
 
   current_result_set_ = std::make_shared<FlightSqlResultSet>(
