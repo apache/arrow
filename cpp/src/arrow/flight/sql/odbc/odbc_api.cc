@@ -1142,8 +1142,14 @@ SQLRETURN SQLGetData(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
 
 SQLRETURN SQLMoreResults(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLMoreResults called with stmt: " << stmt;
-  // GH-47713 TODO: Implement SQLMoreResults
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  // Multiple result sets are not supported by Arrow protocol. Return SQL_NO_DATA by
+  // default to indicate no data is available.
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    return statement->GetMoreResults();
+  });
 }
 
 SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT* column_count_ptr) {

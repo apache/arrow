@@ -761,6 +761,15 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                   data_ptr, buffer_length, indicator_ptr);
 }
 
+SQLRETURN ODBCStatement::GetMoreResults() {
+  // Multiple result sets are not supported by Arrow protocol.
+  if (current_result_) {
+    return SQL_NO_DATA;
+  } else {
+    throw DriverException("Function sequence error", "HY010");
+  }
+}
+
 void ODBCStatement::GetColumnCount(SQLSMALLINT* column_count_ptr) {
   if (!column_count_ptr) {
     // column count pointer is not valid, do nothing as ODBC spec does not mention this as
