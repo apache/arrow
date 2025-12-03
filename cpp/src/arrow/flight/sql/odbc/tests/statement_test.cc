@@ -1281,6 +1281,50 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsErrorOnBadInputs) {
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY090);
 }
 
+TYPED_TEST(StatementTest, SQLNumResultColsReturnsColumnsOnSelect) {
+  SQLSMALLINT column_count = 0;
+  SQLSMALLINT expected_value = 3;
+  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
+  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  CheckIntColumn(this->stmt, 1, 1);
+  CheckStringColumnW(this->stmt, 2, L"One");
+  CheckIntColumn(this->stmt, 3, 3);
+
+  ASSERT_EQ(SQL_SUCCESS, SQLNumResultCols(this->stmt, &column_count));
+
+  EXPECT_EQ(expected_value, column_count);
+}
+
+TYPED_TEST(StatementTest, SQLNumResultColsReturnsSuccessOnNullptr) {
+  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
+  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  CheckIntColumn(this->stmt, 1, 1);
+  CheckStringColumnW(this->stmt, 2, L"One");
+  CheckIntColumn(this->stmt, 3, 3);
+
+  ASSERT_EQ(SQL_SUCCESS, SQLNumResultCols(this->stmt, nullptr));
+}
+
+TYPED_TEST(StatementTest, SQLNumResultColsFunctionSequenceErrorOnNoQuery) {
+  SQLSMALLINT column_count = 0;
+  SQLSMALLINT expected_value = 0;
+
+  ASSERT_EQ(SQL_ERROR, SQLNumResultCols(this->stmt, &column_count));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+
+  EXPECT_EQ(expected_value, column_count);
+}
+
 TYPED_TEST(StatementTest, SQLRowCountReturnsNegativeOneOnSelect) {
   SQLLEN row_count = 0;
   SQLLEN expected_value = -1;

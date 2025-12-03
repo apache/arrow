@@ -78,6 +78,9 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   SQLRETURN GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                     SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
+  /// \brief Return number of columns from data set
+  void GetColumnCount(SQLSMALLINT* column_count_ptr);
+
   /// \brief Return number of rows affected by an UPDATE, INSERT, or DELETE statement\
   ///
   ///  -1 is returned as driver only supports SELECT statement

@@ -761,6 +761,16 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                   data_ptr, buffer_length, indicator_ptr);
 }
 
+void ODBCStatement::GetColumnCount(SQLSMALLINT* column_count_ptr) {
+  if (!column_count_ptr) {
+    // column count pointer is not valid, do nothing as ODBC spec does not mention this as
+    // an error
+    return;
+  }
+  size_t column_count = ird_->GetRecords().size();
+  *column_count_ptr = static_cast<SQLSMALLINT>(column_count);
+}
+
 void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
   if (!row_count_ptr) {
     // row count pointer is not valid, do nothing as ODBC spec does not mention this as an
