@@ -203,3 +203,9 @@ garrow_element_wise_aggregate_options_new_raw(
   const arrow::compute::ElementWiseAggregateOptions *arrow_options);
 arrow::compute::ElementWiseAggregateOptions *
 garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options);
+
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new_raw(
+  const arrow::compute::ExtractRegexOptions *arrow_options);
+arrow::compute::ExtractRegexOptions *
+garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
