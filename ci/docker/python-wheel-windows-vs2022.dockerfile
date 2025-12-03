@@ -25,13 +25,9 @@ FROM ${base}
 ARG python=3.10
 
 # Use python_abi_tag env var to select regular or free-threaded Python
-ARG freethreaded=0
-ENV PYTHON_MODE=${freethreaded}
-RUN if "%PYTHON_MODE%"=="1" ( \
-        pymanager install --version %PYTHON_VERSION% --variant freethreaded \
-    ) else ( \
-        pymanager install --version %PYTHON_VERSION% \
-    )
+ARG python_variant=default
+ENV PYTHON_VARIANT=${python_variant}
+RUN pymanager install --version %PYTHON_VERSION% --variant %PYTHON_VARIANT%
 
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
