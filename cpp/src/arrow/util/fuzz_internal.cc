@@ -49,7 +49,7 @@ void LogFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
     return value;
   }();
 
-  if (kVerbosity >= 1) {
+  if (!st.ok() && kVerbosity >= 1) {
     ARROW_LOG(WARNING) << "Fuzzing input with size=" << size
                        << " failed: " << st.ToString();
   } else if (st.IsOutOfMemory()) {
