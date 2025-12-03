@@ -3594,7 +3594,9 @@ macro(build_google_cloud_cpp_storage)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)
   endif()
   add_dependencies(google_cloud_cpp_dependencies crc32c_fc)
-  add_dependencies(google_cloud_cpp_dependencies nlohmann_json_fc)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json_fc)
+  endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -4087,8 +4089,11 @@ macro(build_opentelemetry)
                       CONFIGURE_COMMAND ""
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
+  endif()
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json_fc opentelemetry_proto_ep
+  add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
                    ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   # Ensure vendored protobuf is installed before OpenTelemetry builds
