@@ -3008,6 +3008,7 @@ function(build_cares)
 
   set(CARES_SHARED OFF)
   set(CARES_STATIC ON)
+  set(CARES_BUILD_TOOLS OFF)
   fetchcontent_makeavailable(cares)
 
   if(APPLE)
