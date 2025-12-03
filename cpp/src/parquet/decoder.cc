@@ -776,8 +776,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
             // This precondition follows from those two checks.
             DCHECK_GE(len_, 4);
             auto value_len = SafeLoadAs<int32_t>(data_);
-            // `value_len <= estimated_data_length` is stricter than `value_len <= len_ - 4`
-            // due to the way `estimated_data_length` is computed.
+            // This check also ensures that `value_len <= len_ - 4` due to the way
+            // `estimated_data_length` is computed.
             if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > estimated_data_length)) {
               return Status::Invalid(
                   "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
