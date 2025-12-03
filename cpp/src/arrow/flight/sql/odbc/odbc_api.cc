@@ -1178,8 +1178,23 @@ SQLRETURN SQLNativeSql(SQLHDBC conn, SQLWCHAR* in_statement_text,
                    << ", buffer_length: " << buffer_length
                    << ", out_statement_text_length: "
                    << static_cast<const void*>(out_statement_text_length);
-  // GH-47723 TODO: Implement SQLNativeSql
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::GetAttributeSQLWCHAR;
+  using ODBC::ODBCConnection;
+  using ODBC::SqlWcharToString;
+
+  return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
+    const bool is_length_in_bytes = false;
+
+    ODBCConnection* connection = reinterpret_cast<ODBCConnection*>(conn);
+    Diagnostics& diagnostics = connection->GetDiagnostics();
+
+    std::string in_statement_str =
+        SqlWcharToString(in_statement_text, in_statement_text_length);
+
+    return GetAttributeSQLWCHAR(in_statement_str, is_length_in_bytes, out_statement_text,
+                                buffer_length, out_statement_text_length, diagnostics);
+  });
 }
 
 SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* column_name,
