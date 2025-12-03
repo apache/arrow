@@ -260,6 +260,9 @@ G_BEGIN_DECLS
  *
  * #GArrowDayOfWeekOptions is a class to customize the `day_of_week` function.
  *
+ * #GArrowDictionaryEncodeOptions is a class to customize the `dictionary_encode`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6785,6 +6788,108 @@ garrow_day_of_week_options_new(void)
   return GARROW_DAY_OF_WEEK_OPTIONS(options);
 }
 
+enum {
+  PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR = 1,
+};
+
+G_DEFINE_TYPE(GArrowDictionaryEncodeOptions,
+              garrow_dictionary_encode_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_dictionary_encode_options_set_property(GObject *object,
+                                              guint prop_id,
+                                              const GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto options =
+    garrow_dictionary_encode_options_get_raw(GARROW_DICTIONARY_ENCODE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR:
+    options->null_encoding_behavior =
+      static_cast<arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
+        g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_dictionary_encode_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto options =
+    garrow_dictionary_encode_options_get_raw(GARROW_DICTIONARY_ENCODE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR:
+    g_value_set_enum(value,
+                     static_cast<GArrowDictionaryEncodeNullEncodingBehavior>(
+                       options->null_encoding_behavior));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_dictionary_encode_options_init(GArrowDictionaryEncodeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::DictionaryEncodeOptions());
+}
+
+static void
+garrow_dictionary_encode_options_class_init(GArrowDictionaryEncodeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_dictionary_encode_options_set_property;
+  gobject_class->get_property = garrow_dictionary_encode_options_get_property;
+
+  arrow::compute::DictionaryEncodeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowDictionaryEncodeOptions:null-encoding-behavior:
+   *
+   * How null values will be encoded.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("null-encoding-behavior",
+                           "Null encoding behavior",
+                           "How null values will be encoded",
+                           GARROW_TYPE_DICTIONARY_ENCODE_NULL_ENCODING_BEHAVIOR,
+                           static_cast<GArrowDictionaryEncodeNullEncodingBehavior>(
+                             options.null_encoding_behavior),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR,
+                                  spec);
+}
+
+/**
+ * garrow_dictionary_encode_options_new:
+ *
+ * Returns: A newly created #GArrowDictionaryEncodeOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS, NULL);
+  return GARROW_DICTIONARY_ENCODE_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -6930,6 +7035,12 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_day_of_week_options =
       static_cast<const arrow::compute::DayOfWeekOptions *>(arrow_options);
     auto options = garrow_day_of_week_options_new_raw(arrow_day_of_week_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "DictionaryEncodeOptions") {
+    const auto arrow_dictionary_encode_options =
+      static_cast<const arrow::compute::DictionaryEncodeOptions *>(arrow_options);
+    auto options =
+      garrow_dictionary_encode_options_new_raw(arrow_dictionary_encode_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7514,5 +7625,24 @@ arrow::compute::DayOfWeekOptions *
 garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options)
 {
   return static_cast<arrow::compute::DayOfWeekOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new_raw(
+  const arrow::compute::DictionaryEncodeOptions *arrow_options)
+{
+  return GARROW_DICTIONARY_ENCODE_OPTIONS(
+    g_object_new(GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS,
+                 "null-encoding-behavior",
+                 static_cast<GArrowDictionaryEncodeNullEncodingBehavior>(
+                   arrow_options->null_encoding_behavior),
+                 NULL));
+}
+
+arrow::compute::DictionaryEncodeOptions *
+garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options)
+{
+  return static_cast<arrow::compute::DictionaryEncodeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

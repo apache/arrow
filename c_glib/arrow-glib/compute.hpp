@@ -191,3 +191,9 @@ GArrowDayOfWeekOptions *
 garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options);
 arrow::compute::DayOfWeekOptions *
 garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options);
+
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new_raw(
+  const arrow::compute::DictionaryEncodeOptions *arrow_options);
+arrow::compute::DictionaryEncodeOptions *
+garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options);
