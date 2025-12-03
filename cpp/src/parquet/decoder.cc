@@ -144,11 +144,7 @@ struct ArrowBinaryHelper<ByteArrayType, ::arrow::BinaryType> {
     if (estimated_remaining_data_length.has_value()) {
       int64_t required_capacity =
           std::min(*estimated_remaining_data_length, chunk_space_remaining_);
-      // Ensure we'll be allocating a non-zero-sized data buffer, to avoid encountering
-      // a null pointer
-      constexpr int64_t kMinReserveCapacity = 64;
-      RETURN_NOT_OK(
-          builder_->ReserveData(std::max(required_capacity, kMinReserveCapacity)));
+      RETURN_NOT_OK(builder_->ReserveData(required_capacity));
     }
     return Status::OK();
   }
