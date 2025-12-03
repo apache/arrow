@@ -217,4 +217,27 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsErrorOnBadInputs) {
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY090);
 }
 
+TYPED_TEST(StatementTest, TestSQLCloseCursor) {
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLCloseCursor(this->stmt));
+}
+
+TYPED_TEST(StatementTest, TestSQLFreeStmtSQLCloseWithoutCursor) {
+  // Verify SQLFreeStmt(SQL_CLOSE) does not throw error with invalid cursor
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(this->stmt, SQL_CLOSE));
+}
+
+TYPED_TEST(StatementTest, TestSQLCloseCursorWithoutCursor) {
+  ASSERT_EQ(SQL_ERROR, SQLCloseCursor(this->stmt));
+
+  // Verify invalid cursor error state is returned
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+}
+
 }  // namespace arrow::flight::sql::odbc
