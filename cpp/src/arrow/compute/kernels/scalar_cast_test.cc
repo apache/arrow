@@ -3401,7 +3401,6 @@ TEST(Cast, StringToString) {
 }
 
 TEST(Cast, StringToStringWithOffset) {
-  std::cout << " casting string offset test " << std::endl;
   // GH-43660: Check casting String Arrays with nonzero offset
   for (auto from_type : {utf8(), large_utf8()}) {
     for (auto to_type : {utf8(), large_utf8()}) {
@@ -3413,12 +3412,9 @@ TEST(Cast, StringToStringWithOffset) {
 
         auto input_arr_with_nulls = ArrayFromJSON(from_type, input_with_nulls);
         auto output_arr_with_nulls = ArrayFromJSON(to_type, input_with_nulls);
-        std::cout << "from type: " << from_type->ToString() << " offset: " << offset
-                  << " to type: " << to_type->ToString() << std::endl;
         CheckCast(input_arr_with_nulls->Slice(offset),
                   output_arr_with_nulls->Slice(offset));
 
-        std::cout << "wout nulls " << std::endl;
         auto input_no_nulls = R"([
             "foo", "aa", "bar", "bb", "quu", "foo", "baz", "bar",
             "cc", "bar", "baz", "foo"
