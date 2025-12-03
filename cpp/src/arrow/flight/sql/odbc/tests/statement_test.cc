@@ -1281,6 +1281,50 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsErrorOnBadInputs) {
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY090);
 }
 
+TYPED_TEST(StatementTest, SQLRowCountReturnsNegativeOneOnSelect) {
+  SQLLEN row_count = 0;
+  SQLLEN expected_value = -1;
+  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
+  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  CheckIntColumn(this->stmt, 1, 1);
+  CheckStringColumnW(this->stmt, 2, L"One");
+  CheckIntColumn(this->stmt, 3, 3);
+
+  ASSERT_EQ(SQL_SUCCESS, SQLRowCount(this->stmt, &row_count));
+
+  EXPECT_EQ(expected_value, row_count);
+}
+
+TYPED_TEST(StatementTest, SQLRowCountReturnsSuccessOnNullptr) {
+  SQLWCHAR sql_query[] = L"SELECT 1 AS col1, 'One' AS col2, 3 AS col3";
+  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(this->stmt, sql_query, query_length));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  CheckIntColumn(this->stmt, 1, 1);
+  CheckStringColumnW(this->stmt, 2, L"One");
+  CheckIntColumn(this->stmt, 3, 3);
+
+  ASSERT_EQ(SQL_SUCCESS, SQLRowCount(this->stmt, nullptr));
+}
+
+TYPED_TEST(StatementTest, SQLRowCountFunctionSequenceErrorOnNoQuery) {
+  SQLLEN row_count = 0;
+  SQLLEN expected_value = 0;
+
+  ASSERT_EQ(SQL_ERROR, SQLRowCount(this->stmt, &row_count));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+
+  EXPECT_EQ(expected_value, row_count);
+}
+
 TYPED_TEST(StatementTest, TestSQLCloseCursor) {
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
