@@ -198,3 +198,8 @@ garrow_element_wise_aggregate_options_new_raw(
   const arrow::compute::ElementWiseAggregateOptions *arrow_options);
 arrow::compute::ElementWiseAggregateOptions *
 garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options);
+
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options);
+arrow::compute::DayOfWeekOptions *
+garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options);
