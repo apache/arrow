@@ -312,6 +312,7 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     // output->offset is set below
     output->SetNullCount(input_arr->null_count);
     output->buffers = std::move(input_arr->buffers);
+    // binary/string arrays don't have child_data
 
     // Slice buffers to reduce allocation when casting the offsets buffer
     int64_t offset = input_arr->offset;
