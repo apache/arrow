@@ -306,7 +306,8 @@ void ODBCStatement::ExecuteDirect(const std::string& query) {
   is_prepared_ = false;
 }
 
-bool ODBCStatement::Fetch(size_t rows) {
+bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
+                          SQLUSMALLINT* row_status_array) {
   if (has_reached_end_of_result_) {
     ird_->SetRowsProcessed(0);
     return false;
@@ -339,10 +340,23 @@ bool ODBCStatement::Fetch(size_t rows) {
     current_ard_->NotifyBindingsHavePropagated();
   }
 
-  size_t rows_fetched = current_result_->Move(rows, current_ard_->GetBindOffset(),
-                                              current_ard_->GetBoundStructOffset(),
-                                              ird_->GetArrayStatusPtr());
+  uint16_t* array_status_ptr;
+  if (row_status_array) {
+    // For SQLExtendedFetch only
+    array_status_ptr = row_status_array;
+  } else {
+    array_status_ptr = ird_->GetArrayStatusPtr();
+  }
+
+  size_t rows_fetched =
+      current_result_->Move(rows, current_ard_->GetBindOffset(),
+                            current_ard_->GetBoundStructOffset(), array_status_ptr);
   ird_->SetRowsProcessed(static_cast<SQLULEN>(rows_fetched));
+
+  if (row_count_ptr) {
+    // For SQLExtendedFetch only
+    *row_count_ptr = rows_fetched;
+  }
 
   row_number_ += rows_fetched;
   has_reached_end_of_result_ = rows_fetched != rows;
