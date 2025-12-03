@@ -19,8 +19,6 @@ ARG base
 FROM ${base}
 
 ARG python_version=3.13
-ARG python_patch_version=3.13.9
-ARG build_date=20251014
 ARG arch=aarch64
 
 RUN apk update && \
