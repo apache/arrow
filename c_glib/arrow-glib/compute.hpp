@@ -175,3 +175,9 @@ garrow_struct_field_options_new_raw(
   const arrow::compute::StructFieldOptions *arrow_options);
 arrow::compute::StructFieldOptions *
 garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options);
+
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new_raw(
+  const arrow::compute::ElementWiseAggregateOptions *arrow_options);
+arrow::compute::ElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options);
