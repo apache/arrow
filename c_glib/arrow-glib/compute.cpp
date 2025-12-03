@@ -251,6 +251,9 @@ G_BEGIN_DECLS
  * #GArrowStructFieldOptions is a class to customize the `struct_field`
  * function.
  *
+ * #GArrowAssumeTimezoneOptions is a class to customize the `assume_timezone`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6338,6 +6341,156 @@ garrow_struct_field_options_new(void)
   return GARROW_STRUCT_FIELD_OPTIONS(options);
 }
 
+enum {
+  PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE = 1,
+  PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS,
+  PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT,
+};
+
+G_DEFINE_TYPE(GArrowAssumeTimezoneOptions,
+              garrow_assume_timezone_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_assume_timezone_options_set_property(GObject *object,
+                                            guint prop_id,
+                                            const GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto options =
+    garrow_assume_timezone_options_get_raw(GARROW_ASSUME_TIMEZONE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE:
+    options->timezone = g_value_get_string(value);
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS:
+    options->ambiguous = static_cast<arrow::compute::AssumeTimezoneOptions::Ambiguous>(
+      g_value_get_enum(value));
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT:
+    options->nonexistent =
+      static_cast<arrow::compute::AssumeTimezoneOptions::Nonexistent>(
+        g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_assume_timezone_options_get_property(GObject *object,
+                                            guint prop_id,
+                                            GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto options =
+    garrow_assume_timezone_options_get_raw(GARROW_ASSUME_TIMEZONE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE:
+    g_value_set_string(value, options->timezone.c_str());
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS:
+    g_value_set_enum(value,
+                     static_cast<GArrowAssumeTimezoneAmbiguous>(options->ambiguous));
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT:
+    g_value_set_enum(value,
+                     static_cast<GArrowAssumeTimezoneNonexistent>(options->nonexistent));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_assume_timezone_options_init(GArrowAssumeTimezoneOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::AssumeTimezoneOptions());
+}
+
+static void
+garrow_assume_timezone_options_class_init(GArrowAssumeTimezoneOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_assume_timezone_options_set_property;
+  gobject_class->get_property = garrow_assume_timezone_options_get_property;
+
+  arrow::compute::AssumeTimezoneOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowAssumeTimezoneOptions:timezone:
+   *
+   * Timezone to convert timestamps from.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("timezone",
+                             "Timezone",
+                             "Timezone to convert timestamps from",
+                             options.timezone.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE,
+                                  spec);
+
+  /**
+   * GArrowAssumeTimezoneOptions:ambiguous:
+   *
+   * How to interpret ambiguous local times (due to DST shifts).
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("ambiguous",
+                           "Ambiguous",
+                           "How to interpret ambiguous local times (due to DST shifts)",
+                           GARROW_TYPE_ASSUME_TIMEZONE_AMBIGUOUS,
+                           static_cast<GArrowAssumeTimezoneAmbiguous>(options.ambiguous),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS,
+                                  spec);
+
+  /**
+   * GArrowAssumeTimezoneOptions:nonexistent:
+   *
+   * How to interpret nonexistent local times (due to DST shifts).
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_enum("nonexistent",
+                      "Nonexistent",
+                      "How to interpret nonexistent local times (due to DST shifts)",
+                      GARROW_TYPE_ASSUME_TIMEZONE_NONEXISTENT,
+                      static_cast<GArrowAssumeTimezoneNonexistent>(options.nonexistent),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT,
+                                  spec);
+}
+
+/**
+ * garrow_assume_timezone_options_new:
+ *
+ * Returns: A newly created #GArrowAssumeTimezoneOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS, NULL);
+  return GARROW_ASSUME_TIMEZONE_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -6468,6 +6621,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_struct_field_options =
       static_cast<const arrow::compute::StructFieldOptions *>(arrow_options);
     auto options = garrow_struct_field_options_new_raw(arrow_struct_field_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "AssumeTimezoneOptions") {
+    const auto arrow_assume_timezone_options =
+      static_cast<const arrow::compute::AssumeTimezoneOptions *>(arrow_options);
+    auto options = garrow_assume_timezone_options_new_raw(arrow_assume_timezone_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -6985,5 +7143,27 @@ arrow::compute::StructFieldOptions *
 garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options)
 {
   return static_cast<arrow::compute::StructFieldOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new_raw(
+  const arrow::compute::AssumeTimezoneOptions *arrow_options)
+{
+  return GARROW_ASSUME_TIMEZONE_OPTIONS(
+    g_object_new(GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS,
+                 "timezone",
+                 arrow_options->timezone.c_str(),
+                 "ambiguous",
+                 static_cast<GArrowAssumeTimezoneAmbiguous>(arrow_options->ambiguous),
+                 "nonexistent",
+                 static_cast<GArrowAssumeTimezoneNonexistent>(arrow_options->nonexistent),
+                 NULL));
+}
+
+arrow::compute::AssumeTimezoneOptions *
+garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options)
+{
+  return static_cast<arrow::compute::AssumeTimezoneOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

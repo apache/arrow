@@ -1122,4 +1122,55 @@ GARROW_AVAILABLE_IN_16_0
 GArrowStructFieldOptions *
 garrow_struct_field_options_new(void);
 
+/**
+ * GArrowAssumeTimezoneAmbiguous:
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE: Raise an error on ambiguous times.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST: Emit the earliest instant.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST: Emit the latest instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Ambiguous`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST,
+} GArrowAssumeTimezoneAmbiguous;
+
+/**
+ * GArrowAssumeTimezoneNonexistent:
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE: Raise an error on nonexistent times.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST: Emit the instant just before the DST
+ * shift.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST: Emit the DST shift instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Nonexistent`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST,
+} GArrowAssumeTimezoneNonexistent;
+
+#define GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS (garrow_assume_timezone_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowAssumeTimezoneOptions,
+                         garrow_assume_timezone_options,
+                         GARROW,
+                         ASSUME_TIMEZONE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowAssumeTimezoneOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new(void);
+
 G_END_DECLS

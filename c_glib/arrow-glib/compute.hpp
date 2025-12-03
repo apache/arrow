@@ -175,3 +175,9 @@ garrow_struct_field_options_new_raw(
   const arrow::compute::StructFieldOptions *arrow_options);
 arrow::compute::StructFieldOptions *
 garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options);
+
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new_raw(
+  const arrow::compute::AssumeTimezoneOptions *arrow_options);
+arrow::compute::AssumeTimezoneOptions *
+garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options);
