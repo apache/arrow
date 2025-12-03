@@ -3391,42 +3391,79 @@ endif()
 # ----------------------------------------------------------------------
 # GCS and dependencies
 
-macro(build_crc32c_once)
-  if(NOT TARGET crc32c_ep)
-    message(STATUS "Building crc32c from source")
-    # Build crc32c
-    set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
-    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
-    set(CRC32C_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DCRC32C_BUILD_TESTS=OFF
-        -DCRC32C_BUILD_BENCHMARKS=OFF
-        -DCRC32C_USE_GLOG=OFF)
+function(build_crc32c_once)
+  list(APPEND CMAKE_MESSAGE_INDENT "crc32c: ")
+  message(STATUS "Building crc32c from source using FetchContent")
+  set(CRC32C_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
+  set(CRC32C_PREFIX
+      "${CRC32C_PREFIX}"
+      PARENT_SCOPE)
 
-    set(_CRC32C_STATIC_LIBRARY
-        "${CRC32C_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crc32c${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(CRC32C_BUILD_BYPRODUCTS ${_CRC32C_STATIC_LIBRARY})
-    set(CRC32C_LIBRARIES crc32c)
+  fetchcontent_declare(crc32c
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${CRC32C_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
 
-    externalproject_add(crc32c_ep
-                        ${EP_COMMON_OPTIONS}
-                        INSTALL_DIR ${CRC32C_PREFIX}
-                        URL ${CRC32C_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
-    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
-    add_library(Crc32c::crc32c STATIC IMPORTED)
-    set_target_properties(Crc32c::crc32c PROPERTIES IMPORTED_LOCATION
-                                                    ${_CRC32C_STATIC_LIBRARY})
-    target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
-    add_dependencies(Crc32c::crc32c crc32c_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
+  prepare_fetchcontent()
+
+  set(CRC32C_BUILD_TESTS OFF)
+  set(CRC32C_BUILD_BENCHMARKS OFF)
+  set(CRC32C_USE_GLOG OFF)
+  set(CRC32C_INSTALL ON)
+  fetchcontent_makeavailable(crc32c)
+
+  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
+  if(NOT TARGET Crc32c::crc32c)
+    add_library(Crc32c::crc32c ALIAS crc32c)
   endif()
-endmacro()
+
+  # google-cloud-cpp requires crc32c to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of crc32c
+  # when Arrow is installed.
+  # This custom target ensures crc32c is built before we install.
+  add_custom_target(crc32c_built DEPENDS Crc32c::crc32c)
+
+  # Disable crc32c's install script after it's built to prevent double installation.
+  add_custom_command(OUTPUT "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake"
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# crc32c install disabled to prevent double installation with Arrow"
+                             > "${crc32c_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS crc32c_built
+                     COMMENT "Disabling crc32c install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(crc32c_install_disabled ALL
+                    DEPENDS "${crc32c_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install crc32c to CRC32C_PREFIX for google-cloud-cpp to find.
+  add_custom_command(OUTPUT "${CRC32C_PREFIX}/.crc32c_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CRC32C_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${CRC32C_PREFIX}/.crc32c_installed"
+                     DEPENDS crc32c_install_disabled
+                     COMMENT "Installing crc32c to ${CRC32C_PREFIX} for google-cloud-cpp"
+                     VERBATIM)
+
+  # Make crc32c_fc depend on the install completion marker.
+  add_custom_target(crc32c_fc DEPENDS "${CRC32C_PREFIX}/.crc32c_installed")
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 macro(build_nlohmann_json)
   message(STATUS "Building nlohmann-json from source")
@@ -3521,7 +3558,7 @@ macro(build_google_cloud_cpp_storage)
   if(ZLIB_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)
   endif()
-  add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
+  add_dependencies(google_cloud_cpp_dependencies crc32c_fc)
   add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
