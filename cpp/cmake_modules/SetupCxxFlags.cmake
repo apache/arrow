@@ -186,6 +186,7 @@ if(WIN32)
       #
       # ARROW-2986: Without /EHsc we get C4530 warning
       set(CXX_COMMON_FLAGS "/W3 /EHsc")
+      string(APPEND CMAKE_CXX_FLAGS " /EHsc")
     endif()
 
     # Disable C5105 (macro expansion producing 'defined' has undefined
