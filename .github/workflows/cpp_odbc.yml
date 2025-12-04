@@ -81,9 +81,6 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
-      - name: Install msys2 (for tzdata for ORC tests)
-        uses: msys2/setup-msys2@v2
-        id: setup-msys2
       - name: Install cmake
         shell: bash
         run: |
@@ -108,7 +105,7 @@ jobs:
           key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-odbc-ccache-windows-x64-
       - name: Checkout vcpkg
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
         with:
           fetch-depth: 0
           path: vcpkg
@@ -153,8 +150,6 @@ jobs:
       #   run: |
       #     set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
       #     call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      #     # For ORC
-      #     set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
 
       #     # Convert VCPKG Windows path to MSYS path
       #     for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
