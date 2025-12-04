@@ -313,3 +313,8 @@ GArrowSliceOptions *
 garrow_slice_options_new_raw(const arrow::compute::SliceOptions *arrow_options);
 arrow::compute::SliceOptions *
 garrow_slice_options_get_raw(GArrowSliceOptions *options);
+
+GArrowTDigestOptions *
+garrow_tdigest_options_new_raw(const arrow::compute::TDigestOptions *arrow_options);
+arrow::compute::TDigestOptions *
+garrow_tdigest_options_get_raw(GArrowTDigestOptions *options);
