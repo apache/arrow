@@ -54,6 +54,16 @@ module ArrowFormat
     end
   end
 
+  class NullArray < Array
+    def initialize(type, size)
+      super(type, size, nil)
+    end
+
+    def to_a
+      [nil] * @size
+    end
+  end
+
   class IntArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)

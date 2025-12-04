@@ -24,6 +24,10 @@ require_relative "type"
 
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/message"
+require_relative "org/apache/arrow/flatbuf/binary"
+require_relative "org/apache/arrow/flatbuf/int"
+require_relative "org/apache/arrow/flatbuf/null"
+require_relative "org/apache/arrow/flatbuf/utf8"
 require_relative "org/apache/arrow/flatbuf/schema"
 
 module ArrowFormat
@@ -128,6 +132,8 @@ module ArrowFormat
       fields = fb_schema.fields.collect do |fb_field|
         fb_type = fb_field.type
         case fb_type
+        when Org::Apache::Arrow::Flatbuf::Null
+          type = NullType.singleton
         when Org::Apache::Arrow::Flatbuf::Int
           case fb_type.bit_width
           when 8
@@ -146,6 +152,8 @@ module ArrowFormat
     end
 
     def read_column(field, n_rows, buffers, body)
+      return field.type.build_array(n_rows) if field.type.is_a?(NullType)
+
       validity_buffer = buffers.shift
       if validity_buffer.length.zero?
         validity = nil
