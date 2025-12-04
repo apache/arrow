@@ -1272,4 +1272,21 @@ GARROW_AVAILABLE_IN_23_0
 GArrowExtractRegexOptions *
 garrow_extract_regex_options_new(void);
 
+#define GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS                                            \
+  (garrow_replace_substring_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowReplaceSubstringOptions,
+                         garrow_replace_substring_options,
+                         GARROW,
+                         REPLACE_SUBSTRING_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowReplaceSubstringOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new(void);
+
 G_END_DECLS
