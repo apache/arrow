@@ -1635,6 +1635,32 @@ GARROW_AVAILABLE_IN_0_16
 GArrowArrayBuilder *
 garrow_large_list_array_builder_get_value_builder(GArrowLargeListArrayBuilder *builder);
 
+#define GARROW_TYPE_FIXED_SIZE_LIST_ARRAY_BUILDER                                        \
+  (garrow_fixed_size_list_array_builder_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeListArrayBuilder,
+                         garrow_fixed_size_list_array_builder,
+                         GARROW,
+                         FIXED_SIZE_LIST_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowFixedSizeListArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowFixedSizeListArrayBuilder *
+garrow_fixed_size_list_array_builder_new(GArrowFixedSizeListDataType *data_type,
+                                         GError **error);
+GARROW_AVAILABLE_IN_23_0
+gboolean
+garrow_fixed_size_list_array_builder_append_value(
+  GArrowFixedSizeListArrayBuilder *builder, GError **error);
+GARROW_AVAILABLE_IN_23_0
+GArrowArrayBuilder *
+garrow_fixed_size_list_array_builder_get_value_builder(
+  GArrowFixedSizeListArrayBuilder *builder);
+
 #define GARROW_TYPE_STRUCT_ARRAY_BUILDER (garrow_struct_array_builder_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowStructArrayBuilder,
