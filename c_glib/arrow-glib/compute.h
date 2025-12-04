@@ -1272,4 +1272,17 @@ GARROW_AVAILABLE_IN_23_0
 GArrowExtractRegexOptions *
 garrow_extract_regex_options_new(void);
 
+#define GARROW_TYPE_SPLIT_OPTIONS (garrow_split_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSplitOptions, garrow_split_options, GARROW, SPLIT_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSplitOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSplitOptions *
+garrow_split_options_new(void);
+
 G_END_DECLS
