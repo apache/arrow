@@ -1026,10 +1026,26 @@ cdef class Dataset(_Weakrefable):
         >>> import pyarrow.dataset as ds
         >>> dataset = ds.InMemoryDataset([table])
         >>> dataset.rename_columns(['time', 'number_of_legs', 'name']).to_table()
+        pyarrow.Table
+        time: int64
+        number_of_legs: int64
+        name: string
+        ----
+        time: [[2020,2022,2021,2022,2019,2021]]
+        number_of_legs: [[2,2,4,4,5,100]]
+        name: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
 
         Rename specific columns:
 
         >>> dataset.rename_columns({'n_legs': 'number_of_legs'}).to_table()
+        pyarrow.Table
+        year: int64
+        number_of_legs: int64
+        animal: string
+        ----
+        year: [[2020,2022,2021,2022,2019,2021]]
+        number_of_legs: [[2,2,4,4,5,100]]
+        animal: [["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]]
         """
         import pyarrow.dataset as ds
 
