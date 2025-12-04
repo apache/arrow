@@ -59,7 +59,9 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
     BlockingQueue<std::pair<Result<FlightStreamChunk>,
-                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=] {
+                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=]()
+        -> std::optional<
+            std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>> {
       auto result = stream_reader_ptr->Next();
       bool is_not_ok = !result.ok();
       bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
@@ -68,11 +70,12 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
       // call. temp_flight_sql_client is intentionally null if the list of endpoint
       // Locations is empty.
       // After all data is fetched from reader, the temp client is closed.
-
-      // gh-48084 Replace boost::optional with std::optional
-      return boost::make_optional(
-          is_not_ok || is_not_empty,
-          std::make_pair(std::move(result), temp_flight_sql_client));
+      if (is_not_ok || is_not_empty) {
+        return std::make_optional(
+            std::make_pair(std::move(result), temp_flight_sql_client));
+      } else {
+        return std::nullopt;
+      }
     };
     queue_.AddProducer(std::move(supplier));
   }
