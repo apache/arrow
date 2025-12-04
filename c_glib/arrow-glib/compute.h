@@ -1479,4 +1479,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowPairwiseOptions *
 garrow_pairwise_options_new(void);
 
+#define GARROW_TYPE_PARTITION_NTH_OPTIONS (garrow_partition_nth_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPartitionNthOptions,
+                         garrow_partition_nth_options,
+                         GARROW,
+                         PARTITION_NTH_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPartitionNthOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new(void);
+
 G_END_DECLS

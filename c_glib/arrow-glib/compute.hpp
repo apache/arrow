@@ -262,3 +262,9 @@ GArrowPairwiseOptions *
 garrow_pairwise_options_new_raw(const arrow::compute::PairwiseOptions *arrow_options);
 arrow::compute::PairwiseOptions *
 garrow_pairwise_options_get_raw(GArrowPairwiseOptions *options);
+
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new_raw(
+  const arrow::compute::PartitionNthOptions *arrow_options);
+arrow::compute::PartitionNthOptions *
+garrow_partition_nth_options_get_raw(GArrowPartitionNthOptions *options);
