@@ -209,3 +209,8 @@ garrow_extract_regex_options_new_raw(
   const arrow::compute::ExtractRegexOptions *arrow_options);
 arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowSkewOptions *
+garrow_skew_options_new_raw(const arrow::compute::SkewOptions *arrow_options);
+arrow::compute::SkewOptions *
+garrow_skew_options_get_raw(GArrowSkewOptions *options);
