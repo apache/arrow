@@ -314,3 +314,8 @@ GArrowSkewOptions *
 garrow_skew_options_new_raw(const arrow::compute::SkewOptions *arrow_options);
 arrow::compute::SkewOptions *
 garrow_skew_options_get_raw(GArrowSkewOptions *options);
+
+GArrowSliceOptions *
+garrow_slice_options_new_raw(const arrow::compute::SliceOptions *arrow_options);
+arrow::compute::SliceOptions *
+garrow_slice_options_get_raw(GArrowSliceOptions *options);

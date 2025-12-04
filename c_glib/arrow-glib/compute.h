@@ -1696,4 +1696,17 @@ GARROW_AVAILABLE_IN_23_0
 GArrowSkewOptions *
 garrow_skew_options_new(void);
 
+#define GARROW_TYPE_SLICE_OPTIONS (garrow_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSliceOptions, garrow_slice_options, GARROW, SLICE_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSliceOptions *
+garrow_slice_options_new(void);
+
 G_END_DECLS
