@@ -1005,22 +1005,49 @@ SQLRETURN SQLExecDirect(SQLHSTMT stmt, SQLWCHAR* query_text, SQLINTEGER text_len
   ARROW_LOG(DEBUG) << "SQLExecDirectW called with stmt: " << stmt
                    << ", query_text: " << static_cast<const void*>(query_text)
                    << ", text_length: " << text_length;
-  // GH-47711 TODO: Implement SQLExecDirect
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  // The driver is built to handle SELECT statements only.
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    std::string query = ODBC::SqlWcharToString(query_text, text_length);
+
+    statement->Prepare(query);
+    statement->ExecutePrepared();
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLPrepare(SQLHSTMT stmt, SQLWCHAR* query_text, SQLINTEGER text_length) {
   ARROW_LOG(DEBUG) << "SQLPrepareW called with stmt: " << stmt
                    << ", query_text: " << static_cast<const void*>(query_text)
                    << ", text_length: " << text_length;
-  // GH-47712 TODO: Implement SQLPrepare
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  // The driver is built to handle SELECT statements only.
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    std::string query = ODBC::SqlWcharToString(query_text, text_length);
+
+    statement->Prepare(query);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLExecute(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLExecute called with stmt: " << stmt;
-  // GH-47712 TODO: Implement SQLExecute
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  // The driver is built to handle SELECT statements only.
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    statement->ExecutePrepared();
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLFetch(SQLHSTMT stmt) {

@@ -37,9 +37,86 @@ class StatementRemoteTest : public FlightSQLODBCRemoteTestBase {};
 using TestTypes = ::testing::Types<StatementMockTest, StatementRemoteTest>;
 TYPED_TEST_SUITE(StatementTest, TestTypes);
 
+TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // GH-47713 TODO: Uncomment call to SQLFetch SQLGetData after implementation
+  /*
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  SQLINTEGER val;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  // Verify 1 is returned
+  EXPECT_EQ(1, val);
+
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  // Invalid cursor state
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+  */
+}
+
+TYPED_TEST(StatementTest, TestSQLExecDirectInvalidQuery) {
+  std::wstring wsql = L"SELECT;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_ERROR,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  // ODBC provides generic error code HY000 to all statement errors
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY000);
+}
+
+TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLPrepare(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLExecute(this->stmt));
+
+  // GH-47713 TODO: Uncomment call to SQLFetch SQLGetData after implementation
+  /*
+  // Fetch data
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  SQLINTEGER val;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+
+  // Verify 1 is returned
+  EXPECT_EQ(1, val);
+
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
+
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  // Invalid cursor state
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+  */
+}
+
+TYPED_TEST(StatementTest, TestSQLPrepareInvalidQuery) {
+  std::wstring wsql = L"SELECT;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_ERROR,
+            SQLPrepare(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  // ODBC provides generic error code HY000 to all statement errors
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY000);
+
+  ASSERT_EQ(SQL_ERROR, SQLExecute(this->stmt));
+  // Verify function sequence error state is returned
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+}
+
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
   SQLWCHAR buf[1024];
-  SQLINTEGER buf_char_len = sizeof(buf) / ODBC::GetSqlWCharSize();
+  SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
   SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
   SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
   SQLINTEGER output_char_len = 0;
@@ -58,7 +135,7 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsNTSInputString) {
   SQLWCHAR buf[1024];
-  SQLINTEGER buf_char_len = sizeof(buf) / ODBC::GetSqlWCharSize();
+  SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
   SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
   SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
   SQLINTEGER output_char_len = 0;
@@ -95,7 +172,7 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputStringLength) {
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsTruncatedString) {
   const SQLINTEGER small_buf_size_in_char = 11;
   SQLWCHAR small_buf[small_buf_size_in_char];
-  SQLINTEGER small_buf_char_len = sizeof(small_buf) / ODBC::GetSqlWCharSize();
+  SQLINTEGER small_buf_char_len = sizeof(small_buf) / GetSqlWCharSize();
   SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
   SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
   SQLINTEGER output_char_len = 0;
@@ -122,7 +199,7 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsTruncatedString) {
 
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsErrorOnBadInputs) {
   SQLWCHAR buf[1024];
-  SQLINTEGER buf_char_len = sizeof(buf) / ODBC::GetSqlWCharSize();
+  SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
   SQLWCHAR input_str[] = L"SELECT * FROM mytable WHERE id == 1";
   SQLINTEGER input_char_len = static_cast<SQLINTEGER>(wcslen(input_str));
   SQLINTEGER output_char_len = 0;
