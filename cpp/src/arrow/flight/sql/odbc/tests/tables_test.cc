@@ -487,4 +487,97 @@ TEST_F(TablesRemoteTest, SQLTablesGetSupportedTableTypes) {
   ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
+TYPED_TEST(TablesTest, SQLTablesGetMetadataBySQLDescribeCol) {
+  SQLWCHAR column_name[1024];
+  SQLSMALLINT buf_char_len =
+      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT name_length = 0;
+  SQLSMALLINT column_data_type = 0;
+  SQLULEN column_size = 0;
+  SQLSMALLINT decimal_digits = 0;
+  SQLSMALLINT nullable = 0;
+  size_t column_index = 0;
+
+  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TABLE_CAT"),
+                                    static_cast<const SQLWCHAR*>(L"TABLE_SCHEM"),
+                                    static_cast<const SQLWCHAR*>(L"TABLE_NAME"),
+                                    static_cast<const SQLWCHAR*>(L"TABLE_TYPE"),
+                                    static_cast<const SQLWCHAR*>(L"REMARKS")};
+  SQLSMALLINT column_data_types[] = {SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR,
+                                     SQL_WVARCHAR, SQL_WVARCHAR};
+  SQLULEN column_sizes[] = {1024, 1024, 1024, 1024, 1024};
+
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
+
+  for (size_t i = 0; i < sizeof(column_names) / sizeof(*column_names); ++i) {
+    column_index = i + 1;
+
+    ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, column_index, column_name,
+                                          buf_char_len, &name_length, &column_data_type,
+                                          &column_size, &decimal_digits, &nullable));
+
+    EXPECT_EQ(wcslen(column_names[i]), name_length);
+
+    std::wstring returned(column_name, column_name + name_length);
+    EXPECT_EQ(column_names[i], returned);
+    EXPECT_EQ(column_data_types[i], column_data_type);
+    EXPECT_EQ(column_sizes[i], column_size);
+    EXPECT_EQ(0, decimal_digits);
+    EXPECT_EQ(SQL_NULLABLE, nullable);
+
+    name_length = 0;
+    column_data_type = 0;
+    column_size = 0;
+    decimal_digits = 0;
+    nullable = 0;
+  }
+}
+
+TYPED_TEST(TablesOdbcV2Test, SQLTablesGetMetadataBySQLDescribeColODBC2) {
+  SQLWCHAR column_name[1024];
+  SQLSMALLINT buf_char_len =
+      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT name_length = 0;
+  SQLSMALLINT column_data_type = 0;
+  SQLULEN column_size = 0;
+  SQLSMALLINT decimal_digits = 0;
+  SQLSMALLINT nullable = 0;
+  size_t column_index = 0;
+
+  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TABLE_QUALIFIER"),
+                                    static_cast<const SQLWCHAR*>(L"TABLE_OWNER"),
+                                    static_cast<const SQLWCHAR*>(L"TABLE_NAME"),
+                                    static_cast<const SQLWCHAR*>(L"TABLE_TYPE"),
+                                    static_cast<const SQLWCHAR*>(L"REMARKS")};
+  SQLSMALLINT column_data_types[] = {SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR,
+                                     SQL_WVARCHAR, SQL_WVARCHAR};
+  SQLULEN column_sizes[] = {1024, 1024, 1024, 1024, 1024};
+
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
+
+  for (size_t i = 0; i < sizeof(column_names) / sizeof(*column_names); ++i) {
+    column_index = i + 1;
+
+    ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, column_index, column_name,
+                                          buf_char_len, &name_length, &column_data_type,
+                                          &column_size, &decimal_digits, &nullable));
+
+    EXPECT_EQ(wcslen(column_names[i]), name_length);
+
+    std::wstring returned(column_name, column_name + name_length);
+    EXPECT_EQ(column_names[i], returned);
+    EXPECT_EQ(column_data_types[i], column_data_type);
+    EXPECT_EQ(column_sizes[i], column_size);
+    EXPECT_EQ(0, decimal_digits);
+    EXPECT_EQ(SQL_NULLABLE, nullable);
+
+    name_length = 0;
+    column_data_type = 0;
+    column_size = 0;
+    decimal_digits = 0;
+    nullable = 0;
+  }
+}
 }  // namespace arrow::flight::sql::odbc
