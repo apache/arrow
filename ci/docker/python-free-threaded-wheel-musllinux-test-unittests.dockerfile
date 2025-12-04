@@ -20,6 +20,7 @@ FROM ${base}
 
 ARG python_version=3.13
 ARG arch=aarch64
+ARG build_date
 
 RUN apk update && \
     apk add --no-cache \
