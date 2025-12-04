@@ -303,3 +303,8 @@ GArrowSelectKOptions *
 garrow_select_k_options_new_raw(const arrow::compute::SelectKOptions *arrow_options);
 arrow::compute::SelectKOptions *
 garrow_select_k_options_get_raw(GArrowSelectKOptions *options);
+
+GArrowSkewOptions *
+garrow_skew_options_new_raw(const arrow::compute::SkewOptions *arrow_options);
+arrow::compute::SkewOptions *
+garrow_skew_options_get_raw(GArrowSkewOptions *options);
