@@ -334,6 +334,8 @@ G_BEGIN_DECLS
  * #GArrowTrimOptions is a class to customize the `utf8_trim`, `utf8_ltrim`,
  * `utf8_rtrim`, `ascii_trim`, `ascii_ltrim`, and `ascii_rtrim` functions.
  *
+ * #GArrowWeekOptions is a class to customize the `week` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -10360,6 +10362,148 @@ garrow_trim_options_new(void)
   return GARROW_TRIM_OPTIONS(g_object_new(GARROW_TYPE_TRIM_OPTIONS, NULL));
 }
 
+enum {
+  PROP_WEEK_OPTIONS_WEEK_STARTS_MONDAY = 1,
+  PROP_WEEK_OPTIONS_COUNT_FROM_ZERO,
+  PROP_WEEK_OPTIONS_FIRST_WEEK_IS_FULLY_IN_YEAR,
+};
+
+G_DEFINE_TYPE(GArrowWeekOptions, garrow_week_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_week_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_week_options_get_raw(GARROW_WEEK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_WEEK_OPTIONS_WEEK_STARTS_MONDAY:
+    options->week_starts_monday = g_value_get_boolean(value);
+    break;
+  case PROP_WEEK_OPTIONS_COUNT_FROM_ZERO:
+    options->count_from_zero = g_value_get_boolean(value);
+    break;
+  case PROP_WEEK_OPTIONS_FIRST_WEEK_IS_FULLY_IN_YEAR:
+    options->first_week_is_fully_in_year = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_week_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_week_options_get_raw(GARROW_WEEK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_WEEK_OPTIONS_WEEK_STARTS_MONDAY:
+    g_value_set_boolean(value, options->week_starts_monday);
+    break;
+  case PROP_WEEK_OPTIONS_COUNT_FROM_ZERO:
+    g_value_set_boolean(value, options->count_from_zero);
+    break;
+  case PROP_WEEK_OPTIONS_FIRST_WEEK_IS_FULLY_IN_YEAR:
+    g_value_set_boolean(value, options->first_week_is_fully_in_year);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_week_options_init(GArrowWeekOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::WeekOptions());
+}
+
+static void
+garrow_week_options_class_init(GArrowWeekOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_week_options_set_property;
+  gobject_class->get_property = garrow_week_options_get_property;
+
+  auto options = arrow::compute::WeekOptions::Defaults();
+
+  GParamSpec *spec;
+  /**
+   * GArrowWeekOptions:week-starts-monday:
+   *
+   * What day does the week start with (Monday=true, Sunday=false).
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_boolean("week-starts-monday",
+                         "Week starts Monday",
+                         "What day does the week start with (Monday=true, Sunday=false)",
+                         options.week_starts_monday,
+                         static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_WEEK_OPTIONS_WEEK_STARTS_MONDAY,
+                                  spec);
+
+  /**
+   * GArrowWeekOptions:count-from-zero:
+   *
+   * Dates from current year that fall into last ISO week of the previous year
+   * return 0 if true and 52 or 53 if false.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("count-from-zero",
+                              "Count from zero",
+                              "Dates from current year that fall into last ISO week of "
+                              "the previous year return 0 if true and 52 or 53 if false",
+                              options.count_from_zero,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_WEEK_OPTIONS_COUNT_FROM_ZERO, spec);
+
+  /**
+   * GArrowWeekOptions:first-week-is-fully-in-year:
+   *
+   * Must the first week be fully in January (true), or is a week that begins
+   * on December 29, 30, or 31 considered to be the first week of the new
+   * year (false)?
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean(
+    "first-week-is-fully-in-year",
+    "First week is fully in year",
+    "Must the first week be fully in January (true), or is a week that begins on "
+    "December 29, 30, or 31 considered to be the first week of the new year (false)?",
+    options.first_week_is_fully_in_year,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_WEEK_OPTIONS_FIRST_WEEK_IS_FULLY_IN_YEAR,
+                                  spec);
+}
+
+/**
+ * garrow_week_options_new:
+ *
+ * Returns: A newly created #GArrowWeekOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowWeekOptions *
+garrow_week_options_new(void)
+{
+  return GARROW_WEEK_OPTIONS(g_object_new(GARROW_TYPE_WEEK_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -10634,6 +10778,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_trim_options =
       static_cast<const arrow::compute::TrimOptions *>(arrow_options);
     auto options = garrow_trim_options_new_raw(arrow_trim_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "WeekOptions") {
+    const auto arrow_week_options =
+      static_cast<const arrow::compute::WeekOptions *>(arrow_options);
+    auto options = garrow_week_options_new_raw(arrow_week_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -11747,5 +11896,26 @@ arrow::compute::TrimOptions *
 garrow_trim_options_get_raw(GArrowTrimOptions *options)
 {
   return static_cast<arrow::compute::TrimOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowWeekOptions *
+garrow_week_options_new_raw(const arrow::compute::WeekOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_WEEK_OPTIONS,
+                              "week-starts-monday",
+                              arrow_options->week_starts_monday,
+                              "count-from-zero",
+                              arrow_options->count_from_zero,
+                              "first-week-is-fully-in-year",
+                              arrow_options->first_week_is_fully_in_year,
+                              NULL);
+  return GARROW_WEEK_OPTIONS(options);
+}
+
+arrow::compute::WeekOptions *
+garrow_week_options_get_raw(GArrowWeekOptions *options)
+{
+  return static_cast<arrow::compute::WeekOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

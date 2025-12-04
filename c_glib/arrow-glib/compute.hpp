@@ -334,3 +334,8 @@ GArrowTrimOptions *
 garrow_trim_options_new_raw(const arrow::compute::TrimOptions *arrow_options);
 arrow::compute::TrimOptions *
 garrow_trim_options_get_raw(GArrowTrimOptions *options);
+
+GArrowWeekOptions *
+garrow_week_options_new_raw(const arrow::compute::WeekOptions *arrow_options);
+arrow::compute::WeekOptions *
+garrow_week_options_get_raw(GArrowWeekOptions *options);
