@@ -44,9 +44,6 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
   // GH-47706 TODO: Add tests for SQLAllocStmt, pre-requisite requires
   // SQLDriverConnect implementation
 
-  // GH-47707 TODO: Add tests for SQL_HANDLE_DESC implementation for
-  // descriptor handle, pre-requisite requires SQLAllocStmt
-
   *result = nullptr;
 
   switch (type) {
@@ -147,8 +144,6 @@ SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
   // GH-47706 TODO: Add tests for SQLFreeStmt, pre-requisite requires
   // SQLAllocStmt tests
 
-  // GH-47707 TODO: Add tests for SQL_HANDLE_DESC implementation for
-  // descriptor handle
   switch (type) {
     case SQL_HANDLE_ENV: {
       using ODBC::ODBCEnvironment;
