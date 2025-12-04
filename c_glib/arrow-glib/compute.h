@@ -1507,4 +1507,37 @@ GARROW_AVAILABLE_IN_23_0
 GArrowPartitionNthOptions *
 garrow_partition_nth_options_new(void);
 
+/**
+ * GArrowPivotWiderUnexpectedKeyBehavior:
+ * @GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_IGNORE: Unexpected pivot keys are ignored
+ * silently.
+ * @GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_RAISE: Unexpected pivot keys return a
+ * KeyError.
+ *
+ * They correspond to the values of
+ * `arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_IGNORE,
+  GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_RAISE,
+} GArrowPivotWiderUnexpectedKeyBehavior;
+
+#define GARROW_TYPE_PIVOT_WIDER_OPTIONS (garrow_pivot_wider_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPivotWiderOptions,
+                         garrow_pivot_wider_options,
+                         GARROW,
+                         PIVOT_WIDER_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPivotWiderOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new(void);
+
 G_END_DECLS
