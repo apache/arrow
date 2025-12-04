@@ -1012,6 +1012,24 @@ cdef class Dataset(_Weakrefable):
         -------
         Dataset
             The existing dataset with column projection applied.
+
+        Examples
+        --------
+        Rename all columns by position:
+
+        >>> import pyarrow as pa
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
+
+        >>> import pyarrow.dataset as ds
+        >>> dataset = ds.InMemoryDataset([table])
+        >>> dataset.rename_columns(['time', 'number_of_legs', 'name']).to_table()
+
+        Rename specific columns:
+
+        >>> dataset.rename_columns({'n_legs': 'number_of_legs'}).to_table()
         """
         import pyarrow.dataset as ds
 
