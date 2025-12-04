@@ -1555,4 +1555,20 @@ void
 garrow_rank_quantile_options_add_sort_key(GArrowRankQuantileOptions *options,
                                           GArrowSortKey *sort_key);
 
+#define GARROW_TYPE_REPLACE_SLICE_OPTIONS (garrow_replace_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowReplaceSliceOptions,
+                         garrow_replace_slice_options,
+                         GARROW,
+                         REPLACE_SLICE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowReplaceSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new(void);
+
 G_END_DECLS
