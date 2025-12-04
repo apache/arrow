@@ -24,6 +24,7 @@
 #include <string_view>
 #include <variant>
 
+#include "arrow/filesystem/path_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
@@ -33,6 +34,11 @@
 #include "generated/parquet3_generated.h"
 #include "generated/parquet_types.h"
 #include "parquet/thrift_internal.h"
+
+static inline std::string GetBasename(const std::string& path) {
+  auto pos = path.find_last_of("/\\");
+  return (pos == std::string::npos) ? path : path.substr(pos + 1);
+}
 
 // Baseline
 //
@@ -1160,7 +1166,7 @@ struct Footer {
     conv.To();
     std::string flatbuf(reinterpret_cast<const char*>(conv.root.GetBufferPointer()),
                         conv.root.GetSize());
-    return {basename(filename), Serialize(md), std::move(flatbuf), std::move(md)};
+    return {GetBasename(filename), Serialize(md), std::move(flatbuf), std::move(md)};
   }
 };
 
@@ -1287,7 +1293,8 @@ int main(int argc, char** argv) {
   char val[1024];
   for (size_t i = 0; i < footers.size(); ++i) {
     auto&& f = footers[i];
-    snprintf(key, sizeof(key), "%lu/%s", i, basename(f.name.c_str()));
+    auto name = GetBasename(f.name);
+    snprintf(key, sizeof(key), "%lu/%s", i, name.c_str());
     auto thrift = parquet::ToSiBytes(f.thrift.size());
     auto flatbuf = parquet::ToSiBytes(f.flatbuf.size());
     snprintf(val, sizeof(val), "num-rgs=%lu num-cols=%lu thrift=%.*f%c flatbuf=%.*f%c",
