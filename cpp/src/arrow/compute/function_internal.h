@@ -448,9 +448,9 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
-      if (value->type->id() == Type::NA) {
-        return std::shared_ptr<NullType>();
-      }
+  if (value->type->id() == Type::NA) {
+    return std::shared_ptr<NullType>();
+  }
   return value->type;
 }
 
