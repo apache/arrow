@@ -40,6 +40,11 @@ G_BEGIN_DECLS
  * It can store zero or more list data. If you don't have Arrow format data,
  * you need to use #GArrowLargeListArrayBuilder to create a new array.
  *
+ * #GArrowFixedSizeListArray is a class for fixed-size list array.
+ * It can store zero or more list data where each list has the same size.
+ * If you don't have Arrow format data, you need to use
+ * #GArrowFixedSizeListArrayBuilder to create a new array.
+ *
  * #GArrowStructArray is a class for struct array. It can store zero
  * or more structs. One struct has one or more fields. If you don't
  * have Arrow format data, you need to use #GArrowStructArrayBuilder
@@ -595,6 +600,251 @@ garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array, gint64 *n
     garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(GARROW_ARRAY(array),
                                                                     n_offsets);
   return reinterpret_cast<const gint64 *>(value_offsets);
+}
+
+typedef struct GArrowFixedSizeListArrayPrivate_
+{
+  GArrowArray *raw_values;
+} GArrowFixedSizeListArrayPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFixedSizeListArray,
+                           garrow_fixed_size_list_array,
+                           GARROW_TYPE_ARRAY)
+
+#define GARROW_FIXED_SIZE_LIST_ARRAY_GET_PRIVATE(obj)                                    \
+  static_cast<GArrowFixedSizeListArrayPrivate *>(                                        \
+    garrow_fixed_size_list_array_get_instance_private(                                   \
+      GARROW_FIXED_SIZE_LIST_ARRAY(obj)))
+
+static void
+garrow_fixed_size_list_array_dispose(GObject *object)
+{
+  auto priv = GARROW_FIXED_SIZE_LIST_ARRAY_GET_PRIVATE(object);
+
+  if (priv->raw_values) {
+    g_object_unref(priv->raw_values);
+    priv->raw_values = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_fixed_size_list_array_parent_class)->dispose(object);
+}
+
+static void
+garrow_fixed_size_list_array_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_FIXED_SIZE_LIST_ARRAY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_RAW_VALUES:
+    priv->raw_values = GARROW_ARRAY(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_fixed_size_list_array_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto priv = GARROW_FIXED_SIZE_LIST_ARRAY_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_RAW_VALUES:
+    g_value_set_object(value, priv->raw_values);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_fixed_size_list_array_init(GArrowFixedSizeListArray *object)
+{
+}
+
+static void
+garrow_fixed_size_list_array_class_init(GArrowFixedSizeListArrayClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_fixed_size_list_array_dispose;
+  gobject_class->set_property = garrow_fixed_size_list_array_set_property;
+  gobject_class->get_property = garrow_fixed_size_list_array_get_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object(
+    "raw-values",
+    "Raw values",
+    "The raw values",
+    GARROW_TYPE_ARRAY,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_RAW_VALUES, spec);
+}
+
+/**
+ * garrow_fixed_size_list_array_new:
+ * @data_type: The data type of the list.
+ * @length: The number of elements.
+ * @values: The values as #GArrowArray.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowFixedSizeListArray.
+ *
+ * Since: 23.0.0
+ */
+GArrowFixedSizeListArray *
+garrow_fixed_size_list_array_new(GArrowDataType *data_type,
+                                 gint64 length,
+                                 GArrowArray *values,
+                                 GArrowBuffer *null_bitmap,
+                                 gint64 n_nulls)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(data_type);
+  const auto arrow_values = garrow_array_get_raw(values);
+  const auto arrow_null_bitmap = garrow_buffer_get_raw(null_bitmap);
+  auto arrow_fixed_size_list_array =
+    std::make_shared<arrow::FixedSizeListArray>(arrow_data_type,
+                                                length,
+                                                arrow_values,
+                                                arrow_null_bitmap,
+                                                n_nulls);
+  auto arrow_array = std::static_pointer_cast<arrow::Array>(arrow_fixed_size_list_array);
+  return GARROW_FIXED_SIZE_LIST_ARRAY(garrow_array_new_raw(&arrow_array,
+                                                           "array",
+                                                           &arrow_array,
+                                                           "value-data-type",
+                                                           data_type,
+                                                           "null-bitmap",
+                                                           null_bitmap,
+                                                           "raw-values",
+                                                           values,
+                                                           NULL));
+}
+
+/**
+ * garrow_fixed_size_list_array_get_value_type:
+ * @array: A #GArrowFixedSizeListArray.
+ *
+ * Returns: (transfer full): The data type of value in each list.
+ *
+ * Since: 23.0.0
+ */
+GArrowDataType *
+garrow_fixed_size_list_array_get_value_type(GArrowFixedSizeListArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  auto arrow_value_type = arrow_fixed_size_list_array->value_type();
+  return garrow_data_type_new_raw(&arrow_value_type);
+}
+
+/**
+ * garrow_fixed_size_list_array_get_value:
+ * @array: A #GArrowFixedSizeListArray.
+ * @i: The index of the target value.
+ *
+ * Returns: (transfer full): The @i-th list.
+ *
+ * Since: 23.0.0
+ */
+GArrowArray *
+garrow_fixed_size_list_array_get_value(GArrowFixedSizeListArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  auto arrow_list = arrow_fixed_size_list_array->value_slice(i);
+  return garrow_array_new_raw(&arrow_list, "array", &arrow_list, "parent", array, NULL);
+}
+
+/**
+ * garrow_fixed_size_list_array_get_values:
+ * @array: A #GArrowFixedSizeListArray.
+ *
+ * Returns: (transfer full): The array containing the list's values.
+ *
+ * Since: 23.0.0
+ */
+GArrowArray *
+garrow_fixed_size_list_array_get_values(GArrowFixedSizeListArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  auto arrow_values = arrow_fixed_size_list_array->values();
+  return garrow_array_new_raw(&arrow_values,
+                              "array",
+                              &arrow_values,
+                              "parent",
+                              array,
+                              NULL);
+}
+
+/**
+ * garrow_fixed_size_list_array_get_value_offset:
+ * @array: A #GArrowFixedSizeListArray.
+ * @i: The index of the offset of the target value.
+ *
+ * Returns: The target offset in the array containing the list's values.
+ *
+ * Since: 23.0.0
+ */
+gint64
+garrow_fixed_size_list_array_get_value_offset(GArrowFixedSizeListArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  return arrow_fixed_size_list_array->value_offset(i);
+}
+
+/**
+ * garrow_fixed_size_list_array_get_value_length:
+ * @array: A #GArrowFixedSizeListArray.
+ * @i: The index of the target value (unused, as all lists have the same size).
+ *
+ * Returns: The fixed size of each list.
+ *
+ * Since: 23.0.0
+ */
+gint32
+garrow_fixed_size_list_array_get_value_length(GArrowFixedSizeListArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  return arrow_fixed_size_list_array->value_length(i);
+}
+
+/**
+ * garrow_fixed_size_list_array_get_list_size:
+ * @array: A #GArrowFixedSizeListArray.
+ *
+ * Returns: The fixed size of each list.
+ *
+ * Since: 23.0.0
+ */
+gint32
+garrow_fixed_size_list_array_get_list_size(GArrowFixedSizeListArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto arrow_fixed_size_list_array =
+    std::static_pointer_cast<arrow::FixedSizeListArray>(arrow_array);
+  return arrow_fixed_size_list_array->list_type()->list_size();
 }
 
 typedef struct GArrowStructArrayPrivate_

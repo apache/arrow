@@ -5674,6 +5674,125 @@ garrow_large_list_array_builder_get_value_builder(GArrowLargeListArrayBuilder *b
   return priv->value_builder;
 }
 
+typedef struct GArrowFixedSizeListArrayBuilderPrivate_
+{
+  GArrowArrayBuilder *value_builder;
+} GArrowFixedSizeListArrayBuilderPrivate;
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFixedSizeListArrayBuilder,
+                           garrow_fixed_size_list_array_builder,
+                           GARROW_TYPE_ARRAY_BUILDER)
+
+#define GARROW_FIXED_SIZE_LIST_ARRAY_BUILDER_GET_PRIVATE(obj)                            \
+  static_cast<GArrowFixedSizeListArrayBuilderPrivate *>(                                 \
+    garrow_fixed_size_list_array_builder_get_instance_private(                           \
+      GARROW_FIXED_SIZE_LIST_ARRAY_BUILDER(obj)))
+
+static void
+garrow_fixed_size_list_array_builder_dispose(GObject *object)
+{
+  auto priv = GARROW_FIXED_SIZE_LIST_ARRAY_BUILDER_GET_PRIVATE(object);
+
+  if (priv->value_builder) {
+    g_object_unref(priv->value_builder);
+    priv->value_builder = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_fixed_size_list_array_builder_parent_class)->dispose(object);
+}
+
+static void
+garrow_fixed_size_list_array_builder_init(GArrowFixedSizeListArrayBuilder *builder)
+{
+}
+
+static void
+garrow_fixed_size_list_array_builder_class_init(
+  GArrowFixedSizeListArrayBuilderClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_fixed_size_list_array_builder_dispose;
+}
+
+/**
+ * garrow_fixed_size_list_array_builder_new:
+ * @data_type: A #GArrowFixedSizeListDataType for value.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: A newly created #GArrowFixedSizeListArrayBuilder.
+ *
+ * Since: 23.0.0
+ */
+GArrowFixedSizeListArrayBuilder *
+garrow_fixed_size_list_array_builder_new(GArrowFixedSizeListDataType *data_type,
+                                         GError **error)
+{
+  if (!GARROW_IS_FIXED_SIZE_LIST_DATA_TYPE(data_type)) {
+    g_set_error(
+      error,
+      GARROW_ERROR,
+      GARROW_ERROR_INVALID,
+      "[fixed-size-list-array-builder][new] data type must be fixed-size list data type");
+    return NULL;
+  }
+
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder = garrow_array_builder_new(arrow_data_type,
+                                          error,
+                                          "[fixed-size-list-array-builder][new]");
+  return GARROW_FIXED_SIZE_LIST_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_fixed_size_list_array_builder_append_value:
+ * @builder: A #GArrowFixedSizeListArrayBuilder.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * It appends a new list element. To append a new list element, you
+ * need to call this function then append list element values to
+ * `value_builder`. `value_builder` is the #GArrowArrayBuilder
+ * specified to constructor. You can get `value_builder` by
+ * garrow_fixed_size_list_array_builder_get_value_builder().
+ *
+ * Since: 23.0.0
+ */
+gboolean
+garrow_fixed_size_list_array_builder_append_value(
+  GArrowFixedSizeListArrayBuilder *builder, GError **error)
+{
+  auto arrow_builder = std::static_pointer_cast<arrow::FixedSizeListBuilder>(
+    garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+  auto status = arrow_builder->Append();
+  return garrow_error_check(error,
+                            status,
+                            "[fixed-size-list-array-builder][append-value]");
+}
+
+/**
+ * garrow_fixed_size_list_array_builder_get_value_builder:
+ * @builder: A #GArrowFixedSizeListArrayBuilder.
+ *
+ * Returns: (transfer none): The #GArrowArrayBuilder for building list element values.
+ *
+ * Since: 23.0.0
+ */
+GArrowArrayBuilder *
+garrow_fixed_size_list_array_builder_get_value_builder(
+  GArrowFixedSizeListArrayBuilder *builder)
+{
+  auto priv = GARROW_FIXED_SIZE_LIST_ARRAY_BUILDER_GET_PRIVATE(builder);
+  if (!priv->value_builder) {
+    auto arrow_builder = std::static_pointer_cast<arrow::FixedSizeListBuilder>(
+      garrow_array_builder_get_raw(GARROW_ARRAY_BUILDER(builder)));
+    auto arrow_value_builder = arrow_builder->value_builder();
+    priv->value_builder = garrow_array_builder_new_raw(arrow_value_builder);
+  }
+  return priv->value_builder;
+}
+
 G_DEFINE_TYPE(GArrowStructArrayBuilder,
               garrow_struct_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -6778,6 +6897,9 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
       break;
     case arrow::Type::type::LARGE_LIST:
       type = GARROW_TYPE_LARGE_LIST_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::FIXED_SIZE_LIST:
+      type = GARROW_TYPE_FIXED_SIZE_LIST_ARRAY_BUILDER;
       break;
     case arrow::Type::type::STRUCT:
       type = GARROW_TYPE_STRUCT_ARRAY_BUILDER;
