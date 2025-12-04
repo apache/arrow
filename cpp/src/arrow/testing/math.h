@@ -18,12 +18,9 @@
 #pragma once
 
 #include "arrow/testing/visibility.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow {
-
-namespace util {
-class Float16;
-}
 
 ARROW_TESTING_EXPORT
 bool WithinUlp(util::Float16 left, util::Float16 right, int n_ulps);
