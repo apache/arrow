@@ -286,3 +286,9 @@ garrow_replace_slice_options_new_raw(
   const arrow::compute::ReplaceSliceOptions *arrow_options);
 arrow::compute::ReplaceSliceOptions *
 garrow_replace_slice_options_get_raw(GArrowReplaceSliceOptions *options);
+
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new_raw(
+  const arrow::compute::ReplaceSubstringOptions *arrow_options);
+arrow::compute::ReplaceSubstringOptions *
+garrow_replace_substring_options_get_raw(GArrowReplaceSubstringOptions *options);
