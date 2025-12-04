@@ -268,3 +268,9 @@ garrow_partition_nth_options_new_raw(
   const arrow::compute::PartitionNthOptions *arrow_options);
 arrow::compute::PartitionNthOptions *
 garrow_partition_nth_options_get_raw(GArrowPartitionNthOptions *options);
+
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new_raw(
+  const arrow::compute::PivotWiderOptions *arrow_options);
+arrow::compute::PivotWiderOptions *
+garrow_pivot_wider_options_get_raw(GArrowPivotWiderOptions *options);
