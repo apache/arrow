@@ -315,6 +315,9 @@ G_BEGIN_DECLS
  *
  * #GArrowRoundBinaryOptions is a class to customize the `round_binary` function.
  *
+ * #GArrowRoundTemporalOptions is a class to customize the `round_temporal`,
+ * `floor_temporal`, and `ceil_temporal` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -9276,6 +9279,203 @@ garrow_round_binary_options_new(void)
     g_object_new(GARROW_TYPE_ROUND_BINARY_OPTIONS, NULL));
 }
 
+enum {
+  PROP_ROUND_TEMPORAL_OPTIONS_MULTIPLE = 1,
+  PROP_ROUND_TEMPORAL_OPTIONS_UNIT,
+  PROP_ROUND_TEMPORAL_OPTIONS_WEEK_STARTS_MONDAY,
+  PROP_ROUND_TEMPORAL_OPTIONS_CEIL_IS_STRICTLY_GREATER,
+  PROP_ROUND_TEMPORAL_OPTIONS_CALENDAR_BASED_ORIGIN,
+};
+
+G_DEFINE_TYPE(GArrowRoundTemporalOptions,
+              garrow_round_temporal_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_round_temporal_options_set_property(GObject *object,
+                                           guint prop_id,
+                                           const GValue *value,
+                                           GParamSpec *pspec)
+{
+  auto options =
+    garrow_round_temporal_options_get_raw(GARROW_ROUND_TEMPORAL_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_TEMPORAL_OPTIONS_MULTIPLE:
+    options->multiple = g_value_get_int(value);
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_UNIT:
+    options->unit = static_cast<arrow::compute::CalendarUnit>(g_value_get_enum(value));
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_WEEK_STARTS_MONDAY:
+    options->week_starts_monday = g_value_get_boolean(value);
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_CEIL_IS_STRICTLY_GREATER:
+    options->ceil_is_strictly_greater = g_value_get_boolean(value);
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_CALENDAR_BASED_ORIGIN:
+    options->calendar_based_origin = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_temporal_options_get_property(GObject *object,
+                                           guint prop_id,
+                                           GValue *value,
+                                           GParamSpec *pspec)
+{
+  auto options =
+    garrow_round_temporal_options_get_raw(GARROW_ROUND_TEMPORAL_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_TEMPORAL_OPTIONS_MULTIPLE:
+    g_value_set_int(value, options->multiple);
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_UNIT:
+    g_value_set_enum(value, static_cast<GArrowCalendarUnit>(options->unit));
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_WEEK_STARTS_MONDAY:
+    g_value_set_boolean(value, options->week_starts_monday);
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_CEIL_IS_STRICTLY_GREATER:
+    g_value_set_boolean(value, options->ceil_is_strictly_greater);
+    break;
+  case PROP_ROUND_TEMPORAL_OPTIONS_CALENDAR_BASED_ORIGIN:
+    g_value_set_boolean(value, options->calendar_based_origin);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_temporal_options_init(GArrowRoundTemporalOptions *object)
+{
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::RoundTemporalOptions());
+}
+
+static void
+garrow_round_temporal_options_class_init(GArrowRoundTemporalOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_round_temporal_options_set_property;
+  gobject_class->get_property = garrow_round_temporal_options_get_property;
+
+  arrow::compute::RoundTemporalOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowRoundTemporalOptions:multiple:
+   *
+   * Number of units to round to.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int("multiple",
+                          "Multiple",
+                          "Number of units to round to",
+                          G_MININT,
+                          G_MAXINT,
+                          options.multiple,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TEMPORAL_OPTIONS_MULTIPLE,
+                                  spec);
+
+  /**
+   * GArrowRoundTemporalOptions:unit:
+   *
+   * The unit used for rounding of time.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("unit",
+                           "Unit",
+                           "The unit used for rounding of time",
+                           GARROW_TYPE_CALENDAR_UNIT,
+                           static_cast<GArrowCalendarUnit>(options.unit),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ROUND_TEMPORAL_OPTIONS_UNIT, spec);
+
+  /**
+   * GArrowRoundTemporalOptions:week-starts-monday:
+   *
+   * What day does the week start with (Monday=true, Sunday=false).
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_boolean("week-starts-monday",
+                         "Week Starts Monday",
+                         "What day does the week start with (Monday=true, Sunday=false)",
+                         options.week_starts_monday,
+                         static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TEMPORAL_OPTIONS_WEEK_STARTS_MONDAY,
+                                  spec);
+
+  /**
+   * GArrowRoundTemporalOptions:ceil-is-strictly-greater:
+   *
+   * Enable this flag to return a rounded value that is strictly greater than the input.
+   * This applies for ceiling only.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean(
+    "ceil-is-strictly-greater",
+    "Ceil Is Strictly Greater",
+    "Enable this flag to return a rounded value that is strictly greater than the input",
+    options.ceil_is_strictly_greater,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TEMPORAL_OPTIONS_CEIL_IS_STRICTLY_GREATER,
+                                  spec);
+
+  /**
+   * GArrowRoundTemporalOptions:calendar-based-origin:
+   *
+   * By default time is rounded to a multiple of units since 1970-01-01T00:00:00.
+   * By setting calendar_based_origin to true, time will be rounded to a number
+   * of units since the last greater calendar unit.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean(
+    "calendar-based-origin",
+    "Calendar Based Origin",
+    "By default time is rounded to a multiple of units since 1970-01-01T00:00:00. By "
+    "setting calendar_based_origin to true, time will be rounded to a number of units "
+    "since the last greater calendar unit",
+    options.calendar_based_origin,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ROUND_TEMPORAL_OPTIONS_CALENDAR_BASED_ORIGIN,
+                                  spec);
+}
+
+/**
+ * garrow_round_temporal_options_new:
+ *
+ * Returns: A newly created #GArrowRoundTemporalOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new(void)
+{
+  return GARROW_ROUND_TEMPORAL_OPTIONS(
+    g_object_new(GARROW_TYPE_ROUND_TEMPORAL_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -9515,6 +9715,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_round_binary_options =
       static_cast<const arrow::compute::RoundBinaryOptions *>(arrow_options);
     auto options = garrow_round_binary_options_new_raw(arrow_round_binary_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "RoundTemporalOptions") {
+    const auto arrow_round_temporal_options =
+      static_cast<const arrow::compute::RoundTemporalOptions *>(arrow_options);
+    auto options = garrow_round_temporal_options_new_raw(arrow_round_temporal_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -10482,5 +10687,31 @@ arrow::compute::RoundBinaryOptions *
 garrow_round_binary_options_get_raw(GArrowRoundBinaryOptions *options)
 {
   return static_cast<arrow::compute::RoundBinaryOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new_raw(
+  const arrow::compute::RoundTemporalOptions *arrow_options)
+{
+  return GARROW_ROUND_TEMPORAL_OPTIONS(
+    g_object_new(GARROW_TYPE_ROUND_TEMPORAL_OPTIONS,
+                 "multiple",
+                 arrow_options->multiple,
+                 "unit",
+                 static_cast<GArrowCalendarUnit>(arrow_options->unit),
+                 "week-starts-monday",
+                 arrow_options->week_starts_monday,
+                 "ceil-is-strictly-greater",
+                 arrow_options->ceil_is_strictly_greater,
+                 "calendar-based-origin",
+                 arrow_options->calendar_based_origin,
+                 NULL));
+}
+
+arrow::compute::RoundTemporalOptions *
+garrow_round_temporal_options_get_raw(GArrowRoundTemporalOptions *options)
+{
+  return static_cast<arrow::compute::RoundTemporalOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
