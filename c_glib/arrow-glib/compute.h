@@ -1437,4 +1437,17 @@ GARROW_AVAILABLE_IN_23_0
 GArrowModeOptions *
 garrow_mode_options_new(void);
 
+#define GARROW_TYPE_NULL_OPTIONS (garrow_null_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowNullOptions, garrow_null_options, GARROW, NULL_OPTIONS, GArrowFunctionOptions)
+struct _GArrowNullOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowNullOptions *
+garrow_null_options_new(void);
+
 G_END_DECLS

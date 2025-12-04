@@ -247,3 +247,8 @@ GArrowModeOptions *
 garrow_mode_options_new_raw(const arrow::compute::ModeOptions *arrow_options);
 arrow::compute::ModeOptions *
 garrow_mode_options_get_raw(GArrowModeOptions *options);
+
+GArrowNullOptions *
+garrow_null_options_new_raw(const arrow::compute::NullOptions *arrow_options);
+arrow::compute::NullOptions *
+garrow_null_options_get_raw(GArrowNullOptions *options);
