@@ -20,6 +20,7 @@
 
 #include "arrow/array/array_base.h"
 #include "arrow/array/builder_binary.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/kernels/base_arithmetic_internal.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -304,10 +305,34 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
-  // Start with a zero-copy cast, but change indices to expected size
-  RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
-  return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
-      ctx, input, out->array_data().get());
+  if constexpr (sizeof(typename I::offset_type) != sizeof(typename O::offset_type)) {
+    std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
+    ArrayData* output = out->array_data().get();
+    output->length = input_arr->length;
+    // output->offset is set below
+    output->SetNullCount(input_arr->null_count);
+    output->buffers = std::move(input_arr->buffers);
+    // binary/string arrays don't have child_data
+
+    // Slice buffers to reduce allocation when casting the offsets buffer
+    int64_t offset = input_arr->offset;
+    size_t input_offset_type_size = sizeof(typename I::offset_type);
+    if (output->null_count != 0 && output->buffers[0]) {
+      // Avoid reallocation of the validity buffer by allowing some padding bits
+      output->offset = input_arr->offset % 8;
+    } else {
+      output->offset = 0;
+    }
+    if (output->buffers[0]) {
+      output->buffers[0] = SliceBuffer(output->buffers[0], offset / 8);
+    }
+    output->buffers[1] = SliceBuffer(output->buffers[1], offset * input_offset_type_size);
+
+    return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
+        ctx, input, out->array_data().get());
+  } else {
+    return ZeroCopyCastExec(ctx, batch, out);
+  }
 }
 
 // String View -> Offset String
