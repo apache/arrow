@@ -1489,8 +1489,110 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
                    << ", decimal_digits_ptr: "
                    << static_cast<const void*>(decimal_digits_ptr)
                    << ", nullable_ptr: " << static_cast<const void*>(nullable_ptr);
-  // GH-47724 TODO: Implement SQLDescribeCol
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    ODBCDescriptor* ird = statement->GetIRD();
+    SQLINTEGER output_length_int;
+    SQLSMALLINT sql_type;
+
+    // Column SQL Type
+    ird->GetField(column_number, SQL_DESC_CONCISE_TYPE, &sql_type, sizeof(SQLSMALLINT),
+                  nullptr);
+    if (data_type_ptr) {
+      *data_type_ptr = sql_type;
+    }
+
+    // Column Name
+    if (column_name || name_length_ptr) {
+      ird->GetField(column_number, SQL_DESC_NAME, column_name, buffer_length,
+                    &output_length_int);
+      if (name_length_ptr) {
+        // returned length should be in characters
+        *name_length_ptr =
+            static_cast<SQLSMALLINT>(output_length_int / GetSqlWCharSize());
+      }
+    }
+
+    // Column Size
+    if (column_size_ptr) {
+      switch (sql_type) {
+        // All numeric types
+        case SQL_DECIMAL:
+        case SQL_NUMERIC:
+        case SQL_TINYINT:
+        case SQL_SMALLINT:
+        case SQL_INTEGER:
+        case SQL_BIGINT:
+        case SQL_REAL:
+        case SQL_FLOAT:
+        case SQL_DOUBLE: {
+          ird->GetField(column_number, SQL_DESC_PRECISION, column_size_ptr,
+                        sizeof(SQLULEN), nullptr);
+          break;
+        }
+
+        default: {
+          ird->GetField(column_number, SQL_DESC_LENGTH, column_size_ptr, sizeof(SQLULEN),
+                        nullptr);
+        }
+      }
+    }
+
+    // Column Decimal Digits
+    if (decimal_digits_ptr) {
+      switch (sql_type) {
+        // All exact numeric types
+        case SQL_TINYINT:
+        case SQL_SMALLINT:
+        case SQL_INTEGER:
+        case SQL_BIGINT:
+        case SQL_DECIMAL:
+        case SQL_NUMERIC: {
+          ird->GetField(column_number, SQL_DESC_SCALE, decimal_digits_ptr,
+                        sizeof(SQLULEN), nullptr);
+          break;
+        }
+
+        // All datetime types (ODBC 2)
+        case SQL_DATE:
+        case SQL_TIME:
+        case SQL_TIMESTAMP:
+        // All datetime types (ODBC 3)
+        case SQL_TYPE_DATE:
+        case SQL_TYPE_TIME:
+        case SQL_TYPE_TIMESTAMP:
+        // All interval types with a seconds component
+        case SQL_INTERVAL_SECOND:
+        case SQL_INTERVAL_MINUTE_TO_SECOND:
+        case SQL_INTERVAL_HOUR_TO_SECOND:
+        case SQL_INTERVAL_DAY_TO_SECOND: {
+          ird->GetField(column_number, SQL_DESC_PRECISION, decimal_digits_ptr,
+                        sizeof(SQLULEN), nullptr);
+          break;
+        }
+
+        default: {
+          // All character and binary types
+          // SQL_BIT
+          // All approximate numeric types
+          // All interval types with no seconds component
+          *decimal_digits_ptr = static_cast<SQLSMALLINT>(0);
+        }
+      }
+    }
+
+    // Column Nullable
+    if (nullable_ptr) {
+      ird->GetField(column_number, SQL_DESC_NULLABLE, nullable_ptr, sizeof(SQLSMALLINT),
+                    nullptr);
+    }
+
+    return SQL_SUCCESS;
+  });
 }
 
 }  // namespace arrow::flight::sql::odbc
