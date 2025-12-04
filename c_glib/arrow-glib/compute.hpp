@@ -324,3 +324,8 @@ GArrowSplitOptions *
 garrow_split_options_new_raw(const arrow::compute::SplitOptions *arrow_options);
 arrow::compute::SplitOptions *
 garrow_split_options_get_raw(GArrowSplitOptions *options);
+
+GArrowTDigestOptions *
+garrow_tdigest_options_new_raw(const arrow::compute::TDigestOptions *arrow_options);
+arrow::compute::TDigestOptions *
+garrow_tdigest_options_get_raw(GArrowTDigestOptions *options);

@@ -328,6 +328,9 @@ G_BEGIN_DECLS
  * #GArrowSplitOptions is a class to customize the `ascii_split_whitespace` and
  * `utf8_split_whitespace` functions.
  *
+ * #GArrowTDigestOptions is a class to customize the `tdigest` and
+ * `hash_tdigest` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -10013,6 +10016,219 @@ garrow_split_options_new(void)
   return GARROW_SPLIT_OPTIONS(g_object_new(GARROW_TYPE_SPLIT_OPTIONS, NULL));
 }
 
+enum {
+  PROP_TDIGEST_OPTIONS_DELTA = 1,
+  PROP_TDIGEST_OPTIONS_BUFFER_SIZE,
+  PROP_TDIGEST_OPTIONS_SKIP_NULLS,
+  PROP_TDIGEST_OPTIONS_MIN_COUNT,
+};
+
+G_DEFINE_TYPE(GArrowTDigestOptions, garrow_tdigest_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_tdigest_options_set_property(GObject *object,
+                                    guint prop_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto options = garrow_tdigest_options_get_raw(GARROW_TDIGEST_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_TDIGEST_OPTIONS_DELTA:
+    options->delta = g_value_get_uint(value);
+    break;
+  case PROP_TDIGEST_OPTIONS_BUFFER_SIZE:
+    options->buffer_size = g_value_get_uint(value);
+    break;
+  case PROP_TDIGEST_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_TDIGEST_OPTIONS_MIN_COUNT:
+    options->min_count = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_tdigest_options_get_property(GObject *object,
+                                    guint prop_id,
+                                    GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto options = garrow_tdigest_options_get_raw(GARROW_TDIGEST_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_TDIGEST_OPTIONS_DELTA:
+    g_value_set_uint(value, options->delta);
+    break;
+  case PROP_TDIGEST_OPTIONS_BUFFER_SIZE:
+    g_value_set_uint(value, options->buffer_size);
+    break;
+  case PROP_TDIGEST_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  case PROP_TDIGEST_OPTIONS_MIN_COUNT:
+    g_value_set_uint(value, options->min_count);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_tdigest_options_init(GArrowTDigestOptions *object)
+{
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::TDigestOptions());
+}
+
+static void
+garrow_tdigest_options_class_init(GArrowTDigestOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_tdigest_options_set_property;
+  gobject_class->get_property = garrow_tdigest_options_get_property;
+
+  auto options = arrow::compute::TDigestOptions::Defaults();
+
+  GParamSpec *spec;
+  /**
+   * GArrowTDigestOptions:delta:
+   *
+   * Compression parameter, default 100.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_uint("delta",
+                           "Delta",
+                           "Compression parameter, default 100",
+                           0,
+                           G_MAXUINT32,
+                           options.delta,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TDIGEST_OPTIONS_DELTA, spec);
+
+  /**
+   * GArrowTDigestOptions:buffer-size:
+   *
+   * Input buffer size, default 500.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_uint("buffer-size",
+                           "Buffer size",
+                           "Input buffer size, default 500",
+                           0,
+                           G_MAXUINT32,
+                           options.buffer_size,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TDIGEST_OPTIONS_BUFFER_SIZE, spec);
+
+  /**
+   * GArrowTDigestOptions:skip-nulls:
+   *
+   * If true (the default), null values are ignored. Otherwise, if any
+   * value is null, emit null.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip nulls",
+                              "If true (the default), null values are ignored. "
+                              "Otherwise, if any value is null, emit null.",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TDIGEST_OPTIONS_SKIP_NULLS, spec);
+
+  /**
+   * GArrowTDigestOptions:min-count:
+   *
+   * If less than this many non-null values are observed, emit null.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_uint("min-count",
+                      "Min count",
+                      "If less than this many non-null values are observed, emit null",
+                      0,
+                      G_MAXUINT32,
+                      options.min_count,
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TDIGEST_OPTIONS_MIN_COUNT, spec);
+}
+
+/**
+ * garrow_tdigest_options_new:
+ *
+ * Returns: A newly created #GArrowTDigestOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowTDigestOptions *
+garrow_tdigest_options_new(void)
+{
+  return GARROW_TDIGEST_OPTIONS(g_object_new(GARROW_TYPE_TDIGEST_OPTIONS, NULL));
+}
+
+/**
+ * garrow_tdigest_options_get_qs:
+ * @options: A #GArrowTDigestOptions.
+ * @n: (out): The number of `q`s.
+ *
+ * Returns: (array length=n) (transfer none): The `q`s to be used.
+ *
+ * Since: 23.0.0
+ */
+const gdouble *
+garrow_tdigest_options_get_qs(GArrowTDigestOptions *options, gsize *n)
+{
+  auto priv = garrow_tdigest_options_get_raw(options);
+  if (n) {
+    *n = priv->q.size();
+  }
+  return priv->q.data();
+}
+
+/**
+ * garrow_tdigest_options_set_q:
+ * @options: A #GArrowTDigestOptions.
+ * @q: A `q` to be used.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_tdigest_options_set_q(GArrowTDigestOptions *options, gdouble q)
+{
+  auto priv = garrow_tdigest_options_get_raw(options);
+  priv->q.clear();
+  priv->q.push_back(q);
+}
+
+/**
+ * garrow_tdigest_options_set_qs:
+ * @options: A #GArrowTDigestOptions.
+ * @qs: (array length=n): `q`s to be used.
+ * @n: The number of @qs.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_tdigest_options_set_qs(GArrowTDigestOptions *options, const gdouble *qs, gsize n)
+{
+  auto priv = garrow_tdigest_options_get_raw(options);
+  priv->q.clear();
+  for (gsize i = 0; i < n; i++) {
+    priv->q.push_back(qs[i]);
+  }
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -10277,6 +10493,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_split_options =
       static_cast<const arrow::compute::SplitOptions *>(arrow_options);
     auto options = garrow_split_options_new_raw(arrow_split_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "TDigestOptions") {
+    const auto arrow_tdigest_options =
+      static_cast<const arrow::compute::TDigestOptions *>(arrow_options);
+    auto options = garrow_tdigest_options_new_raw(arrow_tdigest_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -11348,5 +11569,31 @@ arrow::compute::SplitOptions *
 garrow_split_options_get_raw(GArrowSplitOptions *options)
 {
   return static_cast<arrow::compute::SplitOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowTDigestOptions *
+garrow_tdigest_options_new_raw(const arrow::compute::TDigestOptions *arrow_options)
+{
+  auto options = GARROW_TDIGEST_OPTIONS(g_object_new(GARROW_TYPE_TDIGEST_OPTIONS,
+                                                     "delta",
+                                                     arrow_options->delta,
+                                                     "buffer-size",
+                                                     arrow_options->buffer_size,
+                                                     "skip-nulls",
+                                                     arrow_options->skip_nulls,
+                                                     "min-count",
+                                                     arrow_options->min_count,
+                                                     NULL));
+  garrow_tdigest_options_set_qs(options,
+                                arrow_options->q.data(),
+                                arrow_options->q.size());
+  return options;
+}
+
+arrow::compute::TDigestOptions *
+garrow_tdigest_options_get_raw(GArrowTDigestOptions *options)
+{
+  return static_cast<arrow::compute::TDigestOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
