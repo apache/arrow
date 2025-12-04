@@ -173,13 +173,10 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
       encryption_cols2;
   std::string path1 = "double_field";
   std::string path2 = "float_field";
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_20(path1);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21(path2);
-  encryption_col_builder_20.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_21.key(kColumnEncryptionKey2)->key_id("kc2");
-
-  encryption_cols2[path1] = encryption_col_builder_20.build();
-  encryption_cols2[path2] = encryption_col_builder_21.build();
+  encryption_cols2[path1] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encryption_cols2[path2] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc2");
 
   parquet::FileEncryptionProperties::Builder file_encryption_builder_2(
       kFooterEncryptionKey);
@@ -194,13 +191,11 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
   // (plaintext footer mode, readable by legacy readers)
   std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols3;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_30(path1);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_31(path2);
-  encryption_col_builder_30.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_31.key(kColumnEncryptionKey2)->key_id("kc2");
+  encryption_cols3[path1] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encryption_cols3[path2] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc2");
 
-  encryption_cols3[path1] = encryption_col_builder_30.build();
-  encryption_cols3[path2] = encryption_col_builder_31.build();
   parquet::FileEncryptionProperties::Builder file_encryption_builder_3(
       kFooterEncryptionKey);
 
@@ -214,13 +209,11 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
   // Use aad_prefix.
   std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols4;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_40(path1);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_41(path2);
-  encryption_col_builder_40.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_41.key(kColumnEncryptionKey2)->key_id("kc2");
+  encryption_cols4[path1] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encryption_cols4[path2] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc2");
 
-  encryption_cols4[path1] = encryption_col_builder_40.build();
-  encryption_cols4[path2] = encryption_col_builder_41.build();
   parquet::FileEncryptionProperties::Builder file_encryption_builder_4(
       kFooterEncryptionKey);
 
@@ -234,13 +227,11 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
   // Use aad_prefix and disable_aad_prefix_storage.
   std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols5;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_50(path1);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_51(path2);
-  encryption_col_builder_50.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_51.key(kColumnEncryptionKey2)->key_id("kc2");
+  encryption_cols5[path1] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encryption_cols5[path2] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc2");
 
-  encryption_cols5[path1] = encryption_col_builder_50.build();
-  encryption_cols5[path2] = encryption_col_builder_51.build();
   parquet::FileEncryptionProperties::Builder file_encryption_builder_5(
       kFooterEncryptionKey);
 
@@ -255,13 +246,11 @@ void InteropTestWriteEncryptedParquetFiles(std::string root_path) {
   // Use AES_GCM_CTR_V1 algorithm.
   std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
       encryption_cols6;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_60(path1);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_61(path2);
-  encryption_col_builder_60.key(kColumnEncryptionKey1)->key_id("kc1");
-  encryption_col_builder_61.key(kColumnEncryptionKey2)->key_id("kc2");
+  encryption_cols6[path1] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encryption_cols6[path2] =
+      parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc2");
 
-  encryption_cols6[path1] = encryption_col_builder_60.build();
-  encryption_cols6[path2] = encryption_col_builder_61.build();
   parquet::FileEncryptionProperties::Builder file_encryption_builder_6(
       kFooterEncryptionKey);
 
