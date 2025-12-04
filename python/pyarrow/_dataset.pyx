@@ -1058,7 +1058,8 @@ cdef class Dataset(_Weakrefable):
             name_mapping = {schema.field(i).name: names[i]
                             for i in range(len(names))}
         elif isinstance(names, dict):
-            name_mapping = names
+            name_mapping = {field.name: names.get(field.name, field.name)
+                            for field in schema}
         else:
             raise TypeError(f"names must be list, tuple, or dict, not {type(names)!r}")
 
