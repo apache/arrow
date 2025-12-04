@@ -26,6 +26,7 @@
 
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace {
@@ -52,14 +53,14 @@ template <typename Float>
 struct UlpDistanceUtil {
  public:
   using UIntType = typename FloatToUInt<Float>::Type;
-  static const UIntType kNumberOfBits = sizeof(Float) * 8;
-  static const UIntType kSignMask = static_cast<UIntType>(1) << (kNumberOfBits - 1);
+  static constexpr UIntType kNumberOfBits = sizeof(Float) * 8;
+  static constexpr UIntType kSignMask = static_cast<UIntType>(1) << (kNumberOfBits - 1);
 
   // This implementation is inspired by:
   // https://randomascii.wordpress.com/2012/02/25/comparing-floating-point-numbers-2012-edition/
-  static UIntType UlpDistnace(Float left, Float right) {
-    auto unsigned_left = BitCast<UIntType>(left);
-    auto unsigned_right = BitCast<UIntType>(right);
+  static UIntType UlpDistance(Float left, Float right) {
+    auto unsigned_left = util::SafeCopy<UIntType>(left);
+    auto unsigned_right = util::SafeCopy<UIntType>(right);
     auto biased_left = ConvertSignAndMagnitudeToBiased(unsigned_left);
     auto biased_right = ConvertSignAndMagnitudeToBiased(unsigned_right);
     if (biased_left > biased_right) {
@@ -69,22 +70,8 @@ struct UlpDistanceUtil {
   }
 
  private:
-  template <typename To, typename From>
-  union BitCastUnion {
-    explicit BitCastUnion(From from) : from(from) {}
-    From from;
-    To to;
-  };
-
-  template <typename To, typename From>
-  static UIntType BitCast(From value) {
-    assert(sizeof(To) == sizeof(From));
-    BitCastUnion<To, From> bit_cast(value);
-    return bit_cast.to;
-  }
-
   // Source reference (GoogleTest):
-  // https://github.com/google/googletest/blob/085af2cc08600bdb13827ca40261abcbe5048bb5/googletest/include/gtest/internal/gtest-internal.h#L336-L342
+  // https://github.com/google/googletest/blob/1b96fa13f549387b7549cc89e1a785cf143a1a50/googletest/include/gtest/internal/gtest-internal.h#L345-L368
   static UIntType ConvertSignAndMagnitudeToBiased(UIntType value) {
     if (value & kSignMask) {
       return ~value + 1;
@@ -116,7 +103,7 @@ bool WithinUlpGeneric(Float left, Float right, int n_ulps) {
   }
 
   DCHECK_GE(n_ulps, 1);
-  return UlpDistanceUtil<Float>::UlpDistnace(left, right) <=
+  return UlpDistanceUtil<Float>::UlpDistance(left, right) <=
          static_cast<uint64_t>(n_ulps);
 }
 
@@ -144,6 +131,7 @@ bool WithinUlp(double left, double right, int n_ulps) {
 void AssertWithinUlp(util::Float16 left, util::Float16 right, int n_ulps) {
   AssertWithinUlpGeneric(left, right, n_ulps);
 }
+
 void AssertWithinUlp(float left, float right, int n_ulps) {
   AssertWithinUlpGeneric(left, right, n_ulps);
 }

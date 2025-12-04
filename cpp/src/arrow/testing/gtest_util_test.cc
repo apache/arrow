@@ -36,7 +36,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/logger.h"
 
 namespace arrow::util {
 
