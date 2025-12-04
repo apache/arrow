@@ -139,6 +139,8 @@ module ArrowFormat
           end
         when Org::Apache::Arrow::Flatbuf::Binary
           type = BinaryType.singleton
+        when Org::Apache::Arrow::Flatbuf::Utf8
+          type = UTF8Type.singleton
         end
         Field.new(fb_field.name, type)
       end
@@ -159,7 +161,8 @@ module ArrowFormat
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(n_rows, validity, values)
-      when BinaryType
+      when BinaryType,
+           UTF8Type
         offsets_buffer = buffers.shift
         values_buffer = buffers.shift
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
