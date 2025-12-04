@@ -1337,4 +1337,41 @@ GARROW_AVAILABLE_IN_23_0
 GArrowListFlattenOptions *
 garrow_list_flatten_options_new(void);
 
+/**
+ * GArrowListSliceReturnFixedSizeList:
+ * @GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO: Return the same type which was passed
+ * in (default).
+ * @GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE: Explicitly return the same type which
+ * was passed in.
+ * @GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE: Return a FixedSizeListArray. If stop is
+ * after a list element's length, nulls will be appended to create the requested slice
+ * size.
+ *
+ * They correspond to the values of
+ * `std::optional<bool>` for `arrow::compute::ListSliceOptions::return_fixed_size_list`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO,
+  GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE,
+  GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE,
+} GArrowListSliceReturnFixedSizeList;
+
+#define GARROW_TYPE_LIST_SLICE_OPTIONS (garrow_list_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowListSliceOptions,
+                         garrow_list_slice_options,
+                         GARROW,
+                         LIST_SLICE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowListSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowListSliceOptions *
+garrow_list_slice_options_new(void);
+
 G_END_DECLS

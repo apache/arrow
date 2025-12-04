@@ -278,6 +278,9 @@ G_BEGIN_DECLS
  * #GArrowListFlattenOptions is a class to customize the `list_flatten`
  * function.
  *
+ * #GArrowListSliceOptions is a class to customize the `list_slice`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7410,6 +7413,215 @@ garrow_list_flatten_options_new(void)
   return GARROW_LIST_FLATTEN_OPTIONS(options);
 }
 
+enum {
+  PROP_LIST_SLICE_OPTIONS_START = 1,
+  PROP_LIST_SLICE_OPTIONS_STOP,
+  PROP_LIST_SLICE_OPTIONS_STEP,
+  PROP_LIST_SLICE_OPTIONS_RETURN_FIXED_SIZE_LIST,
+};
+
+G_DEFINE_TYPE(GArrowListSliceOptions,
+              garrow_list_slice_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_list_slice_options_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto options = garrow_list_slice_options_get_raw(GARROW_LIST_SLICE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_LIST_SLICE_OPTIONS_START:
+    options->start = g_value_get_int64(value);
+    break;
+  case PROP_LIST_SLICE_OPTIONS_STOP:
+    {
+      gint64 stop_value = g_value_get_int64(value);
+      if (stop_value == -1) {
+        options->stop = std::nullopt;
+      } else {
+        options->stop = stop_value;
+      }
+    }
+    break;
+  case PROP_LIST_SLICE_OPTIONS_STEP:
+    options->step = g_value_get_int64(value);
+    break;
+  case PROP_LIST_SLICE_OPTIONS_RETURN_FIXED_SIZE_LIST:
+    {
+      auto return_fixed_size_list_value =
+        static_cast<GArrowListSliceReturnFixedSizeList>(g_value_get_enum(value));
+      switch (return_fixed_size_list_value) {
+      case GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO:
+        options->return_fixed_size_list = std::nullopt;
+        break;
+      case GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE:
+        options->return_fixed_size_list = false;
+        break;
+      case GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE:
+        options->return_fixed_size_list = true;
+        break;
+      default:
+        options->return_fixed_size_list = std::nullopt;
+        break;
+      }
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_list_slice_options_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto options = garrow_list_slice_options_get_raw(GARROW_LIST_SLICE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_LIST_SLICE_OPTIONS_START:
+    g_value_set_int64(value, options->start);
+    break;
+  case PROP_LIST_SLICE_OPTIONS_STOP:
+    if (options->stop.has_value()) {
+      g_value_set_int64(value, options->stop.value());
+    } else {
+      g_value_set_int64(value, -1); // Sentinel value for "not set"
+    }
+    break;
+  case PROP_LIST_SLICE_OPTIONS_STEP:
+    g_value_set_int64(value, options->step);
+    break;
+  case PROP_LIST_SLICE_OPTIONS_RETURN_FIXED_SIZE_LIST:
+    if (options->return_fixed_size_list.has_value()) {
+      if (options->return_fixed_size_list.value()) {
+        g_value_set_enum(value, GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE);
+      } else {
+        g_value_set_enum(value, GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE);
+      }
+    } else {
+      // When not set (nullopt), return AUTO (default)
+      g_value_set_enum(value, GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO);
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_list_slice_options_init(GArrowListSliceOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ListSliceOptions());
+}
+
+static void
+garrow_list_slice_options_class_init(GArrowListSliceOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_list_slice_options_set_property;
+  gobject_class->get_property = garrow_list_slice_options_get_property;
+
+  arrow::compute::ListSliceOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowListSliceOptions:start:
+   *
+   * The start of list slicing.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("start",
+                            "Start",
+                            "The start of list slicing",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.start,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_LIST_SLICE_OPTIONS_START, spec);
+
+  /**
+   * GArrowListSliceOptions:stop:
+   *
+   * Optional stop of list slicing. If not set (value is -1), then slice to end.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64(
+    "stop",
+    "Stop",
+    "Optional stop of list slicing. If not set (value is -1), then slice to end",
+    -1, // Use -1 as sentinel for "not set"
+    G_MAXINT64,
+    -1, // Default to -1 (not set)
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_LIST_SLICE_OPTIONS_STOP, spec);
+
+  /**
+   * GArrowListSliceOptions:step:
+   *
+   * Slicing step.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("step",
+                            "Step",
+                            "Slicing step",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.step,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_LIST_SLICE_OPTIONS_STEP, spec);
+
+  /**
+   * GArrowListSliceOptions:return-fixed-size-list:
+   *
+   * Whether to return a FixedSizeListArray. If
+   * #GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE and stop is after a list element's
+   * length, nulls will be appended to create the requested slice size. If
+   * #GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO (default), will return whatever type
+   * it got in.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum(
+    "return-fixed-size-list",
+    "Return fixed size list",
+    "Whether to return a FixedSizeListArray. If TRUE and stop is after a list element's "
+    "length, nulls will be appended to create the requested slice size. If AUTO "
+    "(default), will return whatever type it got in",
+    GARROW_TYPE_LIST_SLICE_RETURN_FIXED_SIZE_LIST,
+    GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_LIST_SLICE_OPTIONS_RETURN_FIXED_SIZE_LIST,
+                                  spec);
+}
+
+/**
+ * garrow_list_slice_options_new:
+ *
+ * Returns: A newly created #GArrowListSliceOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowListSliceOptions *
+garrow_list_slice_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_LIST_SLICE_OPTIONS, NULL);
+  return GARROW_LIST_SLICE_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8280,5 +8492,40 @@ arrow::compute::ListFlattenOptions *
 garrow_list_flatten_options_get_raw(GArrowListFlattenOptions *options)
 {
   return static_cast<arrow::compute::ListFlattenOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowListSliceOptions *
+garrow_list_slice_options_new_raw(const arrow::compute::ListSliceOptions *arrow_options)
+{
+  gint64 stop_value = -1;
+  if (arrow_options->stop.has_value()) {
+    stop_value = arrow_options->stop.value();
+  }
+  GArrowListSliceReturnFixedSizeList return_fixed_size_list_value =
+    GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_AUTO;
+  if (arrow_options->return_fixed_size_list.has_value()) {
+    if (arrow_options->return_fixed_size_list.value()) {
+      return_fixed_size_list_value = GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE;
+    } else {
+      return_fixed_size_list_value = GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_FALSE;
+    }
+  }
+  return GARROW_LIST_SLICE_OPTIONS(g_object_new(GARROW_TYPE_LIST_SLICE_OPTIONS,
+                                                "start",
+                                                arrow_options->start,
+                                                "stop",
+                                                stop_value,
+                                                "step",
+                                                arrow_options->step,
+                                                "return-fixed-size-list",
+                                                return_fixed_size_list_value,
+                                                NULL));
+}
+
+arrow::compute::ListSliceOptions *
+garrow_list_slice_options_get_raw(GArrowListSliceOptions *options)
+{
+  return static_cast<arrow::compute::ListSliceOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
