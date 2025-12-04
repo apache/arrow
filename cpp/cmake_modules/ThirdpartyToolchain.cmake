@@ -3392,8 +3392,8 @@ endif()
 # GCS and dependencies
 
 function(build_crc32c_once)
-  list(APPEND CMAKE_MESSAGE_INDENT "crc32c: ")
-  message(STATUS "Building crc32c from source using FetchContent")
+  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
+  message(STATUS "Building CRC32C from source using FetchContent")
   set(CRC32C_VENDORED
       TRUE
       PARENT_SCOPE)
