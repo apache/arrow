@@ -289,6 +289,10 @@ G_BEGIN_DECLS
  *
  * #GArrowNullOptions is a class to customize the `is_null` function.
  *
+ * #GArrowPadOptions is a class to customize the padding functions such as
+ * `utf8_lpad`, `utf8_rpad`, `utf8_center`, `ascii_lpad`, `ascii_rpad`, and
+ * `ascii_center`.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -8107,6 +8111,147 @@ garrow_null_options_new(void)
   return GARROW_NULL_OPTIONS(g_object_new(GARROW_TYPE_NULL_OPTIONS, NULL));
 }
 
+enum {
+  PROP_PAD_OPTIONS_WIDTH = 1,
+  PROP_PAD_OPTIONS_PADDING,
+  PROP_PAD_OPTIONS_LEAN_LEFT_ON_ODD_PADDING,
+};
+
+G_DEFINE_TYPE(GArrowPadOptions, garrow_pad_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_pad_options_set_property(GObject *object,
+                                guint prop_id,
+                                const GValue *value,
+                                GParamSpec *pspec)
+{
+  auto options = garrow_pad_options_get_raw(GARROW_PAD_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PAD_OPTIONS_WIDTH:
+    options->width = g_value_get_int64(value);
+    break;
+  case PROP_PAD_OPTIONS_PADDING:
+    options->padding = g_value_get_string(value);
+    break;
+  case PROP_PAD_OPTIONS_LEAN_LEFT_ON_ODD_PADDING:
+    options->lean_left_on_odd_padding = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_pad_options_get_property(GObject *object,
+                                guint prop_id,
+                                GValue *value,
+                                GParamSpec *pspec)
+{
+  auto options = garrow_pad_options_get_raw(GARROW_PAD_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PAD_OPTIONS_WIDTH:
+    g_value_set_int64(value, options->width);
+    break;
+  case PROP_PAD_OPTIONS_PADDING:
+    g_value_set_string(value, options->padding.c_str());
+    break;
+  case PROP_PAD_OPTIONS_LEAN_LEFT_ON_ODD_PADDING:
+    g_value_set_boolean(value, options->lean_left_on_odd_padding);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_pad_options_init(GArrowPadOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::PadOptions());
+}
+
+static void
+garrow_pad_options_class_init(GArrowPadOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_pad_options_set_property;
+  gobject_class->get_property = garrow_pad_options_get_property;
+
+  arrow::compute::PadOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowPadOptions:width:
+   *
+   * The desired string length.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("width",
+                            "Width",
+                            "The desired string length",
+                            0,
+                            G_MAXINT64,
+                            options.width,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_PAD_OPTIONS_WIDTH, spec);
+
+  /**
+   * GArrowPadOptions:padding:
+   *
+   * What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII).
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string(
+    "padding",
+    "Padding",
+    "What to pad the string with. Should be one codepoint (Unicode)/byte (ASCII)",
+    options.padding.c_str(),
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_PAD_OPTIONS_PADDING, spec);
+
+  /**
+   * GArrowPadOptions:lean-left-on-odd-padding:
+   *
+   * What to do if there is an odd number of padding characters (in case of centered
+   * padding). Defaults to aligning on the left (i.e. adding the extra padding character
+   * on the right).
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_boolean("lean-left-on-odd-padding",
+                         "Lean left on odd padding",
+                         "What to do if there is an odd number of padding characters (in "
+                         "case of centered padding). Defaults to aligning on the left "
+                         "(i.e. adding the extra padding character on the right)",
+                         options.lean_left_on_odd_padding,
+                         static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_PAD_OPTIONS_LEAN_LEFT_ON_ODD_PADDING,
+                                  spec);
+}
+
+/**
+ * garrow_pad_options_new:
+ *
+ * Returns: A newly created #GArrowPadOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowPadOptions *
+garrow_pad_options_new(void)
+{
+  return GARROW_PAD_OPTIONS(g_object_new(GARROW_TYPE_PAD_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8300,6 +8445,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_null_options =
       static_cast<const arrow::compute::NullOptions *>(arrow_options);
     auto options = garrow_null_options_new_raw(arrow_null_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "PadOptions") {
+    const auto arrow_pad_options =
+      static_cast<const arrow::compute::PadOptions *>(arrow_options);
+    auto options = garrow_pad_options_new_raw(arrow_pad_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -9089,5 +9239,25 @@ arrow::compute::NullOptions *
 garrow_null_options_get_raw(GArrowNullOptions *options)
 {
   return static_cast<arrow::compute::NullOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowPadOptions *
+garrow_pad_options_new_raw(const arrow::compute::PadOptions *arrow_options)
+{
+  return GARROW_PAD_OPTIONS(g_object_new(GARROW_TYPE_PAD_OPTIONS,
+                                         "width",
+                                         arrow_options->width,
+                                         "padding",
+                                         arrow_options->padding.c_str(),
+                                         "lean-left-on-odd-padding",
+                                         arrow_options->lean_left_on_odd_padding,
+                                         NULL));
+}
+
+arrow::compute::PadOptions *
+garrow_pad_options_get_raw(GArrowPadOptions *options)
+{
+  return static_cast<arrow::compute::PadOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
