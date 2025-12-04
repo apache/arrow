@@ -280,3 +280,9 @@ garrow_rank_quantile_options_new_raw(
   const arrow::compute::RankQuantileOptions *arrow_options);
 arrow::compute::RankQuantileOptions *
 garrow_rank_quantile_options_get_raw(GArrowRankQuantileOptions *options);
+
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new_raw(
+  const arrow::compute::ReplaceSubstringOptions *arrow_options);
+arrow::compute::ReplaceSubstringOptions *
+garrow_replace_substring_options_get_raw(GArrowReplaceSubstringOptions *options);
