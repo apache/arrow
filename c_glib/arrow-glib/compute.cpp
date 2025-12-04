@@ -272,6 +272,9 @@ G_BEGIN_DECLS
  * #GArrowExtractRegexSpanOptions is a class to customize the `extract_regex_span`
  * function.
  *
+ * #GArrowJoinOptions is a class to customize the `binary_join_element_wise`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7190,6 +7193,125 @@ garrow_extract_regex_span_options_new(void)
   return GARROW_EXTRACT_REGEX_SPAN_OPTIONS(options);
 }
 
+enum {
+  PROP_JOIN_OPTIONS_NULL_HANDLING = 1,
+  PROP_JOIN_OPTIONS_NULL_REPLACEMENT,
+};
+
+G_DEFINE_TYPE(GArrowJoinOptions, garrow_join_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_join_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_join_options_get_raw(GARROW_JOIN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_JOIN_OPTIONS_NULL_HANDLING:
+    options->null_handling =
+      static_cast<arrow::compute::JoinOptions::NullHandlingBehavior>(
+        g_value_get_enum(value));
+    break;
+  case PROP_JOIN_OPTIONS_NULL_REPLACEMENT:
+    options->null_replacement = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_join_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_join_options_get_raw(GARROW_JOIN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_JOIN_OPTIONS_NULL_HANDLING:
+    g_value_set_enum(value,
+                     static_cast<GArrowJoinNullHandlingBehavior>(options->null_handling));
+    break;
+  case PROP_JOIN_OPTIONS_NULL_REPLACEMENT:
+    g_value_set_string(value, options->null_replacement.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_join_options_init(GArrowJoinOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::JoinOptions());
+}
+
+static void
+garrow_join_options_class_init(GArrowJoinOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_join_options_set_property;
+  gobject_class->get_property = garrow_join_options_get_property;
+
+  arrow::compute::JoinOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowJoinOptions:null-handling:
+   *
+   * How to handle null values. (A null separator always results in a null output.)
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_enum("null-handling",
+                      "Null handling",
+                      "How to handle null values",
+                      GARROW_TYPE_JOIN_NULL_HANDLING_BEHAVIOR,
+                      static_cast<GArrowJoinNullHandlingBehavior>(options.null_handling),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_JOIN_OPTIONS_NULL_HANDLING, spec);
+
+  /**
+   * GArrowJoinOptions:null-replacement:
+   *
+   * Replacement string for null values when null-handling is REPLACE.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string(
+    "null-replacement",
+    "Null replacement",
+    "Replacement string for null values when null-handling is REPLACE",
+    options.null_replacement.c_str(),
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_JOIN_OPTIONS_NULL_REPLACEMENT,
+                                  spec);
+}
+
+/**
+ * garrow_join_options_new:
+ *
+ * Returns: A newly created #GArrowJoinOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowJoinOptions *
+garrow_join_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_JOIN_OPTIONS, nullptr);
+  return GARROW_JOIN_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7358,6 +7480,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
       static_cast<const arrow::compute::ExtractRegexSpanOptions *>(arrow_options);
     auto options =
       garrow_extract_regex_span_options_new_raw(arrow_extract_regex_span_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "JoinOptions") {
+    const auto arrow_join_options =
+      static_cast<const arrow::compute::JoinOptions *>(arrow_options);
+    auto options = garrow_join_options_new_raw(arrow_join_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -8014,5 +8141,24 @@ arrow::compute::ExtractRegexSpanOptions *
 garrow_extract_regex_span_options_get_raw(GArrowExtractRegexSpanOptions *options)
 {
   return static_cast<arrow::compute::ExtractRegexSpanOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowJoinOptions *
+garrow_join_options_new_raw(const arrow::compute::JoinOptions *arrow_options)
+{
+  return GARROW_JOIN_OPTIONS(g_object_new(
+    GARROW_TYPE_JOIN_OPTIONS,
+    "null-handling",
+    static_cast<GArrowJoinNullHandlingBehavior>(arrow_options->null_handling),
+    "null-replacement",
+    arrow_options->null_replacement.c_str(),
+    nullptr));
+}
+
+arrow::compute::JoinOptions *
+garrow_join_options_get_raw(GArrowJoinOptions *options)
+{
+  return static_cast<arrow::compute::JoinOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
