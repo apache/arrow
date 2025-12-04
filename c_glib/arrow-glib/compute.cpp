@@ -336,6 +336,9 @@ G_BEGIN_DECLS
  *
  * #GArrowWinsorizeOptions is a class to customize the `winsorize` function.
  *
+ * #GArrowZeroFillOptions is a class to customize the `utf8_zero_fill`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -10364,6 +10367,157 @@ garrow_winsorize_options_new(void)
   return GARROW_WINSORIZE_OPTIONS(g_object_new(GARROW_TYPE_WINSORIZE_OPTIONS, nullptr));
 }
 
+enum {
+  PROP_ZERO_FILL_OPTIONS_WIDTH = 1,
+  PROP_ZERO_FILL_OPTIONS_PADDING,
+};
+
+typedef struct _GArrowZeroFillOptionsPrivate GArrowZeroFillOptionsPrivate;
+struct _GArrowZeroFillOptionsPrivate
+{
+  gchar *padding;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowZeroFillOptions,
+                           garrow_zero_fill_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object)                                     \
+  static_cast<GArrowZeroFillOptionsPrivate *>(                                           \
+    garrow_zero_fill_options_get_instance_private(GARROW_ZERO_FILL_OPTIONS(object)))
+
+static void
+garrow_zero_fill_options_dispose(GObject *object)
+{
+  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
+  if (priv->padding) {
+    g_free(priv->padding);
+    priv->padding = nullptr;
+  }
+  G_OBJECT_CLASS(garrow_zero_fill_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_zero_fill_options_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto options = garrow_zero_fill_options_get_raw(GARROW_ZERO_FILL_OPTIONS(object));
+  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_ZERO_FILL_OPTIONS_WIDTH:
+    options->width = g_value_get_int64(value);
+    break;
+  case PROP_ZERO_FILL_OPTIONS_PADDING:
+    {
+      const gchar *padding = g_value_get_string(value);
+      if (priv->padding) {
+        g_free(priv->padding);
+      }
+      priv->padding = g_strdup(padding);
+      options->padding = padding ? padding : "";
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_zero_fill_options_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto options = garrow_zero_fill_options_get_raw(GARROW_ZERO_FILL_OPTIONS(object));
+  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_ZERO_FILL_OPTIONS_WIDTH:
+    g_value_set_int64(value, options->width);
+    break;
+  case PROP_ZERO_FILL_OPTIONS_PADDING:
+    g_value_set_string(value, priv->padding ? priv->padding : options->padding.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_zero_fill_options_init(GArrowZeroFillOptions *object)
+{
+  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
+  priv->padding = nullptr;
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::ZeroFillOptions());
+  // Sync the private string with the C++ options
+  auto arrow_options = garrow_zero_fill_options_get_raw(GARROW_ZERO_FILL_OPTIONS(object));
+  priv->padding = g_strdup(arrow_options->padding.c_str());
+}
+
+static void
+garrow_zero_fill_options_class_init(GArrowZeroFillOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_zero_fill_options_dispose;
+  gobject_class->set_property = garrow_zero_fill_options_set_property;
+  gobject_class->get_property = garrow_zero_fill_options_get_property;
+
+  arrow::compute::ZeroFillOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowZeroFillOptions:width:
+   *
+   * The desired string length.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("width",
+                            "Width",
+                            "The desired string length",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.width,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ZERO_FILL_OPTIONS_WIDTH, spec);
+
+  /**
+   * GArrowZeroFillOptions:padding:
+   *
+   * What to pad the string with. Should be one codepoint (Unicode).
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_string("padding",
+                        "Padding",
+                        "What to pad the string with. Should be one codepoint (Unicode)",
+                        options.padding.c_str(),
+                        static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ZERO_FILL_OPTIONS_PADDING, spec);
+}
+
+/**
+ * garrow_zero_fill_options_new:
+ *
+ * Returns: A newly created #GArrowZeroFillOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new(void)
+{
+  return GARROW_ZERO_FILL_OPTIONS(g_object_new(GARROW_TYPE_ZERO_FILL_OPTIONS, nullptr));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -10638,6 +10792,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_winsorize_options =
       static_cast<const arrow::compute::WinsorizeOptions *>(arrow_options);
     auto options = garrow_winsorize_options_new_raw(arrow_winsorize_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ZeroFillOptions") {
+    const auto arrow_zero_fill_options =
+      static_cast<const arrow::compute::ZeroFillOptions *>(arrow_options);
+    auto options = garrow_zero_fill_options_new_raw(arrow_zero_fill_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -11754,5 +11913,23 @@ arrow::compute::WinsorizeOptions *
 garrow_winsorize_options_get_raw(GArrowWinsorizeOptions *options)
 {
   return static_cast<arrow::compute::WinsorizeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new_raw(const arrow::compute::ZeroFillOptions *arrow_options)
+{
+  return GARROW_ZERO_FILL_OPTIONS(g_object_new(GARROW_TYPE_ZERO_FILL_OPTIONS,
+                                               "width",
+                                               arrow_options->width,
+                                               "padding",
+                                               arrow_options->padding.c_str(),
+                                               nullptr));
+}
+
+arrow::compute::ZeroFillOptions *
+garrow_zero_fill_options_get_raw(GArrowZeroFillOptions *options)
+{
+  return static_cast<arrow::compute::ZeroFillOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

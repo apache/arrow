@@ -333,3 +333,8 @@ GArrowWinsorizeOptions *
 garrow_winsorize_options_new_raw(const arrow::compute::WinsorizeOptions *arrow_options);
 arrow::compute::WinsorizeOptions *
 garrow_winsorize_options_get_raw(GArrowWinsorizeOptions *options);
+
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new_raw(const arrow::compute::ZeroFillOptions *arrow_options);
+arrow::compute::ZeroFillOptions *
+garrow_zero_fill_options_get_raw(GArrowZeroFillOptions *options);
