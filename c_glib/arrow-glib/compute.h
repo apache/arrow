@@ -1390,4 +1390,38 @@ GARROW_AVAILABLE_IN_23_0
 GArrowMakeStructOptions *
 garrow_make_struct_options_new(void);
 
+/**
+ * GArrowMapLookupOccurrence:
+ * @GARROW_MAP_LOOKUP_OCCURRENCE_FIRST: Return the first matching value.
+ * @GARROW_MAP_LOOKUP_OCCURRENCE_LAST: Return the last matching value.
+ * @GARROW_MAP_LOOKUP_OCCURRENCE_ALL: Return all matching values.
+ *
+ * They correspond to the values of
+ * `arrow::compute::MapLookupOptions::Occurrence`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_MAP_LOOKUP_OCCURRENCE_FIRST,
+  GARROW_MAP_LOOKUP_OCCURRENCE_LAST,
+  GARROW_MAP_LOOKUP_OCCURRENCE_ALL,
+} GArrowMapLookupOccurrence;
+
+#define GARROW_TYPE_MAP_LOOKUP_OPTIONS (garrow_map_lookup_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowMapLookupOptions,
+                         garrow_map_lookup_options,
+                         GARROW,
+                         MAP_LOOKUP_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowMapLookupOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowMapLookupOptions *
+garrow_map_lookup_options_new(GArrowScalar *query_key,
+                              GArrowMapLookupOccurrence occurrence);
+
 G_END_DECLS
