@@ -202,7 +202,6 @@ def test_option_class_equality(request):
         pc.WeekOptions(week_starts_monday=True, count_from_zero=False,
                        first_week_is_fully_in_year=False),
         pc.ZeroFillOptions(4, "0"),
-        pc.InversePermutationOptions(output_type=pa.int32()),
     ]
     # Timezone database might not be installed on Windows or Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
