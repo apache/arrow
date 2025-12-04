@@ -59,7 +59,9 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
     BlockingQueue<std::pair<Result<FlightStreamChunk>,
-                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=] {
+                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=]()
+        -> std::optional<
+            std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>> {
       auto result = stream_reader_ptr->Next();
       bool is_not_ok = !result.ok();
       bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
@@ -72,8 +74,7 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
         return std::make_optional(
             std::make_pair(std::move(result), temp_flight_sql_client));
       } else {
-        return std::optional<std::pair<arrow::Result<FlightStreamChunk>,
-                                       std::shared_ptr<FlightSqlClient>>>{};
+        return std::nullopt;
       }
     };
     queue_.AddProducer(std::move(supplier));
