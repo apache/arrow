@@ -252,3 +252,8 @@ GArrowNullOptions *
 garrow_null_options_new_raw(const arrow::compute::NullOptions *arrow_options);
 arrow::compute::NullOptions *
 garrow_null_options_get_raw(GArrowNullOptions *options);
+
+GArrowPadOptions *
+garrow_pad_options_new_raw(const arrow::compute::PadOptions *arrow_options);
+arrow::compute::PadOptions *
+garrow_pad_options_get_raw(GArrowPadOptions *options);
