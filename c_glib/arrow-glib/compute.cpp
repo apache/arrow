@@ -304,6 +304,9 @@ G_BEGIN_DECLS
  * #GArrowPivotWiderOptions is a class to customize the `pivot_wider` and
  * `hash_pivot_wider` functions.
  *
+ * #GArrowRankQuantileOptions is a class to customize the `rank_quantile` and
+ * `rank_normal` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -8642,6 +8645,155 @@ garrow_pivot_wider_options_new(void)
   return GARROW_PIVOT_WIDER_OPTIONS(g_object_new(GARROW_TYPE_PIVOT_WIDER_OPTIONS, NULL));
 }
 
+enum {
+  PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT = 1,
+};
+
+G_DEFINE_TYPE(GArrowRankQuantileOptions,
+              garrow_rank_quantile_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_rank_quantile_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_rank_quantile_options_get_raw(GARROW_RANK_QUANTILE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT:
+    options->null_placement =
+      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_rank_quantile_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_rank_quantile_options_get_raw(GARROW_RANK_QUANTILE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT:
+    g_value_set_enum(value, static_cast<GArrowNullPlacement>(options->null_placement));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_rank_quantile_options_init(GArrowRankQuantileOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::RankQuantileOptions());
+}
+
+static void
+garrow_rank_quantile_options_class_init(GArrowRankQuantileOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_rank_quantile_options_set_property;
+  gobject_class->get_property = garrow_rank_quantile_options_get_property;
+
+  auto options = arrow::compute::RankQuantileOptions::Defaults();
+
+  GParamSpec *spec;
+  /**
+   * GArrowRankQuantileOptions:null-placement:
+   *
+   * Whether nulls and NaNs are placed at the start or at the end.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("null-placement",
+                           "Null placement",
+                           "Whether nulls and NaNs are placed "
+                           "at the start or at the end.",
+                           GARROW_TYPE_NULL_PLACEMENT,
+                           static_cast<GArrowNullPlacement>(options.null_placement),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT,
+                                  spec);
+}
+
+/**
+ * garrow_rank_quantile_options_new:
+ *
+ * Returns: A newly created #GArrowRankQuantileOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new(void)
+{
+  return GARROW_RANK_QUANTILE_OPTIONS(
+    g_object_new(GARROW_TYPE_RANK_QUANTILE_OPTIONS, nullptr));
+}
+
+/**
+ * garrow_rank_quantile_options_get_sort_keys:
+ * @options: A #GArrowRankQuantileOptions.
+ *
+ * Returns: (transfer full) (element-type GArrowSortKey):
+ *   The sort keys to be used.
+ *
+ * Since: 23.0.0
+ */
+GList *
+garrow_rank_quantile_options_get_sort_keys(GArrowRankQuantileOptions *options)
+{
+  auto arrow_options = garrow_rank_quantile_options_get_raw(options);
+  return garrow_sort_keys_new_raw(arrow_options->sort_keys);
+}
+
+/**
+ * garrow_rank_quantile_options_set_sort_keys:
+ * @options: A #GArrowRankQuantileOptions.
+ * @sort_keys: (element-type GArrowSortKey): The sort keys to be used.
+ *
+ * Set sort keys to be used.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_rank_quantile_options_set_sort_keys(GArrowRankQuantileOptions *options,
+                                           GList *sort_keys)
+{
+  auto arrow_options = garrow_rank_quantile_options_get_raw(options);
+  garrow_raw_sort_keys_set(arrow_options->sort_keys, sort_keys);
+}
+
+/**
+ * garrow_rank_quantile_options_add_sort_key:
+ * @options: A #GArrowRankQuantileOptions.
+ * @sort_key: The sort key to be added.
+ *
+ * Add a sort key to be used.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_rank_quantile_options_add_sort_key(GArrowRankQuantileOptions *options,
+                                          GArrowSortKey *sort_key)
+{
+  auto arrow_options = garrow_rank_quantile_options_get_raw(options);
+  garrow_raw_sort_keys_add(arrow_options->sort_keys, sort_key);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8860,6 +9012,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_pivot_wider_options =
       static_cast<const arrow::compute::PivotWiderOptions *>(arrow_options);
     auto options = garrow_pivot_wider_options_new_raw(arrow_pivot_wider_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "RankQuantileOptions") {
+    const auto arrow_rank_quantile_options =
+      static_cast<const arrow::compute::RankQuantileOptions *>(arrow_options);
+    auto options = garrow_rank_quantile_options_new_raw(arrow_rank_quantile_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -9745,5 +9902,26 @@ arrow::compute::PivotWiderOptions *
 garrow_pivot_wider_options_get_raw(GArrowPivotWiderOptions *options)
 {
   return static_cast<arrow::compute::PivotWiderOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new_raw(
+  const arrow::compute::RankQuantileOptions *arrow_options)
+{
+  auto options =
+    GARROW_RANK_QUANTILE_OPTIONS(g_object_new(GARROW_TYPE_RANK_QUANTILE_OPTIONS,
+                                              "null-placement",
+                                              arrow_options->null_placement,
+                                              nullptr));
+  auto arrow_new_options = garrow_rank_quantile_options_get_raw(options);
+  arrow_new_options->sort_keys = arrow_options->sort_keys;
+  return options;
+}
+
+arrow::compute::RankQuantileOptions *
+garrow_rank_quantile_options_get_raw(GArrowRankQuantileOptions *options)
+{
+  return static_cast<arrow::compute::RankQuantileOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

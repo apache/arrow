@@ -1528,4 +1528,31 @@ GARROW_AVAILABLE_IN_23_0
 GArrowPivotWiderOptions *
 garrow_pivot_wider_options_new(void);
 
+#define GARROW_TYPE_RANK_QUANTILE_OPTIONS (garrow_rank_quantile_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRankQuantileOptions,
+                         garrow_rank_quantile_options,
+                         GARROW,
+                         RANK_QUANTILE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRankQuantileOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new(void);
+GARROW_AVAILABLE_IN_23_0
+GList *
+garrow_rank_quantile_options_get_sort_keys(GArrowRankQuantileOptions *options);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_rank_quantile_options_set_sort_keys(GArrowRankQuantileOptions *options,
+                                           GList *sort_keys);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_rank_quantile_options_add_sort_key(GArrowRankQuantileOptions *options,
+                                          GArrowSortKey *sort_key);
+
 G_END_DECLS
