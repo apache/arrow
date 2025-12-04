@@ -231,3 +231,8 @@ GArrowMapLookupOptions *
 garrow_map_lookup_options_new_raw(const arrow::compute::MapLookupOptions *arrow_options);
 arrow::compute::MapLookupOptions *
 garrow_map_lookup_options_get_raw(GArrowMapLookupOptions *options);
+
+GArrowListSliceOptions *
+garrow_list_slice_options_new_raw(const arrow::compute::ListSliceOptions *arrow_options);
+arrow::compute::ListSliceOptions *
+garrow_list_slice_options_get_raw(GArrowListSliceOptions *options);
