@@ -331,6 +331,9 @@ G_BEGIN_DECLS
  * #GArrowTDigestOptions is a class to customize the `tdigest` and
  * `hash_tdigest` functions.
  *
+ * #GArrowTrimOptions is a class to customize the `utf8_trim`, `utf8_ltrim`,
+ * `utf8_rtrim`, `ascii_trim`, `ascii_ltrim`, and `ascii_rtrim` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -10229,6 +10232,134 @@ garrow_tdigest_options_set_qs(GArrowTDigestOptions *options, const gdouble *qs, 
   }
 }
 
+enum {
+  PROP_TRIM_OPTIONS_CHARACTERS = 1,
+};
+
+typedef struct _GArrowTrimOptionsPrivate GArrowTrimOptionsPrivate;
+struct _GArrowTrimOptionsPrivate
+{
+  gchar *characters;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowTrimOptions,
+                           garrow_trim_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_TRIM_OPTIONS_GET_PRIVATE(object)                                          \
+  static_cast<GArrowTrimOptionsPrivate *>(                                               \
+    garrow_trim_options_get_instance_private(GARROW_TRIM_OPTIONS(object)))
+
+static void
+garrow_trim_options_dispose(GObject *object)
+{
+  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
+  if (priv->characters) {
+    g_free(priv->characters);
+    priv->characters = nullptr;
+  }
+  G_OBJECT_CLASS(garrow_trim_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_trim_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_trim_options_get_raw(GARROW_TRIM_OPTIONS(object));
+  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TRIM_OPTIONS_CHARACTERS:
+    {
+      const gchar *characters = g_value_get_string(value);
+      if (priv->characters) {
+        g_free(priv->characters);
+      }
+      priv->characters = g_strdup(characters);
+      options->characters = characters ? characters : "";
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_trim_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_trim_options_get_raw(GARROW_TRIM_OPTIONS(object));
+  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_TRIM_OPTIONS_CHARACTERS:
+    g_value_set_string(value,
+                       priv->characters ? priv->characters : options->characters.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_trim_options_init(GArrowTrimOptions *object)
+{
+  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
+  priv->characters = nullptr;
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::TrimOptions());
+  // Sync the private string with the C++ options
+  auto arrow_options = garrow_trim_options_get_raw(GARROW_TRIM_OPTIONS(object));
+  priv->characters = g_strdup(arrow_options->characters.c_str());
+}
+
+static void
+garrow_trim_options_class_init(GArrowTrimOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_trim_options_dispose;
+  gobject_class->set_property = garrow_trim_options_set_property;
+  gobject_class->get_property = garrow_trim_options_get_property;
+
+  arrow::compute::TrimOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowTrimOptions:characters:
+   *
+   * The individual characters to be trimmed from the string.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("characters",
+                             "Characters",
+                             "The individual characters to be trimmed from the string",
+                             options.characters.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_TRIM_OPTIONS_CHARACTERS, spec);
+}
+
+/**
+ * garrow_trim_options_new:
+ *
+ * Returns: A newly created #GArrowTrimOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowTrimOptions *
+garrow_trim_options_new(void)
+{
+  return GARROW_TRIM_OPTIONS(g_object_new(GARROW_TYPE_TRIM_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -10498,6 +10629,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_tdigest_options =
       static_cast<const arrow::compute::TDigestOptions *>(arrow_options);
     auto options = garrow_tdigest_options_new_raw(arrow_tdigest_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "TrimOptions") {
+    const auto arrow_trim_options =
+      static_cast<const arrow::compute::TrimOptions *>(arrow_options);
+    auto options = garrow_trim_options_new_raw(arrow_trim_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -11595,5 +11731,21 @@ arrow::compute::TDigestOptions *
 garrow_tdigest_options_get_raw(GArrowTDigestOptions *options)
 {
   return static_cast<arrow::compute::TDigestOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowTrimOptions *
+garrow_trim_options_new_raw(const arrow::compute::TrimOptions *arrow_options)
+{
+  return GARROW_TRIM_OPTIONS(g_object_new(GARROW_TYPE_TRIM_OPTIONS,
+                                          "characters",
+                                          arrow_options->characters.c_str(),
+                                          NULL));
+}
+
+arrow::compute::TrimOptions *
+garrow_trim_options_get_raw(GArrowTrimOptions *options)
+{
+  return static_cast<arrow::compute::TrimOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
