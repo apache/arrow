@@ -457,6 +457,22 @@ class StaticVectorImpl {
     }
   }
 
+  // Unsafe resize without initialization - use only when you will immediately
+  // overwrite the memory (e.g., before memcpy). Only safe for POD types.
+  void UnsafeResize(size_t n) {
+    const size_t old_size = storage_.size_;
+    if (n > storage_.size_) {
+      storage_.bump_size(n - old_size);
+      // No construction - caller must initialize!
+    } else {
+      auto* p = storage_.storage_ptr();
+      for (size_t i = n; i < old_size; ++i) {
+        p[i].destroy();
+      }
+      storage_.reduce_size(old_size - n);
+    }
+  }
+
  private:
   template <typename InputIt>
   void init_by_copying(size_t n, InputIt src) {
