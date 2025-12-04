@@ -319,3 +319,8 @@ GArrowSliceOptions *
 garrow_slice_options_new_raw(const arrow::compute::SliceOptions *arrow_options);
 arrow::compute::SliceOptions *
 garrow_slice_options_get_raw(GArrowSliceOptions *options);
+
+GArrowSplitOptions *
+garrow_split_options_new_raw(const arrow::compute::SplitOptions *arrow_options);
+arrow::compute::SplitOptions *
+garrow_split_options_get_raw(GArrowSplitOptions *options);
