@@ -320,6 +320,8 @@ G_BEGIN_DECLS
  *
  * #GArrowSelectKOptions is a class to customize the `select_k_unstable` function.
  *
+ * #GArrowSkewOptions is a class to customize the `skew` and `kurtosis` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -9618,6 +9620,143 @@ garrow_select_k_options_add_sort_key(GArrowSelectKOptions *options,
   garrow_raw_sort_keys_add(arrow_options->sort_keys, sort_key);
 }
 
+enum {
+  PROP_SKEW_OPTIONS_SKIP_NULLS = 1,
+  PROP_SKEW_OPTIONS_BIASED,
+  PROP_SKEW_OPTIONS_MIN_COUNT,
+};
+
+G_DEFINE_TYPE(GArrowSkewOptions, garrow_skew_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_skew_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_skew_options_get_raw(GARROW_SKEW_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SKEW_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_SKEW_OPTIONS_BIASED:
+    options->biased = g_value_get_boolean(value);
+    break;
+  case PROP_SKEW_OPTIONS_MIN_COUNT:
+    options->min_count = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_skew_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_skew_options_get_raw(GARROW_SKEW_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SKEW_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  case PROP_SKEW_OPTIONS_BIASED:
+    g_value_set_boolean(value, options->biased);
+    break;
+  case PROP_SKEW_OPTIONS_MIN_COUNT:
+    g_value_set_uint(value, options->min_count);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_skew_options_init(GArrowSkewOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::SkewOptions());
+}
+
+static void
+garrow_skew_options_class_init(GArrowSkewOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_skew_options_set_property;
+  gobject_class->get_property = garrow_skew_options_get_property;
+
+  arrow::compute::SkewOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowSkewOptions:skip-nulls:
+   *
+   * Whether NULLs are skipped or not.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip NULLs",
+                              "Whether NULLs are skipped or not",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SKEW_OPTIONS_SKIP_NULLS, spec);
+
+  /**
+   * GArrowSkewOptions:biased:
+   *
+   * Whether the calculated value is biased.
+   * If false, the value computed includes a correction factor to reduce bias.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_boolean("biased",
+                         "Biased",
+                         "Whether the calculated value is biased. If false, the value "
+                         "computed includes a correction factor to reduce bias",
+                         options.biased,
+                         static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SKEW_OPTIONS_BIASED, spec);
+
+  /**
+   * GArrowSkewOptions:min-count:
+   *
+   * If less than this many non-null values are observed, emit null.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_uint("min-count",
+                      "Min count",
+                      "If less than this many non-null values are observed, emit null",
+                      0,
+                      G_MAXUINT,
+                      options.min_count,
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SKEW_OPTIONS_MIN_COUNT, spec);
+}
+
+/**
+ * garrow_skew_options_new:
+ *
+ * Returns: A newly created #GArrowSkewOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowSkewOptions *
+garrow_skew_options_new(void)
+{
+  return GARROW_SKEW_OPTIONS(g_object_new(GARROW_TYPE_SKEW_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -9867,6 +10006,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_select_k_options =
       static_cast<const arrow::compute::SelectKOptions *>(arrow_options);
     auto options = garrow_select_k_options_new_raw(arrow_select_k_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "SkewOptions") {
+    const auto arrow_skew_options =
+      static_cast<const arrow::compute::SkewOptions *>(arrow_options);
+    auto options = garrow_skew_options_new_raw(arrow_skew_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -10877,5 +11021,26 @@ arrow::compute::SelectKOptions *
 garrow_select_k_options_get_raw(GArrowSelectKOptions *options)
 {
   return static_cast<arrow::compute::SelectKOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowSkewOptions *
+garrow_skew_options_new_raw(const arrow::compute::SkewOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_SKEW_OPTIONS,
+                              "skip-nulls",
+                              arrow_options->skip_nulls,
+                              "biased",
+                              arrow_options->biased,
+                              "min-count",
+                              arrow_options->min_count,
+                              NULL);
+  return GARROW_SKEW_OPTIONS(options);
+}
+
+arrow::compute::SkewOptions *
+garrow_skew_options_get_raw(GArrowSkewOptions *options)
+{
+  return static_cast<arrow::compute::SkewOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

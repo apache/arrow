@@ -1683,4 +1683,17 @@ void
 garrow_select_k_options_add_sort_key(GArrowSelectKOptions *options,
                                      GArrowSortKey *sort_key);
 
+#define GARROW_TYPE_SKEW_OPTIONS (garrow_skew_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSkewOptions, garrow_skew_options, GARROW, SKEW_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSkewOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSkewOptions *
+garrow_skew_options_new(void);
+
 G_END_DECLS
