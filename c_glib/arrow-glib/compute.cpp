@@ -279,6 +279,9 @@ G_BEGIN_DECLS
  * #GArrowListFlattenOptions is a class to customize the `list_flatten`
  * function.
  *
+ * #GArrowMapLookupOptions is a class to customize the `map_lookup`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7498,6 +7501,169 @@ garrow_list_flatten_options_new(void)
   return GARROW_LIST_FLATTEN_OPTIONS(options);
 }
 
+typedef struct GArrowMapLookupOptionsPrivate_
+{
+  GArrowScalar *query_key;
+} GArrowMapLookupOptionsPrivate;
+
+enum {
+  PROP_MAP_LOOKUP_OPTIONS_QUERY_KEY = 1,
+  PROP_MAP_LOOKUP_OPTIONS_OCCURRENCE,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowMapLookupOptions,
+                           garrow_map_lookup_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_MAP_LOOKUP_OPTIONS_GET_PRIVATE(object)                                    \
+  static_cast<GArrowMapLookupOptionsPrivate *>(                                          \
+    garrow_map_lookup_options_get_instance_private(GARROW_MAP_LOOKUP_OPTIONS(object)))
+
+static void
+garrow_map_lookup_options_dispose(GObject *object)
+{
+  auto priv = GARROW_MAP_LOOKUP_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->query_key) {
+    g_object_unref(priv->query_key);
+    priv->query_key = NULL;
+  }
+
+  G_OBJECT_CLASS(garrow_map_lookup_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_map_lookup_options_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_MAP_LOOKUP_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_map_lookup_options_get_raw(GARROW_MAP_LOOKUP_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_MAP_LOOKUP_OPTIONS_QUERY_KEY:
+    {
+      auto query_key = g_value_get_object(value);
+      if (priv->query_key != query_key) {
+        if (priv->query_key) {
+          g_object_unref(priv->query_key);
+        }
+        priv->query_key = GARROW_SCALAR(query_key);
+        if (priv->query_key) {
+          g_object_ref(priv->query_key);
+          options->query_key = garrow_scalar_get_raw(priv->query_key);
+        } else {
+          options->query_key = nullptr;
+        }
+      }
+    }
+    break;
+  case PROP_MAP_LOOKUP_OPTIONS_OCCURRENCE:
+    options->occurrence =
+      static_cast<arrow::compute::MapLookupOptions::Occurrence>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_map_lookup_options_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_MAP_LOOKUP_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_map_lookup_options_get_raw(GARROW_MAP_LOOKUP_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_MAP_LOOKUP_OPTIONS_QUERY_KEY:
+    g_value_set_object(value, priv->query_key);
+    break;
+  case PROP_MAP_LOOKUP_OPTIONS_OCCURRENCE:
+    g_value_set_enum(value, static_cast<GArrowMapLookupOccurrence>(options->occurrence));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_map_lookup_options_init(GArrowMapLookupOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::MapLookupOptions());
+}
+
+static void
+garrow_map_lookup_options_class_init(GArrowMapLookupOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_map_lookup_options_dispose;
+  gobject_class->set_property = garrow_map_lookup_options_set_property;
+  gobject_class->get_property = garrow_map_lookup_options_get_property;
+
+  arrow::compute::MapLookupOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowMapLookupOptions:query-key:
+   *
+   * The key to lookup in the map.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_object("query-key",
+                             "Query key",
+                             "The key to lookup in the map",
+                             GARROW_TYPE_SCALAR,
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MAP_LOOKUP_OPTIONS_QUERY_KEY, spec);
+
+  /**
+   * GArrowMapLookupOptions:occurrence:
+   *
+   * Whether to return the first, last, or all matching values.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("occurrence",
+                           "Occurrence",
+                           "Whether to return the first, last, or all matching values",
+                           GARROW_TYPE_MAP_LOOKUP_OCCURRENCE,
+                           static_cast<GArrowMapLookupOccurrence>(options.occurrence),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_MAP_LOOKUP_OPTIONS_OCCURRENCE,
+                                  spec);
+}
+
+/**
+ * garrow_map_lookup_options_new:
+ * @query_key: (nullable): A #GArrowScalar to be looked up.
+ * @occurrence: A #GArrowMapLookupOccurrence.
+ *
+ * Returns: A newly created #GArrowMapLookupOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowMapLookupOptions *
+garrow_map_lookup_options_new(GArrowScalar *query_key,
+                              GArrowMapLookupOccurrence occurrence)
+{
+  return GARROW_MAP_LOOKUP_OPTIONS(g_object_new(GARROW_TYPE_MAP_LOOKUP_OPTIONS,
+                                                "query-key",
+                                                query_key,
+                                                "occurrence",
+                                                occurrence,
+                                                NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7676,6 +7842,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_list_flatten_options =
       static_cast<const arrow::compute::ListFlattenOptions *>(arrow_options);
     auto options = garrow_list_flatten_options_new_raw(arrow_list_flatten_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "MapLookupOptions") {
+    const auto arrow_map_lookup_options =
+      static_cast<const arrow::compute::MapLookupOptions *>(arrow_options);
+    auto options = garrow_map_lookup_options_new_raw(arrow_map_lookup_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -8368,5 +8539,30 @@ arrow::compute::ListFlattenOptions *
 garrow_list_flatten_options_get_raw(GArrowListFlattenOptions *options)
 {
   return static_cast<arrow::compute::ListFlattenOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowMapLookupOptions *
+garrow_map_lookup_options_new_raw(const arrow::compute::MapLookupOptions *arrow_options)
+{
+  GArrowScalar *query_key = nullptr;
+  if (arrow_options->query_key) {
+    auto arrow_query_key = arrow_options->query_key;
+    query_key = garrow_scalar_new_raw(&arrow_query_key);
+  }
+  GArrowMapLookupOccurrence occurrence =
+    static_cast<GArrowMapLookupOccurrence>(arrow_options->occurrence);
+  return GARROW_MAP_LOOKUP_OPTIONS(g_object_new(GARROW_TYPE_MAP_LOOKUP_OPTIONS,
+                                                "query-key",
+                                                query_key,
+                                                "occurrence",
+                                                occurrence,
+                                                NULL));
+}
+
+arrow::compute::MapLookupOptions *
+garrow_map_lookup_options_get_raw(GArrowMapLookupOptions *options)
+{
+  return static_cast<arrow::compute::MapLookupOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
