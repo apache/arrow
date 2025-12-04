@@ -1459,4 +1459,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowPadOptions *
 garrow_pad_options_new(void);
 
+#define GARROW_TYPE_PAIRWISE_OPTIONS (garrow_pairwise_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPairwiseOptions,
+                         garrow_pairwise_options,
+                         GARROW,
+                         PAIRWISE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPairwiseOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPairwiseOptions *
+garrow_pairwise_options_new(void);
+
 G_END_DECLS
