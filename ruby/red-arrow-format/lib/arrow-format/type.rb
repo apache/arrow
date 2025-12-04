@@ -103,7 +103,6 @@ module ArrowFormat
       end
     end
 
-    attr_reader :name
     def initialize
       super("Binary")
     end
@@ -127,6 +126,18 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
+    end
+  end
+
+  class ListType < Type
+    attr_reader :child
+    def initialize(child)
+      super("List")
+      @child = child
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, child)
+      ListArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
   end
 end
