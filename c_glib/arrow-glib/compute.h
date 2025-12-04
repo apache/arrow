@@ -1424,4 +1424,17 @@ GArrowMapLookupOptions *
 garrow_map_lookup_options_new(GArrowScalar *query_key,
                               GArrowMapLookupOccurrence occurrence);
 
+#define GARROW_TYPE_MODE_OPTIONS (garrow_mode_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowModeOptions, garrow_mode_options, GARROW, MODE_OPTIONS, GArrowFunctionOptions)
+struct _GArrowModeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowModeOptions *
+garrow_mode_options_new(void);
+
 G_END_DECLS
