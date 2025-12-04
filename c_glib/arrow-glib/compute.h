@@ -1374,4 +1374,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowListSliceOptions *
 garrow_list_slice_options_new(void);
 
+#define GARROW_TYPE_MAKE_STRUCT_OPTIONS (garrow_make_struct_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowMakeStructOptions,
+                         garrow_make_struct_options,
+                         GARROW,
+                         MAKE_STRUCT_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowMakeStructOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowMakeStructOptions *
+garrow_make_struct_options_new(void);
+
 G_END_DECLS

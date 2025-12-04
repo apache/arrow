@@ -281,6 +281,9 @@ G_BEGIN_DECLS
  * #GArrowListSliceOptions is a class to customize the `list_slice`
  * function.
  *
+ * #GArrowMakeStructOptions is a class to customize the `make_struct`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7622,6 +7625,120 @@ garrow_list_slice_options_new(void)
   return GARROW_LIST_SLICE_OPTIONS(options);
 }
 
+enum {
+  PROP_MAKE_STRUCT_OPTIONS_FIELD_NAMES = 1,
+};
+
+G_DEFINE_TYPE(GArrowMakeStructOptions,
+              garrow_make_struct_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_make_struct_options_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(object)));
+
+  switch (prop_id) {
+  case PROP_MAKE_STRUCT_OPTIONS_FIELD_NAMES:
+    {
+      auto strv = static_cast<gchar **>(g_value_get_boxed(value));
+      options->field_names.clear();
+      if (strv) {
+        for (gchar **p = strv; *p; ++p) {
+          options->field_names.emplace_back(*p);
+        }
+      }
+      // Keep nullability and metadata vectors in sync with names.
+      options->field_nullability.assign(options->field_names.size(), true);
+      options->field_metadata.assign(options->field_names.size(), NULLPTR);
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_make_struct_options_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(object)));
+
+  switch (prop_id) {
+  case PROP_MAKE_STRUCT_OPTIONS_FIELD_NAMES:
+    {
+      const auto &names = options->field_names;
+      auto strv = static_cast<gchar **>(g_new0(gchar *, names.size() + 1));
+      for (gsize i = 0; i < names.size(); ++i) {
+        strv[i] = g_strdup(names[i].c_str());
+      }
+      g_value_take_boxed(value, strv);
+    }
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_make_struct_options_init(GArrowMakeStructOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::MakeStructOptions());
+}
+
+static void
+garrow_make_struct_options_class_init(GArrowMakeStructOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_make_struct_options_set_property;
+  gobject_class->get_property = garrow_make_struct_options_get_property;
+
+  arrow::compute::MakeStructOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowMakeStructOptions:field-names:
+   *
+   * Names for wrapped columns.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boxed("field-names",
+                            "Field names",
+                            "Names for wrapped columns",
+                            G_TYPE_STRV,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_MAKE_STRUCT_OPTIONS_FIELD_NAMES,
+                                  spec);
+}
+
+/**
+ * garrow_make_struct_options_new:
+ *
+ * Returns: A newly created #GArrowMakeStructOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowMakeStructOptions *
+garrow_make_struct_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, NULL);
+  return GARROW_MAKE_STRUCT_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7800,6 +7917,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_list_flatten_options =
       static_cast<const arrow::compute::ListFlattenOptions *>(arrow_options);
     auto options = garrow_list_flatten_options_new_raw(arrow_list_flatten_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "MakeStructOptions") {
+    const auto arrow_make_struct_options =
+      static_cast<const arrow::compute::MakeStructOptions *>(arrow_options);
+    auto options = garrow_make_struct_options_new_raw(arrow_make_struct_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -8527,5 +8649,23 @@ arrow::compute::ListSliceOptions *
 garrow_list_slice_options_get_raw(GArrowListSliceOptions *options)
 {
   return static_cast<arrow::compute::ListSliceOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowMakeStructOptions *
+garrow_make_struct_options_new_raw(const arrow::compute::MakeStructOptions *arrow_options)
+{
+  auto options =
+    GARROW_MAKE_STRUCT_OPTIONS(g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, NULL));
+  auto arrow_new_options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  *arrow_new_options = *arrow_options;
+  return options;
+}
+
+arrow::compute::MakeStructOptions *
+garrow_make_struct_options_get_raw(GArrowMakeStructOptions *options)
+{
+  return static_cast<arrow::compute::MakeStructOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

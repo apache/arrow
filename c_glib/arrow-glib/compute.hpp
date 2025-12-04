@@ -231,3 +231,9 @@ GArrowListSliceOptions *
 garrow_list_slice_options_new_raw(const arrow::compute::ListSliceOptions *arrow_options);
 arrow::compute::ListSliceOptions *
 garrow_list_slice_options_get_raw(GArrowListSliceOptions *options);
+
+GArrowMakeStructOptions *
+garrow_make_struct_options_new_raw(
+  const arrow::compute::MakeStructOptions *arrow_options);
+arrow::compute::MakeStructOptions *
+garrow_make_struct_options_get_raw(GArrowMakeStructOptions *options);
