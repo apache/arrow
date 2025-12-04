@@ -313,6 +313,8 @@ G_BEGIN_DECLS
  * #GArrowReplaceSubstringOptions is a class to customize the `replace_substring` and
  * `replace_substring_regex` functions.
  *
+ * #GArrowRoundBinaryOptions is a class to customize the `round_binary` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -9181,6 +9183,99 @@ garrow_replace_substring_options_new(void)
     g_object_new(GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS, NULL));
 }
 
+enum {
+  PROP_ROUND_BINARY_OPTIONS_MODE = 1,
+};
+
+G_DEFINE_TYPE(GArrowRoundBinaryOptions,
+              garrow_round_binary_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_round_binary_options_set_property(GObject *object,
+                                         guint prop_id,
+                                         const GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto options = garrow_round_binary_options_get_raw(GARROW_ROUND_BINARY_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_BINARY_OPTIONS_MODE:
+    options->round_mode = static_cast<arrow::compute::RoundMode>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_binary_options_get_property(GObject *object,
+                                         guint prop_id,
+                                         GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto options = garrow_round_binary_options_get_raw(GARROW_ROUND_BINARY_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ROUND_BINARY_OPTIONS_MODE:
+    g_value_set_enum(value, static_cast<GArrowRoundMode>(options->round_mode));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_round_binary_options_init(GArrowRoundBinaryOptions *object)
+{
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::RoundBinaryOptions());
+}
+
+static void
+garrow_round_binary_options_class_init(GArrowRoundBinaryOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_round_binary_options_set_property;
+  gobject_class->get_property = garrow_round_binary_options_get_property;
+
+  arrow::compute::RoundBinaryOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowRoundBinaryOptions:mode:
+   *
+   * The rounding and tie-breaking mode.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("mode",
+                           "Mode",
+                           "The rounding and tie-breaking mode",
+                           GARROW_TYPE_ROUND_MODE,
+                           static_cast<GArrowRoundMode>(options.round_mode),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_ROUND_BINARY_OPTIONS_MODE, spec);
+}
+
+/**
+ * garrow_round_binary_options_new:
+ *
+ * Returns: A newly created #GArrowRoundBinaryOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new(void)
+{
+  return GARROW_ROUND_BINARY_OPTIONS(
+    g_object_new(GARROW_TYPE_ROUND_BINARY_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -9415,6 +9510,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
       static_cast<const arrow::compute::ReplaceSubstringOptions *>(arrow_options);
     auto options =
       garrow_replace_substring_options_new_raw(arrow_replace_substring_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "RoundBinaryOptions") {
+    const auto arrow_round_binary_options =
+      static_cast<const arrow::compute::RoundBinaryOptions *>(arrow_options);
+    auto options = garrow_round_binary_options_new_raw(arrow_round_binary_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -10364,5 +10464,23 @@ arrow::compute::ReplaceSubstringOptions *
 garrow_replace_substring_options_get_raw(GArrowReplaceSubstringOptions *options)
 {
   return static_cast<arrow::compute::ReplaceSubstringOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new_raw(
+  const arrow::compute::RoundBinaryOptions *arrow_options)
+{
+  return GARROW_ROUND_BINARY_OPTIONS(
+    g_object_new(GARROW_TYPE_ROUND_BINARY_OPTIONS,
+                 "mode",
+                 static_cast<GArrowRoundMode>(arrow_options->round_mode),
+                 NULL));
+}
+
+arrow::compute::RoundBinaryOptions *
+garrow_round_binary_options_get_raw(GArrowRoundBinaryOptions *options)
+{
+  return static_cast<arrow::compute::RoundBinaryOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
