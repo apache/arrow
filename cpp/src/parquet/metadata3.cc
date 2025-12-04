@@ -16,6 +16,20 @@
 // under the License.
 #include "parquet/metadata3.h"
 
+#include <cassert>
+#include <cstring>
+#include <string>
+#include <vector>
+
+#include "arrow/util/compression.h"
+#include "arrow/util/crc32.h"
+#include "arrow/util/endian.h"
+#include "arrow/util/ubsan.h"
+#include "arrow/util/unreachable.h"
+#include "parquet/file_writer.h"
+#include "generated/parquet_types.h"
+#include "parquet/thrift_internal.h"
+
 namespace parquet {
 
 namespace {
@@ -74,6 +88,17 @@ static_assert(IsEnumEq(format::PageType::DATA_PAGE_V2, format3::PageType::DATA_P
 static_assert(IsEnumEq(format::PageType::INDEX_PAGE, format3::PageType::INDEX_PAGE));
 static_assert(IsEnumEq(format::PageType::DICTIONARY_PAGE,
                        format3::PageType::DICTIONARY_PAGE));
+
+constexpr double kMinCompressionRatio = 1.2;
+
+constexpr uint8_t kExtUUID[16] = {0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
+                                   0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef};
+
+// Extended format compression codec (using same values as format3::CompressionCodec)
+enum class CompressionCodec : uint8_t {
+  UNCOMPRESSED = 0,
+  LZ4_RAW = 7,
+};
 
 auto GetNumChildren(
     const flatbuffers::Vector<flatbuffers::Offset<format3::SchemaElement>>& s, size_t i) {
@@ -520,6 +545,8 @@ struct ThriftConverter {
     }
     out.__isset.min_value = set;
     out.__isset.max_value = set;
+    out.__isset.is_min_value_exact = set;
+    out.__isset.is_max_value_exact = set;
     return out;
   }
 
@@ -558,8 +585,9 @@ struct ThriftConverter {
       out.bloom_filter_length = *cm->bloom_filter_length();
     }
     if (cm->is_fully_dict_encoded()) {
+      // TODO(jiayi): check the encoding stats usage in arrow
       // Adding a fake encoding_stats with data_page page type and dictionary encoding to
-      // trick the Photon reader function
+      // trick the reader function
       // AtomicParquetColumnReader::HasOnlyDictionaryEncodedPages() into treating this as
       // fully_dict_encoded.
       out.__isset.encoding_stats = true;
@@ -615,7 +643,10 @@ struct ThriftConverter {
     }
     to->schema = To(md->schema());
     for (auto* e : *md->schema()) {
-      if (e->num_children() == 0) to->column_orders.push_back(To(e->column_order_type()));
+      if (e->num_children() == 0) {
+        to->column_orders.push_back(To(e->column_order_type()));
+        to->__isset.column_orders = true;
+      }
     }
   }
 };
@@ -995,11 +1026,77 @@ struct FlatbufferConverter {
   }
 };
 
-std::string ToFlatbuffer(format::FileMetaData* md) {
+static const std::unordered_set<format::ConvertedType::type> kSupportedConvertedTypes({
+    format::ConvertedType::UTF8,
+    format::ConvertedType::MAP,
+    format::ConvertedType::LIST,
+    format::ConvertedType::ENUM,
+    format::ConvertedType::DECIMAL,
+    format::ConvertedType::DATE,
+    format::ConvertedType::TIME_MILLIS,
+    format::ConvertedType::TIME_MICROS,
+    format::ConvertedType::TIMESTAMP_MILLIS,
+    format::ConvertedType::TIMESTAMP_MICROS,
+    format::ConvertedType::UINT_8,
+    format::ConvertedType::UINT_16,
+    format::ConvertedType::UINT_32,
+    format::ConvertedType::UINT_64,
+    format::ConvertedType::INT_8,
+    format::ConvertedType::INT_16,
+    format::ConvertedType::INT_32,
+    format::ConvertedType::INT_64,
+    format::ConvertedType::JSON,
+    format::ConvertedType::BSON,
+    format::ConvertedType::INTERVAL,
+});
+
+bool CanConvertToFlatbuffer(const format::FileMetaData& md) {
+  if (md.__isset.encryption_algorithm) return false;
+  if (md.__isset.footer_signing_key_metadata) return false;
+
+  for (auto&& se : md.schema) {
+    if (se.__isset.logicalType) {
+      auto&& lt = se.logicalType;
+      if (!lt.__isset.STRING && !lt.__isset.MAP && !lt.__isset.LIST && !lt.__isset.ENUM &&
+          !lt.__isset.DECIMAL && !lt.__isset.DATE && !lt.__isset.TIME &&
+          !lt.__isset.TIMESTAMP && !lt.__isset.INTEGER && !lt.__isset.UNKNOWN &&
+          !lt.__isset.JSON && !lt.__isset.BSON && !lt.__isset.UUID &&
+          !lt.__isset.FLOAT16 && !lt.__isset.VARIANT && !lt.__isset.GEOMETRY &&
+          !lt.__isset.GEOGRAPHY) {
+        return false;
+      }
+    }
+    if (se.__isset.converted_type) {
+      if (kSupportedConvertedTypes.count(se.converted_type) == 0) {
+        return false;
+      }
+    }
+  }
+  for (auto&& rg : md.row_groups) {
+    for (auto&& cc : rg.columns) {
+      if (cc.__isset.crypto_metadata) return false;
+      if (cc.__isset.encrypted_column_metadata) return false;
+    }
+  }
+  return true;
+}
+
+::arrow::Status CheckMagicNumber(const uint8_t* p) {
+  if (std::memcmp(p, kParquetMagic, 4) == 0) return ::arrow::Status::OK();
+  if (std::memcmp(p, kParquetEMagic, 4) == 0)
+    return ::arrow::Status::NotImplemented("metdata3 doesn't support encrypted footer");
+  return ::arrow::Status::Invalid("invalid magic number");
+}
+
+}  // namespace
+
+bool ToFlatbuffer(format::FileMetaData* md, std::string* flatbuffer) {
+  if (!CanConvertToFlatbuffer(*md)) return false;
   FlatbufferConverter conv(*md);
   conv.To();
-  return std::string(reinterpret_cast<const char*>(conv.root.GetBufferPointer()),
-                     conv.root.GetSize());
+  *flatbuffer = std::string(reinterpret_cast<const char*>(conv.root.GetBufferPointer()),
+                            conv.root.GetSize());
+  return true;
 }
 
 format::FileMetaData FromFlatbuffer(const format3::FileMetaData* md) {
@@ -1008,4 +1105,178 @@ format::FileMetaData FromFlatbuffer(const format3::FileMetaData* md) {
   conv.To();
   return result;
 }
-} // namespace parquet
+
+static std::string PackFlatbuffer(const std::string& in) {
+  std::string out;
+  int n = 0;
+  // Create LZ4 codec
+  auto maybe_codec = ::arrow::util::Codec::Create(::arrow::Compression::LZ4);
+  if (maybe_codec.ok()) {
+    auto codec = std::move(*maybe_codec);
+    int64_t max_compressed_len =
+        codec->MaxCompressedLen(in.size(), reinterpret_cast<const uint8_t*>(in.data()));
+    out.resize(max_compressed_len + 33);
+    PARQUET_ASSIGN_OR_THROW(
+        n, codec->Compress(in.size(), reinterpret_cast<const uint8_t*>(in.data()),
+                           max_compressed_len, reinterpret_cast<uint8_t*>(out.data())));
+  }
+  if (!maybe_codec.ok() || 1.0 * in.size() / n < kMinCompressionRatio) {
+    // Compression not worth it, store uncompressed
+    out.resize(in.size() + 33);  // Ensure buffer is sized before writing
+    std::memcpy(out.data(), in.data(), in.size());
+    n = in.size();
+    out[n] = static_cast<char>(CompressionCodec::UNCOMPRESSED);
+  } else {
+    // Use compressed data
+    out[n] = static_cast<char>(CompressionCodec::LZ4_RAW);
+  }
+
+  // Pointer to metadata section (after data and compressor byte)
+  uint8_t* const p = reinterpret_cast<uint8_t*>(out.data()) + n + 1;
+
+  // Compute and store checksums and lengths
+  uint32_t crc32 = ::arrow::internal::crc32(0, reinterpret_cast<const uint8_t*>(out.data()), n + 1);
+  StoreLE32(crc32, p + 0);           // crc32(data .. compressor)
+  StoreLE32(n, p + 4);               // compressed_len
+  StoreLE32(in.size(), p + 8);       // raw_len
+  uint32_t len_crc32 = ::arrow::internal::crc32(0, p + 4, 8);
+  StoreLE32(len_crc32, p + 12);      // crc32(compressed_len .. raw_len)
+
+  // Store UUID identifier
+  std::memcpy(p + 16, kExtUUID, 16);
+  out.resize(n + 33);
+  return out;
+}
+
+inline uint8_t* WriteULEB64(uint64_t v, uint8_t* out) {
+  uint8_t* p = out;
+  do {
+    uint8_t b = v & 0x7F;
+    if (v < 0x80) {
+      *p++ = b;
+      return p;
+    }
+    *p++ = b | 0x80;
+    v >>= 7;
+  } while (true);
+}
+
+inline uint32_t CountLeadingZeros32(uint32_t v) {
+  if (v == 0) return 32;
+  uint32_t count = 0;
+  uint32_t mask = 0x80000000;
+  while ((v & mask) == 0) {
+    ++count;
+    mask >>= 1;
+  }
+  return count;
+}
+
+inline size_t ULEB32Len(uint32_t v) {
+  return 1 + ((32 - CountLeadingZeros32(v | 0x1)) * 9) / 64;
+}
+
+void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
+  // Pack the flatbuffer with LZ4 compression and checksums
+  std::string packed = PackFlatbuffer(flatbuffer);
+
+  const uint32_t kFieldId = 32767;
+  int header_size = 1 + ULEB32Len(kFieldId) + ULEB32Len(packed.length());
+
+  const size_t old_size = thrift->size();
+  thrift->resize(old_size + header_size + packed.size() + 1);  // +1 for stop field
+
+  // Pointer to the new write position
+  uint8_t* p = reinterpret_cast<uint8_t*>(&(*thrift)[old_size]);
+
+  // Write the binary type indicator
+  *p++ = 0x08;
+
+  // Write field id and size using ULEB64
+  p = WriteULEB64(kFieldId, p);
+  p = WriteULEB64(static_cast<uint32_t>(packed.size()), p);
+
+  // Copy the packed payload
+  std::memcpy(p, packed.data(), packed.size());
+  p += packed.size();
+
+  // Add stop field
+  *p = 0x00;
+  return;
+}
+
+::arrow::Result<size_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer) {
+  if (buf->size() < 8) return 8;
+  PARQUET_THROW_NOT_OK(CheckMagicNumber(buf->data() + buf->size() - 4));
+  uint32_t md_len = LoadLE32(buf->data() + buf->size() -8);
+  if (md_len < 34) return 0;
+  if (buf->size() < 42) return 42;  // 34 (metadata3 trailer) + 8 (len + PAR1)
+
+  // Check for extended metadata marker (UUID) at the end of the metadata
+  const uint8_t* p = buf->data() + buf->size() - 42;
+  if (memcmp(p + 17, kExtUUID, 16) != 0) {
+    // No extended metadata, return 0 to indicate no flatbuffer found
+    return 0;
+  }
+
+  // Extended metadata is present - extract and parse it
+  auto compressor = static_cast<CompressionCodec>(*p);
+  uint32_t crc32_val = LoadLE32(p + 1);
+  uint32_t compressed_len = LoadLE32(p + 5);
+  uint32_t raw_len = LoadLE32(p + 9);
+  uint32_t len_crc32 = LoadLE32(p + 13);
+
+  // Verify length CRC
+  uint32_t expected_len_crc = ::arrow::internal::crc32(0, p + 5, 8);
+  if (len_crc32 != expected_len_crc) {
+    return ::arrow::Status::Invalid("Extended metadata length CRC mismatch");
+  }
+
+  // Verify data CRC
+  uint32_t expected_crc = ::arrow::internal::crc32(0, p - compressed_len, compressed_len + 1);
+  if (crc32_val != expected_crc) {
+    return ::arrow::Status::Invalid("Extended metadata data CRC mismatch");
+  }
+
+  // Decompress if needed
+  std::vector<uint8_t> decompressed_data(raw_len);
+  switch (compressor) {
+    case CompressionCodec::UNCOMPRESSED:
+      if (compressed_len != raw_len) {
+        return ::arrow::Status::Invalid("UNCOMPRESSED length mismatch");
+      }
+      std::memcpy(decompressed_data.data(), p - compressed_len, raw_len);
+      break;
+    case CompressionCodec::LZ4_RAW: {
+      if (raw_len < compressed_len) {
+        return ::arrow::Status::Invalid("LZ4 length error: raw_len < compressed_len");
+      }
+      // Use Arrow's LZ4 codec for decompression
+      ARROW_ASSIGN_OR_RAISE(auto codec, ::arrow::util::Codec::Create(::arrow::Compression::LZ4));
+      ARROW_ASSIGN_OR_RAISE(
+          int64_t actual_size,
+          codec->Decompress(compressed_len, p - compressed_len, raw_len,
+                            decompressed_data.data()));
+      if (static_cast<uint32_t>(actual_size) != raw_len) {
+        return ::arrow::Status::Invalid("LZ4 decompression failed: expected ", raw_len,
+                                        " bytes but got ", actual_size, " bytes");
+      }
+      break;
+    }
+    default:
+      return ::arrow::Status::NotImplemented("Unsupported compression codec");
+  }
+
+  // Verify flatbuffer
+  auto verifier = flatbuffers::Verifier(decompressed_data.data(), raw_len);
+  if (!format3::VerifyFileMetaDataBuffer(verifier)) {
+    return ::arrow::Status::Invalid("Flatbuffer verification failed");
+  }
+
+  ARROW_CHECK_NE(out_flatbuffer, nullptr);
+  out_flatbuffer->assign(reinterpret_cast<const char*>(decompressed_data.data()), raw_len);
+
+  return compressed_len + 42;
+}
+
+}  // namespace parquet

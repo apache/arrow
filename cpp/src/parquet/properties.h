@@ -139,6 +139,11 @@ class PARQUET_EXPORT ReaderProperties {
   void set_footer_read_size(size_t size) { footer_read_size_ = size; }
   size_t footer_read_size() const { return footer_read_size_; }
 
+  // If enabled, try to read the metadata3 footer from the file.
+  // If it fails, fall back to Thrift footer decoding.
+  bool read_metadata3() const { return read_metadata3_; }
+  void set_read_metadata3(bool read_metadata3) { read_metadata3_ = read_metadata3; }
+
  private:
   MemoryPool* pool_;
   int64_t buffer_size_ = kDefaultBufferSize;
@@ -148,6 +153,7 @@ class PARQUET_EXPORT ReaderProperties {
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.
   bool read_dense_for_nullable_ = false;
+  bool read_metadata3_ = false;
   size_t footer_read_size_ = kDefaultFooterReadSize;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };
@@ -301,6 +307,7 @@ class PARQUET_EXPORT WriterProperties {
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
+          write_metadata3_(false),
           content_defined_chunking_enabled_(false),
           content_defined_chunking_options_({}) {}
 
@@ -317,6 +324,7 @@ class PARQUET_EXPORT WriterProperties {
           store_decimal_as_integer_(properties.store_decimal_as_integer()),
           page_checksum_enabled_(properties.page_checksum_enabled()),
           size_statistics_level_(properties.size_statistics_level()),
+          write_metadata3_(properties.write_metadata3()),
           sorting_columns_(properties.sorting_columns()),
           default_column_properties_(properties.default_column_properties()),
           content_defined_chunking_enabled_(
@@ -458,6 +466,16 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* disable_page_checksum() {
       page_checksum_enabled_ = false;
+      return this;
+    }
+
+    Builder* enable_write_metadata3() {
+      write_metadata3_ = true;
+      return this;
+    }
+
+    Builder* disable_write_metadata3() {
+      write_metadata3_ = false;
       return this;
     }
 
@@ -782,7 +800,8 @@ class PARQUET_EXPORT WriterProperties {
           size_statistics_level_, std::move(file_encryption_properties_),
           default_column_properties_, column_properties, data_page_version_,
           store_decimal_as_integer_, std::move(sorting_columns_),
-          content_defined_chunking_enabled_, content_defined_chunking_options_));
+          content_defined_chunking_enabled_, content_defined_chunking_options_,
+          write_metadata3_));
     }
 
    private:
@@ -800,6 +819,7 @@ class PARQUET_EXPORT WriterProperties {
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
     SizeStatisticsLevel size_statistics_level_;
+    bool write_metadata3_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
 
@@ -842,6 +862,8 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool write_metadata3() const { return write_metadata3_; }
 
   inline bool content_defined_chunking_enabled() const {
     return content_defined_chunking_enabled_;
@@ -953,7 +975,7 @@ class PARQUET_EXPORT WriterProperties {
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
       ParquetDataPageVersion data_page_version, bool store_short_decimal_as_integer,
       std::vector<SortingColumn> sorting_columns, bool content_defined_chunking_enabled,
-      CdcOptions content_defined_chunking_options)
+      CdcOptions content_defined_chunking_options, bool write_metadata3)
       : pool_(pool),
         dictionary_pagesize_limit_(dictionary_pagesize_limit),
         write_batch_size_(write_batch_size),
@@ -971,7 +993,8 @@ class PARQUET_EXPORT WriterProperties {
         default_column_properties_(default_column_properties),
         column_properties_(column_properties),
         content_defined_chunking_enabled_(content_defined_chunking_enabled),
-        content_defined_chunking_options_(content_defined_chunking_options) {}
+        content_defined_chunking_options_(content_defined_chunking_options),
+        write_metadata3_(write_metadata3) {}
 
   MemoryPool* pool_;
   int64_t dictionary_pagesize_limit_;
@@ -995,6 +1018,7 @@ class PARQUET_EXPORT WriterProperties {
 
   bool content_defined_chunking_enabled_;
   CdcOptions content_defined_chunking_options_;
+  bool write_metadata3_;
 };
 
 PARQUET_EXPORT const std::shared_ptr<WriterProperties>& default_writer_properties();
