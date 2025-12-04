@@ -209,3 +209,9 @@ garrow_extract_regex_options_new_raw(
   const arrow::compute::ExtractRegexOptions *arrow_options);
 arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new_raw(
+  const arrow::compute::PartitionNthOptions *arrow_options);
+arrow::compute::PartitionNthOptions *
+garrow_partition_nth_options_get_raw(GArrowPartitionNthOptions *options);
