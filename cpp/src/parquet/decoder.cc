@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
+#include <iostream>
 #include <limits>
 #include <memory>
 #include <string>
@@ -40,6 +41,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
+#include "arrow/util/alp/Alp.hpp"
+#include "arrow/util/alp/AlpConstants.hpp"
+#include "arrow/util/alp/AlpWrapper.hpp"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
@@ -2323,6 +2327,124 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
   }
 };
 
+// ----------------------------------------------------------------------
+// ALP decoder (Adaptive Lossless floating-Point)
+
+template <typename DType>
+class AlpDecoder : public TypedDecoderImpl<DType> {
+ public:
+  using Base = TypedDecoderImpl<DType>;
+  using T = typename DType::c_type;
+
+  explicit AlpDecoder(const ColumnDescriptor* descr)
+      : Base(descr, Encoding::ALP), current_offset_{0}, needs_decode_{false} {
+    static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
+                  "ALP only supports float and double types");
+  }
+
+  void SetData(int num_values, const uint8_t* data, int len) final {
+    Base::SetData(num_values, data, len);
+    current_offset_ = 0;
+    needs_decode_ = (len > 0 && num_values > 0);
+    decoded_buffer_.clear();
+  }
+
+  int Decode(T* buffer, int max_values) override {
+    // Fast path: decode directly into output buffer if requesting all values
+    if (needs_decode_ && max_values >= this->num_values_) {
+      size_t decompSize = this->num_values_ * sizeof(T);
+      ::arrow::util::alp::AlpWrapper<T>::decode(
+          buffer, &decompSize,
+          reinterpret_cast<const char*>(this->data_), this->len_);
+
+      const int decoded = this->num_values_;
+      this->num_values_ = 0;
+      needs_decode_ = false;
+      return decoded;
+    }
+
+    // Slow path: partial read - decode to intermediate buffer
+    // ALP Bit unpacker needs batches of 64
+    if (needs_decode_) {
+      decoded_buffer_.resize(this->num_values_);
+      size_t decompSize = this->num_values_ * sizeof(T);
+      ::arrow::util::alp::AlpWrapper<T>::decode(
+          decoded_buffer_.data(), &decompSize,
+          reinterpret_cast<const char*>(this->data_), this->len_);
+      needs_decode_ = false;
+    }
+
+    // Copy from intermediate buffer
+    const int values_to_decode = std::min(
+        max_values,
+        static_cast<int>(decoded_buffer_.size() - current_offset_));
+
+    if (values_to_decode > 0) {
+      std::memcpy(buffer, decoded_buffer_.data() + current_offset_,
+                  values_to_decode * sizeof(T));
+      current_offset_ += values_to_decode;
+      this->num_values_ -= values_to_decode;
+    }
+
+    return values_to_decode;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::Accumulator* builder) override {
+    const int values_to_decode = num_values - null_count;
+    if (ARROW_PREDICT_FALSE(this->num_values_ < values_to_decode)) {
+      ParquetException::EofException("ALP DecodeArrow: Not enough values available. "
+                                      "Available: " + std::to_string(this->num_values_) +
+                                      ", Requested: " + std::to_string(values_to_decode));
+    }
+
+    // Decode if needed (DecodeArrow always needs intermediate buffer for nulls)
+    if (needs_decode_) {
+      decoded_buffer_.resize(this->num_values_);
+      size_t decompSize = this->num_values_ * sizeof(T);
+      ::arrow::util::alp::AlpWrapper<T>::decode(
+          decoded_buffer_.data(), &decompSize,
+          reinterpret_cast<const char*>(this->data_), this->len_);
+      needs_decode_ = false;
+    }
+
+    if (null_count == 0) {
+      // Fast path: no nulls
+      PARQUET_THROW_NOT_OK(builder->AppendValues(
+          decoded_buffer_.data() + current_offset_, values_to_decode));
+      current_offset_ += values_to_decode;
+      this->num_values_ -= values_to_decode;
+      return values_to_decode;
+    } else {
+      // Slow path: with nulls
+      int value_idx = 0;
+      for (int i = 0; i < num_values; ++i) {
+        if (::arrow::bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
+          PARQUET_THROW_NOT_OK(builder->Append(decoded_buffer_[current_offset_ + value_idx]));
+          ++value_idx;
+        } else {
+          PARQUET_THROW_NOT_OK(builder->AppendNull());
+        }
+      }
+      current_offset_ += values_to_decode;
+      this->num_values_ -= values_to_decode;
+      return values_to_decode;
+    }
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* builder) override {
+    ParquetException::NYI("DecodeArrow to DictAccumulator for ALP");
+  }
+
+ private:
+  std::vector<T> decoded_buffer_;
+  size_t current_offset_;
+  bool needs_decode_;
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -2368,6 +2490,15 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
         throw ParquetException(
             "BYTE_STREAM_SPLIT only supports FLOAT, DOUBLE, INT32, INT64 "
             "and FIXED_LEN_BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::ALP) {
+    switch (type_num) {
+      case Type::FLOAT:
+        return std::make_unique<AlpDecoder<FloatType>>(descr);
+      case Type::DOUBLE:
+        return std::make_unique<AlpDecoder<DoubleType>>(descr);
+      default:
+        throw ParquetException("ALP encoding only supports FLOAT and DOUBLE");
     }
   } else if (encoding == Encoding::DELTA_BINARY_PACKED) {
     switch (type_num) {
