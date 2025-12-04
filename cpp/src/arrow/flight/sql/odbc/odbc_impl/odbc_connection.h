@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/flight/sql/odbc/odbc_impl/spi/connection.h>
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
 #include <sql.h>
 #include <map>
@@ -42,6 +42,9 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   ODBCConnection(const ODBCConnection&) = delete;
   ODBCConnection& operator=(const ODBCConnection&) = delete;
 
+  /// \brief Constructor for ODBCConnection.
+  /// \param[in] environment the parent environment.
+  /// \param[in] spi_connection the underlying spi connection.
   ODBCConnection(ODBCEnvironment& environment,
                  std::shared_ptr<arrow::flight::sql::odbc::Connection> spi_connection);
 
@@ -49,6 +52,11 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   const std::string& GetDSN() const;
   bool IsConnected() const;
+
+  /// \brief Connect to Arrow Flight SQL server.
+  /// \param[in] dsn the dsn name.
+  /// \param[in] properties the connection property map extracted from connection string.
+  /// \param[out] missing_properties report the properties that are missing
   void Connect(std::string dsn,
                const arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
@@ -56,7 +64,7 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
   SQLRETURN GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
                     SQLSMALLINT* output_length, bool is_unicode);
   void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER string_length,
-                      bool isUnicode);
+                      bool is_unicode);
   SQLRETURN GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
                            SQLINTEGER buffer_length, SQLINTEGER* output_length,
                            bool is_unicode);

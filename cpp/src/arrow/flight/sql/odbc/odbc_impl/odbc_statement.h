@@ -17,9 +17,11 @@
 
 #pragma once
 
+// platform.h platform.h includes windows.h so it needs to be included first
+#include "arrow/flight/sql/odbc/odbc_impl/platform.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
 
-#include <arrow/flight/sql/odbc/odbc_impl/platform.h>
 #include <sql.h>
 #include <memory>
 #include <string>
@@ -59,7 +61,10 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void ExecuteDirect(const std::string& query);
 
   /// \brief Return true if the number of rows fetch was greater than zero.
-  bool Fetch(size_t rows);
+  ///
+  /// row_count_ptr and row_status_array are optional arguments, they are only needed for
+  /// SQLExtendedFetch
+  bool Fetch(size_t rows, SQLULEN* row_count_ptr = 0, SQLUSMALLINT* row_status_array = 0);
   bool IsPrepared() const;
 
   void GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,

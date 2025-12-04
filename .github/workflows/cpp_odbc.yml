@@ -1,0 +1,242 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: C++ ODBC
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
+    paths:
+      - '.github/workflows/cpp_odbc.yml'
+      - 'ci/scripts/cpp_*'
+      - 'cpp/src/arrow/flight/sql/odbc/*'
+  pull_request:
+    paths:
+      - '.github/workflows/cpp_odbc.yml'
+      - 'ci/scripts/cpp_*'
+      - 'cpp/src/arrow/flight/sql/odbc/*'
+  schedule:
+    - cron: '0 13 * * *'
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-2022
+    timeout-minutes: 240
+    env:
+      ARROW_BUILD_SHARED: ON
+      ARROW_BUILD_STATIC: ON
+      ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: release
+      ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_FLIGHT: ON
+      ARROW_FLIGHT_SQL: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
+      ARROW_SIMD_LEVEL: AVX2
+      CMAKE_CXX_STANDARD: "17"
+      CMAKE_GENERATOR: Ninja
+      CMAKE_INSTALL_PREFIX: /usr
+      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_DEFAULT_TRIPLET: x64-windows
+    steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
+      - name: Checkout Arrow
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download Timezone Database
+        shell: bash
+        run: ci/scripts/download_tz_database.sh
+      - name: Install msys2 (for tzdata for ORC tests)
+        uses: msys2/setup-msys2@v2
+        id: setup-msys2
+      - name: Install cmake
+        shell: bash
+        run: |
+          ci/scripts/install_cmake.sh 4.1.2 /usr
+      - name: Install ccache
+        shell: bash
+        run: |
+          ci/scripts/install_ccache.sh 4.12.1 /usr
+      - name: Setup ccache
+        shell: bash
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-odbc-ccache-windows-x64-
+      - name: Checkout vcpkg
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+          path: vcpkg
+          repository: microsoft/vcpkg
+      - name: Bootstrap vcpkg
+        run: |
+          vcpkg\bootstrap-vcpkg.bat
+          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
+          Write-Output ${VCPKG_ROOT} | `
+            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
+          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
+            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
+      - name: Setup NuGet credentials for vcpkg caching
+        shell: bash
+        run: |
+          $(vcpkg fetch nuget | tail -n 1) \
+            sources add \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
+            -storepasswordincleartext \
+            -name "GitHub" \
+            -username "$GITHUB_REPOSITORY_OWNER" \
+            -password "${{ secrets.GITHUB_TOKEN }}"
+          $(vcpkg fetch nuget | tail -n 1) \
+            setapikey "${{ secrets.GITHUB_TOKEN }}" \
+            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+      - name: Build
+        shell: cmd
+        run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Register Flight SQL ODBC Driver
+        shell: cmd
+        run: |
+          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+      # GH-48270 TODO: Resolve segementation fault during Arrow library unload
+      # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
+      # TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
+      # - name: Test
+      #   shell: cmd
+      #   run: |
+      #     set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+      #     call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      #     # For ORC
+      #     set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
+
+      #     # Convert VCPKG Windows path to MSYS path
+      #     for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
+
+      #     bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
+
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
+          Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
+          echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build MSI ODBC installer
+        shell: pwsh
+        run: |
+          # Verify WiX version
+          wix --version
+          cd "${{ github.workspace }}\build\cpp"
+          cpack
+      - name: Upload the artifacts to the job
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        with:
+          name: flight-sql-odbc-msi-installer
+          path: ${{ github.workspace }}\build\cpp\Apache Arrow Flight SQL ODBC-1.0.0-win64.msi
+  macos:
+    name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} C++
+    runs-on: macos-${{ matrix.macos-version }}
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "15-intel"
+          - architecture: ARM64
+            macos-version: "14"
+    env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_HOME: /tmp/local
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install Dependencies
+        run: |
+          brew bundle --file=cpp/Brewfile
+          export LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
+          echo ODBC_INCLUDE_DIR="$LIBIODBC_DIR/include" >> $GITHUB_ENV
+          echo ODBC_LIB_DIR="$LIBIODBC_DIR/lib" >> $GITHUB_ENV
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
+      - name: Build
+        run: |
+          # Homebrew uses /usr/local as prefix. So packages
+          # installed by Homebrew also use /usr/local/include. We
+          # want to include headers for packages installed by
+          # Homebrew as system headers to ignore warnings in them.
+          # But "-isystem /usr/local/include" isn't used by CMake
+          # because /usr/local/include is marked as the default
+          # include path. So we disable -Werror to avoid build error
+          # by warnings from packages installed by Homebrew.
+          export BUILD_WARNING_LEVEL=PRODUCTION
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Register Flight SQL ODBC Driver
+        run: |
+           chmod +x cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh
+           sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
+      - name: Test
+        shell: bash
+        run: |
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build

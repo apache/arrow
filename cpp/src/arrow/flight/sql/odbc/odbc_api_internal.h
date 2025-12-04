@@ -31,6 +31,12 @@ namespace arrow::flight::sql::odbc {
                                        SQLHANDLE* result);
 [[nodiscard]] SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle);
 [[nodiscard]] SQLRETURN SQLFreeStmt(SQLHSTMT stmt, SQLUSMALLINT option);
+#if defined(__APPLE__)
+[[nodiscard]] SQLRETURN SQLError(SQLHENV env, SQLHDBC conn, SQLHSTMT stmt,
+                                 SQLWCHAR* sql_state, SQLINTEGER* native_error_ptr,
+                                 SQLWCHAR* message_text, SQLSMALLINT buffer_length,
+                                 SQLSMALLINT* text_length_ptr);
+#endif  // __APPLE__
 [[nodiscard]] SQLRETURN SQLGetDiagField(SQLSMALLINT handle_type, SQLHANDLE handle,
                                         SQLSMALLINT rec_number,
                                         SQLSMALLINT diag_identifier,
