@@ -287,6 +287,8 @@ G_BEGIN_DECLS
  *
  * #GArrowModeOptions is a class to customize the `mode` function.
  *
+ * #GArrowNullOptions is a class to customize the `is_null` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -8016,6 +8018,95 @@ garrow_mode_options_new(void)
   return GARROW_MODE_OPTIONS(g_object_new(GARROW_TYPE_MODE_OPTIONS, NULL));
 }
 
+enum {
+  PROP_NULL_OPTIONS_NAN_IS_NULL = 1,
+};
+
+G_DEFINE_TYPE(GArrowNullOptions, garrow_null_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_null_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_null_options_get_raw(GARROW_NULL_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_NULL_OPTIONS_NAN_IS_NULL:
+    options->nan_is_null = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_null_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_null_options_get_raw(GARROW_NULL_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_NULL_OPTIONS_NAN_IS_NULL:
+    g_value_set_boolean(value, options->nan_is_null);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_null_options_init(GArrowNullOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::NullOptions());
+}
+
+static void
+garrow_null_options_class_init(GArrowNullOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_null_options_set_property;
+  gobject_class->get_property = garrow_null_options_get_property;
+
+  arrow::compute::NullOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowNullOptions:nan-is-null:
+   *
+   * Whether floating-point NaN values are considered null.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("nan-is-null",
+                              "NaN is null",
+                              "Whether floating-point NaN values are considered null",
+                              options.nan_is_null,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_NULL_OPTIONS_NAN_IS_NULL, spec);
+}
+
+/**
+ * garrow_null_options_new:
+ *
+ * Returns: A newly created #GArrowNullOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowNullOptions *
+garrow_null_options_new(void)
+{
+  return GARROW_NULL_OPTIONS(g_object_new(GARROW_TYPE_NULL_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8204,6 +8295,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_mode_options =
       static_cast<const arrow::compute::ModeOptions *>(arrow_options);
     auto options = garrow_mode_options_new_raw(arrow_mode_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "NullOptions") {
+    const auto arrow_null_options =
+      static_cast<const arrow::compute::NullOptions *>(arrow_options);
+    auto options = garrow_null_options_new_raw(arrow_null_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -8977,5 +9073,21 @@ arrow::compute::ModeOptions *
 garrow_mode_options_get_raw(GArrowModeOptions *options)
 {
   return static_cast<arrow::compute::ModeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowNullOptions *
+garrow_null_options_new_raw(const arrow::compute::NullOptions *arrow_options)
+{
+  return GARROW_NULL_OPTIONS(g_object_new(GARROW_TYPE_NULL_OPTIONS,
+                                          "nan-is-null",
+                                          arrow_options->nan_is_null,
+                                          NULL));
+}
+
+arrow::compute::NullOptions *
+garrow_null_options_get_raw(GArrowNullOptions *options)
+{
+  return static_cast<arrow::compute::NullOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
