@@ -198,9 +198,10 @@ pushd %SOURCE_DIR%\python
 @REM Install Python build dependencies
 %PYTHON_CMD% -m pip install --upgrade pip || exit /B 1
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
+%PYTHON_CMD% -m pip install build || exit /B 1
 
 @REM Build PyArrow
-%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv . ^
+%PYTHON_CMD% -m build --wheel --no-isolation . ^
     -Csetup-args="-Dbuildtype=%MESON_BUILD_TYPE%" ^
     -Csetup-args="-Dacero=%PYARROW_WITH_ACERO%" ^
     -Csetup-args="-Ddataset=%PYARROW_WITH_DATASET%" ^
@@ -213,5 +214,6 @@ pushd %SOURCE_DIR%\python
     -Csetup-args="-Dparquet_require_encryption=%PYARROW_WITH_PARQUET_ENCRYPTION%" ^
     -Csetup-args="-Dsubstrait=%PYARROW_WITH_SUBSTRAIT%" ^
     -Csetup-args="-Ds3=%PYARROW_WITH_S3%" || exit /B 1
+%PYTHON_CMD% -m pip install --no-index --find-links .\dist\ pyarrow
 
 popd

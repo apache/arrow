@@ -308,6 +308,12 @@ jobs:
         run: |
           call activate pyarrow-dev || exit /B 1
           call "ci\scripts\python_build.bat" %cd% "%CONDA_PREFIX%"
+      - name: Upload wheel
+        if: always()                     # ensures this runs even on failure
+        uses: actions/upload-artifact@v4
+        with:
+          name: built-wheel
+          path: python/dist/*.whl
       - name: Test PyArrow
         shell: cmd
         env:
