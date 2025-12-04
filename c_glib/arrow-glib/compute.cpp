@@ -285,6 +285,8 @@ G_BEGIN_DECLS
  * #GArrowListSliceOptions is a class to customize the `list_slice`
  * function.
  *
+ * #GArrowModeOptions is a class to customize the `mode` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7878,6 +7880,142 @@ garrow_list_slice_options_new(void)
   return GARROW_LIST_SLICE_OPTIONS(options);
 }
 
+enum {
+  PROP_MODE_OPTIONS_N = 1,
+  PROP_MODE_OPTIONS_SKIP_NULLS,
+  PROP_MODE_OPTIONS_MIN_COUNT,
+};
+
+G_DEFINE_TYPE(GArrowModeOptions, garrow_mode_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_mode_options_set_property(GObject *object,
+                                 guint prop_id,
+                                 const GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_mode_options_get_raw(GARROW_MODE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_MODE_OPTIONS_N:
+    options->n = g_value_get_int64(value);
+    break;
+  case PROP_MODE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  case PROP_MODE_OPTIONS_MIN_COUNT:
+    options->min_count = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_mode_options_get_property(GObject *object,
+                                 guint prop_id,
+                                 GValue *value,
+                                 GParamSpec *pspec)
+{
+  auto options = garrow_mode_options_get_raw(GARROW_MODE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_MODE_OPTIONS_N:
+    g_value_set_int64(value, options->n);
+    break;
+  case PROP_MODE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  case PROP_MODE_OPTIONS_MIN_COUNT:
+    g_value_set_uint(value, options->min_count);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_mode_options_init(GArrowModeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::ModeOptions());
+}
+
+static void
+garrow_mode_options_class_init(GArrowModeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_mode_options_set_property;
+  gobject_class->get_property = garrow_mode_options_get_property;
+
+  arrow::compute::ModeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowModeOptions:n:
+   *
+   * Number of distinct most-common values to return.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("n",
+                            "N",
+                            "Number of distinct most-common values to return",
+                            1,
+                            G_MAXINT64,
+                            options.n,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MODE_OPTIONS_N, spec);
+
+  /**
+   * GArrowModeOptions:skip-nulls:
+   *
+   * Whether NULLs are skipped or not.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip NULLs",
+                              "Whether NULLs are skipped or not",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MODE_OPTIONS_SKIP_NULLS, spec);
+
+  /**
+   * GArrowModeOptions:min-count:
+   *
+   * If less than this many non-null values are observed, emit null.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_uint("min-count",
+                      "Min count",
+                      "If less than this many non-null values are observed, emit null",
+                      0,
+                      G_MAXUINT,
+                      options.min_count,
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_MODE_OPTIONS_MIN_COUNT, spec);
+}
+
+/**
+ * garrow_mode_options_new:
+ *
+ * Returns: A newly created #GArrowModeOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowModeOptions *
+garrow_mode_options_new(void)
+{
+  return GARROW_MODE_OPTIONS(g_object_new(GARROW_TYPE_MODE_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8061,6 +8199,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_map_lookup_options =
       static_cast<const arrow::compute::MapLookupOptions *>(arrow_options);
     auto options = garrow_map_lookup_options_new_raw(arrow_map_lookup_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ModeOptions") {
+    const auto arrow_mode_options =
+      static_cast<const arrow::compute::ModeOptions *>(arrow_options);
+    auto options = garrow_mode_options_new_raw(arrow_mode_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -8813,5 +8956,26 @@ arrow::compute::ListSliceOptions *
 garrow_list_slice_options_get_raw(GArrowListSliceOptions *options)
 {
   return static_cast<arrow::compute::ListSliceOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowModeOptions *
+garrow_mode_options_new_raw(const arrow::compute::ModeOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_MODE_OPTIONS,
+                              "n",
+                              arrow_options->n,
+                              "skip-nulls",
+                              arrow_options->skip_nulls,
+                              "min-count",
+                              arrow_options->min_count,
+                              NULL);
+  return GARROW_MODE_OPTIONS(options);
+}
+
+arrow::compute::ModeOptions *
+garrow_mode_options_get_raw(GArrowModeOptions *options)
+{
+  return static_cast<arrow::compute::ModeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
