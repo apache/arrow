@@ -269,6 +269,9 @@ G_BEGIN_DECLS
  * #GArrowExtractRegexOptions is a class to customize the `extract_regex`
  * function.
  *
+ * #GArrowPivotWiderOptions is a class to customize the `pivot_wider` and
+ * `hash_pivot_wider` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7091,6 +7094,143 @@ garrow_extract_regex_options_new(void)
   return GARROW_EXTRACT_REGEX_OPTIONS(options);
 }
 
+enum {
+  PROP_PIVOT_WIDER_OPTIONS_KEY_NAMES = 1,
+  PROP_PIVOT_WIDER_OPTIONS_UNEXPECTED_KEY_BEHAVIOR,
+};
+
+G_DEFINE_TYPE(GArrowPivotWiderOptions,
+              garrow_pivot_wider_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_pivot_wider_options_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = garrow_pivot_wider_options_get_raw(GARROW_PIVOT_WIDER_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PIVOT_WIDER_OPTIONS_KEY_NAMES:
+    {
+      auto strv = static_cast<gchar **>(g_value_get_boxed(value));
+      options->key_names.clear();
+      if (strv) {
+        for (gchar **p = strv; *p; ++p) {
+          options->key_names.emplace_back(*p);
+        }
+      }
+    }
+    break;
+  case PROP_PIVOT_WIDER_OPTIONS_UNEXPECTED_KEY_BEHAVIOR:
+    options->unexpected_key_behavior =
+      static_cast<arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior>(
+        g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_pivot_wider_options_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = garrow_pivot_wider_options_get_raw(GARROW_PIVOT_WIDER_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PIVOT_WIDER_OPTIONS_KEY_NAMES:
+    {
+      const auto &names = options->key_names;
+      auto strv = static_cast<gchar **>(g_new0(gchar *, names.size() + 1));
+      for (gsize i = 0; i < names.size(); ++i) {
+        strv[i] = g_strdup(names[i].c_str());
+      }
+      g_value_take_boxed(value, strv);
+    }
+    break;
+  case PROP_PIVOT_WIDER_OPTIONS_UNEXPECTED_KEY_BEHAVIOR:
+    g_value_set_enum(value,
+                     static_cast<GArrowPivotWiderUnexpectedKeyBehavior>(
+                       options->unexpected_key_behavior));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_pivot_wider_options_init(GArrowPivotWiderOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::PivotWiderOptions());
+}
+
+static void
+garrow_pivot_wider_options_class_init(GArrowPivotWiderOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_pivot_wider_options_set_property;
+  gobject_class->get_property = garrow_pivot_wider_options_get_property;
+
+  arrow::compute::PivotWiderOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowPivotWiderOptions:key-names:
+   *
+   * The values expected in the pivot key column.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boxed("key-names",
+                            "Key names",
+                            "The values expected in the pivot key column",
+                            G_TYPE_STRV,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_PIVOT_WIDER_OPTIONS_KEY_NAMES,
+                                  spec);
+
+  /**
+   * GArrowPivotWiderOptions:unexpected-key-behavior:
+   *
+   * The behavior when pivot keys not in key_names are encountered.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum(
+    "unexpected-key-behavior",
+    "Unexpected key behavior",
+    "The behavior when pivot keys not in key_names are encountered",
+    GARROW_TYPE_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR,
+    static_cast<GArrowPivotWiderUnexpectedKeyBehavior>(options.unexpected_key_behavior),
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_PIVOT_WIDER_OPTIONS_UNEXPECTED_KEY_BEHAVIOR,
+                                  spec);
+}
+
+/**
+ * garrow_pivot_wider_options_new:
+ *
+ * Returns: A newly created #GArrowPivotWiderOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new(void)
+{
+  return GARROW_PIVOT_WIDER_OPTIONS(g_object_new(GARROW_TYPE_PIVOT_WIDER_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7253,6 +7393,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_extract_regex_options =
       static_cast<const arrow::compute::ExtractRegexOptions *>(arrow_options);
     auto options = garrow_extract_regex_options_new_raw(arrow_extract_regex_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "PivotWiderOptions") {
+    const auto arrow_pivot_wider_options =
+      static_cast<const arrow::compute::PivotWiderOptions *>(arrow_options);
+    auto options = garrow_pivot_wider_options_new_raw(arrow_pivot_wider_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7891,5 +8036,29 @@ arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options)
 {
   return static_cast<arrow::compute::ExtractRegexOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new_raw(const arrow::compute::PivotWiderOptions *arrow_options)
+{
+  auto strv = static_cast<gchar **>(g_new0(gchar *, arrow_options->key_names.size() + 1));
+  for (gsize i = 0; i < arrow_options->key_names.size(); ++i) {
+    strv[i] = g_strdup(arrow_options->key_names[i].c_str());
+  }
+  return GARROW_PIVOT_WIDER_OPTIONS(
+    g_object_new(GARROW_TYPE_PIVOT_WIDER_OPTIONS,
+                 "key-names",
+                 strv,
+                 "unexpected-key-behavior",
+                 static_cast<GArrowPivotWiderUnexpectedKeyBehavior>(
+                   arrow_options->unexpected_key_behavior),
+                 NULL));
+}
+
+arrow::compute::PivotWiderOptions *
+garrow_pivot_wider_options_get_raw(GArrowPivotWiderOptions *options)
+{
+  return static_cast<arrow::compute::PivotWiderOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

@@ -209,3 +209,9 @@ garrow_extract_regex_options_new_raw(
   const arrow::compute::ExtractRegexOptions *arrow_options);
 arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new_raw(
+  const arrow::compute::PivotWiderOptions *arrow_options);
+arrow::compute::PivotWiderOptions *
+garrow_pivot_wider_options_get_raw(GArrowPivotWiderOptions *options);
