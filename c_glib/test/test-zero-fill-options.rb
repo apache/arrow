@@ -1,0 +1,49 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+class TestZeroFillOptions < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def setup
+    @options = Arrow::ZeroFillOptions.new
+  end
+
+  def test_width_property
+    assert_equal(0, @options.width)
+    @options.width = 4
+    assert_equal(4, @options.width)
+  end
+
+  def test_padding_property
+    assert_equal("0", @options.padding)
+    @options.padding = "x"
+    assert_equal("x", @options.padding)
+  end
+
+  def test_utf8_zero_fill_function
+    args = [
+      Arrow::ArrayDatum.new(build_string_array(["1", "-2", "+3"])),
+    ]
+    @options.width = 4
+    @options.padding = "0"
+    utf8_zero_fill_function = Arrow::Function.find("utf8_zero_fill")
+    result = utf8_zero_fill_function.execute(args, @options).value
+    expected = build_string_array(["0001", "-002", "+003"])
+    assert_equal(expected, result)
+  end
+end
+
