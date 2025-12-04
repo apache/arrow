@@ -286,3 +286,9 @@ garrow_replace_substring_options_new_raw(
   const arrow::compute::ReplaceSubstringOptions *arrow_options);
 arrow::compute::ReplaceSubstringOptions *
 garrow_replace_substring_options_get_raw(GArrowReplaceSubstringOptions *options);
+
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new_raw(
+  const arrow::compute::RoundBinaryOptions *arrow_options);
+arrow::compute::RoundBinaryOptions *
+garrow_round_binary_options_get_raw(GArrowRoundBinaryOptions *options);

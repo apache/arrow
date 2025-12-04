@@ -1583,4 +1583,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowReplaceSubstringOptions *
 garrow_replace_substring_options_new(void);
 
+#define GARROW_TYPE_ROUND_BINARY_OPTIONS (garrow_round_binary_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundBinaryOptions,
+                         garrow_round_binary_options,
+                         GARROW,
+                         ROUND_BINARY_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundBinaryOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new(void);
+
 G_END_DECLS
