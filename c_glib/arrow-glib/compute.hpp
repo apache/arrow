@@ -274,3 +274,9 @@ garrow_pivot_wider_options_new_raw(
   const arrow::compute::PivotWiderOptions *arrow_options);
 arrow::compute::PivotWiderOptions *
 garrow_pivot_wider_options_get_raw(GArrowPivotWiderOptions *options);
+
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new_raw(
+  const arrow::compute::RankQuantileOptions *arrow_options);
+arrow::compute::RankQuantileOptions *
+garrow_rank_quantile_options_get_raw(GArrowRankQuantileOptions *options);
