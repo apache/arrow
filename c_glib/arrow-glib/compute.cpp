@@ -334,6 +334,8 @@ G_BEGIN_DECLS
  *
  * #GArrowWeekOptions is a class to customize the `week` function.
  *
+ * #GArrowWinsorizeOptions is a class to customize the `winsorize` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -10232,6 +10234,136 @@ garrow_week_options_new(void)
   return GARROW_WEEK_OPTIONS(g_object_new(GARROW_TYPE_WEEK_OPTIONS, nullptr));
 }
 
+enum {
+  PROP_WINSORIZE_OPTIONS_LOWER_LIMIT = 1,
+  PROP_WINSORIZE_OPTIONS_UPPER_LIMIT,
+};
+
+G_DEFINE_TYPE(GArrowWinsorizeOptions,
+              garrow_winsorize_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_winsorize_options_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto options = garrow_winsorize_options_get_raw(GARROW_WINSORIZE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_WINSORIZE_OPTIONS_LOWER_LIMIT:
+    options->lower_limit = g_value_get_double(value);
+    break;
+  case PROP_WINSORIZE_OPTIONS_UPPER_LIMIT:
+    options->upper_limit = g_value_get_double(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_winsorize_options_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto options = garrow_winsorize_options_get_raw(GARROW_WINSORIZE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_WINSORIZE_OPTIONS_LOWER_LIMIT:
+    g_value_set_double(value, options->lower_limit);
+    break;
+  case PROP_WINSORIZE_OPTIONS_UPPER_LIMIT:
+    g_value_set_double(value, options->upper_limit);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_winsorize_options_init(GArrowWinsorizeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::WinsorizeOptions());
+}
+
+static void
+garrow_winsorize_options_class_init(GArrowWinsorizeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_winsorize_options_set_property;
+  gobject_class->get_property = garrow_winsorize_options_get_property;
+
+  auto options = arrow::compute::WinsorizeOptions();
+
+  GParamSpec *spec;
+  /**
+   * GArrowWinsorizeOptions:lower-limit:
+   *
+   * The quantile below which all values are replaced with the quantile's value.
+   * For example, if lower_limit = 0.05, then all values in the lower 5% percentile
+   * will be replaced with the 5% percentile value.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_double(
+    "lower-limit",
+    "Lower limit",
+    "The quantile below which all values are replaced with the quantile's value. For "
+    "example, if lower_limit = 0.05, then all values in the lower 5% percentile will be "
+    "replaced with the 5% percentile value",
+    0.0,
+    1.0,
+    options.lower_limit,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_WINSORIZE_OPTIONS_LOWER_LIMIT,
+                                  spec);
+
+  /**
+   * GArrowWinsorizeOptions:upper-limit:
+   *
+   * The quantile above which all values are replaced with the quantile's value.
+   * For example, if upper_limit = 0.95, then all values in the upper 95% percentile
+   * will be replaced with the 95% percentile value.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_double(
+    "upper-limit",
+    "Upper limit",
+    "The quantile above which all values are replaced with the quantile's value. For "
+    "example, if upper_limit = 0.95, then all values in the upper 95% percentile will be "
+    "replaced with the 95% percentile value",
+    0.0,
+    1.0,
+    options.upper_limit,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_WINSORIZE_OPTIONS_UPPER_LIMIT,
+                                  spec);
+}
+
+/**
+ * garrow_winsorize_options_new:
+ *
+ * Returns: A newly created #GArrowWinsorizeOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new(void)
+{
+  return GARROW_WINSORIZE_OPTIONS(g_object_new(GARROW_TYPE_WINSORIZE_OPTIONS, nullptr));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -10501,6 +10633,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_week_options =
       static_cast<const arrow::compute::WeekOptions *>(arrow_options);
     auto options = garrow_week_options_new_raw(arrow_week_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "WinsorizeOptions") {
+    const auto arrow_winsorize_options =
+      static_cast<const arrow::compute::WinsorizeOptions *>(arrow_options);
+    auto options = garrow_winsorize_options_new_raw(arrow_winsorize_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -11598,5 +11735,24 @@ arrow::compute::WeekOptions *
 garrow_week_options_get_raw(GArrowWeekOptions *options)
 {
   return static_cast<arrow::compute::WeekOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new_raw(const arrow::compute::WinsorizeOptions *arrow_options)
+{
+  auto options = g_object_new(GARROW_TYPE_WINSORIZE_OPTIONS,
+                              "lower-limit",
+                              arrow_options->lower_limit,
+                              "upper-limit",
+                              arrow_options->upper_limit,
+                              nullptr);
+  return GARROW_WINSORIZE_OPTIONS(options);
+}
+
+arrow::compute::WinsorizeOptions *
+garrow_winsorize_options_get_raw(GArrowWinsorizeOptions *options)
+{
+  return static_cast<arrow::compute::WinsorizeOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

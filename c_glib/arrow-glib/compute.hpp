@@ -328,3 +328,8 @@ GArrowWeekOptions *
 garrow_week_options_new_raw(const arrow::compute::WeekOptions *arrow_options);
 arrow::compute::WeekOptions *
 garrow_week_options_get_raw(GArrowWeekOptions *options);
+
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new_raw(const arrow::compute::WinsorizeOptions *arrow_options);
+arrow::compute::WinsorizeOptions *
+garrow_winsorize_options_get_raw(GArrowWinsorizeOptions *options);

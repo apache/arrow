@@ -1755,4 +1755,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowWeekOptions *
 garrow_week_options_new(void);
 
+#define GARROW_TYPE_WINSORIZE_OPTIONS (garrow_winsorize_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowWinsorizeOptions,
+                         garrow_winsorize_options,
+                         GARROW,
+                         WINSORIZE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowWinsorizeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new(void);
+
 G_END_DECLS
