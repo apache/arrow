@@ -1,0 +1,160 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 3816333816..3e620b20a7 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -52,6 +52,11 @@ elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "MSVC")
+     endif ()
+ endif ()
+ 
++option(GOOGLE_CLOUD_CPP_ENABLE_INSTALL
++       "Enable installation of google-cloud-cpp headers and libraries"
++       ON)
++mark_as_advanced(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
++
+ list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
+ include(SelectMSVCRuntime)
+ 
+diff --git a/cmake/GoogleCloudCppLibrary.cmake b/cmake/GoogleCloudCppLibrary.cmake
+index caee116a3a..5cbb03f697 100644
+--- a/cmake/GoogleCloudCppLibrary.cmake
++++ b/cmake/GoogleCloudCppLibrary.cmake
+@@ -87,6 +87,7 @@ function (google_cloud_cpp_add_library_protos library)
+     set(library_target "google_cloud_cpp_${library}")
+ 
+     # Export the CMake targets to make it easy to create configuration files.
++    if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+     install(
+         EXPORT ${library_target}-targets
+         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${library_target}"
+@@ -104,6 +105,7 @@ function (google_cloud_cpp_add_library_protos library)
+                 NAMELINK_COMPONENT google_cloud_cpp_development
+         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                 COMPONENT google_cloud_cpp_development)
++    endif()
+ 
+     # Create and install the CMake configuration files.
+     include(CMakePackageConfigHelpers)
+@@ -115,12 +117,14 @@ function (google_cloud_cpp_add_library_protos library)
+         VERSION ${PROJECT_VERSION}
+         COMPATIBILITY ExactVersion)
+ 
++    if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+     install(
+         FILES
+             "${CMAKE_CURRENT_BINARY_DIR}/${library_target}-config.cmake"
+             "${CMAKE_CURRENT_BINARY_DIR}/${library_target}-config-version.cmake"
+         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${library_target}"
+         COMPONENT google_cloud_cpp_development)
++    endif()
+ endfunction ()
+ 
+ #
+@@ -257,6 +261,8 @@ function (google_cloud_cpp_add_gapic_library library display_name)
+     include(GNUInstallDirs)
+ 
+     # Export the CMake targets to make it easy to create configuration files.
++
++    if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+     install(
+         EXPORT ${library_target}-targets
+         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${library_target}"
+@@ -275,6 +281,7 @@ function (google_cloud_cpp_add_gapic_library library display_name)
+                 NAMELINK_COMPONENT google_cloud_cpp_development
+         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+                 COMPONENT google_cloud_cpp_development)
++    endif()
+ 
+     google_cloud_cpp_install_headers("${library_target}"
+                                      "include/google/cloud/${library}")
+@@ -311,12 +318,14 @@ function (google_cloud_cpp_add_gapic_library library display_name)
+         VERSION ${PROJECT_VERSION}
+         COMPATIBILITY ExactVersion)
+ 
++    if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+     install(
+         FILES
+             "${CMAKE_CURRENT_BINARY_DIR}/${library_target}-config.cmake"
+             "${CMAKE_CURRENT_BINARY_DIR}/${library_target}-config-version.cmake"
+         DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${library_target}"
+         COMPONENT google_cloud_cpp_development)
++    endif()
+ 
+     if (GOOGLE_CLOUD_CPP_WITH_MOCKS)
+         # Create a header-only library for the mocks. We use a CMake `INTERFACE`
+diff --git a/google/cloud/google_cloud_cpp_common.cmake b/google/cloud/google_cloud_cpp_common.cmake
+index 5bbc510e18..bd931c17d2 100644
+--- a/google/cloud/google_cloud_cpp_common.cmake
++++ b/google/cloud/google_cloud_cpp_common.cmake
+@@ -218,6 +218,7 @@ add_library(google-cloud-cpp::common ALIAS google_cloud_cpp_common)
+ 
+ create_bazel_config(google_cloud_cpp_common YEAR 2018)
+ 
++if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+ # Export the CMake targets to make it easy to create configuration files.
+ install(
+     EXPORT google_cloud_cpp_common-targets
+@@ -238,6 +239,7 @@ install(
+             COMPONENT google_cloud_cpp_development)
+ 
+ google_cloud_cpp_install_headers(google_cloud_cpp_common include/google/cloud)
++endif()
+ 
+ google_cloud_cpp_add_pkgconfig(
+     "common"
+diff --git a/google/cloud/google_cloud_cpp_rest_internal.cmake b/google/cloud/google_cloud_cpp_rest_internal.cmake
+index 5da42523bf..3dcd7a9cc9 100644
+--- a/google/cloud/google_cloud_cpp_rest_internal.cmake
++++ b/google/cloud/google_cloud_cpp_rest_internal.cmake
+@@ -142,6 +142,7 @@ set_target_properties(
+ add_library(google-cloud-cpp::rest_internal ALIAS
+             google_cloud_cpp_rest_internal)
+ 
++if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+ # Export the CMake targets to make it easy to create configuration files.
+ install(
+     EXPORT google_cloud_cpp_rest_internal-targets
+@@ -163,6 +164,7 @@ install(
+ 
+ google_cloud_cpp_install_headers(google_cloud_cpp_rest_internal
+                                  include/google/cloud)
++endif()
+ 
+ google_cloud_cpp_add_pkgconfig(
+     rest_internal "REST library for the Google Cloud C++ Client Library"
+diff --git a/google/cloud/storage/google_cloud_cpp_storage.cmake b/google/cloud/storage/google_cloud_cpp_storage.cmake
+index 8e69ad26b6..347250781c 100644
+--- a/google/cloud/storage/google_cloud_cpp_storage.cmake
++++ b/google/cloud/storage/google_cloud_cpp_storage.cmake
+@@ -296,6 +296,7 @@ add_library(google-cloud-cpp::storage ALIAS google_cloud_cpp_storage)
+ 
+ create_bazel_config(google_cloud_cpp_storage)
+ 
++if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+ # Export the CMake targets to make it easy to create configuration files.
+ install(
+     EXPORT storage-targets
+@@ -312,6 +313,7 @@ install(
+             NAMELINK_COMPONENT google_cloud_cpp_development
+     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+             COMPONENT google_cloud_cpp_development)
++endif()
+ 
+ google_cloud_cpp_install_headers(google_cloud_cpp_storage
+                                  include/google/cloud/storage)
