@@ -389,6 +389,7 @@ add_parquet_test(internals-test
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
+                 metadata3_test.cc
                  page_index_test.cc
                  properties_test.cc
                  public_api_test.cc
