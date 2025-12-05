@@ -4094,7 +4094,7 @@ macro(build_opentelemetry)
   if(NLOHMANN_JSON_VENDORED)
     add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
   else()
-    add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+    add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json)
   endif()
 
   add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
