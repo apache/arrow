@@ -1052,8 +1052,24 @@ SQLRETURN SQLExecute(SQLHSTMT stmt) {
 
 SQLRETURN SQLFetch(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLFetch called with stmt: " << stmt;
-  // GH-47713 TODO: Implement SQLFetch
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // The SQL_ATTR_ROW_ARRAY_SIZE statement attribute specifies the number of rows in the
+    // rowset. Retrieve it with GetArraySize.
+    ODBCDescriptor* ard = statement->GetARD();
+    size_t rows = static_cast<size_t>(ard->GetArraySize());
+
+    if (statement->Fetch(rows)) {
+      return SQL_SUCCESS;
+    } else {
+      // Reached the end of rowset
+      return SQL_NO_DATA;
+    }
+  });
 }
 
 SQLRETURN SQLExtendedFetch(SQLHSTMT stmt, SQLUSMALLINT fetch_orientation,
@@ -1113,8 +1129,14 @@ SQLRETURN SQLGetData(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
                    << ", record_number: " << record_number << ", c_type: " << c_type
                    << ", data_ptr: " << data_ptr << ", buffer_length: " << buffer_length
                    << ", indicator_ptr: " << static_cast<const void*>(indicator_ptr);
-  // GH-47713 TODO: Implement SQLGetData
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    return statement->GetData(record_number, c_type, data_ptr, buffer_length,
+                              indicator_ptr);
+  });
 }
 
 SQLRETURN SQLMoreResults(SQLHSTMT stmt) {
