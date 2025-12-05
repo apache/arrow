@@ -37,9 +37,9 @@ TYPED_TEST_SUITE(ConnectionTest, TestTypes);
 template <typename T>
 class ConnectionHandleTest : public T {};
 
-class ConnectionRemoteTest : public FlightSQLOdbcHandleRemoteTestBase {};
-using TestTypesHandle =
-    ::testing::Types<FlightSQLOdbcHandleMockTestBase, FlightSQLOdbcHandleRemoteTestBase>;
+class ConnectionRemoteTest : public FlightSQLOdbcEnvConnHandleRemoteTestBase {};
+using TestTypesHandle = ::testing::Types<FlightSQLOdbcEnvConnHandleMockTestBase,
+                                         FlightSQLOdbcEnvConnHandleRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionHandleTest, TestTypesHandle);
 
 TEST(ODBCHandles, TestSQLAllocAndFreeEnv) {
