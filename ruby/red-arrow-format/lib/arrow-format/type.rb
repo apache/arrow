@@ -22,6 +22,22 @@ module ArrowFormat
     end
   end
 
+  class NullType < Type
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Null")
+    end
+
+    def build_array(size)
+      NullArray.new(self, size)
+    end
+  end
+
   class IntType < Type
     attr_reader :bit_width
     attr_reader :signed

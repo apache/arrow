@@ -40,6 +40,17 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Null") do
+    def build_array
+      Arrow::NullArray.new(3)
+    end
+
+    def test_read
+      assert_equal([{"value" => [nil, nil, nil]}],
+                   read)
+    end
+  end
+
   sub_test_case("Int8") do
     def build_array
       Arrow::Int8Array.new([-128, nil, 127])
