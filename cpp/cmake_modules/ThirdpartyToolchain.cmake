@@ -3052,9 +3052,8 @@ function(build_absl)
     # This is due to upstream absl::cctz issue
     # https://github.com/abseil/abseil-cpp/issues/283
     find_library(CoreFoundation CoreFoundation)
-    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
-    # Cannot use set_property on alias targets (absl::time is an alias)
-    set_property(TARGET time
+    # The time target (for absl::time) needs CoreFoundation on macOS
+    set_property(TARGET absl_time
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
@@ -3396,8 +3395,31 @@ function(build_google_cloud_cpp_storage)
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
 
+  # Apply patch to add GOOGLE_CLOUD_CPP_ENABLE_INSTALL option so it does not install
+  # unconditionally when embedded via FetchContent. Otherwise, we would have to install
+  # dependecies like absl, crc32c, nlohmann_json, etc. which is not desirable.
+  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+  find_program(PATCH patch)
+  if(PATCH)
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i)
+  else()
+    find_program(GIT git)
+    if(GIT)
+      list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND ${GIT} apply)
+    endif()
+  endif()
+  if(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
+  endif()
+
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
@@ -3409,6 +3431,8 @@ function(build_google_cloud_cpp_storage)
   # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
   set(GOOGLE_CLOUD_CPP_ENABLE_WERROR OFF)
   set(GOOGLE_CLOUD_CPP_WITH_MOCKS OFF)
+  # Disable installation when embedded via FetchContent
+  set(GOOGLE_CLOUD_CPP_ENABLE_INSTALL OFF)
   set(BUILD_TESTING OFF)
   # Unity build causes some build errors.
   set(CMAKE_UNITY_BUILD FALSE)
