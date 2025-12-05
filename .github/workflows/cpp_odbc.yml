@@ -18,30 +18,7 @@
 name: C++ ODBC
 
 on:
-  push:
-    branches:
-      - '**'
-      - '!dependabot/**'
-    tags:
-      - '**'
-    paths:
-      - '.github/workflows/cpp_odbc.yml'
-      - 'ci/scripts/cpp_*'
-      - 'cpp/src/arrow/flight/sql/odbc/*'
-  pull_request:
-    paths:
-      - '.github/workflows/cpp_odbc.yml'
-      - 'ci/scripts/cpp_*'
-      - 'cpp/src/arrow/flight/sql/odbc/*'
-  schedule:
-    - cron: '0 13 * * *'
-
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
+  workflow_call:
 
 jobs:
   windows:
@@ -74,7 +51,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -105,7 +82,7 @@ jobs:
           key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-odbc-ccache-windows-x64-
       - name: Checkout vcpkg
-        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           path: vcpkg
