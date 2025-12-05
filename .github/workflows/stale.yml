@@ -28,7 +28,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this PR will be closed in 14 days.  Feel free to re-open this if it has been closed in error. If you do not have repository permissions to reopen the PR, please tag a maintainer."
           stale-pr-label: "Status: stale-warning"
@@ -46,7 +46,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           stale-pr-label: "Status: stale-warning"
           only-pr-labels: "Status: stale-warning"
@@ -63,7 +63,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           # exclude PRs
           days-before-pr-stale: -1
@@ -82,7 +82,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           # exclude PRs
           days-before-pr-stale: -1
@@ -99,7 +99,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           # exclude PRs
           days-before-pr-stale: -1
@@ -118,7 +118,7 @@ jobs:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           # exclude PRs
           days-before-pr-stale: -1

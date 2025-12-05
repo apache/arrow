@@ -77,7 +77,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
