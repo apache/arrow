@@ -149,8 +149,14 @@ class PackageTask
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
     pass_through_env_names = [
+      "CPU_LIST",
       "DEB_BUILD_OPTIONS",
+      "FAKETIME",
       "HOME",
+      "LANG",
+      "LANGUAGE",
+      "LC_ALL",
+      "NO_FAKE_STAT",
       "RPM_BUILD_NCPUS",
       "TZ",
     ]
@@ -159,6 +165,7 @@ class PackageTask
       next unless value
       run_command_line.concat(["--env", "#{name}=#{value}"])
     end
+    run_command_line.concat(["--env", "UMASK=%04o" % File.umask])
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
