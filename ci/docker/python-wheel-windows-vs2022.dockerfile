@@ -26,12 +26,13 @@ ARG python=3.10
 
 # Use python_abi_tag env var to select regular or free-threaded Python
 ARG python_variant=default
+ENV PYTHON_VERSION=${python}
 ENV PYTHON_VARIANT=${python_variant}
 RUN pymanager install --version %PYTHON_VERSION% --variant %PYTHON_VARIANT%
 
-RUN %PYTHON_CMD% -m pip install -U pip setuptools
+RUN py -%PYTHON_VERSION% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt C:/arrow/python/
-RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
+RUN py -%PYTHON_VERSION% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
 
 ENV PYTHON=${python}
