@@ -413,6 +413,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline int64_t data_page_offset() const { return column_metadata_->data_page_offset; }
 
+  inline int64_t start_offset() const {
+    return has_dictionary_page() ? dictionary_page_offset() : data_page_offset();
+  }
+
   inline bool has_index_page() const {
     return column_metadata_->__isset.index_page_offset;
   }
@@ -453,6 +457,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   const std::shared_ptr<const KeyValueMetadata>& key_value_metadata() const {
     return key_value_metadata_;
   }
+
+  const void* to_thrift() const { return column_metadata_; }
 
  private:
   void InitKeyValueMetadata() {
@@ -550,6 +556,8 @@ int64_t ColumnChunkMetaData::data_page_offset() const {
   return impl_->data_page_offset();
 }
 
+int64_t ColumnChunkMetaData::start_offset() const { return impl_->start_offset(); }
+
 bool ColumnChunkMetaData::has_index_page() const { return impl_->has_index_page(); }
 
 int64_t ColumnChunkMetaData::index_page_offset() const {
@@ -600,6 +608,8 @@ const std::shared_ptr<const KeyValueMetadata>& ColumnChunkMetaData::key_value_me
     const {
   return impl_->key_value_metadata();
 }
+
+const void* ColumnChunkMetaData::to_thrift() const { return impl_->to_thrift(); }
 
 // row-group metadata
 class RowGroupMetaData::RowGroupMetaDataImpl {
@@ -1888,6 +1898,23 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     return column_builder_ptr;
   }
 
+  void NextColumnChunk(std::unique_ptr<ColumnChunkMetaData> cc_metadata, int64_t shift) {
+    auto* column_chunk = &row_group_->columns[next_column_++];
+    column_chunk->__set_file_offset(0);
+    column_chunk->__isset.meta_data = true;
+    column_chunk->meta_data =
+        *static_cast<const format::ColumnMetaData*>(cc_metadata->to_thrift());
+    column_chunk->meta_data.__set_dictionary_page_offset(
+        column_chunk->meta_data.dictionary_page_offset + shift);
+    column_chunk->meta_data.__set_data_page_offset(
+        column_chunk->meta_data.data_page_offset + shift);
+    column_chunk->meta_data.__set_index_page_offset(
+        column_chunk->meta_data.index_page_offset + shift);
+    column_chunk->meta_data.__set_bloom_filter_offset(
+        column_chunk->meta_data.bloom_filter_offset + shift);
+    column_builders_.push_back(NULLPTR);
+  }
+
   int current_column() { return next_column_ - 1; }
 
   void Finish(int64_t total_bytes_written, int16_t row_group_ordinal) {
@@ -1919,6 +1946,10 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       }
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder
+      if (column_builders_[i] == NULLPTR) {
+        total_compressed_size += row_group_->columns[i].meta_data.total_compressed_size;
+        continue;
+      }
       total_compressed_size += column_builders_[i]->total_compressed_size();
     }
 
@@ -1971,6 +2002,11 @@ RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() = default;
 
 ColumnChunkMetaDataBuilder* RowGroupMetaDataBuilder::NextColumnChunk() {
   return impl_->NextColumnChunk();
+}
+
+void RowGroupMetaDataBuilder::NextColumnChunk(
+    std::unique_ptr<ColumnChunkMetaData> cc_metadata, int64_t shift) {
+  return impl_->NextColumnChunk(std::move(cc_metadata), shift);
 }
 
 int RowGroupMetaDataBuilder::current_column() const { return impl_->current_column(); }
