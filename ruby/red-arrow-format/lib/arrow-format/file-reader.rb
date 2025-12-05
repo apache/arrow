@@ -27,6 +27,7 @@ require_relative "org/apache/arrow/flatbuf/bool"
 require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/int"
+require_relative "org/apache/arrow/flatbuf/large_binary"
 require_relative "org/apache/arrow/flatbuf/list"
 require_relative "org/apache/arrow/flatbuf/message"
 require_relative "org/apache/arrow/flatbuf/null"
@@ -158,6 +159,8 @@ module ArrowFormat
         type = ListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::Binary
         type = BinaryType.singleton
+      when Org::Apache::Arrow::Flatbuf::LargeBinary
+        type = LargeBinaryType.singleton
       when Org::Apache::Arrow::Flatbuf::Utf8
         type = UTF8Type.singleton
       end
@@ -196,8 +199,7 @@ module ArrowFormat
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
         child = read_column(field.type.child, nodes, buffers, body)
         field.type.build_array(length, validity, offsets, child)
-      when BinaryType,
-           UTF8Type
+      when VariableSizeBinaryType
         offsets_buffer = buffers.shift
         values_buffer = buffers.shift
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
