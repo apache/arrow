@@ -1092,8 +1092,16 @@ SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
 
 SQLRETURN SQLCloseCursor(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLCloseCursor called with stmt: " << stmt;
-  // GH-47717 TODO: Implement SQLCloseCursor
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // Close cursor with suppressErrors set to false
+    statement->CloseCursor(false);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLGetData(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_type,

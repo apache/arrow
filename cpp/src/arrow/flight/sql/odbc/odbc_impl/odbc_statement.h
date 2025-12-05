@@ -80,15 +80,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
-  /**
-   * @brief Closes the cursor. This does _not_ un-prepare the statement or change
-   * bindings.
-   */
+  /// \brief Closes the cursor. This does _not_ un-prepare the statement or change
+  /// bindings.
   void CloseCursor(bool suppress_errors);
 
-  /**
-   * @brief Releases this statement from memory.
-   */
+  /// \brief Releases this statement from memory.
   void ReleaseStatement();
 
   void GetTables(const std::string* catalog, const std::string* schema,
