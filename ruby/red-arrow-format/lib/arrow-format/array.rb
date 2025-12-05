@@ -123,4 +123,23 @@ module ArrowFormat
       Encoding::UTF_8
     end
   end
+
+  class ListArray < Array
+    def initialize(type, size, validity_buffer, offsets_buffer, child)
+      super(type, size, validity_buffer)
+      @offsets_buffer = offsets_buffer
+      @child = child
+    end
+
+    def to_a
+      child_values = @child.to_a
+      values = @offsets_buffer.
+        each(:s32, 0, @size + 1). # TODO: big endian support
+        each_cons(2).
+        collect do |(_, offset), (_, next_offset)|
+        child_values[offset...next_offset]
+      end
+      apply_validity(values)
+    end
+  end
 end

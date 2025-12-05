@@ -105,4 +105,16 @@ class TestFileReader < Test::Unit::TestCase
                    read)
     end
   end
+
+  sub_test_case("List") do
+    def build_array
+      data_type = Arrow::ListDataType.new(name: "count", type: :int8)
+      Arrow::ListArray.new(data_type, [[-128, 127], nil, [-1, 0, 1]])
+    end
+
+    def test_read
+      assert_equal([{"value" => [[-128, 127], nil, [-1, 0, 1]]}],
+                   read)
+    end
+  end
 end
