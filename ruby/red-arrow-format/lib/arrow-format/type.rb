@@ -80,4 +80,21 @@ module ArrowFormat
       BinaryArray.new(self, size, validity_buffer, offsets_buffer, values_buffer)
     end
   end
+
+  class UTF8Type < Type
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    attr_reader :name
+    def initialize
+      super("UTF8")
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
+      UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
+    end
+  end
 end

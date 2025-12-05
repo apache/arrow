@@ -72,4 +72,15 @@ class TestFileReader < Test::Unit::TestCase
                    read)
     end
   end
+
+  sub_test_case("UTF8") do
+    def build_array
+      Arrow::StringArray.new(["Hello", nil, "World"])
+    end
+
+    def test_read
+      assert_equal([{"value" => ["Hello", nil, "World"]}],
+                   read)
+    end
+  end
 end

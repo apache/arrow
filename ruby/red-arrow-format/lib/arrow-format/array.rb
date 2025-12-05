@@ -73,7 +73,7 @@ module ArrowFormat
     end
   end
 
-  class BinaryArray < Array
+  class VariableSizeBinaryLayoutArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
@@ -86,9 +86,23 @@ module ArrowFormat
         each_cons(2).
         collect do |(_, offset), (_, next_offset)|
         length = next_offset - offset
-        @values_buffer.get_string(offset, length)
+        @values_buffer.get_string(offset, length, encoding)
       end
       apply_validity(values)
+    end
+  end
+
+  class BinaryArray < VariableSizeBinaryLayoutArray
+    private
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+  end
+
+  class UTF8Array < VariableSizeBinaryLayoutArray
+    private
+    def encoding
+      Encoding::UTF_8
     end
   end
 end
