@@ -110,7 +110,7 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
     }
 
     if (col_props.bloom_filter_options().has_value()) {
-      this->enable_bloom_filter(col_props.bloom_filter_options().value(), col_path);
+      this->enable_bloom_filter(col_path, col_props.bloom_filter_options().value());
     }
   }
 }

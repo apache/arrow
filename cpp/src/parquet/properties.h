@@ -722,8 +722,8 @@ class PARQUET_EXPORT WriterProperties {
     ///
     /// \note Bloom filter is not supported for boolean columns. ParquetException will
     /// be thrown during write if the column is of boolean type.
-    Builder* enable_bloom_filter(const BloomFilterOptions& bloom_filter_options,
-                                 const std::string& path) {
+    Builder* enable_bloom_filter(const std::string& path,
+                                 const BloomFilterOptions& bloom_filter_options) {
       bloom_filter_options_[path] = bloom_filter_options;
       return this;
     }
@@ -734,9 +734,9 @@ class PARQUET_EXPORT WriterProperties {
     ///
     /// \note Bloom filter is not supported for boolean columns. ParquetException will
     /// be thrown during write if the column is of boolean type.
-    Builder* enable_bloom_filter(const BloomFilterOptions& bloom_filter_options,
-                                 const std::shared_ptr<schema::ColumnPath>& path) {
-      return this->enable_bloom_filter(bloom_filter_options, path->ToDotString());
+    Builder* enable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path,
+                                 const BloomFilterOptions& bloom_filter_options) {
+      return this->enable_bloom_filter(path->ToDotString(), bloom_filter_options);
     }
 
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.

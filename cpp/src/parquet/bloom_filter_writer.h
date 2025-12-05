@@ -20,20 +20,20 @@
 #include "arrow/type_fwd.h"
 
 #include "parquet/bloom_filter.h"
+#include "parquet/index_location.h"
 #include "parquet/type_fwd.h"
 
 namespace parquet {
 
 /// \brief Writer for updating a bloom filter with values of a specific Parquet type.
 template <typename ParquetType>
-class PARQUET_EXPORT BloomFilterWriter {
+class PARQUET_EXPORT TypedBloomFilterWriter {
  public:
   using T = typename ParquetType::c_type;
 
   /// \param descr The descriptor of the column to write. Must outlive this writer.
-  /// \param bloom_filter The bloom filter to update. If nullptr, this writer does not
-  /// enable bloom filter. Otherwise, the input bloom filter must outlive this writer.
-  BloomFilterWriter(const ColumnDescriptor* descr, BloomFilter* bloom_filter);
+  /// \param bloom_filter The bloom filter to update. Must outlive this writer.
+  TypedBloomFilterWriter(const ColumnDescriptor* descr, BloomFilter* bloom_filter);
 
   /// \brief Update the bloom filter with typed values.
   ///
@@ -55,9 +55,6 @@ class PARQUET_EXPORT BloomFilterWriter {
   /// \param values The Arrow array to update the bloom filter with.
   void Update(const ::arrow::Array& values);
 
-  /// \brief Check if this writer has enabled the bloom filter.
-  bool bloom_filter_enabled() const;
-
  private:
   const ColumnDescriptor* descr_;
   BloomFilter* bloom_filter_;
@@ -77,29 +74,31 @@ class PARQUET_EXPORT BloomFilterBuilder {
                                                   const WriterProperties* properties);
 
   /// \brief Start a new row group to write bloom filters, meaning that next calls
-  /// to `GetOrCreateBloomFilter` will create bloom filters for the new row group.
+  /// to `CreateBloomFilter` will create bloom filters for the new row group.
   ///
   /// \throws ParquetException if `WriteTo()` has been called already.
   virtual void AppendRowGroup() = 0;
 
-  /// \brief Get or create a BloomFilter from the column ordinal of the current row group.
+  /// \brief Create a BloomFilter of the column ordinal of the current row group.
   ///
   /// \param column_ordinal Column ordinal for the bloom filter.
-  /// \return designated BloomFilter whose ownership belongs to the builder.
+  /// \return created BloomFilter whose ownership belongs to the builder, or nullptr if
+  /// bloom filter is not enabled for the column.
   /// \throws ParquetException if any condition is violated:
   ///   - `AppendRowGroup()` has not been called yet
   ///   - The column ordinal is out of bound
+  ///   - Bloom filter already exists for the column
   ///   - `WriteTo()` has been called
-  virtual BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) = 0;
+  virtual BloomFilter* CreateBloomFilter(int32_t column_ordinal) = 0;
 
   /// \brief Write all bloom filters to sink.
   ///
   /// The bloom filters cannot be modified after this method is called.
   ///
   /// \param[in] sink The output stream to write the bloom filters.
-  /// \param[out] location The location of all bloom filters.
+  /// \return The location of all bloom filters.
   /// \throws ParquetException if `WriteTo()` has been called.
-  virtual void WriteTo(::arrow::io::OutputStream* sink, IndexLocations* location) = 0;
+  virtual IndexLocations WriteTo(::arrow::io::OutputStream* sink) = 0;
 };
 
 }  // namespace parquet

@@ -140,7 +140,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
-    return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
+    return std::dynamic_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED,
@@ -2405,8 +2405,8 @@ class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
     }
     auto path = this->schema_.Column(0)->path();
     if (column_properties.bloom_filter_enabled()) {
-      properties_builder.enable_bloom_filter(*column_properties.bloom_filter_options(),
-                                             path);
+      properties_builder.enable_bloom_filter(path,
+                                             *column_properties.bloom_filter_options());
     } else {
       properties_builder.disable_bloom_filter(path);
     }
@@ -2419,15 +2419,15 @@ class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
 
     builder_ = BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
     builder_->AppendRowGroup();
-    bloom_filter_ = builder_->GetOrCreateBloomFilter(/*column_ordinal=*/0);
+    bloom_filter_ = builder_->CreateBloomFilter(/*column_ordinal=*/0);
 
-    return std::static_pointer_cast<TypedColumnWriter<TestType>>(
+    return std::dynamic_pointer_cast<TypedColumnWriter<TestType>>(
         ColumnWriter::Make(this->metadata_.get(), std::move(pager),
                            this->writer_properties_.get(), bloom_filter_));
   }
 
   std::unique_ptr<BloomFilterBuilder> builder_;
-  BloomFilter* bloom_filter_{nullptr};
+  BloomFilter* bloom_filter_{nullptr};  // Will be created and owned by `builder_`.
 };
 
 // Note: BooleanType is excluded.

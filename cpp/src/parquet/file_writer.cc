@@ -286,7 +286,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
                           : nullptr;
     BloomFilter* bloom_filter = nullptr;
     if (bloom_filter_builder_) {
-      bloom_filter = bloom_filter_builder_->GetOrCreateBloomFilter(column_ordinal);
+      bloom_filter = bloom_filter_builder_->CreateBloomFilter(column_ordinal);
     }
     const CodecOptions* codec_options = column_properties.codec_options()
                                             ? column_properties.codec_options().get()
@@ -472,12 +472,12 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (page_index_builder_ != nullptr) {
       // Serialize page index after all row groups have been written and report
       // location to the file metadata.
-      IndexLocations column_index_location, offset_index_location;
       page_index_builder_->Finish();
-      page_index_builder_->WriteTo(sink_.get(), &column_index_location,
-                                   &offset_index_location);
-      metadata_->SetIndexLocations(column_index_location);
-      metadata_->SetIndexLocations(offset_index_location);
+      auto write_result = page_index_builder_->WriteTo(sink_.get());
+      metadata_->SetIndexLocations(IndexKind::kColumnIndex,
+                                   write_result.column_index_locations);
+      metadata_->SetIndexLocations(IndexKind::kOffsetIndex,
+                                   write_result.offset_index_locations);
     }
   }
 
@@ -488,9 +488,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       }
       // Serialize bloom filter after all row groups have been written and report
       // location to the file metadata.
-      IndexLocations bloom_filter_location;
-      bloom_filter_builder_->WriteTo(sink_.get(), &bloom_filter_location);
-      metadata_->SetIndexLocations(bloom_filter_location);
+      auto locations = bloom_filter_builder_->WriteTo(sink_.get());
+      metadata_->SetIndexLocations(IndexKind::kBloomFilter, locations);
     }
   }
 
@@ -554,7 +553,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 // ----------------------------------------------------------------------
 // ParquetFileWriter public API
 
-ParquetFileWriter::ParquetFileWriter() {}
+ParquetFileWriter::ParquetFileWriter() = default;
 
 ParquetFileWriter::~ParquetFileWriter() {
   try {

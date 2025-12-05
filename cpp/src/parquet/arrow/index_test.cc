@@ -536,8 +536,8 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
   BloomFilterOptions options{10, 0.05};
   auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter(options, "c0")
-                               ->enable_bloom_filter(options, "c1")
+                               .enable_bloom_filter("c0", options)
+                               ->enable_bloom_filter("c1", options)
                                ->max_row_group_length(4)
                                ->build();
   auto table = ::arrow::TableFromJSON(
@@ -565,8 +565,8 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
 
   BloomFilterOptions options{10, 0.05};
   auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter(options, "c0")
-                               ->enable_bloom_filter(options, "c1")
+                               .enable_bloom_filter("c0", options)
+                               ->enable_bloom_filter("c1", options)
                                ->max_row_group_length(4)
                                ->build();
 
@@ -625,7 +625,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
       {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
   BloomFilterOptions options{10, 0.05};
   auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter(options, "c0")
+                               .enable_bloom_filter("c0", options)
                                ->disable_bloom_filter("c1")
                                ->max_row_group_length(4)
                                ->build();
@@ -650,7 +650,7 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
 TEST_F(ParquetBloomFilterRoundTripTest, ThrowForBoolean) {
   BloomFilterOptions options{10, 0.05};
   auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter(options, "boolean_col")
+                               .enable_bloom_filter("boolean_col", options)
                                ->max_row_group_length(4)
                                ->build();
 

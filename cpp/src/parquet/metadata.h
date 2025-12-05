@@ -25,10 +25,10 @@
 #include <vector>
 
 #include "parquet/encryption/type_fwd.h"
+#include "parquet/index_location.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/type_fwd.h"
-
 namespace parquet {
 
 using KeyValueMetadata = ::arrow::KeyValueMetadata;
@@ -99,14 +99,6 @@ struct PageEncodingStats {
   PageType::type page_type;
   Encoding::type encoding;
   int32_t count;
-};
-
-/// \brief Public struct for location to page index in ColumnChunkMetaData.
-struct IndexLocation {
-  /// File offset of the given index, in bytes
-  int64_t offset;
-  /// Length of the given index, in bytes
-  int32_t length;
 };
 
 /// \brief ColumnChunkMetaData is a proxy around format::ColumnChunkMetaData.
@@ -504,14 +496,6 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
   std::unique_ptr<RowGroupMetaDataBuilderImpl> impl_;
 };
 
-/// \brief Locations of indexes for all row groups and columns.
-struct PARQUET_EXPORT IndexLocations {
-  enum class IndexType : uint8_t { kColumnIndex, kOffsetIndex, kBloomFilter };
-
-  IndexType type;
-  std::map</*RowGroupId=*/size_t, std::map</*ColumnId=*/size_t, IndexLocation>> locations;
-};
-
 class PARQUET_EXPORT FileMetaDataBuilder {
  public:
   // API convenience to get a MetaData builder
@@ -523,8 +507,8 @@ class PARQUET_EXPORT FileMetaDataBuilder {
   // The prior RowGroupMetaDataBuilder (if any) is destroyed
   RowGroupMetaDataBuilder* AppendRowGroup();
 
-  // Set locations of all row groups and columns for a specific index type.
-  void SetIndexLocations(const IndexLocations& locations);
+  // Set locations of all column chunks of a specific index kind.
+  void SetIndexLocations(IndexKind kind, const IndexLocations& locations);
 
   // Complete the Thrift structure
   std::unique_ptr<FileMetaData> Finish(

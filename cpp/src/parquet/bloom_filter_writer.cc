@@ -25,7 +25,6 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/unreachable.h"
 
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
@@ -38,53 +37,40 @@ namespace parquet {
 constexpr int64_t kHashBatchSize = 256;
 
 template <typename ParquetType>
-BloomFilterWriter<ParquetType>::BloomFilterWriter(const ColumnDescriptor* descr,
-                                                  BloomFilter* bloom_filter)
+TypedBloomFilterWriter<ParquetType>::TypedBloomFilterWriter(const ColumnDescriptor* descr,
+                                                            BloomFilter* bloom_filter)
     : descr_(descr), bloom_filter_(bloom_filter) {}
 
 template <typename ParquetType>
-bool BloomFilterWriter<ParquetType>::bloom_filter_enabled() const {
-  return bloom_filter_ != nullptr;
-}
-
-template <typename ParquetType>
-void BloomFilterWriter<ParquetType>::Update(const T* values, int64_t num_values) {
-  if (!bloom_filter_enabled()) {
-    return;
-  }
-
+void TypedBloomFilterWriter<ParquetType>::Update(const T* values, int64_t num_values) {
   if constexpr (std::is_same_v<ParquetType, BooleanType>) {
     throw ParquetException("Bloom filter is not supported for boolean type");
   }
 
+  ARROW_DCHECK(bloom_filter_ != nullptr);
   std::array<uint64_t, kHashBatchSize> hashes;
   for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
     auto batch_size = static_cast<int>(std::min(kHashBatchSize, num_values - i));
     if constexpr (std::is_same_v<ParquetType, FLBAType>) {
-      bloom_filter_->Hashes(values, descr_->type_length(), batch_size, hashes.data());
+      bloom_filter_->Hashes(values + i, descr_->type_length(), batch_size, hashes.data());
     } else {
-      bloom_filter_->Hashes(values, batch_size, hashes.data());
+      bloom_filter_->Hashes(values + i, batch_size, hashes.data());
     }
     bloom_filter_->InsertHashes(hashes.data(), batch_size);
   }
 }
 
 template <>
-void BloomFilterWriter<BooleanType>::Update(const bool*, int64_t) {
-  if (!bloom_filter_enabled()) {
-    return;
-  }
+void TypedBloomFilterWriter<BooleanType>::Update(const bool*, int64_t) {
   throw ParquetException("Bloom filter is not supported for boolean type");
 }
 
 template <typename ParquetType>
-void BloomFilterWriter<ParquetType>::UpdateSpaced(const T* values, int64_t num_values,
-                                                  const uint8_t* valid_bits,
-                                                  int64_t valid_bits_offset) {
-  if (!bloom_filter_enabled()) {
-    return;
-  }
-
+void TypedBloomFilterWriter<ParquetType>::UpdateSpaced(const T* values,
+                                                       int64_t num_values,
+                                                       const uint8_t* valid_bits,
+                                                       int64_t valid_bits_offset) {
+  ARROW_DCHECK(bloom_filter_ != nullptr);
   std::array<uint64_t, kHashBatchSize> hashes;
   ::arrow::internal::VisitSetBitRunsVoid(
       valid_bits, valid_bits_offset, num_values, [&](int64_t position, int64_t length) {
@@ -102,58 +88,42 @@ void BloomFilterWriter<ParquetType>::UpdateSpaced(const T* values, int64_t num_v
 }
 
 template <>
-void BloomFilterWriter<BooleanType>::UpdateSpaced(const bool*, int64_t, const uint8_t*,
-                                                  int64_t) {
-  if (!bloom_filter_enabled()) {
-    return;
-  }
+void TypedBloomFilterWriter<BooleanType>::UpdateSpaced(const bool*, int64_t,
+                                                       const uint8_t*, int64_t) {
   throw ParquetException("Bloom filter is not supported for boolean type");
 }
 
 template <typename ParquetType>
-void BloomFilterWriter<ParquetType>::Update(const ::arrow::Array& values) {
-  ::arrow::Unreachable("Update for non-ByteArray type should be unreachable");
+void TypedBloomFilterWriter<ParquetType>::Update(const ::arrow::Array& values) {
+  ParquetException::NYI("Updating bloom filter is not implemented for array of type: " +
+                        values.type()->ToString());
 }
 
 namespace {
 
 template <typename ArrayType>
 void UpdateBinaryBloomFilter(BloomFilter& bloom_filter, const ArrayType& array) {
-  // Using a small batch size because an extra `byte_arrays` is used.
-  constexpr int64_t kBinaryHashBatchSize = 64;
-  std::array<ByteArray, kBinaryHashBatchSize> byte_arrays;
-  std::array<uint64_t, kBinaryHashBatchSize> hashes;
-
-  auto batch_insert_hashes = [&](int count) {
-    if (count > 0) {
-      bloom_filter.Hashes(byte_arrays.data(), count, hashes.data());
-      bloom_filter.InsertHashes(hashes.data(), count);
-    }
-  };
-
-  int batch_idx = 0;
+  std::array<ByteArray, kHashBatchSize> byte_arrays;
+  std::array<uint64_t, kHashBatchSize> hashes;
   ::arrow::internal::VisitSetBitRunsVoid(
       array.null_bitmap_data(), array.offset(), array.length(),
-      [&](int64_t position, int64_t run_length) {
-        for (int64_t i = 0; i < run_length; ++i) {
-          byte_arrays[batch_idx++] = array.GetView(position + i);
-          if (batch_idx == kBinaryHashBatchSize) {
-            batch_insert_hashes(batch_idx);
-            batch_idx = 0;
+      [&](int64_t position, int64_t length) {
+        for (int64_t i = 0; i < length; i += kHashBatchSize) {
+          auto batch_size = static_cast<int>(std::min(kHashBatchSize, length - i));
+          for (int j = 0; j < batch_size; j++) {
+            byte_arrays[j] = array.GetView(position + i + j);
           }
+          bloom_filter.Hashes(byte_arrays.data(), batch_size, hashes.data());
+          bloom_filter.InsertHashes(hashes.data(), batch_size);
         }
       });
-  batch_insert_hashes(batch_idx);
 }
 
 }  // namespace
 
 template <>
-void BloomFilterWriter<ByteArrayType>::Update(const ::arrow::Array& values) {
-  if (!bloom_filter_enabled()) {
-    return;
-  }
-
+void TypedBloomFilterWriter<ByteArrayType>::Update(const ::arrow::Array& values) {
+  ARROW_DCHECK(bloom_filter_ != nullptr);
   if (::arrow::is_binary_view_like(values.type_id())) {
     UpdateBinaryBloomFilter(
         *bloom_filter_,
@@ -172,14 +142,13 @@ void BloomFilterWriter<ByteArrayType>::Update(const ::arrow::Array& values) {
   }
 }
 
-template class BloomFilterWriter<BooleanType>;
-template class BloomFilterWriter<Int32Type>;
-template class BloomFilterWriter<Int64Type>;
-template class BloomFilterWriter<Int96Type>;
-template class BloomFilterWriter<FloatType>;
-template class BloomFilterWriter<DoubleType>;
-template class BloomFilterWriter<ByteArrayType>;
-template class BloomFilterWriter<FLBAType>;
+template class TypedBloomFilterWriter<Int32Type>;
+template class TypedBloomFilterWriter<Int64Type>;
+template class TypedBloomFilterWriter<Int96Type>;
+template class TypedBloomFilterWriter<FloatType>;
+template class TypedBloomFilterWriter<DoubleType>;
+template class TypedBloomFilterWriter<ByteArrayType>;
+template class TypedBloomFilterWriter<FLBAType>;
 
 namespace {
 
@@ -194,9 +163,9 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 
   void AppendRowGroup() override;
 
-  BloomFilter* GetOrCreateBloomFilter(int32_t column_ordinal) override;
+  BloomFilter* CreateBloomFilter(int32_t column_ordinal) override;
 
-  void WriteTo(::arrow::io::OutputStream* sink, IndexLocations* location) override;
+  IndexLocations WriteTo(::arrow::io::OutputStream* sink) override;
 
  private:
   /// Make sure column ordinal is not out of bound and the builder is in good state.
@@ -231,43 +200,36 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
   bloom_filters_.emplace(bloom_filters_.size(), RowGroupBloomFilters());
 }
 
-BloomFilter* BloomFilterBuilderImpl::GetOrCreateBloomFilter(int32_t column_ordinal) {
+BloomFilter* BloomFilterBuilderImpl::CreateBloomFilter(int32_t column_ordinal) {
   CheckState(column_ordinal);
 
-  const auto bloom_filter_options =
-      properties_->bloom_filter_options(schema_->Column(column_ordinal)->path());
-  if (!bloom_filter_options.has_value()) {
+  auto opts = properties_->bloom_filter_options(schema_->Column(column_ordinal)->path());
+  if (!opts.has_value()) {
     return nullptr;
   }
 
-  auto& row_group_bloom_filters = bloom_filters_.rbegin()->second;
-
-  // Get or create bloom filter of the column.
-  auto bloom_filter_iter = row_group_bloom_filters.find(column_ordinal);
-  if (bloom_filter_iter == row_group_bloom_filters.cend()) {
-    auto bloom_filter =
-        std::make_unique<BlockSplitBloomFilter>(properties_->memory_pool());
-    bloom_filter->Init(BlockSplitBloomFilter::OptimalNumOfBytes(
-        bloom_filter_options->ndv, bloom_filter_options->fpp));
-    bloom_filter_iter =
-        row_group_bloom_filters.emplace(column_ordinal, std::move(bloom_filter)).first;
+  auto& curr_rg_bfs = bloom_filters_.rbegin()->second;
+  if (curr_rg_bfs.find(column_ordinal) != curr_rg_bfs.cend()) {
+    std::stringstream ss;
+    ss << "Bloom filter already exists for column: " << column_ordinal
+       << ", row group: " << bloom_filters_.rbegin()->first;
+    throw ParquetException(ss.str());
   }
 
-  return bloom_filter_iter->second.get();
+  auto bf = std::make_unique<BlockSplitBloomFilter>(properties_->memory_pool());
+  bf->Init(BlockSplitBloomFilter::OptimalNumOfBytes(opts->ndv, opts->fpp));
+  return curr_rg_bfs.emplace(column_ordinal, std::move(bf)).first->second.get();
 }
 
-void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
-                                     IndexLocations* location) {
+IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) {
   if (finished_) {
     throw ParquetException("Cannot write a finished BloomFilterBuilder");
   }
   finished_ = true;
 
-  location->type = IndexLocations::IndexType::kBloomFilter;
-  location->locations.clear();
+  IndexLocations locations;
 
   for (const auto& [row_group_ordinal, row_group_bloom_filters] : bloom_filters_) {
-    std::map<size_t, IndexLocation> column_id_to_location;
     for (const auto& [column_id, filter] : row_group_bloom_filters) {
       if (ARROW_PREDICT_FALSE(filter == nullptr)) {
         throw ParquetException("Bloom filter cannot be null");
@@ -285,14 +247,12 @@ void BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink,
             ", row group: " + std::to_string(row_group_ordinal));
       }
 
-      column_id_to_location.emplace(
-          column_id, IndexLocation{offset, static_cast<int32_t>(pos - offset)});
-    }
-
-    if (!column_id_to_location.empty()) {
-      location->locations.emplace(row_group_ordinal, std::move(column_id_to_location));
+      locations.emplace_back(ColumnChunkId{row_group_ordinal, column_id},
+                             IndexLocation{offset, static_cast<int32_t>(pos - offset)});
     }
   }
+
+  return locations;
 }
 
 }  // namespace

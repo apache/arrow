@@ -19,6 +19,7 @@
 
 #include "arrow/io/interfaces.h"
 #include "parquet/encryption/type_fwd.h"
+#include "parquet/index_location.h"
 #include "parquet/type_fwd.h"
 #include "parquet/types.h"
 
@@ -372,17 +373,19 @@ class PARQUET_EXPORT PageIndexBuilder {
   /// \brief Complete the page index builder and no more write is allowed.
   virtual void Finish() = 0;
 
+  struct WriteResult {
+    IndexLocations column_index_locations;
+    IndexLocations offset_index_locations;
+  };
+
   /// \brief Serialize the page index thrift message.
   ///
   /// Only valid column indexes and offset indexes are serialized and their locations
   /// are set.
   ///
   /// \param[out] sink The output stream to write the page index.
-  /// \param[out] column_index_location The location of all column indexes.
-  /// \param[out] offset_index_location The location of all offset indexes.
-  virtual void WriteTo(::arrow::io::OutputStream* sink,
-                       IndexLocations* column_index_location,
-                       IndexLocations* offset_index_location) const = 0;
+  /// \return The location of all page indexes.
+  virtual WriteResult WriteTo(::arrow::io::OutputStream* sink) const = 0;
 };
 
 }  // namespace parquet

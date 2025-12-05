@@ -1297,8 +1297,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     current_dict_encoder_ =
         dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
 
-    bloom_filter_writer_ =
-        std::make_unique<TypedBloomFilterWriter>(metadata->descr(), bloom_filter);
+    if (bloom_filter != nullptr) {
+      bloom_filter_writer_ = std::make_unique<BloomFilterWriter>(descr_, bloom_filter);
+    }
 
     // GH-46205: Geometry/Geography are the first non-nested logical types to have a
     // SortOrder::UNKNOWN. Currently, the presence of statistics is tied to
@@ -1628,7 +1629,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
  private:
   using ValueEncoderType = typename EncodingTraits<ParquetType>::Encoder;
   using TypedStats = TypedStatistics<ParquetType>;
-  using TypedBloomFilterWriter = BloomFilterWriter<ParquetType>;
+  using BloomFilterWriter = TypedBloomFilterWriter<ParquetType>;
   std::unique_ptr<Encoder> current_encoder_;
   // Downcasted observers of current_encoder_.
   // The downcast is performed once as opposed to at every use since
@@ -1641,7 +1642,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   std::unique_ptr<SizeStatistics> page_size_statistics_;
   std::shared_ptr<SizeStatistics> chunk_size_statistics_;
   std::shared_ptr<geospatial::GeoStatistics> chunk_geospatial_statistics_;
-  std::unique_ptr<TypedBloomFilterWriter> bloom_filter_writer_;
+  std::unique_ptr<BloomFilterWriter> bloom_filter_writer_;
   bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
@@ -1876,7 +1877,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         chunk_geospatial_statistics_->Update(values, num_values);
       }
     }
-    bloom_filter_writer_->Update(values, num_values);
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->Update(values, num_values);
+    }
   }
 
   /// \brief Write values with spaces and update page statistics accordingly.
@@ -1898,11 +1901,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (num_values != num_spaced_values) {
       current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
                                         valid_bits, valid_bits_offset);
-      bloom_filter_writer_->UpdateSpaced(values, num_spaced_values, valid_bits,
-                                         valid_bits_offset);
+      if (bloom_filter_writer_ != nullptr) {
+        bloom_filter_writer_->UpdateSpaced(values, num_spaced_values, valid_bits,
+                                           valid_bits_offset);
+      }
     } else {
       current_value_encoder_->Put(values, static_cast<int>(num_values));
-      bloom_filter_writer_->Update(values, num_values);
+      if (bloom_filter_writer_ != nullptr) {
+        bloom_filter_writer_->Update(values, num_values);
+      }
     }
     if (page_statistics_ != nullptr) {
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
@@ -1965,7 +1972,6 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
 
   auto update_stats = [&](int64_t num_chunk_levels,
                           const std::shared_ptr<Array>& chunk_indices) {
-    DCHECK(page_statistics_ != nullptr);
     // TODO(PARQUET-2068) This approach may make two copies.  First, a copy of the
     // indices array to a (hopefully smaller) referenced indices array.  Second, a copy
     // of the values array to a (probably not smaller) referenced values array.
@@ -2001,7 +2007,9 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
           "Writing dictionary-encoded GEOMETRY or GEOGRAPHY with statistics is not "
           "supported");
     }
-    bloom_filter_writer_->Update(*referenced_dictionary);
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->Update(*referenced_dictionary);
+    }
   };
 
   int64_t value_offset = 0;
@@ -2018,7 +2026,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_ || bloom_filter_writer_->bloom_filter_enabled()) {
+    if (page_statistics_ || bloom_filter_writer_) {
       update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
     }
     PARQUET_ASSIGN_OR_THROW(
@@ -2492,7 +2500,9 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
       chunk_geospatial_statistics_->Update(*data_slice);
     }
 
-    bloom_filter_writer_->Update(*data_slice);
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->Update(*data_slice);
+    }
 
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);

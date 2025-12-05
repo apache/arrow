@@ -23,6 +23,7 @@
 #include "parquet/bloom_filter.h"
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/bloom_filter_writer.h"
+#include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/test_util.h"
 
@@ -94,14 +95,13 @@ TEST(BloomFilterBuilder, BasicRoundTrip) {
   const auto bitset_size = BlockSplitBloomFilter::OptimalNumOfBytes(
       bloom_filter_options.ndv, bloom_filter_options.fpp);
   WriterProperties::Builder properties_builder;
-  properties_builder.enable_bloom_filter(bloom_filter_options, "c1");
+  properties_builder.enable_bloom_filter("c1", bloom_filter_options);
   auto writer_properties = properties_builder.build();
   auto bloom_filter_builder = BloomFilterBuilder::Make(&schema, writer_properties.get());
 
   auto write_row_group_bloom_filter = [&](const std::vector<uint64_t>& hash_values) {
     bloom_filter_builder->AppendRowGroup();
-    auto bloom_filter =
-        bloom_filter_builder->GetOrCreateBloomFilter(/*column_ordinal=*/0);
+    auto bloom_filter = bloom_filter_builder->CreateBloomFilter(/*column_ordinal=*/0);
     ASSERT_NE(bloom_filter, nullptr);
     ASSERT_EQ(bloom_filter->GetBitsetSize(), bitset_size);
     for (uint64_t hash_value : hash_values) {
@@ -113,9 +113,8 @@ TEST(BloomFilterBuilder, BasicRoundTrip) {
   write_row_group_bloom_filter({300, 400});
 
   auto sink = CreateOutputStream();
-  IndexLocations bloom_filter_location;
-  bloom_filter_builder->WriteTo(sink.get(), &bloom_filter_location);
-  ASSERT_EQ(bloom_filter_location.locations.size(), 2);
+  auto locations = bloom_filter_builder->WriteTo(sink.get());
+  ASSERT_EQ(locations.size(), 2);
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   struct RowGroupBloomFilterCase {
@@ -129,11 +128,12 @@ TEST(BloomFilterBuilder, BasicRoundTrip) {
                                    /*non_existing_values=*/{300, 400}},
            RowGroupBloomFilterCase{/*row_group_id=*/1, /*existing_values=*/{300, 400},
                                    /*non_existing_values=*/{100, 200}}}) {
-    auto row_group_bloom_filter = bloom_filter_location.locations.find(c.row_group_id);
-    ASSERT_NE(row_group_bloom_filter, bloom_filter_location.locations.cend());
-
-    auto bloom_filter_location = row_group_bloom_filter->second.find(0);
-    ASSERT_NE(bloom_filter_location, row_group_bloom_filter->second.cend());
+    auto bloom_filter_location =
+        std::find_if(locations.begin(), locations.end(), [&](const auto& location) {
+          return location.first.row_group_index == c.row_group_id &&
+                 location.first.column_index == 0;
+        });
+    ASSERT_NE(bloom_filter_location, locations.end());
     int64_t bloom_filter_offset = bloom_filter_location->second.offset;
     int32_t bloom_filter_length = bloom_filter_location->second.length;
 
@@ -158,14 +158,14 @@ TEST(BloomFilterBuilder, InvalidOperations) {
 
   WriterProperties::Builder properties_builder;
   BloomFilterOptions bloom_filter_options{100, 0.05};
-  properties_builder.enable_bloom_filter(bloom_filter_options, "c1");
-  properties_builder.enable_bloom_filter(bloom_filter_options, "c2");
+  properties_builder.enable_bloom_filter("c1", bloom_filter_options);
+  properties_builder.enable_bloom_filter("c2", bloom_filter_options);
   auto properties = properties_builder.build();
   auto bloom_filter_builder = BloomFilterBuilder::Make(&schema, properties.get());
 
   // AppendRowGroup() is not called yet.
   EXPECT_THROW_THAT(
-      [&]() { bloom_filter_builder->GetOrCreateBloomFilter(/*column_ordinal=*/0); },
+      [&]() { bloom_filter_builder->CreateBloomFilter(/*column_ordinal=*/0); },
       ParquetException,
       ::testing::Property(
           &ParquetException::what,
@@ -173,30 +173,33 @@ TEST(BloomFilterBuilder, InvalidOperations) {
 
   // Column ordinal is out of bound.
   bloom_filter_builder->AppendRowGroup();
-  EXPECT_THROW_THAT([&]() { bloom_filter_builder->GetOrCreateBloomFilter(2); },
+  EXPECT_THROW_THAT([&]() { bloom_filter_builder->CreateBloomFilter(2); },
                     ParquetException,
                     ::testing::Property(&ParquetException::what,
                                         ::testing::HasSubstr("Invalid column ordinal")));
 
   // Boolean type is not supported.
   EXPECT_THROW_THAT(
-      [&]() { bloom_filter_builder->GetOrCreateBloomFilter(1); }, ParquetException,
+      [&]() { bloom_filter_builder->CreateBloomFilter(1); }, ParquetException,
       ::testing::Property(
           &ParquetException::what,
           ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
 
-  // Get a created bloom filter should succeed.
-  auto bloom_filter = bloom_filter_builder->GetOrCreateBloomFilter(0);
-  ASSERT_EQ(bloom_filter_builder->GetOrCreateBloomFilter(0), bloom_filter);
+  // Create a created bloom filter should throw.
+  ASSERT_NO_THROW(bloom_filter_builder->CreateBloomFilter(0));
+  EXPECT_THROW_THAT(
+      [&]() { bloom_filter_builder->CreateBloomFilter(0); }, ParquetException,
+      ::testing::Property(
+          &ParquetException::what,
+          ::testing::HasSubstr("Bloom filter already exists for column: 0")));
 
   auto sink = CreateOutputStream();
-  IndexLocations location;
-  ASSERT_NO_FATAL_FAILURE(bloom_filter_builder->WriteTo(sink.get(), &location));
-  ASSERT_EQ(location.locations.size(), 1);
+  auto locations = bloom_filter_builder->WriteTo(sink.get());
+  ASSERT_EQ(locations.size(), 1);
 
   // WriteTo() has been called already.
   EXPECT_THROW_THAT(
-      [&]() { bloom_filter_builder->WriteTo(sink.get(), &location); }, ParquetException,
+      [&]() { bloom_filter_builder->WriteTo(sink.get()); }, ParquetException,
       ::testing::Property(
           &ParquetException::what,
           ::testing::HasSubstr("Cannot write a finished BloomFilterBuilder")));
