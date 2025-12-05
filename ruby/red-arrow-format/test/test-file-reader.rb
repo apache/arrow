@@ -84,6 +84,17 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Float32") do
+    def build_array
+      Arrow::FloatArray.new([-0.5, nil, 0.5])
+    end
+
+    def test_read
+      assert_equal([{"value" => [-0.5, nil, 0.5]}],
+                   read)
+    end
+  end
+
   sub_test_case("Binary") do
     def build_array
       Arrow::BinaryArray.new(["Hello".b, nil, "World".b])

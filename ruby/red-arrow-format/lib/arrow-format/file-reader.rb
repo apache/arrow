@@ -24,11 +24,13 @@ require_relative "type"
 
 require_relative "org/apache/arrow/flatbuf/binary"
 require_relative "org/apache/arrow/flatbuf/bool"
+require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/int"
 require_relative "org/apache/arrow/flatbuf/list"
 require_relative "org/apache/arrow/flatbuf/message"
 require_relative "org/apache/arrow/flatbuf/null"
+require_relative "org/apache/arrow/flatbuf/precision"
 require_relative "org/apache/arrow/flatbuf/schema"
 require_relative "org/apache/arrow/flatbuf/utf8"
 
@@ -147,6 +149,11 @@ module ArrowFormat
             type = UInt8Type.singleton
           end
         end
+      when Org::Apache::Arrow::Flatbuf::FloatingPoint
+        case fb_type.precision
+        when Org::Apache::Arrow::Flatbuf::Precision::SINGLE
+          type = Float32Type.singleton
+        end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::Binary
@@ -179,8 +186,8 @@ module ArrowFormat
 
       case field.type
       when BooleanType,
-           Int8Type,
-           UInt8Type
+           IntType,
+           FloatType
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(length, validity, values)

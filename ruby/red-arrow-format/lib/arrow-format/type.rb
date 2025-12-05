@@ -96,6 +96,30 @@ module ArrowFormat
     end
   end
 
+  class FloatType < Type
+    attr_reader :precision
+    def initialize(name, precision)
+      super(name)
+      @precision = precision
+    end
+  end
+
+  class Float32Type < FloatType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Float32", 32)
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Float32Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class BinaryType < Type
     class << self
       def singleton
