@@ -3465,38 +3465,73 @@ function(build_crc32c_once)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
-macro(build_nlohmann_json)
-  message(STATUS "Building nlohmann-json from source")
-  # "Build" nlohmann-json
-  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
-  set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
-  set(NLOHMANN_JSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      # google-cloud-cpp requires JSON_MultipleHeaders=ON
-      -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
+function(build_nlohmann_json)
+  list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
+  message(STATUS "Building nlohmann-json from source using FetchContent")
+  set(NLOHMANN_JSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_fc-install")
+  set(NLOHMANN_JSON_PREFIX
+      "${NLOHMANN_JSON_PREFIX}"
+      PARENT_SCOPE)
 
-  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-  # from EP_COMMON_CMAKE_ARGS.
-  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+  fetchcontent_declare(nlohmann_json
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${NLOHMANN_JSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}")
 
-  set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
+  prepare_fetchcontent()
 
-  externalproject_add(nlohmann_json_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
-                      URL ${NLOHMANN_JSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+  # google-cloud-cpp requires JSON_MultipleHeaders=ON
+  set(JSON_BuildTests OFF)
+  set(JSON_MultipleHeaders ON)
+  set(JSON_Install ON)
+  fetchcontent_makeavailable(nlohmann_json)
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+  # google-cloud-cpp requires nlohmann_json to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of nlohmann_json
+  # when Arrow is installed.
+  # This custom target ensures nlohmann_json is built before we install.
+  add_custom_target(nlohmann_json_built DEPENDS nlohmann_json::nlohmann_json)
 
-  add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-  target_include_directories(nlohmann_json::nlohmann_json BEFORE
-                             INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
-  add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
-endmacro()
+  # Disable nlohmann_json's install script after it's built to prevent double installation.
+  add_custom_command(OUTPUT "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# nlohmann-json install disabled to prevent double installation with Arrow"
+                             > "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS nlohmann_json_built
+                     COMMENT "Disabling nlohmann-json install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(nlohmann_json_install_disabled ALL
+                    DEPENDS "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install nlohmann_json to NLOHMANN_JSON_PREFIX for google-cloud-cpp to find.
+  add_custom_command(OUTPUT "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND}
+                             -DCMAKE_INSTALL_PREFIX=${NLOHMANN_JSON_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
+                     DEPENDS nlohmann_json_install_disabled
+                     COMMENT "Installing nlohmann-json to ${NLOHMANN_JSON_PREFIX} for google-cloud-cpp"
+                     VERBATIM)
+
+  # Make nlohmann_json_fc depend on the install completion marker.
+  add_custom_target(nlohmann_json_fc
+                    DEPENDS "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed")
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
@@ -3559,7 +3594,11 @@ macro(build_google_cloud_cpp_storage)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)
   endif()
   add_dependencies(google_cloud_cpp_dependencies crc32c_fc)
-  add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+  endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -4052,9 +4091,14 @@ macro(build_opentelemetry)
                       CONFIGURE_COMMAND ""
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json)
+  endif()
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
-                   opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
+  add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   # Ensure vendored protobuf is installed before OpenTelemetry builds
   if(PROTOBUF_VENDORED)
