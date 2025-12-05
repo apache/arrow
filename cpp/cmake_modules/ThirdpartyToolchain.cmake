@@ -3596,6 +3596,8 @@ macro(build_google_cloud_cpp_storage)
   add_dependencies(google_cloud_cpp_dependencies crc32c_fc)
   if(NLOHMANN_JSON_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
   endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
@@ -4091,6 +4093,8 @@ macro(build_opentelemetry)
                       EXCLUDE_FROM_ALL OFF)
   if(NLOHMANN_JSON_VENDORED)
     add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
   endif()
 
   add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
