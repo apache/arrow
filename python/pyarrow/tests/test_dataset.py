@@ -5936,13 +5936,17 @@ def test_scanner_from_substrait(dataset):
 
 @pytest.mark.parametrize("names, expected_schema", [
     (["new-index", "new-color"],
-     pa.schema([pa.field("new-index", pa.int64()), pa.field("new-color", pa.string())])),
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("new-color", pa.string())])),
     (("new-index", "new-color"),
-     pa.schema([pa.field("new-index", pa.int64()), pa.field("new-color", pa.string())])),
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("new-color", pa.string())])),
     ({"index": "new-index", "color": "new-color"},
-     pa.schema([pa.field("new-index", pa.int64()), pa.field("new-color", pa.string())])),
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("new-color", pa.string())])),
     ({"index": "new-index"},
-     pa.schema([pa.field("new-index", pa.int64()), pa.field("color", pa.string())])),
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("color", pa.string())])),
 ]
 )
 def test_rename_columns(names, expected_schema):
