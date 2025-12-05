@@ -3045,8 +3045,7 @@ function(build_absl)
 
   prepare_fetchcontent()
 
-  # Enable Abseil install for CMake config generation
-  set(ABSL_ENABLE_INSTALL ON)
+  set(ABSL_ENABLE_INSTALL OFF)
   fetchcontent_makeavailable(absl)
 
   if(APPLE)
@@ -3295,6 +3294,7 @@ function(build_crc32c_once)
   set(CRC32C_BUILD_TESTS OFF)
   set(CRC32C_BUILD_BENCHMARKS OFF)
   set(CRC32C_USE_GLOG OFF)
+  set(CRC32C_INSTALL OFF)
   fetchcontent_makeavailable(crc32c)
 
   # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
@@ -3397,6 +3397,7 @@ function(build_google_cloud_cpp_storage)
   find_curl()
 
   fetchcontent_declare(google_cloud_cpp
+                       ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
