@@ -20,10 +20,7 @@
 
 LANG=C
 
-set -ux
-
-# Set consistent umask for reproducible file permissions
-umask 0022
+set -u
 
 run()
 {
@@ -35,6 +32,22 @@ run()
 }
 
 . /host/env.sh
+
+umask "${UMASK}"
+
+if [ -n "${CPU_LIST:-}" ]; then
+  taskset -a -c "${CPU_LIST}"
+fi
+
+if [ -n "${FAKETIME:-}" ]; then
+  lib_dir="/usr/lib/$(dpkg-architecture -q DEB_BUILD_MULTIARCH)"
+  libfaketime="${lib_dir}/faketime/libfaketime.so.1"
+  if [ ! -f "${libfaketime}" ]; then
+    echo "You must install libfaktime: ${libfaketime} doesn't exist"
+    exit 1
+  fi
+  export LD_PRELOAD="${libfaketime}"
+fi
 
 distribution=$(lsb_release --id --short | tr 'A-Z' 'a-z')
 code_name=$(lsb_release --codename --short)
@@ -71,8 +84,7 @@ if which ccache > /dev/null 2>&1; then
     debuild_options+=(--prepend-path=/usr/lib/ccache)
   fi
 fi
-build_dir="${build_root_dir}/build-${PACKAGE}-${VERSION}"
-run mkdir -p "${build_dir}"
+build_dir=$(mktemp --directory --tmpdir="${build_root_dir}" package.XXXXX)
 run pushd "${build_dir}"
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
   ${PACKAGE}_${VERSION}.orig.tar.gz
@@ -123,7 +135,6 @@ run \
   -exec cp '{}' "${pool_dir}/" ';'
 
 run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"
-run find "${repositories}"
 
 run popd
 rm -rf "${build_dir}"
