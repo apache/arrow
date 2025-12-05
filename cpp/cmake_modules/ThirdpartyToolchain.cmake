@@ -3417,11 +3417,11 @@ function(build_google_cloud_cpp_storage)
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
   file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
-
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} google-cloud-cpp::storage
-      google-cloud-cpp::rest_internal google-cloud-cpp::common
-      PARENT_SCOPE)
+  list(APPEND
+       ARROW_BUNDLED_STATIC_LIBS
+       google-cloud-cpp::storage
+       google-cloud-cpp::rest_internal
+       google-cloud-cpp::common)
 
   if(ABSL_VENDORED)
     # Figure out what absl libraries (not header-only) are required by the
@@ -3458,6 +3458,10 @@ function(build_google_cloud_cpp_storage)
          absl::time
          absl::time_zone)
   endif()
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
