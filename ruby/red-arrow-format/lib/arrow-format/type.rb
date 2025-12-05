@@ -38,6 +38,22 @@ module ArrowFormat
     end
   end
 
+  class BooleanType < Type
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Boolean")
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      BooleanArray.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class IntType < Type
     attr_reader :bit_width
     attr_reader :signed

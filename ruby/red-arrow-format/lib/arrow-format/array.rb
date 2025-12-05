@@ -14,6 +14,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require_relative "bitmap"
+
 module ArrowFormat
   class Array
     attr_reader :type
@@ -37,18 +39,9 @@ module ArrowFormat
     private
     def apply_validity(array)
       return array if @validity_buffer.nil?
-      n_bytes = @size / 8
-      @validity_buffer.each(:U8, 0, n_bytes) do |offset, value|
-        7.times do |i|
-          array[offset * 8 + i] = nil if (value & (1 << (i % 8))).zero?
-        end
-      end
-      remained_bits = @size % 8
-      unless remained_bits.zero?
-        value = @validity_buffer.get_value(:U8, n_bytes)
-        remained_bits.times do |i|
-          array[n_bytes * 8 + i] = nil if (value & (1 << (i % 8))).zero?
-        end
+      @validity_bitmap ||= Bitmap.new(@validity_buffer, @size)
+      @validity_bitmap.each_with_index do |bit, i|
+        array[i] = nil if bit.zero?
       end
       array
     end
@@ -61,6 +54,21 @@ module ArrowFormat
 
     def to_a
       [nil] * @size
+    end
+  end
+
+  class BooleanArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+
+    def to_a
+      @values_bitmap ||= Bitmap.new(@values_buffer, @size)
+      values = @values_bitmap.each.collect do |bit|
+        not bit.zero?
+      end
+      apply_validity(values)
     end
   end
 

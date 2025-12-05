@@ -22,6 +22,7 @@ require_relative "record-batch"
 require_relative "schema"
 require_relative "type"
 
+require_relative "org/apache/arrow/flatbuf/bool"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/message"
 require_relative "org/apache/arrow/flatbuf/binary"
@@ -134,6 +135,8 @@ module ArrowFormat
         case fb_type
         when Org::Apache::Arrow::Flatbuf::Null
           type = NullType.singleton
+        when Org::Apache::Arrow::Flatbuf::Bool
+          type = BooleanType.singleton
         when Org::Apache::Arrow::Flatbuf::Int
           case fb_type.bit_width
           when 8
@@ -164,7 +167,8 @@ module ArrowFormat
       end
 
       case field.type
-      when Int8Type,
+      when BooleanType,
+           Int8Type,
            UInt8Type
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)

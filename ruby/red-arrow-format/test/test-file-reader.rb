@@ -51,6 +51,17 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Boolean") do
+    def build_array
+      Arrow::BooleanArray.new([true, nil, false])
+    end
+
+    def test_read
+      assert_equal([{"value" => [true, nil, false]}],
+                   read)
+    end
+  end
+
   sub_test_case("Int8") do
     def build_array
       Arrow::Int8Array.new([-128, nil, 127])
