@@ -2,7 +2,7 @@
 #include <cstddef>
 #include <optional>
 
-#include "arrow/util/alp/Alp.hpp"
+#include "arrow/util/alp/Alp.h"
 
 namespace arrow {
 namespace util {

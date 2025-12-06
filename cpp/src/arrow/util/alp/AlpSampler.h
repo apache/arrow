@@ -3,7 +3,7 @@
 #include <vector>
 
 #include "arrow/util/span.h"
-#include "arrow/util/alp/Alp.hpp"
+#include "arrow/util/alp/Alp.h"
 
 namespace arrow {
 namespace util {
