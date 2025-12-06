@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <boost/variant.hpp>
 #include <map>
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace arrow::flight::sql::odbc {
@@ -37,7 +37,7 @@ class Statement {
   virtual ~Statement() = default;
 
   /// \brief Statement attributes that can be called at anytime.
-  ////TODO: Document attributes
+  /// GH-47850 TODO: Document attributes
   enum StatementAttributeId {
     MAX_LENGTH,   // size_t - The maximum length when retrieving variable length data. 0
                   // means no limit.
@@ -49,7 +49,7 @@ class Statement {
                     // have no timeout.
   };
 
-  typedef boost::variant<size_t> Attribute;
+  typedef std::variant<size_t> Attribute;
 
   /// \brief Set a statement attribute (may be called at any time)
   ///

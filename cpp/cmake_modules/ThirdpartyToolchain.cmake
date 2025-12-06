@@ -236,7 +236,8 @@ function(provide_cmake_module MODULE_NAME ARROW_CMAKE_PACKAGE_NAME)
     message(STATUS "Providing CMake module for ${MODULE_NAME} as part of ${ARROW_CMAKE_PACKAGE_NAME} CMake package"
     )
     install(FILES "${module}"
-            DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}")
+            DESTINATION "${ARROW_CMAKE_DIR}/${ARROW_CMAKE_PACKAGE_NAME}"
+            COMPONENT ${MODULE_NAME}_module)
   endif()
 endfunction()
 
@@ -2442,20 +2443,22 @@ function(build_gtest)
   endforeach()
   install(DIRECTORY "${googletest_SOURCE_DIR}/googlemock/include/"
                     "${googletest_SOURCE_DIR}/googletest/include/"
-          DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}")
+          DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}"
+          COMPONENT gtest_dir)
   add_library(arrow::GTest::gtest_headers INTERFACE IMPORTED)
   target_include_directories(arrow::GTest::gtest_headers
                              INTERFACE "${googletest_SOURCE_DIR}/googlemock/include/"
                                        "${googletest_SOURCE_DIR}/googletest/include/")
   install(TARGETS gmock gmock_main gtest gtest_main
           EXPORT arrow_testing_targets
-          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}"
-          ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}"
-          LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}")
+          RUNTIME DESTINATION "${CMAKE_INSTALL_BINDIR}" COMPONENT gtest_runtime
+          ARCHIVE DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT gtest_archive
+          LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}" COMPONENT gtest_library)
   if(MSVC)
     install(FILES $<TARGET_PDB_FILE:gmock> $<TARGET_PDB_FILE:gmock_main>
                   $<TARGET_PDB_FILE:gtest> $<TARGET_PDB_FILE:gtest_main>
             DESTINATION "${CMAKE_INSTALL_BINDIR}"
+            COMPONENT gtest_pdb
             OPTIONAL)
   endif()
   add_library(arrow::GTest::gmock ALIAS gmock)

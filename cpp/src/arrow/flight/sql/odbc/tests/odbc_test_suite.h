@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/utf8.h"
@@ -235,6 +237,9 @@ static constexpr std::string_view kErrorStateHY114 = "HY114";
 static constexpr std::string_view kErrorStateHY118 = "HY118";
 static constexpr std::string_view kErrorStateHYC00 = "HYC00";
 static constexpr std::string_view kErrorStateS1004 = "S1004";
+static constexpr std::string_view kErrorStateS1002 = "S1002";
+static constexpr std::string_view kErrorStateS1010 = "S1010";
+static constexpr std::string_view kErrorStateS1090 = "S1090";
 
 /// Verify ODBC Error State
 void VerifyOdbcErrorState(SQLSMALLINT handle_type, SQLHANDLE handle,

@@ -317,3 +317,9 @@ SQLRETURN SQL_API SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number,
       stmt, column_number, column_name, buffer_length, name_length_ptr, data_type_ptr,
       column_size_ptr, decimal_digits_ptr, nullable_ptr);
 }
+
+SQLRETURN SQL_API SQLGetConnectOption(SQLHDBC ConnectionHandle, SQLUSMALLINT Option,
+                                      SQLPOINTER Value) {
+  // TODO implement ODBC2 APIs
+  return SQL_ERROR;
+}

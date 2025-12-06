@@ -180,6 +180,7 @@
         "ARROW_BUILD_EXAMPLES": "ON",
         "ARROW_BUILD_UTILITIES": "ON",
         "ARROW_FLIGHT_SQL_ODBC": "ON",
+        "ARROW_FLIGHT_SQL_ODBC_INSTALLER": "ON",
         "ARROW_TENSORFLOW": "ON",
         "PARQUET_BUILD_EXAMPLES": "ON",
         "PARQUET_BUILD_EXECUTABLES": "ON"
@@ -313,6 +314,17 @@
       ],
       "displayName": "Debug build with tests and Flight SQL",
       "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql",
+        "base-debug"
+      ],
+      "displayName": "Debug build with tests and Flight SQL ODBC",
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
     },
     {
       "name": "ninja-debug-gandiva",
@@ -502,6 +514,17 @@
       ],
       "displayName": "Release build with Flight SQL",
       "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql",
+        "base-release"
+      ],
+      "displayName": "Release build with Flight SQL ODBC",
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
     },
     {
       "name": "ninja-release-gandiva",

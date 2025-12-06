@@ -130,9 +130,9 @@ std::wstring ODBCRemoteTestBase::GetQueryAllDataTypes() {
           CAST(true AS BOOLEAN) AS bit_true,
 
           --Character types
-          'Z' AS c_char, '你' AS c_wchar,
+          'Z' AS c_char, _utf8'你' AS c_wchar,
 
-          '你好' AS c_wvarchar,
+          _utf8'你好' AS c_wvarchar,
 
           'XYZ' AS c_varchar,
 
@@ -241,7 +241,7 @@ std::string ODBCMockTestBase::GetConnectionString() {
   std::string connect_str(
       "driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=" +
       std::to_string(port) + ";token=" + std::string(kTestToken) +
-      ";useEncryption=false;");
+      ";useEncryption=false;UseWideChar=true;");
   return connect_str;
 }
 

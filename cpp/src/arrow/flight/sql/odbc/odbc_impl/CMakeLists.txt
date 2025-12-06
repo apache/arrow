@@ -45,10 +45,10 @@ add_library(arrow_odbc_spi_impl
             config/connection_string_parser.h
             diagnostics.cc
             diagnostics.h
-            error_codes.h
             encoding.cc
             encoding.h
             encoding_utils.h
+            error_codes.h
             exceptions.cc
             exceptions.h
             flight_sql_auth_method.cc
@@ -129,13 +129,9 @@ if(WIN32)
                          system_dsn.h)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl PUBLIC arrow_flight_sql_shared
-                                                 arrow_compute_shared Boost::locale)
-
-# Link libraries on MINGW64 and macOS
-if(MINGW OR APPLE)
-  target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
-endif()
+target_link_libraries(arrow_odbc_spi_impl
+                      PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
+                             ${ODBCINST})
 
 set_target_properties(arrow_odbc_spi_impl
                       PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
