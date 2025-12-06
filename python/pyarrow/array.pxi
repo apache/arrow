@@ -1465,22 +1465,6 @@ cdef class Array(_PandasConvertible):
 
         return frombytes(result, safe=True)
 
-    def format(self, **kwargs):
-        """
-        DEPRECATED, use pyarrow.Array.to_string
-
-        Parameters
-        ----------
-        **kwargs : dict
-
-        Returns
-        -------
-        str
-        """
-        import warnings
-        warnings.warn('Array.format is deprecated, use Array.to_string')
-        return self.to_string(**kwargs)
-
     def __str__(self):
         return self.to_string()
 
