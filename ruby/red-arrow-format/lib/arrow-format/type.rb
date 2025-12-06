@@ -120,7 +120,10 @@ module ArrowFormat
     end
   end
 
-  class BinaryType < Type
+  class VariableSizeBinaryType < Type
+  end
+
+  class BinaryType < VariableSizeBinaryType
     class << self
       def singleton
         @singleton ||= new
@@ -136,7 +139,27 @@ module ArrowFormat
     end
   end
 
-  class UTF8Type < Type
+  class LargeBinaryType < VariableSizeBinaryType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("LargeBinary")
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
+      LargeBinaryArray.new(self,
+                           size,
+                           validity_buffer,
+                           offsets_buffer,
+                           values_buffer)
+    end
+  end
+
+  class UTF8Type < VariableSizeBinaryType
     class << self
       def singleton
         @singleton ||= new
