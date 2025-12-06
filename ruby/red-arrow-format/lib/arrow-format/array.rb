@@ -91,6 +91,19 @@ module ArrowFormat
     end
   end
 
+  class FloatArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+  end
+
+  class Float32Array < FloatArray
+    def to_a
+      apply_validity(@values_buffer.values(:f32, 0, @size))
+    end
+  end
+
   class VariableSizeBinaryLayoutArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
       super(type, size, validity_buffer)
