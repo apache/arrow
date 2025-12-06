@@ -1,11 +1,11 @@
-#include "arrow/util/alp/AlpWrapper.hpp"
+#include "arrow/util/alp/AlpWrapper.h"
 
 #include <cmath>
 #include <optional>
 
-#include "arrow/util/alp/Alp.hpp"
-#include "arrow/util/alp/AlpConstants.hpp"
-#include "arrow/util/alp/AlpSampler.hpp"
+#include "arrow/util/alp/Alp.h"
+#include "arrow/util/alp/AlpConstants.h"
+#include "arrow/util/alp/AlpSampler.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 

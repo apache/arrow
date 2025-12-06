@@ -35,7 +35,7 @@
 #include "parquet/types.h"
 #include "arrow/buffer.h"
 #include "arrow/util/compression.h"
-#include "arrow/util/alp/AlpWrapper.hpp"
+#include "arrow/util/alp/AlpWrapper.h"
 
 /*
  * This file benchmarks multiple encoding schemes for floating point values in Parquet.
