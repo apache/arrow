@@ -761,6 +761,17 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                   data_ptr, buffer_length, indicator_ptr);
 }
 
+void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
+  if (!row_count_ptr) {
+    // row count pointer is not valid, do nothing as ODBC spec does not mention this as an
+    // error
+    return;
+  }
+  // Will always be -1 (meaning number of rows unknown) since only SELECT is supported by
+  // driver
+  *row_count_ptr = -1;
+}
+
 void ODBCStatement::ReleaseStatement() {
   CloseCursor(true);
   connection_.DropStatement(this);
