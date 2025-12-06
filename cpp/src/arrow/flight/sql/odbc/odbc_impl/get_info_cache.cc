@@ -19,8 +19,6 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
-#include <sql.h>
-#include <sqlext.h>
 #include "arrow/array.h"
 #include "arrow/array/array_nested.h"
 #include "arrow/flight/sql/api.h"
@@ -31,6 +29,10 @@
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_stream_chunk_buffer.h"
 #include "arrow/flight/sql/odbc/odbc_impl/scalar_function_reporter.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
+
+// Include ODBC headers after arrow headers to avoid conflicts with sql_info_undef.h
+#include <sql.h>
+#include <sqlext.h>
 
 // Aliases for entries in SqlInfoOptions::SqlInfo that are defined here
 // due to causing compilation errors conflicting with ODBC definitions.
