@@ -540,6 +540,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   if (makeflags == "") {
     makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
+  } else {
+    # Extract -j value from existing MAKEFLAGS if present
+    j_match <- regmatches(makeflags, regexpr("-j\\s*([0-9]+)", makeflags, perl = TRUE))
+    if (length(j_match) > 0) {
+      ncores <- as.integer(sub("-j\\s*", "", j_match, perl = TRUE))
+    }
   }
   if (!quietly) {
     lg("Building with MAKEFLAGS=%s", makeflags)
