@@ -1173,4 +1173,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowAssumeTimezoneOptions *
 garrow_assume_timezone_options_new(void);
 
+#define GARROW_TYPE_CUMULATIVE_OPTIONS (garrow_cumulative_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowCumulativeOptions,
+                         garrow_cumulative_options,
+                         GARROW,
+                         CUMULATIVE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowCumulativeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCumulativeOptions *
+garrow_cumulative_options_new(void);
+
 G_END_DECLS

@@ -181,3 +181,8 @@ garrow_assume_timezone_options_new_raw(
   const arrow::compute::AssumeTimezoneOptions *arrow_options);
 arrow::compute::AssumeTimezoneOptions *
 garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options);
+
+GArrowCumulativeOptions *
+garrow_cumulative_options_new_raw(const arrow::compute::CumulativeOptions *arrow_options);
+arrow::compute::CumulativeOptions *
+garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options);
