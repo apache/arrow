@@ -114,12 +114,13 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
  public:
   class PARQUET_EXPORT Builder {
    public:
-    /// Convenience builder for encrypted columns.
-    explicit Builder(std::string name) : Builder(std::move(name), true) {}
+    PARQUET_DEPRECATED("name argument is ignored, use default constructor instead")
+    explicit Builder(const std::string& name) : encrypted_(true) {}
 
-    /// Convenience builder for encrypted columns.
-    explicit Builder(const schema::ColumnPath& path)
-        : Builder(path.ToDotString(), true) {}
+    PARQUET_DEPRECATED("path argument is ignored, use default constructor instead")
+    explicit Builder(const schema::ColumnPath& path) : encrypted_(true) {}
+
+    Builder() = default;
 
     /// Set a column-specific key.
     /// If key is not set on an encrypted column, the column will
@@ -140,33 +141,31 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(
-          new ColumnEncryptionProperties(encrypted_, column_path_, key_, key_metadata_));
+          new ColumnEncryptionProperties(encrypted_, key_, key_metadata_));
     }
 
    private:
-    std::string column_path_;
-    bool encrypted_;
+    bool encrypted_ = true;
     ::arrow::util::SecureString key_;
     std::string key_metadata_;
-
-    Builder(std::string path, bool encrypted)
-        : column_path_(std::move(path)), encrypted_(encrypted) {}
   };
 
-  const std::string& column_path() const { return column_path_; }
   bool is_encrypted() const { return encrypted_; }
   bool is_encrypted_with_footer_key() const { return encrypted_with_footer_key_; }
   const ::arrow::util::SecureString& key() const { return key_; }
   const std::string& key_metadata() const { return key_metadata_; }
 
+  static std::shared_ptr<ColumnEncryptionProperties> Unencrypted();
+  static std::shared_ptr<ColumnEncryptionProperties> WithFooterKey();
+  static std::shared_ptr<ColumnEncryptionProperties> WithColumnKey(
+      ::arrow::util::SecureString key, std::string key_metadata = "");
+
  private:
-  std::string column_path_;
   bool encrypted_;
   bool encrypted_with_footer_key_;
   ::arrow::util::SecureString key_;
   std::string key_metadata_;
-  explicit ColumnEncryptionProperties(bool encrypted, std::string column_path,
-                                      ::arrow::util::SecureString key,
+  explicit ColumnEncryptionProperties(bool encrypted, ::arrow::util::SecureString key,
                                       std::string key_metadata);
 };
 

@@ -81,9 +81,8 @@ class TestEncryptionConfiguration : public ::testing::Test {
   SecureString kColumnEncryptionKey2_ = kColumnEncryptionKey2;
   std::string kFileName_ = std::string(kFileName);
 
-  void EncryptFile(
-      std::shared_ptr<parquet::FileEncryptionProperties> encryption_configurations,
-      std::string file_name) {
+  void EncryptFile(std::shared_ptr<FileEncryptionProperties> encryption_configurations,
+                   std::string file_name) {
     std::string file = temp_dir->path().ToString() + file_name;
     encryptor_.EncryptFile(file, encryption_configurations);
   }
@@ -92,8 +91,7 @@ class TestEncryptionConfiguration : public ::testing::Test {
 // Encryption configuration 1: Encrypt all columns and the footer with the same key.
 // (uniform encryption)
 TEST_F(TestEncryptionConfiguration, UniformEncryption) {
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_1(
-      kFooterEncryptionKey_);
+  FileEncryptionProperties::Builder file_encryption_builder_1(kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_1.footer_key_metadata("kf")->build(),
                     "tmp_uniform_encryption.parquet.encrypted");
@@ -101,20 +99,13 @@ TEST_F(TestEncryptionConfiguration, UniformEncryption) {
 
 // Encryption configuration 2: Encrypt two columns and the footer, with different keys.
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
-      encryption_cols2;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_20(
-      path_to_double_field_);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_21(
-      path_to_float_field_);
-  encryption_col_builder_20.key(kColumnEncryptionKey1_)->key_id("kc1");
-  encryption_col_builder_21.key(kColumnEncryptionKey2_)->key_id("kc2");
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encryption_cols2;
+  encryption_cols2[path_to_double_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
+  encryption_cols2[path_to_float_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
 
-  encryption_cols2[path_to_double_field_] = encryption_col_builder_20.build();
-  encryption_cols2[path_to_float_field_] = encryption_col_builder_21.build();
-
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_2(
-      kFooterEncryptionKey_);
+  FileEncryptionProperties::Builder file_encryption_builder_2(kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_2.footer_key_metadata("kf")
                         ->encrypted_columns(std::move(encryption_cols2))
@@ -126,19 +117,13 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
 // Don’t encrypt footer.
 // (plaintext footer mode, readable by legacy readers)
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
-      encryption_cols3;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_30(
-      path_to_double_field_);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_31(
-      path_to_float_field_);
-  encryption_col_builder_30.key(kColumnEncryptionKey1_)->key_id("kc1");
-  encryption_col_builder_31.key(kColumnEncryptionKey2_)->key_id("kc2");
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encryption_cols3;
+  encryption_cols3[path_to_double_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
+  encryption_cols3[path_to_float_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
 
-  encryption_cols3[path_to_double_field_] = encryption_col_builder_30.build();
-  encryption_cols3[path_to_float_field_] = encryption_col_builder_31.build();
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_3(
-      kFooterEncryptionKey_);
+  FileEncryptionProperties::Builder file_encryption_builder_3(kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_3.footer_key_metadata("kf")
                         ->encrypted_columns(std::move(encryption_cols3))
@@ -150,19 +135,13 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
 // Encryption configuration 4: Encrypt two columns and the footer, with different keys.
 // Use aad_prefix.
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
-      encryption_cols4;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_40(
-      path_to_double_field_);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_41(
-      path_to_float_field_);
-  encryption_col_builder_40.key(kColumnEncryptionKey1_)->key_id("kc1");
-  encryption_col_builder_41.key(kColumnEncryptionKey2_)->key_id("kc2");
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encryption_cols4;
+  encryption_cols4[path_to_double_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
+  encryption_cols4[path_to_float_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
 
-  encryption_cols4[path_to_double_field_] = encryption_col_builder_40.build();
-  encryption_cols4[path_to_float_field_] = encryption_col_builder_41.build();
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_4(
-      kFooterEncryptionKey_);
+  FileEncryptionProperties::Builder file_encryption_builder_4(kFooterEncryptionKey_);
 
   this->EncryptFile(file_encryption_builder_4.footer_key_metadata("kf")
                         ->encrypted_columns(std::move(encryption_cols4))
@@ -175,19 +154,13 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
 // Use aad_prefix and disable_aad_prefix_storage.
 TEST_F(TestEncryptionConfiguration,
        EncryptTwoColumnsAndFooterWithAadPrefixDisable_aad_prefix_storage) {
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
-      encryption_cols5;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_50(
-      path_to_double_field_);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_51(
-      path_to_float_field_);
-  encryption_col_builder_50.key(kColumnEncryptionKey1_)->key_id("kc1");
-  encryption_col_builder_51.key(kColumnEncryptionKey2_)->key_id("kc2");
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encryption_cols5;
+  encryption_cols5[path_to_double_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
+  encryption_cols5[path_to_float_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
 
-  encryption_cols5[path_to_double_field_] = encryption_col_builder_50.build();
-  encryption_cols5[path_to_float_field_] = encryption_col_builder_51.build();
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_5(
-      kFooterEncryptionKey_);
+  FileEncryptionProperties::Builder file_encryption_builder_5(kFooterEncryptionKey_);
 
   this->EncryptFile(
       file_encryption_builder_5.encrypted_columns(std::move(encryption_cols5))
@@ -201,19 +174,13 @@ TEST_F(TestEncryptionConfiguration,
 // Encryption configuration 6: Encrypt two columns and the footer, with different keys.
 // Use AES_GCM_CTR_V1 algorithm.
 TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
-      encryption_cols6;
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_60(
-      path_to_double_field_);
-  parquet::ColumnEncryptionProperties::Builder encryption_col_builder_61(
-      path_to_float_field_);
-  encryption_col_builder_60.key(kColumnEncryptionKey1_)->key_id("kc1");
-  encryption_col_builder_61.key(kColumnEncryptionKey2_)->key_id("kc2");
+  std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encryption_cols6;
+  encryption_cols6[path_to_double_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
+  encryption_cols6[path_to_float_field_] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
 
-  encryption_cols6[path_to_double_field_] = encryption_col_builder_60.build();
-  encryption_cols6[path_to_float_field_] = encryption_col_builder_61.build();
-  parquet::FileEncryptionProperties::Builder file_encryption_builder_6(
-      kFooterEncryptionKey_);
+  FileEncryptionProperties::Builder file_encryption_builder_6(kFooterEncryptionKey_);
 
   EXPECT_NO_THROW(
       this->EncryptFile(file_encryption_builder_6.footer_key_metadata("kf")
