@@ -859,6 +859,7 @@ class ColumnReaderImplBase {
       switch (encoding) {
         case Encoding::PLAIN:
         case Encoding::BYTE_STREAM_SPLIT:
+        case Encoding::ALP:
         case Encoding::RLE:
         case Encoding::DELTA_BINARY_PACKED:
         case Encoding::DELTA_BYTE_ARRAY:
