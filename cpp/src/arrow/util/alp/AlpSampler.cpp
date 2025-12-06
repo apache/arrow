@@ -1,9 +1,9 @@
-#include "arrow/util/alp/AlpSampler.hpp"
+#include "arrow/util/alp/AlpSampler.h"
 
 #include <cmath>
 
-#include "arrow/util/alp/Alp.hpp"
-#include "arrow/util/alp/AlpConstants.hpp"
+#include "arrow/util/alp/Alp.h"
+#include "arrow/util/alp/AlpConstants.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
