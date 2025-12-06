@@ -35,6 +35,7 @@ libboost-devel
 libgrpc
 libprotobuf
 libutf8proc
+lz4
 lz4-c
 make
 meson
