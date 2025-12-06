@@ -1,4 +1,4 @@
-#include "arrow/util/alp/Alp.hpp"
+#include "arrow/util/alp/Alp.h"
 
 #include <cmath>
 #include <cstring>
@@ -6,7 +6,7 @@
 #include <iostream>
 #include <map>
 
-#include "arrow/util/alp/AlpConstants.hpp"
+#include "arrow/util/alp/AlpConstants.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"

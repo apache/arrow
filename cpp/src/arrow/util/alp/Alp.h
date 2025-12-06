@@ -2,7 +2,7 @@
 
 #include <vector>
 
-#include "arrow/util/alp/AlpConstants.hpp"
+#include "arrow/util/alp/AlpConstants.h"
 #include "arrow/util/small_vector.h"
 #include "arrow/util/span.h"
 
@@ -11,7 +11,7 @@ namespace util {
 namespace alp {
 
 /**
- * IMPORTANT: For abstract interfaces or examples how to use ALP, consider CompressFloatAlp.hpp.
+ * IMPORTANT: For abstract interfaces or examples how to use ALP, consult AlpWrapper.h.
  * This is our implementation of the adaptive lossless floating-point compression for decimals
  * (ALP) (https://dl.acm.org/doi/10.1145/3626717). It works by converting a float into a decimal (if
  * possible). The exponent and factor are chosen per vector. Each float is converted using c(f) =
