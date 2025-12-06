@@ -52,7 +52,7 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
   auto col_chunk = row_group_metadata_->ColumnChunk(i);
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
   if (crypto_metadata != nullptr) {
-    ParquetException::NYI("Cannot read encrypted bloom filter yet");
+    ParquetException::NYI("BloomFilter decryption is not yet supported");
   }
 
   auto bloom_filter_offset = col_chunk->bloom_filter_offset();
