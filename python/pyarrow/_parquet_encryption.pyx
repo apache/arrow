@@ -28,6 +28,7 @@ from pyarrow.includes.libarrow cimport *
 from pyarrow.lib cimport _Weakrefable
 from pyarrow.lib import tobytes, frombytes
 
+import json
 
 cdef ParquetCipher cipher_from_name(name):
     name = name.upper()
@@ -35,8 +36,10 @@ cdef ParquetCipher cipher_from_name(name):
         return ParquetCipher_AES_GCM_V1
     elif name == 'AES_GCM_CTR_V1':
         return ParquetCipher_AES_GCM_CTR_V1
+    elif name == 'EXTERNAL_DBPA_V1':
+        return ParquetCipher_EXTERNAL_DBPA_V1
     else:
-        raise ValueError(f'Invalid cipher name: {name!r}')
+        raise ValueError(f'Invalid cipher name: {name}')
 
 
 cdef cipher_to_name(ParquetCipher cipher):
@@ -44,6 +47,8 @@ cdef cipher_to_name(ParquetCipher cipher):
         return 'AES_GCM_V1'
     elif ParquetCipher_AES_GCM_CTR_V1 == cipher:
         return 'AES_GCM_CTR_V1'
+    elif ParquetCipher_EXTERNAL_DBPA_V1 == cipher:
+        return 'EXTERNAL_DBPA_V1'
     else:
         raise ValueError(f'Invalid cipher value: {cipher}')
 
@@ -190,6 +195,215 @@ cdef class EncryptionConfiguration(_Weakrefable):
     cdef inline shared_ptr[CEncryptionConfiguration] unwrap(self) nogil:
         return self.configuration
 
+cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
+    """ExternalEncryptionConfiguration inherits from EncryptionConfiguration."""
+    __slots__ = ()
+
+    def __init__(self, footer_key, *, column_keys=None,
+                 encryption_algorithm=None,
+                 plaintext_footer=None, double_wrapping=None,
+                 cache_lifetime=None, internal_key_material=None,
+                 data_key_length_bits=None, per_column_encryption=None,
+                 app_context=None, connection_config=None):
+
+        # Initialize pointer first so the get/set forwards work.
+        self.external_configuration.reset(
+            new CExternalEncryptionConfiguration(tobytes(footer_key)))
+
+        super().__init__(footer_key,
+            column_keys=column_keys,
+            encryption_algorithm=encryption_algorithm,
+            plaintext_footer=plaintext_footer,
+            double_wrapping=double_wrapping,
+            cache_lifetime=cache_lifetime,
+            internal_key_material=internal_key_material,
+            data_key_length_bits=data_key_length_bits)
+
+        self.external_configuration.get().footer_key = \
+            self.configuration.get().footer_key
+
+        if app_context is not None:
+            self.app_context = app_context
+        if connection_config is not None:
+            self.connection_config = connection_config
+        if per_column_encryption is not None:
+            self.per_column_encryption = per_column_encryption
+
+    """ Forward all attributes get/set methods to the superclass """
+    """ The superclass already converts to/from bytes and does additional processing needed """
+    @property
+    def column_keys(self):
+        return EncryptionConfiguration.column_keys.__get__(self)
+
+    @column_keys.setter
+    def column_keys(self, dict value):
+        EncryptionConfiguration.column_keys.__set__(self, value)
+        self.external_configuration.get().column_keys = self.configuration.get().column_keys
+
+    @property
+    def encryption_algorithm(self):
+        return EncryptionConfiguration.encryption_algorithm.__get__(self)
+
+    @encryption_algorithm.setter
+    def encryption_algorithm(self, value):
+        EncryptionConfiguration.encryption_algorithm.__set__(self, value)
+        self.external_configuration.get().encryption_algorithm = \
+            self.configuration.get().encryption_algorithm
+
+    @property
+    def plaintext_footer(self):
+        return EncryptionConfiguration.plaintext_footer.__get__(self)
+
+    @plaintext_footer.setter
+    def plaintext_footer(self, value):
+        EncryptionConfiguration.plaintext_footer.__set__(self, value)
+        self.external_configuration.get().plaintext_footer = value
+
+    @property
+    def double_wrapping(self):
+        return EncryptionConfiguration.double_wrapping.__get__(self)
+
+    @double_wrapping.setter
+    def double_wrapping(self, value):
+        EncryptionConfiguration.double_wrapping.__set__(self, value)
+        self.external_configuration.get().double_wrapping = value
+
+    @property
+    def cache_lifetime(self):
+        return EncryptionConfiguration.cache_lifetime.__get__(self)
+
+    @cache_lifetime.setter
+    def cache_lifetime(self, value):
+        EncryptionConfiguration.cache_lifetime.__set__(self, value)
+        self.external_configuration.get().cache_lifetime_seconds = value.total_seconds()
+
+    @property
+    def internal_key_material(self):
+        return EncryptionConfiguration.internal_key_material.__get__(self)
+
+    @internal_key_material.setter
+    def internal_key_material(self, value):
+        EncryptionConfiguration.internal_key_material.__set__(self, value)
+        self.external_configuration.get().internal_key_material = value
+
+    @property
+    def data_key_length_bits(self):
+        return EncryptionConfiguration.data_key_length_bits.__get__(self)
+
+    @data_key_length_bits.setter
+    def data_key_length_bits(self, value):
+        EncryptionConfiguration.data_key_length_bits.__set__(self, value)
+        self.external_configuration.get().data_key_length_bits = value
+
+    @property
+    def app_context(self):
+        """Get the application context as a dictionary."""
+        app_context_str = frombytes(self.external_configuration.get().app_context)
+        if not app_context_str:
+            return {}
+        try:
+            return json.loads(app_context_str)
+        except Exception:
+            raise ValueError(f"Invalid JSON stored in app_context: {app_context_str}")
+
+    @app_context.setter
+    def app_context(self, dict value):
+        """Set the application context from a dictionary."""
+        if value is None:
+            raise ValueError("app_context must be JSON-serializable")
+
+        try:
+            serialized = json.dumps(value)               
+            self.external_configuration.get().app_context = tobytes(serialized)
+        except Exception:
+            raise TypeError(f"Failed to serialize app_context: {repr(value)}")
+
+    @property
+    def connection_config(self):
+        """Get the connection configuration as a Python dictionary."""
+
+        cdef pair[ParquetCipher, unordered_map[c_string, c_string]] outer_pair
+        cdef pair[c_string, c_string] inner_pair
+        result = {}
+
+        for outer_pair in self.external_configuration.get().connection_config:
+            cipher_name = cipher_to_name(outer_pair.first)
+            inner_map = {}
+            for inner_pair in outer_pair.second:
+                inner_map[frombytes(inner_pair.first)] = frombytes(inner_pair.second)
+            result[cipher_name] = inner_map
+
+        return result
+
+    @connection_config.setter
+    def connection_config(self, dict value):
+        """Set the connection configuration from a Python dictionary."""
+        if value is None:
+            raise ValueError("Connection config value cannot be None")
+
+        cdef unordered_map[ParquetCipher, unordered_map[c_string, c_string]] cpp_map
+        cdef unordered_map[c_string, c_string] inner_cpp_map
+        cdef ParquetCipher cipher_enum
+
+        for cipher_name, inner_dict in value.items():
+            cipher_enum = cipher_from_name(cipher_name)
+            if not isinstance(inner_dict, dict):
+                raise TypeError(f"Inner value for cipher {cipher_name} must be a dict")
+            # Clear the map from the values of the previous iteration
+            inner_cpp_map.clear()
+
+            for k, v in inner_dict.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise TypeError("All inner config keys/values must be str")
+                inner_cpp_map[tobytes(k)] = tobytes(v)
+            cpp_map[cipher_enum] = inner_cpp_map
+
+        self.external_configuration.get().connection_config = cpp_map
+
+    @property
+    def per_column_encryption(self):
+        """Get the per_column_encryption as a Python dictionary."""
+
+        py_dict = {}
+
+        for pair in self.external_configuration.get().per_column_encryption:
+            py_dict[frombytes(pair.first)] = {
+                "encryption_algorithm": cipher_to_name(pair.second.parquet_cipher),
+                "encryption_key": frombytes(pair.second.key_id)
+            }
+
+        return py_dict
+
+    @per_column_encryption.setter
+    def per_column_encryption(self, dict py_column_encryption):
+        """Set the per_column_encryption from a Python dictionary."""
+        if py_column_encryption is None:
+            raise TypeError("per_column_encryption cannot be None")
+
+        # Clear the existing C++ map first
+        self.external_configuration.get().per_column_encryption.clear()
+
+        cdef CColumnEncryptionAttributes cpp_attrs
+        # Iterate over the Python dictionary
+        for py_key, py_attrs in py_column_encryption.items():
+            if not isinstance(py_key, str) or not isinstance(py_attrs, dict):
+                raise TypeError("column_encryption keys must be strings and values must be dictionaries.")
+
+            # Convert encryption_algorithm string to C++ ParquetCipher enum
+            if "encryption_algorithm" not in py_attrs or not isinstance(py_attrs["encryption_algorithm"], str):
+                raise ValueError("Each column must have 'encryption_algorithm' (string).")
+
+            # Convert encryption_key string to C++ c_string
+            if "encryption_key" not in py_attrs or not isinstance(py_attrs["encryption_key"], str):
+                raise ValueError("Each column must have 'encryption_key' (string).")
+
+            cpp_attrs.parquet_cipher = cipher_from_name(py_attrs["encryption_algorithm"])
+            cpp_attrs.key_id = tobytes(py_attrs["encryption_key"])
+
+            self.external_configuration.get().per_column_encryption[tobytes(py_key)] = cpp_attrs
+
+    cdef inline shared_ptr[CExternalEncryptionConfiguration] unwrap_external(self) nogil:
+        return self.external_configuration
 
 cdef class DecryptionConfiguration(_Weakrefable):
     """Configuration of the decryption, such as cache timeout."""
@@ -213,6 +427,101 @@ cdef class DecryptionConfiguration(_Weakrefable):
     cdef inline shared_ptr[CDecryptionConfiguration] unwrap(self) nogil:
         return self.configuration
 
+cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
+    """Configuration of the external decryption"""
+    # Avoid mistakingly creating attributes
+    __slots__ = ()
+
+    def __init__(self, *, cache_lifetime=None, app_context=None, connection_config=None):
+        # Initialize the pointer first so the get/set forwards work.
+        # Super init will run the setters/getters below so we need the pointer to exist.
+        self.external_configuration.reset(new CExternalDecryptionConfiguration())
+        super().__init__(cache_lifetime=cache_lifetime)
+
+        self.external_configuration.get().cache_lifetime_seconds = \
+            self.configuration.get().cache_lifetime_seconds
+
+        if app_context is not None:
+            self.app_context = app_context
+        if connection_config is not None:
+            self.connection_config = connection_config
+
+    """ Forward all attributes get/set methods to the superclass """
+    """ The superclass already converts to/from bytes and does additional processing needed """
+    @property
+    def cache_lifetime(self):
+        return DecryptionConfiguration.cache_lifetime.__get__(self)
+
+    @cache_lifetime.setter
+    def cache_lifetime(self, value):
+        DecryptionConfiguration.cache_lifetime.__set__(self, value)
+        self.external_configuration.get().cache_lifetime_seconds = value.total_seconds()
+
+    @property
+    def app_context(self):
+        """Get the application context as a dictionary."""
+        app_context_str = frombytes(self.external_configuration.get().app_context)
+        if not app_context_str:
+            return {}
+        try:
+            return json.loads(app_context_str)
+        except Exception:
+            raise ValueError(f"Invalid JSON stored in app_context: {app_context_str}")
+
+    @app_context.setter
+    def app_context(self, dict value):
+        """Set the application context from a dictionary."""
+        if value is None:
+            raise ValueError("app_context must be JSON-serializable")
+
+        try:
+            serialized = json.dumps(value)               
+            self.external_configuration.get().app_context = tobytes(serialized)
+        except Exception:
+            raise TypeError(f"Failed to serialize app_context: {repr(value)}")
+
+    @property
+    def connection_config(self):
+        """Get the connection configuration as a Python dictionary."""
+
+        cdef pair[ParquetCipher, unordered_map[c_string, c_string]] outer_pair
+        cdef pair[c_string, c_string] inner_pair
+        result = {}
+
+        for outer_pair in self.external_configuration.get().connection_config:
+            cipher_name = cipher_to_name(outer_pair.first)
+            inner_map = {}
+            for inner_pair in outer_pair.second:
+                inner_map[frombytes(inner_pair.first)] = frombytes(inner_pair.second)
+            result[cipher_name] = inner_map
+
+        return result
+
+    @connection_config.setter
+    def connection_config(self, dict value):
+        """Set the connection configuration from a Python dictionary."""
+        if value is None:
+            raise ValueError("Connection config value cannot be None")
+
+        cdef unordered_map[ParquetCipher, unordered_map[c_string, c_string]] cpp_map
+        cdef unordered_map[c_string, c_string] inner_cpp_map
+        cdef ParquetCipher cipher_enum
+
+        for cipher_name, inner_dict in value.items():
+            cipher_enum = cipher_from_name(cipher_name)
+            if not isinstance(inner_dict, dict):
+                raise TypeError(f"Inner value for cipher {cipher_name} must be a dict")
+            inner_cpp_map.clear()
+            for k, v in inner_dict.items():
+                if not isinstance(k, str) or not isinstance(v, str):
+                    raise TypeError("All inner config keys/values must be str")
+                inner_cpp_map[tobytes(k)] = tobytes(v)
+            cpp_map[cipher_enum] = inner_cpp_map
+
+        self.external_configuration.get().connection_config = cpp_map
+
+    cdef inline shared_ptr[CExternalDecryptionConfiguration] unwrap_external(self) nogil:
+        return self.external_configuration
 
 cdef class KmsConnectionConfig(_Weakrefable):
     """Configuration of the connection to the Key Management Service (KMS)"""
@@ -430,6 +739,21 @@ cdef class CryptoFactory(_Weakrefable):
             file_encryption_properties_result)
         return FileEncryptionProperties.wrap(file_encryption_properties)
 
+    def external_file_encryption_properties(self,
+                                            KmsConnectionConfig kms_connection_config,
+                                            ExternalEncryptionConfiguration external_encryption_config):
+        cdef:
+            CResult[shared_ptr[CExternalFileEncryptionProperties]] \
+                external_file_encryption_properties_result
+        with nogil:
+            external_file_encryption_properties_result = \
+                self.factory.get().SafeGetExternalFileEncryptionProperties(
+                    deref(kms_connection_config.unwrap().get()),
+                    deref(external_encryption_config.unwrap_external().get()))
+        external_file_encryption_properties = GetResultValue(
+            external_file_encryption_properties_result)
+        return ExternalFileEncryptionProperties.wrap_external(external_file_encryption_properties)
+
     def file_decryption_properties(
             self,
             KmsConnectionConfig kms_connection_config,
@@ -467,6 +791,40 @@ cdef class CryptoFactory(_Weakrefable):
             c_file_decryption_properties)
         return FileDecryptionProperties.wrap(file_decryption_properties)
 
+    def external_file_decryption_properties(
+            self,
+            KmsConnectionConfig kms_connection_config,
+            ExternalDecryptionConfiguration decryption_config):
+        """Create file decryption properties.
+        Parameters
+        ----------
+        kms_connection_config : KmsConnectionConfig
+            Configuration of connection to KMS
+        decryption_config : ExternalDecryptionConfiguration
+            Configuration of the decryption, such as cache timeout and the information on how to
+            connect the external decryption service.
+        Returns
+        -------
+        file_decryption_properties : ExternalFileDecryptionProperties
+            File decryption properties.
+        """
+        cdef:
+            CExternalDecryptionConfiguration c_decryption_config
+            CResult[shared_ptr[CExternalFileDecryptionProperties]] \
+                c_file_decryption_properties
+        if decryption_config is None:
+            c_decryption_config = CExternalDecryptionConfiguration()
+        else:
+            c_decryption_config = deref(decryption_config.unwrap_external().get())
+        with nogil:
+            c_file_decryption_properties = \
+                self.factory.get().SafeGetExternalFileDecryptionProperties(
+                    deref(kms_connection_config.unwrap().get()),
+                    c_decryption_config)
+        file_decryption_properties = GetResultValue(
+            c_file_decryption_properties)
+        return ExternalFileDecryptionProperties.wrap_external(file_decryption_properties)
+
     def remove_cache_entries_for_token(self, access_token):
         self.factory.get().RemoveCacheEntriesForToken(tobytes(access_token))
 
@@ -500,3 +858,15 @@ cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object
     if isinstance(decryptionconfig, DecryptionConfiguration):
         return (<DecryptionConfiguration> decryptionconfig).unwrap()
     raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
+
+
+cdef shared_ptr[CExternalEncryptionConfiguration] pyarrow_unwrap_external_encryptionconfig(object encryptionconfig) except *:
+    if isinstance(encryptionconfig, ExternalEncryptionConfiguration):
+        return (<ExternalEncryptionConfiguration> encryptionconfig).unwrap_external()
+    raise TypeError("Expected ExternalEncryptionConfiguration, got %s" % type(encryptionconfig))
+
+
+cdef shared_ptr[CExternalDecryptionConfiguration] pyarrow_unwrap_external_decryptionconfig(object decryptionconfig) except *:
+    if isinstance(decryptionconfig, ExternalDecryptionConfiguration):
+        return (<ExternalDecryptionConfiguration> decryptionconfig).unwrap_external()
+    raise TypeError("Expected ExternalDecryptionConfiguration, got %s" % type(decryptionconfig))

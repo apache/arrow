@@ -38,6 +38,21 @@ cdef class FileEncryptionProperties:
     cdef inline shared_ptr[CFileEncryptionProperties] unwrap(self):
         return self.properties
 
+cdef class ExternalFileEncryptionProperties(FileEncryptionProperties):
+    cdef:
+        shared_ptr[CExternalFileEncryptionProperties] properties
+
+    @staticmethod
+    cdef inline ExternalFileEncryptionProperties wrap_external(
+        shared_ptr[CExternalFileEncryptionProperties] properties):
+
+        result = ExternalFileEncryptionProperties()
+        result.properties = properties
+        return result
+
+    cdef inline shared_ptr[CExternalFileEncryptionProperties] unwrap_external(self):
+        return <shared_ptr[CExternalFileEncryptionProperties]> self.properties
+
 cdef shared_ptr[WriterProperties] _create_writer_properties(
     use_dictionary=*,
     compression=*,
@@ -150,3 +165,19 @@ cdef class FileDecryptionProperties:
 
     cdef inline shared_ptr[CFileDecryptionProperties] unwrap(self):
         return self.properties
+
+cdef class ExternalFileDecryptionProperties(FileDecryptionProperties):
+    """File-level decryption properties for the low-level API"""
+    cdef:
+        shared_ptr[CExternalFileDecryptionProperties] properties
+
+    @staticmethod
+    cdef inline ExternalFileDecryptionProperties wrap_external(
+            shared_ptr[CExternalFileDecryptionProperties] properties):
+
+        result = ExternalFileDecryptionProperties()
+        result.properties = properties
+        return result
+
+    cdef inline shared_ptr[CExternalFileDecryptionProperties] unwrap_external(self):
+        return <shared_ptr[CExternalFileDecryptionProperties]> self.properties

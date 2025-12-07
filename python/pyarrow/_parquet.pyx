@@ -47,6 +47,10 @@ from pyarrow.lib import (ArrowException, NativeFile, BufferOutputStream,
                          tobytes, frombytes, is_threading_enabled)
 
 cimport cpython as cp
+from libcpp.memory cimport shared_ptr
+
+cdef extern from "memory" namespace "std":
+    shared_ptr[T] static_pointer_cast[T, U](shared_ptr[U] r)
 
 _DEFAULT_ROW_GROUP_SIZE = 1024*1024
 _MAX_ROW_GROUP_SIZE = 64*1024*1024
@@ -1626,8 +1630,12 @@ cdef class ParquetReader(_Weakrefable):
                 thrift_container_size_limit)
 
         if decryption_properties is not None:
-            properties.file_decryption_properties(
-                decryption_properties.unwrap())
+            if isinstance(decryption_properties, ExternalFileDecryptionProperties):
+                properties.file_decryption_properties(
+                    static_pointer_cast[CFileDecryptionProperties, CExternalFileDecryptionProperties] (
+                        (<ExternalFileDecryptionProperties>decryption_properties).unwrap_external()))
+            else:
+                properties.file_decryption_properties((<FileDecryptionProperties>decryption_properties).unwrap())
 
         arrow_props.set_pre_buffer(pre_buffer)
 
@@ -2165,8 +2173,12 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     # encryption
 
     if encryption_properties is not None:
-        props.encryption(
-            (<FileEncryptionProperties>encryption_properties).unwrap())
+        if isinstance(encryption_properties, ExternalFileEncryptionProperties):
+            props.encryption(
+                static_pointer_cast[CFileEncryptionProperties, CExternalFileEncryptionProperties] (
+                    (<ExternalFileEncryptionProperties>encryption_properties).unwrap_external()))
+        else:
+            props.encryption((<FileEncryptionProperties>encryption_properties).unwrap())     
 
     # For backwards compatibility reasons we cap the maximum row group size
     # at 64Mi rows.  This could be changed in the future, though it would be

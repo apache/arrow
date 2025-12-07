@@ -212,6 +212,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
     enum ParquetCipher" parquet::ParquetCipher::type":
         ParquetCipher_AES_GCM_V1" parquet::ParquetCipher::AES_GCM_V1"
         ParquetCipher_AES_GCM_CTR_V1" parquet::ParquetCipher::AES_GCM_CTR_V1"
+        ParquetCipher_EXTERNAL_DBPA_V1" parquet::ParquetCipher::EXTERNAL_DBPA_V1"
 
     struct AadMetadata:
         c_string aad_prefix
@@ -629,4 +630,12 @@ cdef extern from "parquet/encryption/encryption.h" namespace "parquet" nogil:
 
     cdef cppclass CFileEncryptionProperties\
             " parquet::FileEncryptionProperties":
+        pass
+
+    cdef cppclass CExternalFileDecryptionProperties\
+            " parquet::ExternalFileDecryptionProperties":
+        pass
+
+    cdef cppclass CExternalFileEncryptionProperties\
+            " parquet::ExternalFileEncryptionProperties":
         pass

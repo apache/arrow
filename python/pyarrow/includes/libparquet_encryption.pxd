@@ -21,9 +21,12 @@ from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport CSecureString
 from pyarrow._parquet cimport (ParquetCipher,
                                CFileEncryptionProperties,
+                               CExternalFileEncryptionProperties,
                                CFileDecryptionProperties,
+                               CExternalFileDecryptionProperties,
                                ParquetCipher_AES_GCM_V1,
-                               ParquetCipher_AES_GCM_CTR_V1)
+                               ParquetCipher_AES_GCM_CTR_V1,
+                               ParquetCipher_EXTERNAL_DBPA_V1)
 
 
 cdef extern from "parquet/encryption/kms_client.h" \
@@ -81,10 +84,38 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         c_bool internal_key_material
         int32_t data_key_length_bits
 
+    cdef cppclass CColumnEncryptionAttributes\
+            " parquet::encryption::ColumnEncryptionAttributes":
+        CColumnEncryptionAttributes() except +
+        ParquetCipher parquet_cipher
+        c_string key_id
+
+    cdef cppclass CExternalEncryptionConfiguration\
+            " parquet::encryption::ExternalEncryptionConfiguration":
+        CExternalEncryptionConfiguration(const c_string& footer_key) except +
+        c_string footer_key
+        c_string column_keys
+        ParquetCipher encryption_algorithm
+        c_bool plaintext_footer
+        c_bool double_wrapping
+        double cache_lifetime_seconds
+        c_bool internal_key_material
+        int32_t data_key_length_bits
+        unordered_map[c_string, CColumnEncryptionAttributes] per_column_encryption
+        c_string app_context
+        unordered_map[ParquetCipher, unordered_map[c_string, c_string]] connection_config 
+
     cdef cppclass CDecryptionConfiguration\
             " parquet::encryption::DecryptionConfiguration":
         CDecryptionConfiguration() except +
         double cache_lifetime_seconds
+
+    cdef cppclass CExternalDecryptionConfiguration\
+            " parquet::encryption::ExternalDecryptionConfiguration":
+        CExternalDecryptionConfiguration() except +
+        double cache_lifetime_seconds
+        c_string app_context
+        unordered_map[ParquetCipher, unordered_map[c_string, c_string]] connection_config 
 
     cdef cppclass CCryptoFactory" parquet::encryption::CryptoFactory":
         void RegisterKmsClientFactory(
@@ -92,9 +123,15 @@ cdef extern from "parquet/encryption/crypto_factory.h" \
         shared_ptr[CFileEncryptionProperties] GetFileEncryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CEncryptionConfiguration& encryption_config) except +*
+        shared_ptr[CExternalFileEncryptionProperties] GetExternalFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalEncryptionConfiguration& external_encryption_config) except +*
         shared_ptr[CFileDecryptionProperties] GetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config) except +*
+        shared_ptr[CExternalFileDecryptionProperties] GetExternalFileDecryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalDecryptionConfiguration& decryption_config) except +*
         void RemoveCacheEntriesForToken(const c_string& access_token) except +
         void RemoveCacheEntriesForAllTokens() except +
 
@@ -126,7 +163,15 @@ cdef extern from "arrow/python/parquet_encryption.h" \
             SafeGetFileEncryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CEncryptionConfiguration& encryption_config)
+        CResult[shared_ptr[CExternalFileEncryptionProperties]] \
+            SafeGetExternalFileEncryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalEncryptionConfiguration& external_encryption_config)
         CResult[shared_ptr[CFileDecryptionProperties]] \
             SafeGetFileDecryptionProperties(
             const CKmsConnectionConfig& kms_connection_config,
             const CDecryptionConfiguration& decryption_config)
+        CResult[shared_ptr[CExternalFileDecryptionProperties]] \
+            SafeGetExternalFileDecryptionProperties(
+            const CKmsConnectionConfig& kms_connection_config,
+            const CExternalDecryptionConfiguration& decryption_config)
