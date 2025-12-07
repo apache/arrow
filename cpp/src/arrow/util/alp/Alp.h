@@ -287,6 +287,41 @@ class AlpEncodedVector {
 };
 
 // ----------------------------------------------------------------------
+// AlpEncodedVectorView
+
+/// \class AlpEncodedVectorView
+/// \brief A zero-copy view into compressed ALP data
+///
+/// Unlike AlpEncodedVector which copies data into internal buffers,
+/// AlpEncodedVectorView holds spans that point directly to the compressed
+/// data buffer. This avoids memory copies during decompression.
+///
+/// Use LoadView() to create a view, then pass to DecompressVectorView().
+/// The underlying buffer must remain valid for the lifetime of the view.
+template <typename T>
+struct AlpEncodedVectorView {
+  /// Metadata of the encoded vector (copied, small fixed size)
+  AlpEncodedVectorInfo vector_info;
+  /// View into bitpacked data (no copy)
+  arrow::util::span<const uint8_t> packed_values;
+  /// View into exception values (no copy)
+  arrow::util::span<const T> exceptions;
+  /// View into exception positions (no copy)
+  arrow::util::span<const uint16_t> exception_positions;
+
+  /// \brief Create a zero-copy view from a compact format input buffer
+  ///
+  /// \param[in] input_buffer the buffer to create a view into
+  /// \return the view into the compressed data
+  static AlpEncodedVectorView LoadView(arrow::util::span<const char> input_buffer);
+
+  /// \brief Get the stored size of this vector in the buffer
+  ///
+  /// \return the stored size in bytes
+  uint64_t GetStoredSize() const;
+};
+
+// ----------------------------------------------------------------------
 // AlpBitPackLayout
 
 /// \brief Bit packing layout
@@ -357,6 +392,19 @@ class AlpCompression : private AlpConstants {
   static void DecompressVector(const AlpEncodedVector<T>& encoded_vector,
                                AlpBitPackLayout bit_pack_layout,
                                TargetType* output_vector);
+
+  /// \brief Decompress using a zero-copy view (faster, no memory allocation)
+  ///
+  /// \param[in] encoded_view the zero-copy view into compressed data
+  /// \param[in] bit_pack_layout the bit packing layout used
+  /// \param[out] output_vector the vector of floats to decompress into.
+  ///             Must be able to contain encoded_view.vector_info.num_elements.
+  /// \tparam TargetType the type that is used to store the output.
+  ///         May not be a narrowing conversion from T.
+  template <typename TargetType>
+  static void DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
+                                   AlpBitPackLayout bit_pack_layout,
+                                   TargetType* output_vector);
 
  protected:
   /// \brief Creates an EncodingPreset consisting of multiple factors/exponents
