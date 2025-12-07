@@ -1189,4 +1189,38 @@ GARROW_AVAILABLE_IN_23_0
 GArrowCumulativeOptions *
 garrow_cumulative_options_new(void);
 
+/**
+ * GArrowDictionaryEncodeNullEncodingBehavior:
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE: The null value will be added to the
+ * dictionary with a proper index.
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK: The null value will be masked in the
+ * indices array.
+ *
+ * They correspond to the values of
+ * `arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE,
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK,
+} GArrowDictionaryEncodeNullEncodingBehavior;
+
+#define GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS                                            \
+  (garrow_dictionary_encode_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryEncodeOptions,
+                         garrow_dictionary_encode_options,
+                         GARROW,
+                         DICTIONARY_ENCODE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDictionaryEncodeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new(void);
+
 G_END_DECLS
