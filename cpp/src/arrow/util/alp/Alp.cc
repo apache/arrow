@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 #include "arrow/util/alp/Alp.h"
 
 #include <cmath>
@@ -17,6 +34,9 @@
 namespace arrow {
 namespace util {
 namespace alp {
+
+// ----------------------------------------------------------------------
+// AlpEncodedVectorInfo implementation
 
 bool AlpEncodedVectorInfo::operator==(const AlpEncodedVectorInfo& other) const {
   return exponentAndFactor == other.exponentAndFactor &&
@@ -46,6 +66,9 @@ AlpEncodedVectorInfo AlpEncodedVectorInfo::load(arrow::util::span<const char> in
 }
 
 uint64_t AlpEncodedVectorInfo::getStoredSize() { return sizeof(AlpEncodedVectorInfo); }
+
+// ----------------------------------------------------------------------
+// AlpEncodedVector implementation
 
 template <typename T>
 void AlpEncodedVector<T>::store(const arrow::util::span<char> outputBuffer) const {
@@ -147,6 +170,12 @@ bool AlpEncodedVector<T>::operator==(const AlpEncodedVector<T>& other) const {
 template class AlpEncodedVector<float>;
 template class AlpEncodedVector<double>;
 
+// ----------------------------------------------------------------------
+// Internal helper classes
+
+namespace {
+
+/// \brief Helper class for encoding/decoding individual values
 template <typename T>
 class AlpInlines : private AlpConstants {
  public:
@@ -154,7 +183,7 @@ class AlpInlines : private AlpConstants {
   using ExactType = typename Constants::FloatingToExact;
   using SignedExactType = typename Constants::FloatingToSignedExact;
 
-  // Checks if float is a special value that cannot be converted to a decimal.
+  /// \brief Check if float is a special value that cannot be converted to a decimal
   static inline bool isImpossibleToEncode(const T n) {
     // We do not have to check for positive or negative infinity, since
     // std::numeric_limits<T>::infinity() > std::numeric_limits<T>::max()
@@ -164,20 +193,21 @@ class AlpInlines : private AlpConstants {
            (n == 0.0 && std::signbit(n));  // Verification for -0.0
   }
 
-  // Converts a float to an Int without rounding.
+  /// \brief Convert a float to an int without rounding
   static inline auto fastRound(T n) -> SignedExactType {
     n = n + Constants::kMagicNumber - Constants::kMagicNumber;
     return static_cast<SignedExactType>(n);
   }
 
-  // Fast way to round float to nearest integer.
+  /// \brief Fast way to round float to nearest integer
   static inline auto numberToInt(T n) -> SignedExactType {
     if (isImpossibleToEncode(n)) {
       return static_cast<SignedExactType>(Constants::kEncodingUpperLimit);
     }
     return fastRound(n);
   }
-  // Convert a float into an int using encodingOptions.
+
+  /// \brief Convert a float into an int using encoding options
   static inline SignedExactType encodeValue(const T value,
                                             const AlpExponentAndFactor exponentAndFactor) {
     const T tmpEncodedValue = value * Constants::getExponent(exponentAndFactor.exponent) *
@@ -185,7 +215,7 @@ class AlpInlines : private AlpConstants {
     return numberToInt(tmpEncodedValue);
   }
 
-  // Reconvert an int to a float using encodingOptions.
+  /// \brief Reconvert an int to a float using encoding options
   static inline T decodeValue(const SignedExactType encodedValue,
                               const AlpExponentAndFactor exponentAndFactor) {
     // The cast to T is needed to prevent a signed integer overflow.
@@ -194,20 +224,21 @@ class AlpInlines : private AlpConstants {
   }
 };
 
+/// \brief Helper struct for tracking compression combinations
 struct AlpCombination {
   AlpExponentAndFactor exponentAndFactor;
   uint64_t numAppearances{0};
   uint64_t estimatedCompressionSize{0};
 };
 
-/*
- * Return TRUE if c1 is a better combination than c2.
- * First criteria is number of times it appears as best combination.
- * Second criteria is the estimated compression size.
- * Third criteria is bigger exponent.
- * Fourth criteria is bigger factor.
- */
-static bool compareAlpCombinations(const AlpCombination& c1, const AlpCombination& c2) {
+/// \brief Compare two ALP combinations to determine which is better
+///
+/// Return true if c1 is a better combination than c2.
+/// First criteria is number of times it appears as best combination.
+/// Second criteria is the estimated compression size.
+/// Third criteria is bigger exponent.
+/// Fourth criteria is bigger factor.
+bool compareAlpCombinations(const AlpCombination& c1, const AlpCombination& c2) {
   return (c1.numAppearances > c2.numAppearances) ||
          (c1.numAppearances == c2.numAppearances &&
           (c1.estimatedCompressionSize < c2.estimatedCompressionSize)) ||
@@ -220,14 +251,17 @@ static bool compareAlpCombinations(const AlpCombination& c1, const AlpCombinatio
           (c2.exponentAndFactor.factor < c1.exponentAndFactor.factor));
 }
 
-/*
- * Dry compress a vector (ideally a sample) to estimate ALP compression size given an exponent and
- * factor.
- */
+}  // namespace
+
+// ----------------------------------------------------------------------
+// AlpCompression implementation
+
 template <typename T>
 std::optional<uint64_t> AlpCompression<T>::estimateCompressedSize(
     const std::vector<T>& inputVector, const AlpExponentAndFactor exponentAndFactor,
     const bool penalizeExceptions) {
+  // Dry compress a vector (ideally a sample) to estimate ALP compression size
+  // given an exponent and factor.
   SignedExactType maxEncodedValue = std::numeric_limits<SignedExactType>::min();
   SignedExactType minEncodedValue = std::numeric_limits<SignedExactType>::max();
 
@@ -260,14 +294,12 @@ std::optional<uint64_t> AlpCompression<T>::estimateCompressedSize(
   return estimatedCompressionSize;
 }
 
-/*
- * Find the best combinations of factor-exponent from each vector sampled from a rowgroup.
- * This function is called once per segment.
- * This operates over ALP first level samples.
- */
 template <typename T>
 AlpEncodingPreset AlpCompression<T>::createEncodingPreset(
     const std::vector<std::vector<T>>& vectorsSampled) {
+  // Find the best combinations of factor-exponent from each vector sampled from a rowgroup.
+  // This function is called once per segment.
+  // This operates over ALP first level samples.
   static constexpr uint64_t maxCombinationCount =
       (Constants::kMaxExponent + 1) * (Constants::kMaxExponent + 2) / 2;
 
@@ -348,13 +380,11 @@ std::vector<T> AlpCompression<T>::createSample(const arrow::util::span<const T> 
   return vectorSample;
 }
 
-/*
- * Find the best combination of factor-exponent for a vector from within the best k combinations.
- * This is ALP second level sampling.
- */
 template <typename T>
 AlpExponentAndFactor AlpCompression<T>::findBestExponentAndFactor(
     arrow::util::span<const T> input, const std::vector<AlpExponentAndFactor>& combinations) {
+  // Find the best combination of factor-exponent for a vector from within the best k combinations.
+  // This is ALP second level sampling.
   if (combinations.size() == 1) {
     return combinations.front();
   }
@@ -477,16 +507,11 @@ auto AlpCompression<T>::bitPackIntegers(const arrow::util::span<const SignedExac
   return {packedIntegers, bitWidth, bitPackedSize};
 }
 
-/*
- * ALP Compress.
- */
 template <typename T>
 AlpEncodedVector<T> AlpCompression<T>::compressVector(const T* inputVector, uint16_t numElements,
                                                       const AlpEncodingPreset& preset) {
   // Perform the compression by finding a fitting exponent and factor, use them to encode the
   // input, and finally bitpack the encoded data.
-
-  // std::cout << numElements << std::endl;
   const arrow::util::span<const T> inputSpan{inputVector, numElements};
   const AlpExponentAndFactor exponentAndFactor =
       findBestExponentAndFactor(inputSpan, preset.combinations);
@@ -545,13 +570,15 @@ auto AlpCompression<T>::bitUnpackIntegers(const arrow::util::span<const uint8_t>
     const int remaining = numElements - numCompleteElements;
     if (remaining > 0) {
       // Calculate byte offset where SIMD unpack finished
-      const uint64_t bitsConsumedBySIMD = static_cast<uint64_t>(numCompleteElements) * vectorInfo.bitWidth;
+      const uint64_t bitsConsumedBySIMD =
+          static_cast<uint64_t>(numCompleteElements) * vectorInfo.bitWidth;
       // Round up to next byte
       const uint64_t bytesConsumedBySIMD = (bitsConsumedBySIMD + 7) / 8;
 
       // Use BitReader for the remaining elements starting from where SIMD left off
-      arrow::bit_util::BitReader reader(packedIntegers.data() + bytesConsumedBySIMD,
-                                        static_cast<int>(packedIntegers.size() - bytesConsumedBySIMD));
+      arrow::bit_util::BitReader reader(
+          packedIntegers.data() + bytesConsumedBySIMD,
+          static_cast<int>(packedIntegers.size() - bytesConsumedBySIMD));
 
       for (int i = 0; i < remaining; ++i) {
         uint64_t value = 0;
@@ -630,6 +657,9 @@ void AlpCompression<T>::decompressVector(const AlpEncodedVector<T>& packedVector
       break;
   }
 }
+
+// ----------------------------------------------------------------------
+// Template instantiations
 
 template void AlpCompression<float>::decompressVector<double>(
     const AlpEncodedVector<float>& packedVector, const AlpBitPackLayout bitPackLayout,
