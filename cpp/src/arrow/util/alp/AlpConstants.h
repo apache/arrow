@@ -33,7 +33,7 @@ namespace alp {
 /// \brief Constants used throughout ALP compression
 class AlpConstants {
  public:
-  /// Number of elements compressed together as a unit. This value is fixed for compatibility.
+  /// Number of elements compressed together as a unit. Fixed for compatibility.
   static constexpr uint64_t kAlpVectorSize = 1024;
 
   /// Number of elements to use when determining sampling parameters.
@@ -61,15 +61,15 @@ class AlpConstants {
   static constexpr uint8_t kMaxCombinations = 5;
 
   /// Loop unroll factor for tight loops in ALP compression/decompression.
-  /// ALP has multiple tight loops that profit from unrolling. Setting this might affect
-  /// performance, so benchmarking is recommended. The gains from kLoopUnrolls = 4 are marginal.
+  /// ALP has multiple tight loops that profit from unrolling. Setting this
+  /// might affect performance, so benchmarking is recommended.
   static constexpr uint64_t kLoopUnrolls = 4;
 
   /// \brief Get power of ten as uint64_t
   ///
   /// \param[in] power the exponent (must be <= 19)
   /// \return 10^power as uint64_t
-  static uint64_t powerOfTenUB8(const uint8_t power) {
+  static uint64_t PowerOfTenUB8(const uint8_t power) {
     ARROW_DCHECK(power <= 19) << "power_out_of_range: " << static_cast<int>(power);
     static constexpr uint64_t kTable[20] = {1,
                                             10,
@@ -99,13 +99,15 @@ class AlpConstants {
   ///
   /// \param[in] power the exponent (must be in range [-10, 10])
   /// \return 10^power as float
-  static float powerOfTenFloat(int8_t power) {
-    ARROW_DCHECK(power >= -10 && power <= 10) << "power_out_of_range: " << static_cast<int>(power);
+  static float PowerOfTenFloat(int8_t power) {
+    ARROW_DCHECK(power >= -10 && power <= 10)
+        << "power_out_of_range: " << static_cast<int>(power);
     static constexpr float kTable[21] = {
-        0.0000000001F, 0.000000001F,  0.00000001F,   0.0000001F, 0.000001F,  0.00001F,
-        0.0001F,       0.001F,        0.01F,         0.1F,       1.0F,       10.0F,
-        100.0F,        1000.0F,       10000.0F,      100000.0F,  1000000.0F, 10000000.0F,
-        100000000.0F,  1000000000.0F, 10000000000.0F};
+        0.0000000001F, 0.000000001F,  0.00000001F,   0.0000001F, 0.000001F,
+        0.00001F,      0.0001F,       0.001F,        0.01F,      0.1F,
+        1.0F,          10.0F,         100.0F,        1000.0F,    10000.0F,
+        100000.0F,     1000000.0F,    10000000.0F,   100000000.0F,
+        1000000000.0F, 10000000000.0F};
 
     return kTable[power + 10];
   }
@@ -114,8 +116,9 @@ class AlpConstants {
   ///
   /// \param[in] power the exponent (must be in range [-20, 20])
   /// \return 10^power as double
-  static double powerOfTenDouble(const int8_t power) {
-    ARROW_DCHECK(power >= -20 && power <= 20) << "power_out_of_range: " << static_cast<int>(power);
+  static double PowerOfTenDouble(const int8_t power) {
+    ARROW_DCHECK(power >= -20 && power <= 20)
+        << "power_out_of_range: " << static_cast<int>(power);
     static constexpr double kTable[41] = {
         0.00000000000000000001,
         0.0000000000000000001,
@@ -166,7 +169,7 @@ class AlpConstants {
   ///
   /// \param[in] power the exponent
   /// \return 10^power as int64_t
-  static int64_t getFactor(const int8_t power) { return powerOfTenUB8(power); }
+  static int64_t GetFactor(const int8_t power) { return PowerOfTenUB8(power); }
 };
 
 // ----------------------------------------------------------------------
@@ -194,16 +197,19 @@ struct AlpTypedConstants<float> {
   ///
   /// \param[in] power the exponent
   /// \return 10^power as float
-  static float getExponent(const uint8_t power) { return AlpConstants::powerOfTenFloat(power); }
+  static float GetExponent(const uint8_t power) {
+    return AlpConstants::PowerOfTenFloat(power);
+  }
 
   /// \brief Get factor multiplier
   ///
   /// \param[in] power the factor
   /// \return 10^(-power) as float
-  static float getFactor(const uint8_t power) {
-    // This double cast is necessary since subtraction on int8_t does not necessarily yield an
-    // int8_t.
-    return AlpConstants::powerOfTenFloat(static_cast<int8_t>(-static_cast<int8_t>(power)));
+  static float GetFactor(const uint8_t power) {
+    // This double cast is necessary since subtraction on int8_t does not
+    // necessarily yield an int8_t.
+    return AlpConstants::PowerOfTenFloat(
+        static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 
   using FloatingToExact = uint32_t;
@@ -228,14 +234,17 @@ class AlpTypedConstants<double> {
   ///
   /// \param[in] power the exponent
   /// \return 10^power as double
-  static double getExponent(const uint8_t power) { return AlpConstants::powerOfTenDouble(power); }
+  static double GetExponent(const uint8_t power) {
+    return AlpConstants::PowerOfTenDouble(power);
+  }
 
   /// \brief Get factor multiplier
   ///
   /// \param[in] power the factor
   /// \return 10^(-power) as double
-  static double getFactor(const uint8_t power) {
-    return AlpConstants::powerOfTenDouble(static_cast<int8_t>(-static_cast<int8_t>(power)));
+  static double GetFactor(const uint8_t power) {
+    return AlpConstants::PowerOfTenDouble(
+        static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
 
   using FloatingToExact = uint64_t;
