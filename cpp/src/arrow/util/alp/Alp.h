@@ -19,88 +19,88 @@ namespace alp {
  * reference and bitpacked. Every exception, where the conversion/reconversion changes the value of
  * the float, is stored separately and has to be patched into the decompressed vector afterwards.
  *
- * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ==========================================================================================
  *                         ALP COMPRESSION/DECOMPRESSION PIPELINE
- * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ==========================================================================================
  *
  * COMPRESSION FLOW:
- * ─────────────────
+ * -----------------
  *
  *   Input: float/double array
- *        │
- *        ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 1. SAMPLING & PRESET GENERATION                                 │
- *   │    • Sample vectors from dataset                                │
- *   │    • Try all exponent/factor combinations (e, f)                │
- *   │    • Select best k combinations for preset                      │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ preset.combinations
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 2. PER-VECTOR COMPRESSION                                       │
- *   │    a) Find best (e,f) from preset for this vector               │
- *   │    b) Encode: encoded[i] = int64(value[i] * 10^e * 10^-f)       │
- *   │    c) Verify: if decode(encoded[i]) ≠ value[i] → exception      │
- *   │    d) Replace exceptions with placeholder value                 │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ encoded integers + exceptions
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 3. FRAME OF REFERENCE (FOR)                                     │
- *   │    • Find min value in encoded integers                         │
- *   │    • Subtract min from all values: delta[i] = encoded[i] - min  │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ delta values (smaller range)
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 4. BIT PACKING                                                  │
- *   │    • Calculate bitWidth = log2(max_delta)                       │
- *   │    • Pack each value into bitWidth bits                         │
- *   │    • Result: tightly packed binary data                         │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ packed bytes
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 5. SERIALIZATION (see AlpEncodedVector diagram below)           │
- *   │    [VectorInfo][PackedData][ExceptionPos][ExceptionValues]      │
- *   └─────────────────────────────────────────────────────────────────┘
+ *        |
+ *        v
+ *   +------------------------------------------------------------------+
+ *   | 1. SAMPLING & PRESET GENERATION                                  |
+ *   |    * Sample vectors from dataset                                 |
+ *   |    * Try all exponent/factor combinations (e, f)                 |
+ *   |    * Select best k combinations for preset                       |
+ *   +------------------------------------+-----------------------------+
+ *                                        | preset.combinations
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 2. PER-VECTOR COMPRESSION                                        |
+ *   |    a) Find best (e,f) from preset for this vector                |
+ *   |    b) Encode: encoded[i] = int64(value[i] * 10^e * 10^-f)        |
+ *   |    c) Verify: if decode(encoded[i]) != value[i] -> exception     |
+ *   |    d) Replace exceptions with placeholder value                  |
+ *   +------------------------------------+-----------------------------+
+ *                                        | encoded integers + exceptions
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 3. FRAME OF REFERENCE (FOR)                                      |
+ *   |    * Find min value in encoded integers                          |
+ *   |    * Subtract min from all values: delta[i] = encoded[i] - min   |
+ *   +------------------------------------+-----------------------------+
+ *                                        | delta values (smaller range)
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 4. BIT PACKING                                                   |
+ *   |    * Calculate bitWidth = log2(max_delta)                        |
+ *   |    * Pack each value into bitWidth bits                          |
+ *   |    * Result: tightly packed binary data                          |
+ *   +------------------------------------+-----------------------------+
+ *                                        | packed bytes
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 5. SERIALIZATION (see AlpEncodedVector diagram below)            |
+ *   |    [VectorInfo][PackedData][ExceptionPos][ExceptionValues]       |
+ *   +------------------------------------------------------------------+
  *
  *
  * DECOMPRESSION FLOW:
- * ───────────────────
+ * -------------------
  *
- *   Serialized bytes → AlpEncodedVector::load()
- *        │
- *        ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 1. BIT UNPACKING                                                │
- *   │    • Extract bitWidth from metadata                             │
- *   │    • Unpack each value from bitWidth bits → delta values        │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ delta values
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 2. REVERSE FRAME OF REFERENCE (unFOR)                           │
- *   │    • Add back min: encoded[i] = delta[i] + frameOfReference     │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ encoded integers
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 3. DECODE                                                       │
- *   │    • Apply inverse formula: value[i] = encoded[i] * 10^-e * 10^f│
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │ decoded floats (with placeholders)
- *                                          ▼
- *   ┌─────────────────────────────────────────────────────────────────┐
- *   │ 4. PATCH EXCEPTIONS                                             │
- *   │    • Replace values at exceptionPositions[] with exceptions[]   │
- *   └──────────────────────────────────────┬──────────────────────────┘
- *                                          │
- *                                          ▼
+ *   Serialized bytes -> AlpEncodedVector::load()
+ *        |
+ *        v
+ *   +------------------------------------------------------------------+
+ *   | 1. BIT UNPACKING                                                 |
+ *   |    * Extract bitWidth from metadata                              |
+ *   |    * Unpack each value from bitWidth bits -> delta values        |
+ *   +------------------------------------+-----------------------------+
+ *                                        | delta values
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 2. REVERSE FRAME OF REFERENCE (unFOR)                            |
+ *   |    * Add back min: encoded[i] = delta[i] + frameOfReference      |
+ *   +------------------------------------+-----------------------------+
+ *                                        | encoded integers
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 3. DECODE                                                        |
+ *   |    * Apply inverse formula: value[i] = encoded[i] * 10^-e * 10^f |
+ *   +------------------------------------+-----------------------------+
+ *                                        | decoded floats (with placeholders)
+ *                                        v
+ *   +------------------------------------------------------------------+
+ *   | 4. PATCH EXCEPTIONS                                              |
+ *   |    * Replace values at exceptionPositions[] with exceptions[]    |
+ *   +------------------------------------+-----------------------------+
+ *                                        |
+ *                                        v
  *   Output: Original float/double array (lossless!)
  *
- * ═══════════════════════════════════════════════════════════════════════════════════════
+ * ==========================================================================================
  */
 
 /**
@@ -130,21 +130,21 @@ struct AlpExponentAndFactor {
  *
  * Serialization format (stored as raw binary struct):
  *
- *   ┌──────────────────────────────────────────┐
- *   │  AlpEncodedVectorInfo (23+ bytes)        │
- *   ├──────────────────────────────────────────┤
- *   │  Offset │ Field               │ Size     │
- *   ├─────────┼─────────────────────┼──────────┤
- *   │    0    │ exponent (uint8_t)  │ 1 byte   │
- *   │    1    │ factor (uint8_t)    │ 1 byte   │
- *   │    2    │ [padding]           │ 6 bytes  │
- *   │    8    │ frameOfReference    │ 8 bytes  │
- *   │   16    │ bitWidth (uint8_t)  │ 1 byte   │
- *   │   17    │ [padding]           │ 7 bytes  │
- *   │   24    │ bitPackedSize       │ 8 bytes  │
- *   │   32    │ numElements         │ 2 bytes  │
- *   │   34    │ numExceptions       │ 2 bytes  │
- *   └──────────────────────────────────────────┘
+ *   +------------------------------------------+
+ *   |  AlpEncodedVectorInfo (23+ bytes)        |
+ *   +------------------------------------------+
+ *   |  Offset |  Field              |  Size    |
+ *   +---------+---------------------+----------+
+ *   |    0    |  exponent (uint8_t) |  1 byte  |
+ *   |    1    |  factor (uint8_t)   |  1 byte  |
+ *   |    2    |  [padding]          |  6 bytes |
+ *   |    8    |  frameOfReference   |  8 bytes |
+ *   |   16    |  bitWidth (uint8_t) |  1 byte  |
+ *   |   17    |  [padding]          |  7 bytes |
+ *   |   24    |  bitPackedSize      |  8 bytes |
+ *   |   32    |  numElements        |  2 bytes |
+ *   |   34    |  numExceptions      |  2 bytes |
+ *   +------------------------------------------+
  */
 struct AlpEncodedVectorInfo {
   /// Exponent and factor used for compression.
@@ -174,23 +174,23 @@ struct AlpEncodedVectorInfo {
 /**
  * Complete serialization format for an ALP compressed vector:
  *
- *   ┌────────────────────────────────────────────────────────────┐
- *   │  AlpEncodedVector<T> Serialized Layout                     │
- *   ├────────────────────────────────────────────────────────────┤
- *   │  Section              │  Size (bytes)        │  Description │
- *   ├───────────────────────┼──────────────────────┼──────────────┤
- *   │  1. VectorInfo        │  sizeof(VectorInfo)  │  Metadata    │
- *   │     (see above)       │  (~36 with padding)  │              │
- *   ├───────────────────────┼──────────────────────┼──────────────┤
- *   │  2. Packed Values     │  bitPackedSize       │  Bitpacked   │
- *   │     (compressed data) │  (variable)          │  integers    │
- *   ├───────────────────────┼──────────────────────┼──────────────┤
- *   │  3. Exception Pos     │  numExceptions * 2   │  uint16_t[]  │
- *   │     (indices)         │  (variable)          │  positions   │
- *   ├───────────────────────┼──────────────────────┼──────────────┤
- *   │  4. Exception Values  │  numExceptions *     │  T[] (float/ │
- *   │     (original floats) │  sizeof(T)           │  double)     │
- *   └────────────────────────────────────────────────────────────┘
+ *   +------------------------------------------------------------+
+ *   |  AlpEncodedVector<T> Serialized Layout                     |
+ *   +------------------------------------------------------------+
+ *   |  Section              |  Size (bytes)        | Description |
+ *   +-----------------------+----------------------+-------------+
+ *   |  1. VectorInfo        |  sizeof(VectorInfo)  |  Metadata   |
+ *   |     (see above)       |  (~36 with padding)  |             |
+ *   +-----------------------+----------------------+-------------+
+ *   |  2. Packed Values     |  bitPackedSize       |  Bitpacked  |
+ *   |     (compressed data) |  (variable)          |  integers   |
+ *   +-----------------------+----------------------+-------------+
+ *   |  3. Exception Pos     |  numExceptions * 2   |  uint16_t[] |
+ *   |     (indices)         |  (variable)          |  positions  |
+ *   +-----------------------+----------------------+-------------+
+ *   |  4. Exception Values  |  numExceptions *     |  T[] (float/|
+ *   |     (original floats) |  sizeof(T)           |  double)    |
+ *   +------------------------------------------------------------+
  *
  * Example for 1024 floats with 5 exceptions and bitWidth=8:
  *   - VectorInfo:        36 bytes
