@@ -628,25 +628,21 @@ template <typename TargetType>
 void AlpCompression<T>::DecodeVector(TargetType* output_vector,
                                      arrow::util::span<ExactType> input_vector,
                                      const AlpEncodedVectorInfo vector_info) {
-  // unFOR - Optimized with index-based loop and ivdep for vectorization.
+  // Fused unFOR + decode loop - reduces memory traffic by avoiding
+  // intermediate write-then-read of the unFOR'd values.
   const size_t num_elements = input_vector.size();
-  ExactType* data = input_vector.data();
+  const ExactType* data = input_vector.data();
   const ExactType frame_of_ref = vector_info.frame_of_reference;
 
 #pragma GCC unroll AlpConstants::kLoopUnrolls
 #pragma GCC ivdep
   for (size_t i = 0; i < num_elements; ++i) {
-    data[i] += frame_of_ref;
-  }
-
-  // Decoding - Optimized version.
-  const ExactType* input = data;
-
-#pragma GCC unroll AlpConstants::kLoopUnrolls
-#pragma GCC ivdep
-  for (size_t i = 0; i < num_elements; ++i) {
+    // 1. Apply frame of reference (unFOR) - unsigned arithmetic
+    const ExactType unfored_value = data[i] + frame_of_ref;
+    // 2. Reinterpret as signed integer for decode
     SignedExactType signed_value;
-    std::memcpy(&signed_value, &input[i], sizeof(SignedExactType));
+    std::memcpy(&signed_value, &unfored_value, sizeof(SignedExactType));
+    // 3. Decode using original function to preserve exact floating-point behavior
     output_vector[i] =
         AlpInlines<T>::DecodeValue(signed_value, vector_info.exponent_and_factor);
   }
