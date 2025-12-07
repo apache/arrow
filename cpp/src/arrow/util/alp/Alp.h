@@ -32,17 +32,20 @@ namespace alp {
 // ----------------------------------------------------------------------
 // ALP Overview
 //
-// IMPORTANT: For abstract interfaces or examples how to use ALP, consult AlpWrapper.h.
-// This is our implementation of the adaptive lossless floating-point compression for decimals
-// (ALP) (https://dl.acm.org/doi/10.1145/3626717). It works by converting a float into a decimal (if
-// possible). The exponent and factor are chosen per vector. Each float is converted using c(f) =
-// int64(f * 10^exponent * 10^-factor). The converted floats are than encoded via a delta frame of
-// reference and bitpacked. Every exception, where the conversion/reconversion changes the value of
-// the float, is stored separately and has to be patched into the decompressed vector afterwards.
+// IMPORTANT: For abstract interfaces or examples how to use ALP, consult
+// AlpWrapper.h.
+// This is our implementation of the adaptive lossless floating-point
+// compression for decimals (ALP) (https://dl.acm.org/doi/10.1145/3626717).
+// It works by converting a float into a decimal (if possible). The exponent
+// and factor are chosen per vector. Each float is converted using
+// c(f) = int64(f * 10^exponent * 10^-factor). The converted floats are then
+// encoded via a delta frame of reference and bitpacked. Every exception,
+// where the conversion/reconversion changes the value of the float, is stored
+// separately and has to be patched into the decompressed vector afterwards.
 //
-// ==========================================================================================
-//                         ALP COMPRESSION/DECOMPRESSION PIPELINE
-// ==========================================================================================
+// ==========================================================================
+//                    ALP COMPRESSION/DECOMPRESSION PIPELINE
+// ==========================================================================
 //
 // COMPRESSION FLOW:
 // -----------------
@@ -76,8 +79,8 @@ namespace alp {
 //                                        v
 //   +------------------------------------------------------------------+
 //   | 4. BIT PACKING                                                   |
-//   |    * Calculate bitWidth = log2(max_delta)                        |
-//   |    * Pack each value into bitWidth bits                          |
+//   |    * Calculate bit_width = log2(max_delta)                       |
+//   |    * Pack each value into bit_width bits                         |
 //   |    * Result: tightly packed binary data                          |
 //   +------------------------------------+-----------------------------+
 //                                        | packed bytes
@@ -91,19 +94,19 @@ namespace alp {
 // DECOMPRESSION FLOW:
 // -------------------
 //
-//   Serialized bytes -> AlpEncodedVector::load()
+//   Serialized bytes -> AlpEncodedVector::Load()
 //        |
 //        v
 //   +------------------------------------------------------------------+
 //   | 1. BIT UNPACKING                                                 |
-//   |    * Extract bitWidth from metadata                              |
-//   |    * Unpack each value from bitWidth bits -> delta values        |
+//   |    * Extract bit_width from metadata                             |
+//   |    * Unpack each value from bit_width bits -> delta values       |
 //   +------------------------------------+-----------------------------+
 //                                        | delta values
 //                                        v
 //   +------------------------------------------------------------------+
 //   | 2. REVERSE FRAME OF REFERENCE (unFOR)                            |
-//   |    * Add back min: encoded[i] = delta[i] + frameOfReference      |
+//   |    * Add back min: encoded[i] = delta[i] + frame_of_reference    |
 //   +------------------------------------+-----------------------------+
 //                                        | encoded integers
 //                                        v
@@ -115,13 +118,13 @@ namespace alp {
 //                                        v
 //   +------------------------------------------------------------------+
 //   | 4. PATCH EXCEPTIONS                                              |
-//   |    * Replace values at exceptionPositions[] with exceptions[]    |
+//   |    * Replace values at exception_positions[] with exceptions[]   |
 //   +------------------------------------+-----------------------------+
 //                                        |
 //                                        v
 //   Output: Original float/double array (lossless!)
 //
-// ==========================================================================================
+// ==========================================================================
 
 // ----------------------------------------------------------------------
 // AlpMode
@@ -168,42 +171,42 @@ struct AlpExponentAndFactor {
 ///   |    0    |  exponent (uint8_t) |  1 byte  |
 ///   |    1    |  factor (uint8_t)   |  1 byte  |
 ///   |    2    |  [padding]          |  6 bytes |
-///   |    8    |  frameOfReference   |  8 bytes |
-///   |   16    |  bitWidth (uint8_t) |  1 byte  |
+///   |    8    |  frame_of_reference |  8 bytes |
+///   |   16    |  bit_width (uint8_t)|  1 byte  |
 ///   |   17    |  [padding]          |  7 bytes |
-///   |   24    |  bitPackedSize      |  8 bytes |
-///   |   32    |  numElements        |  2 bytes |
-///   |   34    |  numExceptions      |  2 bytes |
+///   |   24    |  bit_packed_size    |  8 bytes |
+///   |   32    |  num_elements       |  2 bytes |
+///   |   34    |  num_exceptions     |  2 bytes |
 ///   +------------------------------------------+
 struct AlpEncodedVectorInfo {
   /// Exponent and factor used for compression
-  AlpExponentAndFactor exponentAndFactor;
+  AlpExponentAndFactor exponent_and_factor;
   /// Delta used for frame of reference encoding
-  uint64_t frameOfReference = 0;
+  uint64_t frame_of_reference = 0;
   /// Bitwidth used for bitpacking
-  uint8_t bitWidth = 0;
+  uint8_t bit_width = 0;
   /// Overall bitpacked size of non-exception values
-  uint64_t bitPackedSize = 0;
+  uint64_t bit_packed_size = 0;
   /// Number of elements encoded in this vector
-  uint16_t numElements = 0;
+  uint16_t num_elements = 0;
   /// Number of exceptions stored in this vector
-  uint16_t numExceptions = 0;
+  uint16_t num_exceptions = 0;
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
-  /// \param[out] outputBuffer the buffer to store the compressed data into
-  void store(arrow::util::span<char> outputBuffer) const;
+  /// \param[out] output_buffer the buffer to store the compressed data into
+  void Store(arrow::util::span<char> output_buffer) const;
 
   /// \brief Load a compressed vector into the state from a compact format
   ///
-  /// \param[in] inputBuffer the buffer to load from
+  /// \param[in] input_buffer the buffer to load from
   /// \return the loaded AlpEncodedVectorInfo
-  static AlpEncodedVectorInfo load(arrow::util::span<const char> inputBuffer);
+  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer);
 
   /// \brief Get serialized size of the encoded vector info
   ///
   /// \return the size in bytes
-  static uint64_t getStoredSize();
+  static uint64_t GetStoredSize();
 
   bool operator==(const AlpEncodedVectorInfo& other) const;
 };
@@ -224,17 +227,17 @@ struct AlpEncodedVectorInfo {
 ///   |  1. VectorInfo        |  sizeof(VectorInfo)  |  Metadata   |
 ///   |     (see above)       |  (~36 with padding)  |             |
 ///   +-----------------------+----------------------+-------------+
-///   |  2. Packed Values     |  bitPackedSize       |  Bitpacked  |
+///   |  2. Packed Values     |  bit_packed_size     |  Bitpacked  |
 ///   |     (compressed data) |  (variable)          |  integers   |
 ///   +-----------------------+----------------------+-------------+
-///   |  3. Exception Pos     |  numExceptions * 2   |  uint16_t[] |
+///   |  3. Exception Pos     |  num_exceptions * 2  |  uint16_t[] |
 ///   |     (indices)         |  (variable)          |  positions  |
 ///   +-----------------------+----------------------+-------------+
-///   |  4. Exception Values  |  numExceptions *     |  T[] (float/|
+///   |  4. Exception Values  |  num_exceptions *    |  T[] (float/|
 ///   |     (original floats) |  sizeof(T)           |  double)    |
 ///   +------------------------------------------------------------+
 ///
-/// Example for 1024 floats with 5 exceptions and bitWidth=8:
+/// Example for 1024 floats with 5 exceptions and bit_width=8:
 ///   - VectorInfo:        36 bytes
 ///   - Packed Values:    1024 bytes (1024 * 8 bits / 8)
 ///   - Exception Pos:      10 bytes (5 * 2)
@@ -244,40 +247,41 @@ template <typename T>
 class AlpEncodedVector {
  public:
   /// Metadata of the encoded vector
-  AlpEncodedVectorInfo vectorInfo;
+  AlpEncodedVectorInfo vector_info;
   /// Successfully encoded and bitpacked data
-  arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)> packedValues;
+  arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
+      packed_values;
   /// Float values that could not be converted successfully
   arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
   /// Positions of the exceptions in the decompressed vector
-  arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exceptionPositions;
+  arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exception_positions;
 
   /// \brief Get the size of the vector if stored into a sequential memory block
   ///
   /// \return the stored size in bytes
-  uint64_t getStoredSize() const;
+  uint64_t GetStoredSize() const;
 
   /// \brief Get the stored size for a given vector info
   ///
   /// \param[in] info the vector info to calculate size for
   /// \return the stored size in bytes
-  static uint64_t getStoredSize(const AlpEncodedVectorInfo& info);
+  static uint64_t GetStoredSize(const AlpEncodedVectorInfo& info);
 
   /// \brief Get the number of elements in this vector
   ///
   /// \return number of elements
-  uint64_t getNumElements() const { return vectorInfo.numElements; }
+  uint64_t GetNumElements() const { return vector_info.num_elements; }
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
-  /// \param[out] outputBuffer the buffer to store the compressed data into
-  void store(arrow::util::span<char> outputBuffer) const;
+  /// \param[out] output_buffer the buffer to store the compressed data into
+  void Store(arrow::util::span<char> output_buffer) const;
 
   /// \brief Load a compressed vector from a compact format from an input buffer
   ///
-  /// \param[in] inputBuffer the buffer to load from
+  /// \param[in] input_buffer the buffer to load from
   /// \return the loaded AlpEncodedVector
-  static AlpEncodedVector load(arrow::util::span<const char> inputBuffer);
+  static AlpEncodedVector Load(arrow::util::span<const char> input_buffer);
 
   bool operator==(const AlpEncodedVector<T>& other) const;
 };
@@ -303,9 +307,9 @@ struct AlpEncodingPreset {
   /// Combinations of exponents and factors
   std::vector<AlpExponentAndFactor> combinations;
   /// Best compressed size for the preset
-  uint64_t bestCompressedSize = 0;
+  uint64_t best_compressed_size = 0;
   /// Bit packing layout used for bitpacking
-  AlpBitPackLayout bitPackLayout = AlpBitPackLayout::kNormal;
+  AlpBitPackLayout bit_pack_layout = AlpBitPackLayout::kNormal;
 };
 
 template <typename T>
@@ -318,11 +322,11 @@ class AlpSampler;
 /// \brief ALP compression and decompression facilities
 ///
 /// AlpCompression contains all facilities to compress and decompress data with
-/// ALP in a vectorized fashion. Use createEncodingPreset() first on a sample of
-/// the input data, then compress it vector-wise via compressVector(). To serialize
-/// the data, use the facilities provided by AlpEncodedVector.
+/// ALP in a vectorized fashion. Use CreateEncodingPreset() first on a sample of
+/// the input data, then compress it vector-wise via CompressVector(). To
+/// serialize the data, use the facilities provided by AlpEncodedVector.
 ///
-/// \tparam T the type of data to be compressed. Currently supported are float and double.
+/// \tparam T the type of data to be compressed. Currently float and double.
 template <typename T>
 class AlpCompression : private AlpConstants {
  public:
@@ -333,51 +337,54 @@ class AlpCompression : private AlpConstants {
 
   /// \brief Compress a vector of floating point values via ALP
   ///
-  /// \param[in] inputVector a vector of floats containing the input to be compressed
-  /// \param[in] numElements the number of values to be compressed
+  /// \param[in] input_vector a vector of floats containing input to compress
+  /// \param[in] num_elements the number of values to be compressed
   /// \param[in] preset the preset to be used for compression
   /// \return an ALP encoded vector
-  static AlpEncodedVector<T> compressVector(const T* inputVector, uint16_t numElements,
+  static AlpEncodedVector<T> CompressVector(const T* input_vector,
+                                            uint16_t num_elements,
                                             const AlpEncodingPreset& preset);
 
   /// \brief Decompress a compressed vector with ALP
   ///
-  /// \param[in] encodedVector the ALP encoded vector to be decompressed
-  /// \param[in] bitPackLayout the bit packing layout used
-  /// \param[out] outputVector the vector of floats to decompress the encoded vector into.
-  ///             Must be able to contain encodedVector.getNumElements().
+  /// \param[in] encoded_vector the ALP encoded vector to be decompressed
+  /// \param[in] bit_pack_layout the bit packing layout used
+  /// \param[out] output_vector the vector of floats to decompress into.
+  ///             Must be able to contain encoded_vector.GetNumElements().
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void decompressVector(const AlpEncodedVector<T>& encodedVector,
-                               const AlpBitPackLayout bitPackLayout, TargetType* outputVector);
+  static void DecompressVector(const AlpEncodedVector<T>& encoded_vector,
+                               AlpBitPackLayout bit_pack_layout,
+                               TargetType* output_vector);
 
  protected:
-  /// \brief Creates an EncodingPreset consisting of multiple factors and exponents
+  /// \brief Creates an EncodingPreset consisting of multiple factors/exponents
   ///
-  /// \param[in] vectorsSampled the sampled vectors used to derive the combinations from
+  /// \param[in] vectors_sampled the sampled vectors to derive combinations from
   /// \return the EncodingPreset
-  static AlpEncodingPreset createEncodingPreset(const std::vector<std::vector<T>>& vectorsSampled);
+  static AlpEncodingPreset CreateEncodingPreset(
+      const std::vector<std::vector<T>>& vectors_sampled);
   friend AlpSampler<T>;
 
  private:
-  /// \brief Create a subsample of floats from an input vector for preset generation
+  /// \brief Create a subsample of floats from an input vector for preset gen
   ///
   /// \param[in] input the input vector to sample from
-  /// \return a vector containing a representative subsample of the input values
-  static std::vector<T> createSample(arrow::util::span<const T> input);
+  /// \return a vector containing a representative subsample of input values
+  static std::vector<T> CreateSample(arrow::util::span<const T> input);
 
   /// \brief Perform a dry-compression to estimate the compressed size
   ///
-  /// \param[in] inputVector the input vector to estimate compression for
-  /// \param[in] exponentAndFactor the exponent and factor combination to evaluate
-  /// \param[in] penalizeExceptions if true, applies a penalty to the estimated size
-  ///            for each exception
-  /// \return the estimated compressed size in bytes, or std::nullopt if the data
-  ///         is not compressible using these settings
-  static std::optional<uint64_t> estimateCompressedSize(const std::vector<T>& inputVector,
-                                                        AlpExponentAndFactor exponentAndFactor,
-                                                        bool penalizeExceptions);
+  /// \param[in] input_vector the input vector to estimate compression for
+  /// \param[in] exponent_and_factor the exponent/factor combination to evaluate
+  /// \param[in] penalize_exceptions if true, applies a penalty for exceptions
+  /// \return the estimated compressed size in bytes, or std::nullopt if the
+  ///         data is not compressible using these settings
+  static std::optional<uint64_t> EstimateCompressedSize(
+      const std::vector<T>& input_vector,
+      AlpExponentAndFactor exponent_and_factor,
+      bool penalize_exceptions);
 
   /// \brief Find the best exponent and factor combination for an input vector
   ///
@@ -385,46 +392,49 @@ class AlpCompression : private AlpConstants {
   /// that produces the smallest compressed size.
   ///
   /// \param[in] input the input vector to find the best combination for
-  /// \param[in] combinations the candidate exponent/factor combinations from the preset
-  /// \return the exponent and factor combination that yields the best compression
-  static AlpExponentAndFactor findBestExponentAndFactor(
-      arrow::util::span<const T> input, const std::vector<AlpExponentAndFactor>& combinations);
+  /// \param[in] combinations candidate exponent/factor combinations from preset
+  /// \return the exponent and factor combination yielding best compression
+  static AlpExponentAndFactor FindBestExponentAndFactor(
+      arrow::util::span<const T> input,
+      const std::vector<AlpExponentAndFactor>& combinations);
 
-  /// \brief Helper struct to encapsulate the result from encodeVector()
+  /// \brief Helper struct to encapsulate the result from EncodeVector()
   struct EncodingResult {
-    arrow::internal::StaticVector<SignedExactType, AlpConstants::kAlpVectorSize> encodedIntegers;
+    arrow::internal::StaticVector<SignedExactType, AlpConstants::kAlpVectorSize>
+        encoded_integers;
     arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
-    arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exceptionPositions;
-    ExactType minMaxDiff = 0;
-    ExactType frameOfReference = 0;
+    arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize>
+        exception_positions;
+    ExactType min_max_diff = 0;
+    ExactType frame_of_reference = 0;
   };
 
-  /// \brief Encode a vector via decimal encoding and frame of reference (FOR) encoding
+  /// \brief Encode a vector via decimal encoding and frame of reference (FOR)
   ///
-  /// \param[in] inputVector the input vector of floating point values to encode
-  /// \param[in] exponentAndFactor the exponent and factor to use for decimal encoding
-  /// \return an EncodingResult containing encoded integers, exceptions, exception positions,
-  ///         and frame of reference metadata
-  static EncodingResult encodeVector(arrow::util::span<const T> inputVector,
-                                     AlpExponentAndFactor exponentAndFactor);
+  /// \param[in] input_vector the input vector of floating point values
+  /// \param[in] exponent_and_factor the exponent/factor for decimal encoding
+  /// \return an EncodingResult containing encoded integers, exceptions, etc.
+  static EncodingResult EncodeVector(arrow::util::span<const T> input_vector,
+                                     AlpExponentAndFactor exponent_and_factor);
 
   /// \brief Decode a vector of integers back to floating point values
   ///
-  /// \param[out] outputVector the output buffer to write decoded floating point values to
-  /// \param[in] inputVector the input vector of encoded integers (after bit unpacking and unFOR)
-  /// \param[in] vectorInfo the metadata containing exponent, factor, and other decoding parameters
+  /// \param[out] output_vector output buffer to write decoded floats to
+  /// \param[in] input_vector encoded integers (after bit unpacking and unFOR)
+  /// \param[in] vector_info metadata with exponent, factor, decoding params
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void decodeVector(TargetType* outputVector, arrow::util::span<ExactType> inputVector,
-                           AlpEncodedVectorInfo vectorInfo);
+  static void DecodeVector(TargetType* output_vector,
+                           arrow::util::span<ExactType> input_vector,
+                           AlpEncodedVectorInfo vector_info);
 
-  /// \brief Helper struct to encapsulate the result from bitPackIntegers
+  /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
     arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
-        packedIntegers;
-    uint8_t bitWidth = 0;
-    uint64_t bitPackedSize = 0;
+        packed_integers;
+    uint8_t bit_width = 0;
+    uint64_t bit_packed_size = 0;
   };
 
   /// \brief Bitpack the encoded integers as the final step of compression
@@ -432,22 +442,23 @@ class AlpCompression : private AlpConstants {
   /// Calculates the minimum bit width required and packs each value
   /// using that many bits, resulting in tightly packed binary data.
   ///
-  /// \param[in] integers the encoded integers (after FOR subtraction) to bitpack
-  /// \param[in] minMaxDiff the difference between the maximum and minimum values,
+  /// \param[in] integers the encoded integers (after FOR subtraction)
+  /// \param[in] min_max_diff the difference between max and min values,
   ///            used to determine the required bit width
-  /// \return a BitPackingResult containing the packed bytes, bit width, and packed size
-  static BitPackingResult bitPackIntegers(arrow::util::span<const SignedExactType> integers,
-                                          uint64_t minMaxDiff);
+  /// \return a BitPackingResult with packed bytes, bit width, and packed size
+  static BitPackingResult BitPackIntegers(
+      arrow::util::span<const SignedExactType> integers, uint64_t min_max_diff);
 
-  /// \brief Unpack bitpacked integers back to their original integer representation
+  /// \brief Unpack bitpacked integers back to their original representation
   ///
   /// The result is still encoded (FOR applied) and needs decoding to get floats.
   ///
-  /// \param[in] packedIntegers the bitpacked integer data to unpack
-  /// \param[in] vectorInfo the metadata containing bit width and other unpacking parameters
-  /// \return a vector of unpacked integers (still with frame of reference applied)
-  static arrow::internal::StaticVector<ExactType, kAlpVectorSize> bitUnpackIntegers(
-      arrow::util::span<const uint8_t> packedIntegers, AlpEncodedVectorInfo vectorInfo);
+  /// \param[in] packed_integers the bitpacked integer data to unpack
+  /// \param[in] vector_info metadata with bit width and unpacking parameters
+  /// \return a vector of unpacked integers (still with frame of reference)
+  static arrow::internal::StaticVector<ExactType, kAlpVectorSize> BitUnpackIntegers(
+      arrow::util::span<const uint8_t> packed_integers,
+      AlpEncodedVectorInfo vector_info);
 
   /// \brief Patch exceptions into the decoded output vector
   ///
@@ -455,14 +466,14 @@ class AlpCompression : private AlpConstants {
   /// floating point values that could not be losslessly encoded.
   ///
   /// \param[out] output the decoded output vector to patch exceptions into
-  /// \param[in] exceptions the original floating point values that were stored as exceptions
-  /// \param[in] exceptionPositions the indices in the output vector where exceptions
-  ///            should be placed
+  /// \param[in] exceptions the original floats stored as exceptions
+  /// \param[in] exception_positions indices where exceptions should be placed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void patchExceptions(TargetType* output, arrow::util::span<const T> exceptions,
-                              arrow::util::span<const uint16_t> exceptionPositions);
+  static void PatchExceptions(TargetType* output,
+                              arrow::util::span<const T> exceptions,
+                              arrow::util::span<const uint16_t> exception_positions);
 };
 
 }  // namespace alp

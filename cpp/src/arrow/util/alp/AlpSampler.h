@@ -35,8 +35,8 @@ namespace alp {
 /// \class AlpSampler
 /// \brief Collects samples from data to be compressed with ALP
 ///
-/// Usage: Call addSample() or addSampleVector() multiple times to collect samples,
-/// then call finalize() to retrieve the resulting preset.
+/// Usage: Call AddSample() or AddSampleVector() multiple times to collect
+/// samples, then call Finalize() to retrieve the resulting preset.
 ///
 /// \tparam T the floating point type (float or double) to sample
 template <typename T>
@@ -47,72 +47,75 @@ class AlpSampler {
 
   /// \brief Helper struct containing the preset for ALP compression
   struct AlpSamplerResult {
-    AlpEncodingPreset alpPreset;
+    AlpEncodingPreset alp_preset;
   };
 
   /// \brief Add a sample of arbitrary size
   ///
-  /// The sample is internally separated into vectors on which addSampleVector() is called.
+  /// The sample is internally separated into vectors on which AddSampleVector()
+  /// is called.
   ///
   /// \param[in] input the input data to sample from
-  void addSample(arrow::util::span<const T> input);
+  void AddSample(arrow::util::span<const T> input);
 
   /// \brief Add a single vector as a sample
   ///
-  /// \param[in] input the input vector to add. Size should be <= AlpConstants::kAlpVectorSize.
-  void addSampleVector(arrow::util::span<const T> input);
+  /// \param[in] input the input vector to add.
+  ///            Size should be <= AlpConstants::kAlpVectorSize.
+  void AddSampleVector(arrow::util::span<const T> input);
 
   /// \brief Finalize sampling and generate the encoding preset
   ///
   /// \return an AlpSamplerResult containing the generated encoding preset
-  AlpSamplerResult finalize();
+  AlpSamplerResult Finalize();
 
  private:
   /// \brief Helper struct to encapsulate settings used for sampling
   struct AlpSamplingParameters {
-    uint64_t numLookupValue;
-    uint64_t numSampledIncrements;
-    uint64_t numSampledValues;
+    uint64_t num_lookup_value;
+    uint64_t num_sampled_increments;
+    uint64_t num_sampled_values;
   };
 
   /// \brief Calculate sampling parameters for the current vector
   ///
-  /// \param[in] numCurrentVectorValues the number of values in the current vector
+  /// \param[in] num_current_vector_values number of values in current vector
   /// \return the sampling parameters to use
-  AlpSamplingParameters getAlpSamplingParameters(uint64_t numCurrentVectorValues);
+  AlpSamplingParameters GetAlpSamplingParameters(uint64_t num_current_vector_values);
 
   /// \brief Check if the current vector must be ignored for sampling
   ///
-  /// \param[in] vectorsCount the total number of vectors processed so far
-  /// \param[in] vectorsSampledCount the number of vectors that have been sampled so far
-  /// \param[in] numCurrentVectorValues the number of values in the current vector
+  /// \param[in] vectors_count the total number of vectors processed so far
+  /// \param[in] vectors_sampled_count the number of vectors sampled so far
+  /// \param[in] num_current_vector_values number of values in current vector
   /// \return true if the current vector should be skipped, false otherwise
-  bool mustSkipSamplingFromCurrentVector(uint64_t vectorsCount, uint64_t vectorsSampledCount,
-                                         uint64_t numCurrentVectorValues);
+  bool MustSkipSamplingFromCurrentVector(uint64_t vectors_count,
+                                         uint64_t vectors_sampled_count,
+                                         uint64_t num_current_vector_values);
 
   /// Count of vectors that have been sampled
-  uint64_t m_vectorsSampledCount = 0;
+  uint64_t vectors_sampled_count_ = 0;
   /// Total count of values processed
-  uint64_t m_totalValuesCount = 0;
+  uint64_t total_values_count_ = 0;
   /// Total count of vectors processed
-  uint64_t m_vectorsCount = 0;
+  uint64_t vectors_count_ = 0;
   /// Number of samples stored
-  uint64_t m_sampleStored = 0;
+  uint64_t sample_stored_ = 0;
   /// Samples collected from current rowgroup
-  std::vector<std::vector<T>> m_rowgroupSample;
+  std::vector<std::vector<T>> rowgroup_sample_;
 
   /// Complete vectors sampled
-  std::vector<std::vector<T>> m_completeVectorsSampled;
+  std::vector<std::vector<T>> complete_vectors_sampled_;
   /// Size of each sample vector
-  const uint64_t m_sampleVectorSize;
+  const uint64_t sample_vector_size_;
   /// Size of each rowgroup
-  const uint64_t m_rowgroupSize;
+  const uint64_t rowgroup_size_;
   /// Number of samples to take per vector
-  const uint64_t m_samplesPerVector;
+  const uint64_t samples_per_vector_;
   /// Number of vectors to sample per rowgroup
-  const uint64_t m_sampleVectorsPerRowgroup;
+  const uint64_t sample_vectors_per_rowgroup_;
   /// Jump interval for rowgroup sampling
-  const uint64_t m_rowgroupSampleJump;
+  const uint64_t rowgroup_sample_jump_;
 };
 
 }  // namespace alp
