@@ -142,6 +142,7 @@ void TypedBloomFilterWriter<ByteArrayType>::Update(const ::arrow::Array& values)
   }
 }
 
+template class TypedBloomFilterWriter<BooleanType>;
 template class TypedBloomFilterWriter<Int32Type>;
 template class TypedBloomFilterWriter<Int64Type>;
 template class TypedBloomFilterWriter<Int96Type>;
