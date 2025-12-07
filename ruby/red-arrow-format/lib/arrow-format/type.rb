@@ -187,4 +187,16 @@ module ArrowFormat
       ListArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
   end
+
+  class StructType < Type
+    attr_reader :children
+    def initialize(children)
+      super("Struct")
+      @children = children
+    end
+
+    def build_array(size, validity_buffer, children)
+      StructArray.new(self, size, validity_buffer, children)
+    end
+  end
 end

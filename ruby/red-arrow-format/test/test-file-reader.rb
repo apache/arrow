@@ -139,4 +139,25 @@ class TestFileReader < Test::Unit::TestCase
                    read)
     end
   end
+
+  sub_test_case("Struct") do
+    def build_array
+      data_type = Arrow::StructDataType.new(count: :int8,
+                                            visible: :boolean)
+      Arrow::StructArray.new(data_type, [[-128, nil], nil, [nil, true]])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         [-128, nil],
+                         nil,
+                         [nil, true],
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
 end

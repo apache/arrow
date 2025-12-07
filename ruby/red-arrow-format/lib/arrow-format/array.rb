@@ -174,4 +174,21 @@ module ArrowFormat
       apply_validity(values)
     end
   end
+
+  class StructArray < Array
+    def initialize(type, size, validity_buffer, children)
+      super(type, size, validity_buffer)
+      @children = children
+    end
+
+    def to_a
+      if @children.empty?
+        values = [[]] * @size
+      else
+        children_values = @children.collect(&:to_a)
+        values = children_values[0].zip(*children_values[1..-1])
+      end
+      apply_validity(values)
+    end
+  end
 end

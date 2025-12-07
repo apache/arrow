@@ -33,6 +33,7 @@ require_relative "org/apache/arrow/flatbuf/message"
 require_relative "org/apache/arrow/flatbuf/null"
 require_relative "org/apache/arrow/flatbuf/precision"
 require_relative "org/apache/arrow/flatbuf/schema"
+require_relative "org/apache/arrow/flatbuf/struct_"
 require_relative "org/apache/arrow/flatbuf/utf8"
 
 module ArrowFormat
@@ -157,6 +158,9 @@ module ArrowFormat
         end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
+      when Org::Apache::Arrow::Flatbuf::Struct
+        children = fb_field.children.collect {|child| read_field(child)}
+        type = StructType.new(children)
       when Org::Apache::Arrow::Flatbuf::Binary
         type = BinaryType.singleton
       when Org::Apache::Arrow::Flatbuf::LargeBinary
@@ -199,6 +203,11 @@ module ArrowFormat
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
         child = read_column(field.type.child, nodes, buffers, body)
         field.type.build_array(length, validity, offsets, child)
+      when StructType
+        children = field.type.children.collect do |child|
+          read_column(child, nodes, buffers, body)
+        end
+        field.type.build_array(length, validity, children)
       when VariableSizeBinaryType
         offsets_buffer = buffers.shift
         values_buffer = buffers.shift
