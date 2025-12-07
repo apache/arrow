@@ -1,3 +1,22 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+// Constants and type traits for ALP compression
+
 #pragma once
 
 #include <cstdint>
@@ -8,6 +27,10 @@ namespace arrow {
 namespace util {
 namespace alp {
 
+// ----------------------------------------------------------------------
+// AlpConstants
+
+/// \brief Constants used throughout ALP compression
 class AlpConstants {
  public:
   /// Number of elements compressed together as a unit. This value is fixed for compatibility.
@@ -42,6 +65,10 @@ class AlpConstants {
   /// performance, so benchmarking is recommended. The gains from kLoopUnrolls = 4 are marginal.
   static constexpr uint64_t kLoopUnrolls = 4;
 
+  /// \brief Get power of ten as uint64_t
+  ///
+  /// \param[in] power the exponent (must be <= 19)
+  /// \return 10^power as uint64_t
   static uint64_t powerOfTenUB8(const uint8_t power) {
     ARROW_DCHECK(power <= 19) << "power_out_of_range: " << static_cast<int>(power);
     static constexpr uint64_t kTable[20] = {1,
@@ -68,6 +95,10 @@ class AlpConstants {
     return kTable[power];
   }
 
+  /// \brief Get power of ten as float
+  ///
+  /// \param[in] power the exponent (must be in range [-10, 10])
+  /// \return 10^power as float
   static float powerOfTenFloat(int8_t power) {
     ARROW_DCHECK(power >= -10 && power <= 10) << "power_out_of_range: " << static_cast<int>(power);
     static constexpr float kTable[21] = {
@@ -79,6 +110,10 @@ class AlpConstants {
     return kTable[power + 10];
   }
 
+  /// \brief Get power of ten as double
+  ///
+  /// \param[in] power the exponent (must be in range [-20, 20])
+  /// \return 10^power as double
   static double powerOfTenDouble(const int8_t power) {
     ARROW_DCHECK(power >= -20 && power <= 20) << "power_out_of_range: " << static_cast<int>(power);
     static constexpr double kTable[41] = {
@@ -127,12 +162,22 @@ class AlpConstants {
     return kTable[power + 20];
   }
 
+  /// \brief Get factor as int64_t
+  ///
+  /// \param[in] power the exponent
+  /// \return 10^power as int64_t
   static int64_t getFactor(const int8_t power) { return powerOfTenUB8(power); }
 };
 
+// ----------------------------------------------------------------------
+// AlpTypedConstants
+
+/// \brief Type-specific constants for ALP compression
+/// \tparam FloatingPointType the floating point type (float or double)
 template <typename FloatingPointType>
 struct AlpTypedConstants {};
 
+/// \brief Type-specific constants for float
 template <>
 struct AlpTypedConstants<float> {
   /// Magic number used for fast rounding of floats to nearest integer:
@@ -145,8 +190,16 @@ struct AlpTypedConstants<float> {
   static constexpr float kEncodingUpperLimit = 2147483520.0f;
   static constexpr float kEncodingLowerLimit = -2147483520.0f;
 
+  /// \brief Get exponent multiplier
+  ///
+  /// \param[in] power the exponent
+  /// \return 10^power as float
   static float getExponent(const uint8_t power) { return AlpConstants::powerOfTenFloat(power); }
 
+  /// \brief Get factor multiplier
+  ///
+  /// \param[in] power the factor
+  /// \return 10^(-power) as float
   static float getFactor(const uint8_t power) {
     // This double cast is necessary since subtraction on int8_t does not necessarily yield an
     // int8_t.
@@ -157,6 +210,7 @@ struct AlpTypedConstants<float> {
   using FloatingToSignedExact = int32_t;
 };
 
+/// \brief Type-specific constants for double
 template <>
 class AlpTypedConstants<double> {
  public:
@@ -170,8 +224,16 @@ class AlpTypedConstants<double> {
   static constexpr double kEncodingUpperLimit = 9223372036854774784.0;
   static constexpr double kEncodingLowerLimit = -9223372036854774784.0;
 
+  /// \brief Get exponent multiplier
+  ///
+  /// \param[in] power the exponent
+  /// \return 10^power as double
   static double getExponent(const uint8_t power) { return AlpConstants::powerOfTenDouble(power); }
 
+  /// \brief Get factor multiplier
+  ///
+  /// \param[in] power the factor
+  /// \return 10^(-power) as double
   static double getFactor(const uint8_t power) {
     return AlpConstants::powerOfTenDouble(static_cast<int8_t>(-static_cast<int8_t>(power)));
   }
