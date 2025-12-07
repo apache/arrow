@@ -19,18 +19,18 @@ namespace alp {
  *
  * Serialization format (version 1):
  *
- *   ┌───────────────────────────────────────────────────┐
- *   │  CompressionBlockHeader (40 bytes)                │
- *   ├───────────────────────────────────────────────────┤
- *   │  Offset │ Field               │ Size              │
- *   ├─────────┼─────────────────────┼───────────────────┤
- *   │    0    │ version             │ 8 bytes (uint64)  │
- *   │    8    │ compressedSize      │ 8 bytes (uint64)  │
- *   │   16    │ numElements         │ 8 bytes (uint64)  │
- *   │   24    │ vectorSize          │ 8 bytes (uint64)  │
- *   │   32    │ compressionMode     │ 4 bytes (enum)    │
- *   │   36    │ bitPackLayout       │ 4 bytes (enum)    │
- *   └───────────────────────────────────────────────────┘
+ *   +---------------------------------------------------+
+ *   |  CompressionBlockHeader (40 bytes)                |
+ *   +---------------------------------------------------+
+ *   |  Offset |  Field              |  Size             |
+ *   +---------+---------------------+-------------------+
+ *   |    0    |  version            |  8 bytes (uint64) |
+ *   |    8    |  compressedSize     |  8 bytes (uint64) |
+ *   |   16    |  numElements        |  8 bytes (uint64) |
+ *   |   24    |  vectorSize         |  8 bytes (uint64) |
+ *   |   32    |  compressionMode    |  4 bytes (enum)   |
+ *   |   36    |  bitPackLayout      |  4 bytes (enum)   |
+ *   +---------------------------------------------------+
  *
  * Note: version must remain the first field to allow reading the rest
  * of the header based on version number.
