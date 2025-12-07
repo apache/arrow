@@ -448,7 +448,7 @@ int64_t RlePreserveBufferSize(int64_t num_values, int bit_width) {
 }
 
 /// See the dictionary encoding section of
-/// https://github.com/Parquet/parquet-format.  The encoding supports
+/// https://github.com/apache/parquet-format/blob/master/Encodings.md.  The encoding supports
 /// streaming encoding. Values are encoded as they are added while the
 /// dictionary is being constructed. At any time, the buffered values
 /// can be written out with the current dictionary size. More values
