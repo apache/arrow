@@ -30,6 +30,8 @@ namespace arrow {
 namespace util {
 namespace alp {
 
+namespace {
+
 // ----------------------------------------------------------------------
 // CompressionBlockHeader
 
@@ -45,39 +47,39 @@ namespace alp {
 ///   |  Offset |  Field              |  Size             |
 ///   +---------+---------------------+-------------------+
 ///   |    0    |  version            |  8 bytes (uint64) |
-///   |    8    |  compressedSize     |  8 bytes (uint64) |
-///   |   16    |  numElements        |  8 bytes (uint64) |
-///   |   24    |  vectorSize         |  8 bytes (uint64) |
-///   |   32    |  compressionMode    |  4 bytes (enum)   |
-///   |   36    |  bitPackLayout      |  4 bytes (enum)   |
+///   |    8    |  compressed_size    |  8 bytes (uint64) |
+///   |   16    |  num_elements       |  8 bytes (uint64) |
+///   |   24    |  vector_size        |  8 bytes (uint64) |
+///   |   32    |  compression_mode   |  4 bytes (enum)   |
+///   |   36    |  bit_pack_layout    |  4 bytes (enum)   |
 ///   +---------------------------------------------------+
 ///
 /// \note version must remain the first field to allow reading the rest
 ///       of the header based on version number.
-template <typename T>
-struct AlpWrapper<T>::CompressionBlockHeader {
+struct CompressionBlockHeader {
   /// Version number. Must remain the first field for version-based parsing.
   uint64_t version = 0;
   /// Size of the compressed data in bytes (includes header).
-  uint64_t compressedSize = 0;
+  uint64_t compressed_size = 0;
   /// Number of elements in the compressed data.
-  uint64_t numElements = 0;
-  /// Vector size used for compression. Must be AlpConstants::kAlpVectorSize for decompression.
-  uint64_t vectorSize = 0;
+  uint64_t num_elements = 0;
+  /// Vector size used for compression.
+  /// Must be AlpConstants::kAlpVectorSize for decompression.
+  uint64_t vector_size = 0;
   /// Compression mode (currently only kAlp is supported).
-  AlpMode compressionMode = AlpMode::kAlp;
+  AlpMode compression_mode = AlpMode::kAlp;
   /// Bit packing layout used for bitpacking.
-  AlpBitPackLayout bitPackLayout = AlpBitPackLayout::kNormal;
+  AlpBitPackLayout bit_pack_layout = AlpBitPackLayout::kNormal;
 
-  /// \brief Get the size in bytes of the CompressionBlockHeader for a given version
+  /// \brief Get the size in bytes of the CompressionBlockHeader for a version
   ///
   /// \param[in] v the version number
   /// \return the size in bytes
-  static size_t getSizeForVersion(const uint64_t v) {
+  static size_t GetSizeForVersion(uint64_t v) {
     size_t size;
     if (v == 1) {
-      size = sizeof(version) + sizeof(compressedSize) + sizeof(numElements) + sizeof(vectorSize) +
-             sizeof(compressionMode) + sizeof(bitPackLayout);
+      size = sizeof(version) + sizeof(compressed_size) + sizeof(num_elements) +
+             sizeof(vector_size) + sizeof(compression_mode) + sizeof(bit_pack_layout);
     } else {
       ARROW_CHECK(false) << "unknown_version: " << v;
     }
@@ -88,7 +90,7 @@ struct AlpWrapper<T>::CompressionBlockHeader {
   ///
   /// \param[in] v the version to check
   /// \return the version if valid, otherwise asserts
-  static uint64_t isValidVersion(const uint64_t v) {
+  static uint64_t IsValidVersion(uint64_t v) {
     if (v == 1) {
       return v;
     }
@@ -97,179 +99,203 @@ struct AlpWrapper<T>::CompressionBlockHeader {
   }
 };
 
+}  // namespace
+
+// ----------------------------------------------------------------------
+// AlpWrapper::CompressionBlockHeader definition
+
+template <typename T>
+struct AlpWrapper<T>::CompressionBlockHeader : public ::arrow::util::alp::CompressionBlockHeader {
+};
+
 // ----------------------------------------------------------------------
 // AlpWrapper implementation
 
 template <typename T>
-typename AlpWrapper<T>::CompressionBlockHeader AlpWrapper<T>::loadHeader(const char* comp,
-                                                                         size_t compSize) {
+typename AlpWrapper<T>::CompressionBlockHeader AlpWrapper<T>::LoadHeader(
+    const char* comp, size_t comp_size) {
   CompressionBlockHeader header{};
-  ARROW_CHECK(compSize > sizeof(header.version))
+  ARROW_CHECK(comp_size > sizeof(header.version))
       << "alp_loadHeader_compSize_too_small_for_header_version";
   uint64_t version;
   std::memcpy(&version, comp, sizeof(header.version));
-  CompressionBlockHeader::isValidVersion(version);
-  ARROW_CHECK(compSize >= CompressionBlockHeader::getSizeForVersion(version))
+  ::arrow::util::alp::CompressionBlockHeader::IsValidVersion(version);
+  ARROW_CHECK(comp_size >= ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version))
       << "alp_loadHeader_compSize_too_small";
-  std::memcpy(&header, comp, CompressionBlockHeader::getSizeForVersion(version));
+  std::memcpy(&header, comp,
+              ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version));
   return header;
 }
 
 template <typename T>
-void AlpWrapper<T>::encode(const T* decomp, const size_t decompSize, char* comp, size_t* compSize,
-                           std::optional<AlpMode> enforceMode) {
-  ARROW_CHECK(decompSize % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
-  const uint64_t elementCount = decompSize / sizeof(T);
-  const uint64_t version = CompressionBlockHeader::isValidVersion(AlpConstants::kAlpVersion);
+void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
+                           size_t* comp_size, std::optional<AlpMode> enforce_mode) {
+  ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
+  const uint64_t element_count = decomp_size / sizeof(T);
+  const uint64_t version = ::arrow::util::alp::CompressionBlockHeader::IsValidVersion(
+      AlpConstants::kAlpVersion);
 
   AlpSampler<T> sampler;
-  sampler.addSample({decomp, elementCount});
-  auto samplingResult = sampler.finalize();
+  sampler.AddSample({decomp, element_count});
+  auto sampling_result = sampler.Finalize();
 
   // Make room to store header afterwards.
-  char* encodedHeader = comp;
-  comp += CompressionBlockHeader::getSizeForVersion(version);
-  const uint64_t remainingCompressedSize =
-      *compSize - CompressionBlockHeader::getSizeForVersion(version);
+  char* encoded_header = comp;
+  comp += ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version);
+  const uint64_t remaining_compressed_size =
+      *comp_size - ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version);
 
-  const CompressionProgress compressionProgress =
-      encodeAlp(decomp, elementCount, comp, remainingCompressedSize, samplingResult.alpPreset);
+  const CompressionProgress compression_progress =
+      EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
+                sampling_result.alp_preset);
 
   CompressionBlockHeader header{};
   header.version = version;
-  header.compressedSize =
-      header.getSizeForVersion(version) + compressionProgress.numCompressedBytesProduced;
-  header.numElements = decompSize / sizeof(T);
-  header.vectorSize = AlpConstants::kAlpVectorSize;
-  header.compressionMode = AlpMode::kAlp;
-  header.bitPackLayout = AlpBitPackLayout::kNormal;
+  header.compressed_size =
+      ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version) +
+      compression_progress.num_compressed_bytes_produced;
+  header.num_elements = decomp_size / sizeof(T);
+  header.vector_size = AlpConstants::kAlpVectorSize;
+  header.compression_mode = AlpMode::kAlp;
+  header.bit_pack_layout = AlpBitPackLayout::kNormal;
 
-  std::memcpy(encodedHeader, &header, CompressionBlockHeader::getSizeForVersion(version));
-  *compSize = header.compressedSize;
+  std::memcpy(encoded_header, &header,
+              ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version));
+  *comp_size = header.compressed_size;
 }
 
 template <typename T>
 template <typename TargetType>
-void AlpWrapper<T>::decode(TargetType* decomp, size_t* decompSize, const char* comp,
-                           const size_t compSize) {
-  const CompressionBlockHeader header = loadHeader(comp, compSize);
-  ARROW_CHECK(header.vectorSize == AlpConstants::kAlpVectorSize)
-      << "unsupported_vector_size: " << header.vectorSize;
+void AlpWrapper<T>::Decode(TargetType* decomp, size_t* decomp_size, const char* comp,
+                           size_t comp_size) {
+  const CompressionBlockHeader header = LoadHeader(comp, comp_size);
+  ARROW_CHECK(header.vector_size == AlpConstants::kAlpVectorSize)
+      << "unsupported_vector_size: " << header.vector_size;
 
-  if (header.numElements * sizeof(TargetType) > *decompSize) {
-    *decompSize = 0;
+  if (header.num_elements * sizeof(TargetType) > *decomp_size) {
+    *decomp_size = 0;
     return;
   }
 
-  const uint64_t elementsToDecode = header.numElements;
-  const char* compressionBody = comp + CompressionBlockHeader::getSizeForVersion(header.version);
-  const uint64_t compressionBodySize =
-      compSize - CompressionBlockHeader::getSizeForVersion(header.version);
+  const uint64_t elements_to_decode = header.num_elements;
+  const char* compression_body =
+      comp + ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(header.version);
+  const uint64_t compression_body_size =
+      comp_size -
+      ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(header.version);
 
-  ARROW_CHECK(header.compressionMode == AlpMode::kAlp) << "alp_decode_unsupported_mode";
+  ARROW_CHECK(header.compression_mode == AlpMode::kAlp) << "alp_decode_unsupported_mode";
 
-  uint64_t elementsDecoded = decodeAlp(decomp, elementsToDecode, compressionBody,
-                                       compressionBodySize, header.bitPackLayout)
-                                 .numDecompressedElementsProduced;
-  *decompSize = elementsDecoded * sizeof(TargetType);
+  uint64_t elements_decoded =
+      DecodeAlp(decomp, elements_to_decode, compression_body, compression_body_size,
+                header.bit_pack_layout)
+          .num_decompressed_elements_produced;
+  *decomp_size = elements_decoded * sizeof(TargetType);
 }
 
-template void AlpWrapper<float>::decode(float* decomp, size_t* decompSize, const char* comp,
-                                        const size_t compSize);
-template void AlpWrapper<float>::decode(double* decomp, size_t* decompSize, const char* comp,
-                                        const size_t compSize);
-template void AlpWrapper<double>::decode(double* decomp, size_t* decompSize, const char* comp,
-                                         const size_t compSize);
+template void AlpWrapper<float>::Decode(float* decomp, size_t* decomp_size,
+                                        const char* comp, size_t comp_size);
+template void AlpWrapper<float>::Decode(double* decomp, size_t* decomp_size,
+                                        const char* comp, size_t comp_size);
+template void AlpWrapper<double>::Decode(double* decomp, size_t* decomp_size,
+                                         const char* comp, size_t comp_size);
 
 template <typename T>
 template <typename TargetType>
-uint64_t AlpWrapper<T>::getDecompressedSize(const char* comp, uint64_t compSize) {
-  const CompressionBlockHeader header = loadHeader(comp, compSize);
-  return header.numElements * sizeof(TargetType);
+uint64_t AlpWrapper<T>::GetDecompressedSize(const char* comp, uint64_t comp_size) {
+  const CompressionBlockHeader header = LoadHeader(comp, comp_size);
+  return header.num_elements * sizeof(TargetType);
 }
 
-template uint64_t AlpWrapper<float>::getDecompressedSize<float>(const char* comp,
-                                                                uint64_t compSize);
-template uint64_t AlpWrapper<float>::getDecompressedSize<double>(const char* comp,
-                                                                 uint64_t compSize);
-template uint64_t AlpWrapper<double>::getDecompressedSize<double>(const char* comp,
-                                                                  uint64_t compSize);
+template uint64_t AlpWrapper<float>::GetDecompressedSize<float>(const char* comp,
+                                                                uint64_t comp_size);
+template uint64_t AlpWrapper<float>::GetDecompressedSize<double>(const char* comp,
+                                                                 uint64_t comp_size);
+template uint64_t AlpWrapper<double>::GetDecompressedSize<double>(const char* comp,
+                                                                  uint64_t comp_size);
 
 template <typename T>
-uint64_t AlpWrapper<T>::getMaxCompressedSize(const uint64_t decompSize) {
-  ARROW_CHECK(decompSize % sizeof(T) == 0) << "alp_decompressed_size_not_multiple_of_T";
-  const uint64_t elementCount = decompSize / sizeof(T);
-  const uint64_t version = CompressionBlockHeader::isValidVersion(AlpConstants::kAlpVersion);
-  uint64_t maxAlpSize = CompressionBlockHeader::getSizeForVersion(version);
+uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
+  ARROW_CHECK(decomp_size % sizeof(T) == 0)
+      << "alp_decompressed_size_not_multiple_of_T";
+  const uint64_t element_count = decomp_size / sizeof(T);
+  const uint64_t version = ::arrow::util::alp::CompressionBlockHeader::IsValidVersion(
+      AlpConstants::kAlpVersion);
+  uint64_t max_alp_size =
+      ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version);
   // Add header sizes.
-  maxAlpSize += sizeof(AlpEncodedVectorInfo) *
-                std::ceil(static_cast<double>(elementCount) / AlpConstants::kAlpVectorSize);
-  // Worst case: everything is an exception, except two values that are chosen with large
-  // difference to make FOR encoding for the placeholders impossible.
+  max_alp_size +=
+      sizeof(AlpEncodedVectorInfo) *
+      std::ceil(static_cast<double>(element_count) / AlpConstants::kAlpVectorSize);
+  // Worst case: everything is an exception, except two values that are chosen
+  // with large difference to make FOR encoding for placeholders impossible.
   // Values/placeholders.
-  maxAlpSize += elementCount * sizeof(T);
+  max_alp_size += element_count * sizeof(T);
   // Exceptions.
-  maxAlpSize += elementCount * sizeof(T);
+  max_alp_size += element_count * sizeof(T);
   // Exception positions.
-  maxAlpSize += elementCount * sizeof(AlpConstants::PositionType);
+  max_alp_size += element_count * sizeof(AlpConstants::PositionType);
 
-  return maxAlpSize;
+  return max_alp_size;
 }
 
 template <typename T>
-auto AlpWrapper<T>::encodeAlp(const T* decomp, uint64_t elementCount, char* comp, size_t compSize,
-                              const AlpEncodingPreset& combinations) -> CompressionProgress {
-  uint64_t outputOffset = 0;
-  uint64_t inputOffset = 0;
-  uint64_t remainingOutputSize = compSize;
+auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
+                              size_t comp_size, const AlpEncodingPreset& combinations)
+    -> CompressionProgress {
+  uint64_t output_offset = 0;
+  uint64_t input_offset = 0;
+  uint64_t remaining_output_size = comp_size;
 
-  for (uint64_t remainingElements = elementCount; remainingElements > 0;
-       remainingElements -= std::min(AlpConstants::kAlpVectorSize, remainingElements)) {
-    const uint64_t elementsToEncode = std::min(AlpConstants::kAlpVectorSize, remainingElements);
-    const AlpEncodedVector<T> encodedVector =
-        AlpCompression<T>::compressVector(decomp + inputOffset, elementsToEncode, combinations);
+  for (uint64_t remaining_elements = element_count; remaining_elements > 0;
+       remaining_elements -= std::min(AlpConstants::kAlpVectorSize, remaining_elements)) {
+    const uint64_t elements_to_encode =
+        std::min(AlpConstants::kAlpVectorSize, remaining_elements);
+    const AlpEncodedVector<T> encoded_vector = AlpCompression<T>::CompressVector(
+        decomp + input_offset, elements_to_encode, combinations);
 
-    const uint64_t compressedVectorSize = encodedVector.getStoredSize();
-    if (compressedVectorSize == 0 || compressedVectorSize > remainingOutputSize) {
+    const uint64_t compressed_vector_size = encoded_vector.GetStoredSize();
+    if (compressed_vector_size == 0 || compressed_vector_size > remaining_output_size) {
       return CompressionProgress{0, 0};
     }
 
-    ARROW_CHECK(encodedVector.getStoredSize() <= remainingOutputSize)
+    ARROW_CHECK(encoded_vector.GetStoredSize() <= remaining_output_size)
         << "alp_encode_cannot_store_compressed_vector";
 
-    encodedVector.store({comp + outputOffset, remainingOutputSize});
+    encoded_vector.Store({comp + output_offset, remaining_output_size});
 
-    remainingOutputSize -= compressedVectorSize;
-    outputOffset += compressedVectorSize;
-    inputOffset += elementsToEncode;
+    remaining_output_size -= compressed_vector_size;
+    output_offset += compressed_vector_size;
+    input_offset += elements_to_encode;
   }
-  return CompressionProgress{outputOffset, inputOffset};
+  return CompressionProgress{output_offset, input_offset};
 }
 
 template <typename T>
 template <typename TargetType>
-auto AlpWrapper<T>::decodeAlp(TargetType* decomp, const size_t decompElementCount, const char* comp,
-                              const size_t compSize, const AlpBitPackLayout bitPackLayout)
-    -> DecompressionProgress {
-  uint64_t inputOffset = 0;
-  uint64_t outputOffset = 0;
-  while (inputOffset < compSize && outputOffset < decompElementCount) {
-    const AlpEncodedVector<T> encodedVector =
-        AlpEncodedVector<T>::load({comp + inputOffset, compSize});
-    const uint64_t compressedSize = encodedVector.getStoredSize();
-    const uint64_t elementCount = encodedVector.vectorInfo.numElements;
+auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
+                              const char* comp, size_t comp_size,
+                              AlpBitPackLayout bit_pack_layout) -> DecompressionProgress {
+  uint64_t input_offset = 0;
+  uint64_t output_offset = 0;
+  while (input_offset < comp_size && output_offset < decomp_element_count) {
+    const AlpEncodedVector<T> encoded_vector =
+        AlpEncodedVector<T>::Load({comp + input_offset, comp_size});
+    const uint64_t compressed_size = encoded_vector.GetStoredSize();
+    const uint64_t element_count = encoded_vector.vector_info.num_elements;
 
-    ARROW_CHECK(outputOffset + elementCount <= decompElementCount)
-        << "alp_decode_output_too_small: " << outputOffset << " vs " << elementCount << " vs "
-        << decompElementCount;
+    ARROW_CHECK(output_offset + element_count <= decomp_element_count)
+        << "alp_decode_output_too_small: " << output_offset << " vs " << element_count
+        << " vs " << decomp_element_count;
 
-    AlpCompression<T>::decompressVector(encodedVector, bitPackLayout, decomp + outputOffset);
+    AlpCompression<T>::DecompressVector(encoded_vector, bit_pack_layout,
+                                        decomp + output_offset);
 
-    inputOffset += compressedSize;
-    outputOffset += elementCount;
+    input_offset += compressed_size;
+    output_offset += element_count;
   }
 
-  return DecompressionProgress{outputOffset, inputOffset};
+  return DecompressionProgress{output_offset, input_offset};
 }
 
 // ----------------------------------------------------------------------
