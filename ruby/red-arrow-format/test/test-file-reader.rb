@@ -160,4 +160,29 @@ class TestFileReader < Test::Unit::TestCase
                    read)
     end
   end
+
+  sub_test_case("Map") do
+    def build_array
+      data_type = Arrow::MapDataType.new(:string, :int8)
+      Arrow::MapArray.new(data_type,
+                          [
+                            {"a" => -128, "b" => 127},
+                            nil,
+                            {"c" => nil},
+                          ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         {"a" => -128, "b" => 127},
+                         nil,
+                         {"c" => nil},
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
 end
