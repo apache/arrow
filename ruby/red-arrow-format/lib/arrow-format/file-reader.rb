@@ -154,6 +154,8 @@ module ArrowFormat
         case fb_type.precision
         when Org::Apache::Arrow::Flatbuf::Precision::SINGLE
           type = Float32Type.singleton
+        when Org::Apache::Arrow::Flatbuf::Precision::DOUBLE
+          type = Float64Type.singleton
         end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
@@ -189,8 +191,7 @@ module ArrowFormat
 
       case field.type
       when BooleanType,
-           IntType,
-           FloatType
+           NumberType
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(length, validity, values)

@@ -54,7 +54,10 @@ module ArrowFormat
     end
   end
 
-  class IntType < Type
+  class NumberType < Type
+  end
+
+  class IntType < NumberType
     attr_reader :bit_width
     attr_reader :signed
     def initialize(name, bit_width, signed)
@@ -96,7 +99,7 @@ module ArrowFormat
     end
   end
 
-  class FloatType < Type
+  class FloatingPointType < NumberType
     attr_reader :precision
     def initialize(name, precision)
       super(name)
@@ -104,7 +107,7 @@ module ArrowFormat
     end
   end
 
-  class Float32Type < FloatType
+  class Float32Type < FloatingPointType
     class << self
       def singleton
         @singleton ||= new
@@ -112,11 +115,27 @@ module ArrowFormat
     end
 
     def initialize
-      super("Float32", 32)
+      super("Float32", :single)
     end
 
     def build_array(size, validity_buffer, values_buffer)
       Float32Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
+  class Float64Type < FloatingPointType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Float64", :double)
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Float64Array.new(self, size, validity_buffer, values_buffer)
     end
   end
 
