@@ -2402,7 +2402,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // Fast path: decode directly into output buffer if requesting all values
     if (needs_decode_ && max_values >= this->num_values_) {
       size_t decompSize = this->num_values_ * sizeof(T);
-      ::arrow::util::alp::AlpWrapper<T>::decode(
+      ::arrow::util::alp::AlpWrapper<T>::Decode(
           buffer, &decompSize,
           reinterpret_cast<const char*>(this->data_), this->len_);
 
@@ -2417,7 +2417,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       size_t decompSize = this->num_values_ * sizeof(T);
-      ::arrow::util::alp::AlpWrapper<T>::decode(
+      ::arrow::util::alp::AlpWrapper<T>::Decode(
           decoded_buffer_.data(), &decompSize,
           reinterpret_cast<const char*>(this->data_), this->len_);
       needs_decode_ = false;
@@ -2452,7 +2452,7 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
       size_t decompSize = this->num_values_ * sizeof(T);
-      ::arrow::util::alp::AlpWrapper<T>::decode(
+      ::arrow::util::alp::AlpWrapper<T>::Decode(
           decoded_buffer_.data(), &decompSize,
           reinterpret_cast<const char*>(this->data_), this->len_);
       needs_decode_ = false;
