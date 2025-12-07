@@ -113,7 +113,7 @@ module ArrowFormat
 
     def to_a
       values = @offsets_buffer.
-        each(:s32, 0, @size + 1). # TODO: big endian support
+        each(buffer_type, 0, @size + 1).
         each_cons(2).
         collect do |(_, offset), (_, next_offset)|
         length = next_offset - offset
@@ -125,6 +125,21 @@ module ArrowFormat
 
   class BinaryArray < VariableSizeBinaryLayoutArray
     private
+    def buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+  end
+
+  class LargeBinaryArray < VariableSizeBinaryLayoutArray
+    private
+    def buffer_type
+      :s64 # TODO: big endian support
+    end
+
     def encoding
       Encoding::ASCII_8BIT
     end
@@ -132,6 +147,10 @@ module ArrowFormat
 
   class UTF8Array < VariableSizeBinaryLayoutArray
     private
+    def buffer_type
+      :s32 # TODO: big endian support
+    end
+
     def encoding
       Encoding::UTF_8
     end

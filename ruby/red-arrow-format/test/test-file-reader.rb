@@ -106,6 +106,17 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("LargeBinary") do
+    def build_array
+      Arrow::LargeBinaryArray.new(["Hello".b, nil, "World".b])
+    end
+
+    def test_read
+      assert_equal([{"value" => ["Hello".b, nil, "World".b]}],
+                   read)
+    end
+  end
+
   sub_test_case("UTF8") do
     def build_array
       Arrow::StringArray.new(["Hello", nil, "World"])
