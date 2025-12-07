@@ -33,97 +33,107 @@ namespace alp {
 
 template <typename T>
 AlpSampler<T>::AlpSampler()
-    : m_sampleVectorSize(AlpConstants::kSamplerVectorSize),
-      m_rowgroupSize(AlpConstants::kSamplerRowgroupSize),
-      m_samplesPerVector(AlpConstants::kSamplerSamplesPerVector),
-      m_sampleVectorsPerRowgroup(AlpConstants::kSamplerSampleVectorsPerRowgroup),
-      m_rowgroupSampleJump((m_rowgroupSize / m_sampleVectorsPerRowgroup) / m_sampleVectorSize) {}
+    : sample_vector_size_(AlpConstants::kSamplerVectorSize),
+      rowgroup_size_(AlpConstants::kSamplerRowgroupSize),
+      samples_per_vector_(AlpConstants::kSamplerSamplesPerVector),
+      sample_vectors_per_rowgroup_(AlpConstants::kSamplerSampleVectorsPerRowgroup),
+      rowgroup_sample_jump_((rowgroup_size_ / sample_vectors_per_rowgroup_) /
+                            sample_vector_size_) {}
 
 template <typename T>
-void AlpSampler<T>::addSample(arrow::util::span<const T> input) {
-  for (uint64_t i = 0; i < input.size(); i += m_sampleVectorSize) {
-    const uint64_t elements = std::min(input.size() - i, m_sampleVectorSize);
-    addSampleVector({input.data() + i, elements});
+void AlpSampler<T>::AddSample(arrow::util::span<const T> input) {
+  for (uint64_t i = 0; i < input.size(); i += sample_vector_size_) {
+    const uint64_t elements = std::min(input.size() - i, sample_vector_size_);
+    AddSampleVector({input.data() + i, elements});
   }
 }
 
 template <typename T>
-void AlpSampler<T>::addSampleVector(arrow::util::span<const T> input) {
-  const bool mustSkipCurrentVector =
-      mustSkipSamplingFromCurrentVector(m_vectorsCount, m_vectorsSampledCount, input.size());
+void AlpSampler<T>::AddSampleVector(arrow::util::span<const T> input) {
+  const bool must_skip_current_vector =
+      MustSkipSamplingFromCurrentVector(vectors_count_, vectors_sampled_count_,
+                                        input.size());
 
-  m_vectorsCount += 1;
-  m_totalValuesCount += input.size();
-  if (mustSkipCurrentVector) {
+  vectors_count_ += 1;
+  total_values_count_ += input.size();
+  if (must_skip_current_vector) {
     return;
   }
 
-  const AlpSamplingParameters samplingParams = getAlpSamplingParameters(input.size());
+  const AlpSamplingParameters sampling_params = GetAlpSamplingParameters(input.size());
 
-  // Slice: take first numLookupValue elements.
-  std::vector<T> currentVectorValues(
-      input.begin(), input.begin() + std::min<size_t>(samplingParams.numLookupValue, input.size()));
+  // Slice: take first num_lookup_value elements.
+  std::vector<T> current_vector_values(
+      input.begin(),
+      input.begin() + std::min<size_t>(sampling_params.num_lookup_value, input.size()));
 
-  // Stride: take every numSampledIncrements-th element.
-  std::vector<T> currentVectorSample;
-  for (size_t i = 0; i < currentVectorValues.size(); i += samplingParams.numSampledIncrements) {
-    currentVectorSample.push_back(currentVectorValues[i]);
+  // Stride: take every num_sampled_increments-th element.
+  std::vector<T> current_vector_sample;
+  for (size_t i = 0; i < current_vector_values.size();
+       i += sampling_params.num_sampled_increments) {
+    current_vector_sample.push_back(current_vector_values[i]);
   }
-  m_sampleStored += currentVectorSample.size();
+  sample_stored_ += current_vector_sample.size();
 
-  m_completeVectorsSampled.push_back(std::move(currentVectorValues));
-  m_rowgroupSample.push_back(std::move(currentVectorSample));
-  m_vectorsSampledCount++;
+  complete_vectors_sampled_.push_back(std::move(current_vector_values));
+  rowgroup_sample_.push_back(std::move(current_vector_sample));
+  vectors_sampled_count_++;
 }
 
 template <typename T>
-typename AlpSampler<T>::AlpSamplerResult AlpSampler<T>::finalize() {
-  ARROW_LOG(DEBUG) << "AlpSampler finalized: vectorsSampled=" << m_vectorsSampledCount << "/"
-                   << m_vectorsCount << " total"
-                   << ", valuesSampled=" << m_sampleStored << "/" << m_totalValuesCount << " total";
+typename AlpSampler<T>::AlpSamplerResult AlpSampler<T>::Finalize() {
+  ARROW_LOG(DEBUG) << "AlpSampler finalized: vectorsSampled=" << vectors_sampled_count_
+                   << "/" << vectors_count_ << " total"
+                   << ", valuesSampled=" << sample_stored_ << "/" << total_values_count_
+                   << " total";
 
   AlpSamplerResult result;
-  result.alpPreset = AlpCompression<T>::createEncodingPreset(m_rowgroupSample);
+  result.alp_preset = AlpCompression<T>::CreateEncodingPreset(rowgroup_sample_);
 
-  ARROW_LOG(DEBUG) << "AlpSampler preset: " << result.alpPreset.combinations.size()
+  ARROW_LOG(DEBUG) << "AlpSampler preset: " << result.alp_preset.combinations.size()
                    << " exponent/factor combinations"
-                   << ", estimatedSize=" << result.alpPreset.bestCompressedSize << " bytes";
+                   << ", estimatedSize=" << result.alp_preset.best_compressed_size
+                   << " bytes";
 
   return result;
 }
 
 template <typename T>
-typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::getAlpSamplingParameters(
-    uint64_t numCurrentVectorValues) {
-  const uint64_t numLookupValues =
-      std::min(numCurrentVectorValues, static_cast<uint64_t>(AlpConstants::kAlpVectorSize));
-  // We sample equidistant values within a vector; to do this we jump a fixed number of values.
-  const uint64_t numSampledIncrements = std::max(
-      uint64_t{1},
-      static_cast<uint64_t>(std::ceil(static_cast<double>(numLookupValues) / m_samplesPerVector)));
-  const uint64_t numSampledValues =
-      std::ceil(static_cast<double>(numLookupValues) / numSampledIncrements);
+typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParameters(
+    uint64_t num_current_vector_values) {
+  const uint64_t num_lookup_values =
+      std::min(num_current_vector_values,
+               static_cast<uint64_t>(AlpConstants::kAlpVectorSize));
+  // Sample equidistant values within a vector; jump a fixed number of values.
+  const uint64_t num_sampled_increments =
+      std::max(uint64_t{1}, static_cast<uint64_t>(std::ceil(
+                                static_cast<double>(num_lookup_values) /
+                                samples_per_vector_)));
+  const uint64_t num_sampled_values =
+      std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments);
 
-  ARROW_CHECK(numSampledValues < AlpConstants::kAlpVectorSize) << "alp_sample_too_large";
+  ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize) << "alp_sample_too_large";
 
-  return AlpSamplingParameters{numLookupValues, numSampledIncrements, numSampledValues};
+  return AlpSamplingParameters{num_lookup_values, num_sampled_increments,
+                               num_sampled_values};
 }
 
 template <typename T>
-bool AlpSampler<T>::mustSkipSamplingFromCurrentVector(const uint64_t vectorsCount,
-                                                      const uint64_t vectorsSampledCount,
-                                                      const uint64_t currentVectorNValues) {
-  // We sample equidistant vectors; to do this we skip a fixed number of vectors.
-  const bool mustSelectRowgroupSamples = (vectorsCount % m_rowgroupSampleJump) == 0;
+bool AlpSampler<T>::MustSkipSamplingFromCurrentVector(
+    const uint64_t vectors_count, const uint64_t vectors_sampled_count,
+    const uint64_t current_vector_n_values) {
+  // Sample equidistant vectors; skip a fixed number of vectors.
+  const bool must_select_rowgroup_samples = (vectors_count % rowgroup_sample_jump_) == 0;
 
-  // If we are not in the correct jump, we do not take sample from this vector.
-  if (!mustSelectRowgroupSamples) {
+  // If we are not in the correct jump, do not take sample from this vector.
+  if (!must_select_rowgroup_samples) {
     return true;
   }
 
-  // We do not take samples of non-complete vectors (usually the last one),
+  // Do not take samples of non-complete vectors (usually the last one),
   // except in the case of too little data.
-  if (currentVectorNValues < AlpConstants::kSamplerSamplesPerVector && vectorsSampledCount != 0) {
+  if (current_vector_n_values < AlpConstants::kSamplerSamplesPerVector &&
+      vectors_sampled_count != 0) {
     return true;
   }
   return false;
