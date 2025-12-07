@@ -153,6 +153,52 @@ uint64_t AlpEncodedVector<T>::GetStoredSize() const {
          vector_info.num_exceptions * (sizeof(AlpConstants::PositionType) + sizeof(T));
 }
 
+// ----------------------------------------------------------------------
+// AlpEncodedVectorView implementation
+
+template <typename T>
+AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
+    arrow::util::span<const char> input_buffer) {
+  AlpEncodedVectorView<T> result;
+  result.vector_info = AlpEncodedVectorInfo::Load(input_buffer);
+  uint64_t input_offset = AlpEncodedVectorInfo::GetStoredSize();
+
+  const uint64_t overall_size = AlpEncodedVector<T>::GetStoredSize(result.vector_info);
+
+  ARROW_CHECK(input_buffer.size() >= overall_size)
+      << "alp_view_input_too_small: " << input_buffer.size() << " vs " << overall_size;
+  ARROW_CHECK(result.vector_info.num_elements <= AlpConstants::kAlpVectorSize)
+      << "alp_view_element_count_too_large: " << result.vector_info.num_elements
+      << " vs " << AlpConstants::kAlpVectorSize;
+
+  // Create spans pointing directly into the input buffer (zero-copy)
+  result.packed_values = {
+      reinterpret_cast<const uint8_t*>(input_buffer.data() + input_offset),
+      result.vector_info.bit_packed_size};
+  input_offset += result.vector_info.bit_packed_size;
+
+  const uint64_t exception_position_size =
+      result.vector_info.num_exceptions * sizeof(AlpConstants::PositionType);
+  result.exception_positions = {
+      reinterpret_cast<const uint16_t*>(input_buffer.data() + input_offset),
+      result.vector_info.num_exceptions};
+  input_offset += exception_position_size;
+
+  result.exceptions = {reinterpret_cast<const T*>(input_buffer.data() + input_offset),
+                       result.vector_info.num_exceptions};
+
+  return result;
+}
+
+template <typename T>
+uint64_t AlpEncodedVectorView<T>::GetStoredSize() const {
+  return AlpEncodedVectorInfo::GetStoredSize() + vector_info.bit_packed_size +
+         vector_info.num_exceptions * (sizeof(AlpConstants::PositionType) + sizeof(T));
+}
+
+template struct AlpEncodedVectorView<float>;
+template struct AlpEncodedVectorView<double>;
+
 template <typename T>
 uint64_t AlpEncodedVector<T>::GetStoredSize(const AlpEncodedVectorInfo& info) {
   return AlpEncodedVectorInfo::GetStoredSize() + info.bit_packed_size +
@@ -687,6 +733,31 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
   }
 }
 
+template <typename T>
+template <typename TargetType>
+void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
+                                             const AlpBitPackLayout bit_pack_layout,
+                                             TargetType* output) {
+  static_assert(sizeof(T) <= sizeof(TargetType));
+  const AlpEncodedVectorInfo& vector_info = encoded_view.vector_info;
+
+  switch (bit_pack_layout) {
+    case AlpBitPackLayout::kNormal: {
+      // Use the view's spans directly - no copy needed
+      arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
+          BitUnpackIntegers(encoded_view.packed_values, vector_info);
+      DecodeVector<TargetType>(output, {encoded_integers.data(), vector_info.num_elements},
+                               vector_info);
+      PatchExceptions<TargetType>(output, encoded_view.exceptions,
+                                  encoded_view.exception_positions);
+    } break;
+    default:
+      ARROW_CHECK(false) << "invalid_bit_pack_layout: "
+                         << static_cast<int>(bit_pack_layout);
+      break;
+  }
+}
+
 // ----------------------------------------------------------------------
 // Template instantiations
 
@@ -698,6 +769,16 @@ template void AlpCompression<float>::DecompressVector<float>(
     float* output);
 template void AlpCompression<double>::DecompressVector<double>(
     const AlpEncodedVector<double>& packed_vector, AlpBitPackLayout bit_pack_layout,
+    double* output);
+
+template void AlpCompression<float>::DecompressVectorView<double>(
+    const AlpEncodedVectorView<float>& encoded_view, AlpBitPackLayout bit_pack_layout,
+    double* output);
+template void AlpCompression<float>::DecompressVectorView<float>(
+    const AlpEncodedVectorView<float>& encoded_view, AlpBitPackLayout bit_pack_layout,
+    float* output);
+template void AlpCompression<double>::DecompressVectorView<double>(
+    const AlpEncodedVectorView<double>& encoded_view, AlpBitPackLayout bit_pack_layout,
     double* output);
 
 template class AlpCompression<float>;
