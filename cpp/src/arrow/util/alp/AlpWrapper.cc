@@ -279,17 +279,18 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
   uint64_t input_offset = 0;
   uint64_t output_offset = 0;
   while (input_offset < comp_size && output_offset < decomp_element_count) {
-    const AlpEncodedVector<T> encoded_vector =
-        AlpEncodedVector<T>::Load({comp + input_offset, comp_size});
-    const uint64_t compressed_size = encoded_vector.GetStoredSize();
-    const uint64_t element_count = encoded_vector.vector_info.num_elements;
+    // Use zero-copy view to avoid memory allocation and copying
+    const AlpEncodedVectorView<T> encoded_view =
+        AlpEncodedVectorView<T>::LoadView({comp + input_offset, comp_size - input_offset});
+    const uint64_t compressed_size = encoded_view.GetStoredSize();
+    const uint64_t element_count = encoded_view.vector_info.num_elements;
 
     ARROW_CHECK(output_offset + element_count <= decomp_element_count)
         << "alp_decode_output_too_small: " << output_offset << " vs " << element_count
         << " vs " << decomp_element_count;
 
-    AlpCompression<T>::DecompressVector(encoded_vector, bit_pack_layout,
-                                        decomp + output_offset);
+    AlpCompression<T>::DecompressVectorView(encoded_view, bit_pack_layout,
+                                            decomp + output_offset);
 
     input_offset += compressed_size;
     output_offset += element_count;
