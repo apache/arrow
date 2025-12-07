@@ -1,3 +1,20 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 #include "arrow/util/alp/AlpWrapper.h"
 
 #include <cmath>
@@ -13,28 +30,30 @@ namespace arrow {
 namespace util {
 namespace alp {
 
-/**
- * Header structure for ALP compression blocks.
- * Contains metadata required to decompress the data.
- *
- * Serialization format (version 1):
- *
- *   +---------------------------------------------------+
- *   |  CompressionBlockHeader (40 bytes)                |
- *   +---------------------------------------------------+
- *   |  Offset |  Field              |  Size             |
- *   +---------+---------------------+-------------------+
- *   |    0    |  version            |  8 bytes (uint64) |
- *   |    8    |  compressedSize     |  8 bytes (uint64) |
- *   |   16    |  numElements        |  8 bytes (uint64) |
- *   |   24    |  vectorSize         |  8 bytes (uint64) |
- *   |   32    |  compressionMode    |  4 bytes (enum)   |
- *   |   36    |  bitPackLayout      |  4 bytes (enum)   |
- *   +---------------------------------------------------+
- *
- * Note: version must remain the first field to allow reading the rest
- * of the header based on version number.
- */
+// ----------------------------------------------------------------------
+// CompressionBlockHeader
+
+/// \brief Header structure for ALP compression blocks
+///
+/// Contains metadata required to decompress the data.
+///
+/// Serialization format (version 1):
+///
+///   +---------------------------------------------------+
+///   |  CompressionBlockHeader (40 bytes)                |
+///   +---------------------------------------------------+
+///   |  Offset |  Field              |  Size             |
+///   +---------+---------------------+-------------------+
+///   |    0    |  version            |  8 bytes (uint64) |
+///   |    8    |  compressedSize     |  8 bytes (uint64) |
+///   |   16    |  numElements        |  8 bytes (uint64) |
+///   |   24    |  vectorSize         |  8 bytes (uint64) |
+///   |   32    |  compressionMode    |  4 bytes (enum)   |
+///   |   36    |  bitPackLayout      |  4 bytes (enum)   |
+///   +---------------------------------------------------+
+///
+/// \note version must remain the first field to allow reading the rest
+///       of the header based on version number.
 template <typename T>
 struct AlpWrapper<T>::CompressionBlockHeader {
   /// Version number. Must remain the first field for version-based parsing.
@@ -50,10 +69,10 @@ struct AlpWrapper<T>::CompressionBlockHeader {
   /// Bit packing layout used for bitpacking.
   AlpBitPackLayout bitPackLayout = AlpBitPackLayout::kNormal;
 
-  /**
-   * Return the size in bytes of the CompressionBlockHeader based on the provided version.
-   * @param v Version
-   */
+  /// \brief Get the size in bytes of the CompressionBlockHeader for a given version
+  ///
+  /// \param[in] v the version number
+  /// \return the size in bytes
   static size_t getSizeForVersion(const uint64_t v) {
     size_t size;
     if (v == 1) {
@@ -65,10 +84,10 @@ struct AlpWrapper<T>::CompressionBlockHeader {
     return size;
   }
 
-  /**
-   * Check whether the given version v is valid and return it. Otherwise assert.
-   * @param v Version
-   */
+  /// \brief Check whether the given version is valid
+  ///
+  /// \param[in] v the version to check
+  /// \return the version if valid, otherwise asserts
   static uint64_t isValidVersion(const uint64_t v) {
     if (v == 1) {
       return v;
@@ -77,6 +96,9 @@ struct AlpWrapper<T>::CompressionBlockHeader {
     return 0;  // Unreachable, but silences warning.
   }
 };
+
+// ----------------------------------------------------------------------
+// AlpWrapper implementation
 
 template <typename T>
 typename AlpWrapper<T>::CompressionBlockHeader AlpWrapper<T>::loadHeader(const char* comp,
@@ -249,6 +271,9 @@ auto AlpWrapper<T>::decodeAlp(TargetType* decomp, const size_t decompElementCoun
 
   return DecompressionProgress{outputOffset, inputOffset};
 }
+
+// ----------------------------------------------------------------------
+// Template instantiations
 
 template class AlpWrapper<float>;
 template class AlpWrapper<double>;
