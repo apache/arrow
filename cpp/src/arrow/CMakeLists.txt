@@ -567,9 +567,9 @@ endif()
 
 # ALP (for Parquet encoder/decoder)
 list(APPEND ARROW_UTIL_SRCS
-  util/alp/Alp.cpp
-  util/alp/AlpSampler.cpp
-  util/alp/AlpWrapper.cpp)
+  util/alp/Alp.cc
+  util/alp/AlpSampler.cc
+  util/alp/AlpWrapper.cc)
 
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 
