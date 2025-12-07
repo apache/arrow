@@ -27,6 +27,7 @@
 #include <limits>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -43,6 +44,7 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
+#include "arrow/util/scope_guard.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_type_inline.h"
@@ -58,6 +60,10 @@
 #include "arrow/python/python_to_arrow.h"
 #include "arrow/python/type_traits.h"
 #include "arrow/python/vendored/pythoncapi_compat.h"
+
+#if NPY_ABI_VERSION >= 0x02000000
+#include <numpy/strings.h>
+#endif
 
 namespace arrow {
 
@@ -233,6 +239,13 @@ class NumPyConverter {
   Status Visit(const LargeStringType& type);
   Status Visit(const StringViewType& type);
 
+#if NPY_ABI_VERSION >= 0x02000000
+  template <typename Builder>
+  Status AppendStringDTypeValues(Builder* builder);
+
+  Status ConvertStringDType();
+#endif
+
   Status Visit(const StructType& type);
 
   Status Visit(const FixedSizeBinaryType& type);
@@ -336,6 +349,25 @@ Status NumPyConverter::Convert() {
                           reinterpret_cast<PyObject*>(mask_), py_options, pool_));
     out_arrays_ = chunked_array->chunks();
     return Status::OK();
+  }
+
+  if (IsStringDType(dtype_)) {
+#if NPY_ABI_VERSION >= 0x02000000
+    RETURN_NOT_OK(ConvertStringDType());
+    return Status::OK();
+#else
+    // Fall back to the generic Python sequence conversion path when the StringDType
+    // C API is unavailable.
+    PyConversionOptions py_options;
+    py_options.type = type_;
+    py_options.from_pandas = from_pandas_;
+    ARROW_ASSIGN_OR_RAISE(
+        auto chunked_array,
+        ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
+                          reinterpret_cast<PyObject*>(mask_), py_options, pool_));
+    out_arrays_ = chunked_array->chunks();
+    return Status::OK();
+#endif
   }
 
   if (type_ == nullptr) {
@@ -814,6 +846,100 @@ Status NumPyConverter::Visit(const StringViewType& type) {
   RETURN_NOT_OK(PushArray(result->data()));
   return Status::OK();
 }
+
+#if NPY_ABI_VERSION >= 0x02000000
+
+template <typename Builder>
+Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
+  auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
+
+  PyAcquireGIL gil_lock;
+
+  npy_string_allocator* allocator = NpyString_acquire_allocator(descr);
+  if (allocator == nullptr) {
+    return Status::Invalid("Failed to acquire NumPy StringDType allocator");
+  }
+
+  auto release_allocator = ::arrow::internal::MakeScopeGuard(
+      [&]() { NpyString_release_allocator(allocator); });
+
+  npy_static_string value = {0, nullptr};
+
+  auto append_value = [&](const npy_packed_static_string* packed) -> Status {
+    int rc = NpyString_load(allocator, packed, &value);
+    if (rc == -1) {
+      RETURN_IF_PYERROR();
+      return Status::Invalid("Failed to unpack NumPy StringDType value");
+    }
+    if (rc == 1) {
+      return builder->AppendNull();
+    }
+    return builder->Append(std::string_view{value.buf, value.size});
+  };
+
+  char* data = PyArray_BYTES(arr_);
+
+  if (mask_ != nullptr) {
+    Ndarray1DIndexer<uint8_t> mask_values(mask_);
+    for (int64_t i = 0; i < length_; ++i) {
+      if (mask_values[i]) {
+        RETURN_NOT_OK(builder->AppendNull());
+      } else {
+        const auto* packed =
+            reinterpret_cast<const npy_packed_static_string*>(data + i * stride_);
+        RETURN_NOT_OK(append_value(packed));
+      }
+    }
+  } else {
+    for (int64_t i = 0; i < length_; ++i) {
+      const auto* packed = reinterpret_cast<const npy_packed_static_string*>(data);
+      RETURN_NOT_OK(append_value(packed));
+      data += stride_;
+    }
+  }
+
+  return Status::OK();
+}
+
+Status NumPyConverter::ConvertStringDType() {
+  util::InitializeUTF8();
+
+  if (type_ == nullptr) {
+    type_ = utf8();
+  }
+
+  switch (type_->id()) {
+    case Type::STRING: {
+      internal::ChunkedStringBuilder builder(kBinaryChunksize, pool_);
+      RETURN_NOT_OK(builder.Reserve(length_));
+      RETURN_NOT_OK(AppendStringDTypeValues(&builder));
+
+      ArrayVector chunks;
+      RETURN_NOT_OK(builder.Finish(&chunks));
+      for (const auto& chunk : chunks) {
+        RETURN_NOT_OK(PushArray(chunk->data()));
+      }
+      return Status::OK();
+    }
+    case Type::LARGE_STRING: {
+      LargeStringBuilder builder(pool_);
+      RETURN_NOT_OK(builder.Reserve(length_));
+      RETURN_NOT_OK(AppendStringDTypeValues(&builder));
+      return PushBuilderResult(&builder);
+    }
+    case Type::STRING_VIEW: {
+      StringViewBuilder builder(pool_);
+      RETURN_NOT_OK(builder.Reserve(length_));
+      RETURN_NOT_OK(AppendStringDTypeValues(&builder));
+      return PushBuilderResult(&builder);
+    }
+    default:
+      return Status::TypeError(
+          "NumPy StringDType can only be converted to Arrow string types");
+  }
+}
+
+#endif
 
 Status NumPyConverter::Visit(const StructType& type) {
   std::vector<NumPyConverter> sub_converters;

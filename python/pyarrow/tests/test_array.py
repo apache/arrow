@@ -2759,6 +2759,42 @@ def test_array_from_numpy_unicode(string_type):
 
 
 @pytest.mark.numpy
+def test_array_from_numpy_string_dtype():
+    StringDType = getattr(np.dtypes, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    arr = np.array(["some", "strings"], dtype=StringDType())
+
+    arrow_arr = pa.array(arr)
+
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arrow_arr = pa.array(arr, type=pa.large_string())
+    assert arrow_arr.type == pa.large_string()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype_nulls_and_mask():
+    StringDType = getattr(np.dtypes, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    dtype = StringDType(na_object=None)
+    arr = np.array(["this array has", None, "as an entry"], dtype=dtype)
+
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["this array has", None, "as an entry"]
+
+    mask = np.array([False, True, False])
+    arrow_arr = pa.array(arr, mask=mask)
+    assert arrow_arr.to_pylist() == ["this array has", None, None]
+
+
+@pytest.mark.numpy
 def test_array_string_from_non_string():
     # ARROW-5682 - when converting to string raise on non string-like dtype
     with pytest.raises(TypeError):

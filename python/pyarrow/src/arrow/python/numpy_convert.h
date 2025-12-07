@@ -55,6 +55,8 @@ Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr);
 ARROW_PYTHON_EXPORT
 Result<std::shared_ptr<DataType>> NumPyScalarToArrowDataType(PyObject* scalar);
 
+ARROW_PYTHON_EXPORT bool IsStringDType(PyArray_Descr* descr);
+
 ARROW_PYTHON_EXPORT Status NdarrayToTensor(MemoryPool* pool, PyObject* ao,
                                            const std::vector<std::string>& dim_names,
                                            std::shared_ptr<Tensor>* out);

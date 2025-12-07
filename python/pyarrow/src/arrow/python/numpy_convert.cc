@@ -122,6 +122,15 @@ Result<std::shared_ptr<DataType>> NumPyScalarToArrowDataType(PyObject* scalar) {
   return NumPyDtypeToArrow(descr);
 }
 
+#if NPY_ABI_VERSION >= 0x02000000
+bool IsStringDType(PyArray_Descr* descr) {
+  // NumPy's variable-width StringDType exposes a dedicated dtype number.
+  return descr != nullptr && descr->type_num == NPY_VSTRING;
+}
+#else
+bool IsStringDType(PyArray_Descr* /*descr*/) { return false; }
+#endif
+
 Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyObject* dtype) {
   if (!PyObject_TypeCheck(dtype, &PyArrayDescr_Type)) {
     return Status::TypeError("Did not pass numpy.dtype object");
@@ -132,6 +141,10 @@ Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyObject* dtype) {
 
 Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr) {
   int type_num = fix_numpy_type_num(descr->type_num);
+
+  if (IsStringDType(descr)) {
+    return utf8();
+  }
 
   switch (type_num) {
     TO_ARROW_TYPE_CASE(BOOL, boolean);
