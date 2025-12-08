@@ -80,52 +80,59 @@ void CheckSQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT idx,
   SQLLEN unsigned_col = 0;
 
   EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_NAME, &name[0],
-                                         (SQLSMALLINT)name.size(), &name_len, 0));
+                                         (SQLSMALLINT)name.size(), &name_len, nullptr));
 
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_BASE_COLUMN_NAME, &base_column_name[0],
-                            (SQLSMALLINT)base_column_name.size(), &column_name_len, 0));
+  EXPECT_EQ(
+      SQL_SUCCESS,
+      SQLColAttribute(stmt, idx, SQL_DESC_BASE_COLUMN_NAME, &base_column_name[0],
+                      (SQLSMALLINT)base_column_name.size(), &column_name_len, nullptr));
 
   EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_LABEL, &label[0],
-                                         (SQLSMALLINT)label.size(), &label_len, 0));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_TYPE, 0, 0, 0, &data_type));
+                                         (SQLSMALLINT)label.size(), &label_len, nullptr));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_CONCISE_TYPE, 0, 0, 0, &concise_type));
+            SQLColAttribute(stmt, idx, SQL_DESC_TYPE, 0, 0, nullptr, &data_type));
+
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_CONCISE_TYPE, 0, 0, nullptr,
+                                         &concise_type));
+
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_DISPLAY_SIZE, 0, 0, nullptr,
+                                         &display_size));
+
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_FIXED_PREC_SCALE, 0, 0,
+                                         nullptr, &prec_scale));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_DISPLAY_SIZE, 0, 0, 0, &display_size));
+            SQLColAttribute(stmt, idx, SQL_DESC_LENGTH, 0, 0, nullptr, &length));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_FIXED_PREC_SCALE, 0, 0, 0, &prec_scale));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_LENGTH, 0, 0, 0, &length));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_LITERAL_PREFIX, &prefix[0],
-                                         (SQLSMALLINT)prefix.size(), &prefix_len, 0));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_LITERAL_SUFFIX, &suffix[0],
-                                         (SQLSMALLINT)suffix.size(), &suffix_len, 0));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_PRECISION, 0, 0, 0, &size));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_SCALE, 0, 0, 0, &scale));
+            SQLColAttribute(stmt, idx, SQL_DESC_LITERAL_PREFIX, &prefix[0],
+                            (SQLSMALLINT)prefix.size(), &prefix_len, nullptr));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_NULLABLE, 0, 0, 0, &nullability));
+            SQLColAttribute(stmt, idx, SQL_DESC_LITERAL_SUFFIX, &suffix[0],
+                            (SQLSMALLINT)suffix.size(), &suffix_len, nullptr));
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLColAttribute(stmt, idx, SQL_DESC_PRECISION, 0, 0, nullptr, &size));
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLColAttribute(stmt, idx, SQL_DESC_SCALE, 0, 0, nullptr, &scale));
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLColAttribute(stmt, idx, SQL_DESC_NULLABLE, 0, 0, nullptr, &nullability));
 
   EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_NUM_PREC_RADIX, 0, 0, 0,
                                          &num_prec_radix));
 
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_OCTET_LENGTH, 0, 0, 0, &octet_length));
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_OCTET_LENGTH, 0, 0, nullptr,
+                                         &octet_length));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_SEARCHABLE, 0, 0, 0, &searchable));
+            SQLColAttribute(stmt, idx, SQL_DESC_SEARCHABLE, 0, 0, nullptr, &searchable));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_UNSIGNED, 0, 0, 0, &unsigned_col));
+            SQLColAttribute(stmt, idx, SQL_DESC_UNSIGNED, 0, 0, nullptr, &unsigned_col));
 
   std::wstring name_str = ConvertToWString(name, name_len);
   std::wstring base_column_name_str = ConvertToWString(base_column_name, column_name_len);
@@ -173,36 +180,38 @@ void CheckSQLColAttributes(SQLHSTMT stmt, SQLUSMALLINT idx,
   SQLLEN unsigned_col = 0;
 
   EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_NAME, &name[0],
-                                          (SQLSMALLINT)name.size(), &name_len, 0));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_LABEL, &label[0],
-                                          (SQLSMALLINT)label.size(), &label_len, 0));
+                                          (SQLSMALLINT)name.size(), &name_len, nullptr));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_TYPE, 0, 0, 0, &data_type));
+            SQLColAttributes(stmt, idx, SQL_COLUMN_LABEL, &label[0],
+                             (SQLSMALLINT)label.size(), &label_len, nullptr));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_DISPLAY_SIZE, 0, 0, 0, &display_size));
+            SQLColAttributes(stmt, idx, SQL_COLUMN_TYPE, 0, 0, nullptr, &data_type));
+
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_DISPLAY_SIZE, 0, 0,
+                                          nullptr, &display_size));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_COLUMN_MONEY, 0, 0, 0, &prec_scale));
+            SQLColAttribute(stmt, idx, SQL_COLUMN_MONEY, 0, 0, nullptr, &prec_scale));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_LENGTH, 0, 0, 0, &length));
+            SQLColAttributes(stmt, idx, SQL_COLUMN_LENGTH, 0, 0, nullptr, &length));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_PRECISION, 0, 0, 0, &size));
-
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_SCALE, 0, 0, 0, &scale));
+            SQLColAttributes(stmt, idx, SQL_COLUMN_PRECISION, 0, 0, nullptr, &size));
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_NULLABLE, 0, 0, 0, &nullability));
+            SQLColAttributes(stmt, idx, SQL_COLUMN_SCALE, 0, 0, nullptr, &scale));
 
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_SEARCHABLE, 0, 0, 0, &searchable));
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_NULLABLE, 0, 0, nullptr,
+                                          &nullability));
 
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttributes(stmt, idx, SQL_COLUMN_UNSIGNED, 0, 0, 0, &unsigned_col));
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_SEARCHABLE, 0, 0, nullptr,
+                                          &searchable));
+
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, SQL_COLUMN_UNSIGNED, 0, 0, nullptr,
+                                          &unsigned_col));
 
   std::wstring name_str = ConvertToWString(name, name_len);
   std::wstring label_str = ConvertToWString(label, label_len);
@@ -235,7 +244,7 @@ void GetSQLColAttributeString(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMALL
   SQLSMALLINT str_len = 0;
 
   ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, field_identifier, &str_val[0],
-                                         (SQLSMALLINT)str_val.size(), &str_len, 0));
+                                         (SQLSMALLINT)str_val.size(), &str_len, nullptr));
 
   value = ConvertToWString(str_val, str_len);
 }
@@ -255,8 +264,9 @@ void GetSQLColAttributesString(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMAL
   std::vector<SQLWCHAR> str_val(kOdbcBufferSize);
   SQLSMALLINT str_len = 0;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, field_identifier, &str_val[0],
-                                          (SQLSMALLINT)str_val.size(), &str_len, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLColAttributes(stmt, idx, field_identifier, &str_val[0],
+                             (SQLSMALLINT)str_val.size(), &str_len, nullptr));
 
   value = ConvertToWString(str_val, str_len);
 }
@@ -271,7 +281,8 @@ void GetSQLColAttributeNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMAL
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   SQLLEN num_val = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, field_identifier, 0, 0, 0, value));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLColAttribute(stmt, idx, field_identifier, 0, 0, nullptr, value));
 }
 
 void GetSQLColAttributesNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMALLINT idx,
@@ -284,7 +295,8 @@ void GetSQLColAttributesNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMA
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   SQLLEN num_val = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLColAttributes(stmt, idx, field_identifier, 0, 0, 0, value));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLColAttributes(stmt, idx, field_identifier, 0, 0, nullptr, value));
 }
 }  // namespace
 
@@ -303,19 +315,21 @@ TYPED_TEST(ColumnsTest, SQLColAttributeTestInputData) {
   SQLLEN numeric_attr = 0;
 
   // All character values populated
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(this->stmt, idx, SQL_DESC_NAME, &character_attr[0],
-                            (SQLSMALLINT)character_attr.size(), &character_attr_len, 0));
+  EXPECT_EQ(
+      SQL_SUCCESS,
+      SQLColAttribute(this->stmt, idx, SQL_DESC_NAME, &character_attr[0],
+                      (SQLSMALLINT)character_attr.size(), &character_attr_len, nullptr));
 
   // All numeric values populated
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(this->stmt, idx, SQL_DESC_COUNT, 0, 0, 0, &numeric_attr));
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(this->stmt, idx, SQL_DESC_COUNT, 0, 0, nullptr,
+                                         &numeric_attr));
 
   // Pass null values, driver should not throw error
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(this->stmt, idx, SQL_COLUMN_TABLE_NAME, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(this->stmt, idx, SQL_COLUMN_TABLE_NAME, 0, 0,
+                                         nullptr, nullptr));
 
-  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(this->stmt, idx, SQL_DESC_COUNT, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLColAttribute(this->stmt, idx, SQL_DESC_COUNT, 0, 0, nullptr, nullptr));
 }
 
 TYPED_TEST(ColumnsTest, SQLColAttributeGetCharacterLen) {
@@ -331,7 +345,7 @@ TYPED_TEST(ColumnsTest, SQLColAttributeGetCharacterLen) {
 
   // Check length of character attribute
   ASSERT_EQ(SQL_SUCCESS, SQLColAttribute(this->stmt, 1, SQL_DESC_BASE_COLUMN_NAME, 0, 0,
-                                         &character_attr_len, 0));
+                                         &character_attr_len, nullptr));
   EXPECT_EQ(4 * GetSqlWCharSize(), character_attr_len);
 }
 
@@ -350,9 +364,10 @@ TYPED_TEST(ColumnsTest, SQLColAttributeInvalidFieldId) {
   SQLSMALLINT character_attr_len = 0;
   SQLLEN numeric_attr = 0;
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLColAttribute(this->stmt, idx, invalid_field_id, &character_attr[0],
-                            (SQLSMALLINT)character_attr.size(), &character_attr_len, 0));
+  ASSERT_EQ(
+      SQL_ERROR,
+      SQLColAttribute(this->stmt, idx, invalid_field_id, &character_attr[0],
+                      (SQLSMALLINT)character_attr.size(), &character_attr_len, nullptr));
   // Verify invalid descriptor field identifier error state is returned
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY091);
 }
@@ -373,7 +388,7 @@ TYPED_TEST(ColumnsTest, SQLColAttributeInvalidColId) {
   ASSERT_EQ(SQL_ERROR,
             SQLColAttribute(this->stmt, invalid_col_id, SQL_DESC_BASE_COLUMN_NAME,
                             &character_attr[0], (SQLSMALLINT)character_attr.size(),
-                            &character_attr_len, 0));
+                            &character_attr_len, nullptr));
   // Verify invalid descriptor index error state is returned
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState07009);
 }
