@@ -195,11 +195,18 @@ module ArrowFormat
     end
   end
 
-  class ListType < Type
+  class VariableSizeListType < Type
     attr_reader :child
-    def initialize(child)
-      super("List")
+    def initialize(name, child)
+      super(name)
       @child = child
+    end
+
+  end
+
+  class ListType < VariableSizeListType
+    def initialize(child)
+      super("List", child)
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
@@ -216,6 +223,32 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, children)
       StructArray.new(self, size, validity_buffer, children)
+    end
+  end
+
+  class MapType < VariableSizeListType
+    def initialize(child)
+      if child.nullable?
+        raise TypeError.new("Map entry field must not be nullable: " +
+                            child.inspect)
+      end
+      type = child.type
+      unless type.is_a?(StructType)
+        raise TypeError.new("Map entry type must be struct: #{type.inspect}")
+      end
+      unless type.children.size == 2
+        raise TypeError.new("Map entry struct type must have 2 children: " +
+                            type.inspect)
+      end
+      if type.children[0].nullable?
+        raise TypeError.new("Map key field must not be nullable: " +
+                            type.children[0].inspect)
+      end
+      super("Map", child)
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, child)
+      MapArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
   end
 end

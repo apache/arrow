@@ -162,7 +162,7 @@ module ArrowFormat
     end
   end
 
-  class ListArray < Array
+  class VariableSizeListArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, child)
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
@@ -181,6 +181,9 @@ module ArrowFormat
     end
   end
 
+  class ListArray < VariableSizeListArray
+  end
+
   class StructArray < Array
     def initialize(type, size, validity_buffer, children)
       super(type, size, validity_buffer)
@@ -195,6 +198,22 @@ module ArrowFormat
         values = children_values[0].zip(*children_values[1..-1])
       end
       apply_validity(values)
+    end
+  end
+
+  class MapArray < VariableSizeListArray
+    def to_a
+      super.collect do |entries|
+        if entries.nil?
+          entries
+        else
+          hash = {}
+          entries.each do |key, value|
+            hash[key] = value
+          end
+          hash
+        end
+      end
     end
   end
 end
