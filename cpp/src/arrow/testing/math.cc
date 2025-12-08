@@ -85,7 +85,7 @@ template <typename Float>
 bool WithinUlpGeneric(Float left, Float right, int n_ulps) {
   if constexpr (std::is_same_v<Float, util::Float16>) {
     if (left.is_nan() || right.is_nan()) {
-      return left.is_nan() && right.is_nan();
+      return left.is_nan() == right.is_nan();
     } else if (left.is_infinity() || right.is_infinity()) {
       return left == right;
     }
