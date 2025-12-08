@@ -774,7 +774,7 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
-  // SQL_FETCH_PRIOR is the only supported fetch orientation.
+  // SQL_FETCH_NEXT is the only supported fetch orientation.
 
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
