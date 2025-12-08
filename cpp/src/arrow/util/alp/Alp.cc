@@ -24,6 +24,7 @@
 #include <map>
 
 #include "arrow/util/alp/AlpConstants.h"
+#include "arrow/util/alp/alp_simd_internal.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
@@ -680,17 +681,38 @@ void AlpCompression<T>::DecodeVector(TargetType* output_vector,
   const ExactType* data = input_vector.data();
   const ExactType frame_of_ref = vector_info.frame_of_reference;
 
+  // Use SIMD-optimized path when T == TargetType (no type conversion needed)
+  if constexpr (std::is_same_v<T, TargetType>) {
+    // Get the two factors separately to preserve exact floating-point precision
+    // Original decode: value * GetFactor(factor) * Constants::GetFactor(exponent)
+    const int64_t int_factor =
+        AlpConstants::GetFactor(vector_info.exponent_and_factor.factor);
+    const T float_factor =
+        Constants::GetFactor(vector_info.exponent_and_factor.exponent);
+
+    if constexpr (std::is_same_v<T, double>) {
+      internal::DecodeVectorSimdDouble(data, output_vector, num_elements, frame_of_ref,
+                                       int_factor, float_factor);
+    } else {
+      static_assert(std::is_same_v<T, float>);
+      internal::DecodeVectorSimdFloat(data, output_vector, num_elements, frame_of_ref,
+                                      int_factor, float_factor);
+    }
+  } else {
+    // Fall back to scalar loop for type conversions (e.g., float -> double)
+    // to preserve exact floating-point behavior
 #pragma GCC unroll AlpConstants::kLoopUnrolls
 #pragma GCC ivdep
-  for (size_t i = 0; i < num_elements; ++i) {
-    // 1. Apply frame of reference (unFOR) - unsigned arithmetic
-    const ExactType unfored_value = data[i] + frame_of_ref;
-    // 2. Reinterpret as signed integer for decode
-    SignedExactType signed_value;
-    std::memcpy(&signed_value, &unfored_value, sizeof(SignedExactType));
-    // 3. Decode using original function to preserve exact floating-point behavior
-    output_vector[i] =
-        AlpInlines<T>::DecodeValue(signed_value, vector_info.exponent_and_factor);
+    for (size_t i = 0; i < num_elements; ++i) {
+      // 1. Apply frame of reference (unFOR) - unsigned arithmetic
+      const ExactType unfored_value = data[i] + frame_of_ref;
+      // 2. Reinterpret as signed integer for decode
+      SignedExactType signed_value;
+      std::memcpy(&signed_value, &unfored_value, sizeof(SignedExactType));
+      // 3. Decode using original function to preserve exact floating-point behavior
+      output_vector[i] =
+          AlpInlines<T>::DecodeValue(signed_value, vector_info.exponent_and_factor);
+    }
   }
 }
 
