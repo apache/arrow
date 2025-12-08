@@ -61,4 +61,3 @@ class TestCumulativeOptions < Test::Unit::TestCase
                  cumulative_sum_function.execute(args, @options).value)
   end
 end
-

@@ -43,4 +43,3 @@ class TestDictionaryEncodeOptions < Test::Unit::TestCase
     assert_equal(build_int32_array([0, 1, 2, 0, 1]), result.indices)
   end
 end
-

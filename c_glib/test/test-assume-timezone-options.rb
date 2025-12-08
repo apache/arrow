@@ -58,4 +58,3 @@ class TestAssumeTimezoneOptions < Test::Unit::TestCase
                  result.value_data_type)
   end
 end
-
