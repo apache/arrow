@@ -162,8 +162,8 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagFieldWForDescriptorFailureFromDriverManager
   // Allocate a descriptor using alloc handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &descriptor));
 
-  EXPECT_EQ(SQL_ERROR,
-            SQLGetDescField(descriptor, 1, SQL_DESC_DATETIME_INTERVAL_CODE, 0, 0, 0));
+  EXPECT_EQ(SQL_ERROR, SQLGetDescField(descriptor, 1, SQL_DESC_DATETIME_INTERVAL_CODE, 0,
+                                       0, nullptr));
 
   // Retrieve all supported header level and record level data
   SQLSMALLINT HEADER_LEVEL = 0;
@@ -228,8 +228,8 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecForDescriptorFailureFromDriverManager) {
   // Allocate a descriptor using alloc handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &descriptor));
 
-  EXPECT_EQ(SQL_ERROR,
-            SQLGetDescField(descriptor, 1, SQL_DESC_DATETIME_INTERVAL_CODE, 0, 0, 0));
+  EXPECT_EQ(SQL_ERROR, SQLGetDescField(descriptor, 1, SQL_DESC_DATETIME_INTERVAL_CODE, 0,
+                                       0, nullptr));
 
   SQLWCHAR sql_state[6];
   SQLINTEGER native_error;
@@ -301,10 +301,12 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecInputData) {
                           message, kOdbcBufferSize, &message_length));
 
   // Pass valid record number with null inputs
-  EXPECT_EQ(SQL_NO_DATA, SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 1, 0, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_NO_DATA, SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 1, nullptr, nullptr,
+                                       nullptr, 0, nullptr));
 
   // Invalid handle
-  EXPECT_EQ(SQL_INVALID_HANDLE, SQLGetDiagRec(0, 0, 0, 0, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_INVALID_HANDLE,
+            SQLGetDiagRec(0, nullptr, 0, nullptr, nullptr, nullptr, 0, nullptr));
 }
 
 TYPED_TEST(ErrorsTest, TestSQLErrorInputData) {
@@ -312,14 +314,18 @@ TYPED_TEST(ErrorsTest, TestSQLErrorInputData) {
   // SQLError does not post diagnostic records for itself.
 
   // Pass valid handles with null inputs
-  EXPECT_EQ(SQL_NO_DATA, SQLError(this->env, 0, 0, 0, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_NO_DATA,
+            SQLError(this->env, nullptr, nullptr, nullptr, nullptr, nullptr, 0, nullptr));
 
-  EXPECT_EQ(SQL_NO_DATA, SQLError(0, this->conn, 0, 0, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_NO_DATA, SQLError(nullptr, this->conn, nullptr, nullptr, nullptr, nullptr,
+                                  0, nullptr));
 
-  EXPECT_EQ(SQL_NO_DATA, SQLError(0, 0, this->stmt, 0, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_NO_DATA, SQLError(nullptr, nullptr, this->stmt, nullptr, nullptr, nullptr,
+                                  0, nullptr));
 
   // Invalid handle
-  EXPECT_EQ(SQL_INVALID_HANDLE, SQLError(0, 0, 0, 0, 0, 0, 0, 0));
+  EXPECT_EQ(SQL_INVALID_HANDLE,
+            SQLError(nullptr, nullptr, nullptr, nullptr, nullptr, nullptr, 0, nullptr));
 }
 
 TYPED_TEST(ErrorsTest, TestSQLErrorEnvErrorFromDriverManager) {
@@ -336,8 +342,8 @@ TYPED_TEST(ErrorsTest, TestSQLErrorEnvErrorFromDriverManager) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, 0, 0, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 
@@ -356,7 +362,7 @@ TYPED_TEST(ErrorsTest, TestSQLErrorConnError) {
   // DM passes 512 as buffer length to SQLError.
 
   // Attempt to set unsupported attribute
-  SQLRETURN ret = SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, 0);
+  SQLRETURN ret = SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr);
 
   ASSERT_EQ(SQL_ERROR, ret);
 
@@ -364,8 +370,8 @@ TYPED_TEST(ErrorsTest, TestSQLErrorConnError) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(0, this->conn, 0, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, this->conn, nullptr, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 60);
 
@@ -393,8 +399,8 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtError) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(0, 0, this->stmt, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 70);
 
@@ -428,8 +434,8 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtWarning) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(0, 0, this->stmt, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 
@@ -455,8 +461,8 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorEnvErrorODBCVer2FromDriverManager) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, 0, 0, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 
@@ -475,14 +481,15 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorConnErrorODBCVer2) {
   // DM passes 512 as buffer length to SQLError.
 
   // Attempt to set unsupported attribute
-  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, 0));
+  ASSERT_EQ(SQL_ERROR,
+            SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(0, this->conn, 0, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, this->conn, nullptr, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 60);
 
@@ -510,8 +517,8 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtErrorODBCVer2) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(0, 0, this->stmt, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 70);
 
@@ -546,8 +553,8 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarningODBCVer2) {
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(0, 0, this->stmt, sql_state, &native_error, message,
-                                  SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 

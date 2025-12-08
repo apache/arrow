@@ -117,7 +117,7 @@ TEST(SQLGetEnvAttr, TestSQLGetEnvAttrODBCVersion) {
   // Allocate an environment handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, &version, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, &version, 0, nullptr));
 
   ASSERT_EQ(SQL_OV_ODBC2, version);
 
@@ -155,7 +155,7 @@ TYPED_TEST(ConnectionTest, TestSQLGetEnvAttrOutputNTS) {
   SQLINTEGER output_nts;
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, 0));
+            SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, nullptr));
 
   ASSERT_EQ(SQL_TRUE, output_nts);
 }
