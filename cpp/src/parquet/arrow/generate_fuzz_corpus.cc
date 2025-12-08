@@ -174,32 +174,24 @@ std::vector<WriteConfig> GetEncryptedWriteConfigurations(const ::arrow::Schema& 
         continue;
       }
       auto column_key = MakeEncryptionKey();
-      column_map[field->name()] = ColumnEncryptionProperties::Builder(field->name())
-                                      .key(column_key.key)
-                                      ->key_metadata(column_key.key_metadata)
-                                      ->build();
+      column_map[field->name()] = ColumnEncryptionProperties::WithColumnKey(
+          column_key.key, column_key.key_metadata);
     }
+    ARROW_DCHECK_NE(column_map.size(), 0);
     file_encryptions.push_back(
         file_encryption_builder().encrypted_columns(std::move(column_map))->build());
   }
-  // Mostly unencrypted columns
-  // (ideally we would like an encrypted footer and only plaintext columns, but the
-  // current API doesn't allow that)
+  // Unencrypted columns
   {
     ColumnPathToEncryptionPropertiesMap column_map;
     // Only encrypt the first non-nested column, the rest will be written in plaintext
     for (const auto& field : schema.fields()) {
-      if (field->type()->num_fields() == 0) {
-        auto column_key = MakeEncryptionKey();
-        column_map[field->name()] = ColumnEncryptionProperties::Builder(field->name())
-                                        .key(column_key.key)
-                                        ->key_metadata(column_key.key_metadata)
-                                        ->build();
-        break;
+      if (field->type()->num_fields() > 0) {
+        continue;
       }
+      column_map[field->name()] = ColumnEncryptionProperties::Unencrypted();
     }
-    ARROW_DCHECK_EQ(column_map.size(), 1);
-    ARROW_DCHECK_LT(column_map.size(), static_cast<size_t>(schema.num_fields()));
+    ARROW_DCHECK_NE(column_map.size(), 0);
     file_encryptions.push_back(
         file_encryption_builder().encrypted_columns(std::move(column_map))->build());
   }
