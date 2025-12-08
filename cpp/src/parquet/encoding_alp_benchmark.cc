@@ -308,7 +308,7 @@ std::string GetDataDirectory() {
     std::string tarball_path = std::string(__FILE__);
     tarball_path = tarball_path.substr(0, tarball_path.find_last_of("/\\"));
     tarball_path = tarball_path.substr(0, tarball_path.find_last_of("/\\"));
-    tarball_path += "/arrow/util/alp/data/floatingpoint_data.tar.gz";
+    tarball_path += "/arrow/cpp/submodules/parquet-testing/data/floatingpoint_data.tar.gz";
 
     // Use a fixed extraction directory that can be reused across runs
     data_dir = "/tmp/parquet_alp_benchmark_data";
