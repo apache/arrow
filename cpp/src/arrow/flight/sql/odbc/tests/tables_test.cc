@@ -56,23 +56,24 @@ TYPED_TEST(TablesTest, SQLTablesTestInputData) {
 
   ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  // Sizes are nulls
+  // Sizes are zeros
   EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, catalog_name, 0, schema_name, 0,
                                    table_name, 0, table_type, 0));
 
   ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  // Values are nulls
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLTables(this->stmt, 0, sizeof(catalog_name), 0, sizeof(schema_name), 0,
-                      sizeof(table_name), 0, sizeof(table_type)));
+  // Names are nulls
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, sizeof(catalog_name), nullptr,
+                                   sizeof(schema_name), nullptr, sizeof(table_name),
+                                   nullptr, sizeof(table_type)));
 
   ValidateFetch(this->stmt, SQL_SUCCESS);
   // Close statement cursor to avoid leaving in an invalid state
   SQLFreeStmt(this->stmt, SQL_CLOSE);
 
-  // All values and sizes are nulls
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, 0, 0, 0, 0, 0, 0, 0, 0));
+  // Names are nulls and sizes are zeros
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLTables(this->stmt, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0));
 
   ValidateFetch(this->stmt, SQL_SUCCESS);
 }
