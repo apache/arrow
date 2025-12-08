@@ -307,6 +307,7 @@ jobs:
           PYTHON_CMD: "python"
         run: |
           call activate pyarrow-dev || exit /B 1
+          conda list
           call "ci\scripts\python_build.bat" %cd% "%CONDA_PREFIX%"
       - name: Upload wheel
         if: always()                     # ensures this runs even on failure
@@ -318,9 +319,6 @@ jobs:
         shell: cmd
         env:
           PYTHON_CMD: "python"
-        # TODO: Renaming lz4 library is a hack - see where the name gets mixed up
         run: |
           call activate pyarrow-dev
-          move C:\miniforge\envs\pyarrow-dev\Library\bin\liblz4.dll C:\miniforge\envs\pyarrow-dev\Library\bin\lz4.dll
-          move C:\miniforge\envs\pyarrow-dev\Library\lib\liblz4.lib C:\miniforge\envs\pyarrow-dev\Library\lib\lz4.lib
           call "ci\scripts\python_test.bat" %cd%

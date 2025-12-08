@@ -35,8 +35,7 @@ libboost-devel
 libgrpc
 libprotobuf
 libutf8proc
-lz4
-lz4-c
+lz4-c>=1.10.0
 make
 meson
 ninja
