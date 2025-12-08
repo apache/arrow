@@ -534,12 +534,8 @@ Standard Python Operators
 =========================
 
 PyArrow supports standard Python operators for element-wise operations for arrays and scalars.
-Currently, the support is limited to some of the standard arithmetic compute functions, namely
-``pc.add, pc.subtract, pc.divide, pc.multiply, pc.abs, pc.negate, pc.power``;
-
-bit-wise functions: ``pc.bit_wise_and, bit_wise_or, bit_wise_xor, shift_left, shift_right``;
-
-and rounding functions: ``pc.round, pc.trunc, pc.floor, pc.ceil``.
+Currently, the support is limited to some of the standard arithmetic compute functions, i.e.
+arithmetic (`+`, `-`, `/`, `%`, `**`), bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
 
 The aforementioned operators use checked version of underlying kernels wherever possible
 and have the same respective constraints, e.g. you cannot add two arrays of strings.
