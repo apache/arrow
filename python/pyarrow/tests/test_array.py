@@ -2760,11 +2760,17 @@ def test_array_from_numpy_unicode(string_type):
 
 @pytest.mark.numpy
 def test_array_from_numpy_string_dtype():
-    StringDType = getattr(np.dtypes, "StringDType", None)
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
     if StringDType is None:
         pytest.skip("NumPy StringDType not available")
 
-    arr = np.array(["some", "strings"], dtype=StringDType())
+    dtype = StringDType()
+
+    arr = np.array(["some", "strings"], dtype=dtype)
 
     arrow_arr = pa.array(arr)
 
@@ -2783,7 +2789,7 @@ def test_array_from_numpy_string_dtype():
     assert arrow_arr.type == pa.string_view()
     assert arrow_arr.to_pylist() == ["some", "strings"]
 
-    arr_full = np.array(["a", "b", "c", "d", "e"], dtype=StringDType())
+    arr_full = np.array(["a", "b", "c", "d", "e"], dtype=dtype)
     arr = arr_full[::2]
     arrow_arr = pa.array(arr)
     assert arrow_arr.type == pa.utf8()
@@ -2792,10 +2798,15 @@ def test_array_from_numpy_string_dtype():
 
 @pytest.mark.numpy
 def test_array_from_numpy_string_dtype_nulls_and_mask():
-    StringDType = getattr(np.dtypes, "StringDType", None)
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
     if StringDType is None:
         pytest.skip("NumPy StringDType not available")
 
+    # Real StringDType, use its NA sentinel
     dtype = StringDType(na_object=None)
     arr = np.array(["this array has", None, "as an entry"], dtype=dtype)
 
@@ -2803,7 +2814,10 @@ def test_array_from_numpy_string_dtype_nulls_and_mask():
     assert arrow_arr.type == pa.utf8()
     assert arrow_arr.to_pylist() == ["this array has", None, "as an entry"]
 
-    mask = np.array([False, True, False])
+    # Test interplay of NA sentinel and an explicit mask:
+    # - index 1 is null because of na_object / Python None
+    # - index 2 is forced null by the mask
+    mask = np.array([False, False, True])
     arrow_arr = pa.array(arr, mask=mask)
     assert arrow_arr.to_pylist() == ["this array has", None, None]
 
