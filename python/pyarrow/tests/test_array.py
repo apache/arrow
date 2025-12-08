@@ -4388,3 +4388,15 @@ def test_dunders_unmatching_types():
         string_arr + nested_arr
         string_arr - double_arr
         double_arr * nested_arr
+
+
+def test_dunders_mixed_types():
+    # GH-32007
+    arr = pa.array([11.0, 17.0, 23.0])
+    val = pa.scalar(3)
+
+    assert (arr + val).equals(pc.add_checked(arr, val))
+    assert (arr - val).equals(pc.subtract_checked(arr, val))
+    assert (arr / val).equals(pc.divide_checked(arr, val))
+    assert (arr * val).equals(pc.multiply_checked(arr, val))
+    assert (arr ** val).equals(pc.power_checked(arr, val))

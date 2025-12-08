@@ -246,9 +246,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
       9
     ]
 
-    >>> arr = pa.array([1, 2, 3], type=pa.int8())
     >>> val = pa.scalar(42)
-    >>> val - arr
+    >>> val - arr1
     <pyarrow.lib.Int64Array object at ...>
     [
       41,
