@@ -199,10 +199,14 @@ inline void SetDefaultIfMissing(std::unordered_map<uint16_t, Connection::Info>& 
 
 }  // namespace
 
-GetInfoCache::GetInfoCache(FlightCallOptions& call_options,
+GetInfoCache::GetInfoCache(FlightClientOptions& client_options,
+                           FlightCallOptions& call_options,
                            std::unique_ptr<FlightSqlClient>& client,
                            const std::string& driver_version)
-    : call_options_(call_options), sql_client_(client), has_server_info_(false) {
+    : client_options_(client_options),
+      call_options_(call_options),
+      sql_client_(client),
+      has_server_info_(false) {
   info_[SQL_DRIVER_NAME] = "Arrow Flight ODBC Driver";
   info_[SQL_DRIVER_VER] = util::ConvertToDBMSVer(driver_version);
 
@@ -283,7 +287,8 @@ bool GetInfoCache::LoadInfoFromServer() {
     arrow::Result<std::shared_ptr<FlightInfo>> result =
         sql_client_->GetSqlInfo(call_options_, {});
     util::ThrowIfNotOK(result.status());
-    FlightStreamChunkBuffer chunk_iter(*sql_client_, call_options_, result.ValueOrDie());
+    FlightStreamChunkBuffer chunk_iter(*sql_client_, client_options_, call_options_,
+                                       result.ValueOrDie());
 
     FlightStreamChunk chunk;
     bool supports_correlation_name = false;
@@ -311,8 +316,8 @@ bool GetInfoCache::LoadInfoFromServer() {
               std::string server_name(
                   reinterpret_cast<StringScalar*>(scalar->child_value().get())->view());
 
-              // TODO: Consider creating different properties in GetSqlInfo.
-              // TODO: Investigate if SQL_SERVER_NAME should just be the host
+              // GH-47855 TODO: Consider creating different properties in GetSqlInfo.
+              // GH-47856 TODO: Investigate if SQL_SERVER_NAME should just be the host
               // address as well. In JDBC, FLIGHT_SQL_SERVER_NAME is only used for
               // the DatabaseProductName.
               info_[SQL_SERVER_NAME] = server_name;

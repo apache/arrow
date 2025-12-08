@@ -175,7 +175,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       columns_metadata <- r_metadata$columns
       if (is.data.frame(x)) {
         # if columns metadata exists, apply it here
-        if (length(names(x)) && !is.null(columns_metadata)) {
+        if (length(names(x)) && !is.null(columns_metadata) && !all(map_lgl(columns_metadata, is.null))) {
           for (name in intersect(names(columns_metadata), names(x))) {
             x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
           }

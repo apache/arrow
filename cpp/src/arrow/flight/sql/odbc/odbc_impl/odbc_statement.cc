@@ -29,8 +29,8 @@
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
+#include <optional>
 #include <utility>
 
 using ODBC::DescriptorRecord;
@@ -129,6 +129,9 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_WLONGVARCHAR:
       return SQL_C_WCHAR;
 
+    case SQL_BIT:
+      return SQL_C_BIT;
+
     case SQL_BINARY:
     case SQL_VARBINARY:
     case SQL_LONGVARBINARY:
@@ -146,12 +149,19 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_BIGINT:
       return record.is_unsigned ? SQL_C_UBIGINT : SQL_C_SBIGINT;
 
+    case SQL_NUMERIC:
+    case SQL_DECIMAL:
+      return SQL_C_NUMERIC;
+
+    case SQL_FLOAT:
     case SQL_REAL:
       return SQL_C_FLOAT;
 
-    case SQL_FLOAT:
     case SQL_DOUBLE:
       return SQL_C_DOUBLE;
+
+    case SQL_GUID:
+      return SQL_C_GUID;
 
     case SQL_DATE:
     case SQL_TYPE_DATE:
@@ -165,32 +175,32 @@ SQLSMALLINT getc_typeForSQLType(const DescriptorRecord& record) {
     case SQL_TYPE_TIMESTAMP:
       return SQL_C_TYPE_TIMESTAMP;
 
-    case SQL_C_INTERVAL_DAY:
-      return SQL_INTERVAL_DAY;
-    case SQL_C_INTERVAL_DAY_TO_HOUR:
-      return SQL_INTERVAL_DAY_TO_HOUR;
-    case SQL_C_INTERVAL_DAY_TO_MINUTE:
-      return SQL_INTERVAL_DAY_TO_MINUTE;
-    case SQL_C_INTERVAL_DAY_TO_SECOND:
-      return SQL_INTERVAL_DAY_TO_SECOND;
-    case SQL_C_INTERVAL_HOUR:
-      return SQL_INTERVAL_HOUR;
-    case SQL_C_INTERVAL_HOUR_TO_MINUTE:
-      return SQL_INTERVAL_HOUR_TO_MINUTE;
-    case SQL_C_INTERVAL_HOUR_TO_SECOND:
-      return SQL_INTERVAL_HOUR_TO_SECOND;
-    case SQL_C_INTERVAL_MINUTE:
-      return SQL_INTERVAL_MINUTE;
-    case SQL_C_INTERVAL_MINUTE_TO_SECOND:
-      return SQL_INTERVAL_MINUTE_TO_SECOND;
-    case SQL_C_INTERVAL_SECOND:
-      return SQL_INTERVAL_SECOND;
-    case SQL_C_INTERVAL_YEAR:
-      return SQL_INTERVAL_YEAR;
-    case SQL_C_INTERVAL_YEAR_TO_MONTH:
-      return SQL_INTERVAL_YEAR_TO_MONTH;
-    case SQL_C_INTERVAL_MONTH:
-      return SQL_INTERVAL_MONTH;
+    case SQL_INTERVAL_DAY:
+      return SQL_C_INTERVAL_DAY;
+    case SQL_INTERVAL_DAY_TO_HOUR:
+      return SQL_C_INTERVAL_DAY_TO_HOUR;
+    case SQL_INTERVAL_DAY_TO_MINUTE:
+      return SQL_C_INTERVAL_DAY_TO_MINUTE;
+    case SQL_INTERVAL_DAY_TO_SECOND:
+      return SQL_C_INTERVAL_DAY_TO_SECOND;
+    case SQL_INTERVAL_HOUR:
+      return SQL_C_INTERVAL_HOUR;
+    case SQL_INTERVAL_HOUR_TO_MINUTE:
+      return SQL_C_INTERVAL_HOUR_TO_MINUTE;
+    case SQL_INTERVAL_HOUR_TO_SECOND:
+      return SQL_C_INTERVAL_HOUR_TO_SECOND;
+    case SQL_INTERVAL_MINUTE:
+      return SQL_C_INTERVAL_MINUTE;
+    case SQL_INTERVAL_MINUTE_TO_SECOND:
+      return SQL_C_INTERVAL_MINUTE_TO_SECOND;
+    case SQL_INTERVAL_SECOND:
+      return SQL_C_INTERVAL_SECOND;
+    case SQL_INTERVAL_YEAR:
+      return SQL_C_INTERVAL_YEAR;
+    case SQL_INTERVAL_YEAR_TO_MONTH:
+      return SQL_C_INTERVAL_YEAR_TO_MONTH;
+    case SQL_INTERVAL_MONTH:
+      return SQL_C_INTERVAL_MONTH;
 
     default:
       throw DriverException("Unknown SQL type: " + std::to_string(record.concise_type),
@@ -273,7 +283,7 @@ void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
 bool ODBCStatement::IsPrepared() const { return is_prepared_; }
 
 void ODBCStatement::Prepare(const std::string& query) {
-  boost::optional<std::shared_ptr<ResultSetMetadata> > metadata =
+  std::optional<std::shared_ptr<ResultSetMetadata> > metadata =
       spi_statement_->Prepare(query);
 
   if (metadata) {
@@ -352,7 +362,7 @@ bool ODBCStatement::Fetch(size_t rows) {
 void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
                                 SQLINTEGER buffer_size, SQLINTEGER* str_len_ptr,
                                 bool is_unicode) {
-  boost::optional<Statement::Attribute> spi_attribute;
+  std::optional<Statement::Attribute> spi_attribute;
   switch (statement_attribute) {
     // Descriptor accessor attributes
     case SQL_ATTR_APP_PARAM_DESC:
@@ -375,6 +385,14 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
       return;
     case SQL_ATTR_PARAM_BIND_TYPE:
       current_apd_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
+      if (output) {
+        // Convert SQLINTEGER output to SQLULEN, since SQL_DESC_BIND_TYPE is SQLINTEGER
+        // and SQL_ATTR_PARAM_BIND_TYPE is SQLULEN
+        SQLINTEGER* output_int_ptr = reinterpret_cast<SQLINTEGER*>(output);
+        SQLINTEGER output_int = *output_int_ptr;
+        SQLULEN* typed_output = reinterpret_cast<SQLULEN*>(output);
+        *typed_output = static_cast<SQLULEN>(output_int);
+      }
       return;
     case SQL_ATTR_PARAM_OPERATION_PTR:
       current_apd_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
@@ -398,6 +416,14 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
       return;
     case SQL_ATTR_ROW_BIND_TYPE:
       current_ard_->GetHeaderField(SQL_DESC_BIND_TYPE, output, buffer_size, str_len_ptr);
+      if (output) {
+        // Convert SQLINTEGER output to SQLULEN, since SQL_DESC_BIND_TYPE is SQLINTEGER
+        // and SQL_ATTR_ROW_BIND_TYPE is SQLULEN
+        SQLINTEGER* output_int_ptr = reinterpret_cast<SQLINTEGER*>(output);
+        SQLINTEGER output_int = *output_int_ptr;
+        SQLULEN* typed_output = reinterpret_cast<SQLULEN*>(output);
+        *typed_output = static_cast<SQLULEN>(output_int);
+      }
       return;
     case SQL_ATTR_ROW_OPERATION_PTR:
       current_ard_->GetHeaderField(SQL_DESC_ARRAY_STATUS_PTR, output, buffer_size,
@@ -627,7 +653,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
       CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_UB_OFF));
       return;
     case SQL_ATTR_RETRIEVE_DATA:
-      CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_TRUE));
+      CheckIfAttributeIsSetToOnlyValidValue(value, static_cast<SQLULEN>(SQL_RD_ON));
       return;
     case SQL_ROWSET_SIZE:
       SetAttribute(value, rowset_size_);
@@ -677,7 +703,7 @@ void ODBCStatement::RevertAppDescriptor(bool isApd) {
 
 void ODBCStatement::CloseCursor(bool suppress_errors) {
   if (!suppress_errors && !current_result_) {
-    throw DriverException("Invalid cursor state", "28000");
+    throw DriverException("Invalid cursor state", "24000");
   }
 
   if (current_result_) {
@@ -691,9 +717,9 @@ void ODBCStatement::CloseCursor(bool suppress_errors) {
   has_reached_end_of_result_ = false;
 }
 
-bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
-                            SQLPOINTER data_ptr, SQLLEN buffer_length,
-                            SQLLEN* indicator_ptr) {
+SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
+                                 SQLPOINTER data_ptr, SQLLEN buffer_length,
+                                 SQLLEN* indicator_ptr) {
   if (record_number == 0) {
     throw DriverException("Bookmarks are not supported", "07009");
   } else if (record_number > ird_->GetRecords().size()) {
@@ -733,6 +759,17 @@ bool ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
 
   return current_result_->GetData(record_number, evaluated_c_type, precision, scale,
                                   data_ptr, buffer_length, indicator_ptr);
+}
+
+void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
+  if (!row_count_ptr) {
+    // row count pointer is not valid, do nothing as ODBC spec does not mention this as an
+    // error
+    return;
+  }
+  // Will always be -1 (meaning number of rows unknown) since only SELECT is supported by
+  // driver
+  *row_count_ptr = -1;
 }
 
 void ODBCStatement::ReleaseStatement() {

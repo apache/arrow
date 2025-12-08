@@ -17,14 +17,12 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace arrow::flight::sql::odbc {
-
-using boost::optional;
 
 class ResultSet;
 
@@ -69,14 +67,14 @@ class Statement {
   ///
   /// \param attribute Attribute identifier to be retrieved.
   /// \return Value associated with the attribute.
-  virtual optional<Statement::Attribute> GetAttribute(
+  virtual std::optional<Statement::Attribute> GetAttribute(
       Statement::StatementAttributeId attribute) = 0;
 
   /// \brief Prepares the statement.
   /// Returns ResultSetMetadata if query returns a result set,
-  /// otherwise it returns `boost::none`.
+  /// otherwise it returns `std::nullopt`.
   /// \param query The SQL query to prepare.
-  virtual boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
+  virtual std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) = 0;
 
   /// \brief Execute the prepared statement.

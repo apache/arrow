@@ -36,7 +36,7 @@ GetTablesReader::GetTablesReader(std::shared_ptr<RecordBatch> record_batch)
 
 bool GetTablesReader::Next() { return ++current_row_ < record_batch_->num_rows(); }
 
-optional<std::string> GetTablesReader::GetCatalogName() {
+std::optional<std::string> GetTablesReader::GetCatalogName() {
   const auto& array = checked_pointer_cast<StringArray>(record_batch_->column(0));
 
   if (array->IsNull(current_row_)) return nullopt;
@@ -44,7 +44,7 @@ optional<std::string> GetTablesReader::GetCatalogName() {
   return array->GetString(current_row_);
 }
 
-optional<std::string> GetTablesReader::GetDbSchemaName() {
+std::optional<std::string> GetTablesReader::GetDbSchemaName() {
   const auto& array = checked_pointer_cast<StringArray>(record_batch_->column(1));
 
   if (array->IsNull(current_row_)) return nullopt;

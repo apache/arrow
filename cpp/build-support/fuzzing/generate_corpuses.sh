@@ -71,7 +71,7 @@ rm -rf ${PANDAS_DIR}
 git clone --depth=1 https://github.com/pandas-dev/pandas ${PANDAS_DIR}
 
 rm -rf ${CORPUS_DIR}
-mkdir -p ${CORPUS_DIR}
+${OUT}/arrow-csv-generate-fuzz-corpus ${CORPUS_DIR}
 # Add examples from arrow-testing repo
 cp ${ARROW_ROOT}/testing/data/csv/*.csv ${CORPUS_DIR}
 # Add examples from Pandas test suite

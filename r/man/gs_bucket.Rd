@@ -22,6 +22,6 @@ that holds onto its relative path
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-bucket <- gs_bucket("voltrondata-labs-datasets")
+bucket <- gs_bucket("arrow-datasets")
 \dontshow{\}) # examplesIf}
 }

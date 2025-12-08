@@ -31,7 +31,7 @@ ARROW_R_DEV=`echo $ARROW_R_DEV | tr '[:upper:]' '[:lower:]'`
 ARROW_USE_PKG_CONFIG=`echo $ARROW_USE_PKG_CONFIG | tr '[:upper:]' '[:lower:]'`
 
 # generate code
-if [ "$ARROW_R_DEV" == "true" ]; then
+if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   echo "*** Generating code with data-raw/codegen.R"
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" data-raw/codegen.R
 fi

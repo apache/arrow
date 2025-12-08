@@ -22,7 +22,7 @@ project(
     version: '23.0.0-SNAPSHOT',
     license: 'Apache-2.0',
     meson_version: '>=1.3.0',
-    default_options: ['c_std=gnu11,c11', 'warning_level=2', 'cpp_std=c++17'],
+    default_options: ['c_std=c11', 'warning_level=2', 'cpp_std=c++17'],
 )
 
 project_args = [
@@ -53,6 +53,7 @@ endif
 
 needs_benchmarks = get_option('benchmarks').enabled()
 needs_csv = get_option('csv').enabled()
+needs_cuda = false
 needs_substrait = get_option('substrait').enabled()
 needs_dataset = get_option('dataset').enabled() or needs_substrait
 needs_azure = get_option('azure').enabled()
@@ -75,7 +76,8 @@ needs_integration = get_option('integration').enabled()
 needs_tests = get_option('tests').enabled()
 needs_acero = get_option('acero').enabled() or needs_dataset
 needs_compute = get_option('compute').enabled() or needs_acero
-needs_flight = get_option('flight').enabled()
+needs_flight_sql = false
+needs_flight = get_option('flight').enabled() or needs_flight_sql
 needs_gandiva = false
 needs_ipc = (get_option('ipc').enabled()
     or needs_tests

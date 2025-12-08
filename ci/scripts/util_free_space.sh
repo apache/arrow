@@ -25,7 +25,7 @@ du -hsc /usr/local/*
 echo "::endgroup::"
 # ~1GB
 sudo rm -rf \
-  /usr/local/aws-sam-cil \
+  /usr/local/aws-sam-cli \
   /usr/local/julia* || :
 echo "::group::/usr/local/bin/*"
 du -hsc /usr/local/bin/*

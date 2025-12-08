@@ -1867,82 +1867,117 @@ endif()
 # ----------------------------------------------------------------------
 # Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
-macro(build_protobuf)
-  message(STATUS "Building Protocol Buffers from source")
-  set(PROTOBUF_VENDORED TRUE)
-  set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
+function(build_protobuf)
+  list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
+  message(STATUS "Building Protocol Buffers from source using FetchContent")
+  set(PROTOBUF_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_fc-install")
+  set(PROTOBUF_PREFIX
+      "${PROTOBUF_PREFIX}"
+      PARENT_SCOPE)
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+  set(PROTOBUF_INCLUDE_DIR
+      "${PROTOBUF_INCLUDE_DIR}"
+      PARENT_SCOPE)
+
+  fetchcontent_declare(protobuf
+                       URL ${PROTOBUF_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
+                       SOURCE_SUBDIR cmake)
+
+  prepare_fetchcontent()
+
   # This flag is based on what the user initially requested but if
   # we've fallen back to building protobuf we always build it statically
   # so we need to reset the flag so that we can link against it correctly
   # later.
   set(Protobuf_USE_STATIC_LIBS ON)
-  # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
-  set(PROTOBUF_STATIC_LIB
-      "${PROTOBUF_PREFIX}/lib/libprotobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(PROTOC_STATIC_LIB "${PROTOBUF_PREFIX}/lib/libprotoc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
-  set(PROTOBUF_COMPILER "${PROTOBUF_PREFIX}/bin/protoc")
 
   # Strip lto flags (which may be added by dh_auto_configure)
   # See https://github.com/protocolbuffers/protobuf/issues/7092
-  set(PROTOBUF_C_FLAGS ${EP_C_FLAGS})
-  set(PROTOBUF_CXX_FLAGS ${EP_CXX_FLAGS})
-  string(REPLACE "-flto=auto" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
-  string(REPLACE "-ffat-lto-objects" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
-  string(REPLACE "-flto=auto" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
-  string(REPLACE "-ffat-lto-objects" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
-  set(PROTOBUF_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_CXX_FLAGS=${PROTOBUF_CXX_FLAGS}"
-      "-DCMAKE_C_FLAGS=${PROTOBUF_C_FLAGS}"
-      "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
-      -Dprotobuf_BUILD_TESTS=OFF
-      -Dprotobuf_DEBUG_POSTFIX=)
+  string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-flto=auto" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+  set(protobuf_BUILD_TESTS OFF)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
-    list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
+    set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
-  if(ZLIB_ROOT)
-    list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
-  endif()
-  set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS} SOURCE_SUBDIR
-                                         "cmake")
 
-  externalproject_add(protobuf_ep
-                      ${EP_COMMON_OPTIONS} ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
-                      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
-                      BUILD_IN_SOURCE 1
-                      URL ${PROTOBUF_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
 
-  file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
+  fetchcontent_makeavailable(protobuf)
+
+  # Get the actual include directory from the Protobuf target.
+  # For FetchContent, this points to the source directory which contains the .proto files.
+  set(PROTOBUF_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src")
   # For compatibility of CMake's FindProtobuf.cmake.
   set(Protobuf_INCLUDE_DIRS "${PROTOBUF_INCLUDE_DIR}")
+  set(Protobuf_INCLUDE_DIRS
+      "${Protobuf_INCLUDE_DIRS}"
+      PARENT_SCOPE)
+  # Set import dirs so protoc can find well-known types like timestamp.proto
+  set(Protobuf_IMPORT_DIRS "${PROTOBUF_INCLUDE_DIR}")
+  set(Protobuf_IMPORT_DIRS
+      "${Protobuf_IMPORT_DIRS}"
+      PARENT_SCOPE)
 
-  add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotobuf PROPERTIES IMPORTED_LOCATION
-                                                                "${PROTOBUF_STATIC_LIB}")
-  target_include_directories(arrow::protobuf::libprotobuf BEFORE
-                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-  add_library(arrow::protobuf::libprotoc STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotoc PROPERTIES IMPORTED_LOCATION
-                                                              "${PROTOC_STATIC_LIB}")
-  target_include_directories(arrow::protobuf::libprotoc BEFORE
-                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-  add_executable(arrow::protobuf::protoc IMPORTED)
-  set_target_properties(arrow::protobuf::protoc PROPERTIES IMPORTED_LOCATION
-                                                           "${PROTOBUF_COMPILER}")
+  # For FetchContent builds, protoc and libprotoc are regular targets, not imported.
+  # We can't get their locations at configure time, so we set placeholders.
+  # The actual locations will be resolved at build time or by the install step.
+  set(PROTOBUF_COMPILER "$<TARGET_FILE:protobuf::protoc>")
+  set(PROTOC_STATIC_LIB "$<TARGET_FILE:protobuf::libprotoc>")
+  set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
 
-  add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
-  add_dependencies(arrow::protobuf::protoc protobuf_ep)
+  # gRPC requires Protobuf to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of Protobuf
+  # when Arrow is installed.
+  # This custom target ensures Protobuf is built before we install
+  add_custom_target(protobuf_built
+                    DEPENDS protobuf::libprotobuf protobuf::libprotobuf-lite
+                            protobuf::libprotoc protobuf::protoc)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
+  # Disable Protobuf's install script after it's built to prevent double installation
+  add_custom_command(OUTPUT "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake"
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# Protobuf install disabled to prevent double installation with Arrow"
+                             > "${protobuf_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS protobuf_built
+                     COMMENT "Disabling Protobuf install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(protobuf_install_disabled ALL
+                    DEPENDS "${protobuf_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install Protobuf to PROTOBUF_PREFIX for dependendants to find
+  add_custom_command(OUTPUT "${PROTOBUF_PREFIX}/.protobuf_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${PROTOBUF_PREFIX}/.protobuf_installed"
+                     DEPENDS protobuf_install_disabled
+                     COMMENT "Installing Protobuf to ${PROTOBUF_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make protobuf_fc depend on the install completion marker
+  add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
     # system also, as it is used when building Arrow
-    # We do this by calling CMake as a child process
-    # with CXXFLAGS / CFLAGS and CMake flags cleared.
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
@@ -1953,13 +1988,14 @@ macro(build_protobuf)
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
 
+    # We reuse the FetchContent downloaded source but build it with host compiler
     externalproject_add(protobuf_ep_host
                         ${EP_COMMON_OPTIONS}
                         CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
+                        SOURCE_DIR "${protobuf_SOURCE_DIR}"
+                        SOURCE_SUBDIR cmake
                         BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
-                        BUILD_IN_SOURCE 1
-                        URL ${PROTOBUF_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+                        DOWNLOAD_COMMAND "" DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 
     add_executable(arrow::protobuf::host_protoc IMPORTED)
     set_target_properties(arrow::protobuf::host_protoc
@@ -1967,7 +2003,8 @@ macro(build_protobuf)
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
   endif()
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
@@ -2017,7 +2054,10 @@ if(ARROW_WITH_PROTOBUF)
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
-  if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
+  # If PROTOBUF_VENDORED we build static protobuf from source via FetchContent
+  if(NOT PROTOBUF_VENDORED
+     AND NOT Protobuf_USE_STATIC_LIBS
+     AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
   endif()
 
@@ -2128,8 +2168,12 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
+    set(SUBSTRAIT_PROTOC_INCLUDES "-I${SUBSTRAIT_LOCAL_DIR}/proto")
+    if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
+      list(APPEND SUBSTRAIT_PROTOC_INCLUDES "-I${Protobuf_INCLUDE_DIRS}")
+    endif()
     add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.cc" "${SUBSTRAIT_PROTO_GEN}.h"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${SUBSTRAIT_PROTOC_INCLUDES}
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
@@ -2147,10 +2191,11 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
+    set(ARROW_SUBSTRAIT_PROTOC_INCLUDES ${SUBSTRAIT_PROTOC_INCLUDES}
+                                        "-I${ARROW_SUBSTRAIT_PROTOS_DIR}")
     add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
                               "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
-                               "-I${ARROW_SUBSTRAIT_PROTOS_DIR}"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${ARROW_SUBSTRAIT_PROTOC_INCLUDES}
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${ARROW_SUBSTRAIT_PROTOS_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
@@ -2799,37 +2844,35 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 # ----------------------------------------------------------------------
-# RE2 (required for Gandiva)
+# RE2 (required for Gandiva and gRPC)
 
-macro(build_re2)
-  message(STATUS "Building RE2 from source")
-  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_ep-install")
-  set(RE2_STATIC_LIB
-      "${RE2_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}re2${CMAKE_STATIC_LIBRARY_SUFFIX}")
+function(build_re2)
+  list(APPEND CMAKE_MESSAGE_INDENT "RE2: ")
+  message(STATUS "Building RE2 from source using FetchContent")
+  set(RE2_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  set(RE2_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}")
+  fetchcontent_declare(re2
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${RE2_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
+  prepare_fetchcontent()
 
-  externalproject_add(re2_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${RE2_PREFIX}
-                      URL ${RE2_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${RE2_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${RE2_STATIC_LIB}")
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
 
-  file(MAKE_DIRECTORY "${RE2_PREFIX}/include")
-  add_library(re2::re2 STATIC IMPORTED)
-  set_target_properties(re2::re2 PROPERTIES IMPORTED_LOCATION "${RE2_STATIC_LIB}")
-  target_include_directories(re2::re2 BEFORE INTERFACE "${RE2_PREFIX}/include")
+  fetchcontent_makeavailable(re2)
 
-  add_dependencies(re2::re2 re2_ep)
-  set(RE2_VENDORED TRUE)
-  # Set values so that FindRE2 finds this too
-  set(RE2_LIB ${RE2_STATIC_LIB})
-  set(RE2_INCLUDE_DIR "${RE2_PREFIX}/include")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS re2::re2)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_RE2)
   resolve_dependency(re2
@@ -2950,33 +2993,23 @@ if(ARROW_WITH_UTF8PROC)
   resolve_dependency(${utf8proc_resolve_dependency_args})
 endif()
 
-macro(build_cares)
-  message(STATUS "Building c-ares from source")
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_ep-install")
-  set(CARES_INCLUDE_DIR "${CARES_PREFIX}/include")
+function(build_cares)
+  list(APPEND CMAKE_MESSAGE_INDENT "c-ares: ")
+  message(STATUS "Building c-ares from source using FetchContent")
+  set(CARES_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  # If you set -DCARES_SHARED=ON then the build system names the library
-  # libcares_static.a
-  set(CARES_STATIC_LIB
-      "${CARES_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}cares${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
+  fetchcontent_declare(cares
+                       URL ${CARES_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}")
 
-  set(CARES_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" "-DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}"
-                       -DCARES_SHARED=OFF -DCARES_STATIC=ON)
+  prepare_fetchcontent()
 
-  externalproject_add(cares_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${CARES_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_CARES_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${CARES_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS "${CARES_STATIC_LIB}")
-
-  file(MAKE_DIRECTORY ${CARES_INCLUDE_DIR})
-
-  add_library(c-ares::cares STATIC IMPORTED)
-  set_target_properties(c-ares::cares PROPERTIES IMPORTED_LOCATION "${CARES_STATIC_LIB}")
-  target_include_directories(c-ares::cares BEFORE INTERFACE "${CARES_INCLUDE_DIR}")
-  add_dependencies(c-ares::cares cares_ep)
+  set(CARES_SHARED OFF)
+  set(CARES_STATIC ON)
+  set(CARES_BUILD_TOOLS OFF)
+  fetchcontent_makeavailable(cares)
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -2985,953 +3018,168 @@ macro(build_cares)
                                                    "${LIBRESOLV_LIBRARY}")
   endif()
 
-  set(CARES_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS c-ares::cares)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} c-ares::cares
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-macro(build_absl)
-  message(STATUS "Building Abseil-cpp from source")
-  set(absl_FOUND TRUE)
-  set(absl_VERSION ${ARROW_ABSL_BUILD_VERSION})
-  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_ep-install")
-  set(ABSL_INCLUDE_DIR "${ABSL_PREFIX}/include")
-  set(ABSL_CMAKE_ARGS "${EP_COMMON_CMAKE_ARGS}" -DABSL_RUN_TESTS=OFF
-                      "-DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}")
+function(build_absl)
+  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
+  message(STATUS "Building Abseil from source using FetchContent")
+  set(ABSL_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_fc-install")
+  set(ABSL_PREFIX
+      "${ABSL_PREFIX}"
+      PARENT_SCOPE)
+
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    set(ABSL_CXX_FLAGS "${EP_CXX_FLAGS} -include stdint.h")
-    list(APPEND ABSL_CMAKE_ARGS "-DCMAKE_CXX_FLAGS=${ABSL_CXX_FLAGS}")
+    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
   endif()
-  set(ABSL_BUILD_BYPRODUCTS)
-  set(ABSL_LIBRARIES)
 
-  # Abseil produces the following libraries, each is fairly small, but there
-  # are (as you can see), many of them. We need to add the libraries first,
-  # and then describe how they depend on each other. The list can be
-  # refreshed using:
-  #   ls -1 $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//'
-  set(_ABSL_LIBS
-      bad_any_cast_impl
-      bad_optional_access
-      bad_variant_access
-      base
-      city
-      civil_time
-      cord
-      cord_internal
-      cordz_functions
-      cordz_handle
-      cordz_info
-      cordz_sample_token
-      debugging_internal
-      demangle_internal
-      examine_stack
-      exponential_biased
-      failure_signal_handler
-      flags
-      flags_commandlineflag
-      flags_commandlineflag_internal
-      flags_config
-      flags_internal
-      flags_marshalling
-      flags_parse
-      flags_private_handle_accessor
-      flags_program_name
-      flags_reflection
-      flags_usage
-      flags_usage_internal
-      graphcycles_internal
-      hash
-      hashtablez_sampler
-      int128
-      leak_check
-      leak_check_disable
-      log_severity
-      low_level_hash
-      malloc_internal
-      periodic_sampler
-      random_distributions
-      random_internal_distribution_test_util
-      random_internal_platform
-      random_internal_pool_urbg
-      random_internal_randen
-      random_internal_randen_hwaes
-      random_internal_randen_hwaes_impl
-      random_internal_randen_slow
-      random_internal_seed_material
-      random_seed_gen_exception
-      random_seed_sequences
-      raw_hash_set
-      raw_logging_internal
-      scoped_set_env
-      spinlock_wait
-      stacktrace
-      status
-      statusor
-      str_format_internal
-      strerror
-      strings
-      strings_internal
-      symbolize
-      synchronization
-      throw_delegate
-      time
-      time_zone
-      wyhash)
-  # Abseil creates a number of header-only targets, which are needed to resolve dependencies.
-  # The list can be refreshed using:
-  #   comm -13 <(ls -l $PREFIX/lib/libabsl_*.a | sed -e 's/.*libabsl_//' -e 's/.a$//' | sort -u) \
-  #            <(ls -1 $PREFIX/lib/pkgconfig/absl_*.pc | sed -e 's/.*absl_//' -e 's/.pc$//' | sort -u)
-  set(_ABSL_INTERFACE_LIBS
-      algorithm
-      algorithm_container
-      any
-      atomic_hook
-      bad_any_cast
-      base_internal
-      bind_front
-      bits
-      btree
-      cleanup
-      cleanup_internal
-      compare
-      compressed_tuple
-      config
-      container_common
-      container_memory
-      cordz_statistics
-      cordz_update_scope
-      cordz_update_tracker
-      core_headers
-      counting_allocator
-      debugging
-      dynamic_annotations
-      endian
-      errno_saver
-      fast_type_id
-      fixed_array
-      flags_path_util
-      flat_hash_map
-      flat_hash_set
-      function_ref
-      hash_function_defaults
-      hash_policy_traits
-      hashtable_debug
-      hashtable_debug_hooks
-      have_sse
-      inlined_vector
-      inlined_vector_internal
-      kernel_timeout_internal
-      layout
-      memory
-      meta
-      node_hash_map
-      node_hash_policy
-      node_hash_set
-      numeric
-      numeric_representation
-      optional
-      pretty_function
-      random_bit_gen_ref
-      random_internal_distribution_caller
-      random_internal_fast_uniform_bits
-      random_internal_fastmath
-      random_internal_generate_real
-      random_internal_iostream_state_saver
-      random_internal_mock_helpers
-      random_internal_nonsecure_base
-      random_internal_pcg_engine
-      random_internal_randen_engine
-      random_internal_salted_seed_seq
-      random_internal_traits
-      random_internal_uniform_helper
-      random_internal_wide_multiply
-      random_random
-      raw_hash_map
-      sample_recorder
-      span
-      str_format
-      type_traits
-      utility
-      variant)
+  fetchcontent_declare(absl
+                       URL ${ABSL_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
 
-  foreach(_ABSL_LIB ${_ABSL_LIBS})
-    set(_ABSL_STATIC_LIBRARY
-        "${ABSL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}absl_${_ABSL_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    add_library(absl::${_ABSL_LIB} STATIC IMPORTED)
-    set_target_properties(absl::${_ABSL_LIB} PROPERTIES IMPORTED_LOCATION
-                                                        ${_ABSL_STATIC_LIBRARY})
-    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
-    list(APPEND ABSL_BUILD_BYPRODUCTS ${_ABSL_STATIC_LIBRARY})
-  endforeach()
-  foreach(_ABSL_LIB ${_ABSL_INTERFACE_LIBS})
-    add_library(absl::${_ABSL_LIB} INTERFACE IMPORTED)
-    target_include_directories(absl::${_ABSL_LIB} BEFORE INTERFACE "${ABSL_INCLUDE_DIR}")
-  endforeach()
+  prepare_fetchcontent()
 
-  # Extracted the dependency information using the Abseil pkg-config files:
-  #   grep Requires $PREFIX/lib/pkgconfig/absl_*.pc | \
-  #   sed -e 's;.*/absl_;set_property(TARGET absl::;' \
-  #       -e 's/.pc:Requires:/ PROPERTY INTERFACE_LINK_LIBRARIES /' \
-  #       -E -e 's/ = 20[0-9]{6},?//g' \
-  #       -e 's/absl_/absl::/g' \
-  #       -e 's/$/)/'  | \
-  #   grep -v 'INTERFACE_LINK_LIBRARIES[ ]*)'
-  set_property(TARGET absl::algorithm PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::algorithm_container
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::algorithm absl::core_headers
-                        absl::meta)
-  set_property(TARGET absl::any
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bad_any_cast
-                        absl::config
-                        absl::core_headers
-                        absl::fast_type_id
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::atomic_hook PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                 absl::core_headers)
-  set_property(TARGET absl::bad_any_cast PROPERTY INTERFACE_LINK_LIBRARIES
-                                                  absl::bad_any_cast_impl absl::config)
-  set_property(TARGET absl::bad_any_cast_impl
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::raw_logging_internal)
-  set_property(TARGET absl::bad_optional_access
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::raw_logging_internal)
-  set_property(TARGET absl::bad_variant_access
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::raw_logging_internal)
-  set_property(TARGET absl::base
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::atomic_hook
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::log_severity
-                        absl::raw_logging_internal
-                        absl::spinlock_wait
-                        absl::type_traits)
-  set_property(TARGET absl::base_internal PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                   absl::type_traits)
-  set_property(TARGET absl::bind_front
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal
-                        absl::compressed_tuple)
-  set_property(TARGET absl::bits PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers)
-  set_property(TARGET absl::btree
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_common
-                        absl::compare
-                        absl::compressed_tuple
-                        absl::container_memory
-                        absl::cord
-                        absl::core_headers
-                        absl::layout
-                        absl::memory
-                        absl::strings
-                        absl::throw_delegate
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::city PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                          absl::core_headers absl::endian)
-  set_property(TARGET absl::cleanup
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::cleanup_internal absl::config
-                        absl::core_headers)
-  set_property(TARGET absl::cleanup_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
-                        absl::utility)
-  set_property(TARGET absl::compare PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                                             absl::type_traits)
-  set_property(TARGET absl::compressed_tuple PROPERTY INTERFACE_LINK_LIBRARIES
-                                                      absl::utility)
-  set_property(TARGET absl::container_common PROPERTY INTERFACE_LINK_LIBRARIES
-                                                      absl::type_traits)
-  set_property(TARGET absl::container_memory
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::memory
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::cord
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::cord_internal
-                        absl::cordz_functions
-                        absl::cordz_info
-                        absl::cordz_update_scope
-                        absl::cordz_update_tracker
-                        absl::core_headers
-                        absl::endian
-                        absl::fixed_array
-                        absl::function_ref
-                        absl::inlined_vector
-                        absl::optional
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::type_traits)
-  set_property(TARGET absl::cord_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base_internal
-                        absl::compressed_tuple
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::inlined_vector
-                        absl::layout
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::throw_delegate
-                        absl::type_traits)
-  set_property(TARGET absl::cordz_functions
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::exponential_biased
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::cordz_handle
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::raw_logging_internal
-                        absl::synchronization)
-  set_property(TARGET absl::cordz_info
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::cord_internal
-                        absl::cordz_functions
-                        absl::cordz_handle
-                        absl::cordz_statistics
-                        absl::cordz_update_tracker
-                        absl::core_headers
-                        absl::inlined_vector
-                        absl::span
-                        absl::raw_logging_internal
-                        absl::stacktrace
-                        absl::synchronization)
-  set_property(TARGET absl::cordz_sample_token
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::cordz_handle
-                        absl::cordz_info)
-  set_property(TARGET absl::cordz_statistics
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::cordz_update_tracker
-                        absl::synchronization)
-  set_property(TARGET absl::cordz_update_scope
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::cord_internal
-                        absl::cordz_info
-                        absl::cordz_update_tracker
-                        absl::core_headers)
-  set_property(TARGET absl::cordz_update_tracker PROPERTY INTERFACE_LINK_LIBRARIES
-                                                          absl::config)
-  set_property(TARGET absl::core_headers PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::counting_allocator PROPERTY INTERFACE_LINK_LIBRARIES
-                                                        absl::config)
-  set_property(TARGET absl::debugging PROPERTY INTERFACE_LINK_LIBRARIES absl::stacktrace
-                                               absl::leak_check)
-  set_property(TARGET absl::debugging_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::config
-                        absl::dynamic_annotations
-                        absl::errno_saver
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::demangle_internal PROPERTY INTERFACE_LINK_LIBRARIES
-                                                       absl::base absl::core_headers)
-  set_property(TARGET absl::dynamic_annotations PROPERTY INTERFACE_LINK_LIBRARIES
-                                                         absl::config)
-  set_property(TARGET absl::endian PROPERTY INTERFACE_LINK_LIBRARIES absl::base
-                                            absl::config absl::core_headers)
-  set_property(TARGET absl::errno_saver PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::examine_stack
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::stacktrace
-                        absl::symbolize
-                        absl::config
-                        absl::core_headers
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::exponential_biased PROPERTY INTERFACE_LINK_LIBRARIES
-                                                        absl::config absl::core_headers)
-  set_property(TARGET absl::failure_signal_handler
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::examine_stack
-                        absl::stacktrace
-                        absl::base
-                        absl::config
-                        absl::core_headers
-                        absl::errno_saver
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::fast_type_id PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::fixed_array
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::compressed_tuple
-                        absl::algorithm
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::throw_delegate
-                        absl::memory)
-  set_property(TARGET absl::flags
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_config
-                        absl::flags_internal
-                        absl::flags_reflection
-                        absl::base
-                        absl::core_headers
-                        absl::strings)
-  set_property(TARGET absl::flags_commandlineflag
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::fast_type_id
-                        absl::flags_commandlineflag_internal
-                        absl::optional
-                        absl::strings)
-  set_property(TARGET absl::flags_commandlineflag_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::fast_type_id)
-  set_property(TARGET absl::flags_config
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_path_util
-                        absl::flags_program_name
-                        absl::core_headers
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_commandlineflag_internal
-                        absl::flags_config
-                        absl::flags_marshalling
-                        absl::synchronization
-                        absl::meta
-                        absl::utility)
-  set_property(TARGET absl::flags_marshalling
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::log_severity
-                        absl::strings
-                        absl::str_format)
-  set_property(TARGET absl::flags_parse
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::flags_config
-                        absl::flags
-                        absl::flags_commandlineflag
-                        absl::flags_commandlineflag_internal
-                        absl::flags_internal
-                        absl::flags_private_handle_accessor
-                        absl::flags_program_name
-                        absl::flags_reflection
-                        absl::flags_usage
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_path_util PROPERTY INTERFACE_LINK_LIBRARIES
-                                                     absl::config absl::strings)
-  set_property(TARGET absl::flags_private_handle_accessor
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_commandlineflag_internal
-                        absl::strings)
-  set_property(TARGET absl::flags_program_name
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::flags_path_util
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_reflection
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_commandlineflag
-                        absl::flags_private_handle_accessor
-                        absl::flags_config
-                        absl::strings
-                        absl::synchronization
-                        absl::flat_hash_map)
-  set_property(TARGET absl::flags_usage
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::flags_usage_internal
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flags_usage_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::flags_config
-                        absl::flags
-                        absl::flags_commandlineflag
-                        absl::flags_internal
-                        absl::flags_path_util
-                        absl::flags_private_handle_accessor
-                        absl::flags_program_name
-                        absl::flags_reflection
-                        absl::flat_hash_map
-                        absl::strings
-                        absl::synchronization)
-  set_property(TARGET absl::flat_hash_map
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_memory
-                        absl::hash_function_defaults
-                        absl::raw_hash_map
-                        absl::algorithm_container
-                        absl::memory)
-  set_property(TARGET absl::flat_hash_set
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_memory
-                        absl::hash_function_defaults
-                        absl::raw_hash_set
-                        absl::algorithm_container
-                        absl::core_headers
-                        absl::memory)
-  set_property(TARGET absl::function_ref
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
-                        absl::meta)
-  set_property(TARGET absl::graphcycles_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::malloc_internal
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::hash
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::city
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::fixed_array
-                        absl::meta
-                        absl::int128
-                        absl::strings
-                        absl::optional
-                        absl::variant
-                        absl::utility
-                        absl::low_level_hash)
-  set_property(TARGET absl::hash_function_defaults
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::cord
-                        absl::hash
-                        absl::strings)
-  set_property(TARGET absl::hash_policy_traits PROPERTY INTERFACE_LINK_LIBRARIES
-                                                        absl::meta)
-  set_property(TARGET absl::hashtable_debug PROPERTY INTERFACE_LINK_LIBRARIES
-                                                     absl::hashtable_debug_hooks)
-  set_property(TARGET absl::hashtable_debug_hooks PROPERTY INTERFACE_LINK_LIBRARIES
-                                                           absl::config)
-  set_property(TARGET absl::hashtablez_sampler
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::exponential_biased
-                        absl::have_sse
-                        absl::sample_recorder
-                        absl::synchronization)
-  set_property(TARGET absl::inlined_vector
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::algorithm
-                        absl::core_headers
-                        absl::inlined_vector_internal
-                        absl::throw_delegate
-                        absl::memory)
-  set_property(TARGET absl::inlined_vector_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::compressed_tuple
-                        absl::core_headers
-                        absl::memory
-                        absl::span
-                        absl::type_traits)
-  set_property(TARGET absl::int128 PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                            absl::core_headers absl::bits)
-  set_property(TARGET absl::kernel_timeout_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                        absl::raw_logging_internal absl::time)
-  set_property(TARGET absl::layout
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::meta
-                        absl::strings
-                        absl::span
-                        absl::utility)
-  set_property(TARGET absl::leak_check PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                absl::core_headers)
-  set_property(TARGET absl::log_severity PROPERTY INTERFACE_LINK_LIBRARIES
-                                                  absl::core_headers)
-  set_property(TARGET absl::low_level_hash
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::config
-                        absl::endian
-                        absl::int128)
-  set_property(TARGET absl::malloc_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::raw_logging_internal)
-  set_property(TARGET absl::memory PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                                            absl::meta)
-  set_property(TARGET absl::meta PROPERTY INTERFACE_LINK_LIBRARIES absl::type_traits)
-  set_property(TARGET absl::node_hash_map
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::container_memory
-                        absl::hash_function_defaults
-                        absl::node_hash_policy
-                        absl::raw_hash_map
-                        absl::algorithm_container
-                        absl::memory)
-  set_property(TARGET absl::node_hash_policy PROPERTY INTERFACE_LINK_LIBRARIES
-                                                      absl::config)
-  set_property(TARGET absl::node_hash_set
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::hash_function_defaults
-                        absl::node_hash_policy
-                        absl::raw_hash_set
-                        absl::algorithm_container
-                        absl::memory)
-  set_property(TARGET absl::numeric PROPERTY INTERFACE_LINK_LIBRARIES absl::int128)
-  set_property(TARGET absl::numeric_representation PROPERTY INTERFACE_LINK_LIBRARIES
-                                                            absl::config)
-  set_property(TARGET absl::optional
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bad_optional_access
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::memory
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::periodic_sampler
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::core_headers
-                        absl::exponential_biased)
-  set_property(TARGET absl::random_bit_gen_ref
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::random_internal_distribution_caller
-                        absl::random_internal_fast_uniform_bits
-                        absl::type_traits)
-  set_property(TARGET absl::random_distributions
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::random_internal_generate_real
-                        absl::random_internal_distribution_caller
-                        absl::random_internal_fast_uniform_bits
-                        absl::random_internal_fastmath
-                        absl::random_internal_iostream_state_saver
-                        absl::random_internal_traits
-                        absl::random_internal_uniform_helper
-                        absl::random_internal_wide_multiply
-                        absl::strings
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_distribution_caller
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config absl::utility
-                        absl::fast_type_id)
-  set_property(TARGET absl::random_internal_distribution_test_util
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::str_format
-                        absl::span)
-  set_property(TARGET absl::random_internal_fast_uniform_bits
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::random_internal_fastmath PROPERTY INTERFACE_LINK_LIBRARIES
-                                                              absl::bits)
-  set_property(TARGET absl::random_internal_generate_real
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::random_internal_fastmath
-                        absl::random_internal_traits
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_iostream_state_saver
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::int128 absl::type_traits)
-  set_property(TARGET absl::random_internal_mock_helpers
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::fast_type_id absl::optional)
-  set_property(TARGET absl::random_internal_nonsecure_base
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::optional
-                        absl::random_internal_pool_urbg
-                        absl::random_internal_salted_seed_seq
-                        absl::random_internal_seed_material
-                        absl::span
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_pcg_engine
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::int128
-                        absl::random_internal_fastmath
-                        absl::random_internal_iostream_state_saver
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_platform PROPERTY INTERFACE_LINK_LIBRARIES
-                                                              absl::config)
-  set_property(TARGET absl::random_internal_pool_urbg
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::random_internal_randen
-                        absl::random_internal_seed_material
-                        absl::random_internal_traits
-                        absl::random_seed_gen_exception
-                        absl::raw_logging_internal
-                        absl::span)
-  set_property(TARGET absl::random_internal_randen
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::random_internal_randen_hwaes
-                        absl::random_internal_randen_slow)
-  set_property(TARGET absl::random_internal_randen_engine
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::endian
-                        absl::random_internal_iostream_state_saver
-                        absl::random_internal_randen
-                        absl::raw_logging_internal
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_randen_hwaes
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::random_internal_randen_hwaes_impl absl::config)
-  set_property(TARGET absl::random_internal_randen_hwaes_impl
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::config)
-  set_property(TARGET absl::random_internal_randen_slow
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::random_internal_platform
-                        absl::config)
-  set_property(TARGET absl::random_internal_salted_seed_seq
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::inlined_vector
-                        absl::optional
-                        absl::span
-                        absl::random_internal_seed_material
-                        absl::type_traits)
-  set_property(TARGET absl::random_internal_seed_material
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::core_headers
-                        absl::optional
-                        absl::random_internal_fast_uniform_bits
-                        absl::raw_logging_internal
-                        absl::span
-                        absl::strings)
-  set_property(TARGET absl::random_internal_traits PROPERTY INTERFACE_LINK_LIBRARIES
-                                                            absl::config)
-  set_property(TARGET absl::random_internal_uniform_helper
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                        absl::random_internal_traits absl::type_traits)
-  set_property(TARGET absl::random_internal_wide_multiply
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::bits absl::config absl::int128)
-  set_property(TARGET absl::random_random
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::random_distributions
-                        absl::random_internal_nonsecure_base
-                        absl::random_internal_pcg_engine
-                        absl::random_internal_pool_urbg
-                        absl::random_internal_randen_engine
-                        absl::random_seed_sequences)
-  set_property(TARGET absl::random_seed_gen_exception PROPERTY INTERFACE_LINK_LIBRARIES
-                                                               absl::config)
-  set_property(TARGET absl::random_seed_sequences
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::inlined_vector
-                        absl::random_internal_nonsecure_base
-                        absl::random_internal_pool_urbg
-                        absl::random_internal_salted_seed_seq
-                        absl::random_internal_seed_material
-                        absl::random_seed_gen_exception
-                        absl::span)
-  set_property(TARGET absl::raw_hash_map
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::container_memory
-                        absl::raw_hash_set absl::throw_delegate)
-  set_property(TARGET absl::raw_hash_set
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::compressed_tuple
-                        absl::config
-                        absl::container_common
-                        absl::container_memory
-                        absl::core_headers
-                        absl::endian
-                        absl::hash_policy_traits
-                        absl::hashtable_debug_hooks
-                        absl::have_sse
-                        absl::memory
-                        absl::meta
-                        absl::optional
-                        absl::utility
-                        absl::hashtablez_sampler)
-  set_property(TARGET absl::raw_logging_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::atomic_hook
-                        absl::config
-                        absl::core_headers
-                        absl::log_severity)
-  set_property(TARGET absl::sample_recorder PROPERTY INTERFACE_LINK_LIBRARIES absl::base
-                                                     absl::synchronization)
-  set_property(TARGET absl::scoped_set_env PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                    absl::raw_logging_internal)
-  set_property(TARGET absl::span
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::algorithm
-                        absl::core_headers
-                        absl::throw_delegate
-                        absl::type_traits)
-  set_property(TARGET absl::spinlock_wait
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal absl::core_headers
-                        absl::errno_saver)
-  set_property(TARGET absl::stacktrace
-               PROPERTY INTERFACE_LINK_LIBRARIES absl::debugging_internal absl::config
-                        absl::core_headers)
-  set_property(TARGET absl::status
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::atomic_hook
-                        absl::config
-                        absl::core_headers
-                        absl::function_ref
-                        absl::raw_logging_internal
-                        absl::inlined_vector
-                        absl::stacktrace
-                        absl::symbolize
-                        absl::strings
-                        absl::cord
-                        absl::str_format
-                        absl::optional)
-  set_property(TARGET absl::statusor
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::status
-                        absl::core_headers
-                        absl::raw_logging_internal
-                        absl::type_traits
-                        absl::strings
-                        absl::utility
-                        absl::variant)
-  set_property(TARGET absl::str_format PROPERTY INTERFACE_LINK_LIBRARIES
-                                                absl::str_format_internal)
-  set_property(TARGET absl::str_format_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bits
-                        absl::strings
-                        absl::config
-                        absl::core_headers
-                        absl::numeric_representation
-                        absl::type_traits
-                        absl::int128
-                        absl::span)
-  set_property(TARGET absl::strerror PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                              absl::core_headers absl::errno_saver)
-  set_property(TARGET absl::strings
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::strings_internal
-                        absl::base
-                        absl::bits
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::int128
-                        absl::memory
-                        absl::raw_logging_internal
-                        absl::throw_delegate
-                        absl::type_traits)
-  set_property(TARGET absl::strings_internal
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::config
-                        absl::core_headers
-                        absl::endian
-                        absl::raw_logging_internal
-                        absl::type_traits)
-  set_property(TARGET absl::symbolize
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::debugging_internal
-                        absl::demangle_internal
-                        absl::base
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::malloc_internal
-                        absl::raw_logging_internal
-                        absl::strings)
-  set_property(TARGET absl::synchronization
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::graphcycles_internal
-                        absl::kernel_timeout_internal
-                        absl::atomic_hook
-                        absl::base
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::dynamic_annotations
-                        absl::malloc_internal
-                        absl::raw_logging_internal
-                        absl::stacktrace
-                        absl::symbolize
-                        absl::time)
-  set_property(TARGET absl::throw_delegate PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                                    absl::raw_logging_internal)
-  set_property(TARGET absl::time
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::base
-                        absl::civil_time
-                        absl::core_headers
-                        absl::int128
-                        absl::raw_logging_internal
-                        absl::strings
-                        absl::time_zone)
-  set_property(TARGET absl::type_traits PROPERTY INTERFACE_LINK_LIBRARIES absl::config)
-  set_property(TARGET absl::utility PROPERTY INTERFACE_LINK_LIBRARIES absl::base_internal
-                                             absl::config absl::type_traits)
-  set_property(TARGET absl::variant
-               PROPERTY INTERFACE_LINK_LIBRARIES
-                        absl::bad_variant_access
-                        absl::base_internal
-                        absl::config
-                        absl::core_headers
-                        absl::type_traits
-                        absl::utility)
-  set_property(TARGET absl::wyhash PROPERTY INTERFACE_LINK_LIBRARIES absl::config
-                                            absl::endian absl::int128)
+  # We have to enable Abseil install to generate abslConfig.cmake
+  # so google-cloud-cpp can find Abseil through ExternalProject_Add. Our expectation
+  # is that this will not be necessary once google-cloud-cpp supports FetchContent.
+  set(ABSL_ENABLE_INSTALL ON)
+  fetchcontent_makeavailable(absl)
+
+  # This custom target is required due to a timing issue between FetchContent
+  # and the install command below, which is necessary for google-cloud-cpp to find Abseil
+  # due to mixing FetchContent and ExternalProject_Add.
+  # Create a target that depends on ALL Abseil libraries that will be installed.
+  # This ensures they're all built before we try to install.
+  add_custom_target(absl_built
+                    DEPENDS absl::bad_any_cast_impl
+                            absl::bad_optional_access
+                            absl::bad_variant_access
+                            absl::base
+                            absl::city
+                            absl::civil_time
+                            absl::cord
+                            absl::cord_internal
+                            absl::cordz_functions
+                            absl::cordz_handle
+                            absl::cordz_info
+                            absl::cordz_sample_token
+                            absl::debugging_internal
+                            absl::demangle_internal
+                            absl::examine_stack
+                            absl::exponential_biased
+                            absl::failure_signal_handler
+                            absl::flags
+                            absl::flags_commandlineflag
+                            absl::flags_commandlineflag_internal
+                            absl::flags_config
+                            absl::flags_internal
+                            absl::flags_marshalling
+                            absl::flags_parse
+                            absl::flags_private_handle_accessor
+                            absl::flags_program_name
+                            absl::flags_reflection
+                            absl::flags_usage
+                            absl::flags_usage_internal
+                            absl::graphcycles_internal
+                            absl::hash
+                            absl::hashtablez_sampler
+                            absl::int128
+                            absl::leak_check
+                            absl::leak_check_disable
+                            absl::log_severity
+                            absl::low_level_hash
+                            absl::malloc_internal
+                            absl::periodic_sampler
+                            absl::random_distributions
+                            absl::random_internal_distribution_test_util
+                            absl::random_internal_platform
+                            absl::random_internal_pool_urbg
+                            absl::random_internal_randen
+                            absl::random_internal_randen_hwaes
+                            absl::random_internal_randen_hwaes_impl
+                            absl::random_internal_randen_slow
+                            absl::random_internal_seed_material
+                            absl::random_seed_gen_exception
+                            absl::random_seed_sequences
+                            absl::raw_hash_set
+                            absl::raw_logging_internal
+                            absl::scoped_set_env
+                            absl::spinlock_wait
+                            absl::stacktrace
+                            absl::status
+                            absl::statusor
+                            absl::str_format_internal
+                            absl::strerror
+                            absl::strings
+                            absl::strings_internal
+                            absl::symbolize
+                            absl::synchronization
+                            absl::throw_delegate
+                            absl::time
+                            absl::time_zone)
+
+  # google-cloud-cpp requires Abseil to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of Abseil
+  # when Arrow is installed.
+  # Disable Abseil's install script this target runs after Abseil is built
+  # and replaces its cmake_install.cmake with a no-op so Arrow does not install it
+  # outside of the build tree.
+  add_custom_command(OUTPUT "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${absl_BINARY_DIR}/cmake_install.cmake"
+                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# Abseil install disabled to prevent double installation with Arrow"
+                             > "${absl_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS absl_built
+                     COMMENT "Disabling Abseil's install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(absl_install_disabled ALL
+                    DEPENDS "${absl_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install Abseil to ABSL_PREFIX for google-cloud-cpp to find.
+  # Using the saved original cmake_install.cmake.saved install script
+  # for other dependencies to find Abseil.
+  add_custom_command(OUTPUT "${ABSL_PREFIX}/.absl_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch "${ABSL_PREFIX}/.absl_installed"
+                     DEPENDS absl_install_disabled
+                     COMMENT "Installing Abseil to ${ABSL_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make absl_fc depend on the install completion marker
+  add_custom_target(absl_fc DEPENDS "${ABSL_PREFIX}/.absl_installed")
 
   if(APPLE)
     # This is due to upstream absl::cctz issue
     # https://github.com/abseil/abseil-cpp/issues/283
     find_library(CoreFoundation CoreFoundation)
-    set_property(TARGET absl::time
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
                  APPEND
                  PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
   endif()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
-  externalproject_add(absl_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${ABSL_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${ABSL_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${ABSL_BUILD_BYPRODUCTS})
-
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${ABSL_INCLUDE_DIR})
-
-  set(ABSL_VENDORED TRUE)
-endmacro()
-
-macro(build_grpc)
+function(build_grpc)
   resolve_dependency(c-ares
                      ARROW_CMAKE_PACKAGE_NAME
                      ArrowFlight
@@ -3942,267 +3190,100 @@ macro(build_grpc)
                      PC_PACKAGE_NAMES
                      libcares)
 
-  message(STATUS "Building gRPC from source")
+  list(APPEND CMAKE_MESSAGE_INDENT "gRPC: ")
+  message(STATUS "Building gRPC from source using FetchContent")
+  set(GRPC_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
-  set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
-  set(GRPC_HOME "${GRPC_PREFIX}")
-  set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
+  fetchcontent_declare(grpc
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${GRPC_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
 
-  set(GRPC_STATIC_LIBRARY_GPR
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPC
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPCPP
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_UPB
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin${CMAKE_EXECUTABLE_SUFFIX}")
+  prepare_fetchcontent()
 
-  set(GRPC_CMAKE_PREFIX)
-
-  add_custom_target(grpc_dependencies)
-
-  if(ABSL_VENDORED)
-    add_dependencies(grpc_dependencies absl_ep)
-  endif()
-  if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_ep)
-  endif()
-
-  if(GFLAGS_VENDORED)
-    add_dependencies(grpc_dependencies gflags_ep)
-  endif()
-
-  if(RE2_VENDORED)
-    add_dependencies(grpc_dependencies re2_ep)
-  endif()
-
-  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
-                   ZLIB::ZLIB)
-
-  get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
-                      IMPORTED_LOCATION)
-  get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
-
-  # Put Abseil, etc. first so that local directories are searched
-  # before (what are likely) system directories
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
-
-  # ZLIB is never vendored
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
-
-  if(RAPIDJSON_VENDORED)
-    add_dependencies(grpc_dependencies rapidjson_ep)
-  endif()
-
-  # Yuck, see https://stackoverflow.com/a/45433229/776560
-  string(REPLACE ";" ${EP_LIST_SEPARATOR} GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
-
-  set(GRPC_C_FLAGS "${EP_C_FLAGS}")
-  set(GRPC_CXX_FLAGS "${EP_CXX_FLAGS}")
-  if(NOT MSVC)
-    # Negate warnings that gRPC cannot build under
-    # See https://github.com/grpc/grpc/issues/29417
-    string(APPEND
-           GRPC_C_FLAGS
-           " -Wno-attributes"
-           " -Wno-format-security"
-           " -Wno-unknown-warning-option")
-    string(APPEND
-           GRPC_CXX_FLAGS
-           " -Wno-attributes"
-           " -Wno-format-security"
-           " -Wno-unknown-warning-option")
-  endif()
-
-  set(GRPC_CMAKE_ARGS
-      "${EP_COMMON_CMAKE_ARGS}"
-      "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
-      "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
-      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
-      -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
-      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
-      -DgRPC_ABSL_PROVIDER=package
-      -DgRPC_BUILD_CSHARP_EXT=OFF
-      -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
-      -DgRPC_BUILD_TESTS=OFF
-      -DgRPC_CARES_PROVIDER=package
-      -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
-      -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_RE2_PROVIDER=package
-      -DgRPC_SSL_PROVIDER=package
-      -DgRPC_ZLIB_PROVIDER=package)
   if(PROTOBUF_VENDORED)
-    list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
+    set(_gRPC_PROTOBUF_LIBRARIES "protobuf::libprotobuf")
+
+    set(_gRPC_PROTOBUF_PROTOC_LIBRARIES "protobuf::libprotoc")
+
+    set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE "$<TARGET_FILE:protobuf::protoc>")
+
+    # gRPC needs this at configure time.
+    get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
+    set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR "${_protobuf_root_dir}/src")
   endif()
 
-  # XXX the gRPC git checkout is huge and takes a long time
-  # Ideally, we should be able to use the tarballs, but they don't contain
-  # vendored dependencies such as c-ares...
-  externalproject_add(grpc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${GRPC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
-                                       ${GRPC_STATIC_LIBRARY_GRPC}
-                                       ${GRPC_STATIC_LIBRARY_GRPCPP}
-                                       ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
-                                       ${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}
-                                       ${GRPC_STATIC_LIBRARY_UPB}
-                                       ${GRPC_CPP_PLUGIN}
-                      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
-                      DEPENDS ${grpc_dependencies})
+  # Use "none" provider for c-ares or re2, either we vendored it or we already found it.
+  set(gRPC_CARES_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
+  set(_gRPC_CARES_LIBRARIES "c-ares::cares")
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
+  set(gRPC_RE2_PROVIDER "none")
+  set(_gRPC_RE2_LIBRARIES "re2::re2")
 
-  add_library(gRPC::upb STATIC IMPORTED)
-  set_target_properties(gRPC::upb PROPERTIES IMPORTED_LOCATION
-                                             "${GRPC_STATIC_LIBRARY_UPB}")
-  target_include_directories(gRPC::upb BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  set(gRPC_SSL_PROVIDER "none")
+  set(_gRPC_SSL_LIBRARIES "OpenSSL::SSL;OpenSSL::Crypto")
+  set(gRPC_ZLIB_PROVIDER "package")
+  set(gRPC_INSTALL OFF)
+  set(gRPC_BUILD_TESTS OFF)
 
-  set(GRPC_GPR_ABSL_LIBRARIES
-      # We need a flattened list of Abseil libraries for the static linking case,
-      # because our method for creating arrow_bundled_dependencies.a doesn't walk
-      # the dependency tree of targets.
-      #
-      # This list should be updated when we change Abseil / gRPC versions. It can
-      # be generated with:
-      # pkg-config --libs --static grpc \
-      #   | tr " " "\n" \
-      #   | grep ^-labsl_ \
-      #   | sed 's/^-labsl_/absl::/'
-      absl::raw_hash_set
-      absl::hashtablez_sampler
-      absl::hash
-      absl::city
-      absl::low_level_hash
-      absl::random_distributions
-      absl::random_seed_sequences
-      absl::random_internal_pool_urbg
-      absl::random_internal_randen
-      absl::random_internal_randen_hwaes
-      absl::random_internal_randen_hwaes_impl
-      absl::random_internal_randen_slow
-      absl::random_internal_platform
-      absl::random_internal_seed_material
-      absl::random_seed_gen_exception
-      absl::statusor
-      absl::status
-      absl::cord
-      absl::cordz_info
-      absl::cord_internal
-      absl::cordz_functions
-      absl::exponential_biased
-      absl::cordz_handle
-      absl::bad_optional_access
-      absl::str_format_internal
-      absl::synchronization
-      absl::graphcycles_internal
-      absl::stacktrace
-      absl::symbolize
-      absl::debugging_internal
-      absl::demangle_internal
-      absl::malloc_internal
-      absl::time
-      absl::civil_time
-      absl::strings
-      absl::strings_internal
-      absl::base
-      absl::spinlock_wait
-      absl::int128
-      absl::throw_delegate
-      absl::time_zone
-      absl::bad_variant_access
-      absl::raw_logging_internal
-      absl::log_severity)
+  # Add warning suppression flags for gRPC build.
+  if(NOT MSVC)
+    string(APPEND CMAKE_C_FLAGS
+           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+    string(APPEND CMAKE_CXX_FLAGS
+           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+  endif()
 
-  add_library(gRPC::gpr STATIC IMPORTED)
-  set_target_properties(gRPC::gpr PROPERTIES IMPORTED_LOCATION
-                                             "${GRPC_STATIC_LIBRARY_GPR}")
-  target_link_libraries(gRPC::gpr INTERFACE ${GRPC_GPR_ABSL_LIBRARIES})
-  target_include_directories(gRPC::gpr BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  fetchcontent_makeavailable(grpc)
 
-  add_library(gRPC::address_sorting STATIC IMPORTED)
-  set_target_properties(gRPC::address_sorting
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
-  target_include_directories(gRPC::address_sorting BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${grpc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
-  add_library(gRPC::grpc++_reflection STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++_reflection
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}")
-  target_include_directories(gRPC::grpc++_reflection BEFORE
-                             INTERFACE "${GRPC_INCLUDE_DIR}")
+  # FetchContent builds gRPC libraries without gRPC:: prefix.
+  # Create gRPC:: alias targets for consistency.
+  set(GRPC_LIBRARY_TARGETS
+      address_sorting
+      gpr
+      grpc
+      grpc++
+      grpc++_reflection
+      upb)
 
-  add_library(gRPC::grpc STATIC IMPORTED)
-  set_target_properties(gRPC::grpc PROPERTIES IMPORTED_LOCATION
-                                              "${GRPC_STATIC_LIBRARY_GRPC}")
-  target_link_libraries(gRPC::grpc
-                        INTERFACE gRPC::gpr
-                                  gRPC::upb
-                                  gRPC::address_sorting
-                                  re2::re2
-                                  c-ares::cares
-                                  ZLIB::ZLIB
-                                  OpenSSL::SSL
-                                  Threads::Threads)
-  target_include_directories(gRPC::grpc BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  foreach(target ${GRPC_LIBRARY_TARGETS})
+    if(TARGET ${target} AND NOT TARGET gRPC::${target})
+      add_library(gRPC::${target} ALIAS ${target})
+    endif()
+  endforeach()
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_LOCATION
-                                                "${GRPC_STATIC_LIBRARY_GRPCPP}")
-  target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  target_include_directories(gRPC::grpc++ BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(TARGET grpc_cpp_plugin AND NOT TARGET gRPC::grpc_cpp_plugin)
+    add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
+  endif()
 
-  add_executable(gRPC::grpc_cpp_plugin IMPORTED)
-  set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
-                                                         ${GRPC_CPP_PLUGIN})
-
-  add_dependencies(grpc_ep grpc_dependencies)
-  add_dependencies(gRPC::grpc++ grpc_ep)
-  add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
-  set(GRPC_VENDORED TRUE)
+  # gRPC headers use deprecated std::iterator that causes compilation errors.
+  # This workaround can be removed once we upgrade to a newer gRPC version.
+  if(NOT MSVC)
+    foreach(target ${GRPC_LIBRARY_TARGETS})
+      if(TARGET ${target})
+        target_compile_options(${target} INTERFACE -Wno-error=deprecated-declarations)
+      endif()
+    endforeach()
+  endif()
 
   # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
   # continuation character in these scripts, so we have to create a copy of the
-  # static lib that we will bundle later
-
+  # static lib that we will bundle later.
   set(GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
       "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
                      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
                              ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-                     DEPENDS grpc_ep)
+                     DEPENDS gRPC::grpc++)
   add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
   set_target_properties(gRPC::grpcpp_for_bundling
                         PROPERTIES IMPORTED_LOCATION
@@ -4213,6 +3294,7 @@ macro(build_grpc)
   add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
+  # Add gRPC libraries to bundled static libs.
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
        gRPC::address_sorting
@@ -4220,10 +3302,11 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-  if(ABSL_VENDORED)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
-  endif()
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
   set(ARROW_ABSL_REQUIRED_VERSION 20211102)
@@ -4308,75 +3391,147 @@ endif()
 # ----------------------------------------------------------------------
 # GCS and dependencies
 
-macro(build_crc32c_once)
-  if(NOT TARGET crc32c_ep)
-    message(STATUS "Building crc32c from source")
-    # Build crc32c
-    set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
-    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
-    set(CRC32C_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DCRC32C_BUILD_TESTS=OFF
-        -DCRC32C_BUILD_BENCHMARKS=OFF
-        -DCRC32C_USE_GLOG=OFF)
+function(build_crc32c_once)
+  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
+  message(STATUS "Building CRC32C from source using FetchContent")
+  set(CRC32C_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
+  set(CRC32C_PREFIX
+      "${CRC32C_PREFIX}"
+      PARENT_SCOPE)
 
-    set(_CRC32C_STATIC_LIBRARY
-        "${CRC32C_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crc32c${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(CRC32C_BUILD_BYPRODUCTS ${_CRC32C_STATIC_LIBRARY})
-    set(CRC32C_LIBRARIES crc32c)
+  fetchcontent_declare(crc32c
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${CRC32C_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
 
-    externalproject_add(crc32c_ep
-                        ${EP_COMMON_OPTIONS}
-                        INSTALL_DIR ${CRC32C_PREFIX}
-                        URL ${CRC32C_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
-    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
-    add_library(Crc32c::crc32c STATIC IMPORTED)
-    set_target_properties(Crc32c::crc32c PROPERTIES IMPORTED_LOCATION
-                                                    ${_CRC32C_STATIC_LIBRARY})
-    target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
-    add_dependencies(Crc32c::crc32c crc32c_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
+  prepare_fetchcontent()
+
+  set(CRC32C_BUILD_TESTS OFF)
+  set(CRC32C_BUILD_BENCHMARKS OFF)
+  set(CRC32C_USE_GLOG OFF)
+  set(CRC32C_INSTALL ON)
+  fetchcontent_makeavailable(crc32c)
+
+  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
+  if(NOT TARGET Crc32c::crc32c)
+    add_library(Crc32c::crc32c ALIAS crc32c)
   endif()
-endmacro()
 
-macro(build_nlohmann_json)
-  message(STATUS "Building nlohmann-json from source")
-  # "Build" nlohmann-json
-  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
-  set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
-  set(NLOHMANN_JSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      # google-cloud-cpp requires JSON_MultipleHeaders=ON
-      -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
+  # google-cloud-cpp requires crc32c to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of crc32c
+  # when Arrow is installed.
+  # This custom target ensures crc32c is built before we install.
+  add_custom_target(crc32c_built DEPENDS Crc32c::crc32c)
 
-  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-  # from EP_COMMON_CMAKE_ARGS.
-  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+  # Disable crc32c's install script after it's built to prevent double installation.
+  add_custom_command(OUTPUT "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake"
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# crc32c install disabled to prevent double installation with Arrow"
+                             > "${crc32c_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS crc32c_built
+                     COMMENT "Disabling crc32c install to prevent double installation"
+                     VERBATIM)
 
-  set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
+  add_custom_target(crc32c_install_disabled ALL
+                    DEPENDS "${crc32c_BINARY_DIR}/cmake_install.cmake.saved")
 
-  externalproject_add(nlohmann_json_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
-                      URL ${NLOHMANN_JSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+  # Install crc32c to CRC32C_PREFIX for google-cloud-cpp to find.
+  add_custom_command(OUTPUT "${CRC32C_PREFIX}/.crc32c_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CRC32C_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${CRC32C_PREFIX}/.crc32c_installed"
+                     DEPENDS crc32c_install_disabled
+                     COMMENT "Installing crc32c to ${CRC32C_PREFIX} for google-cloud-cpp"
+                     VERBATIM)
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+  # Make crc32c_fc depend on the install completion marker.
+  add_custom_target(crc32c_fc DEPENDS "${CRC32C_PREFIX}/.crc32c_installed")
 
-  add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-  target_include_directories(nlohmann_json::nlohmann_json BEFORE
-                             INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
-  add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+function(build_nlohmann_json)
+  list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
+  message(STATUS "Building nlohmann-json from source using FetchContent")
+  set(NLOHMANN_JSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_fc-install")
+  set(NLOHMANN_JSON_PREFIX
+      "${NLOHMANN_JSON_PREFIX}"
+      PARENT_SCOPE)
+
+  fetchcontent_declare(nlohmann_json
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${NLOHMANN_JSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # google-cloud-cpp requires JSON_MultipleHeaders=ON
+  set(JSON_BuildTests OFF)
+  set(JSON_MultipleHeaders ON)
+  set(JSON_Install ON)
+  fetchcontent_makeavailable(nlohmann_json)
+
+  # google-cloud-cpp requires nlohmann_json to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of nlohmann_json
+  # when Arrow is installed.
+  # This custom target ensures nlohmann_json is built before we install.
+  add_custom_target(nlohmann_json_built DEPENDS nlohmann_json::nlohmann_json)
+
+  # Disable nlohmann_json's install script after it's built to prevent double installation.
+  add_custom_command(OUTPUT "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# nlohmann-json install disabled to prevent double installation with Arrow"
+                             > "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS nlohmann_json_built
+                     COMMENT "Disabling nlohmann-json install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(nlohmann_json_install_disabled ALL
+                    DEPENDS "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install nlohmann_json to NLOHMANN_JSON_PREFIX for google-cloud-cpp to find.
+  add_custom_command(OUTPUT "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND}
+                             -DCMAKE_INSTALL_PREFIX=${NLOHMANN_JSON_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
+                     DEPENDS nlohmann_json_install_disabled
+                     COMMENT "Installing nlohmann-json to ${NLOHMANN_JSON_PREFIX} for google-cloud-cpp"
+                     VERBATIM)
+
+  # Make nlohmann_json_fc depend on the install completion marker.
+  add_custom_target(nlohmann_json_fc
+                    DEPENDS "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed")
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
@@ -4433,13 +3588,17 @@ macro(build_google_cloud_cpp_storage)
   add_custom_target(google_cloud_cpp_dependencies)
 
   if(ABSL_VENDORED)
-    add_dependencies(google_cloud_cpp_dependencies absl_ep)
+    add_dependencies(google_cloud_cpp_dependencies absl_fc)
   endif()
   if(ZLIB_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)
   endif()
-  add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
-  add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+  add_dependencies(google_cloud_cpp_dependencies crc32c_fc)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+  endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -4655,11 +3814,6 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
     set(PROTOBUF_HOME ${Protobuf_ROOT})
-    # ORC uses this.
-    if(PROTOBUF_VENDORED)
-      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-    endif()
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
@@ -4903,10 +4057,8 @@ macro(build_opentelemetry)
 
   get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                       INTERFACE_INCLUDE_DIRECTORIES)
-  get_target_property(OPENTELEMETRY_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      IMPORTED_LOCATION)
-  get_target_property(OPENTELEMETRY_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
-                      IMPORTED_LOCATION)
+  set(OPENTELEMETRY_PROTOBUF_LIBRARY "$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>")
+  set(OPENTELEMETRY_PROTOC_EXECUTABLE "$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>")
   list(APPEND
        OPENTELEMETRY_CMAKE_ARGS
        -DWITH_OTLP_HTTP=ON
@@ -4939,9 +4091,19 @@ macro(build_opentelemetry)
                       CONFIGURE_COMMAND ""
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json)
+  endif()
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
-                   opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
+  add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
+
+  # Ensure vendored protobuf is installed before OpenTelemetry builds
+  if(PROTOBUF_VENDORED)
+    add_dependencies(opentelemetry_dependencies protobuf_fc)
+  endif()
 
   string(JOIN "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
          ${OPENTELEMETRY_PREFIX_PATH_LIST})
