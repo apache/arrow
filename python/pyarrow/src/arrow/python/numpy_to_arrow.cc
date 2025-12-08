@@ -81,6 +81,37 @@ using internal::NumPyTypeSize;
 
 namespace {
 
+#if NPY_ABI_VERSION >= 0x02000000
+
+// NumPy exposes StringDType helpers in the C-API table from version 2.0 onward,
+// but the corresponding macros are only available when compiling against a
+// 2.0+ feature level. Arrow still targets an older feature level, so provide
+// local wrappers that call the C-API entries directly.
+
+inline npy_string_allocator* ArrowNpyString_acquire_allocator(
+    const PyArray_StringDTypeObject* descr) {
+  using Func = npy_string_allocator* (*)(const PyArray_StringDTypeObject*);
+  auto func = reinterpret_cast<Func>(PyArray_API[316]);
+  return func(descr);
+}
+
+inline void ArrowNpyString_release_allocator(npy_string_allocator* allocator) {
+  using Func = void (*)(npy_string_allocator*);
+  auto func = reinterpret_cast<Func>(PyArray_API[318]);
+  func(allocator);
+}
+
+inline int ArrowNpyString_load(npy_string_allocator* allocator,
+                               const npy_packed_static_string* packed,
+                               npy_static_string* out) {
+  using Func =
+      int (*)(npy_string_allocator*, const npy_packed_static_string*, npy_static_string*);
+  auto func = reinterpret_cast<Func>(PyArray_API[313]);
+  return func(allocator, packed, out);
+}
+
+#endif  // NPY_ABI_VERSION >= 0x02000000
+
 Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
   int64_t null_bytes = bit_util::BytesForBits(length);
@@ -854,7 +885,7 @@ template <typename Builder>
 Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
   auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
 
-  npy_string_allocator* allocator = NpyString_acquire_allocator(descr);
+  npy_string_allocator* allocator = ArrowNpyString_acquire_allocator(descr);
   if (allocator == nullptr) {
     return Status::Invalid("Failed to acquire NumPy StringDType allocator");
   }
@@ -864,7 +895,7 @@ Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
     explicit AllocatorGuard(npy_string_allocator* p) : ptr(p) {}
     ~AllocatorGuard() {
       if (ptr != nullptr) {
-        NpyString_release_allocator(ptr);
+        ArrowNpyString_release_allocator(ptr);
       }
     }
   } guard(allocator);
@@ -872,8 +903,9 @@ Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
   npy_static_string value = {0, nullptr};
 
   auto append_value = [&](const npy_packed_static_string* packed) -> Status {
-    int rc = NpyString_load(allocator, packed, &value);
+    int rc = ArrowNpyString_load(allocator, packed, &value);
     if (rc == -1) {
+      RETURN_IF_PYERROR();
       return Status::Invalid("Failed to unpack NumPy StringDType value");
     }
     if (rc == 1) {
