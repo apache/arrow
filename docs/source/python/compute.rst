@@ -535,7 +535,8 @@ Standard Python Operators
 
 PyArrow supports standard Python operators for element-wise operations for arrays and scalars.
 Currently, the support is limited to some of the standard arithmetic compute functions, i.e.
-arithmetic (`+`, `-`, `/`, `%`, `**`), bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
+arithmetic (``+``, ``-``, ``/``, ``%``, ``**``),
+bitwise (``&``, ``|``, ``^``, ``>>``, ``<<``) and others.
 
 The aforementioned operators use checked version of underlying kernels wherever possible
 and have the same respective constraints, e.g. you cannot add two arrays of strings.
