@@ -139,21 +139,22 @@ TYPED_TEST(ColumnsTest, SQLColumnsTestInputData) {
                        sizeof(column_name)));
   ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  // Sizes are nulls
+  // Sizes are zeros
   EXPECT_EQ(SQL_SUCCESS, SQLColumns(this->stmt, catalog_name, 0, schema_name, 0,
                                     table_name, 0, column_name, 0));
   ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  // Values are nulls
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColumns(this->stmt, 0, sizeof(catalog_name), 0, sizeof(schema_name), 0,
-                       sizeof(table_name), 0, sizeof(column_name)));
+  // Names are nulls
+  EXPECT_EQ(SQL_SUCCESS, SQLColumns(this->stmt, nullptr, sizeof(catalog_name), nullptr,
+                                    sizeof(schema_name), nullptr, sizeof(table_name),
+                                    nullptr, sizeof(column_name)));
   ValidateFetch(this->stmt, SQL_SUCCESS);
   // Close statement cursor to avoid leaving in an invalid state
   SQLFreeStmt(this->stmt, SQL_CLOSE);
 
-  // All values and sizes are nulls
-  EXPECT_EQ(SQL_SUCCESS, SQLColumns(this->stmt, 0, 0, 0, 0, 0, 0, 0, 0));
+  // Names are nulls and sizes are zeros
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLColumns(this->stmt, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0));
   ValidateFetch(this->stmt, SQL_SUCCESS);
 }
 
