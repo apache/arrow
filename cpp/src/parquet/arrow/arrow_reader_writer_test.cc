@@ -28,6 +28,7 @@
 #include <functional>
 #include <set>
 #include <sstream>
+#include <utility>
 #include <vector>
 
 #include "arrow/array/builder_binary.h"
@@ -50,7 +51,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/config.h"  // for ARROW_CSV definition
+#include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
@@ -64,6 +65,7 @@
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
 
+#include "parquet/arrow/fuzz_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
@@ -74,6 +76,7 @@
 #include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/test_util.h"
+#include "parquet/types.h"
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -4149,14 +4152,29 @@ INSTANTIATE_TEST_SUITE_P(Repetition_type, TestNestedSchemaRead,
                          ::testing::Values(Repetition::REQUIRED, Repetition::OPTIONAL));
 
 TEST(TestImpalaConversion, ArrowTimestampToImpalaTimestamp) {
-  // June 20, 2017 16:32:56 and 123456789 nanoseconds
-  int64_t nanoseconds = INT64_C(1497976376123456789);
+  std::vector<std::pair<int64_t, Int96>> test_cases = {
+      // June 20, 2017 16:32:56 and 123456789 nanoseconds
+      {INT64_C(1497976376123456789),
+       {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}}},
+      // January 1, 1970 00:00:00 and 000000000 nanoseconds
+      {INT64_C(0), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440588)}}},
+      // December 31, 1969 23:59:59 and 999999000 nanoseconds
+      {INT64_C(-1000), {{UINT32_C(2437872664), UINT32_C(20116), UINT32_C(2440587)}}},
+      // December 31, 1969 00:00:00 and 000000000 nanoseconds
+      {INT64_C(-86400000000000), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440587)}}},
+      // January 1, 1970 00:00:00 and 000001000 nanoseconds
+      {INT64_C(1000), {{UINT32_C(1000), UINT32_C(0), UINT32_C(2440588)}}},
+      // January 2, 1970 00:00:00 and 000000000 nanoseconds
+      {INT64_C(86400000000000), {{UINT32_C(0), UINT32_C(0), UINT32_C(2440589)}}},
+  };
 
-  Int96 calculated;
+  for (auto& [timestamp, impala_timestamp] : test_cases) {
+    ASSERT_EQ(timestamp, ::parquet::Int96GetNanoSeconds(impala_timestamp));
 
-  Int96 expected = {{UINT32_C(632093973), UINT32_C(13871), UINT32_C(2457925)}};
-  ::parquet::internal::NanosecondsToImpalaTimestamp(nanoseconds, &calculated);
-  ASSERT_EQ(expected, calculated);
+    Int96 calculated;
+    ::parquet::internal::NanosecondsToImpalaTimestamp(timestamp, &calculated);
+    ASSERT_EQ(impala_timestamp, calculated);
+  }
 }
 
 void TryReadDataFile(const std::string& path,
@@ -5813,29 +5831,53 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
 }
 
 TEST(TestArrowReadWrite, FuzzReader) {
+  using ::parquet::fuzzing::internal::FuzzReader;
+
   constexpr size_t kMaxFileSize = 1024 * 1024 * 1;
+
   auto check_bad_file = [&](const std::string& file_name) {
     SCOPED_TRACE(file_name);
     auto path = test::get_data_file(file_name, /*is_good=*/false);
     PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
                                              path, ::arrow::io::FileMode::READ));
     PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
-    auto s = internal::FuzzReader(buffer->data(), buffer->size());
+    auto s = FuzzReader(buffer->data(), buffer->size());
     ASSERT_NOT_OK(s);
   };
+
+  auto check_good_file = [&](const std::string& file_name, bool expect_error = false) {
+    SCOPED_TRACE(file_name);
+    auto path = test::get_data_file(file_name, /*is_good=*/true);
+    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
+                                             path, ::arrow::io::FileMode::READ));
+    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
+    auto s = FuzzReader(buffer->data(), buffer->size());
+    if (expect_error) {
+      ASSERT_NOT_OK(s);
+    } else {
+      ASSERT_OK(s);
+    }
+  };
+
   check_bad_file("PARQUET-1481.parquet");
   check_bad_file("ARROW-GH-41317.parquet");
   check_bad_file("ARROW-GH-41321.parquet");
   check_bad_file("ARROW-RS-GH-6229-LEVELS.parquet");
   check_bad_file("ARROW-RS-GH-6229-DICTHEADER.parquet");
-  {
-    auto path = test::get_data_file("alltypes_plain.parquet", /*is_good=*/true);
-    PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::MemoryMappedFile::Open(
-                                             path, ::arrow::io::FileMode::READ));
-    PARQUET_ASSIGN_OR_THROW(auto buffer, source->Read(kMaxFileSize));
-    auto s = internal::FuzzReader(buffer->data(), buffer->size());
-    ASSERT_OK(s);
-  }
+
+  check_good_file("alltypes_plain.parquet");
+  check_good_file("data_index_bloom_encoding_stats.parquet");
+  check_good_file("data_index_bloom_encoding_with_length.parquet");
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+  // Encrypted files in the testing repo should be ok, except those
+  // that require external key material or an explicitly-supplied AAD.
+  check_good_file("uniform_encryption.parquet.encrypted");
+  check_good_file("encrypt_columns_and_footer_aad.parquet.encrypted");
+  check_good_file("encrypt_columns_and_footer.parquet.encrypted");
+  check_good_file("encrypt_columns_plaintext_footer.parquet.encrypted");
+#else
+  check_good_file("uniform_encryption.parquet.encrypted", /*expect_error=*/true);
+#endif
 }
 
 // Test writing table with a closed writer, should not segfault (GH-37969).

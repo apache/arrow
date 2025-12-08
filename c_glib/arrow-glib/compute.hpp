@@ -175,3 +175,26 @@ garrow_struct_field_options_new_raw(
   const arrow::compute::StructFieldOptions *arrow_options);
 arrow::compute::StructFieldOptions *
 garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options);
+
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new_raw(
+  const arrow::compute::AssumeTimezoneOptions *arrow_options);
+arrow::compute::AssumeTimezoneOptions *
+garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options);
+
+GArrowCumulativeOptions *
+garrow_cumulative_options_new_raw(const arrow::compute::CumulativeOptions *arrow_options);
+arrow::compute::CumulativeOptions *
+garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options);
+
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new_raw(
+  const arrow::compute::DictionaryEncodeOptions *arrow_options);
+arrow::compute::DictionaryEncodeOptions *
+garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options);
+
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new_raw(
+  const arrow::compute::ElementWiseAggregateOptions *arrow_options);
+arrow::compute::ElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options);

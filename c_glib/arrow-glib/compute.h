@@ -1122,4 +1122,122 @@ GARROW_AVAILABLE_IN_16_0
 GArrowStructFieldOptions *
 garrow_struct_field_options_new(void);
 
+/**
+ * GArrowAssumeTimezoneAmbiguous:
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE: Raise an error on ambiguous times.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST: Emit the earliest instant.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST: Emit the latest instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Ambiguous`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST,
+} GArrowAssumeTimezoneAmbiguous;
+
+/**
+ * GArrowAssumeTimezoneNonexistent:
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE: Raise an error on nonexistent times.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST: Emit the instant just before the DST
+ * shift.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST: Emit the DST shift instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Nonexistent`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST,
+} GArrowAssumeTimezoneNonexistent;
+
+#define GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS (garrow_assume_timezone_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowAssumeTimezoneOptions,
+                         garrow_assume_timezone_options,
+                         GARROW,
+                         ASSUME_TIMEZONE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowAssumeTimezoneOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new(void);
+
+#define GARROW_TYPE_CUMULATIVE_OPTIONS (garrow_cumulative_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowCumulativeOptions,
+                         garrow_cumulative_options,
+                         GARROW,
+                         CUMULATIVE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowCumulativeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCumulativeOptions *
+garrow_cumulative_options_new(void);
+
+/**
+ * GArrowDictionaryEncodeNullEncodingBehavior:
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE: The null value will be added to the
+ * dictionary with a proper index.
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK: The null value will be masked in the
+ * indices array.
+ *
+ * They correspond to the values of
+ * `arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE,
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK,
+} GArrowDictionaryEncodeNullEncodingBehavior;
+
+#define GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS                                            \
+  (garrow_dictionary_encode_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryEncodeOptions,
+                         garrow_dictionary_encode_options,
+                         GARROW,
+                         DICTIONARY_ENCODE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDictionaryEncodeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new(void);
+
+#define GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS                                       \
+  (garrow_element_wise_aggregate_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowElementWiseAggregateOptions,
+                         garrow_element_wise_aggregate_options,
+                         GARROW,
+                         ELEMENT_WISE_AGGREGATE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowElementWiseAggregateOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new(void);
+
 G_END_DECLS

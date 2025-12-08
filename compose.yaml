@@ -999,6 +999,7 @@ services:
         base: ${REPO}:${ARCH}-ubuntu-${UBUNTU}-cuda-${CUDA}-cpp
         numba: ${NUMBA}
         numba_cuda: ${NUMBA_CUDA}
+        cuda: ${CUDA}
     shm_size: *shm-size
     environment:
       <<: [*common, *ccache, *sccache]
@@ -1247,7 +1248,6 @@ services:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        python_patch_version: ${PYTHON_PATCH_VERSION}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-imports.dockerfile
       cache_from:
@@ -1290,7 +1290,6 @@ services:
       args:
         base: "${ARCH}/alpine:${ALPINE_LINUX}"
         python_version: ${PYTHON}
-        python_patch_version: ${PYTHON_PATCH_VERSION}
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-musllinux-test-unittests.dockerfile
       cache_from:
