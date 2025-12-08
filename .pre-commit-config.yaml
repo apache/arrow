@@ -301,6 +301,7 @@ repos:
           ?^ci/scripts/ccache_setup\.sh$|
           ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
+          ?^ci/scripts/cpp_build\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
