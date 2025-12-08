@@ -27,14 +27,21 @@ project(
         check: true,
     ).stdout().strip(),
     license: 'Apache-2.0',
-    #license_files: ['../LICENSE.txt'],
+    license_files: ['LICENSE.txt'],
     meson_version: '>=1.4.0',
     default_options: ['buildtype=release', 'cpp_std=c++17'],
 )
 
 py = import('python').find_installation(pure: false)
 
-#install_data('../NOTICE.txt', install_dir: py.get_install_dir() / 'pyarrow')
+install_data('NOTICE.txt', install_dir: py.get_install_dir() / 'pyarrow')
+# Meson-python suggests using a dist script to resolve symlinks to physical
+# files when creating the sdist. See
+# https://github.com/mesonbuild/meson-python/discussions/823#discussioncomment-15078932
+meson.add_dist_script(
+    py,
+    meson.project_source_root() / 'scripts/generate_dist.py',
+)
 
 if get_option('default_library') == 'static'
     cmake_suffix = 'static'
