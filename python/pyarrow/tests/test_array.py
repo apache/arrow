@@ -2771,9 +2771,23 @@ def test_array_from_numpy_string_dtype():
     assert arrow_arr.type == pa.utf8()
     assert arrow_arr.to_pylist() == ["some", "strings"]
 
+    arrow_arr = pa.array(arr, type=pa.string())
+    assert arrow_arr.type == pa.string()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
     arrow_arr = pa.array(arr, type=pa.large_string())
     assert arrow_arr.type == pa.large_string()
     assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arrow_arr = pa.array(arr, type=pa.string_view())
+    assert arrow_arr.type == pa.string_view()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arr_full = np.array(["a", "b", "c", "d", "e"], dtype=StringDType())
+    arr = arr_full[::2]
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["a", "c", "e"]
 
 
 @pytest.mark.numpy

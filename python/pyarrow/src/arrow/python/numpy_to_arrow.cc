@@ -60,6 +60,12 @@
 #include "arrow/python/type_traits.h"
 #include "arrow/python/vendored/pythoncapi_compat.h"
 
+#if NPY_ABI_VERSION >= 0x02000000
+// Needed for NpyString_acquire_allocator / NpyString_load /
+// NpyString_release_allocator
+#  include <numpy/arrayobject.h>
+#endif
+
 namespace arrow {
 
 using internal::checked_cast;
@@ -848,22 +854,26 @@ template <typename Builder>
 Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
   auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
 
-  PyAcquireGIL gil_lock;
-
   npy_string_allocator* allocator = NpyString_acquire_allocator(descr);
   if (allocator == nullptr) {
     return Status::Invalid("Failed to acquire NumPy StringDType allocator");
   }
 
-  std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
-      allocator_guard(allocator, &NpyString_release_allocator);
+  struct AllocatorGuard {
+    npy_string_allocator* ptr;
+    explicit AllocatorGuard(npy_string_allocator* p) : ptr(p) {}
+    ~AllocatorGuard() {
+      if (ptr != nullptr) {
+        NpyString_release_allocator(ptr);
+      }
+    }
+  } guard(allocator);
 
   npy_static_string value = {0, nullptr};
 
   auto append_value = [&](const npy_packed_static_string* packed) -> Status {
     int rc = NpyString_load(allocator, packed, &value);
     if (rc == -1) {
-      RETURN_IF_PYERROR();
       return Status::Invalid("Failed to unpack NumPy StringDType value");
     }
     if (rc == 1) {
@@ -905,7 +915,7 @@ Status NumPyConverter::ConvertStringDType() {
 
   switch (type_->id()) {
     case Type::STRING: {
-      internal::ChunkedStringBuilder builder(kBinaryChunksize, pool_);
+      arrow::internal::ChunkedStringBuilder builder(kBinaryChunksize, pool_);
       RETURN_NOT_OK(builder.Reserve(length_));
       RETURN_NOT_OK(AppendStringDTypeValues(&builder));
 
