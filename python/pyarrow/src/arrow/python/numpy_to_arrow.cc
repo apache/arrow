@@ -44,7 +44,6 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/scope_guard.h"
 #include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "arrow/visit_type_inline.h"
@@ -860,8 +859,8 @@ Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
     return Status::Invalid("Failed to acquire NumPy StringDType allocator");
   }
 
-  auto release_allocator = ::arrow::internal::MakeScopeGuard(
-      [&]() { NpyString_release_allocator(allocator); });
+  std::unique_ptr<npy_string_allocator, decltype(&NpyString_release_allocator)>
+      allocator_guard(allocator, &NpyString_release_allocator);
 
   npy_static_string value = {0, nullptr};
 
