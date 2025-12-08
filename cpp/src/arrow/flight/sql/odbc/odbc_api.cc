@@ -1147,8 +1147,13 @@ SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT* column_count_ptr) {
   ARROW_LOG(DEBUG) << "SQLNumResultCols called with stmt: " << stmt
                    << ", column_count_ptr: "
                    << static_cast<const void*>(column_count_ptr);
-  // GH-47713 TODO: Implement SQLNumResultCols
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    statement->GetColumnCount(column_count_ptr);
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN* row_count_ptr) {
