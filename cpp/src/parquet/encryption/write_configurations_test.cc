@@ -104,6 +104,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndTheFooter) {
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
   encryption_cols2[path_to_float_field_] =
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
+  encryption_cols2[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
 
   FileEncryptionProperties::Builder file_encryption_builder_2(kFooterEncryptionKey_);
 
@@ -122,6 +123,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsWithPlaintextFooter) {
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
   encryption_cols3[path_to_float_field_] =
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
+  encryption_cols3[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
 
   FileEncryptionProperties::Builder file_encryption_builder_3(kFooterEncryptionKey_);
 
@@ -140,6 +142,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterWithAadPrefix) {
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
   encryption_cols4[path_to_float_field_] =
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
+  encryption_cols4[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
 
   FileEncryptionProperties::Builder file_encryption_builder_4(kFooterEncryptionKey_);
 
@@ -159,6 +162,7 @@ TEST_F(TestEncryptionConfiguration,
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
   encryption_cols5[path_to_float_field_] =
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
+  encryption_cols5[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
 
   FileEncryptionProperties::Builder file_encryption_builder_5(kFooterEncryptionKey_);
 
@@ -179,6 +183,7 @@ TEST_F(TestEncryptionConfiguration, EncryptTwoColumnsAndFooterUseAES_GCM_CTR) {
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1_, "kc1");
   encryption_cols6[path_to_float_field_] =
       ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2_, "kc2");
+  encryption_cols6[kBooleanFieldName] = ColumnEncryptionProperties::Unencrypted();
 
   FileEncryptionProperties::Builder file_encryption_builder_6(kFooterEncryptionKey_);
 

@@ -375,11 +375,5 @@ PARQUET_EXPORT
                                     std::shared_ptr<::arrow::Scalar>* min,
                                     std::shared_ptr<::arrow::Scalar>* max);
 
-namespace internal {
-
-PARQUET_EXPORT
-::arrow::Status FuzzReader(const uint8_t* data, int64_t size);
-
-}  // namespace internal
 }  // namespace arrow
 }  // namespace parquet

@@ -277,8 +277,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 std::shared_ptr<ColumnEncryptionProperties>
 FileEncryptionProperties::column_encryption_properties(const std::string& column_path) {
   if (encrypted_columns_.size() == 0) {
-    auto builder = std::make_shared<ColumnEncryptionProperties::Builder>(column_path);
-    return builder->build();
+    return ColumnEncryptionProperties::WithFooterKey();
   }
   if (encrypted_columns_.find(column_path) != encrypted_columns_.end()) {
     return encrypted_columns_[column_path];
