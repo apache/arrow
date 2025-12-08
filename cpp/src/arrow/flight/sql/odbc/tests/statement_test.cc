@@ -48,13 +48,13 @@ TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
 
   SQLINTEGER val;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Verify 1 is returned
   EXPECT_EQ(1, val);
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
-  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
@@ -82,14 +82,14 @@ TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
   SQLINTEGER val;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
 
   // Verify 1 is returned
   EXPECT_EQ(1, val);
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
-  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
@@ -975,7 +975,7 @@ TYPED_TEST(StatementTest, DISABLED_TestSQLExecDirectFloatTruncation) {
   int16_t ssmall_int_val;
 
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 1, SQL_C_SSHORT, &ssmall_int_val, 0, 0));
+            SQLGetData(this->stmt, 1, SQL_C_SSHORT, &ssmall_int_val, 0, nullptr));
   // Verify float truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01S07);
 
@@ -1023,7 +1023,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
   SQLINTEGER val;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Verify 1 is returned for non-truncation case.
   EXPECT_EQ(1, val);
 
@@ -1032,7 +1032,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   SQLCHAR char_val[len];
   SQLLEN buf_len = sizeof(SQLCHAR) * len;
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 2, SQL_C_CHAR, &char_val, buf_len, 0));
+            SQLGetData(this->stmt, 2, SQL_C_CHAR, &char_val, buf_len, nullptr));
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 
@@ -1042,7 +1042,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   size_t wchar_size = GetSqlWCharSize();
   buf_len = wchar_size * len2;
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 3, SQL_C_WCHAR, &wchar_val, buf_len, 0));
+            SQLGetData(this->stmt, 3, SQL_C_WCHAR, &wchar_val, buf_len, nullptr));
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 
@@ -1050,7 +1050,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   std::vector<int8_t> varbinary_val(3);
   buf_len = varbinary_val.size();
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 4, SQL_C_BINARY, &varbinary_val[0], buf_len, 0));
+            SQLGetData(this->stmt, 4, SQL_C_BINARY, &varbinary_val[0], buf_len, nullptr));
   // Verify binary truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 }
@@ -1069,7 +1069,7 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
 
   SQLINTEGER val;
 
-  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Verify invalid null indicator is reported, as it is required
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
 }
