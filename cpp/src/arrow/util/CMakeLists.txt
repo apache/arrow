@@ -106,9 +106,9 @@ add_arrow_test(bit-utility-test
 add_arrow_test(alp-test
                SOURCES
                alp/alp_test.cc
-               alp/Alp.cpp
-               alp/AlpSampler.cpp
-	       alp/AlpWrapper.cpp)
+               alp/Alp.cc
+               alp/AlpSampler.cc
+	       alp/AlpWrapper.cc)
 
 add_arrow_test(crc32-test
                SOURCES
