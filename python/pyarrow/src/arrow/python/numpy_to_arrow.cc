@@ -60,10 +60,6 @@
 #include "arrow/python/type_traits.h"
 #include "arrow/python/vendored/pythoncapi_compat.h"
 
-#if NPY_ABI_VERSION >= 0x02000000
-#include <numpy/strings.h>
-#endif
-
 namespace arrow {
 
 using internal::checked_cast;
