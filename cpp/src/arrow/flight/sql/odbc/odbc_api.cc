@@ -1100,8 +1100,16 @@ SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
                    << ", record_number: " << record_number << ", c_type: " << c_type
                    << ", data_ptr: " << data_ptr << ", buffer_length: " << buffer_length
                    << ", indicator_ptr: " << static_cast<const void*>(indicator_ptr);
-  // GH-47716 TODO: Implement SQLBindCol
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // GH-47021 TODO: implement driver to return indicator value when data pointer is null
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    ODBCDescriptor* ard = statement->GetARD();
+    ard->BindCol(record_number, c_type, data_ptr, buffer_length, indicator_ptr);
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLCloseCursor(SQLHSTMT stmt) {
