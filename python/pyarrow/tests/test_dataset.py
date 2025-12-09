@@ -432,7 +432,14 @@ def test_dataset(dataset, dataset_reader):
     assert isinstance(dataset, ds.Dataset)
     assert isinstance(dataset.schema, pa.Schema)
 
-    # TODO(kszucs): test non-boolean Exprs for filter do raise
+    non_boolean_expr = ds.field('i64')
+    with pytest.raises(TypeError, match="must evaluate to bool"):
+        dataset.to_table(filter=non_boolean_expr)
+
+    non_boolean_expr2 = ds.field('i64') + 1
+    with pytest.raises(TypeError, match="must evaluate to bool"):
+        dataset.to_table(filter=non_boolean_expr2)
+
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
 
