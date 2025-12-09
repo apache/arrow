@@ -16,7 +16,7 @@
 # under the License.
 
 module Arrow
-  class ListArrayBuilder
+  class LargeListArrayBuilder
     class << self
       def build(data_type, values)
         builder = new(data_type)

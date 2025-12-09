@@ -214,6 +214,16 @@ module ArrowFormat
     end
   end
 
+  class LargeListType < VariableSizeListType
+    def initialize(child)
+      super("LargeList", child)
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, child)
+      LargeListArray.new(self, size, validity_buffer, offsets_buffer, child)
+    end
+  end
+
   class StructType < Type
     attr_reader :children
     def initialize(children)

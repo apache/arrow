@@ -16,14 +16,35 @@
 # under the License.
 
 module Arrow
-  class ListArrayBuilder
-    class << self
-      def build(data_type, values)
-        builder = new(data_type)
-        builder.build(values)
+  module ListFieldResolvable
+    private
+    def resolve_data_type(arg)
+      case arg
+      when DataType, String, Symbol, ::Array
+        DataType.resolve(arg)
+      when Hash
+        return nil if arg[:name]
+        return nil unless arg[:type]
+        DataType.resolve(arg)
+      else
+        nil
       end
     end
 
-    prepend ListValuesAppendable
+    def default_field_name
+      "item"
+    end
+
+    def resolve_field(arg)
+      data_type = resolve_data_type(arg)
+      if data_type
+        Field.new(default_field_name, data_type)
+      elsif arg.is_a?(Hash) and arg.key?(:field)
+        description = arg
+        description[:field]
+      else
+        arg
+      end
+    end
   end
 end
