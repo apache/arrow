@@ -47,7 +47,7 @@ TEST(TestMessageInternal, TestByteIdentical) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   std::shared_ptr<KeyValueMetadata> metadata =
       KeyValueMetadata::Make({"key_1", "key_2"}, {"key_1_value", "key_2_value"});
-  auto schema = ::arrow::schema({f0}, metadata);
+  auto schema = ::arrow::schema({f0}, Endianness::Little, metadata);
 
   // Serialize the Schema to a Buffer
   std::shared_ptr<Buffer> out_buffer;
@@ -73,6 +73,7 @@ TEST(TestMessageInternal, TestByteIdentical) {
       0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x66, 0x30, 0x00, 0x00, 0x08, 0x00,
       0x0C, 0x00, 0x08, 0x00, 0x07, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
       0x40, 0x00, 0x00, 0x00};
+
   Buffer expected_buffer(expected, sizeof(expected));
 
   AssertBufferEqual(expected_buffer, *out_buffer);

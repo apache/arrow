@@ -14,6 +14,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require_relative "bitmap"
+
 module ArrowFormat
   class Array
     attr_reader :type
@@ -37,20 +39,36 @@ module ArrowFormat
     private
     def apply_validity(array)
       return array if @validity_buffer.nil?
-      n_bytes = @size / 8
-      @validity_buffer.each(:U8, 0, n_bytes) do |offset, value|
-        7.times do |i|
-          array[offset * 8 + i] = nil if (value & (1 << (i % 8))).zero?
-        end
-      end
-      remained_bits = @size % 8
-      unless remained_bits.zero?
-        value = @validity_buffer.get_value(:U8, n_bytes)
-        remained_bits.times do |i|
-          array[n_bytes * 8 + i] = nil if (value & (1 << (i % 8))).zero?
-        end
+      @validity_bitmap ||= Bitmap.new(@validity_buffer, @size)
+      @validity_bitmap.each_with_index do |bit, i|
+        array[i] = nil if bit.zero?
       end
       array
+    end
+  end
+
+  class NullArray < Array
+    def initialize(type, size)
+      super(type, size, nil)
+    end
+
+    def to_a
+      [nil] * @size
+    end
+  end
+
+  class BooleanArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+
+    def to_a
+      @values_bitmap ||= Bitmap.new(@values_buffer, @size)
+      values = @values_bitmap.each.collect do |bit|
+        not bit.zero?
+      end
+      apply_validity(values)
     end
   end
 
@@ -73,7 +91,39 @@ module ArrowFormat
     end
   end
 
-  class BinaryArray < Array
+  class FloatingPointArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+  end
+
+  class Float32Array < FloatingPointArray
+    def to_a
+      apply_validity(@values_buffer.values(:f32, 0, @size))
+    end
+  end
+
+  class Float64Array < FloatingPointArray
+    def to_a
+      apply_validity(@values_buffer.values(:f64, 0, @size))
+    end
+  end
+
+  class DateArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+  end
+
+  class Date32Array < DateArray
+    def to_a
+      apply_validity(@values_buffer.values(:s32, 0, @size))
+    end
+  end
+
+  class VariableSizeBinaryLayoutArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
@@ -82,13 +132,117 @@ module ArrowFormat
 
     def to_a
       values = @offsets_buffer.
-        each(:s32, 0, @size + 1). # TODO: big endian support
+        each(buffer_type, 0, @size + 1).
         each_cons(2).
         collect do |(_, offset), (_, next_offset)|
         length = next_offset - offset
-        @values_buffer.get_string(offset, length)
+        @values_buffer.get_string(offset, length, encoding)
       end
       apply_validity(values)
+    end
+  end
+
+  class BinaryArray < VariableSizeBinaryLayoutArray
+    private
+    def buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+  end
+
+  class LargeBinaryArray < VariableSizeBinaryLayoutArray
+    private
+    def buffer_type
+      :s64 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+  end
+
+  class UTF8Array < VariableSizeBinaryLayoutArray
+    private
+    def buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::UTF_8
+    end
+  end
+
+  class VariableSizeListArray < Array
+    def initialize(type, size, validity_buffer, offsets_buffer, child)
+      super(type, size, validity_buffer)
+      @offsets_buffer = offsets_buffer
+      @child = child
+    end
+
+    def to_a
+      child_values = @child.to_a
+      values = @offsets_buffer.
+        each(offset_type, 0, @size + 1).
+        each_cons(2).
+        collect do |(_, offset), (_, next_offset)|
+        child_values[offset...next_offset]
+      end
+      apply_validity(values)
+    end
+  end
+
+  class ListArray < VariableSizeListArray
+    private
+    def offset_type
+      :s32 # TODO: big endian support
+    end
+  end
+
+  class LargeListArray < VariableSizeListArray
+    private
+    def offset_type
+      :s64 # TODO: big endian support
+    end
+  end
+
+  class StructArray < Array
+    def initialize(type, size, validity_buffer, children)
+      super(type, size, validity_buffer)
+      @children = children
+    end
+
+    def to_a
+      if @children.empty?
+        values = [[]] * @size
+      else
+        children_values = @children.collect(&:to_a)
+        values = children_values[0].zip(*children_values[1..-1])
+      end
+      apply_validity(values)
+    end
+  end
+
+  class MapArray < VariableSizeListArray
+    def to_a
+      super.collect do |entries|
+        if entries.nil?
+          entries
+        else
+          hash = {}
+          entries.each do |key, value|
+            hash[key] = value
+          end
+          hash
+        end
+      end
+    end
+
+    private
+    def offset_type
+      :s32 # TODO: big endian support
     end
   end
 end

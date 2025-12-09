@@ -22,9 +22,23 @@ require_relative "record-batch"
 require_relative "schema"
 require_relative "type"
 
+require_relative "org/apache/arrow/flatbuf/binary"
+require_relative "org/apache/arrow/flatbuf/bool"
+require_relative "org/apache/arrow/flatbuf/date"
+require_relative "org/apache/arrow/flatbuf/date_unit"
+require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
+require_relative "org/apache/arrow/flatbuf/int"
+require_relative "org/apache/arrow/flatbuf/large_binary"
+require_relative "org/apache/arrow/flatbuf/large_list"
+require_relative "org/apache/arrow/flatbuf/list"
+require_relative "org/apache/arrow/flatbuf/map"
 require_relative "org/apache/arrow/flatbuf/message"
+require_relative "org/apache/arrow/flatbuf/null"
+require_relative "org/apache/arrow/flatbuf/precision"
 require_relative "org/apache/arrow/flatbuf/schema"
+require_relative "org/apache/arrow/flatbuf/struct_"
+require_relative "org/apache/arrow/flatbuf/utf8"
 
 module ArrowFormat
   class FileReader
@@ -85,9 +99,10 @@ module ArrowFormat
         when Org::Apache::Arrow::Flatbuf::RecordBatch
           n_rows = header.length
           columns = []
+          nodes = header.nodes
           buffers = header.buffers
           schema.fields.each do |field|
-            columns << read_column(field, n_rows, buffers, body)
+            columns << read_column(field, nodes, buffers, body)
           end
           yield(RecordBatch.new(schema, n_rows, columns))
         end
@@ -124,28 +139,66 @@ module ArrowFormat
       Org::Apache::Arrow::Flatbuf::Footer.new(footer_data)
     end
 
+    def read_field(fb_field)
+      fb_type = fb_field.type
+      case fb_type
+      when Org::Apache::Arrow::Flatbuf::Null
+        type = NullType.singleton
+      when Org::Apache::Arrow::Flatbuf::Bool
+        type = BooleanType.singleton
+      when Org::Apache::Arrow::Flatbuf::Int
+        case fb_type.bit_width
+        when 8
+          if fb_type.signed?
+            type = Int8Type.singleton
+          else
+            type = UInt8Type.singleton
+          end
+        end
+      when Org::Apache::Arrow::Flatbuf::FloatingPoint
+        case fb_type.precision
+        when Org::Apache::Arrow::Flatbuf::Precision::SINGLE
+          type = Float32Type.singleton
+        when Org::Apache::Arrow::Flatbuf::Precision::DOUBLE
+          type = Float64Type.singleton
+        end
+      when Org::Apache::Arrow::Flatbuf::Date
+        case fb_type.unit
+        when Org::Apache::Arrow::Flatbuf::DateUnit::DAY
+          type = Date32Type.singleton
+        end
+      when Org::Apache::Arrow::Flatbuf::List
+        type = ListType.new(read_field(fb_field.children[0]))
+      when Org::Apache::Arrow::Flatbuf::LargeList
+        type = LargeListType.new(read_field(fb_field.children[0]))
+      when Org::Apache::Arrow::Flatbuf::Struct
+        children = fb_field.children.collect {|child| read_field(child)}
+        type = StructType.new(children)
+      when Org::Apache::Arrow::Flatbuf::Map
+        type = MapType.new(read_field(fb_field.children[0]))
+      when Org::Apache::Arrow::Flatbuf::Binary
+        type = BinaryType.singleton
+      when Org::Apache::Arrow::Flatbuf::LargeBinary
+        type = LargeBinaryType.singleton
+      when Org::Apache::Arrow::Flatbuf::Utf8
+        type = UTF8Type.singleton
+      end
+      Field.new(fb_field.name, type, fb_field.nullable?)
+    end
+
     def read_schema(fb_schema)
       fields = fb_schema.fields.collect do |fb_field|
-        fb_type = fb_field.type
-        case fb_type
-        when Org::Apache::Arrow::Flatbuf::Int
-          case fb_type.bit_width
-          when 8
-            if fb_type.signed?
-              type = Int8Type.singleton
-            else
-              type = UInt8Type.singleton
-            end
-          end
-        when Org::Apache::Arrow::Flatbuf::Binary
-          type = BinaryType.singleton
-        end
-        Field.new(fb_field.name, type)
+        read_field(fb_field)
       end
       Schema.new(fields)
     end
 
-    def read_column(field, n_rows, buffers, body)
+    def read_column(field, nodes, buffers, body)
+      node = nodes.shift
+      length = node.length
+
+      return field.type.build_array(length) if field.type.is_a?(NullType)
+
       validity_buffer = buffers.shift
       if validity_buffer.length.zero?
         validity = nil
@@ -154,17 +207,28 @@ module ArrowFormat
       end
 
       case field.type
-      when Int8Type,
-           UInt8Type
+      when BooleanType,
+           NumberType,
+           DateType
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
-        field.type.build_array(n_rows, validity, values)
-      when BinaryType
+        field.type.build_array(length, validity, values)
+      when VariableSizeListType
+        offsets_buffer = buffers.shift
+        offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
+        child = read_column(field.type.child, nodes, buffers, body)
+        field.type.build_array(length, validity, offsets, child)
+      when StructType
+        children = field.type.children.collect do |child|
+          read_column(child, nodes, buffers, body)
+        end
+        field.type.build_array(length, validity, children)
+      when VariableSizeBinaryType
         offsets_buffer = buffers.shift
         values_buffer = buffers.shift
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
         values = body.slice(values_buffer.offset, values_buffer.length)
-        field.type.build_array(n_rows, validity, offsets, values)
+        field.type.build_array(length, validity, offsets, values)
       end
     end
   end

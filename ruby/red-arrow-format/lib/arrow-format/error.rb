@@ -18,11 +18,14 @@ module ArrowFormat
   class Error < StandardError
   end
 
-  class ReadError < StandardError
+  class ReadError < Error
     attr_reader :buffer
     def initialize(buffer, message)
       @buffer = buffer
       super("#{message}: #{@buffer}")
     end
+  end
+
+  class TypeError < Error
   end
 end

@@ -3391,75 +3391,147 @@ endif()
 # ----------------------------------------------------------------------
 # GCS and dependencies
 
-macro(build_crc32c_once)
-  if(NOT TARGET crc32c_ep)
-    message(STATUS "Building crc32c from source")
-    # Build crc32c
-    set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
-    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
-    set(CRC32C_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DCRC32C_BUILD_TESTS=OFF
-        -DCRC32C_BUILD_BENCHMARKS=OFF
-        -DCRC32C_USE_GLOG=OFF)
+function(build_crc32c_once)
+  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
+  message(STATUS "Building CRC32C from source using FetchContent")
+  set(CRC32C_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
+  set(CRC32C_PREFIX
+      "${CRC32C_PREFIX}"
+      PARENT_SCOPE)
 
-    set(_CRC32C_STATIC_LIBRARY
-        "${CRC32C_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crc32c${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(CRC32C_BUILD_BYPRODUCTS ${_CRC32C_STATIC_LIBRARY})
-    set(CRC32C_LIBRARIES crc32c)
+  fetchcontent_declare(crc32c
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${CRC32C_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
 
-    externalproject_add(crc32c_ep
-                        ${EP_COMMON_OPTIONS}
-                        INSTALL_DIR ${CRC32C_PREFIX}
-                        URL ${CRC32C_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
-    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
-    add_library(Crc32c::crc32c STATIC IMPORTED)
-    set_target_properties(Crc32c::crc32c PROPERTIES IMPORTED_LOCATION
-                                                    ${_CRC32C_STATIC_LIBRARY})
-    target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
-    add_dependencies(Crc32c::crc32c crc32c_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
+  prepare_fetchcontent()
+
+  set(CRC32C_BUILD_TESTS OFF)
+  set(CRC32C_BUILD_BENCHMARKS OFF)
+  set(CRC32C_USE_GLOG OFF)
+  set(CRC32C_INSTALL ON)
+  fetchcontent_makeavailable(crc32c)
+
+  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
+  if(NOT TARGET Crc32c::crc32c)
+    add_library(Crc32c::crc32c ALIAS crc32c)
   endif()
-endmacro()
 
-macro(build_nlohmann_json)
-  message(STATUS "Building nlohmann-json from source")
-  # "Build" nlohmann-json
-  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
-  set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
-  set(NLOHMANN_JSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      # google-cloud-cpp requires JSON_MultipleHeaders=ON
-      -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
+  # google-cloud-cpp requires crc32c to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of crc32c
+  # when Arrow is installed.
+  # This custom target ensures crc32c is built before we install.
+  add_custom_target(crc32c_built DEPENDS Crc32c::crc32c)
 
-  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-  # from EP_COMMON_CMAKE_ARGS.
-  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+  # Disable crc32c's install script after it's built to prevent double installation.
+  add_custom_command(OUTPUT "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake"
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# crc32c install disabled to prevent double installation with Arrow"
+                             > "${crc32c_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS crc32c_built
+                     COMMENT "Disabling crc32c install to prevent double installation"
+                     VERBATIM)
 
-  set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
+  add_custom_target(crc32c_install_disabled ALL
+                    DEPENDS "${crc32c_BINARY_DIR}/cmake_install.cmake.saved")
 
-  externalproject_add(nlohmann_json_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
-                      URL ${NLOHMANN_JSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+  # Install crc32c to CRC32C_PREFIX for google-cloud-cpp to find.
+  add_custom_command(OUTPUT "${CRC32C_PREFIX}/.crc32c_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CRC32C_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${crc32c_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${CRC32C_PREFIX}/.crc32c_installed"
+                     DEPENDS crc32c_install_disabled
+                     COMMENT "Installing crc32c to ${CRC32C_PREFIX} for google-cloud-cpp"
+                     VERBATIM)
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+  # Make crc32c_fc depend on the install completion marker.
+  add_custom_target(crc32c_fc DEPENDS "${CRC32C_PREFIX}/.crc32c_installed")
 
-  add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-  target_include_directories(nlohmann_json::nlohmann_json BEFORE
-                             INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
-  add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+function(build_nlohmann_json)
+  list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
+  message(STATUS "Building nlohmann-json from source using FetchContent")
+  set(NLOHMANN_JSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_fc-install")
+  set(NLOHMANN_JSON_PREFIX
+      "${NLOHMANN_JSON_PREFIX}"
+      PARENT_SCOPE)
+
+  fetchcontent_declare(nlohmann_json
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${NLOHMANN_JSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # google-cloud-cpp requires JSON_MultipleHeaders=ON
+  set(JSON_BuildTests OFF)
+  set(JSON_MultipleHeaders ON)
+  set(JSON_Install ON)
+  fetchcontent_makeavailable(nlohmann_json)
+
+  # google-cloud-cpp requires nlohmann_json to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of nlohmann_json
+  # when Arrow is installed.
+  # This custom target ensures nlohmann_json is built before we install.
+  add_custom_target(nlohmann_json_built DEPENDS nlohmann_json::nlohmann_json)
+
+  # Disable nlohmann_json's install script after it's built to prevent double installation.
+  add_custom_command(OUTPUT "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# nlohmann-json install disabled to prevent double installation with Arrow"
+                             > "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS nlohmann_json_built
+                     COMMENT "Disabling nlohmann-json install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(nlohmann_json_install_disabled ALL
+                    DEPENDS "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install nlohmann_json to NLOHMANN_JSON_PREFIX for google-cloud-cpp to find.
+  add_custom_command(OUTPUT "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND}
+                             -DCMAKE_INSTALL_PREFIX=${NLOHMANN_JSON_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
+                     DEPENDS nlohmann_json_install_disabled
+                     COMMENT "Installing nlohmann-json to ${NLOHMANN_JSON_PREFIX} for google-cloud-cpp"
+                     VERBATIM)
+
+  # Make nlohmann_json_fc depend on the install completion marker.
+  add_custom_target(nlohmann_json_fc
+                    DEPENDS "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed")
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
@@ -3521,8 +3593,12 @@ macro(build_google_cloud_cpp_storage)
   if(ZLIB_VENDORED)
     add_dependencies(google_cloud_cpp_dependencies zlib_ep)
   endif()
-  add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
-  add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+  add_dependencies(google_cloud_cpp_dependencies crc32c_fc)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
+  endif()
 
   set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
       "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
@@ -4015,9 +4091,14 @@ macro(build_opentelemetry)
                       CONFIGURE_COMMAND ""
                       INSTALL_COMMAND ""
                       EXCLUDE_FROM_ALL OFF)
+  if(NLOHMANN_JSON_VENDORED)
+    add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
+  else()
+    add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json)
+  endif()
 
-  add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
-                   opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
+  add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
+                   ${ARROW_PROTOBUF_LIBPROTOBUF})
 
   # Ensure vendored protobuf is installed before OpenTelemetry builds
   if(PROTOBUF_VENDORED)

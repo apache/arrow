@@ -40,6 +40,28 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Null") do
+    def build_array
+      Arrow::NullArray.new(3)
+    end
+
+    def test_read
+      assert_equal([{"value" => [nil, nil, nil]}],
+                   read)
+    end
+  end
+
+  sub_test_case("Boolean") do
+    def build_array
+      Arrow::BooleanArray.new([true, nil, false])
+    end
+
+    def test_read
+      assert_equal([{"value" => [true, nil, false]}],
+                   read)
+    end
+  end
+
   sub_test_case("Int8") do
     def build_array
       Arrow::Int8Array.new([-128, nil, 127])
@@ -62,6 +84,45 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Float32") do
+    def build_array
+      Arrow::FloatArray.new([-0.5, nil, 0.5])
+    end
+
+    def test_read
+      assert_equal([{"value" => [-0.5, nil, 0.5]}],
+                   read)
+    end
+  end
+
+  sub_test_case("Float64") do
+    def build_array
+      Arrow::DoubleArray.new([-0.5, nil, 0.5])
+    end
+
+    def test_read
+      assert_equal([{"value" => [-0.5, nil, 0.5]}],
+                   read)
+    end
+  end
+
+  sub_test_case("Date32") do
+    def setup(&block)
+      @date_2017_08_28 = 17406
+      @date_2025_12_09 = 20431
+      super(&block)
+    end
+
+    def build_array
+      Arrow::Date32Array.new([@date_2017_08_28, nil, @date_2025_12_09])
+    end
+
+    def test_read
+      assert_equal([{"value" => [@date_2017_08_28, nil, @date_2025_12_09]}],
+                   read)
+    end
+  end
+
   sub_test_case("Binary") do
     def build_array
       Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
@@ -69,6 +130,98 @@ class TestFileReader < Test::Unit::TestCase
 
     def test_read
       assert_equal([{"value" => ["Hello".b, nil, "World".b]}],
+                   read)
+    end
+  end
+
+  sub_test_case("LargeBinary") do
+    def build_array
+      Arrow::LargeBinaryArray.new(["Hello".b, nil, "World".b])
+    end
+
+    def test_read
+      assert_equal([{"value" => ["Hello".b, nil, "World".b]}],
+                   read)
+    end
+  end
+
+  sub_test_case("UTF8") do
+    def build_array
+      Arrow::StringArray.new(["Hello", nil, "World"])
+    end
+
+    def test_read
+      assert_equal([{"value" => ["Hello", nil, "World"]}],
+                   read)
+    end
+  end
+
+  sub_test_case("List") do
+    def build_array
+      data_type = Arrow::ListDataType.new(name: "count", type: :int8)
+      Arrow::ListArray.new(data_type, [[-128, 127], nil, [-1, 0, 1]])
+    end
+
+    def test_read
+      assert_equal([{"value" => [[-128, 127], nil, [-1, 0, 1]]}],
+                   read)
+    end
+  end
+
+  sub_test_case("LargeList") do
+    def build_array
+      data_type = Arrow::LargeListDataType.new(name: "count", type: :int8)
+      Arrow::LargeListArray.new(data_type, [[-128, 127], nil, [-1, 0, 1]])
+    end
+
+    def test_read
+      assert_equal([{"value" => [[-128, 127], nil, [-1, 0, 1]]}],
+                   read)
+    end
+  end
+
+  sub_test_case("Struct") do
+    def build_array
+      data_type = Arrow::StructDataType.new(count: :int8,
+                                            visible: :boolean)
+      Arrow::StructArray.new(data_type, [[-128, nil], nil, [nil, true]])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         [-128, nil],
+                         nil,
+                         [nil, true],
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("Map") do
+    def build_array
+      data_type = Arrow::MapDataType.new(:string, :int8)
+      Arrow::MapArray.new(data_type,
+                          [
+                            {"a" => -128, "b" => 127},
+                            nil,
+                            {"c" => nil},
+                          ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         {"a" => -128, "b" => 127},
+                         nil,
+                         {"c" => nil},
+                       ],
+                     },
+                   ],
                    read)
     end
   end
