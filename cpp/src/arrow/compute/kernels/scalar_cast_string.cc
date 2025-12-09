@@ -27,6 +27,7 @@
 #include "arrow/compute/kernels/scalar_cast_internal.h"
 #include "arrow/compute/kernels/temporal_internal.h"
 #include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/formatting.h"
@@ -305,17 +306,13 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
+  RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
   if constexpr (sizeof(typename I::offset_type) != sizeof(typename O::offset_type)) {
     std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
     ArrayData* output = out->array_data().get();
-    output->length = input_arr->length;
-    // output->offset is set below
-    output->SetNullCount(input_arr->null_count);
-    output->buffers = std::move(input_arr->buffers);
-    // binary/string arrays don't have child_data
 
     // Slice buffers to reduce allocation when casting the offsets buffer
-    int64_t offset = input_arr->offset;
+    int64_t input_offset = input_arr->offset;
     size_t input_offset_type_size = sizeof(typename I::offset_type);
     if (output->null_count != 0 && output->buffers[0]) {
       // Avoid reallocation of the validity buffer by allowing some padding bits
@@ -324,15 +321,15 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       output->offset = 0;
     }
     if (output->buffers[0]) {
-      output->buffers[0] = SliceBuffer(output->buffers[0], offset / 8);
+      output->buffers[0] = SliceBuffer(output->buffers[0], input_offset / 8);
     }
-    output->buffers[1] = SliceBuffer(output->buffers[1], offset * input_offset_type_size);
+    output->buffers[1] =
+        SliceBuffer(output->buffers[1], input_offset * input_offset_type_size);
 
     return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
         ctx, input, out->array_data().get());
-  } else {
-    return ZeroCopyCastExec(ctx, batch, out);
   }
+  return Status::OK();
 }
 
 // String View -> Offset String
