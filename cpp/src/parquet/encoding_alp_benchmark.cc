@@ -308,7 +308,7 @@ std::string GetDataDirectory() {
     std::string tarball_path = std::string(__FILE__);
     tarball_path = tarball_path.substr(0, tarball_path.find_last_of("/\\"));
     tarball_path = tarball_path.substr(0, tarball_path.find_last_of("/\\"));
-    tarball_path += "/arrow/cpp/submodules/parquet-testing/data/floatingpoint_data.tar.gz";
+    tarball_path += "/../submodules/parquet-testing/data/floatingpoint_data.tar.gz";
 
     // Use a fixed extraction directory that can be reused across runs
     data_dir = "/tmp/parquet_alp_benchmark_data";
@@ -320,7 +320,7 @@ std::string GetDataDirectory() {
       data_dir = std::string(__FILE__);
       data_dir = data_dir.substr(0, data_dir.find_last_of("/\\"));
       data_dir = data_dir.substr(0, data_dir.find_last_of("/\\"));
-      data_dir += "/arrow/util/alp/data";
+      data_dir += "/../submodules/parquet-testing/data";
       initialized = true;
       return data_dir;
     }
@@ -344,7 +344,7 @@ std::string GetDataDirectory() {
       data_dir = std::string(__FILE__);
       data_dir = data_dir.substr(0, data_dir.find_last_of("/\\"));
       data_dir = data_dir.substr(0, data_dir.find_last_of("/\\"));
-      data_dir += "/arrow/util/alp/data";
+      data_dir += "/../submodules/parquet-testing/data";
       initialized = true;
     }
   }
