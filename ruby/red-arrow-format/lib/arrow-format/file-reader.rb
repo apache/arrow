@@ -24,6 +24,8 @@ require_relative "type"
 
 require_relative "org/apache/arrow/flatbuf/binary"
 require_relative "org/apache/arrow/flatbuf/bool"
+require_relative "org/apache/arrow/flatbuf/date"
+require_relative "org/apache/arrow/flatbuf/date_unit"
 require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/int"
@@ -159,6 +161,11 @@ module ArrowFormat
         when Org::Apache::Arrow::Flatbuf::Precision::DOUBLE
           type = Float64Type.singleton
         end
+      when Org::Apache::Arrow::Flatbuf::Date
+        case fb_type.unit
+        when Org::Apache::Arrow::Flatbuf::DateUnit::DAY
+          type = Date32Type.singleton
+        end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::Struct
@@ -198,7 +205,8 @@ module ArrowFormat
 
       case field.type
       when BooleanType,
-           NumberType
+           NumberType,
+           DateType
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(length, validity, values)
