@@ -4260,8 +4260,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   array.reset();
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
-  std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_OK_AND_ASSIGN(arrow_reader,
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader,
                        FileReader::Make(default_memory_pool(), std::move(reader)));
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
   ASSERT_OK(table->ValidateFull());
