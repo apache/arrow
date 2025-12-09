@@ -4365,8 +4365,7 @@ TEST(TestArrowReaderAdHoc, LegacyTwoLevelList) {
     ASSERT_EQ(kExpectedLegacyList, nodeStr.str());
 
     // Verify Arrow schema and data
-    std::unique_ptr<FileReader> reader;
-    ASSERT_OK_AND_ASSIGN(reader,
+    ASSERT_OK_AND_ASSIGN(auto reader,
                          FileReader::Make(default_memory_pool(), std::move(file_reader)));
     std::shared_ptr<Table> table;
     ASSERT_OK(reader->ReadTable(&table));
@@ -4430,8 +4429,7 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
 
   auto pool = ::arrow::default_memory_pool();
 
-  std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_OK_AND_ASSIGN(arrow_reader,
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader,
                        FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
   std::shared_ptr<::arrow::Table> table;
   ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
@@ -4497,9 +4495,8 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
     path += "/" + tc.filename + ".parquet";
     ARROW_SCOPED_TRACE("path = ", path);
 
-    std::unique_ptr<FileReader> reader;
     ASSERT_OK_AND_ASSIGN(
-        reader, FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
+        auto reader, FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
     std::shared_ptr<::arrow::Table> table;
     ASSERT_OK_NO_THROW(reader->ReadTable(&table));
 
@@ -4542,9 +4539,8 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyRowGroups) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
   ASSERT_OK_AND_ASSIGN(
-      file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
+      auto file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
   // This is the important part in this test.
   std::vector<int> row_group_indices = {};
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader,
@@ -4570,9 +4566,8 @@ TEST(TestArrowFileReader, RecordBatchReaderEmptyInput) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
   ASSERT_OK_AND_ASSIGN(
-      file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
+      auto file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
   ASSERT_OK_AND_ASSIGN(auto record_batch_reader, file_reader->GetRecordBatchReader());
   std::shared_ptr<::arrow::RecordBatch> record_batch;
   ASSERT_OK(record_batch_reader->ReadNext(&record_batch));
@@ -4594,9 +4589,8 @@ TEST(TestArrowColumnReader, NextBatchZeroBatchSize) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
   ASSERT_OK_AND_ASSIGN(
-      file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
+      auto file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
   std::unique_ptr<arrow::ColumnReader> column_reader;
   ASSERT_OK(file_reader->GetColumn(0, &column_reader));
   std::shared_ptr<ChunkedArray> chunked_array;
@@ -4620,9 +4614,8 @@ TEST(TestArrowColumnReader, NextBatchEmptyInput) {
                                              default_arrow_writer_properties(), &buffer));
 
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
   ASSERT_OK_AND_ASSIGN(
-      file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
+      auto file_reader, FileReader::Make(::arrow::default_memory_pool(), std::move(reader)));
   std::unique_ptr<arrow::ColumnReader> column_reader;
   ASSERT_OK(file_reader->GetColumn(0, &column_reader));
   std::shared_ptr<ChunkedArray> chunked_array;
@@ -5144,9 +5137,8 @@ class TestArrowReadDeltaEncoding : public ::testing::Test {
                                 std::shared_ptr<Table>* out) {
     auto file = test::get_data_file(file_name);
     auto pool = ::arrow::default_memory_pool();
-    std::unique_ptr<FileReader> parquet_reader;
     ASSERT_OK_AND_ASSIGN(
-        parquet_reader, FileReader::Make(pool, ParquetFileReader::OpenFile(file, false)));
+        auto parquet_reader, FileReader::Make(pool, ParquetFileReader::OpenFile(file, false)));
     ASSERT_OK(parquet_reader->ReadTable(out));
     ASSERT_OK((*out)->ValidateFull());
   }
@@ -5733,8 +5725,7 @@ TEST(TestArrowReadWrite, WriteAndReadRecordBatch) {
   auto read_properties = default_arrow_reader_properties();
   read_properties.set_batch_size(record_batch->num_rows());
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
-  std::unique_ptr<FileReader> arrow_reader;
-  ASSERT_OK_AND_ASSIGN(arrow_reader,
+  ASSERT_OK_AND_ASSIGN(auto arrow_reader,
                        FileReader::Make(pool, std::move(reader), read_properties));
 
   // Verify the single record batch has been sliced into two row groups by
