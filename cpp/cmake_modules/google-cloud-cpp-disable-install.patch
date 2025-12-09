@@ -159,3 +159,23 @@ index 8e69ad26b6..272fe3f100 100644
  if (BUILD_TESTING)
      add_library(
          storage_client_testing # cmake-format: sort
+diff --git a/google/cloud/storage/google_cloud_cpp_storage_grpc.cmake b/google/cloud/storage/google_cloud_cpp_storage_grpc.cmake
+index 680a771a8f..fcea826890 100644
+--- a/google/cloud/storage/google_cloud_cpp_storage_grpc.cmake
++++ b/google/cloud/storage/google_cloud_cpp_storage_grpc.cmake
+@@ -192,6 +192,7 @@ endif ()
+ add_library(google-cloud-cpp::experimental-storage_grpc ALIAS
+             google_cloud_cpp_storage_grpc)
+ 
++            if(GOOGLE_CLOUD_CPP_ENABLE_INSTALL)
+ google_cloud_cpp_add_pkgconfig(
+     storage_grpc
+     "The GCS (Google Cloud Storage) gRPC plugin"
+@@ -218,6 +219,7 @@ install(
+ 
+ google_cloud_cpp_install_headers(google_cloud_cpp_storage_grpc
+                                  include/google/cloud/storage)
++endif()
+ 
+ if (GOOGLE_CLOUD_CPP_WITH_MOCKS)
+     # Create a header-only library for the mocks. We use a CMake `INTERFACE`
