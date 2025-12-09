@@ -440,20 +440,20 @@
       ],
       "displayName": "Debug build with IPC and Parquet fuzzing targets",
       "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug",
-        "CMAKE_C_COMPILER": "clang",
-        "CMAKE_CXX_COMPILER": "clang++",
-        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
         "ARROW_CSV": "ON",
+        "ARROW_DEPENDENCY_SOURCE": "BUNDLED",
+        "ARROW_FUZZING": "ON",
         "ARROW_IPC": "ON",
         "ARROW_PARQUET": "ON",
-        "PARQUET_REQUIRE_ENCRYPTION": "ON",
-        "ARROW_FUZZING": "ON",
         "ARROW_WITH_BROTLI": "ON",
         "ARROW_WITH_LZ4": "ON",
         "ARROW_WITH_SNAPPY": "ON",
         "ARROW_WITH_ZLIB": "ON",
-        "ARROW_WITH_ZSTD": "ON"
+        "ARROW_WITH_ZSTD": "ON",
+        "CMAKE_BUILD_TYPE": "Debug",
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++",
+        "PARQUET_REQUIRE_ENCRYPTION": "ON"
       }
     },
     {
