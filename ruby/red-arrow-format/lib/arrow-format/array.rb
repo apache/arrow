@@ -172,7 +172,7 @@ module ArrowFormat
     def to_a
       child_values = @child.to_a
       values = @offsets_buffer.
-        each(:s32, 0, @size + 1). # TODO: big endian support
+        each(offset_type, 0, @size + 1).
         each_cons(2).
         collect do |(_, offset), (_, next_offset)|
         child_values[offset...next_offset]
@@ -182,6 +182,17 @@ module ArrowFormat
   end
 
   class ListArray < VariableSizeListArray
+    private
+    def offset_type
+      :s32 # TODO: big endian support
+    end
+  end
+
+  class LargeListArray < VariableSizeListArray
+    private
+    def offset_type
+      :s64 # TODO: big endian support
+    end
   end
 
   class StructArray < Array
@@ -214,6 +225,11 @@ module ArrowFormat
           hash
         end
       end
+    end
+
+    private
+    def offset_type
+      :s32 # TODO: big endian support
     end
   end
 end

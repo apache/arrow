@@ -28,6 +28,7 @@ require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/int"
 require_relative "org/apache/arrow/flatbuf/large_binary"
+require_relative "org/apache/arrow/flatbuf/large_list"
 require_relative "org/apache/arrow/flatbuf/list"
 require_relative "org/apache/arrow/flatbuf/map"
 require_relative "org/apache/arrow/flatbuf/message"
@@ -161,6 +162,8 @@ module ArrowFormat
         end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
+      when Org::Apache::Arrow::Flatbuf::LargeList
+        type = LargeListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::Struct
         children = fb_field.children.collect {|child| read_field(child)}
         type = StructType.new(children)

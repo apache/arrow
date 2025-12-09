@@ -16,66 +16,66 @@
 # under the License.
 
 module Arrow
-  class ListDataType
+  class LargeListDataType
     include ListFieldResolvable
 
     alias_method :initialize_raw, :initialize
     private :initialize_raw
 
-    # Creates a new {Arrow::ListDataType}.
+    # Creates a new {Arrow::LargeListDataType}.
     #
     # @overload initialize(field)
     #
-    #   @param field [Arrow::Field, Hash] The field of the list data
-    #     type. You can also specify field description by `Hash`.
+    #   @param field [Arrow::Field, Hash] The field of the large list
+    #     data type. You can also specify field description by `Hash`.
     #
     #     See {Arrow::Field.new} how to specify field description.
     #
-    #   @example Create a list data type with {Arrow::Field}
+    #   @example Create a large list data type with {Arrow::Field}
     #     visible_field = Arrow::Field.new("visible", :boolean)
-    #     Arrow::ListDataType.new(visible_field)
+    #     Arrow::LargeListDataType.new(visible_field)
     #
-    #   @example Create a list data type with field description
-    #     Arrow::ListDataType.new(name: "visible", type: :boolean)
+    #   @example Create a large list data type with field description
+    #     Arrow::LargeListDataType.new(name: "visible", type: :boolean)
     #
     # @overload initialize(description)
     #
-    #   @param description [Hash] The description of the list data
+    #   @param description [Hash] The description of the large list data
     #     type. It must have `:field` value.
     #
     #   @option description [Arrow::Field, Hash] :field The field of
-    #     the list data type. You can also specify field description
-    #     by `Hash`.
+    #     the large list data type. You can also specify field
+    #     description by `Hash`.
     #
     #     See {Arrow::Field.new} how to specify field description.
     #
-    #   @example Create a list data type with {Arrow::Field}
+    #   @example Create a large list data type with {Arrow::Field}
     #     visible_field = Arrow::Field.new("visible", :boolean)
-    #     Arrow::ListDataType.new(field: visible_field)
+    #     Arrow::LargeListDataType.new(field: visible_field)
     #
-    #   @example Create a list data type with field description
-    #     Arrow::ListDataType.new(field: {name: "visible", type: :boolean})
+    #   @example Create a large list data type with field description
+    #     Arrow::LargeListDataType.new(field: {name: "visible", type: :boolean})
     #
     # @overload initialize(data_type)
     #
     #   @param data_type [Arrow::DataType, String, Symbol,
     #     ::Array<String>, ::Array<Symbol>, Hash] The element data
-    #     type of the list data type. A field is created with the
+    #     type of the large list data type. A field is created with the
     #     default name `"item"` from the data type automatically.
     #
     #     See {Arrow::DataType.resolve} how to specify data type.
     #
-    #   @example Create a list data type with {Arrow::DataType}
-    #     Arrow::ListDataType.new(Arrow::BooleanDataType.new)
+    #   @example Create a large list data type with {Arrow::DataType}
+    #     Arrow::LargeListDataType.new(Arrow::BooleanDataType.new)
     #
-    #   @example Create a list data type with data type name as String
-    #     Arrow::ListDataType.new("boolean")
+    #   @example Create a large list data type with data type name as String
+    #     Arrow::LargeListDataType.new("boolean")
     #
-    #   @example Create a list data type with data type name as Symbol
-    #     Arrow::ListDataType.new(:boolean)
+    #   @example Create a large list data type with data type name as Symbol
+    #     Arrow::LargeListDataType.new(:boolean)
     #
-    #   @example Create a list data type with data type as Array
-    #     Arrow::ListDataType.new([:time32, :milli])
+    #   @example Create a large list data type with data type as Array
+    #     Arrow::LargeListDataType.new([:time32, :milli])
     def initialize(arg)
       initialize_raw(resolve_field(arg))
     end

@@ -80,6 +80,7 @@ namespace red_arrow {
       VISIT(DayTimeInterval)
       VISIT(MonthDayNanoInterval)
       VISIT(List)
+      VISIT(LargeList)
       VISIT(Struct)
       VISIT(Map)
       VISIT(SparseUnion)
