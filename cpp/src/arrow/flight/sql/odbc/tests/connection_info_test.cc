@@ -166,7 +166,8 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverHdesc) {
 
   // Value returned from driver manager is the desc address
   SQLHDESC local_desc = descriptor;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetInfo(this->conn, SQL_HANDLE_DESC, &local_desc, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetInfo(this->conn, SQL_HANDLE_DESC, &local_desc, 0, nullptr));
   EXPECT_GT(local_desc, static_cast<SQLHSTMT>(0));
 
   // Free descriptor handle
@@ -194,7 +195,8 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverHlib) {
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverHstmt) {
   // Value returned from driver manager is the stmt address
   SQLHSTMT local_stmt = this->stmt;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetInfo(this->conn, SQL_DRIVER_HSTMT, &local_stmt, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetInfo(this->conn, SQL_DRIVER_HSTMT, &local_stmt, 0, nullptr));
   EXPECT_GT(local_stmt, static_cast<SQLHSTMT>(0));
 }
 
