@@ -5196,9 +5196,8 @@ TEST_F(TestArrowReadDeltaEncoding, IncrementalDecodeDeltaByteArray) {
   const int64_t batch_size = 100;
   ArrowReaderProperties properties = default_arrow_reader_properties();
   properties.set_batch_size(batch_size);
-  std::unique_ptr<FileReader> parquet_reader;
   ASSERT_OK_AND_ASSIGN(
-      parquet_reader,
+      auto parquet_reader,
       FileReader::Make(pool, ParquetFileReader::OpenFile(file, false), properties));
   ASSERT_OK_AND_ASSIGN(auto rb_reader, parquet_reader->GetRecordBatchReader());
 
