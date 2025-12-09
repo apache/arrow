@@ -110,6 +110,19 @@ module ArrowFormat
     end
   end
 
+  class DateArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+  end
+
+  class Date32Array < DateArray
+    def to_a
+      apply_validity(@values_buffer.values(:s32, 0, @size))
+    end
+  end
+
   class VariableSizeBinaryLayoutArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
       super(type, size, validity_buffer)
