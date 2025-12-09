@@ -32,7 +32,7 @@ index 3816333816..3e620b20a7 100644
  include(SelectMSVCRuntime)
  
 diff --git a/cmake/GoogleCloudCppLibrary.cmake b/cmake/GoogleCloudCppLibrary.cmake
-index caee116a3a..5cbb03f697 100644
+index caee116a3a..fe62e3b4d1 100644
 --- a/cmake/GoogleCloudCppLibrary.cmake
 +++ b/cmake/GoogleCloudCppLibrary.cmake
 @@ -87,6 +87,7 @@ function (google_cloud_cpp_add_library_protos library)
@@ -75,14 +75,14 @@ index caee116a3a..5cbb03f697 100644
      install(
          EXPORT ${library_target}-targets
          DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/${library_target}"
-@@ -275,6 +281,7 @@ function (google_cloud_cpp_add_gapic_library library display_name)
-                 NAMELINK_COMPONENT google_cloud_cpp_development
-         ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                 COMPONENT google_cloud_cpp_development)
-+    endif()
+@@ -278,6 +284,7 @@ function (google_cloud_cpp_add_gapic_library library display_name)
  
      google_cloud_cpp_install_headers("${library_target}"
                                       "include/google/cloud/${library}")
++    endif()
+ 
+     google_cloud_cpp_add_pkgconfig(
+         ${library}
 @@ -311,12 +318,14 @@ function (google_cloud_cpp_add_gapic_library library display_name)
          VERSION ${PROJECT_VERSION}
          COMPATIBILITY ExactVersion)
@@ -99,7 +99,7 @@ index caee116a3a..5cbb03f697 100644
      if (GOOGLE_CLOUD_CPP_WITH_MOCKS)
          # Create a header-only library for the mocks. We use a CMake `INTERFACE`
 diff --git a/google/cloud/google_cloud_cpp_common.cmake b/google/cloud/google_cloud_cpp_common.cmake
-index 5bbc510e18..bd931c17d2 100644
+index 5bbc510e18..5ced623d9e 100644
 --- a/google/cloud/google_cloud_cpp_common.cmake
 +++ b/google/cloud/google_cloud_cpp_common.cmake
 @@ -218,6 +218,7 @@ add_library(google-cloud-cpp::common ALIAS google_cloud_cpp_common)
@@ -110,16 +110,16 @@ index 5bbc510e18..bd931c17d2 100644
  # Export the CMake targets to make it easy to create configuration files.
  install(
      EXPORT google_cloud_cpp_common-targets
-@@ -238,6 +239,7 @@ install(
-             COMPONENT google_cloud_cpp_development)
- 
- google_cloud_cpp_install_headers(google_cloud_cpp_common include/google/cloud)
+@@ -265,6 +266,7 @@ install(
+         "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_common-config-version.cmake"
+     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/google_cloud_cpp_common"
+     COMPONENT google_cloud_cpp_development)
 +endif()
  
- google_cloud_cpp_add_pkgconfig(
-     "common"
+ if (GOOGLE_CLOUD_CPP_WITH_MOCKS)
+     # Create a header-only library for the mocks. We use a CMake `INTERFACE`
 diff --git a/google/cloud/google_cloud_cpp_rest_internal.cmake b/google/cloud/google_cloud_cpp_rest_internal.cmake
-index 5da42523bf..3dcd7a9cc9 100644
+index 5da42523bf..726b0dceec 100644
 --- a/google/cloud/google_cloud_cpp_rest_internal.cmake
 +++ b/google/cloud/google_cloud_cpp_rest_internal.cmake
 @@ -142,6 +142,7 @@ set_target_properties(
@@ -130,16 +130,16 @@ index 5da42523bf..3dcd7a9cc9 100644
  # Export the CMake targets to make it easy to create configuration files.
  install(
      EXPORT google_cloud_cpp_rest_internal-targets
-@@ -163,6 +164,7 @@ install(
- 
- google_cloud_cpp_install_headers(google_cloud_cpp_rest_internal
-                                  include/google/cloud)
+@@ -184,6 +185,7 @@ install(
+         "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_rest_internal-config-version.cmake"
+     DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/google_cloud_cpp_rest_internal"
+     COMPONENT google_cloud_cpp_development)
 +endif()
  
- google_cloud_cpp_add_pkgconfig(
-     rest_internal "REST library for the Google Cloud C++ Client Library"
+ create_bazel_config(google_cloud_cpp_rest_internal YEAR 2021)
+ 
 diff --git a/google/cloud/storage/google_cloud_cpp_storage.cmake b/google/cloud/storage/google_cloud_cpp_storage.cmake
-index 8e69ad26b6..347250781c 100644
+index 8e69ad26b6..272fe3f100 100644
 --- a/google/cloud/storage/google_cloud_cpp_storage.cmake
 +++ b/google/cloud/storage/google_cloud_cpp_storage.cmake
 @@ -296,6 +296,7 @@ add_library(google-cloud-cpp::storage ALIAS google_cloud_cpp_storage)
@@ -150,11 +150,12 @@ index 8e69ad26b6..347250781c 100644
  # Export the CMake targets to make it easy to create configuration files.
  install(
      EXPORT storage-targets
-@@ -312,6 +313,7 @@ install(
-             NAMELINK_COMPONENT google_cloud_cpp_development
-     ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-             COMPONENT google_cloud_cpp_development)
+@@ -372,7 +373,7 @@ install(
+     FILES testing/mock_client.h
+     DESTINATION include/google/cloud/storage/testing
+     COMPONENT google_cloud_cpp_development)
+-
 +endif()
- 
- google_cloud_cpp_install_headers(google_cloud_cpp_storage
-                                  include/google/cloud/storage)
+ if (BUILD_TESTING)
+     add_library(
+         storage_client_testing # cmake-format: sort
