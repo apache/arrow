@@ -250,6 +250,12 @@ bool WriteDSN(std::string connection_str);
 /// \return true on success
 bool WriteDSN(Connection::ConnPropertyMap properties);
 
+/// \brief Get wide string column.
+/// \param[in] stmt Statement.
+/// \param[in] col_id Column ID to check.
+/// \return wstring
+std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id);
+
 /// \brief Check wide char vector and convert into wstring
 /// \param[in] str_val Vector of SQLWCHAR.
 /// \param[in] str_len length of string, in bytes.

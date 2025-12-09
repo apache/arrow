@@ -1182,8 +1182,24 @@ SQLRETURN SQLTables(SQLHSTMT stmt, SQLWCHAR* catalog_name,
                    << ", table_name_length: " << table_name_length
                    << ", table_type: " << static_cast<const void*>(table_type)
                    << ", table_type_length: " << table_type_length;
-  // GH-47719 TODO: Implement SQLTables
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  using ODBC::SqlWcharToString;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    std::string catalog = SqlWcharToString(catalog_name, catalog_name_length);
+    std::string schema = SqlWcharToString(schema_name, schema_name_length);
+    std::string table = SqlWcharToString(table_name, table_name_length);
+    std::string type = SqlWcharToString(table_type, table_type_length);
+
+    statement->GetTables(catalog_name ? &catalog : nullptr,
+                         schema_name ? &schema : nullptr, table_name ? &table : nullptr,
+                         table_type ? &type : nullptr);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLColumns(SQLHSTMT stmt, SQLWCHAR* catalog_name,

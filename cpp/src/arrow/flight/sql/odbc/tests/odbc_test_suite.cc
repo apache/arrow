@@ -481,6 +481,22 @@ bool WriteDSN(Connection::ConnPropertyMap properties) {
 }
 #endif
 
+std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id) {
+  SQLWCHAR buf[1024];
+  SQLLEN len_indicator = 0;
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetData(stmt, col_id, SQL_C_WCHAR, buf, sizeof(buf), &len_indicator));
+
+  if (len_indicator == SQL_NULL_DATA) {
+    return L"";
+  }
+
+  // indicator is in bytes, so convert to character count
+  size_t char_count = static_cast<size_t>(len_indicator) / GetSqlWCharSize();
+  return std::wstring(buf, buf + char_count);
+}
+
 std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len) {
   std::wstring attr_str;
   if (str_len == 0) {
