@@ -3401,20 +3401,17 @@ function(build_google_cloud_cpp_storage)
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
   find_program(PATCH patch)
   if(PATCH)
-    list(APPEND
-         GOOGLE_CLOUD_CPP_PATCH_COMMAND
-         ${PATCH}
-         -p1
-         -i)
+    set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+        ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
   else()
     find_program(GIT git)
     if(GIT)
-      list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND ${GIT} apply)
+      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+          ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
+    else()
+      message(FATAL_ERROR "Building google-cloud-cpp from source requires either 'patch' or 'git' to be available"
+      )
     endif()
-  endif()
-  if(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND
-         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
   endif()
 
   fetchcontent_declare(google_cloud_cpp
