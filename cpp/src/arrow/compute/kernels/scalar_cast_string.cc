@@ -323,8 +323,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     if (output->buffers[0]) {
       output->buffers[0] = SliceBuffer(output->buffers[0], input_offset / 8);
     }
-    output->buffers[1] =
-        SliceBuffer(output->buffers[1], input_offset * input_offset_type_size);
+    output->buffers[1] = SliceBuffer(
+        output->buffers[1], (input_offset - output->offset) * input_offset_type_size);
 
     return CastBinaryToBinaryOffsets<typename I::offset_type, typename O::offset_type>(
         ctx, input, out->array_data().get());
