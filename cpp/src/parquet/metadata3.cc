@@ -585,12 +585,14 @@ struct ThriftConverter {
       out.bloom_filter_length = *cm->bloom_filter_length();
     }
     if (cm->is_fully_dict_encoded()) {
-      // TODO(jiayi): check the encoding stats usage in arrow
-      // Adding a fake encoding_stats with data_page page type and dictionary encoding to
-      // trick the reader function
-      // AtomicParquetColumnReader::HasOnlyDictionaryEncodedPages() into treating this as
+      // Adding a fake encoding_stats with one dictionary page and one data page with
+      // dictionary encoding to trick the reader function
+      // parquet::IsColumnChunkFullyDictionaryEncoded into treating this as
       // fully_dict_encoded.
       out.__isset.encoding_stats = true;
+      auto& dict = out.encoding_stats.emplace_back();
+      dict.__set_page_type(format::PageType::DICTIONARY_PAGE);
+      dict.__set_encoding(format::Encoding::PLAIN);
       auto& pes = out.encoding_stats.emplace_back();
       pes.__set_page_type(format::PageType::DATA_PAGE);
       pes.__set_encoding(format::Encoding::RLE_DICTIONARY);
