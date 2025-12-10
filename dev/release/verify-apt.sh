@@ -227,7 +227,7 @@ echo "::endgroup::"
 
 echo "::group::Prepare downgrade test"
 can_downgrade=false
-if [[ "$(cat /etc/debian_version)" =~ /sid$ ]]; then
+if ['${distribution}' = 'debian'] && [[ "$(cat /etc/debian_version)" =~ /sid$ ]]; then
   # Skip downgrade test on Debian sid (unstable)
   :
 elif [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
