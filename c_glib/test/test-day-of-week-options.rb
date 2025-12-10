@@ -41,6 +41,7 @@ class TestDayOfWeekOptions < Test::Unit::TestCase
   def test_day_of_week_function_with_count_from_zero_false
     omit("Missing tzdata on Windows") if Gem.win_platform?
     args = [
+      # 2017-09-09T10:33:10Z (Saturday)
       Arrow::ArrayDatum.new(build_timestamp_array(:milli, [1504953190000])),
     ]
     @options.count_from_zero = false
@@ -52,6 +53,7 @@ class TestDayOfWeekOptions < Test::Unit::TestCase
   def test_day_of_week_function_with_week_start
     omit("Missing tzdata on Windows") if Gem.win_platform?
     args = [
+      # 2017-09-09T10:33:10Z (Saturday)
       Arrow::ArrayDatum.new(build_timestamp_array(:milli, [1504953190000])),
     ]
     @options.week_start = 2
@@ -60,4 +62,3 @@ class TestDayOfWeekOptions < Test::Unit::TestCase
                  day_of_week_function.execute(args, @options).value)
   end
 end
-
