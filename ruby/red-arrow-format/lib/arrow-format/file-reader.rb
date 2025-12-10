@@ -166,6 +166,8 @@ module ArrowFormat
         case fb_type.unit
         when Org::Apache::Arrow::Flatbuf::DateUnit::DAY
           type = Date32Type.singleton
+        when Org::Apache::Arrow::Flatbuf::DateUnit::MILLISECOND
+          type = Date64Type.singleton
         end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))

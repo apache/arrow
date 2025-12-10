@@ -158,6 +158,22 @@ module ArrowFormat
     end
   end
 
+  class Date64Type < DateType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Date64")
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Date64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class VariableSizeBinaryType < Type
   end
 
