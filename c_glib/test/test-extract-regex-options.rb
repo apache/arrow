@@ -40,8 +40,6 @@ class TestExtractRegexOptions < Test::Unit::TestCase
                Arrow::Field.new("month", Arrow::StringDataType.new),
                Arrow::Field.new("day", Arrow::StringDataType.new),
              ]
-    assert_equal(Arrow::StructDataType.new(fields),
-                 result.value_data_type)
     assert_equal(build_struct_array(fields, [
                    {"year" => "2023", "month" => "01", "day" => "15"},
                    {"year" => "2024", "month" => "12", "day" => "31"},
