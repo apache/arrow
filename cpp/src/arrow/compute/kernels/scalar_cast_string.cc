@@ -306,6 +306,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     }
   }
 
+  // Start with a zero-copy cast, but change indices to the correct size and set validity
+  // bitmap and offset if needed.
   RETURN_NOT_OK(ZeroCopyCastExec(ctx, batch, out));
   if constexpr (sizeof(typename I::offset_type) != sizeof(typename O::offset_type)) {
     std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
