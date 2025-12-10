@@ -23,6 +23,13 @@ class TestFixedSizeListArrayBuilder < Test::Unit::TestCase
     require_gi_bindings(3, 1, 9)
   end
 
+  def get_value(array, i)
+    value = array.get_value(i)
+    value.length.times.collect do |j|
+      value.get_value(j)
+    end
+  end
+
   def test_new
     field = Arrow::Field.new("value", Arrow::Int8DataType.new)
     data_type = Arrow::FixedSizeListDataType.new(field, 2)
@@ -48,10 +55,8 @@ class TestFixedSizeListArrayBuilder < Test::Unit::TestCase
 
     array = builder.finish
     assert_equal(2, array.length)
-    assert_equal([1, 2], array.get_value(0).length.times.collect {|i|
- array.get_value(0).get_value(i)})
-    assert_equal([3, 4], array.get_value(1).length.times.collect {|i|
- array.get_value(1).get_value(i)})
+    assert_equal([1, 2], get_value(array, 0))
+    assert_equal([3, 4], get_value(array, 1))
   end
 
   def test_append_null
@@ -75,11 +80,11 @@ class TestFixedSizeListArrayBuilder < Test::Unit::TestCase
 
     array = builder.finish
     assert_equal(3, array.length)
-    assert_equal([1, 2], array.get_value(0).length.times.collect {|i|
- array.get_value(0).get_value(i)})
-    assert_equal(true, array.null?(1))
-    assert_equal([5, 6], array.get_value(2).length.times.collect {|i|
- array.get_value(2).get_value(i)})
+    assert_equal([1, 2], get_value(array, 0))
+    assert do
+      array.null?(1)
+    end
+    assert_equal([5, 6], get_value(array, 2))
   end
 
   def test_value_builder
