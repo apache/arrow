@@ -21,7 +21,6 @@
 
 #include <cstring>
 #include <memory>
-#include <new>
 #include <type_traits>
 
 #include "arrow/util/aligned_storage.h"
@@ -69,8 +68,7 @@ template <typename T>
 inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoad(const T* unaligned) {
   using Type = std::remove_const_t<T>;
   arrow::internal::AlignedStorage<Type> raw_data;
-  std::memcpy(raw_data.get(), std::launder(reinterpret_cast<const uint8_t*>(unaligned)),
-              sizeof(T));
+  std::memcpy(raw_data.get(), static_cast<const void*>(unaligned), sizeof(T));
   auto data = *raw_data.get();
   raw_data.destroy();
   return data;
@@ -83,8 +81,7 @@ inline std::enable_if_t<std::is_trivially_copyable_v<T> &&
 SafeCopy(T value) {
   using TypeU = std::remove_const_t<U>;
   arrow::internal::AlignedStorage<TypeU> raw_data;
-  std::memcpy(raw_data.get(), std::launder(reinterpret_cast<const uint8_t*>(&value)),
-              sizeof(T));
+  std::memcpy(raw_data.get(), static_cast<const void*>(&value), sizeof(T));
   auto data = *raw_data.get();
   raw_data.destroy();
   return data;
