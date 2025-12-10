@@ -38,6 +38,8 @@ require_relative "org/apache/arrow/flatbuf/null"
 require_relative "org/apache/arrow/flatbuf/precision"
 require_relative "org/apache/arrow/flatbuf/schema"
 require_relative "org/apache/arrow/flatbuf/struct_"
+require_relative "org/apache/arrow/flatbuf/union"
+require_relative "org/apache/arrow/flatbuf/union_mode"
 require_relative "org/apache/arrow/flatbuf/utf8"
 
 module ArrowFormat
@@ -174,6 +176,13 @@ module ArrowFormat
       when Org::Apache::Arrow::Flatbuf::Struct
         children = fb_field.children.collect {|child| read_field(child)}
         type = StructType.new(children)
+      when Org::Apache::Arrow::Flatbuf::Union
+        children = fb_field.children.collect {|child| read_field(child)}
+        type_ids = fb_type.type_ids
+        case fb_type.mode
+        when Org::Apache::Arrow::Flatbuf::UnionMode::DENSE
+          type = DenseUnionType.new(children, type_ids)
+        end
       when Org::Apache::Arrow::Flatbuf::Map
         type = MapType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::Binary
@@ -223,6 +232,15 @@ module ArrowFormat
           read_column(child, nodes, buffers, body)
         end
         field.type.build_array(length, validity, children)
+      when UnionType
+        # union type doesn't have validity.
+        types = validity
+        offsets_buffer = buffers.shift
+        offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
+        children = field.type.children.collect do |child|
+          read_column(child, nodes, buffers, body)
+        end
+        field.type.build_array(length, types, offsets, children)
       when VariableSizeBinaryType
         offsets_buffer = buffers.shift
         values_buffer = buffers.shift
