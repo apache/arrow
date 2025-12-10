@@ -231,6 +231,31 @@ module ArrowFormat
     end
   end
 
+  class UnionArray < Array
+    def initialize(type,
+                   size,
+                   types_buffer,
+                   offsets_buffer,
+                   children)
+      super(type, size, nil)
+      @types_buffer = types_buffer
+      @offsets_buffer = offsets_buffer
+      @children = children
+    end
+  end
+
+  class DenseUnionArray < UnionArray
+    def to_a
+      children_values = @children.collect(&:to_a)
+      types = @types_buffer.each(:S8, 0, @size)
+      offsets = @offsets_buffer.each(:s32, 0, @size)
+      types.zip(offsets).collect do |(_, type), (_, offset)|
+        index = @type.resolve_type_index(type)
+        children_values[index][offset]
+      end
+    end
+  end
+
   class MapArray < VariableSizeListArray
     def to_a
       super.collect do |entries|
