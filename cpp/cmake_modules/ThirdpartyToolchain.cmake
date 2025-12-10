@@ -3045,7 +3045,9 @@ function(build_absl)
 
   prepare_fetchcontent()
 
-  set(ABSL_ENABLE_INSTALL OFF)
+  # We have to enable Abseil install to add Abseil targets to an export set.
+  # But we don't install Abseil by EXCLUDE_FROM_ALL.
+  set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
