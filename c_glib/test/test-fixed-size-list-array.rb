@@ -78,4 +78,3 @@ class TestFixedSizeListArray < Test::Unit::TestCase
     assert_equal(2, array.list_size)
   end
 end
-

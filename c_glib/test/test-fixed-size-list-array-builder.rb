@@ -95,4 +95,3 @@ class TestFixedSizeListArrayBuilder < Test::Unit::TestCase
     assert_equal(Arrow::Int8DataType.new, value_builder.value_data_type)
   end
 end
-
