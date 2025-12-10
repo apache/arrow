@@ -3856,7 +3856,24 @@ function(build_orc)
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
 
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
+    # ar -M rejects paths with "c++/" because "+" is a line continuation
+    # character in MRI scripts, so we have to create a copy of the static lib
+    # that we will bundle later (same issue as libgrpc++.a).
+    set(ORC_STATIC_LIBRARY_FOR_AR
+        "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}orc_for_bundling${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+    add_custom_command(OUTPUT ${ORC_STATIC_LIBRARY_FOR_AR}
+                       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:orc>
+                               ${ORC_STATIC_LIBRARY_FOR_AR}
+                       DEPENDS orc)
+    add_library(orc::orc_for_bundling STATIC IMPORTED)
+    set_target_properties(orc::orc_for_bundling PROPERTIES IMPORTED_LOCATION
+                                                           "${ORC_STATIC_LIBRARY_FOR_AR}")
+    set_source_files_properties("${ORC_STATIC_LIBRARY_FOR_AR}" PROPERTIES GENERATED TRUE)
+    add_custom_target(orc_copy_lib ALL DEPENDS "${ORC_STATIC_LIBRARY_FOR_AR}")
+    add_dependencies(orc::orc_for_bundling orc_copy_lib)
+
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc_for_bundling)
   else()
     set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
     set(ORC_HOME "${ORC_PREFIX}")
