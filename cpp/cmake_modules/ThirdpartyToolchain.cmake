@@ -3293,8 +3293,12 @@ function(build_crc32c_once)
   set(CRC32C_BUILD_TESTS OFF)
   set(CRC32C_BUILD_BENCHMARKS OFF)
   set(CRC32C_USE_GLOG OFF)
-  set(CRC32C_INSTALL OFF)
+  #set(CRC32C_INSTALL OFF)
   fetchcontent_makeavailable(crc32c)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${crc32_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
   if(NOT TARGET Crc32c::crc32c)
@@ -3398,25 +3402,25 @@ function(build_google_cloud_cpp_storage)
   # Apply patch to add GOOGLE_CLOUD_CPP_ENABLE_INSTALL option so it does not install
   # unconditionally when embedded via FetchContent. Otherwise, we would have to install
   # dependecies like absl, crc32c, nlohmann_json, etc. which is not desirable.
-  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-  find_program(PATCH patch)
-  if(PATCH)
-    set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
-        ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
-  else()
-    find_program(GIT git)
-    if(GIT)
-      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
-          ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
-    else()
-      message(FATAL_ERROR "Building google-cloud-cpp from source requires either 'patch' or 'git' to be available"
-      )
-    endif()
-  endif()
+  #set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+  #find_program(PATCH patch)
+  #if(PATCH)
+  #  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+  #      ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
+  #else()
+  #  find_program(GIT git)
+  #  if(GIT)
+  #    set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+  #        ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
+  #  else()
+  #    message(FATAL_ERROR "Building google-cloud-cpp from source requires either 'patch' or 'git' to be available"
+  #    )
+  #  endif()
+  #endif()
 
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
+                       #PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
@@ -3429,12 +3433,16 @@ function(build_google_cloud_cpp_storage)
   set(GOOGLE_CLOUD_CPP_ENABLE_WERROR OFF)
   set(GOOGLE_CLOUD_CPP_WITH_MOCKS OFF)
   # Disable installation when embedded via FetchContent
-  set(GOOGLE_CLOUD_CPP_ENABLE_INSTALL OFF)
+  # set(GOOGLE_CLOUD_CPP_ENABLE_INSTALL OFF)
   set(BUILD_TESTING OFF)
   # Unity build causes some build errors.
   set(CMAKE_UNITY_BUILD FALSE)
 
   fetchcontent_makeavailable(google_cloud_cpp)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
