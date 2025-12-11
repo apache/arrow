@@ -313,12 +313,14 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     std::shared_ptr<ArrayData> input_arr = input.ToArrayData();
     ArrayData* output = out->array_data().get();
 
-    // Slice buffers to reduce allocation when casting the offsets buffer
+    // Slice buffers to minimize the output's offset. We need a small offset because
+    // CastBinaryToBinaryOffsets() will reallocate the offsets buffer with size
+    // (out_length + out_offset + 1) * sizeof(offset_type).
     int64_t input_offset = input_arr->offset;
     size_t input_offset_type_size = sizeof(typename I::offset_type);
     if (output->null_count != 0 && output->buffers[0]) {
       // Avoid reallocation of the validity buffer by allowing some padding bits
-      output->offset = input_arr->offset % 8;
+      output->offset = input_offset % 8;
     } else {
       output->offset = 0;
     }

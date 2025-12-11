@@ -3402,9 +3402,15 @@ TEST(Cast, StringToString) {
 
 TEST(Cast, StringToStringWithOffset) {
   // GH-43660: Check casting String Arrays with nonzero offset
+  std::vector<int64_t> offsets = {3, 8, 10, 12};
+  std::vector<int64_t> lengths = {5, 2, 1, 0};
+
   for (auto from_type : {utf8(), large_utf8()}) {
     for (auto to_type : {utf8(), large_utf8()}) {
-      for (int64_t offset : {3, 8, 10, 12}) {
+      for (size_t i = 0; i < offsets.size(); ++i) {
+        auto offset = offsets[i];
+        auto length = lengths[i];
+
         auto input_with_nulls = R"([
           "foo", null, "bar", null, "quu", "foo", "baz", "bar",
           null, "bar", "baz", null
@@ -3414,6 +3420,9 @@ TEST(Cast, StringToStringWithOffset) {
         auto output_arr_with_nulls = ArrayFromJSON(to_type, input_with_nulls);
         CheckCast(input_arr_with_nulls->Slice(offset),
                   output_arr_with_nulls->Slice(offset));
+        // Slice with length
+        CheckCast(input_arr_with_nulls->Slice(offset, length),
+                  output_arr_with_nulls->Slice(offset, length));
 
         auto input_no_nulls = R"([
             "foo", "aa", "bar", "bb", "quu", "foo", "baz", "bar",
@@ -3423,6 +3432,9 @@ TEST(Cast, StringToStringWithOffset) {
         auto input_arr_no_nulls = ArrayFromJSON(from_type, input_no_nulls);
         auto output_arr_no_nulls = ArrayFromJSON(to_type, input_no_nulls);
         CheckCast(input_arr_no_nulls->Slice(offset), output_arr_no_nulls->Slice(offset));
+        // Slice with length
+        CheckCast(input_arr_no_nulls->Slice(offset, length),
+                  output_arr_no_nulls->Slice(offset, length));
       }
     }
   }
