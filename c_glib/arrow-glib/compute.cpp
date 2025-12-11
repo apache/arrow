@@ -32,6 +32,7 @@
 #include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
+#include <arrow-glib/thread-pool.hpp>
 #include <arrow-glib/type.hpp>
 
 #include <arrow/acero/exec_plan.h>
@@ -276,6 +277,7 @@ garrow_compute_initialize(GError **error)
 typedef struct GArrowExecuteContextPrivate_
 {
   arrow::compute::ExecContext context;
+  std::shared_ptr<arrow::internal::ThreadPool> thread_pool;
 } GArrowExecuteContextPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext, garrow_execute_context, G_TYPE_OBJECT)
@@ -289,6 +291,7 @@ garrow_execute_context_finalize(GObject *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
   priv->context.~ExecContext();
+  priv->thread_pool.~shared_ptr();
   G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
 }
 
@@ -297,6 +300,7 @@ garrow_execute_context_init(GArrowExecuteContext *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
   new (&priv->context) arrow::compute::ExecContext(arrow::default_memory_pool(), nullptr);
+  new (&priv->thread_pool) std::shared_ptr<arrow::internal::ThreadPool>;
 }
 
 static void
@@ -309,15 +313,23 @@ garrow_execute_context_class_init(GArrowExecuteContextClass *klass)
 
 /**
  * garrow_execute_context_new:
+ * @thread_pool: (nullable): A #GArrowThreadPool or %NULL.
  *
  * Returns: A newly created #GArrowExecuteContext.
  *
  * Since: 1.0.0
  */
 GArrowExecuteContext *
-garrow_execute_context_new(void)
+garrow_execute_context_new(GArrowThreadPool *thread_pool)
 {
   auto execute_context = g_object_new(GARROW_TYPE_EXECUTE_CONTEXT, NULL);
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(execute_context);
+
+  auto arrow_thread_pool = garrow_thread_pool_get_raw(thread_pool);
+  priv->thread_pool = arrow_thread_pool;
+  new (&priv->context)
+    arrow::compute::ExecContext(arrow::default_memory_pool(), arrow_thread_pool.get());
+
   return GARROW_EXECUTE_CONTEXT(execute_context);
 }
 

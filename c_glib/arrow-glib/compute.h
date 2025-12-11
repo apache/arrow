@@ -22,6 +22,7 @@
 #include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
 #include <arrow-glib/reader.h>
+#include <arrow-glib/thread-pool.h>
 
 G_BEGIN_DECLS
 
@@ -40,7 +41,7 @@ struct _GArrowExecuteContextClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *
-garrow_execute_context_new(void);
+garrow_execute_context_new(GArrowThreadPool *thread_pool);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
