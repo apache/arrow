@@ -36,6 +36,55 @@ class TestBooleanExpr : public ::testing::Test {
   arrow::MemoryPool* pool_;
 };
 
+TEST_F(TestBooleanExpr, OrWithManyEqualityChecks) {
+  // Test case for: field IN (-8, -7, -6, -5, -4, -3, -2, -1, 0, 1, 2, 3, 4, 5)
+  // This tests the scenario where IN expression is rewritten as OR with many equality checks
+  // OR(=($7, -8), =($7, -7), ..., =($7, 5))
+
+  auto field0 = field("f0", int32());
+  auto schema = arrow::schema({field0});
+
+  // output fields
+  auto field_result = field("res", boolean());
+
+  // build expression: (f0 == -8) || (f0 == -7) || ... || (f0 == 5)
+  auto node_f0 = TreeExprBuilder::MakeField(field0);
+  auto lit_minus8 = TreeExprBuilder::MakeLiteral((int32_t)-8);
+  auto lit_minus5 = TreeExprBuilder::MakeLiteral((int32_t)-5);
+  auto lit_0 = TreeExprBuilder::MakeLiteral((int32_t)0);
+  auto lit_5 = TreeExprBuilder::MakeLiteral((int32_t)5);
+  auto lit_10 = TreeExprBuilder::MakeLiteral((int32_t)10);
+
+  auto eq_minus8 = TreeExprBuilder::MakeFunction("equal", {node_f0, lit_minus8}, boolean());
+  auto eq_minus5 = TreeExprBuilder::MakeFunction("equal", {node_f0, lit_minus5}, boolean());
+  auto eq_0 = TreeExprBuilder::MakeFunction("equal", {node_f0, lit_0}, boolean());
+  auto eq_5 = TreeExprBuilder::MakeFunction("equal", {node_f0, lit_5}, boolean());
+  auto eq_10 = TreeExprBuilder::MakeFunction("equal", {node_f0, lit_10}, boolean());
+
+  // Build OR: (f0 == -8) || (f0 == -5) || (f0 == 0) || (f0 == 5) || (f0 == 10)
+  auto node_or = TreeExprBuilder::MakeOr({eq_minus8, eq_minus5, eq_0, eq_5, eq_10});
+  auto expr = TreeExprBuilder::MakeExpression(node_or, field_result);
+
+  // Build a projector for the expressions.
+  std::shared_ptr<Projector> projector;
+  auto status = Projector::Make(schema, {expr}, TestConfiguration(), &projector);
+  EXPECT_TRUE(status.ok());
+
+  // Test data: -10, -8, -5, 0, 5, 10, 15
+  // Expected: true for indices 1(-8), 2(-5), 3(0), 4(5), false for others
+  int num_records = 7;
+  auto array0 = MakeArrowArrayInt32({-10, -8, -5, 0, 5, 10, 15},
+                                     {true, true, true, true, true, true, true});
+  auto exp = MakeArrowArrayBool({false, true, true, true, true, true, false},
+                                {true, true, true, true, true, true, true});
+  auto in_batch = arrow::RecordBatch::Make(schema, num_records, {array0});
+
+  arrow::ArrayVector outputs;
+  status = projector->Evaluate(*in_batch, pool_, &outputs);
+  EXPECT_TRUE(status.ok());
+  EXPECT_ARROW_ARRAY_EQUALS(exp, outputs.at(0));
+}
+
 TEST_F(TestBooleanExpr, SimpleAnd) {
   // schema for input fields
   auto fielda = field("a", int32());
