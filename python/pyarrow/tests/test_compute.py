@@ -3419,8 +3419,8 @@ def test_struct_fields_options():
     with pytest.raises(pa.ArrowInvalid, match="No match for FieldRef"):
         pc.struct_field(arr, '.a.foo')
 
-    # TODO: https://issues.apache.org/jira/browse/ARROW-14853
-    # assert pc.struct_field(arr) == arr
+    with pytest.raises(pa.ArrowInvalid, match="cannot be called without options"):
+        pc.struct_field(arr)
 
 
 def test_case_when():

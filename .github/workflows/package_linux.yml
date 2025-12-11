@@ -30,8 +30,8 @@ on:
       - 'cpp/**'
       - 'c_glib/**'
       - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.rb'
-      - 'dev/release/verify-yum.rb'
+      - 'dev/release/verify-apt.sh'
+      - 'dev/release/verify-yum.sh'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     tags:
@@ -44,8 +44,8 @@ on:
       - 'cpp/**'
       - 'c_glib/**'
       - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.rb'
-      - 'dev/release/verify-yum.rb'
+      - 'dev/release/verify-apt.sh'
+      - 'dev/release/verify-yum.sh'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     types:

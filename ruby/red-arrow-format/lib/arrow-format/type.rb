@@ -158,6 +158,22 @@ module ArrowFormat
     end
   end
 
+  class Date64Type < DateType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Date64")
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Date64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class VariableSizeBinaryType < Type
   end
 
@@ -278,6 +294,41 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, offsets_buffer, child)
       MapArray.new(self, size, validity_buffer, offsets_buffer, child)
+    end
+  end
+
+  class UnionType < Type
+    attr_reader :children
+    attr_reader :type_ids
+    def initialize(name, children, type_ids)
+      super(name)
+      @children = children
+      @type_ids = type_ids
+      @type_indexes = {}
+    end
+
+    def resolve_type_index(type)
+      @type_indexes[type] ||= @type_ids.index(type)
+    end
+  end
+
+  class DenseUnionType < UnionType
+    def initialize(children, type_ids)
+      super("DenseUnion", children, type_ids)
+    end
+
+    def build_array(size, types_buffer, offsets_buffer, children)
+      DenseUnionArray.new(self, size, types_buffer, offsets_buffer, children)
+    end
+  end
+
+  class SparseUnionType < UnionType
+    def initialize(children, type_ids)
+      super("SparseUnion", children, type_ids)
+    end
+
+    def build_array(size, types_buffer, children)
+      SparseUnionArray.new(self, size, types_buffer, children)
     end
   end
 end

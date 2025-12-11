@@ -227,7 +227,11 @@ echo "::endgroup::"
 
 echo "::group::Prepare downgrade test"
 can_downgrade=false
-if [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
+if [ "${distribution}" = 'debian' ] && [[ "$(cat /etc/debian_version)" =~ /sid$ ]]; then
+  # Skip downgrade test on Debian testing.
+  # Debian testing and unstable use "${testing_code_name}/"sid" as /etc/debian_version content.
+  :
+elif [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
   mv /etc/apt/sources.list.d/apache-arrow.sources \
      /etc/apt/sources.list.d/apache-arrow-current.sources
   mv /etc/apt/sources.list.d/apache-arrow.sources{.bak,}

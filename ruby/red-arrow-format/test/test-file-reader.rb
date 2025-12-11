@@ -123,6 +123,35 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Date64") do
+    def setup(&block)
+      @date_2017_08_28_00_00_00 = 1503878400000
+      @date_2025_12_09_00_00_00 = 1765324800000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::Date64Array.new([
+                               @date_2017_08_28_00_00_00,
+                               nil,
+                               @date_2025_12_09_00_00_00,
+                             ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @date_2017_08_28_00_00_00,
+                         nil,
+                         @date_2025_12_09_00_00_00,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
   sub_test_case("Binary") do
     def build_array
       Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
@@ -197,6 +226,54 @@ class TestFileReader < Test::Unit::TestCase
                        ],
                      },
                    ],
+                   read)
+    end
+  end
+
+  sub_test_case("DenseUnion") do
+    def build_array
+      fields = [
+        Arrow::Field.new("number", :int8),
+        Arrow::Field.new("text", :string),
+      ]
+      type_ids = [11, 13]
+      data_type = Arrow::DenseUnionDataType.new(fields, type_ids)
+      types = Arrow::Int8Array.new([11, 13, 11, 13, 13])
+      value_offsets = Arrow::Int32Array.new([0, 0, 1, 1, 2])
+      children = [
+        Arrow::Int8Array.new([1, nil]),
+        Arrow::StringArray.new(["a", "b", "c"])
+      ]
+      Arrow::DenseUnionArray.new(data_type,
+                                 types,
+                                 value_offsets,
+                                 children)
+    end
+
+    def test_read
+      assert_equal([{"value" => [1, "a", nil, "b", "c"]}],
+                   read)
+    end
+  end
+
+  sub_test_case("SparseUnion") do
+    def build_array
+      fields = [
+        Arrow::Field.new("number", :int8),
+        Arrow::Field.new("text", :string),
+      ]
+      type_ids = [11, 13]
+      data_type = Arrow::SparseUnionDataType.new(fields, type_ids)
+      types = Arrow::Int8Array.new([11, 13, 11, 13, 11])
+      children = [
+        Arrow::Int8Array.new([1, nil, nil, nil, 5]),
+        Arrow::StringArray.new([nil, "b", nil, "d", nil])
+      ]
+      Arrow::SparseUnionArray.new(data_type, types, children)
+    end
+
+    def test_read
+      assert_equal([{"value" => [1, "b", nil, "d", 5]}],
                    read)
     end
   end

@@ -281,8 +281,10 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
     pq_file_reader = ParquetFileReader::Open(file, reader_properties, pq_md);
     END_PARQUET_CATCH_EXCEPTIONS
 
-    std::unique_ptr<FileReader> reader;
-    RETURN_NOT_OK(FileReader::Make(pool, std::move(pq_file_reader), properties, &reader));
+    auto arrow_reader_result =
+        FileReader::Make(pool, std::move(pq_file_reader), properties);
+    RETURN_NOT_OK(arrow_reader_result.status());
+    auto reader = std::move(*arrow_reader_result);
     st &= FuzzReadData(std::move(reader));
   }
   return st;

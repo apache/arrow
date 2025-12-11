@@ -1240,4 +1240,36 @@ GARROW_AVAILABLE_IN_23_0
 GArrowElementWiseAggregateOptions *
 garrow_element_wise_aggregate_options_new(void);
 
+#define GARROW_TYPE_DAY_OF_WEEK_OPTIONS (garrow_day_of_week_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDayOfWeekOptions,
+                         garrow_day_of_week_options,
+                         GARROW,
+                         DAY_OF_WEEK_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDayOfWeekOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new(void);
+
+#define GARROW_TYPE_EXTRACT_REGEX_OPTIONS (garrow_extract_regex_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExtractRegexOptions,
+                         garrow_extract_regex_options,
+                         GARROW,
+                         EXTRACT_REGEX_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowExtractRegexOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new(void);
+
 G_END_DECLS
