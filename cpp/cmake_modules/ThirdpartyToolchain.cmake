@@ -3302,7 +3302,7 @@ function(build_crc32c_once)
   fetchcontent_makeavailable(crc32c)
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${crc32_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
   # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
