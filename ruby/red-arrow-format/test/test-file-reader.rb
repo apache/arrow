@@ -256,6 +256,28 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("SparseUnion") do
+    def build_array
+      fields = [
+        Arrow::Field.new("number", :int8),
+        Arrow::Field.new("text", :string),
+      ]
+      type_ids = [11, 13]
+      data_type = Arrow::SparseUnionDataType.new(fields, type_ids)
+      types = Arrow::Int8Array.new([11, 13, 11, 13, 11])
+      children = [
+        Arrow::Int8Array.new([1, nil, nil, nil, 5]),
+        Arrow::StringArray.new([nil, "b", nil, "d", nil])
+      ]
+      Arrow::SparseUnionArray.new(data_type, types, children)
+    end
+
+    def test_read
+      assert_equal([{"value" => [1, "b", nil, "d", 5]}],
+                   read)
+    end
+  end
+
   sub_test_case("Map") do
     def build_array
       data_type = Arrow::MapDataType.new(:string, :int8)
