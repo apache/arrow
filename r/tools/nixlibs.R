@@ -289,11 +289,8 @@ test_for_curl_and_openssl <- "
 
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER < 0x10002000L
-#error OpenSSL version too old
-#endif
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#error Using OpenSSL version 1.0
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#error OpenSSL version must be 3.0 or greater
 #endif
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
 #error Using OpenSSL version 3
@@ -348,10 +345,7 @@ determine_binary_from_stderr <- function(errs) {
   } else if (header_not_found("openssl/opensslv", errs)) {
     lg("OpenSSL not found")
     return(NULL)
-  } else if (
-    any(grepl("OpenSSL version too old", errs)) ||
-      any(grepl("Using OpenSSL version 1\\.", errs))
-  ) {
+  } else if (any(grepl("OpenSSL version must be 3.0 or greater", errs))) {
     lg("OpenSSL found but version >= 3.0.0 is required")
     return(NULL)
   } else if (any(grepl("Using OpenSSL version 3", errs)) || is.null(attr(errs, "status"))) {
