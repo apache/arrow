@@ -39,6 +39,8 @@
 #' If not specified, it defaults to `"part-{i}.<default extension>"`.
 #' @param hive_style logical: write partition segments as Hive-style
 #' (`key1=value1/key2=value2/file.ext`) or as just bare values. Default is `TRUE`.
+#' @param url_encode_hive_values logical: URL-encode Hive partition values when
+#' using Hive-style partitioning. Default is `TRUE`. Only applies when `hive_style` is `TRUE`.
 #' @param existing_data_behavior The behavior to use when there is already data
 #' in the destination directory.  Must be one of "overwrite", "error", or
 #' "delete_matching".
@@ -124,13 +126,13 @@
 #'   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 #' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
-write_dataset <- function(
-  dataset,
+write_dataset <- function(dataset,
   path,
   format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
   partitioning = dplyr::group_vars(dataset),
   basename_template = paste0("part-{i}.", as.character(format)),
   hive_style = TRUE,
+  url_encode_hive_values = TRUE,
   existing_data_behavior = c("overwrite", "error", "delete_matching"),
   max_partitions = 1024L,
   max_open_files = 900L,
@@ -138,8 +140,7 @@ write_dataset <- function(
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
   create_directory = TRUE,
-  ...
-) {
+  ...) {
   format <- match.arg(format)
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
@@ -175,9 +176,11 @@ write_dataset <- function(
   if (!inherits(partitioning, "Partitioning")) {
     partition_schema <- final_node$schema[partitioning]
     if (isTRUE(hive_style)) {
+      segment_encoding <- if (url_encode_hive_values) "uri" else "none"
       partitioning <- HivePartitioning$create(
         partition_schema,
-        null_fallback = list(...)$null_fallback
+        null_fallback = list(...)$null_fallback,
+        segment_encoding = segment_encoding
       )
     } else {
       partitioning <- DirectoryPartitioning$create(partition_schema)
@@ -187,27 +190,27 @@ write_dataset <- function(
   path_and_fs <- get_path_and_filesystem(path)
 
   dots <- list(...)
-  if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(dots))) {
+  # Remove url_encode_hive_values from dots as it's not a FileWriteOptions parameter
+  file_write_dots <- dots[!names(dots) %in% "url_encode_hive_values"]
+  
+  if (format %in% c("txt", "text") && !any(c("delimiter", "delim") %in% names(file_write_dots))) {
     stop("A delimiter must be given for a txt format.")
   }
-  if (format == "tsv" && any(c("delimiter", "delim") %in% names(dots))) {
+  if (format == "tsv" && any(c("delimiter", "delim") %in% names(file_write_dots))) {
     stop("Can't set a delimiter for the tsv format.")
   }
 
   output_schema <- final_node$schema
   # This is a workaround because CsvFileFormat$create defaults the delimiter to ","
   if (format == "tsv") {
-    options <- FileWriteOptions$create(
-      format,
-      column_names = names(output_schema),
-      delimiter = "\t",
-      ...
+    options <- do.call(
+      FileWriteOptions$create,
+      c(list(format = format, column_names = names(output_schema), delimiter = "\t"), file_write_dots)
     )
   } else {
-    options <- FileWriteOptions$create(
-      format,
-      column_names = names(output_schema),
-      ...
+    options <- do.call(
+      FileWriteOptions$create,
+      c(list(format = format, column_names = names(output_schema)), file_write_dots)
     )
   }
 
@@ -267,12 +270,12 @@ write_dataset <- function(
 #'
 #' @seealso [write_dataset()]
 #' @export
-write_delim_dataset <- function(
-  dataset,
+write_delim_dataset <- function(dataset,
   path,
   partitioning = dplyr::group_vars(dataset),
   basename_template = "part-{i}.txt",
   hive_style = TRUE,
+  url_encode_hive_values = TRUE,
   existing_data_behavior = c("overwrite", "error", "delete_matching"),
   max_partitions = 1024L,
   max_open_files = 900L,
@@ -284,8 +287,7 @@ write_delim_dataset <- function(
   delim = ",",
   na = "",
   eol = "\n",
-  quote = c("needed", "all", "none")
-) {
+  quote = c("needed", "all", "none")) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
@@ -301,6 +303,7 @@ write_delim_dataset <- function(
     partitioning = partitioning,
     basename_template = basename_template,
     hive_style = hive_style,
+    url_encode_hive_values = url_encode_hive_values,
     existing_data_behavior = existing_data_behavior,
     max_partitions = max_partitions,
     max_open_files = max_open_files,
@@ -318,24 +321,24 @@ write_delim_dataset <- function(
 
 #' @rdname write_delim_dataset
 #' @export
-write_csv_dataset <- function(
-  dataset,
-  path,
-  partitioning = dplyr::group_vars(dataset),
-  basename_template = "part-{i}.csv",
-  hive_style = TRUE,
-  existing_data_behavior = c("overwrite", "error", "delete_matching"),
-  max_partitions = 1024L,
-  max_open_files = 900L,
-  max_rows_per_file = 0L,
-  min_rows_per_group = 0L,
-  max_rows_per_group = bitwShiftL(1, 20),
-  col_names = TRUE,
-  batch_size = 1024L,
-  delim = ",",
-  na = "",
-  eol = "\n",
-  quote = c("needed", "all", "none")
+write_csv_dataset <- function(dataset,
+    path,
+    partitioning = dplyr::group_vars(dataset),
+    basename_template = "part-{i}.csv",
+    hive_style = TRUE,
+    url_encode_hive_values = TRUE,
+    existing_data_behavior = c("overwrite", "error", "delete_matching"),
+    max_partitions = 1024L,
+    max_open_files = 900L,
+    max_rows_per_file = 0L,
+    min_rows_per_group = 0L,
+    max_rows_per_group = bitwShiftL(1, 20),
+    col_names = TRUE,
+    batch_size = 1024L,
+    delim = ",",
+    na = "",
+    eol = "\n",
+    quote = c("needed", "all", "none")) {
 ) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
@@ -352,6 +355,7 @@ write_csv_dataset <- function(
     partitioning = partitioning,
     basename_template = basename_template,
     hive_style = hive_style,
+    url_encode_hive_values = url_encode_hive_values,
     existing_data_behavior = existing_data_behavior,
     max_partitions = max_partitions,
     max_open_files = max_open_files,
@@ -369,12 +373,12 @@ write_csv_dataset <- function(
 
 #' @rdname write_delim_dataset
 #' @export
-write_tsv_dataset <- function(
-  dataset,
+write_tsv_dataset <- function(dataset,
   path,
   partitioning = dplyr::group_vars(dataset),
   basename_template = "part-{i}.tsv",
   hive_style = TRUE,
+  url_encode_hive_values = TRUE,
   existing_data_behavior = c("overwrite", "error", "delete_matching"),
   max_partitions = 1024L,
   max_open_files = 900L,
@@ -385,7 +389,7 @@ write_tsv_dataset <- function(
   batch_size = 1024L,
   na = "",
   eol = "\n",
-  quote = c("needed", "all", "none")
+  quote = c("needed", "all", "none")) {
 ) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
@@ -402,6 +406,7 @@ write_tsv_dataset <- function(
     partitioning = partitioning,
     basename_template = basename_template,
     hive_style = hive_style,
+    url_encode_hive_values = url_encode_hive_values,
     existing_data_behavior = existing_data_behavior,
     max_partitions = max_partitions,
     max_open_files = max_open_files,
