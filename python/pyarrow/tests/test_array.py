@@ -2445,6 +2445,32 @@ def test_array_roundtrip_from_numpy_datetimeD():
     assert result.dtype == arr.dtype
 
 
+@pytest.mark.numpy
+def test_array_from_numpy_datetime_overflow():
+    # datetime64[D] to date32 conversion should check for int32 overflow
+    # when safe=True (default)
+    overflow_value = np.int64(3000000000)
+    arr = np.array([overflow_value], dtype='datetime64[D]')
+    with pytest.raises(pa.ArrowInvalid, match='value .* out of bounds'):
+        pa.array(arr, type=pa.date32())
+
+    underflow_value = np.int64(-3000000000)
+    arr = np.array([underflow_value], dtype='datetime64[D]')
+    with pytest.raises(pa.ArrowInvalid, match='value .* out of bounds'):
+        pa.array(arr, type=pa.date32())
+
+    # safe=False should allow overflow
+    result = pa.array(np.array([overflow_value], dtype='datetime64[D]'),
+                      type=pa.date32(), safe=False)
+    assert len(result) == 1
+
+    # Values within int32 range should work
+    valid_arr = np.array([0, 100, -100, 2147483647, -2147483648],
+                         dtype='datetime64[D]')
+    result = pa.array(valid_arr, type=pa.date32())
+    assert len(result) == 5
+
+
 def test_array_from_naive_datetimes():
     arr = pa.array([
         None,

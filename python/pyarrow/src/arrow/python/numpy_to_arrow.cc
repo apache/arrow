@@ -365,14 +365,27 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
 }
 
 template <typename FromType, typename ToType>
-Status StaticCastBuffer(const Buffer& input, const int64_t length, MemoryPool* pool,
+Status StaticCastBuffer(const Buffer& input, int64_t length, MemoryPool* pool,
+                        const uint8_t* null_bitmap,
+                        const compute::CastOptions& cast_options,
                         std::shared_ptr<Buffer>* out) {
   ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(sizeof(ToType) * length, pool));
 
   auto in_values = reinterpret_cast<const FromType*>(input.data());
   auto out_values = reinterpret_cast<ToType*>(result->mutable_data());
+
+  constexpr FromType kMin = std::numeric_limits<ToType>::min();
+  constexpr FromType kMax = std::numeric_limits<ToType>::max();
+
   for (int64_t i = 0; i < length; ++i) {
-    *out_values++ = static_cast<ToType>(*in_values++);
+    FromType value = *in_values++;
+    // Skip overflow check for null values
+    bool is_null = (null_bitmap != nullptr) && !bit_util::GetBit(null_bitmap, i);
+    if (!is_null && !cast_options.allow_int_overflow && (value < kMin || value > kMax)) {
+      return Status::Invalid("Integer value ", value, " out of bounds for int",
+                             sizeof(ToType) * 8, " conversion at index ", i);
+    }
+    *out_values++ = static_cast<ToType>(value);
   }
   *out = std::move(result);
   return Status::OK();
@@ -496,10 +509,10 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
     // separately here from int64_t to int32_t, because this data is not
     // supported in compute::Cast
     if (date_dtype->meta.base == NPY_FR_D) {
-      // TODO(wesm): How pedantic do we really want to be about checking for int32
-      // overflow here?
-      Status s = StaticCastBuffer<int64_t, int32_t>(**data, length_, pool_, data);
-      RETURN_NOT_OK(s);
+      // Downcast from int64 to int32 with overflow checking
+      const uint8_t* null_bitmap_ptr = null_bitmap_ ? null_bitmap_->data() : nullptr;
+      RETURN_NOT_OK((StaticCastBuffer<int64_t, int32_t>(
+          **data, length_, pool_, null_bitmap_ptr, cast_options_, data)));
     } else {
       ARROW_ASSIGN_OR_RAISE(input_type, NumPyDtypeToArrow(dtype_));
       if (!input_type->Equals(*type_)) {
