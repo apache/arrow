@@ -28,7 +28,7 @@
 namespace parquet {
 
 std::shared_ptr<ArrowInputStream> ReaderProperties::GetStream(
-    std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) {
+    std::shared_ptr<ArrowInputFile> source, int64_t start, int64_t num_bytes) const {
   if (buffered_stream_enabled_) {
     // ARROW-6180 / PARQUET-1636 Create isolated reader that references segment
     // of source
