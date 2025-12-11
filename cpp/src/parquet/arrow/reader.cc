@@ -1366,10 +1366,7 @@ Result<std::unique_ptr<FileReader>> FileReader::Make(
 
 Result<std::unique_ptr<FileReader>> FileReader::Make(
     ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> parquet_reader) {
-  std::unique_ptr<FileReader> reader = std::make_unique<FileReaderImpl>(
-      pool, std::move(parquet_reader), default_arrow_reader_properties());
-  RETURN_NOT_OK(static_cast<FileReaderImpl*>(reader.get())->Init());
-  return reader;
+  return Make(pool, std::move(parquet_reader), default_arrow_reader_properties());
 }
 
 FileReaderBuilder::FileReaderBuilder()
