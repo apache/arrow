@@ -73,8 +73,7 @@ fi
 
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
 # cmake is now a listed sys req.
-# Install patch/git for applying patches to bundled dependencies via FetchContent.
-$PACKAGE_MANAGER install -y rsync cmake curl git patch
+$PACKAGE_MANAGER install -y rsync cmake curl
 
 # Update clang version to latest available.
 # This is only for rhub/clang20. If we change the base image from rhub/clang20,

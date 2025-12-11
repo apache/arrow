@@ -3299,7 +3299,6 @@ function(build_crc32c_once)
   set(CRC32C_BUILD_TESTS OFF)
   set(CRC32C_BUILD_BENCHMARKS OFF)
   set(CRC32C_USE_GLOG OFF)
-  #set(CRC32C_INSTALL OFF)
   fetchcontent_makeavailable(crc32c)
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
@@ -3405,28 +3404,8 @@ function(build_google_cloud_cpp_storage)
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
 
-  # Apply patch to add GOOGLE_CLOUD_CPP_ENABLE_INSTALL option so it does not install
-  # unconditionally when embedded via FetchContent. Otherwise, we would have to install
-  # dependecies like absl, crc32c, nlohmann_json, etc. which is not desirable.
-  #set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-  #find_program(PATCH patch)
-  #if(PATCH)
-  #  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
-  #      ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
-  #else()
-  #  find_program(GIT git)
-  #  if(GIT)
-  #    set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
-  #        ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-disable-install.patch)
-  #  else()
-  #    message(FATAL_ERROR "Building google-cloud-cpp from source requires either 'patch' or 'git' to be available"
-  #    )
-  #  endif()
-  #endif()
-
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       #PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
