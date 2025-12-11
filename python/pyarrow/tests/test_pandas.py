@@ -3278,12 +3278,68 @@ class TestConvertMisc:
 
 
 def test_safe_cast_from_float_with_nans_to_int():
-    # TODO(kszucs): write tests for creating Date32 and Date64 arrays, see
-    #               ARROW-4258 and https://github.com/apache/arrow/pull/3395
     values = pd.Series([1, 2, None, 4])
     arr = pa.Array.from_pandas(values, type=pa.int32(), safe=True)
     expected = pa.array([1, 2, None, 4], type=pa.int32())
     assert arr.equals(expected)
+
+
+def test_create_date32_and_date64_arrays_with_mask():
+    # Test Date32 array creation from Python list with mask
+    arr_date32 = pa.array([0, 0, 1, 2],
+                          mask=[False, False, True, False],
+                          type=pa.date32())
+    expected_date32 = pa.array([
+        date(1970, 1, 1),
+        date(1970, 1, 1),
+        None,
+        date(1970, 1, 3),
+    ], type=pa.date32())
+    assert arr_date32.equals(expected_date32)
+
+    # Test Date32 array creation from Python dates
+    arr_date32_dates = pa.array([
+        date(2023, 1, 1),
+        date(2023, 1, 2),
+        None,
+        date(2023, 1, 4),
+    ], type=pa.date32())
+    assert arr_date32_dates.null_count == 1
+    assert arr_date32_dates[2].as_py() is None
+
+    # Test Date64 array creation from Python list with mask
+    arr_date64 = pa.array([0, 86400000, 172800000, 259200000],
+                          mask=[False, False, True, False],
+                          type=pa.date64())
+    expected_date64 = pa.array([
+        date(1970, 1, 1),
+        date(1970, 1, 2),
+        None,
+        date(1970, 1, 4),
+    ], type=pa.date64())
+    assert arr_date64.equals(expected_date64)
+
+    # Test Date64 array creation from Python dates
+    arr_date64_dates = pa.array([
+        date(2023, 1, 1),
+        date(2023, 1, 2),
+        None,
+        date(2023, 1, 4),
+    ], type=pa.date64())
+    assert arr_date64_dates.null_count == 1
+    assert arr_date64_dates[2].as_py() is None
+
+    # Test Date32 with all nulls mask
+    arr_all_null = pa.array([0, 1, 2, 3],
+                            mask=[True, True, True, True],
+                            type=pa.date32())
+    assert arr_all_null.null_count == 4
+
+    # Test Date64 with no nulls
+    arr_no_null = pa.array([0, 86400000, 172800000],
+                           mask=[False, False, False],
+                           type=pa.date64())
+    assert arr_no_null.null_count == 0
 
 
 def _fully_loaded_dataframe_example():
