@@ -203,3 +203,9 @@ GArrowDayOfWeekOptions *
 garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options);
 arrow::compute::DayOfWeekOptions *
 garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options);
+
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new_raw(
+  const arrow::compute::ExtractRegexOptions *arrow_options);
+arrow::compute::ExtractRegexOptions *
+garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);

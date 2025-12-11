@@ -266,6 +266,9 @@ G_BEGIN_DECLS
  *
  * #GArrowDayOfWeekOptions is a class to customize the `day_of_week` function.
  *
+ * #GArrowExtractRegexOptions is a class to customize the `extract_regex`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6992,6 +6995,102 @@ garrow_day_of_week_options_new(void)
   return GARROW_DAY_OF_WEEK_OPTIONS(options);
 }
 
+enum {
+  PROP_EXTRACT_REGEX_OPTIONS_PATTERN = 1,
+};
+
+G_DEFINE_TYPE(GArrowExtractRegexOptions,
+              garrow_extract_regex_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_extract_regex_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_options_get_raw(GARROW_EXTRACT_REGEX_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_options_get_raw(GARROW_EXTRACT_REGEX_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_options_init(GArrowExtractRegexOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ExtractRegexOptions());
+}
+
+static void
+garrow_extract_regex_options_class_init(GArrowExtractRegexOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_extract_regex_options_set_property;
+  gobject_class->get_property = garrow_extract_regex_options_get_property;
+
+  arrow::compute::ExtractRegexOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowExtractRegexOptions:pattern:
+   *
+   * Regular expression with named capture fields.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "Regular expression with named capture fields",
+                             options.pattern.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_EXTRACT_REGEX_OPTIONS_PATTERN,
+                                  spec);
+}
+
+/**
+ * garrow_extract_regex_options_new:
+ *
+ * Returns: A newly created #GArrowExtractRegexOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_EXTRACT_REGEX_OPTIONS, NULL);
+  return GARROW_EXTRACT_REGEX_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7149,6 +7248,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_day_of_week_options =
       static_cast<const arrow::compute::DayOfWeekOptions *>(arrow_options);
     auto options = garrow_day_of_week_options_new_raw(arrow_day_of_week_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ExtractRegexOptions") {
+    const auto arrow_extract_regex_options =
+      static_cast<const arrow::compute::ExtractRegexOptions *>(arrow_options);
+    auto options = garrow_extract_regex_options_new_raw(arrow_extract_regex_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7770,5 +7874,22 @@ arrow::compute::DayOfWeekOptions *
 garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options)
 {
   return static_cast<arrow::compute::DayOfWeekOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new_raw(
+  const arrow::compute::ExtractRegexOptions *arrow_options)
+{
+  return GARROW_EXTRACT_REGEX_OPTIONS(g_object_new(GARROW_TYPE_EXTRACT_REGEX_OPTIONS,
+                                                   "pattern",
+                                                   arrow_options->pattern.c_str(),
+                                                   NULL));
+}
+
+arrow::compute::ExtractRegexOptions *
+garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options)
+{
+  return static_cast<arrow::compute::ExtractRegexOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
