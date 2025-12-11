@@ -139,7 +139,10 @@ module ArrowFormat
     end
   end
 
-  class DateType < Type
+  class TemporalType < Type
+  end
+
+  class DateType < TemporalType
   end
 
   class Date32Type < DateType
@@ -171,6 +174,20 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, values_buffer)
       Date64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
+  class TimeType < TemporalType
+  end
+
+  class Time32Type < TimeType
+    def initialize(unit)
+      super("Time32")
+      @unit = unit
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Time32Array.new(self, size, validity_buffer, values_buffer)
     end
   end
 

@@ -152,6 +152,41 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Time32(:second)") do
+    def setup(&block)
+      @time_00_00_10 = 10
+      @time_00_01_10 = 60 + 10
+      super(&block)
+    end
+
+    def build_array
+      Arrow::Time32Array.new(:second, [@time_00_00_10, nil, @time_00_01_10])
+    end
+
+    def test_read
+      assert_equal([{"value" => [@time_00_00_10, nil, @time_00_01_10]}],
+                   read)
+    end
+  end
+
+  sub_test_case("Time32(:millisecond)") do
+    def setup(&block)
+      @time_00_00_10_000 = 10 * 1000
+      @time_00_01_10_000 = (60 + 10) * 1000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::Time32Array.new(:milli,
+                             [@time_00_00_10_000, nil, @time_00_01_10_000])
+    end
+
+    def test_read
+      assert_equal([{"value" => [@time_00_00_10_000, nil, @time_00_01_10_000]}],
+                   read)
+    end
+  end
+
   sub_test_case("Binary") do
     def build_array
       Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
