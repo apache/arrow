@@ -247,18 +247,18 @@ env:
       path: repo/libarrow
   {% endif %}
   {% if get_nix %}
-  - name: Get Linux OpenSSL 3.0 binary
+  - name: Get Linux binary
     uses: actions/download-artifact@v4
     with:
-      name: r-libarrow-linux-x86_64-openssl-3.0
+      name: r-libarrow-linux-x86_64
       path: repo/libarrow
   {% endif %}
   {% if get_mac %}
     {% for arch in ["x86_64", "arm64"] %}
-  - name: Get macOS {{ arch }} OpenSSL 3.0 binary
+  - name: Get macOS {{ arch }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-libarrow-darwin-{{ arch }}-openssl-3.0
+      name: r-libarrow-darwin-{{ arch }}
       path: repo/libarrow
     {% endfor %}
   {% endif %}
