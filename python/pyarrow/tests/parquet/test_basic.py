@@ -613,14 +613,127 @@ def test_compression_level():
 
 
 def test_sanitized_spark_field_names():
-    a0 = pa.array([0, 1, 2, 3, 4])
-    name = 'prohib; ,\t{}'
-    table = pa.Table.from_arrays([a0], [name])
+    field_metadata = {b'key': b'value'}
+    schema_metadata = {b'schema_key': b'schema_value'}
+
+    schema = pa.schema([
+        pa.field('prohib; ,\t{}', pa.int32()),
+        pa.field('field=with\nspecial', pa.string(), metadata=field_metadata),
+        pa.field('nested_struct', pa.struct([
+            pa.field('field,comma', pa.int32()),
+            pa.field('deeply{nested}', pa.struct([
+                pa.field('field(parens)', pa.float64()),
+                pa.field('normal_field', pa.bool_())
+            ]))
+        ]))
+    ], metadata=schema_metadata)
+
+    data = [
+        pa.array([1, 2]),
+        pa.array(['a', 'b']),
+        pa.array([
+            {'field,comma': 10, 'deeply{nested}': {
+                'field(parens)': 1.5, 'normal_field': True}},
+            {'field,comma': 20, 'deeply{nested}': {
+                'field(parens)': 2.5, 'normal_field': False}}
+        ], type=schema[2].type)
+    ]
+
+    table = pa.Table.from_arrays(data, schema=schema)
+    result = _roundtrip_table(table, write_table_kwargs={'flavor': 'spark'})
+
+    assert result.schema[0].name == 'prohib______'
+    assert result.schema[1].name == 'field_with_special'
+
+    nested_type = result.schema[2].type
+    assert nested_type[0].name == 'field_comma'
+    assert nested_type[1].name == 'deeply_nested_'
+
+    deep_type = nested_type[1].type
+    assert deep_type[0].name == 'field_parens_'
+    assert deep_type[1].name == 'normal_field'
+
+    assert result.schema[1].metadata == field_metadata
+    assert result.schema.metadata == schema_metadata
+    assert len(result) == 2
+
+
+def test_sanitized_spark_field_names_nested():
+    # Test that field name sanitization works for structs nested inside
+    # lists, maps, and other complex types
+    schema = pa.schema([
+        # List containing struct with special chars
+        pa.field('list;field', pa.list_(pa.field('item', pa.struct([
+            pa.field('field,name', pa.int32()),
+            pa.field('other{field}', pa.string())
+        ])))),
+        # Large list with nested struct
+        pa.field('large=list', pa.large_list(pa.field('element', pa.struct([
+            pa.field('nested(field)', pa.float64())
+        ])))),
+        # Fixed size list with nested struct
+        pa.field('fixed\tlist', pa.list_(pa.field('item', pa.struct([
+            pa.field('special field', pa.int32())
+        ])), 2)),
+        # Map with structs in both key and value
+        pa.field('map field', pa.map_(
+            pa.field('key', pa.struct(
+                [pa.field('key;field', pa.string())]), nullable=False),
+            pa.field('value', pa.struct([pa.field('value,field', pa.int32())]))
+        ))
+    ])
+
+    list_data = pa.array([
+        [{'field,name': 1, 'other{field}': 'a'}],
+        [{'field,name': 2, 'other{field}': 'b'}]
+    ], type=schema[0].type)
+
+    large_list_data = pa.array([
+        [{'nested(field)': 1.5}],
+        [{'nested(field)': 2.5}]
+    ], type=schema[1].type)
+
+    fixed_list_data = pa.array([
+        [{'special field': 10}, {'special field': 20}],
+        [{'special field': 30}, {'special field': 40}]
+    ], type=schema[2].type)
+
+    map_data = pa.array([
+        [({'key;field': 'k1'}, {'value,field': 100})],
+        [({'key;field': 'k2'}, {'value,field': 200})]
+    ], type=schema[3].type)
+
+    table = pa.Table.from_arrays(
+        [list_data, large_list_data, fixed_list_data, map_data],
+        schema=schema
+    )
 
     result = _roundtrip_table(table, write_table_kwargs={'flavor': 'spark'})
 
-    expected_name = 'prohib______'
-    assert result.schema[0].name == expected_name
+    # Check top-level field names are sanitized
+    assert result.schema[0].name == 'list_field'
+    assert result.schema[1].name == 'large_list'
+    assert result.schema[2].name == 'fixed_list'
+    assert result.schema[3].name == 'map_field'
+
+    # Check list value field's struct has sanitized names
+    list_value_type = result.schema[0].type.value_type
+    assert list_value_type[0].name == 'field_name'
+    assert list_value_type[1].name == 'other_field_'
+
+    # Check large list value field's struct has sanitized names
+    large_list_value_type = result.schema[1].type.value_type
+    assert large_list_value_type[0].name == 'nested_field_'
+
+    # Check fixed size list value field's struct has sanitized names
+    fixed_list_value_type = result.schema[2].type.value_type
+    assert fixed_list_value_type[0].name == 'special_field'
+
+    # Check map key and item structs have sanitized names
+    map_key_type = result.schema[3].type.key_type
+    map_item_type = result.schema[3].type.item_type
+    assert map_key_type[0].name == 'key_field'
+    assert map_item_type[0].name == 'value_field'
 
 
 @pytest.mark.pandas
