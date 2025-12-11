@@ -715,32 +715,49 @@ def _sanitized_spark_field_name(name):
     return _SPARK_DISALLOWED_CHARS.sub('_', name)
 
 
+def _sanitize_field_recursive(field):
+    """
+    Recursively sanitize field names in struct types for Spark compatibility.
+
+    Returns
+    -------
+    tuple
+        (sanitized_field, changed) where changed is True if any sanitization occurred
+    """
+    sanitized_name = _sanitized_spark_field_name(field.name)
+    sanitized_type = field.type
+    type_changed = False
+
+    if pa.types.is_struct(field.type):
+        sanitized_fields = [_sanitize_field_recursive(f) for f in field.type]
+        if any(changed for _, changed in sanitized_fields):
+            sanitized_type = pa.struct([f for f, _ in sanitized_fields])
+            type_changed = True
+
+    name_changed = sanitized_name != field.name
+    if name_changed or type_changed:
+        return pa.field(sanitized_name, sanitized_type, field.nullable,
+                        field.metadata), True
+    return field, False
+
+
 def _sanitize_schema(schema, flavor):
-    if 'spark' in flavor:
-        sanitized_fields = []
-
-        schema_changed = False
-
-        for field in schema:
-            name = field.name
-            sanitized_name = _sanitized_spark_field_name(name)
-
-            if sanitized_name != name:
-                schema_changed = True
-                sanitized_field = pa.field(sanitized_name, field.type,
-                                           field.nullable, field.metadata)
-                sanitized_fields.append(sanitized_field)
-            else:
-                sanitized_fields.append(field)
-
-        new_schema = pa.schema(sanitized_fields, metadata=schema.metadata)
-        return new_schema, schema_changed
-    else:
+    if 'spark' not in flavor:
         return schema, False
+
+    sanitized_fields = []
+    schema_changed = False
+
+    for field in schema:
+        sanitized_field, changed = _sanitize_field_recursive(field)
+        sanitized_fields.append(sanitized_field)
+        schema_changed = schema_changed or changed
+
+    new_schema = pa.schema(sanitized_fields, metadata=schema.metadata)
+    return new_schema, schema_changed
 
 
 def _sanitize_table(table, new_schema, flavor):
-    # TODO: This will not handle prohibited characters in nested field names
     if 'spark' in flavor:
         column_data = [table[i] for i in range(table.num_columns)]
         return pa.Table.from_arrays(column_data, schema=new_schema)
