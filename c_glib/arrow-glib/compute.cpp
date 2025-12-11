@@ -1889,6 +1889,7 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
 
 /**
  * garrow_execute_plan_new:
+ * @context: (nullable): A #GArrowExecuteContext or %NULL.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowExecutePlan on success,
@@ -1897,9 +1898,15 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
  * Since: 6.0.0
  */
 GArrowExecutePlan *
-garrow_execute_plan_new(GError **error)
+garrow_execute_plan_new(GArrowExecuteContext *context, GError **error)
 {
-  auto arrow_plan_result = arrow::acero::ExecPlan::Make();
+  arrow::Result<std::shared_ptr<arrow::acero::ExecPlan>> arrow_plan_result;
+  if (context) {
+    auto arrow_context = garrow_execute_context_get_raw(context);
+    arrow_plan_result = arrow::acero::ExecPlan::Make(*arrow_context);
+  } else {
+    arrow_plan_result = arrow::acero::ExecPlan::Make();
+  }
   if (garrow::check(error, arrow_plan_result, "[execute-plan][new]")) {
     return GARROW_EXECUTE_PLAN(
       g_object_new(GARROW_TYPE_EXECUTE_PLAN, "plan", &(*arrow_plan_result), NULL));
