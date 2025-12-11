@@ -321,4 +321,14 @@ module ArrowFormat
       DenseUnionArray.new(self, size, types_buffer, offsets_buffer, children)
     end
   end
+
+  class SparseUnionType < UnionType
+    def initialize(children, type_ids)
+      super("SparseUnion", children, type_ids)
+    end
+
+    def build_array(size, types_buffer, children)
+      SparseUnionArray.new(self, size, types_buffer, children)
+    end
+  end
 end

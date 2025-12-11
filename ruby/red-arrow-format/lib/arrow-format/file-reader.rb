@@ -184,6 +184,8 @@ module ArrowFormat
         case fb_type.mode
         when Org::Apache::Arrow::Flatbuf::UnionMode::DENSE
           type = DenseUnionType.new(children, type_ids)
+        when Org::Apache::Arrow::Flatbuf::UnionMode::SPARSE
+          type = SparseUnionType.new(children, type_ids)
         end
       when Org::Apache::Arrow::Flatbuf::Map
         type = MapType.new(read_field(fb_field.children[0]))
@@ -234,8 +236,8 @@ module ArrowFormat
           read_column(child, nodes, buffers, body)
         end
         field.type.build_array(length, validity, children)
-      when UnionType
-        # union type doesn't have validity.
+      when DenseUnionType
+        # dense union type doesn't have validity.
         types = validity
         offsets_buffer = buffers.shift
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
@@ -243,6 +245,13 @@ module ArrowFormat
           read_column(child, nodes, buffers, body)
         end
         field.type.build_array(length, types, offsets, children)
+      when SparseUnionType
+        # sparse union type doesn't have validity.
+        types = validity
+        children = field.type.children.collect do |child|
+          read_column(child, nodes, buffers, body)
+        end
+        field.type.build_array(length, types, children)
       when VariableSizeBinaryType
         offsets_buffer = buffers.shift
         values_buffer = buffers.shift

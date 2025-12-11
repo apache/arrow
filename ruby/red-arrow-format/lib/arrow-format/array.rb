@@ -232,19 +232,23 @@ module ArrowFormat
   end
 
   class UnionArray < Array
-    def initialize(type,
-                   size,
-                   types_buffer,
-                   offsets_buffer,
-                   children)
+    def initialize(type, size, types_buffer, children)
       super(type, size, nil)
       @types_buffer = types_buffer
-      @offsets_buffer = offsets_buffer
       @children = children
     end
   end
 
   class DenseUnionArray < UnionArray
+    def initialize(type,
+                   size,
+                   types_buffer,
+                   offsets_buffer,
+                   children)
+      super(type, size, types_buffer, children)
+      @offsets_buffer = offsets_buffer
+    end
+
     def to_a
       children_values = @children.collect(&:to_a)
       types = @types_buffer.each(:S8, 0, @size)
@@ -252,6 +256,16 @@ module ArrowFormat
       types.zip(offsets).collect do |(_, type), (_, offset)|
         index = @type.resolve_type_index(type)
         children_values[index][offset]
+      end
+    end
+  end
+
+  class SparseUnionArray < UnionArray
+    def to_a
+      children_values = @children.collect(&:to_a)
+      @types_buffer.each(:S8, 0, @size).with_index.collect do |(_, type), i|
+        index = @type.resolve_type_index(type)
+        children_values[index][i]
       end
     end
   end
