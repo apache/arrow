@@ -111,9 +111,9 @@ class PARQUET_EXPORT FileWriter {
   /// Multiple RecordBatches can be written into the same row group
   /// through this method.
   ///
-  /// WriterProperties.max_row_group_length() is respected and a new
-  /// row group will be created if the current row group exceeds the
-  /// limit.
+  /// WriterProperties.max_row_group_length() and WriterProperties.max_row_group_bytes()
+  /// are respected and a new row group will be created if the current row group exceeds
+  /// the limits.
   ///
   /// Batches get flushed to the output stream once NewBufferedRowGroup()
   /// or Close() is called.
