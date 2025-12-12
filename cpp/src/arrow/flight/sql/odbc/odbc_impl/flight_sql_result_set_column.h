@@ -70,4 +70,5 @@ class FlightSqlResultSetColumn {
     }
   }
 };
+
 }  // namespace arrow::flight::sql::odbc

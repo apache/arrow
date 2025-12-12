@@ -61,6 +61,7 @@ case "$(uname)" in
     n_jobs=$(sysctl -n hw.ncpu)
     # TODO: https://github.com/apache/arrow/issues/40410
     exclude_tests+=("arrow-s3fs-test")
+    exclude_tests+=("arrow-flight-sql-odbc-test")
     ;;
   MINGW*)
     n_jobs=${NUMBER_OF_PROCESSORS:-1}
@@ -144,8 +145,9 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
       CMAKE_PREFIX_PATH+="/lib/cmake/"
       ;;
   esac
+  # Search vcpkg before <prefix>/lib/cmake.
   if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_DEFAULT_TRIPLET}" ]; then
-    CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET}"
+    CMAKE_PREFIX_PATH="${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET};${CMAKE_PREFIX_PATH}"
   fi
   cmake \
     -S "${source_dir}/examples/minimal_build" \

@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include <arrow/type_fwd.h>
 #include <string>
+#include "arrow/type_fwd.h"
 
 namespace arrow::flight::sql::odbc {
 
