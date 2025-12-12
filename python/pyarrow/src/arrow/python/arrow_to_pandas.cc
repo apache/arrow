@@ -1547,6 +1547,26 @@ void ConvertDatesShift(const ChunkedArray& data, int64_t* out_values) {
   }
 }
 
+template <int64_t SHIFT>
+inline void ConvertDatetimeWithTruncation(const ChunkedArray& data, int64_t* out_values) {
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = *data.chunk(c);
+    const int64_t* in_values = GetPrimitiveValues<int64_t>(arr);
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      if (arr.IsNull(i)) {
+        *out_values++ = kPandasTimestampNull;
+      } else {
+        int64_t truncated = in_values[i] - in_values[i] % kMillisecondsInDay;
+        if constexpr (SHIFT == 1) {
+          *out_values++ = truncated;
+        } else {
+          *out_values++ = truncated * SHIFT;
+        }
+      }
+    }
+  }
+}
+
 class DatetimeDayWriter : public TypedPandasWriter<NPY_DATETIME> {
  public:
   using TypedPandasWriter<NPY_DATETIME>::TypedPandasWriter;
@@ -1617,7 +1637,14 @@ class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
       // Convert from days since epoch to datetime64[ms]
       ConvertDatetime<int32_t, 86400000L>(*data, out_values);
     } else if (type == Type::DATE64) {
-      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
+      // Date64Type is millisecond timestamp
+      if (this->options_.truncate_date64_time) {
+        // Truncate intraday milliseconds
+        ConvertDatetimeWithTruncation<1L>(*data, out_values);
+      } else {
+        // Preserve time components
+        ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
+      }
     } else {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
       ARROW_DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
@@ -1652,9 +1679,14 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
       // Convert from days since epoch to datetime64[ns]
       ConvertDatetime<int32_t, kNanosecondsInDay>(*data, out_values);
     } else if (type == Type::DATE64) {
-      // Date64Type is millisecond timestamp stored as int64_t
-      // TODO(wesm): Do we want to make sure to zero out the milliseconds?
-      ConvertDatetime<int64_t, 1000000L>(*data, out_values);
+      // Date64Type is millisecond timestamp; convert to nanoseconds
+      if (this->options_.truncate_date64_time) {
+        // Truncate intraday milliseconds and convert to nanoseconds
+        ConvertDatetimeWithTruncation<1000000L>(*data, out_values);
+      } else {
+        // Preserve time components and convert to nanoseconds
+        ConvertDatetime<int64_t, 1000000L>(*data, out_values);
+      }
     } else if (type == Type::TIMESTAMP) {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
 

@@ -3366,7 +3366,7 @@ cdef class RecordBatch(_Tabular):
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, preserve_index=None,
-                    nthreads=None, columns=None):
+                    nthreads=None, columns=None, bint truncate_date64_time=True):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
@@ -3392,6 +3392,10 @@ cdef class RecordBatch(_Tabular):
             :func:`pyarrow.cpu_count` (may use up to system CPU count threads).
         columns : list, optional
            List of column to be converted. If None, use all columns.
+        truncate_date64_time : bool, default True
+            If True (default), truncate intraday milliseconds when converting Python
+            datetime objects to date64.
+            If False, preserve the full datetime including time components.
 
         Returns
         -------
@@ -3448,7 +3452,8 @@ cdef class RecordBatch(_Tabular):
         """
         from pyarrow.pandas_compat import dataframe_to_arrays
         arrays, schema, n_rows = dataframe_to_arrays(
-            df, schema, preserve_index, nthreads=nthreads, columns=columns
+            df, schema, preserve_index, nthreads=nthreads, columns=columns,
+            truncate_date64_time=truncate_date64_time
         )
 
         # If df is empty but row index is not, create empty RecordBatch with rows >0
@@ -4732,7 +4737,8 @@ cdef class Table(_Tabular):
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, preserve_index=None,
-                    nthreads=None, columns=None, bint safe=True):
+                    nthreads=None, columns=None, bint safe=True,
+                    bint truncate_date64_time=True):
         """
         Convert pandas.DataFrame to an Arrow Table.
 
@@ -4773,6 +4779,10 @@ cdef class Table(_Tabular):
            List of column to be converted. If None, use all columns.
         safe : bool, default True
            Check for overflows or other unsafe conversions.
+        truncate_date64_time : bool, default True
+            If True (default), truncate intraday milliseconds when converting Python
+            datetime objects to date64.
+            If False, preserve the full datetime including time components.
 
         Returns
         -------
@@ -4799,7 +4809,8 @@ cdef class Table(_Tabular):
             preserve_index=preserve_index,
             nthreads=nthreads,
             columns=columns,
-            safe=safe
+            safe=safe,
+            truncate_date64_time=truncate_date64_time
         )
 
         # If df is empty but row index is not, create empty Table with rows >0
