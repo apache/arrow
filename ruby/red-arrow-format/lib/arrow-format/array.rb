@@ -91,6 +91,18 @@ module ArrowFormat
     end
   end
 
+  class Int16Array < IntArray
+    def to_a
+      apply_validity(@values_buffer.values(:s16, 0, @size))
+    end
+  end
+
+  class UInt16Array < IntArray
+    def to_a
+      apply_validity(@values_buffer.values(:u16, 0, @size))
+    end
+  end
+
   class FloatingPointArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)
