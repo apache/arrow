@@ -172,13 +172,9 @@ jobs:
           done
 
           # New packages: repo/libarrow/${TARGET}-arrow-${VERSION}.zip
-          prune repo/libarrow/r-libarrow-darwin-arm64-openssl-1.1-* || :
-          prune repo/libarrow/r-libarrow-darwin-arm64-openssl-3.0-* || :
-          prune repo/libarrow/r-libarrow-darwin-x86_64-openssl-1.1-* || :
-          prune repo/libarrow/r-libarrow-darwin-x86_64-openssl-3.0-* || :
-          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-1.0-* || :
-          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-1.1-* || :
-          prune repo/libarrow/r-libarrow-linux-x86_64-openssl-3.0-* || :
+          prune repo/libarrow/r-libarrow-darwin-arm64-* || :
+          prune repo/libarrow/r-libarrow-darwin-x86_64-* || :
+          prune repo/libarrow/r-libarrow-linux-x86_64-* || :
           prune repo/libarrow/r-libarrow-windows-x86_64-* || :
       - name: Update Repository Index
         shell: Rscript {0}

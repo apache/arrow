@@ -192,13 +192,12 @@ download_binary <- function(lib) {
 # of action based on the current system. Other values you can set it to:
 # * "FALSE" (not case-sensitive), to skip this option altogether
 # * "TRUE" (not case-sensitive), to try to discover your current OS, or
-# * Some other string: a "linux-openssl-${OPENSSL_VERSION}" that corresponds to
-#   a binary that is available, to override what this function may discover by
-#   default.
+# * Some other string: a binary identifier that corresponds to a binary that is
+#   available, to override what this function may discover by default.
 #   Possible values are:
-#    * "linux-x86_64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-arm64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-x86_64-openssl-3.0" (OpenSSL 3.0)
+#    * "linux-x86_64"
+#    * "darwin-arm64"
+#    * "darwin-x86_64"
 #    * "windows-x86_64"
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
@@ -257,11 +256,10 @@ select_binary <- function(
       # so globally handle the possibility that this could fail
       {
         errs <- compile_test_program(test_program)
-        openssl_version <- determine_binary_from_stderr(errs)
-        if (is.null(openssl_version)) {
-          NULL
+        if (has_curl_and_openssl(errs)) {
+          paste0(os, "-", arch)
         } else {
-          paste0(os, "-", arch, "-", openssl_version)
+          NULL
         }
       },
       error = function(e) {
@@ -330,27 +328,27 @@ get_macos_openssl_dir <- function() {
 }
 
 # (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
-determine_binary_from_stderr <- function(errs) {
+has_curl_and_openssl <- function(errs) {
   # Check for dealbreakers:
   if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our linux binaries are all built with GNU stdlib so they fail with libc++
     lg("Linux binaries incompatible with libc++")
-    return(NULL)
+    return(FALSE)
   } else if (header_not_found("curl/curl", errs)) {
     lg("libcurl not found")
-    return(NULL)
+    return(FALSE)
   } else if (header_not_found("openssl/opensslv", errs)) {
     lg("OpenSSL not found")
-    return(NULL)
+    return(FALSE)
   } else if (any(grepl("OpenSSL version must be 3.0 or greater", errs))) {
     lg("OpenSSL found but version >= 3.0.0 is required")
-    return(NULL)
+    return(FALSE)
   } else if (is.null(attr(errs, "status"))) {
     # Successful compile = OpenSSL >= 3.0 found
     lg("Found libcurl and OpenSSL >= 3.0.0")
-    return("openssl-3.0")
+    return(TRUE)
   }
-  NULL
+  FALSE
 }
 
 header_not_found <- function(header, errs) {

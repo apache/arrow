@@ -29,8 +29,8 @@ capture.output(source("nixlibs.R", local = nixlibs_env))
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
   expect_identical(
-    identify_binary("linux-x86_64-openssl-3.0"),
-    "linux-x86_64-openssl-3.0"
+    identify_binary("linux-x86_64"),
+    "linux-x86_64"
   )
   expect_null(identify_binary("", info = list(id = "debian")))
 })
@@ -49,38 +49,36 @@ test_that("compile_test_program()", {
   expect_true(header_not_found("wrong/NOTAHEADER", fail))
 })
 
-test_that("determine_binary_from_stderr", {
+test_that("has_curl_and_openssl", {
   expect_output(
-    expect_identical(
-      determine_binary_from_stderr(compile_test_program("int a;")),
-      "openssl-3.0"
+    expect_true(
+      has_curl_and_openssl(compile_test_program("int a;"))
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
 
   nixlibs_env$on_macos <- FALSE
   expect_output(
-    expect_null(
-      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0"))
+    expect_false(
+      has_curl_and_openssl(compile_test_program("#error Using OpenSSL version 1.0"))
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
   expect_output(
-    expect_null(
-      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.1"))
+    expect_false(
+      has_curl_and_openssl(compile_test_program("#error Using OpenSSL version 1.1"))
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
   expect_output(
-    expect_identical(
-      determine_binary_from_stderr(character(0)), # Successful compile = OpenSSL >= 3.0
-      "openssl-3.0"
+    expect_true(
+      has_curl_and_openssl(character(0)) # Successful compile = OpenSSL >= 3.0
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
   expect_output(
-    expect_null(
-      determine_binary_from_stderr(compile_test_program("#error OpenSSL version too old"))
+    expect_false(
+      has_curl_and_openssl(compile_test_program("#error OpenSSL version too old"))
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
@@ -91,7 +89,7 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "int a;"),
-      "linux-x86_64-openssl-3.0"
+      "linux-x86_64"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
@@ -112,7 +110,7 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("darwin", "x86_64", "int a;"),
-      "darwin-x86_64-openssl-3.0"
+      "darwin-x86_64"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
@@ -126,7 +124,7 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("darwin", "arm64", "int a;"),
-      "darwin-arm64-openssl-3.0"
+      "darwin-arm64"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
