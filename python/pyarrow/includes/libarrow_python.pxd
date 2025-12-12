@@ -66,6 +66,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool from_pandas
         c_bool ignore_timezone
         c_bool strict
+        c_bool truncate_date64_time
 
     # TODO Some functions below are not actually "nogil"
 
@@ -81,12 +82,14 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
                            c_bool from_pandas,
                            const shared_ptr[CDataType]& type,
+                           c_bool truncate_date64_time,
                            shared_ptr[CChunkedArray]* out)
 
     CStatus NdarrayToArrow(CMemoryPool* pool, object ao, object mo,
                            c_bool from_pandas,
                            const shared_ptr[CDataType]& type,
                            const CCastOptions& cast_options,
+                           c_bool truncate_date64_time,
                            shared_ptr[CChunkedArray]* out)
 
     CStatus NdarrayToTensor(CMemoryPool* pool, object ao,
@@ -193,6 +196,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         c_bool coerce_temporal_nanoseconds
         c_bool ignore_timezone
         c_bool deduplicate_objects
+        c_bool truncate_date64_time
         c_bool safe_cast
         c_bool split_blocks
         c_bool self_destruct

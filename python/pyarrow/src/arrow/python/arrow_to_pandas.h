@@ -89,6 +89,11 @@ struct PandasOptions {
   /// objects
   bool deduplicate_objects = false;
 
+  /// If true, truncate intraday milliseconds when converting date64 to pandas
+  /// datetime (default false to preserve time components).
+  /// If false, preserve the full datetime including time components.
+  bool truncate_date64_time = false;
+
   /// \brief For certain data types, a cast is needed in order to store the
   /// data in a pandas DataFrame or Series (e.g. timestamps are always stored
   /// as nanoseconds in pandas). This option controls whether it is a safe

@@ -1598,7 +1598,8 @@ cdef object get_scalar_class_from_type(
         return _scalar_classes[data_type.id()]
 
 
-def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
+def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None,
+           bint truncate_date64_time=True):
     """
     Create a pyarrow.Scalar instance from a Python object.
 
@@ -1616,6 +1617,10 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool.
+    truncate_date64_time : bool, default True
+        If True (default), truncate intraday milliseconds when converting Python
+        datetime objects to date64.
+        If False, preserve the full datetime including time components.
 
     Returns
     -------
@@ -1667,6 +1672,8 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         options.from_pandas = is_pandas_object
     else:
         options.from_pandas = from_pandas
+
+    options.truncate_date64_time = truncate_date64_time
 
     value = [value]
     with nogil:

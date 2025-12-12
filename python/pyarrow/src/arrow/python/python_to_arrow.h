@@ -59,6 +59,11 @@ struct PyConversionOptions {
   bool ignore_timezone = false;
 
   bool strict = false;
+
+  /// If true, truncate intraday milliseconds when converting Python datetime
+  /// objects to date64 (default true for backwards compatibility).
+  /// If false, preserve the full datetime including time components.
+  bool truncate_date64_time = true;
 };
 
 /// \brief Convert sequence (list, generator, NumPy array with dtype object) of

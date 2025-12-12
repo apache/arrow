@@ -46,11 +46,13 @@ namespace py {
 /// whether values are null
 /// \param[in] type a specific type to cast to, may be null
 /// \param[in] cast_options casting options
+/// \param[in] truncate_date64_time If true, truncate intraday milliseconds when
+/// converting Python datetime objects to date64 (default true)
 /// \param[out] out a ChunkedArray, to accommodate chunked output
 ARROW_PYTHON_EXPORT
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
-                      const compute::CastOptions& cast_options,
+                      const compute::CastOptions& cast_options, bool truncate_date64_time,
                       std::shared_ptr<ChunkedArray>* out);
 
 /// Safely convert NumPy arrays to Arrow. If target data type is not known,

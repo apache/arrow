@@ -34,6 +34,7 @@ namespace arrow {
 namespace py {
 
 static constexpr int64_t kPandasTimestampNull = std::numeric_limits<int64_t>::min();
+constexpr int64_t kMillisecondsInDay = 86400000LL;
 constexpr int64_t kNanosecondsInDay = 86400000000000LL;
 
 namespace internal {

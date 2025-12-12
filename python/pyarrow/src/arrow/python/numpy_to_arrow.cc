@@ -183,7 +183,7 @@ class NumPyConverter {
  public:
   NumPyConverter(MemoryPool* pool, PyObject* arr, PyObject* mo,
                  const std::shared_ptr<DataType>& type, bool from_pandas,
-                 const compute::CastOptions& cast_options = compute::CastOptions())
+                 const compute::CastOptions& cast_options, bool truncate_date64_time)
       : pool_(pool),
         type_(type),
         arr_(reinterpret_cast<PyArrayObject*>(arr)),
@@ -191,6 +191,7 @@ class NumPyConverter {
         mask_(nullptr),
         from_pandas_(from_pandas),
         cast_options_(cast_options),
+        truncate_date64_time_(truncate_date64_time),
         null_bitmap_data_(nullptr),
         null_count_(0) {
     if (mo != nullptr && mo != Py_None) {
@@ -311,6 +312,7 @@ class NumPyConverter {
 
   bool from_pandas_;
   compute::CastOptions cast_options_;
+  bool truncate_date64_time_;
 
   // Used in visitor pattern
   ArrayVector out_arrays_;
@@ -330,6 +332,7 @@ Status NumPyConverter::Convert() {
     PyConversionOptions py_options;
     py_options.type = type_;
     py_options.from_pandas = from_pandas_;
+    py_options.truncate_date64_time = truncate_date64_time_;
     ARROW_ASSIGN_OR_RAISE(
         auto chunked_array,
         ConvertPySequence(reinterpret_cast<PyObject*>(arr_),
@@ -845,7 +848,7 @@ Status NumPyConverter::Visit(const StructType& type) {
       RETURN_IF_PYERROR();
       sub_arrays.emplace_back(sub_array);
       sub_converters.emplace_back(pool_, sub_array, nullptr /* mask */, field->type(),
-                                  from_pandas_);
+                                  from_pandas_, cast_options_, truncate_date64_time_);
     }
   }
 
@@ -916,7 +919,7 @@ Status NumPyConverter::Visit(const StructType& type) {
 
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
-                      const compute::CastOptions& cast_options,
+                      const compute::CastOptions& cast_options, bool truncate_date64_time,
                       std::shared_ptr<ChunkedArray>* out) {
   if (!PyArray_Check(ao)) {
     // This code path cannot be reached by Python unit tests currently so this
@@ -927,7 +930,8 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
     return Status::Invalid("only handle 1-dimensional arrays");
   }
 
-  NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options);
+  NumPyConverter converter(pool, ao, mo, type, from_pandas, cast_options,
+                           truncate_date64_time);
   RETURN_NOT_OK(converter.Convert());
   const auto& output_arrays = converter.result();
   ARROW_DCHECK_GT(output_arrays.size(), 0);
@@ -938,7 +942,8 @@ Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pa
 Status NdarrayToArrow(MemoryPool* pool, PyObject* ao, PyObject* mo, bool from_pandas,
                       const std::shared_ptr<DataType>& type,
                       std::shared_ptr<ChunkedArray>* out) {
-  return NdarrayToArrow(pool, ao, mo, from_pandas, type, compute::CastOptions(), out);
+  return NdarrayToArrow(pool, ao, mo, from_pandas, type, compute::CastOptions(), false,
+                        out);
 }
 
 }  // namespace py
