@@ -493,15 +493,13 @@ class FileWriterImpl : public FileWriter {
             batch_size,
             static_cast<int64_t>((max_row_group_bytes - buffered_bytes) / avg_row_bytes));
       }
-      if (batch_size <= 0) {
+      if (batch_size > 0) {
+        RETURN_NOT_OK(WriteBatch(offset, batch_size));
+        offset += batch_size;
+      } else if (offset < batch.num_rows()) {
         // Current row group is full, write remaining rows in a new group.
-        if (offset < batch.num_rows()) {
-          RETURN_NOT_OK(NewBufferedRowGroup());
-        }
-        continue;
+        RETURN_NOT_OK(NewBufferedRowGroup());
       }
-      RETURN_NOT_OK(WriteBatch(offset, batch_size));
-      offset += batch_size;
     }
 
     return Status::OK();
