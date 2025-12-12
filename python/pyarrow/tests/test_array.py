@@ -2839,15 +2839,36 @@ def test_array_from_numpy_string_dtype_nulls_and_mask():
     # Test interplay of NA sentinel and an explicit mask:
     # - index 1 is null because of na_object / Python None
     # - index 2 is forced null by the mask
-    mask = np.array([False, False, True])
+    mask = np.array([False, False, True], dtype=bool)
     arrow_arr = pa.array(arr, mask=mask)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.null_count == 2
     assert arrow_arr.to_pylist() == ["this array has", None, None]
+
+    mask = np.array([True, False, True], dtype=bool)
+    assert pa.array(arr, mask=mask).to_pylist() == [None, None, None]
 
 
 @pytest.mark.numpy
-def test_numpy_object_str_still_works():
-    arr_obj = np.array(["x", "y", None], dtype=object)
-    assert pa.array(arr_obj).to_pylist() == ["x", "y", None]
+def test_array_from_numpy_string_dtype_string_sentinel_and_mask():
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    sentinel = "__placeholder__"
+    dtype = StringDType(na_object=sentinel)
+    arr = np.array(["this array has", sentinel, "as an entry"], dtype=dtype)
+
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["this array has", None, "as an entry"]
+
+    mask = np.array([False, False, True], dtype=bool)
+    assert pa.array(arr, mask=mask).to_pylist() == ["this array has", None, None]
 
 
 @pytest.mark.numpy

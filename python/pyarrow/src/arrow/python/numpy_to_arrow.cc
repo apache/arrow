@@ -77,7 +77,7 @@ using internal::NumPyTypeSize;
 
 namespace {
 
-#ifdef npy_string_allocator
+#if NPY_ABI_VERSION >= 0x02000000
 inline npy_string_allocator* ArrowNpyString_acquire_allocator(
     const PyArray_StringDTypeObject* descr) {
   using Func = npy_string_allocator* (*)(const PyArray_StringDTypeObject*);
@@ -257,7 +257,7 @@ class NumPyConverter {
   Status Visit(const LargeStringType& type);
   Status Visit(const StringViewType& type);
 
-#ifdef npy_string_allocator
+#if NPY_ABI_VERSION >= 0x02000000
   template <typename Builder>
   Status AppendStringDTypeValues(Builder* builder);
 
@@ -370,7 +370,7 @@ Status NumPyConverter::Convert() {
   }
 
   if (IsStringDType(dtype_)) {
-#ifdef npy_string_allocator
+#if NPY_ABI_VERSION >= 0x02000000
     RETURN_NOT_OK(ConvertStringDType());
     return Status::OK();
 #else
@@ -856,7 +856,7 @@ Status NumPyConverter::Visit(const StringViewType& type) {
   return Status::OK();
 }
 
-#ifdef npy_string_allocator
+#if NPY_ABI_VERSION >= 0x02000000
 template <typename Builder>
 Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
   auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
