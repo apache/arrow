@@ -18,8 +18,7 @@
 ARG FROM=centos:7
 FROM ${FROM}
 
-ENV \
-  SCL=devtoolset-11
+ENV SCL=devtoolset-11
 
 ARG DEBUG
 

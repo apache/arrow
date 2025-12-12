@@ -18,13 +18,12 @@
 #include "arrow/filesystem/gcsfs_internal.h"
 #include "arrow/filesystem/gcsfs.h"
 
-#include <absl/time/time.h>  // NOLINT
-#include <google/cloud/storage/client.h>
-
 #include <cerrno>
 #include <sstream>
 #include <unordered_map>
 #include <vector>
+
+#include <absl/time/time.h>  // NOLINT
 
 #include "arrow/filesystem/path_util.h"
 #include "arrow/util/io_util.h"
