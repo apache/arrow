@@ -77,6 +77,7 @@ using internal::NumPyTypeSize;
 
 namespace {
 
+#ifdef npy_string_allocator
 inline npy_string_allocator* ArrowNpyString_acquire_allocator(
     const PyArray_StringDTypeObject* descr) {
   using Func = npy_string_allocator* (*)(const PyArray_StringDTypeObject*);
@@ -95,6 +96,7 @@ inline int ArrowNpyString_load(npy_string_allocator* allocator,
       int (*)(npy_string_allocator*, const npy_packed_static_string*, npy_static_string*);
   return reinterpret_cast<Func>(PyArray_API[313])(allocator, packed, out);
 }
+#endif
 
 Status AllocateNullBitmap(MemoryPool* pool, int64_t length,
                           std::shared_ptr<ResizableBuffer>* out) {
@@ -255,10 +257,12 @@ class NumPyConverter {
   Status Visit(const LargeStringType& type);
   Status Visit(const StringViewType& type);
 
+#ifdef npy_string_allocator
   template <typename Builder>
   Status AppendStringDTypeValues(Builder* builder);
 
   Status ConvertStringDType();
+#endif
 
   Status Visit(const StructType& type);
 
@@ -366,8 +370,13 @@ Status NumPyConverter::Convert() {
   }
 
   if (IsStringDType(dtype_)) {
+#ifdef npy_string_allocator
     RETURN_NOT_OK(ConvertStringDType());
     return Status::OK();
+#else
+    return Status::NotImplemented(
+        "NumPy StringDType requires building PyArrow with NumPy >= 2.0");
+#endif
   }
 
   if (type_ == nullptr) {
@@ -847,6 +856,7 @@ Status NumPyConverter::Visit(const StringViewType& type) {
   return Status::OK();
 }
 
+#ifdef npy_string_allocator
 template <typename Builder>
 Status NumPyConverter::AppendStringDTypeValues(Builder* builder) {
   auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(dtype_);
@@ -948,6 +958,7 @@ Status NumPyConverter::ConvertStringDType() {
           "NumPy StringDType can only be converted to Arrow string types");
   }
 }
+#endif
 
 Status NumPyConverter::Visit(const StructType& type) {
   std::vector<NumPyConverter> sub_converters;
