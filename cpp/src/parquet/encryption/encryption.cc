@@ -17,12 +17,11 @@
 
 #include "parquet/encryption/encryption.h"
 
-#include <string.h>
-
 #include <map>
 #include <utility>
 
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/string.h"
 #include "arrow/util/utf8.h"
 #include "parquet/encryption/encryption_internal.h"
 
@@ -279,8 +278,20 @@ FileEncryptionProperties::column_encryption_properties(const std::string& column
   if (encrypted_columns_.size() == 0) {
     return ColumnEncryptionProperties::WithFooterKey();
   }
-  if (encrypted_columns_.find(column_path) != encrypted_columns_.end()) {
-    return encrypted_columns_[column_path];
+  auto it = encrypted_columns_.find(column_path);
+  if (it != encrypted_columns_.end()) {
+    return it->second;
+  }
+
+  // We do not have an exact match of column_path in encrypted_columns_
+  // there might be the root parent field in encrypted_columns_.
+  auto pos = column_path.find('.');
+  if (pos != std::string::npos) {
+    std::string root = column_path.substr(0, pos);
+    it = encrypted_columns_.find(root);
+    if (it != encrypted_columns_.end()) {
+      return it->second;
+    }
   }
 
   return nullptr;
