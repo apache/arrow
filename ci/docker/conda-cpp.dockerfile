@@ -34,7 +34,7 @@ COPY ci/conda_env_cpp.txt \
 RUN mamba install -q -y \
         --file arrow/ci/conda_env_cpp.txt \
         --file arrow/ci/conda_env_gandiva.txt \
-        compilers \
+        "compilers<=1.10.0" \
         doxygen \
         libnuma \
         mold \

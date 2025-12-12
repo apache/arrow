@@ -36,7 +36,7 @@ RUN mamba install -q -y \
         --file arrow/ci/conda_env_archery.txt \
         "python < 3.12" \
         numpy \
-        compilers \
+        "compilers<=1.10.0" \
         go \
         maven=${maven} \
         nodejs=${node} \
