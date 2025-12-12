@@ -585,7 +585,6 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
     assert(doc["data"]["deleted"].IsBool());
     assert(doc["data"].HasMember("metrics"));
     assert(doc["data"]["metrics"].IsArray());
-#ifndef NDEBUG
     if (doc["data"]["metrics"].Size() > 0) {
       auto metric = &doc["data"]["metrics"][0];
       assert(metric->IsObject());
@@ -594,7 +593,6 @@ arrow::Status DoRowConversion(int32_t num_rows, int32_t batch_size) {
       assert(metric->HasMember("value"));
       assert((*metric)["value"].IsInt64());
     }
-#endif
 
     rapidjson::StringBuffer sb;
     rapidjson::Writer<rapidjson::StringBuffer> writer(sb);
