@@ -60,13 +60,7 @@ test_that("has_curl_and_openssl", {
   nixlibs_env$on_macos <- FALSE
   expect_output(
     expect_false(
-      has_curl_and_openssl(compile_test_program("#error Using OpenSSL version 1.0"))
-    ),
-    "OpenSSL found but version >= 3.0.0 is required"
-  )
-  expect_output(
-    expect_false(
-      has_curl_and_openssl(compile_test_program("#error Using OpenSSL version 1.1"))
+      has_curl_and_openssl(compile_test_program("#error OpenSSL version must be 3.0 or greater"))
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
@@ -75,12 +69,6 @@ test_that("has_curl_and_openssl", {
       has_curl_and_openssl(character(0)) # Successful compile = OpenSSL >= 3.0
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
-  )
-  expect_output(
-    expect_false(
-      has_curl_and_openssl(compile_test_program("#error OpenSSL version too old"))
-    ),
-    "OpenSSL found but version >= 3.0.0 is required"
   )
 })
 
@@ -95,7 +83,7 @@ test_that("select_binary() with test program", {
   )
   expect_output(
     expect_null(
-      select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0")
+      select_binary("linux", "x86_64", "#error OpenSSL version must be 3.0 or greater")
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
@@ -137,7 +125,7 @@ test_that("select_binary() with test program", {
   )
   expect_output(
     expect_null(
-      select_binary("darwin", "x86_64", "#error Using OpenSSL version 1.0")
+      select_binary("darwin", "x86_64", "#error OpenSSL version must be 3.0 or greater")
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
