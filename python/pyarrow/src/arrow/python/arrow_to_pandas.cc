@@ -1127,8 +1127,9 @@ class TypedPandasWriter : public PandasWriter {
 
   Status CheckTypeExact(const DataType& type, Type::type expected) {
     if (type.id() != expected) {
-      // TODO(wesm): stringify NumPy / pandas type
-      return Status::NotImplemented("Cannot write Arrow data of type ", type.ToString());
+      return Status::NotImplemented("Cannot write Arrow data of type ", type.ToString(),
+                                    " to pandas block with NumPy type ",
+                                    GetNumPyTypeName(NPY_TYPE));
     }
     return Status::OK();
   }
