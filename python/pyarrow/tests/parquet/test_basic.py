@@ -613,14 +613,49 @@ def test_compression_level():
 
 
 def test_sanitized_spark_field_names():
-    a0 = pa.array([0, 1, 2, 3, 4])
-    name = 'prohib; ,\t{}'
-    table = pa.Table.from_arrays([a0], [name])
+    field_metadata = {b'key': b'value'}
+    schema_metadata = {b'schema_key': b'schema_value'}
 
+    schema = pa.schema([
+        pa.field('prohib; ,\t{}', pa.int32()),
+        pa.field('field=with\nspecial', pa.string(), metadata=field_metadata),
+        pa.field('nested_struct', pa.struct([
+            pa.field('field,comma', pa.int32()),
+            pa.field('deeply{nested}', pa.struct([
+                pa.field('field(parens)', pa.float64()),
+                pa.field('normal_field', pa.bool_())
+            ]))
+        ]))
+    ], metadata=schema_metadata)
+
+    data = [
+        pa.array([1, 2]),
+        pa.array(['a', 'b']),
+        pa.array([
+            {'field,comma': 10, 'deeply{nested}': {
+                'field(parens)': 1.5, 'normal_field': True}},
+            {'field,comma': 20, 'deeply{nested}': {
+                'field(parens)': 2.5, 'normal_field': False}}
+        ], type=schema[2].type)
+    ]
+
+    table = pa.Table.from_arrays(data, schema=schema)
     result = _roundtrip_table(table, write_table_kwargs={'flavor': 'spark'})
 
-    expected_name = 'prohib______'
-    assert result.schema[0].name == expected_name
+    assert result.schema[0].name == 'prohib______'
+    assert result.schema[1].name == 'field_with_special'
+
+    nested_type = result.schema[2].type
+    assert nested_type[0].name == 'field_comma'
+    assert nested_type[1].name == 'deeply_nested_'
+
+    deep_type = nested_type[1].type
+    assert deep_type[0].name == 'field_parens_'
+    assert deep_type[1].name == 'normal_field'
+
+    assert result.schema[1].metadata == field_metadata
+    assert result.schema.metadata == schema_metadata
+    assert len(result) == 2
 
 
 @pytest.mark.pandas
