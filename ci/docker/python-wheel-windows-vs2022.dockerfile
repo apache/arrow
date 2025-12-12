@@ -24,7 +24,6 @@ FROM ${base}
 # Define the full version number otherwise choco falls back to patch number 0 (3.10 => 3.10.0)
 ARG python=3.10
 
-# Use python_abi_tag env var to select regular or free-threaded Python
 ARG python_variant=default
 ENV PYTHON_VERSION=${python}
 ENV PYTHON_VARIANT=${python_variant}
