@@ -27,7 +27,8 @@ cdef extern from "<variant>" namespace "std":
     T get[T](...)
 
 cdef _sequence_to_array(object sequence, object mask, object size,
-                        DataType type, CMemoryPool* pool, c_bool from_pandas):
+                        DataType type, CMemoryPool* pool, c_bool from_pandas,
+                        bint truncate_date64_time):
     cdef:
         int64_t c_size
         PyConversionOptions options
@@ -41,6 +42,7 @@ cdef _sequence_to_array(object sequence, object mask, object size,
 
     options.from_pandas = from_pandas
     options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
+    options.truncate_date64_time = truncate_date64_time
 
     with nogil:
         chunked = GetResultValue(
@@ -81,7 +83,8 @@ cdef shared_ptr[CDataType] _ndarray_to_type(object values,
 
 
 cdef _ndarray_to_array(object values, object mask, DataType type,
-                       c_bool from_pandas, c_bool safe, CMemoryPool* pool):
+                       c_bool from_pandas, c_bool safe, CMemoryPool* pool,
+                       bint truncate_date64_time):
     cdef:
         shared_ptr[CChunkedArray] chunked_out
         shared_ptr[CDataType] c_type = _ndarray_to_type(values, type)
@@ -89,7 +92,7 @@ cdef _ndarray_to_array(object values, object mask, DataType type,
 
     with nogil:
         check_status(NdarrayToArrow(pool, values, mask, from_pandas,
-                                    c_type, cast_options, &chunked_out))
+                                    c_type, cast_options, truncate_date64_time, &chunked_out))
 
     if chunked_out.get().num_chunks() > 1:
         return pyarrow_wrap_chunked_array(chunked_out)
@@ -127,7 +130,7 @@ def _handle_arrow_array_protocol(obj, type, mask, size):
 
 
 def array(object obj, type=None, mask=None, size=None, from_pandas=None,
-          bint safe=True, MemoryPool memory_pool=None):
+          bint safe=True, MemoryPool memory_pool=None, bint truncate_date64_time=True):
     """
     Create pyarrow.Array instance from a Python object.
 
@@ -162,6 +165,10 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     memory_pool : pyarrow.MemoryPool, optional
         If not passed, will allocate memory from the currently-set default
         memory pool.
+    truncate_date64_time : bool, default True
+        If True (default), truncate intraday milliseconds when converting Python
+        datetime objects to date64.
+        If False, preserve the full datetime including time components.
 
     Returns
     -------
@@ -313,7 +320,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
         elif (pandas_api.is_categorical(values) and
               type is not None and type.id != Type_DICTIONARY):
             result = _ndarray_to_array(
-                np.asarray(values), mask, type, c_from_pandas, safe, pool
+                np.asarray(
+                    values), mask, type, c_from_pandas, safe, pool, truncate_date64_time
             )
         elif pandas_api.is_categorical(values):
             if type is not None:
@@ -358,21 +366,22 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                     values, obj.dtype, type)
             if type and type.id == _Type_RUN_END_ENCODED:
                 arr = _ndarray_to_array(
-                    values, mask, type.value_type, c_from_pandas, safe, pool)
+                    values, mask, type.value_type, c_from_pandas, safe, pool, truncate_date64_time)
                 result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
                                               memory_pool=memory_pool)
             else:
                 result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
-                                           pool)
+                                           pool, truncate_date64_time)
     else:
         if type and type.id == _Type_RUN_END_ENCODED:
             arr = _sequence_to_array(
-                obj, mask, size, type.value_type, pool, from_pandas)
+                obj, mask, size, type.value_type, pool, from_pandas, truncate_date64_time)
             result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
                                           memory_pool=memory_pool)
         # ConvertPySequence does strict conversion if type is explicitly passed
         else:
-            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+            result = _sequence_to_array(
+                obj, mask, size, type, pool, c_from_pandas, truncate_date64_time)
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
@@ -880,7 +889,8 @@ cdef class _PandasConvertible(_Weakrefable):
             bint self_destruct=False,
             str maps_as_pydicts=None,
             types_mapper=None,
-            bint coerce_temporal_nanoseconds=False
+            bint coerce_temporal_nanoseconds=False,
+            bint truncate_date64_time=False
     ):
         """
         Convert to a pandas-compatible NumPy array or DataFrame, as appropriate
@@ -965,6 +975,10 @@ cdef class _PandasConvertible(_Weakrefable):
             default behavior in pandas version 1.x. Set this option to True if
             you'd like to use this coercion when using pandas version >= 2.0
             for backwards compatibility (not recommended otherwise).
+        truncate_date64_time : bool, default False
+            If True, truncate intraday milliseconds when converting date64 to pandas
+            datetime.
+            If False (default), preserve the full datetime including time components.
 
         Returns
         -------
@@ -1041,6 +1055,7 @@ cdef class _PandasConvertible(_Weakrefable):
             split_blocks=split_blocks,
             self_destruct=self_destruct,
             maps_as_pydicts=maps_as_pydicts,
+            truncate_date64_time=truncate_date64_time,
             coerce_temporal_nanoseconds=coerce_temporal_nanoseconds
         )
         return self._to_pandas(options, categories=categories,
@@ -1063,6 +1078,7 @@ cdef PandasOptions _convert_pandas_options(dict options):
     result.self_destruct = options['self_destruct']
     result.coerce_temporal_nanoseconds = options['coerce_temporal_nanoseconds']
     result.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
+    result.truncate_date64_time = options['truncate_date64_time']
 
     maps_as_pydicts = options['maps_as_pydicts']
     if maps_as_pydicts is None:

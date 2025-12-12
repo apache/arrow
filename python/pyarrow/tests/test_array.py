@@ -2216,6 +2216,216 @@ def test_date64_from_builtin_datetime():
     assert as_i8[0].as_py() == as_i8[1].as_py()
 
 
+def test_date64_truncate_date64_time_option():
+    # Test default behavior: truncate intraday milliseconds
+    dt_with_time = datetime.datetime(2000, 1, 1, 12, 34, 56, 123456)
+    dt_date_only = datetime.datetime(2000, 1, 1)
+
+    # Default behavior (truncate_date64_time=True)
+    result_default = pa.array([dt_with_time], type='date64')
+    result_date_only = pa.array([dt_date_only], type='date64')
+
+    # Both should be equal when truncated
+    assert result_default.equals(result_date_only)
+
+    # Verify the underlying int64 values are the same
+    as_i8_default = result_default.view('int64')
+    as_i8_date_only = result_date_only.view('int64')
+    assert as_i8_default[0].as_py() == as_i8_date_only[0].as_py()
+
+    # Test with truncate_date64_time=False: preserve time components
+    result_preserve = pa.array([dt_with_time], type='date64',
+                               truncate_date64_time=False)
+    result_preserve_date_only = pa.array(
+        [dt_date_only], type='date64', truncate_date64_time=False)
+
+    # These should not be equal when time is preserved
+    assert not result_preserve.equals(result_preserve_date_only)
+
+    # Verify the underlying int64 values are different
+    as_i8_preserve = result_preserve.view('int64')
+    as_i8_preserve_date_only = result_preserve_date_only.view('int64')
+    assert as_i8_preserve[0].as_py() != as_i8_preserve_date_only[0].as_py()
+
+    # The preserved time should have more milliseconds
+    assert as_i8_preserve[0].as_py() > as_i8_preserve_date_only[0].as_py()
+
+
+def test_scalar_date64_truncate_date64_time_option():
+    # Test scalar with default behavior
+    dt_with_time = datetime.datetime(2000, 1, 1, 12, 34, 56, 123456)
+    dt_date_only = datetime.datetime(2000, 1, 1)
+
+    # Default behavior (truncate_date64_time=True)
+    scalar_default = pa.scalar(dt_with_time, type=pa.date64())
+    scalar_date_only = pa.scalar(dt_date_only, type=pa.date64())
+
+    # Both should be equal when truncated
+    assert scalar_default.equals(scalar_date_only)
+
+    # Test with truncate_date64_time=False: preserve time components
+    scalar_preserve = pa.scalar(
+        dt_with_time, type=pa.date64(), truncate_date64_time=False)
+    scalar_preserve_date_only = pa.scalar(
+        dt_date_only, type=pa.date64(), truncate_date64_time=False)
+
+    # These should not be equal when time is preserved
+    assert not scalar_preserve.equals(scalar_preserve_date_only)
+
+
+@pytest.mark.pandas
+def test_date64_from_pandas_with_truncate_date64_time():
+    pd = pytest.importorskip("pandas")
+
+    # Create pandas Series with Python native datetime objects (object dtype)
+    dt_with_time = datetime.datetime(2000, 1, 1, 12, 34, 56, 123456)
+    dt_date_only = datetime.datetime(2000, 1, 1)
+
+    series_with_time = pd.Series([dt_with_time], dtype=object)
+    series_date_only = pd.Series([dt_date_only], dtype=object)
+
+    # Test default behavior: truncate time
+    # (from_pandas=True, default truncate_date64_time=True)
+    arr_with_time_default = pa.array(series_with_time, type=pa.date64(),
+                                     from_pandas=True)
+    arr_date_only_default = pa.array(series_date_only, type=pa.date64(),
+                                     from_pandas=True)
+
+    # Both should be equal when truncated
+    assert arr_with_time_default.equals(arr_date_only_default)
+
+    # Verify underlying int64 values are the same
+    as_i8_with_time = arr_with_time_default.view('int64')
+    as_i8_date_only = arr_date_only_default.view('int64')
+    assert as_i8_with_time[0].as_py() == as_i8_date_only[0].as_py()
+
+    # Test with truncate_date64_time=False: preserve time components
+    # This verifies that from_pandas and truncate_date64_time work together correctly
+    arr_with_time_preserve = pa.array(series_with_time, type=pa.date64(),
+                                      from_pandas=True, truncate_date64_time=False)
+    arr_date_only_preserve = pa.array(series_date_only, type=pa.date64(),
+                                      from_pandas=True, truncate_date64_time=False)
+
+    # These should not be equal when time is preserved
+    assert not arr_with_time_preserve.equals(arr_date_only_preserve)
+
+    # Verify underlying int64 values are different
+    as_i8_with_time_preserve = arr_with_time_preserve.view('int64')
+    as_i8_date_only_preserve = arr_date_only_preserve.view('int64')
+    assert as_i8_with_time_preserve[0].as_py() != as_i8_date_only_preserve[0].as_py()
+
+    # The preserved time should have more milliseconds
+    assert as_i8_with_time_preserve[0].as_py() > as_i8_date_only_preserve[0].as_py()
+
+    # Test that from_pandas=True doesn't interfere with truncate_date64_time behavior
+    # Compare with from_pandas=False to ensure consistent behavior
+    arr_with_time_no_pandas = pa.array([dt_with_time], type=pa.date64(),
+                                       from_pandas=False, truncate_date64_time=False)
+    arr_with_time_pandas = pa.array(series_with_time, type=pa.date64(),
+                                    from_pandas=True, truncate_date64_time=False)
+
+    # Both should produce the same result when truncate_date64_time=False
+    assert arr_with_time_no_pandas.equals(arr_with_time_pandas)
+
+
+def test_date64_numpy_array_truncate_date64_time_option():
+    np = pytest.importorskip("numpy")
+
+    # Create NumPy array with object dtype containing Python datetime objects
+    dt_with_time = datetime.datetime(2000, 1, 1, 12, 34, 56, 123456)
+    dt_date_only = datetime.datetime(2000, 1, 1)
+
+    arr_with_time = np.array([dt_with_time], dtype=object)
+    arr_date_only = np.array([dt_date_only], dtype=object)
+
+    # Test default behavior: NumPy arrays truncate by default
+    # (since array() defaults to True)
+    arr_with_time_default = pa.array(arr_with_time, type=pa.date64())
+    arr_date_only_default = pa.array(arr_date_only, type=pa.date64())
+
+    # These should be equal because NumPy arrays truncate by default
+    assert arr_with_time_default.equals(arr_date_only_default)
+
+    # Verify underlying int64 values are the same (truncated)
+    as_i8_with_time = arr_with_time_default.view('int64')
+    as_i8_date_only = arr_date_only_default.view('int64')
+    assert as_i8_with_time[0].as_py() == as_i8_date_only[0].as_py()
+
+    # Test explicit truncate_date64_time=False: should preserve time
+    arr_with_time_preserve = pa.array(arr_with_time, type=pa.date64(),
+                                      truncate_date64_time=False)
+    arr_date_only_preserve = pa.array(arr_date_only, type=pa.date64(),
+                                      truncate_date64_time=False)
+
+    # These should not be equal when time is preserved
+    assert not arr_with_time_preserve.equals(arr_date_only_preserve)
+
+    # Verify underlying int64 values are different when time is preserved
+    as_i8_with_time_preserve = arr_with_time_preserve.view('int64')
+    as_i8_date_only_preserve = arr_date_only_preserve.view('int64')
+    assert as_i8_with_time_preserve[0].as_py() != as_i8_date_only_preserve[0].as_py()
+    assert as_i8_with_time_preserve[0].as_py() > as_i8_date_only_preserve[0].as_py()
+
+
+@pytest.mark.pandas
+def test_date64_to_pandas_truncate_date64_time_option():
+    pd = pytest.importorskip("pandas")
+
+    # Create date64 array with time components
+    # 2018-05-10 00:00:00
+    milliseconds_at_midnight = 1525910400000
+    # 2018-05-10 00:02:03.456
+    milliseconds_with_time = milliseconds_at_midnight + 123456
+
+    arr = pa.array([milliseconds_at_midnight, milliseconds_with_time],
+                   type=pa.date64())
+
+    # Test default behavior: preserve time components (truncate_date64_time=False)
+    result_default = arr.to_pandas(date_as_object=False)
+    expected_default = pd.Series([
+        pd.Timestamp('2018-05-10 00:00:00'),
+        pd.Timestamp('2018-05-10 00:02:03.456'),
+    ], dtype='datetime64[ms]')
+    pd.testing.assert_series_equal(result_default, expected_default)
+
+    # Test with truncate_date64_time=True: truncate time components
+    result_truncated = arr.to_pandas(date_as_object=False, truncate_date64_time=True)
+    expected_truncated = pd.Series([
+        pd.Timestamp('2018-05-10 00:00:00'),
+        pd.Timestamp('2018-05-10 00:00:00'),
+    ], dtype='datetime64[ms]')
+    pd.testing.assert_series_equal(result_truncated, expected_truncated)
+
+    # Test with datetime64[ns] conversion
+    result_ns_default = arr.to_pandas(date_as_object=False,
+                                      coerce_temporal_nanoseconds=True)
+    expected_ns_default = pd.Series([
+        pd.Timestamp('2018-05-10 00:00:00'),
+        pd.Timestamp('2018-05-10 00:02:03.456'),
+    ], dtype='datetime64[ns]')
+    pd.testing.assert_series_equal(result_ns_default, expected_ns_default)
+
+    result_ns_truncated = arr.to_pandas(date_as_object=False,
+                                        coerce_temporal_nanoseconds=True,
+                                        truncate_date64_time=True)
+    expected_ns_truncated = pd.Series([
+        pd.Timestamp('2018-05-10 00:00:00'),
+        pd.Timestamp('2018-05-10 00:00:00'),
+    ], dtype='datetime64[ns]')
+    pd.testing.assert_series_equal(result_ns_truncated, expected_ns_truncated)
+
+    # Test with ChunkedArray
+    chunked = pa.chunked_array([[milliseconds_at_midnight],
+                                [milliseconds_with_time]],
+                               type=pa.date64())
+    result_chunked_default = chunked.to_pandas(date_as_object=False)
+    pd.testing.assert_series_equal(result_chunked_default, expected_default)
+
+    result_chunked_truncated = chunked.to_pandas(date_as_object=False,
+                                                 truncate_date64_time=True)
+    pd.testing.assert_series_equal(result_chunked_truncated, expected_truncated)
+
+
 @pytest.mark.parametrize(('ty', 'values'), [
     ('bool', [True, False, True]),
     ('uint8', range(0, 255)),
