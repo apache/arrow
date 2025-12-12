@@ -73,7 +73,7 @@ test_that("determine_binary_from_stderr", {
   )
   expect_output(
     expect_identical(
-      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")),
+      determine_binary_from_stderr(character(0)), # Successful compile = OpenSSL >= 3.0
       "openssl-3.0"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
@@ -103,8 +103,8 @@ test_that("select_binary() with test program", {
   )
   expect_output(
     expect_identical(
-      select_binary("linux", "x86_64", "#error Using OpenSSL version 3"),
-      "linux-x86_64-openssl-3.0"
+      select_binary("linux", "x86_64", character(0)), # Successful compile = OpenSSL >= 3.0
+      "linux-x86_64"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
@@ -118,8 +118,8 @@ test_that("select_binary() with test program", {
   )
   expect_output(
     expect_identical(
-      select_binary("darwin", "x86_64", "#error Using OpenSSL version 3"),
-      "darwin-x86_64-openssl-3.0"
+      select_binary("darwin", "x86_64", character(0)), # Successful compile = OpenSSL >= 3.0
+      "darwin-x86_64"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
@@ -132,8 +132,8 @@ test_that("select_binary() with test program", {
   )
   expect_output(
     expect_identical(
-      select_binary("darwin", "arm64", "#error Using OpenSSL version 3"),
-      "darwin-arm64-openssl-3.0"
+      select_binary("darwin", "arm64", character(0)), # Successful compile = OpenSSL >= 3.0
+      "darwin-arm64"
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )

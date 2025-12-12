@@ -292,9 +292,6 @@ test_for_curl_and_openssl <- "
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 #error OpenSSL version must be 3.0 or greater
 #endif
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-#error Using OpenSSL version 3
-#endif
 "
 
 compile_test_program <- function(code) {
@@ -348,8 +345,8 @@ determine_binary_from_stderr <- function(errs) {
   } else if (any(grepl("OpenSSL version must be 3.0 or greater", errs))) {
     lg("OpenSSL found but version >= 3.0.0 is required")
     return(NULL)
-  } else if (any(grepl("Using OpenSSL version 3", errs)) || is.null(attr(errs, "status"))) {
-    # Either explicitly found OpenSSL 3, or no error (assumes OpenSSL 3+)
+  } else if (is.null(attr(errs, "status"))) {
+    # Successful compile = OpenSSL >= 3.0 found
     lg("Found libcurl and OpenSSL >= 3.0.0")
     return("openssl-3.0")
   }
