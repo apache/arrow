@@ -26,11 +26,17 @@
 
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
+#include "arrow/dataset/dataset.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/parquet_encryption_config.h"
 #include "arrow/dataset/scanner.h"
 #include "arrow/filesystem/path_util.h"
+#include "arrow/memory_pool.h"
+#include "arrow/record_batch.h"
+#include "arrow/result.h"
 #include "arrow/table.h"
+#include "arrow/type.h"
+#include "arrow/type_fwd.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
@@ -565,6 +571,66 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   });
 }
 
+struct CastingGenerator {
+  CastingGenerator(RecordBatchGenerator source, std::shared_ptr<Schema> final_schema,
+                   const std::unordered_set<std::string>& cols_to_skip,
+                   MemoryPool* pool = default_memory_pool())
+      : source_(source),
+        final_schema_(std::move(final_schema)),
+        cols_to_skip_(cols_to_skip),
+        exec_ctx(std::make_shared<compute::ExecContext>(pool)) {}
+
+  Future<std::shared_ptr<RecordBatch>> operator()() {
+    return this->source_().Then([this](const std::shared_ptr<RecordBatch>& next)
+                                    -> Result<std::shared_ptr<RecordBatch>> {
+      if (IsIterationEnd(next) || this->final_schema_ == nullptr) {
+        return next;
+      }
+      std::vector<std::shared_ptr<Array>> out_cols;
+      std::vector<std::shared_ptr<Field>> out_schema_fields;
+
+      bool changed = false;
+      for (const auto& field : this->final_schema_->fields()) {
+        FieldRef field_ref = FieldRef(field->name());
+        ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Array> column,
+                              field_ref.GetOneOrNone(*next));
+        if (column) {
+          if (this->cols_to_skip_.count(field->name())) {
+            // Maintain the original input type.
+            out_schema_fields.emplace_back(field->WithType(column->type()));
+            out_cols.emplace_back(std::move(column));
+            continue;
+          }
+          if (!column->type()->Equals(field->type())) {
+            // Referenced field was present but didn't have the expected type.
+            ARROW_ASSIGN_OR_RAISE(
+                auto converted,
+                compute::Cast(column, field->type(), compute::CastOptions::Safe(),
+                              this->exec_ctx.get()));
+            column = converted.make_array();
+            changed = true;
+          }
+          out_schema_fields.emplace_back(field->Copy());
+          out_cols.emplace_back(std::move(column));
+        }
+      }
+
+      if (changed) {
+        return RecordBatch::Make(std::make_shared<Schema>(std::move(out_schema_fields),
+                                                          next->schema()->metadata()),
+                                 next->num_rows(), std::move(out_cols));
+      } else {
+        return next;
+      }
+    });
+  }
+
+  RecordBatchGenerator source_;
+  std::shared_ptr<Schema> final_schema_;
+  const std::unordered_set<std::string>& cols_to_skip_;
+  std::shared_ptr<compute::ExecContext> exec_ctx;
+};
+
 struct SlicingGenerator {
   SlicingGenerator(RecordBatchGenerator source, int64_t batch_size)
       : state(std::make_shared<State>(source, batch_size)) {}
@@ -627,6 +693,9 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
       [this, options, parquet_fragment, pre_filtered,
        row_groups](const std::shared_ptr<parquet::arrow::FileReader>& reader) mutable
       -> Result<RecordBatchGenerator> {
+    // Since we already do the batching through the SlicingGenerator, we don't need the
+    // reader to batch its output.
+    reader->set_batch_size(std::numeric_limits<int64_t>::max());
     // Ensure that parquet_fragment has FileMetaData
     RETURN_NOT_OK(parquet_fragment->EnsureCompleteMetadata(reader.get()));
     if (!pre_filtered) {
@@ -649,8 +718,17 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
     ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
                                               reader, row_groups, column_projection,
                                               cpu_executor, rows_to_readahead));
+    // We need to skip casting the dictionary columns since the dataset_schema doesn't
+    // have the dictionary-encoding information. Parquet reader will return them with the
+    // dictionary type, which is what we eventually want.
+    const std::unordered_set<std::string>& dict_cols =
+        parquet_fragment->parquet_format_.reader_options.dict_columns;
+    // Casting before slicing is more efficient. Casts on slices might require wasteful
+    // allocations and computation.
+    RecordBatchGenerator casted = CastingGenerator(
+        std::move(generator), options->dataset_schema, dict_cols, options->pool);
     RecordBatchGenerator sliced =
-        SlicingGenerator(std::move(generator), options->batch_size);
+        SlicingGenerator(std::move(casted), options->batch_size);
     if (batch_readahead == 0) {
       return sliced;
     }
