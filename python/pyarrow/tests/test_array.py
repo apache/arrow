@@ -2797,6 +2797,28 @@ def test_array_from_numpy_string_dtype():
 
 
 @pytest.mark.numpy
+def test_numpy_stringdtype_thresholds_and_unicode():
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    dtype = StringDType()
+
+    short = "hello"
+    medium = "a" * 100
+    long_ = "b" * 300
+    unicode_ = "árvíztűrő tükörfúrógép 🥐 你好"
+    long_unicode = "🥐" * 200
+
+    arr = np.array([short, medium, long_, unicode_, long_unicode], dtype=dtype)
+    assert pa.array(arr).to_pylist() == [short, medium, long_, unicode_, long_unicode]
+
+
+@pytest.mark.numpy
 def test_array_from_numpy_string_dtype_nulls_and_mask():
     dtypes_mod = getattr(np, "dtypes", None)
     if dtypes_mod is None:
@@ -2820,6 +2842,12 @@ def test_array_from_numpy_string_dtype_nulls_and_mask():
     mask = np.array([False, False, True])
     arrow_arr = pa.array(arr, mask=mask)
     assert arrow_arr.to_pylist() == ["this array has", None, None]
+
+
+@pytest.mark.numpy
+def test_numpy_object_str_still_works():
+    arr_obj = np.array(["x", "y", None], dtype=object)
+    assert pa.array(arr_obj).to_pylist() == ["x", "y", None]
 
 
 @pytest.mark.numpy
