@@ -5794,7 +5794,7 @@ TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
   }
 }
 
-TEST(TestArrowReadWrite, FlushRowGroupByBufferedSize) {
+TEST(TestArrowReadWrite, WriteRecordBatchFlushRowGroupByBufferedSize) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
   // Limit the max bytes in a row group to 10 so that each batch produces a new group.
@@ -5811,10 +5811,9 @@ TEST(TestArrowReadWrite, FlushRowGroupByBufferedSize) {
   auto gen = ::arrow::random::RandomArrayGenerator(/*seed=*/42);
 
   // Create writer to write data via RecordBatch.
-  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
-  std::unique_ptr<FileWriter> arrow_writer;
-  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
-                             &arrow_writer));
+  ASSERT_OK_AND_ASSIGN(auto arrow_writer, parquet::arrow::FileWriter::Open(
+                                              *schema, pool, sink, writer_properties,
+                                              arrow_writer_properties));
   // NewBufferedRowGroup() is not called explicitly and it will be called
   // inside WriteRecordBatch().
   for (int i = 0; i < 5; ++i) {
@@ -5828,6 +5827,35 @@ TEST(TestArrowReadWrite, FlushRowGroupByBufferedSize) {
   auto file_metadata = arrow_writer->metadata();
   EXPECT_EQ(5, file_metadata->num_row_groups());
   for (int i = 0; i < 5; ++i) {
+    EXPECT_EQ(1, file_metadata->RowGroup(i)->num_rows());
+  }
+}
+
+TEST(TestArrowReadWrite, WriteTableFlushRowGroupByBufferedSize) {
+  auto pool = ::arrow::default_memory_pool();
+  auto sink = CreateOutputStream();
+  // Limit the max bytes in a row group to 100, then first table generates one row group,
+  // and second table generates 5 row groups.
+  auto writer_properties = WriterProperties::Builder().max_row_group_bytes(100)->build();
+  auto arrow_writer_properties = default_arrow_writer_properties();
+
+  // Prepare schema
+  auto schema = ::arrow::schema({::arrow::field("a", ::arrow::int64())});
+  auto table = ::arrow::Table::Make(
+      schema, {::arrow::ArrayFromJSON(::arrow::int64(), R"([1, 2, 3, 4, 5])")});
+  ASSERT_OK_AND_ASSIGN(auto arrow_writer, parquet::arrow::FileWriter::Open(
+                                              *schema, pool, sink, writer_properties,
+                                              arrow_writer_properties));
+  for (int i = 0; i < 2; ++i) {
+    ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table, 5));
+  }
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_metadata = arrow_writer->metadata();
+  EXPECT_EQ(6, file_metadata->num_row_groups());
+  EXPECT_EQ(5, file_metadata->RowGroup(0)->num_rows());
+  for (int i = 1; i < 6; ++i) {
     EXPECT_EQ(1, file_metadata->RowGroup(i)->num_rows());
   }
 }
