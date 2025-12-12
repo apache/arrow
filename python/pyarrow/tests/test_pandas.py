@@ -4114,24 +4114,40 @@ def test_dictionary_with_pandas():
         d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
         d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-        if index_type[0] == 'u':
-            # TODO: unsigned dictionary indices to pandas
-            with pytest.raises(TypeError):
+        if index_type == 'uint64':
+            # uint64 is not supported due to overflow risk (values > 2^63-1)
+            with pytest.raises(TypeError,
+                               match="Converting unsigned dictionary indices"):
                 d1.to_pandas()
             continue
 
         pandas1 = d1.to_pandas()
-        ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+        # Pandas Categorical uses signed int codes. Arrow converts:
+        # uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+        if index_type == 'uint8':
+            compare_indices = indices.astype('int16')
+        elif index_type == 'uint16':
+            compare_indices = indices.astype('int32')
+        elif index_type == 'uint32':
+            compare_indices = indices.astype('int64')
+        else:
+            compare_indices = indices
+        ex_pandas1 = pd.Categorical.from_codes(compare_indices, categories=dictionary)
 
         tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
 
         pandas2 = d2.to_pandas()
         assert pandas2.isnull().sum() == 1
 
-        # Unsigned integers converted to signed
-        signed_indices = indices
-        if index_type[0] == 'u':
-            signed_indices = indices.astype(index_type[1:])
+        # Use same conversion as above for comparison
+        if index_type == 'uint8':
+            signed_indices = indices.astype('int16')
+        elif index_type == 'uint16':
+            signed_indices = indices.astype('int32')
+        elif index_type == 'uint32':
+            signed_indices = indices.astype('int64')
+        else:
+            signed_indices = indices
         ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1,
                                                         signed_indices),
                                                categories=dictionary)
