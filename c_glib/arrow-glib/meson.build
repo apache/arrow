@@ -40,6 +40,7 @@ sources = files(
     'table-builder.cpp',
     'table.cpp',
     'tensor.cpp',
+    'thread-pool.cpp',
     'timestamp-parser.cpp',
     'type.cpp',
 )
@@ -97,6 +98,7 @@ c_headers = files(
     'table-builder.h',
     'table.h',
     'tensor.h',
+    'thread-pool.h',
     'timestamp-parser.h',
     'type.h',
 )
@@ -147,6 +149,7 @@ cpp_headers = files(
     'table-builder.hpp',
     'table.hpp',
     'tensor.hpp',
+    'thread-pool.hpp',
     'timestamp-parser.hpp',
     'type.hpp',
 )

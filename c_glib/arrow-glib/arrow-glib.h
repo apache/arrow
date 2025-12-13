@@ -43,6 +43,7 @@
 #include <arrow-glib/table.h>
 #include <arrow-glib/table-builder.h>
 #include <arrow-glib/tensor.h>
+#include <arrow-glib/thread-pool.h>
 #include <arrow-glib/type.h>
 
 #include <arrow-glib/file.h>
