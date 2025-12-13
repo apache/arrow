@@ -156,6 +156,12 @@ module ArrowFormat
           else
             type = UInt8Type.singleton
           end
+        when 16
+          if fb_type.signed?
+            type = Int16Type.singleton
+          else
+            type = UInt16Type.singleton
+          end
         end
       when Org::Apache::Arrow::Flatbuf::FloatingPoint
         case fb_type.precision
