@@ -122,11 +122,14 @@ module ArrowFormat
     end
   end
 
-  class DateArray < Array
+  class TemporalArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
+  end
+
+  class DateArray < TemporalArray
   end
 
   class Date32Array < DateArray
@@ -138,6 +141,15 @@ module ArrowFormat
   class Date64Array < DateArray
     def to_a
       apply_validity(@values_buffer.values(:s64, 0, @size))
+    end
+  end
+
+  class TimeArray < TemporalArray
+  end
+
+  class Time32Array < TimeArray
+    def to_a
+      apply_validity(@values_buffer.values(:s32, 0, @size))
     end
   end
 

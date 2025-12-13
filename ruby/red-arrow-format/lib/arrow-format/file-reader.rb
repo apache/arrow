@@ -38,6 +38,8 @@ require_relative "org/apache/arrow/flatbuf/null"
 require_relative "org/apache/arrow/flatbuf/precision"
 require_relative "org/apache/arrow/flatbuf/schema"
 require_relative "org/apache/arrow/flatbuf/struct_"
+require_relative "org/apache/arrow/flatbuf/time"
+require_relative "org/apache/arrow/flatbuf/time_unit"
 require_relative "org/apache/arrow/flatbuf/union"
 require_relative "org/apache/arrow/flatbuf/union_mode"
 require_relative "org/apache/arrow/flatbuf/utf8"
@@ -177,6 +179,16 @@ module ArrowFormat
         when Org::Apache::Arrow::Flatbuf::DateUnit::MILLISECOND
           type = Date64Type.singleton
         end
+      when Org::Apache::Arrow::Flatbuf::Time
+        case fb_type.bit_width
+        when 32
+          case fb_type.unit
+          when Org::Apache::Arrow::Flatbuf::TimeUnit::SECOND
+            type = Time32Type.new(:second)
+          when Org::Apache::Arrow::Flatbuf::TimeUnit::MILLISECOND
+            type = Time32Type.new(:millisecond)
+          end
+        end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::LargeList
@@ -228,7 +240,7 @@ module ArrowFormat
       case field.type
       when BooleanType,
            NumberType,
-           DateType
+           TemporalType
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(length, validity, values)
