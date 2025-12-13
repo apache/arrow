@@ -45,6 +45,7 @@
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
 #include "parquet/metadata.h"
+#include "parquet/metadata3.h"
 #include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
@@ -436,6 +437,33 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_ASSIGN_OR_THROW(
         auto footer_buffer,
         source_->ReadAt(source_size_ - footer_read_size, footer_read_size));
+    if (properties_.read_metadata3()) {
+      // Try to extract flatbuffer metadata from footer
+      std::string flatbuffer_data;
+      auto result = ExtractFlatbuffer(footer_buffer, &flatbuffer_data);
+      if (result.ok()) {
+        size_t required_or_consumed = *result;
+        if (required_or_consumed > static_cast<size_t>(footer_buffer->size())) {
+          PARQUET_ASSIGN_OR_THROW(
+              footer_buffer,
+              source_->ReadAt(source_size_ - required_or_consumed, required_or_consumed));
+          footer_read_size = required_or_consumed;
+          result = ExtractFlatbuffer(footer_buffer, &flatbuffer_data);
+        }
+        // If successfully extracted flatbuffer data, parse it and return
+        if (result.ok() && *result > 0 && !flatbuffer_data.empty()) {
+          // Get flatbuffer metadata and convert to thrift
+          const format3::FileMetaData* fb_metadata =
+              format3::GetFileMetaData(flatbuffer_data.data());
+          auto thrift_metadata =
+              std::make_unique<format::FileMetaData>(FromFlatbuffer(fb_metadata));
+          file_metadata_ =
+              FileMetaData::Make(std::move(thrift_metadata), *result, properties_);
+          return;
+        }
+      }
+      // If extraction failed or returned 0 (no flatbuffer), fall through to standard parsing
+    }
     uint32_t metadata_len = ParseFooterLength(footer_buffer, footer_read_size);
     int64_t metadata_start = source_size_ - kFooterSize - metadata_len;
 

@@ -28,6 +28,7 @@
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/type_fwd.h"
+#include "generated/parquet_types.h"
 
 namespace parquet {
 
@@ -255,6 +256,11 @@ class PARQUET_EXPORT FileMetaData {
       const ReaderProperties& properties = default_reader_properties(),
       std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
 
+  /// \brief Create a FileMetaData from an already-deserialized thrift object.
+  static std::shared_ptr<FileMetaData> Make(
+      std::unique_ptr<format::FileMetaData> metadata, uint32_t metadata_len,
+      const ReaderProperties& properties = default_reader_properties());
+
   ~FileMetaData();
 
   bool Equals(const FileMetaData& other) const;
@@ -337,6 +343,7 @@ class PARQUET_EXPORT FileMetaData {
 
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor = NULLPTR) const;
+  void WriteToWithMetadata3(::arrow::io::OutputStream* dst) const;
 
   /// \brief Return Thrift-serialized representation of the metadata as a
   /// string
@@ -388,6 +395,9 @@ class PARQUET_EXPORT FileMetaData {
   explicit FileMetaData(const void* serialized_metadata, uint32_t* metadata_len,
                         const ReaderProperties& properties,
                         std::shared_ptr<InternalFileDecryptor> file_decryptor = NULLPTR);
+
+  explicit FileMetaData(std::unique_ptr<format::FileMetaData> metadata, uint32_t metadata_len,
+                        const ReaderProperties& properties);
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
   const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;

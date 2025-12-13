@@ -339,7 +339,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
       if (file_encryption_properties == nullptr) {  // Non encrypted file.
         file_metadata_ = metadata_->Finish(key_value_metadata_);
-        WriteFileMetaData(*file_metadata_, sink_.get());
+        WriteFileMetaData(*file_metadata_, sink_.get(), properties_->write_metadata3());
       } else {  // Encrypted file
         CloseEncryptedFile(file_encryption_properties);
       }
@@ -541,12 +541,17 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   return result;
 }
 
-void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink,
+                       bool use_metadata3) {
   // Write MetaData
   PARQUET_ASSIGN_OR_THROW(int64_t position, sink->Tell());
   uint32_t metadata_len = static_cast<uint32_t>(position);
 
-  file_metadata.WriteTo(sink);
+  if (use_metadata3) {
+    file_metadata.WriteToWithMetadata3(sink);
+  } else {
+    file_metadata.WriteTo(sink);
+  }
   PARQUET_ASSIGN_OR_THROW(position, sink->Tell());
   metadata_len = static_cast<uint32_t>(position) - metadata_len;
 

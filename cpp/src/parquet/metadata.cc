@@ -35,6 +35,7 @@
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
+#include "parquet/metadata3.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
 #include "parquet/size_statistics.h"
@@ -799,6 +800,23 @@ class FileMetaData::FileMetaDataImpl {
     InitKeyValueMetadata();
   }
 
+  // Constructor that accepts an already-deserialized thrift object
+  explicit FileMetaDataImpl(std::unique_ptr<format::FileMetaData> metadata,
+                            uint32_t metadata_len, ReaderProperties properties)
+      : metadata_len_(metadata_len),
+        metadata_(std::move(metadata)),
+        properties_(std::move(properties)) {
+    if (metadata_->__isset.created_by) {
+      writer_version_ = ApplicationVersion(metadata_->created_by);
+    } else {
+      writer_version_ = ApplicationVersion("unknown 0.0.0");
+    }
+
+    InitSchema();
+    InitColumnOrders();
+    InitKeyValueMetadata();
+  }
+
   bool VerifySignature(const void* signature) {
     // verify decryption properties are set
     if (file_decryptor_ == nullptr) {
@@ -857,6 +875,20 @@ class FileMetaData::FileMetaDataImpl {
   }
 
   const ApplicationVersion& writer_version() const { return writer_version_; }
+
+  void WriteToWithMetadata3(::arrow::io::OutputStream* dst) const {
+    std::string flatbuffer;
+    if (ToFlatbuffer(metadata_.get(), &flatbuffer)) {
+      ThriftSerializer serializer;
+      std::string thrift;
+      serializer.SerializeToString(metadata_.get(), &thrift);
+      AppendFlatbuffer(flatbuffer, &thrift);
+      PARQUET_THROW_NOT_OK(dst->Write(thrift));
+    } else {
+      WriteTo(dst, nullptr);
+    }
+    return;
+  }
 
   void WriteTo(::arrow::io::OutputStream* dst,
                const std::shared_ptr<Encryptor>& encryptor) const {
@@ -1061,11 +1093,22 @@ std::shared_ptr<FileMetaData> FileMetaData::Make(
       new FileMetaData(metadata, metadata_len, properties, std::move(file_decryptor)));
 }
 
+std::shared_ptr<FileMetaData> FileMetaData::Make(
+    std::unique_ptr<format::FileMetaData> metadata, uint32_t metadata_len,
+    const ReaderProperties& properties) {
+  return std::shared_ptr<FileMetaData>(
+      new FileMetaData(std::move(metadata), metadata_len, properties));
+}
+
 FileMetaData::FileMetaData(const void* metadata, uint32_t* metadata_len,
                            const ReaderProperties& properties,
                            std::shared_ptr<InternalFileDecryptor> file_decryptor)
     : impl_(new FileMetaDataImpl(metadata, metadata_len, properties,
                                  std::move(file_decryptor))) {}
+
+FileMetaData::FileMetaData(std::unique_ptr<format::FileMetaData> metadata,
+                           uint32_t metadata_len, const ReaderProperties& properties)
+    : impl_(new FileMetaDataImpl(std::move(metadata), metadata_len, properties)) {}
 
 FileMetaData::FileMetaData() : impl_(new FileMetaDataImpl()) {}
 
@@ -1167,6 +1210,10 @@ std::string FileMetaData::SerializeUnencrypted(bool scrub, bool debug) const {
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
                            const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
+}
+
+void FileMetaData::WriteToWithMetadata3(::arrow::io::OutputStream* dst) const {
+  return impl_->WriteToWithMetadata3(dst);
 }
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
