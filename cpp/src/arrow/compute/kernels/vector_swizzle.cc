@@ -32,7 +32,8 @@ namespace {
 
 const FunctionDoc inverse_permutation_doc(
     "Return the inverse permutation of the given indices",
-    "For the `i`-th `index` in `indices`, the `index`-th output is `i`", {"indices"});
+    "For the `i`-th `index` in `indices`, the `index`-th output is `i`", {"indices"},
+    "InversePermutationOptions");
 
 const InversePermutationOptions* GetDefaultInversePermutationOptions() {
   static const auto kDefaultInversePermutationOptions =
@@ -332,7 +333,7 @@ void RegisterVectorInversePermutation(FunctionRegistry* registry) {
 const FunctionDoc scatter_doc(
     "Scatter the values into specified positions according to the indices",
     "Place the `i`-th value at the position specified by the `i`-th index",
-    {"values", "indices"});
+    {"values", "indices"}, "ScatterOptions");
 
 const ScatterOptions* GetDefaultScatterOptions() {
   static const auto kDefaultScatterOptions = ScatterOptions::Defaults();
