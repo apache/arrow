@@ -1535,6 +1535,21 @@ inline void ConvertDatetime(const ChunkedArray& data, int64_t* out_values) {
   }
 }
 
+// Specialized conversion for Date64 that truncates intraday milliseconds
+template <int64_t SHIFT>
+inline void ConvertDate64WithTruncation(const ChunkedArray& data, int64_t* out_values) {
+  for (int c = 0; c < data.num_chunks(); c++) {
+    const auto& arr = *data.chunk(c);
+    const int64_t* in_values = GetPrimitiveValues<int64_t>(arr);
+
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      *out_values++ = arr.IsNull(i)
+                          ? kPandasTimestampNull
+                          : ((in_values[i] - in_values[i] % kMillisecondsInDay) * SHIFT);
+    }
+  }
+}
+
 template <typename T, int SHIFT>
 void ConvertDatesShift(const ChunkedArray& data, int64_t* out_values) {
   for (int c = 0; c < data.num_chunks(); c++) {
@@ -1617,7 +1632,8 @@ class DatetimeMilliWriter : public DatetimeWriter<TimeUnit::MILLI> {
       // Convert from days since epoch to datetime64[ms]
       ConvertDatetime<int32_t, 86400000L>(*data, out_values);
     } else if (type == Type::DATE64) {
-      ConvertNumericNullable<int64_t>(*data, kPandasTimestampNull, out_values);
+      // Date64Type is millisecond timestamp; truncate intraday milliseconds
+      ConvertDate64WithTruncation<1L>(*data, out_values);
     } else {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
       ARROW_DCHECK_EQ(TimeUnit::MILLI, ts_type.unit())
@@ -1652,9 +1668,8 @@ class DatetimeNanoWriter : public DatetimeWriter<TimeUnit::NANO> {
       // Convert from days since epoch to datetime64[ns]
       ConvertDatetime<int32_t, kNanosecondsInDay>(*data, out_values);
     } else if (type == Type::DATE64) {
-      // Date64Type is millisecond timestamp stored as int64_t
-      // TODO(wesm): Do we want to make sure to zero out the milliseconds?
-      ConvertDatetime<int64_t, 1000000L>(*data, out_values);
+      // Date64Type is millisecond timestamp; truncate and convert to nanoseconds
+      ConvertDate64WithTruncation<1000000L>(*data, out_values);
     } else if (type == Type::TIMESTAMP) {
       const auto& ts_type = checked_cast<const TimestampType&>(*data->type());
 

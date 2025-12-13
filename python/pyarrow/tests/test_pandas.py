@@ -1272,6 +1272,38 @@ class TestConvertDateTimeLikeTypes:
 
         assert arr.equals(expected)
 
+    def test_date64_truncates_intraday_milliseconds_to_pandas(self):
+        # Date64 should truncate intraday milliseconds to midnight
+        milliseconds_at_midnight = 1525910400000
+        milliseconds_with_time = milliseconds_at_midnight + 123456
+
+        arr = pa.array([milliseconds_at_midnight, milliseconds_with_time],
+                       type=pa.date64())
+
+        # Test datetime64[ms] conversion
+        result_ms = arr.to_pandas(date_as_object=False)
+        expected_ms = pd.Series([
+            pd.Timestamp('2018-05-10 00:00:00'),
+            pd.Timestamp('2018-05-10 00:00:00'),
+        ], dtype='datetime64[ms]')
+        pd.testing.assert_series_equal(result_ms, expected_ms)
+
+        # Test datetime64[ns] conversion
+        result_ns = arr.to_pandas(date_as_object=False,
+                                  coerce_temporal_nanoseconds=True)
+        expected_ns = pd.Series([
+            pd.Timestamp('2018-05-10 00:00:00'),
+            pd.Timestamp('2018-05-10 00:00:00'),
+        ], dtype='datetime64[ns]')
+        pd.testing.assert_series_equal(result_ns, expected_ns)
+
+        # Verify with ChunkedArray
+        chunked = pa.chunked_array([[milliseconds_at_midnight],
+                                    [milliseconds_with_time]],
+                                   type=pa.date64())
+        result_chunked = chunked.to_pandas(date_as_object=False)
+        pd.testing.assert_series_equal(result_chunked, expected_ms)
+
     @pytest.mark.parametrize("coerce_to_ns,expected_dtype",
                              [(False, 'datetime64[ms]'),
                               (True, 'datetime64[ns]')])
