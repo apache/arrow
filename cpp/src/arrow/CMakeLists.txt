@@ -565,6 +565,12 @@ if(ARROW_WITH_ZSTD)
   list(APPEND ARROW_UTIL_SRCS util/compression_zstd.cc)
 endif()
 
+# ALP (for Parquet encoder/decoder)
+list(APPEND ARROW_UTIL_SRCS
+  util/alp/Alp.cc
+  util/alp/AlpSampler.cc
+  util/alp/AlpWrapper.cc)
+
 arrow_add_object_library(ARROW_UTIL ${ARROW_UTIL_SRCS})
 
 # Disable DLL exports in vendored uriparser library
