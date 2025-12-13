@@ -110,14 +110,14 @@ module ArrowFormat
     end
   end
 
-  class TemporaryArray < Array
+  class TemporalArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
   end
 
-  class DateArray < TemporaryArray
+  class DateArray < TemporalArray
   end
 
   class Date32Array < DateArray
@@ -132,7 +132,7 @@ module ArrowFormat
     end
   end
 
-  class TimeArray < TemporaryArray
+  class TimeArray < TemporalArray
   end
 
   class Time32Array < TimeArray
