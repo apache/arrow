@@ -1722,6 +1722,24 @@ TYPED_TEST(StatementTest, TestSQLBindColIndicatorOnlySQLUnbind) {
   // EXPECT_EQ(1, char_val_ind);
 }
 
+TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
+  // Verify SQLMoreResults returns SQL_NO_DATA by default.
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  ASSERT_EQ(SQL_NO_DATA, SQLMoreResults(this->stmt));
+}
+
+TYPED_TEST(StatementTest, TestSQLMoreResultsInvalidFunctionSequence) {
+  // Verify function sequence error state is reported when SQLMoreResults is called
+  // without executing any queries
+  ASSERT_EQ(SQL_ERROR, SQLMoreResults(this->stmt));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+}
+
 TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsInputString) {
   SQLWCHAR buf[1024];
   SQLINTEGER buf_char_len = sizeof(buf) / GetSqlWCharSize();
