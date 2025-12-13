@@ -297,12 +297,14 @@ class BufferedInputStream::Impl : public BufferedBase {
           new_buffer_size, ", buffer_pos: ", buffer_pos_,
           ", bytes_buffered: ", bytes_buffered_, ", buffer_size: ", buffer_size_);
     }
+    bool need_reset_buffer_pos = false;
     if (raw_read_bound_ >= 0) {
       // No need to reserve space for more than the total remaining number of bytes.
       if (bytes_buffered_ == 0) {
-        // Special case: we can not keep the current buffer because it does not
+        // Special case: we can override data in the current buffer because it does not
         // contain any required data.
         new_buffer_size = std::min(new_buffer_size, raw_read_bound_ - raw_read_total_);
+        need_reset_buffer_pos = true;
       } else {
         // We should keep the current buffer because it contains data that
         // can be read.
@@ -311,7 +313,11 @@ class BufferedInputStream::Impl : public BufferedBase {
                      buffer_pos_ + bytes_buffered_ + (raw_read_bound_ - raw_read_total_));
       }
     }
-    return ResizeBuffer(new_buffer_size);
+    auto status = ResizeBuffer(new_buffer_size);
+    if (status.ok() && need_reset_buffer_pos) {
+      buffer_pos_ = 0;
+    }
+    return status;
   }
 
   Result<std::string_view> Peek(int64_t nbytes) {
