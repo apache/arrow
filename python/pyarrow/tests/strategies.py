@@ -386,9 +386,6 @@ def chunked_arrays(draw, type, min_chunks=0, max_chunks=None, chunk_size=None):
     if isinstance(type, st.SearchStrategy):
         type = draw(type)
 
-    # TODO(kszucs): remove it, field metadata is not kept
-    h.assume(not pa.types.is_struct(type))
-
     chunk = arrays(type, size=chunk_size)
     chunks = st.lists(chunk, min_size=min_chunks, max_size=max_chunks)
 
