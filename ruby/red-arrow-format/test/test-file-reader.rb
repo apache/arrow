@@ -106,6 +106,28 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Int32") do
+    def build_array
+      Arrow::Int32Array.new([-2147483648, nil, 2147483647])
+    end
+
+    def test_read
+      assert_equal([{"value" => [-2147483648, nil, 2147483647]}],
+                   read)
+    end
+  end
+
+  sub_test_case("UInt32") do
+    def build_array
+      Arrow::UInt32Array.new([0, nil, 4294967295])
+    end
+
+    def test_read
+      assert_equal([{"value" => [0, nil, 4294967295]}],
+                   read)
+    end
+  end
+
   sub_test_case("Float32") do
     def build_array
       Arrow::FloatArray.new([-0.5, nil, 0.5])
