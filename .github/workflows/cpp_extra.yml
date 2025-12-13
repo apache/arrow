@@ -26,6 +26,7 @@ on:
       - '.dockerignore'
       - '.github/workflows/check_labels.yml'
       - '.github/workflows/cpp_extra.yml'
+      - '.github/workflows/cpp_odbc.yml'
       - '.github/workflows/report_ci.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
@@ -47,6 +48,7 @@ on:
       - '.dockerignore'
       - '.github/workflows/check_labels.yml'
       - '.github/workflows/cpp_extra.yml'
+      - '.github/workflows/cpp_odbc.yml'
       - '.github/workflows/report_ci.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
@@ -330,6 +332,15 @@ jobs:
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
 
+  odbc:
+    needs: check-labels
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    name: C++ ODBC
+    uses: ./.github/workflows/cpp_odbc.yml
+
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
     needs:
@@ -337,5 +348,6 @@ jobs:
       - jni-linux
       - jni-macos
       - msvc-arm64
+      - odbc
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit
