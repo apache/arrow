@@ -138,13 +138,14 @@ class TestFileReader < Test::Unit::TestCase
     end
 
     def test_read
-      assert_equal([{"value" => 
-                      [
-                        -9223372036854775808,
-                        nil,
-                        9223372036854775807
-                      ]
-                    }
+      assert_equal([
+                     {
+                       "value" => [
+                         -9223372036854775808,
+                         nil,
+                         9223372036854775807
+                       ]
+                     }
                    ],
                    read)
     end
