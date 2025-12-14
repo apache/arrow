@@ -209,3 +209,9 @@ garrow_extract_regex_options_new_raw(
   const arrow::compute::ExtractRegexOptions *arrow_options);
 arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new_raw(
+  const arrow::compute::RankQuantileOptions *arrow_options);
+arrow::compute::RankQuantileOptions *
+garrow_rank_quantile_options_get_raw(GArrowRankQuantileOptions *options);
