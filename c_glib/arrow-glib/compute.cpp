@@ -277,7 +277,7 @@ garrow_compute_initialize(GError **error)
 typedef struct GArrowExecuteContextPrivate_
 {
   arrow::compute::ExecContext context;
-  std::shared_ptr<arrow::internal::ThreadPool> thread_pool;
+  GArrowThreadPool *thread_pool;
 } GArrowExecuteContextPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext, garrow_execute_context, G_TYPE_OBJECT)
@@ -295,7 +295,9 @@ garrow_execute_context_finalize(GObject *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
   priv->context.~ExecContext();
-  priv->thread_pool.~shared_ptr();
+  if (priv->thread_pool) {
+    g_object_unref(priv->thread_pool);
+  }
   G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
 }
 
@@ -311,10 +313,16 @@ garrow_execute_context_set_property(GObject *object,
   case PROP_THREAD_POOL:
     {
       auto thread_pool = GARROW_THREAD_POOL(g_value_get_object(value));
-      auto arrow_thread_pool = garrow_thread_pool_get_raw(thread_pool);
-      priv->thread_pool = arrow_thread_pool;
-      priv->context = arrow::compute::ExecContext(arrow::default_memory_pool(),
-                                                  arrow_thread_pool.get());
+      if (thread_pool) {
+        priv->thread_pool = GARROW_THREAD_POOL(g_object_ref(thread_pool));
+        auto arrow_thread_pool = garrow_thread_pool_get_raw(thread_pool);
+        priv->context = arrow::compute::ExecContext(arrow::default_memory_pool(),
+                                                    arrow_thread_pool.get());
+      } else {
+        priv->thread_pool = nullptr;
+        priv->context = arrow::compute::ExecContext(arrow::default_memory_pool(),
+                                                    nullptr);
+      }
       break;
     }
   default:
@@ -328,7 +336,7 @@ garrow_execute_context_init(GArrowExecuteContext *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
   new (&priv->context) arrow::compute::ExecContext(arrow::default_memory_pool(), nullptr);
-  new (&priv->thread_pool) std::shared_ptr<arrow::internal::ThreadPool>;
+  priv->thread_pool = nullptr;
 }
 
 static void
