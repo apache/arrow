@@ -17,15 +17,15 @@
  * under the License.
  */
 
-#include <arrow-glib/thread-pool.hpp>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/executor.hpp>
 
 G_BEGIN_DECLS
 
 /**
- * SECTION: thread-pool
- * @section_id: thread-pool-classes
- * @title: Thread pool classes
+ * SECTION: executor
+ * @section_id: executor-classes
+ * @title: Executor classes
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowThreadPool is a class for thread pool management.
@@ -64,9 +64,8 @@ garrow_thread_pool_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_THREAD_POOL:
-    priv->thread_pool =
-      *static_cast<std::shared_ptr<arrow::internal::ThreadPool> *>(
-        g_value_get_pointer(value));
+    priv->thread_pool = *static_cast<std::shared_ptr<arrow::internal::ThreadPool> *>(
+      g_value_get_pointer(value));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);

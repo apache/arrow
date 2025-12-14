@@ -21,7 +21,7 @@
 
 #include <arrow/util/thread_pool.h>
 
-#include <arrow-glib/thread-pool.h>
+#include <arrow-glib/executor.h>
 
 std::shared_ptr<arrow::internal::ThreadPool>
 garrow_thread_pool_get_raw(GArrowThreadPool *thread_pool);

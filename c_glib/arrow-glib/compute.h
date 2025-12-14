@@ -21,8 +21,8 @@
 
 #include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
+#include <arrow-glib/executor.h>
 #include <arrow-glib/reader.h>
-#include <arrow-glib/thread-pool.h>
 
 G_BEGIN_DECLS
 

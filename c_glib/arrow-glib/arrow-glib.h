@@ -33,6 +33,7 @@
 #include <arrow-glib/decoder.h>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.h>
+#include <arrow-glib/executor.h>
 #include <arrow-glib/expression.h>
 #include <arrow-glib/field.h>
 #include <arrow-glib/interval.h>
@@ -43,7 +44,6 @@
 #include <arrow-glib/table.h>
 #include <arrow-glib/table-builder.h>
 #include <arrow-glib/tensor.h>
-#include <arrow-glib/thread-pool.h>
 #include <arrow-glib/type.h>
 
 #include <arrow-glib/file.h>
