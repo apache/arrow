@@ -163,6 +163,38 @@ module ArrowFormat
     end
   end
 
+  class Int64Type < IntType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("Int64", 64, true)
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Int64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
+  class UInt64Type < IntType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("UInt64", 64, false)
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      UInt64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class FloatingPointType < NumberType
     attr_reader :precision
     def initialize(name, precision)
