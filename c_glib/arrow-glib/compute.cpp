@@ -276,8 +276,7 @@ garrow_compute_initialize(GError **error)
 
 typedef struct GArrowExecuteContextPrivate_
 {
-  arrow::compute::ExecContext context;
-  GArrowExecutor *executor;
+  std::shared_ptr<arrow::compute::ExecContext> context;
 } GArrowExecuteContextPrivate;
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext, garrow_execute_context, G_TYPE_OBJECT)
@@ -294,10 +293,7 @@ static void
 garrow_execute_context_finalize(GObject *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
-  priv->context.~ExecContext();
-  if (priv->executor) {
-    g_object_unref(priv->executor);
-  }
+  priv->context.reset();
   G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
 }
 
@@ -313,16 +309,10 @@ garrow_execute_context_set_property(GObject *object,
   case PROP_EXECUTOR:
     {
       auto executor = GARROW_EXECUTOR(g_value_get_object(value));
-      if (executor) {
-        priv->executor = GARROW_EXECUTOR(g_object_ref(executor));
-        auto arrow_executor = garrow_executor_get_raw(executor);
-        priv->context = arrow::compute::ExecContext(arrow::default_memory_pool(),
-                                                    arrow_executor);
-      } else {
-        priv->executor = nullptr;
-        priv->context = arrow::compute::ExecContext(arrow::default_memory_pool(),
-                                                    nullptr);
-      }
+      auto arrow_executor = garrow_executor_get_raw(executor);
+      priv->context =
+        std::make_shared<arrow::compute::ExecContext>(arrow::default_memory_pool(),
+                                                      arrow_executor);
       break;
     }
   default:
@@ -335,8 +325,7 @@ static void
 garrow_execute_context_init(GArrowExecuteContext *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
-  new (&priv->context) arrow::compute::ExecContext(arrow::default_memory_pool(), nullptr);
-  priv->executor = nullptr;
+  priv->context = nullptr;
 }
 
 static void
@@ -6413,7 +6402,7 @@ arrow::compute::ExecContext *
 garrow_execute_context_get_raw(GArrowExecuteContext *context)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(context);
-  return &priv->context;
+  return priv->context.get();
 }
 
 GArrowFunctionOptions *
