@@ -67,7 +67,7 @@ garrow_thread_pool_class_init(GArrowThreadPoolClass *klass)
 
 /**
  * garrow_thread_pool_new:
- * @num_threads: The number of threads in the pool.
+ * @n_threads: The number of threads in the pool.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowThreadPool on success,
@@ -76,9 +76,9 @@ garrow_thread_pool_class_init(GArrowThreadPoolClass *klass)
  * Since: 23.0.0
  */
 GArrowThreadPool *
-garrow_thread_pool_new(guint num_threads, GError **error)
+garrow_thread_pool_new(guint n_threads, GError **error)
 {
-  auto arrow_thread_pool_result = arrow::internal::ThreadPool::Make(num_threads);
+  auto arrow_thread_pool_result = arrow::internal::ThreadPool::Make(n_threads);
   if (garrow::check(error, arrow_thread_pool_result, "[thread-pool][new]")) {
     auto thread_pool = GARROW_THREAD_POOL(g_object_new(GARROW_TYPE_THREAD_POOL, NULL));
     auto priv = GARROW_THREAD_POOL_GET_PRIVATE(thread_pool);

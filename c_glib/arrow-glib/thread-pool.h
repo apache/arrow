@@ -36,6 +36,6 @@ struct _GArrowThreadPoolClass
 
 GARROW_AVAILABLE_IN_23_0
 GArrowThreadPool *
-garrow_thread_pool_new(guint num_threads, GError **error);
+garrow_thread_pool_new(guint n_threads, GError **error);
 
 G_END_DECLS
