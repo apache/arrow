@@ -209,3 +209,9 @@ garrow_extract_regex_options_new_raw(
   const arrow::compute::ExtractRegexOptions *arrow_options);
 arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new_raw(
+  const arrow::compute::RoundBinaryOptions *arrow_options);
+arrow::compute::RoundBinaryOptions *
+garrow_round_binary_options_get_raw(GArrowRoundBinaryOptions *options);
