@@ -286,6 +286,10 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext, garrow_execute_context, G_TYPE_
   static_cast<GArrowExecuteContextPrivate *>(                                            \
     garrow_execute_context_get_instance_private(GARROW_EXECUTE_CONTEXT(object)))
 
+enum {
+  PROP_THREAD_POOL = 1,
+};
+
 static void
 garrow_execute_context_finalize(GObject *object)
 {
@@ -293,6 +297,30 @@ garrow_execute_context_finalize(GObject *object)
   priv->context.~ExecContext();
   priv->thread_pool.~shared_ptr();
   G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
+}
+
+static void
+garrow_execute_context_set_property(GObject *object,
+                                    guint prop_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_THREAD_POOL:
+    {
+      auto thread_pool = GARROW_THREAD_POOL(g_value_get_object(value));
+      auto arrow_thread_pool = garrow_thread_pool_get_raw(thread_pool);
+      priv->thread_pool = arrow_thread_pool;
+      priv->context = arrow::compute::ExecContext(arrow::default_memory_pool(),
+                                                  arrow_thread_pool.get());
+      break;
+    }
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
 }
 
 static void
@@ -309,6 +337,16 @@ garrow_execute_context_class_init(GArrowExecuteContextClass *klass)
   auto gobject_class = G_OBJECT_CLASS(klass);
 
   gobject_class->finalize = garrow_execute_context_finalize;
+  gobject_class->set_property = garrow_execute_context_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_object(
+    "thread-pool",
+    "Thread pool",
+    "The GArrowThreadPool for execution",
+    GARROW_TYPE_THREAD_POOL,
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_THREAD_POOL, spec);
 }
 
 /**
@@ -322,15 +360,8 @@ garrow_execute_context_class_init(GArrowExecuteContextClass *klass)
 GArrowExecuteContext *
 garrow_execute_context_new(GArrowThreadPool *thread_pool)
 {
-  auto execute_context = g_object_new(GARROW_TYPE_EXECUTE_CONTEXT, NULL);
-  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(execute_context);
-
-  auto arrow_thread_pool = garrow_thread_pool_get_raw(thread_pool);
-  priv->thread_pool = arrow_thread_pool;
-  new (&priv->context)
-    arrow::compute::ExecContext(arrow::default_memory_pool(), arrow_thread_pool.get());
-
-  return GARROW_EXECUTE_CONTEXT(execute_context);
+  return GARROW_EXECUTE_CONTEXT(
+    g_object_new(GARROW_TYPE_EXECUTE_CONTEXT, "thread-pool", thread_pool, nullptr));
 }
 
 typedef struct GArrowFunctionOptionsPrivate_
