@@ -209,3 +209,8 @@ garrow_extract_regex_options_new_raw(
   const arrow::compute::ExtractRegexOptions *arrow_options);
 arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new_raw(const arrow::compute::WinsorizeOptions *arrow_options);
+arrow::compute::WinsorizeOptions *
+garrow_winsorize_options_get_raw(GArrowWinsorizeOptions *options);
