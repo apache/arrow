@@ -25,13 +25,21 @@
 
 G_BEGIN_DECLS
 
+#define GARROW_TYPE_EXECUTOR (garrow_executor_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExecutor, garrow_executor, GARROW, EXECUTOR, GObject)
+struct _GArrowExecutorClass
+{
+  GObjectClass parent_class;
+};
+
 #define GARROW_TYPE_THREAD_POOL (garrow_thread_pool_get_type())
 GARROW_AVAILABLE_IN_23_0
 G_DECLARE_DERIVABLE_TYPE(
-  GArrowThreadPool, garrow_thread_pool, GARROW, THREAD_POOL, GObject)
+  GArrowThreadPool, garrow_thread_pool, GARROW, THREAD_POOL, GArrowExecutor)
 struct _GArrowThreadPoolClass
 {
-  GObjectClass parent_class;
+  GArrowExecutorClass parent_class;
 };
 
 GARROW_AVAILABLE_IN_23_0

@@ -23,5 +23,8 @@
 
 #include <arrow-glib/executor.h>
 
+arrow::internal::Executor *
+garrow_executor_get_raw(GArrowExecutor *executor);
+
 std::shared_ptr<arrow::internal::ThreadPool>
 garrow_thread_pool_get_raw(GArrowThreadPool *thread_pool);

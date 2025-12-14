@@ -41,7 +41,7 @@ struct _GArrowExecuteContextClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *
-garrow_execute_context_new(GArrowThreadPool *thread_pool);
+garrow_execute_context_new(GArrowExecutor *executor);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
