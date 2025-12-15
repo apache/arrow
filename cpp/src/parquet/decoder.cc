@@ -41,9 +41,9 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
-#include "arrow/util/alp/Alp.h"
-#include "arrow/util/alp/AlpConstants.h"
-#include "arrow/util/alp/AlpWrapper.h"
+#include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_constants.h"
+#include "arrow/util/alp/alp_wrapper.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
@@ -2352,9 +2352,8 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   int Decode(T* buffer, int max_values) override {
     // Fast path: decode directly into output buffer if requesting all values
     if (needs_decode_ && max_values >= this->num_values_) {
-      size_t decompSize = this->num_values_ * sizeof(T);
       ::arrow::util::alp::AlpWrapper<T>::Decode(
-          buffer, &decompSize,
+          buffer, static_cast<uint64_t>(this->num_values_),
           reinterpret_cast<const char*>(this->data_), this->len_);
 
       const int decoded = this->num_values_;
@@ -2367,9 +2366,8 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // ALP Bit unpacker needs batches of 64
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
-      size_t decompSize = this->num_values_ * sizeof(T);
       ::arrow::util::alp::AlpWrapper<T>::Decode(
-          decoded_buffer_.data(), &decompSize,
+          decoded_buffer_.data(), static_cast<uint64_t>(this->num_values_),
           reinterpret_cast<const char*>(this->data_), this->len_);
       needs_decode_ = false;
     }
@@ -2402,9 +2400,8 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // Decode if needed (DecodeArrow always needs intermediate buffer for nulls)
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
-      size_t decompSize = this->num_values_ * sizeof(T);
       ::arrow::util::alp::AlpWrapper<T>::Decode(
-          decoded_buffer_.data(), &decompSize,
+          decoded_buffer_.data(), static_cast<uint64_t>(this->num_values_),
           reinterpret_cast<const char*>(this->data_), this->len_);
       needs_decode_ = false;
     }
