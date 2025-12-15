@@ -31,7 +31,7 @@
 #include <benchmark/benchmark.h>
 
 #include "arrow/buffer.h"
-#include "arrow/util/alp/AlpWrapper.h"
+#include "arrow/util/alp/alp_wrapper.h"
 #include "arrow/util/compression.h"
 #include "parquet/encoding.h"
 #include "parquet/schema.h"
