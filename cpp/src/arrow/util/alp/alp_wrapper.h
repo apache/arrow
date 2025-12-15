@@ -63,29 +63,16 @@ class AlpWrapper {
   /// \brief Decode floating point values
   ///
   /// \param[out] decomp pointer to the memory region we will decode into.
-  ///             The caller is responsible for ensuring this is big enough.
-  /// \param[in,out] decomp_size the actual size of decoded data in bytes,
-  ///                expects the decomp size as input.
+  ///             The caller is responsible for ensuring this is big enough
+  ///             to hold num_elements values.
+  /// \param[in] num_elements number of elements to decode (from page header)
   /// \param[in] comp pointer to the input that is to be decoded
-  /// \param[in] comp_size size of the input in bytes.
+  /// \param[in] comp_size size of the input in bytes (from page header)
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void Decode(TargetType* decomp, size_t* decomp_size, const char* comp,
+  static void Decode(TargetType* decomp, uint64_t num_elements, const char* comp,
                      size_t comp_size);
-
-  /// \brief Get the decompressed size of a compression block
-  ///
-  /// Get the size of a compression block encoded previously with
-  /// AlpWrapper::Encode().
-  ///
-  /// \param[in] comp start of the memory region containing the compression block
-  /// \param[in] comp_size size of the compression block
-  /// \return the decompressed size of the block, in bytes
-  /// \tparam TargetType the type that is used to store the output.
-  ///         May not be a narrowing conversion from T.
-  template <typename TargetType>
-  static uint64_t GetDecompressedSize(const char* comp, uint64_t comp_size);
 
   /// \brief Get the maximum compressed size of an uncompressed buffer
   ///
