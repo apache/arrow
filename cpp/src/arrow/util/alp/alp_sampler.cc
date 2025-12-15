@@ -15,12 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/alp/AlpSampler.h"
+#include "arrow/util/alp/alp_sampler.h"
 
 #include <cmath>
 
-#include "arrow/util/alp/Alp.h"
-#include "arrow/util/alp/AlpConstants.h"
+#include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
