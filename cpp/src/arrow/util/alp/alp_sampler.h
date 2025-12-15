@@ -22,7 +22,7 @@
 #include <optional>
 #include <vector>
 
-#include "arrow/util/alp/Alp.h"
+#include "arrow/util/alp/alp.h"
 #include "arrow/util/span.h"
 
 namespace arrow {

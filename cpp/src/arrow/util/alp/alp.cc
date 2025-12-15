@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/util/alp/Alp.h"
+#include "arrow/util/alp/alp.h"
 
 #include <cmath>
 #include <cstring>
@@ -23,7 +23,7 @@
 #include <iostream>
 #include <map>
 
-#include "arrow/util/alp/AlpConstants.h"
+#include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
