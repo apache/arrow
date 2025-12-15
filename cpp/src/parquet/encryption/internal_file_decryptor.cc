@@ -19,8 +19,9 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/secure_string.h"
+#include "parquet/encryption/aes_encryption.h"
 #include "parquet/encryption/encryption.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/metadata.h"
 
 using arrow::util::SecureString;
@@ -28,10 +29,10 @@ using arrow::util::SecureString;
 namespace parquet {
 
 // Decryptor
-Decryptor::Decryptor(std::unique_ptr<encryption::AesDecryptor> aes_decryptor,
+Decryptor::Decryptor(std::unique_ptr<encryption::DecryptorInterface> decryptor_instance,
                      SecureString key, std::string file_aad, std::string aad,
                      ::arrow::MemoryPool* pool)
-    : aes_decryptor_(std::move(aes_decryptor)),
+    : decryptor_instance_(std::move(decryptor_instance)),
       key_(std::move(key)),
       file_aad_(std::move(file_aad)),
       aad_(std::move(aad)),
@@ -39,17 +40,30 @@ Decryptor::Decryptor(std::unique_ptr<encryption::AesDecryptor> aes_decryptor,
 
 Decryptor::~Decryptor() = default;
 
+bool Decryptor::CanCalculateLengths() const {
+  return decryptor_instance_->CanCalculateLengths();
+}
+
 int32_t Decryptor::PlaintextLength(int32_t ciphertext_len) const {
-  return aes_decryptor_->PlaintextLength(ciphertext_len);
+  return decryptor_instance_->PlaintextLength(ciphertext_len);
 }
 
 int32_t Decryptor::CiphertextLength(int32_t plaintext_len) const {
-  return aes_decryptor_->CiphertextLength(plaintext_len);
+  return decryptor_instance_->CiphertextLength(plaintext_len);
+}
+
+void Decryptor::UpdateEncodingProperties(std::unique_ptr<EncodingProperties> encoding_properties) {
+  decryptor_instance_->UpdateEncodingProperties(std::move(encoding_properties));
 }
 
 int32_t Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
                            ::arrow::util::span<uint8_t> plaintext) {
-  return aes_decryptor_->Decrypt(ciphertext, key_.as_span(), str2span(aad_), plaintext);
+  return decryptor_instance_->Decrypt(ciphertext, key_.as_span(), str2span(aad_), plaintext);
+}
+
+int32_t Decryptor::DecryptWithManagedBuffer(::arrow::util::span<const uint8_t> ciphertext,
+  ::arrow::ResizableBuffer* plaintext) {
+return decryptor_instance_->DecryptWithManagedBuffer(ciphertext, plaintext);
 }
 
 // InternalFileDecryptor
@@ -104,8 +118,9 @@ std::unique_ptr<Decryptor> InternalFileDecryptor::GetFooterDecryptor(
   const SecureString& footer_key = GetFooterKey();
 
   auto key_len = static_cast<int32_t>(footer_key.size());
-  auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
-  return std::make_unique<Decryptor>(std::move(aes_decryptor), footer_key, file_aad_, aad,
+  // Metadata is decrypted with AES.
+  auto decryptor_instance = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
+  return std::make_unique<Decryptor>(std::move(decryptor_instance), footer_key, file_aad_, aad,
                                      pool_);
 }
 
@@ -130,19 +145,20 @@ SecureString InternalFileDecryptor::GetColumnKey(const std::string& column_path,
   return column_key;
 }
 
-std::unique_ptr<Decryptor> InternalFileDecryptor::GetColumnDecryptor(
+std::unique_ptr<Decryptor> InternalFileDecryptor::GetColumnMetaDecryptor(
     const std::string& column_path, const std::string& column_key_metadata,
-    const std::string& aad, bool metadata) {
+    const std::string& aad) {
   const SecureString& column_key = GetColumnKey(column_path, column_key_metadata);
   auto key_len = static_cast<int32_t>(column_key.size());
-  auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
-  return std::make_unique<Decryptor>(std::move(aes_decryptor), column_key, file_aad_, aad,
+  auto decryptor_instance = encryption::AesDecryptor::Make(algorithm_, key_len, /*metadata=*/true);
+  return std::make_unique<Decryptor>(std::move(decryptor_instance), column_key, file_aad_, aad,
                                      pool_);
 }
 
 std::function<std::unique_ptr<Decryptor>()>
 InternalFileDecryptor::GetColumnDecryptorFactory(
-    const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata) {
+    const ColumnCryptoMetaData* crypto_metadata, const std::string& aad, bool metadata,
+    const ColumnChunkMetaData* column_chunk_metadata) {
   if (crypto_metadata->encrypted_with_footer_key()) {
     return [this, aad, metadata]() { return GetFooterDecryptor(aad, metadata); };
   }
@@ -152,42 +168,60 @@ InternalFileDecryptor::GetColumnDecryptorFactory(
   const std::string column_path = crypto_metadata->path_in_schema()->ToDotString();
   const SecureString& column_key = GetColumnKey(column_path, column_key_metadata);
 
-  return [this, aad, metadata, column_key = column_key]() {
-    auto key_len = static_cast<int32_t>(column_key.size());
-    auto aes_decryptor = encryption::AesDecryptor::Make(algorithm_, key_len, metadata);
-    return std::make_unique<Decryptor>(std::move(aes_decryptor), column_key, file_aad_,
-                                       aad, pool_);
-  };
-}
+  // If this is data decryption, check if the column is encrypted with its own algorithm.
+  ParquetCipher::type algorithm = algorithm_;
+  if (!metadata &&crypto_metadata->is_encryption_algorithm_set()) {
+    algorithm = crypto_metadata->encryption_algorithm().algorithm;
+  }
+
+  return [this, aad, metadata, column_key = std::move(column_key), algorithm,
+    crypto_metadata, column_chunk_metadata]() {
+      auto key_len = static_cast<int32_t>(column_key.size());
+      std::unique_ptr<encryption::DecryptorInterface> decryptor_instance;
+
+      if (algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
+        if (dynamic_cast<ExternalFileDecryptionProperties*>(properties_.get()) == nullptr) {
+          throw ParquetException(
+              "External DBPA decryption requires ExternalFileDecryptionProperties");
+        }
+        decryptor_instance = external_dbpa_decryptor_factory_.GetDecryptor(
+          algorithm, crypto_metadata, column_chunk_metadata,
+          dynamic_cast<ExternalFileDecryptionProperties*>(properties_.get()));
+      } else {
+        decryptor_instance = encryption::AesDecryptor::Make(algorithm, key_len, metadata);
+      }
+      return std::make_unique<Decryptor>(std::move(decryptor_instance), column_key, file_aad_,
+                                         aad, pool_);
+    };
+  }
 
 std::function<std::unique_ptr<Decryptor>()>
 InternalFileDecryptor::GetColumnMetaDecryptorFactory(
-    InternalFileDecryptor* file_descryptor, const ColumnCryptoMetaData* crypto_metadata,
+    InternalFileDecryptor* file_decryptor, const ColumnCryptoMetaData* crypto_metadata,
     const std::string& aad) {
   if (crypto_metadata == nullptr) {
     // Column is not encrypted
     return [] { return nullptr; };
   }
-  if (file_descryptor == nullptr) {
+  if (file_decryptor == nullptr) {
     throw ParquetException("Column is noted as encrypted but no file decryptor");
   }
-  return file_descryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
-                                                    /*metadata=*/true);
+  return file_decryptor->GetColumnDecryptorFactory(crypto_metadata, aad, /*metadata=*/true);
 }
 
 std::function<std::unique_ptr<Decryptor>()>
 InternalFileDecryptor::GetColumnDataDecryptorFactory(
-    InternalFileDecryptor* file_descryptor, const ColumnCryptoMetaData* crypto_metadata,
-    const std::string& aad) {
+    InternalFileDecryptor* file_decryptor, const ColumnCryptoMetaData* crypto_metadata,
+    const ColumnChunkMetaData* column_chunk_metadata, const std::string& aad) {
   if (crypto_metadata == nullptr) {
     // Column is not encrypted
     return [] { return nullptr; };
   }
-  if (file_descryptor == nullptr) {
+  if (file_decryptor == nullptr) {
     throw ParquetException("Column is noted as encrypted but no file decryptor");
   }
-  return file_descryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
-                                                    /*metadata=*/false);
+  return file_decryptor->GetColumnDecryptorFactory(crypto_metadata, aad,
+                                                    /*metadata=*/false, column_chunk_metadata);
 }
 
 void UpdateDecryptor(Decryptor* decryptor, int16_t row_group_ordinal,

@@ -86,6 +86,8 @@ class PARQUET_EXPORT ColumnCryptoMetaData {
   std::shared_ptr<schema::ColumnPath> path_in_schema() const;
   bool encrypted_with_footer_key() const;
   const std::string& key_metadata() const;
+  bool is_encryption_algorithm_set() const;
+  EncryptionAlgorithm encryption_algorithm() const;
 
  private:
   explicit ColumnCryptoMetaData(const uint8_t* metadata);
@@ -146,6 +148,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   std::shared_ptr<EncodedStatistics> encoded_statistics() const;
   std::shared_ptr<SizeStatistics> size_statistics() const;
   std::shared_ptr<geospatial::GeoStatistics> geo_statistics() const;
+
+  // get the column descriptor
+  const ColumnDescriptor* descr() const;
+
+  // get the reader properties
+  const ReaderProperties* properties() const;
 
   Compression::type compression() const;
   // Indicate if the ColumnChunk compression is supported by the current
@@ -446,10 +454,14 @@ class PARQUET_EXPORT ColumnChunkMetaDataBuilder {
   // column geometry statistics
   void SetGeoStatistics(const geospatial::EncodedGeoStatistics& geo_stats);
 
+  void AddKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 
   // get the column descriptor
   const ColumnDescriptor* descr() const;
+
+  // get the writer properties
+  const WriterProperties* properties() const;
 
   int64_t total_compressed_size() const;
   // commit the metadata

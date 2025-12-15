@@ -131,6 +131,23 @@ std::shared_ptr<std::unordered_set<int>> VectorToSharedSet(
   return result;
 }
 
+bool IsExternalDBPAEncryptionUsedInColumns(std::shared_ptr<FileMetaData> metadata) {
+  for (int row_group = 0; row_group < metadata->num_row_groups(); row_group++) {
+    auto row_group_metadata = metadata->RowGroup(row_group);
+    for (int column = 0; column < row_group_metadata->num_columns(); column++) {
+      auto column_metadata = row_group_metadata->ColumnChunk(column);
+      if (column_metadata->crypto_metadata()) {
+        auto crypto_metadata = column_metadata->crypto_metadata();
+        if (crypto_metadata->is_encryption_algorithm_set() &&
+            crypto_metadata->encryption_algorithm().algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 // Forward declaration
 Status GetReader(const SchemaField& field, const std::shared_ptr<ReaderContext>& context,
                  std::unique_ptr<ColumnReaderImpl>* out);
@@ -147,6 +164,14 @@ class FileReaderImpl : public FileReader {
         reader_properties_(std::move(properties)) {}
 
   Status Init() {
+    // If the file is encrypted using EXTERNAL_DBPA_V1 on any of its columns, then it is not safe
+    // to use multiple threads to read the file.
+    if (reader_properties_.use_threads()) {
+      auto metadata = reader_->metadata();
+      if (IsExternalDBPAEncryptionUsedInColumns(metadata)) {
+        return Status::Invalid("EXTERNAL_DBPA_V1 encryption does not support multiple threads");
+      }
+    }
     return SchemaManifest::Make(reader_->metadata()->schema(),
                                 reader_->metadata()->key_value_metadata(),
                                 reader_properties_, &manifest_);

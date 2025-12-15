@@ -56,6 +56,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/secure_string.h"
 
 #ifdef ARROW_CSV
 #  include "arrow/csv/api.h"
@@ -74,6 +75,10 @@
 #include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/test_util.h"
+
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+#include "parquet/encryption/external/test_utils.h"
+#endif
 
 using arrow::Array;
 using arrow::ArrayData;
@@ -1959,6 +1964,70 @@ TEST(TestArrowReadWrite, UseDeprecatedInt96) {
                                                      /*check_metadata=*/false));
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*ex_result, *result));
 }
+
+#ifdef PARQUET_REQUIRE_ENCRYPTION
+TEST(ExternalDbpaConcurrencyTest, FailsWhenUseThreadsTrue) {
+  std::shared_ptr<::arrow::Array> arr;
+  ::arrow::Int32Builder b;
+  ASSERT_OK(b.AppendValues({1, 2, 3}));
+  ASSERT_OK(b.Finish(&arr));
+  auto schema = ::arrow::schema({::arrow::field("f0", ::arrow::int32())});
+  auto table = ::arrow::Table::Make(schema, {arr});
+  
+  ::arrow::util::SecureString column_key(std::string("key1234567890123"));
+  ::arrow::util::SecureString footer_key(std::string("footer_key123456"));
+
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>> enc_cols;
+  parquet::ColumnEncryptionProperties::Builder col_builder("f0");
+  col_builder.parquet_cipher(parquet::ParquetCipher::EXTERNAL_DBPA_V1);
+  col_builder.key_id("key1234567890123");
+  col_builder.key(column_key);
+  enc_cols["f0"] = col_builder.build();
+
+  const std::string lib_path =
+      parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
+
+  parquet::ExternalFileEncryptionProperties::Builder fep_builder(footer_key);
+  fep_builder.footer_key_metadata("kf")
+            ->encrypted_columns(enc_cols)
+            ->algorithm(parquet::ParquetCipher::AES_GCM_V1)
+            ->connection_config({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+                                   {{"agent_library_path", lib_path},
+                                    {"file_path", "/tmp/test"}}}});
+
+  auto writer_props =
+      parquet::WriterProperties::Builder().encryption(fep_builder.build_external())->build();
+
+  ASSERT_OK_AND_ASSIGN(
+    auto sink, ::arrow::io::BufferOutputStream::Create(1 << 16, default_memory_pool()));
+  ASSERT_OK(parquet::arrow::WriteTable(*table, default_memory_pool(), sink, /*chunk_size=*/1024,
+                                       writer_props));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto kr = std::make_shared<parquet::StringKeyIdRetriever>();
+  kr->PutKey("kf", footer_key);
+  kr->PutKey("key1234567890123", column_key);
+
+  parquet::ExternalFileDecryptionProperties::Builder dep_builder;
+  dep_builder.key_retriever(kr)
+            ->app_context("{}")
+            ->connection_config({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+                                  {{"agent_library_path", lib_path},
+                                    {"file_path", "/tmp/test"}}}});
+  parquet::ReaderProperties rp = parquet::default_reader_properties();
+  rp.file_decryption_properties(dep_builder.build_external());
+
+  ArrowReaderProperties arp;
+  arp.set_use_threads(true);
+
+  parquet::arrow::FileReaderBuilder frb;
+  ASSERT_OK(frb.Open(std::make_shared<BufferReader>(buffer), rp));
+  frb.properties(arp);
+
+  std::unique_ptr<parquet::arrow::FileReader> fr;
+  ASSERT_RAISES(Invalid, frb.Build(&fr));
+}
+#endif
 
 TEST(TestArrowReadWrite, DownsampleDeprecatedInt96) {
   using ::arrow::ArrayFromJSON;

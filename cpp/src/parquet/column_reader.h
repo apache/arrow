@@ -105,6 +105,8 @@ struct CryptoContext {
   bool start_decrypt_with_dictionary_page = false;
   int16_t row_group_ordinal = -1;
   int16_t column_ordinal = -1;
+  // Optional: descriptor for the column; may be used to enrich encoding properties
+  const ColumnDescriptor* column_descriptor = nullptr;
   std::function<std::unique_ptr<Decryptor>()> meta_decryptor_factory;
   std::function<std::unique_ptr<Decryptor>()> data_decryptor_factory;
 };

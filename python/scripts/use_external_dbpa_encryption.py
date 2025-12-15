@@ -184,7 +184,7 @@ def get_dbpa_connection_config(use_remote_service):
             'libdbpsRemoteAgent.so' if platform.system() == 'Linux' else 'libdbpsRemoteAgent.dylib')
         connection_config["EXTERNAL_DBPA_V1"]["agent_library_path"] = agent_library_path
         # Make sure this is the absolute path to the connection config file.
-        remote_file_path = 'change/to/absolute/path/test_connection_config_file.json'
+        remote_file_path = '/arrowdev/python/scripts/test_connection_config_file.json'
         connection_config["EXTERNAL_DBPA_V1"]["connection_config_file_path"] = remote_file_path
     else:
         agent_library_path = (
@@ -290,7 +290,8 @@ See the write_encrypted_parquet_file() function for more details on each scenari
 implications.
 """
 def round_trip_parquet_file_encryption():
-    for use_remote_service in [True, False]:
+    #for use_remote_service in [True, False]:
+    for use_remote_service in [False]:
         service_path_prefix = 'remote' if use_remote_service else 'local'
         for scenario_id in [1, 2, 3]:
             parquet_path = f"{service_path_prefix}_scenario_{scenario_id}_sample.parquet"

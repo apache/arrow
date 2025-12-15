@@ -32,7 +32,8 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/aes_encryption.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/schema.h"
@@ -220,6 +221,12 @@ class ColumnCryptoMetaData::ColumnCryptoMetaDataImpl {
   const std::string& key_metadata() const {
     return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.key_metadata;
   }
+  bool is_encryption_algorithm_set() const {
+    return crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.__isset.encryption_algorithm;
+  }
+  EncryptionAlgorithm encryption_algorithm() const {
+    return FromThrift(crypto_metadata_->ENCRYPTION_WITH_COLUMN_KEY.encryption_algorithm);
+  }
 
  private:
   const format::ColumnCryptoMetaData* crypto_metadata_;
@@ -244,6 +251,12 @@ bool ColumnCryptoMetaData::encrypted_with_footer_key() const {
 }
 const std::string& ColumnCryptoMetaData::key_metadata() const {
   return impl_->key_metadata();
+}
+bool ColumnCryptoMetaData::is_encryption_algorithm_set() const {
+  return impl_->is_encryption_algorithm_set();
+}
+EncryptionAlgorithm ColumnCryptoMetaData::encryption_algorithm() const {
+  return impl_->encryption_algorithm();
 }
 
 // ColumnChunk metadata
@@ -381,6 +394,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline Compression::type compression() const {
     return LoadEnumSafe(&column_metadata_->codec);
   }
+
+  const ColumnDescriptor* descr() const { return descr_; }
+
+  const ReaderProperties* properties() const { return &properties_; }
 
   const std::vector<Encoding::type>& encodings() const { return encodings_; }
 
@@ -556,6 +573,10 @@ int64_t ColumnChunkMetaData::index_page_offset() const {
 Compression::type ColumnChunkMetaData::compression() const {
   return impl_->compression();
 }
+
+const ColumnDescriptor* ColumnChunkMetaData::descr() const { return impl_->descr(); }
+
+const ReaderProperties* ColumnChunkMetaData::properties() const { return impl_->properties(); }
 
 bool ColumnChunkMetaData::can_decompress() const {
   return ::arrow::util::Codec::IsAvailable(compression());
@@ -868,8 +889,18 @@ class FileMetaData::FileMetaDataImpl {
                                                               serialized_len);
 
       // encrypt the footer key
-      std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-      int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+      std::vector<uint8_t> encrypted_data;
+      int32_t encrypted_len;
+      if (encryptor->CanCalculateCiphertextLength()) {
+        encrypted_data = std::vector<uint8_t>(encryptor->CiphertextLength(serialized_len));
+        encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+      } else {
+        auto resizable_buffer = ::arrow::AllocateResizableBuffer(0);
+        encrypted_len = encryptor->EncryptWithManagedBuffer(
+          serialized_data_span, resizable_buffer->get());
+        encrypted_data.assign(resizable_buffer->get()->data(),
+                              resizable_buffer->get()->data() + encrypted_len);
+      }
 
       // write unencrypted footer
       PARQUET_THROW_NOT_OK(dst->Write(serialized_data, serialized_len));
@@ -1618,6 +1649,8 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
   const void* contents() const { return column_chunk_; }
 
+  const WriterProperties* properties() const { return properties_.get(); }
+
   // column chunk
   void set_file_path(const std::string& val) { column_chunk_->__set_file_path(val); }
 
@@ -1715,6 +1748,12 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         format::EncryptionWithColumnKey eck;
         eck.__set_key_metadata(encrypt_md->key_metadata());
         eck.__set_path_in_schema(column_->path()->ToDotVector());
+        // check if column has its own encryption algorithm
+        if (encrypt_md->parquet_cipher().has_value()) {
+          EncryptionAlgorithm column_encryption_algorithm;
+          column_encryption_algorithm.algorithm = encrypt_md->parquet_cipher().value();
+          eck.__set_encryption_algorithm(ToThrift(column_encryption_algorithm));
+        }
         ccmd.__isset.ENCRYPTION_WITH_COLUMN_KEY = true;
         ccmd.__set_ENCRYPTION_WITH_COLUMN_KEY(eck);
       }
@@ -1737,8 +1776,18 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
                                                                 serialized_len);
 
-        std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
-        int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+        std::vector<uint8_t> encrypted_data;
+        int32_t encrypted_len;
+        if (encryptor->CanCalculateCiphertextLength()) {
+          encrypted_data = std::vector<uint8_t>(encryptor->CiphertextLength(serialized_len));
+          encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
+        } else {
+          auto resizable_buffer = ::arrow::AllocateResizableBuffer(0);
+          encrypted_len = encryptor->EncryptWithManagedBuffer(
+            serialized_data_span, resizable_buffer->get());
+          encrypted_data.assign(resizable_buffer->get()->data(),
+                                resizable_buffer->get()->data() + encrypted_len);
+        }
 
         const char* temp =
             const_cast<const char*>(reinterpret_cast<char*>(encrypted_data.data()));
@@ -1769,6 +1818,16 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
   void SetKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
     key_value_metadata_ = std::move(key_value_metadata);
+  }
+
+  void AddKeyValueMetadata(std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+    if (key_value_metadata == nullptr) return;
+
+    if (key_value_metadata_ == nullptr) {
+      key_value_metadata_ = std::move(key_value_metadata);
+    } else {
+      key_value_metadata_ = key_value_metadata_->Merge(*key_value_metadata);
+    }
   }
 
  private:
@@ -1839,6 +1898,10 @@ const ColumnDescriptor* ColumnChunkMetaDataBuilder::descr() const {
   return impl_->descr();
 }
 
+const WriterProperties* ColumnChunkMetaDataBuilder::properties() const {
+  return impl_->properties();
+}
+
 void ColumnChunkMetaDataBuilder::SetStatistics(const EncodedStatistics& result) {
   impl_->SetStatistics(result);
 }
@@ -1850,6 +1913,11 @@ void ColumnChunkMetaDataBuilder::SetSizeStatistics(const SizeStatistics& size_st
 void ColumnChunkMetaDataBuilder::SetGeoStatistics(
     const geospatial::EncodedGeoStatistics& result) {
   impl_->SetGeoStatistics(result);
+}
+
+void ColumnChunkMetaDataBuilder::AddKeyValueMetadata(
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+impl_->AddKeyValueMetadata(std::move(key_value_metadata));
 }
 
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(
@@ -2087,7 +2155,7 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
       if (!algo.aad.supply_aad_prefix) {
         signing_algorithm.aad.aad_prefix = algo.aad.aad_prefix;
       }
-      signing_algorithm.algorithm = ParquetCipher::AES_GCM_V1;
+      signing_algorithm.algorithm = algo.algorithm;
 
       metadata_->__set_encryption_algorithm(ToThrift(signing_algorithm));
       const std::string& footer_signing_key_metadata =

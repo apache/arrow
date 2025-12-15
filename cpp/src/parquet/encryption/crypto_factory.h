@@ -18,12 +18,14 @@
 #pragma once
 
 #include <memory>
+#include <unordered_map>
 
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/file_key_wrapper.h"
 #include "parquet/encryption/key_toolkit.h"
 #include "parquet/encryption/kms_client_factory.h"
 #include "parquet/platform.h"
+#include "parquet/types.h"
 
 namespace parquet::encryption {
 
@@ -86,11 +88,82 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   int32_t data_key_length_bits = kDefaultDataKeyLengthBits;
 };
 
+/// Helper struct for use in per column encryption specification.
+/// The ExternalEncryptionConfiguration will use this to send encryption parameters per column.
+struct PARQUET_EXPORT ColumnEncryptionAttributes {
+  /// Which type of encryptor to use.
+  ParquetCipher::type parquet_cipher;
+
+  /// The key_id to use for this column.
+  std::string key_id;
+};
+
+/// Encryption Configuration for use with External Encryptions. 
+/// Extends the already existing EncryptionConfiguration with more context and with
+/// the capability of specifying encryption algorithm per column.
+struct PARQUET_EXPORT ExternalEncryptionConfiguration : public EncryptionConfiguration {
+explicit ExternalEncryptionConfiguration(const std::string& footer_key)
+    : EncryptionConfiguration(footer_key) {}
+
+/// Map of the columns to encrypt to their associated encryption parameters. The id of the map
+/// is the column name, and the value is a ColumnEncryptionAttributes struct that can be
+/// used to construct the ColumnEncryptionProperties in the CryptoFactory.
+/// As with the EncryptionConfiguration, either:
+/// (1) uniform_encryption = true
+/// or
+/// (2) column_keys and/or per_column_encryption is set
+/// If none of (1) and (2) are true, or if both are true, an exception will be thrown.
+/// If a column name appears in the original column_keys list, it will be encrypted with the 
+/// algorithm specified in the encryption_algorithm field. 
+/// If a column name appears in the new per_column_encryption map, it will be encrypted using the
+/// per column specific algorithm and key.
+/// If a column name appears in both, an exception will be thrown.
+std::unordered_map<std::string, ColumnEncryptionAttributes> per_column_encryption;
+
+/// External encryptors may use additional context provided by the application to
+/// enforce robust access control. The values sent to the external encryptor depend on each
+/// implementation. 
+/// This value must be a valid JSON-formatted string.
+/// Validation of the string will be done by the external encryptor, Arrow will only
+/// forward this value.
+/// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
+std::string app_context;
+
+/// Map of the encryption algorithms to the key/value map of the location of configuration files
+/// needed by the external encryptors. This may include location of a dynamically-linked
+/// library, or the location of a file where the external encryptor can find urls, certificates,
+/// and parameters needed to make a remote call. 
+/// For security, these values should never be sent in this config, only the locations of 
+/// the files that the external encryptor will know how to access.
+std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
+    connection_config;
+};
+
 struct PARQUET_EXPORT DecryptionConfiguration {
   /// Lifetime of cached entities (key encryption keys, local wrapping keys, KMS client
   /// objects).
   /// The default is 600 (10 minutes).
   double cache_lifetime_seconds = kDefaultCacheLifetimeSeconds;
+};
+
+struct PARQUET_EXPORT ExternalDecryptionConfiguration : public DecryptionConfiguration {
+  /// External decryptors may use additional context provided by the application to
+  /// enforce robust access control. The values sent to the external decryptor depend on each
+  /// implementation. 
+  /// This value must be a valid JSON-formatted string.
+  /// Validation of the string will be done by the external decryptors, Arrow will only
+  /// forward this value.
+  /// Format: "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}"
+  std::string app_context;
+
+  /// Map of the encryption algorithms to the key/value map of the location of configuration files
+  /// needed by the external decryptors. This may include location of a dynamically-linked
+  /// library, or the location of a file where the external decryptor can find urls, certificates,
+  /// and parameters needed to make a remote call. 
+  /// For security, these values should never be sent in this config, only the locations of 
+  /// the files that the external decryptor will know how to access.
+  std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
+      connection_config;
 };
 
 /// This is a core class, that translates the parameters of high level encryption (like
@@ -105,12 +178,20 @@ class PARQUET_EXPORT CryptoFactory {
   void RegisterKmsClientFactory(std::shared_ptr<KmsClientFactory> kms_client_factory);
 
   /// Get the encryption properties for a Parquet file.
-  /// If external key material is used then a file system and path to the
+  /// If key material from outside the file is used, then a file system and path to the
   /// parquet file must be provided.
   std::shared_ptr<FileEncryptionProperties> GetFileEncryptionProperties(
       const KmsConnectionConfig& kms_connection_config,
       const EncryptionConfiguration& encryption_config, const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
+  /// Get the external encryption properties for a Parquet file. Used when an external encryptor
+  /// will be used to encrypt the file.
+  std::shared_ptr<ExternalFileEncryptionProperties> GetExternalFileEncryptionProperties(
+    const KmsConnectionConfig& kms_connection_config,
+    const ExternalEncryptionConfiguration& external_encryption_config,
+    const std::string& file_path = "",
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   /// Get decryption properties for a Parquet file.
   /// If external key material is used then a file system and path to the
@@ -119,6 +200,14 @@ class PARQUET_EXPORT CryptoFactory {
       const KmsConnectionConfig& kms_connection_config,
       const DecryptionConfiguration& decryption_config, const std::string& file_path = "",
       const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
+
+  /// Get the external decryption properties for a Parquet file. Used when an external decryptor
+  /// will be used to decrypt the file.
+  std::shared_ptr<ExternalFileDecryptionProperties> GetExternalFileDecryptionProperties(
+    const KmsConnectionConfig& kms_connection_config,
+    const ExternalDecryptionConfiguration& external_decryption_config,
+    const std::string& file_path = "",
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system = NULLPTR);
 
   void RemoveCacheEntriesForToken(const std::string& access_token) {
     key_toolkit_->RemoveCacheEntriesForToken(access_token);

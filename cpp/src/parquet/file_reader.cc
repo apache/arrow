@@ -40,7 +40,7 @@
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_scanner.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/file_writer.h"
@@ -267,7 +267,7 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
         file_decryptor, crypto_metadata.get());
     auto data_decryptor_factory = InternalFileDecryptor::GetColumnDataDecryptorFactory(
-        file_decryptor, crypto_metadata.get());
+        file_decryptor, crypto_metadata.get(), col.get());
 
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
@@ -277,8 +277,11 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       throw ParquetException("Encrypted files cannot contain more than 32767 columns");
     }
 
+    const ColumnDescriptor* descr = file_metadata_->schema()->Column(i);
     CryptoContext ctx{col->has_dictionary_page(),
-                      static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i),
+                      static_cast<int16_t>(row_group_ordinal_),
+                      static_cast<int16_t>(i),
+                      descr,
                       std::move(meta_decryptor_factory),
                       std::move(data_decryptor_factory)};
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,

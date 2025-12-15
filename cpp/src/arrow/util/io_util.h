@@ -449,6 +449,13 @@ ARROW_EXPORT Result<void*> LoadDynamicLibrary(const char* path);
 ///         returned; instead an error will be raised.
 ARROW_EXPORT Result<void*> GetSymbol(void* handle, const char* name);
 
+/// \brief Close a dynamic library
+///
+/// This wraps dlclose() except on Windows, where FreeLibrary() is called.
+///
+/// \return Status::OK() if the library was closed successfully, otherwise an error is returned.
+ARROW_EXPORT Status CloseDynamicLibrary(void* handle);
+
 template <typename T>
 Result<T*> GetSymbolAs(void* handle, const char* name) {
   ARROW_ASSIGN_OR_RAISE(void* sym, GetSymbol(handle, name));

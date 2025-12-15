@@ -27,7 +27,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "parquet/column_writer.h"
-#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/page_index.h"
@@ -272,7 +271,7 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
         file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
                         : nullptr;
     auto data_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString())
+        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString(), col_meta)
                         : nullptr;
     auto ci_builder = page_index_builder_ && column_properties.page_index_enabled()
                           ? page_index_builder_->GetColumnIndexBuilder(column_ordinal)

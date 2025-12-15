@@ -568,8 +568,10 @@ PARQUET_EXPORT
 std::unique_ptr<Codec> GetCodec(Compression::type codec, int compression_level);
 
 struct ParquetCipher {
-  enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1 };
+  enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1, EXTERNAL_DBPA_V1 = 2 };
 };
+
+bool IsParquetCipherSupported(ParquetCipher::type cipher);
 
 struct AadMetadata {
   std::string aad_prefix;

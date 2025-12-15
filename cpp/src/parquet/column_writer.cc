@@ -22,6 +22,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -48,7 +49,7 @@
 #include "parquet/chunker_internal.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/level_conversion.h"
 #include "parquet/metadata.h"
@@ -305,12 +306,46 @@ class SerializedPageWriter : public PageWriter {
 
     if (data_encryptor_.get()) {
       UpdateEncryption(encryption::kDictionaryPage);
-      PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
+
+      // Creating an EncodingProperties object from the metadata.
+      // We're retrieving the column descriptor and writer properties 
+      // from the metadata_ object to simplify the code.
+      //
+      // WriterProperties is created using WriterProperties::Builder::build() (in parquet/properties.h ) 
+      // via ParquetFileFormat::MakeWriter (in arrow/dataset/file_parquet.cc), 
+      // and passed down to ColumnChunkMetaDataBuilder::Make().
+
+      // A SchemaDescriptor is created in FileWriter::Open() (parquet/file_writer.cc). 
+      // The SchemaDescriptor is passed down to RowGroupMetadataBuilder NextColumnChunk() (parquet/metadata.cc)
+      // where a ColumnDescriptor is extracted from the SchemaDescriptor, and passed into
+      // ColumnChunkMetaDataBuilder::Make() 
+
+      std::unique_ptr<EncodingProperties> encoding_properties = 
+        EncodingProperties::MakeFromMetadata(
+          metadata_->descr(), 
+          metadata_->properties(), 
+          static_cast<const DictionaryPage&>(page));
+      data_encryptor_->UpdateEncodingProperties(std::move(encoding_properties));
+
+      if (data_encryptor_->CanCalculateCiphertextLength()) {
+        PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
           data_encryptor_->CiphertextLength(output_data_len), false));
-      output_data_len =
-          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
-                                   encryption_buffer_->mutable_span_as<uint8_t>());
+          output_data_len =
+            data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                    encryption_buffer_->mutable_span_as<uint8_t>());
+      } else {
+        output_data_len =
+            data_encryptor_->EncryptWithManagedBuffer(compressed_data->span_as<uint8_t>(),
+                                                      encryption_buffer_.get());
+      }
+
+
       output_data_buffer = encryption_buffer_->data();
+
+      // after the call to encrypt(), add the column encryption metadata to the metadata_ object
+      auto data_encryptor_metadata = data_encryptor_->GetKeyValueMetadata(
+        encryption::kDictionaryPage);
+      UpdateDataEncryptorMetadata(data_encryptor_metadata);
     }
 
     format::PageHeader page_header;
@@ -396,13 +431,44 @@ class SerializedPageWriter : public PageWriter {
     }
 
     if (data_encryptor_.get()) {
-      PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextLength(output_data_len), false));
       UpdateEncryption(encryption::kDataPage);
-      output_data_len =
-          data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
-                                   encryption_buffer_->mutable_span_as<uint8_t>());
+
+      // Creating an EncodingProperties object from the metadata.
+      // We're retrieving the column descriptor and writer properties 
+      // from the metadata_ object to simplify the code.
+      //
+      // WriterProperties is created using WriterProperties::Builder::build() (in parquet/properties.h ) 
+      // via ParquetFileFormat::MakeWriter (in arrow/dataset/file_parquet.cc), 
+      // and passed down to ColumnChunkMetaDataBuilder::Make().
+
+      // A SchemaDescriptor is created in FileWriter::Open() (parquet/file_writer.cc). 
+      // The SchemaDescriptor is passed down to RowGroupMetadataBuilder NextColumnChunk() (parquet/metadata.cc)
+      // where a ColumnDescriptor is extracted from the SchemaDescriptor, and passed into
+      // ColumnChunkMetaDataBuilder::Make() 
+      std::unique_ptr<EncodingProperties> encoding_properties = 
+        EncodingProperties::MakeFromMetadata(
+          metadata_->descr(), 
+          metadata_->properties(), 
+          static_cast<const DataPage&>(page));
+      data_encryptor_->UpdateEncodingProperties(std::move(encoding_properties));
+
+      if (data_encryptor_->CanCalculateCiphertextLength()) {
+        PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
+          data_encryptor_->CiphertextLength(output_data_len), false));
+        output_data_len =
+            data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                    encryption_buffer_->mutable_span_as<uint8_t>());
+      } else {
+        output_data_len =
+            data_encryptor_->EncryptWithManagedBuffer(compressed_data->span_as<uint8_t>(),
+                                                      encryption_buffer_.get());
+      }
       output_data_buffer = encryption_buffer_->data();
+
+      // after the call to encrypt(), add the column encryption metadata to the metadata_ object
+      auto data_encryptor_metadata = data_encryptor_->GetKeyValueMetadata(
+        encryption::kDataPage);
+      UpdateDataEncryptorMetadata(data_encryptor_metadata);
     }
 
     format::PageHeader page_header;
@@ -589,6 +655,42 @@ class SerializedPageWriter : public PageWriter {
     }
   }
 
+  // Updates metadata with encryptor-provided KeyValueMetadata, checking for conflicts.
+  // Throws ParquetException if a key exists with a different value (same value is allowed).
+  void UpdateDataEncryptorMetadata(
+    const std::shared_ptr<const KeyValueMetadata>& data_encryptor_metadata) {
+    if (data_encryptor_metadata == nullptr) {
+      return;
+    }
+
+    // Prevent overriding an existing key with a different value after obtaining
+    // metadata coming from the encryptor (same value is fine).
+    const auto& keys = data_encryptor_metadata->keys();
+    const auto& values = data_encryptor_metadata->values();
+    for (size_t i = 0; i < keys.size(); ++i) {
+      const auto& key = keys[i];
+      const auto& value = values[i];
+      auto it = encryptor_seen_kvmetadata_.find(key);
+      if (it != encryptor_seen_kvmetadata_.end()) {
+
+        //if we're here, the key already exists in the encryptor_seen_kvmetadata_ map
+        // we need to check if the value is the same. If it is not, throw an exception.
+        if (it->second != value) {
+          std::stringstream ss;
+          ss << "Encryptor-provided metadata attempts to override key '" << key
+            << "' with a different value (old='" << it->second
+            << "', new='" << value << "')";
+          throw ParquetException(ss.str());
+        }
+      } else {
+        //if we're here, the key does not exist in the encryptor_seen_kvmetadata_ map
+        // add it to the map.
+        encryptor_seen_kvmetadata_.emplace(key, value);
+      }
+    }
+    metadata_->AddKeyValueMetadata(data_encryptor_metadata);
+  }
+
   std::shared_ptr<ArrowOutputStream> sink_;
   ColumnChunkMetaDataBuilder* metadata_;
   MemoryPool* pool_;
@@ -626,6 +728,10 @@ class SerializedPageWriter : public PageWriter {
 
   ColumnIndexBuilder* column_index_builder_;
   OffsetIndexBuilder* offset_index_builder_;
+
+  // Tracks keys inserted from the encryptor so we can detect conflicting overrides
+  // across modules (dictionary/data pages). Overriding with an identical value is allowed.
+  std::unordered_map<std::string, std::string> encryptor_seen_kvmetadata_;
 };
 
 // This implementation of the PageWriter writes to the final sink on Close .
@@ -1128,7 +1234,9 @@ int64_t ColumnWriterImpl::Close() {
       }
     }
 
-    metadata_->SetKeyValueMetadata(key_value_metadata_);
+    if (key_value_metadata_ != nullptr) {
+      metadata_->AddKeyValueMetadata(key_value_metadata_);
+    }
     pager_->Close(has_dictionary_, fallback_);
   }
 

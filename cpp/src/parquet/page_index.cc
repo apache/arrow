@@ -17,7 +17,7 @@
 
 #include "parquet/page_index.h"
 #include "parquet/encoding.h"
-#include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/encryption_utils.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"

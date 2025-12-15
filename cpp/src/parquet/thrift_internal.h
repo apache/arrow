@@ -262,6 +262,11 @@ static inline AadMetadata FromThrift(format::AesGcmCtrV1 aesGcmCtrV1) {
                      aesGcmCtrV1.supply_aad_prefix};
 }
 
+static inline AadMetadata FromThrift(format::ExternalDBPAV1 externalDBPAV1) {
+  // Set default values for AAD, which is not supported by ExternalDBPAV1
+  return AadMetadata{/*aad_prefix*/"", /*aad_file_unique*/"", /*supply_aad_prefix*/false};
+}
+
 static inline EncodedStatistics FromThrift(const format::Statistics& stats) {
   EncodedStatistics out;
 
@@ -357,6 +362,9 @@ static inline EncryptionAlgorithm FromThrift(format::EncryptionAlgorithm encrypt
   } else if (encryption.__isset.AES_GCM_CTR_V1) {
     encryption_algorithm.algorithm = ParquetCipher::AES_GCM_CTR_V1;
     encryption_algorithm.aad = FromThrift(encryption.AES_GCM_CTR_V1);
+  } else if (encryption.__isset.EXTERNAL_DBPA_V1) {
+    encryption_algorithm.algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
+    encryption_algorithm.aad = FromThrift(encryption.EXTERNAL_DBPA_V1);
   } else {
     throw ParquetException("Unsupported algorithm");
   }
@@ -533,12 +541,19 @@ static inline format::AesGcmCtrV1 ToAesGcmCtrV1Thrift(AadMetadata aad) {
   return aesGcmCtrV1;
 }
 
+static inline format::ExternalDBPAV1 ToExternalDBPAV1Thrift() {
+  format::ExternalDBPAV1 externalDBPAV1;
+  return externalDBPAV1;
+}
+
 static inline format::EncryptionAlgorithm ToThrift(EncryptionAlgorithm encryption) {
   format::EncryptionAlgorithm encryption_algorithm;
   if (encryption.algorithm == ParquetCipher::AES_GCM_V1) {
     encryption_algorithm.__set_AES_GCM_V1(ToAesGcmV1Thrift(encryption.aad));
-  } else {
+  } else if (encryption.algorithm == ParquetCipher::AES_GCM_CTR_V1) {
     encryption_algorithm.__set_AES_GCM_CTR_V1(ToAesGcmCtrV1Thrift(encryption.aad));
+  } else {
+    encryption_algorithm.__set_EXTERNAL_DBPA_V1(ToExternalDBPAV1Thrift());
   }
   return encryption_algorithm;
 }
@@ -579,6 +594,15 @@ class ThriftDeserializer {
       // thrift message is not encrypted
       DeserializeUnencryptedMessage(buf, len, deserialized_msg);
     } else {
+      // This method is only used to deserialize metadata or footer data, so it is not expected 
+      // to be called with a decryptor that can't calculate lengths.
+      if (!decryptor->CanCalculateLengths()) {
+        std::stringstream ss;
+        ss << "Decryptor can't calculate plaintext or ciphertext lengths when deserializing ";
+        ss << "metadata or footer and should not be used to deserialize metadata or footer data";
+        throw ParquetException(ss.str());
+      }
+
       // thrift message is encrypted
       uint32_t clen;
       clen = *len;
@@ -698,11 +722,17 @@ class ThriftSerializer {
 
   int64_t SerializeEncryptedObj(ArrowOutputStream* out, const uint8_t* out_buffer,
                                 uint32_t out_length, Encryptor* encryptor) {
-    auto cipher_buffer =
-        AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
-    ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
-    int32_t cipher_buffer_len =
-        encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
+    int32_t cipher_buffer_len;
+    std::shared_ptr<ResizableBuffer> cipher_buffer;
+    if (encryptor->CanCalculateCiphertextLength()) {
+      cipher_buffer = AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
+      ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
+      cipher_buffer_len = encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
+    } else {
+      cipher_buffer = AllocateBuffer(encryptor->pool(), 0);
+      ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
+      cipher_buffer_len = encryptor->EncryptWithManagedBuffer(out_span, cipher_buffer.get());
+    }
 
     PARQUET_THROW_NOT_OK(out->Write(cipher_buffer->data(), cipher_buffer_len));
     return static_cast<int64_t>(cipher_buffer_len);

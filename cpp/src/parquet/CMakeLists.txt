@@ -239,8 +239,102 @@ endif()
 
 if(PARQUET_REQUIRE_ENCRYPTION)
   list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS ${ARROW_OPENSSL_LIBS})
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal.cc
-                   encryption/openssl_internal.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/aes_encryption.cc
+                   encryption/openssl_internal.cc
+                   encryption/encryption_utils.cc
+                   encryption/external_dbpa_encryption.cc
+                   encryption/external/dbpa_library_wrapper.cc
+                   encryption/encoding_properties.cc
+                   encryption/external/dbpa_enum_utils.cc
+                   encryption/external/dbpa_executor.cc
+                   encryption/external/loadable_encryptor_utils.cc
+                   )
+
+  # Header-only dependencies for external DBPA code
+  include(FetchContent)
+
+  # magic_enum
+  FetchContent_Declare(
+    magic_enum_upstream
+    GIT_REPOSITORY https://github.com/Neargye/magic_enum.git
+    GIT_TAG v0.9.7
+  )
+  FetchContent_MakeAvailable(magic_enum_upstream)
+  add_library(magic_enum_header_only INTERFACE)
+  target_include_directories(magic_enum_header_only INTERFACE ${magic_enum_upstream_SOURCE_DIR}/include)
+
+  # tcb/span
+  FetchContent_Declare(
+    tcb_span_upstream
+    GIT_REPOSITORY https://github.com/tcbrindle/span.git
+    GIT_TAG master
+  )
+
+  # Populate sources only; do not add subproject/tests
+  FetchContent_GetProperties(tcb_span_upstream)
+  if(NOT tcb_span_upstream_POPULATED)
+    FetchContent_Populate(tcb_span_upstream)
+  endif()
+  add_library(tcb_span INTERFACE)
+  target_include_directories(tcb_span INTERFACE ${tcb_span_upstream_SOURCE_DIR}/include)
+
+  # DBPS interface (header-only)
+  FetchContent_Declare(
+    dbps_agent
+    GIT_REPOSITORY https://github.com/protegrity/DataBatchProtectionService.git
+
+    #TODO: Change to a specific tag/commit when we have one.
+    #https://github.com/protegrity/arrow/issues/179
+    GIT_TAG be87857e4d8c40977c3143c57805c7cc1c8394a8
+    GIT_SHALLOW FALSE
+  )
+
+  FetchContent_GetProperties(dbps_agent)
+  if(NOT dbps_agent_POPULATED)
+    FetchContent_Populate(dbps_agent)
+  endif()
+  add_library(dbps_interface INTERFACE)
+  # Expose dbpa_interface.h and friends from DBPS
+  target_include_directories(dbps_interface INTERFACE
+    ${dbps_agent_SOURCE_DIR}/src/common)
+
+  # Allows to disable building DBPS shared libraries
+  option(PARQUET_BUILD_DBPS_LIBS "Build DBPS external libraries" ON)
+
+  if(PARQUET_BUILD_DBPS_LIBS)
+    include(ExternalProject)
+
+    # Allow callers to inject additional CMake args for DBPS (e.g., BOOST_ROOT)
+    set(PARQUET_DBPS_CMAKE_ARGS "${PARQUET_DBPS_CMAKE_ARGS}" CACHE STRING "Extra CMake args for DBPS ExternalProject")
+
+    #builds DBPS shared libraries alongside Parquet
+    #same OS, same architecture, same compiler, same build type, same CMake args
+    ExternalProject_Add(dbps_external
+      DOWNLOAD_COMMAND "" # disables download, assumes (correctly) that sources are already fetched
+      SOURCE_DIR ${dbps_agent_SOURCE_DIR}
+      BINARY_DIR ${dbps_agent_BINARY_DIR}
+      CMAKE_ARGS
+        -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+        -DBUILD_SHARED_LIBS=ON
+        -DBUILD_TESTING=OFF
+
+        # Place DBPS outputs next to Arrow artifacts
+        -DCMAKE_LIBRARY_OUTPUT_DIRECTORY=${BUILD_OUTPUT_ROOT_DIRECTORY}
+        -DCMAKE_RUNTIME_OUTPUT_DIRECTORY=${BUILD_OUTPUT_ROOT_DIRECTORY}
+        -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY=${BUILD_OUTPUT_ROOT_DIRECTORY}
+        ${PARQUET_DBPS_CMAKE_ARGS}
+      INSTALL_COMMAND "" #disables install - artifacts already copied to BUILD_OUTPUT_ROOT_DIRECTORY
+    )
+  endif()
+
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS magic_enum_header_only tcb_span)
+  list(APPEND PARQUET_STATIC_LINK_LIBS magic_enum_header_only tcb_span)
+  if(ARROW_TESTING)
+    list(APPEND PARQUET_TEST_LINK_LIBS magic_enum_header_only tcb_span dbps_interface)
+  endif()
+  list(APPEND PARQUET_SHARED_PRIVATE_LINK_LIBS dbps_interface)
+  list(APPEND PARQUET_STATIC_LINK_LIBS dbps_interface)
+
   # Encryption key management
   set(PARQUET_SRCS
       ${PARQUET_SRCS}
@@ -255,7 +349,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
       encryption/key_toolkit_internal.cc
       encryption/local_wrap_kms_client.cc)
 else()
-  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/encryption_internal_nossl.cc)
+  set(PARQUET_SRCS ${PARQUET_SRCS} encryption/aes_encryption_nossl.cc)
 endif()
 
 list(APPEND PARQUET_SHARED_LINK_LIBS arrow_shared)
@@ -305,6 +399,13 @@ add_arrow_lib(parquet
               ${PARQUET_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
               ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
+
+# Ensure DBPS builds when Parquet builds, if requested
+if(PARQUET_REQUIRE_ENCRYPTION AND PARQUET_BUILD_DBPS_LIBS)
+  foreach(LIB_TARGET ${PARQUET_LIBRARIES})
+    add_dependencies(${LIB_TARGET} dbps_external)
+  endforeach()
+endif()
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
@@ -397,6 +498,7 @@ add_parquet_test(reader-test
 add_parquet_test(writer-test
                  SOURCES
                  column_writer_test.cc
+                 encryption/external/test_utils.cc
                  file_serialize_test.cc
                  stream_writer_test.cc)
 
@@ -406,7 +508,8 @@ add_parquet_test(arrow-reader-writer-test
                  SOURCES
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
-                 arrow/variant_test.cc)
+                 arrow/variant_test.cc
+                 $<$<BOOL:${PARQUET_REQUIRE_ENCRYPTION}>:encryption/external/test_utils.cc>)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
@@ -417,11 +520,16 @@ add_parquet_test(arrow-metadata-test SOURCES arrow/arrow_metadata_test.cc
 if(PARQUET_REQUIRE_ENCRYPTION)
   add_parquet_test(encryption-test
                    SOURCES
-                   encryption/encryption_internal_test.cc
+                   encryption/aes_encryption_test.cc
+                   encryption/encoding_properties_test.cc
+                   encryption/external_dbpa_encryption_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
+                   encryption/external/test_utils.cc
                    encryption/properties_test.cc
-                   encryption/test_encryption_util.cc)
+                   encryption/crypto_factory_test.cc
+                   encryption/test_encryption_util.cc
+                   encryption/test_in_memory_kms.cc)
   add_parquet_test(encryption-key-management-test
                    SOURCES
                    encryption/key_management_test.cc
@@ -434,7 +542,10 @@ endif()
 
 # Those tests need to use static linking as they access thrift-generated
 # symbols which are not exported by parquet.dll on Windows (PARQUET-1420).
-add_parquet_test(file_deserialize_test SOURCES file_deserialize_test.cc)
+add_parquet_test(file_deserialize_test
+                 SOURCES
+                 file_deserialize_test.cc
+                 encryption/external/test_utils.cc)
 add_parquet_test(schema_test)
 
 add_parquet_benchmark(bloom_filter_benchmark SOURCES bloom_filter_benchmark.cc
