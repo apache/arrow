@@ -24,6 +24,11 @@ on:
         description: "The architecture to build for"
         required: true
         type: string
+      flight-sql-odbc:
+        default: false
+        description: "Whether to enable Arrow Flight SQL ODBC"
+        required: false
+        type: boolean
       os:
         description: "The runner label to run the job on"
         required: true
@@ -45,6 +50,7 @@ jobs:
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
+      ARROW_FLIGHT_SQL_ODBC: ${{ inputs.flight-sql-odbc && 'ON' || 'OFF' }}
       ARROW_HDFS: ON
       ARROW_HOME: /usr
       ARROW_JEMALLOC: OFF
