@@ -34,6 +34,7 @@ add_arrow_test(flight_sql_odbc_test
                SOURCES
                odbc_test_suite.cc
                odbc_test_suite.h
+               columns_test.cc
                connection_attr_test.cc
                connection_info_test.cc
                connection_test.cc
