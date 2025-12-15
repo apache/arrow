@@ -287,6 +287,17 @@ module ArrowFormat
     end
   end
 
+  class Time64Type < TimeType
+    def initialize(unit)
+      super("Time64")
+      @unit = unit
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Time64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class VariableSizeBinaryType < Type
   end
 

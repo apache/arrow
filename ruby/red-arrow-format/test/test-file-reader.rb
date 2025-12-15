@@ -265,6 +265,66 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Time64(:microsecond)") do
+    def setup(&block)
+      @time_00_00_10_000_000 = 10 * 1_000_000
+      @time_00_01_10_000_000 = (60 + 10) * 1_000_000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::Time64Array.new(:micro,
+                             [
+                               @time_00_00_10_000_000,
+                               nil,
+                               @time_00_01_10_000_000,
+                             ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @time_00_00_10_000_000,
+                         nil,
+                         @time_00_01_10_000_000,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("Time64(:nanosecond)") do
+    def setup(&block)
+      @time_00_00_10_000_000_000 = 10 * 1_000_000_000
+      @time_00_01_10_000_000_000 = (60 + 10) * 1_000_000_000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::Time64Array.new(:nano,
+                             [
+                               @time_00_00_10_000_000_000,
+                               nil,
+                               @time_00_01_10_000_000_000,
+                             ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @time_00_00_10_000_000_000,
+                         nil,
+                         @time_00_01_10_000_000_000,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
   sub_test_case("Binary") do
     def build_array
       Arrow::BinaryArray.new(["Hello".b, nil, "World".b])

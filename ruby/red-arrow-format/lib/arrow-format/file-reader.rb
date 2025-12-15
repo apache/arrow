@@ -200,6 +200,13 @@ module ArrowFormat
           when Org::Apache::Arrow::Flatbuf::TimeUnit::MILLISECOND
             type = Time32Type.new(:millisecond)
           end
+        when 64
+          case fb_type.unit
+          when Org::Apache::Arrow::Flatbuf::TimeUnit::MICROSECOND
+            type = Time64Type.new(:microsecond)
+          when Org::Apache::Arrow::Flatbuf::TimeUnit::NANOSECOND
+            type = Time64Type.new(:nanosecond)
+          end
         end
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
