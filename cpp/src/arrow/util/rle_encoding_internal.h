@@ -308,6 +308,23 @@ class RleRunDecoder {
     return to_read;
   }
 
+  /// Get a batch of values and count how many equal match_value
+  [[nodiscard]] rle_size_t GetBatchWithCount(value_type* out, rle_size_t batch_size,
+                                             rle_size_t value_bit_width,
+                                             value_type match_value, int64_t* out_count) {
+    if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
+      return 0;
+    }
+
+    const auto to_read = std::min(remaining_count_, batch_size);
+    std::fill(out, out + to_read, value_);
+    if (value_ == match_value) {
+      *out_count += to_read;
+    }
+    remaining_count_ -= to_read;
+    return to_read;
+  }
+
  private:
   value_type value_ = {};
   rle_size_t remaining_count_ = 0;
@@ -377,6 +394,15 @@ class BitPackedRunDecoder {
     return steps;
   }
 
+  /// Get a batch of values and count how many equal match_value
+  [[nodiscard]] rle_size_t GetBatchWithCount(value_type* out, rle_size_t batch_size,
+                                             rle_size_t value_bit_width,
+                                             value_type match_value, int64_t* out_count) {
+    auto steps = GetBatch(out, batch_size, value_bit_width);
+    *out_count += std::count(out, out + steps, match_value);
+    return steps;
+  }
+
  private:
   /// The pointer to the beginning of the run
   const uint8_t* data_ = nullptr;
@@ -438,6 +464,10 @@ class RleBitPackedDecoder {
   /// left or if an error occurred.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size);
 
+  /// Get a batch of values and count how many equal match_value
+  [[nodiscard]] rle_size_t GetBatchWithCount(value_type* out, rle_size_t batch_size,
+                                             value_type match_value, int64_t* out_count);
+
   /// Like GetBatch but add spacing for null entries.
   ///
   /// Null entries will be set to an arbistrary value to avoid leaking private data.
@@ -480,6 +510,18 @@ class RleBitPackedDecoder {
   [[nodiscard]] rle_size_t RunGetBatch(value_type* out, rle_size_t batch_size) {
     return std::visit(
         [&](auto& dec) { return dec.GetBatch(out, batch_size, value_bit_width_); },
+        decoder_);
+  }
+
+  /// Get a batch of values from the current run and return the number elements read.
+  [[nodiscard]] rle_size_t RunGetBatchWithCount(value_type* out, rle_size_t batch_size,
+                                                value_type match_value,
+                                                int64_t* out_count) {
+    return std::visit(
+        [&](auto& dec) {
+          return dec.GetBatchWithCount(out, batch_size, value_bit_width_, match_value,
+                                       out_count);
+        },
         decoder_);
   }
 
@@ -1472,6 +1514,51 @@ inline void RleBitPackedEncoder::Clear() {
   literal_count_ = 0;
   literal_indicator_byte_ = NULL;
   bit_writer_.Clear();
+}
+
+template <typename T>
+auto RleBitPackedDecoder<T>::GetBatchWithCount(value_type* out, rle_size_t batch_size,
+                                               value_type match_value, int64_t* out_count)
+    -> rle_size_t {
+  using ControlFlow = RleBitPackedParser::ControlFlow;
+
+  rle_size_t values_read = 0;
+
+  // Remaining from a previous call that would have left some unread data from a run.
+  if (ARROW_PREDICT_FALSE(run_remaining() > 0)) {
+    const auto read = RunGetBatchWithCount(out, batch_size, match_value, out_count);
+    values_read += read;
+    out += read;
+
+    // Either we fulfilled all the batch to be read or we finished remaining run.
+    if (ARROW_PREDICT_FALSE(values_read == batch_size)) {
+      return values_read;
+    }
+    ARROW_DCHECK(run_remaining() == 0);
+  }
+
+  ParseWithCallable([&](auto run) {
+    using RunDecoder = typename decltype(run)::template DecoderType<value_type>;
+
+    ARROW_DCHECK_LT(values_read, batch_size);
+    RunDecoder decoder(run, value_bit_width_);
+    const auto read =
+        decoder.GetBatchWithCount(out, batch_size - values_read, value_bit_width_,
+                                  match_value, out_count);
+    ARROW_DCHECK_LE(read, batch_size - values_read);
+    values_read += read;
+    out += read;
+
+    // Stop reading and store remaining decoder
+    if (ARROW_PREDICT_FALSE(values_read == batch_size || read == 0)) {
+      decoder_ = std::move(decoder);
+      return ControlFlow::Break;
+    }
+
+    return ControlFlow::Continue;
+  });
+
+  return values_read;
 }
 
 }  // namespace arrow::util

@@ -1280,4 +1280,48 @@ TEST(RleBitPacked, GetBatchSpacedRoundtripUint64) {
   DoTestGetBatchSpacedRoundtrip<uint64_t>();
 }
 
+TEST(Rle, GetBatchWithCount) {
+  const int bit_width = 1;
+  uint8_t buffer[100];
+  RleBitPackedEncoder encoder(buffer, sizeof(buffer), bit_width);
+
+  // 30 1s
+  for (int i = 0; i < 30; ++i) {
+    bool result = encoder.Put(1);
+    EXPECT_TRUE(result);
+  }
+  // 20 0s
+  for (int i = 0; i < 20; ++i) {
+    bool result = encoder.Put(0);
+    EXPECT_TRUE(result);
+  }
+  // 10 1s
+  for (int i = 0; i < 10; ++i) {
+    bool result = encoder.Put(1);
+    EXPECT_TRUE(result);
+  }
+  encoder.Flush();
+
+  RleBitPackedDecoder<int> decoder(buffer, sizeof(buffer), bit_width);
+  std::vector<int> values(60);
+  int64_t count = 0;
+
+  // Read first 40 values. Should be 30 1s and 10 0s.
+  // Count 1s.
+  int read = decoder.GetBatchWithCount(values.data(), 40, 1, &count);
+  EXPECT_EQ(read, 40);
+  EXPECT_EQ(count, 30);
+  for (int i = 0; i < 30; ++i) EXPECT_EQ(values[i], 1);
+  for (int i = 30; i < 40; ++i) EXPECT_EQ(values[i], 0);
+
+  // Read next 20 values. Should be 10 0s and 10 1s.
+  // Count 1s.
+  count = 0;
+  read = decoder.GetBatchWithCount(values.data(), 20, 1, &count);
+  EXPECT_EQ(read, 20);
+  EXPECT_EQ(count, 10);
+  for (int i = 0; i < 10; ++i) EXPECT_EQ(values[i], 0);
+  for (int i = 10; i < 20; ++i) EXPECT_EQ(values[i], 1);
+}
+
 }  // namespace arrow::util
