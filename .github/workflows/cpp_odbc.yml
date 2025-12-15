@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-name: C++ ODBC
+name: ODBC
 
 on:
   workflow_call:
@@ -26,13 +26,11 @@ jobs:
     timeout-minutes: 240
     env:
       ARROW_BUILD_SHARED: ON
-      ARROW_BUILD_STATIC: ON
+      ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
-      # GH-47787 TODO Build ODBC installer
-      # ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_SIMD_LEVEL: AVX2
       CMAKE_CXX_STANDARD: "17"
       CMAKE_GENERATOR: Ninja
@@ -120,33 +118,5 @@ jobs:
       # GH-48270 TODO: Resolve segementation fault during Arrow library unload
       # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
       # TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
-      # - name: Test
-      #   shell: cmd
-      #   run: |
-      #     set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-      #     call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-
-      #     # Convert VCPKG Windows path to MSYS path
-      #     for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
-
-      #     bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
 
       # GH-47787 TODO Build ODBC installer
-      # - name: Install WiX Toolset
-      #   shell: pwsh
-      #   run: |
-      #     Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
-      #     Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
-      #     echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
-      # - name: Build MSI ODBC installer
-      #   shell: pwsh
-      #   run: |
-      #     # Verify WiX version
-      #     wix --version
-      #     cd "${{ github.workspace }}\build\cpp"
-      #     cpack
-      # - name: Upload the artifacts to the job
-      #   uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
-      #   with:
-      #     name: flight-sql-odbc-msi-installer
-      #     path: ${{ github.workspace }}\build\cpp\Apache Arrow Flight SQL ODBC-1.0.0-win64.msi
