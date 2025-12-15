@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/transport/grpc/customize_grpc.h"
+
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/support/client_callback.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
