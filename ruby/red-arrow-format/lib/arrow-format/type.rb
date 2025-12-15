@@ -333,13 +333,24 @@ module ArrowFormat
       end
     end
 
-    attr_reader :name
     def initialize
       super("UTF8")
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
+    end
+  end
+
+  class FixedSizeBinaryType < Type
+    attr_reader :byte_width
+    def initialize(byte_width)
+      super("FixedSizeBinary")
+      @byte_width = byte_width
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      FixedSizeBinaryArray.new(self, size, validity_buffer, values_buffer)
     end
   end
 

@@ -229,6 +229,32 @@ module ArrowFormat
     end
   end
 
+  class FixedSizeBinaryArray < Array
+    def initialize(type, size, validity_buffer, values_buffer)
+      super(type, size, validity_buffer)
+      @values_buffer = values_buffer
+    end
+
+    def to_a
+      byte_width = @type.byte_width
+      values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
+        @values_buffer.get_string(offset, byte_width)
+      end
+      apply_validity(values)
+    end
+  end
+
+  class BinaryArray < VariableSizeBinaryLayoutArray
+    private
+    def buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+  end
+
   class VariableSizeListArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, child)
       super(type, size, validity_buffer)

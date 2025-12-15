@@ -225,6 +225,8 @@ module ArrowFormat
         type = LargeBinaryType.singleton
       when Org::Apache::Arrow::Flatbuf::Utf8
         type = UTF8Type.singleton
+      when Org::Apache::Arrow::Flatbuf::FixedSizeBinary
+        type = FixedSizeBinaryType.new(fb_type.byte_width)
       end
       Field.new(fb_field.name, type, fb_field.nullable?)
     end
@@ -256,6 +258,16 @@ module ArrowFormat
         values_buffer = buffers.shift
         values = body.slice(values_buffer.offset, values_buffer.length)
         field.type.build_array(length, validity, values)
+      when VariableSizeBinaryType
+        offsets_buffer = buffers.shift
+        values_buffer = buffers.shift
+        offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
+        values = body.slice(values_buffer.offset, values_buffer.length)
+        field.type.build_array(length, validity, offsets, values)
+      when FixedSizeBinaryType
+        values_buffer = buffers.shift
+        values = body.slice(values_buffer.offset, values_buffer.length)
+        field.type.build_array(length, validity, values)
       when VariableSizeListType
         offsets_buffer = buffers.shift
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
@@ -282,12 +294,6 @@ module ArrowFormat
           read_column(child, nodes, buffers, body)
         end
         field.type.build_array(length, types, children)
-      when VariableSizeBinaryType
-        offsets_buffer = buffers.shift
-        values_buffer = buffers.shift
-        offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
-        values = body.slice(values_buffer.offset, values_buffer.length)
-        field.type.build_array(length, validity, offsets, values)
       end
     end
   end
