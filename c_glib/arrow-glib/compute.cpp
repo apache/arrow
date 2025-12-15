@@ -269,6 +269,9 @@ G_BEGIN_DECLS
  * #GArrowExtractRegexOptions is a class to customize the `extract_regex`
  * function.
  *
+ * #GArrowExtractRegexSpanOptions is a class to customize the `extract_regex_span`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7091,6 +7094,102 @@ garrow_extract_regex_options_new(void)
   return GARROW_EXTRACT_REGEX_OPTIONS(options);
 }
 
+enum {
+  PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN = 1,
+};
+
+G_DEFINE_TYPE(GArrowExtractRegexSpanOptions,
+              garrow_extract_regex_span_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_extract_regex_span_options_set_property(GObject *object,
+                                               guint prop_id,
+                                               const GValue *value,
+                                               GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_span_options_get_raw(GARROW_EXTRACT_REGEX_SPAN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_span_options_get_property(GObject *object,
+                                               guint prop_id,
+                                               GValue *value,
+                                               GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_span_options_get_raw(GARROW_EXTRACT_REGEX_SPAN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_span_options_init(GArrowExtractRegexSpanOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ExtractRegexSpanOptions());
+}
+
+static void
+garrow_extract_regex_span_options_class_init(GArrowExtractRegexSpanOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_extract_regex_span_options_set_property;
+  gobject_class->get_property = garrow_extract_regex_span_options_get_property;
+
+  arrow::compute::ExtractRegexSpanOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowExtractRegexSpanOptions:pattern:
+   *
+   * Regular expression with named capture fields.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "Regular expression with named capture fields",
+                             options.pattern.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN,
+                                  spec);
+}
+
+/**
+ * garrow_extract_regex_span_options_new:
+ *
+ * Returns: A newly created #GArrowExtractRegexSpanOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS, NULL);
+  return GARROW_EXTRACT_REGEX_SPAN_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7253,6 +7352,12 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_extract_regex_options =
       static_cast<const arrow::compute::ExtractRegexOptions *>(arrow_options);
     auto options = garrow_extract_regex_options_new_raw(arrow_extract_regex_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ExtractRegexSpanOptions") {
+    const auto arrow_extract_regex_span_options =
+      static_cast<const arrow::compute::ExtractRegexSpanOptions *>(arrow_options);
+    auto options =
+      garrow_extract_regex_span_options_new_raw(arrow_extract_regex_span_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -7891,5 +7996,23 @@ arrow::compute::ExtractRegexOptions *
 garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options)
 {
   return static_cast<arrow::compute::ExtractRegexOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new_raw(
+  const arrow::compute::ExtractRegexSpanOptions *arrow_options)
+{
+  return GARROW_EXTRACT_REGEX_SPAN_OPTIONS(
+    g_object_new(GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS,
+                 "pattern",
+                 arrow_options->pattern.c_str(),
+                 NULL));
+}
+
+arrow::compute::ExtractRegexSpanOptions *
+garrow_extract_regex_span_options_get_raw(GArrowExtractRegexSpanOptions *options)
+{
+  return static_cast<arrow::compute::ExtractRegexSpanOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

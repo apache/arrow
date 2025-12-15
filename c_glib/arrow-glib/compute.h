@@ -1272,4 +1272,21 @@ GARROW_AVAILABLE_IN_23_0
 GArrowExtractRegexOptions *
 garrow_extract_regex_options_new(void);
 
+#define GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS                                           \
+  (garrow_extract_regex_span_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExtractRegexSpanOptions,
+                         garrow_extract_regex_span_options,
+                         GARROW,
+                         EXTRACT_REGEX_SPAN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowExtractRegexSpanOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new(void);
+
 G_END_DECLS
