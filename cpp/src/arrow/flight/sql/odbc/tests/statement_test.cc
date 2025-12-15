@@ -48,13 +48,13 @@ TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
 
   SQLINTEGER val;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Verify 1 is returned
   EXPECT_EQ(1, val);
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
-  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
@@ -82,14 +82,14 @@ TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
   SQLINTEGER val;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
 
   // Verify 1 is returned
   EXPECT_EQ(1, val);
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
-  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
@@ -715,6 +715,100 @@ TYPED_TEST(StatementTest, TestSQLExecDirectRowFetching) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
 }
 
+TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
+  SQLLEN rows_fetched;
+  SQLSetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &rows_fetched, 0);
+
+  std::wstring wsql =
+      LR"(
+   SELECT 1 AS small_table
+   UNION ALL
+   SELECT 2
+   UNION ALL
+   SELECT 3;
+ )";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // Fetch row 1
+  ASSERT_EQ(SQL_SUCCESS, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
+
+  SQLINTEGER val;
+  SQLLEN buf_len = sizeof(val);
+  SQLLEN ind;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, buf_len, &ind));
+  // Verify 1 is returned
+  EXPECT_EQ(1, val);
+  // Verify 1 row is fetched
+  EXPECT_EQ(1, rows_fetched);
+
+  // Fetch row 2
+  ASSERT_EQ(SQL_SUCCESS, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, buf_len, &ind));
+
+  // Verify 2 is returned
+  EXPECT_EQ(2, val);
+  // Verify 1 row is fetched in the last SQLFetchScroll call
+  EXPECT_EQ(1, rows_fetched);
+
+  // Fetch row 3
+  ASSERT_EQ(SQL_SUCCESS, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, buf_len, &ind));
+
+  // Verify 3 is returned
+  EXPECT_EQ(3, val);
+  // Verify 1 row is fetched in the last SQLFetchScroll call
+  EXPECT_EQ(1, rows_fetched);
+
+  // Verify result set has no more data beyond row 3
+  ASSERT_EQ(SQL_NO_DATA, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
+
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
+  // Invalid cursor state
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+}
+
+TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
+  // SQL_FETCH_NEXT is the only supported fetch orientation.
+
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_PRIOR, 0));
+
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+
+  SQLLEN fetch_offset = 1;
+  ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_RELATIVE, fetch_offset));
+
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+
+  ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_ABSOLUTE, fetch_offset));
+
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+
+  ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_FIRST, 0));
+
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+
+  ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_LAST, 0));
+
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+
+  ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_BOOKMARK, fetch_offset));
+
+  // DM returns state HY106 for SQL_FETCH_BOOKMARK
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY106);
+}
+
 TYPED_TEST(StatementTest, TestSQLExecDirectVarcharTruncation) {
   std::wstring wsql = L"SELECT 'VERY LONG STRING here' AS string_col;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
@@ -881,7 +975,7 @@ TYPED_TEST(StatementTest, DISABLED_TestSQLExecDirectFloatTruncation) {
   int16_t ssmall_int_val;
 
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 1, SQL_C_SSHORT, &ssmall_int_val, 0, 0));
+            SQLGetData(this->stmt, 1, SQL_C_SSHORT, &ssmall_int_val, 0, nullptr));
   // Verify float truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01S07);
 
@@ -929,7 +1023,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
 
   SQLINTEGER val;
-  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Verify 1 is returned for non-truncation case.
   EXPECT_EQ(1, val);
 
@@ -938,7 +1032,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   SQLCHAR char_val[len];
   SQLLEN buf_len = sizeof(SQLCHAR) * len;
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 2, SQL_C_CHAR, &char_val, buf_len, 0));
+            SQLGetData(this->stmt, 2, SQL_C_CHAR, &char_val, buf_len, nullptr));
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 
@@ -948,7 +1042,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   size_t wchar_size = GetSqlWCharSize();
   buf_len = wchar_size * len2;
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 3, SQL_C_WCHAR, &wchar_val, buf_len, 0));
+            SQLGetData(this->stmt, 3, SQL_C_WCHAR, &wchar_val, buf_len, nullptr));
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 
@@ -956,7 +1050,7 @@ TEST_F(StatementMockTest, TestSQLExecDirectTruncationQueryNullIndicator) {
   std::vector<int8_t> varbinary_val(3);
   buf_len = varbinary_val.size();
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 4, SQL_C_BINARY, &varbinary_val[0], buf_len, 0));
+            SQLGetData(this->stmt, 4, SQL_C_BINARY, &varbinary_val[0], buf_len, nullptr));
   // Verify binary truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState01004);
 }
@@ -975,7 +1069,7 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
 
   SQLINTEGER val;
 
-  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, 0));
+  ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Verify invalid null indicator is reported, as it is required
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
 }

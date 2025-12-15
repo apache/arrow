@@ -1075,8 +1075,31 @@ SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT fetch_orientation,
   ARROW_LOG(DEBUG) << "SQLFetchScroll called with stmt: " << stmt
                    << ", fetch_orientation: " << fetch_orientation
                    << ", fetch_offset: " << fetch_offset;
-  // GH-47715 TODO: Implement SQLFetchScroll
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // Only SQL_FETCH_NEXT forward-only fetching orientation is supported,
+    // meaning the behavior of SQLExtendedFetch is same as SQLFetch.
+    if (fetch_orientation != SQL_FETCH_NEXT) {
+      throw DriverException("Optional feature not supported.", "HYC00");
+    }
+    // Ignore fetch_offset as it's not applicable to SQL_FETCH_NEXT
+    ARROW_UNUSED(fetch_offset);
+
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // The SQL_ATTR_ROW_ARRAY_SIZE statement attribute specifies the number of rows in the
+    // rowset.
+    ODBCDescriptor* ard = statement->GetARD();
+    size_t rows = static_cast<size_t>(ard->GetArraySize());
+    if (statement->Fetch(rows)) {
+      return SQL_SUCCESS;
+    } else {
+      // Reached the end of rowset
+      return SQL_NO_DATA;
+    }
+  });
 }
 
 SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_type,
