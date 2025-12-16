@@ -2634,13 +2634,13 @@ cdef class Schema(_Weakrefable):
         Parameters
         ----------
         df : pandas.DataFrame
-        
+
         preserve_index : bool, optional
             Whether to store the index as an additional field in the resulting
             ``Schema``. The default of None will store the index as a field,
             except for RangeIndex which is stored as metadata only. Use
             ``preserve_index=True`` to force it to be stored as a field.
-        
+
         Returns
         -------
         pyarrow.Schema
