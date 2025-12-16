@@ -186,19 +186,19 @@ TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
 TEST(TestEncryptionProperties, EncryptNestedColumns) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("a_map");
-  ColumnEncryptionProperties::Builder column_builder_1(*column_path_1);
+  ColumnEncryptionProperties::Builder column_builder_1;
   column_builder_1.key(kColumnEncryptionKey1);
   column_builder_1.key_id("kc1");
 
   std::shared_ptr<parquet::schema::ColumnPath> column_path_2 =
       parquet::schema::ColumnPath::FromDotString("a_list");
-  ColumnEncryptionProperties::Builder column_builder_2(*column_path_2);
+  ColumnEncryptionProperties::Builder column_builder_2;
   column_builder_2.key(kColumnEncryptionKey2);
   column_builder_2.key_id("kc2");
 
   std::shared_ptr<parquet::schema::ColumnPath> column_path_3 =
       parquet::schema::ColumnPath::FromDotString("a_struct");
-  ColumnEncryptionProperties::Builder column_builder_3(*column_path_3);
+  ColumnEncryptionProperties::Builder column_builder_3;
   column_builder_3.key(kColumnEncryptionKey3);
   column_builder_3.key_id("kc3");
 
@@ -222,7 +222,6 @@ TEST(TestEncryptionProperties, EncryptNestedColumns) {
     std::shared_ptr<ColumnEncryptionProperties> out_col_props =
         props->column_encryption_properties(column_path);
 
-    ASSERT_EQ(column_path_1->ToDotString(), out_col_props->column_path());
     ASSERT_EQ(true, out_col_props->is_encrypted());
     ASSERT_EQ(false, out_col_props->is_encrypted_with_footer_key());
     ASSERT_EQ(kColumnEncryptionKey1, out_col_props->key());
@@ -233,7 +232,6 @@ TEST(TestEncryptionProperties, EncryptNestedColumns) {
     std::shared_ptr<ColumnEncryptionProperties> out_col_props =
         props->column_encryption_properties(column_path);
 
-    ASSERT_EQ(column_path_2->ToDotString(), out_col_props->column_path());
     ASSERT_EQ(true, out_col_props->is_encrypted());
     ASSERT_EQ(false, out_col_props->is_encrypted_with_footer_key());
     ASSERT_EQ(kColumnEncryptionKey2, out_col_props->key());
@@ -244,7 +242,6 @@ TEST(TestEncryptionProperties, EncryptNestedColumns) {
     std::shared_ptr<ColumnEncryptionProperties> out_col_props =
         props->column_encryption_properties(column_path);
 
-    ASSERT_EQ(column_path_3->ToDotString(), out_col_props->column_path());
     ASSERT_EQ(true, out_col_props->is_encrypted());
     ASSERT_EQ(false, out_col_props->is_encrypted_with_footer_key());
     ASSERT_EQ(kColumnEncryptionKey3, out_col_props->key());
