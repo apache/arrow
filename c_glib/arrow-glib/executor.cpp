@@ -29,6 +29,7 @@ G_BEGIN_DECLS
  * @include: arrow-glib/arrow-glib.h
  *
  * #GArrowExecutor is the base class for executor implementations.
+ *
  * #GArrowThreadPool is a class for thread pool management.
  */
 
@@ -37,7 +38,7 @@ typedef struct GArrowExecutorPrivate_
   arrow::internal::Executor *executor;
 } GArrowExecutorPrivate;
 
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecutor, garrow_executor, G_TYPE_OBJECT)
+G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExecutor, garrow_executor, G_TYPE_OBJECT)
 
 #define GARROW_EXECUTOR_GET_PRIVATE(obj)                                                 \
   static_cast<GArrowExecutorPrivate *>(                                                  \
