@@ -58,19 +58,22 @@ array data. These include:
 Each data type in Arrow has a corresponding factory function for creating
 an instance of that type object in Python:
 
-.. ipython:: python
+.. code-block:: python
 
-   import pyarrow as pa
-   t1 = pa.int32()
-   t2 = pa.string()
-   t3 = pa.binary()
-   t4 = pa.binary(10)
-   t5 = pa.timestamp('ms')
-
-   t1
-   print(t1)
-   print(t4)
-   print(t5)
+   >>> import pyarrow as pa
+   >>> t1 = pa.int32()
+   >>> t2 = pa.string()
+   >>> t3 = pa.binary()
+   >>> t4 = pa.binary(10)
+   >>> t5 = pa.timestamp('ms')
+   >>> t1
+   DataType(int32)
+   >>> print(t1)
+   int32
+   >>> print(t4)
+   fixed_size_binary[10]
+   >>> print(t5)
+   timestamp[ms]
 
 .. note::
    Different data types might use a given physical storage. For example,
@@ -83,44 +86,50 @@ input data (e.g. Python objects) may be coerced to more than one Arrow type.
 The :class:`~pyarrow.Field` type is a type plus a name and optional
 user-defined metadata:
 
-.. ipython:: python
+.. code-block:: python
 
-   f0 = pa.field('int32_field', t1)
-   f0
-   f0.name
-   f0.type
+   >>> f0 = pa.field('int32_field', t1)
+   >>> f0
+   pyarrow.Field<int32_field: int32>
+   >>> f0.name
+   'int32_field'
+   >>> f0.type
+   DataType(int32)
 
 Arrow supports **nested value types** like list, map, struct, and union. When
 creating these, you must pass types or fields to indicate the data types of the
 types' children. For example, we can define a list of int32 values with:
 
-.. ipython:: python
+.. code-block:: python
 
-   t6 = pa.list_(t1)
-   t6
+   >>> t6 = pa.list_(t1)
+   >>> t6
+   ListType(list<item: int32>)
 
 A ``struct`` is a collection of named fields:
 
-.. ipython:: python
+.. code-block:: python
 
-   fields = [
-       pa.field('s0', t1),
-       pa.field('s1', t2),
-       pa.field('s2', t4),
-       pa.field('s3', t6),
-   ]
-
-   t7 = pa.struct(fields)
-   print(t7)
+   >>> fields = [
+   ...     pa.field('s0', t1),
+   ...     pa.field('s1', t2),
+   ...     pa.field('s2', t4),
+   ...     pa.field('s3', t6),
+   ... ]
+   >>> t7 = pa.struct(fields)
+   >>> print(t7)
+   struct<s0: int32, s1: string, s2: fixed_size_binary[10], s3: list<item: int32>>
 
 For convenience, you can pass ``(name, type)`` tuples directly instead of
 :class:`~pyarrow.Field` instances:
 
-.. ipython:: python
+.. code-block:: python
 
-   t8 = pa.struct([('s0', t1), ('s1', t2), ('s2', t4), ('s3', t6)])
-   print(t8)
-   t8 == t7
+   >>> t8 = pa.struct([('s0', t1), ('s1', t2), ('s2', t4), ('s3', t6)])
+   >>> print(t8)
+   struct<s0: int32, s1: string, s2: fixed_size_binary[10], s3: list<item: int32>>
+   >>> t8 == t7
+   True
 
 
 See :ref:`Data Types API <api.types>` for a full listing of data type
@@ -136,13 +145,18 @@ defines the column names and types in a record batch or table data
 structure. The :func:`pyarrow.schema` factory function makes new Schema objects in
 Python:
 
-.. ipython:: python
+.. code-block:: python
 
-   my_schema = pa.schema([('field0', t1),
-                          ('field1', t2),
-                          ('field2', t4),
-                          ('field3', t6)])
-   my_schema
+   >>> my_schema = pa.schema([('field0', t1),
+   ...                        ('field1', t2),
+   ...                        ('field2', t4),
+   ...                        ('field3', t6)])
+   >>> my_schema
+   field0: int32
+   field1: string
+   field2: fixed_size_binary[10]
+   field3: list<item: int32>
+     child 0, item: int32
 
 In some applications, you may not create schemas directly, only using the ones
 that are embedded in :ref:`IPC messages <ipc>`.
@@ -150,11 +164,16 @@ that are embedded in :ref:`IPC messages <ipc>`.
 Schemas are immutable, which means you can't update an existing schema, but you
 can create a new one with updated values using :meth:`Schema.set`.
 
-.. ipython:: python
+.. code-block:: python
 
-   updated_field = pa.field('field0_new', pa.int64())
-   my_schema2 = my_schema.set(0, updated_field)
-   my_schema2
+   >>> updated_field = pa.field('field0_new', pa.int64())
+   >>> my_schema2 = my_schema.set(0, updated_field)
+   >>> my_schema2
+   field0_new: int64
+   field1: string
+   field2: fixed_size_binary[10]
+   field3: list<item: int32>
+     child 0, item: int32
 
 .. _data.array:
 
@@ -171,47 +190,69 @@ A simple way to create arrays is with ``pyarrow.array``, which is similar to
 the ``numpy.array`` function.  By default PyArrow will infer the data type
 for you:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr = pa.array([1, 2, None, 3])
-   arr
+   >>> arr = pa.array([1, 2, None, 3])
+   >>> arr
+   <pyarrow.lib.Int64Array object at ...>
+   [
+     1,
+     2,
+     null,
+     3
+   ]
 
 But you may also pass a specific data type to override type inference:
 
-.. ipython:: python
+.. code-block:: python
 
-   pa.array([1, 2], type=pa.uint16())
+   >>> pa.array([1, 2], type=pa.uint16())
+   <pyarrow.lib.UInt16Array object at ...>
+   [
+     1,
+     2
+   ]
 
 The array's ``type`` attribute is the corresponding piece of type metadata:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr.type
+   >>> arr.type
+   DataType(int64)
 
 Each in-memory array has a known length and null count (which will be 0 if
 there are no null values):
 
-.. ipython:: python
+.. code-block:: python
 
-   len(arr)
-   arr.null_count
+   >>> len(arr)
+   4
+   >>> arr.null_count
+   1
 
 Scalar values can be selected with normal indexing.  ``pyarrow.array`` converts
 ``None`` values to Arrow nulls; we return the special ``pyarrow.NA`` value for
 nulls:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr[0]
-   arr[2]
+   >>> arr[0]
+   <pyarrow.Int64Scalar: 1>
+   >>> arr[2]
+   <pyarrow.Int64Scalar: None>
 
 Arrow data is immutable, so values can be selected but not assigned.
 
 Arrays can be sliced without copying:
 
-.. ipython:: python
+.. code-block:: python
 
-   arr[1:3]
+   >>> arr[1:3]
+   <pyarrow.lib.Int64Array object at ...>
+   [
+     2,
+     null
+   ]
 
 None values and NAN handling
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,32 +275,49 @@ List arrays
 ``pyarrow.array`` is able to infer the type of simple nested data structures
 like lists:
 
-.. ipython:: python
+.. code-block:: python
 
-   nested_arr = pa.array([[], None, [1, 2], [None, 1]])
-   print(nested_arr.type)
+   >>> nested_arr = pa.array([[], None, [1, 2], [None, 1]])
+   >>> print(nested_arr.type)
+   list<item: int64>
 
 ListView arrays
 ~~~~~~~~~~~~~~~
 
 ``pyarrow.array`` can create an alternate list type called ListView:
 
-.. ipython:: python
+.. code-block:: python
 
-   nested_arr = pa.array([[], None, [1, 2], [None, 1]], type=pa.list_view(pa.int64()))
-   print(nested_arr.type)
+   >>> nested_arr = pa.array([[], None, [1, 2], [None, 1]], type=pa.list_view(pa.int64()))
+   >>> print(nested_arr.type)
+   list_view<item: int64>
 
 ListView arrays have a different set of buffers than List arrays. The ListView array
 has both an offsets and sizes buffer, while a List array only has an offsets buffer.
 This allows for ListView arrays to specify out-of-order offsets:
 
-.. ipython:: python
+.. code-block:: python
 
-   values = [1, 2, 3, 4, 5, 6]
-   offsets = [4, 2, 0]
-   sizes = [2, 2, 2]
-   arr = pa.ListViewArray.from_arrays(offsets, sizes, values)
-   arr
+   >>> values = [1, 2, 3, 4, 5, 6]
+   >>> offsets = [4, 2, 0]
+   >>> sizes = [2, 2, 2]
+   >>> arr = pa.ListViewArray.from_arrays(offsets, sizes, values)
+   >>> arr
+   <pyarrow.lib.ListViewArray object at ...>
+   [
+     [
+       5,
+       6
+     ],
+     [
+       3,
+       4
+     ],
+     [
+       1,
+       2
+     ]
+   ]
 
 See the format specification for more details on :ref:`listview-layout`.
 
@@ -269,39 +327,114 @@ Struct arrays
 ``pyarrow.array`` is able to infer the schema of a struct type from arrays of
 dictionaries:
 
-.. ipython:: python
+.. code-block:: python
 
-   pa.array([{'x': 1, 'y': True}, {'z': 3.4, 'x': 4}])
+   >>> pa.array([{'x': 1, 'y': True}, {'z': 3.4, 'x': 4}])
+   <pyarrow.lib.StructArray object at ...>
+   -- is_valid: all not null
+   -- child 0 type: int64
+     [
+       1,
+       4
+     ]
+   -- child 1 type: bool
+     [
+       true,
+       null
+     ]
+   -- child 2 type: double
+     [
+       null,
+       3.4
+     ]
 
 Struct arrays can be initialized from a sequence of Python dicts or tuples. For tuples,
 you must explicitly pass the type:
 
-.. ipython:: python
+.. code-block:: python
 
-   ty = pa.struct([('x', pa.int8()),
-                   ('y', pa.bool_())])
-   pa.array([{'x': 1, 'y': True}, {'x': 2, 'y': False}], type=ty)
-   pa.array([(3, True), (4, False)], type=ty)
+   >>> ty = pa.struct([('x', pa.int8()),
+   ...                 ('y', pa.bool_())])
+   >>> pa.array([{'x': 1, 'y': True}, {'x': 2, 'y': False}], type=ty)
+   <pyarrow.lib.StructArray object at ...>
+   -- is_valid: all not null
+   -- child 0 type: int8
+     [
+       1,
+       2
+     ]
+   -- child 1 type: bool
+     [
+       true,
+       false
+     ]
+   >>> pa.array([(3, True), (4, False)], type=ty)
+   <pyarrow.lib.StructArray object at ...>
+   -- is_valid: all not null
+   -- child 0 type: int8
+     [
+       3,
+       4
+     ]
+   -- child 1 type: bool
+     [
+       true,
+       false
+     ]
 
 When initializing a struct array, nulls are allowed both at the struct
 level and at the individual field level.  If initializing from a sequence
 of Python dicts, a missing dict key is handled as a null value:
 
-.. ipython:: python
+.. code-block:: python
 
-   pa.array([{'x': 1}, None, {'y': None}], type=ty)
+   >>> pa.array([{'x': 1}, None, {'y': None}], type=ty)
+   <pyarrow.lib.StructArray object at ...>
+   -- is_valid:
+     [
+       true,
+       false,
+       true
+     ]
+   -- child 0 type: int8
+     [
+       1,
+       0,
+       null
+     ]
+   -- child 1 type: bool
+     [
+       null,
+       false,
+       null
+     ]
 
 You can also construct a struct array from existing arrays for each of the
 struct's components.  In this case, data storage will be shared with the
 individual arrays, and no copy is involved:
 
-.. ipython:: python
+.. code-block:: python
 
-   xs = pa.array([5, 6, 7], type=pa.int16())
-   ys = pa.array([False, True, True])
-   arr = pa.StructArray.from_arrays((xs, ys), names=('x', 'y'))
-   arr.type
-   arr
+   >>> xs = pa.array([5, 6, 7], type=pa.int16())
+   >>> ys = pa.array([False, True, True])
+   >>> arr = pa.StructArray.from_arrays((xs, ys), names=('x', 'y'))
+   >>> arr.type
+   StructType(struct<x: int16, y: bool>)
+   >>> arr
+   <pyarrow.lib.StructArray object at ...>
+   -- is_valid: all not null
+   -- child 0 type: int16
+     [
+       5,
+       6,
+       7
+     ]
+   -- child 1 type: bool
+     [
+       false,
+       true,
+       true
+     ]
 
 Map arrays
 ~~~~~~~~~~
@@ -309,11 +442,34 @@ Map arrays
 Map arrays can be constructed from lists of lists of tuples (key-item pairs), but only if
 the type is explicitly passed into :meth:`array`:
 
-.. ipython:: python
+.. code-block:: python
 
-   data = [[('x', 1), ('y', 0)], [('a', 2), ('b', 45)]]
-   ty = pa.map_(pa.string(), pa.int64())
-   pa.array(data, type=ty)
+   >>> data = [[('x', 1), ('y', 0)], [('a', 2), ('b', 45)]]
+   >>> ty = pa.map_(pa.string(), pa.int64())
+   >>> pa.array(data, type=ty)
+   <pyarrow.lib.MapArray object at ...>
+   [
+     keys:
+     [
+       "x",
+       "y"
+     ]
+     values:
+     [
+       1,
+       0
+     ],
+     keys:
+     [
+       "a",
+       "b"
+     ]
+     values:
+     [
+       2,
+       45
+     ]
+   ]
 
 MapArrays can also be constructed from offset, key, and item arrays. Offsets represent the
 starting position of each map. Note that the :attr:`MapArray.keys` and :attr:`MapArray.items`
@@ -321,13 +477,45 @@ properties give the *flattened* keys and items. To keep the keys and items assoc
 their row, use the :meth:`ListArray.from_arrays` constructor with the
 :attr:`MapArray.offsets` property.
 
-.. ipython:: python
+.. code-block:: python
 
-   arr = pa.MapArray.from_arrays([0, 2, 3], ['x', 'y', 'z'], [4, 5, 6])
-   arr.keys
-   arr.items
-   pa.ListArray.from_arrays(arr.offsets, arr.keys)
-   pa.ListArray.from_arrays(arr.offsets, arr.items)
+   >>> arr = pa.MapArray.from_arrays([0, 2, 3], ['x', 'y', 'z'], [4, 5, 6])
+   >>> arr.keys
+   <pyarrow.lib.StringArray object at ...>
+   [
+     "x",
+     "y",
+     "z"
+   ]
+   >>> arr.items
+   <pyarrow.lib.Int64Array object at ...>
+   [
+     4,
+     5,
+     6
+   ]
+   >>> pa.ListArray.from_arrays(arr.offsets, arr.keys)
+   <pyarrow.lib.ListArray object at ...>
+   [
+     [
+       "x",
+       "y"
+     ],
+     [
+       "z"
+     ]
+   ]
+   >>> pa.ListArray.from_arrays(arr.offsets, arr.items)
+   <pyarrow.lib.ListArray object at ...>
+   [
+     [
+       4,
+       5
+     ],
+     [
+       6
+     ]
+   ]
 
 Union arrays
 ~~~~~~~~~~~~
@@ -341,28 +529,76 @@ as the resulting union array.  They are adjuncted with a ``int8`` "types"
 array that tells, for each value, from which child array it must be
 selected:
 
-.. ipython:: python
+.. code-block:: python
 
-   xs = pa.array([5, 6, 7])
-   ys = pa.array([False, False, True])
-   types = pa.array([0, 1, 1], type=pa.int8())
-   union_arr = pa.UnionArray.from_sparse(types, [xs, ys])
-   union_arr.type
-   union_arr
+   >>> xs = pa.array([5, 6, 7])
+   >>> ys = pa.array([False, False, True])
+   >>> types = pa.array([0, 1, 1], type=pa.int8())
+   >>> union_arr = pa.UnionArray.from_sparse(types, [xs, ys])
+   >>> union_arr.type
+   SparseUnionType(sparse_union<0: int64=0, 1: bool=1>)
+   >>> union_arr
+   <pyarrow.lib.UnionArray object at ...>
+   -- is_valid: all not null
+   -- type_ids:   [
+       0,
+       1,
+       1
+     ]
+   -- child 0 type: int64
+     [
+       5,
+       6,
+       7
+     ]
+   -- child 1 type: bool
+     [
+       false,
+       false,
+       true
+     ]
 
 In a dense union array, you also pass, in addition to the ``int8`` "types"
 array, a ``int32`` "offsets" array that tells, for each value, at
 each offset in the selected child array it can be found:
 
-.. ipython:: python
+.. code-block:: python
 
-   xs = pa.array([5, 6, 7])
-   ys = pa.array([False, True])
-   types = pa.array([0, 1, 1, 0, 0], type=pa.int8())
-   offsets = pa.array([0, 0, 1, 1, 2], type=pa.int32())
-   union_arr = pa.UnionArray.from_dense(types, offsets, [xs, ys])
-   union_arr.type
-   union_arr
+   >>> xs = pa.array([5, 6, 7])
+   >>> ys = pa.array([False, True])
+   >>> types = pa.array([0, 1, 1, 0, 0], type=pa.int8())
+   >>> offsets = pa.array([0, 0, 1, 1, 2], type=pa.int32())
+   >>> union_arr = pa.UnionArray.from_dense(types, offsets, [xs, ys])
+   >>> union_arr.type
+   DenseUnionType(dense_union<0: int64=0, 1: bool=1>)
+   >>> union_arr
+   <pyarrow.lib.UnionArray object at ...>
+   -- is_valid: all not null
+   -- type_ids:   [
+       0,
+       1,
+       1,
+       0,
+       0
+     ]
+   -- value_offsets:   [
+       0,
+       0,
+       1,
+       1,
+       2
+     ]
+   -- child 0 type: int64
+     [
+       5,
+       6,
+       7
+     ]
+   -- child 1 type: bool
+     [
+       false,
+       true
+     ]
 
 .. _data.dictionary:
 
@@ -380,28 +616,75 @@ they appear in C++ and Python is slightly different. We define a special
 :class:`~.DictionaryArray` type with a corresponding dictionary type. Let's
 consider an example:
 
-.. ipython:: python
+.. code-block:: python
 
-   indices = pa.array([0, 1, 0, 1, 2, 0, None, 2])
-   dictionary = pa.array(['foo', 'bar', 'baz'])
-
-   dict_array = pa.DictionaryArray.from_arrays(indices, dictionary)
-   dict_array
+   >>> indices = pa.array([0, 1, 0, 1, 2, 0, None, 2])
+   >>> dictionary = pa.array(['foo', 'bar', 'baz'])
+   >>>
+   >>> dict_array = pa.DictionaryArray.from_arrays(indices, dictionary)
+   >>> dict_array
+   <pyarrow.lib.DictionaryArray object at ...>
+   ...
+   -- dictionary:
+     [
+       "foo",
+       "bar",
+       "baz"
+     ]
+   -- indices:
+     [
+       0,
+       1,
+       0,
+       1,
+       2,
+       0,
+       null,
+       2
+     ]
 
 Here we have:
 
-.. ipython:: python
+.. code-block:: python
 
-   print(dict_array.type)
-   dict_array.indices
-   dict_array.dictionary
+   >>> print(dict_array.type)
+   dictionary<values=string, indices=int64, ordered=0>
+   >>> dict_array.indices
+   <pyarrow.lib.Int64Array object at ...>
+   [
+     0,
+     1,
+     0,
+     1,
+     2,
+     0,
+     null,
+     2
+   ]
+   >>> dict_array.dictionary
+   <pyarrow.lib.StringArray object at ...>
+   [
+     "foo",
+     "bar",
+     "baz"
+   ]
 
 When using :class:`~.DictionaryArray` with pandas, the analogue is
 ``pandas.Categorical`` (more on this later):
 
-.. ipython:: python
+.. code-block:: python
 
-   dict_array.to_pandas()
+   >>> dict_array.to_pandas()
+   0    foo
+   1    bar
+   2    foo
+   3    bar
+   4    baz
+   5    foo
+   6    NaN
+   7    baz
+   dtype: category
+   Categories (3, object): ['foo', 'bar', 'baz']
 
 .. _data.record_batch:
 
@@ -411,32 +694,50 @@ Record Batches
 A **Record Batch** in Apache Arrow is a collection of equal-length array
 instances. Let's consider a collection of arrays:
 
-.. ipython:: python
+.. code-block:: python
 
-   data = [
-       pa.array([1, 2, 3, 4]),
-       pa.array(['foo', 'bar', 'baz', None]),
-       pa.array([True, None, False, True])
-   ]
+   >>> data = [
+   ...     pa.array([1, 2, 3, 4]),
+   ...     pa.array(['foo', 'bar', 'baz', None]),
+   ...     pa.array([True, None, False, True])
+   ... ]
 
 A record batch can be created from this list of arrays using
 ``RecordBatch.from_arrays``:
 
-.. ipython:: python
+.. code-block:: python
 
-   batch = pa.RecordBatch.from_arrays(data, ['f0', 'f1', 'f2'])
-   batch.num_columns
-   batch.num_rows
-   batch.schema
-
-   batch[1]
+   >>> batch = pa.RecordBatch.from_arrays(data, ['f0', 'f1', 'f2'])
+   >>> batch.num_columns
+   3
+   >>> batch.num_rows
+   4
+   >>> batch.schema
+   f0: int64
+   f1: string
+   f2: bool
+   >>>
+   >>> batch[1]
+   <pyarrow.lib.StringArray object at ...>
+   [
+     "foo",
+     "bar",
+     "baz",
+     null
+   ]
 
 A record batch can be sliced without copying memory like an array:
 
-.. ipython:: python
+.. code-block:: python
 
-   batch2 = batch.slice(1, 3)
-   batch2[1]
+   >>> batch2 = batch.slice(1, 3)
+   >>> batch2[1]
+   <pyarrow.lib.StringArray object at ...>
+   [
+     "bar",
+     "baz",
+     null
+   ]
 
 .. _data.table:
 
@@ -453,40 +754,96 @@ object makes this efficient without requiring additional memory copying.
 Considering the record batch we created above, we can create a Table containing
 one or more copies of the batch using ``Table.from_batches``:
 
-.. ipython:: python
+.. code-block:: python
 
-   batches = [batch] * 5
-   table = pa.Table.from_batches(batches)
-   table
-   table.num_rows
+   >>> batches = [batch] * 5
+   >>> table = pa.Table.from_batches(batches)
+   >>> table
+   pyarrow.Table
+   f0: int64
+   f1: string
+   f2: bool
+   ----
+   f0: [[1,2,3,4],[1,2,3,4],...,[1,2,3,4],[1,2,3,4]]
+   f1: [["foo","bar","baz",null],...,["foo","bar","baz",null]]
+   f2: [[true,null,false,true],...,[true,null,false,true]]
+   >>> table.num_rows
+   20
 
 The table's columns are instances of :class:`~.ChunkedArray`, which is a
 container for one or more arrays of the same type.
 
-.. ipython:: python
+.. code-block:: python
 
-   c = table[0]
-   c
-   c.num_chunks
-   c.chunk(0)
+   >>> c = table[0]
+   >>> c
+   <pyarrow.lib.ChunkedArray object at ...>
+   [
+     [
+       1,
+       2,
+       3,
+       4
+     ],
+     ...
+     [
+       1,
+       2,
+       3,
+       4
+     ]
+   ]
+   >>> c.num_chunks
+   5
+   >>> c.chunk(0)
+   <pyarrow.lib.Int64Array object at ...>
+   [
+     1,
+     2,
+     3,
+     4
+   ]
 
 As you'll see in the :ref:`pandas section <pandas_interop>`, we can convert
 these objects to contiguous NumPy arrays for use in pandas:
 
-.. ipython:: python
+.. code-block:: python
 
-   c.to_pandas()
+   >>> c.to_pandas()
+   0     1
+   1     2
+   2     3
+   3     4
+   4     1
+   5     2
+   6     3
+   7     4
+   8     1
+   9     2
+   10    3
+   11    4
+   12    1
+   13    2
+   14    3
+   15    4
+   16    1
+   17    2
+   18    3
+   19    4
+   Name: f0, dtype: int64
 
 Multiple tables can also be concatenated together to form a single table using
 ``pyarrow.concat_tables``, if the schemas are equal:
 
-.. ipython:: python
+.. code-block:: python
 
-   tables = [table] * 2
-   table_all = pa.concat_tables(tables)
-   table_all.num_rows
-   c = table_all[0]
-   c.num_chunks
+   >>> tables = [table] * 2
+   >>> table_all = pa.concat_tables(tables)
+   >>> table_all.num_rows
+   40
+   >>> c = table_all[0]
+   >>> c.num_chunks
+   10
 
 This is similar to ``Table.from_batches``, but uses tables as input instead of
 record batches. Record batches can be made into tables, but not the other way
@@ -508,21 +865,23 @@ Note that this metadata is preserved in :ref:`ipc` processes.
 To customize the schema metadata of an existing table you can use
 :meth:`Table.replace_schema_metadata`:
 
-.. ipython:: python
+.. code-block:: python
 
-   table.schema.metadata # empty
-   table = table.replace_schema_metadata({"f0": "First dose"})
-   table.schema.metadata
+   >>> table.schema.metadata
+   >>> table = table.replace_schema_metadata({"f0": "First dose"})
+   >>> table.schema.metadata
+   {b'f0': b'First dose'}
 
 To customize the metadata of the field from the table schema you can use
 :meth:`Field.with_metadata`:
 
-.. ipython:: python
+.. code-block:: python
 
-   field_f1 = table.schema.field("f1")
-   field_f1.metadata # empty
-   field_f1 = field_f1.with_metadata({"f1": "Second dose"})
-   field_f1.metadata
+   >>> field_f1 = table.schema.field("f1")
+   >>> field_f1.metadata
+   >>> field_f1 = field_f1.with_metadata({"f1": "Second dose"})
+   >>> field_f1.metadata
+   {b'f1': b'Second dose'}
 
 Both options create a shallow copy of the data and do not in fact change the
 Schema which is immutable. To change the metadata in the schema of the table
@@ -531,17 +890,20 @@ we created a new object when calling :meth:`Table.replace_schema_metadata`.
 To change the metadata of the field in the schema we would need to define
 a new schema and cast the data to this schema:
 
-.. ipython:: python
+.. code-block:: python
 
-   my_schema2 = pa.schema([
-      pa.field('f0', pa.int64(), metadata={"name": "First dose"}),
-      pa.field('f1', pa.string(), metadata={"name": "Second dose"}),
-      pa.field('f2', pa.bool_())],
-      metadata={"f2": "booster"})
-   t2 = table.cast(my_schema2)
-   t2.schema.field("f0").metadata
-   t2.schema.field("f1").metadata
-   t2.schema.metadata
+   >>> my_schema2 = pa.schema([
+   ...    pa.field('f0', pa.int64(), metadata={"name": "First dose"}),
+   ...    pa.field('f1', pa.string(), metadata={"name": "Second dose"}),
+   ...    pa.field('f2', pa.bool_())],
+   ...    metadata={"f2": "booster"})
+   >>> t2 = table.cast(my_schema2)
+   >>> t2.schema.field("f0").metadata
+   {b'name': b'First dose'}
+   >>> t2.schema.field("f1").metadata
+   {b'name': b'Second dose'}
+   >>> t2.schema.metadata
+   {b'f2': b'booster'}
 
 Metadata key and value pairs are ``std::string`` objects in the C++ implementation
 and so they are bytes objects (``b'...'``) in Python.
@@ -553,20 +915,25 @@ Many functions in PyArrow either return or take as an argument a :class:`RecordB
 It can be used like any iterable of record batches, but also provides their common
 schema without having to get any of the batches.::
 
+.. code-block:: python
+
    >>> schema = pa.schema([('x', pa.int64())])
    >>> def iter_record_batches():
    ...    for i in range(2):
    ...       yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
    >>> reader = pa.RecordBatchReader.from_batches(schema, iter_record_batches())
    >>> print(reader.schema)
-   pyarrow.Schema
    x: int64
    >>> for batch in reader:
    ...    print(batch)
    pyarrow.RecordBatch
    x: int64
+   ----
+   x: [1,2,3]
    pyarrow.RecordBatch
    x: int64
+   ----
+   x: [1,2,3]
 
 It can also be sent between languages using the :ref:`C stream interface <c-stream-interface>`.
 
@@ -584,31 +951,33 @@ to efficiently convert tabular columnar data into a tensor.
 Data types supported in this conversion are unsigned, signed integer and float
 types. Currently only column-major conversion is supported.
 
-   >>>  import pyarrow as pa
-   >>>  arr1 = [1, 2, 3, 4, 5]
-   >>>  arr2 = [10, 20, 30, 40, 50]
-   >>>  batch = pa.RecordBatch.from_arrays(
+.. code-block:: python
+
+   >>> arr1 = [1, 2, 3, 4, 5]
+   >>> arr2 = [10, 20, 30, 40, 50]
+   >>> batch = pa.RecordBatch.from_arrays(
    ...      [
    ...          pa.array(arr1, type=pa.uint16()),
    ...          pa.array(arr2, type=pa.int16()),
    ...      ], ["a", "b"]
    ...  )
-   >>>  batch.to_tensor()
+   >>> batch.to_tensor()
    <pyarrow.Tensor>
    type: int32
-   shape: (9, 2)
-   strides: (4, 36)
-   >>>  batch.to_tensor().to_numpy()
+   shape: (5, 2)
+   strides: (8, 4)
+   >>> batch.to_tensor().to_numpy()
    array([[ 1, 10],
-         [ 2, 20],
-         [ 3, 30],
-         [ 4, 40],
-         [ 5, 50]], dtype=int32)
+          [ 2, 20],
+          [ 3, 30],
+          [ 4, 40],
+          [ 5, 50]], dtype=int32)
 
 With ``null_to_nan`` set to ``True`` one can also convert data with
 nulls. They will be converted to ``NaN``:
 
-   >>> import pyarrow as pa
+.. code-block:: python
+
    >>> batch = pa.record_batch(
    ...     [
    ...         pa.array([1, 2, 3, 4, None], type=pa.int32()),
@@ -617,7 +986,7 @@ nulls. They will be converted to ``NaN``:
    ... )
    >>> batch.to_tensor(null_to_nan=True).to_numpy()
    array([[ 1., 10.],
-         [ 2., 20.],
-         [ 3., 30.],
-         [ 4., 40.],
-         [nan, nan]])
+          [ 2., 20.],
+          [ 3., 30.],
+          [ 4., 40.],
+          [nan, nan]])
