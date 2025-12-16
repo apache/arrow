@@ -4232,12 +4232,12 @@ def test_write_dataset(tempdir):
     expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
-    # TODO
-    # # relative path
-    # target = tempdir / 'single-file-target3'
-    # expected_files = [target / "part-0.ipc"]
-    # _check_dataset_roundtrip(
-    #     dataset, './single-file-target3', expected_files, target)
+    # relative path
+    target = tempdir / 'single-file-target3'
+    expected_files = [target / "part-0.arrow"]
+    with change_cwd(tempdir):
+        _check_dataset_roundtrip(
+            dataset, './single-file-target3', expected_files, 'a', target)
 
     # Directory of files
     directory = tempdir / 'single-directory'
