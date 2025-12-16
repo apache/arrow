@@ -20,6 +20,8 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/executor.hpp>
 
+#include <arrow/util/thread_pool.h>
+
 G_BEGIN_DECLS
 
 /**
@@ -33,10 +35,10 @@ G_BEGIN_DECLS
  * #GArrowThreadPool is a class for thread pool management.
  */
 
-typedef struct GArrowExecutorPrivate_
+struct GArrowExecutorPrivate
 {
-  arrow::internal::Executor *executor;
-} GArrowExecutorPrivate;
+  std::shared_ptr<arrow::internal::Executor> executor;
+};
 
 G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExecutor, garrow_executor, G_TYPE_OBJECT)
 
@@ -44,59 +46,37 @@ G_DEFINE_ABSTRACT_TYPE_WITH_PRIVATE(GArrowExecutor, garrow_executor, G_TYPE_OBJE
   static_cast<GArrowExecutorPrivate *>(                                                  \
     garrow_executor_get_instance_private(GARROW_EXECUTOR(obj)))
 
+enum {
+  PROP_EXECUTOR = 1,
+};
+
 static void
 garrow_executor_init(GArrowExecutor *object)
 {
   auto priv = GARROW_EXECUTOR_GET_PRIVATE(object);
-  priv->executor = nullptr;
+  new (&priv->executor) std::shared_ptr<arrow::internal::Executor>;
 }
 
 static void
-garrow_executor_class_init(GArrowExecutorClass *klass)
+garrow_executor_finalize(GObject *object)
 {
-}
-
-typedef struct GArrowThreadPoolPrivate_
-{
-  std::shared_ptr<arrow::internal::ThreadPool> thread_pool;
-} GArrowThreadPoolPrivate;
-
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowThreadPool, garrow_thread_pool, GARROW_TYPE_EXECUTOR)
-
-#define GARROW_THREAD_POOL_GET_PRIVATE(obj)                                              \
-  static_cast<GArrowThreadPoolPrivate *>(                                                \
-    garrow_thread_pool_get_instance_private(GARROW_THREAD_POOL(obj)))
-
-enum {
-  PROP_THREAD_POOL = 1,
-};
-
-static void
-garrow_thread_pool_finalize(GObject *object)
-{
-  auto priv = GARROW_THREAD_POOL_GET_PRIVATE(object);
-  priv->thread_pool.~shared_ptr();
-  G_OBJECT_CLASS(garrow_thread_pool_parent_class)->finalize(object);
+  auto priv = GARROW_EXECUTOR_GET_PRIVATE(object);
+  priv->executor.~shared_ptr();
+  G_OBJECT_CLASS(garrow_executor_parent_class)->finalize(object);
 }
 
 static void
-garrow_thread_pool_set_property(GObject *object,
-                                guint prop_id,
-                                const GValue *value,
-                                GParamSpec *pspec)
+garrow_executor_set_property(GObject *object,
+                             guint prop_id,
+                             const GValue *value,
+                             GParamSpec *pspec)
 {
-  auto priv = GARROW_THREAD_POOL_GET_PRIVATE(object);
-  auto executor_priv = GARROW_EXECUTOR_GET_PRIVATE(GARROW_EXECUTOR(object));
+  auto priv = GARROW_EXECUTOR_GET_PRIVATE(GARROW_EXECUTOR(object));
 
   switch (prop_id) {
-  case PROP_THREAD_POOL:
-    priv->thread_pool = *static_cast<std::shared_ptr<arrow::internal::ThreadPool> *>(
+  case PROP_EXECUTOR:
+    priv->executor = *static_cast<std::shared_ptr<arrow::internal::Executor> *>(
       g_value_get_pointer(value));
-    if (priv->thread_pool) {
-      executor_priv->executor = priv->thread_pool.get();
-    } else {
-      executor_priv->executor = nullptr;
-    }
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -105,29 +85,32 @@ garrow_thread_pool_set_property(GObject *object,
 }
 
 static void
+garrow_executor_class_init(GArrowExecutorClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = garrow_executor_finalize;
+  gobject_class->set_property = garrow_executor_set_property;
+
+  GParamSpec *spec;
+  spec = g_param_spec_pointer(
+    "executor",
+    "Executor",
+    "The raw std::shared_ptr<arrow::internal::Executor> *",
+    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_EXECUTOR, spec);
+}
+
+G_DEFINE_TYPE(GArrowThreadPool, garrow_thread_pool, GARROW_TYPE_EXECUTOR)
+
+static void
 garrow_thread_pool_init(GArrowThreadPool *object)
 {
-  auto priv = GARROW_THREAD_POOL_GET_PRIVATE(object);
-  new (&priv->thread_pool) std::shared_ptr<arrow::internal::ThreadPool>;
-  auto executor_priv = GARROW_EXECUTOR_GET_PRIVATE(GARROW_EXECUTOR(object));
-  executor_priv->executor = nullptr;
 }
 
 static void
 garrow_thread_pool_class_init(GArrowThreadPoolClass *klass)
 {
-  auto gobject_class = G_OBJECT_CLASS(klass);
-
-  gobject_class->finalize = garrow_thread_pool_finalize;
-  gobject_class->set_property = garrow_thread_pool_set_property;
-
-  GParamSpec *spec;
-  spec = g_param_spec_pointer(
-    "thread-pool",
-    "Thread pool",
-    "The raw std::shared_ptr<arrow::internal::ThreadPool> *",
-    static_cast<GParamFlags>(G_PARAM_WRITABLE | G_PARAM_CONSTRUCT_ONLY));
-  g_object_class_install_property(gobject_class, PROP_THREAD_POOL, spec);
 }
 
 /**
@@ -147,16 +130,16 @@ garrow_thread_pool_new(guint n_threads, GError **error)
   if (garrow::check(error, arrow_thread_pool_result, "[thread-pool][new]")) {
     auto arrow_thread_pool = *arrow_thread_pool_result;
     auto thread_pool = GARROW_THREAD_POOL(
-      g_object_new(GARROW_TYPE_THREAD_POOL, "thread-pool", &arrow_thread_pool, nullptr));
+      g_object_new(GARROW_TYPE_THREAD_POOL, "executor", &arrow_thread_pool, nullptr));
     return thread_pool;
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 
 G_END_DECLS
 
-arrow::internal::Executor *
+std::shared_ptr<arrow::internal::Executor>
 garrow_executor_get_raw(GArrowExecutor *executor)
 {
   if (!executor)
@@ -164,14 +147,4 @@ garrow_executor_get_raw(GArrowExecutor *executor)
 
   auto priv = GARROW_EXECUTOR_GET_PRIVATE(executor);
   return priv->executor;
-}
-
-std::shared_ptr<arrow::internal::ThreadPool>
-garrow_thread_pool_get_raw(GArrowThreadPool *thread_pool)
-{
-  if (!thread_pool)
-    return nullptr;
-
-  auto priv = GARROW_THREAD_POOL_GET_PRIVATE(thread_pool);
-  return priv->thread_pool;
 }

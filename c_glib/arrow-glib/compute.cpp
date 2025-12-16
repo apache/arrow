@@ -312,7 +312,7 @@ garrow_execute_context_set_property(GObject *object,
       auto arrow_executor = garrow_executor_get_raw(executor);
       priv->context =
         std::make_shared<arrow::compute::ExecContext>(arrow::default_memory_pool(),
-                                                      arrow_executor);
+                                                      arrow_executor.get());
       break;
     }
   default:
