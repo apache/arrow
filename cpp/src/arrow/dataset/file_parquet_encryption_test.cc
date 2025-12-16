@@ -83,8 +83,8 @@ const auto kAllParamValues = ::testing::Values(
     EncryptionTestParam{false, true, true}, EncryptionTestParam{true, true, true});
 
 // Base class to test writing and reading encrypted dataset.
-template <typename T, typename = typename std::enable_if<
-                          std::is_base_of<EncryptionTestParam, T>::value>::type>
+template <typename T, typename = typename std::enable_if_t<
+                          std::is_base_of_v<EncryptionTestParam, T>>>
 class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
  public:
 #ifdef ARROW_VALGRIND

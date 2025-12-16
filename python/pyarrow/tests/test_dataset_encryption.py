@@ -91,7 +91,7 @@ def create_decryption_config():
 def create_kms_connection_config(keys):
     return pe.KmsConnectionConfig(
         custom_kms_conf={
-            key_name: key.decode("UTF-8") if isinstance(key, bytes) else key
+            key_name: key.decode("UTF-8")
             for key_name, key in keys.items()
         }
     )
