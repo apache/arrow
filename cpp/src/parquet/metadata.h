@@ -151,10 +151,12 @@ class PARQUET_EXPORT ColumnChunkMetaData {
   bool has_dictionary_page() const;
   int64_t dictionary_page_offset() const;
   int64_t data_page_offset() const;
+  int64_t start_offset() const;
   bool has_index_page() const;
   int64_t index_page_offset() const;
   int64_t total_compressed_size() const;
   int64_t total_uncompressed_size() const;
+  bool is_encrypted() const;
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const;
   std::optional<IndexLocation> GetColumnIndexLocation() const;
   std::optional<IndexLocation> GetOffsetIndexLocation() const;
@@ -485,6 +487,7 @@ class PARQUET_EXPORT RowGroupMetaDataBuilder {
   ~RowGroupMetaDataBuilder();
 
   ColumnChunkMetaDataBuilder* NextColumnChunk();
+  void NextColumnChunk(std::unique_ptr<ColumnChunkMetaData> cc_metadata, int64_t shift);
   int num_columns();
   int64_t num_rows();
   int current_column() const;

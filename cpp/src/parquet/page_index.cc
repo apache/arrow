@@ -31,6 +31,7 @@
 #include "arrow/util/unreachable.h"
 
 #include <limits>
+#include <memory>
 #include <numeric>
 
 namespace parquet {
@@ -770,6 +771,11 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     column_index_builders_.back().resize(num_columns);
     offset_index_builders_.back().resize(num_columns);
 
+    column_indices_.emplace_back();
+    offset_indices_.emplace_back();
+    column_indices_.back().resize(num_columns);
+    offset_indices_.back().resize(num_columns);
+
     DCHECK_EQ(column_index_builders_.size(), offset_index_builders_.size());
     DCHECK_EQ(column_index_builders_.back().size(), num_columns);
     DCHECK_EQ(offset_index_builders_.back().size(), num_columns);
@@ -793,6 +799,23 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     return builder.get();
   }
 
+  void SetColumnIndex(int32_t i,
+                      const std::shared_ptr<ColumnIndex>& column_index) override {
+    CheckState(i);
+    column_indices_.back()[i] =
+        std::make_unique<format::ColumnIndex>(ToThrift(*column_index));
+  }
+
+  void SetOffsetIndex(int32_t i, const std::shared_ptr<OffsetIndex>& offset_index,
+                      int64_t shift) override {
+    CheckState(i);
+    auto index = std::make_unique<format::OffsetIndex>(ToThrift(*offset_index));
+    for (auto& page_location : index->page_locations) {
+      page_location.__set_offset(page_location.offset + shift);
+    }
+    offset_indices_.back()[i] = std::move(index);
+  }
+
   void Finish() override { finished_ = true; }
 
   WriteResult WriteTo(::arrow::io::OutputStream* sink) const override {
@@ -803,10 +826,12 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     WriteResult result;
 
     // Serialize column index ordered by row group ordinal and then column ordinal.
-    result.column_index_locations = SerializeIndex(column_index_builders_, sink);
+    result.column_index_locations =
+        SerializeIndex(column_index_builders_, column_indices_, sink);
 
     // Serialize offset index ordered by row group ordinal and then column ordinal.
-    result.offset_index_locations = SerializeIndex(offset_index_builders_, sink);
+    result.offset_index_locations =
+        SerializeIndex(offset_index_builders_, offset_indices_, sink);
 
     return result;
   }
@@ -841,9 +866,12 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
     return encryptor;
   }
 
-  template <typename Builder>
+  template <typename Builder,
+            typename Index = std::pointer_traits<
+                decltype(std::declval<Builder>().Build())>::element_type>
   IndexLocations SerializeIndex(
       const std::vector<std::vector<std::unique_ptr<Builder>>>& page_index_builders,
+      const std::vector<std::vector<std::unique_ptr<Index>>>& page_indices,
       ::arrow::io::OutputStream* sink) const {
     IndexLocations locations;
 
@@ -854,20 +882,28 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
 
     // Serialize the same kind of page index row group by row group.
     for (size_t row_group = 0; row_group < page_index_builders.size(); ++row_group) {
+      const auto& row_group_page_indices = page_indices[row_group];
+      DCHECK_EQ(row_group_page_indices.size(), num_columns);
+
       const auto& row_group_page_index_builders = page_index_builders[row_group];
       DCHECK_EQ(row_group_page_index_builders.size(), num_columns);
 
       // In the same row group, serialize the same kind of page index column by column.
       for (size_t column = 0; column < num_columns; ++column) {
+        const auto& column_page_index = row_group_page_indices[column];
         const auto& column_page_index_builder = row_group_page_index_builders[column];
-        if (column_page_index_builder != nullptr) {
+        if (column_page_index != nullptr || column_page_index_builder != nullptr) {
           /// Get encryptor if encryption is enabled.
           std::shared_ptr<Encryptor> encryptor = GetColumnMetaEncryptor(
               static_cast<int>(row_group), static_cast<int>(column), module_type);
 
           // Try serializing the page index.
           PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
-          column_page_index_builder->WriteTo(sink, encryptor.get());
+          if (column_page_index != nullptr) {
+            ThriftSerializer{}.Serialize(column_page_index.get(), sink, encryptor.get());
+          } else {
+            column_page_index_builder->WriteTo(sink, encryptor.get());
+          }
           PARQUET_ASSIGN_OR_THROW(int64_t pos_after_write, sink->Tell());
           int64_t len = pos_after_write - pos_before_write;
 
@@ -895,6 +931,8 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
   InternalFileEncryptor* file_encryptor_;
   std::vector<std::vector<std::unique_ptr<ColumnIndexBuilder>>> column_index_builders_;
   std::vector<std::vector<std::unique_ptr<OffsetIndexBuilder>>> offset_index_builders_;
+  std::vector<std::vector<std::unique_ptr<format::ColumnIndex>>> column_indices_;
+  std::vector<std::vector<std::unique_ptr<format::OffsetIndex>>> offset_indices_;
   bool finished_ = false;
 };
 
