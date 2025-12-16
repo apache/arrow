@@ -81,7 +81,7 @@ class AlpWrapper {
   static uint64_t GetMaxCompressedSize(uint64_t decomp_size);
 
  private:
-  struct CompressionBlockHeader;
+  struct AlpHeader;
 
   /// \brief Tracks the progress of a compression operation
   ///
@@ -130,12 +130,12 @@ class AlpWrapper {
                                          const char* comp, size_t comp_size,
                                          AlpBitPackLayout bit_pack_layout);
 
-  /// \brief Load the CompressionBlockHeader from compressed data
+  /// \brief Load the AlpHeader from compressed data
   ///
   /// \param[in] comp the compressed buffer
   /// \param[in] comp_size the size of the compressed data
-  /// \return the CompressionBlockHeader from comp
-  static CompressionBlockHeader LoadHeader(const char* comp, size_t comp_size);
+  /// \return the AlpHeader from comp
+  static AlpHeader LoadHeader(const char* comp, size_t comp_size);
 };
 
 }  // namespace alp

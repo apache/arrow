@@ -33,7 +33,7 @@ namespace alp {
 namespace {
 
 // ----------------------------------------------------------------------
-// CompressionBlockHeader
+// AlpHeader
 
 /// \brief Header structure for ALP compression blocks
 ///
@@ -44,7 +44,7 @@ namespace {
 /// Serialization format (version 1):
 ///
 ///   +---------------------------------------------------+
-///   |  CompressionBlockHeader (8 bytes)                 |
+///   |  AlpHeader (8 bytes)                              |
 ///   +---------------------------------------------------+
 ///   |  Offset |  Field              |  Size             |
 ///   +---------+---------------------+-------------------+
@@ -57,7 +57,7 @@ namespace {
 ///
 /// \note version must remain the first field to allow reading the rest
 ///       of the header based on version number.
-struct CompressionBlockHeader {
+struct AlpHeader {
   /// Version number. Must remain the first field for version-based parsing.
   uint8_t version = 0;
   /// Compression mode (currently only kAlp is supported).
@@ -70,7 +70,7 @@ struct CompressionBlockHeader {
   /// Must be AlpConstants::kAlpVectorSize for decompression.
   uint32_t vector_size = 0;
 
-  /// \brief Get the size in bytes of the CompressionBlockHeader for a version
+  /// \brief Get the size in bytes of the AlpHeader for a version
   ///
   /// \param[in] v the version number
   /// \return the size in bytes
@@ -102,25 +102,25 @@ struct CompressionBlockHeader {
 }  // namespace
 
 // ----------------------------------------------------------------------
-// AlpWrapper::CompressionBlockHeader definition
+// AlpWrapper::AlpHeader definition
 
 template <typename T>
-struct AlpWrapper<T>::CompressionBlockHeader : public ::arrow::util::alp::CompressionBlockHeader {
+struct AlpWrapper<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
 };
 
 // ----------------------------------------------------------------------
 // AlpWrapper implementation
 
 template <typename T>
-typename AlpWrapper<T>::CompressionBlockHeader AlpWrapper<T>::LoadHeader(
+typename AlpWrapper<T>::AlpHeader AlpWrapper<T>::LoadHeader(
     const char* comp, size_t comp_size) {
   ARROW_CHECK(comp_size >= 1) << "alp_loadHeader_compSize_too_small_for_version";
   uint8_t version;
   std::memcpy(&version, comp, sizeof(version));
-  CompressionBlockHeader::IsValidVersion(version);
-  const size_t header_size = CompressionBlockHeader::GetSizeForVersion(version);
+  AlpHeader::IsValidVersion(version);
+  const size_t header_size = AlpHeader::GetSizeForVersion(version);
   ARROW_CHECK(comp_size >= header_size) << "alp_loadHeader_compSize_too_small";
-  CompressionBlockHeader header{};
+  AlpHeader header{};
   std::memcpy(&header, comp, header_size);
   return header;
 }
@@ -131,7 +131,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
   const uint8_t version =
-      CompressionBlockHeader::IsValidVersion(AlpConstants::kAlpVersion);
+      AlpHeader::IsValidVersion(AlpConstants::kAlpVersion);
 
   AlpSampler<T> sampler;
   sampler.AddSample({decomp, element_count});
@@ -139,7 +139,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
   // Make room to store header afterwards.
   char* encoded_header = comp;
-  const size_t header_size = CompressionBlockHeader::GetSizeForVersion(version);
+  const size_t header_size = AlpHeader::GetSizeForVersion(version);
   comp += header_size;
   const uint64_t remaining_compressed_size = *comp_size - header_size;
 
@@ -147,7 +147,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
       EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
                 sampling_result.alp_preset);
 
-  CompressionBlockHeader header{};
+  AlpHeader header{};
   header.version = version;
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   header.bit_pack_layout = static_cast<uint8_t>(AlpBitPackLayout::kNormal);
@@ -161,11 +161,11 @@ template <typename T>
 template <typename TargetType>
 void AlpWrapper<T>::Decode(TargetType* decomp, uint64_t num_elements, const char* comp,
                            size_t comp_size) {
-  const CompressionBlockHeader header = LoadHeader(comp, comp_size);
+  const AlpHeader header = LoadHeader(comp, comp_size);
   ARROW_CHECK(header.vector_size == AlpConstants::kAlpVectorSize)
       << "unsupported_vector_size: " << header.vector_size;
 
-  const size_t header_size = CompressionBlockHeader::GetSizeForVersion(header.version);
+  const size_t header_size = AlpHeader::GetSizeForVersion(header.version);
   const char* compression_body = comp + header_size;
   const uint64_t compression_body_size = comp_size - header_size;
 
@@ -189,8 +189,8 @@ uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
       << "alp_decompressed_size_not_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
   const uint8_t version =
-      CompressionBlockHeader::IsValidVersion(AlpConstants::kAlpVersion);
-  uint64_t max_alp_size = CompressionBlockHeader::GetSizeForVersion(version);
+      AlpHeader::IsValidVersion(AlpConstants::kAlpVersion);
+  uint64_t max_alp_size = AlpHeader::GetSizeForVersion(version);
   // Add per-vector header sizes.
   max_alp_size +=
       sizeof(AlpEncodedVectorInfo) *
