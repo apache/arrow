@@ -214,22 +214,12 @@ do_bundled_build () {
     if [ "${PKG_CONFIG_AVAILABLE}" = "true" ]; then
       # Use pkg-config to do static linking of libarrow's dependencies
       export PKG_CONFIG_PATH="${LIB_DIR}/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}"
-      # pkg-config on CentOS 7 doesn't have --define-prefix option.
-      if ${PKG_CONFIG} --help | grep -- --define-prefix >/dev/null 2>&1; then
-        # --define-prefix is for binary packages. Binary packages
-        # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
-        # match the extracted path. --define-prefix uses a directory
-        # that arrow.pc exists as its prefix instead of
-        # "/arrow/r/libarrow/dist".
-        PKG_CONFIG="${PKG_CONFIG} --define-prefix"
-      else
-        # Rewrite prefix= in arrow.pc on CentOS 7.
-        sed \
-          -i.bak \
-          -e "s,prefix=/arrow/r/libarrow/dist,prefix=${LIB_DIR}/..,g" \
-          ${LIB_DIR}/pkgconfig/*.pc
-        rm -f ${LIB_DIR}/pkgconfig/*.pc.bak
-      fi
+      # --define-prefix is for binary packages. Binary packages
+      # uses "/arrow/r/libarrow/dist" as prefix but it doesn't
+      # match the extracted path. --define-prefix uses a directory
+      # that arrow.pc exists as its prefix instead of
+      # "/arrow/r/libarrow/dist".
+      PKG_CONFIG="${PKG_CONFIG} --define-prefix"
     fi
   else
     # If the library directory does not exist, the script must not have been successful
