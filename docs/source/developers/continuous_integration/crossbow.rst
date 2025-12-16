@@ -108,7 +108,7 @@ to step 3:
 
    or pass as an argument to the CLI script ``--github-token``
 
-6. Install Python (minimum supported version is 3.9):
+6. Install Python (minimum supported version is 3.10):
 
    | Miniconda is preferred, see installation instructions:
    | https://conda.io/docs/user-guide/install/index.html

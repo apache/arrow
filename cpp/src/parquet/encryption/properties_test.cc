@@ -25,13 +25,19 @@
 namespace parquet::encryption::test {
 
 TEST(TestColumnEncryptionProperties, ColumnEncryptedWithOwnKey) {
-  std::string column_path_1 = "column_1";
-  ColumnEncryptionProperties::Builder column_builder_1(column_path_1);
+  ColumnEncryptionProperties::Builder column_builder_1;
   column_builder_1.key(kColumnEncryptionKey1);
   column_builder_1.key_id("kc1");
   std::shared_ptr<ColumnEncryptionProperties> column_props_1 = column_builder_1.build();
 
-  ASSERT_EQ(column_path_1, column_props_1->column_path());
+  ASSERT_EQ(true, column_props_1->is_encrypted());
+  ASSERT_EQ(false, column_props_1->is_encrypted_with_footer_key());
+  ASSERT_EQ(kColumnEncryptionKey1, column_props_1->key());
+  ASSERT_EQ("kc1", column_props_1->key_metadata());
+
+  // Same with shorthand API
+  column_props_1 =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
   ASSERT_EQ(true, column_props_1->is_encrypted());
   ASSERT_EQ(false, column_props_1->is_encrypted_with_footer_key());
   ASSERT_EQ(kColumnEncryptionKey1, column_props_1->key());
@@ -39,13 +45,24 @@ TEST(TestColumnEncryptionProperties, ColumnEncryptedWithOwnKey) {
 }
 
 TEST(TestColumnEncryptionProperties, ColumnEncryptedWithFooterKey) {
-  std::string column_path_1 = "column_1";
-  ColumnEncryptionProperties::Builder column_builder_1(column_path_1);
+  ColumnEncryptionProperties::Builder column_builder_1;
   std::shared_ptr<ColumnEncryptionProperties> column_props_1 = column_builder_1.build();
 
-  ASSERT_EQ(column_path_1, column_props_1->column_path());
   ASSERT_EQ(true, column_props_1->is_encrypted());
   ASSERT_EQ(true, column_props_1->is_encrypted_with_footer_key());
+
+  // Same with shorthand API
+  column_props_1 = ColumnEncryptionProperties::WithFooterKey();
+  ASSERT_EQ(true, column_props_1->is_encrypted());
+  ASSERT_EQ(true, column_props_1->is_encrypted_with_footer_key());
+}
+
+TEST(TestColumnEncryptionProperties, UnencryptedColumn) {
+  ColumnEncryptionProperties::Builder column_builder_1;
+
+  auto column_props_1 = ColumnEncryptionProperties::Unencrypted();
+  ASSERT_EQ(false, column_props_1->is_encrypted());
+  ASSERT_EQ(false, column_props_1->is_encrypted_with_footer_key());
 }
 
 // Encrypt all columns and the footer with the same key.
@@ -74,19 +91,14 @@ TEST(TestEncryptionProperties, UniformEncryption) {
 TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("column_1");
-  ColumnEncryptionProperties::Builder column_builder_1(column_path_1->ToDotString());
-  column_builder_1.key(kColumnEncryptionKey1);
-  column_builder_1.key_id("kc1");
-
   std::shared_ptr<parquet::schema::ColumnPath> column_path_2 =
       parquet::schema::ColumnPath::FromDotString("column_2");
-  ColumnEncryptionProperties::Builder column_builder_2(column_path_2->ToDotString());
-  column_builder_2.key(kColumnEncryptionKey2);
-  column_builder_2.key_id("kc2");
 
   std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encrypted_columns;
-  encrypted_columns[column_path_1->ToDotString()] = column_builder_1.build();
-  encrypted_columns[column_path_2->ToDotString()] = column_builder_2.build();
+  encrypted_columns[column_path_1->ToDotString()] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encrypted_columns[column_path_2->ToDotString()] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2, "kc2");
 
   FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.footer_key_metadata("kf");
@@ -100,7 +112,6 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
   std::shared_ptr<ColumnEncryptionProperties> out_col_props_1 =
       props->column_encryption_properties(column_path_1->ToDotString());
 
-  ASSERT_EQ(column_path_1->ToDotString(), out_col_props_1->column_path());
   ASSERT_EQ(true, out_col_props_1->is_encrypted());
   ASSERT_EQ(false, out_col_props_1->is_encrypted_with_footer_key());
   ASSERT_EQ(kColumnEncryptionKey1, out_col_props_1->key());
@@ -109,7 +120,6 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
   std::shared_ptr<ColumnEncryptionProperties> out_col_props_2 =
       props->column_encryption_properties(column_path_2->ToDotString());
 
-  ASSERT_EQ(column_path_2->ToDotString(), out_col_props_2->column_path());
   ASSERT_EQ(true, out_col_props_2->is_encrypted());
   ASSERT_EQ(false, out_col_props_2->is_encrypted_with_footer_key());
   ASSERT_EQ(kColumnEncryptionKey2, out_col_props_2->key());
@@ -128,19 +138,14 @@ TEST(TestEncryptionProperties, EncryptFooterAndTwoColumns) {
 TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   std::shared_ptr<parquet::schema::ColumnPath> column_path_1 =
       parquet::schema::ColumnPath::FromDotString("column_1");
-  ColumnEncryptionProperties::Builder column_builder_1(*column_path_1);
-  column_builder_1.key(kColumnEncryptionKey1);
-  column_builder_1.key_id("kc1");
-
   std::shared_ptr<parquet::schema::ColumnPath> column_path_2 =
       parquet::schema::ColumnPath::FromDotString("column_2");
-  ColumnEncryptionProperties::Builder column_builder_2(*column_path_2);
-  column_builder_2.key(kColumnEncryptionKey2);
-  column_builder_2.key_id("kc2");
 
   std::map<std::string, std::shared_ptr<ColumnEncryptionProperties>> encrypted_columns;
-  encrypted_columns[column_path_1->ToDotString()] = column_builder_1.build();
-  encrypted_columns[column_path_2->ToDotString()] = column_builder_2.build();
+  encrypted_columns[column_path_1->ToDotString()] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+  encrypted_columns[column_path_2->ToDotString()] =
+      ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2, "kc2");
 
   FileEncryptionProperties::Builder builder(kFooterEncryptionKey);
   builder.footer_key_metadata("kf");
@@ -155,7 +160,6 @@ TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   std::shared_ptr<ColumnEncryptionProperties> out_col_props_1 =
       props->column_encryption_properties(column_path_1->ToDotString());
 
-  ASSERT_EQ(column_path_1->ToDotString(), out_col_props_1->column_path());
   ASSERT_EQ(true, out_col_props_1->is_encrypted());
   ASSERT_EQ(false, out_col_props_1->is_encrypted_with_footer_key());
   ASSERT_EQ(kColumnEncryptionKey1, out_col_props_1->key());
@@ -164,7 +168,6 @@ TEST(TestEncryptionProperties, EncryptTwoColumnsNotFooter) {
   std::shared_ptr<ColumnEncryptionProperties> out_col_props_2 =
       props->column_encryption_properties(column_path_2->ToDotString());
 
-  ASSERT_EQ(column_path_2->ToDotString(), out_col_props_2->column_path());
   ASSERT_EQ(true, out_col_props_2->is_encrypted());
   ASSERT_EQ(false, out_col_props_2->is_encrypted_with_footer_key());
   ASSERT_EQ(kColumnEncryptionKey2, out_col_props_2->key());

@@ -272,8 +272,8 @@ inline uint64_t CompareSelected8_avx2(const uint8_t* left_base, const uint8_t* r
       ARROW_DCHECK(false);
   }
 
-  __m128i right_lo = _mm256_i64gather_epi32((int const*)right_base, offset_right_lo, 1);
-  __m128i right_hi = _mm256_i64gather_epi32((int const*)right_base, offset_right_hi, 1);
+  __m128i right_lo = _mm256_i64gather_epi32((const int*)right_base, offset_right_lo, 1);
+  __m128i right_hi = _mm256_i64gather_epi32((const int*)right_base, offset_right_hi, 1);
   __m256i right = _mm256_set_m128i(right_hi, right_lo);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;
@@ -318,8 +318,8 @@ inline uint64_t Compare8_avx2(const uint8_t* left_base, const uint8_t* right_bas
       ARROW_DCHECK(false);
   }
 
-  __m128i right_lo = _mm256_i64gather_epi32((int const*)right_base, offset_right_lo, 1);
-  __m128i right_hi = _mm256_i64gather_epi32((int const*)right_base, offset_right_hi, 1);
+  __m128i right_lo = _mm256_i64gather_epi32((const int*)right_base, offset_right_lo, 1);
+  __m128i right_hi = _mm256_i64gather_epi32((const int*)right_base, offset_right_hi, 1);
   __m256i right = _mm256_set_m128i(right_hi, right_lo);
   if (column_width != sizeof(uint32_t)) {
     constexpr uint32_t mask = column_width == 0 || column_width == 1 ? 0xff : 0xffff;

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("C++ expressions", {
   skip_if_not_available("dataset")
   f <- Expression$field_ref("f")

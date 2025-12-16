@@ -880,7 +880,7 @@ each value. Its physical layout is as follows:
 * One child array for each type
 * Types buffer: A buffer of 8-bit signed integers. Each type in the
   union has a corresponding type id whose values are found in this
-  buffer. A union with more than 127 possible types can be modeled as
+  buffer. A union with more than 128 possible types can be modeled as
   a union of unions.
 * Offsets buffer: A buffer of signed Int32 values indicating the
   relative offset into the respective child array for the type in a

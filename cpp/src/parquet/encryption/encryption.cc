@@ -178,16 +178,12 @@ FileEncryptionProperties::Builder::disable_aad_prefix_storage() {
   return this;
 }
 
-ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
-                                                       std::string column_path,
-                                                       SecureString key,
+ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted, SecureString key,
                                                        std::string key_metadata)
-    : column_path_(std::move(column_path)),
-      encrypted_(encrypted),
+    : encrypted_(encrypted),
       encrypted_with_footer_key_(encrypted && key.empty()),
       key_(std::move(key)),
       key_metadata_(std::move(key_metadata)) {
-  DCHECK(!column_path_.empty());
   if (!encrypted) {
     DCHECK(key_.empty() && key_metadata_.empty());
   }
@@ -197,6 +193,22 @@ ColumnEncryptionProperties::ColumnEncryptionProperties(bool encrypted,
   if (encrypted_with_footer_key_) {
     DCHECK(key_metadata_.empty());
   }
+}
+
+std::shared_ptr<ColumnEncryptionProperties> ColumnEncryptionProperties::Unencrypted() {
+  return std::shared_ptr<ColumnEncryptionProperties>(
+      new ColumnEncryptionProperties(/*encrypted=*/false, {}, {}));
+}
+
+std::shared_ptr<ColumnEncryptionProperties> ColumnEncryptionProperties::WithFooterKey() {
+  return std::shared_ptr<ColumnEncryptionProperties>(
+      new ColumnEncryptionProperties(/*encrypted=*/true, {}, {}));
+}
+
+std::shared_ptr<ColumnEncryptionProperties> ColumnEncryptionProperties::WithColumnKey(
+    ::arrow::util::SecureString key, std::string key_metadata) {
+  return std::shared_ptr<ColumnEncryptionProperties>(new ColumnEncryptionProperties(
+      /*encrypted=*/true, std::move(key), std::move(key_metadata)));
 }
 
 ColumnDecryptionProperties::ColumnDecryptionProperties(std::string column_path,
@@ -264,8 +276,7 @@ FileEncryptionProperties::Builder* FileEncryptionProperties::Builder::footer_key
 std::shared_ptr<ColumnEncryptionProperties>
 FileEncryptionProperties::column_encryption_properties(const std::string& column_path) {
   if (encrypted_columns_.size() == 0) {
-    auto builder = std::make_shared<ColumnEncryptionProperties::Builder>(column_path);
-    return builder->build();
+    return ColumnEncryptionProperties::WithFooterKey();
   }
   auto it = encrypted_columns_.find(column_path);
   if (it != encrypted_columns_.end()) {
@@ -303,7 +314,7 @@ FileEncryptionProperties::FileEncryptionProperties(
 
   uint8_t aad_file_unique[kAadFileUniqueLength];
   encryption::RandBytes(aad_file_unique, kAadFileUniqueLength);
-  std::string aad_file_unique_str(reinterpret_cast<char const*>(aad_file_unique),
+  std::string aad_file_unique_str(reinterpret_cast<const char*>(aad_file_unique),
                                   kAadFileUniqueLength);
 
   bool supply_aad_prefix = false;

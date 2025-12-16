@@ -669,7 +669,7 @@ Result<Datum> FromProto(const substrait::Expression::Literal& lit,
       for (int i = 0; i < map.key_values_size(); ++i) {
         const auto& kv = map.key_values(i);
 
-        static const std::array<char const*, 4> kMissing = {"key and value", "value",
+        static const std::array<const char*, 4> kMissing = {"key and value", "value",
                                                             "key", nullptr};
         if (auto missing = kMissing[kv.has_key() + kv.has_value() * 2]) {
           return Status::Invalid("While converting to MapScalar encountered missing ",

@@ -122,7 +122,7 @@ class ARROW_EXPORT RecordBatch {
   ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] check_metadata if true, the schema metadata will be compared,
-  ///            regardless of the value set in \ref EqualOptions::use_metadata_
+  ///            regardless of the value set in \ref EqualOptions::use_metadata
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are equal
   bool Equals(const RecordBatch& other, bool check_metadata = false,
@@ -381,8 +381,8 @@ class ARROW_EXPORT RecordBatchReader {
     using iterator_category = std::input_iterator_tag;
     using difference_type = std::ptrdiff_t;
     using value_type = std::shared_ptr<RecordBatch>;
-    using pointer = value_type const*;
-    using reference = value_type const&;
+    using pointer = const value_type*;
+    using reference = const value_type&;
 
     RecordBatchReaderIterator() : batch_(RecordBatchEnd()), reader_(NULLPTR) {}
 

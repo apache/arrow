@@ -56,7 +56,7 @@ if "%VERSION%"=="" (
 
 set ARROW_TEST_DATA=!ARROW_SOURCE!\testing\data
 set PARQUET_TEST_DATA=!ARROW_SOURCE!\cpp\submodules\parquet-testing\data
-set PYTHON=3.9
+set PYTHON=3.10
 
 @rem Using call with conda.bat seems necessary to avoid terminating the batch
 @rem script execution

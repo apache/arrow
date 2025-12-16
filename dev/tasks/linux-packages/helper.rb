@@ -72,13 +72,12 @@ module Helper
       raise "Failed to detect #{name} environment variable"
     end
 
-    def detect_repo
-      detect_env("REPO")
+    def github_repository
+      ENV["GITHUB_REPOSITORY"] || "apache/arrow"
     end
 
     def docker_image(os, architecture)
-      architecture ||= "amd64"
-      "#{detect_repo}:#{architecture}-#{os}-package-#{@package}"
+      "ghcr.io/#{github_repository}/package-#{super}"
     end
   end
 end

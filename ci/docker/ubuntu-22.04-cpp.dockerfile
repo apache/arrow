@@ -107,6 +107,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         nlohmann-json3-dev \
         npm \
+        patch \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
@@ -172,9 +173,6 @@ RUN /arrow/ci/scripts/install_minio.sh latest /usr/local
 
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_gcs_testbench.sh default
-
-COPY ci/scripts/install_azurite.sh /arrow/ci/scripts/
-RUN /arrow/ci/scripts/install_azurite.sh
 
 COPY ci/scripts/install_ceph.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_ceph.sh

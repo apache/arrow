@@ -96,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "22.0.0-SNAPSHOT")
+set(ARROW_VERSION "23.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -686,7 +686,7 @@ endif()
 # the first link library. It's for prioritizing bundled FlatBuffers
 # than system FlatBuffers.
 list(PREPEND ARROW_TEST_LINK_LIBS arrow::flatbuffers)
-list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+list(APPEND ARROW_TEST_LINK_LIBS ${ARROW_GTEST_GMOCK_MAIN})
 
 if(ARROW_BUILD_BENCHMARKS)
   set(ARROW_BENCHMARK_LINK_LIBS benchmark::benchmark_main ${ARROW_TEST_LINK_LIBS})

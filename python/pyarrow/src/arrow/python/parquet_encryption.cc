@@ -79,17 +79,32 @@ std::shared_ptr<::parquet::encryption::KmsClient> PyKmsClientFactory::CreateKmsC
 arrow::Result<std::shared_ptr<::parquet::FileEncryptionProperties>>
 PyCryptoFactory::SafeGetFileEncryptionProperties(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-    const ::parquet::encryption::EncryptionConfiguration& encryption_config) {
-  PARQUET_CATCH_AND_RETURN(
-      this->GetFileEncryptionProperties(kms_connection_config, encryption_config));
+    const ::parquet::encryption::EncryptionConfiguration& encryption_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& filesystem) {
+  PARQUET_CATCH_AND_RETURN(this->GetFileEncryptionProperties(
+      kms_connection_config, encryption_config, parquet_file_path, filesystem));
 }
 
 arrow::Result<std::shared_ptr<::parquet::FileDecryptionProperties>>
 PyCryptoFactory::SafeGetFileDecryptionProperties(
     const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
-    const ::parquet::encryption::DecryptionConfiguration& decryption_config) {
-  PARQUET_CATCH_AND_RETURN(
-      this->GetFileDecryptionProperties(kms_connection_config, decryption_config));
+    const ::parquet::encryption::DecryptionConfiguration& decryption_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& filesystem) {
+  PARQUET_CATCH_AND_RETURN(this->GetFileDecryptionProperties(
+      kms_connection_config, decryption_config, parquet_file_path, filesystem));
+}
+
+arrow::Status PyCryptoFactory::SafeRotateMasterKeys(
+    const ::parquet::encryption::KmsConnectionConfig& kms_connection_config,
+    const std::string& parquet_file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& filesystem, bool double_wrapping,
+    double cache_lifetime_seconds) {
+  PARQUET_CATCH_NOT_OK(this->RotateMasterKeys(kms_connection_config, parquet_file_path,
+                                              filesystem, double_wrapping,
+                                              cache_lifetime_seconds));
+  return arrow::Status::OK();
 }
 
 }  // namespace encryption

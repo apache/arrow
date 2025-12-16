@@ -1076,20 +1076,25 @@ const ArrayVector& StructArray::fields() const {
   return boxed_fields_;
 }
 
-const std::shared_ptr<Array>& StructArray::field(int i) const {
+std::shared_ptr<Array> StructArray::field(int i) const {
   std::shared_ptr<Array> result = std::atomic_load(&boxed_fields_[i]);
-  if (!result) {
-    std::shared_ptr<ArrayData> field_data;
-    if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
-      field_data = data_->child_data[i]->Slice(data_->offset, data_->length);
-    } else {
-      field_data = data_->child_data[i];
-    }
-    result = MakeArray(field_data);
-    std::atomic_store(&boxed_fields_[i], std::move(result));
-    return boxed_fields_[i];
+  if (result) {
+    return result;
   }
-  return boxed_fields_[i];
+  std::shared_ptr<ArrayData> field_data;
+  if (data_->offset != 0 || data_->child_data[i]->length != data_->length) {
+    field_data = data_->child_data[i]->Slice(data_->offset, data_->length);
+  } else {
+    field_data = data_->child_data[i];
+  }
+  result = MakeArray(field_data);
+  // Check if some other thread inserted the array in the meantime and return
+  // that in that case.
+  std::shared_ptr<Array> expected = nullptr;
+  if (!std::atomic_compare_exchange_strong(&boxed_fields_[i], &expected, result)) {
+    result = std::move(expected);
+  }
+  return result;
 }
 
 std::shared_ptr<Array> StructArray::GetFieldByName(const std::string& name) const {
@@ -1134,7 +1139,8 @@ Result<std::shared_ptr<Array>> StructArray::GetFlattenedField(int index,
   std::shared_ptr<Buffer> flattened_null_bitmap;
   int64_t flattened_null_count = kUnknownNullCount;
 
-  // Need to adjust for parent offset
+  // Push any non-trivial slicing on the parent to the child
+  // (including cases with offset = 0)
   if (data_->offset != 0 || data_->length != child_data->length) {
     child_data = child_data->Slice(data_->offset, data_->length);
   }

@@ -24,7 +24,9 @@ on:
       - '!dependabot/**'
     paths:
       - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
       - '.github/workflows/cpp_extra.yml'
+      - '.github/workflows/report_ci.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -35,7 +37,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
     tags:
@@ -43,7 +45,9 @@ on:
   pull_request:
     paths:
       - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
       - '.github/workflows/cpp_extra.yml'
+      - '.github/workflows/report_ci.yml'
       - 'ci/conda_env_*'
       - 'ci/docker/**'
       - 'ci/scripts/ccache_setup.sh'
@@ -54,7 +58,7 @@ on:
       - 'ci/scripts/msys2_*'
       - 'ci/scripts/util_*'
       - 'cpp/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
       - 'format/Flight.proto'
       - 'testing'
     types:
@@ -75,53 +79,20 @@ permissions:
 
 jobs:
   check-labels:
-    name: Check labels
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      ci-extra: ${{ steps.check.outputs.ci-extra }}
-    steps:
-      - name: Checkout Arrow
-        if: github.event_name == 'pull_request'
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Check
-        id: check
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          case "${GITHUB_EVENT_NAME}" in
-            push|schedule)
-              ci_extra=true
-              ;;
-            pull_request)
-              n_ci_extra_labels=$(
-                gh pr view ${{ github.event.number }} \
-                  --jq '.labels[].name | select(. == "CI: Extra")' \
-                  --json labels \
-                  --repo ${GITHUB_REPOSITORY} | wc -l)
-              if [ "${n_ci_extra_labels}" -eq 1 ]; then
-                ci_extra=true
-              else
-                git fetch origin ${GITHUB_BASE_REF}
-                if git diff --stat origin/${GITHUB_BASE_REF}.. | \
-                     grep \
-                       --fixed-strings ".github/workflows/cpp_extra.yml" \
-                       --quiet; then
-                  ci_extra=true
-                else
-                  ci_extra=false
-                fi
-              fi
-              ;;
-          esac
-
-          echo "ci-extra=${ci_extra}" >> "${GITHUB_OUTPUT}"
+    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
+    uses: ./.github/workflows/check_labels.yml
+    secrets: inherit
+    with:
+      parent-workflow: cpp_extra
 
   docker:
     needs: check-labels
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
-    if: needs.check-labels.outputs.ci-extra == 'true'
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -150,18 +121,18 @@ jobs:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@v5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: extra-${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Setup Archery
@@ -194,17 +165,97 @@ jobs:
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
 
+  msvc-arm64:
+    needs: check-labels
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    name: ARM64 Windows 11 MSVC
+    uses: ./.github/workflows/cpp_windows.yml
+    with:
+      arch: arm64
+      os: windows-11-arm
+      simd-level: NONE
+
+  jni-linux:
+    needs: check-labels
+    name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
+    runs-on: ${{ matrix.platform.runs-on }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 240
+    permissions:
+      # This is for using GitHub Packages for vcpkg cache
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - arch: "amd64"
+            runs-on: ubuntu-latest
+          - arch: "arm64v8"
+            runs-on: ubuntu-24.04-arm
+    env:
+      ARCH: ${{ matrix.platform.arch }}
+      REPO: ghcr.io/${{ github.repository }}-dev
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Free up disk space
+        run: |
+          ci/scripts/util_free_space.sh
+      - name: Cache Docker Volumes
+        uses: actions/cache@v5
+        with:
+          path: .docker
+          key: jni-${{ matrix.platform.runs-on }}-${{ hashFiles('cpp/**') }}
+          restore-keys: jni-${{ matrix.platform.runs-on }}-
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VCPKG_BINARY_SOURCES: "clear;nuget,GitHub,readwrite"
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run cpp-jni
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ github.actor }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push cpp-jni
+
   jni-macos:
     needs: check-labels
     name: JNI macOS
     runs-on: macos-14
-    if: needs.check-labels.outputs.ci-extra == 'true'
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -232,7 +283,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Cache ccache
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        uses: actions/cache@v5
         with:
           path: ccache
           key: jni-macos-${{ hashFiles('cpp/**') }}
@@ -278,3 +329,13 @@ jobs:
           cmake --build cpp/examples/minimal_build.build
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
+
+  report-extra-cpp:
+    if: github.event_name == 'schedule' && always()
+    needs:
+      - docker
+      - jni-linux
+      - jni-macos
+      - msvc-arm64
+    uses: ./.github/workflows/report_ci.yml
+    secrets: inherit

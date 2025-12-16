@@ -345,6 +345,14 @@ class TestConvertMetadata:
             )
             _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_rangeindex(self):
+        # https://github.com/apache/arrow/issues/33473
+        multiindex = pd.MultiIndex.from_arrays(
+            [pd.RangeIndex(0, 2), pd.Index([1, 2])]
+        )
+        df = pd.DataFrame(pd.Series([1, 2], name="a"), index=multiindex)
+        _check_pandas_roundtrip(df, preserve_index=None)
+
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -5265,3 +5273,19 @@ def test_bytes_column_name_to_pandas():
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')
+
+
+def test_json_unserializable_pd_df_attrs():
+    df = pd.DataFrame({"x": [1, 2, 3]})
+
+    df.attrs["timestamp"] = datetime.fromisoformat("2025-10-28T14:20:42")
+
+    with pytest.warns(
+        UserWarning,
+        match="Could not serialize pd.DataFrame.attrs:",
+    ):
+        df_table = pa.table(df)
+
+    pd_metadata = json.loads(df_table.schema.metadata[b"pandas"])
+
+    assert not pd_metadata["attributes"]

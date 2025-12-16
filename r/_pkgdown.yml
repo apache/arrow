@@ -52,7 +52,7 @@ template:
           data-project-color="#000000"
           data-project-logo="https://arrow.apache.org/img/arrow-logo_chevrons_white-txt_black-bg.png"
           data-modal-disclaimer="This is a custom LLM with access to all of [Arrow documentation](https://arrow.apache.org/docs/).  If you want an R-specific answer, please mention this in your question."
-          data-consent-required="true" 
+          data-consent-required="true"
           data-user-analytics-cookie-enabled="false"
           data-consent-screen-disclaimer="By clicking &quot;I agree, let's chat&quot;, you consent to the use of the AI assistant in accordance with kapa.ai's [Privacy Policy](https://www.kapa.ai/content/privacy-policy). This service uses reCAPTCHA, which requires your consent to Google's [Privacy Policy](https://policies.google.com/privacy) and [Terms of Service](https://policies.google.com/terms). By proceeding, you explicitly agree to both kapa.ai's and Google's privacy policies."
       ></script>
@@ -83,18 +83,19 @@ home:
       implementations:
         title: Implementations
         text: >
+          [.NET](https://arrow.apache.org/dotnet/) <br>
           [C GLib](https://arrow.apache.org/docs/c_glib) <br>
           [C++](https://arrow.apache.org/docs/cpp) <br>
-          [C#](https://github.com/apache/arrow/blob/main/csharp/README.md) <br>
           [Go](https://arrow.apache.org/go/) <br>
+          [JavaScript](https://arrow.apache.org/js/) <br>
           [Java](https://arrow.apache.org/docs/java) <br>
-          [JavaScript](https://arrow.apache.org/docs/js) <br>
           [Julia](https://github.com/apache/arrow-julia/blob/main/README.md) <br>
           [MATLAB](https://github.com/apache/arrow/blob/main/matlab/README.md) <br>
           [Python](https://arrow.apache.org/docs/python) <br>
           [R](index.html) <br>
           [Ruby](https://github.com/apache/arrow/blob/main/ruby/README.md) <br>
-          [Rust](https://docs.rs/crate/arrow/latest)
+          [Rust](https://docs.rs/crate/arrow/latest) <br>
+          [Swift](https://arrow.apache.org/swift/)
       community:
         title: Community
         text: >

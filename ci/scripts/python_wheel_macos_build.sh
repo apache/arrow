@@ -54,8 +54,6 @@ FREE_THREADED_BUILD="$(python -c"import sysconfig; print(bool(sysconfig.get_conf
 if [[ $FREE_THREADED_BUILD == "True"  ]]; then
   pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary
 fi
-# With Python 3.9, the `--upgrade` flag is required to force full replacement of setuptools' distutils patching
-pip install --upgrade --target $PIP_SITE_PACKAGES "setuptools>=58"
 
 pip install \
   --only-binary=:all: \

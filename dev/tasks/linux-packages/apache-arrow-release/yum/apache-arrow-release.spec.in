@@ -102,6 +102,9 @@ else
 fi
 
 %changelog
+* Mon Oct 20 2025 Raúl Cumplido <raulcumplido@gmail.com> - 22.0.0-1
+- New upstream release.
+
 * Fri Jul 11 2025 Bryce Mecum <petridish@gmail.com> - 21.0.0-1
 - New upstream release.
 

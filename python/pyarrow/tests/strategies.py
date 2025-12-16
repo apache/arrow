@@ -323,9 +323,25 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
-        value = st.timedeltas()
+        if ty.unit in ('s', 'ms'):
+            min_value = datetime.timedelta.min
+            max_value = datetime.timedelta.max
+        elif ty.unit == 'us':
+            max_int64 = 2**63 - 1
+            max_days = max_int64 // (86400 * 10**6)
+            min_value = datetime.timedelta(days=-max_days)
+            max_value = datetime.timedelta(days=max_days)
+        else:  # 'ns'
+            # Empirically tested value
+            min_value = datetime.timedelta(days=-96_075)
+            max_value = datetime.timedelta(days=96_075)
+        value = st.timedeltas(min_value=min_value, max_value=max_value)
     elif pa.types.is_interval(ty):
-        value = st.timedeltas()
+        # Empirically tested value
+        value = st.timedeltas(
+            min_value=datetime.timedelta(days=-96_075),
+            max_value=datetime.timedelta(days=96_075)
+        )
     elif pa.types.is_binary(ty) or pa.types.is_large_binary(ty):
         value = st.binary()
     elif pa.types.is_string(ty) or pa.types.is_large_string(ty):
@@ -390,8 +406,6 @@ def record_batches(draw, type, rows=None, max_fields=None):
 
     schema = draw(schemas(type, max_fields=max_fields))
     children = [draw(arrays(field.type, size=rows)) for field in schema]
-    # TODO(kszucs): the names and schema arguments are not consistent with
-    #               Table.from_array's arguments
     return pa.RecordBatch.from_arrays(children, schema=schema)
 
 

@@ -423,3 +423,70 @@ def test_large_row_encryption_decryption():
     dataset = ds.dataset(path, format=file_format, filesystem=mockfs)
     new_table = dataset.to_table()
     assert table == new_table
+
+
+@pytest.mark.skipif(
+    encryption_unavailable, reason="Parquet Encryption is not currently enabled"
+)
+def test_dataset_encryption_with_selected_column_statistics():
+    table = create_sample_table()
+
+    encryption_config = create_encryption_config()
+    decryption_config = create_decryption_config()
+    kms_connection_config = create_kms_connection_config()
+
+    crypto_factory = pe.CryptoFactory(kms_factory)
+    parquet_encryption_cfg = ds.ParquetEncryptionConfig(
+        crypto_factory, kms_connection_config, encryption_config
+    )
+    parquet_decryption_cfg = ds.ParquetDecryptionConfig(
+        crypto_factory, kms_connection_config, decryption_config
+    )
+
+    # create write_options with dataset encryption config
+    # and specify that statistics should be enabled for a subset of columns.
+    pformat = pa.dataset.ParquetFileFormat()
+    write_options = pformat.make_write_options(
+        encryption_config=parquet_encryption_cfg,
+        write_statistics=["year", "n_legs"]
+    )
+
+    mockfs = fs._MockFileSystem()
+    mockfs.create_dir("/")
+
+    ds.write_dataset(
+        data=table,
+        base_dir="sample_dataset",
+        format=pformat,
+        file_options=write_options,
+        filesystem=mockfs,
+    )
+
+    # Open Parquet files directly and check that statistics are present
+    # for the expected columns.
+    pq_scan_opts = ds.ParquetFragmentScanOptions(
+        decryption_config=parquet_decryption_cfg
+    )
+    pformat = pa.dataset.ParquetFileFormat(default_fragment_scan_options=pq_scan_opts)
+    dataset = ds.dataset("sample_dataset", format=pformat, filesystem=mockfs)
+
+    for fragment in dataset.get_fragments():
+        decryption_properties = crypto_factory.file_decryption_properties(
+            kms_connection_config, decryption_config, fragment.path, mockfs)
+        with pq.ParquetFile(
+            fragment.path,
+            decryption_properties=decryption_properties,
+            filesystem=mockfs,
+        ) as parquet_file:
+            for rg_idx in range(parquet_file.metadata.num_row_groups):
+                row_group = parquet_file.metadata.row_group(rg_idx)
+
+                assert row_group.column(0).statistics is not None
+                assert row_group.column(0).statistics.min == 2019
+                assert row_group.column(0).statistics.max == 2022
+
+                assert row_group.column(1).statistics is not None
+                assert row_group.column(1).statistics.min == 2
+                assert row_group.column(1).statistics.max == 100
+
+                assert row_group.column(2).statistics is None

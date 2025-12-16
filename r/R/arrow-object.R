@@ -16,7 +16,8 @@
 # under the License.
 
 #' @include enums.R
-ArrowObject <- R6Class("ArrowObject",
+ArrowObject <- R6Class(
+  "ArrowObject",
   public = list(
     initialize = function(xp) self$set_pointer(xp),
     pointer = function() get(".:xp:.", envir = self),
@@ -24,7 +25,8 @@ ArrowObject <- R6Class("ArrowObject",
     set_pointer = function(xp) {
       if (!inherits(xp, "externalptr")) {
         stop(
-          class(self)[1], "$new() requires a pointer as input: ",
+          class(self)[1],
+          "$new() requires a pointer as input: ",
           "did you mean $create() instead?",
           call. = FALSE
         )
@@ -66,7 +68,8 @@ ArrowObject <- R6Class("ArrowObject",
 `!=.ArrowObject` <- function(lhs, rhs) !(lhs == rhs) # nolint
 
 #' @export
-`==.ArrowObject` <- function(x, y) { # nolint
+`==.ArrowObject` <- function(x, y) {
+  # nolint
   x$Equals(y)
 }
 

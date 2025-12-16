@@ -4083,10 +4083,11 @@ def table_to_blocks(options, Table table, categories, extension_columns):
         PandasOptions c_options = _convert_pandas_options(options)
 
     if categories is not None:
-        c_options.categorical_columns = {tobytes(cat) for cat in categories}
+        c_options.categorical_columns = make_shared[unordered_set[c_string]](
+            unordered_set[c_string]({tobytes(cat) for cat in categories}))
     if extension_columns is not None:
-        c_options.extension_columns = {tobytes(col)
-                                       for col in extension_columns}
+        c_options.extension_columns = make_shared[unordered_set[c_string]](
+            unordered_set[c_string]({tobytes(col) for col in extension_columns}))
 
     if pandas_api.is_v1():
         # ARROW-3789: Coerce date/timestamp types to datetime64[ns]

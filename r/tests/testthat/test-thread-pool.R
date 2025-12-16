@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("can set/get cpu thread pool capacity", {
   old <- cpu_count()
   set_cpu_count(19)

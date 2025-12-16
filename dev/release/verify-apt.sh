@@ -84,6 +84,9 @@ esac
 
 if [ "${TYPE}" = "local" ]; then
   case "${VERSION}" in
+    *-dev*)
+      package_version="$(echo "${VERSION}" | sed -E -e 's/-(dev.*)$/~\1/g')"
+      ;;
     *-rc*)
       package_version="$(echo "${VERSION}" | sed -e 's/-rc.*$//g')"
       ;;
@@ -96,6 +99,7 @@ if [ "${TYPE}" = "local" ]; then
   apt_source_path+="/${distribution}/pool/${code_name}/main"
   apt_source_path+="/a/apache-arrow-apt-source"
   apt_source_path+="/apache-arrow-apt-source_${package_version}_all.deb"
+  find "${local_prefix}/apt/repositories/"
   ${APT_INSTALL} "${apt_source_path}"
 else
   package_version="${VERSION}-1"
@@ -223,7 +227,11 @@ echo "::endgroup::"
 
 echo "::group::Prepare downgrade test"
 can_downgrade=false
-if [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
+if [ "${distribution}" = 'debian' ] && [[ "$(cat /etc/debian_version)" =~ /sid$ ]]; then
+  # Skip downgrade test on Debian testing.
+  # Debian testing and unstable use "${testing_code_name}/"sid" as /etc/debian_version content.
+  :
+elif [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
   mv /etc/apt/sources.list.d/apache-arrow.sources \
      /etc/apt/sources.list.d/apache-arrow-current.sources
   mv /etc/apt/sources.list.d/apache-arrow.sources{.bak,}

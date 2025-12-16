@@ -251,6 +251,27 @@ G_BEGIN_DECLS
  * #GArrowStructFieldOptions is a class to customize the `struct_field`
  * function.
  *
+ * #GArrowAssumeTimezoneOptions is a class to customize the `assume_timezone`
+ * function.
+ *
+ * #GArrowCumulativeOptions is a class to customize the cumulative functions
+ * such as `cumulative_sum`, `cumulative_prod`, `cumulative_max`, and
+ * `cumulative_min`.
+ *
+ * #GArrowDictionaryEncodeOptions is a class to customize the `dictionary_encode`
+ * function.
+ *
+ * #GArrowElementWiseAggregateOptions is a class to customize element-wise
+ * aggregate functions such as `min_element_wise` and `max_element_wise`.
+ *
+ * #GArrowDayOfWeekOptions is a class to customize the `day_of_week` function.
+ *
+ * #GArrowExtractRegexOptions is a class to customize the `extract_regex`
+ * function.
+ *
+ * #GArrowExtractRegexSpanOptions is a class to customize the `extract_regex_span`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -6338,6 +6359,837 @@ garrow_struct_field_options_new(void)
   return GARROW_STRUCT_FIELD_OPTIONS(options);
 }
 
+enum {
+  PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE = 1,
+  PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS,
+  PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT,
+};
+
+G_DEFINE_TYPE(GArrowAssumeTimezoneOptions,
+              garrow_assume_timezone_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_assume_timezone_options_set_property(GObject *object,
+                                            guint prop_id,
+                                            const GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto options =
+    garrow_assume_timezone_options_get_raw(GARROW_ASSUME_TIMEZONE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE:
+    options->timezone = g_value_get_string(value);
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS:
+    options->ambiguous = static_cast<arrow::compute::AssumeTimezoneOptions::Ambiguous>(
+      g_value_get_enum(value));
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT:
+    options->nonexistent =
+      static_cast<arrow::compute::AssumeTimezoneOptions::Nonexistent>(
+        g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_assume_timezone_options_get_property(GObject *object,
+                                            guint prop_id,
+                                            GValue *value,
+                                            GParamSpec *pspec)
+{
+  auto options =
+    garrow_assume_timezone_options_get_raw(GARROW_ASSUME_TIMEZONE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE:
+    g_value_set_string(value, options->timezone.c_str());
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS:
+    g_value_set_enum(value,
+                     static_cast<GArrowAssumeTimezoneAmbiguous>(options->ambiguous));
+    break;
+  case PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT:
+    g_value_set_enum(value,
+                     static_cast<GArrowAssumeTimezoneNonexistent>(options->nonexistent));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_assume_timezone_options_init(GArrowAssumeTimezoneOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::AssumeTimezoneOptions());
+}
+
+static void
+garrow_assume_timezone_options_class_init(GArrowAssumeTimezoneOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_assume_timezone_options_set_property;
+  gobject_class->get_property = garrow_assume_timezone_options_get_property;
+
+  arrow::compute::AssumeTimezoneOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowAssumeTimezoneOptions:timezone:
+   *
+   * Timezone to convert timestamps from.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("timezone",
+                             "Timezone",
+                             "Timezone to convert timestamps from",
+                             options.timezone.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ASSUME_TIMEZONE_OPTIONS_TIMEZONE,
+                                  spec);
+
+  /**
+   * GArrowAssumeTimezoneOptions:ambiguous:
+   *
+   * How to interpret ambiguous local times (due to DST shifts).
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("ambiguous",
+                           "Ambiguous",
+                           "How to interpret ambiguous local times (due to DST shifts)",
+                           GARROW_TYPE_ASSUME_TIMEZONE_AMBIGUOUS,
+                           static_cast<GArrowAssumeTimezoneAmbiguous>(options.ambiguous),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ASSUME_TIMEZONE_OPTIONS_AMBIGUOUS,
+                                  spec);
+
+  /**
+   * GArrowAssumeTimezoneOptions:nonexistent:
+   *
+   * How to interpret nonexistent local times (due to DST shifts).
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_enum("nonexistent",
+                      "Nonexistent",
+                      "How to interpret nonexistent local times (due to DST shifts)",
+                      GARROW_TYPE_ASSUME_TIMEZONE_NONEXISTENT,
+                      static_cast<GArrowAssumeTimezoneNonexistent>(options.nonexistent),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ASSUME_TIMEZONE_OPTIONS_NONEXISTENT,
+                                  spec);
+}
+
+/**
+ * garrow_assume_timezone_options_new:
+ *
+ * Returns: A newly created #GArrowAssumeTimezoneOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS, NULL);
+  return GARROW_ASSUME_TIMEZONE_OPTIONS(options);
+}
+
+typedef struct GArrowCumulativeOptionsPrivate_
+{
+  GArrowScalar *start;
+} GArrowCumulativeOptionsPrivate;
+
+enum {
+  PROP_CUMULATIVE_OPTIONS_START = 1,
+  PROP_CUMULATIVE_OPTIONS_SKIP_NULLS,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCumulativeOptions,
+                           garrow_cumulative_options,
+                           GARROW_TYPE_FUNCTION_OPTIONS)
+
+#define GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object)                                    \
+  static_cast<GArrowCumulativeOptionsPrivate *>(                                         \
+    garrow_cumulative_options_get_instance_private(GARROW_CUMULATIVE_OPTIONS(object)))
+
+static void
+garrow_cumulative_options_dispose(GObject *object)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->start) {
+    g_object_unref(priv->start);
+    priv->start = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_cumulative_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_cumulative_options_set_property(GObject *object,
+                                       guint prop_id,
+                                       const GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_cumulative_options_get_raw(GARROW_CUMULATIVE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_CUMULATIVE_OPTIONS_START:
+    {
+      auto scalar = GARROW_SCALAR(g_value_get_object(value));
+      if (priv->start == scalar) {
+        return;
+      }
+      if (priv->start) {
+        g_object_unref(priv->start);
+      }
+      priv->start = scalar;
+      if (priv->start) {
+        g_object_ref(priv->start);
+        options->start = garrow_scalar_get_raw(scalar);
+      } else {
+        options->start = std::nullopt;
+      }
+      break;
+    }
+  case PROP_CUMULATIVE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_cumulative_options_get_property(GObject *object,
+                                       guint prop_id,
+                                       GValue *value,
+                                       GParamSpec *pspec)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+  auto options = garrow_cumulative_options_get_raw(GARROW_CUMULATIVE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_CUMULATIVE_OPTIONS_START:
+    {
+      if (priv->start) {
+        g_value_set_object(value, G_OBJECT(priv->start));
+      } else {
+        g_value_set_object(value, NULL);
+      }
+      break;
+    }
+  case PROP_CUMULATIVE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_cumulative_options_init(GArrowCumulativeOptions *object)
+{
+  auto priv = GARROW_CUMULATIVE_OPTIONS_GET_PRIVATE(object);
+  priv->start = nullptr;
+  auto function_options_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  function_options_priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::CumulativeOptions());
+}
+
+static void
+garrow_cumulative_options_class_init(GArrowCumulativeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_cumulative_options_dispose;
+  gobject_class->set_property = garrow_cumulative_options_set_property;
+  gobject_class->get_property = garrow_cumulative_options_get_property;
+
+  arrow::compute::CumulativeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowCumulativeOptions:start:
+   *
+   * Optional starting value for cumulative operation computation.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_object("start",
+                        "Start",
+                        "Optional starting value for cumulative operation computation",
+                        GARROW_TYPE_SCALAR,
+                        static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_CUMULATIVE_OPTIONS_START, spec);
+
+  /**
+   * GArrowCumulativeOptions:skip-nulls:
+   *
+   * If true, nulls in the input are ignored and produce a corresponding null output.
+   * When false, the first null encountered is propagated through the remaining output.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean(
+    "skip-nulls",
+    "Skip nulls",
+    "If true, nulls in the input are ignored and produce a corresponding null output. "
+    "When false, the first null encountered is propagated through the remaining output",
+    options.skip_nulls,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CUMULATIVE_OPTIONS_SKIP_NULLS,
+                                  spec);
+}
+
+/**
+ * garrow_cumulative_options_new:
+ *
+ * Returns: A newly created #GArrowCumulativeOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowCumulativeOptions *
+garrow_cumulative_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_CUMULATIVE_OPTIONS, NULL);
+  return GARROW_CUMULATIVE_OPTIONS(options);
+}
+
+enum {
+  PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR = 1,
+};
+
+G_DEFINE_TYPE(GArrowDictionaryEncodeOptions,
+              garrow_dictionary_encode_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_dictionary_encode_options_set_property(GObject *object,
+                                              guint prop_id,
+                                              const GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto options =
+    garrow_dictionary_encode_options_get_raw(GARROW_DICTIONARY_ENCODE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR:
+    options->null_encoding_behavior =
+      static_cast<arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior>(
+        g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_dictionary_encode_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto options =
+    garrow_dictionary_encode_options_get_raw(GARROW_DICTIONARY_ENCODE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR:
+    g_value_set_enum(value,
+                     static_cast<GArrowDictionaryEncodeNullEncodingBehavior>(
+                       options->null_encoding_behavior));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_dictionary_encode_options_init(GArrowDictionaryEncodeOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::DictionaryEncodeOptions());
+}
+
+static void
+garrow_dictionary_encode_options_class_init(GArrowDictionaryEncodeOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_dictionary_encode_options_set_property;
+  gobject_class->get_property = garrow_dictionary_encode_options_get_property;
+
+  arrow::compute::DictionaryEncodeOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowDictionaryEncodeOptions:null-encoding-behavior:
+   *
+   * How null values will be encoded.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_enum("null-encoding-behavior",
+                           "Null encoding behavior",
+                           "How null values will be encoded",
+                           GARROW_TYPE_DICTIONARY_ENCODE_NULL_ENCODING_BEHAVIOR,
+                           static_cast<GArrowDictionaryEncodeNullEncodingBehavior>(
+                             options.null_encoding_behavior),
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DICTIONARY_ENCODE_OPTIONS_NULL_ENCODING_BEHAVIOR,
+                                  spec);
+}
+
+/**
+ * garrow_dictionary_encode_options_new:
+ *
+ * Returns: A newly created #GArrowDictionaryEncodeOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS, NULL);
+  return GARROW_DICTIONARY_ENCODE_OPTIONS(options);
+}
+
+enum {
+  PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS = 1,
+};
+
+G_DEFINE_TYPE(GArrowElementWiseAggregateOptions,
+              garrow_element_wise_aggregate_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_element_wise_aggregate_options_set_property(GObject *object,
+                                                   guint prop_id,
+                                                   const GValue *value,
+                                                   GParamSpec *pspec)
+{
+  auto options = garrow_element_wise_aggregate_options_get_raw(
+    GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS:
+    options->skip_nulls = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_element_wise_aggregate_options_get_property(GObject *object,
+                                                   guint prop_id,
+                                                   GValue *value,
+                                                   GParamSpec *pspec)
+{
+  auto options = garrow_element_wise_aggregate_options_get_raw(
+    GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS:
+    g_value_set_boolean(value, options->skip_nulls);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_element_wise_aggregate_options_init(GArrowElementWiseAggregateOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ElementWiseAggregateOptions());
+}
+
+static void
+garrow_element_wise_aggregate_options_class_init(
+  GArrowElementWiseAggregateOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_element_wise_aggregate_options_set_property;
+  gobject_class->get_property = garrow_element_wise_aggregate_options_get_property;
+
+  arrow::compute::ElementWiseAggregateOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowElementWiseAggregateOptions:skip-nulls:
+   *
+   * Whether to skip (ignore) nulls in the input.
+   * If false, any null in the input forces the output to null.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("skip-nulls",
+                              "Skip nulls",
+                              "Whether to skip (ignore) nulls in the input. If false, "
+                              "any null in the input forces the output to null",
+                              options.skip_nulls,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_ELEMENT_WISE_AGGREGATE_OPTIONS_SKIP_NULLS,
+                                  spec);
+}
+
+/**
+ * garrow_element_wise_aggregate_options_new:
+ *
+ * Returns: A newly created #GArrowElementWiseAggregateOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS, NULL);
+  return GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(options);
+}
+
+enum {
+  PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO = 1,
+  PROP_DAY_OF_WEEK_OPTIONS_WEEK_START,
+};
+
+G_DEFINE_TYPE(GArrowDayOfWeekOptions,
+              garrow_day_of_week_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_day_of_week_options_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = garrow_day_of_week_options_get_raw(GARROW_DAY_OF_WEEK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO:
+    options->count_from_zero = g_value_get_boolean(value);
+    break;
+  case PROP_DAY_OF_WEEK_OPTIONS_WEEK_START:
+    options->week_start = g_value_get_uint(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_day_of_week_options_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto options = garrow_day_of_week_options_get_raw(GARROW_DAY_OF_WEEK_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO:
+    g_value_set_boolean(value, options->count_from_zero);
+    break;
+  case PROP_DAY_OF_WEEK_OPTIONS_WEEK_START:
+    g_value_set_uint(value, options->week_start);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_day_of_week_options_init(GArrowDayOfWeekOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::DayOfWeekOptions());
+}
+
+static void
+garrow_day_of_week_options_class_init(GArrowDayOfWeekOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_day_of_week_options_set_property;
+  gobject_class->get_property = garrow_day_of_week_options_get_property;
+
+  arrow::compute::DayOfWeekOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowDayOfWeekOptions:count-from-zero:
+   *
+   * Number days from 0 if true and from 1 if false.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("count-from-zero",
+                              "Count from zero",
+                              "Number days from 0 if true and from 1 if false",
+                              options.count_from_zero,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DAY_OF_WEEK_OPTIONS_COUNT_FROM_ZERO,
+                                  spec);
+
+  /**
+   * GArrowDayOfWeekOptions:week-start:
+   *
+   * What day does the week start with (Monday=1, Sunday=7).
+   * The numbering is unaffected by the count_from_zero parameter.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_uint("week-start",
+                           "Week start",
+                           "What day does the week start with (Monday=1, Sunday=7). The "
+                           "numbering is unaffected by the count_from_zero parameter",
+                           1,
+                           7,
+                           options.week_start,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_DAY_OF_WEEK_OPTIONS_WEEK_START,
+                                  spec);
+}
+
+/**
+ * garrow_day_of_week_options_new:
+ *
+ * Returns: A newly created #GArrowDayOfWeekOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_DAY_OF_WEEK_OPTIONS, NULL);
+  return GARROW_DAY_OF_WEEK_OPTIONS(options);
+}
+
+enum {
+  PROP_EXTRACT_REGEX_OPTIONS_PATTERN = 1,
+};
+
+G_DEFINE_TYPE(GArrowExtractRegexOptions,
+              garrow_extract_regex_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_extract_regex_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_options_get_raw(GARROW_EXTRACT_REGEX_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_options_get_raw(GARROW_EXTRACT_REGEX_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_options_init(GArrowExtractRegexOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ExtractRegexOptions());
+}
+
+static void
+garrow_extract_regex_options_class_init(GArrowExtractRegexOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_extract_regex_options_set_property;
+  gobject_class->get_property = garrow_extract_regex_options_get_property;
+
+  arrow::compute::ExtractRegexOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowExtractRegexOptions:pattern:
+   *
+   * Regular expression with named capture fields.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "Regular expression with named capture fields",
+                             options.pattern.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_EXTRACT_REGEX_OPTIONS_PATTERN,
+                                  spec);
+}
+
+/**
+ * garrow_extract_regex_options_new:
+ *
+ * Returns: A newly created #GArrowExtractRegexOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_EXTRACT_REGEX_OPTIONS, NULL);
+  return GARROW_EXTRACT_REGEX_OPTIONS(options);
+}
+
+enum {
+  PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN = 1,
+};
+
+G_DEFINE_TYPE(GArrowExtractRegexSpanOptions,
+              garrow_extract_regex_span_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_extract_regex_span_options_set_property(GObject *object,
+                                               guint prop_id,
+                                               const GValue *value,
+                                               GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_span_options_get_raw(GARROW_EXTRACT_REGEX_SPAN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_span_options_get_property(GObject *object,
+                                               guint prop_id,
+                                               GValue *value,
+                                               GParamSpec *pspec)
+{
+  auto options =
+    garrow_extract_regex_span_options_get_raw(GARROW_EXTRACT_REGEX_SPAN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_extract_regex_span_options_init(GArrowExtractRegexSpanOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ExtractRegexSpanOptions());
+}
+
+static void
+garrow_extract_regex_span_options_class_init(GArrowExtractRegexSpanOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_extract_regex_span_options_set_property;
+  gobject_class->get_property = garrow_extract_regex_span_options_get_property;
+
+  arrow::compute::ExtractRegexSpanOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowExtractRegexSpanOptions:pattern:
+   *
+   * Regular expression with named capture fields.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("pattern",
+                             "Pattern",
+                             "Regular expression with named capture fields",
+                             options.pattern.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_EXTRACT_REGEX_SPAN_OPTIONS_PATTERN,
+                                  spec);
+}
+
+/**
+ * garrow_extract_regex_span_options_new:
+ *
+ * Returns: A newly created #GArrowExtractRegexSpanOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS, NULL);
+  return GARROW_EXTRACT_REGEX_SPAN_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -6468,6 +7320,44 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_struct_field_options =
       static_cast<const arrow::compute::StructFieldOptions *>(arrow_options);
     auto options = garrow_struct_field_options_new_raw(arrow_struct_field_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "AssumeTimezoneOptions") {
+    const auto arrow_assume_timezone_options =
+      static_cast<const arrow::compute::AssumeTimezoneOptions *>(arrow_options);
+    auto options = garrow_assume_timezone_options_new_raw(arrow_assume_timezone_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "CumulativeOptions") {
+    const auto arrow_cumulative_options =
+      static_cast<const arrow::compute::CumulativeOptions *>(arrow_options);
+    auto options = garrow_cumulative_options_new_raw(arrow_cumulative_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "DictionaryEncodeOptions") {
+    const auto arrow_dictionary_encode_options =
+      static_cast<const arrow::compute::DictionaryEncodeOptions *>(arrow_options);
+    auto options =
+      garrow_dictionary_encode_options_new_raw(arrow_dictionary_encode_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ElementWiseAggregateOptions") {
+    const auto arrow_element_wise_aggregate_options =
+      static_cast<const arrow::compute::ElementWiseAggregateOptions *>(arrow_options);
+    auto options =
+      garrow_element_wise_aggregate_options_new_raw(arrow_element_wise_aggregate_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "DayOfWeekOptions") {
+    const auto arrow_day_of_week_options =
+      static_cast<const arrow::compute::DayOfWeekOptions *>(arrow_options);
+    auto options = garrow_day_of_week_options_new_raw(arrow_day_of_week_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ExtractRegexOptions") {
+    const auto arrow_extract_regex_options =
+      static_cast<const arrow::compute::ExtractRegexOptions *>(arrow_options);
+    auto options = garrow_extract_regex_options_new_raw(arrow_extract_regex_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ExtractRegexSpanOptions") {
+    const auto arrow_extract_regex_span_options =
+      static_cast<const arrow::compute::ExtractRegexSpanOptions *>(arrow_options);
+    auto options =
+      garrow_extract_regex_span_options_new_raw(arrow_extract_regex_span_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -6985,5 +7875,144 @@ arrow::compute::StructFieldOptions *
 garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options)
 {
   return static_cast<arrow::compute::StructFieldOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new_raw(
+  const arrow::compute::AssumeTimezoneOptions *arrow_options)
+{
+  return GARROW_ASSUME_TIMEZONE_OPTIONS(
+    g_object_new(GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS,
+                 "timezone",
+                 arrow_options->timezone.c_str(),
+                 "ambiguous",
+                 static_cast<GArrowAssumeTimezoneAmbiguous>(arrow_options->ambiguous),
+                 "nonexistent",
+                 static_cast<GArrowAssumeTimezoneNonexistent>(arrow_options->nonexistent),
+                 NULL));
+}
+
+arrow::compute::AssumeTimezoneOptions *
+garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options)
+{
+  return static_cast<arrow::compute::AssumeTimezoneOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowCumulativeOptions *
+garrow_cumulative_options_new_raw(const arrow::compute::CumulativeOptions *arrow_options)
+{
+  GArrowScalar *start = nullptr;
+  if (arrow_options->start.has_value()) {
+    std::shared_ptr<arrow::Scalar> arrow_start = arrow_options->start.value();
+    start = garrow_scalar_new_raw(&arrow_start);
+  }
+  auto options = GARROW_CUMULATIVE_OPTIONS(g_object_new(GARROW_TYPE_CUMULATIVE_OPTIONS,
+                                                        "start",
+                                                        start,
+                                                        "skip-nulls",
+                                                        arrow_options->skip_nulls,
+                                                        NULL));
+  if (start) {
+    g_object_unref(start);
+  }
+  return options;
+}
+
+arrow::compute::CumulativeOptions *
+garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options)
+{
+  return static_cast<arrow::compute::CumulativeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new_raw(
+  const arrow::compute::DictionaryEncodeOptions *arrow_options)
+{
+  return GARROW_DICTIONARY_ENCODE_OPTIONS(
+    g_object_new(GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS,
+                 "null-encoding-behavior",
+                 static_cast<GArrowDictionaryEncodeNullEncodingBehavior>(
+                   arrow_options->null_encoding_behavior),
+                 NULL));
+}
+
+arrow::compute::DictionaryEncodeOptions *
+garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options)
+{
+  return static_cast<arrow::compute::DictionaryEncodeOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new_raw(
+  const arrow::compute::ElementWiseAggregateOptions *arrow_options)
+{
+  return GARROW_ELEMENT_WISE_AGGREGATE_OPTIONS(
+    g_object_new(GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS,
+                 "skip-nulls",
+                 arrow_options->skip_nulls,
+                 NULL));
+}
+
+arrow::compute::ElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options)
+{
+  return static_cast<arrow::compute::ElementWiseAggregateOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options)
+{
+  return GARROW_DAY_OF_WEEK_OPTIONS(g_object_new(GARROW_TYPE_DAY_OF_WEEK_OPTIONS,
+                                                 "count-from-zero",
+                                                 arrow_options->count_from_zero,
+                                                 "week-start",
+                                                 arrow_options->week_start,
+                                                 NULL));
+}
+
+arrow::compute::DayOfWeekOptions *
+garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options)
+{
+  return static_cast<arrow::compute::DayOfWeekOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new_raw(
+  const arrow::compute::ExtractRegexOptions *arrow_options)
+{
+  return GARROW_EXTRACT_REGEX_OPTIONS(g_object_new(GARROW_TYPE_EXTRACT_REGEX_OPTIONS,
+                                                   "pattern",
+                                                   arrow_options->pattern.c_str(),
+                                                   NULL));
+}
+
+arrow::compute::ExtractRegexOptions *
+garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options)
+{
+  return static_cast<arrow::compute::ExtractRegexOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new_raw(
+  const arrow::compute::ExtractRegexSpanOptions *arrow_options)
+{
+  return GARROW_EXTRACT_REGEX_SPAN_OPTIONS(
+    g_object_new(GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS,
+                 "pattern",
+                 arrow_options->pattern.c_str(),
+                 NULL));
+}
+
+arrow::compute::ExtractRegexSpanOptions *
+garrow_extract_regex_span_options_get_raw(GArrowExtractRegexSpanOptions *options)
+{
+  return static_cast<arrow::compute::ExtractRegexSpanOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

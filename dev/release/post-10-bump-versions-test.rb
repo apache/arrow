@@ -208,13 +208,6 @@ class PostBumpVersionsTest < Test::Unit::TestCase
           ],
         },
         {
-          path: "csharp/Directory.Build.props",
-          hunks: [
-            ["-    <Version>#{@snapshot_version}</Version>",
-             "+    <Version>#{@next_snapshot_version}</Version>"],
-          ],
-        },
-        {
           path: "dev/tasks/homebrew-formulae/apache-arrow-glib.rb",
           hunks: [
             ["-  url \"https://www.apache.org/dyn/closer.lua?path=arrow/arrow-#{@snapshot_version}/apache-arrow-#{@snapshot_version}.tar.gz\"",

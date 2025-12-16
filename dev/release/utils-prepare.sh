@@ -90,14 +90,6 @@ update_versions() {
   git add vcpkg.json
   popd
 
-  pushd "${ARROW_DIR}/csharp"
-  sed -i.bak -E -e \
-    "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
-    Directory.Build.props
-  rm -f Directory.Build.props.bak
-  git add Directory.Build.props
-  popd
-
   pushd "${ARROW_DIR}/dev/tasks/homebrew-formulae"
   sed -i.bak -E -e \
     "s/arrow-[0-9.\-]+[0-9SNAPHOT]+/arrow-${version}/g" \

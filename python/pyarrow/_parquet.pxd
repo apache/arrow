@@ -44,6 +44,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     version=*,
     write_statistics=*,
     data_page_size=*,
+    max_rows_per_page=*,
     compression_level=*,
     use_byte_stream_split=*,
     column_encoding=*,
@@ -66,6 +67,7 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     writer_engine_version=*,
     use_compliant_nested_type=*,
     store_schema=*,
+    write_time_adjusted_to_utc=*,
 ) except *
 
 

@@ -206,7 +206,7 @@ cdef extern from "arrow/api.h" namespace "arrow" nogil:
     c_bool is_numeric(Type type)
 
     cdef cppclass CArrayStatistics" arrow::ArrayStatistics":
-        optional[int64_t] null_count
+        optional[CArrayStatisticsCountType] null_count
         optional[CArrayStatisticsCountType] distinct_count
         optional[CArrayStatisticsValueType] min
         c_bool is_min_exact
@@ -2147,6 +2147,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
         int32_t batch_size
         unsigned char delimiter
         CQuotingStyle quoting_style
+        CQuotingStyle quoting_header
         CIOContext io_context
 
         CCSVWriteOptions()

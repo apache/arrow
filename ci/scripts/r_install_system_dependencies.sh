@@ -54,10 +54,10 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
     case "$PACKAGE_MANAGER" in
       zypper)
         # python3 is Python 3.6 on OpenSUSE 15.3.
-        # PyArrow supports Python 3.9 or later.
-        $PACKAGE_MANAGER install -y python39-pip
-        ln -s /usr/bin/python3.9 /usr/local/bin/python
-        ln -s /usr/bin/pip3.9 /usr/local/bin/pip
+        # PyArrow supports Python 3.10 or later.
+        $PACKAGE_MANAGER install -y python310-pip
+        ln -s /usr/bin/python3.10 /usr/local/bin/python
+        ln -s /usr/bin/pip3.10 /usr/local/bin/pip
         ;;
       *)
         $PACKAGE_MANAGER install -y python3-pip

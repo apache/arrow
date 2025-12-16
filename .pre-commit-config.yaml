@@ -205,17 +205,13 @@ repos:
           ^r/.*\.(R|Rmd)$
   - repo: local
     hooks:
-      - id: styler
+      - id: air-format
         alias: r
-        name: R Format
-        language: r
-        additional_dependencies:
-          - roxygen2
-          - styler
-        entry: |
-          Rscript -e "styler::style_file(commandArgs(TRUE)[1])"
+        name: R Format (Air)
+        language: system
+        entry: air format r --check
         files: >-
-          ^r/.*\.(R|Rmd)$
+            ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v14.0.6
     hooks:
@@ -255,6 +251,7 @@ repos:
         exclude: >-
           (
           ?^dev/tasks/homebrew-formulae/.*\.rb$|
+          ?^ruby/red-arrow-format/lib/arrow-format/org/.*\.rb$|
           )
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
@@ -305,9 +302,6 @@ repos:
           ?^ci/scripts/conan_build\.sh$|
           ?^ci/scripts/conan_setup\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
-          ?^ci/scripts/csharp_build\.sh$|
-          ?^ci/scripts/csharp_pack\.sh$|
-          ?^ci/scripts/csharp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
           ?^ci/scripts/install_ccache\.sh$|
@@ -348,6 +342,7 @@ repos:
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|
+          ?^ci/scripts/util_download_apache\.sh$|
           ?^ci/scripts/util_enable_core_dumps\.sh$|
           ?^ci/scripts/util_free_space\.sh$|
           ?^ci/scripts/util_log\.sh$|
@@ -391,8 +386,13 @@ repos:
           ?^dev/release/post-09-python\.sh$|
           )
   - repo: https://github.com/trim21/pre-commit-mirror-meson
-    rev: v1.6.1
+    rev: v1.9.0
     hooks:
       - id: meson-fmt
         alias: cpp
         args: ['--inplace']
+        files: >-
+          (
+          ?.*meson\.build$|
+          ?.*meson\.options$|
+          )

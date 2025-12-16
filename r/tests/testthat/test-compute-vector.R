@@ -132,19 +132,11 @@ test_that("call_function validation", {
     "Argument 2 is of class numeric"
   )
   expect_error(
-    call_function("filter",
-      Array$create(1:4),
-      Array$create(c(TRUE, FALSE, TRUE)),
-      options = list(keep_na = TRUE)
-    ),
+    call_function("filter", Array$create(1:4), Array$create(c(TRUE, FALSE, TRUE)), options = list(keep_na = TRUE)),
     "Arguments for execution of vector kernel function 'array_filter' must all be the same length"
   )
   expect_error(
-    call_function("filter",
-      record_batch(a = 1:3),
-      Array$create(c(TRUE, FALSE, TRUE)),
-      options = list(keep_na = TRUE)
-    ),
+    call_function("filter", record_batch(a = 1:3), Array$create(c(TRUE, FALSE, TRUE)), options = list(keep_na = TRUE)),
     NA
   )
   expect_error(

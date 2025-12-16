@@ -45,7 +45,7 @@ class ARROW_EXPORT CastOptions : public FunctionOptions {
  public:
   explicit CastOptions(bool safe = true);
 
-  static constexpr char const kTypeName[] = "CastOptions";
+  static constexpr const char kTypeName[] = "CastOptions";
   static CastOptions Safe(TypeHolder to_type = {}) {
     CastOptions safe(true);
     safe.to_type = std::move(to_type);

@@ -67,4 +67,48 @@ std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
   return default_writer_properties;
 }
 
+void WriterProperties::Builder::CopyColumnSpecificProperties(
+    const WriterProperties& properties) {
+  for (const auto& [col_path, col_props] : properties.column_properties_) {
+    if (col_props.statistics_enabled() !=
+        default_column_properties_.statistics_enabled()) {
+      if (col_props.statistics_enabled()) {
+        this->enable_statistics(col_path);
+      } else {
+        this->disable_statistics(col_path);
+      }
+    }
+
+    if (col_props.dictionary_enabled() !=
+        default_column_properties_.dictionary_enabled()) {
+      if (col_props.dictionary_enabled()) {
+        this->enable_dictionary(col_path);
+      } else {
+        this->disable_dictionary(col_path);
+      }
+    }
+
+    if (col_props.page_index_enabled() !=
+        default_column_properties_.page_index_enabled()) {
+      if (col_props.page_index_enabled()) {
+        this->enable_write_page_index(col_path);
+      } else {
+        this->disable_write_page_index(col_path);
+      }
+    }
+
+    if (col_props.compression() != default_column_properties_.compression()) {
+      this->compression(col_path, col_props.compression());
+    }
+
+    if (col_props.compression_level() != default_column_properties_.compression_level()) {
+      this->compression_level(col_path, col_props.compression_level());
+    }
+
+    if (col_props.encoding() != default_column_properties_.encoding()) {
+      this->encoding(col_path, col_props.encoding());
+    }
+  }
+}
+
 }  // namespace parquet

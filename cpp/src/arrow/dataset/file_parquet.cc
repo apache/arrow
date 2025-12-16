@@ -36,6 +36,7 @@
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
+#include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
@@ -508,9 +509,9 @@ Result<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
   std::shared_ptr<parquet::FileMetaData> reader_metadata = reader->metadata();
   auto arrow_properties =
       MakeArrowReaderProperties(*this, *reader_metadata, *options, *parquet_scan_options);
-  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
-      options->pool, std::move(reader), std::move(arrow_properties), &arrow_reader));
+  ARROW_ASSIGN_OR_RAISE(auto arrow_reader,
+                        parquet::arrow::FileReader::Make(options->pool, std::move(reader),
+                                                         std::move(arrow_properties)));
   // R build with openSUSE155 requires an explicit shared_ptr construction
   return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
 }
@@ -531,37 +532,37 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
                                          source.filesystem(), options->pool);
   auto self = checked_pointer_cast<const ParquetFileFormat>(shared_from_this());
 
-  return source.OpenAsync().Then(
-      [self = self, properties = std::move(properties), source = source,
-       options = options, metadata = metadata,
-       parquet_scan_options = parquet_scan_options](
-          const std::shared_ptr<io::RandomAccessFile>& input) mutable {
-        return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
-            .Then(
-                [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
-                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-                  auto arrow_properties = MakeArrowReaderProperties(
-                      *self, *reader->metadata(), *options, *parquet_scan_options);
+  return source.OpenAsync().Then([self = self, properties = std::move(properties),
+                                  source = source, options = options, metadata = metadata,
+                                  parquet_scan_options = parquet_scan_options](
+                                     const std::shared_ptr<io::RandomAccessFile>&
+                                         input) mutable {
+    return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
+        .Then(
+            [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
+            -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+              auto arrow_properties = MakeArrowReaderProperties(
+                  *self, *reader->metadata(), *options, *parquet_scan_options);
 
-                  std::unique_ptr<parquet::arrow::FileReader> arrow_reader;
-                  RETURN_NOT_OK(parquet::arrow::FileReader::Make(
+              ARROW_ASSIGN_OR_RAISE(
+                  auto arrow_reader,
+                  parquet::arrow::FileReader::Make(
                       options->pool,
                       // TODO(ARROW-12259): workaround since we have Future<(move-only
                       // type)> It *wouldn't* be safe to const_cast reader except that
                       // here we know there are no other waiters on the reader.
                       std::move(const_cast<std::unique_ptr<parquet::ParquetFileReader>&>(
                           reader)),
-                      arrow_properties, &arrow_reader));
+                      arrow_properties));
 
-                  // R build with openSUSE155 requires an explicit shared_ptr construction
-                  return std::shared_ptr<parquet::arrow::FileReader>(
-                      std::move(arrow_reader));
-                },
-                [path = source.path()](const Status& status)
-                    -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
-                  return WrapSourceError(status, path);
-                });
-      });
+              // R build with openSUSE155 requires an explicit shared_ptr construction
+              return std::shared_ptr<parquet::arrow::FileReader>(std::move(arrow_reader));
+            },
+            [path = source.path()](const Status& status)
+                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+              return WrapSourceError(status, path);
+            });
+  });
 }
 
 struct SlicingGenerator {
@@ -642,10 +643,12 @@ Result<RecordBatchGenerator> ParquetFileFormat::ScanBatchesAsync(
             kParquetTypeName, options.get(), default_fragment_scan_options));
     int batch_readahead = options->batch_readahead;
     int64_t rows_to_readahead = batch_readahead * options->batch_size;
-    ARROW_ASSIGN_OR_RAISE(auto generator,
-                          reader->GetRecordBatchGenerator(
-                              reader, row_groups, column_projection,
-                              ::arrow::internal::GetCpuThreadPool(), rows_to_readahead));
+    // Use the executor from scan options if provided.
+    auto cpu_executor = options->cpu_executor ? options->cpu_executor
+                                              : ::arrow::internal::GetCpuThreadPool();
+    ARROW_ASSIGN_OR_RAISE(auto generator, reader->GetRecordBatchGenerator(
+                                              reader, row_groups, column_projection,
+                                              cpu_executor, rows_to_readahead));
     RecordBatchGenerator sliced =
         SlicingGenerator(std::move(generator), options->batch_size);
     if (batch_readahead == 0) {

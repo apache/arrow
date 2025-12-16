@@ -105,7 +105,8 @@ int64_t CountQuotes(std::string_view s) {
 
 // Matching quote pair character length.
 constexpr int64_t kQuoteCount = 2;
-constexpr int64_t kQuoteDelimiterCount = kQuoteCount + /*end_char*/ 1;
+// Delimiter character length.
+constexpr int64_t kDelimiterCount = 1;
 
 // Interface for generating CSV data per column.
 // The intended usage is to iteratively call UpdateRowLengths for a column and
@@ -174,6 +175,34 @@ char* Escape(std::string_view s, char* out) {
     }
   }
   return out;
+}
+
+// Return the index of the first structural char in the input. A structural char
+// is a character that needs quoting and/or escaping.
+int64_t StopAtStructuralChar(const uint8_t* data, const int64_t buffer_size,
+                             const char delimiter) {
+  int64_t offset = 0;
+#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
+  // _mm_cmpistrc gives slightly better performance than the naive approach,
+  // probably doesn't deserve the effort
+  using simd_batch = xsimd::make_sized_batch_t<uint8_t, 16>;
+  while ((offset + 16) <= buffer_size) {
+    const auto v = simd_batch::load_unaligned(data + offset);
+    if (xsimd::any((v == '\n') | (v == '\r') | (v == '"') | (v == delimiter))) {
+      break;
+    }
+    offset += 16;
+  }
+#endif
+  while (offset < buffer_size) {
+    // error happened or remaining bytes to check
+    const char c = static_cast<char>(data[offset]);
+    if (c == '\n' || c == '\r' || c == '"' || c == delimiter) {
+      break;
+    }
+    ++offset;
+  }
+  return offset;
 }
 
 // Populator used for non-string/binary types, or when unquoted strings/binary types are
@@ -268,35 +297,18 @@ class UnquotedColumnPopulator : public ColumnPopulator {
     // scan the underlying string array buffer as a single big string
     const uint8_t* const data = array.raw_data() + array.value_offset(0);
     const int64_t buffer_size = array.total_values_length();
-    int64_t offset = 0;
-#if defined(ARROW_HAVE_SSE4_2) || defined(ARROW_HAVE_NEON)
-    // _mm_cmpistrc gives slightly better performance than the naive approach,
-    // probably doesn't deserve the effort
-    using simd_batch = xsimd::make_sized_batch_t<uint8_t, 16>;
-    while ((offset + 16) <= buffer_size) {
-      const auto v = simd_batch::load_unaligned(data + offset);
-      if (xsimd::any((v == '\n') | (v == '\r') | (v == '"') | (v == delimiter))) {
-        break;
-      }
-      offset += 16;
-    }
-#endif
-    while (offset < buffer_size) {
-      // error happened or remaining bytes to check
-      const char c = static_cast<char>(data[offset]);
-      if (c == '\n' || c == '\r' || c == '"' || c == delimiter) {
-        // extract the offending string from array per offset
-        const auto* offsets = array.raw_value_offsets();
-        const auto index =
-            std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) -
-            offsets;
-        DCHECK_GT(index, 0);
-        return Status::Invalid(
-            "CSV values may not contain structural characters if quoting style is "
-            "\"None\". See RFC4180. Invalid value: ",
-            array.GetView(index - 1));
-      }
-      ++offset;
+    if (int64_t offset = StopAtStructuralChar(data, buffer_size, delimiter);
+        offset != buffer_size) {
+      // extract the offending string from array per offset
+      const auto* offsets = array.raw_value_offsets();
+      const auto index =
+          std::upper_bound(offsets, offsets + array.length(), offset + offsets[0]) -
+          offsets;
+      DCHECK_GT(index, 0);
+      return Status::Invalid(
+          "CSV values may not contain structural characters if quoting style is "
+          "\"None\". See RFC4180. Invalid value: ",
+          array.GetView(index - 1));
     }
     return Status::OK();
   }
@@ -578,26 +590,62 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     return Status::OK();
   }
 
-  int64_t CalculateHeaderSize() const {
+  int64_t CalculateHeaderSize(QuotingStyle quoting_style) const {
     int64_t header_length = 0;
     for (int col = 0; col < schema_->num_fields(); col++) {
       const std::string& col_name = schema_->field(col)->name();
       header_length += col_name.size();
-      header_length += CountQuotes(col_name);
+      switch (quoting_style) {
+        case QuotingStyle::None:
+          break;
+        case QuotingStyle::Needed:
+        case QuotingStyle::AllValid:
+          header_length += CountQuotes(col_name);
+          break;
+      }
     }
-    // header_length + ([quotes + ','] * schema_->num_fields()) + (eol - ',')
-    return header_length + (kQuoteDelimiterCount * schema_->num_fields()) +
-           (options_.eol.size() - 1);
+    header_length += kDelimiterCount * (schema_->num_fields() - 1) + options_.eol.size();
+    switch (quoting_style) {
+      case QuotingStyle::None:
+        break;
+      case QuotingStyle::Needed:
+      case QuotingStyle::AllValid:
+        header_length += kQuoteCount * schema_->num_fields();
+        break;
+    }
+    return header_length;
   }
 
   Status WriteHeader() {
     // Only called once, as part of initialization
-    RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(), /*shrink_to_fit=*/false));
+    RETURN_NOT_OK(data_buffer_->Resize(CalculateHeaderSize(options_.quoting_header),
+                                       /*shrink_to_fit=*/false));
     char* next = reinterpret_cast<char*>(data_buffer_->mutable_data());
     for (int col = 0; col < schema_->num_fields(); ++col) {
-      *next++ = '"';
-      next = Escape(schema_->field(col)->name(), next);
-      *next++ = '"';
+      const std::string& col_name = schema_->field(col)->name();
+      switch (options_.quoting_header) {
+        case QuotingStyle::None:
+          if (StopAtStructuralChar(reinterpret_cast<const uint8_t*>(col_name.c_str()),
+                                   col_name.length(), options_.delimiter) !=
+              static_cast<int64_t>(col_name.length())) {
+            return Status::Invalid(
+                "CSV header may not contain structural characters if quoting style is "
+                "\"None\". See RFC4180. Invalid value: ",
+                col_name);
+          }
+          memcpy(next, col_name.data(), col_name.size());
+          next += col_name.size();
+          break;
+        case QuotingStyle::Needed:
+        case QuotingStyle::AllValid:
+          // QuotingStyle::Needed is defined as always quoting string/binary data,
+          // regardless of whether it contains structural chars.
+          // We use consistent semantics for header names, which are strings.
+          *next++ = '"';
+          next = Escape(schema_->field(col)->name(), next);
+          *next++ = '"';
+          break;
+      }
       if (col != schema_->num_fields() - 1) {
         *next++ = options_.delimiter;
       }

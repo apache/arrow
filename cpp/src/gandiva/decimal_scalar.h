@@ -61,7 +61,7 @@ class DecimalScalar128 : public BasicDecimalScalar128 {
 namespace std {
 template <>
 struct hash<gandiva::DecimalScalar128> {
-  std::size_t operator()(gandiva::DecimalScalar128 const& s) const noexcept {
+  std::size_t operator()(const gandiva::DecimalScalar128& s) const noexcept {
     arrow::BasicDecimal128 dvalue(s.value());
 
     static const int kSeedValue = 4;

@@ -795,6 +795,10 @@ data_page_size : int, default None
     Set a target threshold for the approximate encoded size of data
     pages within a column chunk (in bytes). If None, use the default data page
     size of 1MByte.
+max_rows_per_page : int, default None
+    Maximum number of rows per page within a column chunk.
+    If None, use the default of 20000.
+    Smaller values reduce memory usage during reads but increase metadata overhead.
 flavor : {'spark'}, default None
     Sanitize schema or set other compatibility options to work with
     various target systems.
@@ -939,6 +943,12 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+write_time_adjusted_to_utc : bool, default False
+    Set the value of isAdjustedTOUTC when writing a TIME column.
+    If True, this tells the Parquet reader that the TIME columns
+    are expressed in reference to midnight in the UTC timezone.
+    If False (the default), the TIME columns are assumed to be expressed
+    in reference to midnight in an unknown, presumably local, timezone.
 """
 
 _parquet_writer_example_doc = """\
@@ -1035,6 +1045,8 @@ Examples
                  write_page_checksum=False,
                  sorting_columns=None,
                  store_decimal_as_integer=False,
+                 write_time_adjusted_to_utc=False,
+                 max_rows_per_page=None,
                  **options):
         if use_deprecated_int96_timestamps is None:
             # Use int96 timestamps for Spark
@@ -1088,6 +1100,8 @@ Examples
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
+            write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+            max_rows_per_page=max_rows_per_page,
             **options)
         self.is_open = True
 
@@ -1879,10 +1893,23 @@ def read_table(source, *, columns=None, use_threads=True,
                 "the 'schema' argument is not supported when the "
                 "pyarrow.dataset module is not available"
             )
+        if isinstance(source, list):
+            raise ValueError(
+                "the 'source' argument cannot be a list of files "
+                "when the pyarrow.dataset module is not available"
+            )
+
         filesystem, path = _resolve_filesystem_and_path(source, filesystem)
         if filesystem is not None:
+            if not filesystem.get_file_info(path).is_file:
+                raise ValueError(
+                    "the 'source' argument should be "
+                    "an existing parquet file and not a directory "
+                    "when the pyarrow.dataset module is not available"
+                )
+
             source = filesystem.open_input_file(path)
-        # TODO test that source is not a directory or a list
+
         dataset = ParquetFile(
             source, read_dictionary=read_dictionary,
             binary_type=binary_type,
@@ -1949,6 +1976,8 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_checksum=False,
                 sorting_columns=None,
                 store_decimal_as_integer=False,
+                write_time_adjusted_to_utc=False,
+                max_rows_per_page=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -1980,6 +2009,8 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 write_page_checksum=write_page_checksum,
                 sorting_columns=sorting_columns,
                 store_decimal_as_integer=store_decimal_as_integer,
+                write_time_adjusted_to_utc=write_time_adjusted_to_utc,
+                max_rows_per_page=max_rows_per_page,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

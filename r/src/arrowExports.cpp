@@ -1084,8 +1084,8 @@ extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP fil
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group);
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group, bool create_directory);
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
@@ -1101,12 +1101,13 @@ BEGIN_CPP11
 	arrow::r::Input<uint64_t>::type max_rows_per_file(max_rows_per_file_sexp);
 	arrow::r::Input<uint64_t>::type min_rows_per_group(min_rows_per_group_sexp);
 	arrow::r::Input<uint64_t>::type max_rows_per_group(max_rows_per_group_sexp);
-	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group);
+	arrow::r::Input<bool>::type create_directory(create_directory_sexp);
+	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp){
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp){
 	Rf_error("Cannot call ExecPlan_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -2584,6 +2585,15 @@ BEGIN_CPP11
 	arrow::r::Input<int32_t>::type precision(precision_sexp);
 	arrow::r::Input<int32_t>::type scale(scale_sexp);
 	return cpp11::as_sexp(Decimal256Type__initialize(precision, scale));
+END_CPP11
+}
+// datatype.cpp
+std::shared_ptr<arrow::DataType> SmallestDecimal__initialize(int32_t precision, int32_t scale);
+extern "C" SEXP _arrow_SmallestDecimal__initialize(SEXP precision_sexp, SEXP scale_sexp){
+BEGIN_CPP11
+	arrow::r::Input<int32_t>::type precision(precision_sexp);
+	arrow::r::Input<int32_t>::type scale(scale_sexp);
+	return cpp11::as_sexp(SmallestDecimal__initialize(precision, scale));
 END_CPP11
 }
 // datatype.cpp
@@ -5814,7 +5824,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecNode_has_ordered_batches", (DL_FUNC) &_arrow_ExecNode_has_ordered_batches, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
-		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 14}, 
+		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 15}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 3}, 
@@ -5932,6 +5942,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Decimal64Type__initialize", (DL_FUNC) &_arrow_Decimal64Type__initialize, 2}, 
 		{ "_arrow_Decimal128Type__initialize", (DL_FUNC) &_arrow_Decimal128Type__initialize, 2}, 
 		{ "_arrow_Decimal256Type__initialize", (DL_FUNC) &_arrow_Decimal256Type__initialize, 2}, 
+		{ "_arrow_SmallestDecimal__initialize", (DL_FUNC) &_arrow_SmallestDecimal__initialize, 2}, 
 		{ "_arrow_DayTimeInterval__initialize", (DL_FUNC) &_arrow_DayTimeInterval__initialize, 0}, 
 		{ "_arrow_FixedSizeBinary__initialize", (DL_FUNC) &_arrow_FixedSizeBinary__initialize, 1}, 
 		{ "_arrow_FixedSizeBinary__byte_width", (DL_FUNC) &_arrow_FixedSizeBinary__byte_width, 1}, 
