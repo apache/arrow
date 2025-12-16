@@ -418,12 +418,12 @@ class CopyLicenseSdist(sdist):
             if os.path.exists(dest_full) or os.path.islink(dest_full):
                 os.unlink(dest_full)
 
-            # Copy the actual file
-            if os.path.exists(src_full):
-                shutil.copy2(src_full, dest_full)
-                print(f"Copied {src_path} to {dest_name} in sdist")
-            else:
-                print(f"Warning: Could not find {src_full}")
+            if not os.path.exists(src_full):
+                msg = f"Required license file not found: {src_full}"
+                raise FileNotFoundError(msg)
+
+            shutil.copy2(src_full, dest_full)
+            print(f"Copied {src_path} to {dest_name} in sdist")
 
 
 setup(
