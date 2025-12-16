@@ -93,10 +93,6 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
   static constexpr int kConcurrentIterations = 20;
 #endif
 
-  static const EncryptionTestParam& GetParam() {
-    return testing::WithParamInterface<T>::GetParam();
-  }
-
   // This function creates a mock file system using the current time point, creates a
   // directory with the given base directory path, and writes a dataset to it using
   // provided Parquet file write options. The function also checks if the written files
@@ -128,7 +124,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     auto parquet_file_write_options =
         checked_pointer_cast<ParquetFileWriteOptions>(file_format->DefaultWriteOptions());
 
-    if (GetParam().use_crypto_factory) {
+    if (this->GetParam().use_crypto_factory) {
       // Configure encryption keys via crypto factory.
       crypto_factory_ = std::make_shared<parquet::encryption::CryptoFactory>();
       auto kms_client_factory =
@@ -142,8 +138,8 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
       auto encryption_config =
           std::make_shared<parquet::encryption::EncryptionConfiguration>(
               std::string(kFooterKeyName));
-      encryption_config->uniform_encryption = GetParam().uniform_encryption;
-      if (!GetParam().uniform_encryption) {
+      encryption_config->uniform_encryption = this->GetParam().uniform_encryption;
+      if (!this->GetParam().uniform_encryption) {
         std::stringstream column_key;
         column_key << kColumnMasterKeyId << ": " << ColumnName();
         encryption_config->column_keys = column_key.str();
@@ -159,7 +155,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     } else {
       // Configure encryption keys via writer options / file encryption properties.
       // non-uniform encryption not support by test
-      ASSERT_TRUE(GetParam().uniform_encryption);
+      ASSERT_TRUE(this->GetParam().uniform_encryption);
       auto file_encryption_properties =
           std::make_unique<parquet::FileEncryptionProperties::Builder>(
               kFooterKeyMasterKey)
@@ -173,10 +169,10 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     // Write dataset.
     auto dataset = std::make_shared<InMemoryDataset>(table_);
     EXPECT_OK_AND_ASSIGN(auto scanner_builder, dataset->NewScan());
-    ARROW_EXPECT_OK(scanner_builder->UseThreads(GetParam().concurrently));
+    ARROW_EXPECT_OK(scanner_builder->UseThreads(this->GetParam().concurrently));
     EXPECT_OK_AND_ASSIGN(auto scanner, scanner_builder->Finish());
 
-    if (GetParam().concurrently) {
+    if (this->GetParam().concurrently) {
       // Have a notable number of threads to exhibit multi-threading issues
       ASSERT_OK_AND_ASSIGN(auto pool, arrow::internal::ThreadPool::Make(16));
       std::vector<Future<>> futures;
@@ -223,7 +219,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     // Set scan options.
     auto parquet_scan_options = std::make_shared<ParquetFragmentScanOptions>();
 
-    if (GetParam().use_crypto_factory) {
+    if (this->GetParam().use_crypto_factory) {
       // Configure decryption keys via crypto factory.
       auto decryption_config =
           std::make_shared<parquet::encryption::DecryptionConfiguration>();
@@ -264,7 +260,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
   }
 
   void TestScanDataset() {
-    if (GetParam().concurrently) {
+    if (this->GetParam().concurrently) {
       // Create the dataset
       ASSERT_OK_AND_ASSIGN(auto dataset,
                            OpenDataset("thread-1", crypto_factory_, key_map_));
@@ -309,7 +305,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     // Read dataset into table
     ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
     ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
-    ARROW_EXPECT_OK(scanner_builder->UseThreads(GetParam().concurrently));
+    ARROW_EXPECT_OK(scanner_builder->UseThreads(testing::WithParamInterface<T>::GetParam().concurrently));
     return scanner->ToTable();
   }
 
@@ -321,7 +317,7 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
   }
 
  protected:
-  std::string base_dir_ = GetParam().concurrently ? "thread-1" : std::string(kBaseDir);
+  std::string base_dir_ = this->GetParam().concurrently ? "thread-1" : std::string(kBaseDir);
   std::shared_ptr<fs::FileSystem> file_system_;
   std::shared_ptr<Table> table_, expected_table_;
   std::shared_ptr<Partitioning> partitioning_;
