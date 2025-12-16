@@ -183,6 +183,12 @@ module ArrowFormat
     end
   end
 
+  class TimestampArray < TemporalArray
+    def to_a
+      apply_validity(@values_buffer.values(:s64, 0, @size))
+    end
+  end
+
   class VariableSizeBinaryLayoutArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
       super(type, size, validity_buffer)
