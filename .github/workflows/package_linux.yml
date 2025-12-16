@@ -274,7 +274,7 @@ jobs:
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
           dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
       - name: Upload the artifacts to the job
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.id }}
           path: ${{ matrix.id }}.tar.gz*
