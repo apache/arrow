@@ -15,17 +15,6 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. ipython:: python
-    :suppress:
-
-    # set custom tmp working directory for files that create data
-    import os
-    import tempfile
-
-    orig_working_dir = os.getcwd()
-    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
-    os.chdir(temp_working_dir)
-
 .. currentmodule:: pyarrow.dataset
 
 .. _dataset:
@@ -64,23 +53,24 @@ Reading Datasets
 For the examples below, let's create a small dataset consisting
 of a directory with two parquet files:
 
-.. ipython:: python
+.. code-block:: python
 
-    import tempfile
-    import pathlib
-    import pyarrow as pa
-    import pyarrow.parquet as pq
-    import numpy as np
-
-    base = pathlib.Path(tempfile.mkdtemp(prefix="pyarrow-"))
-    (base / "parquet_dataset").mkdir(exist_ok=True)
-
-    # creating an Arrow Table
-    table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5})
-
-    # writing it into two parquet files
-    pq.write_table(table.slice(0, 5), base / "parquet_dataset/data1.parquet")
-    pq.write_table(table.slice(5, 10), base / "parquet_dataset/data2.parquet")
+    >>> import tempfile
+    >>> import pathlib
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> import numpy as np
+    >>>
+    >>> base = pathlib.Path(tempfile.mkdtemp(prefix="pyarrow-"))
+    >>> (base / "parquet_dataset").mkdir(exist_ok=True)
+    >>>
+    >>> # creating an Arrow Table
+    >>> np.random.seed(0)
+    >>> table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5})
+    >>>
+    >>> # writing it into two parquet files
+    >>> pq.write_table(table.slice(0, 5), base / "parquet_dataset/data1.parquet")
+    >>> pq.write_table(table.slice(5, 10), base / "parquet_dataset/data2.parquet")
 
 Dataset discovery
 ~~~~~~~~~~~~~~~~~
@@ -88,11 +78,12 @@ Dataset discovery
 A :class:`Dataset` object can be created with the :func:`dataset` function. We
 can pass it the path to the directory containing the data files:
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow.dataset as ds
-    dataset = ds.dataset(base / "parquet_dataset", format="parquet")
-    dataset
+    >>> import pyarrow.dataset as ds
+    >>> dataset = ds.dataset(base / "parquet_dataset", format="parquet")
+    >>> dataset
+    <pyarrow._dataset.FileSystemDataset object at ...>
 
 In addition to searching a base directory, :func:`dataset` accepts a path to a
 single file or a list of file paths.
@@ -100,25 +91,48 @@ single file or a list of file paths.
 Creating a :class:`Dataset` object does not begin reading the data itself. If
 needed, it only crawls the directory to find all the files:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset.files
+    >>> dataset.files
+    ['.../parquet_dataset/data1.parquet', '.../parquet_dataset/data2.parquet']
 
 ... and infers the dataset's schema (by default from the first file):
 
-.. ipython:: python
+.. code-block:: python
 
-    print(dataset.schema.to_string(show_field_metadata=False))
+    >>> print(dataset.schema.to_string(show_field_metadata=False))
+    a: int64
+    b: double
+    c: int64
 
 Using the :meth:`Dataset.to_table` method we can read the dataset (or a portion
 of it) into a pyarrow Table (note that depending on the size of your dataset
 this can require a lot of memory, see below on filtering / iterative loading):
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset.to_table()
-    # converting to pandas to see the contents of the scanned table
-    dataset.to_table().to_pandas()
+    >>> dataset.to_table()
+    pyarrow.Table
+    a: int64
+    b: double
+    c: int64
+    ----
+    a: [[0,1,2,3,4],[5,6,7,8,9]]
+    b: [[...],[...]]
+    c: [[1,2,1,2,1],[2,1,2,1,2]]
+    >>> # converting to pandas to see the contents of the scanned table
+    >>> dataset.to_table().to_pandas()
+       a         b  c
+    0  0  1.764052  1
+    1  1  0.400157  2
+    2  2  0.978738  1
+    3  3  2.240893  2
+    4  4  1.867558  1
+    5  5 -0.977278  2
+    6  6  0.950088  1
+    7  7 -0.151357  2
+    8  8 -0.103219  1
+    9  9  0.410599  2
 
 Reading different file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -130,19 +144,25 @@ supported; more formats are planned in the future.
 
 If we save the table as Feather files instead of Parquet files:
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow.feather as feather
-
-    feather.write_feather(table, base / "data.feather")
+    >>> import pyarrow.feather as feather
+    >>>
+    >>> feather.write_feather(table, base / "data.feather")
 
 …then we can read the Feather file using the same functions, but with specifying
 ``format="feather"``:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset = ds.dataset(base / "data.feather", format="feather")
-    dataset.to_table().to_pandas().head()
+    >>> dataset = ds.dataset(base / "data.feather", format="feather")
+    >>> dataset.to_table().to_pandas().head()
+       a         b  c
+    0  0  1.764052  1
+    1  1  0.400157  2
+    2  2  0.978738  1
+    3  3  2.240893  2
+    4  4  1.867558  1
 
 Customizing file formats
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -172,19 +192,40 @@ To avoid reading all data when only needing a subset, the ``columns`` and
 
 The ``columns`` keyword can be used to only read the specified columns:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset = ds.dataset(base / "parquet_dataset", format="parquet")
-    dataset.to_table(columns=['a', 'b']).to_pandas()
+    >>> dataset = ds.dataset(base / "parquet_dataset", format="parquet")
+    >>> dataset.to_table(columns=['a', 'b']).to_pandas()
+       a         b
+    0  0  1.764052
+    1  1  0.400157
+    2  2  0.978738
+    3  3  2.240893
+    4  4  1.867558
+    5  5 -0.977278
+    6  6  0.950088
+    7  7 -0.151357
+    8  8 -0.103219
+    9  9  0.410599
 
 With the ``filter`` keyword, rows which do not match the filter predicate will
 not be included in the returned table. The keyword expects a boolean
 :class:`Expression` referencing at least one of the columns:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
-    dataset.to_table(filter=ds.field('c') == 2).to_pandas()
+    >>> dataset.to_table(filter=ds.field('a') >= 7).to_pandas()
+       a         b  c
+    0  7 -0.151357  2
+    1  8 -0.103219  1
+    2  9  0.410599  2
+    >>> dataset.to_table(filter=ds.field('c') == 2).to_pandas()
+       a         b  c
+    0  1  0.400157  2
+    1  3  2.240893  2
+    2  5 -0.977278  2
+    3  7 -0.151357  2
+    4  9  0.410599  2
 
 The easiest way to construct those :class:`Expression` objects is by using the
 :func:`field` helper function. Any column - not just partition columns - can be
@@ -193,11 +234,18 @@ referenced using the :func:`field` function (which creates a
 including the comparisons (equal, larger/less than, etc), set membership
 testing, and boolean combinations (``&``, ``|``, ``~``):
 
-.. ipython:: python
+.. code-block:: python
 
-    ds.field('a') != 3
-    ds.field('a').isin([1, 2, 3])
-    (ds.field('a') > ds.field('b')) & (ds.field('b') > 1)
+    >>> ds.field('a') != 3
+    <pyarrow.compute.Expression (a != 3)>
+    >>> ds.field('a').isin([1, 2, 3])
+    <pyarrow.compute.Expression is_in(a, {value_set=int64:[
+      1,
+      2,
+      3
+    ], null_matching_behavior=MATCH})>
+    >>> (ds.field('a') > ds.field('b')) & (ds.field('b') > 1)
+    <pyarrow.compute.Expression ((a > b) and (b > 1))>
 
 Note that :class:`Expression` objects can **not** be combined by python logical
 operators ``and``, ``or`` and ``not``.
@@ -213,25 +261,37 @@ In this case, we pass it a dictionary with the keys being the resulting
 column names and the values the expression that is used to construct the column
 values:
 
-.. ipython:: python
+.. code-block:: python
 
-    projection = {
-        "a_renamed": ds.field("a"),
-        "b_as_float32": ds.field("b").cast("float32"),
-        "c_1": ds.field("c") == 1,
-    }
-    dataset.to_table(columns=projection).to_pandas().head()
+    >>> projection = {
+    ...     "a_renamed": ds.field("a"),
+    ...     "b_as_float32": ds.field("b").cast("float32"),
+    ...     "c_1": ds.field("c") == 1,
+    ... }
+    >>> dataset.to_table(columns=projection).to_pandas().head()
+       a_renamed  b_as_float32    c_1
+    0          0      1.764052   True
+    1          1      0.400157  False
+    2          2      0.978738   True
+    3          3      2.240893  False
+    4          4      1.867558   True
 
 The dictionary also determines the column selection (only the keys in the
 dictionary will be present as columns in the resulting table). If you want
 to include a derived column in *addition* to the existing columns, you can
 build up the dictionary from the dataset schema:
 
-.. ipython:: python
+.. code-block:: python
 
-    projection = {col: ds.field(col) for col in dataset.schema.names}
-    projection.update({"b_large": ds.field("b") > 1})
-    dataset.to_table(columns=projection).to_pandas().head()
+    >>> projection = {col: ds.field(col) for col in dataset.schema.names}
+    >>> projection.update({"b_large": ds.field("b") > 1})
+    >>> dataset.to_table(columns=projection).to_pandas().head()
+       a         b  c  b_large
+    0  0  1.764052  1     True
+    1  1  0.400157  2    False
+    2  2  0.978738  1    False
+    3  3  2.240893  2     True
+    4  4  1.867558  1     True
 
 
 Reading partitioned data
@@ -269,12 +329,12 @@ in Apache Hive.
 Let's create a small partitioned dataset. The :func:`~pyarrow.parquet.write_to_dataset`
 function can write such hive-like partitioned datasets.
 
-.. ipython:: python
+.. code-block:: python
 
-    table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5,
-                      'part': ['a'] * 5 + ['b'] * 5})
-    pq.write_to_dataset(table, "parquet_dataset_partitioned",
-                        partition_cols=['part'])
+    >>> table = pa.table({'a': range(10), 'b': np.random.randn(10), 'c': [1, 2] * 5,
+    ...                   'part': ['a'] * 5 + ['b'] * 5})
+    >>> pq.write_to_dataset(table, "parquet_dataset_partitioned",
+    ...                     partition_cols=['part'])
 
 The above created a directory with two subdirectories ("part=a" and "part=b"),
 and the Parquet files written in those directories no longer include the "part"
@@ -283,25 +343,36 @@ column.
 Reading this dataset with :func:`dataset`, we now specify that the dataset
 should use a hive-like partitioning scheme with the ``partitioning`` keyword:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset = ds.dataset("parquet_dataset_partitioned", format="parquet",
-                         partitioning="hive")
-    dataset.files
+    >>> dataset = ds.dataset("parquet_dataset_partitioned", format="parquet",
+    ...                      partitioning="hive")
+    >>> dataset.files
+    ['parquet_dataset_partitioned/part=a/...-0.parquet', 'parquet_dataset_partitioned/part=b/...-0.parquet']
 
 Although the partition fields are not included in the actual Parquet files,
 they will be added back to the resulting table when scanning this dataset:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset.to_table().to_pandas().head(3)
+    >>> dataset.to_table().to_pandas().head(3)
+       a         b  c part
+    0  0  0.144044  1    a
+    1  1  1.454274  2    a
+    2  2  0.761038  1    a
 
 We can now filter on the partition keys, which avoids loading files
 altogether if they do not match the filter:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset.to_table(filter=ds.field("part") == "b").to_pandas()
+    >>> dataset.to_table(filter=ds.field("part") == "b").to_pandas()
+       a         b  c part
+    0  5  0.333674  2    b
+    1  6  1.494079  1    b
+    2  7 -0.205158  2    b
+    3  8  0.313068  1    b
+    4  9 -0.854096  2    b
 
 
 Different partitioning schemes
@@ -316,11 +387,11 @@ using the :func:`partitioning` function. For example:
 
 .. code-block:: python
 
-    part = ds.partitioning(
-        pa.schema([("year", pa.int16()), ("month", pa.int8()), ("day", pa.int32())]),
-        flavor="hive"
-    )
-    dataset = ds.dataset(..., partitioning=part)
+    >>> part = ds.partitioning(  # doctest: +SKIP
+    ...     pa.schema([("year", pa.int16()), ("month", pa.int8()), ("day", pa.int32())]),
+    ...     flavor="hive"
+    ... )
+    >>> dataset = ds.dataset(..., partitioning=part)  # doctest: +SKIP
 
 "Directory partitioning" is also supported, where the segments in the file path
 represent the values of the partition keys without including the name (the
@@ -332,7 +403,7 @@ when constructing a directory partitioning:
 
 .. code-block:: python
 
-    part = ds.partitioning(field_names=["year", "month", "day"])
+    >>> part = ds.partitioning(field_names=["year", "month", "day"])  # doctest: +SKIP
 
 Directory partitioning also supports providing a full schema rather than inferring
 types from file paths.
@@ -350,17 +421,16 @@ specifying a S3 path:
 
 .. code-block:: python
 
-    dataset = ds.dataset("s3://arrow-datasets/nyc-taxi/")
+    >>> dataset = ds.dataset("s3://arrow-datasets/nyc-taxi/")  # doctest: +SKIP
 
 Typically, you will want to customize the connection parameters, and then
 a file system object can be created and passed to the ``filesystem`` keyword:
 
 .. code-block:: python
 
-    from pyarrow import fs
-
-    s3  = fs.S3FileSystem(region="us-east-1")
-    dataset = ds.dataset("arrow-datasets/nyc-taxi/", filesystem=s3)
+    >>> from pyarrow import fs
+    >>> s3  = fs.S3FileSystem(region="us-east-1")
+    >>> dataset = ds.dataset("arrow-datasets/nyc-taxi/", filesystem=s3)  # doctest: +SKIP
 
 The currently available classes are :class:`~pyarrow.fs.S3FileSystem` and
 :class:`~pyarrow.fs.HadoopFileSystem`. See the :ref:`filesystem` docs for more
@@ -377,11 +447,9 @@ useful for testing or benchmarking.
 
 .. code-block:: python
 
-    from pyarrow import fs
-
-    # By default, MinIO will listen for unencrypted HTTP traffic.
-    minio = fs.S3FileSystem(scheme="http", endpoint_override="localhost:9000")
-    dataset = ds.dataset("arrow-datasets/nyc-taxi/", filesystem=minio)
+    >>> # By default, MinIO will listen for unencrypted HTTP traffic.
+    >>> minio = fs.S3FileSystem(scheme="http", endpoint_override="localhost:9000")
+    >>> dataset = ds.dataset("arrow-datasets/nyc-taxi/", filesystem=minio)  # doctest: +SKIP
 
 
 Working with Parquet Datasets
@@ -401,7 +469,7 @@ dataset with a ``_metadata`` file:
 
 .. code-block:: python
 
-    dataset = ds.parquet_dataset("/path/to/dir/_metadata")
+    >>> dataset = ds.parquet_dataset("/path/to/dir/_metadata")  # doctest: +SKIP
 
 By default, the constructed :class:`Dataset` object for Parquet datasets maps
 each fragment to a single Parquet file. If you want fragments mapping to each
@@ -410,8 +478,8 @@ the fragments:
 
 .. code-block:: python
 
-    fragments = list(dataset.get_fragments())
-    fragments[0].split_by_row_group()
+    >>> fragments = list(dataset.get_fragments())  # doctest: +SKIP
+    >>> fragments[0].split_by_row_group()  # doctest: +SKIP
 
 This method returns a list of new Fragments mapping to each row group of
 the original Fragment (Parquet file). Both ``get_fragments()`` and
@@ -432,35 +500,44 @@ automatic discovery or inference.
 For the example here, we are going to use a dataset where the file names contain
 additional partitioning information:
 
-.. ipython:: python
+.. code-block:: python
 
-    # creating a dummy dataset: directory with two files
-    table = pa.table({'col1': range(3), 'col2': np.random.randn(3)})
-    (base / "parquet_dataset_manual").mkdir(exist_ok=True)
-    pq.write_table(table, base / "parquet_dataset_manual" / "data_2018.parquet")
-    pq.write_table(table, base / "parquet_dataset_manual" / "data_2019.parquet")
+    >>> # creating a dummy dataset: directory with two files
+    >>> table = pa.table({'col1': range(3), 'col2': np.random.randn(3)})
+    >>> (base / "parquet_dataset_manual").mkdir(exist_ok=True)
+    >>> pq.write_table(table, base / "parquet_dataset_manual" / "data_2018.parquet")
+    >>> pq.write_table(table, base / "parquet_dataset_manual" / "data_2019.parquet")
 
 To create a Dataset from a list of files, we need to specify the paths, schema,
 format, filesystem, and partition expressions manually:
 
-.. ipython:: python
+.. code-block:: python
 
-    from pyarrow import fs
-
-    schema = pa.schema([("year", pa.int64()), ("col1", pa.int64()), ("col2", pa.float64())])
-
-    dataset = ds.FileSystemDataset.from_paths(
-        ["data_2018.parquet", "data_2019.parquet"], schema=schema, format=ds.ParquetFileFormat(),
-        filesystem=fs.SubTreeFileSystem(str(base / "parquet_dataset_manual"), fs.LocalFileSystem()),
-        partitions=[ds.field('year') == 2018, ds.field('year') == 2019])
+    >>> schema = pa.schema([("year", pa.int64()), ("col1", pa.int64()), ("col2", pa.float64())])
+    >>>
+    >>> dataset = ds.FileSystemDataset.from_paths(
+    ...     ["data_2018.parquet", "data_2019.parquet"], schema=schema, format=ds.ParquetFileFormat(),
+    ...     filesystem=fs.SubTreeFileSystem(str(base / "parquet_dataset_manual"), fs.LocalFileSystem()),
+    ...     partitions=[ds.field('year') == 2018, ds.field('year') == 2019])
 
 Since we specified the "partition expressions" for our files, this information
 is materialized as columns when reading the data and can be used for filtering:
 
-.. ipython:: python
+.. code-block:: python
 
-    dataset.to_table().to_pandas()
-    dataset.to_table(filter=ds.field('year') == 2019).to_pandas()
+    >>> dataset.to_table().to_pandas()
+       year  col1      col2
+    0  2018     0 -2.552990
+    1  2018     1  0.653619
+    2  2018     2  0.864436
+    3  2019     0 -2.552990
+    4  2019     1  0.653619
+    5  2019     2  0.864436
+    >>> dataset.to_table(filter=ds.field('year') == 2019).to_pandas()
+       year  col1      col2
+    0  2019     0 -2.552990
+    1  2019     1  0.653619
+    2  2019     2  0.864436
 
 Another benefit of manually listing the files is that the order of the files
 controls the order of the data.  When performing an ordered read (or a read to
@@ -481,16 +558,16 @@ The easiest way to do this is to use the method :meth:`Dataset.to_batches`.  Thi
 method returns an iterator of record batches.  For example, we can use this method to
 calculate the average of a column without loading the entire column into memory:
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow.compute as pc
-
-    col2_sum = 0
-    count = 0
-    for batch in dataset.to_batches(columns=["col2"], filter=~ds.field("col2").is_null()):
-        col2_sum += pc.sum(batch.column("col2")).as_py()
-        count += batch.num_rows
-    mean_a = col2_sum/count
+    >>> import pyarrow.compute as pc
+    >>>
+    >>> col2_sum = 0
+    >>> count = 0
+    >>> for batch in dataset.to_batches(columns=["col2"], filter=~ds.field("col2").is_null()):
+    ...     col2_sum += pc.sum(batch.column("col2")).as_py()
+    ...     count += batch.num_rows
+    >>> mean_a = col2_sum/count
 
 Customizing the batch size
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -537,10 +614,10 @@ you want to partition your data or you need to write a large amount of data.  A
 basic dataset write is similar to writing a table except that you specify a directory
 instead of a filename.
 
-.. ipython:: python
+.. code-block:: python
 
-    table = pa.table({"a": range(10), "b": np.random.randn(10), "c": [1, 2] * 5})
-    ds.write_dataset(table, "sample_dataset", format="parquet")
+    >>> table = pa.table({"a": range(10), "b": np.random.randn(10), "c": [1, 2] * 5})
+    >>> ds.write_dataset(table, "sample_dataset", format="parquet")
 
 The above example will create a single file named part-0.parquet in our sample_dataset
 directory.
@@ -560,12 +637,12 @@ This uses the same kind of partitioning objects we used for reading datasets.  T
 our above data out to a partitioned directory we only need to specify how we want the
 dataset to be partitioned.  For example:
 
-.. ipython:: python
+.. code-block:: python
 
-    part = ds.partitioning(
-        pa.schema([("c", pa.int16())]), flavor="hive"
-    )
-    ds.write_dataset(table, "partitioned_dataset", format="parquet", partitioning=part)
+    >>> part = ds.partitioning(
+    ...     pa.schema([("c", pa.int16())]), flavor="hive"
+    ... )
+    >>> ds.write_dataset(table, "partitioned_dataset", format="parquet", partitioning=part)
 
 This will create two files.  Half our data will be in the dataset_root/c=1 directory and
 the other half will be in the dataset_root/c=2 directory.
@@ -688,23 +765,23 @@ you may not be able to load everything into a single in-memory table.  Fortunate
 simple, for example, to repartition a large dataset without loading the entire dataset
 into memory:
 
-.. ipython:: python
+.. code-block:: python
 
-    old_part = ds.partitioning(
-        pa.schema([("c", pa.int16())]), flavor="hive"
-    )
-    new_part = ds.partitioning(
-        pa.schema([("c", pa.int16())]), flavor=None
-    )
-    input_dataset = ds.dataset("partitioned_dataset", partitioning=old_part)
-    # A scanner can act as an iterator of record batches but you could also receive
-    # data from the network (e.g. via flight), from your own scanning, or from any
-    # other method that yields record batches.  In addition, you can pass a dataset
-    # into write_dataset directly but this method is useful if you want to customize
-    # the scanner (e.g. to filter the input dataset or set a maximum batch size)
-    scanner = input_dataset.scanner()
-
-    ds.write_dataset(scanner, "repartitioned_dataset", format="parquet", partitioning=new_part)
+    >>> old_part = ds.partitioning(
+    ...     pa.schema([("c", pa.int16())]), flavor="hive"
+    ... )
+    >>> new_part = ds.partitioning(
+    ...     pa.schema([("c", pa.int16())]), flavor=None
+    ... )
+    >>> input_dataset = ds.dataset("partitioned_dataset", partitioning=old_part)
+    >>> # A scanner can act as an iterator of record batches but you could also receive
+    >>> # data from the network (e.g. via flight), from your own scanning, or from any
+    >>> # other method that yields record batches.  In addition, you can pass a dataset
+    >>> # into write_dataset directly but this method is useful if you want to customize
+    >>> # the scanner (e.g. to filter the input dataset or set a maximum batch size)
+    >>> scanner = input_dataset.scanner()
+    >>>
+    >>> ds.write_dataset(scanner, "repartitioned_dataset", format="parquet", partitioning=new_part)
 
 After the above example runs our data will be in dataset_root/1 and dataset_root/2
 directories.  In this simple example we are not changing the structure of the data
@@ -722,17 +799,35 @@ call.  For simple datasets it may be possible to know which files will be create
 larger or partitioned datasets it is not so easy.  The ``file_visitor`` keyword can be used
 to supply a visitor that will be called as each file is created:
 
-.. ipython:: python
+.. code-block:: python
 
-    def file_visitor(written_file):
-        print(f"path={written_file.path}")
-        print(f"size={written_file.size} bytes")
-        print(f"metadata={written_file.metadata}")
+    >>> def file_visitor(written_file):
+    ...     print(f"path={written_file.path}")
+    ...     print(f"size={written_file.size} bytes")
+    ...     print(f"metadata={written_file.metadata}")
 
-.. ipython:: python
+.. code-block:: python
 
-    ds.write_dataset(table, "dataset_visited", format="parquet", partitioning=part,
-                     file_visitor=file_visitor)
+    >>> ds.write_dataset(table, "dataset_visited", format="parquet", partitioning=part,
+    ...                  file_visitor=file_visitor)
+    path=dataset_visited/c=.../part-0.parquet
+    size=824 bytes
+    metadata=<pyarrow._parquet.FileMetaData object at ...>
+      created_by: parquet-cpp-arrow version 23.0.0-SNAPSHOT
+      num_columns: 2
+      num_rows: 5
+      num_row_groups: 1
+      format_version: 2.6
+      serialized_size: 0
+    path=dataset_visited/c=.../part-0.parquet
+    size=826 bytes
+    metadata=<pyarrow._parquet.FileMetaData object at ...>
+      created_by: parquet-cpp-arrow version 23.0.0-SNAPSHOT
+      num_columns: 2
+      num_rows: 5
+      num_row_groups: 1
+      format_version: 2.6
+      serialized_size: 0
 
 This will allow you to collect the filenames that belong to the dataset and store them elsewhere
 which can be useful when you want to avoid scanning directories the next time you need to read
@@ -746,23 +841,10 @@ In addition to the common options shared by all formats there are also format sp
 that are unique to a particular format.  For example, to allow truncated timestamps while writing
 Parquet files:
 
-.. ipython:: python
+.. code-block:: python
 
-    parquet_format = ds.ParquetFileFormat()
-    write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)
-    ds.write_dataset(table, "sample_dataset2", format="parquet", partitioning=part,
-                     file_options=write_options)
+    >>> parquet_format = ds.ParquetFileFormat()
+    >>> write_options = parquet_format.make_write_options(allow_truncated_timestamps=True)
+    >>> ds.write_dataset(table, "sample_dataset2", format="parquet", partitioning=part,
+    ...                  file_options=write_options)
 
-
-.. ipython:: python
-    :suppress:
-
-    # clean-up custom working directory
-    import os
-    import shutil
-
-    os.chdir(orig_working_dir)
-    shutil.rmtree(temp_working_dir, ignore_errors=True)
-
-    # also clean-up custom base directory used in some examples
-    shutil.rmtree(str(base), ignore_errors=True)
