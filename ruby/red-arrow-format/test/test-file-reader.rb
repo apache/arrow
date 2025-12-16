@@ -358,6 +358,18 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("FixedSizeBinary") do
+    def build_array
+      data_type = Arrow::FixedSizeBinaryDataType.new(4)
+      Arrow::FixedSizeBinaryArray.new(data_type, ["0124".b, nil, "abcd".b])
+    end
+
+    def test_read
+      assert_equal([{"value" => ["0124".b, nil, "abcd".b]}],
+                   read)
+    end
+  end
+
   sub_test_case("List") do
     def build_array
       data_type = Arrow::ListDataType.new(name: "count", type: :int8)
