@@ -126,7 +126,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
@@ -211,7 +211,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: jni-${{ matrix.platform.runs-on }}-${{ hashFiles('cpp/**') }}
@@ -283,7 +283,7 @@ jobs:
         run: |
           echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ccache
           key: jni-macos-${{ hashFiles('cpp/**') }}
