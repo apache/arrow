@@ -3341,7 +3341,7 @@ function(build_nlohmann_json)
   fetchcontent_makeavailable(nlohmann_json)
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+    set_property(DIRECTORY ${nlohmann_json_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
