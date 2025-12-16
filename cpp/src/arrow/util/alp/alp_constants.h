@@ -49,7 +49,7 @@ class AlpConstants {
   static constexpr uint64_t kSamplerSampleVectorsPerRowgroup = 8;
 
   /// Version number for the ALP compression format.
-  static constexpr uint64_t kAlpVersion = 1;
+  static constexpr uint8_t kAlpVersion = 1;
 
   /// Type used to store exception positions within a compressed vector.
   using PositionType = uint16_t;
