@@ -396,6 +396,7 @@ class BinaryDistribution(Distribution):
     def has_ext_modules(foo):
         return True
 
+
 class CopyLicenseSdist(sdist):
     """Custom sdist command that copies license files from parent directory."""
 
@@ -423,6 +424,7 @@ class CopyLicenseSdist(sdist):
                 print(f"Copied {src_path} to {dest_name} in sdist")
             else:
                 print(f"Warning: Could not find {src_full}")
+
 
 setup(
     distclass=BinaryDistribution,
