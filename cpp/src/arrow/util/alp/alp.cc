@@ -559,7 +559,8 @@ auto AlpCompression<T>::BitPackIntegers(
   } else if constexpr (std::is_same_v<T, double>) {
     bit_width = sizeof(T) * 8 - __builtin_clzll(min_max_diff);
   }
-  const uint64_t bit_packed_size = std::ceil((bit_width * integers.size()) / 8.0);
+  const uint16_t bit_packed_size =
+      static_cast<uint16_t>(std::ceil((bit_width * integers.size()) / 8.0));
 
   arrow::internal::StaticVector<uint8_t, kAlpVectorSize * sizeof(T)> packed_integers;
   // Use unsafe resize to avoid zero-initialization. Zero initialization was
@@ -600,12 +601,13 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
 
   // Transfer compressed data into a serializable format.
   const AlpEncodedVectorInfo vector_info{
-      exponent_and_factor,
       encoding_result.frame_of_reference,
+      exponent_and_factor,
       bitpacking_result.bit_width,
-      bitpacking_result.bit_packed_size,
+      0,  // reserved
       num_elements,
-      static_cast<uint16_t>(encoding_result.exceptions.size())};
+      static_cast<uint16_t>(encoding_result.exceptions.size()),
+      bitpacking_result.bit_packed_size};
 
   return AlpEncodedVector<T>{vector_info, bitpacking_result.packed_integers,
                              encoding_result.exceptions,

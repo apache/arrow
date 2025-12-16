@@ -161,36 +161,38 @@ struct AlpExponentAndFactor {
 /// Helper class to encapsulate all metadata of an encoded vector to be able
 /// to load and decompress it.
 ///
-/// Serialization format (stored as raw binary struct):
+/// Serialization format (stored as raw binary struct, optimized for packing):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedVectorInfo (23+ bytes)        |
+///   |  AlpEncodedVectorInfo (24 bytes)         |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
-///   |    0    |  exponent (uint8_t) |  1 byte  |
-///   |    1    |  factor (uint8_t)   |  1 byte  |
-///   |    2    |  [padding]          |  6 bytes |
-///   |    8    |  frame_of_reference |  8 bytes |
-///   |   16    |  bit_width (uint8_t)|  1 byte  |
-///   |   17    |  [padding]          |  7 bytes |
-///   |   24    |  bit_packed_size    |  8 bytes |
-///   |   32    |  num_elements       |  2 bytes |
-///   |   34    |  num_exceptions     |  2 bytes |
+///   |    0    |  frame_of_reference |  8 bytes |
+///   |    8    |  exponent (uint8_t) |  1 byte  |
+///   |    9    |  factor (uint8_t)   |  1 byte  |
+///   |   10    |  bit_width (uint8_t)|  1 byte  |
+///   |   11    |  reserved (uint8_t) |  1 byte  |
+///   |   12    |  num_elements       |  2 bytes |
+///   |   14    |  num_exceptions     |  2 bytes |
+///   |   16    |  bit_packed_size    |  2 bytes |
+///   |   18    |  [padding]          |  6 bytes |
 ///   +------------------------------------------+
 struct AlpEncodedVectorInfo {
-  /// Exponent and factor used for compression
-  AlpExponentAndFactor exponent_and_factor;
   /// Delta used for frame of reference encoding
   uint64_t frame_of_reference = 0;
+  /// Exponent and factor used for compression
+  AlpExponentAndFactor exponent_and_factor;
   /// Bitwidth used for bitpacking
   uint8_t bit_width = 0;
-  /// Overall bitpacked size of non-exception values
-  uint64_t bit_packed_size = 0;
+  /// Reserved for future use (padding for alignment)
+  uint8_t reserved = 0;
   /// Number of elements encoded in this vector
   uint16_t num_elements = 0;
   /// Number of exceptions stored in this vector
   uint16_t num_exceptions = 0;
+  /// Overall bitpacked size of non-exception values (max ~8KB for 1024 elements)
+  uint16_t bit_packed_size = 0;
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
@@ -225,7 +227,7 @@ struct AlpEncodedVectorInfo {
 ///   |  Section              |  Size (bytes)        | Description |
 ///   +-----------------------+----------------------+-------------+
 ///   |  1. VectorInfo        |  sizeof(VectorInfo)  |  Metadata   |
-///   |     (see above)       |  (~36 with padding)  |             |
+///   |     (see above)       |  (24 bytes)          |             |
 ///   +-----------------------+----------------------+-------------+
 ///   |  2. Packed Values     |  bit_packed_size     |  Bitpacked  |
 ///   |     (compressed data) |  (variable)          |  integers   |
@@ -482,7 +484,7 @@ class AlpCompression : private AlpConstants {
     arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
         packed_integers;
     uint8_t bit_width = 0;
-    uint64_t bit_packed_size = 0;
+    uint16_t bit_packed_size = 0;
   };
 
   /// \brief Bitpack the encoded integers as the final step of compression
