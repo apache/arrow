@@ -168,11 +168,6 @@ std::vector<WriteConfig> GetEncryptedWriteConfigurations(const ::arrow::Schema& 
   {
     ColumnPathToEncryptionPropertiesMap column_map;
     for (const auto& field : schema.fields()) {
-      // Skip nested columns (they will not be encrypted) until GH-41246 makes
-      // their configuration easier.
-      if (field->type()->num_fields() > 0) {
-        continue;
-      }
       auto column_key = MakeEncryptionKey();
       column_map[field->name()] = ColumnEncryptionProperties::WithColumnKey(
           column_key.key, column_key.key_metadata);
@@ -184,11 +179,7 @@ std::vector<WriteConfig> GetEncryptedWriteConfigurations(const ::arrow::Schema& 
   // Unencrypted columns
   {
     ColumnPathToEncryptionPropertiesMap column_map;
-    // Only encrypt the first non-nested column, the rest will be written in plaintext
     for (const auto& field : schema.fields()) {
-      if (field->type()->num_fields() > 0) {
-        continue;
-      }
       column_map[field->name()] = ColumnEncryptionProperties::Unencrypted();
     }
     ARROW_DCHECK_NE(column_map.size(), 0);
