@@ -251,6 +251,7 @@ repos:
         exclude: >-
           (
           ?^dev/tasks/homebrew-formulae/.*\.rb$|
+          ?^ruby/red-arrow-format/lib/arrow-format/org/.*\.rb$|
           )
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
@@ -341,6 +342,7 @@ repos:
           ?^ci/scripts/release_test\.sh$|
           ?^ci/scripts/ruby_test\.sh$|
           ?^ci/scripts/rust_build\.sh$|
+          ?^ci/scripts/util_download_apache\.sh$|
           ?^ci/scripts/util_enable_core_dumps\.sh$|
           ?^ci/scripts/util_free_space\.sh$|
           ?^ci/scripts/util_log\.sh$|

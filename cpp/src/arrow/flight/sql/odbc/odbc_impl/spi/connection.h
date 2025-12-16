@@ -18,10 +18,10 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -32,13 +32,15 @@ namespace arrow::flight::sql::odbc {
 
 /// \brief Case insensitive comparator
 struct CaseInsensitiveComparator {
-  bool operator()(const std::string_view& s1, const std::string_view& s2) const {
+  using is_transparent = std::true_type;
+
+  bool operator()(std::string_view s1, std::string_view s2) const {
     return boost::lexicographical_compare(s1, s2, boost::is_iless());
   }
 };
 
 // PropertyMap is case-insensitive for keys.
-typedef std::map<std::string_view, std::string, CaseInsensitiveComparator> PropertyMap;
+typedef std::map<std::string, std::string, CaseInsensitiveComparator> PropertyMap;
 
 class Statement;
 
@@ -86,7 +88,7 @@ class Connection {
 
   /// \brief Retrieve a connection attribute
   /// \param attribute [in] Attribute to be retrieved.
-  virtual boost::optional<Connection::Attribute> GetAttribute(
+  virtual std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) = 0;
 
   /// \brief Retrieves info from the database (see ODBC's SQLGetInfo).

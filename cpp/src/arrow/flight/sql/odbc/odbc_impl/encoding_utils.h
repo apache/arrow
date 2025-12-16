@@ -16,7 +16,6 @@
 // under the License.
 
 #pragma once
-
 #include "arrow/flight/sql/odbc/odbc_impl/encoding.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
@@ -33,30 +32,28 @@
 
 namespace ODBC {
 
-using arrow::flight::sql::odbc::DriverException;
-using arrow::flight::sql::odbc::GetSqlWCharSize;
-using arrow::flight::sql::odbc::Utf8ToWcs;
-using arrow::flight::sql::odbc::WcsToUtf8;
-
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
-inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
+inline size_t ConvertToSqlWChar(std::string_view str, SQLWCHAR* buffer,
                                 SQLLEN buffer_size_in_bytes) {
   thread_local std::vector<uint8_t> wstr;
-  Utf8ToWcs<CHAR_TYPE>(str.data(), str.size(), &wstr);
+  arrow::flight::sql::odbc::Utf8ToWcs<CHAR_TYPE>(str.data(), str.size(), &wstr);
   SQLLEN value_length_in_bytes = wstr.size();
 
   if (buffer) {
-    memcpy(buffer, wstr.data(),
-           std::min(static_cast<SQLLEN>(wstr.size()), buffer_size_in_bytes));
+    std::memcpy(buffer, wstr.data(),
+                std::min(static_cast<SQLLEN>(wstr.size()), buffer_size_in_bytes));
 
     // Write a NUL terminator
     if (buffer_size_in_bytes >=
-        value_length_in_bytes + static_cast<SQLLEN>(GetSqlWCharSize())) {
-      reinterpret_cast<CHAR_TYPE*>(buffer)[value_length_in_bytes / GetSqlWCharSize()] =
+        value_length_in_bytes +
+            static_cast<SQLLEN>(arrow::flight::sql::odbc::GetSqlWCharSize())) {
+      reinterpret_cast<CHAR_TYPE*>(
+          buffer)[value_length_in_bytes / arrow::flight::sql::odbc::GetSqlWCharSize()] =
           '\0';
     } else {
-      SQLLEN num_chars_written = buffer_size_in_bytes / GetSqlWCharSize();
+      SQLLEN num_chars_written =
+          buffer_size_in_bytes / arrow::flight::sql::odbc::GetSqlWCharSize();
       // If we failed to even write one char, the buffer is too small to hold a
       // NUL-terminator.
       if (num_chars_written > 0) {
@@ -67,17 +64,18 @@ inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
   return value_length_in_bytes;
 }
 
-inline size_t ConvertToSqlWChar(const std::string& str, SQLWCHAR* buffer,
+inline size_t ConvertToSqlWChar(std::string_view str, SQLWCHAR* buffer,
                                 SQLLEN buffer_size_in_bytes) {
-  switch (GetSqlWCharSize()) {
+  switch (arrow::flight::sql::odbc::GetSqlWCharSize()) {
     case sizeof(char16_t):
       return ConvertToSqlWChar<char16_t>(str, buffer, buffer_size_in_bytes);
     case sizeof(char32_t):
       return ConvertToSqlWChar<char32_t>(str, buffer, buffer_size_in_bytes);
     default:
       assert(false);
-      throw DriverException("Encoding is unsupported, SQLWCHAR size: " +
-                            std::to_string(GetSqlWCharSize()));
+      throw arrow::flight::sql::odbc::DriverException(
+          "Encoding is unsupported, SQLWCHAR size: " +
+          std::to_string(arrow::flight::sql::odbc::GetSqlWCharSize()));
   }
 }
 
@@ -93,12 +91,30 @@ inline std::string SqlWcharToString(SQLWCHAR* wchar_msg, SQLINTEGER msg_len = SQ
   thread_local std::vector<uint8_t> utf8_str;
 
   if (msg_len == SQL_NTS) {
-    WcsToUtf8((void*)wchar_msg, &utf8_str);
+    arrow::flight::sql::odbc::WcsToUtf8((void*)wchar_msg, &utf8_str);
   } else {
-    WcsToUtf8((void*)wchar_msg, msg_len, &utf8_str);
+    arrow::flight::sql::odbc::WcsToUtf8((void*)wchar_msg, msg_len, &utf8_str);
   }
 
   return std::string(utf8_str.begin(), utf8_str.end());
 }
 
+inline std::string SqlStringToString(const unsigned char* sql_str,
+                                     int32_t sql_str_len = SQL_NTS) {
+  std::string res;
+
+  const char* sql_str_c = reinterpret_cast<const char*>(sql_str);
+
+  if (!sql_str) {
+    return res;
+  }
+
+  if (sql_str_len == SQL_NTS) {
+    res.assign(sql_str_c);
+  } else if (sql_str_len > 0) {
+    res.assign(sql_str_c, sql_str_len);
+  }
+
+  return res;
+}
 }  // namespace ODBC

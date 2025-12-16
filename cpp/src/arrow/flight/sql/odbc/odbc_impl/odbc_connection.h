@@ -23,6 +23,7 @@
 #include <sql.h>
 #include <map>
 #include <memory>
+#include <optional>
 #include <vector>
 
 namespace ODBC {
@@ -52,12 +53,13 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
                const arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
 
-  void GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
-               SQLSMALLINT* output_length, bool is_unicode);
+  SQLRETURN GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
+                    SQLSMALLINT* output_length, bool is_unicode);
   void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER string_length,
                       bool isUnicode);
-  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER buffer_length,
-                      SQLINTEGER* output_length, bool is_unicode);
+  SQLRETURN GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                           SQLINTEGER buffer_length, SQLINTEGER* output_length,
+                           bool is_unicode);
 
   ~ODBCConnection() = default;
 
@@ -75,8 +77,11 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
 
   inline bool IsOdbc2Connection() const { return is_2x_connection_; }
 
-  /// @return the DSN or empty string if Driver was used.
-  static std::string GetPropertiesFromConnString(
+  /// \return an optional DSN
+  static std::optional<std::string> GetDsnIfExists(const std::string& conn_str);
+
+  /// Read properties from connection string, but does not read values from DSN
+  static void GetPropertiesFromConnString(
       const std::string& conn_str,
       arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties);
 

@@ -372,10 +372,12 @@ void PackBits(const uint32_t* values, uint8_t* out) {
   }
 }
 
-constexpr int64_t MaxLEB128ByteLen(int64_t n_bits) { return CeilDiv(n_bits, 7); }
+constexpr int32_t MaxLEB128ByteLen(int32_t n_bits) {
+  return static_cast<int32_t>(CeilDiv(n_bits, 7));
+}
 
 template <typename Int>
-constexpr int64_t kMaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
+constexpr int32_t kMaxLEB128ByteLenFor = MaxLEB128ByteLen(sizeof(Int) * 8);
 
 /// Write a integer as LEB128
 ///
@@ -441,7 +443,7 @@ constexpr int32_t WriteLEB128(Int value, uint8_t* out, int32_t max_out_size) {
 template <typename Int>
 constexpr int32_t ParseLeadingLEB128(const uint8_t* data, int32_t max_data_size,
                                      Int* out) {
-  constexpr auto kMaxBytes = static_cast<int32_t>(kMaxLEB128ByteLenFor<Int>);
+  constexpr auto kMaxBytes = kMaxLEB128ByteLenFor<Int>;
   static_assert(kMaxBytes >= 1);
   constexpr uint8_t kLow7Mask = 0x7F;
   constexpr uint8_t kContinuationBit = 0x80;

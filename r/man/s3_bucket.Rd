@@ -30,12 +30,12 @@ be useful to increase the log level. See the Notes section in
 }
 \examples{
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
-bucket <- s3_bucket("voltrondata-labs-datasets")
+bucket <- s3_bucket("arrow-datasets")
 \dontshow{\}) # examplesIf}
 \dontshow{if (FALSE) withAutoprint(\{ # examplesIf}
 # Turn on debug logging. The following line of code should be run in a fresh
 # R session prior to any calls to `s3_bucket()` (or other S3 functions)
 Sys.setenv("ARROW_S3_LOG_LEVEL" = "DEBUG")
-bucket <- s3_bucket("voltrondata-labs-datasets")
+bucket <- s3_bucket("arrow-datasets")
 \dontshow{\}) # examplesIf}
 }

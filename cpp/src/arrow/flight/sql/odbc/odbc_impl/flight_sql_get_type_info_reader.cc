@@ -28,6 +28,7 @@ namespace arrow::flight::sql::odbc {
 
 using arrow::internal::checked_pointer_cast;
 using std::nullopt;
+using std::optional;
 
 GetTypeInfoReader::GetTypeInfoReader(std::shared_ptr<RecordBatch> record_batch)
     : record_batch_(std::move(record_batch)), current_row_(-1) {}

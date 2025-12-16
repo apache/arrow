@@ -410,7 +410,53 @@ if needs_filesystem
     endif
 
     if needs_gcs
-        error('gcs filesystem support is not yet implemented in Meson')
+        arrow_filesystem_srcs += files(
+            'filesystem/gcsfs.cc',
+            'filesystem/gcsfs_internal.cc',
+        )
+
+        gcs_common_dep = dependency(
+            'google_cloud_cpp_common',
+            allow_fallback: false,
+            required: false,
+        )
+        gcs_rest_internal_dep = dependency(
+            'google_cloud_cpp_rest_internal',
+            allow_fallback: false,
+            required: false,
+        )
+        gcs_storage_dep = dependency(
+            'google_cloud_cpp_storage',
+            allow_fallback: false,
+            required: false,
+        )
+
+        if not (gcs_common_dep.found()
+    and gcs_rest_internal_dep.found()
+    and gcs_storage_dep.found()
+)
+            error(
+                '''
+The Arrow Meson configuration requires that google_cloud_cpp_common,
+google_cloud_cpp_rest_internal, and google_cloud_cpp_storage be provided
+by the host system, but these could not be found. Subproject fallback is
+not implemented.
+
+Ensure that you have all of these components installed on your system, or
+disable Arrow gcs support with -Dgcs=disabled.
+            ''',
+            )
+        endif
+
+        gcs_dep = declare_dependency(
+            dependencies: [
+                gcs_common_dep,
+                gcs_rest_internal_dep,
+                gcs_storage_dep,
+            ],
+        )
+
+        arrow_filesystem_deps += [gcs_dep]
     endif
 
     if needs_hdfs
@@ -623,15 +669,47 @@ if needs_testing
         modules: ['filesystem'],
         required: false,
     )
-    if not filesystem_dep.found()
+    base_process_dep = dependency('boost', modules: ['process'], required: false)
+
+    if not (filesystem_dep.found() and base_process_dep.found())
         cmake = import('cmake')
         boost_opt = cmake.subproject_options()
         boost_opt.add_cmake_defines(
-            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;system'},
+            {'BOOST_INCLUDE_LIBRARIES': 'filesystem;process'},
         )
+        if get_option('default_library') != 'static'
+            boost_opt.add_cmake_defines({'BUILD_SHARED_LIBS': 'ON'})
+        endif
         boost_proj = cmake.subproject('boost', options: boost_opt)
         filesystem_dep = boost_proj.dependency('boost_filesystem')
+        base_process_dep = boost_proj.dependency('boost_process')
     endif
+
+    boost_process_have_v2 = false
+    process_compile_args = []
+    if base_process_dep.version() >= '1.86'
+        process_compile_args += [
+            '-DBOOST_PROCESS_HAVE_V1',
+            '-DBOOST_PROCESS_HAVE_V2',
+        ]
+        boost_process_have_v2 = true
+    elif base_process_dep.version() >= '1.80'
+        process_compile_args += ['-DBOOST_PROCESS_HAVE_V2']
+        boost_process_have_v2 = true
+    endif
+
+    if (boost_process_have_v2 and host_machine.system() != 'windows')
+        # We can't use v2 API on Windows because v2 API doesn't support
+        # process group[1] and GCS testbench uses multiple processes[2].
+        #
+        # [1] https://github.com/boostorg/process/issues/259
+        # [2] https://github.com/googleapis/storage-testbench/issues/669
+        process_compile_args += ['-DBOOST_PROCESS_USE_V2']
+    endif
+    process_dep = declare_dependency(
+        dependencies: [base_process_dep],
+        compile_args: process_compile_args,
+    )
 
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
@@ -639,6 +717,7 @@ if needs_testing
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
+    process_dep = disabler()
     gtest_dep = disabler()
     gtest_main_dep = disabler()
     gtest_dep = disabler()
@@ -649,7 +728,13 @@ if needs_testing
     arrow_testing_lib = static_library(
         'arrow_testing',
         sources: arrow_testing_srcs,
-        dependencies: [arrow_dep, filesystem_dep, gmock_dep, gtest_dep],
+        dependencies: [
+            arrow_dep,
+            process_dep,
+            filesystem_dep,
+            gmock_dep,
+            gtest_dep,
+        ],
     )
 
     arrow_testing_dep = declare_dependency(link_with: [arrow_testing_lib])

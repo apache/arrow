@@ -44,7 +44,7 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Install dependencies
@@ -101,7 +101,7 @@ jobs:
               "${RELEASE_TARBALL}"
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+        uses: actions/upload-artifact@v6
         with:
           name: release-candidate
           path: ${{ env.RELEASE_TARBALL }}*
@@ -112,6 +112,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release create ${GITHUB_REF_NAME} \
+            --draft \
             --verify-tag \
             --prerelease \
             --title "${RELEASE_CANDIDATE_TITLE}" \

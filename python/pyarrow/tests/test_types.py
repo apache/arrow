@@ -260,9 +260,6 @@ def test_is_run_end_encoded():
     assert not types.is_run_end_encoded(pa.utf8())
 
 
-# TODO(wesm): is_map, once implemented
-
-
 def test_is_binary_string():
     assert types.is_binary(pa.binary())
     assert not types.is_binary(pa.string())

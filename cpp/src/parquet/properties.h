@@ -286,7 +286,7 @@ struct PARQUET_EXPORT CdcOptions {
 
 class PARQUET_EXPORT WriterProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     Builder()
         : pool_(::arrow::default_memory_pool()),
@@ -322,7 +322,9 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_enabled_(
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
-              properties.content_defined_chunking_options()) {}
+              properties.content_defined_chunking_options()) {
+      CopyColumnSpecificProperties(properties);
+    }
 
     /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
     ///
@@ -698,7 +700,7 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Enable writing page index in general for all columns. Default disabled.
+    /// Enable writing page index in general for all columns. Default enabled.
     ///
     /// Writing statistics to the page index disables the old method of writing
     /// statistics to each data page header.
@@ -713,35 +715,36 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Disable writing page index in general for all columns. Default disabled.
+    /// Disable writing page index in general for all columns. Default enabled.
     Builder* disable_write_page_index() {
       default_column_properties_.set_page_index_enabled(false);
       return this;
     }
 
-    /// Enable writing page index for column specified by `path`. Default disabled.
+    /// Enable writing page index for column specified by `path`. Default enabled.
     Builder* enable_write_page_index(const std::string& path) {
       page_index_enabled_[path] = true;
       return this;
     }
 
-    /// Enable writing page index for column specified by `path`. Default disabled.
+    /// Enable writing page index for column specified by `path`. Default enabled.
     Builder* enable_write_page_index(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_write_page_index(path->ToDotString());
     }
 
-    /// Disable writing page index for column specified by `path`. Default disabled.
+    /// Disable writing page index for column specified by `path`. Default enabled.
     Builder* disable_write_page_index(const std::string& path) {
       page_index_enabled_[path] = false;
       return this;
     }
 
-    /// Disable writing page index for column specified by `path`. Default disabled.
+    /// Disable writing page index for column specified by `path`. Default enabled.
     Builder* disable_write_page_index(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_write_page_index(path->ToDotString());
     }
 
-    /// \brief Set the level to write size statistics for all columns. Default is None.
+    /// \brief Set the level to write size statistics for all columns. Default is
+    /// PageAndColumnChunk.
     ///
     /// \param level The level to write size statistics. Note that if page index is not
     /// enabled, page level size statistics will not be written even if the level
@@ -784,6 +787,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
    private:
+    void CopyColumnSpecificProperties(const WriterProperties& properties);
+
     MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
     int64_t write_batch_size_;

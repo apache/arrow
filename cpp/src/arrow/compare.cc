@@ -1563,7 +1563,10 @@ bool ArrayStatisticsOptionalValueEquals(const std::optional<Type>& left,
 
 bool ArrayStatisticsEqualsImpl(const ArrayStatistics& left, const ArrayStatistics& right,
                                const EqualOptions& equal_options) {
-  return left.null_count == right.null_count &&
+  return ArrayStatisticsOptionalValueEquals(left.row_count, right.row_count,
+                                            equal_options) &&
+         ArrayStatisticsOptionalValueEquals(left.null_count, right.null_count,
+                                            equal_options) &&
          ArrayStatisticsOptionalValueEquals(left.distinct_count, right.distinct_count,
                                             equal_options) &&
          ArrayStatisticsOptionalValueEquals(left.max_byte_width, right.max_byte_width,
