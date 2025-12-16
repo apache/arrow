@@ -42,6 +42,7 @@
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/geospatial/statistics.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/size_statistics.h"
@@ -542,6 +543,49 @@ static inline format::SizeStatistics ToThrift(const SizeStatistics& size_stats) 
         size_stats.unencoded_byte_array_data_bytes.value());
   }
   return size_statistics;
+}
+
+static inline format::PageLocation ToThrift(const PageLocation& page_location) {
+  format::PageLocation thrift_page_location;
+  thrift_page_location.__set_offset(page_location.offset);
+  thrift_page_location.__set_compressed_page_size(page_location.compressed_page_size);
+  thrift_page_location.__set_first_row_index(page_location.first_row_index);
+  return thrift_page_location;
+}
+
+static inline format::ColumnIndex ToThrift(const ColumnIndex& column_index) {
+  format::ColumnIndex thrift_column_index;
+  thrift_column_index.__set_null_pages(column_index.null_pages());
+  thrift_column_index.__set_min_values(column_index.encoded_min_values());
+  thrift_column_index.__set_max_values(column_index.encoded_max_values());
+  thrift_column_index.__set_boundary_order(ToThrift(column_index.boundary_order()));
+  if (column_index.has_null_counts()) {
+    thrift_column_index.__set_null_counts(column_index.null_counts());
+  }
+  if (column_index.has_definition_level_histograms()) {
+    thrift_column_index.__set_definition_level_histograms(
+        column_index.definition_level_histograms());
+  }
+  if (column_index.has_repetition_level_histograms()) {
+    thrift_column_index.__set_repetition_level_histograms(
+        column_index.repetition_level_histograms());
+  }
+  return thrift_column_index;
+}
+
+static inline format::OffsetIndex ToThrift(const OffsetIndex& offset_index) {
+  format::OffsetIndex thrift_offset_index;
+  std::vector<format::PageLocation> thrift_page_locations;
+  thrift_page_locations.reserve(offset_index.page_locations().size());
+  for (const auto& page_location : offset_index.page_locations()) {
+    thrift_page_locations.push_back(ToThrift(page_location));
+  }
+  thrift_offset_index.__set_page_locations(std::move(thrift_page_locations));
+  if (!offset_index.unencoded_byte_array_data_bytes().empty()) {
+    thrift_offset_index.__set_unencoded_byte_array_data_bytes(
+        offset_index.unencoded_byte_array_data_bytes());
+  }
+  return thrift_offset_index;
 }
 
 // ----------------------------------------------------------------------
