@@ -115,11 +115,10 @@ typename AlpWrapper<T>::CompressionBlockHeader AlpWrapper<T>::LoadHeader(
       << "alp_loadHeader_compSize_too_small_for_header_version";
   uint64_t version;
   std::memcpy(&version, comp, sizeof(header.version));
-  ::arrow::util::alp::CompressionBlockHeader::IsValidVersion(version);
-  ARROW_CHECK(comp_size >= ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version))
+  CompressionBlockHeader::IsValidVersion(version);
+  ARROW_CHECK(comp_size >= CompressionBlockHeader::GetSizeForVersion(version))
       << "alp_loadHeader_compSize_too_small";
-  std::memcpy(&header, comp,
-              ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version));
+  std::memcpy(&header, comp, CompressionBlockHeader::GetSizeForVersion(version));
   return header;
 }
 
@@ -128,8 +127,8 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
                            size_t* comp_size, std::optional<AlpMode> enforce_mode) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
-  const uint64_t version = ::arrow::util::alp::CompressionBlockHeader::IsValidVersion(
-      AlpConstants::kAlpVersion);
+  const uint64_t version =
+      CompressionBlockHeader::IsValidVersion(AlpConstants::kAlpVersion);
 
   AlpSampler<T> sampler;
   sampler.AddSample({decomp, element_count});
@@ -137,9 +136,9 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
   // Make room to store header afterwards.
   char* encoded_header = comp;
-  comp += ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version);
-  const uint64_t remaining_compressed_size =
-      *comp_size - ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version);
+  const size_t header_size = CompressionBlockHeader::GetSizeForVersion(version);
+  comp += header_size;
+  const uint64_t remaining_compressed_size = *comp_size - header_size;
 
   const CompressionProgress compression_progress =
       EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
@@ -151,10 +150,8 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   header.compression_mode = AlpMode::kAlp;
   header.bit_pack_layout = AlpBitPackLayout::kNormal;
 
-  std::memcpy(encoded_header, &header,
-              ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version));
-  *comp_size = ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version) +
-               compression_progress.num_compressed_bytes_produced;
+  std::memcpy(encoded_header, &header, header_size);
+  *comp_size = header_size + compression_progress.num_compressed_bytes_produced;
 }
 
 template <typename T>
@@ -165,11 +162,9 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint64_t num_elements, const char
   ARROW_CHECK(header.vector_size == AlpConstants::kAlpVectorSize)
       << "unsupported_vector_size: " << header.vector_size;
 
-  const char* compression_body =
-      comp + ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(header.version);
-  const uint64_t compression_body_size =
-      comp_size -
-      ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(header.version);
+  const size_t header_size = CompressionBlockHeader::GetSizeForVersion(header.version);
+  const char* compression_body = comp + header_size;
+  const uint64_t compression_body_size = comp_size - header_size;
 
   ARROW_CHECK(header.compression_mode == AlpMode::kAlp) << "alp_decode_unsupported_mode";
 
@@ -189,11 +184,10 @@ uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0)
       << "alp_decompressed_size_not_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
-  const uint64_t version = ::arrow::util::alp::CompressionBlockHeader::IsValidVersion(
-      AlpConstants::kAlpVersion);
-  uint64_t max_alp_size =
-      ::arrow::util::alp::CompressionBlockHeader::GetSizeForVersion(version);
-  // Add header sizes.
+  const uint64_t version =
+      CompressionBlockHeader::IsValidVersion(AlpConstants::kAlpVersion);
+  uint64_t max_alp_size = CompressionBlockHeader::GetSizeForVersion(version);
+  // Add per-vector header sizes.
   max_alp_size +=
       sizeof(AlpEncodedVectorInfo) *
       std::ceil(static_cast<double>(element_count) / AlpConstants::kAlpVectorSize);
