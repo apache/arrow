@@ -83,8 +83,8 @@ const auto kAllParamValues = ::testing::Values(
     EncryptionTestParam{false, true, true}, EncryptionTestParam{true, true, true});
 
 // Base class to test writing and reading encrypted dataset.
-template <typename T, typename = typename std::enable_if_t<
-                          std::is_base_of_v<EncryptionTestParam, T>>>
+template <typename T,
+          typename = typename std::enable_if_t<std::is_base_of_v<EncryptionTestParam, T>>>
 class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
  public:
 #ifdef ARROW_VALGRIND
@@ -305,7 +305,8 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
     // Read dataset into table
     ARROW_ASSIGN_OR_RAISE(auto scanner_builder, dataset->NewScan());
     ARROW_ASSIGN_OR_RAISE(auto scanner, scanner_builder->Finish());
-    ARROW_EXPECT_OK(scanner_builder->UseThreads(testing::WithParamInterface<T>::GetParam().concurrently));
+    ARROW_EXPECT_OK(scanner_builder->UseThreads(
+        testing::WithParamInterface<T>::GetParam().concurrently));
     return scanner->ToTable();
   }
 
@@ -317,7 +318,8 @@ class DatasetEncryptionTestBase : public testing::TestWithParam<T> {
   }
 
  protected:
-  std::string base_dir_ = this->GetParam().concurrently ? "thread-1" : std::string(kBaseDir);
+  std::string base_dir_ =
+      this->GetParam().concurrently ? "thread-1" : std::string(kBaseDir);
   std::shared_ptr<fs::FileSystem> file_system_;
   std::shared_ptr<Table> table_, expected_table_;
   std::shared_ptr<Partitioning> partitioning_;
