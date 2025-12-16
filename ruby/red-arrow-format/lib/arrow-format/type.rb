@@ -305,7 +305,7 @@ module ArrowFormat
     attr_reader :unit
     attr_reader :timezone
     def initialize(unit, timezone)
-      super("Temporal")
+      super("Timestamp")
       @unit = unit
       @timezone = timezone
     end
