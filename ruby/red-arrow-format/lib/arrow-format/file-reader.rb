@@ -26,11 +26,13 @@ require_relative "org/apache/arrow/flatbuf/binary"
 require_relative "org/apache/arrow/flatbuf/bool"
 require_relative "org/apache/arrow/flatbuf/date"
 require_relative "org/apache/arrow/flatbuf/date_unit"
+require_relative "org/apache/arrow/flatbuf/fixed_size_binary"
 require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/int"
 require_relative "org/apache/arrow/flatbuf/large_binary"
 require_relative "org/apache/arrow/flatbuf/large_list"
+require_relative "org/apache/arrow/flatbuf/large_utf8"
 require_relative "org/apache/arrow/flatbuf/list"
 require_relative "org/apache/arrow/flatbuf/map"
 require_relative "org/apache/arrow/flatbuf/message"
@@ -232,6 +234,8 @@ module ArrowFormat
         type = LargeBinaryType.singleton
       when Org::Apache::Arrow::Flatbuf::Utf8
         type = UTF8Type.singleton
+      when Org::Apache::Arrow::Flatbuf::LargeUtf8
+        type = LargeUTF8Type.singleton
       when Org::Apache::Arrow::Flatbuf::FixedSizeBinary
         type = FixedSizeBinaryType.new(fb_type.byte_width)
       end

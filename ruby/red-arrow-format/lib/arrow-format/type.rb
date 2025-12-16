@@ -353,6 +353,26 @@ module ArrowFormat
     end
   end
 
+  class LargeUTF8Type < VariableSizeBinaryType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    def initialize
+      super("LargeUTF8")
+    end
+
+    def build_array(size, validity_buffer, offsets_buffer, values_buffer)
+      LargeUTF8Array.new(self,
+                         size,
+                         validity_buffer,
+                         offsets_buffer,
+                         values_buffer)
+    end
+  end
+
   class FixedSizeBinaryType < Type
     attr_reader :byte_width
     def initialize(byte_width)

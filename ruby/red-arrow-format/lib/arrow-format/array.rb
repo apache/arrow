@@ -235,6 +235,17 @@ module ArrowFormat
     end
   end
 
+  class LargeUTF8Array < VariableSizeBinaryLayoutArray
+    private
+    def buffer_type
+      :s64 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::UTF_8
+    end
+  end
+
   class FixedSizeBinaryArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)
