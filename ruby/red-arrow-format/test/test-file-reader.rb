@@ -383,7 +383,7 @@ class TestFileReader < Test::Unit::TestCase
     end
 
     def build_array
-      Arrow::TimestampArray.new(:second,
+      Arrow::TimestampArray.new(:milli,
                                 [
                                   @timestamp_2019_11_18_00_09_11,
                                   nil,
@@ -413,7 +413,7 @@ class TestFileReader < Test::Unit::TestCase
     end
 
     def build_array
-      Arrow::TimestampArray.new(:second,
+      Arrow::TimestampArray.new(:micro,
                                 [
                                   @timestamp_2019_11_18_00_09_11,
                                   nil,
@@ -443,7 +443,7 @@ class TestFileReader < Test::Unit::TestCase
     end
 
     def build_array
-      Arrow::TimestampArray.new(:second,
+      Arrow::TimestampArray.new(:nano,
                                 [
                                   @timestamp_2019_11_18_00_09_11,
                                   nil,
