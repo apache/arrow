@@ -3121,10 +3121,13 @@ function(build_grpc)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
-    string(APPEND CMAKE_C_FLAGS
-           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
-    string(APPEND CMAKE_CXX_FLAGS
-           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+    string(APPEND CMAKE_C_FLAGS " -Wno-attributes -Wno-format-security")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-attributes -Wno-format-security")
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                    "Clang")
+    string(APPEND CMAKE_C_FLAGS " -Wno-unknown-warning-option")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unknown-warning-option")
   endif()
 
   fetchcontent_makeavailable(grpc)
@@ -3324,11 +3327,6 @@ function(build_nlohmann_json)
   set(NLOHMANN_JSON_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_fc-install")
-  set(NLOHMANN_JSON_PREFIX
-      "${NLOHMANN_JSON_PREFIX}"
-      PARENT_SCOPE)
-
   fetchcontent_declare(nlohmann_json
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${NLOHMANN_JSON_SOURCE_URL}
@@ -3342,49 +3340,13 @@ function(build_nlohmann_json)
   set(JSON_Install ON)
   fetchcontent_makeavailable(nlohmann_json)
 
-  # opentelemetry requires nlohmann_json to be installed to a known location.
-  # We have to do this in two steps to avoid double installation of nlohmann_json
-  # when Arrow is installed.
-  # This custom target ensures nlohmann_json is built before we install.
-  add_custom_target(nlohmann_json_built DEPENDS nlohmann_json::nlohmann_json)
-
-  # Disable nlohmann_json's install script after it's built to prevent double installation.
-  add_custom_command(OUTPUT "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# nlohmann-json install disabled to prevent double installation with Arrow"
-                             > "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS nlohmann_json_built
-                     COMMENT "Disabling nlohmann-json install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(nlohmann_json_install_disabled ALL
-                    DEPENDS "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install nlohmann_json to NLOHMANN_JSON_PREFIX for opentelemetry to find.
-  add_custom_command(OUTPUT "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND}
-                             -DCMAKE_INSTALL_PREFIX=${NLOHMANN_JSON_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch
-                             "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
-                     DEPENDS nlohmann_json_install_disabled
-                     COMMENT "Installing nlohmann-json to ${NLOHMANN_JSON_PREFIX} for google-cloud-cpp"
-                     VERBATIM)
-
-  # Make nlohmann_json_fc depend on the install completion marker.
-  add_custom_target(nlohmann_json_fc
-                    DEPENDS "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
+
 if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
@@ -3773,15 +3735,6 @@ function(build_opentelemetry)
   # client initialization. There may still be a solution, but we disable them for now.
   set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
   set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
-
-  # Configure nlohmann_json prefix path for OpenTelemetry to find it
-  if(NLOHMANN_JSON_VENDORED)
-    list(APPEND CMAKE_PREFIX_PATH "${NLOHMANN_JSON_PREFIX}")
-  endif()
-
-  # Unity build causes some build errors
-  # TODO: Validate on CI whether enabling unity build works fine
-  # set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(opentelemetry_cpp)
 
