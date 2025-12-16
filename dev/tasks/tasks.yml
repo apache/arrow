@@ -249,7 +249,7 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-win_amd64.whl
 
-    wheel-windows-{{ python_tag }}-{{ abi_tag }}-arm64:
+  wheel-windows-{{ python_tag }}-{{ abi_tag }}-arm64:
     ci: github
     template: python-wheels/github.windows.arm64.yml
     params:
