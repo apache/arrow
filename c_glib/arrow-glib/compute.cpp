@@ -26,6 +26,7 @@
 #include <arrow-glib/datum.hpp>
 #include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
+#include <arrow-glib/executor.hpp>
 #include <arrow-glib/expression.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
@@ -294,10 +295,11 @@ garrow_compute_initialize(GError **error)
   return garrow::check(error, status, "[compute][initialize]");
 }
 
-typedef struct GArrowExecuteContextPrivate_
+struct GArrowExecuteContextPrivate
 {
-  arrow::compute::ExecContext context;
-} GArrowExecuteContextPrivate;
+  std::shared_ptr<arrow::compute::ExecContext> context;
+  GArrowExecutor *executor;
+};
 
 G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext, garrow_execute_context, G_TYPE_OBJECT)
 
@@ -305,19 +307,78 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowExecuteContext, garrow_execute_context, G_TYPE_
   static_cast<GArrowExecuteContextPrivate *>(                                            \
     garrow_execute_context_get_instance_private(GARROW_EXECUTE_CONTEXT(object)))
 
+enum {
+  PROP_EXECUTOR = 1,
+};
+
+static void
+garrow_execute_context_dispose(GObject *object)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
+
+  if (priv->executor) {
+    g_object_unref(priv->executor);
+    priv->executor = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_execute_context_parent_class)->dispose(object);
+}
+
 static void
 garrow_execute_context_finalize(GObject *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
-  priv->context.~ExecContext();
+  priv->context.~shared_ptr();
   G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
+}
+
+static void
+garrow_execute_context_set_property(GObject *object,
+                                    guint prop_id,
+                                    const GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_EXECUTOR:
+    {
+      priv->executor = GARROW_EXECUTOR(g_value_dup_object(value));
+      auto arrow_executor = garrow_executor_get_raw(priv->executor);
+      priv->context =
+        std::make_shared<arrow::compute::ExecContext>(arrow::default_memory_pool(),
+                                                      arrow_executor.get());
+      break;
+    }
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_execute_context_get_property(GObject *object,
+                                    guint prop_id,
+                                    GValue *value,
+                                    GParamSpec *pspec)
+{
+  auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_EXECUTOR:
+    g_value_set_object(value, priv->executor);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
 }
 
 static void
 garrow_execute_context_init(GArrowExecuteContext *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
-  new (&priv->context) arrow::compute::ExecContext(arrow::default_memory_pool(), nullptr);
+  new (&priv->context) std::shared_ptr<arrow::compute::ExecContext>;
 }
 
 static void
@@ -325,21 +386,41 @@ garrow_execute_context_class_init(GArrowExecuteContextClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->dispose = garrow_execute_context_dispose;
   gobject_class->finalize = garrow_execute_context_finalize;
+  gobject_class->set_property = garrow_execute_context_set_property;
+  gobject_class->get_property = garrow_execute_context_get_property;
+
+  GParamSpec *spec;
+  /**
+   * GArrowExecuteContext:executor:
+   *
+   * The executor for execution.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_object(
+    "executor",
+    "Executor",
+    "The executor for execution",
+    GARROW_TYPE_EXECUTOR,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_EXECUTOR, spec);
 }
 
 /**
  * garrow_execute_context_new:
+ * @executor: (nullable): A #GArrowExecutor or %NULL.
  *
  * Returns: A newly created #GArrowExecuteContext.
  *
  * Since: 1.0.0
  */
 GArrowExecuteContext *
-garrow_execute_context_new(void)
+garrow_execute_context_new(GArrowExecutor *executor)
 {
-  auto execute_context = g_object_new(GARROW_TYPE_EXECUTE_CONTEXT, NULL);
-  return GARROW_EXECUTE_CONTEXT(execute_context);
+  return GARROW_EXECUTE_CONTEXT(
+    g_object_new(GARROW_TYPE_EXECUTE_CONTEXT, "executor", executor, nullptr));
 }
 
 typedef struct GArrowFunctionOptionsPrivate_
@@ -1898,6 +1979,7 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
 
 /**
  * garrow_execute_plan_new:
+ * @context: (nullable): A #GArrowExecuteContext or %NULL.
  * @error: (nullable): Return location for a #GError or %NULL.
  *
  * Returns: (nullable): A newly created #GArrowExecutePlan on success,
@@ -1906,9 +1988,15 @@ garrow_execute_plan_class_init(GArrowExecutePlanClass *klass)
  * Since: 6.0.0
  */
 GArrowExecutePlan *
-garrow_execute_plan_new(GError **error)
+garrow_execute_plan_new(GArrowExecuteContext *context, GError **error)
 {
-  auto arrow_plan_result = arrow::acero::ExecPlan::Make();
+  arrow::Result<std::shared_ptr<arrow::acero::ExecPlan>> arrow_plan_result;
+  if (context) {
+    auto arrow_context = garrow_execute_context_get_raw(context);
+    arrow_plan_result = arrow::acero::ExecPlan::Make(*arrow_context);
+  } else {
+    arrow_plan_result = arrow::acero::ExecPlan::Make();
+  }
   if (garrow::check(error, arrow_plan_result, "[execute-plan][new]")) {
     return GARROW_EXECUTE_PLAN(
       g_object_new(GARROW_TYPE_EXECUTE_PLAN, "plan", &(*arrow_plan_result), NULL));
@@ -7207,7 +7295,7 @@ arrow::compute::ExecContext *
 garrow_execute_context_get_raw(GArrowExecuteContext *context)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(context);
-  return &priv->context;
+  return priv->context.get();
 }
 
 GArrowFunctionOptions *

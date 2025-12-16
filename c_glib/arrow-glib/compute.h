@@ -21,6 +21,7 @@
 
 #include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
+#include <arrow-glib/executor.h>
 #include <arrow-glib/reader.h>
 
 G_BEGIN_DECLS
@@ -40,7 +41,7 @@ struct _GArrowExecuteContextClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *
-garrow_execute_context_new(void);
+garrow_execute_context_new(GArrowExecutor *executor);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
@@ -322,7 +323,7 @@ struct _GArrowExecutePlanClass
 
 GARROW_AVAILABLE_IN_6_0
 GArrowExecutePlan *
-garrow_execute_plan_new(GError **error);
+garrow_execute_plan_new(GArrowExecuteContext *context, GError **error);
 GARROW_AVAILABLE_IN_6_0
 GArrowExecuteNode *
 garrow_execute_plan_build_node(GArrowExecutePlan *plan,
