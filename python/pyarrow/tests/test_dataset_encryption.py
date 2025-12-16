@@ -72,7 +72,7 @@ def create_sample_table():
     )
 
 
-def create_encryption_config(footer_key, column_keys):
+def create_encryption_config(footer_key=FOOTER_KEY_NAME, column_keys=COLUMN_KEYS):
     return pe.EncryptionConfiguration(
         footer_key=footer_key,
         plaintext_footer=False,
@@ -88,7 +88,7 @@ def create_decryption_config():
     return pe.DecryptionConfiguration(cache_lifetime=300)
 
 
-def create_kms_connection_config(keys):
+def create_kms_connection_config(keys=KEYS):
     return pe.KmsConnectionConfig(
         custom_kms_conf={
             key_name: key.decode("UTF-8")
