@@ -293,7 +293,7 @@ static void
 garrow_execute_context_finalize(GObject *object)
 {
   auto priv = GARROW_EXECUTE_CONTEXT_GET_PRIVATE(object);
-  priv->context.reset();
+  priv->context.~shared_ptr();
   G_OBJECT_CLASS(garrow_execute_context_parent_class)->finalize(object);
 }
 
