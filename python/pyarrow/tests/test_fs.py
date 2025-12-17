@@ -1210,6 +1210,7 @@ def test_gcs_options(pickle_module):
 
 @pytest.mark.s3
 def test_s3_options(pickle_module):
+    # Creating a diff
     from pyarrow.fs import (AwsDefaultS3RetryStrategy,
                             AwsStandardS3RetryStrategy, S3FileSystem,
                             S3RetryStrategy)
