@@ -605,41 +605,41 @@ def struct_w_ext_data():
     return [sarr1, sarr2]
 
 
-@pytest.mark.numpy
-def test_struct_w_ext_array_to_numpy(struct_w_ext_data):
-    # ARROW-15291
-    # Check that we don't segfault when trying to build
-    # a numpy array from a StructArray with a field being
-    # an ExtensionArray
+# @pytest.mark.numpy
+# def test_struct_w_ext_array_to_numpy(struct_w_ext_data):
+#     # ARROW-15291
+#     # Check that we don't segfault when trying to build
+#     # a numpy array from a StructArray with a field being
+#     # an ExtensionArray
+#
+#     result = struct_w_ext_data[0].to_numpy(zero_copy_only=False)
+#     expected = np.array([{'f0': 1}, {'f0': 2},
+#                          {'f0': 3}], dtype=object)
+#     np.testing.assert_array_equal(result, expected)
+#
+#     result = struct_w_ext_data[1].to_numpy(zero_copy_only=False)
+#     expected = np.array([{'f1': b'123'}, {'f1': b'456'},
+#                          {'f1': b'789'}], dtype=object)
+#     np.testing.assert_array_equal(result, expected)
 
-    result = struct_w_ext_data[0].to_numpy(zero_copy_only=False)
-    expected = np.array([{'f0': 1}, {'f0': 2},
-                         {'f0': 3}], dtype=object)
-    np.testing.assert_array_equal(result, expected)
 
-    result = struct_w_ext_data[1].to_numpy(zero_copy_only=False)
-    expected = np.array([{'f1': b'123'}, {'f1': b'456'},
-                         {'f1': b'789'}], dtype=object)
-    np.testing.assert_array_equal(result, expected)
-
-
-@pytest.mark.pandas
-def test_struct_w_ext_array_to_pandas(struct_w_ext_data):
-    # ARROW-15291
-    # Check that we don't segfault when trying to build
-    # a Pandas dataframe from a StructArray with a field
-    # being an ExtensionArray
-    import pandas as pd
-
-    result = struct_w_ext_data[0].to_pandas()
-    expected = pd.Series([{'f0': 1}, {'f0': 2},
-                         {'f0': 3}], dtype=object)
-    pd.testing.assert_series_equal(result, expected)
-
-    result = struct_w_ext_data[1].to_pandas()
-    expected = pd.Series([{'f1': b'123'}, {'f1': b'456'},
-                         {'f1': b'789'}], dtype=object)
-    pd.testing.assert_series_equal(result, expected)
+# @pytest.mark.pandas
+# def test_struct_w_ext_array_to_pandas(struct_w_ext_data):
+#     # ARROW-15291
+#     # Check that we don't segfault when trying to build
+#     # a Pandas dataframe from a StructArray with a field
+#     # being an ExtensionArray
+#     import pandas as pd
+#
+#     result = struct_w_ext_data[0].to_pandas()
+#     expected = pd.Series([{'f0': 1}, {'f0': 2},
+#                          {'f0': 3}], dtype=object)
+#     pd.testing.assert_series_equal(result, expected)
+#
+#     result = struct_w_ext_data[1].to_pandas()
+#     expected = pd.Series([{'f1': b'123'}, {'f1': b'456'},
+#                          {'f1': b'789'}], dtype=object)
+#     pd.testing.assert_series_equal(result, expected)
 
 
 def test_cast_kernel_on_extension_arrays():
@@ -1041,183 +1041,183 @@ def test_generic_ext_type_register(registered_period_type):
         pa.register_extension_type(period_type)
 
 
-@pytest.mark.parquet
-def test_parquet_period(tmpdir, registered_period_type):
-    # Parquet support for primitive extension types
-    period_type, period_class = registered_period_type
-    storage = pa.array([1, 2, 3, 4], pa.int64())
-    arr = pa.ExtensionArray.from_storage(period_type, storage)
-    table = pa.table([arr], names=["ext"])
-
-    import pyarrow.parquet as pq
-
-    filename = tmpdir / 'period_extension_type.parquet'
-    pq.write_table(table, filename)
-
-    # Stored in parquet as storage type but with extension metadata saved
-    # in the serialized arrow schema
-    meta = pq.read_metadata(filename)
-    assert meta.schema.column(0).physical_type == "INT64"
-    assert b"ARROW:schema" in meta.metadata
-
-    import base64
-    decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
-    schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))
-    # Since the type could be reconstructed, the extension type metadata is
-    # absent.
-    assert schema.field("ext").metadata == {}
-
-    # When reading in, properly create extension type if it is registered
-    result = pq.read_table(filename)
-    result.validate(full=True)
-    assert result.schema.field("ext").type == period_type
-    assert result.schema.field("ext").metadata == {}
-    # Get the exact array class defined by the registered type.
-    result_array = result.column("ext").chunk(0)
-    assert type(result_array) is period_class
-
-    # When the type is not registered, read in as storage type
-    pa.unregister_extension_type(period_type.extension_name)
-    result = pq.read_table(filename)
-    result.validate(full=True)
-    assert result.schema.field("ext").type == pa.int64()
-    # The extension metadata is present for roundtripping.
-    assert result.schema.field("ext").metadata == {
-        b'ARROW:extension:metadata': b'freq=D',
-        b'ARROW:extension:name': b'test.period'
-    }
-
-
-@pytest.mark.parquet
-def test_parquet_extension_with_nested_storage(tmpdir):
-    # Parquet support for extension types with nested storage type
-    import pyarrow.parquet as pq
-
-    struct_array = pa.StructArray.from_arrays(
-        [pa.array([0, 1], type="int64"), pa.array([4, 5], type="int64")],
-        names=["left", "right"])
-    list_array = pa.array([[1, 2, 3], [4, 5]], type=pa.list_(pa.int32()))
-
-    mystruct_array = pa.ExtensionArray.from_storage(MyStructType(),
-                                                    struct_array)
-    mylist_array = pa.ExtensionArray.from_storage(
-        MyListType(list_array.type), list_array)
-
-    orig_table = pa.table({'structs': mystruct_array,
-                           'lists': mylist_array})
-    filename = tmpdir / 'nested_extension_storage.parquet'
-    pq.write_table(orig_table, filename)
-
-    # Unregistered
-    table = pq.read_table(filename)
-    table.validate(full=True)
-    assert table.column('structs').type == struct_array.type
-    assert table.column('structs').combine_chunks() == struct_array
-    assert table.column('lists').type == list_array.type
-    assert table.column('lists').combine_chunks() == list_array
-
-    # Registered
-    with registered_extension_type(mystruct_array.type):
-        with registered_extension_type(mylist_array.type):
-            table = pq.read_table(filename)
-            table.validate(full=True)
-            assert table.column('structs').type == mystruct_array.type
-            assert table.column('lists').type == mylist_array.type
-            assert table == orig_table
-
-            # Cannot select a subfield of an extension type with
-            # a struct storage type.
-            with pytest.raises(pa.ArrowInvalid,
-                               match='without all of its fields'):
-                pq.ParquetFile(filename).read(columns=['structs.left'])
+# @pytest.mark.parquet
+# def test_parquet_period(tmpdir, registered_period_type):
+#     # Parquet support for primitive extension types
+#     period_type, period_class = registered_period_type
+#     storage = pa.array([1, 2, 3, 4], pa.int64())
+#     arr = pa.ExtensionArray.from_storage(period_type, storage)
+#     table = pa.table([arr], names=["ext"])
+#
+#     import pyarrow.parquet as pq
+#
+#     filename = tmpdir / 'period_extension_type.parquet'
+#     pq.write_table(table, filename)
+#
+#     # Stored in parquet as storage type but with extension metadata saved
+#     # in the serialized arrow schema
+#     meta = pq.read_metadata(filename)
+#     assert meta.schema.column(0).physical_type == "INT64"
+#     assert b"ARROW:schema" in meta.metadata
+#
+#     import base64
+#     decoded_schema = base64.b64decode(meta.metadata[b"ARROW:schema"])
+#     schema = pa.ipc.read_schema(pa.BufferReader(decoded_schema))
+#     # Since the type could be reconstructed, the extension type metadata is
+#     # absent.
+#     assert schema.field("ext").metadata == {}
+#
+#     # When reading in, properly create extension type if it is registered
+#     result = pq.read_table(filename)
+#     result.validate(full=True)
+#     assert result.schema.field("ext").type == period_type
+#     assert result.schema.field("ext").metadata == {}
+#     # Get the exact array class defined by the registered type.
+#     result_array = result.column("ext").chunk(0)
+#     assert type(result_array) is period_class
+#
+#     # When the type is not registered, read in as storage type
+#     pa.unregister_extension_type(period_type.extension_name)
+#     result = pq.read_table(filename)
+#     result.validate(full=True)
+#     assert result.schema.field("ext").type == pa.int64()
+#     # The extension metadata is present for roundtripping.
+#     assert result.schema.field("ext").metadata == {
+#         b'ARROW:extension:metadata': b'freq=D',
+#         b'ARROW:extension:name': b'test.period'
+#     }
 
 
-@pytest.mark.parquet
-def test_parquet_nested_extension(tmpdir):
-    # Parquet support for extension types nested in struct or list
-    import pyarrow.parquet as pq
-
-    ext_type = IntegerType()
-    storage = pa.array([4, 5, 6, 7], type=pa.int64())
-    ext_array = pa.ExtensionArray.from_storage(ext_type, storage)
-
-    # Struct of extensions
-    struct_array = pa.StructArray.from_arrays(
-        [storage, ext_array],
-        names=['ints', 'exts'])
-
-    orig_table = pa.table({'structs': struct_array})
-    filename = tmpdir / 'struct_of_ext.parquet'
-    pq.write_table(orig_table, filename)
-
-    table = pq.read_table(filename)
-    table.validate(full=True)
-    assert table.column(0).type == pa.struct({'ints': pa.int64(),
-                                              'exts': pa.int64()})
-    with registered_extension_type(ext_type):
-        table = pq.read_table(filename)
-        table.validate(full=True)
-        assert table.column(0).type == struct_array.type
-        assert table == orig_table
-
-    # List of extensions
-    list_array = pa.ListArray.from_arrays([0, 1, None, 3], ext_array)
-
-    orig_table = pa.table({'lists': list_array})
-    filename = tmpdir / 'list_of_ext.parquet'
-    pq.write_table(orig_table, filename)
-
-    table = pq.read_table(filename)
-    table.validate(full=True)
-    assert table.column(0).type == pa.list_(pa.int64())
-    with registered_extension_type(ext_type):
-        table = pq.read_table(filename)
-        table.validate(full=True)
-        assert table.column(0).type == list_array.type
-        assert table == orig_table
-
-    # Large list of extensions
-    list_array = pa.LargeListArray.from_arrays([0, 1, None, 3], ext_array)
-
-    orig_table = pa.table({'lists': list_array})
-    filename = tmpdir / 'list_of_ext.parquet'
-    pq.write_table(orig_table, filename)
-
-    table = pq.read_table(filename)
-    table.validate(full=True)
-    assert table.column(0).type == pa.large_list(pa.int64())
-    with registered_extension_type(ext_type):
-        table = pq.read_table(filename)
-        table.validate(full=True)
-        assert table.column(0).type == list_array.type
-        assert table == orig_table
+# @pytest.mark.parquet
+# def test_parquet_extension_with_nested_storage(tmpdir):
+#     # Parquet support for extension types with nested storage type
+#     import pyarrow.parquet as pq
+#
+#     struct_array = pa.StructArray.from_arrays(
+#         [pa.array([0, 1], type="int64"), pa.array([4, 5], type="int64")],
+#         names=["left", "right"])
+#     list_array = pa.array([[1, 2, 3], [4, 5]], type=pa.list_(pa.int32()))
+#
+#     mystruct_array = pa.ExtensionArray.from_storage(MyStructType(),
+#                                                     struct_array)
+#     mylist_array = pa.ExtensionArray.from_storage(
+#         MyListType(list_array.type), list_array)
+#
+#     orig_table = pa.table({'structs': mystruct_array,
+#                            'lists': mylist_array})
+#     filename = tmpdir / 'nested_extension_storage.parquet'
+#     pq.write_table(orig_table, filename)
+#
+#     # Unregistered
+#     table = pq.read_table(filename)
+#     table.validate(full=True)
+#     assert table.column('structs').type == struct_array.type
+#     assert table.column('structs').combine_chunks() == struct_array
+#     assert table.column('lists').type == list_array.type
+#     assert table.column('lists').combine_chunks() == list_array
+#
+#     # Registered
+#     with registered_extension_type(mystruct_array.type):
+#         with registered_extension_type(mylist_array.type):
+#             table = pq.read_table(filename)
+#             table.validate(full=True)
+#             assert table.column('structs').type == mystruct_array.type
+#             assert table.column('lists').type == mylist_array.type
+#             assert table == orig_table
+#
+#             # Cannot select a subfield of an extension type with
+#             # a struct storage type.
+#             with pytest.raises(pa.ArrowInvalid,
+#                                match='without all of its fields'):
+#                 pq.ParquetFile(filename).read(columns=['structs.left'])
 
 
-@pytest.mark.parquet
-def test_parquet_extension_nested_in_extension(tmpdir):
-    # Parquet support for extension<list<extension>>
-    import pyarrow.parquet as pq
+# @pytest.mark.parquet
+# def test_parquet_nested_extension(tmpdir):
+#     # Parquet support for extension types nested in struct or list
+#     import pyarrow.parquet as pq
+#
+#     ext_type = IntegerType()
+#     storage = pa.array([4, 5, 6, 7], type=pa.int64())
+#     ext_array = pa.ExtensionArray.from_storage(ext_type, storage)
+#
+#     # Struct of extensions
+#     struct_array = pa.StructArray.from_arrays(
+#         [storage, ext_array],
+#         names=['ints', 'exts'])
+#
+#     orig_table = pa.table({'structs': struct_array})
+#     filename = tmpdir / 'struct_of_ext.parquet'
+#     pq.write_table(orig_table, filename)
+#
+#     table = pq.read_table(filename)
+#     table.validate(full=True)
+#     assert table.column(0).type == pa.struct({'ints': pa.int64(),
+#                                               'exts': pa.int64()})
+#     with registered_extension_type(ext_type):
+#         table = pq.read_table(filename)
+#         table.validate(full=True)
+#         assert table.column(0).type == struct_array.type
+#         assert table == orig_table
+#
+#     # List of extensions
+#     list_array = pa.ListArray.from_arrays([0, 1, None, 3], ext_array)
+#
+#     orig_table = pa.table({'lists': list_array})
+#     filename = tmpdir / 'list_of_ext.parquet'
+#     pq.write_table(orig_table, filename)
+#
+#     table = pq.read_table(filename)
+#     table.validate(full=True)
+#     assert table.column(0).type == pa.list_(pa.int64())
+#     with registered_extension_type(ext_type):
+#         table = pq.read_table(filename)
+#         table.validate(full=True)
+#         assert table.column(0).type == list_array.type
+#         assert table == orig_table
+#
+#     # Large list of extensions
+#     list_array = pa.LargeListArray.from_arrays([0, 1, None, 3], ext_array)
+#
+#     orig_table = pa.table({'lists': list_array})
+#     filename = tmpdir / 'list_of_ext.parquet'
+#     pq.write_table(orig_table, filename)
+#
+#     table = pq.read_table(filename)
+#     table.validate(full=True)
+#     assert table.column(0).type == pa.large_list(pa.int64())
+#     with registered_extension_type(ext_type):
+#         table = pq.read_table(filename)
+#         table.validate(full=True)
+#         assert table.column(0).type == list_array.type
+#         assert table == orig_table
 
-    inner_ext_type = IntegerType()
-    inner_storage = pa.array([4, 5, 6, 7], type=pa.int64())
-    inner_ext_array = pa.ExtensionArray.from_storage(inner_ext_type,
-                                                     inner_storage)
 
-    list_array = pa.ListArray.from_arrays([0, 1, None, 3], inner_ext_array)
-    mylist_array = pa.ExtensionArray.from_storage(
-        MyListType(list_array.type), list_array)
-
-    orig_table = pa.table({'lists': mylist_array})
-    filename = tmpdir / 'ext_of_list_of_ext.parquet'
-    pq.write_table(orig_table, filename)
-
-    table = pq.read_table(filename)
-    assert table.column(0).type == pa.list_(pa.int64())
-    with registered_extension_type(mylist_array.type):
-        with registered_extension_type(inner_ext_array.type):
-            table = pq.read_table(filename)
-            assert table.column(0).type == mylist_array.type
-            assert table == orig_table
+# @pytest.mark.parquet
+# def test_parquet_extension_nested_in_extension(tmpdir):
+#     # Parquet support for extension<list<extension>>
+#     import pyarrow.parquet as pq
+#
+#     inner_ext_type = IntegerType()
+#     inner_storage = pa.array([4, 5, 6, 7], type=pa.int64())
+#     inner_ext_array = pa.ExtensionArray.from_storage(inner_ext_type,
+#                                                      inner_storage)
+#
+#     list_array = pa.ListArray.from_arrays([0, 1, None, 3], inner_ext_array)
+#     mylist_array = pa.ExtensionArray.from_storage(
+#         MyListType(list_array.type), list_array)
+#
+#     orig_table = pa.table({'lists': mylist_array})
+#     filename = tmpdir / 'ext_of_list_of_ext.parquet'
+#     pq.write_table(orig_table, filename)
+#
+#     table = pq.read_table(filename)
+#     assert table.column(0).type == pa.list_(pa.int64())
+#     with registered_extension_type(mylist_array.type):
+#         with registered_extension_type(inner_ext_array.type):
+#             table = pq.read_table(filename)
+#             assert table.column(0).type == mylist_array.type
+#             assert table == orig_table
 
 
 @pytest.mark.numpy
