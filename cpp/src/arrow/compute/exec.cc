@@ -486,12 +486,9 @@ bool ExecSpanIterator::Next(ExecSpan* span, SelectionVectorSpan* selection_span)
     auto indices_begin = selection_vector_->indices() + selection_position_;
     auto indices_end = selection_vector_->indices() + selection_vector_->length();
     DCHECK_LE(indices_begin, indices_end);
-    auto chunk_row_id_end = position_ + iteration_size;
-    int64_t num_indices = 0;
-    while (indices_begin + num_indices < indices_end &&
-           *(indices_begin + num_indices) < chunk_row_id_end) {
-      ++num_indices;
-    }
+    auto indices_limit = std::lower_bound(
+        indices_begin, indices_end, static_cast<int32_t>(position_ + iteration_size));
+    int64_t num_indices = indices_limit - indices_begin;
     selection_span->SetSlice(selection_position_, num_indices,
                              static_cast<int32_t>(position_));
     selection_position_ += num_indices;
