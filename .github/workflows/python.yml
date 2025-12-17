@@ -189,6 +189,9 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
+          # pkg-config formula is deprecated but it's still installed
+          # in GitHub Actions runner now. We can remove this once
+          # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
 
