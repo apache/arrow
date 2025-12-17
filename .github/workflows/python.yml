@@ -199,7 +199,7 @@ jobs:
           grep -v 'aws-sdk-cpp' cpp/Brewfile > /tmp/Brewfile.tmp
           brew bundle --file=/tmp/Brewfile.tmp
 
-          # Build aws-sdk-cpp with vendored CRT (guarantees version consistency)
+          # Build aws-sdk-cpp to guarantee version consistency
           git clone --recurse-submodules --shallow-submodules --depth 1 \
             --branch 1.11.705 https://github.com/aws/aws-sdk-cpp.git /tmp/aws-sdk-cpp
           cmake -S /tmp/aws-sdk-cpp -B /tmp/aws-sdk-cpp/build \
