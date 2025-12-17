@@ -1798,7 +1798,7 @@ services:
       <<: [*common, *sccache]
       LIBARROW_BINARY: "false"
       ARROW_SOURCE_HOME: "/arrow"
-      ARROW_R_DEV: "TRUE"
+      ARROW_R_DEV: ${ARROW_R_DEV}
       ARROW_USE_PKG_CONFIG: "false"
     volumes:
       - .:/arrow:delegated
