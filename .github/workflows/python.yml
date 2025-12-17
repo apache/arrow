@@ -201,7 +201,7 @@ jobs:
             --branch 1.11.705 https://github.com/aws/aws-sdk-cpp.git /tmp/aws-sdk-cpp
           cmake -S /tmp/aws-sdk-cpp -B /tmp/aws-sdk-cpp/build \
             -GNinja \
-            -DBUILD_ONLY="config;s3;transfer;identity-management;sts"
+            -DBUILD_ONLY="config;s3;transfer;identity-management;sts" \
             -DBUILD_SHARED_LIBS=ON \
             -DENABLE_TESTING=OFF \
             -DAUTORUN_UNIT_TESTS=OFF \
