@@ -25,7 +25,8 @@ but there are a few things to note.
 
 As of version 10.0.0, arrow requires a C++17 compiler to build.
 For `gcc`, this generally means version 7 or newer. Most contemporary Linux
-distributions have a new enough compiler.
+distributions have a new enough compiler; however, CentOS 7 is a notable
+exception, as it ships with gcc 4.8.
 
 ### Libraries
 
