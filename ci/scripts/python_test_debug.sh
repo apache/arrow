@@ -71,4 +71,4 @@ export PYARROW_TEST_S3
 # Debug Testing PyArrow
 lldb -o "settings set target.process.stop-on-exec false" \
      -o "run" \
-     -- python3 -m pytest pyarrow/tests/test_fs.py::test_s3_options -vv -s
+     -- python3 -m pytest --pyargs pyarrow.tests.test_fs -k test_s3_options -vv -s
