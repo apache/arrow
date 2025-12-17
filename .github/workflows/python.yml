@@ -236,6 +236,9 @@ jobs:
           python -m pip install wheel
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
+      - name: Debug test_s3_options with lldb
+        shell: bash
+        run: ci/scripts/python_test_debug.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
