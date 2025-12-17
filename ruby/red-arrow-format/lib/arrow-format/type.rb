@@ -274,12 +274,16 @@ module ArrowFormat
   end
 
   class TimeType < TemporalType
+    attr_reader :unit
+    def initialize(name, unit)
+      super(name)
+      @unit = unit
+    end
   end
 
   class Time32Type < TimeType
     def initialize(unit)
-      super("Time32")
-      @unit = unit
+      super("Time32", unit)
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -289,12 +293,25 @@ module ArrowFormat
 
   class Time64Type < TimeType
     def initialize(unit)
-      super("Time64")
-      @unit = unit
+      super("Time64", unit)
     end
 
     def build_array(size, validity_buffer, values_buffer)
       Time64Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
+  class TimestampType < TemporalType
+    attr_reader :unit
+    attr_reader :timezone
+    def initialize(unit, timezone)
+      super("Timestamp")
+      @unit = unit
+      @timezone = timezone
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      TimestampArray.new(self, size, validity_buffer, values_buffer)
     end
   end
 

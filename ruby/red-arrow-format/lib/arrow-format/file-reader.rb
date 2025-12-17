@@ -41,6 +41,7 @@ require_relative "org/apache/arrow/flatbuf/precision"
 require_relative "org/apache/arrow/flatbuf/schema"
 require_relative "org/apache/arrow/flatbuf/struct_"
 require_relative "org/apache/arrow/flatbuf/time"
+require_relative "org/apache/arrow/flatbuf/timestamp"
 require_relative "org/apache/arrow/flatbuf/time_unit"
 require_relative "org/apache/arrow/flatbuf/union"
 require_relative "org/apache/arrow/flatbuf/union_mode"
@@ -210,6 +211,9 @@ module ArrowFormat
             type = Time64Type.new(:nanosecond)
           end
         end
+      when Org::Apache::Arrow::Flatbuf::Timestamp
+        unit = fb_type.unit.name.downcase.to_sym
+        type = TimestampType.new(unit, fb_type.timezone)
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::LargeList

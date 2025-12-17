@@ -40,6 +40,10 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  def type
+    @type ||= @reader.first.schema.fields[0].type
+  end
+
   sub_test_case("Null") do
     def build_array
       Arrow::NullArray.new(3)
@@ -245,6 +249,10 @@ class TestFileReader < Test::Unit::TestCase
       assert_equal([{"value" => [@time_00_00_10, nil, @time_00_01_10]}],
                    read)
     end
+
+    def test_type
+      assert_equal(:second, type.unit)
+    end
   end
 
   sub_test_case("Time32(:millisecond)") do
@@ -262,6 +270,10 @@ class TestFileReader < Test::Unit::TestCase
     def test_read
       assert_equal([{"value" => [@time_00_00_10_000, nil, @time_00_01_10_000]}],
                    read)
+    end
+
+    def test_type
+      assert_equal(:millisecond, type.unit)
     end
   end
 
@@ -293,6 +305,10 @@ class TestFileReader < Test::Unit::TestCase
                    ],
                    read)
     end
+
+    def test_type
+      assert_equal(:microsecond, type.unit)
+    end
   end
 
   sub_test_case("Time64(:nanosecond)") do
@@ -322,6 +338,154 @@ class TestFileReader < Test::Unit::TestCase
                      },
                    ],
                    read)
+    end
+
+    def test_type
+      assert_equal(:nanosecond, type.unit)
+    end
+  end
+
+  sub_test_case("Timestamp(:second)") do
+    def setup(&block)
+      @timestamp_2019_11_18_00_09_11 = 1574003351
+      @timestamp_2025_12_16_05_33_58 = 1765863238
+      super(&block)
+    end
+
+    def build_array
+      Arrow::TimestampArray.new(:second,
+                                [
+                                  @timestamp_2019_11_18_00_09_11,
+                                  nil,
+                                  @timestamp_2025_12_16_05_33_58,
+                                ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @timestamp_2019_11_18_00_09_11,
+                         nil,
+                         @timestamp_2025_12_16_05_33_58,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("Timestamp(:millisecond)") do
+    def setup(&block)
+      @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000
+      @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::TimestampArray.new(:milli,
+                                [
+                                  @timestamp_2019_11_18_00_09_11,
+                                  nil,
+                                  @timestamp_2025_12_16_05_33_58,
+                                ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @timestamp_2019_11_18_00_09_11,
+                         nil,
+                         @timestamp_2025_12_16_05_33_58,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("Timestamp(:microsecond)") do
+    def setup(&block)
+      @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000_000
+      @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::TimestampArray.new(:micro,
+                                [
+                                  @timestamp_2019_11_18_00_09_11,
+                                  nil,
+                                  @timestamp_2025_12_16_05_33_58,
+                                ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @timestamp_2019_11_18_00_09_11,
+                         nil,
+                         @timestamp_2025_12_16_05_33_58,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("Timestamp(:nanosecond)") do
+    def setup(&block)
+      @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000_000_000
+      @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000_000
+      super(&block)
+    end
+
+    def build_array
+      Arrow::TimestampArray.new(:nano,
+                                [
+                                  @timestamp_2019_11_18_00_09_11,
+                                  nil,
+                                  @timestamp_2025_12_16_05_33_58,
+                                ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         @timestamp_2019_11_18_00_09_11,
+                         nil,
+                         @timestamp_2025_12_16_05_33_58,
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("Timestamp(timezone)") do
+    def setup(&block)
+      @timezone = "UTC"
+      @timestamp_2019_11_18_00_09_11 = 1574003351
+      @timestamp_2025_12_16_05_33_58 = 1765863238
+      super(&block)
+    end
+
+    def build_array
+      data_type = Arrow::TimestampDataType.new(:second, @timezone)
+      Arrow::TimestampArray.new(data_type,
+                                [
+                                  @timestamp_2019_11_18_00_09_11,
+                                  nil,
+                                  @timestamp_2025_12_16_05_33_58,
+                                ])
+    end
+
+    def test_type
+      assert_equal([:second, @timezone],
+                   [type.unit, type.timezone])
     end
   end
 
