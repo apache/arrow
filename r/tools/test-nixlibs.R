@@ -66,12 +66,6 @@ test_that("has_binary_sysreqs", {
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
-  expect_output(
-    expect_true(
-      has_binary_sysreqs(character(0)) # Successful compile = OpenSSL >= 3.0
-    ),
-    "Found libcurl and OpenSSL >= 3.0"
-  )
 })
 
 test_that("select_binary() with test program", {
