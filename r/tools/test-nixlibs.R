@@ -33,6 +33,21 @@ test_that("identify_binary() based on LIBARROW_BINARY", {
     "linux-x86_64"
   )
   expect_null(identify_binary("", info = list(id = "debian")))
+
+  expect_output(
+    expect_identical(
+      identify_binary("linux-x86_64-openssl-3.0"),
+      "linux-x86_64"
+    ),
+    "OpenSSL suffix deprecated in LIBARROW_BINARY, using 'linux-x86_64'",
+    fixed = TRUE
+  )
+
+  expect_error(
+    identify_binary("linux-x86_64-openssl-1.0"),
+    "OpenSSL 1.x binaries are no longer provided. Use LIBARROW_BINARY='linux-x86_64'",
+    fixed = TRUE
+  )
 })
 
 test_that("select_binary() based on system", {

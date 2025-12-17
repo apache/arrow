@@ -223,6 +223,17 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
     # Env var provided an os-version to use, to override our logic.
     # We don't validate that this exists. If it doesn't, the download will fail
     # and the build will fall back to building from source
+    if (grepl("openssl-1", lib)) {
+      stop(
+        "OpenSSL 1.x binaries are no longer provided. Use LIBARROW_BINARY='",
+        sub("-openssl-1.*$", "", lib),
+        "'"
+      )
+    }
+    if (grepl("openssl-3", lib)) {
+      lib <- sub("-openssl-3.*$", "", lib)
+      lg("OpenSSL suffix deprecated in LIBARROW_BINARY, using '%s'", lib)
+    }
   } else {
     # See if we can find a suitable binary
     lib <- select_binary()
