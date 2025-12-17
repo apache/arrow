@@ -55,8 +55,8 @@ class ODBCHandle {
     }
     // on mac, DriverException doesn't catch the subclass exceptions hence we added
     // the following above.
-    // GH-48278 TODO investigate if there is a way to catch all the subclass exceptions under
-    // DriverException
+    // GH-48278 TODO investigate if there is a way to catch all the subclass exceptions
+    // under DriverException
     catch (const arrow::flight::sql::odbc::DriverException& ex) {
       GetDiagnostics().AddError(ex);
     } catch (const std::bad_alloc&) {
