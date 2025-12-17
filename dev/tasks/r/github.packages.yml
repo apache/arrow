@@ -111,14 +111,22 @@ jobs:
             {{ '${{ env.PKG_FILE }}' }}.sha512
 
   linux-cpp:
-    name: C++ Binary Linux
-    runs-on: ubuntu-latest
+    name: C++ Binary Linux {{ '${{ matrix.arch }}' }}
+    runs-on: {{ '${{ matrix.runs-on }}' }}
     needs: source
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - arch: x86_64
+            runs-on: ubuntu-latest
+            ubuntu: "22.04"
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            ubuntu: "24.04"
     env:
-      PKG_ID: r-libarrow-linux-x86_64
-      PKG_FILE: r-libarrow-linux-x86_64-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+      PKG_ID: r-libarrow-linux-{{ '${{ matrix.arch }}' }}
+      PKG_FILE: r-libarrow-linux-{{ '${{ matrix.arch }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
@@ -126,7 +134,7 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: "22.04"
+          UBUNTU: {{ '${{ matrix.ubuntu }}' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
@@ -292,8 +300,8 @@ jobs:
           path: arrow_*
   test-linux-binary:
     needs: [source, linux-cpp]
-    name: Test binary {{ '${{ matrix.config.image }}' }}
-    runs-on: ubuntu-latest
+    name: Test binary {{ '${{ matrix.config.image }}' }} {{ '${{ matrix.config.runner }}' }}
+    runs-on: {{ '${{ matrix.config.runner }}' }}
     container: {{ '${{ matrix.config.image }}' }}
     strategy:
       fail-fast: false
@@ -304,13 +312,17 @@ jobs:
           # an OS that is not in the allowlist, so we have to opt-in to use the
           # binary. Other env vars used in r_docker_configure.sh can be added
           # here and wired up in the later steps.
-          - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE"}
+          # x86_64 tests
+          - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE", runner: "ubuntu-latest"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
-          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
-          - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
-          - {image: "rstudio/r-base:4.1-jammy"}
-          - {image: "rstudio/r-base:4.2-jammy"}
-          - {image: "rstudio/r-base:4.3-noble"}
+          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE", runner: "ubuntu-latest"}
+          - {image: "rhub/ubuntu-release", runner: "ubuntu-latest"} # currently ubuntu-22.04
+          - {image: "rstudio/r-base:4.1-jammy", runner: "ubuntu-latest"}
+          - {image: "rstudio/r-base:4.2-jammy", runner: "ubuntu-latest"}
+          - {image: "rstudio/r-base:4.3-noble", runner: "ubuntu-latest"}
+          # ARM64 tests
+          - {image: "rstudio/r-base:4.2-jammy", runner: "ubuntu-24.04-arm"}
+          - {image: "rstudio/r-base:4.3-noble", runner: "ubuntu-24.04-arm"}
     steps:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
