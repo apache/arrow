@@ -29,8 +29,8 @@ capture.output(source("nixlibs.R", local = nixlibs_env))
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
   expect_identical(
-    identify_binary("linux-x86_64-openssl-1.0"),
-    "linux-x86_64-openssl-1.0"
+    identify_binary("linux-x86_64-openssl-3.0"),
+    "linux-x86_64-openssl-3.0"
   )
   expect_null(identify_binary("", info = list(id = "debian")))
 })
@@ -92,20 +92,6 @@ test_that("select_binary() with test program", {
   nixlibs_env$on_macos <- FALSE
   expect_output(
     expect_identical(
-      select_binary("linux", "x86_64", "int a;"),
-      "linux-x86_64-openssl-1.1"
-    ),
-    "Found libcurl and OpenSSL >= 1.1"
-  )
-  expect_output(
-    expect_identical(
-      select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0"),
-      "linux-x86_64-openssl-1.0"
-    ),
-    "Found libcurl and OpenSSL < 1.1"
-  )
-  expect_output(
-    expect_identical(
       select_binary("linux", "x86_64", "#error Using OpenSSL version 3"),
       "linux-x86_64-openssl-3.0"
     ),
@@ -157,9 +143,8 @@ test_that("check_allowlist", {
   withr::local_dir("..")
 
   tf <- tempfile()
-  cat("tu$\n^cent\n^dar\n", file = tf)
+  cat("tu$\n^dar\n", file = tf)
   expect_true(check_allowlist("ubuntu", tf))
-  expect_true(check_allowlist("centos", tf))
   expect_true(check_allowlist("darwin", tf))
   expect_false(check_allowlist("redhat", tf)) # remote allowlist doesn't have this
   expect_true(check_allowlist("redhat", tempfile())) # remote allowlist doesn't exist, so we fall back to the default list, which contains redhat

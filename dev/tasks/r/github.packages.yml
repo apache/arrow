@@ -122,13 +122,6 @@ jobs:
           - openssl: "3.0"
             os: ubuntu
             ubuntu: "22.04"
-          - extra-cmake-flags: >-
-              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
-              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
-            openssl: "1.1"
-            os: centos
-          - openssl: "1.0"
-            os: centos
     env:
       PKG_ID: r-libarrow-linux-x86_64-openssl-{{ '${{ matrix.openssl }}' }}
       PKG_FILE: r-libarrow-linux-x86_64-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip

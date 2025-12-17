@@ -39,7 +39,7 @@ package.
 (or on any non-windows OS with the environment variable
 `FORCE_BUNDLED_BUILD=true`). On windows this script is called by
 `configure.win` when environment variable `ARROW_HOME` is not set.
-It looks for an existing libarrow installation, and if it can't find one 
+It looks for an existing libarrow installation, and if it can't find one
 downloads an appropriate libarrow binary.
 On non-windows if no binary could be found, the script sets up the build
 process for our bundled builds (which is the default on linux) and checks
@@ -129,7 +129,7 @@ the R package version via software distribution tools such as `apt` or `yum`
 ["Troubleshooting" section in the main installation docs](../install.html#troubleshooting)).
 See the [Arrow project installation page](https://arrow.apache.org/install/)
 to find pre-compiled binary packages for some common Linux distributions,
-including Debian, Ubuntu, and CentOS.
+including Debian and Ubuntu.
 
 If you are a developer contributing to the R package, system libarrow packages won't
 be useful because the versions will not match.
