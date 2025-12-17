@@ -1800,6 +1800,7 @@ services:
       ARROW_SOURCE_HOME: "/arrow"
       ARROW_R_DEV: ${ARROW_R_DEV}
       ARROW_USE_PKG_CONFIG: "false"
+      SKIP_VIGNETTES: "true"
     volumes:
       - .:/arrow:delegated
     command: /arrow/ci/scripts/r_test.sh /arrow
