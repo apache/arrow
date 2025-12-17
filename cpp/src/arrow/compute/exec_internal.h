@@ -28,8 +28,8 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/status.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/visibility.h"
-#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 namespace compute {
