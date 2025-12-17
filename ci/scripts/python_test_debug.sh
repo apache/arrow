@@ -69,5 +69,5 @@ export PYARROW_TEST_PARQUET_ENCRYPTION
 export PYARROW_TEST_S3
 
 # Debug Testing PyArrow
-lldb -o run -o bt -o quit -- \
+lldb -o run -- \
   python3 -m pytest pyarrow/tests/test_fs.py::test_s3_options -vv -s
