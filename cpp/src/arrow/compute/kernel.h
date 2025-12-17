@@ -595,9 +595,11 @@ struct ARROW_EXPORT ScalarKernel : public Kernel {
   /// through the KernelContext.
   ArrayKernelExec exec;
 
-  /// \brief Perform a single invocation of this kernel with a selection of indices. If
-  /// not provided, exec will be used with an enclosing gather/scatter pair instead, aka
-  /// "densely".
+  /// \brief Optional and similar to `exec`, but providing a specialized implementation
+  /// that takes a selection vector argument and performs the computation only on the
+  /// selected indices. When this specialized kernel is not provided we fallback to
+  /// logic that gathers all selected values into a dense array, call `exec` on it
+  /// and then scather the values on the output array.
   ArrayKernelSelectiveExec selective_exec;
 
   /// \brief Writing execution results into larger contiguous allocations
