@@ -51,3 +51,6 @@ add_arrow_test(flight_sql_odbc_test
                ${ODBCINST}
                ${SQLite3_LIBRARIES}
                arrow_odbc_spi_impl)
+
+# Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
+set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)
