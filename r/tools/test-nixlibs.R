@@ -70,7 +70,7 @@ test_that("has_binary_sysreqs", {
     expect_true(
       has_binary_sysreqs(character(0)) # Successful compile = OpenSSL >= 3.0
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
 })
 
@@ -81,20 +81,24 @@ test_that("select_binary() with test program", {
       select_binary("linux", "x86_64", "int a;"),
       "linux-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_null(
-      select_binary("linux", "x86_64", "#error OpenSSL version must be 3.0 or greater")
+      select_binary(
+        "linux",
+        "x86_64",
+        "#error OpenSSL version must be 3.0 or greater"
+      )
     ),
-    "OpenSSL found but version >= 3.0.0 is required"
+    "OpenSSL found but version >= 3.0 is required"
   )
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", character(0)), # Successful compile = OpenSSL >= 3.0
       "linux-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   nixlibs_env$on_macos <- TRUE
   expect_output(
@@ -102,34 +106,38 @@ test_that("select_binary() with test program", {
       select_binary("darwin", "x86_64", "int a;"),
       "darwin-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_identical(
       select_binary("darwin", "x86_64", character(0)), # Successful compile = OpenSSL >= 3.0
       "darwin-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_identical(
       select_binary("darwin", "arm64", "int a;"),
       "darwin-arm64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_identical(
       select_binary("darwin", "arm64", character(0)), # Successful compile = OpenSSL >= 3.0
       "darwin-arm64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_null(
-      select_binary("darwin", "x86_64", "#error OpenSSL version must be 3.0 or greater")
+      select_binary(
+        "darwin",
+        "x86_64",
+        "#error OpenSSL version must be 3.0 or greater"
+      )
     ),
-    "OpenSSL found but version >= 3.0.0 is required"
+    "OpenSSL found but version >= 3.0 is required"
   )
 })
 

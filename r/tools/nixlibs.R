@@ -340,11 +340,11 @@ has_binary_sysreqs <- function(errs) {
     lg("OpenSSL not found")
     return(FALSE)
   } else if (any(grepl("OpenSSL version must be 3.0 or greater", errs))) {
-    lg("OpenSSL found but version >= 3.0.0 is required")
+    lg("OpenSSL found but version >= 3.0 is required")
     return(FALSE)
   } else if (is.null(attr(errs, "status"))) {
     # Successful compile = OpenSSL >= 3.0 found
-    lg("Found libcurl and OpenSSL >= 3.0.0")
+    lg("Found libcurl and OpenSSL >= 3.0")
     return(TRUE)
   }
   FALSE
