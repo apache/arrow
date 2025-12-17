@@ -256,7 +256,7 @@ select_binary <- function(
       # so globally handle the possibility that this could fail
       {
         errs <- compile_test_program(test_program)
-        if (has_curl_and_openssl(errs)) {
+        if (has_binary_sysreqs(errs)) {
           paste0(os, "-", arch)
         } else {
           NULL
@@ -327,8 +327,7 @@ get_macos_openssl_dir <- function() {
   openssl_root_dir
 }
 
-# (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
-has_curl_and_openssl <- function(errs) {
+has_binary_sysreqs <- function(errs) {
   # Check for dealbreakers:
   if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our linux binaries are all built with GNU stdlib so they fail with libc++

@@ -49,10 +49,10 @@ test_that("compile_test_program()", {
   expect_true(header_not_found("wrong/NOTAHEADER", fail))
 })
 
-test_that("has_curl_and_openssl", {
+test_that("has_binary_sysreqs", {
   expect_output(
     expect_true(
-      has_curl_and_openssl(compile_test_program("int a;"))
+      has_binary_sysreqs(compile_test_program("int a;"))
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
@@ -60,13 +60,15 @@ test_that("has_curl_and_openssl", {
   nixlibs_env$on_macos <- FALSE
   expect_output(
     expect_false(
-      has_curl_and_openssl(compile_test_program("#error OpenSSL version must be 3.0 or greater"))
+      has_binary_sysreqs(compile_test_program(
+        "#error OpenSSL version must be 3.0 or greater"
+      ))
     ),
     "OpenSSL found but version >= 3.0.0 is required"
   )
   expect_output(
     expect_true(
-      has_curl_and_openssl(character(0)) # Successful compile = OpenSSL >= 3.0
+      has_binary_sysreqs(character(0)) # Successful compile = OpenSSL >= 3.0
     ),
     "Found libcurl and OpenSSL >= 3.0.0"
   )
