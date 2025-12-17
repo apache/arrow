@@ -25,20 +25,9 @@
 %define _rhel %{?rhel:%{rhel}}%{!?rhel:0}
 %define is_rhel (%{_rhel} != 0)
 
-%define is_centos_7 (%{_rhel} == 7 && !%{is_amazon_linux})
-
 %define major_version %(echo @VERSION@ | cut -d. -f 1)
 %define minor_version %(echo @VERSION@ | cut -d. -f 2)
 %define so_version %(expr %{major_version} '*' 100 + %{minor_version})
-
-%define boost_version %( \
-  if [ %{_rhel} -eq 7 ]; then \
-    echo 169; \
-  fi)
-%define cmake_version %( \
-  if [ %{_rhel} -eq 7 ]; then \
-    echo 3; \
-  fi)
 
 %define lz4_requirement %( \
   if [ %{_amzn} -eq 0 ]; then \
@@ -57,35 +46,22 @@
 %define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
 %endif
 
-%if %{is_centos_7}
-%define gcc_package devtoolset-11-gcc
-%else
-%define gcc_package gcc
-%endif
-
-%define use_azure (%{_rhel} >= 8 || %{_amzn} >= 2023)
 %define use_bundled_nlohmann_json (%{_rhel} == 8)
-%define use_flight (%{_rhel} >= 8 || %{_amzn} >= 2023)
-%define use_gandiva (%{_rhel} >= 8 || %{_amzn} >= 2023)
-%define use_gcs (%{_rhel} >= 8)
+%define use_gcs (!%{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
 ## TODO: Enable this when glog stopped depending on gflags-devel.
 # %%define use_glog (%%{_rhel} <= 8)
 %define use_glog 0
-%define use_mimalloc (%{_rhel} >= 8)
-# TODO: Enable this. This works on local but is fragile on GitHub Actions and
-# Travis CI.
+%define use_mimalloc (!%{is_amazon_linux})
+# TODO: Enable this. This works on local but is fragile on GitHub Actions.
 # %%define use_s3 (%%{_rhel} >= 8)
 %define use_s3 0
-%define use_vala (%{_rhel} >= 8 || %{is_amazon_linux})
 
-%define have_grpc (%{_rhel} >= 10 || %{_amzn} >= 2023)
-%define have_lz4_libs (%{_rhel} >= 8 || %{_amzn} >= 2023)
+%define have_grpc (%{_rhel} >= 10 || %{is_amazon_linux})
 %define have_orc (%{_rhel} >= 10)
 %define have_rapidjson (%{_rhel} != 8)
-%define have_re2 (%{_rhel} >= 8 || %{_amzn} >= 2023)
-%define have_thrift (%{_rhel} >= 8)
-%define have_utf8proc (%{_rhel} >= 9 || %{_amzn} >= 2023)
+%define have_thrift (!%{is_amazon_linux})
+%define have_utf8proc (%{_rhel} >= 9 || %{is_amazon_linux})
 
 %define enable_glib_doc (%{_rhel} >= 9 || %{is_amazon_linux})
 
@@ -99,16 +75,14 @@ URL:		https://arrow.apache.org/
 Source0:	https://dist.apache.org/repos/dist/release/@PACKAGE@/@PACKAGE@-%{version}/apache-@PACKAGE@-%{version}.tar.gz
 
 BuildRequires:	bison
-BuildRequires:	boost%{boost_version}-devel
+BuildRequires:	boost-devel
 BuildRequires:	brotli-devel
 BuildRequires:	bzip2-devel
-%if %{use_flight}
 BuildRequires:	c-ares-devel
-%endif
-BuildRequires:	cmake%{cmake_version}
+BuildRequires:	cmake
 BuildRequires:	curl-devel
 BuildRequires:	flex
-BuildRequires:	%{gcc_package}-c++
+BuildRequires:	gcc-c++
 %if %{use_gflags}
 BuildRequires:	gflags-devel
 %endif
@@ -123,20 +97,18 @@ BuildRequires:	grpc-plugins
 %if %{use_gcs} && !%{use_bundled_nlohmann_json}
 BuildRequires:	json-devel
 %endif
-%if %{use_azure}
 BuildRequires:	libxml2-devel
-%endif
 BuildRequires:	libzstd-devel
+BuildRequires:	llvm-devel
 BuildRequires:	lz4-devel %{lz4_requirement}
+BuildRequires:	ncurses-devel
 BuildRequires:	ninja-build
 BuildRequires:	openssl-devel
 BuildRequires:	pkgconfig
 %if %{have_rapidjson}
 BuildRequires:	rapidjson-devel
 %endif
-%if %{have_re2}
 BuildRequires:	re2-devel
-%endif
 BuildRequires:	snappy-devel
 %if %{have_thrift}
 BuildRequires:	thrift-devel
@@ -146,15 +118,9 @@ BuildRequires:	utf8proc-devel
 %endif
 BuildRequires:	zlib-devel
 
-%if %{use_gandiva}
-BuildRequires:	llvm-devel
-BuildRequires:	ncurses-devel
-%endif
-
+# For GLib
 BuildRequires:	gobject-introspection-devel
-%if %{use_vala}
 BuildRequires:	vala
-%endif
 
 %description
 Apache Arrow is a data processing library for analysis.
@@ -166,19 +132,13 @@ Apache Arrow is a data processing library for analysis.
 cpp_build_type=release
 cd cpp
 %arrow_cmake \
-%if %{use_azure}
   -DARROW_AZURE=ON \
-%endif
   -DARROW_BUILD_UTILITIES=ON \
   -DARROW_CSV=ON \
   -DARROW_DATASET=ON \
-%if %{use_flight}
   -DARROW_FLIGHT=ON \
   -DARROW_FLIGHT_SQL=ON \
-%endif
-%if %{use_gandiva}
   -DARROW_GANDIVA=ON \
-%endif
 %if %{use_gcs}
   -DARROW_GCS=ON \
 %endif
@@ -214,12 +174,7 @@ cd c_glib
 %if %{_amzn} >= 2023
   # Do nothing
 %else
-  %if %{is_centos_7}
-    # Meson 0.62.0 or later requires Python 3.7 or later.
-    pip3 install 'meson<0.62.0'
-  %else
-    pip3 install meson
-  %endif
+  pip3 install meson
 %endif
 %if %{enable_glib_doc}
   pip3 install gi-docgen
@@ -233,9 +188,7 @@ meson setup build \
 %if %{enable_glib_doc}
   -Ddoc=true \
 %endif
-%if %{use_vala}
   -Dvapi=true
-%endif
 
 LD_LIBRARY_PATH=$PWD/../cpp/%{arrow_cmake_builddir}/$cpp_build_type \
   meson compile -C build %{?_smp_mflags}
@@ -256,11 +209,7 @@ cd -
 %package -n %{name}%{so_version}-libs
 Summary:	Runtime libraries for Apache Arrow C++
 License:	Apache-2.0
-%if %{have_lz4_libs}
 Requires:	lz4-libs %{lz4_requirement}
-%else
-Requires:	lz4 %{lz4_requirement}
-%endif
 
 %description -n %{name}%{so_version}-libs
 This package contains the libraries for Apache Arrow C++.
@@ -304,9 +253,7 @@ Requires:	liborc-devel
 %if %{have_rapidjson}
 Requires:	rapidjson-devel
 %endif
-%if %{have_re2}
 Requires:	re2-devel
-%endif
 Requires:	snappy-devel
 %if %{have_utf8proc}
 Requires:	utf8proc-devel
@@ -326,9 +273,7 @@ Libraries and header files for Apache Arrow C++.
 %exclude %{_includedir}/arrow/acero/
 %exclude %{_includedir}/arrow/compute/row
 %exclude %{_includedir}/arrow/dataset/
-%if %{use_flight}
 %exclude %{_includedir}/arrow/flight/
-%endif
 %{_libdir}/cmake/Arrow/
 %{_libdir}/libarrow.a
 %{_libdir}/libarrow.so
@@ -440,7 +385,6 @@ Libraries and header files for Apache Arrow dataset.
 %{_libdir}/libarrow_dataset.so
 %{_libdir}/pkgconfig/arrow-dataset.pc
 
-%if %{use_flight}
 %package -n %{name}%{so_version}-flight-libs
 Summary:	C++ library for fast data transport.
 License:	Apache-2.0
@@ -512,9 +456,7 @@ Libraries and header files for Apache Arrow Flight SQL.
 %{_libdir}/libarrow_flight_sql.a
 %{_libdir}/libarrow_flight_sql.so
 %{_libdir}/pkgconfig/arrow-flight-sql.pc
-%endif
 
-%if %{use_gandiva}
 %package -n gandiva%{so_version}-libs
 Summary:	C++ library for compiling and evaluating expressions on Apache Arrow data.
 License:	Apache-2.0
@@ -548,7 +490,6 @@ Libraries and header files for Gandiva.
 %{_libdir}/libgandiva.a
 %{_libdir}/libgandiva.so
 %{_libdir}/pkgconfig/gandiva.pc
-%endif
 
 %package -n parquet%{so_version}-libs
 Summary:	Runtime libraries for Apache Parquet C++
@@ -630,9 +571,7 @@ Libraries and header files for Apache Arrow GLib.
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/arrow-glib/example/
 %{_datadir}/gir-1.0/Arrow-*.gir
-%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-glib.*
-%endif
 %{_includedir}/arrow-glib/
 %{_libdir}/libarrow-glib.a
 %{_libdir}/libarrow-glib.so
@@ -687,9 +626,7 @@ Libraries and header files for Apache Arrow Dataset GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/ArrowDataset-*.gir
-%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-dataset-glib.*
-%endif
 %{_includedir}/arrow-dataset-glib/
 %{_libdir}/libarrow-dataset-glib.a
 %{_libdir}/libarrow-dataset-glib.so
@@ -710,7 +647,6 @@ Documentation for Apache Arrow dataset GLib.
 %{_docdir}/arrow-dataset-glib/
 %endif
 
-%if %{use_flight}
 %package -n %{name}%{so_version}-flight-glib-libs
 Summary:	Runtime libraries for Apache Arrow Flight GLib
 License:	Apache-2.0
@@ -742,9 +678,7 @@ Libraries and header files for Apache Arrow Flight GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/ArrowFlight-*.gir
-%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-flight-glib.*
-%endif
 %{_includedir}/arrow-flight-glib/
 %{_libdir}/libarrow-flight-glib.a
 %{_libdir}/libarrow-flight-glib.so
@@ -796,9 +730,7 @@ Libraries and header files for Apache Arrow Flight SQL GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/ArrowFlightSQL-*.gir
-%if %{use_vala}
 %{_datadir}/vala/vapi/arrow-flight-sql-glib.*
-%endif
 %{_includedir}/arrow-flight-sql-glib/
 %{_libdir}/libarrow-flight-sql-glib.a
 %{_libdir}/libarrow-flight-sql-glib.so
@@ -815,12 +747,10 @@ Documentation for Apache Arrow Flight SQL GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-  %if %{enable_glib_doc}
+%if %{enable_glib_doc}
 %{_docdir}/arrow-flight-sql-glib/
-  %endif
 %endif
 
-%if %{use_gandiva}
 %package -n gandiva%{so_version}-glib-libs
 Summary:	Runtime libraries for Gandiva GLib
 License:	Apache-2.0
@@ -852,9 +782,7 @@ Libraries and header files for Gandiva GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/Gandiva-*.gir
-%if %{use_vala}
 %{_datadir}/vala/vapi/gandiva-glib.*
-%endif
 %{_includedir}/gandiva-glib/
 %{_libdir}/libgandiva-glib.a
 %{_libdir}/libgandiva-glib.so
@@ -871,9 +799,8 @@ Documentation for Gandiva GLib.
 %defattr(-,root,root,-)
 %doc README.md
 %license LICENSE.txt NOTICE.txt
-  %if %{enable_glib_doc}
+%if %{enable_glib_doc}
 %{_docdir}/gandiva-glib/
-  %endif
 %endif
 
 %package -n parquet%{so_version}-glib-libs
@@ -907,9 +834,7 @@ Libraries and header files for Apache Parquet GLib.
 %doc README.md
 %license LICENSE.txt NOTICE.txt
 %{_datadir}/gir-1.0/Parquet-*.gir
-%if %{use_vala}
 %{_datadir}/vala/vapi/parquet-glib.*
-%endif
 %{_includedir}/parquet-glib/
 %{_libdir}/libparquet-glib.a
 %{_libdir}/libparquet-glib.so
