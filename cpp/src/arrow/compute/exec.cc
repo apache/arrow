@@ -898,11 +898,11 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
       if (batch[i].is_scalar()) {
         // XXX: Skip gather for scalars since it is not currently supported by Take.
         values[i] = batch[i];
-        continue;
+      } else {
+        ARROW_ASSIGN_OR_RAISE(values[i],
+                              Take(batch[i], *batch.selection_vector->data(),
+                                   TakeOptions{/*boundcheck=*/false}, exec_context()));
       }
-      ARROW_ASSIGN_OR_RAISE(values[i],
-                            Take(batch[i], *batch.selection_vector->data(),
-                                 TakeOptions{/*boundcheck=*/false}, exec_context()));
     }
     ARROW_ASSIGN_OR_RAISE(
         ExecBatch input,
