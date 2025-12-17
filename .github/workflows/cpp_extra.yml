@@ -127,7 +127,7 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          source arrow/ci/scripts/util_enable_core_dumps.sh
+          source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
             ubuntu-cuda-cpp
       - name: Docker Push
