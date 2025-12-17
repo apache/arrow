@@ -46,7 +46,18 @@ class ODBCHandle {
     try {
       GetDiagnostics().Clear();
       rc = function();
-    } catch (const arrow::flight::sql::odbc::DriverException& ex) {
+    } catch (const arrow::flight::sql::odbc::AuthenticationException& ex) {
+      GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(
+          ex.GetMessageText(), ex.GetSqlState(), ex.GetNativeError()));
+    } catch (const arrow::flight::sql::odbc::NullWithoutIndicatorException& ex) {
+      GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(
+          ex.GetMessageText(), ex.GetSqlState(), ex.GetNativeError()));
+    }
+    // on mac, DriverException doesn't catch the subclass exceptions hence we added
+    // the following above.
+    // GH-48278 TODO investigate if there is a way to catch all the subclass exceptions under
+    // DriverException
+    catch (const arrow::flight::sql::odbc::DriverException& ex) {
       GetDiagnostics().AddError(ex);
     } catch (const std::bad_alloc&) {
       GetDiagnostics().AddError(arrow::flight::sql::odbc::DriverException(
