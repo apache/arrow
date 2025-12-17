@@ -206,9 +206,9 @@ jobs:
             -DENABLE_TESTING=OFF \
             -DAUTORUN_UNIT_TESTS=OFF \
             -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=$(brew --prefix)
+            -DCMAKE_INSTALL_PREFIX=/tmp/local
           cmake --build /tmp/aws-sdk-cpp/build
-          sudo cmake --install /tmp/aws-sdk-cpp/build
+          cmake --install /tmp/aws-sdk-cpp/build
 
           python -m pip install \
             -r python/requirements-build.txt \
