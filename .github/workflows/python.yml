@@ -195,7 +195,11 @@ jobs:
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
+         # Pin aws-crt-cpp to 0.35.4 (matches aws-sdk-cpp 1.11.705)
+         brew install https://raw.githubusercontent.com/Homebrew/homebrew-core/e5e804fb899ad40c35517d356e08db59b97ba091/Formula/a/aws-crt-cpp.rb
+         brew pin aws-crt-cpp
 
+         brew bundle --file=cpp/Brewfile
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
