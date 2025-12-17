@@ -855,7 +855,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
     }
 #else
     // Attempt connection without loading DSN window on macOS/Linux
-    connection->Connect(dsn, properties, missing_properties);
+    connection->Connect(dsn_value, properties, missing_properties);
 #endif
     // Copy connection string to out_connection_string after connection attempt
     return ODBC::GetStringAttribute(true, connection_string, false, out_connection_string,
