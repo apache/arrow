@@ -189,14 +189,25 @@ jobs:
       - name: Install Dependencies
         shell: bash
         run: |
-          # pkg-config formula is deprecated but it's still installed
-          # in GitHub Actions runner now. We can remove this once
-          # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
-          brew info aws-crt-cpp aws-sdk-cpp | grep -E "^aws|stable|Installed"
-          brew bundle --file=cpp/Brewfile
-          brew info aws-crt-cpp aws-sdk-cpp | grep -E "^aws|stable|Installed"
+
+          # Install everything except aws-sdk-cpp
+          grep -v 'aws-sdk-cpp' cpp/Brewfile > /tmp/Brewfile.tmp
+          brew bundle --file=/tmp/Brewfile.tmp
+
+          # Build aws-sdk-cpp with vendored CRT (guarantees version consistency)
+          git clone --recurse-submodules --shallow-submodules --depth 1 \
+            --branch 1.11.705 https://github.com/aws/aws-sdk-cpp.git /tmp/aws-sdk-cpp
+          cmake -S /tmp/aws-sdk-cpp -B /tmp/aws-sdk-cpp/build \
+            -GNinja \
+            -DBUILD_ONLY="s3;identity-management;sts" \
+            -DBUILD_SHARED_LIBS=ON \
+            -DENABLE_TESTING=OFF \
+            -DAUTORUN_UNIT_TESTS=OFF \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build /tmp/aws-sdk-cpp/build
+          sudo cmake --install /tmp/aws-sdk-cpp/build
 
           python -m pip install \
             -r python/requirements-build.txt \
