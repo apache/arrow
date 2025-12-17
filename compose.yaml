@@ -1801,6 +1801,7 @@ services:
       ARROW_R_DEV: ${ARROW_R_DEV}
       ARROW_USE_PKG_CONFIG: "false"
       SKIP_VIGNETTES: "true"
+      NOT_CRAN: "false"
     volumes:
       - .:/arrow:delegated
     command: /arrow/ci/scripts/r_test.sh /arrow
