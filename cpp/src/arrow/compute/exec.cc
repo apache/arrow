@@ -881,7 +881,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
   // Execute a single batch with a selection vector "densely" for a kernel that doesn't
   // support selective execution. "Densely" here means that we first gather the rows
   // indicated by the selection vector into a contiguous ExecBatch, execute that, and
-  // then scatter the result back to the original row positions.
+  // then scatter the result back to the original row positions in the output.
   Status ExecuteSelectiveDense(const ExecBatch& batch, ExecListener* listener) {
     DCHECK(batch.selection_vector && !kernel_->selective_exec);
 
