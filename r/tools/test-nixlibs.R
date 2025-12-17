@@ -69,7 +69,7 @@ test_that("has_binary_sysreqs", {
     expect_true(
       has_binary_sysreqs(compile_test_program("int a;"))
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0",
   )
 
   nixlibs_env$on_macos <- FALSE
@@ -79,7 +79,7 @@ test_that("has_binary_sysreqs", {
         "#error OpenSSL version must be 3.0 or greater"
       ))
     ),
-    "OpenSSL found but version >= 3.0.0 is required"
+    "OpenSSL found but version >= 3.0 is required"
   )
 })
 
