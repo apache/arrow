@@ -839,6 +839,7 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     return ExecuteBatch(batch, listener);
   }
 
+ protected:
   Datum WrapResults(const std::vector<Datum>& inputs,
                     const std::vector<Datum>& outputs) override {
     // If execution yielded multiple chunks (because large arrays were split
@@ -851,7 +852,6 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     }
   }
 
- protected:
   // Execute a single batch either non-selectively (batch doesn't contain a selection
   // vector) or selectively (kernel supports selective execution).
   Status ExecuteBatch(const ExecBatch& batch, ExecListener* listener) {
