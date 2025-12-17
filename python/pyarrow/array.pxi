@@ -299,6 +299,21 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 mask = None if values.mask is np.ma.nomask else values.mask
                 values = values.data
 
+        # Handle multidimensional numpy arrays by converting to nested lists
+        if isinstance(values, np.ndarray) and values.ndim > 1:
+            if mask is not None:
+                raise NotImplementedError(
+                    "mask is not supported for multidimensional arrays")
+            if size is not None:
+                raise NotImplementedError(
+                    "size is not supported for multidimensional arrays")
+            # Convert to list and use sequence conversion path
+            result = _sequence_to_array(values.tolist(), None, None, type, pool, 
+                                       c_from_pandas)
+            if extension_type is not None:
+                result = ExtensionArray.from_storage(extension_type, result)
+            return result
+
         if mask is not None:
             if mask.dtype != np.bool_:
                 raise TypeError("Mask must be boolean dtype")

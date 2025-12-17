@@ -2479,6 +2479,42 @@ def test_array_from_numpy_datetime(dtype, type):
 
 
 @pytest.mark.numpy
+def test_array_from_numpy_multidimensional():
+    # GH-XXXXX: support reading multidimensional numpy arrays
+    # Test 2D array
+    np_arr_2d = np.arange(6).reshape(2, 3)
+    pa_arr_2d = pa.array(np_arr_2d)
+    expected_2d = pa.array([[0, 1, 2], [3, 4, 5]])
+    assert pa_arr_2d.equals(expected_2d)
+    
+    # Test 3D array (example from the issue)
+    np_arr_3d = np.arange(24).reshape(2, 3, 4)
+    pa_arr_3d = pa.array(np_arr_3d)
+    expected_3d = pa.array(np_arr_3d.tolist())
+    assert pa_arr_3d.equals(expected_3d)
+    
+    # Test with different dtypes
+    np_arr_float = np.array([[1.5, 2.5], [3.5, 4.5]])
+    pa_arr_float = pa.array(np_arr_float)
+    expected_float = pa.array([[1.5, 2.5], [3.5, 4.5]])
+    assert pa_arr_float.equals(expected_float)
+    
+    # Test with explicit type
+    np_arr_typed = np.array([[1, 2], [3, 4]], dtype=np.int32)
+    pa_arr_typed = pa.array(np_arr_typed, type=pa.list_(pa.int32()))
+    expected_typed = pa.array([[1, 2], [3, 4]], type=pa.list_(pa.int32()))
+    assert pa_arr_typed.equals(expected_typed)
+    
+    # Test that mask is not supported for multidimensional arrays
+    with pytest.raises(NotImplementedError, match="mask is not supported"):
+        pa.array(np_arr_2d, mask=np.array([True, False]))
+    
+    # Test that size is not supported for multidimensional arrays
+    with pytest.raises(NotImplementedError, match="size is not supported"):
+        pa.array(np_arr_2d, size=2)
+
+
+@pytest.mark.numpy
 def test_array_from_different_numpy_datetime_units_raises():
     data = [
         None,
