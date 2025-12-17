@@ -18,9 +18,9 @@
 add_custom_target(tests)
 
 if(WIN32)
-    include_directories(${ODBC_INCLUDE_DIRS})
+  include_directories(${ODBC_INCLUDE_DIRS})
 else()
-    include_directories(${ODBC_INCLUDE_DIR})
+  include_directories(${ODBC_INCLUDE_DIR})
 endif()
 
 find_package(SQLite3Alt REQUIRED)
