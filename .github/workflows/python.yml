@@ -194,18 +194,9 @@ jobs:
           # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
-
-          # Install aws-crt-cpp 0.35.4 BEFORE other deps
-          brew tap-new local/tap
-          brew extract --version=0.35.4 aws-crt-cpp local/tap
-          brew install local/tap/aws-crt-cpp@0.35.4
-          brew link aws-crt-cpp@0.35.4
-          brew pin aws-crt-cpp@0.35.4
-          brew list | grep -i aws | xargs -I{} brew info {}
-
-          # Now install remaining deps (aws-sdk-cpp will use pinned aws-crt-cpp)
+          brew info aws-crt-cpp aws-sdk-cpp | grep -E "^aws|stable|Installed"
           brew bundle --file=cpp/Brewfile
-          brew list | grep -i aws | xargs -I{} brew info {}
+          brew info aws-crt-cpp aws-sdk-cpp | grep -E "^aws|stable|Installed"
 
           python -m pip install \
             -r python/requirements-build.txt \
