@@ -674,6 +674,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       image: alpine-linux-r
+
   test-r-macos-as-cran:
     ci: github
     template: r/github.macos.cran.yml
