@@ -332,8 +332,8 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 raise NotImplementedError(
                     "size is not supported for multidimensional arrays")
             # Convert to list and use sequence conversion path
-            result = _sequence_to_array(values.tolist(), None, None, type, pool, 
-                                       c_from_pandas)
+            result = _sequence_to_array(values.tolist(), None, None, type, pool,
+                                        c_from_pandas)
             if extension_type is not None:
                 result = ExtensionArray.from_storage(extension_type, result)
             return result
