@@ -2484,7 +2484,7 @@ def test_array_from_numpy_multidimensional():
     # Test 2D array
     np_arr_2d = np.arange(6).reshape(2, 3)
     pa_arr_2d = pa.array(np_arr_2d)
-    expected_2d = pa.array([[0, 1, 2], [3, 4, 5]])
+    expected_2d = pa.array(np_arr_2d.tolist())
     assert pa_arr_2d.equals(expected_2d)
 
     # Test 3D array (example from the issue)
@@ -2496,13 +2496,13 @@ def test_array_from_numpy_multidimensional():
     # Test with different dtypes
     np_arr_float = np.array([[1.5, 2.5], [3.5, 4.5]])
     pa_arr_float = pa.array(np_arr_float)
-    expected_float = pa.array([[1.5, 2.5], [3.5, 4.5]])
+    expected_float = pa.array(np_arr_float.tolist())
     assert pa_arr_float.equals(expected_float)
 
     # Test with explicit type
     np_arr_typed = np.array([[1, 2], [3, 4]], dtype=np.int32)
     pa_arr_typed = pa.array(np_arr_typed, type=pa.list_(pa.int32()))
-    expected_typed = pa.array([[1, 2], [3, 4]], type=pa.list_(pa.int32()))
+    expected_typed = pa.array(np_arr_typed.tolist(), type=pa.list_(pa.int32()))
     assert pa_arr_typed.equals(expected_typed)
 
     # Test that mask is not supported for multidimensional arrays
