@@ -334,7 +334,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
             if size is not None:
                 raise NotImplementedError(
                     "size is not supported for multidimensional arrays")
-            
+
             # For efficiency, use recursive FixedSizeListArray construction
             # for C-contiguous arrays (zero-copy), otherwise use .tolist()
             if values.flags['C_CONTIGUOUS']:
@@ -342,18 +342,18 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 # then wrap in nested FixedSizeListArray layers
                 shape = values.shape
                 flat = values.ravel()
-                
+
                 # Convert flattened 1D array to Arrow (zero-copy)
                 base_arr = _ndarray_to_array(flat, None, None, c_from_pandas,
-                                            safe, pool)
-                
+                                             safe, pool)
+
                 # Build nested FixedSizeListArray from innermost to outermost
                 # For shape (2, 3, 4), we create:
                 #   FixedSizeList[4] -> FixedSizeList[3] -> 2 elements
                 result = base_arr
                 for dim_size in reversed(shape[1:]):
                     result = FixedSizeListArray.from_arrays(result, int(dim_size))
-                
+
                 # Apply explicit type if provided
                 if type is not None:
                     result = result.cast(type, safe=safe, memory_pool=memory_pool)
@@ -362,7 +362,7 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 # This handles transposed, sliced, and F-contiguous arrays
                 result = _sequence_to_array(values.tolist(), None, None, type, pool,
                                             c_from_pandas)
-            
+
             if extension_type is not None:
                 result = ExtensionArray.from_storage(extension_type, result)
             return result
