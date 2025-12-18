@@ -690,30 +690,12 @@ tasks:
     ci: github
     template: r/github.devdocs.yml
 
-  test-r-depsource-bundled:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
-
   test-r-depsource-system:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
-
-  test-r-offline-minimal:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: '-e ARROW_OFFLINE_BUILD=true'
 
   test-r-dev-duckdb:
     ci: github
@@ -726,39 +708,6 @@ tasks:
   test-r-offline-maximal:
     ci: github
     template: r/github.linux.offline.build.yml
-
-  test-r-rhub-ubuntu-gcc12-custom-ccache:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: ubuntu-gcc12
-      r_tag: latest
-      r_custom_ccache: true
-
-{% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
-                                 ("rocker", "r-ver", "latest"),
-                                 ("rstudio", "r-base", "4.2-jammy")] %}
-  test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: {{ r_org }}
-      r_image: {{ r_image }}
-      r_tag: {{ r_tag }}
-{% endfor %}
-
-  # This is with R built with --enable-lto
-  # CRAN also does R CMD INSTALL --use-LTO
-  # which overrides the UseLTO field in r/DESCRIPTION
-  test-r-rhub-debian-gcc-devel-lto-latest:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: gcc13
-      r_tag: latest
-      flags: '-e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:
@@ -789,15 +738,6 @@ tasks:
         UBUNTU: 22.04
         GCC: 12
       image: ubuntu-r-only-r
-
-  test-r-minimal-build:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: "-e LIBARROW_MINIMAL=TRUE"
 
   test-r-linux-sanitizers:
     ci: github

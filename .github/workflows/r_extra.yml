@@ -95,9 +95,59 @@ jobs:
               - R_ORG=rocker
             image: r
             runs-on: ubuntu-latest
+            title: Rocker R-ver
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e LIBARROW_MINIMAL=TRUE
+            title: Rocker R-ver - Minimal
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
             run-options: >-
               -e ARROW_DEPENDENCY_SOURCE=BUNDLED
-            title: Rocker R-ver Latest - Bundled Dependencies
+            title: Rocker R-ver - Bundled Dependencies
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e ARROW_OFFLINE_BUILD=true
+            title: Rocker R-ver - Offline build
+          - envs:
+              - R_IMAGE=ubuntu-release
+              - R_ORG=rhub
+            image: r
+            runs-on: ubuntu-latest
+            title: Rhub
+          - envs:
+              - R_IMAGE=ubuntu-gcc12
+              - R_ORG=rhub
+              - R_CUSTOM_CCACHE=true
+            image: r
+            runs-on: ubuntu-latest
+            title: Rhub GCC 12
+          - envs:
+              - R_IMAGE=gcc13
+              - R_ORG=rhub
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e INSTALL_ARGS=--use-LTO
+            title: Rhub GCC 13 with LTO
+          - envs:
+              - R_IMAGE=r-base
+              - R_ORG=rstudio
+              - R_TAG=4.2-jammy
+            image: r
+            runs-on: ubuntu-latest
+            title: RStudio R-Base 4.2
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
@@ -135,7 +185,6 @@ jobs:
               echo "${env}" >> .env
             done
           fi
-          cat .env
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Docker Push
         if: >-
