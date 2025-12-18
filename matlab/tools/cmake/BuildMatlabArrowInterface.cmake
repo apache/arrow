@@ -131,7 +131,7 @@ libmexclass_client_add_proxy_library(
     LINK_LIBRARIES arrow_shared
 )
 # Use C++17
-target_compile_features(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE cxx_std_17)
+target_compile_features(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE cxx_std_20)
 target_compile_definitions(${MATLAB_ARROW_LIBMEXCLASS_CLIENT_PROXY_LIBRARY_NAME} PRIVATE ARROW_MATLAB_EXPORTING)
 
 # When building Arrow from source, Arrow must be built before building the client Proxy library.
