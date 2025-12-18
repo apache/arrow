@@ -420,8 +420,12 @@ jobs:
           $(vcpkg fetch nuget | tail -n 1) \
             setapikey "${{ secrets.GITHUB_TOKEN }}" \
             -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Show vcpkg NuGet
+      - name: Show vcpkg NuGet pwsh
         shell: pwsh
+        run: |
+          vcpkg fetch nuget
+      - name: Show vcpkg NuGet bash
+        shell: bash
         run: |
           vcpkg fetch nuget
       # -AL- temp disable.
