@@ -1290,4 +1290,36 @@ GARROW_AVAILABLE_IN_23_0
 GArrowExtractRegexSpanOptions *
 garrow_extract_regex_span_options_new(void);
 
+/**
+ * GArrowJoinNullHandlingBehavior:
+ * @GARROW_JOIN_NULL_HANDLING_EMIT_NULL: A null in any input results in a null in the
+ * output.
+ * @GARROW_JOIN_NULL_HANDLING_SKIP: Nulls in inputs are skipped.
+ * @GARROW_JOIN_NULL_HANDLING_REPLACE: Nulls in inputs are replaced with the replacement
+ * string.
+ *
+ * They correspond to the values of
+ * `arrow::compute::JoinOptions::NullHandlingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_JOIN_NULL_HANDLING_EMIT_NULL,
+  GARROW_JOIN_NULL_HANDLING_SKIP,
+  GARROW_JOIN_NULL_HANDLING_REPLACE,
+} GArrowJoinNullHandlingBehavior;
+
+#define GARROW_TYPE_JOIN_OPTIONS (garrow_join_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowJoinOptions, garrow_join_options, GARROW, JOIN_OPTIONS, GArrowFunctionOptions)
+struct _GArrowJoinOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowJoinOptions *
+garrow_join_options_new(void);
+
 G_END_DECLS

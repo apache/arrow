@@ -215,3 +215,8 @@ garrow_extract_regex_span_options_new_raw(
   const arrow::compute::ExtractRegexSpanOptions *arrow_options);
 arrow::compute::ExtractRegexSpanOptions *
 garrow_extract_regex_span_options_get_raw(GArrowExtractRegexSpanOptions *options);
+
+GArrowJoinOptions *
+garrow_join_options_new_raw(const arrow::compute::JoinOptions *arrow_options);
+arrow::compute::JoinOptions *
+garrow_join_options_get_raw(GArrowJoinOptions *options);
