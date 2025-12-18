@@ -26,6 +26,7 @@ require_relative "org/apache/arrow/flatbuf/binary"
 require_relative "org/apache/arrow/flatbuf/bool"
 require_relative "org/apache/arrow/flatbuf/date"
 require_relative "org/apache/arrow/flatbuf/date_unit"
+require_relative "org/apache/arrow/flatbuf/duration"
 require_relative "org/apache/arrow/flatbuf/fixed_size_binary"
 require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
@@ -214,6 +215,9 @@ module ArrowFormat
       when Org::Apache::Arrow::Flatbuf::Timestamp
         unit = fb_type.unit.name.downcase.to_sym
         type = TimestampType.new(unit, fb_type.timezone)
+      when Org::Apache::Arrow::Flatbuf::Duration
+        unit = fb_type.unit.name.downcase.to_sym
+        type = DurationType.new(unit)
       when Org::Apache::Arrow::Flatbuf::List
         type = ListType.new(read_field(fb_field.children[0]))
       when Org::Apache::Arrow::Flatbuf::LargeList
