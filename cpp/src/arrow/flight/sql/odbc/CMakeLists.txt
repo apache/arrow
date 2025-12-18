@@ -19,8 +19,6 @@
 # GH-44792: Arrow will switch to C++ 20
 set(CMAKE_CXX_STANDARD 20)
 
-add_custom_target(arrow_flight_sql_odbc)
-
 if(WIN32)
   if(MSVC_VERSION GREATER_EQUAL 1900)
     set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
@@ -114,30 +112,19 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   # GH-47876 TODO: set up `flight_sql_odbc_lib` component for macOS Installer
   # GH-47877 TODO: set up `flight_sql_odbc_lib` component for Linux Installer
   if(WIN32)
-    # -AL- note: below change may break local build if the odbc location is different.
-    # `cpp_build.sh` sets build_dir=${2}/cpp.
-    message(STATUS "-AL- BUILD_OUTPUT_ROOT_DIRECTORY CMAKE_BUILD_TYPE/: ${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_BUILD_TYPE}/")
-    message(STATUS "-AL- BUILD_OUTPUT_ROOT_DIRECTORY cpp/CMAKE_BUILD_TYPE/: ${BUILD_OUTPUT_ROOT_DIRECTORY}cpp/${CMAKE_BUILD_TYPE}/")
-    # install(DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_BUILD_TYPE}/"
-    install(DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}cpp/${CMAKE_BUILD_TYPE}/"
-            DESTINATION bin
-            COMPONENT flight_sql_odbc_lib
-            FILES_MATCHING
-            # Use regex for dll name patterns with versions
-            PATTERN "abseil_dll.dll"
-            PATTERN "arrow.dll"
-            PATTERN "arrow_compute.dll"
-            PATTERN "arrow_flight.dll"
-            PATTERN "arrow_flight_sql.dll"
-            PATTERN "arrow_flight_sql_odbc.dll"
-            PATTERN "boost_locale*.dll"
-            PATTERN "cares.dll"
-            PATTERN "libcrypto*.dll"
-            PATTERN "libprotobuf.dll"
-            PATTERN "libssl*.dll"
-            PATTERN "re2.dll"
-            PATTERN "utf8proc.dll"
-            PATTERN "zlib1.dll")
+    # Install ODBC and its Arrow dependencies
+    install(TARGETS arrow_shared
+                    arrow_compute_shared
+                    arrow_flight_shared
+                    arrow_flight_sql_shared
+                    arrow_flight_sql_odbc_shared
+                    RUNTIME_DEPENDENCIES
+                    PRE_EXCLUDE_REGEXES
+                    "api-ms-.*"
+                    "ext-ms-.*"
+                    POST_EXCLUDE_REGEXES
+                    ".*system32/.*\\.dll"
+            RUNTIME DESTINATION bin COMPONENT flight_sql_odbc_lib)
 
     set(CPACK_WIX_EXTRA_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-flight-sql-odbc.wxs")
