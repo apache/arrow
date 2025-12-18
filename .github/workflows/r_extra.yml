@@ -135,6 +135,7 @@ jobs:
               echo "${env}" >> .env
             done
           fi
+          cat .env
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Docker Push
         if: >-
