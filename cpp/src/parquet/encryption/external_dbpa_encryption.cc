@@ -367,7 +367,9 @@ int32_t ExternalDBPAEncryptorAdapter::InvokeExternalEncrypt(
       }
 
       ARROW_LOG(DEBUG) << "Copying result to ciphertext buffer...";
-      std::memcpy(ciphertext->mutable_data(), result->ciphertext().data(), ciphertext_size);
+      if (ciphertext_size > 0) {
+        std::memcpy(ciphertext->mutable_data(), result->ciphertext().data(), ciphertext_size);
+      }
       ARROW_LOG(DEBUG) << "Encryption completed successfully";
 
       // Accumulate any column_encryption_metadata returned by the result per module type
@@ -612,7 +614,9 @@ int32_t ExternalDBPADecryptorAdapter::InvokeExternalDecrypt(
       }
 
       ARROW_LOG(DEBUG) << "Copying result to plaintext buffer...";
-      std::memcpy(plaintext->mutable_data(), result->plaintext().data(), plaintext_size);
+      if (plaintext_size > 0) {
+        std::memcpy(plaintext->mutable_data(), result->plaintext().data(), plaintext_size);
+      }
       ARROW_LOG(DEBUG) << "Decryption completed successfully";
 
       const auto total_size64 = result->size();

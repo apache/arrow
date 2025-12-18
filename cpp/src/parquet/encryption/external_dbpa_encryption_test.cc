@@ -158,6 +158,19 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, RoundtripEncryptionSucceeds) {
     algorithm, column_name, key_id, data_type, compression_type, encoding_type, plaintext);
 }
 
+TEST_F(ExternalDBPAEncryptorAdapterTest, RoundtripEncryption_EmptyPlaintextDoesNotCrash) {
+  ParquetCipher::type algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
+  std::string column_name = "employee_name";
+  std::string key_id = "employee_name_key";
+  Type::type data_type = Type::BYTE_ARRAY;
+  Compression::type compression_type = Compression::UNCOMPRESSED;
+  Encoding::type encoding_type = Encoding::PLAIN;
+  std::string plaintext = "";
+
+  RoundtripEncryption(
+    algorithm, column_name, key_id, data_type, compression_type, encoding_type, plaintext);
+}
+
 TEST_F(ExternalDBPAEncryptorAdapterTest, GetKeyValueMetadataReturnsNullWhenEmpty) {
   ParquetCipher::type algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
   std::string column_name = "employee_name";
