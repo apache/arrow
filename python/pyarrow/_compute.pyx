@@ -1467,7 +1467,7 @@ class InversePermutationOptions(_InversePermutationOptions):
         If negative, this value will be set to the length of the input indices
         minus 1 and the length of the function’s output will be the length
         of the input indices.
-    output_type : DataType, default None
+    output_type : Optional[DataType], default None
         The type of the output inverse permutation.
         If None, the output will be of the same type as the input indices, otherwise
         must be signed integer type. An invalid error will be reported if this type

@@ -2593,7 +2593,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CInversePermutationOptions(int64_t max_index)
         CInversePermutationOptions(int64_t max_index, shared_ptr[CDataType] output_type)
         int64_t max_index
-        shared_ptr[CDataType] output_type
+        optional[shared_ptr[CDataType]] output_type
 
     cdef cppclass CScatterOptions \
             "arrow::compute::ScatterOptions"(CFunctionOptions):

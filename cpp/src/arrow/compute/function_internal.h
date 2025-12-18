@@ -347,9 +347,17 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<DataType>& value) {
   if (!value) {
-    return std::make_shared<NullScalar>();
+     return Status::Invalid("shared_ptr<DataType> is nullptr");
   }
   return MakeNullScalar(value);
+}
+
+static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
+    const std::optional<std::shared_ptr<DataType>>& value) {
+  if (!value.has_value()) {
+    return std::make_shared<NullScalar>();
+  }
+  return GenericToScalar(value.value());
 }
 
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const TypeHolder& value) {
@@ -448,9 +456,6 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
 template <typename T>
 static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromScalar(
     const std::shared_ptr<Scalar>& value) {
-  if (value->type->id() == Type::NA) {
-    return std::shared_ptr<NullType>();
-  }
   return value->type;
 }
 
