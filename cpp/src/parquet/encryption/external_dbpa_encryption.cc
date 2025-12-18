@@ -17,6 +17,7 @@
 
 #include <iostream>
 #include <map>
+#include <limits>
 #include <unordered_map>
 #include <optional>
 #include <memory>
@@ -354,7 +355,11 @@ int32_t ExternalDBPAEncryptorAdapter::InvokeExternalEncrypt(
       ARROW_LOG(DEBUG) << "  result size: " << result->size() << " bytes";
       ARROW_LOG(DEBUG) << "  result ciphertext size: " << result->ciphertext().size() << " bytes";
 
-      int32_t ciphertext_size = result->ciphertext().size();
+      const auto ciphertext_size64 = result->ciphertext().size();
+      if (ciphertext_size64 > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+        throw ParquetException("Ciphertext size exceeds int32_t max");
+      }
+      const int32_t ciphertext_size = static_cast<int32_t>(ciphertext_size64);
       auto status = ciphertext->Resize(ciphertext_size, false);
       if (!status.ok()) {
         ARROW_LOG(ERROR) << "Ciphertext buffer resize failed: " << status.ToString();
@@ -595,7 +600,11 @@ int32_t ExternalDBPADecryptorAdapter::InvokeExternalDecrypt(
       ARROW_LOG(DEBUG) << "  result size: " << result->size() << " bytes";
       ARROW_LOG(DEBUG) << "  result plaintext size: " << result->plaintext().size() << " bytes";
 
-      int32_t plaintext_size = result->plaintext().size();
+      const auto plaintext_size64 = result->plaintext().size();
+      if (plaintext_size64 > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+        throw ParquetException("Plaintext size exceeds int32_t max");
+      }
+      const int32_t plaintext_size = static_cast<int32_t>(plaintext_size64);
       auto status = plaintext->Resize(plaintext_size, false);
       if (!status.ok()) {
         ARROW_LOG(ERROR) << "Plaintext buffer resize failed: " << status.ToString();
@@ -606,7 +615,11 @@ int32_t ExternalDBPADecryptorAdapter::InvokeExternalDecrypt(
       std::memcpy(plaintext->mutable_data(), result->plaintext().data(), plaintext_size);
       ARROW_LOG(DEBUG) << "Decryption completed successfully";
 
-      return result->size();    
+      const auto total_size64 = result->size();
+      if (total_size64 > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+        throw ParquetException("Result size exceeds int32_t max");
+      }
+      return static_cast<int32_t>(total_size64);
   }
 
 std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecryptor(

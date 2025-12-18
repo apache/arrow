@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <limits>
 #include <memory>
 #include <string>
 #include <map>
@@ -94,7 +95,9 @@ class ExternalDBPAEncryptorAdapterTest : public ::testing::Test {
 
     encryptor->UpdateEncodingProperties(builder.Build());
 
-    int32_t expected_ciphertext_length = plaintext.size();
+    ASSERT_LE(plaintext.size(),
+              static_cast<size_t>(std::numeric_limits<int32_t>::max()));
+    int32_t expected_ciphertext_length = static_cast<int32_t>(plaintext.size());
 
     std::shared_ptr<ResizableBuffer> ciphertext_buffer = AllocateBuffer(
       ::arrow::default_memory_pool(), expected_ciphertext_length);
@@ -119,7 +122,9 @@ class ExternalDBPAEncryptorAdapterTest : public ::testing::Test {
 
     decryptor->UpdateEncodingProperties(builder.Build());
 
-    int32_t expected_plaintext_length = ciphertext_str.size();
+    ASSERT_LE(ciphertext_str.size(),
+              static_cast<size_t>(std::numeric_limits<int32_t>::max()));
+    int32_t expected_plaintext_length = static_cast<int32_t>(ciphertext_str.size());
     std::shared_ptr<ResizableBuffer> plaintext_buffer = AllocateBuffer(
       ::arrow::default_memory_pool(), expected_plaintext_length);
     int32_t decryption_length = decryptor->DecryptWithManagedBuffer(
@@ -555,8 +560,10 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptCallShouldFail) {
   std::unique_ptr<ExternalDBPAEncryptorAdapter> encryptor = CreateEncryptor(
     algorithm, column_name, key_id, data_type, compression_type, encoding_type);
   ASSERT_FALSE(encryptor->CanCalculateCiphertextLength());
+  ASSERT_LE(plaintext.size(),
+            static_cast<size_t>(std::numeric_limits<int32_t>::max()));
   EXPECT_THROW(
-    (void) encryptor->CiphertextLength(plaintext.size()),
+    (void) encryptor->CiphertextLength(static_cast<int32_t>(plaintext.size())),
     ParquetException);
   EXPECT_THROW(
     encryptor->Encrypt(
@@ -577,11 +584,13 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptCallShouldFail) {
   std::unique_ptr<ExternalDBPADecryptorAdapter> decryptor = CreateDecryptor(
     algorithm, column_name, key_id, data_type, compression_type, encoding_type);
   ASSERT_FALSE(decryptor->CanCalculateLengths());
+  ASSERT_LE(ciphertext.size(),
+            static_cast<size_t>(std::numeric_limits<int32_t>::max()));
   EXPECT_THROW(
-    (void) decryptor->CiphertextLength(ciphertext.size()),
+    (void) decryptor->CiphertextLength(static_cast<int32_t>(ciphertext.size())),
     ParquetException);
   EXPECT_THROW(
-    (void) decryptor->PlaintextLength(ciphertext.size()),
+    (void) decryptor->PlaintextLength(static_cast<int32_t>(ciphertext.size())),
     ParquetException);
   EXPECT_THROW(
     decryptor->Decrypt(
