@@ -114,7 +114,12 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   # GH-47876 TODO: set up `flight_sql_odbc_lib` component for macOS Installer
   # GH-47877 TODO: set up `flight_sql_odbc_lib` component for Linux Installer
   if(WIN32)
-    install(DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_BUILD_TYPE}/"
+    # -AL- note: below change may break local build if the odbc location is different.
+    # `cpp_build.sh` sets build_dir=${2}/cpp.
+    message(STATUS "-AL- BUILD_OUTPUT_ROOT_DIRECTORY CMAKE_BUILD_TYPE/: ${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_BUILD_TYPE}/")
+    message(STATUS "-AL- BUILD_OUTPUT_ROOT_DIRECTORY cpp/CMAKE_BUILD_TYPE/: ${BUILD_OUTPUT_ROOT_DIRECTORY}cpp/${CMAKE_BUILD_TYPE}/")
+    # install(DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}${CMAKE_BUILD_TYPE}/"
+    install(DIRECTORY "${BUILD_OUTPUT_ROOT_DIRECTORY}cpp/${CMAKE_BUILD_TYPE}/"
             DESTINATION bin
             COMPONENT flight_sql_odbc_lib
             FILES_MATCHING
