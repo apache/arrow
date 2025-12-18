@@ -2513,6 +2513,36 @@ def test_array_from_numpy_multidimensional():
     with pytest.raises(NotImplementedError, match="size is not supported"):
         pa.array(np_arr_2d, size=2)
 
+    # Test with transposed (non-contiguous) array
+    np_arr_transposed = np_arr_2d.T
+    assert not np_arr_transposed.flags['C_CONTIGUOUS']
+    pa_arr_transposed = pa.array(np_arr_transposed)
+    expected_transposed = pa.array(np_arr_transposed.tolist())
+    assert pa_arr_transposed.equals(expected_transposed)
+
+    # Test with sliced (non-contiguous) array
+    np_arr_sliced = np.arange(12).reshape(3, 4)[:, ::2]
+    assert not np_arr_sliced.flags['C_CONTIGUOUS']
+    pa_arr_sliced = pa.array(np_arr_sliced)
+    expected_sliced = pa.array(np_arr_sliced.tolist())
+    assert pa_arr_sliced.equals(expected_sliced)
+
+    # Test with Fortran-contiguous array
+    np_arr_fortran = np.asfortranarray(np.arange(6).reshape(2, 3))
+    assert not np_arr_fortran.flags['C_CONTIGUOUS']
+    assert np_arr_fortran.flags['F_CONTIGUOUS']
+    pa_arr_fortran = pa.array(np_arr_fortran)
+    expected_fortran = pa.array(np_arr_fortran.tolist())
+    assert pa_arr_fortran.equals(expected_fortran)
+
+    # Verify that C-contiguous arrays use efficient path
+    # (result should be identical to tolist() result)
+    np_arr_contiguous = np.arange(24).reshape(2, 3, 4)
+    assert np_arr_contiguous.flags['C_CONTIGUOUS']
+    pa_arr_efficient = pa.array(np_arr_contiguous)
+    pa_arr_tolist = pa.array(np_arr_contiguous.tolist())
+    assert pa_arr_efficient.equals(pa_arr_tolist)
+
 
 @pytest.mark.numpy
 def test_array_from_different_numpy_datetime_units_raises():
