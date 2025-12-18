@@ -395,10 +395,14 @@ class BitPackedRunDecoder {
   }
 
   /// Get a batch of values and count how many equal match_value
+  /// Note: For bit-packed runs, we use std::count after GetBatch since it's
+  /// highly optimized by the compiler. The fused approach is only beneficial
+  /// for RLE runs where counting is O(1).
   [[nodiscard]] rle_size_t GetBatchWithCount(value_type* out, rle_size_t batch_size,
                                              rle_size_t value_bit_width,
                                              value_type match_value, int64_t* out_count) {
-    auto steps = GetBatch(out, batch_size, value_bit_width);
+    const auto steps = GetBatch(out, batch_size, value_bit_width);
+    // std::count is highly optimized (SIMD) by modern compilers
     *out_count += std::count(out, out + steps, match_value);
     return steps;
   }
