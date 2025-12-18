@@ -114,13 +114,13 @@ jobs:
               - CUDA=13.0.2
               - UBUNTU=24.04
             image: ubuntu-cuda-cpp
-            runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
+            runs-on: "runs-on=${{ github.run_id }}/family=g6f.large/image=ubuntu24-gpu-x64"
             title: AMD64 Ubuntu 24 CUDA 13.0.2
           - envs:
               - CUDA=11.7.1
               - UBUNTU=22.04
             image: ubuntu-cuda-cpp
-            runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
+            runs-on: "runs-on=${{ github.run_id }}/family=g6f.large/image=ubuntu24-gpu-x64"
             title: AMD64 Ubuntu 22 CUDA 11.7.1
           # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
           - continue-on-error: true
