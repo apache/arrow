@@ -149,11 +149,11 @@ jobs:
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
       - name: Dump install logs
-        run: cat arrow/r/check/arrow.Rcheck/00install.out
+        run: cat r/check/arrow.Rcheck/00install.out
         if: always()
         continue-on-error: true
       - name: Dump test logs
-        run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
         if: always()
         continue-on-error: true
       - name: Save the test output
@@ -161,7 +161,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-output-{{ "${{ matrix.config.r_image }}" }}
-          path: arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
         continue-on-error: true
 
   report-extra-cpp:
