@@ -195,23 +195,7 @@ jobs:
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
 
-          # Install everything except aws-sdk-cpp
-          grep -v 'aws-sdk-cpp' cpp/Brewfile > /tmp/Brewfile.tmp
-          brew bundle --file=/tmp/Brewfile.tmp
-
-          # Build aws-sdk-cpp to guarantee version consistency
-          git clone --recurse-submodules --shallow-submodules --depth 1 \
-            --branch 1.11.705 https://github.com/aws/aws-sdk-cpp.git /tmp/aws-sdk-cpp
-          cmake -S /tmp/aws-sdk-cpp -B /tmp/aws-sdk-cpp/build \
-            -GNinja \
-            -DBUILD_ONLY="config;s3;transfer;identity-management;sts" \
-            -DBUILD_SHARED_LIBS=ON \
-            -DENABLE_TESTING=OFF \
-            -DAUTORUN_UNIT_TESTS=OFF \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/tmp/local
-          cmake --build /tmp/aws-sdk-cpp/build
-          cmake --install /tmp/aws-sdk-cpp/build
+          brew bundle --file=cpp/Brewfile
 
           python -m pip install \
             -r python/requirements-build.txt \
