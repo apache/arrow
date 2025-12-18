@@ -110,18 +110,6 @@ jobs:
               -e ARROW_USE_MESON=ON
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu Meson
-          - envs:
-              - CUDA=13.0.2
-              - UBUNTU=24.04
-            image: ubuntu-cuda-cpp
-            runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
-            title: AMD64 Ubuntu 24 CUDA 13.0.2
-          - envs:
-              - CUDA=11.7.1
-              - UBUNTU=22.04
-            image: ubuntu-cuda-cpp
-            runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
-            title: AMD64 Ubuntu 22 CUDA 11.7.1
           # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
           - continue-on-error: true
             envs:
@@ -131,6 +119,79 @@ jobs:
               -e CMAKE_CXX_STANDARD=23
             runs-on: ubuntu-latest
             title: AMD64 Debian C++23
+    env:
+      ARCHERY_DEBUG: 1
+      ARROW_ENABLE_TIMING_TESTS: OFF
+      DOCKER_VOLUME_PREFIX: ".docker/"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@v5
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: extra-${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        continue-on-error: ${{ matrix.continue-on-error || false }}
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ENVS: ${{ toJSON(matrix.envs) }}
+        run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          source ci/scripts/util_enable_core_dumps.sh
+          if [ "${ENVS}" != "null" ]; then
+            echo "${ENVS}" | jq -r '.[]' | while read env; do
+              echo "${env}" >> .env
+            done
+          fi
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  cuda:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - envs:
+              - CUDA=13.0.2
+              - UBUNTU=24.04
+            image: ubuntu-cuda-cpp
+            title: AMD64 Ubuntu 24 CUDA 13.0.2
+          - envs:
+              - CUDA=11.7.1
+              - UBUNTU=22.04
+            image: ubuntu-cuda-cpp
+            title: AMD64 Ubuntu 22 CUDA 11.7.1
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
@@ -473,6 +534,7 @@ jobs:
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
     needs:
+      - cuda
       - docker
       - jni-linux
       - jni-macos
