@@ -2590,8 +2590,7 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
 
     cdef cppclass CInversePermutationOptions \
             "arrow::compute::InversePermutationOptions"(CFunctionOptions):
-        CInversePermutationOptions(int64_t max_index)
-        CInversePermutationOptions(int64_t max_index, shared_ptr[CDataType] output_type)
+        CInversePermutationOptions(int64_t max_index, optional[shared_ptr[CDataType]] output_type)
         int64_t max_index
         optional[shared_ptr[CDataType]] output_type
 

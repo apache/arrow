@@ -1445,14 +1445,12 @@ class RunEndEncodeOptions(_RunEndEncodeOptions):
 
 
 cdef class _InversePermutationOptions(FunctionOptions):
-    def _set_options(self, max_index, output_type):
-        if output_type is None:
-            self.wrapped.reset(new CInversePermutationOptions(max_index))
-        else:
-            output_ty = ensure_type(output_type)
-            self.wrapped.reset(
-                new CInversePermutationOptions(max_index,
-                                               pyarrow_unwrap_data_type(output_ty)))
+    def _set_options(self, max_index=-1, output_type=None):
+        cdef optional[shared_ptr[CDataType]] c_output_type = nullopt
+        if output_type is not None:
+            c_output_type = pyarrow_unwrap_data_type(ensure_type(output_type))
+        self.wrapped.reset(
+            new CInversePermutationOptions(max_index, c_output_type))
 
 
 class InversePermutationOptions(_InversePermutationOptions):
@@ -1467,7 +1465,7 @@ class InversePermutationOptions(_InversePermutationOptions):
         If negative, this value will be set to the length of the input indices
         minus 1 and the length of the function’s output will be the length
         of the input indices.
-    output_type : Optional[DataType], default None
+    output_type : DataType, default None
         The type of the output inverse permutation.
         If None, the output will be of the same type as the input indices, otherwise
         must be signed integer type. An invalid error will be reported if this type
