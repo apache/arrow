@@ -49,7 +49,7 @@ public:
         return span<const uint8_t>(ciphertext_data_.data(), ciphertext_data_.size());
     }
 
-    std::size_t size() const override { return static_cast<int>(ciphertext_data_.size()); }
+    std::size_t size() const override { return ciphertext_data_.size(); }
     bool success() const override { return success_; }
     const std::string& error_message() const override { return error_message_; }
     const std::map<std::string, std::string>& error_fields() const override { return error_fields_; }
