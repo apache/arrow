@@ -46,6 +46,7 @@ manylinux1/arrow
 nm_arrow.log
 visible_symbols.log
 
-# don't repeat the text files
+# the purpose of the custom SDist class in setup.py is to include these files
+# in the sdist tarball, but we don't want to track duplicates
 LICENSE.txt
 NOTICE.txt

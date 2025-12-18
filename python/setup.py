@@ -23,9 +23,9 @@ import os.path
 from os.path import join as pjoin
 import re
 import shlex
+import shutil
 import sys
 import warnings
-import shutil
 
 if sys.version_info >= (3, 10):
     import sysconfig
