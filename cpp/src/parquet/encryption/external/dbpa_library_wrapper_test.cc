@@ -729,7 +729,7 @@ TEST_F(DBPALibraryWrapperTest, MixedOperationsDelegation) {
   
   // Perform mixed encrypt and decrypt operations
   std::vector<std::string> test_data = {"Hello", "World", "Test", "Data"};
-  int call_count = test_data.size();
+  auto call_count = static_cast<int>(test_data.size());
   
   for (const auto& data : test_data) {
     // Encrypt
