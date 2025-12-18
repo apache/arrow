@@ -347,7 +347,7 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
     const std::shared_ptr<DataType>& value) {
   if (!value) {
-     return Status::Invalid("shared_ptr<DataType> is nullptr");
+    return Status::Invalid("shared_ptr<DataType> is nullptr");
   }
   return MakeNullScalar(value);
 }

@@ -298,8 +298,9 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
 /// \brief Options for inverse_permutation function
 class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
  public:
-  explicit InversePermutationOptions(int64_t max_index = -1,
-                                     std::optional<std::shared_ptr<DataType>> output_type = std::nullopt);
+  explicit InversePermutationOptions(
+      int64_t max_index = -1,
+      std::optional<std::shared_ptr<DataType>> output_type = std::nullopt);
   static constexpr const char kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 

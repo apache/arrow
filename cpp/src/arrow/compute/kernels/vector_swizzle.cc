@@ -51,8 +51,8 @@ Result<TypeHolder> ResolveInversePermutationOutputType(
   DCHECK_EQ(input_types.size(), 1);
   DCHECK_NE(input_types[0], nullptr);
 
-std::shared_ptr<DataType> output_type =
-    InversePermutationState::Get(ctx).output_type.value_or(input_types[0].owned_type);
+  std::shared_ptr<DataType> output_type =
+      InversePermutationState::Get(ctx).output_type.value_or(input_types[0].owned_type);
   if (!is_signed_integer(output_type->id())) {
     return Status::TypeError(
         "Output type of inverse_permutation must be signed integer, got " +
