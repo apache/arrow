@@ -122,8 +122,8 @@ class PARQUET_EXPORT AesEncryptor : public AesCryptoContext, public EncryptorInt
 // store the encryptors for the different key lengths.
 class AesEncryptorFactory {
  public:
-  AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type alg_id, int32_t key_size);
-  AesEncryptor* GetDataAesEncryptor(ParquetCipher::type alg_id, int32_t key_size);
+  AesEncryptor* GetMetaAesEncryptor(ParquetCipher::type alg_id, size_t key_size);
+  AesEncryptor* GetDataAesEncryptor(ParquetCipher::type alg_id, size_t key_size);
 
  private:
   /// Build a cache key including algorithm id, key length, and metadata flag.

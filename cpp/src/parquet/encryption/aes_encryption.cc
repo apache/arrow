@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <array>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <sstream>
 
@@ -334,7 +335,10 @@ uint64_t AesEncryptorFactory::MakeCacheKey(
 }
 
 AesEncryptor* AesEncryptorFactory::GetMetaAesEncryptor(
-    ParquetCipher::type alg_id, int32_t key_size) {
+    ParquetCipher::type alg_id, size_t key_size) {
+  if (key_size > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+    throw ParquetException("Invalid key length: exceeds int32_t max");
+  }
   auto key_len = static_cast<int32_t>(key_size);
   // Create the cache key using the algorithm id, key length, and metadata flag
   // to avoid collisions for encryptors with the same key length.
@@ -350,7 +354,10 @@ AesEncryptor* AesEncryptorFactory::GetMetaAesEncryptor(
 }
 
 AesEncryptor* AesEncryptorFactory::GetDataAesEncryptor(
-    ParquetCipher::type alg_id, int32_t key_size) {
+    ParquetCipher::type alg_id, size_t key_size) {
+  if (key_size > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
+    throw ParquetException("Invalid key length: exceeds int32_t max");
+  }
   auto key_len = static_cast<int32_t>(key_size);
   // Create the cache key using the algorithm id, key length, and metadata flag
   // to avoid collisions for encryptors with the same key length.
