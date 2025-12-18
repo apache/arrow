@@ -134,7 +134,7 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          ARCH: {{ '${{ matrix.arch == "x86_64" && "amd64" || "arm64v8" }}' }}
+          ARCH: {{ "${{ matrix.arch == 'x86_64' && 'amd64' || 'arm64v8' }}" }}
           UBUNTU: {{ '${{ matrix.ubuntu }}' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
