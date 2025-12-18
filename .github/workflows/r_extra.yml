@@ -134,7 +134,7 @@ jobs:
           source ci/scripts/util_enable_core_dumps.sh
           if [ "${ENVS}" != "null" ]; then
             echo "${ENVS}" | jq -r '.[]' | while read env; do
-              echo "${env}" >> .env
+              echo "${env}"
             done
           fi
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
