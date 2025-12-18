@@ -75,7 +75,7 @@ jobs:
     uses: ./.github/workflows/check_labels.yml
     secrets: inherit
     with:
-      parent-workflow: cpp_extra
+      parent-workflow: r_extra
 
   docker:
     needs: check-labels
@@ -102,16 +102,16 @@ jobs:
             image: r
             runs-on: ubuntu-latest
             run-options: >-
-              -e LIBARROW_MINIMAL=TRUE
-            title: Rocker R-ver - Minimal
+              -e ARROW_DEPENDENCY_SOURCE=BUNDLED
+            title: Rocker R-ver - Bundled Dependencies
           - envs:
               - R_IMAGE=r-ver
               - R_ORG=rocker
             image: r
             runs-on: ubuntu-latest
             run-options: >-
-              -e ARROW_DEPENDENCY_SOURCE=BUNDLED
-            title: Rocker R-ver - Bundled Dependencies
+              -e LIBARROW_MINIMAL=TRUE
+            title: Rocker R-ver - Minimal
           - envs:
               - R_IMAGE=r-ver
               - R_ORG=rocker
@@ -127,9 +127,9 @@ jobs:
             runs-on: ubuntu-latest
             title: Rhub
           - envs:
+              - R_CUSTOM_CCACHE=true
               - R_IMAGE=ubuntu-gcc12
               - R_ORG=rhub
-              - R_CUSTOM_CCACHE=true
             image: r
             runs-on: ubuntu-latest
             title: Rhub GCC 12
@@ -177,8 +177,6 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
           ENVS: ${{ toJSON(matrix.envs) }}
         run: |
-          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
-          sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           if [ "${ENVS}" != "null" ]; then
             echo "${ENVS}" | jq -r '.[]' | while read env; do
