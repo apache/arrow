@@ -334,13 +334,13 @@ jobs:
     needs: check-labels
     name: ODBC
     runs-on: windows-2022
+    permissions:
+      packages: write
     if: >-
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
-    permissions:
-      packages: write
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
