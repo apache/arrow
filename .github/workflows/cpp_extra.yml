@@ -370,11 +370,6 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
-      # Disable cmake for make it work with vcpkg.
-      # - name: Install cmake
-      #   shell: bash
-      #   run: |
-      #     ci/scripts/install_cmake.sh 4.1.2 /usr
       - name: Install ccache
         shell: bash
         run: |
@@ -394,33 +389,25 @@ jobs:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
           restore-keys: cpp-odbc-ccache-windows-x64-
-      - name: Checkout vcpkg
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-          path: vcpkg
-          repository: microsoft/vcpkg
-      - name: Bootstrap vcpkg
-        run: |
-          vcpkg\bootstrap-vcpkg.bat
-          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
-          Write-Output ${VCPKG_ROOT} | `
-            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
-          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
-            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
-      - name: Setup NuGet credentials for vcpkg caching
+      - name: Install cmake
         shell: bash
         run: |
-          $(vcpkg fetch nuget | tail -n 1) \
-            sources add \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
-            -storepasswordincleartext \
-            -name "GitHub" \
-            -username "$GITHUB_REPOSITORY_OWNER" \
-            -password "${{ secrets.GITHUB_TOKEN }}"
-          $(vcpkg fetch nuget | tail -n 1) \
-            setapikey "${{ secrets.GITHUB_TOKEN }}" \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
+          ci/scripts/install_cmake.sh 4.1.2 /usr
+      - name: Retrieve VCPKG version from arrow/.env
+        shell: bash
+        run: |
+          vcpkg_version=$(. ".env" && echo "${VCPKG}")
+          echo "VCPKG_VERSION=$vcpkg_version" >> $GITHUB_ENV
+      - name: Set Vcpkg PATH
+        shell: pwsh
+        run: |
+          echo "VCPKG_ROOT=${{ github.workspace }}\vcpkg" >> $env:GITHUB_ENV
+      - name: Install Vcpkg
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          ci/scripts/install_vcpkg.sh $VCPKG_ROOT $VCPKG_VERSION
       - name: Show vcpkg NuGet pwsh
         shell: pwsh
         run: |
