@@ -489,6 +489,71 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("YearMonthInterval") do
+    def build_array
+      Arrow::MonthIntervalArray.new([0, nil, 100])
+    end
+
+    def test_read
+      assert_equal([{"value" => [0, nil, 100]}],
+                   read)
+    end
+  end
+
+  sub_test_case("DayTimeInterval") do
+    def build_array
+      Arrow::DayTimeIntervalArray.new([
+                                        {day: 1, millisecond: 100},
+                                        nil,
+                                        {day: 3, millisecond: 300},
+                                      ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         [1, 100],
+                         nil,
+                         [3, 300],
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
+  sub_test_case("MonthDayNanoInterval") do
+    def build_array
+      Arrow::MonthDayNanoIntervalArray.new([
+                                             {
+                                               month: 1,
+                                               day: 1,
+                                               nanosecond: 100,
+                                             },
+                                             nil,
+                                             {
+                                               month: 3,
+                                               day: 3,
+                                               nanosecond: 300,
+                                             },
+                                           ])
+    end
+
+    def test_read
+      assert_equal([
+                     {
+                       "value" => [
+                         [1, 1, 100],
+                         nil,
+                         [3, 3, 300],
+                       ],
+                     },
+                   ],
+                   read)
+    end
+  end
+
   sub_test_case("Duration(:second)") do
     def build_array
       Arrow::DurationArray.new(:second, [0, nil, 100])

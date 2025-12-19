@@ -189,6 +189,39 @@ module ArrowFormat
     end
   end
 
+  class IntervalArray < TemporalArray
+  end
+
+  class YearMonthIntervalArray < IntervalArray
+    def to_a
+      apply_validity(@values_buffer.values(:s32, 0, @size))
+    end
+  end
+
+  class DayTimeIntervalArray < IntervalArray
+    def to_a
+      values = @values_buffer.
+                 each(:s32, 0, @size * 2).
+                 each_slice(2).
+                 collect do |(_, day), (_, time)|
+        [day, time]
+      end
+      apply_validity(values)
+    end
+  end
+
+  class MonthDayNanoIntervalArray < IntervalArray
+    def to_a
+      buffer_types = [:s32, :s32, :s64]
+      value_size = IO::Buffer.size_of(buffer_types)
+      values = @size.times.collect do |i|
+        offset = value_size * i
+        @values_buffer.get_values(buffer_types, offset)
+      end
+      apply_validity(values)
+    end
+  end
+
   class DurationArray < TemporalArray
     def to_a
       apply_validity(@values_buffer.values(:s64, 0, @size))

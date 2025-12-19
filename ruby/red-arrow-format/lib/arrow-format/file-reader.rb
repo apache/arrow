@@ -31,6 +31,8 @@ require_relative "org/apache/arrow/flatbuf/fixed_size_binary"
 require_relative "org/apache/arrow/flatbuf/floating_point"
 require_relative "org/apache/arrow/flatbuf/footer"
 require_relative "org/apache/arrow/flatbuf/int"
+require_relative "org/apache/arrow/flatbuf/interval"
+require_relative "org/apache/arrow/flatbuf/interval_unit"
 require_relative "org/apache/arrow/flatbuf/large_binary"
 require_relative "org/apache/arrow/flatbuf/large_list"
 require_relative "org/apache/arrow/flatbuf/large_utf8"
@@ -215,6 +217,15 @@ module ArrowFormat
       when Org::Apache::Arrow::Flatbuf::Timestamp
         unit = fb_type.unit.name.downcase.to_sym
         type = TimestampType.new(unit, fb_type.timezone)
+      when Org::Apache::Arrow::Flatbuf::Interval
+        case fb_type.unit
+        when Org::Apache::Arrow::Flatbuf::IntervalUnit::YEAR_MONTH
+          type = YearMonthIntervalType.new
+        when Org::Apache::Arrow::Flatbuf::IntervalUnit::DAY_TIME
+          type = DayTimeIntervalType.new
+        when Org::Apache::Arrow::Flatbuf::IntervalUnit::MONTH_DAY_NANO
+          type = MonthDayNanoIntervalType.new
+        end
       when Org::Apache::Arrow::Flatbuf::Duration
         unit = fb_type.unit.name.downcase.to_sym
         type = DurationType.new(unit)
