@@ -276,6 +276,9 @@ G_BEGIN_DECLS
  * #GArrowJoinOptions is a class to customize the `binary_join_element_wise`
  * function.
  *
+ * #GArrowListFlattenOptions is a class to customize the `list_flatten`
+ * function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -7400,6 +7403,101 @@ garrow_join_options_new(void)
   return GARROW_JOIN_OPTIONS(options);
 }
 
+enum {
+  PROP_LIST_FLATTEN_OPTIONS_RECURSIVE = 1,
+};
+
+G_DEFINE_TYPE(GArrowListFlattenOptions,
+              garrow_list_flatten_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_list_flatten_options_set_property(GObject *object,
+                                         guint prop_id,
+                                         const GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto options = garrow_list_flatten_options_get_raw(GARROW_LIST_FLATTEN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_LIST_FLATTEN_OPTIONS_RECURSIVE:
+    options->recursive = g_value_get_boolean(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_list_flatten_options_get_property(GObject *object,
+                                         guint prop_id,
+                                         GValue *value,
+                                         GParamSpec *pspec)
+{
+  auto options = garrow_list_flatten_options_get_raw(GARROW_LIST_FLATTEN_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_LIST_FLATTEN_OPTIONS_RECURSIVE:
+    g_value_set_boolean(value, options->recursive);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_list_flatten_options_init(GArrowListFlattenOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ListFlattenOptions());
+}
+
+static void
+garrow_list_flatten_options_class_init(GArrowListFlattenOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_list_flatten_options_set_property;
+  gobject_class->get_property = garrow_list_flatten_options_get_property;
+
+  arrow::compute::ListFlattenOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowListFlattenOptions:recursive:
+   *
+   * If true, the list is flattened recursively until a non-list array is formed.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean(
+    "recursive",
+    "Recursive",
+    "If true, the list is flattened recursively until a non-list array is formed",
+    options.recursive,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_LIST_FLATTEN_OPTIONS_RECURSIVE,
+                                  spec);
+}
+
+/**
+ * garrow_list_flatten_options_new:
+ *
+ * Returns: A newly created #GArrowListFlattenOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_LIST_FLATTEN_OPTIONS, NULL);
+  return GARROW_LIST_FLATTEN_OPTIONS(options);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -7573,6 +7671,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_join_options =
       static_cast<const arrow::compute::JoinOptions *>(arrow_options);
     auto options = garrow_join_options_new_raw(arrow_join_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ListFlattenOptions") {
+    const auto arrow_list_flatten_options =
+      static_cast<const arrow::compute::ListFlattenOptions *>(arrow_options);
+    auto options = garrow_list_flatten_options_new_raw(arrow_list_flatten_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -8248,5 +8351,22 @@ arrow::compute::JoinOptions *
 garrow_join_options_get_raw(GArrowJoinOptions *options)
 {
   return static_cast<arrow::compute::JoinOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new_raw(
+  const arrow::compute::ListFlattenOptions *arrow_options)
+{
+  return GARROW_LIST_FLATTEN_OPTIONS(g_object_new(GARROW_TYPE_LIST_FLATTEN_OPTIONS,
+                                                  "recursive",
+                                                  arrow_options->recursive,
+                                                  NULL));
+}
+
+arrow::compute::ListFlattenOptions *
+garrow_list_flatten_options_get_raw(GArrowListFlattenOptions *options)
+{
+  return static_cast<arrow::compute::ListFlattenOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
