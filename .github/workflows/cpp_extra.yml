@@ -428,14 +428,12 @@ jobs:
         shell: bash
         run: |
           vcpkg fetch nuget
-      # -AL- temp disable.
       - name: Build
         shell: cmd
         run: |
           set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-          vcpkg install abseil --debug
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
 
       - name: Register Flight SQL ODBC Driver

@@ -19,8 +19,6 @@
 
 set -ex
 
-export VCPKG_DEBUG=1 #-AL- TEMP
-
 source_dir=${1}/cpp
 build_dir=${2}/cpp
 
@@ -182,9 +180,7 @@ elif [ -n "${CMAKE_PRESET}" ]; then
     ${ARROW_CMAKE_ARGS} \
     ${source_dir}
 else
-# -AL- added `VCPKG_VERBOSE` for debugging vcpkg
   cmake \
-    -DVCPKG_VERBOSE=ON \
     -Dabsl_SOURCE=${absl_SOURCE:-} \
     -DARROW_ACERO=${ARROW_ACERO:-OFF} \
     -DARROW_AZURE=${ARROW_AZURE:-OFF} \

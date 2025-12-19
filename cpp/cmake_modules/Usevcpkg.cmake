@@ -17,8 +17,6 @@
 
 message(STATUS "Using vcpkg to find dependencies")
 
-set(VCPKG_VERBOSE ON CACHE BOOL "-AL- test Enable verbose output from vcpkg")
-
 # ----------------------------------------------------------------------
 # Define macros
 
