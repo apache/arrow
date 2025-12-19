@@ -1322,4 +1322,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowJoinOptions *
 garrow_join_options_new(void);
 
+#define GARROW_TYPE_LIST_FLATTEN_OPTIONS (garrow_list_flatten_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowListFlattenOptions,
+                         garrow_list_flatten_options,
+                         GARROW,
+                         LIST_FLATTEN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowListFlattenOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new(void);
+
 G_END_DECLS

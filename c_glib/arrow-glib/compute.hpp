@@ -220,3 +220,9 @@ GArrowJoinOptions *
 garrow_join_options_new_raw(const arrow::compute::JoinOptions *arrow_options);
 arrow::compute::JoinOptions *
 garrow_join_options_get_raw(GArrowJoinOptions *options);
+
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new_raw(
+  const arrow::compute::ListFlattenOptions *arrow_options);
+arrow::compute::ListFlattenOptions *
+garrow_list_flatten_options_get_raw(GArrowListFlattenOptions *options);
