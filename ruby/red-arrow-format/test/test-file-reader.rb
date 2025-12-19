@@ -489,6 +489,66 @@ class TestFileReader < Test::Unit::TestCase
     end
   end
 
+  sub_test_case("Duration(:second)") do
+    def build_array
+      Arrow::DurationArray.new(:second, [0, nil, 100])
+    end
+
+    def test_read
+      assert_equal([{"value" => [0, nil, 100]}],
+                   read)
+    end
+
+    def test_type
+      assert_equal(:second, type.unit)
+    end
+  end
+
+  sub_test_case("Duration(:millisecond)") do
+    def build_array
+      Arrow::DurationArray.new(:milli, [0, nil, 100_000])
+    end
+
+    def test_read
+      assert_equal([{"value" => [0, nil, 100_000]}],
+                   read)
+    end
+
+    def test_type
+      assert_equal(:millisecond, type.unit)
+    end
+  end
+
+  sub_test_case("Duration(:microsecond)") do
+    def build_array
+      Arrow::DurationArray.new(:micro, [0, nil, 100_000_000])
+    end
+
+    def test_read
+      assert_equal([{"value" => [0, nil, 100_000_000]}],
+                   read)
+    end
+
+    def test_type
+      assert_equal(:microsecond, type.unit)
+    end
+  end
+
+  sub_test_case("Duration(:nanosecond)") do
+    def build_array
+      Arrow::DurationArray.new(:nano, [0, nil, 100_000_000_000])
+    end
+
+    def test_read
+      assert_equal([{"value" => [0, nil, 100_000_000_000]}],
+                   read)
+    end
+
+    def test_type
+      assert_equal(:nanosecond, type.unit)
+    end
+  end
+
   sub_test_case("Binary") do
     def build_array
       Arrow::BinaryArray.new(["Hello".b, nil, "World".b])

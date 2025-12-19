@@ -315,6 +315,18 @@ module ArrowFormat
     end
   end
 
+  class DurationType < TemporalType
+    attr_reader :unit
+    def initialize(unit)
+      super("Duration")
+      @unit = unit
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      DurationArray.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class VariableSizeBinaryType < Type
   end
 
