@@ -37,6 +37,8 @@
 #include "arrow/array/array_binary.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/buffer.h"
+#include "arrow/compute/api_vector.h"
+#include "arrow/datum.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/future_util.h"
 #include "arrow/testing/gtest_util.h"
@@ -709,6 +711,74 @@ TEST(TestFileReader, RecordReaderWithExposingDictionary) {
     ASSERT_EQ(std::string_view(reinterpret_cast<const char* const>(dict[indices[i]].ptr),
                                dict[indices[i]].len),
               col_typed[i]);
+  }
+}
+
+TEST(TestFileReader, RecordReaderWithExposingRee) {
+  const int num_rows = 1000;
+
+  // Make schema
+  schema::NodeVector fields;
+  fields.push_back(PrimitiveNode::Make("field", Repetition::REQUIRED, Type::BYTE_ARRAY,
+                                       ConvertedType::NONE));
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  // Write small batches and small data pages
+  std::shared_ptr<WriterProperties> writer_props = WriterProperties::Builder()
+                                                       .write_batch_size(64)
+                                                       ->data_pagesize(128)
+                                                       ->enable_dictionary()
+                                                       ->build();
+
+  ASSERT_OK_AND_ASSIGN(auto out_file, ::arrow::io::BufferOutputStream::Create());
+  std::shared_ptr<ParquetFileWriter> file_writer =
+      ParquetFileWriter::Open(out_file, schema, writer_props);
+
+  RowGroupWriter* rg_writer = file_writer->AppendRowGroup();
+
+  // write one column
+  ::arrow::random::RandomArrayGenerator rag(0);
+  ByteArrayWriter* writer = static_cast<ByteArrayWriter*>(rg_writer->NextColumn());
+  std::vector<std::string> raw_unique_data = {"a", "bc", "defg"};
+  std::vector<ByteArray> col_typed;
+  for (int i = 0; i < num_rows; i++) {
+    std::string_view chosed_data = raw_unique_data[i % raw_unique_data.size()];
+    col_typed.emplace_back(chosed_data);
+  }
+  writer->WriteBatch(num_rows, nullptr, nullptr, col_typed.data());
+  rg_writer->Close();
+  file_writer->Close();
+
+  // Open the reader
+  ASSERT_OK_AND_ASSIGN(auto file_buf, out_file->Finish());
+  auto in_file = std::make_shared<::arrow::io::BufferReader>(file_buf);
+
+  ReaderProperties reader_props;
+  reader_props.enable_buffered_stream();
+  reader_props.set_buffer_size(64);
+  std::unique_ptr<ParquetFileReader> file_reader =
+      ParquetFileReader::Open(in_file, reader_props);
+
+  auto row_group = file_reader->RowGroup(0);
+  auto record_reader = std::dynamic_pointer_cast<internal::ReeRecordReader>(
+      row_group->RecordReaderWithExposeEncoding(0, ExposedEncoding::REE));
+  ASSERT_NE(record_reader, nullptr);
+  ASSERT_TRUE(record_reader->read_ree());
+
+  ASSERT_EQ(record_reader->ReadRecords(num_rows), num_rows);
+  std::shared_ptr<::arrow::Array> ree_result_array = record_reader->GetResult();
+  ASSERT_OK_AND_ASSIGN(::arrow::Datum decoded_datum,
+      ::arrow::compute::RunEndDecode(::arrow::Datum(ree_result_array)));
+  auto decoded_array = decoded_datum.make_array();
+  auto decoded_binary_array = std::static_pointer_cast<::arrow::BinaryArray>(decoded_array);
+
+  // Verify values using RunEndDecode
+  int64_t indices_read = decoded_binary_array->length();
+  ASSERT_EQ(indices_read, num_rows);
+  for (int i = 0; i < indices_read; ++i) {
+    std::string_view ith_value_view = decoded_binary_array->GetView(i);
+    ASSERT_EQ(ith_value_view, col_typed[i]);
   }
 }
 
