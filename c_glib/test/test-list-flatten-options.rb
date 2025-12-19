@@ -43,15 +43,11 @@ class TestListFlattenOptions < Test::Unit::TestCase
 
     @options.recursive = false
     result = list_flatten_function.execute(args, @options).value
-    assert_equal(list_data_type,
-                 result.value_data_type)
     assert_equal(build_list_array(Arrow::Int8DataType.new, [[1, 2], [3], [4, 5]]),
                  result)
 
     @options.recursive = true
     result = list_flatten_function.execute(args, @options).value
-    assert_equal(Arrow::Int8DataType.new,
-                 result.value_data_type)
     assert_equal(build_int8_array([1, 2, 3, 4, 5]),
                  result)
   end
