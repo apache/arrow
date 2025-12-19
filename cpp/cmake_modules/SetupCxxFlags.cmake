@@ -139,7 +139,7 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++17 get passed correctly
+# This ensures that a standard higher than the minimum can be passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
   set(CMAKE_CXX_STANDARD 20)
 elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 20)
