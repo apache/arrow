@@ -70,10 +70,10 @@ void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
                                                    std::string* out_path) {
   const auto host = uri.host();
   std::string path;
-  if (arrow::internal::EndsWith(host, blob_storage_authority)) {
+  if (host.ends_with(blob_storage_authority)) {
     account_name = host.substr(0, host.size() - blob_storage_authority.size());
     path = internal::RemoveLeadingSlash(uri.path());
-  } else if (arrow::internal::EndsWith(host, dfs_storage_authority)) {
+  } else if (host.ends_with(dfs_storage_authority)) {
     account_name = host.substr(0, host.size() - dfs_storage_authority.size());
     path = internal::ConcatAbstractPath(uri.username(), uri.path());
   } else {
