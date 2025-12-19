@@ -334,20 +334,19 @@ jobs:
     needs: check-labels
     name: ODBC
     runs-on: windows-2022
-    permissions:
-      packages: write
     if: >-
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
+    permissions:
+      packages: write
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
       ARROW_DEPENDENCY_SOURCE: VCPKG
-      ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_HOME: /usr
       CMAKE_GENERATOR: Ninja
