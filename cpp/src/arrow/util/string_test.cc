@@ -260,9 +260,9 @@ TEST(ToChars, FloatingPoint) {
     // to std::to_string which may make ad hoc formatting choices, so we cannot
     // really test much about the result.
     auto result = ToChars(0.0f);
-    ASSERT_TRUE(StartsWith(result, "0")) << result;
+    ASSERT_TRUE(result.starts_with("0")) << result;
     result = ToChars(0.25);
-    ASSERT_TRUE(StartsWith(result, "0.25")) << result;
+    ASSERT_TRUE(result.starts_with("0.25")) << result;
   }
 }
 

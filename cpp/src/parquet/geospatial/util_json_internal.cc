@@ -104,10 +104,10 @@ std::string EscapeCrsAsJsonIfRequired(std::string_view crs);
   // the format and pass on this information to GeoArrow.
   if (crs.empty()) {
     return R"("crs": "OGC:CRS84", "crs_type": "authority_code")";
-  } else if (::arrow::internal::StartsWith(crs, kSridPrefix)) {
+  } else if (crs.starts_with(kSridPrefix)) {
     return R"("crs": ")" + std::string(crs.substr(kSridPrefix.size())) +
            R"(", "crs_type": "srid")";
-  } else if (::arrow::internal::StartsWith(crs, kProjjsonPrefix)) {
+  } else if (crs.starts_with(kProjjsonPrefix)) {
     std::string_view metadata_field = crs.substr(kProjjsonPrefix.size());
     if (metadata && metadata->Contains(metadata_field)) {
       ARROW_ASSIGN_OR_RAISE(std::string projjson_value, metadata->Get(metadata_field));

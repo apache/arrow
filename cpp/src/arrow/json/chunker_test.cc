@@ -34,7 +34,6 @@
 
 namespace arrow {
 
-using internal::StartsWith;
 
 namespace json {
 
@@ -159,10 +158,10 @@ void AssertStraddledChunking(Chunker& chunker, const std::shared_ptr<Buffer>& bu
   AssertChunking(chunker, first_half, 1);
   std::shared_ptr<Buffer> first_whole, partial;
   ASSERT_OK(chunker.Process(first_half, &first_whole, &partial));
-  ASSERT_TRUE(StartsWith(std::string_view(*first_half), std::string_view(*first_whole)));
+  ASSERT_TRUE(std::string_view(*first_half).starts_with(std::string_view(*first_whole)));
   std::shared_ptr<Buffer> completion, rest;
   ASSERT_OK(chunker.ProcessWithPartial(partial, second_half, &completion, &rest));
-  ASSERT_TRUE(StartsWith(std::string_view(*second_half), std::string_view(*completion)));
+  ASSERT_TRUE(std::string_view(*second_half).starts_with(std::string_view(*completion)));
   std::shared_ptr<Buffer> straddling;
   ASSERT_OK_AND_ASSIGN(straddling, ConcatenateBuffers({partial, completion}));
   auto length = ConsumeWholeObject(&straddling);
