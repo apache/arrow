@@ -72,18 +72,6 @@ class TableTest < Test::Unit::TestCase
       assert_equal(Arrow::Table.new(schema, [Arrow::UInt8Array.new([1, 2, 3])]),
                    Arrow::Table.new(numbers: array_like))
     end
-
-    test("{Symbol: nested non-negative integer Array}") do
-      table = Arrow::Table.new(numbers: [[0, 1, 2], [3, 4]])
-      assert_equal("list<item: uint8>",
-                   table.schema["numbers"].data_type.to_s)
-    end
-
-    test("{Symbol: nested signed integer Array}") do
-      table = Arrow::Table.new(numbers: [[0, -1, 2], [3, 4]])
-      assert_equal("list<item: int8>",
-                   table.schema["numbers"].data_type.to_s)
-    end
   end
 
   test("#columns") do
