@@ -1883,6 +1883,7 @@ function(build_protobuf)
       PARENT_SCOPE)
 
   fetchcontent_declare(protobuf
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${PROTOBUF_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
                        SOURCE_SUBDIR cmake)
@@ -3120,10 +3121,13 @@ function(build_grpc)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
-    string(APPEND CMAKE_C_FLAGS
-           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
-    string(APPEND CMAKE_CXX_FLAGS
-           " -Wno-attributes -Wno-format-security -Wno-unknown-warning-option")
+    string(APPEND CMAKE_C_FLAGS " -Wno-attributes -Wno-format-security")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-attributes -Wno-format-security")
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                    "Clang")
+    string(APPEND CMAKE_C_FLAGS " -Wno-unknown-warning-option")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unknown-warning-option")
   endif()
 
   fetchcontent_makeavailable(grpc)
@@ -3323,11 +3327,6 @@ function(build_nlohmann_json)
   set(NLOHMANN_JSON_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_fc-install")
-  set(NLOHMANN_JSON_PREFIX
-      "${NLOHMANN_JSON_PREFIX}"
-      PARENT_SCOPE)
-
   fetchcontent_declare(nlohmann_json
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${NLOHMANN_JSON_SOURCE_URL}
@@ -3341,49 +3340,13 @@ function(build_nlohmann_json)
   set(JSON_Install ON)
   fetchcontent_makeavailable(nlohmann_json)
 
-  # opentelemetry requires nlohmann_json to be installed to a known location.
-  # We have to do this in two steps to avoid double installation of nlohmann_json
-  # when Arrow is installed.
-  # This custom target ensures nlohmann_json is built before we install.
-  add_custom_target(nlohmann_json_built DEPENDS nlohmann_json::nlohmann_json)
-
-  # Disable nlohmann_json's install script after it's built to prevent double installation.
-  add_custom_command(OUTPUT "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# nlohmann-json install disabled to prevent double installation with Arrow"
-                             > "${nlohmann_json_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS nlohmann_json_built
-                     COMMENT "Disabling nlohmann-json install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(nlohmann_json_install_disabled ALL
-                    DEPENDS "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install nlohmann_json to NLOHMANN_JSON_PREFIX for opentelemetry to find.
-  add_custom_command(OUTPUT "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND}
-                             -DCMAKE_INSTALL_PREFIX=${NLOHMANN_JSON_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${nlohmann_json_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch
-                             "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed"
-                     DEPENDS nlohmann_json_install_disabled
-                     COMMENT "Installing nlohmann-json to ${NLOHMANN_JSON_PREFIX} for google-cloud-cpp"
-                     VERBATIM)
-
-  # Make nlohmann_json_fc depend on the install completion marker.
-  add_custom_target(nlohmann_json_fc
-                    DEPENDS "${NLOHMANN_JSON_PREFIX}/.nlohmann_json_installed")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${nlohmann_json_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
+
 if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
@@ -3726,220 +3689,87 @@ endif()
 # ----------------------------------------------------------------------
 # OpenTelemetry C++
 
-macro(build_opentelemetry)
-  message(STATUS "Building OpenTelemetry from source")
+function(build_opentelemetry)
+  list(APPEND CMAKE_MESSAGE_INDENT "OpenTelemetry: ")
+  message(STATUS "Building OpenTelemetry from source using FetchContent")
+
   if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
     message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
                         "Protobuf is version ${Protobuf_VERSION}")
   endif()
 
-  set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
-  set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
-  set(OPENTELEMETRY_STATIC_LIB
-      "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  set(OPENTELEMETRY_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  fetchcontent_declare(opentelemetry_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
   )
-  set(_OPENTELEMETRY_APIS api ext sdk)
-  set(_OPENTELEMETRY_LIBS
-      common
-      http_client_curl
-      logs
-      ostream_log_record_exporter
-      ostream_span_exporter
-      otlp_http_client
-      otlp_http_log_record_exporter
-      otlp_http_exporter
-      otlp_recordable
-      proto
-      resources
-      trace
-      version)
-  set(OPENTELEMETRY_BUILD_BYPRODUCTS)
-  set(OPENTELEMETRY_LIBRARIES)
 
-  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
-    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
-    target_include_directories(opentelemetry-cpp::${_OPENTELEMETRY_LIB} BEFORE
-                               INTERFACE "${OPENTELEMETRY_INCLUDE_DIR}")
-  endforeach()
-  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
-    # N.B. OTel targets and libraries don't follow any consistent naming scheme
-    if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_client")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_client${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_log_record_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_log${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_log_record_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_logs${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    else()
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    endif()
-    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} STATIC IMPORTED)
-    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
-                          PROPERTIES IMPORTED_LOCATION ${_OPENTELEMETRY_STATIC_LIBRARY})
-    list(APPEND OPENTELEMETRY_BUILD_BYPRODUCTS ${_OPENTELEMETRY_STATIC_LIBRARY})
-    list(APPEND OPENTELEMETRY_LIBRARIES opentelemetry-cpp::${_OPENTELEMETRY_LIB})
-  endforeach()
+  # Use FetchContent_Populate instead of MakeAvailable because opentelemetry-proto
+  # has no CMakeLists.txt.
+  cmake_policy(PUSH)
+  if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+  endif()
+  fetchcontent_populate(opentelemetry_proto)
+  cmake_policy(POP)
 
-  set(OPENTELEMETRY_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
-      -DWITH_EXAMPLES=OFF)
+  fetchcontent_declare(opentelemetry_cpp
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
 
-  set(OPENTELEMETRY_PREFIX_PATH_LIST)
-  # Don't specify the DEPENDS unless we actually have dependencies, else
-  # Ninja/other build systems may consider this target to always be dirty
-  set(_OPENTELEMETRY_DEPENDENCIES)
-  add_custom_target(opentelemetry_dependencies)
+  prepare_fetchcontent()
 
-  set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
-  list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+  set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
+  set(WITH_EXAMPLES OFF)
+  set(WITH_OTLP_HTTP ON)
+  set(WITH_OTLP_GRPC OFF)
+  set(WITH_FUNC_TESTS OFF)
+  # These options are slated for removal in v1.14 and their features are deemed stable
+  # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+  # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+  # client initialization. There may still be a solution, but we disable them for now.
+  set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
+  set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
 
-  get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  set(OPENTELEMETRY_PROTOBUF_LIBRARY "$<TARGET_FILE:${ARROW_PROTOBUF_LIBPROTOBUF}>")
-  set(OPENTELEMETRY_PROTOC_EXECUTABLE "$<TARGET_FILE:${ARROW_PROTOBUF_PROTOC}>")
-  list(APPEND
-       OPENTELEMETRY_CMAKE_ARGS
-       -DWITH_OTLP_HTTP=ON
-       -DWITH_OTLP_GRPC=OFF
-       # Disabled because it seemed to cause linking errors. May be worth a closer look.
-       -DWITH_FUNC_TESTS=OFF
-       # These options are slated for removal in v1.14 and their features are deemed stable
-       # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
-       # finicky - resulting in build failures or ABI-related runtime errors during HTTP
-       # client initialization. There may still be a solution, but we disable them for now.
-       -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
-       -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
-       "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
-       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_LIBRARY}"
-       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
+  fetchcontent_makeavailable(opentelemetry_cpp)
 
-  # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
-  # submodule. This submodule path is hardcoded into their CMake definitions,
-  # and submodules are not included in their releases. Add a custom build step
-  # to download and extract the Protobufs.
-
-  # Adding such a step is rather complicated, so instead: create a separate
-  # ExternalProject that just fetches the Protobufs, then add a custom step
-  # to the main build to copy the Protobufs.
-  externalproject_add(opentelemetry_proto_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
-                      URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
-                      BUILD_COMMAND ""
-                      CONFIGURE_COMMAND ""
-                      INSTALL_COMMAND ""
-                      EXCLUDE_FROM_ALL OFF)
-  if(NLOHMANN_JSON_VENDORED)
-    add_dependencies(opentelemetry_dependencies nlohmann_json_fc)
-  else()
-    add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json)
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${opentelemetry_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
-  add_dependencies(opentelemetry_dependencies opentelemetry_proto_ep
-                   ${ARROW_PROTOBUF_LIBPROTOBUF})
+  # Remove unused directories to save build directory storage
+  file(REMOVE_RECURSE "${opentelemetry_cpp_SOURCE_DIR}/ci")
 
-  # Ensure vendored protobuf is installed before OpenTelemetry builds
-  if(PROTOBUF_VENDORED)
-    add_dependencies(opentelemetry_dependencies protobuf_fc)
-  endif()
+  # OpenTelemetry creates its own targets. We need to add them to bundled static libs.
+  # The targets created by OpenTelemetry's CMakeLists.txt use the opentelemetry:: namespace.
+  # List of libraries that we actually need and want to bundle.
+  set(_OPENTELEMETRY_BUNDLED_LIBS
+      opentelemetry-cpp::common
+      opentelemetry-cpp::http_client_curl
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_client
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::otlp_http_exporter
+      opentelemetry-cpp::otlp_recordable
+      opentelemetry-cpp::proto
+      opentelemetry-cpp::resources
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::version)
 
-  string(JOIN "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
-         ${OPENTELEMETRY_PREFIX_PATH_LIST})
-  list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
 
-  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
-    # OpenTelemetry tries to determine the processor arch for vcpkg, which fails
-    # on s390x, even though it doesn't use vcpkg there. Tell it ARCH manually
-    externalproject_add(opentelemetry_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
-                        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ARCH=s390x
-                                          ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR}
-                                          "<SOURCE_DIR><SOURCE_SUBDIR>"
-                                          ${OPENTELEMETRY_CMAKE_ARGS}
-                        BUILD_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target all
-                        INSTALL_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target
-                                        install
-                        URL ${OPENTELEMETRY_SOURCE_URL}
-                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
-                        EXCLUDE_FROM_ALL NOT
-                        ${ARROW_WITH_OPENTELEMETRY}
-                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
-  else()
-    externalproject_add(opentelemetry_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
-                        URL ${OPENTELEMETRY_SOURCE_URL}
-                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
-                        EXCLUDE_FROM_ALL NOT
-                        ${ARROW_WITH_OPENTELEMETRY}
-                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
-  endif()
-
-  externalproject_add_step(opentelemetry_ep download_proto
-                           COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                   $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
-                                   $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
-                           DEPENDEES download
-                           DEPENDERS configure)
-
-  set(OPENTELEMETRY_VENDORED 1)
-
-  target_link_libraries(opentelemetry-cpp::common
-                        INTERFACE opentelemetry-cpp::api opentelemetry-cpp::sdk
-                                  Threads::Threads)
-  target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
-  target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
-                                                           opentelemetry-cpp::resources)
-  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::common
-                                                          opentelemetry-cpp::resources)
-  target_link_libraries(opentelemetry-cpp::http_client_curl
-                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::ext
-                                  CURL::libcurl)
-  target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
-  target_link_libraries(opentelemetry-cpp::otlp_recordable
-                        INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
-                                  opentelemetry-cpp::resources opentelemetry-cpp::proto)
-  target_link_libraries(opentelemetry-cpp::otlp_http_client
-                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::proto
-                                  opentelemetry-cpp::http_client_curl
-                                  nlohmann_json::nlohmann_json)
-  target_link_libraries(opentelemetry-cpp::otlp_http_exporter
-                        INTERFACE opentelemetry-cpp::otlp_recordable
-                                  opentelemetry-cpp::otlp_http_client)
-  target_link_libraries(opentelemetry-cpp::otlp_http_log_record_exporter
-                        INTERFACE opentelemetry-cpp::otlp_recordable
-                                  opentelemetry-cpp::otlp_http_client)
-
-  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
-    add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS opentelemetry-cpp::${_OPENTELEMETRY_LIB})
-  endforeach()
-
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_OPENTELEMETRY)
   if(NOT ARROW_ENABLE_THREADING)
