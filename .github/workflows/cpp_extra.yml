@@ -370,10 +370,11 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
-      - name: Install cmake
-        shell: bash
-        run: |
-          ci/scripts/install_cmake.sh 4.1.2 /usr
+      # Disable cmake for make it work with vcpkg.
+      # - name: Install cmake
+      #   shell: bash
+      #   run: |
+      #     ci/scripts/install_cmake.sh 4.1.2 /usr
       - name: Install ccache
         shell: bash
         run: |
@@ -429,18 +430,18 @@ jobs:
         run: |
           vcpkg fetch nuget
       # -AL- TEMP disable.
-      # - name: Build
-      #   shell: cmd
-      #   run: |
-      #     set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-      #     call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-      #     set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-      #     bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Build
+        shell: cmd
+        run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
+          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
 
-      # - name: Register Flight SQL ODBC Driver
-      #   shell: cmd
-      #   run: |
-      #     call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+      - name: Register Flight SQL ODBC Driver
+        shell: cmd
+        run: |
+          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
       # GH-48270 TODO: Resolve segementation fault during Arrow library unload
       # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
       # GH-48547 TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
