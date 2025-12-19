@@ -51,14 +51,12 @@ class ExpressionCacheKey {
 
   ExpressionCacheKey(SchemaPtr schema, std::shared_ptr<Configuration> configuration,
                      Expression& expression)
-      :mode_(SelectionVector::MODE_NONE),
-        uniqifier_(0),
-        configuration_(configuration) {
+      :mode_(SelectionVector::MODE_NONE), uniqifier_(0), configuration_(configuration) {
     static const int kSeedValue = 4;
     size_t result = kSeedValue;
     expressions_as_cache_key_strings_.push_back(expression.ToCacheKeyString());
     UpdateUniqifier(expression.ToCacheKeyString());
-    arrow::internal::hash_combine(result,expression.ToCacheKeyString());
+    arrow::internal::hash_combine(result, expression.ToCacheKeyString());
     arrow::internal::hash_combine(result, configuration->Hash());
     arrow::internal::hash_combine(result, uniqifier_);
     hash_code_ = result;
