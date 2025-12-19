@@ -54,7 +54,7 @@ and macOS):
 
 .. code-block:: bash
 
-    pip install pyarrow
+   pip install pyarrow
 
 If you encounter any importing issues of the pip wheels on Windows, you may
 need to install the `latest Visual C++ Redistributable for Visual Studio
@@ -96,7 +96,7 @@ a custom path to the database from Python:
 .. code-block:: python
 
    >>> import pyarrow as pa
-   >>> pa.set_timezone_db_path("custom_path")
+   >>> pa.set_timezone_db_path("custom_path")  # doctest: +SKIP
 
 You may encounter problems writing datetime data to an ORC file if you install
 pyarrow with pip. One possible solution to fix this problem:
@@ -109,8 +109,8 @@ command:
 
 .. code-block:: python
 
-   >>> import tzdata
-   >>> print(tzdata.__file__)
+   >>> import tzdata  # doctest: +SKIP
+   >>> print(tzdata.__file__)  # doctest: +SKIP
    path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
 
