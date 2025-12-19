@@ -162,7 +162,7 @@ module Arrow
             field = Field.new("item", sub_value_data_type)
             {
               builder: ListArrayBuilder.new(ListDataType.new(field)),
-              detected: !!sub_builder_info[:detected],
+              detected: sub_builder_info[:detected],
             }
           else
             builder_info
