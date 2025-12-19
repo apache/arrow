@@ -79,7 +79,6 @@ class ExpressionCacheKey {
       return false;
     }
 
-
     if (configuration_ != other.configuration_) {
       return false;
     }
