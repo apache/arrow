@@ -2045,8 +2045,7 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
         CATEGORICAL_CASE(UInt32Type);
         case Type::UINT64:
           return Status::TypeError(
-              "Converting unsigned dictionary indices to pandas",
-              " not yet supported, index type: ", index_type.ToString());
+              "Converting UInt64 dictionary indices to pandas is not supported.");
         default:
           // Unreachable
           ARROW_DCHECK(false);
