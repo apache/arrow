@@ -17,11 +17,9 @@
 
 #pragma once
 
-#include "arrow/vendored/datetime.h"
+#include "arrow/util/chrono_internal.h"
 
 namespace arrow::internal {
-
-namespace date = arrow_vendored::date;
 
 // OffsetZone object is inspired by an example from date.h documentation:
 // https://howardhinnant.github.io/date/tz.html#Examples
@@ -33,23 +31,23 @@ class OffsetZone {
   explicit OffsetZone(std::chrono::minutes offset) : offset_{offset} {}
 
   template <class Duration>
-  date::local_time<Duration> to_local(date::sys_time<Duration> tp) const {
-    return date::local_time<Duration>{(tp + offset_).time_since_epoch()};
+  chrono::local_time<Duration> to_local(chrono::sys_time<Duration> tp) const {
+    return chrono::local_time<Duration>{(tp + offset_).time_since_epoch()};
   }
 
   template <class Duration>
-  date::sys_time<Duration> to_sys(
-      date::local_time<Duration> tp,
-      [[maybe_unused]] date::choose = date::choose::earliest) const {
-    return date::sys_time<Duration>{(tp - offset_).time_since_epoch()};
+  chrono::sys_time<Duration> to_sys(
+      chrono::local_time<Duration> tp,
+      [[maybe_unused]] chrono::choose = chrono::choose::earliest) const {
+    return chrono::sys_time<Duration>{(tp - offset_).time_since_epoch()};
   }
 
   template <class Duration>
-  date::sys_info get_info(date::sys_time<Duration> st) const {
-    return {date::sys_seconds::min(), date::sys_seconds::max(), offset_,
+  chrono::sys_info get_info(chrono::sys_time<Duration> st) const {
+    return {chrono::sys_seconds::min(), chrono::sys_seconds::max(), offset_,
             std::chrono::minutes(0),
-            offset_ >= std::chrono::minutes(0) ? "+" + date::format("%H%M", offset_)
-                                               : "-" + date::format("%H%M", -offset_)};
+            offset_ >= std::chrono::minutes(0) ? "+" + chrono::format("%H%M", offset_)
+                                               : "-" + chrono::format("%H%M", -offset_)};
   }
 
   const OffsetZone* operator->() const { return this; }
@@ -57,7 +55,15 @@ class OffsetZone {
 
 }  // namespace arrow::internal
 
+// zoned_traits specialization for OffsetZone
+// This needs to be in the correct namespace depending on the backend
+
+#if ARROW_USE_STD_CHRONO
+namespace std::chrono {
+#else
 namespace arrow_vendored::date {
+#endif
+
 using arrow::internal::OffsetZone;
 
 template <>
@@ -68,4 +74,9 @@ struct zoned_traits<OffsetZone> {
     throw std::runtime_error{"OffsetZone can't parse " + name};
   }
 };
-}  // namespace arrow_vendored::date
+
+#if ARROW_USE_STD_CHRONO
+}  // namespace std::chrono
+#else
+}  // namespace arrow_vendored::date  // NOLINT(readability/namespace)
+#endif
