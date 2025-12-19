@@ -428,18 +428,19 @@ jobs:
         shell: bash
         run: |
           vcpkg fetch nuget
-      - name: Build
-        shell: cmd
-        run: |
-          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      # -AL- TEMP disable.
+      # - name: Build
+      #   shell: cmd
+      #   run: |
+      #     set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+      #     call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+      #     set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
+      #     bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
 
-      - name: Register Flight SQL ODBC Driver
-        shell: cmd
-        run: |
-          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+      # - name: Register Flight SQL ODBC Driver
+      #   shell: cmd
+      #   run: |
+      #     call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
       # GH-48270 TODO: Resolve segementation fault during Arrow library unload
       # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
       # GH-48547 TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
