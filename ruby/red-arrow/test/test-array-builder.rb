@@ -148,13 +148,43 @@ class ArrayBuilderTest < Test::Unit::TestCase
       end
 
       test("list<uint>s") do
-        array = Arrow::ArrayBuilder.build([[0, 1, 2], [3, 4]])
-        assert_equal("list<item: uint8>", array.value_data_type.to_s)
+        values = [
+          [0, 1, 2],
+          [3, 4],
+        ]
+        array = Arrow::Array.new(values)
+        data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
+        assert_equal({
+                       data_type: data_type,
+                       values: [
+                         [0, 1, 2],
+                         [3, 4],
+                       ],
+                     },
+                     {
+                       data_type: array.value_data_type,
+                       values: array.to_a,
+                     })
       end
 
       test("list<int>s") do
-        array = Arrow::ArrayBuilder.build([[0, -1, 2], [3, 4]])
-        assert_equal("list<item: int8>", array.value_data_type.to_s)
+        values = [
+          [0, -1, 2],
+          [3, 4],
+        ]
+        array = Arrow::Array.new(values)
+        data_type = Arrow::ListDataType.new(Arrow::Int8DataType.new)
+        assert_equal({
+                       data_type: data_type,
+                       values: [
+                         [0, -1, 2],
+                         [3, 4],
+                       ],
+                     },
+                     {
+                       data_type: array.value_data_type,
+                       values: array.to_a,
+                     })
       end
     end
 
