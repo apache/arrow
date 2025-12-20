@@ -425,7 +425,6 @@ jobs:
       - name: Build C++
         shell: cmd
         run: |
-          $env:VCPKG_DEBUG = "1"
           set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
