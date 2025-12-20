@@ -28,6 +28,25 @@ class TestMakeStructOptions < Test::Unit::TestCase
     assert_equal(["a", "b", "c"], @options.field_names)
   end
 
+  def test_field_nullability_property
+    assert_equal([], @options.field_nullability)
+    @options.field_names = ["a", "b", "c"]
+    @options.field_nullability = [true, false, true]
+    assert_equal([true, false, true], @options.field_nullability)
+  end
+
+  def test_field_metadata_property
+    assert_equal([], @options.field_metadata)
+    @options.field_names = ["a", "b"]
+    metadata1 = {"key1" => "value1", "key2" => "value2"}
+    metadata2 = {"key3" => "value3"}
+    @options.field_metadata = [metadata1, metadata2]
+    result = @options.field_metadata
+    assert_equal(2, result.size)
+    assert_equal(metadata1, result[0])
+    assert_equal(metadata2, result[1])
+  end
+
   def test_make_struct_function
     a = build_int8_array([1, 2, 3])
     b = build_boolean_array([true, false, nil])
@@ -51,5 +70,50 @@ class TestMakeStructOptions < Test::Unit::TestCase
       ]
     )
     assert_equal(expected, result)
+  end
+
+  def test_make_struct_function_with_nullability
+    a = build_int8_array([1, 2, 3])
+    b = build_boolean_array([true, false, nil])
+    args = [
+      Arrow::ArrayDatum.new(a),
+      Arrow::ArrayDatum.new(b),
+    ]
+    @options.field_names = ["a", "b"]
+    @options.field_nullability = [false, true]
+    make_struct_function = Arrow::Function.find("make_struct")
+    result = make_struct_function.execute(args, @options).value
+
+    expected = build_struct_array(
+      [
+        Arrow::Field.new("a", Arrow::Int8DataType.new, false),
+        Arrow::Field.new("b", Arrow::BooleanDataType.new, true),
+      ],
+      [
+        {"a" => 1, "b" => true},
+        {"a" => 2, "b" => false},
+        {"a" => 3, "b" => nil},
+      ]
+    )
+    assert_equal(expected, result)
+  end
+
+  def test_make_struct_function_with_metadata
+    a = build_int8_array([1, 2, 3])
+    b = build_boolean_array([true, false, nil])
+    args = [
+      Arrow::ArrayDatum.new(a),
+      Arrow::ArrayDatum.new(b),
+    ]
+    @options.field_names = ["a", "b"]
+    metadata1 = {"key1" => "value1"}
+    metadata2 = {"key2" => "value2"}
+    @options.field_metadata = [metadata1, metadata2]
+    make_struct_function = Arrow::Function.find("make_struct")
+    result = make_struct_function.execute(args, @options).value
+
+    fields = result.value_data_type.fields
+    assert_equal(metadata1, fields[0].metadata)
+    assert_equal(metadata2, fields[1].metadata)
   end
 end
