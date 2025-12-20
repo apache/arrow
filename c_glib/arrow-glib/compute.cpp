@@ -7874,7 +7874,7 @@ garrow_list_slice_options_class_init(GArrowListSliceOptionsClass *klass)
 GArrowListSliceOptions *
 garrow_list_slice_options_new(void)
 {
-  auto options = g_object_new(GARROW_TYPE_LIST_SLICE_OPTIONS, NULL);
+  auto options = g_object_new(GARROW_TYPE_LIST_SLICE_OPTIONS, nullptr);
   return GARROW_LIST_SLICE_OPTIONS(options);
 }
 
