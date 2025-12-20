@@ -315,6 +315,42 @@ module ArrowFormat
     end
   end
 
+  class IntervalType < TemporalType
+  end
+
+  class YearMonthIntervalType < IntervalType
+    def initialize
+      super("YearMonthInterval")
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      YearMonthIntervalArray.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
+  class DayTimeIntervalType < IntervalType
+    def initialize
+      super("DayTimeInterval")
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      DayTimeIntervalArray.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
+  class MonthDayNanoIntervalType < IntervalType
+    def initialize
+      super("MonthDayNanoInterval")
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      MonthDayNanoIntervalArray.new(self,
+                                    size,
+                                    validity_buffer,
+                                    values_buffer)
+    end
+  end
+
   class DurationType < TemporalType
     attr_reader :unit
     def initialize(unit)
