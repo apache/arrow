@@ -308,20 +308,17 @@ class RleRunDecoder {
     return to_read;
   }
 
-  /// Get a batch of values and count how many equal match_value
+  /// Get a batch of values and count how many equal match_value.
+  /// For RLE runs, counting is O(1) because all values in the run are identical.
   [[nodiscard]] rle_size_t GetBatchWithCount(value_type* out, rle_size_t batch_size,
                                              rle_size_t value_bit_width,
                                              value_type match_value, int64_t* out_count) {
-    if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
-      return 0;
-    }
-
-    const auto to_read = std::min(remaining_count_, batch_size);
-    std::fill(out, out + to_read, value_);
-    if (value_ == match_value) {
+    // Save value_ before GetBatch since it doesn't change during the call.
+    const auto current_value = value_;
+    const auto to_read = GetBatch(out, batch_size, value_bit_width);
+    if (current_value == match_value) {
       *out_count += to_read;
     }
-    remaining_count_ -= to_read;
     return to_read;
   }
 
