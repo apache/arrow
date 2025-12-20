@@ -28,6 +28,16 @@ class TestListSliceOptions < Test::Unit::TestCase
     assert_equal(nil, @options.stop)
   end
 
+  def test_return_fixed_size_list_property
+    assert_equal(nil, @options.return_fixed_size_list)
+    @options.return_fixed_size_list = true
+    assert_equal(true, @options.return_fixed_size_list)
+    @options.return_fixed_size_list = false
+    assert_equal(false, @options.return_fixed_size_list)
+    @options.return_fixed_size_list = nil
+    assert_equal(nil, @options.return_fixed_size_list)
+  end
+
   def test_list_slice_function_without_stop
     args = [
       Arrow::ArrayDatum.new(Arrow::ListArray.new([:list, :int8], [[1, 2, 3], [4, 5]])),
@@ -37,6 +47,44 @@ class TestListSliceOptions < Test::Unit::TestCase
     list_slice_function = Arrow::Function.find("list_slice")
     result = list_slice_function.execute(args, @options).value
     assert_equal(Arrow::ListArray.new([:list, :int8], [[2, 3], [5]]),
+                 result)
+  end
+
+  def test_list_slice_function_with_return_fixed_size_list_auto
+    args = [
+      Arrow::ArrayDatum.new(Arrow::FixedSizeListArray.new([:fixed_size_list, :int8, 2],
+                                                          [[1, 2], [3, 4]])),
+    ]
+    @options.start = 1
+    list_slice_function = Arrow::Function.find("list_slice")
+    result = list_slice_function.execute(args, @options).value
+    assert_equal(Arrow::FixedSizeListArray.new([:fixed_size_list, :int8, 1], [[2], [4]]),
+                 result)
+  end
+
+  def test_list_slice_function_with_return_fixed_size_list_true
+    args = [
+      Arrow::ArrayDatum.new(Arrow::ListArray.new([:list, :int8], [[1, 2, 3], [4, 5]])),
+    ]
+    @options.start = 1
+    @options.stop = 3
+    @options.return_fixed_size_list = true
+    list_slice_function = Arrow::Function.find("list_slice")
+    result = list_slice_function.execute(args, @options).value
+    assert_equal(Arrow::FixedSizeListArray.new([:fixed_size_list, :int8, 2], [[2, 3], [5, nil]]),
+                 result)
+  end
+
+  def test_list_slice_function_with_return_fixed_size_list_false
+    args = [
+      Arrow::ArrayDatum.new(Arrow::FixedSizeListArray.new([:fixed_size_list, :int8, 2],
+                                                          [[1, 2], [3, 4]])),
+    ]
+    @options.start = 1
+    @options.return_fixed_size_list = false
+    list_slice_function = Arrow::Function.find("list_slice")
+    result = list_slice_function.execute(args, @options).value
+    assert_equal(Arrow::ListArray.new([:list, :int8], [[2], [4]]),
                  result)
   end
 end

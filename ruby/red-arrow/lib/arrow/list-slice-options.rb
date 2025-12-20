@@ -17,6 +17,37 @@
 
 module Arrow
   class ListSliceOptions
+    alias_method :return_fixed_size_list_raw, :return_fixed_size_list
+    private :return_fixed_size_list_raw
+
+    RETURN_FIXED_SIZE_GLIB_TO_RUBY = {
+      ListSliceReturnFixedSizeList::AUTO => nil,
+      ListSliceReturnFixedSizeList::TRUE => true,
+      ListSliceReturnFixedSizeList::FALSE => false,
+    }.freeze
+
+    RETURN_FIXED_SIZE_RUBY_TO_GLIB = RETURN_FIXED_SIZE_GLIB_TO_RUBY.invert.freeze
+
+    # Whether to return a FixedSizeListArray. If true _and_ stop is after a
+    # list element’s length, nil values will be appended to create the requested
+    # slice size. The default of nil will return the same type which was passed in.
+    def return_fixed_size_list
+      RETURN_FIXED_SIZE_GLIB_TO_RUBY.fetch(
+        return_fixed_size_list_raw,
+        return_fixed_size_list_raw)
+    end
+
+    # Whether to return a FixedSizeListArray. If true _and_ stop is after a
+    # list element’s length, nil values will be appended to create the requested
+    # slice size. The default of nil will return the same type which was passed in.
+    def return_fixed_size_list=(return_fixed_size_list)
+      set_property(
+        :return_fixed_size_list,
+        RETURN_FIXED_SIZE_RUBY_TO_GLIB.fetch(
+          return_fixed_size_list,
+          return_fixed_size_list))
+    end
+
     alias_method :stop_raw, :stop
     private :stop_raw
 
