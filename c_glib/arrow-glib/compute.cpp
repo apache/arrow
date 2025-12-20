@@ -7693,7 +7693,7 @@ garrow_list_slice_options_set_property(GObject *object,
   case PROP_LIST_SLICE_OPTIONS_STOP:
     {
       gint64 stop_value = g_value_get_int64(value);
-      if (stop_value == -1) {
+      if (stop_value == GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED) {
         options->stop = std::nullopt;
       } else {
         options->stop = stop_value;
@@ -7745,7 +7745,7 @@ garrow_list_slice_options_get_property(GObject *object,
     if (options->stop.has_value()) {
       g_value_set_int64(value, options->stop.value());
     } else {
-      g_value_set_int64(value, -1); // Sentinel value for "not set"
+      g_value_set_int64(value, GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED);
     }
     break;
   case PROP_LIST_SLICE_OPTIONS_STEP:
@@ -7807,18 +7807,20 @@ garrow_list_slice_options_class_init(GArrowListSliceOptionsClass *klass)
   /**
    * GArrowListSliceOptions:stop:
    *
-   * Optional stop of list slicing. If not set (value is -1), then slice to end.
+   * Optional stop of list slicing. If not set (value is
+   * %GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED), then slice to end.
    *
    * Since: 23.0.0
    */
-  spec = g_param_spec_int64(
-    "stop",
-    "Stop",
-    "Optional stop of list slicing. If not set (value is -1), then slice to end",
-    -1, // Use -1 as sentinel for "not set"
-    G_MAXINT64,
-    -1, // Default to -1 (not set)
-    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  spec =
+    g_param_spec_int64("stop",
+                       "Stop",
+                       "Optional stop of list slicing. If not set (value is "
+                       "GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED), then slice to end",
+                       GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED,
+                       G_MAXINT64,
+                       GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED,
+                       static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_LIST_SLICE_OPTIONS_STOP, spec);
 
   /**
@@ -8782,7 +8784,7 @@ garrow_map_lookup_options_get_raw(GArrowMapLookupOptions *options)
 GArrowListSliceOptions *
 garrow_list_slice_options_new_raw(const arrow::compute::ListSliceOptions *arrow_options)
 {
-  gint64 stop_value = -1;
+  gint64 stop_value = GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED;
   if (arrow_options->stop.has_value()) {
     stop_value = arrow_options->stop.value();
   }

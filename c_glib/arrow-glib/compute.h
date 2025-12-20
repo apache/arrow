@@ -1393,7 +1393,18 @@ typedef enum {
   GARROW_LIST_SLICE_RETURN_FIXED_SIZE_LIST_TRUE,
 } GArrowListSliceReturnFixedSizeList;
 
-#define GARROW_TYPE_LIST_SLICE_OPTIONS (garrow_list_slice_options_get_type())
+/**
+ * GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED:
+ *
+ * Sentinel value for the stop property in #GArrowListSliceOptions indicating
+ * that the stop value is not set. When this value is used, the slice will
+ * continue to the end of the list.
+ *
+ * Since: 23.0.0
+ */
+#define GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED -1
+
+#define GARROW_TYPE_LIST_SLICE_OPTIONS             (garrow_list_slice_options_get_type())
 GARROW_AVAILABLE_IN_23_0
 G_DECLARE_DERIVABLE_TYPE(GArrowListSliceOptions,
                          garrow_list_slice_options,

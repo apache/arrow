@@ -29,13 +29,11 @@ class TestListSliceOptions < Test::Unit::TestCase
   end
 
   def test_stop_property
-    # Default is -1 (not set)
-    assert_equal(-1, @options.stop)
+    assert_equal(Arrow::LIST_SLICE_OPTIONS_STOP_UNSPECIFIED, @options.stop)
     @options.stop = 5
     assert_equal(5, @options.stop)
-    # Setting to -1 means "not set"
-    @options.stop = -1
-    assert_equal(-1, @options.stop)
+    @options.stop = Arrow::LIST_SLICE_OPTIONS_STOP_UNSPECIFIED
+    assert_equal(LIST_SLICE_OPTIONS_STOP_UNSPECIFIED, @options.stop)
   end
 
   def test_step_property
@@ -76,7 +74,7 @@ class TestListSliceOptions < Test::Unit::TestCase
                                              [[1, 2, 3], [4, 5]])),
     ]
     @options.start = 1
-    @options.stop = -1
+    @options.stop = Arrow::LIST_SLICE_OPTIONS_STOP_UNSPECIFIED
     list_slice_function = Arrow::Function.find("list_slice")
     result = list_slice_function.execute(args, @options).value
     assert_equal(build_list_array(Arrow::Int8DataType.new, [[2, 3], [5]]),
