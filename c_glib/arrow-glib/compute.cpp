@@ -34,6 +34,7 @@
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 #include <arrow-glib/type.hpp>
+#include <arrow-glib/internal-hash-table.hpp>
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
@@ -10713,6 +10714,115 @@ garrow_make_struct_options_new(void)
 {
   auto options = g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, NULL);
   return GARROW_MAKE_STRUCT_OPTIONS(options);
+}
+
+/**
+ * garrow_make_struct_options_set_field_nullability:
+ * @options: A #GArrowMakeStructOptions.
+ * @nullability: (element-type gboolean) (nullable) (transfer none): A #GList
+ *   of nullability values, or %NULL.
+ *
+ * Sets the nullability information for each struct field.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_make_struct_options_set_field_nullability(GArrowMakeStructOptions *options,
+                                                  GList *nullability)
+{
+  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  arrow_options->field_nullability.clear();
+  if (nullability) {
+    for (GList *node = nullability; node; node = node->next) {
+      gboolean value = GPOINTER_TO_INT(node->data);
+      arrow_options->field_nullability.push_back(value != FALSE);
+    }
+  }
+}
+
+/**
+ * garrow_make_struct_options_get_field_nullability:
+ * @options: A #GArrowMakeStructOptions.
+ *
+ * Returns: (element-type gboolean) (transfer full): A #GList of nullability
+ *   values. It should be freed with g_list_free() when no longer needed.
+ *
+ * Gets the nullability information for each struct field.
+ *
+ * Since: 23.0.0
+ */
+GList *
+garrow_make_struct_options_get_field_nullability(GArrowMakeStructOptions *options)
+{
+  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  const auto &arrow_nullability = arrow_options->field_nullability;
+  GList *list = NULL;
+  for (gsize i = 0; i < arrow_nullability.size(); ++i) {
+    gboolean value = arrow_nullability[i] ? TRUE : FALSE;
+    list = g_list_prepend(list, GINT_TO_POINTER(value));
+  }
+  return g_list_reverse(list);
+}
+
+/**
+ * garrow_make_struct_options_set_field_metadata:
+ * @options: A #GArrowMakeStructOptions.
+ * @metadata: (element-type GHashTable) (nullable) (transfer none): A #GList of
+ *   #GHashTable for each field's metadata, or %NULL.
+ *
+ * Sets the metadata for each struct field.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_make_struct_options_set_field_metadata(GArrowMakeStructOptions *options,
+                                               GList *metadata)
+{
+  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  arrow_options->field_metadata.clear();
+  if (metadata) {
+    for (GList *node = metadata; node; node = node->next) {
+      auto hash_table = static_cast<GHashTable *>(node->data);
+      if (hash_table) {
+        arrow_options->field_metadata.push_back(
+          garrow_internal_hash_table_to_metadata(hash_table));
+      } else {
+        arrow_options->field_metadata.push_back(NULLPTR);
+      }
+    }
+  }
+}
+
+/**
+ * garrow_make_struct_options_get_field_metadata:
+ * @options: A #GArrowMakeStructOptions.
+ *
+ * Returns: (element-type GHashTable) (transfer full): A #GList of #GHashTable
+ *   for each field's metadata. It should be freed with g_list_free_full() and
+ *   g_hash_table_unref() when no longer needed.
+ *
+ * Gets the metadata for each struct field.
+ *
+ * Since: 23.0.0
+ */
+GList *
+garrow_make_struct_options_get_field_metadata(GArrowMakeStructOptions *options)
+{
+  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  const auto &arrow_metadata = arrow_options->field_metadata;
+  GList *list = NULL;
+  for (gsize i = 0; i < arrow_metadata.size(); ++i) {
+    GHashTable *hash_table = NULL;
+    if (arrow_metadata[i] && arrow_metadata[i].get()) {
+      hash_table = garrow_internal_hash_table_from_metadata(arrow_metadata[i]);
+    }
+    list = g_list_prepend(list, hash_table);
+  }
+  return g_list_reverse(list);
 }
 
 G_END_DECLS
