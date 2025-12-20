@@ -127,6 +127,12 @@ if(ARROW_FLIGHT)
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.pb.cc"
                     "${CMAKE_CURRENT_BINARY_DIR}/helloworld.grpc.pb.cc")
 
+  # HACK: Workaround absl::Mutex ABI incompatibility by making sure the
+  # non-debug version of Abseil is included
+  # (https://github.com/conda-forge/abseil-cpp-feedstock/issues/104,
+  # https://github.com/abseil/abseil-cpp/issues/1624)
+  target_compile_options(flight-grpc-example PRIVATE "-DNDEBUG")
+
   if(ARROW_FLIGHT_SQL)
     if(ARROW_BUILD_SHARED AND ARROW_GRPC_USE_SHARED)
       set(FLIGHT_SQL_EXAMPLES_LINK_LIBS arrow_flight_sql_shared)
