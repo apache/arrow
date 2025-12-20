@@ -340,7 +340,7 @@ module ArrowFormat
 
   class MonthDayNanoIntervalType < IntervalType
     def initialize
-      super("MonthDayNanoTimeInterval")
+      super("MonthDayNanoInterval")
     end
 
     def build_array(size, validity_buffer, values_buffer)
