@@ -39,6 +39,11 @@ def validate_wheel(path):
             f"{filename} is missing from the wheel."
     print(f"The wheel: {wheels[0]} seems valid.")
 
+    candidates = [info for info in f.filelist if info.filename.endswith('compute.pyi')]
+    assert candidates, "compute.pyi not found in wheel"
+    content = f.read(candidates[0]).decode('utf-8', errors='replace')
+    assert '"""' in content, "compute.pyi missing docstrings (no triple quotes found)"
+
 
 def main():
     parser = argparse.ArgumentParser()
