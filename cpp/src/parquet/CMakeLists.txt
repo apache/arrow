@@ -185,7 +185,7 @@ set(PARQUET_SRCS
     platform.cc
     printer.cc
     properties.cc
-    row_range.cc
+    row_selection.cc
     schema.cc
     size_statistics.cc
     statistics.cc
@@ -395,7 +395,7 @@ add_parquet_test(reader-test
                  column_scanner_test.cc
                  reader_test.cc
                  stream_reader_test.cc
-                 row_range_test.cc)
+                 row_selection_test.cc)
 
 add_parquet_test(writer-test
                  SOURCES

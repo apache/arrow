@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/row_range.h"
+#include "parquet/row_selection.h"
 
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/unreachable.h"
@@ -23,41 +23,41 @@
 
 namespace parquet {
 
-class IteratorImpl : public RowRanges::Iterator {
+class IteratorImpl : public RowSelection::Iterator {
  public:
-  explicit IteratorImpl(const RowRanges& ranges)
+  explicit IteratorImpl(const RowSelection& ranges)
       : iter_(ranges.ranges_.cbegin()), end_(ranges.ranges_.cend()) {}
 
   ~IteratorImpl() override = default;
 
-  std::variant<RowRanges::IntervalRange, RowRanges::BitmapRange, RowRanges::End>
+  std::variant<RowSelection::IntervalRange, RowSelection::BitmapRange, RowSelection::End>
   NextRange() override {
     if (iter_ == end_) {
-      return RowRanges::End();
+      return RowSelection::End();
     }
-    if (std::holds_alternative<RowRanges::IntervalRange>(*iter_)) {
-      return std::get<RowRanges::IntervalRange>(*iter_);
+    if (std::holds_alternative<RowSelection::IntervalRange>(*iter_)) {
+      return std::get<RowSelection::IntervalRange>(*iter_);
     }
-    if (std::holds_alternative<RowRanges::BitmapRange>(*iter_)) {
-      return std::get<RowRanges::BitmapRange>(*iter_);
+    if (std::holds_alternative<RowSelection::BitmapRange>(*iter_)) {
+      return std::get<RowSelection::BitmapRange>(*iter_);
     }
     arrow::Unreachable("Invalid row ranges type");
   }
 
  private:
-  decltype(RowRanges::ranges_.cbegin()) iter_;
-  decltype(RowRanges::ranges_.cend()) end_;
+  decltype(RowSelection::ranges_.cbegin()) iter_;
+  decltype(RowSelection::ranges_.cend()) end_;
 };
 
-std::unique_ptr<RowRanges::Iterator> RowRanges::NewIterator() const {
+std::unique_ptr<RowSelection::Iterator> RowSelection::NewIterator() const {
   return std::make_unique<IteratorImpl>(*this);
 }
 
-void RowRanges::Validate() const {
+void RowSelection::Validate() const {
   int64_t last_end = -1;
   for (const auto& range : ranges_) {
-    if (std::holds_alternative<RowRanges::IntervalRange>(range)) {
-      const auto& interval = std::get<RowRanges::IntervalRange>(range);
+    if (std::holds_alternative<RowSelection::IntervalRange>(range)) {
+      const auto& interval = std::get<RowSelection::IntervalRange>(range);
       if (interval.start <= last_end) {
         throw ParquetException("Row ranges are not in ascending order");
       }
@@ -67,8 +67,8 @@ void RowRanges::Validate() const {
       last_end = interval.end;
       continue;
     }
-    if (std::holds_alternative<RowRanges::BitmapRange>(range)) {
-      const auto& bitmap = std::get<RowRanges::BitmapRange>(range);
+    if (std::holds_alternative<RowSelection::BitmapRange>(range)) {
+      const auto& bitmap = std::get<RowSelection::BitmapRange>(range);
       if (bitmap.offset <= last_end) {
         throw ParquetException("Row ranges are not in ascending order");
       }
@@ -79,15 +79,15 @@ void RowRanges::Validate() const {
   }
 }
 
-int64_t RowRanges::row_count() const {
+int64_t RowSelection::row_count() const {
   int64_t count = 0;
   for (const auto& range : ranges_) {
-    if (std::holds_alternative<RowRanges::IntervalRange>(range)) {
-      const auto& interval = std::get<RowRanges::IntervalRange>(range);
+    if (std::holds_alternative<RowSelection::IntervalRange>(range)) {
+      const auto& interval = std::get<RowSelection::IntervalRange>(range);
       count += interval.end - interval.start + 1;
     }
-    if (std::holds_alternative<RowRanges::BitmapRange>(range)) {
-      const auto& bitmap = std::get<RowRanges::BitmapRange>(range);
+    if (std::holds_alternative<RowSelection::BitmapRange>(range)) {
+      const auto& bitmap = std::get<RowSelection::BitmapRange>(range);
       count += arrow::internal::CountSetBits(
           reinterpret_cast<const uint8_t*>(&bitmap.bitmap), 0, sizeof(bitmap.bitmap));
     }
@@ -96,8 +96,8 @@ int64_t RowRanges::row_count() const {
   return count;
 }
 
-RowRanges RowRanges::Intersect(const RowRanges& lhs, const RowRanges& rhs) {
-  RowRanges result;
+RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection& rhs) {
+  RowSelection result;
   auto lhs_iter = lhs.NewIterator();
   auto rhs_iter = rhs.NewIterator();
   auto lhs_range = lhs_iter->NextRange();
@@ -133,8 +133,8 @@ RowRanges RowRanges::Intersect(const RowRanges& lhs, const RowRanges& rhs) {
   return result;
 }
 
-RowRanges RowRanges::Union(const RowRanges& lhs, const RowRanges& rhs) {
-  RowRanges result;
+RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rhs) {
+  RowSelection result;
   auto lhs_iter = lhs.NewIterator();
   auto rhs_iter = rhs.NewIterator();
   auto lhs_range = lhs_iter->NextRange();
@@ -203,23 +203,23 @@ RowRanges RowRanges::Union(const RowRanges& lhs, const RowRanges& rhs) {
   return result;
 }
 
-RowRanges RowRanges::MakeSingle(int64_t row_count) {
-  RowRanges rowRanges;
-  rowRanges.ranges_.push_back(IntervalRange{0, row_count - 1});
-  return rowRanges;
+RowSelection RowSelection::MakeSingle(int64_t row_count) {
+  RowSelection rowSelection;
+  rowSelection.ranges_.push_back(IntervalRange{0, row_count - 1});
+  return rowSelection;
 }
 
-RowRanges RowRanges::MakeSingle(int64_t start, int64_t end) {
-  RowRanges rowRanges;
-  rowRanges.ranges_.push_back(IntervalRange{start, end});
-  return rowRanges;
+RowSelection RowSelection::MakeSingle(int64_t start, int64_t end) {
+  RowSelection rowSelection;
+  rowSelection.ranges_.push_back(IntervalRange{start, end});
+  return rowSelection;
 }
 
-RowRanges RowRanges::MakeIntervals(const std::vector<IntervalRange>& intervals) {
-  RowRanges rowRanges;
-  rowRanges.ranges_.reserve(intervals.size());
-  rowRanges.ranges_.insert(rowRanges.ranges_.end(), intervals.cbegin(), intervals.cend());
-  return rowRanges;
+RowSelection RowSelection::MakeIntervals(const std::vector<IntervalRange>& intervals) {
+  RowSelection rowSelection;
+  rowSelection.ranges_.reserve(intervals.size());
+  rowSelection.ranges_.insert(rowSelection.ranges_.end(), intervals.cbegin(), intervals.cend());
+  return rowSelection;
 }
 
 }  // namespace parquet

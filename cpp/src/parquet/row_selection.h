@@ -25,8 +25,8 @@
 
 namespace parquet {
 
-/// RowRanges is a collection of non-overlapping and ascendingly ordered row ranges.
-class PARQUET_EXPORT RowRanges {
+/// RowSelection is a collection of non-overlapping and ascendingly ordered row ranges.
+class PARQUET_EXPORT RowSelection {
  public:
   /// \brief EXPERIMENTAL: A range of contiguous rows represented by an interval.
   struct IntervalRange {
@@ -66,19 +66,19 @@ class PARQUET_EXPORT RowRanges {
   int64_t row_count() const;
 
   /// \brief EXPERIMENTAL: Compute the intersection of two row ranges.
-  static RowRanges Intersect(const RowRanges& lhs, const RowRanges& rhs);
+  static RowSelection Intersect(const RowSelection& lhs, const RowSelection& rhs);
 
   /// \brief EXPERIMENTAL: Compute the union of two row ranges.
-  static RowRanges Union(const RowRanges& lhs, const RowRanges& rhs);
+  static RowSelection Union(const RowSelection& lhs, const RowSelection& rhs);
 
   /// \brief EXPERIMENTAL: Make a single row range of [0, row_count - 1].
-  static RowRanges MakeSingle(int64_t row_count);
+  static RowSelection MakeSingle(int64_t row_count);
 
   /// \brief EXPERIMENTAL: Make a single row range of [start, end].
-  static RowRanges MakeSingle(int64_t start, int64_t end);
+  static RowSelection MakeSingle(int64_t start, int64_t end);
 
   /// \brief EXPERIMENTAL: Make a row range from a list of intervals.
-  static RowRanges MakeIntervals(const std::vector<IntervalRange>& intervals);
+  static RowSelection MakeIntervals(const std::vector<IntervalRange>& intervals);
 
  private:
   friend class IteratorImpl;
