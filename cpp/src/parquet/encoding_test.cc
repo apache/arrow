@@ -23,6 +23,7 @@
 #include <limits>
 #include <utility>
 #include <vector>
+#include <span>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -39,7 +40,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -50,7 +51,7 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
-using arrow::util::span;
+using std::span;
 
 namespace bit_util = arrow::bit_util;
 
@@ -2111,7 +2112,7 @@ std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
   return encoder->FlushValues();
 }
 
-std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) {
+std::shared_ptr<Buffer> DeltaEncode(std::span<const int32_t> lengths) {
   auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
   encoder->Put(lengths.data(), static_cast<int>(lengths.size()));
   return encoder->FlushValues();
@@ -2119,7 +2120,7 @@ std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) 
 
 std::shared_ptr<Buffer> DeltaEncode(std::shared_ptr<::arrow::Array>& lengths) {
   auto data = ::arrow::internal::checked_pointer_cast<const ::arrow::Int32Array>(lengths);
-  auto span = ::arrow::util::span<const int32_t>{data->raw_values(),
+  auto span = std::span<const int32_t>{data->raw_values(),
                                                  static_cast<size_t>(lengths->length())};
   return DeltaEncode(span);
 }

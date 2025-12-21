@@ -26,7 +26,7 @@
 
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
+#include <span>
 
 namespace arrow {
 

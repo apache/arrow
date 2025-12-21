@@ -33,7 +33,7 @@
 
 #include "arrow/util/logging.h"
 #include "arrow/util/secure_string.h"
-#include "arrow/util/span.h"
+#include <span>
 
 namespace arrow::util {
 

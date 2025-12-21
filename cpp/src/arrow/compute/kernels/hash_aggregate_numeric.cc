@@ -32,7 +32,7 @@
 #include "arrow/compute/row/grouper.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/tdigest_internal.h"
 #include "arrow/visit_type_inline.h"
 

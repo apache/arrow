@@ -31,7 +31,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/visibility.h"
 
 namespace arrow {

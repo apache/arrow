@@ -27,7 +27,7 @@
 
 namespace arrow::compute::internal {
 
-using ::arrow::util::span;
+using std::span;
 
 namespace {
 

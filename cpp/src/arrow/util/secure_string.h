@@ -20,7 +20,7 @@
 #include <cstdint>
 #include <string>
 
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/visibility.h"
 
 namespace arrow::util {

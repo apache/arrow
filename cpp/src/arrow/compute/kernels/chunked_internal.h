@@ -26,7 +26,7 @@
 #include "arrow/array.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/visibility.h"
 
 namespace arrow::compute::internal {

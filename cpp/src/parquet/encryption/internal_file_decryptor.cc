@@ -47,8 +47,8 @@ int32_t Decryptor::CiphertextLength(int32_t plaintext_len) const {
   return aes_decryptor_->CiphertextLength(plaintext_len);
 }
 
-int32_t Decryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                           ::arrow::util::span<uint8_t> plaintext) {
+int32_t Decryptor::Decrypt(std::span<const uint8_t> ciphertext,
+                           std::span<uint8_t> plaintext) {
   return aes_decryptor_->Decrypt(ciphertext, key_.as_span(), str2span(aad_), plaintext);
 }
 

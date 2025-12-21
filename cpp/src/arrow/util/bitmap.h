@@ -36,7 +36,7 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/string_util.h"
 #include "arrow/util/visibility.h"
 

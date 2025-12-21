@@ -20,6 +20,7 @@
 #include <memory>
 #include <string>
 #include <vector>
+#include <span>
 
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_aggregate.h"
@@ -33,12 +34,11 @@
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/util/span.h"
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
 
-using ::arrow::util::span;
+using std::span;
 
 namespace {
 

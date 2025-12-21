@@ -48,7 +48,7 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"

@@ -29,7 +29,7 @@ namespace arrow::compute::internal {
 namespace {
 
 using arrow::internal::VisitSetBitRunsVoid;
-using arrow::util::span;
+using std::span;
 
 struct PivotImpl : public ScalarAggregator {
   Status Init(const PivotWiderOptions& options, const std::vector<TypeHolder>& in_types,

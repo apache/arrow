@@ -22,16 +22,16 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include "arrow/util/span.h"
+#include <span>
 
 using testing::ElementsAre;
 using testing::ElementsAreArray;
 using testing::PrintToString;
 
-namespace arrow::util {
+namespace arrow_util_span_test {
 
 template <typename T>
-std::ostream& operator<<(std::ostream& os, const span<T>& span) {
+std::ostream& operator<<(std::ostream& os, const std::span<T>& span) {
   // Inefficient but good enough for testing
   os << PrintToString(std::vector(span.begin(), span.end()));
   return os;
@@ -39,33 +39,33 @@ std::ostream& operator<<(std::ostream& os, const span<T>& span) {
 
 TEST(Span, Construction) {
   // const spans may be constructed from mutable spans
-  static_assert(std::is_constructible_v<span<const int>, span<int>>);
+  static_assert(std::is_constructible_v<std::span<const int>, std::span<int>>);
   // ... but mutable spans may be constructed from const spans
-  static_assert(!std::is_constructible_v<span<int>, span<const int>>);
+  static_assert(!std::is_constructible_v<std::span<int>, std::span<const int>>);
 
   int arr[] = {1, 2, 3};
   constexpr int const_arr[] = {7, 8, 9};
 
-  static_assert(std::is_constructible_v<span<int>, decltype(arr)&>);
-  static_assert(!std::is_constructible_v<span<int>, decltype(const_arr)&>);
+  static_assert(std::is_constructible_v<std::span<int>, decltype(arr)&>);
+  static_assert(!std::is_constructible_v<std::span<int>, decltype(const_arr)&>);
 
-  static_assert(std::is_constructible_v<span<const int>, decltype(arr)&>);
-  static_assert(std::is_constructible_v<span<const int>, decltype(const_arr)&>);
+  static_assert(std::is_constructible_v<std::span<const int>, decltype(arr)&>);
+  static_assert(std::is_constructible_v<std::span<const int>, decltype(const_arr)&>);
 
-  static_assert(std::is_constructible_v<span<int>, std::vector<int>&>);
-  static_assert(!std::is_constructible_v<span<int>, const std::vector<int>&>);
-  static_assert(!std::is_constructible_v<span<int>, std::vector<int>&&>);
+  static_assert(std::is_constructible_v<std::span<int>, std::vector<int>&>);
+  static_assert(!std::is_constructible_v<std::span<int>, const std::vector<int>&>);
+  static_assert(!std::is_constructible_v<std::span<int>, std::vector<int>&&>);
 
-  static_assert(std::is_constructible_v<span<const int>, std::vector<int>&>);
-  static_assert(std::is_constructible_v<span<const int>, const std::vector<int>&>);
+  static_assert(std::is_constructible_v<std::span<const int>, std::vector<int>&>);
+  static_assert(std::is_constructible_v<std::span<const int>, const std::vector<int>&>);
   // const spans may even be constructed from rvalue ranges
-  static_assert(std::is_constructible_v<span<const int>, std::vector<int>&&>);
+  static_assert(std::is_constructible_v<std::span<const int>, std::vector<int>&&>);
 
-  EXPECT_THAT(span<const int>(const_arr), ElementsAreArray(const_arr));
-  EXPECT_THAT(span<int>(arr), ElementsAreArray(arr));
+  EXPECT_THAT(std::span<const int>(const_arr), ElementsAreArray(const_arr));
+  EXPECT_THAT(std::span<int>(arr), ElementsAreArray(arr));
 
-  static_assert(!std::is_constructible_v<span<const unsigned>, decltype(const_arr)&>);
-  static_assert(!std::is_constructible_v<span<const std::byte>, decltype(const_arr)&>);
+  static_assert(!std::is_constructible_v<std::span<const unsigned>, decltype(const_arr)&>);
+  static_assert(!std::is_constructible_v<std::span<const std::byte>, decltype(const_arr)&>);
 }
 
 TEST(Span, TemplateArgumentDeduction) {
@@ -73,10 +73,10 @@ TEST(Span, TemplateArgumentDeduction) {
   const int const_arr[] = {1, 2, 3};
   std::vector<int> vec;
   const std::vector<int> const_vec;
-  static_assert(std::is_same_v<decltype(span(arr)), span<int>>);
-  static_assert(std::is_same_v<decltype(span(vec)), span<int>>);
-  static_assert(std::is_same_v<decltype(span(const_arr)), span<const int>>);
-  static_assert(std::is_same_v<decltype(span(const_vec)), span<const int>>);
+  static_assert(std::is_same_v<decltype(span(arr)), std::span<int>>);
+  static_assert(std::is_same_v<decltype(span(vec)), std::span<int>>);
+  static_assert(std::is_same_v<decltype(span(const_arr)), std::span<const int>>);
+  static_assert(std::is_same_v<decltype(span(const_vec)), std::span<const int>>);
 }
 
 TEST(Span, Size) {
@@ -109,7 +109,7 @@ TEST(Span, Equality) {
 
   {
     // exercise integral branch with memcmp
-    check_eq(span<int>(), span<int>());
+    check_eq(std::span<int>(), std::span<int>());
 
     int arr[] = {1, 2, 3};
     check_eq(span(arr), span(arr));
@@ -131,7 +131,7 @@ TEST(Span, Equality) {
   }
   {
     // exercise non-integral branch with for loop
-    check_eq(span<std::string>(), span<std::string>());
+    check_eq(std::span<std::string>(), std::span<std::string>());
 
     std::string arr[] = {"a", "b", "c"};
     check_eq(span(arr), span(arr));
@@ -156,7 +156,7 @@ TEST(Span, SubSpan) {
   int arr[] = {1, 2, 3};
   span s(arr);
 
-  auto ExpectIdentical = [](span<int> l, span<int> r) {
+  auto ExpectIdentical = [](std::span<int> l, std::span<int> r) {
     EXPECT_EQ(l.data(), r.data());
     EXPECT_EQ(l.size(), r.size());
   };
@@ -190,7 +190,7 @@ TEST(Span, Mutation) {
 
   EXPECT_THAT(arr, ElementsAre(0, 1, 4, 9, 16));
 
-  auto set = [](span<size_t> lhs, size_t rhs) {
+  auto set = [](std::span<size_t> lhs, size_t rhs) {
     for (size_t& i : lhs) {
       i = rhs;
     }
@@ -201,4 +201,4 @@ TEST(Span, Mutation) {
   EXPECT_THAT(arr, ElementsAre(0, 1, 23, 23, 1));
 }
 
-}  // namespace arrow::util
+}  // namespace arrow_util_span_test

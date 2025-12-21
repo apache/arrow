@@ -29,11 +29,12 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <span>
 
 #include "parquet/encryption/openssl_internal.h"
 #include "parquet/exception.h"
 
-using ::arrow::util::span;
+using std::span;
 using parquet::ParquetException;
 
 namespace parquet::encryption {

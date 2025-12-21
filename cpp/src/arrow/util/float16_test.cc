@@ -24,7 +24,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "arrow/util/ubsan.h"
 
 namespace arrow::util {

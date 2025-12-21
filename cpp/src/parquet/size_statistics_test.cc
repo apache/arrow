@@ -25,7 +25,7 @@
 #include "arrow/buffer.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
-#include "arrow/util/span.h"
+#include <span>
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
