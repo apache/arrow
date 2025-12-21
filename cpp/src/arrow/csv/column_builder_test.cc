@@ -342,6 +342,25 @@ TEST_F(InferringColumnBuilderTest, SingleChunkInteger) {
                 {ArrayFromJSON(int64(), "[null, 123, 456]")});
 }
 
+TEST_F(InferringColumnBuilderTest, SingleChunkDefaultColumnTypeDoesNotOverrideInference) {
+  auto options = ConvertOptions::Defaults();
+  options.default_column_type = utf8();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"0000404", "0000505", "0000606"}}, options,
+                {ArrayFromJSON(int64(), "[404, 505, 606]")});
+}
+
+TEST_F(InferringColumnBuilderTest, MultipleChunkDefaultColumnTypeDoesNotOverrideInference) {
+  auto options = ConvertOptions::Defaults();
+  options.default_column_type = utf8();
+  auto tg = TaskGroup::MakeSerial();
+
+  CheckInferred(tg, {{"0000404"}, {"0000505", "0000606"}}, options,
+                {ArrayFromJSON(int64(), "[404]"),
+                 ArrayFromJSON(int64(), "[505, 606]")});
+}
+
 TEST_F(InferringColumnBuilderTest, MultipleChunkInteger) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
