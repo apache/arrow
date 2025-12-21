@@ -10717,112 +10717,34 @@ garrow_make_struct_options_new(void)
 }
 
 /**
- * garrow_make_struct_options_set_field_nullability:
+ * garrow_make_struct_options_add_field:
  * @options: A #GArrowMakeStructOptions.
- * @nullability: (element-type gboolean) (nullable) (transfer none): A #GList
- *   of nullability values, or %NULL.
+ * @name: The name of the field to add.
+ * @nullability: Whether the field is nullable.
+ * @metadata: (nullable) (element-type utf8 utf8): A #GHashTable for the field's
+ *   metadata, or %NULL.
  *
- * Sets the nullability information for each struct field.
+ * Adds a field to the struct options with the specified name, nullability,
+ * and optional metadata.
  *
  * Since: 23.0.0
  */
 void
-garrow_make_struct_options_set_field_nullability(GArrowMakeStructOptions *options,
-                                                  GList *nullability)
+garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
+                                     const char *name,
+                                     gboolean nullability,
+                                     GHashTable *metadata)
 {
   auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
-  arrow_options->field_nullability.clear();
-  if (nullability) {
-    for (GList *node = nullability; node; node = node->next) {
-      gboolean value = GPOINTER_TO_INT(node->data);
-      arrow_options->field_nullability.push_back(value != FALSE);
-    }
-  }
-}
-
-/**
- * garrow_make_struct_options_get_field_nullability:
- * @options: A #GArrowMakeStructOptions.
- *
- * Returns: (element-type gboolean) (transfer full): A #GList of nullability
- *   values. It should be freed with g_list_free() when no longer needed.
- *
- * Gets the nullability information for each struct field.
- *
- * Since: 23.0.0
- */
-GList *
-garrow_make_struct_options_get_field_nullability(GArrowMakeStructOptions *options)
-{
-  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
-    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
-  const auto &arrow_nullability = arrow_options->field_nullability;
-  GList *list = NULL;
-  for (gsize i = 0; i < arrow_nullability.size(); ++i) {
-    gboolean value = arrow_nullability[i] ? TRUE : FALSE;
-    list = g_list_prepend(list, GINT_TO_POINTER(value));
-  }
-  return g_list_reverse(list);
-}
-
-/**
- * garrow_make_struct_options_set_field_metadata:
- * @options: A #GArrowMakeStructOptions.
- * @metadata: (element-type GHashTable) (nullable) (transfer none): A #GList of
- *   #GHashTable for each field's metadata, or %NULL.
- *
- * Sets the metadata for each struct field.
- *
- * Since: 23.0.0
- */
-void
-garrow_make_struct_options_set_field_metadata(GArrowMakeStructOptions *options,
-                                               GList *metadata)
-{
-  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
-    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
-  arrow_options->field_metadata.clear();
+  arrow_options->field_names.emplace_back(name);
+  arrow_options->field_nullability.push_back(nullability != FALSE);
   if (metadata) {
-    for (GList *node = metadata; node; node = node->next) {
-      auto hash_table = static_cast<GHashTable *>(node->data);
-      if (hash_table) {
-        arrow_options->field_metadata.push_back(
-          garrow_internal_hash_table_to_metadata(hash_table));
-      } else {
-        arrow_options->field_metadata.push_back(NULLPTR);
-      }
-    }
+    arrow_options->field_metadata.push_back(
+      garrow_internal_hash_table_to_metadata(metadata));
+  } else {
+    arrow_options->field_metadata.push_back(nullptr);
   }
-}
-
-/**
- * garrow_make_struct_options_get_field_metadata:
- * @options: A #GArrowMakeStructOptions.
- *
- * Returns: (element-type GHashTable) (transfer full): A #GList of #GHashTable
- *   for each field's metadata. It should be freed with g_list_free_full() and
- *   g_hash_table_unref() when no longer needed.
- *
- * Gets the metadata for each struct field.
- *
- * Since: 23.0.0
- */
-GList *
-garrow_make_struct_options_get_field_metadata(GArrowMakeStructOptions *options)
-{
-  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
-    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
-  const auto &arrow_metadata = arrow_options->field_metadata;
-  GList *list = NULL;
-  for (gsize i = 0; i < arrow_metadata.size(); ++i) {
-    GHashTable *hash_table = NULL;
-    if (arrow_metadata[i] && arrow_metadata[i].get()) {
-      hash_table = garrow_internal_hash_table_from_metadata(arrow_metadata[i]);
-    }
-    list = g_list_prepend(list, hash_table);
-  }
-  return g_list_reverse(list);
 }
 
 G_END_DECLS
