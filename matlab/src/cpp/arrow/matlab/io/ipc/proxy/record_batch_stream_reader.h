@@ -30,6 +30,10 @@ class RecordBatchStreamReader : public libmexclass::proxy::Proxy {
 
   static libmexclass::proxy::MakeResult make(
       const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult fromFile(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
+  static libmexclass::proxy::MakeResult fromBytes(
+      const libmexclass::proxy::FunctionArguments& constructor_arguments);
 
  protected:
   std::shared_ptr<arrow::ipc::RecordBatchStreamReader> reader;

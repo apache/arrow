@@ -47,7 +47,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/vector.h"
 
@@ -410,7 +410,7 @@ bool ExecSpanIterator::Next(ExecSpan* span) {
     // The first time this is called, we populate the output span with any
     // Scalar or Array arguments in the ExecValue struct, and then just
     // increment array offsets below. If any arguments are ChunkedArray, then
-    // the internal ArraySpans will see their members updated during hte
+    // the internal ArraySpans will see their members updated during the
     // iteration
     span->values.resize(args_->size());
     for (size_t i = 0; i < args_->size(); ++i) {

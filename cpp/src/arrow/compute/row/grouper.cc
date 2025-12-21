@@ -17,6 +17,7 @@
 
 #include "arrow/compute/row/grouper.h"
 
+#include <cstring>
 #include <iostream>
 #include <memory>
 #include <mutex>
@@ -37,7 +38,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/cpu_info.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/task_group.h"
 
 namespace arrow {
@@ -55,18 +56,14 @@ using group_id_t = std::remove_const<decltype(kNoGroupId)>::type;
 using GroupIdType = CTypeTraits<group_id_t>::ArrowType;
 auto g_group_id_type = std::make_shared<GroupIdType>();
 
-template <typename Value>
-ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
-Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
-                              int64_t offset, const std::vector<TypeHolder>& key_types) {
-  DCHECK_GE(offset, 0);
-  DCHECK_LE(offset, length);
-  if (values.size() != key_types.size()) {
+Status CheckForGetSegments(const ExecSpan& batch,
+                           const std::vector<TypeHolder>& key_types) {
+  if (batch.values.size() != key_types.size()) {
     return Status::Invalid("expected batch size ", key_types.size(), " but got ",
-                           values.size());
+                           batch.values.size());
   }
   for (size_t i = 0; i < key_types.size(); i++) {
-    const auto& value = values[i];
+    const auto& value = batch.values[i];
     const auto& key_type = key_types[i];
     if (*value.type() != *key_type.type) {
       return Status::Invalid("expected batch value ", i, " of type ", *key_type.type,
@@ -74,25 +71,6 @@ Status CheckForGetNextSegment(const std::vector<Value>& values, int64_t length,
     }
   }
   return Status::OK();
-}
-
-template <typename Batch>
-ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
-enable_if_t<std::is_same<Batch, ExecSpan>::value || std::is_same<Batch, ExecBatch>::value,
-            Status> CheckForGetNextSegment(const Batch& batch, int64_t offset,
-                                           const std::vector<TypeHolder>& key_types) {
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  return CheckForGetNextSegment(batch.values, batch.length, offset, key_types);
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
-}
-
-Status CheckForGetSegments(const ExecSpan& batch,
-                           const std::vector<TypeHolder>& key_types) {
-  // TODO: Move the implementation of CheckForGetNextSegment here once we remove the
-  // deprecated functions.
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  return CheckForGetNextSegment(batch, 0, key_types);
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 }
 
 struct BaseRowSegmenter : public RowSegmenter {
@@ -110,7 +88,6 @@ Segment MakeSegment(int64_t batch_length, int64_t offset, int64_t length, bool e
 
 using ExtendFunc = std::function<bool(const void*)>;
 constexpr bool kDefaultExtends = true;  // by default, the first segment extends
-constexpr bool kEmptyExtends = true;    // an empty segment extends too
 
 struct NoKeysSegmenter : public BaseRowSegmenter {
   static std::unique_ptr<RowSegmenter> Make() {
@@ -120,14 +97,6 @@ struct NoKeysSegmenter : public BaseRowSegmenter {
   NoKeysSegmenter() : BaseRowSegmenter({}) {}
 
   Status Reset() override { return Status::OK(); }
-
-  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
-  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {}));
-    return MakeSegment(batch.length, offset, batch.length - offset, kDefaultExtends);
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-  }
 
   Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
     RETURN_NOT_OK(CheckForGetSegments(batch, {}));
@@ -154,64 +123,6 @@ struct SimpleKeySegmenter : public BaseRowSegmenter {
   Status Reset() override {
     extend_was_called_ = false;
     return Status::OK();
-  }
-
-  // Checks whether the given grouping data extends the current segment, i.e., is equal to
-  // previously seen grouping data, which is updated with each invocation.
-  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
-  bool ExtendDeprecated(const void* data) {
-    bool extends = !extend_was_called_
-                       ? kDefaultExtends
-                       : 0 == memcmp(save_key_data_.data(), data, save_key_data_.size());
-    extend_was_called_ = true;
-    memcpy(save_key_data_.data(), data, save_key_data_.size());
-    return extends;
-  }
-
-  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
-  Result<Segment> GetNextSegmentDeprecated(const Scalar& scalar, int64_t offset,
-                                           int64_t length) {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    DCHECK(is_fixed_width(*scalar.type));
-    DCHECK(scalar.is_valid);
-    auto data = checked_cast<const PrimitiveScalarBase&>(scalar).data();
-    bool extends = length > 0 ? ExtendDeprecated(data) : kEmptyExtends;
-    return MakeSegment(length, offset, length, extends);
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-  }
-
-  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
-  Result<Segment> GetNextSegmentDeprecated(const DataType& array_type,
-                                           const uint8_t* array_bytes, int64_t offset,
-                                           int64_t length) {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    DCHECK(is_fixed_width(array_type));
-    DCHECK_LE(offset, length);
-    int64_t byte_width = array_type.byte_width();
-    int64_t match_length = GetMatchLength(array_bytes + offset * byte_width, byte_width,
-                                          array_bytes, offset, length);
-    bool extends =
-        length > 0 ? ExtendDeprecated(array_bytes + offset * byte_width) : kEmptyExtends;
-    return MakeSegment(length, offset, match_length, extends);
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-  }
-
-  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, {key_type_}));
-    if (offset == batch.length) {
-      return MakeSegment(batch.length, offset, 0, kEmptyExtends);
-    }
-    const auto& value = batch.values[0];
-    if (value.is_scalar()) {
-      return GetNextSegmentDeprecated(*value.scalar, offset, batch.length);
-    }
-    ARROW_DCHECK(value.is_array());
-    const auto& array = value.array;
-    DCHECK_EQ(array.GetNullCount(), 0);
-    return GetNextSegmentDeprecated(*array.type, GetValuesAsBytes(array), offset,
-                                    batch.length);
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
   }
 
   Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
@@ -314,51 +225,6 @@ struct AnyKeysSegmenter : public BaseRowSegmenter {
     return Status::OK();
   }
 
-  ARROW_DEPRECATED("Deprecated in 18.0.0 along with GetSegments.")
-  bool Extend(const void* data) {
-    auto group_id = *static_cast<const group_id_t*>(data);
-    bool extends =
-        save_group_id_ == kNoGroupId ? kDefaultExtends : save_group_id_ == group_id;
-    save_group_id_ = group_id;
-    return extends;
-  }
-
-  ARROW_DEPRECATED("Deprecated in 18.0.0. Use GetSegments instead.")
-  Result<Segment> GetNextSegment(const ExecSpan& batch, int64_t offset) override {
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    ARROW_RETURN_NOT_OK(CheckForGetNextSegment(batch, offset, key_types_));
-    if (offset == batch.length) {
-      return MakeSegment(batch.length, offset, 0, kEmptyExtends);
-    }
-    // the group id must be computed prior to resetting the grouper, since it is compared
-    // to save_group_id_, and after resetting the grouper produces incomparable group ids
-    ARROW_ASSIGN_OR_RAISE(auto group_id, MapGroupIdAt(batch, offset));
-    ExtendFunc bound_extend = [this, group_id](const void* data) {
-      bool extends = Extend(&group_id);
-      save_group_id_ = *static_cast<const group_id_t*>(data);
-      return extends;
-    };
-    // resetting drops grouper's group-ids, freeing-up memory for the next segment
-    ARROW_RETURN_NOT_OK(grouper_->Reset());
-
-    ARROW_ASSIGN_OR_RAISE(auto datum, grouper_->Consume(batch, offset));
-    DCHECK(datum.is_array());
-    // `data` is an array whose index-0 corresponds to index `offset` of `batch`
-    const std::shared_ptr<ArrayData>& data = datum.array();
-    DCHECK_EQ(data->length, batch.length - offset);
-    DCHECK_EQ(data->GetNullCount(), 0);
-    DCHECK_EQ(data->type->id(), GroupIdType::type_id);
-    const group_id_t* values = data->GetValues<group_id_t>(1);
-    int64_t cursor;
-    for (cursor = 1; cursor < data->length; cursor++) {
-      if (values[0] != values[cursor]) break;
-    }
-    int64_t length = cursor;
-    bool extends = length > 0 ? bound_extend(values) : kEmptyExtends;
-    return MakeSegment(batch.length, offset, length, extends);
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-  }
-
   Result<std::vector<Segment>> GetSegments(const ExecSpan& batch) override {
     RETURN_NOT_OK(CheckForGetSegments(batch, {key_types_}));
 
@@ -453,7 +319,7 @@ Result<std::unique_ptr<RowSegmenter>> RowSegmenter::Make(
 
 namespace {
 
-Status CheckAndCapLengthForConsume(int64_t batch_length, int64_t& consume_offset,
+Status CheckAndCapLengthForConsume(int64_t batch_length, int64_t consume_offset,
                                    int64_t* consume_length) {
   if (consume_offset < 0) {
     return Status::Invalid("invalid grouper consume offset: ", consume_offset);
@@ -463,6 +329,8 @@ Status CheckAndCapLengthForConsume(int64_t batch_length, int64_t& consume_offset
   }
   return Status::OK();
 }
+
+enum class GrouperMode { kPopulate, kConsume, kLookup };
 
 struct GrouperImpl : public Grouper {
   static Result<std::unique_ptr<GrouperImpl>> Make(
@@ -523,11 +391,60 @@ struct GrouperImpl : public Grouper {
     return Status::OK();
   }
 
+  Status Populate(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    return ConsumeImpl(batch, offset, length, GrouperMode::kPopulate).status();
+  }
+
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    return ConsumeImpl(batch, offset, length, GrouperMode::kConsume);
+  }
+
+  Result<Datum> Lookup(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    return ConsumeImpl(batch, offset, length, GrouperMode::kLookup);
+  }
+
+  template <typename VisitGroupFunc, typename VisitUnknownGroupFunc>
+  void VisitKeys(int64_t length, const int32_t* key_offsets, const uint8_t* key_data,
+                 bool insert_new_keys, VisitGroupFunc&& visit_group,
+                 VisitUnknownGroupFunc&& visit_unknown_group) {
+    for (int64_t i = 0; i < length; ++i) {
+      const int32_t key_length = key_offsets[i + 1] - key_offsets[i];
+      const uint8_t* key_ptr = key_data + key_offsets[i];
+      std::string key(reinterpret_cast<const char*>(key_ptr), key_length);
+
+      uint32_t group_id;
+      if (insert_new_keys) {
+        const auto [it, inserted] = map_.emplace(std::move(key), num_groups_);
+        if (inserted) {
+          // New key: update offsets and key_bytes
+          ++num_groups_;
+          if (key_length > 0) {
+            const auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
+            key_bytes_.resize(next_key_offset + key_length);
+            offsets_.push_back(next_key_offset + key_length);
+            memcpy(key_bytes_.data() + next_key_offset, key_ptr, key_length);
+          }
+        }
+        group_id = it->second;
+      } else {
+        const auto it = map_.find(std::move(key));
+        if (it == map_.end()) {
+          // Key not found
+          visit_unknown_group();
+          continue;
+        }
+        group_id = it->second;
+      }
+      visit_group(group_id);
+    }
+  }
+
+  Result<Datum> ConsumeImpl(const ExecSpan& batch, int64_t offset, int64_t length,
+                            GrouperMode mode) {
     ARROW_RETURN_NOT_OK(CheckAndCapLengthForConsume(batch.length, offset, &length));
     if (offset != 0 || length != batch.length) {
       auto batch_slice = batch.ToExecBatch().Slice(offset, length);
-      return Consume(ExecSpan(batch_slice), 0, -1);
+      return ConsumeImpl(ExecSpan(batch_slice), 0, -1, mode);
     }
     std::vector<int32_t> offsets_batch(batch.length + 1);
     for (int i = 0; i < batch.num_values(); ++i) {
@@ -552,35 +469,50 @@ struct GrouperImpl : public Grouper {
       RETURN_NOT_OK(encoders_[i]->Encode(batch[i], batch.length, key_buf_ptrs.data()));
     }
 
-    TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
-    RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
-
-    for (int64_t i = 0; i < batch.length; ++i) {
-      int32_t key_length = offsets_batch[i + 1] - offsets_batch[i];
-      std::string key(
-          reinterpret_cast<const char*>(key_bytes_batch.data() + offsets_batch[i]),
-          key_length);
-
-      auto it_success = map_.emplace(key, num_groups_);
-      auto group_id = it_success.first->second;
-
-      if (it_success.second) {
-        // new key; update offsets and key_bytes
-        ++num_groups_;
-        // Skip if there are no keys
-        if (key_length > 0) {
-          auto next_key_offset = static_cast<int32_t>(key_bytes_.size());
-          key_bytes_.resize(next_key_offset + key_length);
-          offsets_.push_back(next_key_offset + key_length);
-          memcpy(key_bytes_.data() + next_key_offset, key.c_str(), key_length);
-        }
-      }
-
-      group_ids_batch.UnsafeAppend(group_id);
+    if (mode == GrouperMode::kPopulate) {
+      VisitKeys(
+          batch.length, offsets_batch.data(), key_bytes_batch.data(),
+          /*insert_new_keys=*/true,
+          /*visit_group=*/[](...) {},
+          /*visit_unknown_group=*/[] {});
+      return Datum();
     }
 
+    TypedBufferBuilder<uint32_t> group_ids_batch(ctx_->memory_pool());
+    RETURN_NOT_OK(group_ids_batch.Resize(batch.length));
+    std::shared_ptr<Buffer> null_bitmap;
+
+    if (mode == GrouperMode::kConsume) {
+      auto visit_group = [&](uint32_t group_id) {
+        group_ids_batch.UnsafeAppend(group_id);
+      };
+      auto visit_unknown_group = [] {};
+
+      VisitKeys(batch.length, offsets_batch.data(), key_bytes_batch.data(),
+                /*insert_new_keys=*/true, visit_group, visit_unknown_group);
+    } else {
+      DCHECK_EQ(mode, GrouperMode::kLookup);
+
+      // Create a null bitmap to indicate which keys were found.
+      TypedBufferBuilder<bool> null_bitmap_builder(ctx_->memory_pool());
+      RETURN_NOT_OK(null_bitmap_builder.Resize(batch.length));
+
+      auto visit_group = [&](uint32_t group_id) {
+        group_ids_batch.UnsafeAppend(group_id);
+        null_bitmap_builder.UnsafeAppend(true);
+      };
+      auto visit_unknown_group = [&] {
+        group_ids_batch.UnsafeAppend(0);  // any defined value really
+        null_bitmap_builder.UnsafeAppend(false);
+      };
+
+      VisitKeys(batch.length, offsets_batch.data(), key_bytes_batch.data(),
+                /*insert_new_keys=*/false, visit_group, visit_unknown_group);
+
+      ARROW_ASSIGN_OR_RAISE(null_bitmap, null_bitmap_builder.Finish());
+    }
     ARROW_ASSIGN_OR_RAISE(auto group_ids, group_ids_batch.Finish());
-    return Datum(UInt32Array(batch.length, std::move(group_ids)));
+    return Datum(UInt32Array(batch.length, std::move(group_ids), std::move(null_bitmap)));
   }
 
   uint32_t num_groups() const override { return num_groups_; }
@@ -605,6 +537,7 @@ struct GrouperImpl : public Grouper {
   }
 
   ExecContext* ctx_;
+  // TODO We could use std::string_view since the keys are copied in key_bytes_.
   std::unordered_map<std::string, uint32_t> map_;
   std::vector<int32_t> offsets_ = {0};
   std::vector<uint8_t> key_bytes_;
@@ -712,11 +645,24 @@ struct GrouperFastImpl : public Grouper {
     return Status::OK();
   }
 
+  Status Populate(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    return ConsumeImpl(batch, offset, length, GrouperMode::kPopulate).status();
+  }
+
   Result<Datum> Consume(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    return ConsumeImpl(batch, offset, length, GrouperMode::kConsume);
+  }
+
+  Result<Datum> Lookup(const ExecSpan& batch, int64_t offset, int64_t length) override {
+    return ConsumeImpl(batch, offset, length, GrouperMode::kLookup);
+  }
+
+  Result<Datum> ConsumeImpl(const ExecSpan& batch, int64_t offset, int64_t length,
+                            GrouperMode mode) {
     ARROW_RETURN_NOT_OK(CheckAndCapLengthForConsume(batch.length, offset, &length));
     if (offset != 0 || length != batch.length) {
       auto batch_slice = batch.ToExecBatch().Slice(offset, length);
-      return Consume(ExecSpan(batch_slice), 0, -1);
+      return ConsumeImpl(ExecSpan(batch_slice), 0, -1, mode);
     }
     // ARROW-14027: broadcast scalar arguments for now
     for (int i = 0; i < batch.num_values(); i++) {
@@ -730,13 +676,13 @@ struct GrouperFastImpl : public Grouper {
                                     ctx_->memory_pool()));
           }
         }
-        return ConsumeImpl(ExecSpan(expanded));
+        return ConsumeImpl(ExecSpan(expanded), mode);
       }
     }
-    return ConsumeImpl(batch);
+    return ConsumeImpl(batch, mode);
   }
 
-  Result<Datum> ConsumeImpl(const ExecSpan& batch) {
+  Result<Datum> ConsumeImpl(const ExecSpan& batch, GrouperMode mode) {
     int64_t num_rows = batch.length;
     int num_columns = batch.num_values();
     // Process dictionaries
@@ -755,10 +701,6 @@ struct GrouperFastImpl : public Grouper {
         }
       }
     }
-
-    std::shared_ptr<arrow::Buffer> group_ids;
-    ARROW_ASSIGN_OR_RAISE(
-        group_ids, AllocateBuffer(sizeof(uint32_t) * num_rows, ctx_->memory_pool()));
 
     for (int icol = 0; icol < num_columns; ++icol) {
       const uint8_t* non_nulls = NULLPTR;
@@ -784,11 +726,32 @@ struct GrouperFastImpl : public Grouper {
       cols_[icol] = col_base.Slice(offset, num_rows);
     }
 
+    std::shared_ptr<arrow::Buffer> group_ids, null_bitmap;
+    // If we need to return the group ids, then allocate a buffer of group ids
+    // for all rows, otherwise each minibatch will reuse the same buffer.
+    const int64_t groups_ids_size =
+        (mode == GrouperMode::kPopulate) ? minibatch_size_max_ : num_rows;
+    ARROW_ASSIGN_OR_RAISE(group_ids, AllocateBuffer(sizeof(uint32_t) * groups_ids_size,
+                                                    ctx_->memory_pool()));
+    if (mode == GrouperMode::kLookup) {
+      ARROW_ASSIGN_OR_RAISE(null_bitmap,
+                            AllocateBitmap(groups_ids_size, ctx_->memory_pool()));
+    }
+
     // Split into smaller mini-batches
     //
     for (uint32_t start_row = 0; start_row < num_rows;) {
       uint32_t batch_size_next = std::min(static_cast<uint32_t>(minibatch_size_),
                                           static_cast<uint32_t>(num_rows) - start_row);
+      uint32_t* batch_group_ids = group_ids->mutable_data_as<uint32_t>() +
+                                  ((mode == GrouperMode::kPopulate) ? 0 : start_row);
+      if (mode == GrouperMode::kLookup) {
+        // Zero-initialize each mini-batch just before it is partially populated
+        // in map_.find() below.
+        // This is potentially more cache-efficient than zeroing the entire buffer
+        // at once before this loop.
+        memset(batch_group_ids, 0, batch_size_next * sizeof(uint32_t));
+      }
 
       // Encode
       rows_minibatch_.Clean();
@@ -807,28 +770,38 @@ struct GrouperFastImpl : public Grouper {
                           match_bitvector.mutable_data(), local_slots.mutable_data());
         map_.find(batch_size_next, minibatch_hashes_.data(),
                   match_bitvector.mutable_data(), local_slots.mutable_data(),
-                  reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row,
-                  &temp_stack_, map_equal_impl_, nullptr);
+                  batch_group_ids, &temp_stack_, map_equal_impl_, nullptr);
       }
-      auto ids = util::TempVectorHolder<uint16_t>(&temp_stack_, batch_size_next);
-      int num_ids;
-      util::bit_util::bits_to_indexes(0, encode_ctx_.hardware_flags, batch_size_next,
-                                      match_bitvector.mutable_data(), &num_ids,
-                                      ids.mutable_data());
+      if (mode == GrouperMode::kLookup) {
+        // Fill validity bitmap from match_bitvector
+        ::arrow::internal::CopyBitmap(match_bitvector.mutable_data(), /*offset=*/0,
+                                      /*length=*/batch_size_next,
+                                      null_bitmap->mutable_data(),
+                                      /*dest_offset=*/start_row);
+      } else {
+        // Insert new keys
+        auto ids = util::TempVectorHolder<uint16_t>(&temp_stack_, batch_size_next);
+        int num_ids;
+        util::bit_util::bits_to_indexes(0, encode_ctx_.hardware_flags, batch_size_next,
+                                        match_bitvector.mutable_data(), &num_ids,
+                                        ids.mutable_data());
 
-      RETURN_NOT_OK(map_.map_new_keys(
-          num_ids, ids.mutable_data(), minibatch_hashes_.data(),
-          reinterpret_cast<uint32_t*>(group_ids->mutable_data()) + start_row,
-          &temp_stack_, map_equal_impl_, map_append_impl_, nullptr));
+        RETURN_NOT_OK(map_.map_new_keys(
+            num_ids, ids.mutable_data(), minibatch_hashes_.data(), batch_group_ids,
+            &temp_stack_, map_equal_impl_, map_append_impl_, nullptr));
+      }
 
       start_row += batch_size_next;
-
-      if (minibatch_size_ * 2 <= minibatch_size_max_) {
-        minibatch_size_ *= 2;
-      }
+      // XXX why not use minibatch_size_max_ from the start?
+      minibatch_size_ = std::min(minibatch_size_max_, 2 * minibatch_size_);
     }
 
-    return Datum(UInt32Array(batch.length, std::move(group_ids)));
+    if (mode == GrouperMode::kPopulate) {
+      return Datum{};
+    } else {
+      return Datum(
+          UInt32Array(batch.length, std::move(group_ids), std::move(null_bitmap)));
+    }
   }
 
   uint32_t num_groups() const override { return static_cast<uint32_t>(rows_.length()); }
@@ -839,14 +812,14 @@ struct GrouperFastImpl : public Grouper {
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> buf,
         AllocateBitmap(length + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, bit_util::BytesForBits(length));
+    return SliceMutableBuffer(std::move(buf), 0, bit_util::BytesForBits(length));
   }
 
   Result<std::shared_ptr<Buffer>> AllocatePaddedBuffer(int64_t size) {
     ARROW_ASSIGN_OR_RAISE(
         std::shared_ptr<Buffer> buf,
         AllocateBuffer(size + kBitmapPaddingForSIMD, ctx_->memory_pool()));
-    return SliceMutableBuffer(buf, 0, size);
+    return SliceMutableBuffer(std::move(buf), 0, size);
   }
 
   Result<ExecBatch> GetUniques() override {

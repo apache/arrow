@@ -23,6 +23,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/copy_data_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/bit_block_counter.h"
@@ -30,6 +31,7 @@
 #include "arrow/util/bitmap.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/bitmap_reader.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -1449,6 +1451,20 @@ struct CaseWhenFunction : ScalarFunction {
     if (auto kernel = DispatchExactImpl(this, *types)) return kernel;
     return arrow::compute::detail::NoMatchingKernel(this, *types);
   }
+
+  static std::shared_ptr<MatchConstraint> DecimalMatchConstraint() {
+    static auto constraint =
+        MatchConstraint::Make([](const std::vector<TypeHolder>& types) -> bool {
+          DCHECK_GE(types.size(), 2);
+          DCHECK(std::all_of(types.begin() + 1, types.end(), [](const TypeHolder& type) {
+            return is_decimal(type.id());
+          }));
+          return std::all_of(
+              types.begin() + 2, types.end(),
+              [&types](const TypeHolder& type) { return type == types[1]; });
+        });
+    return constraint;
+  }
 };
 
 // Implement a 'case when' (SQL)/'select' (NumPy) function for any scalar conditions
@@ -2710,10 +2726,11 @@ struct ChooseFunction : ScalarFunction {
 };
 
 void AddCaseWhenKernel(const std::shared_ptr<CaseWhenFunction>& scalar_function,
-                       detail::GetTypeId get_id, ArrayKernelExec exec) {
+                       detail::GetTypeId get_id, ArrayKernelExec exec,
+                       std::shared_ptr<MatchConstraint> constraint = nullptr) {
   ScalarKernel kernel(
       KernelSignature::Make({InputType(Type::STRUCT), InputType(get_id.id)}, LastType,
-                            /*is_varargs=*/true),
+                            /*is_varargs=*/true, std::move(constraint)),
       exec);
   if (is_fixed_width(get_id.id)) {
     kernel.null_handling = NullHandling::COMPUTED_PREALLOCATE;
@@ -2869,7 +2886,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveIfElseKernels(func, TemporalTypes());
     AddPrimitiveIfElseKernels(func, IntervalTypes());
     AddPrimitiveIfElseKernels(func, DurationTypes());
-    AddPrimitiveIfElseKernels(func, {boolean()});
+    AddPrimitiveIfElseKernels(func, {boolean(), float16()});
     AddNullIfElseKernel(func);
     AddBinaryIfElseKernels(func, BaseBinaryTypes());
     AddFixedWidthIfElseKernel<FixedSizeBinaryType>(func);
@@ -2885,11 +2902,13 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCaseWhenKernels(func, TemporalTypes());
     AddPrimitiveCaseWhenKernels(func, IntervalTypes());
     AddPrimitiveCaseWhenKernels(func, DurationTypes());
-    AddPrimitiveCaseWhenKernels(func, {boolean(), null()});
+    AddPrimitiveCaseWhenKernels(func, {boolean(), null(), float16()});
     AddCaseWhenKernel(func, Type::FIXED_SIZE_BINARY,
                       CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
-    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec);
+    AddCaseWhenKernel(func, Type::DECIMAL128, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
+                      CaseWhenFunction::DecimalMatchConstraint());
+    AddCaseWhenKernel(func, Type::DECIMAL256, CaseWhenFunctor<FixedSizeBinaryType>::Exec,
+                      CaseWhenFunction::DecimalMatchConstraint());
     AddBinaryCaseWhenKernels(func, BaseBinaryTypes());
     AddNestedCaseWhenKernels(func);
     DCHECK_OK(registry->AddFunction(std::move(func)));
@@ -2901,7 +2920,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveCoalesceKernels(func, TemporalTypes());
     AddPrimitiveCoalesceKernels(func, IntervalTypes());
     AddPrimitiveCoalesceKernels(func, DurationTypes());
-    AddPrimitiveCoalesceKernels(func, {boolean(), null()});
+    AddPrimitiveCoalesceKernels(func, {boolean(), null(), float16()});
     AddCoalesceKernel(func, Type::FIXED_SIZE_BINARY,
                       CoalesceFunctor<FixedSizeBinaryType>::Exec);
     AddCoalesceKernel(func, Type::DECIMAL128, CoalesceFunctor<FixedSizeBinaryType>::Exec);
@@ -2919,7 +2938,7 @@ void RegisterScalarIfElse(FunctionRegistry* registry) {
     AddPrimitiveChooseKernels(func, TemporalTypes());
     AddPrimitiveChooseKernels(func, IntervalTypes());
     AddPrimitiveChooseKernels(func, DurationTypes());
-    AddPrimitiveChooseKernels(func, {boolean(), null()});
+    AddPrimitiveChooseKernels(func, {boolean(), null(), float16()});
     AddChooseKernel(func, Type::FIXED_SIZE_BINARY,
                     ChooseFunctor<FixedSizeBinaryType>::Exec);
     AddChooseKernel(func, Type::DECIMAL128, ChooseFunctor<FixedSizeBinaryType>::Exec);

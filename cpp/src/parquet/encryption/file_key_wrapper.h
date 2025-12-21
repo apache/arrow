@@ -61,7 +61,7 @@ class PARQUET_EXPORT FileKeyWrapper {
   /// When external key material is used, an identifier is usually generated automatically
   /// but may be specified explicitly to support key rotation,
   /// which requires keeping the same identifiers.
-  std::string GetEncryptionKeyMetadata(const std::string& data_key,
+  std::string GetEncryptionKeyMetadata(const ::arrow::util::SecureString& data_key,
                                        const std::string& master_key_id,
                                        bool is_footer_key,
                                        std::string key_id_in_file = "");

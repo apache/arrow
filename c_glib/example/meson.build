@@ -17,33 +17,48 @@
 # specific language governing permissions and limitations
 # under the License.
 
-executable('build', 'build.c',
-           dependencies: [arrow_glib],
-           link_language: 'c')
-executable('extension-type', 'extension-type.c',
-           dependencies: [arrow_glib],
-           link_language: 'c')
-executable('read-file', 'read-file.c',
-           dependencies: [arrow_glib],
-           link_language: 'c')
-executable('read-stream', 'read-stream.c',
-           dependencies: [arrow_glib],
-           link_language: 'c')
-executable('receive-network', 'receive-network.c',
-           dependencies: [arrow_glib],
-           link_language: 'c')
-executable('send-network', 'send-network.c',
-           dependencies: [arrow_glib],
-           link_language: 'c')
+executable('build', 'build.c', dependencies: [arrow_glib], link_language: 'c')
+executable(
+    'extension-type',
+    'extension-type.c',
+    dependencies: [arrow_glib],
+    link_language: 'c',
+)
+executable(
+    'read-file',
+    'read-file.c',
+    dependencies: [arrow_glib],
+    link_language: 'c',
+)
+executable(
+    'read-stream',
+    'read-stream.c',
+    dependencies: [arrow_glib],
+    link_language: 'c',
+)
+executable(
+    'receive-network',
+    'receive-network.c',
+    dependencies: [arrow_glib],
+    link_language: 'c',
+)
+executable(
+    'send-network',
+    'send-network.c',
+    dependencies: [arrow_glib],
+    link_language: 'c',
+)
 
-install_data('README.md',
-             'build.c',
-             'extension-type.c',
-             'read-file.c',
-             'read-stream.c',
-             'receive-network.c',
-             'send-network.c',
-             install_dir: join_paths(data_dir, meson.project_name(), 'example'))
+install_data(
+    'README.md',
+    'build.c',
+    'extension-type.c',
+    'read-file.c',
+    'read-stream.c',
+    'receive-network.c',
+    'send-network.c',
+    install_dir: join_paths(data_dir, meson.project_name(), 'example'),
+)
 
 subdir('lua')
 subdir('vala')

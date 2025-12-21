@@ -23,6 +23,7 @@
 #include <unordered_set>
 #include <vector>
 
+#include "arrow/util/logging_internal.h"
 #include "gandiva/annotator.h"
 #include "gandiva/dex.h"
 #include "gandiva/function_holder_maker_registry.h"

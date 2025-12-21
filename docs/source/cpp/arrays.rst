@@ -57,6 +57,10 @@ example a ``std::vector``.  Instead, several strategies can be used:
   subclasses help building up array data incrementally, without having to
   deal with details of the Arrow format yourself.
 
+.. note:: For cases where performance isn't important such as examples or tests,
+          you may prefer to use the ``*FromJSONString`` helpers which can create
+          Arrays using a JSON text shorthand. See :ref:`fromjsonstring-helpers`.
+
 Using ArrayBuilder and its subclasses
 -------------------------------------
 
@@ -223,3 +227,28 @@ to some logical subsequence of the data.  This is done by calling the
 :func:`arrow::Array::Slice` and :func:`arrow::ChunkedArray::Slice` methods,
 respectively.
 
+.. _fromjsonstring-helpers:
+
+FromJSONString Helpers
+======================
+
+A set of helper functions is provided for concisely creating Arrays and Scalars
+from JSON_ text. These helpers are intended to be used in examples, tests, or
+for quick prototyping and are not intended to be used where performance matters.
+Most users will want to use the API described in :doc:`json` which provides a
+performant way to create :class:`arrow::Table` and :class:`arrow::RecordBatch`
+objects from line-separated JSON files.
+
+.. _JSON: https://datatracker.ietf.org/doc/html/rfc8259
+
+Examples for ``ArrayFromJSONString``, ``ChunkedArrayFromJSONString``,
+``DictArrayFromJSONString`` are shown below:
+
+.. literalinclude:: ../../../cpp/examples/arrow/from_json_string_example.cc
+   :language: cpp
+   :start-after: arrow::Status RunExample() {
+   :end-before: return arrow::Status::OK();
+   :dedent: 2
+
+Please see the :ref:`FromJSONString API listing <api-array-from-json-string>` for
+the complete set of helpers.

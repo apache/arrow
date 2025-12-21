@@ -17,6 +17,7 @@
 
 #include "arrow/dataset/scanner.h"
 
+#include <atomic>
 #include <memory>
 #include <mutex>
 #include <utility>
@@ -269,8 +270,8 @@ struct MockFragment : public Fragment {
   std::string type_name() const override { return "mock"; }
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
-  };
+    return given_physical_schema_;
+  }
 
   // ### Unit Test API ###
 
@@ -922,6 +923,23 @@ std::ostream& operator<<(std::ostream& out, const TestScannerParams& params) {
   return out;
 }
 
+// An InMemoryFragment subclass that tracks the calls to ClearCachedMetadata()
+class ClearCachedMetadataFragment : public InMemoryFragment {
+ public:
+  using InMemoryFragment::InMemoryFragment;
+
+  Status ClearCachedMetadata() override {
+    RETURN_NOT_OK(InMemoryFragment::ClearCachedMetadata());
+    metadata_clear_count_.fetch_add(1);
+    return Status::OK();
+  }
+
+  int metadata_clear_count() const { return metadata_clear_count_.load(); }
+
+ protected:
+  std::atomic<int> metadata_clear_count_{0};
+};
+
 class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
  protected:
   std::shared_ptr<Scanner> MakeScanner(std::shared_ptr<Dataset> dataset) {
@@ -977,6 +995,39 @@ class TestScanner : public DatasetFixtureMixinWithParam<TestScannerParams> {
     auto expected = ConstantArrayGenerator::Repeat(total_batches, batch);
 
     AssertScanBatchesUnorderedEquals(expected.get(), scanner.get(), 1);
+  }
+
+  void TestCacheMetadata(std::function<Status(Scanner*)> consume_scanner) {
+    // Test that ClearCachedMetadata() is called if ScanOptions::cache_metadata is false.
+    SetSchema({field("i32", int32())});
+    auto batch = ConstantArrayGenerator::Zeroes(GetParam().items_per_batch, schema_);
+    RecordBatchVector batches{batch, batch};
+    auto frag1 = std::make_shared<ClearCachedMetadataFragment>(batches);
+    auto frag2 = std::make_shared<ClearCachedMetadataFragment>(batches);
+    auto check_metadata_clear_counts = [&](const std::vector<int>& expected) {
+      auto actual =
+          std::vector<int>{frag1->metadata_clear_count(), frag2->metadata_clear_count()};
+      ASSERT_EQ(expected, actual);
+    };
+    {
+      ScannerBuilder builder(
+          std::make_shared<FragmentDataset>(schema_, FragmentVector{frag1, frag2}),
+          options_);
+      ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+      ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+      ASSERT_OK(consume_scanner(scanner.get()));
+      check_metadata_clear_counts({0, 0});
+    }
+    options_->cache_metadata = false;
+    {
+      ScannerBuilder builder(
+          std::make_shared<FragmentDataset>(schema_, FragmentVector{frag1, frag2}),
+          options_);
+      ASSERT_OK(builder.UseThreads(GetParam().use_threads));
+      ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+      ASSERT_OK(consume_scanner(scanner.get()));
+      check_metadata_clear_counts({1, 1});
+    }
   }
 };
 
@@ -1329,6 +1380,22 @@ TEST_P(TestScanner, EmptyFragment) {
   AssertTablesEqual(*expected, *actual, /*same_chunk_layout=*/false);
 }
 
+TEST_P(TestScanner, CacheMetadataScanBatches) {
+  auto consume_scanner = [](Scanner* scanner) -> Status {
+    ARROW_ASSIGN_OR_RAISE(auto batches_it, scanner->ScanBatches());
+    return batches_it.ToVector().status();
+  };
+  TestCacheMetadata(consume_scanner);
+}
+
+TEST_P(TestScanner, CacheMetadataScanBatchesUnordered) {
+  auto consume_scanner = [](Scanner* scanner) -> Status {
+    ARROW_ASSIGN_OR_RAISE(auto batches_it, scanner->ScanBatchesUnordered());
+    return batches_it.ToVector().status();
+  };
+  TestCacheMetadata(consume_scanner);
+}
+
 class CountRowsOnlyFragment : public InMemoryFragment {
  public:
   using InMemoryFragment::InMemoryFragment;
@@ -1644,7 +1711,7 @@ class ControlledFragment : public Fragment {
         tracking_generator_(record_batch_generator_) {}
 
   Result<std::shared_ptr<Schema>> ReadPhysicalSchemaImpl() override {
-    return physical_schema_;
+    return given_physical_schema_;
   }
   std::string type_name() const override { return "scanner_test.cc::ControlledFragment"; }
 
@@ -1657,7 +1724,7 @@ class ControlledFragment : public Fragment {
 
   void Finish() { ARROW_UNUSED(record_batch_generator_.producer().Close()); }
   void DeliverBatch(uint32_t num_rows) {
-    auto batch = ConstantArrayGenerator::Zeroes(num_rows, physical_schema_);
+    auto batch = ConstantArrayGenerator::Zeroes(num_rows, given_physical_schema_);
     record_batch_generator_.producer().Push(std::move(batch));
   }
 

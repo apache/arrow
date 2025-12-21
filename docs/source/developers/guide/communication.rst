@@ -51,9 +51,10 @@ Where to get help 👋
 ====================
 
 For any question you may have or problems you are facing you can write to
-user or development :ref:`mailing_list` or you can create an issue on
-:ref:`github`. Also use GitHub to search through the issues, report bugs
-and create feature requests or proposals.
+user or development :ref:`mailing_list`,
+`GitHub Discussions <https://github.com/apache/arrow/discussions>`_ or you can
+create an issue on :ref:`github`. Also use GitHub to search through the issues,
+report bugs and create feature requests or proposals.
 
 .. _github:
 
@@ -61,7 +62,9 @@ GitHub
 ~~~~~~
 
 Different options of communicating are provided through GitHub where the project
-is hosted. What we use are GitHub Issues and Pull Requests.
+is hosted. What we use are `GitHub Issues <https://github.com/apache/arrow/issues>`_,
+`Discussions <https://github.com/apache/arrow/discussions>`_ and
+`Pull Requests <https://github.com/apache/arrow/pulls>`_.
 
 You can use GitHub issues to:
 
@@ -75,7 +78,8 @@ You can use GitHub issues to:
 - **propose a new feature**,
 - **propose a bigger change in the documentation**,
 - report **a problem with building** one of the Arrow libraries and discuss
-  the possible solution (or write to the user mailing list).
+  the possible solution (or write on GitHub Discussions or to the user mailing
+  list).
 
   Making an issue about things you are not sure about may feel intimidating,
   but it is also useful for others and the project.
@@ -103,6 +107,11 @@ previous topics or ask questions. Whereas discussion on GitHub only notifies peo
 who are mentioned or are collaborating on a Pull Request, the mailing list allows
 you to broadcast to all users or developers. Use these when you want to get feedback
 or answers from a wider audience.
+
+.. note::
+  `GitHub Discussions <https://github.com/apache/arrow/discussions>`_ has all posts
+  mirrored to the <user@arrow.apache.org> mailing list. **Users are welcome to ask
+  usage questions in either location.**
 
 There is also a **biweekly developers sync call** that anyone is welcome to join.
 It is announced on the development mailing list together with the link to join.

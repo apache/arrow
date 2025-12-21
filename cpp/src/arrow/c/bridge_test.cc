@@ -31,7 +31,6 @@
 #include "arrow/c/bridge.h"
 #include "arrow/c/helpers.h"
 #include "arrow/c/util_internal.h"
-#include "arrow/ipc/json_simple.h"
 #include "arrow/memory_pool.h"
 #include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
@@ -43,7 +42,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/range.h"
 #include "arrow/util/thread_pool.h"
@@ -581,8 +580,10 @@ struct ArrayExportChecker {
       --expected_n_buffers;
       ++expected_buffers;
     }
-    bool has_variadic_buffer_sizes = expected_data.type->id() == Type::STRING_VIEW ||
-                                     expected_data.type->id() == Type::BINARY_VIEW;
+
+    bool has_variadic_buffer_sizes =
+        expected_data.type->storage_id() == Type::BINARY_VIEW ||
+        expected_data.type->storage_id() == Type::STRING_VIEW;
     ASSERT_EQ(c_export->n_buffers, expected_n_buffers + has_variadic_buffer_sizes);
     ASSERT_NE(c_export->buffers, nullptr);
 
@@ -958,6 +959,13 @@ TEST_F(TestArrayExport, BinaryViewMultipleBuffers) {
   TestPrimitive([&] {
     auto arr = MakeBinaryViewArrayWithMultipleDataBuffers();
     return arr->Slice(1, arr->length() - 2);
+  });
+}
+
+TEST_F(TestArrayExport, BinaryViewExtensionWithMultipleBuffers) {
+  TestPrimitive([&] {
+    auto storage = MakeBinaryViewArrayWithMultipleDataBuffers();
+    return BinaryViewExtensionType::WrapArray(binary_view_extension_type(), storage);
   });
 }
 
@@ -2346,6 +2354,34 @@ TEST_F(TestSchemaImport, DictionaryError) {
   FillDictionary(LastChild());
   FillPrimitive("u");
   FillDictionary();
+  CheckImportError();
+}
+
+TEST_F(TestSchemaImport, DecimalError) {
+  // Decimal precision out of bounds
+  FillPrimitive("d:0,10");
+  CheckImportError();
+  FillPrimitive("d:39,10");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,32");
+  CheckImportError();
+  FillPrimitive("d:10,4,32");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,64");
+  CheckImportError();
+  FillPrimitive("d:19,4,64");
+  CheckImportError();
+
+  FillPrimitive("d:0,10,128");
+  CheckImportError();
+  FillPrimitive("d:39,10,128");
+  CheckImportError();
+
+  FillPrimitive("d:0,4,256");
+  CheckImportError();
+  FillPrimitive("d:77,4,256");
   CheckImportError();
 }
 

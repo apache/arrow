@@ -747,8 +747,10 @@ def make_table():
         dictionary=a2)
 
     arrays = [a0, a1, a2, a3, a4, a5]
-    schema = pa.schema([('f{}'.format(i), arr.type)
-                        for i, arr in enumerate(arrays)])
+    schema = pa.schema([
+        (f'f{i}', arr.type)
+        for i, arr in enumerate(arrays)
+    ])
     batch = pa.record_batch(arrays, schema=schema)
     table = pa.Table.from_batches([batch])
     return table

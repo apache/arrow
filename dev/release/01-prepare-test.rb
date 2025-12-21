@@ -28,6 +28,8 @@ class PrepareTest < Test::Unit::TestCase
     Dir.mktmpdir do |dir|
       @test_git_repository = Pathname(dir) + "arrow"
       git("clone", @original_git_repository.to_s, @test_git_repository.to_s)
+      FileUtils.cp((top_dir + "dev" + "release" + ".env").to_s,
+                   (@test_git_repository + "dev" + "release").to_s)
       Dir.chdir(@test_git_repository) do
         @release_branch = "testing-release-#{@release_version}-rc0"
         git("checkout", "-b", @release_branch, @current_commit)
@@ -136,8 +138,8 @@ class PrepareTest < Test::Unit::TestCase
       {
         path: "c_glib/meson.build",
         hunks: [
-          ["-version = '#{@snapshot_version}'",
-           "+version = '#{@release_version}'"],
+          ["-    version: '#{@snapshot_version}',",
+           "+    version: '#{@release_version}',"],
         ],
       },
       {
@@ -162,17 +164,17 @@ class PrepareTest < Test::Unit::TestCase
         ],
       },
       {
+        path: "cpp/meson.build",
+        hunks: [
+          ["-    version: '#{@snapshot_version}',",
+           "+    version: '#{@release_version}',"],
+        ],
+      },
+      {
         path: "cpp/vcpkg.json",
         hunks: [
           ["-  \"version-string\": \"#{@snapshot_version}\",",
            "+  \"version-string\": \"#{@release_version}\","],
-        ],
-      },
-      {
-        path: "csharp/Directory.Build.props",
-        hunks: [
-          ["-    <Version>#{@snapshot_version}</Version>",
-           "+    <Version>#{@release_version}</Version>"],
         ],
       },
       {
@@ -211,13 +213,6 @@ class PrepareTest < Test::Unit::TestCase
       ]
     end
     expected_changes += [
-      {
-        path: "js/package.json",
-        hunks: [
-          ["-  \"version\": \"#{@snapshot_version}\"",
-           "+  \"version\": \"#{@release_version}\""],
-        ],
-      },
       {
         path: "matlab/CMakeLists.txt",
         hunks: [
@@ -264,7 +259,8 @@ class PrepareTest < Test::Unit::TestCase
               "-<p><a href=\"../r/\">#{@previous_r_version} (release)</a></p>",
               "+<body><p><a href=\"../dev/r/\">#{@release_version}.9000 (dev)</a></p>",
               "+<p><a href=\"../r/\">#{@release_version} (release)</a></p>",
-              "+<p><a href=\"../#{@previous_compatible_version}/r/\">#{@previous_r_version}</a></p>",
+              "+<p><a href=\"../#{@previous_compatible_version}/r/\">" +
+              "#{@previous_r_version}</a></p>",
             ]
           ],
         },

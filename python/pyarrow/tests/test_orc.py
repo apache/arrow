@@ -177,7 +177,12 @@ def test_timezone_absent(datadir, tmpdir):
         shutil.copytree(source_tzdir, tzdir, symlinks=True)
     except OSError as e:
         pytest.skip(f"Failed to copy timezone database: {e}")
+    # ORC 2.1.1 Creates an alias between some legacy Timezones
+    # https://github.com/apache/orc/pull/2422
+    # Example US/Pacific -> America/Los_Angeles
+    # Remove both to simulate missing timezone and avoid alias resolution
     (tzdir / 'US' / 'Pacific').unlink(missing_ok=True)
+    (tzdir / 'America' / 'Los_Angeles').unlink(missing_ok=True)
 
     path = datadir / 'TestOrcFile.testDate1900.orc'
     code = f"""if 1:
@@ -189,7 +194,8 @@ def test_timezone_absent(datadir, tmpdir):
         try:
             orc_file.read()
         except Exception as e:
-            assert "zoneinfo/US/Pacific" in str(e), e
+            timezones = ["zoneinfo/US/Pacific", "zoneinfo/America/Los_Angeles"]
+            assert any(tz in str(e) for tz in timezones), e
         else:
             assert False, "Should have raised exception"
     """
@@ -334,7 +340,7 @@ def test_buffer_readwrite_with_writeoptions():
         compression='snappy',
         file_version='0.11',
         row_index_stride=5000,
-        compression_block_size=32768,
+        compression_block_size=65536,
     )
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
@@ -344,7 +350,7 @@ def test_buffer_readwrite_with_writeoptions():
     assert orc_file.compression == 'SNAPPY'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 5000
-    assert orc_file.compression_size == 32768
+    assert orc_file.compression_size == 65536
 
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
@@ -355,7 +361,7 @@ def test_buffer_readwrite_with_writeoptions():
             compression='uncompressed',
             file_version='0.11',
             row_index_stride=20000,
-            compression_block_size=16384,
+            compression_block_size=65536,
         )
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
@@ -365,7 +371,7 @@ def test_buffer_readwrite_with_writeoptions():
     assert orc_file.compression == 'UNCOMPRESSED'
     assert orc_file.file_version == '0.11'
     assert orc_file.row_index_stride == 20000
-    assert orc_file.compression_size == 16384
+    assert orc_file.compression_size == 65536
 
 
 def test_buffer_readwrite_with_bad_writeoptions():

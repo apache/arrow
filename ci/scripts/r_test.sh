@@ -91,7 +91,9 @@ export TEXMFVAR=/tmp/texmf-var
 BEFORE=$(ls -alh ~/)
 
 SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
-  if (as_cran) {
+  # generally will be false, but we can override it by setting SKIP_VIGNETTES=true
+  skip_vignettes <- identical(tolower(Sys.getenv('SKIP_VIGNETTES')), 'true')
+  if (as_cran && !skip_vignettes) {
     args <- '--as-cran'
     build_args <- character()
   } else {
@@ -99,7 +101,7 @@ SCRIPT="as_cran <- !identical(tolower(Sys.getenv('NOT_CRAN')), 'true')
     build_args <- '--no-build-vignettes'
   }
 
-  if (requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
+  if (!as_cran && requireNamespace('reticulate', quietly = TRUE) && reticulate::py_module_available('pyarrow')) {
       message('Running flight demo server for tests.')
       pid_flight <- sys::exec_background(
           'python',
@@ -128,7 +130,8 @@ echo "$SCRIPT" | ${R_BIN} --no-save
 
 AFTER=$(ls -alh ~/)
 if [ "$NOT_CRAN" != "true" ] && [ "$BEFORE" != "$AFTER" ]; then
-  ls -alh ~/.cmake/packages
+  # Ignore ~/.TinyTex/ and ~/R/ because it has many files.
+  find ~ -path ~/.TinyTeX -prune -or -path ~/R/ -prune -or -print
   exit 1
 fi
 popd

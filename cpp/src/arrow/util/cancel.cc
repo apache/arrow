@@ -26,7 +26,7 @@
 #include "arrow/result.h"
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
 #include "arrow/util/visibility.h"
 
@@ -169,7 +169,7 @@ struct SignalStopState : public std::enable_shared_from_this<SignalStopState> {
     self_pipe_ptr_.store(nullptr);
     auto handlers = std::move(saved_handlers_);
     for (const auto& h : handlers) {
-      ARROW_CHECK_OK(SetSignalHandler(h.signum, h.handler).status());
+      ARROW_CHECK_OK(SetSignalHandler(h.signum, h.handler));
     }
   }
 

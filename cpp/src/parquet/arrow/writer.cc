@@ -34,7 +34,7 @@
 #include "arrow/util/base64.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 
 #include "parquet/arrow/path_internal.h"
@@ -105,6 +105,33 @@ bool HasNullableRoot(const SchemaManifest& schema_manifest,
     current_field = schema_manifest.GetParent(current_field);
   }
   return nullable;
+}
+
+Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
+                         const ArrowWriterProperties& properties,
+                         std::shared_ptr<const KeyValueMetadata>* out) {
+  if (!properties.store_schema()) {
+    *out = nullptr;
+    return Status::OK();
+  }
+
+  static const std::string kArrowSchemaKey = "ARROW:schema";
+  std::shared_ptr<KeyValueMetadata> result;
+  if (schema.metadata()) {
+    result = schema.metadata()->Copy();
+  } else {
+    result = ::arrow::key_value_metadata({}, {});
+  }
+
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> serialized,
+                        ::arrow::ipc::SerializeSchema(schema, pool));
+
+  // The serialized schema is not UTF-8, which is required for Thrift
+  std::string schema_as_string = serialized->ToString();
+  std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
+  result->Append(kArrowSchemaKey, std::move(schema_base64));
+  *out = std::move(result);
+  return Status::OK();
 }
 
 // Manages writing nested parquet columns with support for all nested types
@@ -305,7 +332,7 @@ class FileWriterImpl : public FileWriter {
                                 default_arrow_reader_properties(), &schema_manifest_);
   }
 
-  Status NewRowGroup(int64_t chunk_size) override {
+  Status NewRowGroup() override {
     RETURN_NOT_OK(CheckClosed());
     if (row_group_writer_ != nullptr) {
       PARQUET_CATCH_NOT_OK(row_group_writer_->Close());
@@ -379,7 +406,7 @@ class FileWriterImpl : public FileWriter {
     }
 
     auto WriteRowGroup = [&](int64_t offset, int64_t size) {
-      RETURN_NOT_OK(NewRowGroup(size));
+      RETURN_NOT_OK(NewRowGroup());
       for (int i = 0; i < table.num_columns(); i++) {
         RETURN_NOT_OK(WriteColumnChunk(table.column(i), offset, size));
       }
@@ -388,15 +415,14 @@ class FileWriterImpl : public FileWriter {
 
     if (table.num_rows() == 0) {
       // Append a row group with 0 rows
-      RETURN_NOT_OK_ELSE(WriteRowGroup(0, 0), PARQUET_IGNORE_NOT_OK(Close()));
-      return Status::OK();
+      RETURN_NOT_OK(
+          WriteRowGroup(0, 0).OrElse([&](auto&&) { PARQUET_IGNORE_NOT_OK(Close()); }));
     }
 
     for (int chunk = 0; chunk * chunk_size < table.num_rows(); chunk++) {
       int64_t offset = chunk * chunk_size;
-      RETURN_NOT_OK_ELSE(
-          WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset)),
-          PARQUET_IGNORE_NOT_OK(Close()));
+      RETURN_NOT_OK(WriteRowGroup(offset, std::min(chunk_size, table.num_rows() - offset))
+                        .OrElse([&](auto&&) { PARQUET_IGNORE_NOT_OK(Close()); }));
     }
     return Status::OK();
   }
@@ -520,33 +546,6 @@ Status FileWriter::Make(::arrow::MemoryPool* pool,
       std::move(schema), pool, std::move(writer), std::move(arrow_properties)));
   RETURN_NOT_OK(impl->Init());
   *out = std::move(impl);
-  return Status::OK();
-}
-
-Status GetSchemaMetadata(const ::arrow::Schema& schema, ::arrow::MemoryPool* pool,
-                         const ArrowWriterProperties& properties,
-                         std::shared_ptr<const KeyValueMetadata>* out) {
-  if (!properties.store_schema()) {
-    *out = nullptr;
-    return Status::OK();
-  }
-
-  static const std::string kArrowSchemaKey = "ARROW:schema";
-  std::shared_ptr<KeyValueMetadata> result;
-  if (schema.metadata()) {
-    result = schema.metadata()->Copy();
-  } else {
-    result = ::arrow::key_value_metadata({}, {});
-  }
-
-  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> serialized,
-                        ::arrow::ipc::SerializeSchema(schema, pool));
-
-  // The serialized schema is not UTF-8, which is required for Thrift
-  std::string schema_as_string = serialized->ToString();
-  std::string schema_base64 = ::arrow::util::base64_encode(schema_as_string);
-  result->Append(kArrowSchemaKey, std::move(schema_base64));
-  *out = std::move(result);
   return Status::OK();
 }
 

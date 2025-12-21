@@ -44,15 +44,13 @@
 }
 
 .deserialize_arrow_r_metadata <- function(x) {
-  tryCatch(unserialize_r_metadata(x),
-    error = function(e) {
-      if (getOption("arrow.debug", FALSE)) {
-        print(conditionMessage(e))
-      }
-      warning("Invalid metadata$r", call. = FALSE)
-      NULL
+  tryCatch(unserialize_r_metadata(x), error = function(e) {
+    if (getOption("arrow.debug", FALSE)) {
+      print(conditionMessage(e))
     }
-  )
+    warning("Invalid metadata$r", call. = FALSE)
+    NULL
+  })
 }
 
 unserialize_r_metadata <- function(x) {
@@ -177,7 +175,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       columns_metadata <- r_metadata$columns
       if (is.data.frame(x)) {
         # if columns metadata exists, apply it here
-        if (length(names(x)) && !is.null(columns_metadata)) {
+        if (length(names(x)) && !is.null(columns_metadata) && !all(map_lgl(columns_metadata, is.null))) {
           for (name in intersect(names(columns_metadata), names(x))) {
             x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
           }
@@ -245,14 +243,14 @@ remove_attributes <- function(x) {
     removed_attributes <- c("row.names", "names")
   } else if (inherits(x, "factor")) {
     removed_attributes <- c("class", "levels")
-  } else if (inherits(x, c("integer64", "Date", "arrow_binary", "arrow_large_binary"))) {
-    removed_attributes <- c("class")
   } else if (inherits(x, "arrow_fixed_size_binary")) {
     removed_attributes <- c("class", "byte_width")
   } else if (inherits(x, "POSIXct")) {
     removed_attributes <- c("class", "tzone")
   } else if (inherits(x, "hms") || inherits(x, "difftime")) {
     removed_attributes <- c("class", "units")
+  } else if (inherits(x, c("integer64", "Date", "blob", "arrow_binary", "arrow_large_binary"))) {
+    removed_attributes <- c("class")
   }
   removed_attributes
 }
@@ -291,7 +289,8 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
 
   columns <- NULL
   attempt_to_save_row_level <- getOption("arrow.preserve_row_level_metadata", FALSE) &&
-    is.list(x) && !inherits(x, "POSIXlt")
+    is.list(x) &&
+    !inherits(x, "POSIXlt")
   if (attempt_to_save_row_level) {
     # However, if we are inside of a dplyr collection (including all datasets),
     # we cannot apply this row-level metadata, since the order of the rows is

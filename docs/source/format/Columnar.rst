@@ -40,7 +40,7 @@ while reading this document.
 The columnar format has some key features:
 
 * Data adjacency for sequential access (scans)
-* O(1) (constant-time) random access
+* O(1) (constant-time) random access [#f1]_
 * SIMD and vectorization-friendly
 * Relocatable without "pointer swizzling", allowing for true zero-copy
   access in shared memory
@@ -51,6 +51,9 @@ mutation operations. This document is concerned only with in-memory
 data representation and serialization details; issues such as
 coordinating mutation of data structures are left to be handled by
 implementations.
+
+.. [#f1] Except for the :ref:`run-end-encoded-layout` where random access is
+    O(log n).
 
 Terminology
 ===========
@@ -479,7 +482,7 @@ will be represented as follows: ::
 Variable-size Binary View Layout
 --------------------------------
 
-.. versionadded:: Arrow Columnar Format 1.4
+.. note:: New in Arrow Columnar Format 1.4
 
 Each value in this layout consists of 0 or more bytes. These bytes'
 locations are indicated using a **views** buffer, which may point to one
@@ -625,7 +628,7 @@ will be represented as follows: ::
 ListView Layout
 ~~~~~~~~~~~~~~~
 
-.. versionadded:: Arrow Columnar Format 1.4
+.. note:: New in Arrow Columnar Format 1.4
 
 The ListView layout is defined by three buffers: a validity bitmap, an offsets
 buffer, and an additional sizes buffer. Sizes and offsets have the identical bit
@@ -693,7 +696,7 @@ having logical values::
 
 It may have the following representation: ::
 
-    * Length: 4, Null count: 1
+    * Length: 5, Null count: 1
     * Validity bitmap buffer:
 
       | Byte 0 (validity bitmap) | Bytes 1-63            |
@@ -877,7 +880,7 @@ each value. Its physical layout is as follows:
 * One child array for each type
 * Types buffer: A buffer of 8-bit signed integers. Each type in the
   union has a corresponding type id whose values are found in this
-  buffer. A union with more than 127 possible types can be modeled as
+  buffer. A union with more than 128 possible types can be modeled as
   a union of unions.
 * Offsets buffer: A buffer of signed Int32 values indicating the
   relative offset into the respective child array for the type in a
@@ -1082,7 +1085,7 @@ below.
 Run-End Encoded Layout
 ----------------------
 
-.. versionadded:: Arrow Columnar Format 1.3
+.. note:: New in Arrow Columnar Format 1.3
 
 Run-end encoding (REE) is a variation of run-length encoding (RLE). These
 encodings are well-suited for representing data containing sequences of the
@@ -1357,7 +1360,7 @@ memory size rather than the padded size.
 Variadic buffers
 ----------------
 
-.. versionadded:: Arrow Columnar Format 1.4
+.. note:: New in Arrow Columnar Format 1.4
 
 Some types such as Utf8View are represented using a variable number of buffers.
 For each such Field in the pre-ordered flattened logical schema, there will be

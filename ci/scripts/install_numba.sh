@@ -19,14 +19,18 @@
 
 set -e
 
-if [ "$#" -ne 1 ]; then
-  echo "Usage: $0 <numba version>"
+if [ "$#" -ne 1 ] && [ "$#" -ne 2 ] && [ "$#" -ne 3 ]; then
+  echo "Usage: $0 <numba version> [numba-cuda version] [CUDA version]"
   exit 1
 fi
 
 numba=$1
 
 if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # We don't need to follow this external file.
+  # See also: https://www.shellcheck.net/wiki/SC1091
+  #
+  # shellcheck source=/dev/null
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
@@ -35,5 +39,28 @@ if [ "${numba}" = "master" ]; then
 elif [ "${numba}" = "latest" ]; then
   pip install numba
 else
-  pip install numba==${numba}
+  pip install "numba==${numba}"
+fi
+
+if [ "$#" -eq 1 ]; then
+  exit 0
+fi
+
+numba_cuda=$2
+
+DEFAULT_CUDA_VERSION="12"
+
+if [ "$#" -eq 3 ]; then
+  # Extract the CUDA major version only
+  cuda_version="${3%%.*}"
+else
+  cuda_version="${DEFAULT_CUDA_VERSION}"
+fi
+
+if [ "${numba_cuda}" = "master" ]; then
+  pip install "numba-cuda[cu${cuda_version}] @ https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz"
+elif [ "${numba_cuda}" = "latest" ]; then
+  pip install "numba-cuda[cu${cuda_version}]"
+else
+  pip install "numba-cuda[cu${cuda_version}]==${numba_cuda}"
 fi

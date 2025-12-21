@@ -24,6 +24,7 @@
 #include <memory>
 #include <string>
 #include <string_view>
+#include <type_traits>
 #include <utility>
 #include <vector>
 
@@ -37,9 +38,9 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util_overflow.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
-#include "arrow/util/spaced.h"
+#include "arrow/util/spaced_internal.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
@@ -47,6 +48,11 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
 
 namespace bit_util = arrow::bit_util;
 
@@ -66,6 +72,21 @@ namespace {
 // The Parquet spec isn't very clear whether ByteArray lengths are signed or
 // unsigned, but the Java implementation uses signed ints.
 constexpr size_t kMaxByteArraySize = std::numeric_limits<int32_t>::max();
+
+// Get the data size of a Array binary-like array
+template <typename ArrayType>
+int64_t GetBinaryDataSize(const ArrayType& array) {
+  return array.value_offset(array.length()) - array.value_offset(0);
+}
+
+template <>
+int64_t GetBinaryDataSize(const ::arrow::BinaryViewArray& array) {
+  int64_t total_size = 0;
+  ::arrow::VisitArraySpanInline<::arrow::BinaryViewType>(
+      *array.data(),
+      [&](std::string_view v) { total_size += static_cast<int64_t>(v.size()); }, [] {});
+  return total_size;
+}
 
 class EncoderImpl : virtual public Encoder {
  public:
@@ -158,8 +179,7 @@ class PlainEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
  protected:
   template <typename ArrayType>
   void PutBinaryArray(const ArrayType& array) {
-    const int64_t total_bytes =
-        array.value_offset(array.length()) - array.value_offset(0);
+    const int64_t total_bytes = GetBinaryDataSize(array);
     PARQUET_THROW_NOT_OK(sink_.Reserve(total_bytes + array.length() * sizeof(uint32_t)));
 
     PARQUET_THROW_NOT_OK(::arrow::VisitArraySpanInline<typename ArrayType::TypeClass>(
@@ -249,21 +269,24 @@ void PlainEncoder<DType>::Put(const ::arrow::Array& values) {
   ParquetException::NYI("direct put of " + values.type()->ToString());
 }
 
-void AssertBaseBinary(const ::arrow::Array& values) {
-  if (!::arrow::is_base_binary_like(values.type_id())) {
-    throw ParquetException("Only BaseBinaryArray and subclasses supported");
+void AssertVarLengthBinary(const ::arrow::Array& values) {
+  if (!::arrow::is_base_binary_like(values.type_id()) &&
+      !::arrow::is_binary_view_like(values.type_id())) {
+    throw ParquetException("Only binary-like data supported");
   }
 }
 
 template <>
 inline void PlainEncoder<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
 
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_binary_view_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   }
 }
 
@@ -415,22 +438,21 @@ struct DictEncoderTraits<FLBAType> {
 // Initially 1024 elements
 static constexpr int32_t kInitialHashTableSize = 1 << 10;
 
-int RlePreserveBufferSize(int num_values, int bit_width) {
+int64_t RlePreserveBufferSize(int64_t num_values, int bit_width) {
   // Note: because of the way RleEncoder::CheckBufferFull()
   // is called, we have to reserve an extra "RleEncoder::MinBufferSize"
   // bytes. These extra bytes won't be used but not reserving them
   // would cause the encoder to fail.
-  return ::arrow::util::RleEncoder::MaxBufferSize(bit_width, num_values) +
-         ::arrow::util::RleEncoder::MinBufferSize(bit_width);
+  return ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, num_values) +
+         ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width);
 }
 
 /// See the dictionary encoding section of
-/// https://github.com/Parquet/parquet-format.  The encoding supports
-/// streaming encoding. Values are encoded as they are added while the
-/// dictionary is being constructed. At any time, the buffered values
-/// can be written out with the current dictionary size. More values
-/// can then be added to the encoder, including new dictionary
-/// entries.
+/// https://github.com/apache/parquet-format/blob/master/Encodings.md.  The encoding
+/// supports streaming encoding. Values are encoded as they are added while the dictionary
+/// is being constructed. At any time, the buffered values can be written out with the
+/// current dictionary size. More values can then be added to the encoder, including new
+/// dictionary entries.
 template <typename DType>
 class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   using MemoTableType = typename DictEncoderTraits<DType>::MemoTableType;
@@ -458,7 +480,7 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
     ++buffer;
     --buffer_len;
 
-    ::arrow::util::RleEncoder encoder(buffer, buffer_len, bit_width());
+    ::arrow::util::RleBitPackedEncoder encoder(buffer, buffer_len, bit_width());
 
     for (int32_t index : buffered_indices_) {
       if (ARROW_PREDICT_FALSE(!encoder.Put(index))) return -1;
@@ -473,7 +495,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   /// indices. Used to size the buffer passed to WriteIndices().
   int64_t EstimatedDataEncodedSize() override {
     return kDataPageBitWidthBytes +
-           RlePreserveBufferSize(static_cast<int>(buffered_indices_.size()), bit_width());
+           RlePreserveBufferSize(static_cast<int64_t>(buffered_indices_.size()),
+                                 bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.
@@ -559,10 +582,15 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   }
 
   std::shared_ptr<Buffer> FlushValues() override {
-    std::shared_ptr<ResizableBuffer> buffer =
-        AllocateBuffer(this->pool_, EstimatedDataEncodedSize());
-    int result_size = WriteIndices(buffer->mutable_data(),
-                                   static_cast<int>(EstimatedDataEncodedSize()));
+    const int64_t buffer_size = EstimatedDataEncodedSize();
+    if (buffer_size > std::numeric_limits<int>::max()) {
+      std::stringstream ss;
+      ss << "Buffer size for DictEncoder (" << buffer_size
+         << ") exceeds maximum int value";
+      throw ParquetException(ss.str());
+    }
+    std::shared_ptr<ResizableBuffer> buffer = AllocateBuffer(this->pool_, buffer_size);
+    int result_size = WriteIndices(buffer->mutable_data(), static_cast<int>(buffer_size));
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
     return buffer;
   }
@@ -752,12 +780,14 @@ void DictEncoderImpl<FLBAType>::Put(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_binary_view_like(values.type_id()));
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   }
 }
 
@@ -803,14 +833,16 @@ void DictEncoderImpl<FLBAType>::PutDictionary(const ::arrow::Array& values) {
 
 template <>
 void DictEncoderImpl<ByteArrayType>::PutDictionary(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
   AssertCanPutDictionary(this, values);
 
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
-    DCHECK(::arrow::is_large_binary_like(values.type_id()));
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryDictionaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else {
+    DCHECK(::arrow::is_binary_view_like(values.type_id()));
+    PutBinaryDictionaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   }
 }
 
@@ -1193,7 +1225,7 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   PARQUET_THROW_NOT_OK(sink_.Advance(kMaxPageHeaderWriterSize));
 
   // Excess bytes at the beginning are sliced off and ignored.
-  return SliceBuffer(buffer, offset_bytes);
+  return SliceBuffer(std::move(buffer), offset_bytes);
 }
 
 template <>
@@ -1304,11 +1336,16 @@ class DeltaLengthByteArrayEncoder : public EncoderImpl,
 };
 
 void DeltaLengthByteArrayEncoder::Put(const ::arrow::Array& values) {
-  AssertBaseBinary(values);
+  AssertVarLengthBinary(values);
   if (::arrow::is_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
-  } else {
+  } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
+  } else {
+    throw ParquetException("Only binary-like data supported, got " +
+                           values.type()->ToString());
   }
 }
 
@@ -1575,10 +1612,12 @@ void DeltaByteArrayEncoder<DType>::Put(const ::arrow::Array& values) {
     PutBinaryArray(checked_cast<const ::arrow::BinaryArray&>(values));
   } else if (::arrow::is_large_binary_like(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::LargeBinaryArray&>(values));
+  } else if (::arrow::is_binary_view_like(values.type_id())) {
+    PutBinaryArray(checked_cast<const ::arrow::BinaryViewArray&>(values));
   } else if (::arrow::is_fixed_size_binary(values.type_id())) {
     PutBinaryArray(checked_cast<const ::arrow::FixedSizeBinaryArray&>(values));
   } else {
-    throw ParquetException("Only BaseBinaryArray and subclasses supported");
+    throw ParquetException("Only binary-like data supported");
   }
 }
 
@@ -1656,8 +1695,8 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
 
-  int MaxRleBufferSize() const noexcept {
-    return RlePreserveBufferSize(static_cast<int>(buffered_append_values_.size()),
+  int64_t MaxRleBufferSize() const noexcept {
+    return RlePreserveBufferSize(static_cast<int64_t>(buffered_append_values_.size()),
                                  kBitWidth);
   }
 
@@ -1685,11 +1724,18 @@ void RleBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 }
 
 std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
-  int rle_buffer_size_max = MaxRleBufferSize();
+  int64_t rle_buffer_size_max = MaxRleBufferSize();
+  if (rle_buffer_size_max > std::numeric_limits<int>::max()) {
+    std::stringstream ss;
+    ss << "Buffer size for RleBooleanEncoder (" << rle_buffer_size_max
+       << ") exceeds maximum int value";
+    throw ParquetException(ss.str());
+  }
   std::shared_ptr<ResizableBuffer> buffer =
       AllocateBuffer(this->pool_, rle_buffer_size_max + kRleLengthInBytes);
-  ::arrow::util::RleEncoder encoder(buffer->mutable_data() + kRleLengthInBytes,
-                                    rle_buffer_size_max, /*bit_width*/ kBitWidth);
+  ::arrow::util::RleBitPackedEncoder encoder(buffer->mutable_data() + kRleLengthInBytes,
+                                             static_cast<int>(rle_buffer_size_max),
+                                             /*bit_width*/ kBitWidth);
 
   for (bool value : buffered_append_values_) {
     encoder.Put(value ? 1 : 0);

@@ -222,7 +222,7 @@ bloom_filter_fpp : double, default 0.05
 
 
 class ORCWriter:
-    __doc__ = """
+    __doc__ = f"""
 Writer interface for a single ORC file
 
 Parameters
@@ -231,8 +231,8 @@ where : str or pyarrow.io.NativeFile
     Writable target. For passing Python file objects or byte buffers,
     see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
     or pyarrow.io.FixedSizeBufferWriter.
-{}
-""".format(_orc_writer_args_docs)
+{_orc_writer_args_docs}
+"""
 
     is_open = False
 
@@ -369,7 +369,7 @@ def write_table(table, where, *,
         writer.write(table)
 
 
-write_table.__doc__ = """
+write_table.__doc__ = f"""
 Write a table into an ORC file.
 
 Parameters
@@ -380,5 +380,5 @@ where : str or pyarrow.io.NativeFile
     Writable target. For passing Python file objects or byte buffers,
     see pyarrow.io.PythonFileInterface, pyarrow.io.BufferOutputStream
     or pyarrow.io.FixedSizeBufferWriter.
-{}
-""".format(_orc_writer_args_docs)
+{_orc_writer_args_docs}
+"""

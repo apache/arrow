@@ -97,7 +97,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
 
 // For filename conversion
@@ -115,6 +115,7 @@
 #elif __linux__
 #  include <sys/sysinfo.h>
 #  include <fstream>
+#  include <limits>
 #endif
 
 #ifdef _WIN32
@@ -1069,8 +1070,11 @@ Result<FileDescriptor> FileOpenReadable(const PlatformFilename& file_name) {
   }
   fd = FileDescriptor(ret);
 #else
-  int ret = open(file_name.ToNative().c_str(), O_RDONLY);
-  if (ret < 0) {
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), O_RDONLY);
+  } while (ret == -1 && errno == EINTR);
+  if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
   }
@@ -1136,7 +1140,10 @@ Result<FileDescriptor> FileOpenWritable(const PlatformFilename& file_name,
     oflag |= O_RDWR;
   }
 
-  int ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  int ret;
+  do {
+    ret = open(file_name.ToNative().c_str(), oflag, 0666);
+  } while (ret == -1 && errno == EINTR);
   if (ret == -1) {
     return IOErrorFromErrno(errno, "Failed to open local file '", file_name.ToString(),
                             "'");
@@ -1447,7 +1454,7 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 
   SetFilePointer(h, new_size_low, &new_size_high, FILE_BEGIN);
   SetEndOfFile(h);
-  fm = CreateFileMapping(h, NULL, PAGE_READWRITE, 0, 0, "");
+  fm = CreateFileMappingW(h, NULL, PAGE_READWRITE, 0, 0, L"");
   if (fm == NULL) {
     return StatusFromMmapErrno("CreateFileMapping failed");
   }
@@ -1751,32 +1758,30 @@ Status FileTruncate(int fd, const int64_t size) {
 // Environment variables
 //
 
-Result<std::string> GetEnvVar(const char* name) {
+Result<std::string> GetEnvVar(std::string_view name) {
 #ifdef _WIN32
   // On Windows, getenv() reads an early copy of the process' environment
   // which doesn't get updated when SetEnvironmentVariable() is called.
   constexpr int32_t bufsize = 2000;
   char c_str[bufsize];
-  auto res = GetEnvironmentVariableA(name, c_str, bufsize);
+  auto res = GetEnvironmentVariableA(name.data(), c_str, bufsize);
   if (res >= bufsize) {
     return Status::CapacityError("environment variable value too long");
   } else if (res == 0) {
-    return Status::KeyError("environment variable undefined");
+    return Status::KeyError("environment variable '", name, "'undefined");
   }
   return std::string(c_str);
 #else
-  char* c_str = getenv(name);
+  char* c_str = getenv(name.data());
   if (c_str == nullptr) {
-    return Status::KeyError("environment variable undefined");
+    return Status::KeyError("environment variable '", name, "'undefined");
   }
   return std::string(c_str);
 #endif
 }
 
-Result<std::string> GetEnvVar(const std::string& name) { return GetEnvVar(name.c_str()); }
-
 #ifdef _WIN32
-Result<NativePathString> GetEnvVarNative(const std::string& name) {
+Result<NativePathString> GetEnvVarNative(std::string_view name) {
   NativePathString w_name;
   constexpr int32_t bufsize = 2000;
   wchar_t w_str[bufsize];
@@ -1786,33 +1791,28 @@ Result<NativePathString> GetEnvVarNative(const std::string& name) {
   if (res >= bufsize) {
     return Status::CapacityError("environment variable value too long");
   } else if (res == 0) {
-    return Status::KeyError("environment variable undefined");
+    return Status::KeyError("environment variable '", name, "'undefined");
   }
   return NativePathString(w_str);
 }
 
-Result<NativePathString> GetEnvVarNative(const char* name) {
-  return GetEnvVarNative(std::string(name));
-}
-
 #else
 
-Result<NativePathString> GetEnvVarNative(const std::string& name) {
+Result<NativePathString> GetEnvVarNative(std::string_view name) {
   return GetEnvVar(name);
 }
 
-Result<NativePathString> GetEnvVarNative(const char* name) { return GetEnvVar(name); }
 #endif
 
-Status SetEnvVar(const char* name, const char* value) {
+Status SetEnvVar(std::string_view name, std::string_view value) {
 #ifdef _WIN32
-  if (SetEnvironmentVariableA(name, value)) {
+  if (SetEnvironmentVariableA(name.data(), value.data())) {
     return Status::OK();
   } else {
     return Status::Invalid("failed setting environment variable");
   }
 #else
-  if (setenv(name, value, 1) == 0) {
+  if (setenv(name.data(), value.data(), 1) == 0) {
     return Status::OK();
   } else {
     return Status::Invalid("failed setting environment variable");
@@ -1820,27 +1820,21 @@ Status SetEnvVar(const char* name, const char* value) {
 #endif
 }
 
-Status SetEnvVar(const std::string& name, const std::string& value) {
-  return SetEnvVar(name.c_str(), value.c_str());
-}
-
-Status DelEnvVar(const char* name) {
+Status DelEnvVar(std::string_view name) {
 #ifdef _WIN32
-  if (SetEnvironmentVariableA(name, nullptr)) {
+  if (SetEnvironmentVariableA(name.data(), nullptr)) {
     return Status::OK();
   } else {
     return Status::Invalid("failed deleting environment variable");
   }
 #else
-  if (unsetenv(name) == 0) {
+  if (unsetenv(name.data()) == 0) {
     return Status::OK();
   } else {
     return Status::Invalid("failed deleting environment variable");
   }
 #endif
 }
-
-Status DelEnvVar(const std::string& name) { return DelEnvVar(name.c_str()); }
 
 //
 // Temporary directories
@@ -2141,11 +2135,6 @@ uint64_t GetThreadId() {
   return equiv;
 }
 
-uint64_t GetOptionalThreadId() {
-  auto tid = GetThreadId();
-  return (tid == 0) ? tid - 1 : tid;
-}
-
 // Returns the current resident set size (physical memory use) measured
 // in bytes, or zero if the value cannot be determined on this OS.
 int64_t GetCurrentRSS() {
@@ -2224,6 +2213,22 @@ int64_t GetTotalMemoryBytes() {
 #endif
 }
 
+Result<int32_t> GetNumAffinityCores() {
+#if defined(__linux__)
+  cpu_set_t mask;
+  if (sched_getaffinity(0, sizeof(mask), &mask) == 0) {
+    auto count = CPU_COUNT(&mask);
+    if (count > 0 &&
+        static_cast<uint64_t>(count) < std::numeric_limits<uint32_t>::max()) {
+      return static_cast<uint32_t>(count);
+    }
+  }
+  return IOErrorFromErrno(errno, "Could not read the CPU affinity.");
+#else
+  return Status::NotImplemented("Only implemented for Linux");
+#endif
+}
+
 Result<void*> LoadDynamicLibrary(const char* path) {
 #ifdef _WIN32
   ARROW_ASSIGN_OR_RAISE(auto platform_path, PlatformFilename::FromString(path));
@@ -2232,7 +2237,7 @@ Result<void*> LoadDynamicLibrary(const char* path) {
   constexpr int kFlags =
       // All undefined symbols in the shared object are resolved before dlopen() returns.
       RTLD_NOW
-      // Symbols defined in  this  shared  object are not made available to
+      // Symbols defined in this shared object are not made available to
       // resolve references in subsequently loaded shared objects.
       | RTLD_LOCAL;
   if (void* handle = dlopen(path, kFlags)) return handle;

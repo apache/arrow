@@ -18,7 +18,7 @@
 #include "benchmark/benchmark.h"
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/exec.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/benchmark_util.h"
 
@@ -30,7 +30,7 @@ static void RandomKernel(benchmark::State& state, bool is_seed) {
   const auto options =
       is_seed ? RandomOptions::FromSeed(42) : RandomOptions::FromSystemRandom();
   for (auto _ : state) {
-    ABORT_NOT_OK(CallFunction("random", ExecBatch({}, length), &options).status());
+    ABORT_NOT_OK(CallFunction("random", ExecBatch({}, length), &options));
   }
   state.SetItemsProcessed(state.iterations() * length);
 }

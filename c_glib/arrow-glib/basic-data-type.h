@@ -584,6 +584,26 @@ GARROW_AVAILABLE_IN_7_0
 GArrowMonthDayNanoIntervalDataType *
 garrow_month_day_nano_interval_data_type_new(void);
 
+#define GARROW_TYPE_DURATION_DATA_TYPE (garrow_duration_data_type_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(GArrowDurationDataType,
+                         garrow_duration_data_type,
+                         GARROW,
+                         DURATION_DATA_TYPE,
+                         GArrowTemporalDataType)
+struct _GArrowDurationDataTypeClass
+{
+  GArrowTemporalDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDurationDataType *
+garrow_duration_data_type_new(GArrowTimeUnit unit);
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTimeUnit
+garrow_duration_data_type_get_unit(GArrowDurationDataType *data_type);
+
 #define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,
@@ -802,4 +822,63 @@ GARROW_AVAILABLE_IN_19_0
 GArrowStringViewDataType *
 garrow_string_view_data_type_new(void);
 
+#define GARROW_TYPE_FIXED_SHAPE_TENSOR_DATA_TYPE                                         \
+  (garrow_fixed_shape_tensor_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedShapeTensorDataType,
+                         garrow_fixed_shape_tensor_data_type,
+                         GARROW,
+                         FIXED_SHAPE_TENSOR_DATA_TYPE,
+                         GArrowExtensionDataType)
+struct _GArrowFixedShapeTensorDataTypeClass
+{
+  GArrowExtensionDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowFixedShapeTensorDataType *
+garrow_fixed_shape_tensor_data_type_new(GArrowDataType *value_type,
+                                        const gint64 *shape,
+                                        gsize shape_length,
+                                        const gint64 *permutation,
+                                        gsize permutation_length,
+                                        const gchar **dim_names,
+                                        gsize n_dim_names,
+                                        GError **error);
+
+GARROW_AVAILABLE_IN_21_0
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_shape(GArrowFixedShapeTensorDataType *data_type,
+                                              gsize *length);
+
+GARROW_AVAILABLE_IN_21_0
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_permutation(
+  GArrowFixedShapeTensorDataType *data_type, gsize *length);
+
+GARROW_AVAILABLE_IN_21_0
+gchar **
+garrow_fixed_shape_tensor_data_type_get_dim_names(
+  GArrowFixedShapeTensorDataType *data_type);
+
+GARROW_AVAILABLE_IN_21_0
+const gint64 *
+garrow_fixed_shape_tensor_data_type_get_strides(GArrowFixedShapeTensorDataType *data_type,
+                                                gsize *length);
+
+#define GARROW_TYPE_UUID_DATA_TYPE (garrow_uuid_data_type_get_type())
+GARROW_AVAILABLE_IN_21_0
+G_DECLARE_DERIVABLE_TYPE(GArrowUUIDDataType,
+                         garrow_uuid_data_type,
+                         GARROW,
+                         UUID_DATA_TYPE,
+                         GArrowExtensionDataType)
+struct _GArrowUUIDDataTypeClass
+{
+  GArrowExtensionDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_21_0
+GArrowUUIDDataType *
+garrow_uuid_data_type_new(GError **error);
 G_END_DECLS

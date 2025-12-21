@@ -17,7 +17,7 @@
 
 # Create bitcode for the given source file.
 function(gandiva_add_bitcode SOURCE)
-  set(CLANG_OPTIONS -std=c++17)
+  set(CLANG_OPTIONS -std=c++20)
   if(MSVC)
     # "19.20" means that it's compatible with Visual Studio 16 2019.
     # We can update this to "19.30" when we dropped support for Visual
@@ -71,5 +71,5 @@ function(gandiva_add_bitcode SOURCE)
   endif()
   add_custom_command(OUTPUT ${BC_FILE}
                      COMMAND ${PRECOMPILE_COMMAND}
-                     DEPENDS ${SOURCE_FILE})
+                     DEPENDS ${SOURCE})
 endfunction()

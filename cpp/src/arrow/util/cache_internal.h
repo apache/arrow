@@ -53,7 +53,7 @@ class LruCache {
   }
 
   int32_t size() const {
-    DCHECK_EQ(items_.size(), map_.size());
+    ARROW_DCHECK_EQ(items_.size(), map_.size());
     return static_cast<int32_t>(items_.size());
   }
 
@@ -83,7 +83,7 @@ class LruCache {
       // Did we exceed the cache capacity?  If so, remove least recently used item
       if (static_cast<int32_t>(items_.size()) > capacity_) {
         const bool erased = map_.erase(*items_.back().key);
-        DCHECK(erased);
+        ARROW_DCHECK(erased);
         ARROW_UNUSED(erased);
         items_.pop_back();
       }

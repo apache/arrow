@@ -50,15 +50,6 @@ indent_style = space
 indent_size = 2
 indent_style = space
 
-[*.go]
-indent_size = 8
-indent_style = tab
-tab_width = 8
-
-[*.{js,ts}]
-indent_size = 4
-indent_style = space
-
 [*.{py,pyx,pxd,pxi}]
 indent_size = 4
 indent_style = space

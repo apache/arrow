@@ -43,8 +43,8 @@ struct PARQUET_EXPORT EncryptionConfiguration {
   /// ID of the master key for footer encryption/signing
   std::string footer_key;
 
-  /// List of columns to encrypt, with master key IDs (see HIVE-21848).
-  /// Format: "masterKeyID:colName,colName;masterKeyID:colName..."
+  /// List of columns to encrypt, with column master key IDs (see HIVE-21848).
+  /// Format: "columnKeyID:colName,colName;columnKeyID:colName..."
   /// Either
   /// (1) column_keys must be set
   /// or

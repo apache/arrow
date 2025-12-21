@@ -44,6 +44,7 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -55,11 +56,13 @@ using internal::BinaryBitBlockCounter;
 using internal::BitBlockCount;
 using internal::BitmapReader;
 using internal::checked_cast;
+using internal::checked_pointer_cast;
 using internal::FirstTimeBitmapWriter;
 using internal::GenerateBitsUnrolled;
 using internal::VisitBitBlocks;
 using internal::VisitBitBlocksVoid;
 using internal::VisitTwoBitBlocksVoid;
+using util::Float16;
 
 namespace compute {
 namespace internal {
@@ -131,6 +134,14 @@ struct GetViewType<Type, enable_if_has_c_type<Type>> {
   static T LogicalValue(PhysicalType value) { return value; }
 };
 
+template <>
+struct GetViewType<HalfFloatType> {
+  using T = Float16;
+  using PhysicalType = uint16_t;
+
+  static T LogicalValue(PhysicalType value) { return T::FromBits(value); }
+};
+
 template <typename Type>
 struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
                                      is_fixed_size_binary_type<Type>::value ||
@@ -197,6 +208,11 @@ struct GetOutputType<Type, enable_if_has_c_type<Type>> {
   using T = typename Type::c_type;
 };
 
+template <>
+struct GetOutputType<HalfFloatType> {
+  using T = Float16;
+};
+
 template <typename Type>
 struct GetOutputType<Type, enable_if_t<is_string_like_type<Type>::value>> {
   using T = std::string;
@@ -258,6 +274,9 @@ template <typename T, typename R = T>
 using enable_if_not_floating_value = enable_if_t<!std::is_floating_point<T>::value, R>;
 
 template <typename T, typename R = T>
+using enable_if_half_float_value = enable_if_t<std::is_same_v<T, Float16>, R>;
+
+template <typename T, typename R = T>
 using enable_if_decimal_value =
     enable_if_t<std::is_same<Decimal32, T>::value || std::is_same<Decimal64, T>::value ||
                     std::is_same<Decimal128, T>::value ||
@@ -279,6 +298,15 @@ struct ArrayIterator;
 template <typename Type>
 struct ArrayIterator<Type, enable_if_c_number_or_decimal<Type>> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  const T* values;
+
+  explicit ArrayIterator(const ArraySpan& arr) : values(arr.GetValues<T>(1)) {}
+  T operator()() { return *values++; }
+};
+
+template <>
+struct ArrayIterator<HalfFloatType> {
+  using T = Float16;
   const T* values;
 
   explicit ArrayIterator(const ArraySpan& arr) : values(arr.GetValues<T>(1)) {}
@@ -376,8 +404,16 @@ struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
   static T Unbox(const Scalar& val) {
     std::string_view view =
         checked_cast<const ::arrow::internal::PrimitiveScalarBase&>(val).view();
-    DCHECK_EQ(view.size(), sizeof(T));
+    ARROW_DCHECK_EQ(view.size(), sizeof(T));
     return *reinterpret_cast<const T*>(view.data());
+  }
+};
+
+template <>
+struct UnboxScalar<HalfFloatType> {
+  using T = Float16;
+  static T Unbox(const Scalar& val) {
+    return T(checked_cast<const HalfFloatScalar&>(val).value);
   }
 };
 
@@ -474,10 +510,14 @@ static void VisitTwoArrayValuesInline(const ArraySpan& arr0, const ArraySpan& ar
 // ----------------------------------------------------------------------
 // Reusable type resolvers
 
-Result<TypeHolder> FirstType(KernelContext*, const std::vector<TypeHolder>& types);
-Result<TypeHolder> LastType(KernelContext*, const std::vector<TypeHolder>& types);
-Result<TypeHolder> ListValuesType(KernelContext* ctx,
-                                  const std::vector<TypeHolder>& types);
+ARROW_EXPORT Result<TypeHolder> FirstType(KernelContext*,
+                                          const std::vector<TypeHolder>& types);
+ARROW_EXPORT Result<TypeHolder> LastType(KernelContext*,
+                                         const std::vector<TypeHolder>& types);
+ARROW_EXPORT Result<TypeHolder> ListValuesType(KernelContext* ctx,
+                                               const std::vector<TypeHolder>& types);
+ARROW_EXPORT Result<TypeHolder> MaxPrecisionDecimalType(
+    KernelContext*, const std::vector<TypeHolder>& types);
 
 // ----------------------------------------------------------------------
 // Helpers for iterating over common DataType instances for adding kernels to
@@ -532,7 +572,7 @@ static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult
     if (batch[1].is_array()) {
       return Operator::Call(ctx, *batch[0].scalar, batch[1].array, out);
     } else {
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return Status::Invalid("Should be unreachable");
     }
   }
@@ -557,7 +597,8 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
 
 template <typename Type>
 struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
-  using T = typename TypeTraits<Type>::ScalarType::ValueType;
+  using T = std::conditional_t<std::is_same_v<Type, HalfFloatType>, Float16,
+                               typename TypeTraits<Type>::ScalarType::ValueType>;
 
   template <typename Generator>
   static Status Write(KernelContext*, ArraySpan* out, Generator&& generator) {
@@ -602,7 +643,7 @@ struct ScalarUnary {
   using Arg0Value = typename GetViewType<Arg0Type>::T;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    DCHECK(batch[0].is_array());
+    ARROW_DCHECK(batch[0].is_array());
     const ArraySpan& arg0 = batch[0].array;
     Status st = Status::OK();
     ArrayIterator<Arg0Type> arg0_it(arg0);
@@ -705,7 +746,7 @@ struct ScalarUnaryNotNullStateful {
   };
 
   Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    DCHECK(batch[0].is_array());
+    ARROW_DCHECK(batch[0].is_array());
     return ArrayExec<OutType>::Exec(*this, ctx, batch[0].array, out);
   }
 };
@@ -800,7 +841,7 @@ struct ScalarBinary {
       if (batch[1].is_array()) {
         return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        DCHECK(false);
+        ARROW_DCHECK(false);
         return Status::Invalid("Should be unreachable");
       }
     }
@@ -885,7 +926,7 @@ struct ScalarBinaryNotNullStateful {
       if (batch[1].is_array()) {
         return ScalarArray(ctx, *batch[0].scalar, batch[1].array, out);
       } else {
-        DCHECK(false);
+        ARROW_DCHECK(false);
         return Status::Invalid("Should be unreachable");
       }
     }
@@ -988,9 +1029,9 @@ struct FailFunctor<VectorKernel::ChunkedExec> {
 };
 
 // GD for numeric types (integer and floating point)
-template <template <typename...> class Generator, typename Type0,
-          typename KernelType = ArrayKernelExec, typename... Args>
-KernelType GenerateNumeric(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename Type0, typename... Args>
+auto GenerateNumeric(detail::GetTypeId get_id) {
+  using KernelType = decltype(&Generator<Type0, Int8Type, Args...>::Exec);
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1013,7 +1054,7 @@ KernelType GenerateNumeric(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1029,7 +1070,7 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<Type0, DoubleType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1037,8 +1078,9 @@ ArrayKernelExec GenerateFloatingPoint(detail::GetTypeId get_id) {
 // Generate a kernel given a templated functor for integer types
 //
 // See "Numeric" above for description of the generator functor
-template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
+template <template <typename...> class Generator, typename Type0,
+          typename KernelType = ArrayKernelExec, typename... Args>
+KernelType GenerateInteger(detail::GetTypeId get_id) {
   switch (get_id.id) {
     case Type::INT8:
       return Generator<Type0, Int8Type, Args...>::Exec;
@@ -1057,7 +1099,7 @@ ArrayKernelExec GenerateInteger(detail::GetTypeId get_id) {
     case Type::UINT64:
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1088,7 +1130,7 @@ ArrayKernelExec GeneratePhysicalInteger(detail::GetTypeId get_id) {
     case Type::UINT64:
       return Generator<Type0, UInt64Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1120,7 +1162,7 @@ KernelType ArithmeticExecFromOp(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return KernelGenerator<DoubleType, DoubleType, Op, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1156,7 +1198,7 @@ ReturnType GeneratePhysicalNumericGeneric(detail::GetTypeId get_id) {
     case Type::DOUBLE:
       return Generator<DoubleType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1178,7 +1220,7 @@ ArrayKernelExec GenerateDecimalToDecimal(detail::GetTypeId get_id) {
     case Type::DECIMAL256:
       return Generator<Decimal256Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1198,7 +1240,7 @@ ArrayKernelExec GenerateSignedInteger(detail::GetTypeId get_id) {
     case Type::INT64:
       return Generator<Type0, Int64Type, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1223,6 +1265,7 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
       return Generator<UInt8Type, Args...>::Exec;
     case Type::UINT16:
     case Type::INT16:
+    case Type::HALF_FLOAT:
       return Generator<UInt16Type, Args...>::Exec;
     case Type::UINT32:
     case Type::INT32:
@@ -1243,7 +1286,7 @@ KernelType GenerateTypeAgnosticPrimitive(detail::GetTypeId get_id) {
     case Type::INTERVAL_MONTH_DAY_NANO:
       return Generator<MonthDayNanoIntervalType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1260,7 +1303,7 @@ KernelType GenerateTypeAgnosticVarBinaryBase(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<LargeBinaryType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return FailFunctor<KernelType>::Exec;
   }
 }
@@ -1278,7 +1321,7 @@ ArrayKernelExec GenerateVarBinaryToVarBinary(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<LargeStringType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1299,7 +1342,7 @@ ArrayKernelExec GenerateVarBinaryBase(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<Type0, LargeBinaryType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1317,7 +1360,7 @@ ArrayKernelExec GenerateVarBinary(detail::GetTypeId get_id) {
     case Type::LARGE_STRING:
       return Generator<Type0, LargeStringType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1333,7 +1376,7 @@ ArrayKernelExec GenerateVarBinaryViewBase(detail::GetTypeId get_id) {
     case Type::STRING_VIEW:
       return Generator<Type0, BinaryViewType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1357,7 +1400,7 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
     case Type::TIMESTAMP:
       return Generator<Type0, TimestampType, Args...>::Exec;
     default:
-      DCHECK(false);
+      ARROW_DCHECK(false);
       return nullptr;
   }
 }
@@ -1366,7 +1409,8 @@ ArrayKernelExec GenerateTemporal(detail::GetTypeId get_id) {
 //
 // See "Numeric" above for description of the generator functor
 template <template <typename...> class Generator, typename Type0, typename... Args>
-ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
+auto GenerateDecimal(detail::GetTypeId get_id) {
+  using KernelType = decltype(&Generator<Type0, Decimal256Type, Args...>::Exec);
   switch (get_id.id) {
     case Type::DECIMAL32:
       return Generator<Type0, Decimal32Type, Args...>::Exec;
@@ -1377,8 +1421,8 @@ ArrayKernelExec GenerateDecimal(detail::GetTypeId get_id) {
     case Type::DECIMAL256:
       return Generator<Type0, Decimal256Type, Args...>::Exec;
     default:
-      DCHECK(false);
-      return nullptr;
+      ARROW_DCHECK(false);
+      return KernelType(nullptr);
   }
 }
 
@@ -1439,6 +1483,12 @@ Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>
 /// promote all to an identical type.
 ARROW_EXPORT
 Status CastDecimalArgs(TypeHolder* begin, size_t count);
+
+/// Given a DataType, if it is a DecimalType, return a DecimalType with the same scale
+/// and the maximum precision for that DecimalType.
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> WidenDecimalToMaxPrecision(
+    std::shared_ptr<DataType> type);
 
 ARROW_EXPORT
 bool HasDecimal(const std::vector<TypeHolder>& types);

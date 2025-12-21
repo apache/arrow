@@ -59,20 +59,18 @@ class ApacheArrowPackageTask < PackageTask
   end
 
   def download_rc_archive
-    base_url = "https://dist.apache.org/repos/dist/dev/arrow"
+    base_url = "https://github.com/#{github_repository}"
+    base_url += "/releases/download/apache-arrow-#{@version}"
     archive_name_no_rc = @archive_name.gsub(/-rc\d+(\.tar\.gz)\z/, "\\1")
-    url = "#{base_url}/#{@package}-#{@version}/#{archive_name_no_rc}"
+    url = "#{base_url}/#{archive_name_no_rc}"
     download(url, @archive_name)
   end
 
   def download_released_archive
     mirror_base_url = "https://www.apache.org/dyn/closer.lua/arrow"
     mirror_list_url = "#{mirror_base_url}/arrow-#{@version}/#{@archive_name}"
-    open(mirror_list_url) do |response|
-      if /href="(.+?\/#{Regexp.escape(@archive_name)})"/ =~ response.read
-        download($1, ".")
-      end
-    end
+    mirror_download_url = "#{mirror_list_url}?action=download"
+    download(mirror_download_url, @archive_name)
   end
 
   def build_archive
@@ -96,31 +94,9 @@ class ApacheArrowPackageTask < PackageTask
     control.gsub(/@CUDA_ARCHITECTURE@/, cuda_architecture)
   end
 
-  def apt_prepare_debian_control_grpc(control, target)
-    case target
-    when /\Aubuntu-focal/
-      use_system_grpc = "#"
-    else
-      use_system_grpc = ""
-    end
-    control.gsub(/@USE_SYSTEM_GRPC@/, use_system_grpc)
-  end
-
-  def apt_prepare_debian_control_protobuf(control, target)
-    case target
-    when /\Aubuntu-focal/
-      use_system_protobuf = "#"
-    else
-      use_system_protobuf = ""
-    end
-    control.gsub(/@USE_SYSTEM_PROTOBUF@/, use_system_protobuf)
-  end
-
   def apt_prepare_debian_control(control_in, target)
     control = control_in.dup
     control = apt_prepare_debian_control_cuda_architecture(control, target)
-    control = apt_prepare_debian_control_grpc(control, target)
-    control = apt_prepare_debian_control_protobuf(control, target)
     control
   end
 end

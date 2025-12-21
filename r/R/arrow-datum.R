@@ -19,7 +19,8 @@
 
 # Base class for Array, ChunkedArray, and Scalar, for S3 method dispatch only.
 # Does not exist in C++ class hierarchy
-ArrowDatum <- R6Class("ArrowDatum",
+ArrowDatum <- R6Class(
+  "ArrowDatum",
   inherit = ArrowObject,
   public = list(
     cast = function(target_type, safe = TRUE, ...) {
@@ -81,14 +82,16 @@ as.vector.ArrowDatum <- function(x, mode) {
 #' @export
 Ops.ArrowDatum <- function(e1, e2) {
   if (missing(e2)) {
-    switch(.Generic,
+    switch(
+      .Generic,
       "!" = return(eval_array_expression(.Generic, e1)),
       "+" = return(eval_array_expression(.Generic, 0L, e1)),
       "-" = return(eval_array_expression("negate_checked", e1)),
     )
   }
 
-  switch(.Generic,
+  switch(
+    .Generic,
     "+" = ,
     "-" = ,
     "*" = ,
@@ -112,7 +115,8 @@ Ops.ArrowDatum <- function(e1, e2) {
 
 #' @export
 Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
-  switch(.Generic,
+  switch(
+    .Generic,
     abs = eval_array_expression("abs_checked", x),
     ceiling = eval_array_expression("ceil", x),
     sign = eval_array_expression("sign", x),
@@ -128,6 +132,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     log10 = eval_array_expression("log10_checked", x),
     log2 = eval_array_expression("log2_checked", x),
     log1p = eval_array_expression("log1p_checked", x),
+    expm1 = eval_array_expression("expm1", x),
     round = eval_array_expression(
       "round",
       x,
@@ -139,17 +144,16 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
     cumprod = eval_array_expression("cumulative_prod_checked", x),
     cummax = eval_array_expression("cumulative_max", x),
     cummin = eval_array_expression("cumulative_min", x),
+    cosh = eval_array_expression("cosh", x),
+    sinh = eval_array_expression("sinh", x),
+    tanh = eval_array_expression("tanh", x),
+    acosh = eval_array_expression("acosh_checked", x),
+    asinh = eval_array_expression("asinh", x),
+    atanh = eval_array_expression("atanh_checked", x),
     signif = ,
-    expm1 = ,
     cospi = ,
     sinpi = ,
     tanpi = ,
-    cosh = ,
-    sinh = ,
-    tanh = ,
-    acosh = ,
-    asinh = ,
-    atanh = ,
     lgamma = ,
     gamma = ,
     digamma = ,
@@ -161,10 +165,7 @@ Math.ArrowDatum <- function(x, ..., base = exp(1), digits = 0) {
 # Wrapper around call_function that:
 # (1) maps R function names to Arrow C++ compute ("/" --> "divide_checked")
 # (2) wraps R input args as Array or Scalar
-eval_array_expression <- function(FUN,
-                                  ...,
-                                  args = list(...),
-                                  options = empty_named_list()) {
+eval_array_expression <- function(FUN, ..., args = list(...), options = empty_named_list()) {
   if (FUN == "-" && length(args) == 1L) {
     if (inherits(args[[1]], "ArrowObject")) {
       return(eval_array_expression("negate_checked", args[[1]]))

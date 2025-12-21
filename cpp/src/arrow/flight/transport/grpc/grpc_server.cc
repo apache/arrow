@@ -25,6 +25,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/transport/grpc/customize_grpc.h"
+
 #include <grpcpp/grpcpp.h>
 
 #include "arrow/buffer.h"

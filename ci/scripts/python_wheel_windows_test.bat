@@ -58,12 +58,5 @@ py -0p
 @REM Validate wheel contents
 %PYTHON_CMD% C:\arrow\ci\scripts\python_wheel_validate_contents.py --path C:\arrow\python\repaired_wheels || exit /B 1
 
-@rem Download IANA Timezone Database for ORC C++
-curl https://cygwin.osuosl.org/noarch/release/tzdata/tzdata-2024a-1.tar.xz --output tzdata.tar.xz || exit /B
-mkdir %USERPROFILE%\Downloads\test\tzdata
-arc unarchive tzdata.tar.xz %USERPROFILE%\Downloads\test\tzdata || exit /B
-set TZDIR=%USERPROFILE%\Downloads\test\tzdata\usr\share\zoneinfo
-dir %TZDIR%
-
 @REM Execute unittest
 %PYTHON_CMD% -m pytest -r s --pyargs pyarrow || exit /B 1

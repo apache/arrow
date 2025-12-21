@@ -58,16 +58,9 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-# ARROW-8684: Disable GC while initializing Cython extension module,
-# to workaround Cython bug in https://github.com/cython/cython/issues/3603
-_gc_enabled = _gc.isenabled()
-_gc.disable()
 import pyarrow.lib as _lib
-if _gc_enabled:
-    _gc.enable()
-
-from pyarrow.lib import (BuildInfo, RuntimeInfo, set_timezone_db_path,
-                         MonthDayNano, VersionInfo, cpp_build_info,
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
+                         MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
                          io_thread_count, set_io_thread_count)
@@ -81,16 +74,18 @@ def show_versions():
         print(f"{label: <26}: {value: <8}")
 
     print("pyarrow version info\n--------------------")
-    print_entry("Package kind", cpp_build_info.package_kind
-                if len(cpp_build_info.package_kind) > 0
+    print_entry("Package kind", build_info.cpp_build_info.package_kind
+                if len(build_info.cpp_build_info.package_kind) > 0
                 else "not indicated")
-    print_entry("Arrow C++ library version", cpp_build_info.version)
+    print_entry("Arrow C++ library version", build_info.cpp_build_info.version)
     print_entry("Arrow C++ compiler",
-                f"{cpp_build_info.compiler_id} {cpp_build_info.compiler_version}")
-    print_entry("Arrow C++ compiler flags", cpp_build_info.compiler_flags)
-    print_entry("Arrow C++ git revision", cpp_build_info.git_id)
-    print_entry("Arrow C++ git description", cpp_build_info.git_description)
-    print_entry("Arrow C++ build type", cpp_build_info.build_type)
+                (f"{build_info.cpp_build_info.compiler_id} "
+                 f"{build_info.cpp_build_info.compiler_version}"))
+    print_entry("Arrow C++ compiler flags", build_info.cpp_build_info.compiler_flags)
+    print_entry("Arrow C++ git revision", build_info.cpp_build_info.git_id)
+    print_entry("Arrow C++ git description", build_info.cpp_build_info.git_description)
+    print_entry("Arrow C++ build type", build_info.cpp_build_info.build_type)
+    print_entry("PyArrow build type", build_info.build_type)
 
 
 def _module_is_available(module):
@@ -185,7 +180,7 @@ from pyarrow.lib import (null, bool_,
                          BaseExtensionType, ExtensionType,
                          RunEndEncodedType, Bool8Type, FixedShapeTensorType,
                          JsonType, OpaqueType, UuidType,
-                         PyExtensionType, UnknownExtensionType,
+                         UnknownExtensionType,
                          register_extension_type, unregister_extension_type,
                          DictionaryMemo,
                          KeyValueMetadata,
@@ -198,6 +193,7 @@ from pyarrow.lib import (null, bool_,
                          SparseCOOTensor, SparseCSRMatrix, SparseCSCMatrix,
                          SparseCSFTensor,
                          infer_type, from_numpy_dtype,
+                         arange,
                          NullArray,
                          NumericArray, IntegerArray, FloatingPointArray,
                          BooleanArray,
@@ -415,7 +411,7 @@ def get_library_dirs():
                 if not library_dir.startswith("-L"):
                     raise ValueError(
                         "pkg-config --libs-only-L returned unexpected "
-                        "value {!r}".format(library_dir))
+                        f"value {library_dir!r}")
                 append_library_dir(library_dir[2:])
 
     if _sys.platform == 'win32':
@@ -426,6 +422,14 @@ def get_library_dirs():
 
         if _os.path.exists(_os.path.join(library_dir, 'arrow.lib')):
             append_library_dir(library_dir)
+
+        # GH-45530: Add pyarrow.libs dir containing delvewheel-mangled
+        # msvcp140.dll
+        pyarrow_libs_dir = _os.path.abspath(
+            _os.path.join(_os.path.dirname(__file__), _os.pardir, "pyarrow.libs")
+        )
+        if _os.path.exists(pyarrow_libs_dir):
+            append_library_dir(pyarrow_libs_dir)
 
     # ARROW-4074: Allow for ARROW_HOME to be set to some other directory
     if _os.environ.get('ARROW_HOME'):

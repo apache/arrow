@@ -29,7 +29,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_reader.h"
 #include "arrow/util/bitmap_writer.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 namespace internal {
@@ -100,6 +100,8 @@ int64_t CountAndSetBits(const uint8_t* left_bitmap, int64_t left_offset,
   }
   return count;
 }
+
+namespace {
 
 enum class TransferMode : bool { Copy, Invert };
 
@@ -213,22 +215,18 @@ void ReverseBlockOffsets(const uint8_t* data, int64_t offset, int64_t length,
   }
 }
 
+}  // namespace
+
 template <TransferMode mode>
 Result<std::shared_ptr<Buffer>> TransferBitmap(MemoryPool* pool, const uint8_t* data,
-                                               int64_t offset, int64_t length) {
-  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(length, pool));
+                                               int64_t offset, int64_t length,
+                                               int64_t out_offset) {
+  const int64_t phys_bits = length + out_offset;
+  ARROW_ASSIGN_OR_RAISE(auto buffer, AllocateEmptyBitmap(phys_bits, pool));
   uint8_t* dest = buffer->mutable_data();
 
-  TransferBitmap<mode>(data, offset, length, 0, dest);
+  TransferBitmap<mode>(data, offset, length, out_offset, dest);
 
-  // As we have freshly allocated this bitmap, we should take care of zeroing the
-  // remaining bits.
-  int64_t num_bytes = bit_util::BytesForBits(length);
-  int64_t bits_to_zero = num_bytes * 8 - length;
-  for (int64_t i = length; i < length + bits_to_zero; ++i) {
-    // Both branches may copy extra bits - unsetting to match specification.
-    bit_util::ClearBit(dest, i);
-  }
   return buffer;
 }
 
@@ -248,13 +246,15 @@ void ReverseBitmap(const uint8_t* data, int64_t offset, int64_t length, uint8_t*
 }
 
 Result<std::shared_ptr<Buffer>> CopyBitmap(MemoryPool* pool, const uint8_t* data,
-                                           int64_t offset, int64_t length) {
-  return TransferBitmap<TransferMode::Copy>(pool, data, offset, length);
+                                           int64_t offset, int64_t length,
+                                           int64_t out_offset) {
+  return TransferBitmap<TransferMode::Copy>(pool, data, offset, length, out_offset);
 }
 
 Result<std::shared_ptr<Buffer>> InvertBitmap(MemoryPool* pool, const uint8_t* data,
                                              int64_t offset, int64_t length) {
-  return TransferBitmap<TransferMode::Invert>(pool, data, offset, length);
+  return TransferBitmap<TransferMode::Invert>(pool, data, offset, length,
+                                              /*out_offset=*/0);
 }
 
 Result<std::shared_ptr<Buffer>> ReverseBitmap(MemoryPool* pool, const uint8_t* data,
@@ -370,13 +370,25 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
   }
 }
 
+// XXX: The bits before left/right/out_offset, if unaligned, are untouched. But not for
+// the bits after length. Caller should ensure proper alignment for the tail bits if
+// necessary, or correct the tail bits by subsequent calls.
 template <template <typename> class BitOp>
 void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest) {
-  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
-    // Fast case: can use bytewise AND
-    AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
-                           length);
+  if (out_offset % 8 == left_offset % 8 && out_offset % 8 == right_offset % 8) {
+    // Fast case: can use byte-wise BitOp after handling leading unaligned bits.
+    int64_t leading_unaligned_bits = (8 - left_offset % 8) % 8;
+    if (leading_unaligned_bits > 0) {
+      UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
+                               leading_unaligned_bits);
+    }
+    if (length > leading_unaligned_bits) {
+      AlignedBitmapOp<BitOp>(left, left_offset + leading_unaligned_bits, right,
+                             right_offset + leading_unaligned_bits, dest,
+                             out_offset + leading_unaligned_bits,
+                             length - leading_unaligned_bits);
+    }
   } else {
     // Unaligned
     UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,

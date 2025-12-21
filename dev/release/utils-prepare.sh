@@ -38,7 +38,7 @@ update_versions() {
 
   pushd "${ARROW_DIR}/c_glib"
   sed -i.bak -E -e \
-    "s/^version = '.+'/version = '${version}'/" \
+    "s/^    version: '.+'/    version: '${version}'/" \
     meson.build
   rm -f meson.build.bak
   git add meson.build
@@ -49,7 +49,7 @@ update_versions() {
      [ "${next_version}" = "${major_version}.0.0" ] && \
      ! grep -q -F "(${major_version}, 0)" tool/generate-version-header.py; then
     sed -i.bak -E -e \
-      "s/^ALL_VERSIONS = \[$/&\\n        (${major_version}, 0),/" \
+      "s/^ALL_VERSIONS = \[$/&\\n    (${major_version}, 0),/" \
       tool/generate-version-header.py
     rm -f tool/generate-version-header.py.bak
     git add tool/generate-version-header.py
@@ -78,18 +78,16 @@ update_versions() {
   git add CMakeLists.txt
 
   sed -i.bak -E -e \
+    "s/^    version: '.+'/    version: '${version}'/" \
+    meson.build
+  rm -f meson.build.bak
+  git add meson.build
+
+  sed -i.bak -E -e \
     "s/\"version-string\": \".+\"/\"version-string\": \"${version}\"/" \
     vcpkg.json
   rm -f vcpkg.json.bak
   git add vcpkg.json
-  popd
-
-  pushd "${ARROW_DIR}/csharp"
-  sed -i.bak -E -e \
-    "s/^    <Version>.+<\/Version>/    <Version>${version}<\/Version>/" \
-    Directory.Build.props
-  rm -f Directory.Build.props.bak
-  git add Directory.Build.props
   popd
 
   pushd "${ARROW_DIR}/dev/tasks/homebrew-formulae"
@@ -103,14 +101,6 @@ update_versions() {
   git add \
     apache-arrow-glib.rb \
     apache-arrow.rb
-  popd
-
-  pushd "${ARROW_DIR}/js"
-  sed -i.bak -E -e \
-    "s/^  \"version\": \".+\"/  \"version\": \"${version}\"/" \
-    package.json
-  rm -f package.json.bak
-  git add package.json
   popd
 
   pushd "${ARROW_DIR}/matlab"

@@ -32,6 +32,7 @@
 #include "arrow/python/decimal.h"
 #include "arrow/python/helpers.h"
 #include "arrow/python/numpy_convert.h"
+#include "arrow/python/numpy_internal.h"
 #include "arrow/python/numpy_interop.h"
 #include "arrow/python/python_test.h"
 #include "arrow/python/python_to_arrow.h"
@@ -94,18 +95,17 @@
     }                                                                             \
   }
 
-#define ASSERT_OK(expr)                                                                \
-  {                                                                                    \
-    for (::arrow::Status _st = ::arrow::internal::GenericToStatus((expr)); !_st.ok();) \
-      return Status::Invalid("`", #expr, "` failed with ", _st.ToString());            \
+#define ASSERT_OK(expr)                                                     \
+  {                                                                         \
+    for (::arrow::Status _st = ::arrow::ToStatus((expr)); !_st.ok();)       \
+      return Status::Invalid("`", #expr, "` failed with ", _st.ToString()); \
   }
 
-#define ASSERT_RAISES(code, expr)                                               \
-  {                                                                             \
-    for (::arrow::Status _st_expr = ::arrow::internal::GenericToStatus((expr)); \
-         !_st_expr.Is##code();)                                                 \
-      return Status::Invalid("Expected `", #expr, "` to fail with ", #code,     \
-                             ", but got ", _st_expr.ToString());                \
+#define ASSERT_RAISES(code, expr)                                                     \
+  {                                                                                   \
+    for (::arrow::Status _st_expr = ::arrow::ToStatus((expr)); !_st_expr.Is##code();) \
+      return Status::Invalid("Expected `", #expr, "` to fail with ", #code,           \
+                             ", but got ", _st_expr.ToString());                      \
   }
 
 namespace arrow {
@@ -663,7 +663,7 @@ Status TestDecimal128OverflowFails() {
   ASSERT_EQ(38, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(38, 38);
+  auto type = ::arrow::smallest_decimal(38, 38);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
@@ -689,7 +689,7 @@ Status TestDecimal256OverflowFails() {
   ASSERT_EQ(76, metadata.precision());
   ASSERT_EQ(1, metadata.scale());
 
-  auto type = ::arrow::decimal(76, 76);
+  auto type = ::arrow::smallest_decimal(76, 76);
   const auto& decimal_type = checked_cast<const DecimalType&>(*type);
   ASSERT_RAISES(Invalid,
                 internal::DecimalFromPythonDecimal(python_decimal, decimal_type, &value));
@@ -848,6 +848,21 @@ Status TestUpdateWithNaN() {
   return Status::OK();
 }
 
+Status TestGetNumPyTypeName() {
+  ASSERT_EQ(GetNumPyTypeName(NPY_BOOL), "bool");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT8), "int8");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT16), "int16");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT32), "int32");
+  ASSERT_EQ(GetNumPyTypeName(NPY_INT64), "int64");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT8), "uint8");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT16), "uint16");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT32), "uint32");
+  ASSERT_EQ(GetNumPyTypeName(NPY_UINT64), "uint64");
+  ASSERT_EQ(GetNumPyTypeName(NPY_FLOAT32), "float32");
+  ASSERT_EQ(GetNumPyTypeName(NPY_FLOAT64), "float64");
+  return Status::OK();
+}
+
 }  // namespace
 
 std::vector<TestCase> GetCppTestCases() {
@@ -887,6 +902,7 @@ std::vector<TestCase> GetCppTestCases() {
        TestMixedPrecisionAndScaleSequenceConvert},
       {"test_simple_inference", TestSimpleInference},
       {"test_update_with_nan", TestUpdateWithNaN},
+      {"test_get_numpy_type_name", TestGetNumPyTypeName},
   };
 }
 

@@ -17,6 +17,8 @@
 
 #include "gandiva/function_ir_builder.h"
 
+#include "arrow/util/logging_internal.h"
+
 namespace gandiva {
 
 llvm::Value* FunctionIRBuilder::BuildIfElse(llvm::Value* condition,

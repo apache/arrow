@@ -57,20 +57,11 @@ env:
 {% endmacro %}
 
 {%- macro github_install_archery() -%}
-  - name: Set up Python by actions/setup-python
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+  - name: Set up Python
     uses: actions/setup-python@v4
     with:
       cache: 'pip'
       python-version: 3.12
-  - name: Set up Python by apt
-    if: runner.os == 'Linux' && runner.arch != 'X64'
-    run: |
-      sudo apt update
-      sudo apt-get install -y python3-pip
-      pip install -U pip
-      echo "$HOME/.local/bin" >>"$GITHUB_PATH"
   - name: Install Archery
     shell: bash
     run: pip install -e arrow/dev/archery[all]
@@ -85,21 +76,10 @@ env:
 {% endmacro %}
 
 {%- macro github_upload_releases(pattern) -%}
-  - name: Set up Python by actions/setup-python
-    if: |
-      !(runner.os == 'Linux' && runner.arch != 'X64')
+  - name: Set up Python
     uses: actions/setup-python@v4
     with:
       python-version: 3.12
-  - name: Set up Python by apt
-    if: runner.os == 'Linux' && runner.arch != 'X64'
-    run: |
-      sudo apt update
-      sudo apt install -y \
-        libgit2-dev \
-        libpython3-dev \
-        python3-pip
-      sudo python3 -m pip install --upgrade pip
   - name: Checkout Crossbow
     uses: actions/checkout@v4
     with:
@@ -143,44 +123,6 @@ env:
       CROSSBOW_GITHUB_TOKEN: {{ '${{ secrets.CROSSBOW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}' }}
 {% endmacro %}
 
-{%- macro github_upload_gemfury(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - name: Set up Ruby by apt
-    if: runner.os == 'Linux' && runner.arch != 'X64'
-    run: |
-      sudo apt update
-      sudo apt install -y ruby-full
-  - name: Set up Ruby by GitHub Actions
-    if: runner.arch == 'X64' && runner.os != 'macOS'
-    uses: ruby/setup-ruby@v1
-    with:
-      ruby-version: "ruby"
-  - name: Install gemfury client on ARM self-hosted
-    if: runner.arch != 'X64'
-    run: |
-      gem install --user-install gemfury
-      ruby -r rubygems -e 'puts("#{Gem.user_dir}/bin")' >> $GITHUB_PATH
-  - name: Install gemfury client
-    if: runner.arch == 'X64'
-    run: |
-      gem install gemfury
-  - name: Upload package to Gemfury
-    shell: bash
-    run: |
-      if $(fury versions --as=${CROSSBOW_GEMFURY_ORG} --api-token=${CROSSBOW_GEMFURY_TOKEN} pyarrow | grep --fixed-strings -q "{{ arrow.no_rc_version }}"); then
-        echo "Version {{ arrow.no_rc_version }} already exists. Avoid pushing version."
-      else
-        fury push \
-          --api-token=${CROSSBOW_GEMFURY_TOKEN} \
-          --as=${CROSSBOW_GEMFURY_ORG} \
-          {{ pattern }}
-      fi
-    env:
-      CROSSBOW_GEMFURY_TOKEN: {{ '${{ secrets.CROSSBOW_GEMFURY_TOKEN }}' }}
-      CROSSBOW_GEMFURY_ORG: {{ '${{ secrets.CROSSBOW_GEMFURY_ORG }}' }}
-  {% endif %}
-{% endmacro %}
-
 {%- macro github_upload_wheel_scientific_python(pattern) -%}
   {%- if arrow.is_default_branch() -%}
   - name: Upload wheel to Anaconda scientific-python
@@ -210,31 +152,6 @@ env:
 {%- macro azure_free_space() -%}
   - script: arrow/ci/scripts/util_free_space.sh
     displayName: Free up disk space
-{% endmacro %}
-
-{%- macro azure_upload_releases(pattern) -%}
-  - task: UsePythonVersion@0
-    inputs:
-      versionSpec: '3.9'
-  - script: pip install -e arrow/dev/archery[crossbow-upload]
-    displayName: Install Crossbow
-  - bash: |
-      archery crossbow \
-        --queue-path $(pwd) \
-        --queue-remote {{ queue_remote_url }} \
-        upload-artifacts \
-        --sha {{ task.branch }} \
-        --tag {{ task.tag }} \
-      {% if pattern is string %}
-        "{{ pattern }}"
-      {% elif pattern is iterable %}
-        {% for p in pattern %}
-        "{{ p }}" {{ "\\" if not loop.last else "" }}
-        {% endfor %}
-      {% endif %}
-    env:
-      CROSSBOW_GITHUB_TOKEN: $(CROSSBOW_GITHUB_TOKEN)
-    displayName: Upload packages as a GitHub release
 {% endmacro %}
 
 {%- macro azure_upload_anaconda(pattern) -%}
@@ -326,27 +243,23 @@ env:
   - name: Get windows binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__windows
-      path: repo/libarrow/bin/windows
+      name: r-libarrow-windows-x86_64
+      path: repo/libarrow
   {% endif %}
   {% if get_nix %}
-    {% for openssl_version in ["1.0", "1.1", "3.0"] %}
-  - name: Get Linux OpenSSL {{ openssl_version }} binary
+  - name: Get Linux binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
-      path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
-    {% endfor %}
+      name: r-libarrow-linux-x86_64
+      path: repo/libarrow
   {% endif %}
   {% if get_mac %}
-    {% for openssl_version in ["1.1", "3.0"] %}
-      {% for arch in ["x86_64", "arm64"] %}
-  - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
+    {% for arch in ["x86_64", "arm64"] %}
+  - name: Get macOS {{ arch }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
-      path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
-      {% endfor %}
+      name: r-libarrow-darwin-{{ arch }}
+      path: repo/libarrow
     {% endfor %}
   {% endif %}
   - name: Get src pkg
@@ -369,7 +282,7 @@ env:
     run: |
       profile_path <- file.path(getwd(), ".Rprofile")
       repo <- paste0("file://", getwd(), "/repo")
-      str <- paste0("options(arrow.repo = '", repo, "' )")
+      str <- paste0("options(arrow.repo = '", repo, "/libarrow/' )")
       print(str)
       write(str, file = profile_path, append = TRUE)
       str <- paste0("options(arrow.dev_repo = '", repo, "' )")
@@ -377,7 +290,7 @@ env:
       write(str, file = profile_path, append = TRUE)
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
-  {% endmacro %}
+{% endmacro %}
 
 {# Detect if we are using a fork or the upstream repo #}
   {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}

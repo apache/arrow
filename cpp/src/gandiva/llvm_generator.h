@@ -96,6 +96,9 @@ class GANDIVA_EXPORT LLVMGenerator {
 
   llvm::LLVMContext* context() { return engine_->context(); }
   llvm::IRBuilder<>* ir_builder() { return engine_->ir_builder(); }
+  llvm::Constant* CreateGlobalStringPtr(const std::string& string) {
+    return engine_->CreateGlobalStringPtr(string);
+  }
 
   /// Visitor to generate the code for a decomposed expression.
   class Visitor : public DexVisitor {
@@ -137,6 +140,9 @@ class GANDIVA_EXPORT LLVMGenerator {
 
     llvm::IRBuilder<>* ir_builder() { return generator_->ir_builder(); }
     llvm::Module* module() { return generator_->module(); }
+    llvm::Constant* CreateGlobalStringPtr(const std::string& string) {
+      return generator_->CreateGlobalStringPtr(string);
+    }
 
     // Generate the code to build the combined validity (bitwise and) from the
     // vector of validities.

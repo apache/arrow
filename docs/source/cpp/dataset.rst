@@ -445,8 +445,6 @@ storage systems, such as Amazon S3, by passing a different filesystem.
 See the :ref:`filesystem <cpp-filesystems>` docs for more details on the available
 filesystems.
 
-.. _cpp-dataset-full-example:
-
 A note on transactions & ACID guarantees
 ----------------------------------------
 
@@ -466,6 +464,8 @@ there is a sudden power loss immediately after the write call.
 Most file formats have magic numbers which are written at the end.  This means a
 partial file write can safely be detected and discarded.  The CSV file format does
 not have any such concept and a partially written CSV file may be detected as valid.
+
+.. _cpp-dataset-full-example:
 
 Full Example
 ------------

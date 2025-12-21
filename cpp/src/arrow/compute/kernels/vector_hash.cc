@@ -29,10 +29,13 @@
 #include "arrow/buffer.h"
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
+#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/kernels/common_internal.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/unreachable.h"
 
 namespace arrow {

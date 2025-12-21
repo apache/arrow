@@ -442,10 +442,12 @@ EXTRACT_MINUTE_TIME(time32)
 
 EXTRACT_HOUR_TIME(time32)
 
-#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT) \
-  FORCE_INLINE                                             \
-  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {            \
-    return ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
+#define DATE_TRUNC_FIXED_UNIT(NAME, TYPE, NMILLIS_IN_UNIT)                               \
+  FORCE_INLINE                                                                           \
+  gdv_##TYPE NAME##_##TYPE(gdv_##TYPE millis) {                                          \
+    return millis >= 0                                                                   \
+               ? ((millis / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT)                          \
+               : (((millis - NMILLIS_IN_UNIT + 1) / NMILLIS_IN_UNIT) * NMILLIS_IN_UNIT); \
   }
 
 #define DATE_TRUNC_WEEK(TYPE)                                               \

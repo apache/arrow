@@ -67,7 +67,7 @@ class ARROW_EXPORT BufferBuilder {
 
   /// \brief Resize the buffer to the nearest multiple of 64 bytes
   ///
-  /// \param new_capacity the new capacity of the of the builder. Will be
+  /// \param new_capacity the new capacity of the builder. Will be
   /// rounded up to a multiple of 64 bytes for padding
   /// \param shrink_to_fit if new capacity is smaller than the existing,
   /// reallocate internal buffer. Set to false to avoid reallocations when
@@ -293,6 +293,10 @@ class TypedBufferBuilder<
 
   Status Advance(const int64_t length) {
     return bytes_builder_.Advance(length * sizeof(T));
+  }
+
+  void UnsafeAdvance(const int64_t length) {
+    bytes_builder_.UnsafeAdvance(length * sizeof(T));
   }
 
   Status Finish(std::shared_ptr<Buffer>* out, bool shrink_to_fit = true) {

@@ -75,3 +75,22 @@
     ...
     fun:*gcm_cipher*
 }
+{
+    <Azure>:curl shared handle deallocation fails (GH-47485)
+    Memcheck:Leak
+    fun:calloc
+    fun:curl_share_init
+    fun:*Azure*CurlConnection*
+}
+{
+    <protobuf>:leak on library initialization
+    Memcheck:Leak
+    ...
+    fun:*google*protobuf*AddDescriptorsRunner*
+}
+{
+    <protobuf>:leak on library initialization
+    Memcheck:Leak
+    ...
+    fun:*google*protobuf*InternalRegisterGeneratedFile*
+}

@@ -33,6 +33,7 @@ RUN apt-get update -y -q && \
         git \
         libssl-dev \
         libcurl4-openssl-dev \
+        patch \
         python3-pip \
         python3-venv \
         tzdata \
@@ -67,6 +68,10 @@ RUN latest_system_llvm=14 && \
         llvm-${llvm}-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
+
+ARG cmake
+COPY ci/scripts/install_cmake.sh /arrow/ci/scripts/
+RUN /arrow/ci/scripts/install_cmake.sh ${cmake} /usr/local/
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
 RUN /arrow/ci/scripts/install_minio.sh latest /usr/local

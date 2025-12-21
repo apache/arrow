@@ -119,7 +119,8 @@ TEST_P(TestMessage, SerializeTo) {
   const int64_t body_length = 64;
 
   flatbuffers::FlatBufferBuilder fbb;
-  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_, flatbuf::MessageHeader::RecordBatch,
+  fbb.Finish(flatbuf::CreateMessage(fbb, fb_version_,
+                                    flatbuf::MessageHeader::MessageHeader_RecordBatch,
                                     0 /* header */, body_length));
 
   std::shared_ptr<Buffer> metadata;
@@ -521,7 +522,8 @@ class IpcTestFixture : public io::MemoryMapFixture, public ExtensionTypesMixin {
 
 TEST(MetadataVersion, ForwardsCompatCheck) {
   // Verify UBSAN is ok with casting out of range metadata version.
-  EXPECT_LT(flatbuf::MetadataVersion::MAX, static_cast<flatbuf::MetadataVersion>(72));
+  EXPECT_LT(flatbuf::MetadataVersion::MetadataVersion_MAX,
+            static_cast<flatbuf::MetadataVersion>(72));
 }
 
 class TestWriteRecordBatch : public ::testing::Test, public IpcTestFixture {
@@ -577,6 +579,29 @@ TEST_F(TestIpcRoundTrip, SpecificMetadataVersion) {
   TestMetadataVersion(MetadataVersion::V5);
 }
 
+TEST_F(TestIpcRoundTrip, ListWithSlicedValues) {
+  // This tests serialization of a sliced ListArray that got sliced "the Rust
+  // way": by slicing the value_offsets buffer, but keeping top-level offset at
+  // 0.
+  auto child_data = ArrayFromJSON(int32(), "[1, 2, 3, 4, 5]")->data();
+
+  // Offsets buffer [2, 5]
+  TypedBufferBuilder<int32_t> offsets_builder;
+  ASSERT_OK(offsets_builder.Reserve(2));
+  ASSERT_OK(offsets_builder.Append(2));
+  ASSERT_OK(offsets_builder.Append(5));
+  ASSERT_OK_AND_ASSIGN(auto offsets_buffer, offsets_builder.Finish());
+
+  auto list_data = ArrayData::Make(list(int32()),
+                                   /*num_rows=*/1,
+                                   /*buffers=*/{nullptr, offsets_buffer});
+  list_data->child_data = {child_data};
+  std::shared_ptr<Array> list_array = MakeArray(list_data);
+  ASSERT_OK(list_array->ValidateFull());
+
+  CheckRoundtrip(list_array);
+}
+
 TEST(TestReadMessage, CorruptedSmallInput) {
   std::string data = "abc";
   auto reader = io::BufferReader::FromString(data);
@@ -589,20 +614,20 @@ TEST(TestReadMessage, CorruptedSmallInput) {
 }
 
 TEST(TestMetadata, GetMetadataVersion) {
-  ASSERT_EQ(MetadataVersion::V1,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V1));
-  ASSERT_EQ(MetadataVersion::V2,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V2));
-  ASSERT_EQ(MetadataVersion::V3,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V3));
-  ASSERT_EQ(MetadataVersion::V4,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V4));
-  ASSERT_EQ(MetadataVersion::V5,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::V5));
-  ASSERT_EQ(MetadataVersion::V1,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MIN));
-  ASSERT_EQ(MetadataVersion::V5,
-            ipc::internal::GetMetadataVersion(flatbuf::MetadataVersion::MAX));
+  ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V1));
+  ASSERT_EQ(MetadataVersion::V2, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V2));
+  ASSERT_EQ(MetadataVersion::V3, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V3));
+  ASSERT_EQ(MetadataVersion::V4, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V4));
+  ASSERT_EQ(MetadataVersion::V5, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_V5));
+  ASSERT_EQ(MetadataVersion::V1, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_MIN));
+  ASSERT_EQ(MetadataVersion::V5, ipc::internal::GetMetadataVersion(
+                                     flatbuf::MetadataVersion::MetadataVersion_MAX));
 }
 
 TEST_P(TestIpcRoundTrip, SliceRoundTrip) {
@@ -927,23 +952,23 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
 }
 
 TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
-  // ARROW-7975
+  // ARROW-7975: deserialized buffers should have logically exact size (no padding)
   random::RandomArrayGenerator rg(/*seed=*/0);
+  constexpr int64_t kLength = 30;
 
-  int64_t length = 15;
-  auto arr = rg.String(length, 0, 10, 0.1);
-  auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), length, {arr});
+  auto arr =
+      rg.String(kLength, /*min_length=*/0, /*max_length=*/10, /*null_probability=*/0.3);
+  ASSERT_NE(arr->null_count(), 0);  // required for validity bitmap size assertion below
 
-  ASSERT_OK_AND_ASSIGN(
-      mmap_, io::MemoryMapFixture::InitMemoryMap(
-                 /*buffer_size=*/1 << 20, TempFile("test-roundtrip-buffer-sizes")));
+  auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), kLength, {arr});
+
   DictionaryMemo dictionary_memo;
   ASSERT_OK_AND_ASSIGN(
       auto result,
       DoStandardRoundTrip(*batch, IpcWriteOptions::Defaults(), &dictionary_memo));
 
-  // Make sure that the validity bitmap is size 2 as expected
-  ASSERT_EQ(2, arr->data()->buffers[0]->size());
+  // Make sure that the validity bitmap has expected size
+  ASSERT_EQ(bit_util::BytesForBits(kLength), arr->data()->buffers[0]->size());
 
   for (size_t i = 0; i < arr->data()->buffers.size(); ++i) {
     ASSERT_EQ(arr->data()->buffers[i]->size(),

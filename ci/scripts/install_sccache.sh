@@ -19,15 +19,17 @@
 
 set -e
 
-if [  "$#" -lt 1 -o "$#" -gt 3 ]; then
+DEFAULT_VERSION=0.12.0
+
+if [  "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     echo "Usage: $0 <build> <prefix> <version>"
-    echo "Will default to version=0.3.0 "
+    echo "Will default to version=${DEFAULT_VERSION}"
     exit 1
 fi
 
 BUILD=$1
 PREFIX=$2
-VERSION=${3:-0.3.0}
+VERSION=${3:-${DEFAULT_VERSION}}
 ARCH=$(uname -m)
 
 if [ "${ARCH}" != x86_64 ] && [ "${ARCH}" != aarch64 ]; then
@@ -39,30 +41,30 @@ SCCACHE_URL="https://github.com/mozilla/sccache/releases/download/v$VERSION/scca
 SCCACHE_ARCHIVE=sccache.tar.gz
 
 # Download archive and checksum
-curl -L $SCCACHE_URL --output $SCCACHE_ARCHIVE
-curl -L $SCCACHE_URL.sha256 --output $SCCACHE_ARCHIVE.sha256
+curl -L "$SCCACHE_URL" --output $SCCACHE_ARCHIVE
+curl -L "${SCCACHE_URL}.sha256" --output $SCCACHE_ARCHIVE.sha256
 echo "  $SCCACHE_ARCHIVE" >> $SCCACHE_ARCHIVE.sha256
 
-SHA_ARGS="--check --status"
+SHA_ARGS=(--check --status)
 
 # Busybox sha256sum uses different flags
 if sha256sum --version 2>&1 | grep -q BusyBox; then
-  SHA_ARGS="-sc"
+  SHA_ARGS=(-sc)
 fi
 
-sha256sum $SHA_ARGS $SCCACHE_ARCHIVE.sha256
+sha256sum "${SHA_ARGS[@]}" $SCCACHE_ARCHIVE.sha256
 
-if [ ! -d $PREFIX ]; then
-    mkdir -p $PREFIX
+if [ ! -d "$PREFIX" ]; then
+    mkdir -p "$PREFIX"
 fi
 
 # Extract only the sccache binary into $PREFIX and ignore README and LICENSE.
 # --wildcards doesn't work on busybox.
-tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory $PREFIX --exclude="sccache*/*E*E*"
-chmod a+x $PREFIX/sccache
+tar -xzvf $SCCACHE_ARCHIVE --strip-component=1 --directory "$PREFIX" --exclude="sccache*/*E*E*"
+chmod a+x "${PREFIX}/sccache"
 
 if [ -n "${GITHUB_PATH}" ]; then
-    echo "$PREFIX" >> $GITHUB_PATH
+    echo "$PREFIX" >> "$GITHUB_PATH"
     # Add executable for windows as mingw workaround.
-    echo "SCCACHE_PATH=$PREFIX/sccache.exe" >> $GITHUB_ENV
+    echo "SCCACHE_PATH=$PREFIX/sccache.exe" >> "$GITHUB_ENV"
 fi

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <arrow/util/secure_string.h>
 #include <reader_writer.h>
 
 #include <cassert>
@@ -39,9 +40,9 @@
 
 constexpr int NUM_ROWS_PER_ROW_GROUP = 500;
 const char* PARQUET_FILENAME = "parquet_cpp_example.parquet.encrypted";
-const char* kFooterEncryptionKey = "0123456789012345";  // 128bit/16
-const char* kColumnEncryptionKey1 = "1234567890123450";
-const char* kColumnEncryptionKey2 = "1234567890123451";
+const arrow::util::SecureString kFooterEncryptionKey("0123456789012345");
+const arrow::util::SecureString kColumnEncryptionKey1("1234567890123450");
+const arrow::util::SecureString kColumnEncryptionKey2("1234567890123451");
 
 int main(int argc, char** argv) {
   /**********************************************************************************
@@ -67,13 +68,10 @@ int main(int argc, char** argv) {
     auto column_path1 = schema_desc.Column(5)->path()->ToDotString();
     auto column_path2 = schema_desc.Column(4)->path()->ToDotString();
 
-    parquet::ColumnEncryptionProperties::Builder encryption_col_builder0(column_path1);
-    parquet::ColumnEncryptionProperties::Builder encryption_col_builder1(column_path2);
-    encryption_col_builder0.key(kColumnEncryptionKey1)->key_id("kc1");
-    encryption_col_builder1.key(kColumnEncryptionKey2)->key_id("kc2");
-
-    encryption_cols[column_path1] = encryption_col_builder0.build();
-    encryption_cols[column_path2] = encryption_col_builder1.build();
+    encryption_cols[column_path1] =
+        parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey1, "kc1");
+    encryption_cols[column_path2] =
+        parquet::ColumnEncryptionProperties::WithColumnKey(kColumnEncryptionKey2, "kc2");
 
     parquet::FileEncryptionProperties::Builder file_encryption_builder(
         kFooterEncryptionKey);
@@ -81,7 +79,7 @@ int main(int argc, char** argv) {
     parquet::WriterProperties::Builder builder;
     // Add the current encryption configuration to WriterProperties.
     builder.encryption(file_encryption_builder.footer_key_metadata("kf")
-                           ->encrypted_columns(encryption_cols)
+                           ->encrypted_columns(std::move(encryption_cols))
                            ->build());
 
     // Add other writer properties
@@ -189,7 +187,7 @@ int main(int argc, char** argv) {
     file_writer->Close();
 
     // Write the bytes to file
-    DCHECK(out_file->Close().ok());
+    ARROW_DCHECK(out_file->Close().ok());
   } catch (const std::exception& e) {
     std::cerr << "Parquet write error: " << e.what() << std::endl;
     return -1;
@@ -216,7 +214,7 @@ int main(int argc, char** argv) {
 
     // Add the current decryption configuration to ReaderProperties.
     reader_properties.file_decryption_properties(
-        file_decryption_builder.key_retriever(kr1)->build());
+        file_decryption_builder.key_retriever(std::move(kr1))->build());
 
     // Create a ParquetReader instance
     std::unique_ptr<parquet::ParquetFileReader> parquet_reader =

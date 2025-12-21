@@ -33,6 +33,8 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/array/data.h"
+#include "arrow/compute/cast.h"
 #include "arrow/io/memory.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
@@ -64,7 +66,7 @@ using arrow::FileReader;
 using arrow::WriteTable;
 using schema::PrimitiveNode;
 
-namespace benchmark {
+namespace benchmarks {
 
 // This should result in multiple pages for most primitive types
 constexpr int64_t BENCHMARK_SIZE = 10 * 1024 * 1024;
@@ -222,9 +224,9 @@ BENCHMARK_TEMPLATE2(BM_WriteColumn, true, BooleanType);
 
 int32_t kInfiniteUniqueValues = -1;
 
-std::shared_ptr<Table> RandomStringTable(int64_t length, int64_t unique_values,
+std::shared_ptr<Table> RandomStringTable(std::shared_ptr<::arrow::DataType> type,
+                                         int64_t length, int64_t unique_values,
                                          int64_t null_percentage) {
-  std::shared_ptr<::arrow::DataType> type = ::arrow::utf8();
   std::shared_ptr<::arrow::Array> arr;
   ::arrow::random::RandomArrayGenerator generator(/*seed=*/500);
   double null_probability = static_cast<double>(null_percentage) / 100.0;
@@ -236,13 +238,14 @@ std::shared_ptr<Table> RandomStringTable(int64_t length, int64_t unique_values,
                                       /*min_length=*/3, /*max_length=*/32,
                                       /*null_probability=*/null_probability);
   }
+  arr = *::arrow::compute::Cast(*arr, type);
   return Table::Make(
       ::arrow::schema({::arrow::field("column", type, null_percentage > 0)}), {arr});
 }
 
 static void BM_WriteBinaryColumn(::benchmark::State& state) {
   std::shared_ptr<Table> table =
-      RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
+      RandomStringTable(::arrow::utf8(), BENCHMARK_SIZE, state.range(1), state.range(0));
 
   while (state.KeepRunning()) {
     auto output = CreateOutputStream();
@@ -283,17 +286,20 @@ struct Examples<bool> {
 static void BenchmarkReadTable(::benchmark::State& state, const Table& table,
                                std::shared_ptr<WriterProperties> properties,
                                int64_t num_values = -1, int64_t total_bytes = -1) {
+  // Make sure we roundtrip Arrow types by storing the schema
+  auto arrow_properties = ArrowWriterProperties::Builder().store_schema()->build();
   auto output = CreateOutputStream();
   EXIT_NOT_OK(WriteTable(table, ::arrow::default_memory_pool(), output,
-                         /*chunk_size=*/table.num_rows(), properties));
+                         /*chunk_size=*/table.num_rows(), properties, arrow_properties));
   PARQUET_ASSIGN_OR_THROW(auto buffer, output->Finish());
 
   for (auto _ : state) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> arrow_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &arrow_reader));
+    auto arrow_reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(arrow_reader_result.status());
+    auto arrow_reader = std::move(*arrow_reader_result);
 
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadTable(&table));
@@ -412,20 +418,32 @@ BENCHMARK_TEMPLATE2(BM_ReadColumn, true, BooleanType)
     ->Args({5, 10});
 
 //
-// Benchmark reading a PLAIN-encoded primitive column
+// Benchmark reading a non-dict-encoded primitive column
 //
 
-template <bool nullable, typename ParquetType>
-static void BM_ReadColumnPlain(::benchmark::State& state) {
+template <typename ParquetType>
+static void BenchmarkReadNonDictColumn(::benchmark::State& state, bool nullable,
+                                       Encoding::type encoding) {
   using c_type = typename ArrowType<ParquetType>::c_type;
 
   const std::vector<c_type> values(BENCHMARK_SIZE, static_cast<c_type>(42));
   std::shared_ptr<Table> table =
       TableFromVector<ParquetType>(values, /*nullable=*/nullable, state.range(0));
 
-  auto properties = WriterProperties::Builder().disable_dictionary()->build();
+  auto properties =
+      WriterProperties::Builder().disable_dictionary()->encoding(encoding)->build();
   BenchmarkReadTable(state, *table, properties, table->num_rows(),
                      BytesForItems<ParquetType>(table->num_rows()));
+}
+
+template <bool nullable, typename ParquetType>
+static void BM_ReadColumnPlain(::benchmark::State& state) {
+  BenchmarkReadNonDictColumn<ParquetType>(state, nullable, Encoding::PLAIN);
+}
+
+template <bool nullable, typename ParquetType>
+static void BM_ReadColumnByteStreamSplit(::benchmark::State& state) {
+  BenchmarkReadNonDictColumn<ParquetType>(state, nullable, Encoding::BYTE_STREAM_SPLIT);
 }
 
 BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, false, Int32Type)
@@ -450,32 +468,86 @@ BENCHMARK_TEMPLATE2(BM_ReadColumnPlain, true, Float16LogicalType)
     ->Args({99})
     ->Args({100});
 
+BENCHMARK_TEMPLATE2(BM_ReadColumnByteStreamSplit, false, Float16LogicalType)
+    ->ArgNames({"null_probability"})
+    ->Args({kAlternatingOrNa});
+BENCHMARK_TEMPLATE2(BM_ReadColumnByteStreamSplit, true, Float16LogicalType)
+    ->ArgNames({"null_probability"})
+    ->Args({0})
+    ->Args({1})
+    ->Args({50})
+    ->Args({99})
+    ->Args({100});
+
 //
 // Benchmark reading binary column
 //
 
-static void BM_ReadBinaryColumn(::benchmark::State& state) {
+static void BenchmarkReadBinaryColumn(::benchmark::State& state,
+                                      const std::shared_ptr<::arrow::DataType>& type,
+                                      Encoding::type encoding) {
   std::shared_ptr<Table> table =
-      RandomStringTable(BENCHMARK_SIZE, state.range(1), state.range(0));
+      RandomStringTable(type, BENCHMARK_SIZE, state.range(1), state.range(0));
 
-  // Offsets + data
-  int64_t total_bytes = table->column(0)->chunk(0)->data()->buffers[1]->size() +
-                        table->column(0)->chunk(0)->data()->buffers[2]->size();
-  BenchmarkReadTable(state, *table, table->num_rows(), total_bytes);
+  // Offsets / views + data
+  int64_t total_bytes = 0;
+  const ::arrow::ArrayData& column = *table->column(0)->chunk(0)->data();
+  for (size_t i = 1; i < column.buffers.size(); ++i) {
+    total_bytes += column.buffers[i]->size();
+  }
+
+  auto properties = WriterProperties::Builder().encoding(encoding)->build();
+  BenchmarkReadTable(state, *table, properties, table->num_rows(), total_bytes);
 }
 
-BENCHMARK(BM_ReadBinaryColumn)
-    ->ArgNames({"null_probability", "unique_values"})
-    // We vary unique values to trigger the dictionary-encoded (for low-cardinality)
-    // and plain (for high-cardinality) code paths.
-    ->Args({0, 32})
-    ->Args({0, kInfiniteUniqueValues})
-    ->Args({1, 32})
-    ->Args({50, 32})
-    ->Args({99, 32})
-    ->Args({1, kInfiniteUniqueValues})
-    ->Args({50, kInfiniteUniqueValues})
-    ->Args({99, kInfiniteUniqueValues});
+static void SetReadBinaryColumnArgs(benchmark::internal::Benchmark* b) {
+  b->ArgNames({"null_probability", "unique_values"})
+      // We vary unique values to trigger the dictionary-encoded (for low-cardinality)
+      // and plain (for high-cardinality) code paths.
+      ->Args({0, 32})
+      ->Args({0, kInfiniteUniqueValues})
+      ->Args({1, 32})
+      ->Args({50, 32})
+      ->Args({99, 32})
+      ->Args({1, kInfiniteUniqueValues})
+      ->Args({50, kInfiniteUniqueValues})
+      ->Args({99, kInfiniteUniqueValues});
+}
+
+static void SetReadBinaryColumnArgsWithoutDictEncoding(
+    benchmark::internal::Benchmark* b) {
+  b->ArgNames({"null_probability", "unique_values"})
+      // Dict-encoding is already tested in the PLAIN benchmarks, so only exercise
+      // non-dict-encoding using high cardinality.
+      ->Args({0, kInfiniteUniqueValues})
+      ->Args({1, kInfiniteUniqueValues})
+      ->Args({50, kInfiniteUniqueValues})
+      ->Args({99, kInfiniteUniqueValues});
+}
+
+static void BM_ReadBinaryColumn(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::utf8(), Encoding::PLAIN);
+}
+
+static void BM_ReadBinaryViewColumn(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::large_utf8(), Encoding::PLAIN);
+}
+
+static void BM_ReadBinaryColumnDeltaByteArray(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::utf8(), Encoding::DELTA_BYTE_ARRAY);
+}
+
+static void BM_ReadBinaryViewColumnDeltaByteArray(::benchmark::State& state) {
+  BenchmarkReadBinaryColumn(state, ::arrow::large_utf8(), Encoding::DELTA_BYTE_ARRAY);
+}
+
+BENCHMARK(BM_ReadBinaryColumn)->Apply(SetReadBinaryColumnArgs);
+BENCHMARK(BM_ReadBinaryViewColumn)->Apply(SetReadBinaryColumnArgs);
+
+BENCHMARK(BM_ReadBinaryColumnDeltaByteArray)
+    ->Apply(SetReadBinaryColumnArgsWithoutDictEncoding);
+BENCHMARK(BM_ReadBinaryViewColumnDeltaByteArray)
+    ->Apply(SetReadBinaryColumnArgsWithoutDictEncoding);
 
 //
 // Benchmark reading a nested column
@@ -664,9 +736,10 @@ static void BM_ReadIndividualRowGroups(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> arrow_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &arrow_reader));
+    auto arrow_reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(arrow_reader_result.status());
+    auto arrow_reader = std::move(*arrow_reader_result);
 
     std::vector<std::shared_ptr<Table>> tables;
     for (int i = 0; i < arrow_reader->num_row_groups(); i++) {
@@ -699,9 +772,11 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> arrow_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &arrow_reader));
+    auto arrow_reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(arrow_reader_result.status());
+    auto arrow_reader = std::move(*arrow_reader_result);
+
     std::shared_ptr<Table> table;
     EXIT_NOT_OK(arrow_reader->ReadRowGroups(rgs, &table));
   }
@@ -723,10 +798,10 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
   while (state.KeepRunning()) {
     auto reader =
         ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-    std::unique_ptr<FileReader> unique_reader;
-    EXIT_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                 &unique_reader));
-    std::shared_ptr<FileReader> arrow_reader = std::move(unique_reader);
+    auto arrow_reader_result =
+        FileReader::Make(::arrow::default_memory_pool(), std::move(reader));
+    EXIT_NOT_OK(arrow_reader_result.status());
+    std::shared_ptr<FileReader> arrow_reader = std::move(*arrow_reader_result);
     ASSIGN_OR_ABORT(auto generator,
                     arrow_reader->GetRecordBatchGenerator(arrow_reader, rgs, {0}));
     auto fut = ::arrow::CollectAsyncGenerator(generator);
@@ -738,6 +813,5 @@ static void BM_ReadMultipleRowGroupsGenerator(::benchmark::State& state) {
 
 BENCHMARK(BM_ReadMultipleRowGroupsGenerator);
 
-}  // namespace benchmark
-
+}  // namespace benchmarks
 }  // namespace parquet

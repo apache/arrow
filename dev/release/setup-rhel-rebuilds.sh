@@ -16,20 +16,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # A script to install dependencies required for release
-# verification Red Hat Enterprise Linux 8 clones in particular
-# on AlmaLinux 8 and Rocky Linux 8
+# verification on Red Hat Enterprise Linux 10 clones in particular
+# on AlmaLinux 10
 
 set -exu
 
 dnf -y install 'dnf-command(config-manager)'
-dnf config-manager --set-enabled powertools
 dnf -y update
-dnf -y module disable nodejs
-dnf -y module enable nodejs:18
-dnf -y module disable ruby
-dnf -y module enable ruby:2.7
 dnf -y groupinstall "Development Tools"
 dnf -y install \
   cmake \
@@ -40,16 +34,12 @@ dnf -y install \
   llvm-toolset \
   ncurses-devel \
   ninja-build \
-  nodejs \
   openssl-devel \
-  python3.11-devel \
+  python3-devel \
   ruby-devel \
   sqlite-devel \
   vala-devel \
   wget \
   which
 
-npm install -g yarn
-
 python3 -m ensurepip --upgrade
-alternatives --set python /usr/bin/python3

@@ -28,6 +28,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/transport/grpc/customize_grpc.h"
+
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/support/client_callback.h>
 #if defined(GRPC_NAMESPACE_FOR_TLS_CREDENTIALS_OPTIONS)
@@ -41,7 +43,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/util/base64.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/string.h"
 #include "arrow/util/uri.h"
 

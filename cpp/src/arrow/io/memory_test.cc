@@ -45,7 +45,7 @@
 #include "arrow/util/config.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"
 
 namespace arrow {
@@ -681,7 +681,7 @@ TEST(TestInputStreamIterator, Closed) {
   AssertBufferEqual(*buf, "dat");
   // Close stream and read from iterator
   ASSERT_OK(reader->Close());
-  ASSERT_RAISES(Invalid, it.Next().status());
+  ASSERT_RAISES(Invalid, it.Next());
 }
 
 TEST(CoalesceReadRanges, Basics) {

@@ -26,7 +26,8 @@ if [ "$#" -ne 3 ]; then
   exit 1
 fi
 
-. $SOURCE_DIR/utils-prepare.sh
+. "${SOURCE_DIR}/utils-env.sh"
+. "${SOURCE_DIR}/utils-prepare.sh"
 
 version=$1
 next_version=$2

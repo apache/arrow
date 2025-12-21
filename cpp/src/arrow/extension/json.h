@@ -31,7 +31,7 @@ namespace arrow::extension {
 class ARROW_EXPORT JsonExtensionType : public ExtensionType {
  public:
   explicit JsonExtensionType(const std::shared_ptr<DataType>& storage_type)
-      : ExtensionType(storage_type), storage_type_(storage_type) {}
+      : ExtensionType(storage_type) {}
 
   std::string extension_name() const override { return "arrow.json"; }
 
@@ -48,9 +48,6 @@ class ARROW_EXPORT JsonExtensionType : public ExtensionType {
   static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> storage_type);
 
   static bool IsSupportedStorageType(Type::type type_id);
-
- private:
-  std::shared_ptr<DataType> storage_type_;
 };
 
 /// \brief Return a JsonExtensionType instance.

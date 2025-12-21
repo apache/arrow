@@ -66,6 +66,7 @@ JSON Files
 
    ReadOptions
    ParseOptions
+   open_json
    read_json
 
 .. _api.parquet:
@@ -81,6 +82,7 @@ Parquet Files
    ParquetDataset
    ParquetFile
    ParquetWriter
+   filters_to_expression
    read_table
    read_metadata
    read_pandas

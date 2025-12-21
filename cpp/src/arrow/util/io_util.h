@@ -25,6 +25,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -238,23 +239,16 @@ Status MemoryMapRemap(void* addr, size_t old_size, size_t new_size, int fildes,
 ARROW_EXPORT
 Status MemoryAdviseWillNeed(const std::vector<MemoryRegion>& regions);
 
+// Returns KeyError if the environment variable doesn't exist
 ARROW_EXPORT
-Result<std::string> GetEnvVar(const char* name);
+Result<std::string> GetEnvVar(std::string_view name);
 ARROW_EXPORT
-Result<std::string> GetEnvVar(const std::string& name);
-ARROW_EXPORT
-Result<NativePathString> GetEnvVarNative(const char* name);
-ARROW_EXPORT
-Result<NativePathString> GetEnvVarNative(const std::string& name);
+Result<NativePathString> GetEnvVarNative(std::string_view name);
 
 ARROW_EXPORT
-Status SetEnvVar(const char* name, const char* value);
+Status SetEnvVar(std::string_view name, std::string_view value);
 ARROW_EXPORT
-Status SetEnvVar(const std::string& name, const std::string& value);
-ARROW_EXPORT
-Status DelEnvVar(const char* name);
-ARROW_EXPORT
-Status DelEnvVar(const std::string& name);
+Status DelEnvVar(std::string_view name);
 
 ARROW_EXPORT
 std::string ErrnoMessage(int errnum);
@@ -418,6 +412,12 @@ int64_t GetCurrentRSS();
 /// This function supports Windows, Linux, and Mac and will return 0 otherwise
 ARROW_EXPORT
 int64_t GetTotalMemoryBytes();
+
+/// \brief Get the number of affinity core on the system.
+///
+/// This is only implemented on Linux.
+/// If a value is returned, it is guaranteed to be greater or equal to one.
+ARROW_EXPORT Result<int32_t> GetNumAffinityCores();
 
 /// \brief Load a dynamic library
 ///

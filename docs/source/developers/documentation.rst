@@ -32,6 +32,10 @@ If you're using Conda, the required software can be installed in a single line:
 
    conda install -c conda-forge --file=arrow/ci/conda_env_sphinx.txt
 
+.. note::
+
+   ``linuxdoc`` cannot be installed by Conda. It has to be installed via pip separately.
+
 Otherwise, you'll first need to install `Doxygen <http://www.doxygen.nl/>`_
 yourself (for example from your distribution's official repositories, if
 using Linux).  Then you can install the Python-based requirements with the
@@ -115,7 +119,7 @@ Docker container.
 
 .. code-block:: shell
 
-  archery docker run -v "${PWD}/docs:/build/docs" ubuntu-docs
+  archery docker run -v "${PWD}/docs:/build/docs" debian-docs
 
 The final output is located under the ``${PWD}/docs`` directory.
 

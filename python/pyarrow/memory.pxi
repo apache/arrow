@@ -29,9 +29,8 @@ cdef class MemoryPool(_Weakrefable):
     """
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.*_memory_pool instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.*_memory_pool instead.")
 
     cdef void init(self, CMemoryPool* pool):
         self.pool = pool
@@ -58,6 +57,13 @@ cdef class MemoryPool(_Weakrefable):
         """
         return self.pool.bytes_allocated()
 
+    def total_bytes_allocated(self):
+        """
+        Return the total number of bytes that have been allocated from this
+        memory pool.
+        """
+        return self.pool.total_bytes_allocated()
+
     def max_memory(self):
         """
         Return the peak memory allocation in this memory pool.
@@ -68,6 +74,23 @@ cdef class MemoryPool(_Weakrefable):
         """
         ret = self.pool.max_memory()
         return ret if ret >= 0 else None
+
+    def num_allocations(self):
+        """
+        Return the number of allocations or reallocations that were made
+        using this memory pool.
+        """
+        return self.pool.num_allocations()
+
+    def print_stats(self):
+        """
+        Print statistics about this memory pool.
+
+        The output format is implementation-specific. Not all memory pools
+        implement this method.
+        """
+        with nogil:
+            self.pool.PrintStats()
 
     @property
     def backend_name(self):
@@ -82,6 +105,7 @@ cdef class MemoryPool(_Weakrefable):
                 f"backend_name={self.backend_name} "
                 f"bytes_allocated={self.bytes_allocated()} "
                 f"max_memory={self.max_memory()}>")
+
 
 cdef CMemoryPool* maybe_unbox_memory_pool(MemoryPool memory_pool):
     if memory_pool is None:
@@ -101,9 +125,8 @@ cdef class LoggingMemoryPool(MemoryPool):
         unique_ptr[CLoggingMemoryPool] logging_pool
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.logging_memory_pool instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.logging_memory_pool instead.")
 
 
 cdef class ProxyMemoryPool(MemoryPool):
@@ -116,9 +139,8 @@ cdef class ProxyMemoryPool(MemoryPool):
         unique_ptr[CProxyMemoryPool] proxy_pool
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.proxy_memory_pool instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.proxy_memory_pool instead.")
 
 
 def default_memory_pool():

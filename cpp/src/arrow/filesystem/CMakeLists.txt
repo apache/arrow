@@ -48,6 +48,12 @@ if(ARROW_GCS)
                  filesystem
                  EXTRA_LINK_LIBS
                  google-cloud-cpp::storage)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+    if(TARGET arrow-gcsfs-test)
+      target_compile_options(arrow-gcsfs-test PRIVATE -Wno-documentation
+                                                      -Wno-documentation-deprecated-sync)
+    endif()
+  endif()
 endif()
 
 if(ARROW_AZURE)
@@ -120,6 +126,23 @@ if(ARROW_S3)
     else()
       target_link_libraries(arrow-filesystem-s3fs-benchmark PRIVATE parquet_shared)
     endif()
+  endif()
+
+  if(ARROW_S3_MODULE)
+    add_arrow_test(s3fs_module_test
+                   SOURCES
+                   s3fs_module_test.cc
+                   s3_test_util.cc
+                   EXTRA_LABELS
+                   filesystem
+                   DEFINITIONS
+                   ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>"
+                   EXTRA_LINK_LIBS
+                   Boost::filesystem)
+    target_compile_definitions(arrow-filesystem-test
+                               PUBLIC ARROW_S3_LIBPATH="$<TARGET_FILE:arrow_s3fs>")
+    target_sources(arrow-filesystem-test PUBLIC s3fs_module_test.cc s3_test_util.cc)
+    target_link_libraries(arrow-filesystem-test PUBLIC Boost::filesystem)
   endif()
 endif()
 

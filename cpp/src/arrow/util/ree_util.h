@@ -392,15 +392,17 @@ class RunEndEncodedArraySpan {
   /// \warning Avoid calling end() in a loop, as it will recompute the physical
   /// length of the array on each call (O(log N) cost per call).
   ///
-  /// \par You can write your loops like this instead:
+  /// You can write your loops like this instead:
+  ///
   /// \code
   /// for (auto it = array.begin(), end = array.end(); it != end; ++it) {
   ///   // ...
   /// }
   /// \endcode
   ///
-  /// \par Or this version that does not look like idiomatic C++, but removes
+  /// Or this version that does not look like idiomatic C++, but removes
   /// the need for calling end() completely:
+  ///
   /// \code
   /// for (auto it = array.begin(); !it.is_end(array); ++it) {
   ///   // ...

@@ -24,7 +24,7 @@ import pyarrow as pa
 from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,  # noqa
                          Message, MessageReader,
                          RecordBatchReader, _ReadPandasMixin,
-                         MetadataVersion,
+                         MetadataVersion, Alignment,
                          read_message, read_record_batch, read_schema,
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)
@@ -59,12 +59,6 @@ sink : str, pyarrow.NativeFile, or file-like Python object
     Either a file path, or a writable file object.
 schema : pyarrow.Schema
     The Arrow schema for data to be written to the file.
-use_legacy_format : bool, default None
-    Deprecated in favor of setting options. Cannot be provided with
-    options.
-
-    If None, False will be used unless this default is overridden by
-    setting the environment variable ARROW_PRE_0_15_IPC_FORMAT=1
 options : pyarrow.ipc.IpcWriteOptions
     Options for IPC serialization.
 
@@ -75,13 +69,24 @@ options : pyarrow.ipc.IpcWriteOptions
     ARROW_PRE_1_0_METADATA_VERSION=1."""
 
 
+_ipc_file_writer_class_doc = (
+    _ipc_writer_class_doc
+    + "\n"
+    + """\
+metadata : dict | pyarrow.KeyValueMetadata, optional
+    Key/value pairs (both must be bytes-like) that will be stored
+    in the file footer and are retrievable via
+    pyarrow.ipc.open_file(...).metadata."""
+)
+
+
 class RecordBatchStreamWriter(lib._RecordBatchStreamWriter):
-    __doc__ = """Writer for the Arrow streaming binary format
+    __doc__ = f"""Writer for the Arrow streaming binary format
 
-{}""".format(_ipc_writer_class_doc)
+{_ipc_writer_class_doc}"""
 
-    def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
-        options = _get_legacy_format_default(use_legacy_format, options)
+    def __init__(self, sink, schema, *, options=None):
+        options = _get_legacy_format_default(options)
         self._open(sink, schema, options=options)
 
 
@@ -113,29 +118,24 @@ class RecordBatchFileReader(lib._RecordBatchFileReader):
 
 class RecordBatchFileWriter(lib._RecordBatchFileWriter):
 
-    __doc__ = """Writer to create the Arrow binary file format
+    __doc__ = f"""Writer to create the Arrow binary file format
 
-{}""".format(_ipc_writer_class_doc)
+{_ipc_file_writer_class_doc}"""
 
-    def __init__(self, sink, schema, *, use_legacy_format=None, options=None):
-        options = _get_legacy_format_default(use_legacy_format, options)
-        self._open(sink, schema, options=options)
+    def __init__(self, sink, schema, *, options=None, metadata=None):
+        options = _get_legacy_format_default(options)
+        self._open(sink, schema, options=options, metadata=metadata)
 
 
-def _get_legacy_format_default(use_legacy_format, options):
-    if use_legacy_format is not None and options is not None:
-        raise ValueError(
-            "Can provide at most one of options and use_legacy_format")
-    elif options:
+def _get_legacy_format_default(options):
+    if options:
         if not isinstance(options, IpcWriteOptions):
-            raise TypeError("expected IpcWriteOptions, got {}"
-                            .format(type(options)))
+            raise TypeError(f"expected IpcWriteOptions, got {type(options)}")
         return options
 
     metadata_version = MetadataVersion.V5
-    if use_legacy_format is None:
-        use_legacy_format = \
-            bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
+    use_legacy_format = \
+        bool(int(os.environ.get('ARROW_PRE_0_15_IPC_FORMAT', '0')))
     if bool(int(os.environ.get('ARROW_PRE_1_0_METADATA_VERSION', '0'))):
         metadata_version = MetadataVersion.V4
     return IpcWriteOptions(use_legacy_format=use_legacy_format,
@@ -144,28 +144,25 @@ def _get_legacy_format_default(use_legacy_format, options):
 
 def _ensure_default_ipc_read_options(options):
     if options and not isinstance(options, IpcReadOptions):
-        raise TypeError(
-            "expected IpcReadOptions, got {}".format(type(options))
-        )
+        raise TypeError(f"expected IpcReadOptions, got {type(options)}")
     return options or IpcReadOptions()
 
 
-def new_stream(sink, schema, *, use_legacy_format=None, options=None):
+def new_stream(sink, schema, *, options=None):
     return RecordBatchStreamWriter(sink, schema,
-                                   use_legacy_format=use_legacy_format,
                                    options=options)
 
 
-new_stream.__doc__ = """\
+new_stream.__doc__ = f"""\
 Create an Arrow columnar IPC stream writer instance
 
-{}
+{_ipc_writer_class_doc}
 
 Returns
 -------
 writer : RecordBatchStreamWriter
     A writer for the given sink
-""".format(_ipc_writer_class_doc)
+"""
 
 
 def open_stream(source, *, options=None, memory_pool=None):
@@ -191,22 +188,20 @@ def open_stream(source, *, options=None, memory_pool=None):
                                    memory_pool=memory_pool)
 
 
-def new_file(sink, schema, *, use_legacy_format=None, options=None):
-    return RecordBatchFileWriter(sink, schema,
-                                 use_legacy_format=use_legacy_format,
-                                 options=options)
+def new_file(sink, schema, *, options=None, metadata=None):
+    return RecordBatchFileWriter(sink, schema, options=options, metadata=metadata)
 
 
-new_file.__doc__ = """\
+new_file.__doc__ = f"""\
 Create an Arrow columnar IPC file writer instance
 
-{}
+{_ipc_file_writer_class_doc}
 
 Returns
 -------
 writer : RecordBatchFileWriter
     A writer for the given sink
-""".format(_ipc_writer_class_doc)
+"""
 
 
 def open_file(source, footer_offset=None, *, options=None, memory_pool=None):

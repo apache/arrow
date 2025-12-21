@@ -114,6 +114,7 @@ extensions = [
     'breathe',
     'IPython.sphinxext.ipython_console_highlighting',
     'IPython.sphinxext.ipython_directive',
+    'linuxdoc.rstFlatTable',
     'myst_parser',
     'numpydoc',
     'sphinx_design',
@@ -234,7 +235,7 @@ master_doc = 'index'
 project = u'Apache Arrow'
 copyright = (
     f"2016-{datetime.datetime.now().year} Apache Software Foundation.\n"
-    "Apache Arrow, Arrow, Apache, the Apache feather logo, and the Apache Arrow "
+    "Apache Arrow, Arrow, Apache, the Apache logo, and the Apache Arrow "
     "project logo are either registered trademarks or trademarks of The Apache "
     "Software Foundation in the United States and other countries"
 )
@@ -272,7 +273,9 @@ language = "en"
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
 # This patterns also effect to html_static_path and html_extra_path
-exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store']
+exclude_patterns = exclude_patterns + ['_build', 'Thumbs.db', '.DS_Store',
+                                       'developers/cpp/img/async.md',
+                                       '**/README.md',]
 
 # The reST default role (used for this markup: `text`) to use for all
 # documents.
@@ -340,10 +343,9 @@ html_theme_options = {
       "image_light": "_static/arrow.png",
       "image_dark": "_static/arrow-dark.png",
     },
-    "header_links_before_dropdown": 2,
-    "header_dropdown_text": "Implementations",
+    "header_links_before_dropdown": 3,
     "navbar_align": "left",
-    "navbar_end": ["version-switcher", "theme-switcher", "navbar-icon-links"],
+    "navbar_end": ["kapa-ai-bot.html", "version-switcher", "theme-switcher", "navbar-icon-links"],
     "icon_links": [
         {
             "name": "GitHub",
@@ -356,9 +358,9 @@ html_theme_options = {
             "icon": "fa-brands fa-linkedin",
         },
         {
-            "name": "X",
-            "url": "https://twitter.com/ApacheArrow",
-            "icon": "fa-brands fa-square-x-twitter",
+            "name": "BlueSky",
+            "url": "https://bsky.app/profile/arrow.apache.org",
+            "icon": "fa-brands fa-bluesky",
         },
     ],
     "show_version_warning_banner": True,
@@ -381,7 +383,7 @@ html_context = {
 # The name for this set of Sphinx documents.
 # "<project> v<release> documentation" by default.
 #
-html_title = u'Apache Arrow v{}'.format(version)
+html_title = f"Apache Arrow v{version}"
 
 # A shorter title for the navigation bar.  Default is the same as html_title.
 #
@@ -428,6 +430,12 @@ html_css_files = ['theme_overrides.css']
 # html_sidebars = {
 #    '**': ['sidebar-logo.html', 'sidebar-search-bs.html', 'sidebar-nav-bs.html'],
 # }
+
+# Hide the primary sidebar (section navigation) for these pages
+html_sidebars = {
+    "implementations": [],
+    "status": [],
+}
 
 # The base URL which points to the root of the HTML documentation,
 # used for canonical url

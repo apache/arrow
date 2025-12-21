@@ -155,12 +155,14 @@ module Arrow
             sub_builder_info = detect_builder_info(sub_value, sub_builder_info)
             break if sub_builder_info and sub_builder_info[:detected]
           end
-          if sub_builder_info and sub_builder_info[:detected]
-            sub_value_data_type = sub_builder_info[:builder].value_data_type
+          if sub_builder_info
+            sub_builder = sub_builder_info[:builder]
+            return builder_info unless sub_builder
+            sub_value_data_type = sub_builder.value_data_type
             field = Field.new("item", sub_value_data_type)
             {
               builder: ListArrayBuilder.new(ListDataType.new(field)),
-              detected: true,
+              detected: sub_builder_info[:detected],
             }
           else
             builder_info

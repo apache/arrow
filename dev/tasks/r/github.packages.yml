@@ -57,31 +57,30 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   macos-cpp:
-    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}' }}
-
+    name: C++ Binary macOS {{ '${{ matrix.platform.arch }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
-
     needs: source
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: macos-13, arch: "x86_64" }
+          - { runs_on: macos-15-intel, arch: "x86_64" }
           - { runs_on: macos-14, arch: "arm64" }
-        openssl: ['3.0', '1.1']
-
+    env:
+      PKG_ID: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}
+      PKG_FILE: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
         run: |
           brew install sccache ninja
-          brew install openssl@{{ '${{ matrix.openssl }}' }}
+          brew install openssl@3.0
       - name: Build libarrow
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
-          MACOSX_DEPLOYMENT_TARGET: "10.13"
+          MACOSX_DEPLOYMENT_TARGET: "11.6"
           ARROW_S3: ON
           ARROW_GCS: ON
           ARROW_DEPENDENCY_SOURCE: BUNDLED
@@ -89,14 +88,11 @@ jobs:
           LIBARROW_MINIMAL: false
         run: |
           sccache --start-server
-          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@{{ '${{ matrix.openssl }}' }})"
+          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3.0)"
           cd arrow
           r/inst/build_arrow_static.sh
       - name: Bundle libarrow
         shell: bash
-        env:
-          PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
-          VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
           cd arrow/r/libarrow/dist
           zip -r $PKG_FILE lib/ include/
@@ -104,51 +100,39 @@ jobs:
         shell: bash
         run: |
           cd arrow/r/libarrow/dist
-          shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
+          shasum -a 512 ${PKG_FILE} > ${PKG_FILE}.sha512
+          mv ${PKG_FILE}{,.sha512} ../../../../
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r-lib__libarrow__bin__darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
-          path: arrow/r/libarrow/dist/arrow-*.zip*
+          name: {{ '${{ env.PKG_ID }}' }}
+          path: |
+            {{ '${{ env.PKG_FILE }}' }}
+            {{ '${{ env.PKG_FILE }}' }}.sha512
 
   linux-cpp:
-    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
+    name: C++ Binary Linux
     runs-on: ubuntu-latest
     needs: source
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - openssl: "3.0"
-            os: ubuntu
-            ubuntu: "22.04"
-          - extra-cmake-flags: >-
-              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
-              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
-            openssl: "1.1"
-            os: centos
-          - openssl: "1.0"
-            os: centos
+    env:
+      PKG_ID: r-libarrow-linux-x86_64
+      PKG_FILE: r-libarrow-linux-x86_64-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       {{ macros.github_install_archery()|indent }}
-
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
+          UBUNTU: "22.04"
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run \
-            -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
-            {{ '${{ matrix.os }}' }}-cpp-static
+          archery docker run ubuntu-cpp-static
       - name: Bundle libarrow
         shell: bash
-        env:
-          PKG_FILE: arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
-          VERSION: {{ '${{ needs.source.outputs.pkg_version }}' }}
         run: |
           # These files were created by the docker user so we have to chown them
           sudo chown -R $USER:$USER arrow/r/libarrow
@@ -159,17 +143,23 @@ jobs:
         shell: bash
         run: |
           cd arrow/r/libarrow/dist
-          shasum -a 512 arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
+          shasum -a 512 ${PKG_FILE} > ${PKG_FILE}.sha512
+          mv ${PKG_FILE}{,.sha512} ../../../../
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r-lib__libarrow__bin__linux-openssl-{{ '${{ matrix.openssl }}' }}
-          path: arrow/r/libarrow/dist/arrow-*.zip*
+          name: {{ '${{ env.PKG_ID }}' }}
+          path: |
+            {{ '${{ env.PKG_FILE }}' }}
+            {{ '${{ env.PKG_FILE }}' }}.sha512
 
   windows-cpp:
     name: C++ Binary Windows RTools (40 only)
     needs: source
     runs-on: windows-latest
+    env:
+      PKG_ID: r-libarrow-windows-x86_64
+      PKG_FILE: r-libarrow-windows-x86_64-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       - run: git config --global core.autocrlf false
       {{ macros.github_checkout_arrow()|indent }}
@@ -186,18 +176,23 @@ jobs:
         shell: bash
         env:
           ARROW_HOME: "arrow"
+          MINGW_ARCH: "ucrt64"
+          RTOOLS_VERSION: 40
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
       - name: Create Checksum
         shell: bash
         run: |
           cd build
-          sha512sum arrow-*.zip > arrow-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip.sha512
+          sha512sum ${PKG_FILE} > ${PKG_FILE}.sha512
+          mv ${PKG_FILE}{,.sha512} ../
       - name: Upload binary artifact
         uses: actions/upload-artifact@v4
         with:
-          name: r-lib__libarrow__bin__windows
-          path: build/arrow-*.zip*
+          name: {{ '${{ env.PKG_ID }}' }}
+          path: |
+            {{ '${{ env.PKG_FILE }}' }}
+            {{ '${{ env.PKG_FILE }}' }}.sha512
 
   r-packages:
     needs: [source, windows-cpp, macos-cpp]
@@ -208,7 +203,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-13, name: "macOS x86_64"}
+          - { runs_on: macos-15-intel, name: "macOS x86_64"}
           - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
@@ -231,7 +226,7 @@ jobs:
         shell: sudo -E Rscript {0}
         run: |
           # get the mac-recipes version of openssl from CRAN
-          source("https://mac.R-project.org/bin/install.R") 
+          source("https://mac.R-project.org/bin/install.R")
           install.libs("openssl")
 
           # override our cmakes default setting of the brew --prefix as root dir to avoid version conflicts.
@@ -249,7 +244,7 @@ jobs:
           LIBARROW_BINARY: "true" # has to be set as long as allowlist not updated
           LIBARROW_BUILD: "false"
           ARROW_R_ENFORCE_CHECKSUM: "true"
-          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow"
         run: |
           on_windows <- tolower(Sys.info()[["sysname"]]) == "windows"
 
@@ -313,8 +308,7 @@ jobs:
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
           - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
-          - {image: "rocker/r-ver:4.0.0"} # ubuntu-20.04
-          - {image: "rstudio/r-base:4.1-focal"}
+          - {image: "rstudio/r-base:4.1-jammy"}
           - {image: "rstudio/r-base:4.2-jammy"}
           - {image: "rstudio/r-base:4.3-noble"}
     steps:
@@ -339,7 +333,7 @@ jobs:
           LIBARROW_BUILD: "FALSE"
           LIBARROW_BINARY: {{ '${{ matrix.config.libarrow_binary }}' }}
           ARROW_R_ENFORCE_CHECKSUM: "true"
-          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow/bin"
+          ARROW_R_CHECKSUM_PATH: "{{ '${{ github.workspace }}' }}/repo/libarrow"
         shell: bash
         run: |
           Rscript -e '
@@ -389,7 +383,7 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: "macos-13" , name: "macOS"}
+          - {runs_on: "macos-15-intel" , name: "macOS"}
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2
@@ -448,6 +442,10 @@ jobs:
         uses: r-lib/actions/setup-r@v2
         with:
           install-r: true
+      - name: Move libarrow artifacts
+        run: |
+          mkdir -p binaries/
+          mv artifacts/r-libarrow-*/* binaries/
       - name: Rename artifacts
         shell: Rscript {0}
         run: |

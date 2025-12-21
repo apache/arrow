@@ -44,7 +44,7 @@ CPU vs. I/O
 -----------
 
 In order to minimize the overhead of context switches our default thread pool
-for CPU-intensive tasks has a fixed size, defaulting to
+for CPU-intensive tasks has a fixed size, defaulting to the process CPU affinity (on Linux) or
 `std::thread::hardware_concurrency <https://en.cppreference.com/w/cpp/thread/thread/hardware_concurrency>`_.
 This means that CPU tasks should never block for long periods of time because this
 will result in under-utilization of the CPU.  To achieve this we have a separate

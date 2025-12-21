@@ -226,9 +226,16 @@ class PyValue {
   }
 
   static Result<uint16_t> Convert(const HalfFloatType*, const O&, I obj) {
-    uint16_t value;
-    RETURN_NOT_OK(PyFloat_AsHalf(obj, &value));
-    return value;
+    if (internal::PyFloatScalar_Check(obj)) {
+      return PyFloat_AsHalf(obj);
+    } else if (internal::PyIntScalar_Check(obj)) {
+      double float_val{};
+      RETURN_NOT_OK(internal::IntegerScalarToDoubleSafe(obj, &float_val));
+      const auto half_val = arrow::util::Float16::FromDouble(float_val);
+      return half_val.bits();
+    } else {
+      return internal::InvalidValue(obj, "tried to convert to float16");
+    }
   }
 
   static Result<float> Convert(const FloatType*, const O&, I obj) {
@@ -542,7 +549,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
  public:
   // Iterate over the input values and defer the conversion to the Append method
   Status Extend(PyObject* values, int64_t size, int64_t offset = 0) override {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
@@ -554,7 +561,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
   // Convert and append a sequence of values masked with a numpy array
   Status ExtendMasked(PyObject* values, PyObject* mask, int64_t size,
                       int64_t offset = 0) override {
-    DCHECK_GE(size, offset);
+    ARROW_DCHECK_GE(size, offset);
     /// Ensure we've allocated enough space
     RETURN_NOT_OK(this->Reserve(size - offset));
     // Iterate over the items adding each one
@@ -1267,7 +1274,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   } else {
     options.strict = true;
   }
-  DCHECK_GE(size, 0);
+  ARROW_DCHECK_GE(size, 0);
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));

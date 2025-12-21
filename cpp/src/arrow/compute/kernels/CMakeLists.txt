@@ -15,12 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
+arrow_install_all_headers("arrow/compute/kernels")
+
 # ----------------------------------------------------------------------
 # Tests that don't require the full kernel library
 
-# Define arrow_compute_testing object library for common test files
+# Define arrow_compute_kernels_testing object library for common test files
 if(ARROW_TESTING)
-  add_library(arrow_compute_kernels_testing OBJECT test_util.cc)
+  add_library(arrow_compute_kernels_testing OBJECT test_util_internal.cc)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
   target_link_libraries(arrow_compute_kernels_testing PUBLIC ${ARROW_GTEST_GMOCK})
@@ -31,12 +33,14 @@ add_arrow_test(scalar_cast_test
                SOURCES
                scalar_cast_test.cc
                EXTRA_LINK_LIBS
-               arrow_compute_kernels_testing)
+               arrow_compute_kernels_testing
+               arrow_compute_core_testing)
 
 # ----------------------------------------------------------------------
 # Scalar kernels
 
-set(ARROW_COMPUTE_SCALAR_TYPE_TEST_LINK_LIBS arrow_compute_kernels_testing)
+set(ARROW_COMPUTE_SCALAR_TYPE_TEST_LINK_LIBS arrow_compute_kernels_testing
+                                             arrow_compute_testing)
 if(ARROW_WITH_UTF8PROC)
   list(APPEND ARROW_COMPUTE_SCALAR_TYPE_TEST_LINK_LIBS utf8proc::utf8proc)
 endif()
@@ -52,13 +56,15 @@ add_arrow_compute_test(scalar_if_else_test
                        SOURCES
                        scalar_if_else_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
 add_arrow_compute_test(scalar_temporal_test
                        SOURCES
                        scalar_temporal_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
 add_arrow_compute_test(scalar_math_test
                        SOURCES
@@ -66,7 +72,8 @@ add_arrow_compute_test(scalar_math_test
                        scalar_compare_test.cc
                        scalar_round_arithmetic_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
 add_arrow_compute_test(scalar_utility_test
                        SOURCES
@@ -74,19 +81,21 @@ add_arrow_compute_test(scalar_utility_test
                        scalar_set_lookup_test.cc
                        scalar_validity_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
-add_arrow_benchmark(scalar_arithmetic_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_boolean_benchmark PREFIX "arrow-compute")
 add_arrow_benchmark(scalar_cast_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_compare_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_if_else_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_list_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_random_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_round_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_set_lookup_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_string_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(scalar_temporal_benchmark PREFIX "arrow-compute")
+# The following benchmarks require compute kernels initialization.
+add_arrow_compute_benchmark(scalar_arithmetic_benchmark)
+add_arrow_compute_benchmark(scalar_boolean_benchmark)
+add_arrow_compute_benchmark(scalar_compare_benchmark)
+add_arrow_compute_benchmark(scalar_if_else_benchmark)
+add_arrow_compute_benchmark(scalar_list_benchmark)
+add_arrow_compute_benchmark(scalar_random_benchmark)
+add_arrow_compute_benchmark(scalar_round_benchmark)
+add_arrow_compute_benchmark(scalar_set_lookup_benchmark)
+add_arrow_compute_benchmark(scalar_string_benchmark)
+add_arrow_compute_benchmark(scalar_temporal_benchmark)
 
 # ----------------------------------------------------------------------
 # Vector kernels
@@ -99,28 +108,40 @@ add_arrow_compute_test(vector_test
                        vector_nested_test.cc
                        vector_replace_test.cc
                        vector_run_end_encode_test.cc
+                       vector_statistics_test.cc
                        select_k_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
 add_arrow_compute_test(vector_sort_test
                        SOURCES
                        vector_sort_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
 add_arrow_compute_test(vector_selection_test
                        SOURCES
                        vector_selection_test.cc
                        EXTRA_LINK_LIBS
-                       arrow_compute_kernels_testing)
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
+
+add_arrow_compute_test(vector_swizzle_test
+                       SOURCES
+                       vector_swizzle_test.cc
+                       EXTRA_LINK_LIBS
+                       arrow_compute_kernels_testing
+                       arrow_compute_testing)
 
 add_arrow_benchmark(vector_hash_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_sort_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_partition_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_topk_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_replace_benchmark PREFIX "arrow-compute")
-add_arrow_benchmark(vector_selection_benchmark PREFIX "arrow-compute")
+# The following benchmarks require compute kernels initialization.
+add_arrow_compute_benchmark(vector_sort_benchmark)
+add_arrow_compute_benchmark(vector_partition_benchmark)
+add_arrow_compute_benchmark(vector_topk_benchmark)
+add_arrow_compute_benchmark(vector_replace_benchmark)
+add_arrow_compute_benchmark(vector_selection_benchmark)
 
 # ----------------------------------------------------------------------
 # Aggregate kernels
@@ -132,6 +153,7 @@ add_arrow_compute_test(aggregate_test
                        aggregate_test.cc
                        EXTRA_LINK_LIBS
                        arrow_compute_kernels_testing
+                       arrow_compute_testing
                        Boost::headers)
 
 # ----------------------------------------------------------------------

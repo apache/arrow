@@ -31,7 +31,6 @@
 #  include <opentelemetry/context/propagation/text_map_propagator.h>
 #  include <opentelemetry/trace/context.h>
 #  include <opentelemetry/trace/propagation/http_trace_context.h>
-#  include <opentelemetry/trace/semantic_conventions.h>
 #endif
 
 namespace arrow {
@@ -190,7 +189,7 @@ std::vector<TracingServerMiddleware::TraceKey> TracingServerMiddleware::GetTrace
     const {
   return impl_->GetTraceContext();
 }
-constexpr char const TracingServerMiddleware::kMiddlewareName[];
+constexpr const char TracingServerMiddleware::kMiddlewareName[];
 
 std::shared_ptr<ServerMiddlewareFactory> MakeTracingServerMiddlewareFactory() {
   return std::make_shared<TracingServerMiddlewareFactory>();

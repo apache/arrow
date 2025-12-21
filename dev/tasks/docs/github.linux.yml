@@ -57,14 +57,15 @@ jobs:
       - name: Upload preview to S3
         env:
           {%- raw %}
-          AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_AWS_ACCESS_KEY_ID }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_AWS_SECRET_ACCESS_KEY }}
-          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET_REGION }}
-          BUCKET: ${{ secrets.CROSSBOW_DOCS_S3_BUCKET }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.CROSSBOW_DOCS_ARROW_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.CROSSBOW_DOCS_ARROW_AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ secrets.CROSSBOW_DOCS_ARROW_S3_BUCKET_REGION }}
+          BUCKET: ${{ secrets.CROSSBOW_DOCS_ARROW_S3_BUCKET }}
           {% endraw %}
         run: |
           aws s3 cp build/docs/ $BUCKET/pr_docs/{{ pr_number }}/ --recursive
-          echo ":open_book: You can find the preview here: http://crossbow.voltrondata.com/pr_docs/{{ pr_number }}" >> $GITHUB_STEP_SUMMARY
+          echo ":open_book: You can find the preview here: https://s3.amazonaws.com/arrow-data/pr_docs/{{ pr_number }}/index.html" >> $GITHUB_STEP_SUMMARY
+
       {% endif %}
       - name: Prepare Docs artifacts
         run: |

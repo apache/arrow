@@ -17,8 +17,6 @@
 
 # cython: language_level = 3
 
-from cython cimport binding
-
 from pyarrow.includes.common cimport *
 from pyarrow.includes.libarrow cimport *
 from pyarrow.includes.libarrow_fs cimport *
@@ -76,7 +74,7 @@ cdef class HadoopFileSystem(FileSystem):
 
         if not host.startswith(('hdfs://', 'viewfs://')) and host != "default":
             # TODO(kszucs): do more sanitization
-            host = 'hdfs://{}'.format(host)
+            host = f'hdfs://{host}'
 
         options.ConfigureEndPoint(tobytes(host), int(port))
         options.ConfigureReplication(replication)
@@ -137,7 +135,6 @@ replication=1)``
         return self
 
     @staticmethod
-    @binding(True)  # Required for cython < 3
     def _reconstruct(kwargs):
         # __reduce__ doesn't allow passing named arguments directly to the
         # reconstructor, hence this wrapper.

@@ -1150,9 +1150,8 @@ cdef class CSVStreamingReader(RecordBatchReader):
         Schema schema
 
     def __init__(self):
-        raise TypeError("Do not call {}'s constructor directly, "
-                        "use pyarrow.csv.open_csv() instead."
-                        .format(self.__class__.__name__))
+        raise TypeError(f"Do not call {self.__class__.__name__}'s constructor directly, "
+                        "use pyarrow.csv.open_csv() instead.")
 
     # Note about cancellation: we cannot create a SignalStopHandler
     # by default here, as several CSVStreamingReader instances may be
@@ -1295,7 +1294,7 @@ def open_csv(input_file, read_options=None, parse_options=None,
         Options for converting CSV data
         (see pyarrow.csv.ConvertOptions constructor for defaults)
     memory_pool : MemoryPool, optional
-        Pool to allocate Table memory from
+        Pool to allocate RecordBatch memory from
 
     Returns
     -------
@@ -1365,13 +1364,16 @@ cdef class WriteOptions(_Weakrefable):
         - "none": do not enclose any values in quotes; values containing
           special characters (such as quotes, cell delimiters or line endings)
           will raise an error.
+    quoting_header : str, optional (default "needed")
+        Same as quoting_style, but for header column names. Accepts same values.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
     """
 
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
     def __init__(self, *, include_header=None, batch_size=None,
-                 delimiter=None, quoting_style=None):
+                 delimiter=None, quoting_style=None, quoting_header=None):
         self.options.reset(new CCSVWriteOptions(CCSVWriteOptions.Defaults()))
         if include_header is not None:
             self.include_header = include_header
@@ -1381,6 +1383,8 @@ cdef class WriteOptions(_Weakrefable):
             self.delimiter = delimiter
         if quoting_style is not None:
             self.quoting_style = quoting_style
+        if quoting_header is not None:
+            self.quoting_header = quoting_header
 
     @property
     def include_header(self):
@@ -1433,6 +1437,18 @@ cdef class WriteOptions(_Weakrefable):
     @quoting_style.setter
     def quoting_style(self, value):
         deref(self.options).quoting_style = unwrap_quoting_style(value)
+
+    @property
+    def quoting_header(self):
+        """
+        Same as quoting_style, but for header column names.
+        Note : both "needed" and "all_valid" have the same effect of quoting all column names.
+        """
+        return wrap_quoting_style(deref(self.options).quoting_header)
+
+    @quoting_header.setter
+    def quoting_header(self, value):
+        deref(self.options).quoting_header = unwrap_quoting_style(value)
 
     @staticmethod
     cdef WriteOptions wrap(CCSVWriteOptions options):

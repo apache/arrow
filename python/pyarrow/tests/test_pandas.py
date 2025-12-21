@@ -345,6 +345,14 @@ class TestConvertMetadata:
             )
             _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_rangeindex(self):
+        # https://github.com/apache/arrow/issues/33473
+        multiindex = pd.MultiIndex.from_arrays(
+            [pd.RangeIndex(0, 2), pd.Index([1, 2])]
+        )
+        df = pd.DataFrame(pd.Series([1, 2], name="a"), index=multiindex)
+        _check_pandas_roundtrip(df, preserve_index=None)
+
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -597,6 +605,20 @@ class TestConvertMetadata:
         assert data_column['pandas_type'] == 'decimal'
         assert data_column['numpy_type'] == 'object'
         assert data_column['metadata'] == {'precision': 26, 'scale': 11}
+
+    @pytest.mark.parametrize('typ', [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_other_bitwidts(self, typ):
+        df = pd.DataFrame({'a': [decimal.Decimal('3.14')]})
+        schema = pa.schema([pa.field('a', type=typ(4, 2))])
+        table = pa.Table.from_pandas(df, schema=schema)
+        col_meta = table.schema.pandas_metadata['columns'][0]
+        assert col_meta['pandas_type'] == 'decimal'
+        assert col_meta['metadata'] == {'precision': 4, 'scale': 2}
 
     def test_table_column_subset_metadata(self):
         # ARROW-1883
@@ -993,14 +1015,14 @@ class TestConvertPrimitiveTypes:
         arr = np.array([1.5, np.nan], dtype=np.float16)
         a = pa.array(arr, type=pa.float16())
         x, y = a.to_pylist()
-        assert isinstance(x, np.float16)
+        assert isinstance(x, float)
         assert x == 1.5
-        assert isinstance(y, np.float16)
+        assert isinstance(y, float)
         assert np.isnan(y)
 
         a = pa.array(arr, type=pa.float16(), from_pandas=True)
         x, y = a.to_pylist()
-        assert isinstance(x, np.float16)
+        assert isinstance(x, float)
         assert x == 1.5
         assert y is None
 
@@ -2040,6 +2062,19 @@ class TestConvertDecimalTypes:
         # This yields strided objects
         df = pd.DataFrame.from_dict(data)
         _check_pandas_roundtrip(df)
+
+    @pytest.mark.parametrize("typ", [
+        pa.decimal32,
+        pa.decimal64,
+        pa.decimal128,
+        pa.decimal256,
+    ])
+    def test_decimal_array_to_pandas(self, typ):
+        data = [decimal.Decimal('3.14'), None]
+        arr = pa.array(data, type=typ(3, 2))
+        result = arr.to_pandas()
+        expected = pd.Series(data)
+        tm.assert_series_equal(result, expected)
 
 
 class TestConvertListTypes:
@@ -3849,7 +3884,7 @@ def test_to_pandas_split_blocks():
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
         pa.array([1, 2, 3, 4, 5]*100, type='f8'),
-    ], ['f{}'.format(i) for i in range(8)])
+    ], [f'f{i}' for i in range(8)])
 
     _check_blocks_created(t, 8)
     _check_to_pandas_memory_unchanged(t, split_blocks=True)
@@ -3875,7 +3910,7 @@ def test_to_pandas_self_destruct():
             # Slice to force a copy
             pa.array(np.random.randn(10000)[::2])
             for i in range(K)
-        ], ['f{}'.format(i) for i in range(K)])
+        ], [f'f{i}' for i in range(K)])
 
     t = _make_table()
     _check_to_pandas_memory_unchanged(t, split_blocks=True, self_destruct=True)
@@ -4865,14 +4900,13 @@ def make_df_with_timestamps():
 
 
 @pytest.mark.parquet
-@pytest.mark.filterwarnings("ignore:Parquet format '2.0':FutureWarning")
 def test_timestamp_as_object_parquet(tempdir):
     # Timestamps can be stored as Parquet and reloaded into Pandas with no loss
     # of information if the timestamp_as_object option is True.
     df = make_df_with_timestamps()
     table = pa.Table.from_pandas(df)
     filename = tempdir / "timestamps_from_pandas.parquet"
-    pq.write_table(table, filename, version="2.0")
+    pq.write_table(table, filename)
     result = pq.read_table(filename)
     df2 = result.to_pandas(timestamp_as_object=True)
     tm.assert_frame_equal(df, df2)
@@ -5228,7 +5262,30 @@ def test_nested_chunking_valid():
               schema=schema)
 
 
+def test_bytes_column_name_to_pandas():
+    df = pd.DataFrame([[0.1, 0.2], [0.3, 0.4]], columns=[b'col1', b'col2'])
+    table = pa.Table.from_pandas(df)
+    assert table.column_names == ['col1', 'col2']
+    assert table.to_pandas().equals(df)
+
+
 @pytest.mark.processes
 def test_is_data_frame_race_condition():
     # See https://github.com/apache/arrow/issues/39313
     test_util.invoke_script('arrow_39313.py')
+
+
+def test_json_unserializable_pd_df_attrs():
+    df = pd.DataFrame({"x": [1, 2, 3]})
+
+    df.attrs["timestamp"] = datetime.fromisoformat("2025-10-28T14:20:42")
+
+    with pytest.warns(
+        UserWarning,
+        match="Could not serialize pd.DataFrame.attrs:",
+    ):
+        df_table = pa.table(df)
+
+    pd_metadata = json.loads(df_table.schema.metadata[b"pandas"])
+
+    assert not pd_metadata["attributes"]

@@ -1,0 +1,33 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[wrap-file]
+directory = googletest-1.17.0
+source_url = https://github.com/google/googletest/archive/refs/tags/v1.17.0.tar.gz
+source_filename = googletest-1.17.0.tar.gz
+source_hash = 65fab701d9829d38cb77c14acdc431d2108bfdbf8979e40eb8ae567edf10b27c
+patch_filename = gtest_1.17.0-3_patch.zip
+patch_url = https://wrapdb.mesonbuild.com/v2/gtest_1.17.0-3/get_patch
+patch_hash = 3e2799683f27c6dce138b7bae823416581c467ddde755c9a516c0863225f0ceb
+source_fallback_url = https://github.com/mesonbuild/wrapdb/releases/download/gtest_1.17.0-3/googletest-1.17.0.tar.gz
+wrapdb_version = 1.17.0-3
+
+[provide]
+gtest = gtest_dep
+gtest_main = gtest_main_dep
+gmock = gmock_dep
+gmock_main = gmock_main_dep

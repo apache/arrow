@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <limits>
 #include <memory>
+#include <random>
 #include <type_traits>
 #include <unordered_map>
 #include <utility>
@@ -30,19 +31,16 @@
 #include "arrow/acero/options.h"
 #include "arrow/acero/test_util_internal.h"
 #include "arrow/array.h"
+#include "arrow/array/builder_binary.h"
+#include "arrow/array/builder_primitive.h"
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api_aggregate.h"
-#include "arrow/compute/api_scalar.h"
-#include "arrow/compute/api_vector.h"
 #include "arrow/compute/cast.h"
 #include "arrow/compute/exec.h"
 #include "arrow/compute/exec_internal.h"
-#include "arrow/compute/kernels/aggregate_internal.h"
-#include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/row/grouper.h"
-#include "arrow/compute/row/grouper_internal.h"
 #include "arrow/table.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
@@ -51,9 +49,7 @@
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/async_generator.h"
-#include "arrow/util/bitmap_reader.h"
 #include "arrow/util/checked_cast.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
@@ -65,25 +61,29 @@ using testing::HasSubstr;
 
 namespace arrow {
 
-using internal::BitmapReader;
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 using internal::ToChars;
 
+using compute::ArgShape;
 using compute::CallFunction;
 using compute::CountOptions;
 using compute::default_exec_context;
+using compute::ExecBatchFromJSON;
 using compute::ExecSpan;
 using compute::FunctionOptions;
 using compute::Grouper;
+using compute::PivotWiderOptions;
 using compute::RowSegmenter;
 using compute::ScalarAggregateOptions;
 using compute::Segment;
+using compute::SkewOptions;
 using compute::SortIndices;
 using compute::SortKey;
 using compute::SortOrder;
 using compute::Take;
 using compute::TDigestOptions;
+using compute::ValidateOutput;
 using compute::VarianceOptions;
 
 namespace acero {
@@ -158,8 +158,6 @@ TEST(AggregateSchema, SingleKeyAndSegmentKey) {
       schema({field("z", int32()), field("y", int32()), field("hash_count", int64())}),
       output_schema);
 }
-
-namespace {
 
 using GroupByFunction = std::function<Result<Datum>(
     const std::vector<Datum>&, const std::vector<Datum>&, const std::vector<Datum>&,
@@ -538,930 +536,6 @@ Result<Datum> GroupByTest(GroupByFunction group_by, const std::vector<Datum>& ar
   return GroupByTest(group_by, arguments, keys, {}, aggregates, use_threads);
 }
 
-template <typename GroupClass>
-void TestGroupClassSupportedKeys(
-    std::function<Result<std::unique_ptr<GroupClass>>(const std::vector<TypeHolder>&)>
-        make_func) {
-  ASSERT_OK(make_func({boolean()}));
-
-  ASSERT_OK(make_func({int8(), uint16(), int32(), uint64()}));
-
-  ASSERT_OK(make_func({dictionary(int64(), utf8())}));
-
-  ASSERT_OK(make_func({float16(), float32(), float64()}));
-
-  ASSERT_OK(make_func({utf8(), binary(), large_utf8(), large_binary()}));
-
-  ASSERT_OK(make_func({fixed_size_binary(16), fixed_size_binary(32)}));
-
-  ASSERT_OK(make_func({decimal128(32, 10), decimal256(76, 20)}));
-
-  ASSERT_OK(make_func({date32(), date64()}));
-
-  for (auto unit : {
-           TimeUnit::SECOND,
-           TimeUnit::MILLI,
-           TimeUnit::MICRO,
-           TimeUnit::NANO,
-       }) {
-    ASSERT_OK(make_func({timestamp(unit), duration(unit)}));
-  }
-
-  ASSERT_OK(
-      make_func({day_time_interval(), month_interval(), month_day_nano_interval()}));
-
-  ASSERT_OK(make_func({null()}));
-
-  ASSERT_RAISES(NotImplemented, make_func({struct_({field("", int64())})}));
-
-  ASSERT_RAISES(NotImplemented, make_func({struct_({})}));
-
-  ASSERT_RAISES(NotImplemented, make_func({list(int32())}));
-
-  ASSERT_RAISES(NotImplemented, make_func({fixed_size_list(int32(), 5)}));
-
-  ASSERT_RAISES(NotImplemented, make_func({dense_union({field("", int32())})}));
-}
-
-void TestSegments(std::unique_ptr<RowSegmenter>& segmenter, const ExecSpan& batch,
-                  std::vector<Segment> expected_segments) {
-  ASSERT_OK_AND_ASSIGN(auto actual_segments, segmenter->GetSegments(batch));
-  ASSERT_EQ(actual_segments.size(), expected_segments.size());
-  for (size_t i = 0; i < actual_segments.size(); ++i) {
-    SCOPED_TRACE("segment #" + ToChars(i));
-    ASSERT_EQ(actual_segments[i], expected_segments[i]);
-  }
-}
-
-Result<std::unique_ptr<Grouper>> MakeGrouper(const std::vector<TypeHolder>& key_types) {
-  return Grouper::Make(key_types, default_exec_context());
-}
-
-Result<std::unique_ptr<RowSegmenter>> MakeRowSegmenter(
-    const std::vector<TypeHolder>& key_types) {
-  return RowSegmenter::Make(key_types, /*nullable_leys=*/false, default_exec_context());
-}
-
-Result<std::unique_ptr<RowSegmenter>> MakeGenericSegmenter(
-    const std::vector<TypeHolder>& key_types) {
-  return MakeAnyKeysSegmenter(key_types, default_exec_context());
-}
-
-}  // namespace
-
-TEST(RowSegmenter, SupportedKeys) {
-  TestGroupClassSupportedKeys<RowSegmenter>(MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, Basics) {
-  std::vector<TypeHolder> bad_types2 = {int32(), float32()};
-  std::vector<TypeHolder> types2 = {int32(), int32()};
-  std::vector<TypeHolder> bad_types1 = {float32()};
-  std::vector<TypeHolder> types1 = {int32()};
-  std::vector<TypeHolder> types0 = {};
-  auto batch2 = ExecBatchFromJSON(types2, "[[1, 1], [1, 2], [2, 2]]");
-  auto batch1 = ExecBatchFromJSON(types1, "[[1], [1], [2]]");
-  ExecBatch batch0({}, 3);
-  {
-    SCOPED_TRACE("types0 segmenting of batch2");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types0));
-    ExecSpan span2(batch2);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 0 "),
-                                    segmenter->GetSegments(span2));
-    ExecSpan span0(batch0);
-    TestSegments(segmenter, span0, {{0, 3, true, true}});
-  }
-  {
-    SCOPED_TRACE("bad_types1 segmenting of batch1");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(bad_types1));
-    ExecSpan span1(batch1);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 0 of type "),
-                                    segmenter->GetSegments(span1));
-  }
-  {
-    SCOPED_TRACE("types1 segmenting of batch2");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types1));
-    ExecSpan span2(batch2);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 1 "),
-                                    segmenter->GetSegments(span2));
-    ExecSpan span1(batch1);
-    TestSegments(segmenter, span1, {{0, 2, false, true}, {2, 1, true, false}});
-  }
-  {
-    SCOPED_TRACE("bad_types2 segmenting of batch2");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(bad_types2));
-    ExecSpan span2(batch2);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch value 1 of type "),
-                                    segmenter->GetSegments(span2));
-  }
-  {
-    SCOPED_TRACE("types2 segmenting of batch1");
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types2));
-    ExecSpan span1(batch1);
-    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("expected batch size 2 "),
-                                    segmenter->GetSegments(span1));
-    ExecSpan span2(batch2);
-    TestSegments(segmenter, span2,
-                 {{0, 1, false, true}, {1, 1, false, false}, {2, 1, true, false}});
-  }
-}
-
-TEST(RowSegmenter, NonOrdered) {
-  for (int num_keys = 1; num_keys <= 2; ++num_keys) {
-    SCOPED_TRACE("non-ordered " + ToChars(num_keys) + " int32(s)");
-    std::vector<TypeHolder> types(num_keys, int32());
-    std::vector<Datum> values(num_keys, ArrayFromJSON(int32(), "[1, 1, 2, 1, 2]"));
-    ExecBatch batch(std::move(values), 5);
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batch),
-                 {{0, 2, false, true},
-                  {2, 1, false, false},
-                  {3, 1, false, false},
-                  {4, 1, true, false}});
-  }
-}
-
-TEST(RowSegmenter, EmptyBatches) {
-  {
-    SCOPED_TRACE("empty batches {int32}");
-    std::vector<TypeHolder> types = {int32()};
-    std::vector<ExecBatch> batches = {
-        ExecBatchFromJSON(types, "[]"),         ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[[1]]"),      ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[[2], [2]]"), ExecBatchFromJSON(types, "[]"),
-    };
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batches[0]), {});
-    TestSegments(segmenter, ExecSpan(batches[1]), {});
-    TestSegments(segmenter, ExecSpan(batches[2]), {{0, 1, true, true}});
-    TestSegments(segmenter, ExecSpan(batches[3]), {});
-    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, true}});
-    TestSegments(segmenter, ExecSpan(batches[5]), {});
-    TestSegments(segmenter, ExecSpan(batches[6]), {{0, 2, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[7]), {});
-  }
-  {
-    SCOPED_TRACE("empty batches {int32, int32}");
-    std::vector<TypeHolder> types = {int32(), int32()};
-    std::vector<ExecBatch> batches = {
-        ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[[1, 1]]"),
-        ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[[1, 1]]"),
-        ExecBatchFromJSON(types, "[]"),
-        ExecBatchFromJSON(types, "[[2, 2], [2, 2]]"),
-        ExecBatchFromJSON(types, "[]"),
-    };
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batches[0]), {});
-    TestSegments(segmenter, ExecSpan(batches[1]), {});
-    TestSegments(segmenter, ExecSpan(batches[2]), {{0, 1, true, true}});
-    TestSegments(segmenter, ExecSpan(batches[3]), {});
-    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, true}});
-    TestSegments(segmenter, ExecSpan(batches[5]), {});
-    TestSegments(segmenter, ExecSpan(batches[6]), {{0, 2, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[7]), {});
-  }
-}
-
-TEST(RowSegmenter, MultipleSegments) {
-  auto test_with_keys = [](int num_keys, const std::shared_ptr<Array>& key) {
-    SCOPED_TRACE("multiple segments " + ToChars(num_keys) + " " +
-                 key->type()->ToString());
-    std::vector<TypeHolder> types(num_keys, key->type());
-    std::vector<Datum> values(num_keys, key);
-    ExecBatch batch(std::move(values), key->length());
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batch),
-                 {{0, 2, false, true},
-                  {2, 1, false, false},
-                  {3, 1, false, false},
-                  {4, 2, false, false},
-                  {6, 2, false, false},
-                  {8, 1, true, false}});
-  };
-  for (int num_keys = 1; num_keys <= 2; ++num_keys) {
-    test_with_keys(num_keys, ArrayFromJSON(int32(), "[1, 1, 2, 5, 3, 3, 5, 5, 4]"));
-    test_with_keys(
-        num_keys,
-        ArrayFromJSON(fixed_size_binary(2),
-                      R"(["aa", "aa", "bb", "ee", "cc", "cc", "ee", "ee", "dd"])"));
-    test_with_keys(num_keys, DictArrayFromJSON(dictionary(int8(), utf8()),
-                                               "[0, 0, 1, 4, 2, 2, 4, 4, 3]",
-                                               R"(["a", "b", "c", "d", "e"])"));
-  }
-}
-
-TEST(RowSegmenter, MultipleSegmentsMultipleBatches) {
-  {
-    SCOPED_TRACE("multiple segments multiple batches {int32}");
-    std::vector<TypeHolder> types = {int32()};
-    std::vector<ExecBatch> batches = {
-        ExecBatchFromJSON(types, "[[1]]"), ExecBatchFromJSON(types, "[[1], [2]]"),
-        ExecBatchFromJSON(types, "[[5], [3]]"),
-        ExecBatchFromJSON(types, "[[3], [5], [5]]"), ExecBatchFromJSON(types, "[[4]]")};
-
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batches[0]), {{0, 1, true, true}});
-    TestSegments(segmenter, ExecSpan(batches[1]),
-                 {{0, 1, false, true}, {1, 1, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[2]),
-                 {{0, 1, false, false}, {1, 1, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[3]),
-                 {{0, 1, false, true}, {1, 2, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, false}});
-  }
-  {
-    SCOPED_TRACE("multiple segments multiple batches {int32, int32}");
-    std::vector<TypeHolder> types = {int32(), int32()};
-    std::vector<ExecBatch> batches = {
-        ExecBatchFromJSON(types, "[[1, 1]]"),
-        ExecBatchFromJSON(types, "[[1, 1], [2, 2]]"),
-        ExecBatchFromJSON(types, "[[5, 5], [3, 3]]"),
-        ExecBatchFromJSON(types, "[[3, 3], [5, 5], [5, 5]]"),
-        ExecBatchFromJSON(types, "[[4, 4]]")};
-
-    ASSERT_OK_AND_ASSIGN(auto segmenter, MakeRowSegmenter(types));
-    TestSegments(segmenter, ExecSpan(batches[0]), {{0, 1, true, true}});
-    TestSegments(segmenter, ExecSpan(batches[1]),
-                 {{0, 1, false, true}, {1, 1, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[2]),
-                 {{0, 1, false, false}, {1, 1, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[3]),
-                 {{0, 1, false, true}, {1, 2, true, false}});
-    TestSegments(segmenter, ExecSpan(batches[4]), {{0, 1, true, false}});
-  }
-}
-
-namespace {
-
-void TestRowSegmenterConstantBatch(
-    const std::shared_ptr<DataType>& type,
-    std::function<ArgShape(int64_t key)> shape_func,
-    std::function<Result<std::shared_ptr<Scalar>>(int64_t key)> value_func,
-    std::function<Result<std::unique_ptr<RowSegmenter>>(const std::vector<TypeHolder>&)>
-        make_segmenter) {
-  constexpr int64_t n_keys = 3, n_rows = 3, repetitions = 3;
-  std::vector<TypeHolder> types(n_keys, type);
-  std::vector<Datum> full_values(n_keys);
-  for (int64_t i = 0; i < n_keys; i++) {
-    auto shape = shape_func(i);
-    ASSERT_OK_AND_ASSIGN(auto scalar, value_func(i));
-    if (shape == ArgShape::SCALAR) {
-      full_values[i] = std::move(scalar);
-    } else {
-      ASSERT_OK_AND_ASSIGN(full_values[i], MakeArrayFromScalar(*scalar, n_rows));
-    }
-  }
-  auto test_with_keys = [&](int64_t keys) -> Status {
-    SCOPED_TRACE("constant-batch with " + ToChars(keys) + " key(s)");
-    std::vector<Datum> values(full_values.begin(), full_values.begin() + keys);
-    ExecBatch batch(values, n_rows);
-    std::vector<TypeHolder> key_types(types.begin(), types.begin() + keys);
-    ARROW_ASSIGN_OR_RAISE(auto segmenter, make_segmenter(key_types));
-    for (int64_t i = 0; i < repetitions; i++) {
-      TestSegments(segmenter, ExecSpan(batch), {{0, n_rows, true, true}});
-      ARROW_RETURN_NOT_OK(segmenter->Reset());
-    }
-    return Status::OK();
-  };
-  for (int64_t i = 0; i <= n_keys; i++) {
-    ASSERT_OK(test_with_keys(i));
-  }
-}
-
-}  // namespace
-
-TEST(RowSegmenter, ConstantArrayBatch) {
-  TestRowSegmenterConstantBatch(
-      int32(), [](int64_t key) { return ArgShape::ARRAY; },
-      [](int64_t key) { return MakeScalar(1); }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantScalarBatch) {
-  TestRowSegmenterConstantBatch(
-      int32(), [](int64_t key) { return ArgShape::SCALAR; },
-      [](int64_t key) { return MakeScalar(1); }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantMixedBatch) {
-  TestRowSegmenterConstantBatch(
-      int32(),
-      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [](int64_t key) { return MakeScalar(1); }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantArrayBatchWithAnyKeysSegmenter) {
-  TestRowSegmenterConstantBatch(
-      int32(), [](int64_t key) { return ArgShape::ARRAY; },
-      [](int64_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantScalarBatchWithAnyKeysSegmenter) {
-  TestRowSegmenterConstantBatch(
-      int32(), [](int64_t key) { return ArgShape::SCALAR; },
-      [](int64_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantMixedBatchWithAnyKeysSegmenter) {
-  TestRowSegmenterConstantBatch(
-      int32(),
-      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [](int64_t key) { return MakeScalar(1); }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantFixedSizeBinaryArrayBatch) {
-  constexpr int fsb = 8;
-  auto type = fixed_size_binary(fsb);
-  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
-  TestRowSegmenterConstantBatch(
-      type, [](int64_t key) { return ArgShape::ARRAY; },
-      [&](int64_t key) { return value; }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantFixedSizeBinaryScalarBatch) {
-  constexpr int fsb = 8;
-  auto type = fixed_size_binary(fsb);
-  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
-  TestRowSegmenterConstantBatch(
-      fixed_size_binary(8), [](int64_t key) { return ArgShape::SCALAR; },
-      [&](int64_t key) { return value; }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantFixedSizeBinaryMixedBatch) {
-  constexpr int fsb = 8;
-  auto type = fixed_size_binary(fsb);
-  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
-  TestRowSegmenterConstantBatch(
-      fixed_size_binary(8),
-      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [&](int64_t key) { return value; }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantFixedSizeBinaryArrayBatchWithAnyKeysSegmenter) {
-  constexpr int fsb = 8;
-  auto type = fixed_size_binary(fsb);
-  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
-  TestRowSegmenterConstantBatch(
-      type, [](int64_t key) { return ArgShape::ARRAY; },
-      [&](int64_t key) { return value; }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantFixedSizeBinaryScalarBatchWithAnyKeysSegmenter) {
-  constexpr int fsb = 8;
-  auto type = fixed_size_binary(fsb);
-  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
-  TestRowSegmenterConstantBatch(
-      fixed_size_binary(8), [](int64_t key) { return ArgShape::SCALAR; },
-      [&](int64_t key) { return value; }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantFixedSizeBinaryMixedBatchWithAnyKeysSegmenter) {
-  constexpr int fsb = 8;
-  auto type = fixed_size_binary(fsb);
-  ASSERT_OK_AND_ASSIGN(auto value, MakeScalar(type, std::string(fsb, 'X')));
-  TestRowSegmenterConstantBatch(
-      fixed_size_binary(8),
-      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [&](int64_t key) { return value; }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantDictionaryArrayBatch) {
-  auto index_type = int32();
-  auto value_type = utf8();
-  auto dict_type = dictionary(index_type, value_type);
-  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
-  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
-  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
-  TestRowSegmenterConstantBatch(
-      dict_type, [](int64_t key) { return ArgShape::ARRAY; },
-      [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantDictionaryScalarBatch) {
-  auto index_type = int32();
-  auto value_type = utf8();
-  auto dict_type = dictionary(index_type, value_type);
-  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
-  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
-  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
-  TestRowSegmenterConstantBatch(
-      dict_type, [](int64_t key) { return ArgShape::SCALAR; },
-      [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantDictionaryMixedBatch) {
-  auto index_type = int32();
-  auto value_type = utf8();
-  auto dict_type = dictionary(index_type, value_type);
-  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
-  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
-  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
-  TestRowSegmenterConstantBatch(
-      dict_type,
-      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [&](int64_t key) { return dict_value; }, MakeRowSegmenter);
-}
-
-TEST(RowSegmenter, ConstantDictionaryArrayBatchWithAnyKeysSegmenter) {
-  auto index_type = int32();
-  auto value_type = utf8();
-  auto dict_type = dictionary(index_type, value_type);
-  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
-  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
-  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
-  TestRowSegmenterConstantBatch(
-      dict_type, [](int64_t key) { return ArgShape::ARRAY; },
-      [&](int64_t key) { return dict_value; }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantDictionaryScalarBatchWithAnyKeysSegmenter) {
-  auto index_type = int32();
-  auto value_type = utf8();
-  auto dict_type = dictionary(index_type, value_type);
-  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
-  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
-  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
-  TestRowSegmenterConstantBatch(
-      dict_type, [](int64_t key) { return ArgShape::SCALAR; },
-      [&](int64_t key) { return dict_value; }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, ConstantDictionaryMixedBatchWithAnyKeysSegmenter) {
-  auto index_type = int32();
-  auto value_type = utf8();
-  auto dict_type = dictionary(index_type, value_type);
-  auto dict = ArrayFromJSON(value_type, R"(["alpha", null, "gamma"])");
-  ASSERT_OK_AND_ASSIGN(auto index_value, MakeScalar(index_type, 0));
-  auto dict_value = DictionaryScalar::Make(std::move(index_value), dict);
-  TestRowSegmenterConstantBatch(
-      dict_type,
-      [](int64_t key) { return key % 2 == 0 ? ArgShape::SCALAR : ArgShape::ARRAY; },
-      [&](int64_t key) { return dict_value; }, MakeGenericSegmenter);
-}
-
-TEST(RowSegmenter, RowConstantBatch) {
-  constexpr size_t n = 3;
-  std::vector<TypeHolder> types = {int32(), int32(), int32()};
-  auto full_batch = ExecBatchFromJSON(types, "[[1, 1, 1], [2, 2, 2], [3, 3, 3]]");
-  std::vector<Segment> expected_segments_for_size_0 = {{0, 3, true, true}};
-  std::vector<Segment> expected_segments = {
-      {0, 1, false, true}, {1, 1, false, false}, {2, 1, true, false}};
-  auto test_by_size = [&](size_t size) -> Status {
-    SCOPED_TRACE("constant-batch with " + ToChars(size) + " key(s)");
-    std::vector<Datum> values(full_batch.values.begin(),
-                              full_batch.values.begin() + size);
-    ExecBatch batch(values, full_batch.length);
-    std::vector<TypeHolder> key_types(types.begin(), types.begin() + size);
-    ARROW_ASSIGN_OR_RAISE(auto segmenter, MakeRowSegmenter(key_types));
-    TestSegments(segmenter, ExecSpan(batch),
-                 size == 0 ? expected_segments_for_size_0 : expected_segments);
-    return Status::OK();
-  };
-  for (size_t i = 0; i <= n; i++) {
-    ASSERT_OK(test_by_size(i));
-  }
-}
-
-TEST(Grouper, SupportedKeys) { TestGroupClassSupportedKeys<Grouper>(MakeGrouper); }
-
-struct TestGrouper {
-  explicit TestGrouper(std::vector<TypeHolder> types, std::vector<ArgShape> shapes = {})
-      : types_(std::move(types)), shapes_(std::move(shapes)) {
-    grouper_ = Grouper::Make(types_).ValueOrDie();
-
-    FieldVector fields;
-    for (const auto& type : types_) {
-      fields.push_back(field("", type.GetSharedPtr()));
-    }
-    key_schema_ = schema(std::move(fields));
-  }
-
-  void ExpectConsume(const std::string& key_json, const std::string& expected) {
-    auto expected_arr = ArrayFromJSON(uint32(), expected);
-    if (shapes_.size() > 0) {
-      ExpectConsume(ExecBatchFromJSON(types_, shapes_, key_json), expected_arr);
-    } else {
-      ExpectConsume(ExecBatchFromJSON(types_, key_json), expected_arr);
-    }
-  }
-
-  void ExpectConsume(const std::vector<Datum>& key_values, Datum expected) {
-    ASSERT_OK_AND_ASSIGN(auto key_batch, ExecBatch::Make(key_values));
-    ExpectConsume(key_batch, expected);
-  }
-
-  void ExpectConsume(const ExecBatch& key_batch, Datum expected) {
-    Datum ids;
-    ConsumeAndValidate(key_batch, &ids);
-    AssertEquivalentIds(expected, ids);
-  }
-
-  void ExpectUniques(const ExecBatch& uniques) {
-    EXPECT_THAT(grouper_->GetUniques(), ResultWith(Eq(uniques)));
-  }
-
-  void ExpectUniques(const std::string& uniques_json) {
-    if (shapes_.size() > 0) {
-      ExpectUniques(ExecBatchFromJSON(types_, shapes_, uniques_json));
-    } else {
-      ExpectUniques(ExecBatchFromJSON(types_, uniques_json));
-    }
-  }
-
-  void AssertEquivalentIds(const Datum& expected, const Datum& actual) {
-    auto left = expected.make_array();
-    auto right = actual.make_array();
-    ASSERT_EQ(left->length(), right->length()) << "#ids unequal";
-    int64_t num_ids = left->length();
-    auto left_data = left->data();
-    auto right_data = right->data();
-    auto left_ids = reinterpret_cast<const uint32_t*>(left_data->buffers[1]->data());
-    auto right_ids = reinterpret_cast<const uint32_t*>(right_data->buffers[1]->data());
-    uint32_t max_left_id = 0;
-    uint32_t max_right_id = 0;
-    for (int64_t i = 0; i < num_ids; ++i) {
-      if (left_ids[i] > max_left_id) {
-        max_left_id = left_ids[i];
-      }
-      if (right_ids[i] > max_right_id) {
-        max_right_id = right_ids[i];
-      }
-    }
-    std::vector<bool> right_to_left_present(max_right_id + 1, false);
-    std::vector<bool> left_to_right_present(max_left_id + 1, false);
-    std::vector<uint32_t> right_to_left(max_right_id + 1);
-    std::vector<uint32_t> left_to_right(max_left_id + 1);
-    for (int64_t i = 0; i < num_ids; ++i) {
-      uint32_t left_id = left_ids[i];
-      uint32_t right_id = right_ids[i];
-      if (!left_to_right_present[left_id]) {
-        left_to_right[left_id] = right_id;
-        left_to_right_present[left_id] = true;
-      }
-      if (!right_to_left_present[right_id]) {
-        right_to_left[right_id] = left_id;
-        right_to_left_present[right_id] = true;
-      }
-      ASSERT_EQ(left_id, right_to_left[right_id]);
-      ASSERT_EQ(right_id, left_to_right[left_id]);
-    }
-  }
-
-  void ConsumeAndValidate(const ExecBatch& key_batch, Datum* ids = nullptr) {
-    ASSERT_OK_AND_ASSIGN(Datum id_batch, grouper_->Consume(ExecSpan(key_batch)));
-
-    ValidateConsume(key_batch, id_batch);
-
-    if (ids) {
-      *ids = std::move(id_batch);
-    }
-  }
-
-  void ValidateConsume(const ExecBatch& key_batch, const Datum& id_batch) {
-    if (uniques_.length == -1) {
-      ASSERT_OK_AND_ASSIGN(uniques_, grouper_->GetUniques());
-    } else if (static_cast<int64_t>(grouper_->num_groups()) > uniques_.length) {
-      ASSERT_OK_AND_ASSIGN(ExecBatch new_uniques, grouper_->GetUniques());
-
-      // check that uniques_ are prefixes of new_uniques
-      for (int i = 0; i < uniques_.num_values(); ++i) {
-        auto new_unique = new_uniques[i].make_array();
-        ValidateOutput(*new_unique);
-
-        AssertDatumsEqual(uniques_[i], new_unique->Slice(0, uniques_.length),
-                          /*verbose=*/true);
-      }
-
-      uniques_ = std::move(new_uniques);
-    }
-
-    // check that the ids encode an equivalent key sequence
-    auto ids = id_batch.make_array();
-    ValidateOutput(*ids);
-
-    for (int i = 0; i < key_batch.num_values(); ++i) {
-      SCOPED_TRACE(ToChars(i) + "th key array");
-      auto original =
-          key_batch[i].is_array()
-              ? key_batch[i].make_array()
-              : *MakeArrayFromScalar(*key_batch[i].scalar(), key_batch.length);
-      ASSERT_OK_AND_ASSIGN(auto encoded, Take(*uniques_[i].make_array(), *ids));
-      AssertArraysEqual(*original, *encoded, /*verbose=*/true,
-                        EqualOptions().nans_equal(true));
-    }
-  }
-
-  std::vector<TypeHolder> types_;
-  std::vector<ArgShape> shapes_;
-  std::shared_ptr<Schema> key_schema_;
-  std::unique_ptr<Grouper> grouper_;
-  ExecBatch uniques_ = ExecBatch({}, -1);
-};
-
-TEST(Grouper, BooleanKey) {
-  TestGrouper g({boolean()});
-
-  g.ExpectConsume("[[true], [true]]", "[0, 0]");
-
-  g.ExpectConsume("[[true], [true]]", "[0, 0]");
-
-  g.ExpectConsume("[[false], [null]]", "[1, 2]");
-
-  g.ExpectConsume("[[true], [false], [true], [false], [null], [false], [null]]",
-                  "[0, 1, 0, 1, 2, 1, 2]");
-}
-
-TEST(Grouper, NumericKey) {
-  for (auto ty : {
-           uint8(),
-           int8(),
-           uint16(),
-           int16(),
-           uint32(),
-           int32(),
-           uint64(),
-           int64(),
-           float16(),
-           float32(),
-           float64(),
-       }) {
-    SCOPED_TRACE("key type: " + ty->ToString());
-
-    TestGrouper g({ty});
-
-    g.ExpectConsume("[[3], [3]]", "[0, 0]");
-    g.ExpectUniques("[[3]]");
-
-    g.ExpectConsume("[[3], [3]]", "[0, 0]");
-    g.ExpectUniques("[[3]]");
-
-    g.ExpectConsume("[[27], [81], [81]]", "[1, 2, 2]");
-    g.ExpectUniques("[[3], [27], [81]]");
-
-    g.ExpectConsume("[[3], [27], [3], [27], [null], [81], [27], [81]]",
-                    "[0, 1, 0, 1, 3, 2, 1, 2]");
-    g.ExpectUniques("[[3], [27], [81], [null]]");
-  }
-}
-
-TEST(Grouper, FloatingPointKey) {
-  TestGrouper g({float32()});
-
-  // -0.0 hashes differently from 0.0
-  g.ExpectConsume("[[0.0], [-0.0]]", "[0, 1]");
-
-  g.ExpectConsume("[[Inf], [-Inf]]", "[2, 3]");
-
-  // assert(!(NaN == NaN)) does not cause spurious new groups
-  g.ExpectConsume("[[NaN], [NaN]]", "[4, 4]");
-
-  // TODO(bkietz) test denormal numbers, more NaNs
-}
-
-TEST(Grouper, StringKey) {
-  for (auto ty : {utf8(), large_utf8(), fixed_size_binary(2)}) {
-    SCOPED_TRACE("key type: " + ty->ToString());
-
-    TestGrouper g({ty});
-
-    g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
-
-    g.ExpectConsume(R"([["eh"], ["eh"]])", "[0, 0]");
-
-    g.ExpectConsume(R"([["be"], [null]])", "[1, 2]");
-  }
-}
-
-TEST(Grouper, DictKey) {
-  TestGrouper g({dictionary(int32(), utf8())});
-
-  // For dictionary keys, all batches must share a single dictionary.
-  // Eventually, differing dictionaries will be unified and indices transposed
-  // during encoding to relieve this restriction.
-  const auto dict = ArrayFromJSON(utf8(), R"(["ex", "why", "zee", null])");
-
-  auto WithIndices = [&](const std::string& indices) {
-    return Datum(*DictionaryArray::FromArrays(ArrayFromJSON(int32(), indices), dict));
-  };
-
-  // NB: null index is not considered equivalent to index=3 (which encodes null in dict)
-  g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
-                  ArrayFromJSON(uint32(), "[0, 1, 2, 3, 4]"));
-
-  g = TestGrouper({dictionary(int32(), utf8())});
-
-  g.ExpectConsume({WithIndices("           [0, 1, 2, 3, null]")},
-                  ArrayFromJSON(uint32(), "[0, 1, 2, 3, 4]"));
-
-  g.ExpectConsume({WithIndices("           [3, 1, null, 0, 2]")},
-                  ArrayFromJSON(uint32(), "[3, 1, 4,    0, 2]"));
-
-  auto dict_arr = *DictionaryArray::FromArrays(
-      ArrayFromJSON(int32(), "[0, 1]"),
-      ArrayFromJSON(utf8(), R"(["different", "dictionary"])"));
-  ExecSpan dict_span({*dict_arr->data()}, 2);
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
-                                  HasSubstr("Unifying differing dictionaries"),
-                                  g.grouper_->Consume(dict_span));
-}
-
-TEST(Grouper, StringInt64Key) {
-  TestGrouper g({utf8(), int64()});
-
-  g.ExpectConsume(R"([["eh", 0], ["eh", 0]])", "[0, 0]");
-
-  g.ExpectConsume(R"([["eh", 0], ["eh", null]])", "[0, 1]");
-
-  g.ExpectConsume(R"([["eh", 1], ["bee", 1]])", "[2, 3]");
-
-  g.ExpectConsume(R"([["eh", null], ["bee", 1]])", "[1, 3]");
-
-  g = TestGrouper({utf8(), int64()});
-
-  g.ExpectConsume(R"([
-    ["ex",  0],
-    ["ex",  0],
-    ["why", 0],
-    ["ex",  1],
-    ["why", 0],
-    ["ex",  1],
-    ["ex",  0],
-    ["why", 1]
-  ])",
-                  "[0, 0, 1, 2, 1, 2, 0, 3]");
-
-  g.ExpectConsume(R"([
-    ["ex",  0],
-    [null,  0],
-    [null,  0],
-    ["ex",  1],
-    [null,  null],
-    ["ex",  1],
-    ["ex",  0],
-    ["why", null]
-  ])",
-                  "[0, 4, 4, 2, 5, 2, 0, 6]");
-}
-
-TEST(Grouper, DoubleStringInt64Key) {
-  TestGrouper g({float64(), utf8(), int64()});
-
-  g.ExpectConsume(R"([[1.5, "eh", 0], [1.5, "eh", 0]])", "[0, 0]");
-
-  g.ExpectConsume(R"([[1.5, "eh", 0], [1.5, "eh", 0]])", "[0, 0]");
-
-  g.ExpectConsume(R"([[1.0, "eh", 0], [1.0, "be", null]])", "[1, 2]");
-
-  // note: -0 and +0 hash differently
-  g.ExpectConsume(R"([[-0.0, "be", 7], [0.0, "be", 7]])", "[3, 4]");
-}
-
-TEST(Grouper, RandomInt64Keys) {
-  TestGrouper g({int64()});
-  for (int i = 0; i < 4; ++i) {
-    SCOPED_TRACE(ToChars(i) + "th key batch");
-
-    ExecBatch key_batch{
-        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
-    g.ConsumeAndValidate(key_batch);
-  }
-}
-
-TEST(Grouper, RandomStringInt64Keys) {
-  TestGrouper g({utf8(), int64()});
-  for (int i = 0; i < 4; ++i) {
-    SCOPED_TRACE(ToChars(i) + "th key batch");
-
-    ExecBatch key_batch{
-        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
-    g.ConsumeAndValidate(key_batch);
-  }
-}
-
-TEST(Grouper, RandomStringInt64DoubleInt32Keys) {
-  TestGrouper g({utf8(), int64(), float64(), int32()});
-  for (int i = 0; i < 4; ++i) {
-    SCOPED_TRACE(ToChars(i) + "th key batch");
-
-    ExecBatch key_batch{
-        *random::GenerateBatch(g.key_schema_->fields(), 1 << 12, 0xDEADBEEF)};
-    g.ConsumeAndValidate(key_batch);
-  }
-}
-
-TEST(Grouper, NullKeys) {
-  TestGrouper g({null()});
-  g.ExpectConsume("[[null], [null]]", "[0, 0]");
-}
-
-TEST(Grouper, MultipleNullKeys) {
-  TestGrouper g({null(), null(), null(), null()});
-  g.ExpectConsume("[[null, null, null, null], [null, null, null, null]]", "[0, 0]");
-}
-
-TEST(Grouper, Int64NullKeys) {
-  TestGrouper g({int64(), null()});
-  g.ExpectConsume("[[1, null], [2, null], [1, null]]", "[0, 1, 0]");
-}
-
-TEST(Grouper, StringNullKeys) {
-  TestGrouper g({utf8(), null()});
-  g.ExpectConsume(R"([["be", null], ["eh", null]])", "[0, 1]");
-}
-
-TEST(Grouper, DoubleNullStringKey) {
-  TestGrouper g({float64(), null(), utf8()});
-
-  g.ExpectConsume(R"([[1.5, null, "eh"], [1.5, null, "eh"]])", "[0, 0]");
-  g.ExpectConsume(R"([[null, null, "eh"], [1.0, null, null]])", "[1, 2]");
-  g.ExpectConsume(R"([
-    [1.0,  null, "wh"],
-    [4.4,  null, null],
-    [5.2,  null, "eh"],
-    [6.5,  null, "be"],
-    [7.3,  null, null],
-    [1.0,  null, "wh"],
-    [9.1,  null, "eh"],
-    [10.2, null, "be"],
-    [1.0, null, null]
-  ])",
-                  "[3, 4, 5, 6, 7, 3, 8, 9, 2]");
-}
-
-TEST(Grouper, EmptyNullKeys) {
-  TestGrouper g({null()});
-  g.ExpectConsume("[]", "[]");
-}
-
-TEST(Grouper, MakeGroupings) {
-  auto ExpectGroupings = [](std::string ids_json, std::string expected_json) {
-    auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), ids_json));
-    auto expected = ArrayFromJSON(list(int32()), expected_json);
-
-    auto num_groups = static_cast<uint32_t>(expected->length());
-    ASSERT_OK_AND_ASSIGN(auto actual, Grouper::MakeGroupings(*ids, num_groups));
-    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
-
-    // validate ApplyGroupings
-    ASSERT_OK_AND_ASSIGN(auto grouped_ids, Grouper::ApplyGroupings(*actual, *ids));
-
-    for (uint32_t group = 0; group < num_groups; ++group) {
-      auto ids_slice = checked_pointer_cast<UInt32Array>(grouped_ids->value_slice(group));
-      for (auto slot : *ids_slice) {
-        EXPECT_EQ(slot, group);
-      }
-    }
-  };
-
-  ExpectGroupings("[]", "[[]]");
-
-  ExpectGroupings("[0, 0, 0]", "[[0, 1, 2]]");
-
-  ExpectGroupings("[0, 0, 0, 1, 1, 2]", "[[0, 1, 2], [3, 4], [5], []]");
-
-  ExpectGroupings("[2, 1, 2, 1, 1, 2]", "[[], [1, 3, 4], [0, 2, 5], [], []]");
-
-  ExpectGroupings("[2, 2, 5, 5, 2, 3]", "[[], [], [0, 1, 4], [5], [], [2, 3], [], []]");
-
-  auto ids = checked_pointer_cast<UInt32Array>(ArrayFromJSON(uint32(), "[0, null, 1]"));
-  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("MakeGroupings with null ids"),
-                                  Grouper::MakeGroupings(*ids, 5));
-}
-
-TEST(Grouper, ScalarValues) {
-  // large_utf8 forces GrouperImpl over GrouperFastImpl
-  for (const auto& str_type : {utf8(), large_utf8()}) {
-    {
-      TestGrouper g(
-          {boolean(), int32(), decimal128(3, 2), decimal256(3, 2), fixed_size_binary(2),
-           str_type, int32()},
-          {ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::SCALAR,
-           ArgShape::SCALAR, ArgShape::SCALAR, ArgShape::ARRAY});
-      g.ExpectConsume(
-          R"([
-[true, 1, "1.00", "2.00", "ab", "foo", 2],
-[true, 1, "1.00", "2.00", "ab", "foo", 2],
-[true, 1, "1.00", "2.00", "ab", "foo", 3]
-])",
-          "[0, 0, 1]");
-    }
-    {
-      auto dict_type = dictionary(int32(), utf8());
-      TestGrouper g({dict_type, str_type}, {ArgShape::SCALAR, ArgShape::SCALAR});
-      const auto dict = R"(["foo", null])";
-      g.ExpectConsume(
-          {DictScalarFromJSON(dict_type, "0", dict), ScalarFromJSON(str_type, R"("")")},
-          ArrayFromJSON(uint32(), "[0]"));
-      g.ExpectConsume(
-          {DictScalarFromJSON(dict_type, "1", dict), ScalarFromJSON(str_type, R"("")")},
-          ArrayFromJSON(uint32(), "[1]"));
-    }
-  }
-}
-
 void TestSegmentKey(GroupByFunction group_by, const std::shared_ptr<Table>& table,
                     Datum output, const std::vector<Datum>& segment_keys);
 
@@ -1489,6 +563,7 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
     return acero::GroupByTest(GetParam(), arguments, keys, aggregates, use_threads);
   }
 
+  // This is not named GroupByTest to avoid ambiguities between overloads
   Result<Datum> AltGroupBy(const std::vector<Datum>& arguments,
                            const std::vector<Datum>& keys,
                            const std::vector<Datum>& segment_keys,
@@ -1496,6 +571,70 @@ class GroupBy : public ::testing::TestWithParam<GroupByFunction> {
                            bool use_threads = false) {
     return GetParam()(arguments, keys, segment_keys, aggregates, use_threads,
                       /*naive=*/false);
+  }
+
+  Result<Datum> RunPivot(const std::shared_ptr<DataType>& key_type,
+                         const std::shared_ptr<DataType>& value_type,
+                         const PivotWiderOptions& options,
+                         const std::shared_ptr<Table>& table, bool use_threads = false) {
+    Aggregate agg{"hash_pivot_wider", std::make_shared<PivotWiderOptions>(options),
+                  /*target=*/std::vector<FieldRef>{"agg_0", "agg_1"}, /*name=*/"out"};
+    ARROW_ASSIGN_OR_RAISE(
+        Datum aggregated_and_grouped,
+        AltGroupBy({table->GetColumnByName("key"), table->GetColumnByName("value")},
+                   {table->GetColumnByName("group_key")},
+                   /*segment_keys=*/{}, {agg}, use_threads));
+    ValidateOutput(aggregated_and_grouped);
+    return aggregated_and_grouped;
+  }
+
+  Result<Datum> RunPivot(const std::shared_ptr<DataType>& key_type,
+                         const std::shared_ptr<DataType>& value_type,
+                         const PivotWiderOptions& options,
+                         const std::vector<std::string>& table_json,
+                         bool use_threads = false) {
+    auto table =
+        TableFromJSON(schema({field("group_key", int64()), field("key", key_type),
+                              field("value", value_type)}),
+                      table_json);
+    return RunPivot(key_type, value_type, options, table, use_threads);
+  }
+
+  void CheckPivoted(const std::shared_ptr<DataType>& key_type,
+                    const std::shared_ptr<DataType>& value_type,
+                    const PivotWiderOptions& options, const Datum& pivoted,
+                    const std::string& expected_json) {
+    FieldVector pivoted_fields;
+    for (const auto& key_name : options.key_names) {
+      pivoted_fields.push_back(field(key_name, value_type));
+    }
+    auto expected_type = struct_({
+        field("key_0", int64()),
+        field("out", struct_(std::move(pivoted_fields))),
+    });
+    auto expected = ArrayFromJSON(expected_type, expected_json);
+    AssertDatumsEqual(expected, pivoted, /*verbose=*/true);
+  }
+
+  void TestPivot(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& value_type,
+                 const PivotWiderOptions& options,
+                 const std::vector<std::string>& table_json,
+                 const std::string& expected_json, bool use_threads) {
+    ASSERT_OK_AND_ASSIGN(
+        auto pivoted, RunPivot(key_type, value_type, options, table_json, use_threads));
+    CheckPivoted(key_type, value_type, options, pivoted, expected_json);
+  }
+
+  void TestPivot(const std::shared_ptr<DataType>& key_type,
+                 const std::shared_ptr<DataType>& value_type,
+                 const PivotWiderOptions& options,
+                 const std::vector<std::string>& table_json,
+                 const std::string& expected_json) {
+    for (bool use_threads : {false, true}) {
+      ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      TestPivot(key_type, value_type, options, table_json, expected_json, use_threads);
+    }
   }
 
   void TestSegmentKey(const std::shared_ptr<Table>& table, Datum output,
@@ -1798,8 +937,8 @@ TEST_P(GroupBy, SumMeanProductDecimal) {
 
     AssertDatumsEqual(ArrayFromJSON(struct_({
                                         field("key_0", int64()),
-                                        field("hash_sum", decimal128(3, 2)),
-                                        field("hash_sum", decimal256(3, 2)),
+                                        field("hash_sum", decimal128(38, 2)),
+                                        field("hash_sum", decimal256(76, 2)),
                                         field("hash_mean", decimal128(3, 2)),
                                         field("hash_mean", decimal256(3, 2)),
                                         field("hash_product", decimal128(3, 2)),
@@ -1942,9 +1081,67 @@ TEST_P(GroupBy, MeanOverflow) {
   }
 }
 
-TEST_P(GroupBy, VarianceAndStddev) {
+TEST_P(GroupBy, VarianceStddevSkewKurtosis) {
+  for (auto value_type : {int32(), float64()}) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    auto batch = RecordBatchFromJSON(
+        schema({field("argument", value_type), field("key", int64())}), R"([
+      [1,   1],
+      [null,  1],
+      [0,   2],
+      [null,  3],
+      [4,   null],
+      [3,  1],
+      [0, 2],
+      [-1, 2],
+      [1,  null],
+      [null,  3]
+    ])");
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {},
+                             {
+                                 {"hash_variance", nullptr},
+                                 {"hash_stddev", nullptr},
+                                 {"hash_skew", nullptr},
+                                 {"hash_kurtosis", nullptr},
+                             },
+                             false));
+
+    auto expected = ArrayFromJSON(struct_({
+                                      field("key_0", int64()),
+                                      field("hash_variance", float64()),
+                                      field("hash_stddev", float64()),
+                                      field("hash_skew", float64()),
+                                      field("hash_kurtosis", float64()),
+                                  }),
+                                  R"([
+      [1,    1.0,                 1.0,                0.0,                 -2.0],
+      [2,    0.22222222222222224, 0.4714045207910317, -0.7071067811865478, -1.5],
+      [3,    null,                null,               null,                null],
+      [null, 2.25,                1.5,                0.0,                 -2.0]
+    ])");
+    AssertDatumsApproxEqual(expected, aggregated_and_grouped,
+                            /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, VarianceAndStddevDdof) {
+  // Test ddof
+  auto variance_options = std::make_shared<VarianceOptions>(/*ddof=*/2);
+
   auto batch = RecordBatchFromJSON(
-      schema({field("argument", int32()), field("key", int64())}), R"([
+      schema({field("argument", float64()), field("key", int64())}), R"([
     [1,   1],
     [null,  1],
     [0,   2],
@@ -1956,83 +1153,7 @@ TEST_P(GroupBy, VarianceAndStddev) {
     [1,  null],
     [null,  3]
   ])");
-
   ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       GroupByTest(
-                           {
-                               batch->GetColumnByName("argument"),
-                               batch->GetColumnByName("argument"),
-                           },
-                           {
-                               batch->GetColumnByName("key"),
-                           },
-                           {},
-                           {
-                               {"hash_variance", nullptr},
-                               {"hash_stddev", nullptr},
-                           },
-                           false));
-
-  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
-                                            field("key_0", int64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                        }),
-                                        R"([
-    [1,    1.0,                 1.0               ],
-    [2,    0.22222222222222224, 0.4714045207910317],
-    [3,    null,                null              ],
-    [null, 2.25,                1.5               ]
-  ])"),
-                          aggregated_and_grouped,
-                          /*verbose=*/true);
-
-  batch = RecordBatchFromJSON(
-      schema({field("argument", float64()), field("key", int64())}), R"([
-    [1.0,   1],
-    [null,  1],
-    [0.0,   2],
-    [null,  3],
-    [4.0,   null],
-    [3.0,  1],
-    [0.0, 2],
-    [-1.0, 2],
-    [1.0,  null],
-    [null,  3]
-  ])");
-
-  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped, GroupByTest(
-                                                   {
-                                                       batch->GetColumnByName("argument"),
-                                                       batch->GetColumnByName("argument"),
-                                                   },
-                                                   {
-                                                       batch->GetColumnByName("key"),
-                                                   },
-                                                   {},
-                                                   {
-                                                       {"hash_variance", nullptr},
-                                                       {"hash_stddev", nullptr},
-                                                   },
-                                                   false));
-
-  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
-                                            field("key_0", int64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                        }),
-                                        R"([
-    [1,    1.0,                 1.0               ],
-    [2,    0.22222222222222224, 0.4714045207910317],
-    [3,    null,                null              ],
-    [null, 2.25,                1.5               ]
-  ])"),
-                          aggregated_and_grouped,
-                          /*verbose=*/true);
-
-  // Test ddof
-  auto variance_options = std::make_shared<VarianceOptions>(/*ddof=*/2);
-  ASSERT_OK_AND_ASSIGN(aggregated_and_grouped,
                        GroupByTest(
                            {
                                batch->GetColumnByName("argument"),
@@ -2063,55 +1184,59 @@ TEST_P(GroupBy, VarianceAndStddev) {
                           /*verbose=*/true);
 }
 
-TEST_P(GroupBy, VarianceAndStddevDecimal) {
-  auto batch = RecordBatchFromJSON(
-      schema({field("argument0", decimal128(3, 2)), field("argument1", decimal128(3, 2)),
-              field("key", int64())}),
-      R"([
-    ["1.00",  "1.00",  1],
-    [null,    null,    1],
-    ["0.00",  "0.00",  2],
-    ["4.00",  "4.00",  null],
-    ["3.00",  "3.00",  1],
-    ["0.00",  "0.00",  2],
-    ["-1.00", "-1.00", 2],
-    ["1.00",  "1.00",  null]
+TEST_P(GroupBy, VarianceStddevSkewKurtosisDecimal) {
+  for (auto value_type :
+       {decimal32(3, 2), decimal64(3, 2), decimal128(3, 2), decimal256(3, 2)}) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    auto batch = RecordBatchFromJSON(
+        schema({field("argument", value_type), field("key", int64())}),
+        R"([
+      ["1.00",  1],
+      [null,    1],
+      ["0.00",  2],
+      ["4.00",  null],
+      ["3.00",  1],
+      ["0.00",  2],
+      ["-1.00", 2],
+      ["1.00",  null]
+    ])");
+
+    ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
+                         GroupByTest(
+                             {
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                                 batch->GetColumnByName("argument"),
+                             },
+                             {
+                                 batch->GetColumnByName("key"),
+                             },
+                             {},
+                             {
+                                 {"hash_variance", nullptr},
+                                 {"hash_stddev", nullptr},
+                                 {"hash_skew", nullptr},
+                                 {"hash_kurtosis", nullptr},
+                             },
+                             false));
+
+    auto expected = ArrayFromJSON(struct_({
+                                      field("key_0", int64()),
+                                      field("hash_variance", float64()),
+                                      field("hash_stddev", float64()),
+                                      field("hash_skew", float64()),
+                                      field("hash_kurtosis", float64()),
+                                  }),
+                                  R"([
+    [1,    1.0,                 1.0,                0.0,                 -2.0],
+    [2,    0.22222222222222224, 0.4714045207910317, -0.7071067811865478, -1.5],
+    [null, 2.25,                1.5,                0.0,                 -2.0]
   ])");
 
-  ASSERT_OK_AND_ASSIGN(Datum aggregated_and_grouped,
-                       GroupByTest(
-                           {
-                               batch->GetColumnByName("argument0"),
-                               batch->GetColumnByName("argument0"),
-                               batch->GetColumnByName("argument1"),
-                               batch->GetColumnByName("argument1"),
-                           },
-                           {
-                               batch->GetColumnByName("key"),
-                           },
-                           {},
-                           {
-                               {"hash_variance", nullptr},
-                               {"hash_stddev", nullptr},
-                               {"hash_variance", nullptr},
-                               {"hash_stddev", nullptr},
-                           },
-                           false));
-
-  AssertDatumsApproxEqual(ArrayFromJSON(struct_({
-                                            field("key_0", int64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                            field("hash_variance", float64()),
-                                            field("hash_stddev", float64()),
-                                        }),
-                                        R"([
-    [1,    1.0,                 1.0,                1.0,                 1.0               ],
-    [2,    0.22222222222222224, 0.4714045207910317, 0.22222222222222224, 0.4714045207910317],
-    [null, 2.25,                1.5,                2.25,                1.5               ]
-  ])"),
-                          aggregated_and_grouped,
-                          /*verbose=*/true);
+    AssertDatumsApproxEqual(expected, aggregated_and_grouped,
+                            /*verbose=*/true);
+  }
 }
 
 TEST_P(GroupBy, TDigest) {
@@ -2349,7 +1474,7 @@ TEST_P(GroupBy, StddevVarianceTDigestScalar) {
   }
 }
 
-TEST_P(GroupBy, VarianceOptions) {
+TEST_P(GroupBy, VarianceOptionsAndSkewOptions) {
   BatchesWithSchema input;
   input.batches = {
       ExecBatchFromJSON(
@@ -2365,81 +1490,101 @@ TEST_P(GroupBy, VarianceOptions) {
                         "[[null, null, 1]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[2, 2.0, 1], [3, 3.0, 2]]"),
       ExecBatchFromJSON({int32(), float32(), int64()}, "[[4, 4.0, 2], [2, 2.0, 4]]"),
-      ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4]]"),
+      ExecBatchFromJSON({int32(), float32(), int64()}, "[[null, null, 4], [6, 6.0, 3]]"),
   };
   input.schema = schema(
       {field("argument", int32()), field("argument1", float32()), field("key", int64())});
 
-  auto keep_nulls = std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/false,
-                                                      /*min_count=*/0);
-  auto min_count =
+  auto var_keep_nulls =
+      std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/false,
+                                        /*min_count=*/0);
+  auto var_min_count =
       std::make_shared<VarianceOptions>(/*ddof=*/0, /*skip_nulls=*/true, /*min_count=*/3);
-  auto keep_nulls_min_count = std::make_shared<VarianceOptions>(
+  auto var_keep_nulls_min_count = std::make_shared<VarianceOptions>(
       /*ddof=*/0, /*skip_nulls=*/false, /*min_count=*/3);
 
-  for (bool use_threads : {false}) {
-    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
-    ASSERT_OK_AND_ASSIGN(
-        Datum actual,
-        RunGroupBy(
-            input, {"key"},
-            {
-                {"hash_stddev", keep_nulls, "argument", "hash_stddev"},
-                {"hash_stddev", min_count, "argument", "hash_stddev"},
-                {"hash_stddev", keep_nulls_min_count, "argument", "hash_stddev"},
-                {"hash_variance", keep_nulls, "argument", "hash_variance"},
-                {"hash_variance", min_count, "argument", "hash_variance"},
-                {"hash_variance", keep_nulls_min_count, "argument", "hash_variance"},
-            },
-            use_threads));
-    Datum expected = ArrayFromJSON(struct_({
-                                       field("key", int64()),
-                                       field("hash_stddev", float64()),
-                                       field("hash_stddev", float64()),
-                                       field("hash_stddev", float64()),
-                                       field("hash_variance", float64()),
-                                       field("hash_variance", float64()),
-                                       field("hash_variance", float64()),
-                                   }),
-                                   R"([
-         [1, null,    0.471405, null,    null,   0.222222, null  ],
-         [2, 1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875],
-         [3, 0.0,     null,     null,    0.0,    null,     null  ],
-         [4, null,    0.471405, null,    null,   0.222222, null  ]
-       ])");
-    ValidateOutput(expected);
-    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  auto skew_keep_nulls = std::make_shared<SkewOptions>(/*skip_nulls=*/false,
+                                                       /*biased=*/true,
+                                                       /*min_count=*/0);
+  auto skew_min_count = std::make_shared<SkewOptions>(/*skip_nulls=*/true,
+                                                      /*biased=*/true, /*min_count=*/3);
+  auto skew_keep_nulls_min_count = std::make_shared<SkewOptions>(
+      /*skip_nulls=*/false, /*biased=*/true, /*min_count=*/3);
 
-    ASSERT_OK_AND_ASSIGN(
-        actual,
-        RunGroupBy(
-            input, {"key"},
-            {
-                {"hash_stddev", keep_nulls, "argument1", "hash_stddev"},
-                {"hash_stddev", min_count, "argument1", "hash_stddev"},
-                {"hash_stddev", keep_nulls_min_count, "argument1", "hash_stddev"},
-                {"hash_variance", keep_nulls, "argument1", "hash_variance"},
-                {"hash_variance", min_count, "argument1", "hash_variance"},
-                {"hash_variance", keep_nulls_min_count, "argument1", "hash_variance"},
-            },
-            use_threads));
-    expected = ArrayFromJSON(struct_({
-                                 field("key", int64()),
-                                 field("hash_stddev", float64()),
-                                 field("hash_stddev", float64()),
-                                 field("hash_stddev", float64()),
-                                 field("hash_variance", float64()),
-                                 field("hash_variance", float64()),
-                                 field("hash_variance", float64()),
-                             }),
-                             R"([
+  auto skew_unbiased = std::make_shared<SkewOptions>(
+      /*skip_nulls=*/false, /*biased=*/false, /*min_count=*/0);
+
+  for (std::string value_column : {"argument", "argument1"}) {
+    for (bool use_threads : {false}) {
+      SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(
+          Datum actual,
+          RunGroupBy(
+              input, {"key"},
+              {
+                  {"hash_stddev", var_keep_nulls, value_column, "hash_stddev"},
+                  {"hash_stddev", var_min_count, value_column, "hash_stddev"},
+                  {"hash_stddev", var_keep_nulls_min_count, value_column, "hash_stddev"},
+                  {"hash_variance", var_keep_nulls, value_column, "hash_variance"},
+                  {"hash_variance", var_min_count, value_column, "hash_variance"},
+                  {"hash_variance", var_keep_nulls_min_count, value_column,
+                   "hash_variance"},
+              },
+              use_threads));
+      Datum expected = ArrayFromJSON(struct_({
+                                         field("key", int64()),
+                                         field("hash_stddev", float64()),
+                                         field("hash_stddev", float64()),
+                                         field("hash_stddev", float64()),
+                                         field("hash_variance", float64()),
+                                         field("hash_variance", float64()),
+                                         field("hash_variance", float64()),
+                                     }),
+                                     R"([
          [1, null,    0.471405, null,    null,   0.222222, null  ],
          [2, 1.29904, 1.29904,  1.29904, 1.6875, 1.6875,   1.6875],
-         [3, 0.0,     null,     null,    0.0,    null,     null  ],
+         [3, 2.5,     null,     null,    6.25,   null,     null  ],
          [4, null,    0.471405, null,    null,   0.222222, null  ]
-       ])");
-    ValidateOutput(expected);
-    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+         ])");
+      ValidateOutput(actual);
+      AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+
+      ASSERT_OK_AND_ASSIGN(
+          actual,
+          RunGroupBy(
+              input, {"key"},
+              {
+                  {"hash_skew", skew_keep_nulls, value_column, "hash_skew"},
+                  {"hash_skew", skew_min_count, value_column, "hash_skew"},
+                  {"hash_skew", skew_keep_nulls_min_count, value_column, "hash_skew"},
+                  {"hash_skew", skew_unbiased, value_column, "hash_skew"},
+                  {"hash_kurtosis", skew_keep_nulls, value_column, "hash_kurtosis"},
+                  {"hash_kurtosis", skew_min_count, value_column, "hash_kurtosis"},
+                  {"hash_kurtosis", skew_keep_nulls_min_count, value_column,
+                   "hash_kurtosis"},
+                  {"hash_kurtosis", skew_unbiased, value_column, "hash_kurtosis"},
+              },
+              use_threads));
+      expected = ArrayFromJSON(struct_({
+                                   field("key", int64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_skew", float64()),
+                                   field("hash_kurtosis", float64()),
+                                   field("hash_kurtosis", float64()),
+                                   field("hash_kurtosis", float64()),
+                                   field("hash_kurtosis", float64()),
+                               }),
+                               R"([
+         [1, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ],
+         [2, 0.213833,  0.213833,  0.213833, 0.37037, -1.720164, -1.720164, -1.720164, -3.90123],
+         [3, 0.0,       null,      null,     null,    -2.0,       null,     null,      null    ],
+         [4, null,      0.707106,  null,     null,    null,      -1.5,      null,      null    ]
+         ])");
+      ValidateOutput(actual);
+      AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+    }
   }
 }
 
@@ -5269,6 +4414,624 @@ TEST_P(GroupBy, OnlyKeys) {
   }
 }
 
+TEST_P(GroupBy, PivotBasics) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width",  10.5],
+      [2, "width",  11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5]
+      ])",
+                                         R"([
+      [3, "width",  13.5],
+      [1, "height", 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 11.5} ],
+      [3, {"height": null, "width": 13.5} ]
+      ])";
+  for (auto unexpected_key_behavior :
+       {PivotWiderOptions::kIgnore, PivotWiderOptions::kRaise}) {
+    PivotWiderOptions options(/*key_names=*/{"height", "width"}, unexpected_key_behavior);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotBinaryKeyTypes) {
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [3, "width",  13.5],
+      [1, "height", 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 11.5} ],
+      [3, {"height": null, "width": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+
+  for (const auto& key_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("key_type = ", *key_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+
+  auto key_type = fixed_size_binary(3);
+  table_json = {R"([
+      [1, "wid", 10.5],
+      [2, "wid", 11.5]
+      ])",
+                R"([
+      [2, "hei", 12.5],
+      [3, "wid",  13.5],
+      [1, "hei", 14.5]
+      ])"};
+  expected_json = R"([
+      [1, {"hei": 14.5, "wid": 10.5} ],
+      [2, {"hei": 12.5, "wid": 11.5} ],
+      [3, {"hei": null, "wid": 13.5} ]
+      ])";
+  options.key_names = {"hei", "wid"};
+  ARROW_SCOPED_TRACE("key_type = ", *key_type);
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotIntegerKeyTypes) {
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, 78, 10.5],
+      [2, 78, 11.5]
+      ])",
+                                         R"([
+      [2, 56, 12.5],
+      [3, 78, 13.5],
+      [1, 56, 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"56": 14.5, "78": 10.5} ],
+      [2, {"56": 12.5, "78": 11.5} ],
+      [3, {"56": null, "78": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"56", "78"});
+
+  for (const auto& key_type : IntTypes()) {
+    ARROW_SCOPED_TRACE("key_type = ", *key_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotNumericValues) {
+  auto key_type = utf8();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10],
+      [2, "width", 11]
+      ])",
+                                         R"([
+      [2, "height", 12],
+      [3, "width",  13],
+      [1, "height", 14]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14,   "width": 10} ],
+      [2, {"height": 12,   "width": 11} ],
+      [3, {"height": null, "width": 13} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+
+  for (const auto& value_type : NumericTypes()) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotBinaryLikeValues) {
+  auto key_type = utf8();
+  std::vector<std::string> table_json = {R"([
+      [1, "name",      "Bob"],
+      [2, "eye_color", "brown"]
+      ])",
+                                         R"([
+      [2, "name",      "Alice"],
+      [1, "eye_color", "gray"],
+      [3, "name",      "Mallaury"]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"name": "Bob",      "eye_color": "gray"} ],
+      [2, {"name": "Alice",    "eye_color": "brown"} ],
+      [3, {"name": "Mallaury", "eye_color": null} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"name", "eye_color"});
+
+  for (const auto& value_type : BaseBinaryTypes()) {
+    ARROW_SCOPED_TRACE("value_type = ", *value_type);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotDecimalValues) {
+  auto key_type = utf8();
+  auto value_type = decimal128(9, 1);
+  std::vector<std::string> table_json = {R"([
+      [1, "width", "10.1"],
+      [2, "width", "11.1"]
+      ])",
+                                         R"([
+      [2, "height", "12.1"],
+      [3, "width",  "13.1"],
+      [1, "height", "14.1"]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": "14.1", "width": "10.1"} ],
+      [2, {"height": "12.1", "width": "11.1"} ],
+      [3, {"height": null,   "width": "13.1"} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotStructValues) {
+  auto key_type = utf8();
+  auto value_type = struct_({{"value", float32()}});
+  std::vector<std::string> table_json = {R"([
+      [1, "width", [10.1]],
+      [2, "width", [11.1]]
+      ])",
+                                         R"([
+      [2, "height", [12.1]],
+      [3, "width",  [13.1]],
+      [1, "height", [14.1]]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": [14.1], "width": [10.1]} ],
+      [2, {"height": [12.1], "width": [11.1]} ],
+      [3, {"height": null,   "width": [13.1]} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotListValues) {
+  auto key_type = utf8();
+  auto value_type = list(float32());
+  std::vector<std::string> table_json = {R"([
+      [1, "foo", [10.5, 11.5]],
+      [2, "bar", [12.5]]
+      ])",
+                                         R"([
+      [2, "foo", []],
+      [3, "bar", [13.5]],
+      [1, "foo", null]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"foo": [10.5, 11.5], "bar": null}   ],
+      [2, {"foo": [],           "bar": [12.5]} ],
+      [3, {"foo": null,         "bar": [13.5]} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"foo", "bar"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotNullValueType) {
+  auto key_type = utf8();
+  auto value_type = null();
+  std::vector<std::string> table_json = {R"([
+      [1, "foo", null],
+      [2, "bar", null]
+      ])",
+                                         R"([
+      [2, "foo", null],
+      [3, "bar", null],
+      [1, "foo", null]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"foo": null, "bar": null} ],
+      [2, {"foo": null, "bar": null} ],
+      [3, {"foo": null, "bar": null} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"foo", "bar"});
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotNullValues) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", null]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [2, "width",  13.5],
+      [1, "width",  null],
+      [2, "height", null]
+      ])",
+                                         R"([
+      [1, "width",  null],
+      [2, "height", null]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": null, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 13.5} ]
+      ])";
+  PivotWiderOptions options(/*key_names=*/{"height", "width"}, PivotWiderOptions::kRaise);
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+}
+
+TEST_P(GroupBy, PivotScalarKey) {
+  BatchesWithSchema input;
+  std::vector<TypeHolder> types = {int32(), utf8(), float32()};
+  std::vector<ArgShape> shapes = {ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::ARRAY};
+  input.batches = {
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [1, "width",  10.5],
+        [2, "width",  11.5]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [2, "width",  null]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [3, "height", null],
+        [3, "height", null]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [3, "height", 12.5],
+        [1, "height", 13.5]
+        ])"),
+  };
+  input.schema = schema({field("group_key", int32()), field("pivot_key", utf8()),
+                         field("pivot_value", float32())});
+  Datum expected = ArrayFromJSON(
+      struct_({field("group_key", int32()),
+               field("pivoted",
+                     struct_({field("height", float32()), field("width", float32())}))}),
+      R"([
+      [1, {"height": 13.5, "width": 10.5} ],
+      [2, {"height": null, "width": 11.5} ],
+      [3, {"height": 12.5, "width": null} ]
+      ])");
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"hash_pivot_wider", options,
+                      std::vector<FieldRef>{"pivot_key", "pivot_value"}, "pivoted"};
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    ASSERT_OK_AND_ASSIGN(Datum actual,
+                         RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+    ValidateOutput(actual);
+    AssertDatumsApproxEqual(expected, actual, /*verbose=*/true);
+  }
+}
+
+TEST_P(GroupBy, PivotUnusedKeyName) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [3, "width",  13.5],
+      [1, "height", 14.5]
+      ])"};
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "depth": null, "width": 10.5} ],
+      [2, {"height": 12.5, "depth": null, "width": 11.5} ],
+      [3, {"height": null, "depth": null, "width": 13.5} ]
+      ])";
+  for (auto unexpected_key_behavior :
+       {PivotWiderOptions::kIgnore, PivotWiderOptions::kRaise}) {
+    PivotWiderOptions options(/*key_names=*/{"height", "depth", "width"},
+                              unexpected_key_behavior);
+    TestPivot(key_type, value_type, options, table_json, expected_json);
+  }
+}
+
+TEST_P(GroupBy, PivotUnexpectedKeyName) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, "width", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [3, "width",  13.5],
+      [1, "depth",  15.5],
+      [1, "height", 14.5]
+      ])"};
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  std::string expected_json = R"([
+      [1, {"height": 14.5, "width": 10.5} ],
+      [2, {"height": 12.5, "width": 11.5} ],
+      [3, {"height": null, "width": 13.5} ]
+      ])";
+  TestPivot(key_type, value_type, options, table_json, expected_json);
+  options.unexpected_key_behavior = PivotWiderOptions::kRaise;
+  for (bool use_threads : {false, true}) {
+    ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        KeyError, HasSubstr("Unexpected pivot key: depth"),
+        RunPivot(key_type, value_type, options, table_json, use_threads));
+  }
+}
+TEST_P(GroupBy, PivotNullKeys) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([
+      [1, "width", 10.5],
+      [2, null,    11.5]
+      ])"};
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+  for (bool use_threads : {false, true}) {
+    ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        KeyError, HasSubstr("pivot key name cannot be null"),
+        RunPivot(key_type, value_type, options, table_json, use_threads));
+  }
+}
+
+TEST_P(GroupBy, PivotDuplicateKeys) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([])"};
+  PivotWiderOptions options(/*key_names=*/{"height", "width", "height"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      KeyError, HasSubstr("Duplicate key name 'height' in PivotWiderOptions"),
+      RunPivot(key_type, value_type, options, table_json));
+}
+
+TEST_P(GroupBy, PivotInvalidKeys) {
+  // Integer key type, but key names cannot be converted to int
+  auto key_type = int32();
+  auto value_type = float32();
+  std::vector<std::string> table_json = {R"([])"};
+  PivotWiderOptions options(/*key_names=*/{"123", "width"});
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: 'width' as a scalar of type int32"),
+      RunPivot(key_type, value_type, options, table_json));
+  options.key_names = {"12.3", "45"};
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid, HasSubstr("Failed to parse string: '12.3' as a scalar of type int32"),
+      RunPivot(key_type, value_type, options, table_json));
+}
+
+TEST_P(GroupBy, PivotDuplicateValues) {
+  auto key_type = utf8();
+  auto value_type = float32();
+  PivotWiderOptions options(/*key_names=*/{"height", "width"});
+
+  for (bool use_threads : {false, true}) {
+    ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+
+    // Duplicate values in same chunk
+    std::vector<std::string> table_json = {R"([
+        [1, "width", 10.5],
+        [2, "width", 11.5],
+        [1, "width", 11.5]
+        ])"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    HasSubstr("Encountered more than one non-null value"),
+                                    RunPivot(key_type, value_type, options, table_json));
+
+    // Duplicate values in different chunks
+    table_json = {R"([
+        [1, "width", 10.5],
+        [2, "width", 11.5]
+        ])",
+                  R"([
+        [1, "width", 11.5]
+        ])"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid,
+                                    HasSubstr("Encountered more than one non-null value"),
+                                    RunPivot(key_type, value_type, options, table_json));
+  }
+}
+
+TEST_P(GroupBy, PivotScalarKeyWithDuplicateValues) {
+  BatchesWithSchema input;
+  std::vector<TypeHolder> types = {int32(), utf8(), float32()};
+  std::vector<ArgShape> shapes = {ArgShape::ARRAY, ArgShape::SCALAR, ArgShape::ARRAY};
+  input.schema = schema({field("group_key", int32()), field("pivot_key", utf8()),
+                         field("pivot_value", float32())});
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"hash_pivot_wider", options,
+                      std::vector<FieldRef>{"pivot_key", "pivot_value"}, "pivoted"};
+
+  // Duplicate values in same chunk
+  input.batches = {
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [1, "width",  10.5],
+        [1, "width",  11.5]
+        ])"),
+  };
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, HasSubstr("Encountered more than one non-null value"),
+        RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+  }
+
+  // Duplicate values in different chunks
+  input.batches = {
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [1, "width",  10.5],
+        [2, "width",  11.5]
+        ])"),
+      ExecBatchFromJSON(types, shapes,
+                        R"([
+        [2, "width",  12.5]
+        ])"),
+  };
+  for (bool use_threads : {false, true}) {
+    SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, HasSubstr("Encountered more than one non-null value"),
+        RunGroupBy(input, {"group_key"}, {aggregate}, use_threads));
+  }
+}
+
+struct RandomPivotTestCase {
+  PivotWiderOptions options;
+  std::shared_ptr<RecordBatch> input;
+  std::shared_ptr<Array> expected_output;
+};
+
+Result<RandomPivotTestCase> MakeRandomPivot(int64_t length) {
+  constexpr double kKeyPresenceProbability = 0.8;
+  constexpr double kValueValidityProbability = 0.7;
+
+  const std::vector<std::string> key_names = {"height", "width", "depth"};
+  std::default_random_engine gen(42);
+  std::uniform_real_distribution<float> value_dist(0.0f, 1.0f);
+  std::bernoulli_distribution key_presence_dist(kKeyPresenceProbability);
+  std::bernoulli_distribution value_validity_dist(kValueValidityProbability);
+
+  Int64Builder group_key_builder;
+  StringBuilder key_builder;
+  FloatBuilder value_builder;
+  RETURN_NOT_OK(group_key_builder.Reserve(length));
+  RETURN_NOT_OK(key_builder.Reserve(length));
+  RETURN_NOT_OK(value_builder.Reserve(length));
+
+  // The last input key name will not be part of the result
+  PivotWiderOptions options(
+      std::vector<std::string>(key_names.begin(), key_names.end() - 1));
+  Int64Builder pivoted_group_builder;
+  std::vector<FloatBuilder> pivoted_value_builders(options.key_names.size());
+
+  auto finish_group = [&](int64_t group_key) -> Status {
+    // First check if *any* pivoted column was populated (otherwise there was
+    // no valid value at all in this group, and no output row should be generated).
+    RETURN_NOT_OK(pivoted_group_builder.Append(group_key));
+    // Make sure all pivoted columns are populated and in sync with the group key column
+    for (auto& pivoted_value_builder : pivoted_value_builders) {
+      if (pivoted_value_builder.length() < pivoted_group_builder.length()) {
+        RETURN_NOT_OK(pivoted_value_builder.AppendNull());
+      }
+      EXPECT_EQ(pivoted_value_builder.length(), pivoted_group_builder.length());
+    }
+    return Status::OK();
+  };
+
+  int64_t group_key = 1000;
+  bool group_started = false;
+  int key_id = 0;
+  while (group_key_builder.length() < length) {
+    // For the current group_key and key_id we can either:
+    // 1. not add a row
+    // 2. add a row with a null value
+    // 3. add a row with a non-null value
+    //    3a. the row will end up in the pivoted data iff the key is part of
+    //        the PivotWiderOptions.key_names
+    if (key_presence_dist(gen)) {
+      group_key_builder.UnsafeAppend(group_key);
+      group_started = true;
+      RETURN_NOT_OK(key_builder.Append(key_names[key_id]));
+      if (value_validity_dist(gen)) {
+        const auto value = value_dist(gen);
+        value_builder.UnsafeAppend(value);
+        if (key_id < static_cast<int>(pivoted_value_builders.size())) {
+          RETURN_NOT_OK(pivoted_value_builders[key_id].Append(value));
+        }
+      } else {
+        value_builder.UnsafeAppendNull();
+      }
+    }
+    if (++key_id >= static_cast<int>(key_names.size())) {
+      // We've considered all keys for this group.
+      // Emit a pivoted row only if any key was emitted in the input.
+      if (group_started) {
+        RETURN_NOT_OK(finish_group(group_key));
+      }
+      // Initiate new group
+      ++group_key;
+      group_started = false;
+      key_id = 0;
+    }
+  }
+  if (group_started) {
+    // We've started this group, finish it
+    RETURN_NOT_OK(finish_group(group_key));
+  }
+  ARROW_ASSIGN_OR_RAISE(auto group_keys, group_key_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto keys, key_builder.Finish());
+  ARROW_ASSIGN_OR_RAISE(auto values, value_builder.Finish());
+  auto input_schema =
+      schema({{"group_key", int64()}, {"key", utf8()}, {"value", float32()}});
+  auto input = RecordBatch::Make(input_schema, length, {group_keys, keys, values});
+  RETURN_NOT_OK(input->Validate());
+
+  ARROW_ASSIGN_OR_RAISE(auto pivoted_groups, pivoted_group_builder.Finish());
+  ArrayVector pivoted_value_columns;
+  for (auto& pivoted_value_builder : pivoted_value_builders) {
+    ARROW_ASSIGN_OR_RAISE(pivoted_value_columns.emplace_back(),
+                          pivoted_value_builder.Finish());
+  }
+  ARROW_ASSIGN_OR_RAISE(
+      auto pivoted_values,
+      StructArray::Make(std::move(pivoted_value_columns), options.key_names));
+  ARROW_ASSIGN_OR_RAISE(auto output,
+                        StructArray::Make({pivoted_groups, pivoted_values},
+                                          std::vector<std::string>{"key_0", "out"}));
+  RETURN_NOT_OK(output->Validate());
+
+  return RandomPivotTestCase{std::move(options), std::move(input), std::move(output)};
+}
+
+TEST_P(GroupBy, PivotRandom) {
+  constexpr int64_t kLength = 900;
+  // Larger than 256 to exercise take-index dispatch in pivot implementation
+  constexpr int64_t kChunkLength = 300;
+  ASSERT_OK_AND_ASSIGN(auto pivot_case, MakeRandomPivot(kLength));
+
+  for (bool shuffle : {false, true}) {
+    ARROW_SCOPED_TRACE("shuffle = ", shuffle);
+    auto input = Datum(pivot_case.input);
+    if (shuffle) {
+      // Since the "value" column is random-generated, sorting on it produces
+      // a random shuffle.
+      ASSERT_OK_AND_ASSIGN(
+          auto shuffle_indices,
+          SortIndices(pivot_case.input, SortOptions({SortKey("value")})));
+      ASSERT_OK_AND_ASSIGN(input, Take(input, shuffle_indices));
+    }
+    ASSERT_EQ(input.kind(), Datum::RECORD_BATCH);
+    RecordBatchVector chunks;
+    for (int64_t start = 0; start < kLength; start += kChunkLength) {
+      const auto chunk_length = std::min(kLength - start, kChunkLength);
+      chunks.push_back(input.record_batch()->Slice(start, chunk_length));
+    }
+    ASSERT_OK_AND_ASSIGN(auto table, Table::FromRecordBatches(chunks));
+
+    for (bool use_threads : {false, true}) {
+      ARROW_SCOPED_TRACE(use_threads ? "parallel/merged" : "serial");
+      ASSERT_OK_AND_ASSIGN(auto pivoted, RunPivot(utf8(), float32(), pivot_case.options,
+                                                  table, use_threads));
+      // XXX For some reason this works even in the shuffled case
+      // (I would expect the test to require sorting of the output).
+      // This might depend on implementation details of group id generation
+      // by the hash-aggregate logic (the pivot implementation implicitly
+      // orders the output by ascending group id).
+      AssertDatumsEqual(pivot_case.expected_output, pivoted, /*verbose=*/true);
+    }
+  }
+}
+
 INSTANTIATE_TEST_SUITE_P(GroupBy, GroupBy, ::testing::Values(RunGroupByImpl));
 
 class SegmentedScalarGroupBy : public GroupBy {};
@@ -5542,6 +5305,101 @@ TEST_P(SegmentedKeyGroupBy, MultiSegmentKeyChunked) {
 
 TEST_P(SegmentedKeyGroupBy, MultiSegmentKeyCombined) {
   TestMultiSegmentKey(GetParam(), GetMultiSegmentInputAsCombined);
+}
+
+TEST_P(SegmentedKeyGroupBy, PivotSegmentKey) {
+  auto group_by = GetParam();
+  auto key_type = utf8();
+  auto value_type = float32();
+
+  std::vector<std::string> table_json = {R"([
+      [1, "width",  10.5],
+      [1, "height", 11.5]
+      ])",
+                                         R"([
+      [2, "height", 12.5],
+      [2, "width",  13.5],
+      [3, "width",  14.5]
+      ])",
+                                         R"([
+      [3, "width",  null],
+      [4, "height", 15.5]
+      ])"};
+  std::vector<std::string> expected_json = {
+      R"([[1, {"height": 11.5, "width": 10.5}]])",
+      R"([[2, {"height": 12.5, "width": 13.5}]])",
+      R"([[3, {"height": null, "width": 14.5}]])",
+      R"([[4, {"height": 15.5, "width": null}]])",
+  };
+
+  auto table =
+      TableFromJSON(schema({field("segment_key", int64()), field("pivot_key", key_type),
+                            field("pivot_value", value_type)}),
+                    table_json);
+
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  Aggregate aggregate{"pivot_wider", options, std::vector<FieldRef>{"agg_0", "agg_1"},
+                      "pivoted"};
+  ASSERT_OK_AND_ASSIGN(Datum actual,
+                       group_by(
+                           {
+                               table->GetColumnByName("pivot_key"),
+                               table->GetColumnByName("pivot_value"),
+                           },
+                           {}, {table->GetColumnByName("segment_key")}, {aggregate},
+                           /*use_threads=*/false, /*naive=*/false));
+  ValidateOutput(actual);
+  auto expected = ChunkedArrayFromJSON(
+      struct_({field("key_0", int64()),
+               field("pivoted", struct_({field("height", value_type),
+                                         field("width", value_type)}))}),
+      expected_json);
+  AssertDatumsEqual(expected, actual, /*verbose=*/true);
+}
+
+TEST_P(SegmentedKeyGroupBy, PivotSegmentKeyDuplicateValues) {
+  // NOTE: besides testing "pivot_wider" behavior, this test also checks that errors
+  // produced when consuming or merging an aggregate don't corrupt
+  // execution engine internals.
+  auto group_by = GetParam();
+  auto key_type = utf8();
+  auto value_type = float32();
+  auto options = std::make_shared<PivotWiderOptions>(
+      PivotWiderOptions(/*key_names=*/{"height", "width"}));
+  auto table_schema = schema({field("segment_key", int64()), field("pivot_key", key_type),
+                              field("pivot_value", value_type)});
+
+  auto test_duplicate_values = [&](const std::vector<std::string>& table_json) {
+    auto table = TableFromJSON(table_schema, table_json);
+    Aggregate aggregate{"pivot_wider", options, std::vector<FieldRef>{"agg_0", "agg_1"},
+                        "pivoted"};
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid,
+        HasSubstr("Encountered more than one non-null value for the same pivot key"),
+        group_by(
+            {
+                table->GetColumnByName("pivot_key"),
+                table->GetColumnByName("pivot_value"),
+            },
+            {}, {table->GetColumnByName("segment_key")}, {aggregate},
+            /*use_threads=*/false, /*naive=*/false));
+  };
+
+  // Duplicate values in the same chunk
+  test_duplicate_values({R"([
+      [1, "width",  10.5],
+      [2, "width",  11.5],
+      [2, "width",  12.5]
+      ])"});
+  // Duplicate values in two different chunks
+  test_duplicate_values({R"([
+      [1, "width",  10.5],
+      [2, "width",  11.5]
+      ])",
+                         R"([
+      [2, "width",  12.5]
+      ])"});
 }
 
 INSTANTIATE_TEST_SUITE_P(SegmentedScalarGroupBy, SegmentedScalarGroupBy,

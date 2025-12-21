@@ -17,16 +17,17 @@
 
 #pragma once
 
+#include <cmath>
+#include <initializer_list>
+
 #include "arrow/compute/kernels/util_internal.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/int128_internal.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
-namespace arrow {
-namespace compute {
-namespace internal {
+namespace arrow::compute::internal {
 
 // Find the largest compatible primitive type for a primitive type.
 template <typename I, typename Enable = void>
@@ -254,6 +255,4 @@ SumType SumArray(const ArraySpan& data) {
       data, [](ValueType v) { return static_cast<SumType>(v); });
 }
 
-}  // namespace internal
-}  // namespace compute
-}  // namespace arrow
+}  // namespace arrow::compute::internal

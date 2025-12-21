@@ -46,7 +46,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include "arrow/compute/kernels/test_util.h"
+#include "arrow/compute/kernels/test_util_internal.h"
 
 namespace arrow {
 
@@ -3400,6 +3400,46 @@ TEST(Cast, StringToString) {
   }
 }
 
+TEST(Cast, StringToStringWithOffset) {
+  // GH-43660: Check casting String Arrays with nonzero offset
+  std::vector<int64_t> offsets = {3, 8, 10, 12};
+  std::vector<int64_t> lengths = {5, 2, 1, 0};
+
+  for (auto from_type : {utf8(), large_utf8()}) {
+    for (auto to_type : {utf8(), large_utf8()}) {
+      for (size_t i = 0; i < offsets.size(); ++i) {
+        auto offset = offsets[i];
+        auto length = lengths[i];
+
+        auto input_with_nulls = R"([
+          "foo", null, "bar", null, "quu", "foo", "baz", "bar",
+          null, "bar", "baz", null
+          ])";
+
+        auto input_arr_with_nulls = ArrayFromJSON(from_type, input_with_nulls);
+        auto output_arr_with_nulls = ArrayFromJSON(to_type, input_with_nulls);
+        CheckCast(input_arr_with_nulls->Slice(offset),
+                  output_arr_with_nulls->Slice(offset));
+        // Slice with length
+        CheckCast(input_arr_with_nulls->Slice(offset, length),
+                  output_arr_with_nulls->Slice(offset, length));
+
+        auto input_no_nulls = R"([
+            "foo", "aa", "bar", "bb", "quu", "foo", "baz", "bar",
+            "cc", "bar", "baz", "foo"
+            ])";
+
+        auto input_arr_no_nulls = ArrayFromJSON(from_type, input_no_nulls);
+        auto output_arr_no_nulls = ArrayFromJSON(to_type, input_no_nulls);
+        CheckCast(input_arr_no_nulls->Slice(offset), output_arr_no_nulls->Slice(offset));
+        // Slice with length
+        CheckCast(input_arr_no_nulls->Slice(offset, length),
+                  output_arr_no_nulls->Slice(offset, length));
+      }
+    }
+  }
+}
+
 TEST(Cast, BinaryOrStringToFixedSizeBinary) {
   for (auto in_type :
        {utf8(), large_utf8(), utf8_view(), binary(), binary_view(), large_binary()}) {
@@ -3825,37 +3865,34 @@ static void CheckStructToStructSubset(
 
       // field does not exist
       ASSERT_OK_AND_ASSIGN(auto dest6,
-                           StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}));
+                           StructArray::Make({a2, d2, nulls}, {"a", "d", "f"}));
       CheckCast(src, dest6);
 
       const auto dest7 = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
            std::make_shared<Field>("f", int64(), /*nullable=*/false)});
       const auto options7 = CastOptions::Safe(dest7);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options7));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src, options7));
 
       // fields in wrong order
-      const auto dest8 = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                         std::make_shared<Field>("c", int16()),
-                                         std::make_shared<Field>("b", int64())});
-      const auto options8 = CastOptions::Safe(dest8);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options8));
+      ASSERT_OK_AND_ASSIGN(auto dest8, StructArray::Make({a2, c2, b2}, {"a", "c", "b"}));
+      CheckCast(src, dest8);
 
       // duplicate missing field names
-      const auto dest9 = arrow::struct_(
+      ASSERT_OK_AND_ASSIGN(auto dest9,
+                           StructArray::Make({a2, c2, d2, nulls}, {"a", "c", "d", "a"}));
+      CheckCast(src, dest9);
+
+      const auto dest10 = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
-      const auto options9 = CastOptions::Safe(dest9);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src, options9));
+           std::make_shared<Field>("d", int32()),
+           std::make_shared<Field>("a", int64(), /*nullable=*/false)});
+      const auto options10 = CastOptions::Safe(dest10);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src, options10));
 
       // duplicate present field names
       ASSERT_OK_AND_ASSIGN(
@@ -3875,6 +3912,21 @@ static void CheckStructToStructSubset(
           auto dest3_duplicate_field_names,
           StructArray::Make({a2, b2, c2}, std::vector<std::string>{"a", "a", "a"}));
       CheckCast(src_duplicate_field_names, dest3_duplicate_field_names);
+
+      // more duplicate outputs than duplicate inputs
+      ASSERT_OK_AND_ASSIGN(auto dest4_duplicate_field_names,
+                           StructArray::Make({a2, b2, c2, nulls}, {"a", "a", "a", "a"}));
+      CheckCast(src_duplicate_field_names, dest4_duplicate_field_names);
+
+      const auto dest5_duplicate_field_names = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("a", int8()),
+           std::make_shared<Field>("a", int8()),
+           std::make_shared<Field>("a", int8(), /*nullable=*/false)});
+      const auto options5_duplicate_field_names =
+          CastOptions::Safe(dest5_duplicate_field_names);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError, ::testing::HasSubstr("struct fields don't match"),
+          Cast(src_duplicate_field_names, options5_duplicate_field_names));
     }
   }
 }
@@ -3941,37 +3993,36 @@ static void CheckStructToStructSubsetWithNulls(
       // field does not exist
       ASSERT_OK_AND_ASSIGN(
           auto dest6_null,
-          StructArray::Make({a1, d1, nulls}, {"a", "d", "f"}, null_bitmap));
+          StructArray::Make({a2, d2, nulls}, {"a", "d", "f"}, null_bitmap));
       CheckCast(src_null, dest6_null);
 
       const auto dest7_null = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("d", int16()),
            std::make_shared<Field>("f", int64(), /*nullable=*/false)});
       const auto options7_null = CastOptions::Safe(dest7_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options7_null));
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src_null, options7_null));
 
       // fields in wrong order
-      const auto dest8_null = arrow::struct_({std::make_shared<Field>("a", int8()),
-                                              std::make_shared<Field>("c", int16()),
-                                              std::make_shared<Field>("b", int64())});
-      const auto options8_null = CastOptions::Safe(dest8_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options8_null));
+      ASSERT_OK_AND_ASSIGN(auto dest8_null,
+                           StructArray::Make({a2, c2, b2}, {"a", "c", "b"}, null_bitmap));
+      CheckCast(src_null, dest8_null);
 
       // duplicate missing field names
-      const auto dest9_null = arrow::struct_(
+      ASSERT_OK_AND_ASSIGN(
+          auto dest9_null,
+          StructArray::Make({a2, c2, d2, nulls}, {"a", "c", "d", "a"}, null_bitmap));
+      CheckCast(src_null, dest9_null);
+
+      const auto dest10_null = arrow::struct_(
           {std::make_shared<Field>("a", int8()), std::make_shared<Field>("c", int16()),
-           std::make_shared<Field>("d", int32()), std::make_shared<Field>("a", int64())});
-      const auto options9_null = CastOptions::Safe(dest9_null);
-      EXPECT_RAISES_WITH_MESSAGE_THAT(
-          TypeError,
-          ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-          Cast(src_null, options9_null));
+           std::make_shared<Field>("d", int64()),
+           std::make_shared<Field>("a", int8(), /*nullable=*/false)});
+      const auto options10_null = CastOptions::Safe(dest10_null);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(TypeError,
+                                      ::testing::HasSubstr("struct fields don't match"),
+                                      Cast(src_null, options10_null));
 
       // duplicate present field values
       ASSERT_OK_AND_ASSIGN(
@@ -3994,6 +4045,22 @@ static void CheckStructToStructSubsetWithNulls(
           StructArray::Make({a2, b2, c2}, std::vector<std::string>{"a", "a", "a"},
                             null_bitmap));
       CheckCast(src_duplicate_field_names_null, dest3_duplicate_field_names_null);
+
+      // more duplicate outputs than duplicate inputs
+      ASSERT_OK_AND_ASSIGN(
+          auto dest4_duplicate_field_names_null,
+          StructArray::Make({a2, b2, c2, nulls}, {"a", "a", "a", "a"}, null_bitmap));
+      CheckCast(src_duplicate_field_names_null, dest4_duplicate_field_names_null);
+
+      const auto dest5_duplicate_field_names_null = arrow::struct_(
+          {std::make_shared<Field>("a", int8()), std::make_shared<Field>("a", int8()),
+           std::make_shared<Field>("a", int8()),
+           std::make_shared<Field>("a", int8(), /*nullable=*/false)});
+      const auto options5_duplicate_field_names_null =
+          CastOptions::Safe(dest5_duplicate_field_names_null);
+      EXPECT_RAISES_WITH_MESSAGE_THAT(
+          TypeError, ::testing::HasSubstr("struct fields don't match"),
+          Cast(src_duplicate_field_names_null, options5_duplicate_field_names_null));
     }
   }
 }
@@ -4024,9 +4091,7 @@ TEST(Cast, StructToSameSizedButDifferentNamedStruct) {
   const auto options2 = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options2));
+      TypeError, ::testing::HasSubstr("struct fields don't match"), Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerStruct) {
@@ -4042,9 +4107,7 @@ TEST(Cast, StructToBiggerStruct) {
   const auto options1 = CastOptions::Safe(dest1);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options1));
+      TypeError, ::testing::HasSubstr("struct fields don't match"), Cast(src, options1));
 
   const auto dest2 =
       arrow::struct_({std::make_shared<Field>("a", int8()),
@@ -4053,9 +4116,7 @@ TEST(Cast, StructToBiggerStruct) {
   const auto options2 = CastOptions::Safe(dest2);
 
   EXPECT_RAISES_WITH_MESSAGE_THAT(
-      TypeError,
-      ::testing::HasSubstr("struct fields don't match or are in the wrong order"),
-      Cast(src, options2));
+      TypeError, ::testing::HasSubstr("struct fields don't match"), Cast(src, options2));
 }
 
 TEST(Cast, StructToBiggerNullableStruct) {
@@ -4076,92 +4137,95 @@ TEST(Cast, StructToBiggerNullableStruct) {
 TEST(Cast, StructToDifferentNullabilityStruct) {
   {
     // OK to go from non-nullable to nullable...
-    std::vector<std::shared_ptr<Field>> fields_src_non_nullable = {
+    std::vector<std::shared_ptr<Field>> fields_src = {
         std::make_shared<Field>("a", int8(), false),
         std::make_shared<Field>("b", int8(), false),
         std::make_shared<Field>("c", int8(), false)};
-    std::shared_ptr<Array> a_src_non_nullable, b_src_non_nullable, c_src_non_nullable;
-    a_src_non_nullable = ArrayFromJSON(int8(), "[11, 23, 56]");
-    b_src_non_nullable = ArrayFromJSON(int8(), "[32, 46, 37]");
-    c_src_non_nullable = ArrayFromJSON(int8(), "[95, 11, 44]");
-    ASSERT_OK_AND_ASSIGN(
-        auto src_non_nullable,
-        StructArray::Make({a_src_non_nullable, b_src_non_nullable, c_src_non_nullable},
-                          fields_src_non_nullable));
+    std::vector<std::shared_ptr<Array>> arrays_src = {
+        ArrayFromJSON(int8(), "[11, 23, 56]"),
+        ArrayFromJSON(int8(), "[32, 46, 37]"),
+        ArrayFromJSON(int8(), "[95, 11, 44]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make(arrays_src, fields_src));
 
-    std::shared_ptr<Array> a_dest_nullable, b_dest_nullable, c_dest_nullable;
-    a_dest_nullable = ArrayFromJSON(int64(), "[11, 23, 56]");
-    b_dest_nullable = ArrayFromJSON(int64(), "[32, 46, 37]");
-    c_dest_nullable = ArrayFromJSON(int64(), "[95, 11, 44]");
-
-    std::vector<std::shared_ptr<Field>> fields_dest1_nullable = {
+    std::vector<std::shared_ptr<Field>> fields_dest = {
         std::make_shared<Field>("a", int64(), true),
         std::make_shared<Field>("b", int64(), true),
-        std::make_shared<Field>("c", int64(), true)};
-    ASSERT_OK_AND_ASSIGN(
-        auto dest1_nullable,
-        StructArray::Make({a_dest_nullable, b_dest_nullable, c_dest_nullable},
-                          fields_dest1_nullable));
-    CheckCast(src_non_nullable, dest1_nullable);
+        std::make_shared<Field>("c", int64(), true),
+    };
+    std::vector<std::shared_ptr<Array>> arrays_dest = {
+        ArrayFromJSON(int64(), "[11, 23, 56]"),
+        ArrayFromJSON(int64(), "[32, 46, 37]"),
+        ArrayFromJSON(int64(), "[95, 11, 44]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto dest, StructArray::Make(arrays_dest, fields_dest));
+    CheckCast(src, dest);
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_nullable = {
-        std::make_shared<Field>("a", int64(), true),
-        std::make_shared<Field>("c", int64(), true)};
-    ASSERT_OK_AND_ASSIGN(
-        auto dest2_nullable,
-        StructArray::Make({a_dest_nullable, c_dest_nullable}, fields_dest2_nullable));
-    CheckCast(src_non_nullable, dest2_nullable);
+    std::vector<std::shared_ptr<Field>> fields_dest_ac = {fields_dest[0], fields_dest[2]};
+    std::vector<std::shared_ptr<Array>> arrays_dest_ac = {arrays_dest[0], arrays_dest[2]};
+    ASSERT_OK_AND_ASSIGN(auto dest_ac, StructArray::Make(arrays_dest_ac, fields_dest_ac));
+    CheckCast(src, dest_ac);
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_nullable = {
-        std::make_shared<Field>("b", int64(), true)};
-    ASSERT_OK_AND_ASSIGN(auto dest3_nullable,
-                         StructArray::Make({b_dest_nullable}, fields_dest3_nullable));
-    CheckCast(src_non_nullable, dest3_nullable);
+    std::vector<std::shared_ptr<Field>> fields_dest_b = {fields_dest[1]};
+    std::vector<std::shared_ptr<Array>> arrays_dest_b = {arrays_dest[1]};
+    ASSERT_OK_AND_ASSIGN(auto dest_b, StructArray::Make(arrays_dest_b, fields_dest_b));
+    CheckCast(src, dest_b);
   }
   {
-    // But NOT OK to go from nullable to non-nullable...
-    std::vector<std::shared_ptr<Field>> fields_src_nullable = {
+    // But when going from nullable to non-nullable, all data must be non-null...
+    std::vector<std::shared_ptr<Field>> fields_src = {
         std::make_shared<Field>("a", int8(), true),
         std::make_shared<Field>("b", int8(), true),
         std::make_shared<Field>("c", int8(), true)};
-    std::shared_ptr<Array> a_src_nullable, b_src_nullable, c_src_nullable;
-    a_src_nullable = ArrayFromJSON(int8(), "[1, null, 5]");
-    b_src_nullable = ArrayFromJSON(int8(), "[3, 4, null]");
-    c_src_nullable = ArrayFromJSON(int8(), "[9, 11, 44]");
-    ASSERT_OK_AND_ASSIGN(
-        auto src_nullable,
-        StructArray::Make({a_src_nullable, b_src_nullable, c_src_nullable},
-                          fields_src_nullable));
+    std::vector<std::shared_ptr<Array>> arrays_src = {
+        ArrayFromJSON(int8(), "[1, null, 5]"),
+        ArrayFromJSON(int8(), "[3, 4, null]"),
+        ArrayFromJSON(int8(), "[9, 11, 44]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto src, StructArray::Make(arrays_src, fields_src));
 
-    std::vector<std::shared_ptr<Field>> fields_dest1_non_nullable = {
+    std::vector<std::shared_ptr<Field>> fields_dest = {
         std::make_shared<Field>("a", int64(), false),
         std::make_shared<Field>("b", int64(), false),
         std::make_shared<Field>("c", int64(), false)};
-    const auto dest1_non_nullable = arrow::struct_(fields_dest1_non_nullable);
-    const auto options1_non_nullable = CastOptions::Safe(dest1_non_nullable);
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options1_non_nullable));
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
+        Cast(src, CastOptions::Safe(arrow::struct_(fields_dest))));
 
-    std::vector<std::shared_ptr<Field>> fields_dest2_non_nullable = {
-        std::make_shared<Field>("a", int64(), false),
-        std::make_shared<Field>("c", int64(), false)};
-    const auto dest2_non_nullable = arrow::struct_(fields_dest2_non_nullable);
-    const auto options2_non_nullable = CastOptions::Safe(dest2_non_nullable);
+    std::vector<std::shared_ptr<Field>> fields_dest_ac = {fields_dest[0], fields_dest[2]};
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options2_non_nullable));
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
+        Cast(src, CastOptions::Safe(arrow::struct_(fields_dest_ac))));
 
-    std::vector<std::shared_ptr<Field>> fields_dest3_non_nullable = {
-        std::make_shared<Field>("c", int64(), false)};
-    const auto dest3_non_nullable = arrow::struct_(fields_dest3_non_nullable);
-    const auto options3_non_nullable = CastOptions::Safe(dest3_non_nullable);
+    // if we only select a field with no nulls, it should be fine:
+    std::vector<std::shared_ptr<Field>> fields_dest_c = {fields_dest[2]};
+    std::vector<std::shared_ptr<Array>> arrays_dest_c = {
+        ArrayFromJSON(int64(), "[9, 11, 44]")};
+    ASSERT_OK_AND_ASSIGN(auto dest_c, StructArray::Make(arrays_dest_c, fields_dest_c));
+    CheckCast(src, dest_c);
+
+    // A slice that doesn't contain nulls is castable...
+    std::vector<std::shared_ptr<Array>> arrays_dest_0 = {
+        ArrayFromJSON(int64(), "[1]"),
+        ArrayFromJSON(int64(), "[3]"),
+        ArrayFromJSON(int64(), "[9]"),
+    };
+    ASSERT_OK_AND_ASSIGN(auto dest_0, StructArray::Make(arrays_dest_0, fields_dest));
+    CheckCast(src->Slice(0, 1), dest_0);
+
+    // ...but a slice that contains nulls will error.
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        TypeError,
-        ::testing::HasSubstr("cannot cast nullable field to non-nullable field"),
-        Cast(src_nullable, options3_non_nullable));
+        Invalid,
+        ::testing::HasSubstr(
+            "field 'a' of type int8 has nulls. Can't cast to non-nullable field 'a' "
+            "of type int64"),
+        Cast(src->Slice(1, 3), CastOptions::Safe(arrow::struct_(fields_dest))));
   }
 }
 

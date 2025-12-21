@@ -30,11 +30,11 @@ case "${MINGW_PACKAGE_PREFIX}" in
       --nosave \
       --recursive \
       --remove \
-      ${MINGW_PACKAGE_PREFIX}-clang-tools-extra \
-      ${MINGW_PACKAGE_PREFIX}-gcc-ada \
-      ${MINGW_PACKAGE_PREFIX}-gcc-fortran \
-      ${MINGW_PACKAGE_PREFIX}-gcc-libgfortran \
-      ${MINGW_PACKAGE_PREFIX}-gcc-objc \
-      ${MINGW_PACKAGE_PREFIX}-libgccjit
+      "${MINGW_PACKAGE_PREFIX}-clang-tools-extra" \
+      "${MINGW_PACKAGE_PREFIX}-gcc-ada" \
+      "${MINGW_PACKAGE_PREFIX}-gcc-fortran" \
+      "${MINGW_PACKAGE_PREFIX}-gcc-libgfortran" \
+      "${MINGW_PACKAGE_PREFIX}-gcc-objc" \
+      "${MINGW_PACKAGE_PREFIX}-libgccjit"
       ;;
 esac

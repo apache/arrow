@@ -95,9 +95,9 @@ struct SumImpl : public ScalarAggregator {
   Status Finalize(KernelContext*, Datum* out) override {
     if ((!options.skip_nulls && this->nulls_observed) ||
         (this->count < options.min_count)) {
-      out->value = std::make_shared<OutputType>(out_type);
+      out->value = std::make_shared<OutputType>(this->out_type);
     } else {
-      out->value = std::make_shared<OutputType>(this->sum, out_type);
+      out->value = std::make_shared<OutputType>(this->sum, this->out_type);
     }
     return Status::OK();
   }
@@ -168,6 +168,14 @@ struct SumLikeInit {
               const ScalarAggregateOptions& options)
       : ctx(ctx), type(type), options(options) {}
 
+  // If this returns true, then the aggregator will promote a decimal to the maximum
+  // precision for that type. For instance, a decimal128(3, 2) will be promoted to a
+  // decimal128(38, 2)
+  //
+  // TODO: Ideally this should be configurable via the function options with an enum
+  // PrecisionPolicy { PROMOTE_TO_MAX, DEMOTE_TO_DOUBLE, NO_PROMOTION }
+  virtual bool PromoteDecimal() const { return true; }
+
   Status Visit(const DataType&) { return Status::NotImplemented("No sum implemented"); }
 
   Status Visit(const HalfFloatType&) {
@@ -187,10 +195,18 @@ struct SumLikeInit {
     return Status::OK();
   }
 
+  // By default, we widen the decimal to max precision for SumLikes
+  // However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
   template <typename Type>
   enable_if_decimal<Type, Status> Visit(const Type&) {
-    state.reset(new KernelClass<Type>(type, options));
-    return Status::OK();
+    if (PromoteDecimal()) {
+      ARROW_ASSIGN_OR_RAISE(auto ty, WidenDecimalToMaxPrecision(type));
+      state.reset(new KernelClass<Type>(ty, options));
+      return Status::OK();
+    } else {
+      state.reset(new KernelClass<Type>(type, options));
+      return Status::OK();
+    }
   }
 
   virtual Status Visit(const NullType&) {
@@ -274,6 +290,8 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
   MeanKernelInit(KernelContext* ctx, std::shared_ptr<DataType> type,
                  const ScalarAggregateOptions& options)
       : SumLikeInit<KernelClass>(ctx, type, options) {}
+
+  bool PromoteDecimal() const override { return false; }
 
   Status Visit(const NullType&) override {
     this->state.reset(new NullSumImpl<DoubleType>(this->options));

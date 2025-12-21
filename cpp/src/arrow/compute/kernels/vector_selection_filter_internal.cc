@@ -42,6 +42,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/fixed_width_internal.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 
@@ -1095,6 +1096,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::LargeBinaryLike()), plain_filter, BinaryFilterExec},
       {InputType(null()), plain_filter, NullFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), plain_filter, PrimitiveFilterExec},
+      {InputType(Type::DECIMAL32), plain_filter, PrimitiveFilterExec},
+      {InputType(Type::DECIMAL64), plain_filter, PrimitiveFilterExec},
       {InputType(Type::DECIMAL128), plain_filter, PrimitiveFilterExec},
       {InputType(Type::DECIMAL256), plain_filter, PrimitiveFilterExec},
       {InputType(Type::DICTIONARY), plain_filter, DictionaryFilterExec},
@@ -1115,6 +1118,8 @@ void PopulateFilterKernels(std::vector<SelectionKernelData>* out) {
       {InputType(match::LargeBinaryLike()), ree_filter, BinaryFilterExec},
       {InputType(null()), ree_filter, NullFilterExec},
       {InputType(Type::FIXED_SIZE_BINARY), ree_filter, PrimitiveFilterExec},
+      {InputType(Type::DECIMAL32), ree_filter, PrimitiveFilterExec},
+      {InputType(Type::DECIMAL64), ree_filter, PrimitiveFilterExec},
       {InputType(Type::DECIMAL128), ree_filter, PrimitiveFilterExec},
       {InputType(Type::DECIMAL256), ree_filter, PrimitiveFilterExec},
       {InputType(Type::DICTIONARY), ree_filter, DictionaryFilterExec},

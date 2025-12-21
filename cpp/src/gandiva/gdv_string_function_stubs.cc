@@ -23,7 +23,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "arrow/util/double_conversion.h"
+#include "arrow/util/double_conversion_internal.h"
 #include "arrow/util/utf8_internal.h"
 #include "arrow/util/value_parsing.h"
 
@@ -34,6 +34,8 @@
 #include "gandiva/regex_functions_holder.h"
 
 extern "C" {
+
+ARROW_SUPPRESS_MISSING_DECLARATIONS_WARNING
 
 bool gdv_fn_like_utf8_utf8(int64_t ptr, const char* data, int data_len,
                            const char* pattern, int pattern_len) {
@@ -167,7 +169,7 @@ CAST_VARLEN_TYPE_FROM_NUMERIC(VARBINARY)
 
 GDV_FORCE_INLINE
 void gdv_fn_set_error_for_invalid_utf8(int64_t execution_context, char val) {
-  char const* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
+  const char* fmt = "unexpected byte \\%02hhx encountered while decoding utf8 string";
   int size = static_cast<int>(strlen(fmt)) + 64;
   char* error = reinterpret_cast<char*>(malloc(size));
   snprintf(error, size, fmt, (unsigned char)val);
@@ -755,6 +757,8 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
   *out_len = result_len;
   return result;
 }
+
+ARROW_UNSUPPRESS_MISSING_DECLARATIONS_WARNING
 }
 
 namespace gandiva {

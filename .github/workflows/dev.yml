@@ -41,51 +41,34 @@ jobs:
 
   lint:
     name: Lint C++, Python, R, Docker, RAT
-    runs-on: ubuntu-latest
+    # Use Ubuntu 22.04 to ensure working pre-commit on Ubuntu 22.04.
+    runs-on: ubuntu-22.04
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Setup Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
-        with:
-          python-version: 3.12
       - name: Install pre-commit
         run: |
-          python -m pip install pre-commit
-          pre-commit run --show-diff-on-failure --color=always
+          sudo apt update
+          sudo apt install -y -V \
+            pre-commit \
+            r-base \
+            ruby-dev
       - name: Cache pre-commit
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
-          path: ~/.cache/pre-commit
+          path: |
+            ~/.cache/pre-commit
+            ~/.local/share/renv/cache
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
+      - name: Install Air
+        uses: posit-dev/setup-air@63e80dedb6d275c94a3841e15e5ff8691e1ab237 # v1.0.0
       - name: Run pre-commit
         run: |
           pre-commit run --all-files --color=always --show-diff-on-failure
-      - name: Setup Archery
-        run: pip install -e dev/archery[docker]
-      - name: Execute Docker Build
-        env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          UBUNTU: 22.04
-        run: |
-          source ci/scripts/util_enable_core_dumps.sh
-          archery docker run -e GITHUB_ACTIONS=true ubuntu-lint
-      - name: Docker Push
-        if: >-
-          success() &&
-          github.event_name == 'push' &&
-          github.repository == 'apache/arrow' &&
-          github.ref_name == 'main'
-        env:
-          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
-          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-        continue-on-error: true
-        run: archery docker push ubuntu-lint
 
   release:
     name: Source Release and Merge Script on ${{ matrix.runs-on }}
@@ -105,31 +88,26 @@ jobs:
       GIT_COMMITTER_EMAIL: "github-actions[bot]@users.noreply.github.com"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@3df4ab11eba7bda6032a0b82a6bb43b11571feac # v4.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Install Python
-        uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b # v5.3.0
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install Ruby
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: ruby
-      - name: Install .NET
-        uses: actions/setup-dotnet@87b7050bc53ea08284295505d98d2aa94301e852 # v4.2.0
-        with:
-          dotnet-version: '8.0.x'
       - name: Install Dependencies
         shell: bash
         run: |
-          gem install test-unit
-          pip install "cython>=0.29.31" setuptools pytest requests setuptools-scm
+          gem install test-unit openssl
+          pip install "cython>=3.1" setuptools pytest requests setuptools-scm
       - name: Run Release Test
-        env:
-          ARROW_GITHUB_API_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         shell: bash
         run: |
+          echo "GH_TOKEN=${{ secrets.GITHUB_TOKEN }}" > dev/release/.env
           ci/scripts/release_test.sh $(pwd)
       - name: Run Merge Script Test
         shell: bash

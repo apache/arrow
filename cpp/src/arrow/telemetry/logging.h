@@ -60,7 +60,7 @@ class ARROW_EXPORT OtelLogger : public util::Logger {
 class ARROW_EXPORT OtelLoggerProvider {
  public:
   /// \brief Attempt to flush the log record processor associated with the provider
-  /// \return `true` if the flush occured
+  /// \return `true` if the flush occurred
   static bool Flush(std::chrono::microseconds timeout = std::chrono::microseconds::max());
 
   static Result<std::shared_ptr<OtelLogger>> MakeLogger(

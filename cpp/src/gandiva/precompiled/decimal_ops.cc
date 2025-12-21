@@ -23,7 +23,7 @@
 #include <cmath>
 #include <limits>
 
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "gandiva/decimal_type_util.h"
 #include "gandiva/decimal_xlarge.h"
 #include "gandiva/gdv_function_stubs.h"
@@ -351,7 +351,7 @@ BasicDecimal128 Divide(int64_t context, const BasicDecimalScalar128& x,
                        const BasicDecimalScalar128& y, int32_t out_precision,
                        int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
@@ -396,7 +396,7 @@ BasicDecimal128 Mod(int64_t context, const BasicDecimalScalar128& x,
                     const BasicDecimalScalar128& y, int32_t out_precision,
                     int32_t out_scale, bool* overflow) {
   if (y.value() == 0) {
-    char const* err_msg = "divide by zero error";
+    const char* err_msg = "divide by zero error";
     gdv_fn_context_set_error_msg(context, err_msg);
     return 0;
   }
@@ -527,7 +527,8 @@ double ToDouble(const BasicDecimalScalar128& in, bool* overflow) {
 
 BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* overflow) {
   // check if multiplying by scale will cause an overflow.
-  DECIMAL_OVERFLOW_IF(std::abs(in) > GetMaxValue(precision - scale), overflow);
+  const auto max_val = GetMaxValue(precision - scale);
+  DECIMAL_OVERFLOW_IF(in > max_val || in < -max_val, overflow);
   return in * BasicDecimal128::GetScaleMultiplier(scale);
 }
 

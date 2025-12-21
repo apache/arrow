@@ -25,7 +25,37 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
     end
 
     properties (TestParameter)
+        RecordBatchStreamReaderConstructorFcn = {@tRecordBatchStreamReader.FromBytes, @arrow.io.ipc.RecordBatchStreamReader.fromFile}
         RecordBatchReadFcn = {@read, @readRecordBatch}
+    end
+
+    methods (Static)
+
+        % Read the given file into memory as an array of bytes (uint8).
+        function bytes = readBytes(filename)
+            if ismissing(filename)
+                % Simulate the behavior of fromFile when a filename
+                % that is a missing string value is supplied.
+                error(message("MATLAB:validators:mustBeNonzeroLengthText", ""))
+            end
+            fid = fopen(filename, "r");
+            try
+                bytes = fread(fid, "uint8=>uint8");
+            catch e
+                % Simulate the behavior of fromFile when an invalid
+                % filename is supplied.
+                error(message("MATLAB:validators:mustBeNonzeroLengthText", ""))
+            end
+            fclose(fid);
+        end
+
+        % Read the given file into memory as bytes and then construct a
+        % RecordBatchStreamReader from the bytes.
+        function reader = FromBytes(filename)
+            bytes = tRecordBatchStreamReader.readBytes(filename);
+            reader = arrow.io.ipc.RecordBatchStreamReader.fromBytes(bytes);
+        end
+
     end
 
     methods(TestClassSetup)
@@ -82,19 +112,19 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
 
     methods (Test)
 
-        function ZeroLengthFilenameError(testCase)
+        function ZeroLengthFilenameError(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify RecordBatchStreamReader throws an exception with the
             % identifier MATLAB:validators:mustBeNonzeroLengthText if the
             % filename input argument given is a zero length string.
-            fcn = @() arrow.io.ipc.RecordBatchStreamReader("");
+            fcn = @() RecordBatchStreamReaderConstructorFcn("");
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonzeroLengthText");
         end
 
-        function MissingStringFilenameError(testCase)
+        function MissingStringFilenameError(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify RecordBatchStreamReader throws an exception with the
             % identifier MATLAB:validators:mustBeNonzeroLengthText if the
             % filename input argument given is a missing string.
-            fcn = @() arrow.io.ipc.RecordBatchStreamReader(string(missing));
+            fcn = @() RecordBatchStreamReaderConstructorFcn(string(missing));
             testCase.verifyError(fcn, "MATLAB:validators:mustBeNonzeroLengthText");
         end
 
@@ -106,43 +136,43 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
-        function Schema(testCase)
+        function Schema(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify the getter method for Schema returns the
             % expected value.
             fieldA = arrow.field("A", arrow.string());
             fieldB = arrow.field("B", arrow.float32());
             expectedSchema = arrow.schema([fieldA fieldB]);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.ZeroBatchStreamFile);
             testCase.verifyEqual(reader.Schema, expectedSchema);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.OneBatchStreamFile);
             testCase.verifyEqual(reader.Schema, expectedSchema);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
             testCase.verifyEqual(reader.Schema, expectedSchema);
         end
 
-        function SchemaNoSetter(testCase)
+        function SchemaNoSetter(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify the Schema property is not settable.
             fieldC = arrow.field("C", arrow.date32());
             schema = arrow.schema(fieldC);
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.ZeroBatchStreamFile);
             testCase.verifyError(@() setfield(reader, "Schema", schema), "MATLAB:class:SetProhibited");
         end
 
-        function ReadErrorIfEndOfStream(testCase, RecordBatchReadFcn)
+        function ReadErrorIfEndOfStream(testCase, RecordBatchStreamReaderConstructorFcn, RecordBatchReadFcn)
             % Verify read throws an execption with the identifier arrow:io:ipc:EndOfStream
             % on an Arrow IPC Stream file containing zero batches.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.ZeroBatchStreamFile);
             fcn = @() RecordBatchReadFcn(reader);
             testCase.verifyError(fcn, "arrow:io:ipc:EndOfStream");
         end
 
-        function ReadOneBatchStreamFile(testCase, RecordBatchReadFcn)
+        function ReadOneBatchStreamFile(testCase, RecordBatchStreamReaderConstructorFcn, RecordBatchReadFcn)
             % Verify read can successfully read an Arrow IPC Stream file
             % containing one batch.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.OneBatchStreamFile);
 
             expectedMatlabTable = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
             expected = arrow.recordBatch(expectedMatlabTable);
@@ -153,10 +183,10 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:io:ipc:EndOfStream");
         end
 
-        function ReadMultipleBatchStreamFile(testCase, RecordBatchReadFcn)
+        function ReadMultipleBatchStreamFile(testCase, RecordBatchStreamReaderConstructorFcn, RecordBatchReadFcn)
             % Verify read can successfully read an Arrow IPC Stream file
             % containing mulitple batches.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
 
             expectedMatlabTable1 = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
             expected1 = arrow.recordBatch(expectedMatlabTable1);
@@ -172,12 +202,12 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyError(fcn, "arrow:io:ipc:EndOfStream");
         end
 
-        function HasNext(testCase, RecordBatchReadFcn)
+        function HasNext(testCase, RecordBatchStreamReaderConstructorFcn, RecordBatchReadFcn)
             % Verify that the hasnext method returns true the correct
             % number of times depending on the number of record
             % batches in an Arrow IPC Stream format.
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.ZeroBatchStreamFile);
             % hasnext should return true 0 times for a 0 batch file.
             iterations = 0;
             while reader.hasnext()
@@ -186,7 +216,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             end
             testCase.verifyEqual(iterations, 0);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.OneBatchStreamFile);
             % hasnext should return true 1 time for a 1 batch file.
             iterations = 0;
             while reader.hasnext()
@@ -195,7 +225,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             end
             testCase.verifyEqual(iterations, 1);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
             % hasnext should return true 2 times for a 2 batch file.
             iterations = 0;
             while reader.hasnext()
@@ -205,12 +235,12 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyEqual(iterations, 2);
         end
 
-        function Done(testCase, RecordBatchReadFcn)
+        function Done(testCase, RecordBatchStreamReaderConstructorFcn, RecordBatchReadFcn)
             % Verify that the done method returns false the correct
             % number of times depending on the number of record
             % batches in an Arrow IPC Stream format.
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.ZeroBatchStreamFile);
             % done should return false 0 times for a 0 batch file.
             iterations = 0;
             while ~reader.done()
@@ -219,7 +249,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             end
             testCase.verifyEqual(iterations, 0);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.OneBatchStreamFile);
             % done should return false 1 time for a 1 batch file.
             iterations = 0;
             while ~reader.done()
@@ -228,7 +258,7 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             end
             testCase.verifyEqual(iterations, 1);
 
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
             % done should return false 2 times for a 2 batch file.
             iterations = 0;
             while ~reader.done()
@@ -238,40 +268,40 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyEqual(iterations, 2);
         end
 
-        function ReadTableZeroBatchStreamFile(testCase)
+        function ReadTableZeroBatchStreamFile(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify read can successfully read an Arrow IPC Stream file
             % containing zero batches as an arrow.tabular.Table.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.ZeroBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.ZeroBatchStreamFile);
             matlabTable = table('Size', [0, 2], 'VariableTypes', ["string", "single"], 'VariableNames', ["A", "B"]);
             expected = arrow.table(matlabTable);
             actual = reader.readTable();
             testCase.verifyEqual(actual, expected);
         end
 
-        function ReadTableOneBatchStreamFile(testCase)
+        function ReadTableOneBatchStreamFile(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify read can successfully read an Arrow IPC Stream file
             % containing one batch as an arrow.tabular.Table.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.OneBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.OneBatchStreamFile);
             matlabTable = table(["Row1"; "Row2"], single([1; 2]), VariableNames=["A", "B"]);
             expected = arrow.table(matlabTable);
             actual = reader.readTable();
             testCase.verifyEqual(actual, expected);
         end
 
-        function ReadTableMultipleBatchStreamFile(testCase)
+        function ReadTableMultipleBatchStreamFile(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify read can successfully read an Arrow IPC Stream file
             % containing multiple batches as an arrow.tabular.Table.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
             matlabTable = table(["Row1"; "Row2"; "Row3"; "Row4"], single([1; 2; 3; 4]), VariableNames=["A", "B"]);
             expected = arrow.table(matlabTable);
             actual = reader.readTable();
             testCase.verifyEqual(actual, expected);
         end
 
-        function ReadTableAfterReadRecordBatch(testCase, RecordBatchReadFcn)
+        function ReadTableAfterReadRecordBatch(testCase, RecordBatchStreamReaderConstructorFcn, RecordBatchReadFcn)
             % Verify readTable returns only the remaining record batches
             % in an Arrow IPC Stream file after calling readRecordBatch first.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
 
             testCase.verifyTrue(reader.hasnext());
             testCase.verifyFalse(reader.done());
@@ -292,10 +322,10 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyTrue(reader.done());
         end
 
-        function ReadTableMultipleCalls(testCase)
+        function ReadTableMultipleCalls(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify readTable returns an empty table if it is called
             % multiple times in a row.
-            reader = arrow.io.ipc.RecordBatchStreamReader(testCase.MultipleBatchStreamFile);
+            reader = RecordBatchStreamReaderConstructorFcn(testCase.MultipleBatchStreamFile);
 
             expected = arrow.table(...
                 table(["Row1"; "Row2"; "Row3"; "Row4"], single([1; 2; 3; 4]), VariableNames=["A", "B"]) ...
@@ -323,12 +353,20 @@ classdef tRecordBatchStreamReader < matlab.unittest.TestCase
             testCase.verifyTrue(reader.done());
         end
 
-        function ErrorIfNotIpcStreamFile(testCase)
+        function ErrorIfNotIpcStreamFile(testCase, RecordBatchStreamReaderConstructorFcn)
             % Verify RecordBatchStreamReader throws an exception with the
             % identifier arrow:io:ipc:FailedToOpenRecordBatchReader if
             % the provided file is not an Arrow IPC Stream file.
-            fcn = @() arrow.io.ipc.RecordBatchStreamReader(testCase.RandomAccessFile);
+            fcn = @() RecordBatchStreamReaderConstructorFcn(testCase.RandomAccessFile);
             testCase.verifyError(fcn, "arrow:io:ipc:FailedToOpenRecordBatchReader");
+        end
+
+        function ErrorIfNotProxy(testCase)
+            % Verify the RecordBatchStreamReader constructor throws an exception
+            % with the identifier MATLAB:validation:UnableToConvert if the input
+            % is not a Proxy object.
+            fcn = @() arrow.io.ipc.RecordBatchStreamReader(testCase.RandomAccessFile);
+            testCase.verifyError(fcn, "MATLAB:validation:UnableToConvert");
         end
 
     end

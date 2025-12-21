@@ -30,7 +30,8 @@
 # variables.
 #
 # Configuration environment variables:
-#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
+#   - GH_TOKEN: a GitHub API token to use for API requests
+#   - ARROW_GITHUB_API_TOKEN: Same as GH_TOKEN. For backward compatibility.
 #   - ARROW_GITHUB_ORG: the GitHub organisation ('apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
 
@@ -235,13 +236,12 @@ def format_issue_output(issue_type, issue_id, status,
 
     url = f'https://github.com/{ORG_NAME}/{PROJECT_NAME}/issues/{url_id}'
 
-    return """=== {} {} ===
-Summary\t\t{}
-Assignee\t{}
-Components\t{}
-Status\t\t{}
-URL\t\t{}""".format(issue_type.upper(), issue_id, summary, assignee,
-                    components, status, url)
+    return f"""=== {issue_type.upper()} {issue_id} ===
+Summary\t\t{summary}
+Assignee\t{assignee}
+Components\t{components}
+Status\t\t{status}
+URL\t\t{url}"""
 
 
 class GitHubAPI(object):
@@ -256,14 +256,20 @@ class GitHubAPI(object):
         if "github" in config.sections():
             token = config["github"]["api_token"]
         if not token:
-            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+            token = os.environ.get('GH_TOKEN')
         if not token:
-            token = cmd.prompt('Env ARROW_GITHUB_API_TOKEN not set, '
+            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+            if token:
+                print('ARROW_GITHUB_API_TOKEN environment variable is '
+                      'deprecated. Use GH_TOKEN environment variable instead.')
+        if not token:
+            token = cmd.prompt('Env GH_TOKEN nor '
+                               'ARROW_GITHUB_API_TOKEN not set, '
                                'please enter your GitHub API token '
                                '(GitHub personal access token):')
         headers = {
             'Accept': 'application/vnd.github.v3+json',
-            'Authorization': 'token {0}'.format(token),
+            'Authorization': f'token {token}',
         }
         self.headers = headers
 
@@ -429,7 +435,7 @@ class PullRequest(object):
             return GitHubIssue(self._github_api, github_id, self.cmd)
 
         self.cmd.fail("PR title should be prefixed by a GitHub ID, like: "
-                      "GH-XXX, but found {0}".format(self.title))
+                      f"GH-XXX, but found {self.title}")
 
     def merge(self):
         """
@@ -459,7 +465,7 @@ class PullRequest(object):
                                   reverse=True)
 
         for i, author in enumerate(distinct_authors):
-            print("Author {}: {}".format(i + 1, author))
+            print(f"Author {i + 1}: {author}")
 
         if len(distinct_authors) > 1:
             primary_author, distinct_other_authors = get_primary_author(
@@ -533,7 +539,7 @@ def get_primary_author(cmd, distinct_authors):
 
         if author_pat.match(primary_author):
             break
-        print('Bad author "{}", please try again'.format(primary_author))
+        print(f'Bad author "{primary_author}", please try again')
 
     # When primary author is specified manually, de-dup it from
     # author list and put it at the head of author list.

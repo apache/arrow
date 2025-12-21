@@ -15,15 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
-mutate.arrow_dplyr_query <- function(.data,
-                                     ...,
-                                     .by = NULL,
-                                     .keep = c("all", "used", "unused", "none"),
-                                     .before = NULL,
-                                     .after = NULL) {
+mutate.arrow_dplyr_query <- function(
+  .data,
+  ...,
+  .by = NULL,
+  .keep = c("all", "used", "unused", "none"),
+  .before = NULL,
+  .after = NULL
+) {
   try_arrow_dplyr({
     out <- as_adq(.data)
 
@@ -56,8 +57,10 @@ mutate.arrow_dplyr_query <- function(.data,
       # (which overwrites the previous name)
       new_var <- names(exprs)[i]
       results[[new_var]] <- arrow_eval(exprs[[i]], mask)
-      if (!inherits(results[[new_var]], "Expression") &&
-        !is.null(results[[new_var]])) {
+      if (
+        !inherits(results[[new_var]], "Expression") &&
+          !is.null(results[[new_var]])
+      ) {
         # We need some wrapping to handle literal values
         if (length(results[[new_var]]) != 1) {
           arrow_not_supported("Recycling values of length != 1", call = exprs[[i]])

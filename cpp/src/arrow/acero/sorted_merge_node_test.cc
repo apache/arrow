@@ -36,8 +36,7 @@ namespace arrow::acero {
 
 std::shared_ptr<Table> TestTable(int start, int step, int rows_per_batch,
                                  int num_batches) {
-  return gen::Gen({{"timestamp", gen::Step(start, step, /*signed_int=*/true)},
-                   {"str", gen::Random(utf8())}})
+  return gen::Gen({{"timestamp", gen::Step(start, step)}, {"str", gen::Random(utf8())}})
       ->FailOnError()
       ->Table(rows_per_batch, num_batches);
 }

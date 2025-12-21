@@ -23,8 +23,10 @@
 #include <tuple>
 #include <unordered_map>
 #include <vector>
+
 #include "arrow/acero/concurrent_queue_internal.h"
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/query_context.h"
 #include "arrow/acero/time_series_util.h"
@@ -33,7 +35,7 @@
 #include "arrow/array/builder_base.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace {
 template <typename Callable>
@@ -117,7 +119,7 @@ class InputState {
     std::unique_ptr<arrow::acero::BackpressureControl> backpressure_control =
         std::make_unique<BackpressureController>(input, output, backpressure_counter);
     ARROW_ASSIGN_OR_RAISE(auto handler,
-                          BackpressureHandler::Make(input, low_threshold, high_threshold,
+                          BackpressureHandler::Make(low_threshold, high_threshold,
                                                     std::move(backpressure_control)));
     return PtrType(new InputState(index, std::move(handler), schema, time_col_index));
   }
@@ -586,7 +588,7 @@ class SortedMergeNode : public ExecNode {
   void EmitBatches() {
     while (true) {
       // Implementation note: If the queue is empty, we will block here
-      if (process_queue.Pop() == kPoisonPill) {
+      if (process_queue.WaitAndPop() == kPoisonPill) {
         EndFromProcessThread();
       }
       // Either we're out of data or something went wrong

@@ -32,35 +32,20 @@ if(ThriftAlt_FOUND)
   return()
 endif()
 
-# There are some problems in ThriftConfig.cmake provided by MSYS2 and
-# conda on Windows:
-#
-#   * https://github.com/conda-forge/thrift-cpp-feedstock/issues/68
-#   * https://github.com/msys2/MINGW-packages/issues/6619#issuecomment-649728718
-#
-# We can remove the following "if(NOT WIN32)" condition once the
-# followings are fixed and a new version that includes these fixes is
-# published by MSYS2 and conda:
-#
-#   * https://github.com/apache/thrift/pull/2725
-#   * https://github.com/apache/thrift/pull/2726
-#   * https://github.com/conda-forge/thrift-cpp-feedstock/issues/68
-if(NOT WIN32)
-  set(find_package_args "")
-  if(ThriftAlt_FIND_VERSION)
-    list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
-  endif()
-  if(ThriftAlt_FIND_QUIETLY)
-    list(APPEND find_package_args QUIET)
-  endif()
-  find_package(Thrift ${find_package_args})
-  if(Thrift_FOUND)
-    set(ThriftAlt_FOUND TRUE)
-    add_executable(thrift::compiler IMPORTED)
-    set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
-                                                      "${THRIFT_COMPILER}")
-    return()
-  endif()
+set(find_package_args "")
+if(ThriftAlt_FIND_VERSION)
+  list(APPEND find_package_args ${ThriftAlt_FIND_VERSION})
+endif()
+if(ThriftAlt_FIND_QUIETLY)
+  list(APPEND find_package_args QUIET)
+endif()
+find_package(Thrift ${find_package_args})
+if(Thrift_FOUND)
+  set(ThriftAlt_FOUND TRUE)
+  add_executable(thrift::compiler IMPORTED)
+  set_target_properties(thrift::compiler PROPERTIES IMPORTED_LOCATION
+                                                    "${THRIFT_COMPILER}")
+  return()
 endif()
 
 function(extract_thrift_version)

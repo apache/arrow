@@ -23,6 +23,9 @@ of the above project.
 The following changes are made:
 - fix internal inclusion paths (from "date/xxx.h" to simply "xxx.h")
 - enclose the `date` namespace inside the `arrow_vendored` namespace
+- fix 4 declarations like `CONSTCD11 date::day  operator "" _d(unsigned long long d) NOEXCEPT;`
+  to not have offending whitespace for modern clang:
+  `CONSTCD11 date::day  operator ""_d(unsigned long long d) NOEXCEPT;` 
 
 ## How to update
 

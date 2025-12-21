@@ -49,9 +49,6 @@ int GetCacheCapacityFromEnvVar() {
 }
 }  // namespace internal
 
-// Deprecated in 17.0.0. Use GetCacheCapacity instead.
-int GetCapacity() { return GetCacheCapacity(); }
-
 int GetCacheCapacity() {
   static const int capacity = internal::GetCacheCapacityFromEnvVar();
   return capacity;

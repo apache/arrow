@@ -32,7 +32,6 @@ class ListArray : public arrow::matlab::array::proxy::Array {
  protected:
   void getValues(libmexclass::proxy::method::Context& context);
   void getOffsets(libmexclass::proxy::method::Context& context);
-  void validate(libmexclass::proxy::method::Context& context);
 };
 
 }  // namespace arrow::matlab::array::proxy

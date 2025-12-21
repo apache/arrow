@@ -24,7 +24,7 @@
 #include "arrow/type.h"
 #include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bitmap_ops.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 
 namespace arrow {
 

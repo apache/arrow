@@ -21,6 +21,7 @@
 #include <utility>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/hash_join.h"
 #include "arrow/acero/hash_join_dict.h"
 #include "arrow/acero/hash_join_node.h"
@@ -30,6 +31,7 @@
 #include "arrow/compute/key_hash_internal.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
+#include "arrow/util/logging_internal.h"
 #include "arrow/util/thread_pool.h"
 #include "arrow/util/tracing_internal.h"
 
@@ -43,6 +45,24 @@ using compute::Hashing32;
 using compute::KeyColumnArray;
 
 namespace acero {
+
+namespace {
+
+Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
+  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
+      join_options.right_keys.empty()) {
+    return Status::Invalid("key_cmp and keys cannot be empty");
+  }
+
+  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
+      (join_options.key_cmp.size() != join_options.right_keys.size())) {
+    return Status::Invalid("key_cmp and keys must have the same size");
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
 
 // Check if a type is supported in a join (as either a key or non-key column)
 bool HashJoinSchema::IsTypeSupported(const DataType& type) {
@@ -350,9 +370,19 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
                                               const Schema& left_schema,
                                               const Schema& right_schema,
                                               ExecContext* exec_context) {
-  if (filter.IsBound() || filter == literal(true)) {
+  auto ValidateFilterTypeAndReturn = [](Expression filter) -> Result<Expression> {
+    if (filter.type()->id() != Type::BOOL) {
+      return Status::TypeError("Filter expression must evaluate to bool, but ",
+                               filter.ToString(), " evaluates to ",
+                               filter.type()->ToString());
+    }
     return filter;
+  };
+
+  if (filter.IsBound()) {
+    return ValidateFilterTypeAndReturn(std::move(filter));
   }
+
   // Step 1: Construct filter schema
   FieldVector fields;
   auto left_f_to_i =
@@ -381,12 +411,8 @@ Result<Expression> HashJoinSchema::BindFilter(Expression filter,
 
   // Step 3: Bind
   ARROW_ASSIGN_OR_RAISE(filter, filter.Bind(filter_schema, exec_context));
-  if (filter.type()->id() != Type::BOOL) {
-    return Status::TypeError("Filter expression must evaluate to bool, but ",
-                             filter.ToString(), " evaluates to ",
-                             filter.type()->ToString());
-  }
-  return filter;
+
+  return ValidateFilterTypeAndReturn(std::move(filter));
 }
 
 Expression HashJoinSchema::RewriteFilterToUseFilterSchema(
@@ -464,20 +490,6 @@ Status HashJoinSchema::CollectFilterColumns(std::vector<FieldRef>& left_filter,
       }
     }
   }
-  return Status::OK();
-}
-
-Status ValidateHashJoinNodeOptions(const HashJoinNodeOptions& join_options) {
-  if (join_options.key_cmp.empty() || join_options.left_keys.empty() ||
-      join_options.right_keys.empty()) {
-    return Status::Invalid("key_cmp and keys cannot be empty");
-  }
-
-  if ((join_options.key_cmp.size() != join_options.left_keys.size()) ||
-      (join_options.key_cmp.size() != join_options.right_keys.size())) {
-    return Status::Invalid("key_cmp and keys must have the same size");
-  }
-
   return Status::OK();
 }
 

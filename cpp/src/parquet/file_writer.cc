@@ -23,8 +23,9 @@
 #include <utility>
 #include <vector>
 
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
-#include "arrow/util/logging.h"
+#include "arrow/util/logging_internal.h"
 #include "parquet/column_writer.h"
 #include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_encryptor.h"
@@ -357,7 +358,19 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   RowGroupWriter* AppendRowGroup(bool buffered_row_group) {
     if (row_group_writer_) {
+      num_rows_ += row_group_writer_->num_rows();
       row_group_writer_->Close();
+    }
+    int16_t row_group_ordinal = -1;  // row group ordinal not set
+    if (file_encryptor_ != nullptr) {
+      // Parquet thrifts using int16 for row group ordinal, so we can't have more than
+      // 32767 row groups in a file.
+      if (num_row_groups_ <= std::numeric_limits<int16_t>::max()) {
+        row_group_ordinal = static_cast<int16_t>(num_row_groups_);
+      } else {
+        throw ParquetException(
+            "Cannot write more than 32767 row groups in an encrypted file");
+      }
     }
     num_row_groups_++;
     auto rg_metadata = metadata_->AppendRowGroup();
@@ -365,8 +378,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
       page_index_builder_->AppendRowGroup();
     }
     std::unique_ptr<RowGroupWriter::Contents> contents(new RowGroupSerializer(
-        sink_, rg_metadata, static_cast<int16_t>(num_row_groups_ - 1), properties_.get(),
-        buffered_row_group, file_encryptor_.get(), page_index_builder_.get()));
+        sink_, rg_metadata, row_group_ordinal, properties_.get(), buffered_row_group,
+        file_encryptor_.get(), page_index_builder_.get()));
     row_group_writer_ = std::make_unique<RowGroupWriter>(std::move(contents));
     return row_group_writer_.get();
   }
@@ -437,9 +450,6 @@ class FileSerializer : public ParquetFileWriter::Contents {
       WriteEncryptedFileMetadata(*file_metadata_, sink_.get(), footer_signing_encryptor,
                                  false);
     }
-    if (file_encryptor_) {
-      file_encryptor_->WipeOutEncryptionKeys();
-    }
   }
 
   void WritePageIndex() {
@@ -476,17 +486,30 @@ class FileSerializer : public ParquetFileWriter::Contents {
       // encrypted with footer key.
       if (encrypted_columns.size() != 0) {
         std::vector<std::string> column_path_vec;
-        // First, save all column paths in schema.
+        std::vector<std::string> column_root_vec;
+        // First, save all column paths and root column names in schema.
         for (int i = 0; i < num_columns(); i++) {
           column_path_vec.push_back(schema_.Column(i)->path()->ToDotString());
+          column_root_vec.push_back(schema_.Column(i)->path()->ToDotVector().at(0));
         }
-        // Check if column exists in schema.
+
         for (const auto& elem : encrypted_columns) {
+          // Check if this column exists in schema.
           auto it = std::find(column_path_vec.begin(), column_path_vec.end(), elem.first);
           if (it == column_path_vec.end()) {
-            std::stringstream ss;
-            ss << "Encrypted column " + elem.first + " not in file schema";
-            throw ParquetException(ss.str());
+            // this column does not exist in the schema, this might be a root column name
+            // like `a` while there are `a.key_value.key` and `a.key_value.value` in the
+            // schema.
+            it = std::find(column_root_vec.begin(), column_root_vec.end(), elem.first);
+            if (it == column_root_vec.end()) {
+              // no encrypted columns exist with this root column name
+              std::stringstream ss;
+              ss << "Encrypted column " + elem.first + " not in file schema: ";
+              for (auto& cp : column_path_vec) {
+                ss << cp << " ";
+              }
+              throw ParquetException(ss.str());
+            }
           }
         }
       }

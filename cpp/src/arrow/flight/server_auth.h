@@ -61,25 +61,7 @@ class ARROW_FLIGHT_EXPORT ServerAuthHandler {
   /// \param[in] incoming The reader for messages from the client.
   /// \return Status OK if this authentication is succeeded.
   virtual Status Authenticate(const ServerCallContext& context,
-                              ServerAuthSender* outgoing, ServerAuthReader* incoming) {
-    // TODO: We can make this pure virtual function when we remove
-    // the deprecated version.
-    ARROW_SUPPRESS_DEPRECATION_WARNING
-    return Authenticate(outgoing, incoming);
-    ARROW_UNSUPPRESS_DEPRECATION_WARNING
-  }
-  /// \brief Authenticate the client on initial connection. The server
-  /// can send and read responses from the client at any time.
-  /// \param[in] outgoing The writer for messages to the client.
-  /// \param[in] incoming The reader for messages from the client.
-  /// \return Status OK if this authentication is succeeded.
-  /// \deprecated Deprecated in 13.0.0. Implement the Authentication()
-  /// with ServerCallContext version instead.
-  ARROW_DEPRECATED("Deprecated in 13.0.0. Use ServerCallContext overload instead.")
-  virtual Status Authenticate(ServerAuthSender* outgoing, ServerAuthReader* incoming) {
-    return Status::NotImplemented(typeid(this).name(),
-                                  "::Authenticate() isn't implemented");
-  }
+                              ServerAuthSender* outgoing, ServerAuthReader* incoming) = 0;
   /// \brief Validate a per-call client token.
   /// \param[in] context The call context.
   /// \param[in] token The client token. May be the empty string if

@@ -451,18 +451,23 @@ cdef class CudaBuffer(Buffer):
           Device buffer as a view of numba MemoryPointer.
         """
         ctx = Context.from_numba(mem.context)
-        if mem.device_pointer.value is None and mem.size==0:
+        if mem.device_pointer_value is None and mem.size==0:
             return ctx.new_buffer(0)
-        return ctx.foreign_buffer(mem.device_pointer.value, mem.size, base=mem)
+        return ctx.foreign_buffer(mem.device_pointer_value, mem.size, base=mem)
 
     def to_numba(self):
         """Return numba memory pointer of CudaBuffer instance.
         """
         import ctypes
         from numba.cuda.cudadrv.driver import MemoryPointer
-        return MemoryPointer(self.context.to_numba(),
-                             pointer=ctypes.c_void_p(self.address),
-                             size=self.size)
+        try:
+            return MemoryPointer(self.context.to_numba(),
+                                 pointer=ctypes.c_void_p(self.address),
+                                 size=self.size)
+        except TypeError:
+            # Newer Numba does not take a context argument anymore
+            return MemoryPointer(pointer=ctypes.c_void_p(self.address),
+                                 size=self.size)
 
     cdef getitem(self, int64_t i):
         return self.copy_to_host(position=i, nbytes=1)[0]
@@ -841,8 +846,7 @@ cdef class BufferWriter(NativeFile):
                 offset = offset + position
             else:
                 with gil:
-                    raise ValueError("Invalid value of whence: {0}"
-                                     .format(whence))
+                    raise ValueError(f"Invalid value of whence: {whence}")
             check_status(self.writer.Seek(offset))
         return self.tell()
 

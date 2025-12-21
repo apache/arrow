@@ -318,8 +318,8 @@ static void ParquetRead(benchmark::State& st, S3FileSystem* fs, const std::strin
       std::shared_ptr<Table> table;
       ASSERT_OK(reader->ReadTable(column_indices, &table));
     } else {
-      std::shared_ptr<RecordBatchReader> rb_reader;
-      ASSERT_OK(reader->GetRecordBatchReader({0}, column_indices, &rb_reader));
+      ASSERT_OK_AND_ASSIGN(auto rb_reader, reader->GetRecordBatchReader(
+                                               std::vector<int>{0}, column_indices));
       ASSERT_OK(rb_reader->ToTable());
     }
 

@@ -87,9 +87,7 @@ class PARQUET_EXPORT FileWriter {
   /// \brief Start a new row group.
   ///
   /// Returns an error if not all columns have been written.
-  ///
-  /// \param chunk_size the number of rows in the next row group.
-  virtual ::arrow::Status NewRowGroup(int64_t chunk_size) = 0;
+  virtual ::arrow::Status NewRowGroup() = 0;
 
   /// \brief Write ColumnChunk in row group using an array.
   virtual ::arrow::Status WriteColumnChunk(const ::arrow::Array& data) = 0;

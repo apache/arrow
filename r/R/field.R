@@ -31,7 +31,8 @@
 #' @name Field
 #' @rdname Field-class
 #' @export
-Field <- R6Class("Field",
+Field <- R6Class(
+  "Field",
   inherit = ArrowObject,
   public = list(
     ToString = function() {

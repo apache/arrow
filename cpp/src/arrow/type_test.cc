@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -746,25 +747,31 @@ TEST(TestSchemaBuilder, WithMetadata) {
   auto f0 = field("f0", int32());
   auto f1 = field("f1", uint8(), false);
   auto metadata = key_value_metadata({{"foo", "bar"}});
+  auto metadata2 = key_value_metadata({{"foo2", "bar2"}});
+  auto merged_metadata = metadata->Merge(*metadata2);
 
   SchemaBuilder builder;
   ASSERT_OK(builder.AddMetadata(*metadata));
   ASSERT_OK_AND_ASSIGN(auto schema, builder.Finish());
   AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(metadata));
 
+  ASSERT_OK(builder.AddMetadata(*metadata2));
+  ASSERT_OK_AND_ASSIGN(schema, builder.Finish());
+  AssertSchemaEqual(schema, ::arrow::schema({})->WithMetadata(merged_metadata));
+
   ASSERT_OK(builder.AddField(f0));
   ASSERT_OK_AND_ASSIGN(schema, builder.Finish());
-  AssertSchemaEqual(schema, ::arrow::schema({f0})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({f0})->WithMetadata(merged_metadata));
 
-  SchemaBuilder other_builder{::arrow::schema({})->WithMetadata(metadata)};
+  SchemaBuilder other_builder{::arrow::schema({})->WithMetadata(merged_metadata)};
   ASSERT_OK(other_builder.AddField(f1));
   ASSERT_OK_AND_ASSIGN(schema, other_builder.Finish());
-  AssertSchemaEqual(schema, ::arrow::schema({f1})->WithMetadata(metadata));
+  AssertSchemaEqual(schema, ::arrow::schema({f1})->WithMetadata(merged_metadata));
 
   other_builder.Reset();
-  ASSERT_OK(other_builder.AddField(f1->WithMetadata(metadata)));
+  ASSERT_OK(other_builder.AddField(f1->WithMetadata(merged_metadata)));
   ASSERT_OK_AND_ASSIGN(schema, other_builder.Finish());
-  AssertSchemaEqual(schema, ::arrow::schema({f1->WithMetadata(metadata)}));
+  AssertSchemaEqual(schema, ::arrow::schema({f1->WithMetadata(merged_metadata)}));
 }
 
 TEST(TestSchemaBuilder, IncrementalConstruction) {
@@ -2183,6 +2190,36 @@ TEST(TestUnionType, Basics) {
   ASSERT_EQ(ty4->child_ids(), child_ids1);
   ASSERT_EQ(ty5->child_ids(), child_ids1);
   ASSERT_EQ(ty6->child_ids(), child_ids2);
+}
+
+TEST(TestUnionType, MaxTypeCode) {
+  std::vector<std::shared_ptr<Field>> fields;
+  for (int32_t i = 0; i <= UnionType::kMaxTypeCode; i++) {
+    fields.push_back(field(std::to_string(i), int32()));
+  }
+
+  std::vector<int8_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  auto t1 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes));
+  ASSERT_EQ(t1->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t1->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  auto t2 = checked_pointer_cast<UnionType>(dense_union(fields));
+  ASSERT_EQ(t2->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t2->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  AssertTypeEqual(*t1, *t2);
+
+  auto t3 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes));
+  ASSERT_EQ(t3->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t3->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  auto t4 = checked_pointer_cast<UnionType>(sparse_union(fields));
+  ASSERT_EQ(t4->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t4->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  AssertTypeEqual(*t3, *t4);
 }
 
 TEST(TestDictionaryType, Basics) {

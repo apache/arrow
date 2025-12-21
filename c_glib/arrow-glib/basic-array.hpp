@@ -28,6 +28,10 @@ arrow::EqualOptions *
 garrow_equal_options_get_raw(GArrowEqualOptions *equal_options);
 
 GARROW_EXTERN
+GArrowArrayStatistics *
+garrow_array_statistics_new_raw(arrow::ArrayStatistics *arrow_statistics);
+
+GARROW_EXTERN
 GArrowArray *
 garrow_array_new_raw(std::shared_ptr<arrow::Array> *arrow_array);
 

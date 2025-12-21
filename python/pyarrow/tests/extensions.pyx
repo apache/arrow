@@ -24,7 +24,7 @@ cdef extern from * namespace "arrow::py" nogil:
     """
     #include "arrow/status.h"
     #include "arrow/extension_type.h"
-    #include "arrow/ipc/json_simple.h"
+    #include "arrow/json/from_string.h"
 
     namespace arrow {
     namespace py {
@@ -64,7 +64,7 @@ cdef extern from * namespace "arrow::py" nogil:
     std::shared_ptr<Array> MakeUuidArray() {
         auto uuid_type = MakeUuidType();
         auto json = "[\\"abcdefghijklmno0\\", \\"0onmlkjihgfedcba\\"]";
-        auto result = ipc::internal::json::ArrayFromJSON(fixed_size_binary(16), json);
+        auto result = json::ArrayFromJSONString(fixed_size_binary(16), json);
         return ExtensionType::WrapArray(uuid_type, result.ValueOrDie());
     }
 

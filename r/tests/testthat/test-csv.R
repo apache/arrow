@@ -209,10 +209,22 @@ test_that("read_csv_arrow(col_types=string, col_names)", {
   df <- read_csv_arrow(tf, col_names = "int", col_types = "d", skip = 1)
   expect_identical(df, tibble::tibble(int = as.numeric(tbl$int)))
 
-  expect_error(read_csv_arrow(tf, col_types = c("i", "d")))
-  expect_error(read_csv_arrow(tf, col_types = "d"))
-  expect_error(read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")))
-  expect_error(read_csv_arrow(tf, col_types = "y", col_names = "a"))
+  expect_error(
+    read_csv_arrow(tf, col_types = c("i", "d")),
+    "`col_types` must be a character vector of size 1"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "d"),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "i", col_names = c("a", "b")),
+    "Compact specification for `col_types` requires `col_names` of matching length"
+  )
+  expect_error(
+    read_csv_arrow(tf, col_types = "y", col_names = "a"),
+    "Unsupported compact specification: 'y' for column 'a'"
+  )
 })
 
 test_that("read_csv_arrow() can read timestamps", {
@@ -434,9 +446,7 @@ test_that("Write a CSV with custom NA value", {
   expect_identical(tbl_in1, tbl_no_dates)
 
   # Also can use null_value in CsvWriteOptions
-  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file,
-    write_options = csv_write_options(null_string = "another_null")
-  )
+  tbl_out1 <- write_csv_arrow(tbl_no_dates, csv_file, write_options = csv_write_options(null_string = "another_null"))
   csv_contents <- readLines(csv_file)
   expect_true(any(grepl("another_null", csv_contents)))
 
@@ -470,17 +480,10 @@ test_that("time mapping work as expected (ARROW-13624)", {
   on.exit(unlink(tf))
   write.csv(tbl, tf, row.names = FALSE)
 
-  df <- read_csv_arrow(tf,
-    col_names = c("dt", "time"),
-    col_types = "Tt",
-    skip = 1
-  )
+  df <- read_csv_arrow(tf, col_names = c("dt", "time"), col_types = "Tt", skip = 1)
 
   expect_error(
-    read_csv_arrow(tf,
-      col_names = c("dt", "time"),
-      col_types = "tT", skip = 1
-    )
+    read_csv_arrow(tf, col_names = c("dt", "time"), col_types = "tT", skip = 1)
   )
 
   expect_equal(df, tbl, ignore_attr = "tzone")
@@ -591,7 +594,7 @@ test_that("write_csv_arrow can write from RecordBatchReader objects", {
   skip_if_not_available("dataset")
   library(dplyr, warn.conflicts = FALSE)
 
-  query_obj <- arrow_table(tbl_no_dates) %>%
+  query_obj <- arrow_table(tbl_no_dates) |>
     filter(lgl == TRUE)
 
   csv_file <- tempfile()

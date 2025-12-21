@@ -21,9 +21,14 @@
 
 #include <arrow-glib/compute-definition.h>
 #include <arrow-glib/datum.h>
+#include <arrow-glib/executor.h>
 #include <arrow-glib/reader.h>
 
 G_BEGIN_DECLS
+
+GARROW_AVAILABLE_IN_21_0
+gboolean
+garrow_compute_initialize(GError **error);
 
 #define GARROW_TYPE_EXECUTE_CONTEXT (garrow_execute_context_get_type())
 GARROW_AVAILABLE_IN_1_0
@@ -36,7 +41,7 @@ struct _GArrowExecuteContextClass
 
 GARROW_AVAILABLE_IN_1_0
 GArrowExecuteContext *
-garrow_execute_context_new(void);
+garrow_execute_context_new(GArrowExecutor *executor);
 
 GARROW_AVAILABLE_IN_7_0
 gboolean
@@ -318,7 +323,7 @@ struct _GArrowExecutePlanClass
 
 GARROW_AVAILABLE_IN_6_0
 GArrowExecutePlan *
-garrow_execute_plan_new(GError **error);
+garrow_execute_plan_new(GArrowExecuteContext *context, GError **error);
 GARROW_AVAILABLE_IN_6_0
 GArrowExecuteNode *
 garrow_execute_plan_build_node(GArrowExecutePlan *plan,
@@ -1117,5 +1122,220 @@ garrow_struct_field_options_set_field_ref(GArrowStructFieldOptions *options,
 GARROW_AVAILABLE_IN_16_0
 GArrowStructFieldOptions *
 garrow_struct_field_options_new(void);
+
+/**
+ * GArrowAssumeTimezoneAmbiguous:
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE: Raise an error on ambiguous times.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST: Emit the earliest instant.
+ * @GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST: Emit the latest instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Ambiguous`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_RAISE,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_AMBIGUOUS_LATEST,
+} GArrowAssumeTimezoneAmbiguous;
+
+/**
+ * GArrowAssumeTimezoneNonexistent:
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE: Raise an error on nonexistent times.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST: Emit the instant just before the DST
+ * shift.
+ * @GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST: Emit the DST shift instant.
+ *
+ * They correspond to the values of
+ * `arrow::compute::AssumeTimezoneOptions::Nonexistent`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_RAISE,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_EARLIEST,
+  GARROW_ASSUME_TIMEZONE_NONEXISTENT_LATEST,
+} GArrowAssumeTimezoneNonexistent;
+
+#define GARROW_TYPE_ASSUME_TIMEZONE_OPTIONS (garrow_assume_timezone_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowAssumeTimezoneOptions,
+                         garrow_assume_timezone_options,
+                         GARROW,
+                         ASSUME_TIMEZONE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowAssumeTimezoneOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new(void);
+
+#define GARROW_TYPE_CUMULATIVE_OPTIONS (garrow_cumulative_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowCumulativeOptions,
+                         garrow_cumulative_options,
+                         GARROW,
+                         CUMULATIVE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowCumulativeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCumulativeOptions *
+garrow_cumulative_options_new(void);
+
+/**
+ * GArrowDictionaryEncodeNullEncodingBehavior:
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE: The null value will be added to the
+ * dictionary with a proper index.
+ * @GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK: The null value will be masked in the
+ * indices array.
+ *
+ * They correspond to the values of
+ * `arrow::compute::DictionaryEncodeOptions::NullEncodingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_ENCODE,
+  GARROW_DICTIONARY_ENCODE_NULL_ENCODING_MASK,
+} GArrowDictionaryEncodeNullEncodingBehavior;
+
+#define GARROW_TYPE_DICTIONARY_ENCODE_OPTIONS                                            \
+  (garrow_dictionary_encode_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDictionaryEncodeOptions,
+                         garrow_dictionary_encode_options,
+                         GARROW,
+                         DICTIONARY_ENCODE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDictionaryEncodeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new(void);
+
+#define GARROW_TYPE_ELEMENT_WISE_AGGREGATE_OPTIONS                                       \
+  (garrow_element_wise_aggregate_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowElementWiseAggregateOptions,
+                         garrow_element_wise_aggregate_options,
+                         GARROW,
+                         ELEMENT_WISE_AGGREGATE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowElementWiseAggregateOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new(void);
+
+#define GARROW_TYPE_DAY_OF_WEEK_OPTIONS (garrow_day_of_week_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowDayOfWeekOptions,
+                         garrow_day_of_week_options,
+                         GARROW,
+                         DAY_OF_WEEK_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowDayOfWeekOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new(void);
+
+#define GARROW_TYPE_EXTRACT_REGEX_OPTIONS (garrow_extract_regex_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExtractRegexOptions,
+                         garrow_extract_regex_options,
+                         GARROW,
+                         EXTRACT_REGEX_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowExtractRegexOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new(void);
+
+#define GARROW_TYPE_EXTRACT_REGEX_SPAN_OPTIONS                                           \
+  (garrow_extract_regex_span_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowExtractRegexSpanOptions,
+                         garrow_extract_regex_span_options,
+                         GARROW,
+                         EXTRACT_REGEX_SPAN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowExtractRegexSpanOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new(void);
+
+/**
+ * GArrowJoinNullHandlingBehavior:
+ * @GARROW_JOIN_NULL_HANDLING_EMIT_NULL: A null in any input results in a null in the
+ * output.
+ * @GARROW_JOIN_NULL_HANDLING_SKIP: Nulls in inputs are skipped.
+ * @GARROW_JOIN_NULL_HANDLING_REPLACE: Nulls in inputs are replaced with the replacement
+ * string.
+ *
+ * They correspond to the values of
+ * `arrow::compute::JoinOptions::NullHandlingBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_JOIN_NULL_HANDLING_EMIT_NULL,
+  GARROW_JOIN_NULL_HANDLING_SKIP,
+  GARROW_JOIN_NULL_HANDLING_REPLACE,
+} GArrowJoinNullHandlingBehavior;
+
+#define GARROW_TYPE_JOIN_OPTIONS (garrow_join_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowJoinOptions, garrow_join_options, GARROW, JOIN_OPTIONS, GArrowFunctionOptions)
+struct _GArrowJoinOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowJoinOptions *
+garrow_join_options_new(void);
+
+#define GARROW_TYPE_LIST_FLATTEN_OPTIONS (garrow_list_flatten_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowListFlattenOptions,
+                         garrow_list_flatten_options,
+                         GARROW,
+                         LIST_FLATTEN_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowListFlattenOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new(void);
 
 G_END_DECLS
