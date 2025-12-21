@@ -394,7 +394,8 @@ add_parquet_test(reader-test
                  level_conversion_test.cc
                  column_scanner_test.cc
                  reader_test.cc
-                 stream_reader_test.cc)
+                 stream_reader_test.cc
+                 row_range_test.cc)
 
 add_parquet_test(writer-test
                  SOURCES
