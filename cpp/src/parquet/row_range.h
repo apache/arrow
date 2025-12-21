@@ -27,7 +27,7 @@ namespace parquet {
 /// RowRanges is a collection of non-overlapping and ascendingly ordered row ranges.
 class PARQUET_EXPORT RowRanges {
  public:
-  /// \brief A range of contiguous rows represented by an interval.
+  /// \brief EXPERIMENTAL: A range of contiguous rows represented by an interval.
   struct IntervalRange {
     /// Start row of the range (inclusive).
     int64_t start;
@@ -35,7 +35,7 @@ class PARQUET_EXPORT RowRanges {
     int64_t end;
   };
 
-  /// \brief A range of contiguous rows represented by a bitmap.
+  /// \brief EXPERIMENTAL: A range of contiguous rows represented by a bitmap.
   struct BitmapRange {
     /// Start row of the range (inclusive).
     int64_t offset;
@@ -43,40 +43,40 @@ class PARQUET_EXPORT RowRanges {
     uint64_t bitmap;
   };
 
-  /// \brief An end marker for the row range iterator.
+  /// \brief EXPERIMENTAL: An end marker for the row range iterator.
   struct End {};
 
-  /// \brief An iterator for accessing row ranges in order.
+  /// \brief EXPERIMENTAL: An iterator for accessing row ranges in order.
   class Iterator {
    public:
     virtual ~Iterator() = default;
     virtual std::variant<IntervalRange, BitmapRange, End> NextRange() = 0;
   };
 
-  /// \brief Create a new iterator for accessing row ranges in order.
+  /// \brief EXPERIMENTAL: Create a new iterator for accessing row ranges in order.
   std::unique_ptr<Iterator> NewIterator() const;
 
-  /// \brief Validate the row ranges.
+  /// \brief EXPERIMENTAL: Validate the row ranges.
   /// \throws ParquetException if the row ranges are not in ascending order or
   /// overlapped.
   void Validate() const;
 
-  /// \brief Get the total number of rows in the row ranges.
+  /// \brief EXPERIMENTAL: Get the total number of rows in the row ranges.
   int64_t row_count() const;
 
-  /// \brief Compute the intersection of two row ranges.
+  /// \brief EXPERIMENTAL: Compute the intersection of two row ranges.
   static RowRanges Intersect(const RowRanges& lhs, const RowRanges& rhs);
 
-  /// \brief Compute the union of two row ranges.
+  /// \brief EXPERIMENTAL: Compute the union of two row ranges.
   static RowRanges Union(const RowRanges& lhs, const RowRanges& rhs);
 
-  /// \brief Make a single row range of [0, row_count - 1].
+  /// \brief EXPERIMENTAL: Make a single row range of [0, row_count - 1].
   static RowRanges MakeSingle(int64_t row_count);
 
-  /// \brief Make a single row range of [start, end].
+  /// \brief EXPERIMENTAL: Make a single row range of [start, end].
   static RowRanges MakeSingle(int64_t start, int64_t end);
 
-  /// \brief Make a row range from a list of intervals.
+  /// \brief EXPERIMENTAL: Make a row range from a list of intervals.
   static RowRanges MakeIntervals(const std::vector<IntervalRange>& intervals);
 
  private:
