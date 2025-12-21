@@ -52,16 +52,6 @@ ARROW_EXPORT Status ParseHexValues(std::string_view hex_string, uint8_t* out);
 
 namespace internal {
 
-/// Like std::string_view::starts_with in C++20
-inline bool StartsWith(std::string_view s, std::string_view prefix) {
-  return s.starts_with(prefix);
-}
-
-/// Like std::string_view::ends_with in C++20
-inline bool EndsWith(std::string_view s, std::string_view suffix) {
-  return s.ends_with(suffix);
-}
-
 /// \brief Split a string with a delimiter
 ARROW_EXPORT
 std::vector<std::string_view> SplitString(std::string_view v, char delim,
