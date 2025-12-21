@@ -41,9 +41,6 @@ class TestMapLookupOptions < Test::Unit::TestCase
     assert_equal(Arrow::MapLookupOccurrence::FIRST, @options.occurrence)
   end
 
-  def build_map_with_duplicate_keys
-  end
-
   def test_map_lookup_function
     map_array = build_map_array(Arrow::Int32DataType.new,
                                 Arrow::StringDataType.new,
