@@ -28,23 +28,12 @@ class TestMakeStructOptions < Test::Unit::TestCase
     assert_equal(["a", "b", "c"], @options.field_names)
   end
 
-  def test_field_nullability_property
-    assert_equal([], @options.field_nullability)
-    @options.field_names = ["a", "b", "c"]
-    @options.field_nullability = [true, false, true]
-    assert_equal([true, false, true], @options.field_nullability)
-  end
-
-  def test_field_metadata_property
-    assert_equal([], @options.field_metadata)
-    @options.field_names = ["a", "b"]
-    metadata1 = {"key1" => "value1", "key2" => "value2"}
-    metadata2 = {"key3" => "value3"}
-    @options.field_metadata = [metadata1, metadata2]
-    result = @options.field_metadata
-    assert_equal(2, result.size)
-    assert_equal(metadata1, result[0])
-    assert_equal(metadata2, result[1])
+  def test_add_field
+    @options.add_field("a", true, nil)
+    @options.add_field("b", false, nil)
+    metadata = {"key1" => "value1", "key2" => "value2"}
+    @options.add_field("c", true, metadata)
+    assert_equal(["a", "b", "c"], @options.field_names)
   end
 
   def test_make_struct_function
@@ -54,7 +43,8 @@ class TestMakeStructOptions < Test::Unit::TestCase
       Arrow::ArrayDatum.new(a),
       Arrow::ArrayDatum.new(b),
     ]
-    @options.field_names = ["a", "b"]
+    @options.add_field("a", true, nil)
+    @options.add_field("b", true, nil)
     make_struct_function = Arrow::Function.find("make_struct")
     result = make_struct_function.execute(args, @options).value
 
@@ -79,8 +69,8 @@ class TestMakeStructOptions < Test::Unit::TestCase
       Arrow::ArrayDatum.new(a),
       Arrow::ArrayDatum.new(b),
     ]
-    @options.field_names = ["a", "b"]
-    @options.field_nullability = [false, true]
+    @options.add_field("a", false, nil)
+    @options.add_field("b", true, nil)
     make_struct_function = Arrow::Function.find("make_struct")
     result = make_struct_function.execute(args, @options).value
 
@@ -105,10 +95,10 @@ class TestMakeStructOptions < Test::Unit::TestCase
       Arrow::ArrayDatum.new(a),
       Arrow::ArrayDatum.new(b),
     ]
-    @options.field_names = ["a", "b"]
     metadata1 = {"key1" => "value1"}
     metadata2 = {"key2" => "value2"}
-    @options.field_metadata = [metadata1, metadata2]
+    @options.add_field("a", true, metadata1)
+    @options.add_field("b", true, metadata2)
     make_struct_function = Arrow::Function.find("make_struct")
     result = make_struct_function.execute(args, @options).value
 

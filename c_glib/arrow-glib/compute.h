@@ -1390,20 +1390,9 @@ garrow_make_struct_options_new(void);
 
 GARROW_AVAILABLE_IN_23_0
 void
-garrow_make_struct_options_set_field_nullability(GArrowMakeStructOptions *options,
-                                                  GList *nullability);
-
-GARROW_AVAILABLE_IN_23_0
-GList *
-garrow_make_struct_options_get_field_nullability(GArrowMakeStructOptions *options);
-
-GARROW_AVAILABLE_IN_23_0
-void
-garrow_make_struct_options_set_field_metadata(GArrowMakeStructOptions *options,
-                                               GList *metadata);
-
-GARROW_AVAILABLE_IN_23_0
-GList *
-garrow_make_struct_options_get_field_metadata(GArrowMakeStructOptions *options);
+garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
+                                     const char *name,
+                                     gboolean nullability,
+                                     GHashTable *metadata);
 
 G_END_DECLS
