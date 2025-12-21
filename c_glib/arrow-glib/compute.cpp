@@ -7692,7 +7692,7 @@ garrow_list_slice_options_set_property(GObject *object,
     break;
   case PROP_LIST_SLICE_OPTIONS_STOP:
     {
-      gint64 stop_value = g_value_get_int64(value);
+      auto stop_value = g_value_get_int64(value);
       if (stop_value == GARROW_LIST_SLICE_OPTIONS_STOP_UNSPECIFIED) {
         options->stop = std::nullopt;
       } else {

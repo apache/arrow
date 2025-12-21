@@ -33,7 +33,7 @@ class TestListSliceOptions < Test::Unit::TestCase
     @options.stop = 5
     assert_equal(5, @options.stop)
     @options.stop = Arrow::LIST_SLICE_OPTIONS_STOP_UNSPECIFIED
-    assert_equal(LIST_SLICE_OPTIONS_STOP_UNSPECIFIED, @options.stop)
+    assert_equal(Arrow::LIST_SLICE_OPTIONS_STOP_UNSPECIFIED, @options.stop)
   end
 
   def test_step_property

@@ -31,34 +31,46 @@ module Arrow
     # Whether to return a FixedSizeListArray. If true _and_ stop is after a
     # list element’s length, nil values will be appended to create the requested
     # slice size. The default of nil will return the same type which was passed in.
+    #
+    # Since: 23.0.0
     def return_fixed_size_list
       RETURN_FIXED_SIZE_GLIB_TO_RUBY.fetch(
         return_fixed_size_list_raw,
         return_fixed_size_list_raw)
     end
 
+    alias_method :return_fixed_size_list_raw=, :return_fixed_size_list=
+    private :return_fixed_size_list_raw=
+
     # Whether to return a FixedSizeListArray. If true _and_ stop is after a
     # list element’s length, nil values will be appended to create the requested
     # slice size. The default of nil will return the same type which was passed in.
+    #
+    # Since: 23.0.0
     def return_fixed_size_list=(return_fixed_size_list)
-      set_property(
-        :return_fixed_size_list,
-        RETURN_FIXED_SIZE_RUBY_TO_GLIB.fetch(
-          return_fixed_size_list,
-          return_fixed_size_list))
+      self.return_fixed_size_list_raw = RETURN_FIXED_SIZE_RUBY_TO_GLIB.fetch(
+        return_fixed_size_list,
+        return_fixed_size_list)
     end
 
     alias_method :stop_raw, :stop
     private :stop_raw
 
     # Optional stop of list slicing. If set to nil, then slice to end.
+    #
+    # Since: 23.0.0
     def stop
       stop_raw == LIST_SLICE_OPTIONS_STOP_UNSPECIFIED ? nil : stop_raw
     end
 
+    alias_method :stop_raw=, :stop=
+    private :stop_raw=
+
     # Optional stop of list slicing. If set to nil, then slice to end.
+    #
+    # Since: 23.0.0
     def stop=(stop)
-      set_property(:stop, stop.nil? ? LIST_SLICE_OPTIONS_STOP_UNSPECIFIED : stop)
+      self.stop_raw = stop.nil? ? LIST_SLICE_OPTIONS_STOP_UNSPECIFIED : stop
     end
   end
 end
