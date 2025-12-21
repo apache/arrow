@@ -34,7 +34,6 @@
 
 namespace arrow {
 
-
 namespace json {
 
 // Use no nested objects and no string literals containing braces in this test.

@@ -35,7 +35,6 @@
 
 namespace arrow {
 
-
 namespace dataset {
 
 namespace {

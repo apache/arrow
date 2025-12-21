@@ -29,7 +29,6 @@
 
 namespace arrow {
 
-
 namespace fs {
 namespace internal {
 
