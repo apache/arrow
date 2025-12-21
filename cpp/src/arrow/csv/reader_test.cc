@@ -489,7 +489,6 @@ TEST(CountRowsAsync, Errors) {
 }
 
 TEST(ReaderTests, DefaultColumnTypePartialDefault) {
-  // Input with header; force all unspecified columns to string, but override only `id` to int64
   auto table_buffer = std::make_shared<Buffer>(
       "id,name,value,date\n"
       "0000101,apple,0003.1400,2024-01-15\n"
@@ -526,16 +525,15 @@ TEST(ReaderTests, DefaultColumnTypePartialDefault) {
   ASSERT_TRUE(table->Equals(*expected_table));
 }
 
-TEST(ReaderTests, DefaultColumnTypeAllStringsWithHeader) {
-  // Input with header; default all columns to strings
+TEST(ReaderTests, DefaultColumnTypeForcesTypedColumns) {
   auto table_buffer = std::make_shared<Buffer>(
-      "Record_Type|ID|Code|Quantity_1|Quantity_2|Amount_1|Amount_2|Amount_3|Flag|Note|Total_Amount\n"
-      "AB|000388907|abc|0150|012|000045.67|000000.10|000001.25|Y|noteA|000045.6700\n");
+      "id,amount,code\n"
+      "0000404,000045.6700,001\n"
+      "0000505,000000.10,010\n");
 
   auto input = std::make_shared<io::BufferReader>(table_buffer);
   auto read_options = ReadOptions::Defaults();
   auto parse_options = ParseOptions::Defaults();
-  parse_options.delimiter = '|';
   auto convert_options = ConvertOptions::Defaults();
   convert_options.default_column_type = utf8();
 
@@ -545,42 +543,21 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsWithHeader) {
                         convert_options));
   ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
 
-  auto expected_schema = schema({
-    field("Record_Type", utf8()),
-    field("ID", utf8()),
-    field("Code", utf8()),
-    field("Quantity_1", utf8()),
-    field("Quantity_2", utf8()),
-    field("Amount_1", utf8()),
-    field("Amount_2", utf8()),
-    field("Amount_3", utf8()),
-    field("Flag", utf8()),
-    field("Note", utf8()),
-    field("Total_Amount", utf8())});
+  auto expected_schema = schema(
+      {field("id", utf8()), field("amount", utf8()), field("code", utf8())});
   AssertSchemaEqual(expected_schema, table->schema());
 
   auto expected_table = TableFromJSON(
       expected_schema,
-      {R"([{
-        "Record_Type":"AB",
-        "ID":"000388907",
-        "Code":"abc",
-        "Quantity_1":"0150",
-        "Quantity_2":"012",
-        "Amount_1":"000045.67",
-        "Amount_2":"000000.10",
-        "Amount_3":"000001.25",
-        "Flag":"Y",
-        "Note":"noteA",
-        "Total_Amount":"000045.6700"
-      }])"});
+      {R"([{"id":"0000404", "amount":"000045.6700", "code":"001"},
+            {"id":"0000505", "amount":"000000.10", "code":"010"}])"});
   ASSERT_TRUE(table->Equals(*expected_table));
 }
 
 TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
   // Input without header; autogenerate column names and default all to strings
   auto table_buffer = std::make_shared<Buffer>(
-      "AB|000388907|abc|0150|012|000045.67|000000.10|000001.25|Y|noteA|000045.6700\n");
+      "AB|000388907|000045.6700\n");
 
   auto input = std::make_shared<io::BufferReader>(table_buffer);
   auto read_options = ReadOptions::Defaults();
@@ -596,11 +573,8 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
                         convert_options));
   ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
 
-  auto expected_schema = schema({
-      field("f0", utf8()),  field("f1", utf8()),  field("f2", utf8()),
-      field("f3", utf8()),  field("f4", utf8()),  field("f5", utf8()),
-      field("f6", utf8()),  field("f7", utf8()),  field("f8", utf8()),
-      field("f9", utf8()),  field("f10", utf8())});
+  auto expected_schema =
+      schema({field("f0", utf8()), field("f1", utf8()), field("f2", utf8())});
   AssertSchemaEqual(expected_schema, table->schema());
 
   auto expected_table = TableFromJSON(
@@ -608,15 +582,7 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
       {R"([{
         "f0":"AB",
         "f1":"000388907",
-        "f2":"abc",
-        "f3":"0150",
-        "f4":"012",
-        "f5":"000045.67",
-        "f6":"000000.10",
-        "f7":"000001.25",
-        "f8":"Y",
-        "f9":"noteA",
-        "f10":"000045.6700"
+        "f2":"000045.6700"
       }])"});
   ASSERT_TRUE(table->Equals(*expected_table));
 }
