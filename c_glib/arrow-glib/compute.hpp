@@ -226,3 +226,8 @@ garrow_list_flatten_options_new_raw(
   const arrow::compute::ListFlattenOptions *arrow_options);
 arrow::compute::ListFlattenOptions *
 garrow_list_flatten_options_get_raw(GArrowListFlattenOptions *options);
+
+GArrowMapLookupOptions *
+garrow_map_lookup_options_new_raw(const arrow::compute::MapLookupOptions *arrow_options);
+arrow::compute::MapLookupOptions *
+garrow_map_lookup_options_get_raw(GArrowMapLookupOptions *options);
