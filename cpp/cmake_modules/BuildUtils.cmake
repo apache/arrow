@@ -179,11 +179,11 @@ function(arrow_install_cmake_package PACKAGE_NAME EXPORT_NAME)
                                    COMPATIBILITY SameMajorVersion)
   install(FILES "${BUILT_CONFIG_CMAKE}" "${BUILT_CONFIG_VERSION_CMAKE}"
           DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
-          COMPONENT config_cmake_file)
+          COMPONENT ${EXPORT_NAME}_config_cmake_files)
   set(TARGETS_CMAKE "${PACKAGE_NAME}Targets.cmake")
   install(EXPORT ${EXPORT_NAME}
           DESTINATION "${ARROW_CMAKE_DIR}/${PACKAGE_NAME}"
-          COMPONENT config_cmake_export
+          COMPONENT ${EXPORT_NAME}_target_export
           NAMESPACE "${PACKAGE_NAME}::"
           FILE "${TARGETS_CMAKE}")
 endfunction()
