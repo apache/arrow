@@ -29,14 +29,14 @@ NumPy to Arrow
 To convert a NumPy array to Arrow, one can simply call the :func:`pyarrow.array`
 factory function.
 
-.. code-block:: pycon
+.. code-block:: python
 
    >>> import numpy as np
    >>> import pyarrow as pa
    >>> data = np.arange(10, dtype='int16')
    >>> arr = pa.array(data)
    >>> arr
-   <pyarrow.lib.Int16Array object at 0x7fb1d1e6ae58>
+   <pyarrow.lib.Int16Array object at ...>
    [
      0,
      1,
@@ -61,7 +61,7 @@ for use with NumPy using the :meth:`~pyarrow.Array.to_numpy` method.
 This is limited to primitive types for which NumPy has the same physical
 representation as Arrow, and assuming the Arrow data has no nulls.
 
-.. code-block:: pycon
+.. code-block:: python
 
    >>> import numpy as np
    >>> import pyarrow as pa
