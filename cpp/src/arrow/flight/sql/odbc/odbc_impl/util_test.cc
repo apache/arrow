@@ -31,13 +31,6 @@ namespace arrow::flight::sql::odbc {
 using util::ConvertSqlPatternToRegexString;
 using util::ConvertToDBMSVer;
 
-class UtilTestsWithCompute : public ::testing::Test {
- public:
-  // This must be done before using the compute kernels in order to
-  // register them to the FunctionRegistry.
-  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
-};
-
 // A global test "environment", to ensure Arrow compute kernel functions are registered
 
 class ComputeKernelEnvironment : public ::testing::Environment {
@@ -95,7 +88,7 @@ void TestTime64ArrayConversion(const std::vector<int64_t>& input,
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
 
-TEST_F(UtilTestsWithCompute, Time32ToTimeStampArray) {
+TEST(Utils, Time32ToTimeStampArray) {
   std::vector<int32_t> input_data = {14896, 17820};
 
   const auto seconds_from_epoch = GetTodayTimeFromEpoch();
@@ -114,7 +107,7 @@ TEST_F(UtilTestsWithCompute, Time32ToTimeStampArray) {
   TestTime32ArrayConversion(input_data, expected, CDataType_TIMESTAMP, Type::TIMESTAMP);
 }
 
-TEST_F(UtilTestsWithCompute, Time64ToTimeStampArray) {
+TEST(Utils, Time64ToTimeStampArray) {
   std::vector<int64_t> input_data = {1579489200000, 1646881200000};
 
   const auto seconds_from_epoch = GetTodayTimeFromEpoch();
@@ -133,7 +126,7 @@ TEST_F(UtilTestsWithCompute, Time64ToTimeStampArray) {
   TestTime64ArrayConversion(input_data, expected, CDataType_TIMESTAMP, Type::TIMESTAMP);
 }
 
-TEST_F(UtilTestsWithCompute, StringToDateArray) {
+TEST(Utils, StringToDateArray) {
   std::shared_ptr<Array> expected;
   ArrayFromVector<Date64Type, int64_t>({1579489200000, 1646881200000}, &expected);
 
@@ -141,7 +134,7 @@ TEST_F(UtilTestsWithCompute, StringToDateArray) {
                       Type::DATE64);
 }
 
-TEST_F(UtilTestsWithCompute, StringToTimeArray) {
+TEST(Utils, StringToTimeArray) {
   std::shared_ptr<Array> expected;
   ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::MICRO),
                                        {36000000000, 43200000000}, &expected);
