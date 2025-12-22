@@ -179,11 +179,15 @@ RowSelection RowSelection::MakeSingle(int64_t start, int64_t end) {
   return rowSelection;
 }
 
-RowSelection RowSelection::MakeIntervals(const std::vector<IntervalRange>& intervals) {
+RowSelection RowSelection::FromIntervals(::arrow::util::span<const IntervalRange> intervals) {
   RowSelection rowSelection;
   rowSelection.ranges_.reserve(intervals.size());
-  rowSelection.ranges_.insert(rowSelection.ranges_.end(), intervals.cbegin(), intervals.cend());
+  rowSelection.ranges_.insert(rowSelection.ranges_.end(), intervals.begin(), intervals.end());
   return rowSelection;
+}
+
+RowSelection RowSelection::FromIntervals(const std::vector<IntervalRange>& intervals) {
+  return FromIntervals(::arrow::util::span<const IntervalRange>(intervals));
 }
 
 }  // namespace parquet

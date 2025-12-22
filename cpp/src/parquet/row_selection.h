@@ -69,7 +69,10 @@ class PARQUET_EXPORT RowSelection {
   static RowSelection MakeSingle(int64_t start, int64_t end);
 
   /// \brief EXPERIMENTAL: Make a row range from a list of intervals.
-  static RowSelection MakeIntervals(const std::vector<IntervalRange>& intervals);
+  static RowSelection FromIntervals(::arrow::util::span<const IntervalRange> intervals);
+
+  /// \brief EXPERIMENTAL: Make a row range from a vector of intervals.
+  static RowSelection FromIntervals(const std::vector<IntervalRange>& intervals);
 
  private:
   friend class IteratorImpl;

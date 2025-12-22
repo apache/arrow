@@ -58,14 +58,14 @@ TEST(RowSelection, MakeSingleWithStartEnd) {
   EXPECT_TRUE(batch.empty());
 }
 
-TEST(RowSelection, MakeIntervals) {
+TEST(RowSelection, FromIntervals) {
   std::vector<RowSelection::IntervalRange> intervals = {
     {0, 11},
     {20, 11},
     {40, 11}
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   ASSERT_EQ(ranges.row_count(), 33);  // 11 + 11 + 11
   
   auto iter = ranges.NewIterator();
@@ -98,7 +98,7 @@ TEST(RowSelection, MakeIntervals) {
 
 TEST(RowSelection, EmptyRanges) {
   std::vector<RowSelection::IntervalRange> intervals;
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   ASSERT_EQ(ranges.row_count(), 0);
   
   auto iter = ranges.NewIterator();
@@ -114,7 +114,7 @@ TEST(RowSelection, ValidateValidRanges) {
     {25, 6}
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_NO_THROW(ranges.Validate());
 }
 
@@ -129,7 +129,7 @@ TEST(RowSelection, ValidateOverlappingRanges) {
     {5, 11}  // Overlaps with previous
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_THROW(ranges.Validate(), ParquetException);
 }
 
@@ -139,7 +139,7 @@ TEST(RowSelection, ValidateAdjacentRanges) {
     {11, 10}  // Adjacent but not overlapping
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_NO_THROW(ranges.Validate());
 }
 
@@ -149,7 +149,7 @@ TEST(RowSelection, ValidateInvalidRangeTouching) {
     {10, 11}  // Touches at end/start (overlaps at 10)
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_THROW(ranges.Validate(), ParquetException);
 }
 
@@ -159,7 +159,7 @@ TEST(RowSelection, ValidateNotAscendingOrder) {
     {0, 11}  // Not in ascending order
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_THROW(ranges.Validate(), ParquetException);
 }
 
@@ -168,7 +168,7 @@ TEST(RowSelection, ValidateInvalidInterval) {
     {10, -4}  // end < start
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_THROW(ranges.Validate(), ParquetException);
 }
 
@@ -185,13 +185,13 @@ TEST(RowSelection, RowCountMultiple) {
     {50, 5}   // 5 rows
   };
   
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_EQ(ranges.row_count(), 25);
 }
 
 TEST(RowSelection, RowCountEmpty) {
   std::vector<RowSelection::IntervalRange> intervals;
-  auto ranges = RowSelection::MakeIntervals(intervals);
+  auto ranges = RowSelection::FromIntervals(intervals);
   EXPECT_EQ(ranges.row_count(), 0);
 }
 
@@ -202,16 +202,16 @@ TEST(RowSelection, RowCountSingleRow) {
 
 // Test Intersect
 TEST(RowSelection, IntersectNoOverlap) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
-  auto rhs = RowSelection::MakeIntervals({{40, 11}, {60, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
+  auto rhs = RowSelection::FromIntervals({{40, 11}, {60, 11}});
   
   auto result = RowSelection::Intersect(lhs, rhs);
   EXPECT_EQ(result.row_count(), 0);
 }
 
 TEST(RowSelection, IntersectCompleteOverlap) {
-  auto lhs = RowSelection::MakeIntervals({{0, 101}});
-  auto rhs = RowSelection::MakeIntervals({{20, 11}, {40, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 101}});
+  auto rhs = RowSelection::FromIntervals({{20, 11}, {40, 11}});
   
   auto result = RowSelection::Intersect(lhs, rhs);
   EXPECT_EQ(result.row_count(), 22);  // (30-20+1) + (50-40+1)
@@ -232,8 +232,8 @@ TEST(RowSelection, IntersectCompleteOverlap) {
 }
 
 TEST(RowSelection, IntersectPartialOverlap) {
-  auto lhs = RowSelection::MakeIntervals({{0, 16}, {20, 16}});
-  auto rhs = RowSelection::MakeIntervals({{10, 16}, {40, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 16}, {20, 16}});
+  auto rhs = RowSelection::FromIntervals({{10, 16}, {40, 11}});
   
   auto result = RowSelection::Intersect(lhs, rhs);
   EXPECT_EQ(result.row_count(), 12);  // (15-10+1) + (25-20+1)
@@ -254,24 +254,24 @@ TEST(RowSelection, IntersectPartialOverlap) {
 }
 
 TEST(RowSelection, IntersectIdentical) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
-  auto rhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
+  auto rhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
   
   auto result = RowSelection::Intersect(lhs, rhs);
   EXPECT_EQ(result.row_count(), 22);
 }
 
 TEST(RowSelection, IntersectWithEmpty) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}});
-  auto rhs = RowSelection::MakeIntervals({});
+  auto lhs = RowSelection::FromIntervals({{0, 11}});
+  auto rhs = RowSelection::FromIntervals(std::vector<RowSelection::IntervalRange>{});
   
   auto result = RowSelection::Intersect(lhs, rhs);
   EXPECT_EQ(result.row_count(), 0);
 }
 
 TEST(RowSelection, IntersectComplex) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {15, 11}, {30, 11}, {50, 11}});
-  auto rhs = RowSelection::MakeIntervals({{5, 8}, {20, 16}, {55, 16}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {15, 11}, {30, 11}, {50, 11}});
+  auto rhs = RowSelection::FromIntervals({{5, 8}, {20, 16}, {55, 16}});
   
   auto result = RowSelection::Intersect(lhs, rhs);
   
@@ -285,8 +285,8 @@ TEST(RowSelection, IntersectComplex) {
 
 // Test Union
 TEST(RowSelection, UnionNoOverlap) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
-  auto rhs = RowSelection::MakeIntervals({{40, 11}, {60, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
+  auto rhs = RowSelection::FromIntervals({{40, 11}, {60, 11}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 44);  // 11+11+11+11
@@ -304,8 +304,8 @@ TEST(RowSelection, UnionNoOverlap) {
 }
 
 TEST(RowSelection, UnionWithOverlap) {
-  auto lhs = RowSelection::MakeIntervals({{0, 16}});
-  auto rhs = RowSelection::MakeIntervals({{10, 16}});
+  auto lhs = RowSelection::FromIntervals({{0, 16}});
+  auto rhs = RowSelection::FromIntervals({{10, 16}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 26);  // [0, 25] = 26 rows
@@ -319,8 +319,8 @@ TEST(RowSelection, UnionWithOverlap) {
 }
 
 TEST(RowSelection, UnionAdjacent) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}});
-  auto rhs = RowSelection::MakeIntervals({{11, 10}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}});
+  auto rhs = RowSelection::FromIntervals({{11, 10}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 21);  // [0, 20] = 21 rows
@@ -338,8 +338,8 @@ TEST(RowSelection, UnionAdjacent) {
 }
 
 TEST(RowSelection, UnionWithGap) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}});
-  auto rhs = RowSelection::MakeIntervals({{20, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}});
+  auto rhs = RowSelection::FromIntervals({{20, 11}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 22);
@@ -361,24 +361,24 @@ TEST(RowSelection, UnionWithGap) {
 }
 
 TEST(RowSelection, UnionWithEmpty) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}});
-  auto rhs = RowSelection::MakeIntervals({});
+  auto lhs = RowSelection::FromIntervals({{0, 11}});
+  auto rhs = RowSelection::FromIntervals(std::vector<RowSelection::IntervalRange>{});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 11);
 }
 
 TEST(RowSelection, UnionEmptyWithNonEmpty) {
-  auto lhs = RowSelection::MakeIntervals({});
-  auto rhs = RowSelection::MakeIntervals({{0, 11}});
+  auto lhs = RowSelection::FromIntervals(std::vector<RowSelection::IntervalRange>{});
+  auto rhs = RowSelection::FromIntervals({{0, 11}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 11);
 }
 
 TEST(RowSelection, UnionIdentical) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
-  auto rhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
+  auto rhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 22);
@@ -397,8 +397,8 @@ TEST(RowSelection, UnionIdentical) {
 }
 
 TEST(RowSelection, UnionComplex) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}, {50, 11}});
-  auto rhs = RowSelection::MakeIntervals({{5, 11}, {25, 11}, {45, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {20, 11}, {50, 11}});
+  auto rhs = RowSelection::FromIntervals({{5, 11}, {25, 11}, {45, 11}});
   
   auto result = RowSelection::Union(lhs, rhs);
   
@@ -427,8 +427,8 @@ TEST(RowSelection, UnionComplex) {
 }
 
 TEST(RowSelection, UnionManyOverlapping) {
-  auto lhs = RowSelection::MakeIntervals({{0, 101}});
-  auto rhs = RowSelection::MakeIntervals({{50, 101}});
+  auto lhs = RowSelection::FromIntervals({{0, 101}});
+  auto rhs = RowSelection::FromIntervals({{50, 101}});
   
   auto result = RowSelection::Union(lhs, rhs);
   EXPECT_EQ(result.row_count(), 151);  // [0, 150]
@@ -443,7 +443,7 @@ TEST(RowSelection, UnionManyOverlapping) {
 
 // Test iterator behavior
 TEST(RowSelection, IteratorMultipleIterators) {
-  auto ranges = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
+  auto ranges = RowSelection::FromIntervals({{0, 11}, {20, 11}});
   
   auto iter1 = ranges.NewIterator();
   auto iter2 = ranges.NewIterator();
@@ -498,8 +498,8 @@ TEST(RowSelection, ZeroStartRange) {
 }
 
 TEST(RowSelection, IntersectAndUnionCommutative) {
-  auto lhs = RowSelection::MakeIntervals({{0, 11}, {20, 11}});
-  auto rhs = RowSelection::MakeIntervals({{5, 11}, {25, 11}});
+  auto lhs = RowSelection::FromIntervals({{0, 11}, {20, 11}});
+  auto rhs = RowSelection::FromIntervals({{5, 11}, {25, 11}});
   
   // Intersect should be commutative
   auto intersect1 = RowSelection::Intersect(lhs, rhs);
