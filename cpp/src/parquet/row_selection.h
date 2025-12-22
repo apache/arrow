@@ -18,9 +18,9 @@
 #pragma once
 
 #include <cstdint>
-#include <optional>
 #include <vector>
 
+#include "arrow/util/span.h"
 #include "parquet/platform.h"
 
 namespace parquet {
@@ -36,12 +36,13 @@ class PARQUET_EXPORT RowSelection {
     int64_t length;
   };
 
-  /// \brief EXPERIMENTAL: An iterator for accessing row ranges in order.
+  /// \brief EXPERIMENTAL: An iterator for accessing row ranges in batches.
   class Iterator {
    public:
     virtual ~Iterator() = default;
-    /// \brief Get the next range. Returns std::nullopt when exhausted.
-    virtual std::optional<IntervalRange> NextRange() = 0;
+    /// \brief Get the next batch of ranges.
+    /// Returns an empty span when exhausted.
+    virtual ::arrow::util::span<const IntervalRange> NextRanges() = 0;
   };
 
   /// \brief EXPERIMENTAL: Create a new iterator for accessing row ranges in order.

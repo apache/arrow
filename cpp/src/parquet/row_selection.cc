@@ -25,21 +25,28 @@ namespace parquet {
 
 class IteratorImpl : public RowSelection::Iterator {
  public:
-  explicit IteratorImpl(const RowSelection& ranges)
-      : iter_(ranges.ranges_.cbegin()), end_(ranges.ranges_.cend()) {}
+  explicit IteratorImpl(const RowSelection& ranges, size_t batch_size = 1)
+      : ranges_(ranges.ranges_), index_(0), batch_size_(batch_size) {}
 
   ~IteratorImpl() override = default;
 
-  std::optional<RowSelection::IntervalRange> NextRange() override {
-    if (iter_ == end_) {
-      return std::nullopt;
+  ::arrow::util::span<const RowSelection::IntervalRange> NextRanges() override {
+    if (index_ >= ranges_.size()) {
+      return {};
     }
-    return *iter_++;
+    // Return up to batch_size_ ranges
+    size_t remaining = ranges_.size() - index_;
+    size_t count = std::min(batch_size_, remaining);
+    auto result = ::arrow::util::span<const RowSelection::IntervalRange>(
+        ranges_.data() + index_, count);
+    index_ += count;
+    return result;
   }
 
  private:
-  decltype(RowSelection::ranges_.cbegin()) iter_;
-  decltype(RowSelection::ranges_.cend()) end_;
+  const std::vector<RowSelection::IntervalRange>& ranges_;
+  size_t index_;
+  size_t batch_size_;
 };
 
 std::unique_ptr<RowSelection::Iterator> RowSelection::NewIterator() const {

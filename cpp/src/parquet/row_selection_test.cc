@@ -30,16 +30,16 @@ TEST(RowSelection, MakeSingleWithCount) {
   ASSERT_EQ(ranges.row_count(), 100);
   
   auto iter = ranges.NewIterator();
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
   
-  auto interval = range.value();
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 99);
   
   // Should be exhausted
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 TEST(RowSelection, MakeSingleWithStartEnd) {
@@ -47,15 +47,15 @@ TEST(RowSelection, MakeSingleWithStartEnd) {
   ASSERT_EQ(ranges.row_count(), 11);
   
   auto iter = ranges.NewIterator();
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
   
-  auto interval = range.value();
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 10);
   EXPECT_EQ((interval.start + interval.length - 1), 20);
   
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 TEST(RowSelection, MakeIntervals) {
@@ -71,29 +71,29 @@ TEST(RowSelection, MakeIntervals) {
   auto iter = ranges.NewIterator();
   
   // First interval
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 10);
   
   // Second interval
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 20);
   EXPECT_EQ((interval.start + interval.length - 1), 30);
   
   // Third interval
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 40);
   EXPECT_EQ((interval.start + interval.length - 1), 50);
   
   // Exhausted
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 TEST(RowSelection, EmptyRanges) {
@@ -102,8 +102,8 @@ TEST(RowSelection, EmptyRanges) {
   ASSERT_EQ(ranges.row_count(), 0);
   
   auto iter = ranges.NewIterator();
-  auto range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  auto batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 // Test validation
@@ -218,15 +218,15 @@ TEST(RowSelection, IntersectCompleteOverlap) {
   
   auto iter = result.NewIterator();
   
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 20);
   EXPECT_EQ((interval.start + interval.length - 1), 30);
   
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 40);
   EXPECT_EQ((interval.start + interval.length - 1), 50);
 }
@@ -240,15 +240,15 @@ TEST(RowSelection, IntersectPartialOverlap) {
   
   auto iter = result.NewIterator();
   
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 10);
   EXPECT_EQ((interval.start + interval.length - 1), 15);
   
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 20);
   EXPECT_EQ((interval.start + interval.length - 1), 25);
 }
@@ -295,12 +295,12 @@ TEST(RowSelection, UnionNoOverlap) {
   
   // Should have 4 separate ranges
   for (int i = 0; i < 4; ++i) {
-    auto range = iter->NextRange();
-    EXPECT_TRUE(range.has_value());
+    auto batch = iter->NextRanges();
+    EXPECT_TRUE(batch.size() > 0);
   }
   
-  auto range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  auto batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 TEST(RowSelection, UnionWithOverlap) {
@@ -311,9 +311,9 @@ TEST(RowSelection, UnionWithOverlap) {
   EXPECT_EQ(result.row_count(), 26);  // [0, 25] = 26 rows
   
   auto iter = result.NewIterator();
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 25);
 }
@@ -327,14 +327,14 @@ TEST(RowSelection, UnionAdjacent) {
   
   // Should merge adjacent ranges
   auto iter = result.NewIterator();
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 20);
   
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 TEST(RowSelection, UnionWithGap) {
@@ -347,15 +347,15 @@ TEST(RowSelection, UnionWithGap) {
   // Should have 2 ranges
   auto iter = result.NewIterator();
   
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 10);
   
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 20);
   EXPECT_EQ((interval.start + interval.length - 1), 30);
 }
@@ -386,14 +386,14 @@ TEST(RowSelection, UnionIdentical) {
   // Should still have 2 ranges (merged)
   auto iter = result.NewIterator();
   
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
   
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
   
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 TEST(RowSelection, UnionComplex) {
@@ -407,21 +407,21 @@ TEST(RowSelection, UnionComplex) {
   
   auto iter = result.NewIterator();
   
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 15);
   
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 20);
   EXPECT_EQ((interval.start + interval.length - 1), 35);
   
-  range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  interval = range.value();
+  batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  interval = batch[0];
   EXPECT_EQ(interval.start, 45);
   EXPECT_EQ((interval.start + interval.length - 1), 60);
 }
@@ -434,9 +434,9 @@ TEST(RowSelection, UnionManyOverlapping) {
   EXPECT_EQ(result.row_count(), 151);  // [0, 150]
   
   auto iter = result.NewIterator();
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 150);
 }
@@ -449,14 +449,14 @@ TEST(RowSelection, IteratorMultipleIterators) {
   auto iter2 = ranges.NewIterator();
   
   // Both iterators should work independently
-  auto range1 = iter1->NextRange();
-  auto range2 = iter2->NextRange();
+  auto batch1 = iter1->NextRanges();
+  auto batch2 = iter2->NextRanges();
   
-  ASSERT_TRUE(range1.has_value());
-  ASSERT_TRUE(range2.has_value());
+  ASSERT_FALSE(batch1.empty());
+  ASSERT_FALSE(batch2.empty());
   
-  auto interval1 = range1.value();
-  auto interval2 = range2.value();
+  auto interval1 = batch1[0];
+  auto interval2 = batch2[0];
   
   EXPECT_EQ(interval1.start, interval2.start);
   EXPECT_EQ((interval1.start + interval1.length - 1), (interval2.start + interval2.length - 1));
@@ -467,15 +467,15 @@ TEST(RowSelection, IteratorExhaustion) {
   auto iter = ranges.NewIterator();
   
   // First call returns the range
-  auto range = iter->NextRange();
-  EXPECT_TRUE(range.has_value());
+  auto batch = iter->NextRanges();
+  EXPECT_TRUE(batch.size() > 0);
   
   // Subsequent calls should return End
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
   
-  range = iter->NextRange();
-  EXPECT_TRUE(!range.has_value());
+  batch = iter->NextRanges();
+  EXPECT_TRUE(batch.empty());
 }
 
 // Test edge cases
@@ -490,9 +490,9 @@ TEST(RowSelection, ZeroStartRange) {
   EXPECT_EQ(ranges.row_count(), 1);
   
   auto iter = ranges.NewIterator();
-  auto range = iter->NextRange();
-  ASSERT_TRUE(range.has_value());
-  auto interval = range.value();
+  auto batch = iter->NextRanges();
+  ASSERT_FALSE(batch.empty());
+  auto interval = batch[0];
   EXPECT_EQ(interval.start, 0);
   EXPECT_EQ((interval.start + interval.length - 1), 0);
 }
