@@ -60,23 +60,29 @@ Spark to Pandas (through Apache Arrow)
 The following cases assume the Spark configuration
 ``spark.sql.execution.arrow.enabled`` is set to ``"true"``.
 
-::
+.. code-block:: python
 
+    >>> import pandas as pd
+    >>> from datetime import datetime, timedelta, timezone
     >>> pdf = pd.DataFrame({'naive': [datetime(2019, 1, 1, 0)],
-    ...                     'aware': [Timestamp(year=2019, month=1, day=1,
-    ...                               nanosecond=500, tz=timezone(timedelta(hours=-8)))]})
+    ...                     'aware': [pd.Timestamp(year=2019, month=1, day=1,
+    ...                               nanosecond=500,
+    ...                               tz=timezone(timedelta(hours=-8)))]})
     >>> pdf
            naive                               aware
-           0 2019-01-01 2019-01-01 00:00:00.000000500-08:00
+    0 2019-01-01 2019-01-01 00:00:00.000000500-08:00
 
-    >>> spark.conf.set("spark.sql.session.timeZone", "UTC")
-    >>> utc_df = sqlContext.createDataFrame(pdf)
-    >>> utf_df.show()
+    >>> from pyspark.sql import SparkSession  # doctest: +SKIP
+    >>> spark = SparkSession.builder.appName("MyApp").getOrCreate()  # doctest: +SKIP
+    >>> spark.conf.set("spark.sql.session.timeZone", "UTC")  # doctest: +SKIP
+    >>> utc_df = spark.createDataFrame(pdf)  # doctest: +SKIP
+    >>> utc_df.show()  # doctest: +SKIP
     +-------------------+-------------------+
     |              naive|              aware|
     +-------------------+-------------------+
-    |2019-01-01 00:00:00|2019-01-01 08:00:00|
+    |2018-12-31 23:00:00|2019-01-01 08:00:00|
     +-------------------+-------------------+
+    <BLANKLINE>
 
 Note that conversion of the aware timestamp is shifted to reflect the time
 assuming UTC (it represents the same instant in time).  For naive
@@ -89,30 +95,32 @@ Now if the session time zone is set to US Pacific Time (PST) we don't
 see any shift in the display of the aware time zone (it
 still represents the same instant in time):
 
-::
+.. code-block:: python
 
-    >>> spark.conf.set("spark.sql.session.timeZone", "US/Pacific")
-    >>> pst_df = sqlContext.createDataFrame(pdf)
-    >>> pst_df.show()
+    >>> spark.conf.set("spark.sql.session.timeZone", "US/Pacific")  # doctest: +SKIP
+    >>> pst_df = spark.createDataFrame(pdf)  # doctest: +SKIP
+    >>> pst_df.show()  # doctest: +SKIP
     +-------------------+-------------------+
     |              naive|              aware|
     +-------------------+-------------------+
-    |2019-01-01 00:00:00|2019-01-01 00:00:00|
+    |2018-12-31 15:00:00|2019-01-01 00:00:00|
     +-------------------+-------------------+
+    <BLANKLINE>
 
 Looking again at utc_df.show() we see one of the impacts of the session time
 zone.  The naive timestamp was initially converted assuming UTC, the instant it
 reflects is actually earlier than the naive time zone from the PST converted
 data frame:
 
-::
+.. code-block:: python
 
-    >>> utc_df.show()
+    >>> utc_df.show()  # doctest: +SKIP
     +-------------------+-------------------+
     |              naive|              aware|
     +-------------------+-------------------+
-    |2018-12-31 16:00:00|2019-01-01 00:00:00|
+    |2018-12-31 15:00:00|2019-01-01 00:00:00|
     +-------------------+-------------------+
+    <BLANKLINE>
 
 Spark to Pandas
 ~~~~~~~~~~~~~~~
@@ -120,27 +128,29 @@ Spark to Pandas
 We can observe what happens when converting back to Arrow/Pandas.  Assuming the
 session time zone is still PST:
 
-::
+.. code-block:: python
 
-   >>> pst_df.show()
+   >>> pst_df.show()  # doctest: +SKIP
    +-------------------+-------------------+
    |              naive|              aware|
    +-------------------+-------------------+
-   |2019-01-01 00:00:00|2019-01-01 00:00:00|
+   |2018-12-31 15:00:00|2019-01-01 00:00:00|
    +-------------------+-------------------+
+   <BLANKLINE>
 
-
-    >>> pst_df.toPandas()
-    naive      aware
-    0 2019-01-01 2019-01-01
-    >>> pst_df.toPandas().info()
+    >>> pst_df.toPandas()  # doctest: +SKIP
+                    naive      aware
+    0 2018-12-31 15:00:00 2019-01-01
+    >>> pst_df.toPandas().info()  # doctest: +SKIP
     <class 'pandas.core.frame.DataFrame'>
     RangeIndex: 1 entries, 0 to 0
     Data columns (total 2 columns):
-    naive    1 non-null datetime64[ns]
-    aware    1 non-null datetime64[ns]
+     #   Column  Non-Null Count  Dtype         
+    ---  ------  --------------  -----         
+     0   naive   1 non-null      datetime64[ns]
+     1   aware   1 non-null      datetime64[ns]
     dtypes: datetime64[ns](2)
-    memory usage: 96.0 bytes
+    memory usage: 148.0 bytes
 
 Notice that, in addition to being a "time zone naive" timestamp, the 'aware'
 value will now differ when converting to an epoch offset.  Spark does the conversion
@@ -149,13 +159,13 @@ session time zones isn't set) and then localizes to remove the time zone
 information.  This results in the timestamp being 8 hours before the original
 time:
 
-::
+.. code-block:: python
 
-  >>> pst_df.toPandas()['aware'][0]
+  >>> pst_df.toPandas()['aware'][0]  # doctest: +SKIP
   Timestamp('2019-01-01 00:00:00')
-  >>> pdf['aware'][0]
+  >>> pdf['aware'][0]  # doctest: +SKIP
   Timestamp('2019-01-01 00:00:00.000000500-0800', tz='UTC-08:00')
-  >>> (pst_df.toPandas()['aware'][0].timestamp()-pdf['aware'][0].timestamp())/3600
+  >>> (pst_df.toPandas()['aware'][0].timestamp()-pdf['aware'][0].timestamp())/3600  # doctest: +SKIP
   -8.0
 
 The same type of conversion happens with the data frame converted while
@@ -163,36 +173,38 @@ the session time zone was UTC.  In this case both naive and aware
 represent different instants in time (the naive instant is due to
 the change in session time zone between creating data frames):
 
-::
+.. code-block:: python
 
-  >>> utc_df.show()
+  >>> utc_df.show()  # doctest: +SKIP
   +-------------------+-------------------+
   |              naive|              aware|
   +-------------------+-------------------+
-  |2018-12-31 16:00:00|2019-01-01 00:00:00|
+  |2018-12-31 15:00:00|2019-01-01 00:00:00|
   +-------------------+-------------------+
+  <BLANKLINE>
 
-  >>> utc_df.toPandas()
-  naive      aware
-  0 2018-12-31 16:00:00 2019-01-01
+  >>> utc_df.toPandas()  # doctest: +SKIP
+                  naive               aware
+  0 2018-12-31 23:00:00 2019-01-01 08:00:00
 
 Note that the surprising shift for aware doesn't happen
 when the session time zone is UTC (but the timestamps
 still become "time zone naive"):
 
-::
+.. code-block:: python
 
-  >>> spark.conf.set("spark.sql.session.timeZone", "UTC")
-  >>> pst_df.show()
+  >>> spark.conf.set("spark.sql.session.timeZone", "UTC")  # doctest: +SKIP
+  >>> pst_df.show()  # doctest: +SKIP
   +-------------------+-------------------+
   |              naive|              aware|
   +-------------------+-------------------+
-  |2019-01-01 08:00:00|2019-01-01 08:00:00|
+  |2018-12-31 23:00:00|2019-01-01 08:00:00|
   +-------------------+-------------------+
+  <BLANKLINE>
 
-  >>> pst_df.toPandas()['aware'][0]
+  >>> pst_df.toPandas()['aware'][0]  # doctest: +SKIP
   Timestamp('2019-01-01 08:00:00')
-  >>> pdf['aware'][0]
+  >>> pdf['aware'][0]  # doctest: +SKIP
   Timestamp('2019-01-01 00:00:00.000000500-0800', tz='UTC-08:00')
-  >>> (pst_df.toPandas()['aware'][0].timestamp()-pdf['aware'][0].timestamp())/3600
+  >>> (pst_df.toPandas()['aware'][0].timestamp()-pdf['aware'][0].timestamp())/3600  # doctest: +SKIP
   0.0
