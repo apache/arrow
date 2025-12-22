@@ -12196,7 +12196,7 @@ GArrowMakeStructOptions *
 garrow_make_struct_options_new_raw(const arrow::compute::MakeStructOptions *arrow_options)
 {
   auto options =
-    GARROW_MAKE_STRUCT_OPTIONS(g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, NULL));
+    GARROW_MAKE_STRUCT_OPTIONS(g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, nullptr));
   auto arrow_new_options = static_cast<arrow::compute::MakeStructOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
   *arrow_new_options = *arrow_options;
