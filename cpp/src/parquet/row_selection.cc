@@ -76,12 +76,20 @@ int64_t RowSelection::row_count() const {
 
 RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection& rhs) {
   RowSelection result;
+  
+  // Use iterators to get batches
+  auto lhs_iter = lhs.NewIterator();
+  auto rhs_iter = rhs.NewIterator();
+  
+  auto lhs_batch = lhs_iter->NextRanges();
+  auto rhs_batch = rhs_iter->NextRanges();
   size_t lhs_idx = 0;
   size_t rhs_idx = 0;
 
-  while (lhs_idx < lhs.ranges_.size() && rhs_idx < rhs.ranges_.size()) {
-    const auto& left = lhs.ranges_[lhs_idx];
-    const auto& right = rhs.ranges_[rhs_idx];
+  while (!lhs_batch.empty() && !rhs_batch.empty()) {
+    // Get current ranges from batches
+    const auto& left = lhs_batch[lhs_idx];
+    const auto& right = rhs_batch[rhs_idx];
 
     int64_t left_end = left.start + left.length - 1;
     int64_t right_end = right.start + right.length - 1;
@@ -95,11 +103,19 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
       result.ranges_.push_back(IntervalRange{start, end - start + 1});
     }
 
-    // Advance the iterator with smaller end
+    // Advance the index with smaller end
     if (left_end < right_end) {
       lhs_idx++;
+      if (lhs_idx >= lhs_batch.size()) {
+        lhs_batch = lhs_iter->NextRanges();
+        lhs_idx = 0;
+      }
     } else {
       rhs_idx++;
+      if (rhs_idx >= rhs_batch.size()) {
+        rhs_batch = rhs_iter->NextRanges();
+        rhs_idx = 0;
+      }
     }
   }
 
@@ -116,37 +132,67 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
     return lhs;
   }
 
+  // Use iterators to get batches
+  auto lhs_iter = lhs.NewIterator();
+  auto rhs_iter = rhs.NewIterator();
+  
+  auto lhs_batch = lhs_iter->NextRanges();
+  auto rhs_batch = rhs_iter->NextRanges();
   size_t lhs_idx = 0;
   size_t rhs_idx = 0;
   
   // Start with whichever range has the smaller start
   IntervalRange current;
-  if (lhs.ranges_[0].start <= rhs.ranges_[0].start) {
-    current = lhs.ranges_[lhs_idx++];
+  if (lhs_batch[0].start <= rhs_batch[0].start) {
+    current = lhs_batch[lhs_idx++];
+    if (lhs_idx >= lhs_batch.size()) {
+      lhs_batch = lhs_iter->NextRanges();
+      lhs_idx = 0;
+    }
   } else {
-    current = rhs.ranges_[rhs_idx++];
+    current = rhs_batch[rhs_idx++];
+    if (rhs_idx >= rhs_batch.size()) {
+      rhs_batch = rhs_iter->NextRanges();
+      rhs_idx = 0;
+    }
   }
 
-  while (lhs_idx < lhs.ranges_.size() || rhs_idx < rhs.ranges_.size()) {
+  while (!lhs_batch.empty() || !rhs_batch.empty()) {
     IntervalRange next;
 
-    if (rhs_idx >= rhs.ranges_.size()) {
+    if (rhs_batch.empty()) {
       // Only lhs ranges remain
-      next = lhs.ranges_[lhs_idx++];
-    } else if (lhs_idx >= lhs.ranges_.size()) {
+      next = lhs_batch[lhs_idx++];
+      if (lhs_idx >= lhs_batch.size()) {
+        lhs_batch = lhs_iter->NextRanges();
+        lhs_idx = 0;
+      }
+    } else if (lhs_batch.empty()) {
       // Only rhs ranges remain
-      next = rhs.ranges_[rhs_idx++];
+      next = rhs_batch[rhs_idx++];
+      if (rhs_idx >= rhs_batch.size()) {
+        rhs_batch = rhs_iter->NextRanges();
+        rhs_idx = 0;
+      }
     } else {
       // Both have ranges - pick the one with smaller start
-      const auto& left = lhs.ranges_[lhs_idx];
-      const auto& right = rhs.ranges_[rhs_idx];
+      const auto& left = lhs_batch[lhs_idx];
+      const auto& right = rhs_batch[rhs_idx];
 
       if (left.start <= right.start) {
         next = left;
         lhs_idx++;
+        if (lhs_idx >= lhs_batch.size()) {
+          lhs_batch = lhs_iter->NextRanges();
+          lhs_idx = 0;
+        }
       } else {
         next = right;
         rhs_idx++;
+        if (rhs_idx >= rhs_batch.size()) {
+          rhs_batch = rhs_iter->NextRanges();
+          rhs_idx = 0;
+        }
       }
     }
 
