@@ -30,18 +30,11 @@ class IteratorImpl : public RowSelection::Iterator {
 
   ~IteratorImpl() override = default;
 
-  std::variant<RowSelection::IntervalRange, RowSelection::BitmapRange, RowSelection::End>
-  NextRange() override {
+  std::optional<RowSelection::IntervalRange> NextRange() override {
     if (iter_ == end_) {
-      return RowSelection::End();
+      return std::nullopt;
     }
-    if (std::holds_alternative<RowSelection::IntervalRange>(*iter_)) {
-      return std::get<RowSelection::IntervalRange>(*iter_);
-    }
-    if (std::holds_alternative<RowSelection::BitmapRange>(*iter_)) {
-      return std::get<RowSelection::BitmapRange>(*iter_);
-    }
-    arrow::Unreachable("Invalid row ranges type");
+    return *iter_++;
   }
 
  private:
@@ -55,63 +48,33 @@ std::unique_ptr<RowSelection::Iterator> RowSelection::NewIterator() const {
 
 void RowSelection::Validate() const {
   int64_t last_end = -1;
-  for (const auto& range : ranges_) {
-    if (std::holds_alternative<RowSelection::IntervalRange>(range)) {
-      const auto& interval = std::get<RowSelection::IntervalRange>(range);
-      if (interval.start <= last_end) {
-        throw ParquetException("Row ranges are not in ascending order");
-      }
-      if (interval.end < interval.start) {
-        throw ParquetException("Invalid interval range");
-      }
-      last_end = interval.end;
-      continue;
+  for (const auto& interval : ranges_) {
+    if (interval.start <= last_end) {
+      throw ParquetException("Row ranges are not in ascending order");
     }
-    if (std::holds_alternative<RowSelection::BitmapRange>(range)) {
-      const auto& bitmap = std::get<RowSelection::BitmapRange>(range);
-      if (bitmap.offset <= last_end) {
-        throw ParquetException("Row ranges are not in ascending order");
-      }
-      last_end = bitmap.offset + sizeof(bitmap.bitmap) - 1;
-      continue;
+    if (interval.end < interval.start) {
+      throw ParquetException("Invalid interval range");
     }
-    arrow::Unreachable("Invalid row ranges type");
+    last_end = interval.end;
   }
 }
 
 int64_t RowSelection::row_count() const {
   int64_t count = 0;
-  for (const auto& range : ranges_) {
-    if (std::holds_alternative<RowSelection::IntervalRange>(range)) {
-      const auto& interval = std::get<RowSelection::IntervalRange>(range);
-      count += interval.end - interval.start + 1;
-    }
-    if (std::holds_alternative<RowSelection::BitmapRange>(range)) {
-      const auto& bitmap = std::get<RowSelection::BitmapRange>(range);
-      count += arrow::internal::CountSetBits(
-          reinterpret_cast<const uint8_t*>(&bitmap.bitmap), 0, sizeof(bitmap.bitmap));
-    }
-    arrow::Unreachable("Invalid row ranges type");
+  for (const auto& interval : ranges_) {
+    count += interval.end - interval.start + 1;
   }
   return count;
 }
 
 RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection& rhs) {
   RowSelection result;
-  auto lhs_iter = lhs.NewIterator();
-  auto rhs_iter = rhs.NewIterator();
-  auto lhs_range = lhs_iter->NextRange();
-  auto rhs_range = rhs_iter->NextRange();
+  size_t lhs_idx = 0;
+  size_t rhs_idx = 0;
 
-  while (!std::holds_alternative<End>(lhs_range) &&
-         !std::holds_alternative<End>(rhs_range)) {
-    if (!std::holds_alternative<IntervalRange>(lhs_range) ||
-        !std::holds_alternative<IntervalRange>(rhs_range)) {
-      throw ParquetException("Bitmap range is not yet supported");
-    }
-
-    auto& left = std::get<IntervalRange>(lhs_range);
-    auto& right = std::get<IntervalRange>(rhs_range);
+  while (lhs_idx < lhs.ranges_.size() && rhs_idx < rhs.ranges_.size()) {
+    const auto& left = lhs.ranges_[lhs_idx];
+    const auto& right = rhs.ranges_[rhs_idx];
 
     // Find overlapping region
     int64_t start = std::max(left.start, right.start);
@@ -124,9 +87,9 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
 
     // Advance the iterator with smaller end
     if (left.end < right.end) {
-      lhs_range = lhs_iter->NextRange();
+      lhs_idx++;
     } else {
-      rhs_range = rhs_iter->NextRange();
+      rhs_idx++;
     }
   }
 
@@ -135,57 +98,45 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
 
 RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rhs) {
   RowSelection result;
-  auto lhs_iter = lhs.NewIterator();
-  auto rhs_iter = rhs.NewIterator();
-  auto lhs_range = lhs_iter->NextRange();
-  auto rhs_range = rhs_iter->NextRange();
-
-  if (std::holds_alternative<End>(lhs_range)) {
+  
+  if (lhs.ranges_.empty()) {
     return rhs;
   }
-  if (std::holds_alternative<End>(rhs_range)) {
+  if (rhs.ranges_.empty()) {
     return lhs;
   }
 
-  if (std::holds_alternative<BitmapRange>(lhs_range)) {
-    throw ParquetException("Bitmap range is not yet supported");
+  size_t lhs_idx = 0;
+  size_t rhs_idx = 0;
+  
+  // Start with whichever range has the smaller start
+  IntervalRange current;
+  if (lhs.ranges_[0].start <= rhs.ranges_[0].start) {
+    current = lhs.ranges_[lhs_idx++];
+  } else {
+    current = rhs.ranges_[rhs_idx++];
   }
-  IntervalRange current = std::get<IntervalRange>(lhs_range);
-  lhs_range = lhs_iter->NextRange();
 
-  while (!std::holds_alternative<End>(lhs_range) ||
-         !std::holds_alternative<End>(rhs_range)) {
+  while (lhs_idx < lhs.ranges_.size() || rhs_idx < rhs.ranges_.size()) {
     IntervalRange next;
 
-    if (std::holds_alternative<End>(rhs_range)) {
+    if (rhs_idx >= rhs.ranges_.size()) {
       // Only lhs ranges remain
-      if (std::holds_alternative<BitmapRange>(lhs_range)) {
-        throw ParquetException("Bitmap range is not yet supported");
-      }
-      next = std::get<IntervalRange>(lhs_range);
-      lhs_range = lhs_iter->NextRange();
-    } else if (std::holds_alternative<End>(lhs_range)) {
+      next = lhs.ranges_[lhs_idx++];
+    } else if (lhs_idx >= lhs.ranges_.size()) {
       // Only rhs ranges remain
-      if (std::holds_alternative<BitmapRange>(rhs_range)) {
-        throw ParquetException("Bitmap range is not yet supported");
-      }
-      next = std::get<IntervalRange>(rhs_range);
-      rhs_range = rhs_iter->NextRange();
+      next = rhs.ranges_[rhs_idx++];
     } else {
-      // Both iterators have ranges - pick the one with smaller start
-      if (std::holds_alternative<BitmapRange>(lhs_range) ||
-          std::holds_alternative<BitmapRange>(rhs_range)) {
-        throw ParquetException("Bitmap range is not yet supported");
-      }
-      const auto& left = std::get<IntervalRange>(lhs_range);
-      const auto& right = std::get<IntervalRange>(rhs_range);
+      // Both have ranges - pick the one with smaller start
+      const auto& left = lhs.ranges_[lhs_idx];
+      const auto& right = rhs.ranges_[rhs_idx];
 
       if (left.start <= right.start) {
         next = left;
-        lhs_range = lhs_iter->NextRange();
+        lhs_idx++;
       } else {
         next = right;
-        rhs_range = rhs_iter->NextRange();
+        rhs_idx++;
       }
     }
 

@@ -18,7 +18,7 @@
 #pragma once
 
 #include <cstdint>
-#include <variant>
+#include <optional>
 #include <vector>
 
 #include "parquet/platform.h"
@@ -36,22 +36,12 @@ class PARQUET_EXPORT RowSelection {
     int64_t end;
   };
 
-  /// \brief EXPERIMENTAL: A range of contiguous rows represented by a bitmap.
-  struct BitmapRange {
-    /// Start row of the range (inclusive).
-    int64_t offset;
-    /// Zero appended if there are less than 64 elements.
-    uint64_t bitmap;
-  };
-
-  /// \brief EXPERIMENTAL: An end marker for the row range iterator.
-  struct End {};
-
   /// \brief EXPERIMENTAL: An iterator for accessing row ranges in order.
   class Iterator {
    public:
     virtual ~Iterator() = default;
-    virtual std::variant<IntervalRange, BitmapRange, End> NextRange() = 0;
+    /// \brief Get the next range. Returns std::nullopt when exhausted.
+    virtual std::optional<IntervalRange> NextRange() = 0;
   };
 
   /// \brief EXPERIMENTAL: Create a new iterator for accessing row ranges in order.
@@ -82,7 +72,7 @@ class PARQUET_EXPORT RowSelection {
 
  private:
   friend class IteratorImpl;
-  std::vector<std::variant<IntervalRange, BitmapRange>> ranges_;
+  std::vector<IntervalRange> ranges_;
 };
 
 }  // namespace parquet
