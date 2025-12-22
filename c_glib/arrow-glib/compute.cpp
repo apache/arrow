@@ -28,13 +28,13 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/executor.hpp>
 #include <arrow-glib/expression.hpp>
+#include <arrow-glib/internal-hash-table.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/scalar.hpp>
 #include <arrow-glib/schema.hpp>
 #include <arrow-glib/table.hpp>
 #include <arrow-glib/type.hpp>
-#include <arrow-glib/internal-hash-table.hpp>
 
 #include <arrow/acero/exec_plan.h>
 #include <arrow/acero/options.h>
