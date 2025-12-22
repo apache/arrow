@@ -25,10 +25,10 @@
 
           <RegistryKey Root="HKLM"
                       Key="Software\ODBC\ODBCINST.INI\Apache Arrow Flight SQL ODBC Driver">
-                <!-- CM_FP_flight_sql_odbc_lib.bin.arrow_flight_sql_odbc.dll is a generated variable value from build\_CPack_Packages\win64\WIX\files.wxs -->
+                <!-- CM_FP_arrow_flight_sql_odbc.bin.arrow_flight_sql_odbc.dll is a generated variable value from build\_CPack_Packages\win64\WIX\files.wxs -->
                 <RegistryValue Type="string" Name="DriverODBCVer" Value="03.00"/>
-                <RegistryValue Type="string" Name="Driver" Value="[#CM_FP_flight_sql_odbc_lib.bin.arrow_flight_sql_odbc.dll]"/>
-                <RegistryValue Type="string" Name="Setup" Value="[#CM_FP_flight_sql_odbc_lib.bin.arrow_flight_sql_odbc.dll]"/>
+                <RegistryValue Type="string" Name="Driver" Value="[#CM_FP_arrow_flight_sql_odbc.bin.arrow_flight_sql_odbc.dll]"/>
+                <RegistryValue Type="string" Name="Setup" Value="[#CM_FP_arrow_flight_sql_odbc.bin.arrow_flight_sql_odbc.dll]"/>
                 <RegistryValue Type="integer" Name="UsageCount" Value="1"/>
           </RegistryKey>
       </Component>

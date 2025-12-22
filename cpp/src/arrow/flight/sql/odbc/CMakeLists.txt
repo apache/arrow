@@ -109,8 +109,8 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Apache Arrow Flight SQL ODBC Driver")
   set(CPACK_PACKAGE_CONTACT "#GH-47787 TODO arrow maintainers")
 
-  # GH-47876 TODO: set up `flight_sql_odbc_lib` component for macOS Installer
-  # GH-47877 TODO: set up `flight_sql_odbc_lib` component for Linux Installer
+  # GH-47876 TODO: set up `arrow_flight_sql_odbc` component for macOS Installer
+  # GH-47877 TODO: set up `arrow_flight_sql_odbc` component for Linux Installer
   if(WIN32)
     # Install ODBC and its Arrow dependencies
     install(TARGETS arrow_shared
@@ -124,7 +124,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
                     "ext-ms-.*"
                     POST_EXCLUDE_REGEXES
                     ".*system32/.*\\.dll"
-            RUNTIME DESTINATION bin COMPONENT flight_sql_odbc_lib)
+            RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
 
     set(CPACK_WIX_EXTRA_SOURCES
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-flight-sql-odbc.wxs")
@@ -137,7 +137,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
   get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
   set(CPACK_COMPONENTS_ALL Unspecified)
-  list(APPEND CPACK_COMPONENTS_ALL "flight_sql_odbc_lib")
+  list(APPEND CPACK_COMPONENTS_ALL "arrow_flight_sql_odbc")
 
   if(WIN32)
     # WiX msi installer on Windows
@@ -154,7 +154,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
   # Load CPack after all CPACK* variables are set
   include(CPack)
-  cpack_add_component(flight_sql_odbc_lib
+  cpack_add_component(arrow_flight_sql_odbc
                       DISPLAY_NAME "ODBC library"
                       DESCRIPTION "ODBC library bin, required to install"
                       REQUIRED)
