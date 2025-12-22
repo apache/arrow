@@ -277,10 +277,12 @@ class EmailReport(JinjaReport):
         'workflow_report': 'email_workflow_report.txt.j2',
     }
     fields = [
-        'report',
-        'sender_name',
-        'sender_email',
+        'date',
+        'message_id',
         'recipient_email',
+        'report',
+        'sender_email',
+        'sender_name',
     ]
 
 

@@ -16,6 +16,7 @@
 # under the License.
 
 from datetime import date
+import email.utils
 from pathlib import Path
 import time
 import sys
@@ -382,11 +383,14 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         queue.fetch()
 
     job = queue.get(job_name)
+    report = Report(job)
     email_report = EmailReport(
-        report=Report(job),
-        sender_name=sender_name,
+        date=email.utils.formatdate(),
+        message_id=email.utils.make_msgid(),
+        recipient_email=recipient_email,
+        report=report,
         sender_email=sender_email,
-        recipient_email=recipient_email
+        sender_name=sender_name,
     )
 
     if poll:
@@ -645,15 +649,18 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             self.token_expiration_date = token_expiration_date
             self.days_left = days_left
 
+    report = TokenExpirationReport(
+        token_expiration_date or "ALREADY_EXPIRED", days_left)
     email_report = EmailReport(
-        report=TokenExpirationReport(
-            token_expiration_date or "ALREADY_EXPIRED", days_left),
-        sender_name=sender_name,
+        date=email.utils.formatdate(),
+        message_id=email.utils.make_msgid(),
+        recipient_email=recipient_email,
+        report=report,
         sender_email=sender_email,
-        recipient_email=recipient_email
+        sender_name=sender_name,
     )
 
-    message = email_report.render("token_expiration").strip()
+    message = email_report.render("token_expiration")
     if send:
         ReportUtils.send_email(
             smtp_user=smtp_user,
