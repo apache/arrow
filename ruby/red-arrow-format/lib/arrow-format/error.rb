@@ -19,6 +19,9 @@ module ArrowFormat
   end
 
   class ReadError < Error
+  end
+
+  class FileReadError < ReadError
     attr_reader :buffer
     def initialize(buffer, message)
       @buffer = buffer

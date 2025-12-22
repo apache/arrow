@@ -15,6 +15,36 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "arrow-format/file-reader"
-require_relative "arrow-format/streaming-reader"
-require_relative "arrow-format/version"
+require_relative "streaming-pull-reader"
+
+module ArrowFormat
+  class StreamingReader
+    include Enumerable
+
+    attr_reader :schema
+    def initialize(input)
+      @input = input
+      @schema = nil
+    end
+
+    def each
+      return to_enum(__method__) unless block_given?
+
+      reader = StreamingPullReader.new do |record_batch|
+        @schema ||= reader.schema
+        yield(record_batch)
+      end
+
+      buffer = "".b
+      loop do
+        next_size = reader.next_required_size
+        break if next_size.zero?
+
+        next_chunk = @input.read(next_size, buffer)
+        break if next_chunk.nil?
+
+        reader.consume(IO::Buffer.for(next_chunk))
+      end
+    end
+  end
+end
