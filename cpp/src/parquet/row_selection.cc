@@ -167,12 +167,6 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
   return result;
 }
 
-RowSelection RowSelection::MakeSingle(int64_t row_count) {
-  RowSelection rowSelection;
-  rowSelection.ranges_.push_back(IntervalRange{0, row_count});
-  return rowSelection;
-}
-
 RowSelection RowSelection::MakeSingle(int64_t start, int64_t end) {
   RowSelection rowSelection;
   rowSelection.ranges_.push_back(IntervalRange{start, end - start + 1});

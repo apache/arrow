@@ -26,7 +26,7 @@ namespace parquet {
 
 // Test factory methods
 TEST(RowSelection, MakeSingleWithCount) {
-  auto ranges = RowSelection::MakeSingle(100);
+  auto ranges = RowSelection::MakeSingle(0, 99);
   ASSERT_EQ(ranges.row_count(), 100);
   
   auto iter = ranges.NewIterator();
@@ -119,7 +119,7 @@ TEST(RowSelection, ValidateValidRanges) {
 }
 
 TEST(RowSelection, ValidateSingleRange) {
-  auto ranges = RowSelection::MakeSingle(100);
+  auto ranges = RowSelection::MakeSingle(0, 99);
   EXPECT_NO_THROW(ranges.Validate());
 }
 
@@ -174,7 +174,7 @@ TEST(RowSelection, ValidateInvalidInterval) {
 
 // Test row_count
 TEST(RowSelection, RowCountSingle) {
-  auto ranges = RowSelection::MakeSingle(50);
+  auto ranges = RowSelection::MakeSingle(0, 49);
   EXPECT_EQ(ranges.row_count(), 50);
 }
 
@@ -463,7 +463,7 @@ TEST(RowSelection, IteratorMultipleIterators) {
 }
 
 TEST(RowSelection, IteratorExhaustion) {
-  auto ranges = RowSelection::MakeSingle(10);
+  auto ranges = RowSelection::MakeSingle(0, 9);
   auto iter = ranges.NewIterator();
   
   // First call returns the range

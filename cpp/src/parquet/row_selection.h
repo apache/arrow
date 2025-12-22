@@ -62,9 +62,6 @@ class PARQUET_EXPORT RowSelection {
   /// \brief EXPERIMENTAL: Compute the union of two row ranges.
   static RowSelection Union(const RowSelection& lhs, const RowSelection& rhs);
 
-  /// \brief EXPERIMENTAL: Make a single row range of [0, row_count - 1].
-  static RowSelection MakeSingle(int64_t row_count);
-
   /// \brief EXPERIMENTAL: Make a single row range of [start, end].
   static RowSelection MakeSingle(int64_t start, int64_t end);
 
