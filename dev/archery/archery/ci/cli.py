@@ -16,6 +16,7 @@
 # under the License.
 
 import click
+import email.utils
 
 from .core import Workflow
 from ..crossbow.reports import ChatReport, EmailReport, ReportUtils
@@ -105,12 +106,15 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
     """
     output = obj['output']
 
+    workflow = Workflow(workflow_id, repository,
+                        ignore_job=ignore, gh_token=obj['github_token'])
     email_report = EmailReport(
-        report=Workflow(workflow_id, repository,
-                        ignore_job=ignore, gh_token=obj['github_token']),
-        sender_name=sender_name,
+        date=email.utils.formatdate(workflow.datetime),
+        message_id=email.utils.make_msgid(),
+        recipient_email=recipient_email,
+        report=workflow,
         sender_email=sender_email,
-        recipient_email=recipient_email
+        sender_name=sender_name,
     )
 
     if send:
