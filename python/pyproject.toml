@@ -101,34 +101,15 @@ fallback_version = '23.0.0a0'
 [tool.mypy]
 files = ["pyarrow-stubs"]
 mypy_path = "$MYPY_CONFIG_FILE_DIR/pyarrow-stubs"
-exclude = [
-    "^pyarrow/",
-    "^benchmarks/",
-    "^examples/",
-    "^scripts/",
-]
 
 # TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
 pythonVersion = "3.10"
 include = ["pyarrow-stubs"]
-exclude = [
-    "pyarrow",
-    "benchmarks",
-    "examples",
-    "scripts",
-    "build",
-]
 stubPath = "pyarrow-stubs"
 typeCheckingMode = "basic"
 
 # TODO: Enable type checking once stubs are merged
 [tool.ty.src]
 include = ["pyarrow-stubs"]
-exclude = [
-    "pyarrow",
-    "benchmarks",
-    "examples",
-    "scripts",
-]
