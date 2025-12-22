@@ -241,8 +241,6 @@ jobs:
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
       - name: Test annotations
         shell: bash
-        env:
-          PYARROW_TEST_ANNOTATIONS: "ON"
         run: ci/scripts/python_test_type_annotations.sh $(pwd)/python
 
   windows:

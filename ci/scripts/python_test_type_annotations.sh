@@ -20,21 +20,18 @@
 set -ex
 pyarrow_dir=${1}
 
-if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
-  # Install library stubs
-  pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil
+# Install library stubs
+pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil
 
-  # Install type checkers
-  pip install mypy pyright ty
+# Install type checkers
+pip install mypy pyright ty
 
-  # Install other dependencies for type checking
-  pip install fsspec
+# Install other dependencies for type checking
+pip install fsspec
 
-  # Run type checkers
-  pushd ${pyarrow_dir}
-  mypy
-  pyright
-  ty check;
-else
-  echo "Skipping type annotation tests";
+# Run type checkers
+pushd ${pyarrow_dir}
+mypy
+pyright
+ty check;
 fi
