@@ -52,17 +52,17 @@ void RowSelection::Validate() const {
     if (interval.start <= last_end) {
       throw ParquetException("Row ranges are not in ascending order");
     }
-    if (interval.end < interval.start) {
-      throw ParquetException("Invalid interval range");
+    if (interval.length <= 0) {
+      throw ParquetException("Invalid interval range: length must be positive");
     }
-    last_end = interval.end;
+    last_end = interval.start + interval.length - 1;
   }
 }
 
 int64_t RowSelection::row_count() const {
   int64_t count = 0;
   for (const auto& interval : ranges_) {
-    count += interval.end - interval.start + 1;
+    count += interval.length;
   }
   return count;
 }
@@ -76,17 +76,20 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
     const auto& left = lhs.ranges_[lhs_idx];
     const auto& right = rhs.ranges_[rhs_idx];
 
+    int64_t left_end = left.start + left.length - 1;
+    int64_t right_end = right.start + right.length - 1;
+
     // Find overlapping region
     int64_t start = std::max(left.start, right.start);
-    int64_t end = std::min(left.end, right.end);
+    int64_t end = std::min(left_end, right_end);
 
     // If there is an overlap, add it to results
     if (start <= end) {
-      result.ranges_.push_back(IntervalRange{start, end});
+      result.ranges_.push_back(IntervalRange{start, end - start + 1});
     }
 
     // Advance the iterator with smaller end
-    if (left.end < right.end) {
+    if (left_end < right_end) {
       lhs_idx++;
     } else {
       rhs_idx++;
@@ -140,9 +143,12 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
       }
     }
 
-    if (current.end + 1 >= next.start) {
+    int64_t current_end = current.start + current.length - 1;
+    if (current_end + 1 >= next.start) {
       // Concatenate overlapping or adjacent ranges
-      current.end = std::max(current.end, next.end);
+      int64_t next_end = next.start + next.length - 1;
+      int64_t new_end = std::max(current_end, next_end);
+      current.length = new_end - current.start + 1;
     } else {
       // Gap between current and next range
       result.ranges_.push_back(current);
@@ -156,13 +162,13 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
 
 RowSelection RowSelection::MakeSingle(int64_t row_count) {
   RowSelection rowSelection;
-  rowSelection.ranges_.push_back(IntervalRange{0, row_count - 1});
+  rowSelection.ranges_.push_back(IntervalRange{0, row_count});
   return rowSelection;
 }
 
 RowSelection RowSelection::MakeSingle(int64_t start, int64_t end) {
   RowSelection rowSelection;
-  rowSelection.ranges_.push_back(IntervalRange{start, end});
+  rowSelection.ranges_.push_back(IntervalRange{start, end - start + 1});
   return rowSelection;
 }
 

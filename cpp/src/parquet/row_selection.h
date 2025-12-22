@@ -32,8 +32,8 @@ class PARQUET_EXPORT RowSelection {
   struct IntervalRange {
     /// Start row of the range (inclusive).
     int64_t start;
-    /// End row of the range (inclusive).
-    int64_t end;
+    /// Number of rows in the range.
+    int64_t length;
   };
 
   /// \brief EXPERIMENTAL: An iterator for accessing row ranges in order.
