@@ -1530,7 +1530,7 @@ services:
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
-      PYTEST_RST_ARGS: "--doctest-glob='*.rst' docs/source/python"
+      PYTEST_RST_ARGS: "--doctest-glob='*.rst'"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&

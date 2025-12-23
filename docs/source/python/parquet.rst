@@ -307,7 +307,7 @@ such as the row groups and column chunk metadata and statistics:
    >>> metadata.row_group(0).column(0)
    <pyarrow._parquet.ColumnChunkMetaData object at ...>
      file_offset: 0
-     file_path:
+     file_path:...
      physical_type: DOUBLE
      num_values: 3
      path_in_schema: one
