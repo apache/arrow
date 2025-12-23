@@ -19,6 +19,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 #include "parquet/file_reader.h"
 #include "parquet/file_writer.h"
@@ -104,16 +105,20 @@ TEST(Metadata, TestBuildAccess) {
   int64_t nrows = 1000;
   int32_t int_min = 100, int_max = 200;
   EncodedStatistics stats_int;
+  int32_t int_min_le = ::arrow::bit_util::ToLittleEndian(int_min);
+  int32_t int_max_le = ::arrow::bit_util::ToLittleEndian(int_max);
   stats_int.set_null_count(0)
       .set_distinct_count(nrows)
-      .set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
-      .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
+      .set_min(std::string(reinterpret_cast<const char*>(&int_min_le), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&int_max_le), 4));
   EncodedStatistics stats_float;
   float float_min = 100.100f, float_max = 200.200f;
+  float float_min_le = ::arrow::bit_util::ToLittleEndian(float_min);
+  float float_max_le = ::arrow::bit_util::ToLittleEndian(float_max);
   stats_float.set_null_count(0)
       .set_distinct_count(nrows)
-      .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
-      .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
+      .set_min(std::string(reinterpret_cast<const char*>(&float_min_le), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&float_max_le), 4));
 
   // Generate the metadata
   auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
