@@ -70,4 +70,4 @@ export PYARROW_TEST_S3
 
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
-pytest -r ${PYTEST_RST_ARGS}
+pytest ${PYTEST_RST_ARGS}
