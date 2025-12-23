@@ -214,7 +214,7 @@ Finer-grained Reading and Writing
      num_rows: 3
      num_row_groups: 1
      format_version: 2.6
-     serialized_size: 2733
+     serialized_size: ...
    >>> parquet_file.schema
    <pyarrow._parquet.ParquetSchema object at ...>
    required group field_id=-1 schema {
