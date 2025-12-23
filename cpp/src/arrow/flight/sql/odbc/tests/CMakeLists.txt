@@ -39,6 +39,7 @@ add_arrow_test(flight_sql_odbc_test
                connection_info_test.cc
                connection_test.cc
                errors_test.cc
+               get_functions_test.cc
                statement_attr_test.cc
                statement_test.cc
                tables_test.cc
