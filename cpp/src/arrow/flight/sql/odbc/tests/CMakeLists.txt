@@ -15,14 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_custom_target(tests)
-
-if(WIN32)
-  include_directories(${ODBC_INCLUDE_DIRS})
-else()
-  include_directories(${ODBC_INCLUDE_DIR})
-endif()
-
 find_package(SQLite3Alt REQUIRED)
 
 set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS
@@ -56,6 +48,14 @@ add_arrow_test(flight_sql_odbc_test
                ${ODBCINST}
                ${SQLite3_LIBRARIES}
                arrow_odbc_spi_impl)
+
+# On Windows, cmake uses suffix `DIRS` for ODBC include headers, and
+# on unix, cmake uses suffix `DIR`.
+if(WIN32)
+  target_include_directories(arrow-flight-sql-odbc-test PUBLIC ${ODBC_INCLUDE_DIRS})
+else()
+  target_include_directories(arrow-flight-sql-odbc-test PUBLIC ${ODBC_INCLUDE_DIR})
+endif()
 
 # Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
 set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)
