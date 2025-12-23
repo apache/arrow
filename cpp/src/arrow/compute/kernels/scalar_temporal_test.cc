@@ -20,6 +20,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
+#include "arrow/util/chrono_internal.h"  // for ARROW_USE_STD_CHRONO
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -869,7 +870,13 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
                           {"iso_year": 2009, "iso_week": 1, "iso_day_of_week": 1},
                           {"iso_year": 2011, "iso_week": 52, "iso_day_of_week": 7}, null])");
     auto quarter = "[1, 1, 1, 2, 1, 4, 4, 4, 1, 1, 1, 1, 4, 4, 4, 1, null]";
-    auto hour = "[9, 9, 9, 13, 11, 12, 13, 14, 15, 17, 18, 19, 20, 10, 10, 11, null]";
+    // Note: GCC behaves differently for Australia/Broken_Hill around the year 2000 zone
+    // rule transition. The expected hour for 2000-02-29 (index 1) differs because the
+    // offset is wrong (+9:30 instead of +10:30).
+    std::string hour = "[9, 9, 9, 13, 11, 12, 13, 14, 15, 17, 18, 19, 20, 10, 10, 11, null]";
+#if ARROW_USE_STD_CHRONO
+    hour.replace(hour.find("[9, 9, "), 6, "[9, 8, ");
+#endif
     auto minute = "[30, 53, 59, 3, 35, 40, 45, 50, 55, 0, 5, 10, 15, 30, 30, 32, null]";
 
     CheckScalarUnary("year", unit, times_seconds_precision, int64(), year);
@@ -890,7 +897,7 @@ TEST_F(ScalarTemporalTest, TestZoned2) {
     CheckScalarUnary("iso_calendar", ArrayFromJSON(unit, times_seconds_precision),
                      iso_calendar);
     CheckScalarUnary("quarter", unit, times_seconds_precision, int64(), quarter);
-    CheckScalarUnary("hour", unit, times_seconds_precision, int64(), hour);
+    CheckScalarUnary("hour", unit, times_seconds_precision, int64(), hour.c_str());
     CheckScalarUnary("minute", unit, times_seconds_precision, int64(), minute);
     CheckScalarUnary("second", unit, times_seconds_precision, int64(), second);
     CheckScalarUnary("millisecond", unit, times_seconds_precision, int64(), zeros);
@@ -2817,26 +2824,32 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilZoned) {
     "2020-01-01 01:09:00", "2019-12-31 02:22:00", "2019-12-30 03:22:00", "2009-12-31 04:22:00",
     "2010-01-01 05:35:00", "2010-01-03 06:43:00", "2010-01-04 07:43:00", "2006-01-01 08:43:00",
     "2005-12-31 09:56:00", "2008-12-28 00:09:00", "2008-12-29 00:09:00", "2012-01-01 01:09:00", null])";
-  const char* ceil_15_hour = R"([
+  std::string ceil_15_hour = R"([
     "1970-01-01 05:30:00", "2000-03-01 04:30:00", "1899-01-01 06:00:00", "2033-05-18 05:30:00",
     "2020-01-01 04:30:00", "2019-12-31 04:30:00", "2019-12-30 04:30:00", "2009-12-31 04:30:00",
     "2010-01-01 19:30:00", "2010-01-03 19:30:00", "2010-01-04 19:30:00", "2006-01-01 19:30:00",
     "2005-12-31 19:30:00", "2008-12-28 04:30:00", "2008-12-29 04:30:00", "2012-01-01 04:30:00", null])";
-  const char* ceil_15_day = R"([
+  std::string ceil_15_day = R"([
     "1970-01-15 14:30:00", "2000-03-15 13:30:00", "1899-01-15 15:00:00", "2033-05-30 14:30:00",
     "2020-01-15 13:30:00", "2020-01-14 13:30:00", "2019-12-30 13:30:00", "2010-01-14 13:30:00",
     "2010-01-15 13:30:00", "2010-01-15 13:30:00", "2010-01-15 13:30:00", "2006-01-15 13:30:00",
     "2006-01-14 13:30:00", "2008-12-30 13:30:00", "2008-12-30 13:30:00", "2012-01-15 13:30:00", null])";
-  const char* ceil_3_weeks = R"([
+  std::string ceil_3_weeks = R"([
     "1970-01-18 14:30:00", "2000-03-05 13:30:00", "1899-01-22 15:00:00", "2033-05-29 14:30:00",
     "2020-01-19 13:30:00", "2020-01-19 13:30:00", "2020-01-19 13:30:00", "2010-01-24 13:30:00",
     "2010-01-24 13:30:00", "2010-01-24 13:30:00", "2010-01-24 13:30:00", "2006-01-22 13:30:00",
     "2006-01-22 13:30:00", "2009-01-11 13:30:00", "2009-01-18 13:30:00", "2012-01-22 13:30:00", null])";
-  const char* ceil_3_weeks_sunday = R"([
+  std::string ceil_3_weeks_sunday = R"([
     "1970-01-24 14:30:00", "2000-03-25 13:30:00", "1899-01-21 15:00:00", "2033-05-28 14:30:00",
     "2020-01-18 13:30:00", "2020-01-18 13:30:00", "2020-01-18 13:30:00", "2010-01-23 13:30:00",
     "2010-01-23 13:30:00", "2010-01-23 13:30:00", "2010-01-23 13:30:00", "2006-01-21 13:30:00",
     "2006-01-21 13:30:00", "2009-01-24 13:30:00", "2009-01-24 13:30:00", "2012-01-21 13:30:00", null])";
+#if ARROW_USE_STD_CHRONO
+  ceil_15_hour.replace(ceil_15_hour.find("2000-03-01 04:30:00"), 19, "2000-03-01 05:30:00");
+  ceil_15_day.replace(ceil_15_day.find("2000-03-15 13:30:00"), 19, "2000-03-15 14:30:00");
+  ceil_3_weeks.replace(ceil_3_weeks.find("2000-03-05 13:30:00"), 19, "2000-03-05 14:30:00");
+  ceil_3_weeks_sunday.replace(ceil_3_weeks_sunday.find("2000-03-25 13:30:00"), 19, "2000-03-25 14:30:00");
+#endif
   const char* ceil_5_months = R"([
     "1970-05-31 14:30:00", "2000-05-31 14:30:00", "1899-05-31 14:30:00", "2033-05-31 14:30:00",
     "2020-05-31 14:30:00", "2020-03-31 13:30:00", "2020-03-31 13:30:00", "2010-03-31 13:30:00",
@@ -2861,10 +2874,10 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilZoned) {
   CheckScalarUnary(op, unit, times, unit, ceil_15_millisecond, &round_to_15_milliseconds);
   CheckScalarUnary(op, unit, times, unit, ceil_13_second, &round_to_13_seconds);
   CheckScalarUnary(op, unit, times, unit, ceil_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, ceil_15_day, &round_to_15_days);
-  CheckScalarUnary(op, unit, times, unit, ceil_3_weeks, &round_to_3_weeks);
-  CheckScalarUnary(op, unit, times, unit, ceil_3_weeks_sunday, &round_to_3_weeks_sunday);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_hour.c_str(), &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, ceil_15_day.c_str(), &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, ceil_3_weeks.c_str(), &round_to_3_weeks);
+  CheckScalarUnary(op, unit, times, unit, ceil_3_weeks_sunday.c_str(), &round_to_3_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, ceil_5_months, &round_to_5_months);
   CheckScalarUnary(op, unit, times, unit, ceil_3_quarters, &round_to_3_quarters);
   CheckScalarUnary(op, unit, times, unit, ceil_15_years, &round_to_15_years);
@@ -3207,26 +3220,32 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorZoned) {
     "2020-01-01 00:56:00", "2019-12-31 02:09:00", "2019-12-30 03:09:00", "2009-12-31 04:09:00",
     "2010-01-01 05:22:00", "2010-01-03 06:30:00", "2010-01-04 07:30:00", "2006-01-01 08:30:00",
     "2005-12-31 09:43:00", "2008-12-27 23:56:00", "2008-12-28 23:56:00", "2012-01-01 00:56:00", null])";
-  const char* floor_15_hour = R"([
+  std::string floor_15_hour = R"([
     "1969-12-31 14:30:00", "2000-02-29 13:30:00", "1898-12-31 15:00:00", "2033-05-17 14:30:00",
     "2019-12-31 13:30:00", "2019-12-30 13:30:00", "2019-12-29 13:30:00", "2009-12-30 13:30:00",
     "2010-01-01 04:30:00", "2010-01-03 04:30:00", "2010-01-04 04:30:00", "2006-01-01 04:30:00",
     "2005-12-31 04:30:00", "2008-12-27 13:30:00", "2008-12-28 13:30:00", "2011-12-31 13:30:00", null])";
-  const char* floor_15_day = R"([
+  std::string floor_15_day = R"([
     "1969-12-31 14:30:00", "2000-02-29 13:30:00", "1898-12-31 15:00:00", "2033-05-15 14:30:00",
     "2019-12-31 13:30:00", "2019-12-30 13:30:00", "2019-12-15 13:30:00", "2009-12-30 13:30:00",
     "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2005-12-31 13:30:00",
     "2005-12-30 13:30:00", "2008-12-15 13:30:00", "2008-12-15 13:30:00", "2011-12-31 13:30:00", null])";
-  const char* floor_3_weeks = R"([
+  std::string floor_3_weeks = R"([
     "1969-12-28 14:30:00", "2000-02-13 13:30:00", "1899-01-01 15:00:00", "2033-05-08 14:30:00",
     "2019-12-29 13:30:00", "2019-12-29 13:30:00", "2019-12-29 13:30:00", "2010-01-03 13:30:00",
     "2010-01-03 13:30:00", "2010-01-03 13:30:00", "2010-01-03 13:30:00", "2006-01-01 13:30:00",
     "2006-01-01 13:30:00", "2008-12-21 13:30:00", "2008-12-28 13:30:00", "2012-01-01 13:30:00", null])";
-  const char* floor_3_weeks_sunday = R"([
+  std::string floor_3_weeks_sunday = R"([
     "1970-01-03 14:30:00", "2000-03-04 13:30:00", "1898-12-31 15:00:00", "2033-05-07 14:30:00",
     "2019-12-28 13:30:00", "2019-12-28 13:30:00", "2019-12-28 13:30:00", "2010-01-02 13:30:00",
     "2010-01-02 13:30:00", "2010-01-02 13:30:00", "2010-01-02 13:30:00", "2005-12-31 13:30:00",
     "2005-12-31 13:30:00", "2009-01-03 13:30:00", "2009-01-03 13:30:00", "2011-12-31 13:30:00", null])";
+#if ARROW_USE_STD_CHRONO
+  floor_15_hour.replace(floor_15_hour.find("2000-02-29 13:30:00"), 19, "2000-02-29 14:30:00");
+  floor_15_day.replace(floor_15_day.find("2000-02-29 13:30:00"), 19, "2000-02-29 14:30:00");
+  floor_3_weeks.replace(floor_3_weeks.find("2000-02-13 13:30:00"), 19, "2000-02-13 14:30:00");
+  floor_3_weeks_sunday.replace(floor_3_weeks_sunday.find("2000-03-04 13:30:00"), 19, "2000-03-04 14:30:00");
+#endif
   const char* floor_5_months = R"([
     "1969-12-31 14:30:00", "1999-12-31 13:30:00", "1898-12-31 15:00:00", "2032-12-31 13:30:00",
     "2019-12-31 13:30:00", "2019-10-31 13:30:00", "2019-10-31 13:30:00", "2009-10-31 13:30:00",
@@ -3253,10 +3272,10 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorZoned) {
                    &round_to_15_milliseconds);
   CheckScalarUnary(op, unit, times, unit, floor_13_second, &round_to_13_seconds);
   CheckScalarUnary(op, unit, times, unit, floor_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, floor_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, floor_15_day, &round_to_15_days);
-  CheckScalarUnary(op, unit, times, unit, floor_3_weeks, &round_to_3_weeks);
-  CheckScalarUnary(op, unit, times, unit, floor_3_weeks_sunday, &round_to_3_weeks_sunday);
+  CheckScalarUnary(op, unit, times, unit, floor_15_hour.c_str(), &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, floor_15_day.c_str(), &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, floor_3_weeks.c_str(), &round_to_3_weeks);
+  CheckScalarUnary(op, unit, times, unit, floor_3_weeks_sunday.c_str(), &round_to_3_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, floor_5_months, &round_to_5_months);
   CheckScalarUnary(op, unit, times, unit, floor_3_quarters, &round_to_3_quarters);
   CheckScalarUnary(op, unit, times, unit, floor_15_years, &round_to_15_years);
@@ -3640,26 +3659,32 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundZoned) {
     "2020-01-01 01:09:00", "2019-12-31 02:09:00", "2019-12-30 03:09:00", "2009-12-31 04:22:00",
     "2010-01-01 05:22:00", "2010-01-03 06:30:00", "2010-01-04 07:30:00", "2006-01-01 08:43:00",
     "2005-12-31 09:43:00", "2008-12-27 23:56:00", "2008-12-28 23:56:00", "2012-01-01 00:56:00", null])";
-  const char* round_15_hour = R"([
+  std::string round_15_hour = R"([
     "1970-01-01 05:30:00", "2000-03-01 04:30:00", "1899-01-01 06:00:00", "2033-05-18 05:30:00",
     "2020-01-01 04:30:00", "2019-12-31 04:30:00", "2019-12-30 04:30:00", "2009-12-31 04:30:00",
     "2010-01-01 04:30:00", "2010-01-03 04:30:00", "2010-01-04 04:30:00", "2006-01-01 04:30:00",
     "2005-12-31 04:30:00", "2008-12-28 04:30:00", "2008-12-29 04:30:00", "2012-01-01 04:30:00", null])";
-  const char* round_15_day = R"([
+  std::string round_15_day = R"([
     "1969-12-31 14:30:00", "2000-02-29 13:30:00", "1898-12-31 15:00:00", "2033-05-15 14:30:00",
     "2019-12-31 13:30:00", "2019-12-30 13:30:00", "2019-12-30 13:30:00", "2009-12-30 13:30:00",
     "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2009-12-31 13:30:00", "2005-12-31 13:30:00",
     "2005-12-30 13:30:00", "2008-12-30 13:30:00", "2008-12-30 13:30:00", "2011-12-31 13:30:00", null])";
-  const char* round_3_weeks = R"([
+  std::string round_3_weeks = R"([
     "1969-12-28 14:30:00", "2000-03-05 13:30:00", "1899-01-01 15:00:00", "2033-05-08 14:30:00",
     "2019-12-29 13:30:00", "2019-12-29 13:30:00", "2019-12-29 13:30:00", "2010-01-03 13:30:00",
     "2010-01-03 13:30:00", "2010-01-03 13:30:00", "2010-01-03 13:30:00", "2006-01-01 13:30:00",
     "2006-01-01 13:30:00", "2008-12-21 13:30:00", "2008-12-28 13:30:00", "2012-01-01 13:30:00",null])";
-  const char* round_3_weeks_sunday = R"([
+  std::string round_3_weeks_sunday = R"([
     "1970-01-03 14:30:00", "2000-03-04 13:30:00", "1898-12-31 15:00:00", "2033-05-28 14:30:00",
     "2019-12-28 13:30:00", "2019-12-28 13:30:00", "2019-12-28 13:30:00", "2010-01-02 13:30:00",
     "2010-01-02 13:30:00", "2010-01-02 13:30:00", "2010-01-02 13:30:00", "2005-12-31 13:30:00",
     "2005-12-31 13:30:00", "2009-01-03 13:30:00", "2009-01-03 13:30:00", "2011-12-31 13:30:00", null])";
+#if ARROW_USE_STD_CHRONO
+  round_15_hour.replace(round_15_hour.find("2000-03-01 04:30:00"), 19, "2000-03-01 05:30:00");
+  round_15_day.replace(round_15_day.find("2000-02-29 13:30:00"), 19, "2000-02-29 14:30:00");
+  round_3_weeks.replace(round_3_weeks.find("2000-03-05 13:30:00"), 19, "2000-03-05 14:30:00");
+  round_3_weeks_sunday.replace(round_3_weeks_sunday.find("2000-03-04 13:30:00"), 19, "2000-03-04 14:30:00");
+#endif
   const char* round_5_months = R"([
     "1969-12-31 14:30:00", "1999-12-31 13:30:00", "1898-12-31 15:00:00", "2033-05-31 14:30:00",
     "2019-12-31 13:30:00", "2019-10-31 13:30:00", "2019-10-31 13:30:00", "2009-10-31 13:30:00",
@@ -3686,10 +3711,10 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundZoned) {
                    &round_to_15_milliseconds);
   CheckScalarUnary(op, unit, times, unit, round_13_second, &round_to_13_seconds);
   CheckScalarUnary(op, unit, times, unit, round_13_minute, &round_to_13_minutes);
-  CheckScalarUnary(op, unit, times, unit, round_15_hour, &round_to_15_hours);
-  CheckScalarUnary(op, unit, times, unit, round_15_day, &round_to_15_days);
-  CheckScalarUnary(op, unit, times, unit, round_3_weeks, &round_to_3_weeks);
-  CheckScalarUnary(op, unit, times, unit, round_3_weeks_sunday, &round_to_3_weeks_sunday);
+  CheckScalarUnary(op, unit, times, unit, round_15_hour.c_str(), &round_to_15_hours);
+  CheckScalarUnary(op, unit, times, unit, round_15_day.c_str(), &round_to_15_days);
+  CheckScalarUnary(op, unit, times, unit, round_3_weeks.c_str(), &round_to_3_weeks);
+  CheckScalarUnary(op, unit, times, unit, round_3_weeks_sunday.c_str(), &round_to_3_weeks_sunday);
   CheckScalarUnary(op, unit, times, unit, round_5_months, &round_to_5_months);
   CheckScalarUnary(op, unit, times, unit, round_3_quarters, &round_to_3_quarters);
   CheckScalarUnary(op, unit, times, unit, round_15_years, &round_to_15_years);
