@@ -29,9 +29,6 @@
 /// database, eliminating the need for users to install IANA tzdata separately.
 
 #include <chrono>
-#include <ctime>
-#include <iomanip>
-#include <sstream>
 #include <string>
 #include <string_view>
 
@@ -53,6 +50,9 @@
 
 #if ARROW_USE_STD_CHRONO
 // Use C++20 standard library chrono
+#  include <format>
+#  include <iterator>
+#  include <ostream>
 #else
 // Use vendored Howard Hinnant date library
 #  include "arrow/vendored/datetime.h"
@@ -111,26 +111,24 @@ using nonexistent_local_time = std::chrono::nonexistent_local_time;
 using ambiguous_local_time = std::chrono::ambiguous_local_time;
 
 // Weekday constants
-inline constexpr std::chrono::weekday Monday{1};
-inline constexpr std::chrono::weekday Sunday{0};
+using std::chrono::Monday;
+using std::chrono::Sunday;
 
 // Rounding functions
 using std::chrono::ceil;
 using std::chrono::floor;
 using std::chrono::round;
 
-// trunc is not in std::chrono - implement proper truncation toward zero
-// floor rounds toward negative infinity, but trunc rounds toward zero
+// trunc (truncation toward zero) is not in std::chrono, only floor/ceil/round
 template <typename ToDuration, typename Rep, typename Period>
 constexpr ToDuration trunc(const std::chrono::duration<Rep, Period>& d) {
-  auto floor_result = std::chrono::floor<ToDuration>(d);
-  auto remainder = d - floor_result;
-  // If original was negative and there's a non-zero remainder,
-  // floor went too far negative, so add one unit back
-  if (d.count() < 0 && remainder.count() != 0) {
-    return floor_result + ToDuration{1};
+  auto floored = std::chrono::floor<ToDuration>(d);
+  // floor rounds toward -infinity; for negative values with remainder, add 1 to get
+  // toward zero
+  if (d.count() < 0 && (d - floored).count() != 0) {
+    return floored + ToDuration{1};
   }
-  return floor_result;
+  return floored;
 }
 
 // Timezone lookup
@@ -140,127 +138,22 @@ inline const time_zone* locate_zone(std::string_view tz_name) {
 
 inline const time_zone* current_zone() { return std::chrono::current_zone(); }
 
-// Helper to get subsecond decimal places based on duration period
-template <typename Duration>
-constexpr int get_subsecond_decimals() {
-  using Period = typename Duration::period;
-  if constexpr (Period::den == 1000)
-    return 3;  // milliseconds
-  else if constexpr (Period::den == 1000000)
-    return 6;  // microseconds
-  else if constexpr (Period::den == 1000000000)
-    return 9;  // nanoseconds
-  else
-    return 0;  // seconds or coarser
-}
-
-// Formatting support with subsecond precision and timezone handling
-// Mimics the vendored date library's to_stream behavior for compatibility
+// Formatting support - streams directly using C++20 std::vformat_to
+// Provides: direct streaming, stream state preservation, chaining, rich format specifiers
 template <typename CharT, typename Traits, typename Duration, typename TimeZonePtr>
 std::basic_ostream<CharT, Traits>& to_stream(
     std::basic_ostream<CharT, Traits>& os, const CharT* fmt,
     const std::chrono::zoned_time<Duration, TimeZonePtr>& zt) {
-  // Get local time and timezone info
-  auto lt = zt.get_local_time();
-  auto info = zt.get_info();
-
-  auto lt_days = std::chrono::floor<days>(lt);
-  auto ymd = year_month_day{lt_days};
-
-  // Calculate time of day components
-  auto time_since_midnight = lt - local_time<days>{lt_days};
-  auto total_secs = std::chrono::duration_cast<std::chrono::seconds>(time_since_midnight);
-  auto h = std::chrono::duration_cast<std::chrono::hours>(time_since_midnight);
-  auto m = std::chrono::duration_cast<std::chrono::minutes>(time_since_midnight - h);
-  auto s = std::chrono::duration_cast<std::chrono::seconds>(time_since_midnight - h - m);
-
-  // Build std::tm for strftime
-  std::tm tm{};
-  tm.tm_sec = static_cast<int>(s.count());
-  tm.tm_min = static_cast<int>(m.count());
-  tm.tm_hour = static_cast<int>(h.count());
-  tm.tm_mday = static_cast<int>(static_cast<unsigned>(ymd.day()));
-  tm.tm_mon = static_cast<int>(static_cast<unsigned>(ymd.month())) - 1;
-  tm.tm_year = static_cast<int>(ymd.year()) - 1900;
-
-  auto wd = weekday{lt_days};
-  tm.tm_wday = static_cast<int>(wd.c_encoding());
-
-  auto year_start =
-      std::chrono::local_days{ymd.year() / std::chrono::January / std::chrono::day{1}};
-  tm.tm_yday = static_cast<int>((lt_days - year_start).count());
-  tm.tm_isdst = info.save != std::chrono::minutes{0} ? 1 : 0;
-
-  // Timezone offset calculation
-  auto offset_mins = std::chrono::duration_cast<std::chrono::minutes>(info.offset);
-  bool neg_offset = offset_mins.count() < 0;
-  auto abs_offset = neg_offset ? -offset_mins : offset_mins;
-  auto off_h = std::chrono::duration_cast<std::chrono::hours>(abs_offset);
-  auto off_m = abs_offset - off_h;
-
-  // Calculate subsecond value
-  constexpr int decimals = get_subsecond_decimals<Duration>();
-  int64_t subsec_value = 0;
-  if constexpr (decimals > 0) {
-    auto subsec_duration = time_since_midnight - total_secs;
-    subsec_value = std::chrono::duration_cast<Duration>(subsec_duration).count();
-    if (subsec_value < 0) subsec_value = -subsec_value;
-  }
-
-  // Parse format string, handle %S, %z, %Z specially
-  std::string result;
-  for (const CharT* p = fmt; *p; ++p) {
-    if (*p == '%' && *(p + 1)) {
-      CharT spec = *(p + 1);
-      if (spec == 'S') {
-        // %S with subsecond precision
-        result += (tm.tm_sec < 10 ? "0" : "") + std::to_string(tm.tm_sec);
-        if constexpr (decimals > 0) {
-          std::ostringstream ss;
-          ss << '.' << std::setfill('0') << std::setw(decimals) << subsec_value;
-          result += ss.str();
-        }
-        ++p;
-      } else if (spec == 'z') {
-        // %z timezone offset
-        std::ostringstream ss;
-        ss << (neg_offset ? '-' : '+') << std::setfill('0') << std::setw(2)
-           << off_h.count() << std::setfill('0') << std::setw(2) << off_m.count();
-        result += ss.str();
-        ++p;
-      } else if (spec == 'Z') {
-        // %Z timezone abbreviation
-        result += info.abbrev;
-        ++p;
-      } else {
-        // Use strftime for other specifiers
-        char buf[64];
-        char small_fmt[3] = {'%', static_cast<char>(spec), '\0'};
-        if (std::strftime(buf, sizeof(buf), small_fmt, &tm) > 0) {
-          result += buf;
-        }
-        ++p;
-      }
-    } else {
-      result += static_cast<char>(*p);
-    }
-  }
-
-  return os << result;
+  std::vformat_to(std::ostreambuf_iterator<CharT>(os), std::string("{:") + fmt + "}",
+                  std::make_format_args(zt));
+  return os;
 }
 
+// Format a duration using strftime-like format specifiers
+// Converts "%H%M" style to C++20's "{:%H%M}" style and uses std::vformat
 template <typename Duration>
 std::string format(const char* fmt, const Duration& d) {
-  std::ostringstream ss;
-  auto total_minutes = std::chrono::duration_cast<std::chrono::minutes>(d).count();
-  bool negative = total_minutes < 0;
-  if (negative) total_minutes = -total_minutes;
-  auto hours = total_minutes / 60;
-  auto mins = total_minutes % 60;
-  ss << (negative ? "-" : "+");
-  ss << std::setfill('0') << std::setw(2) << hours;
-  ss << std::setfill('0') << std::setw(2) << mins;
-  return ss.str();
+  return std::vformat(std::string("{:") + fmt + "}", std::make_format_args(d));
 }
 
 // Literals namespace

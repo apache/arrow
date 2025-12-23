@@ -20,7 +20,6 @@
 #include <gtest/gtest.h>
 
 #include "arrow/compute/api_scalar.h"
-#include "arrow/util/chrono_internal.h"  // for ARROW_USE_STD_CHRONO
 #include "arrow/compute/cast.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -30,6 +29,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/chrono_internal.h"  // for ARROW_USE_STD_CHRONO
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging_internal.h"
 
