@@ -307,7 +307,7 @@ such as the row groups and column chunk metadata and statistics:
    >>> metadata.row_group(0).column(0)
    <pyarrow._parquet.ColumnChunkMetaData object at ...>
      file_offset: 0
-     file_path: 
+     file_path:
      physical_type: DOUBLE
      num_values: 3
      path_in_schema: one
@@ -697,7 +697,6 @@ if specified as a URI:
 
 .. code-block:: python
 
-    
    >>> table = pq.read_table("s3://bucket/object/key/prefix")  # doctest: +SKIP
 
 Other filesystems can still be supported if there is an
@@ -772,12 +771,12 @@ defined by :class:`pyarrow.parquet.encryption.KmsClient` as following:
    ...       pe.KmsClient.__init__(self)
    ...       # Any KMS-specific initialization based on
    ...       # kms_connection_configuration comes here
-   ... 
+   ...
    ...    def wrap_key(self, key_bytes, master_key_identifier):
    ...       wrapped_key = ... # call KMS to wrap key_bytes with key specified by
    ...                         # master_key_identifier
    ...       return wrapped_key
-   ... 
+   ...
    ...    def unwrap_key(self, wrapped_key, master_key_identifier):
    ...       key_bytes = ... # call KMS to unwrap wrapped_key with key specified by
    ...                       # master_key_identifier
