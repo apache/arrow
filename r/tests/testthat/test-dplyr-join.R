@@ -188,8 +188,41 @@ test_that("Error handling for unsupported expressions in join_by", {
   )
 })
 
-# TODO: test duplicate col names
-# TODO: casting: int and float columns?
+test_that("joins with duplicate column names", {
+  # When column names are duplicated (not in by), suffixes are added
+  left_dup <- tibble::tibble(
+    x = 1:5,
+    y = 1:5,
+    z = letters[1:5]
+  )
+  right_dup <- tibble::tibble(
+    x = 1:5,
+    y = 6:10,
+    z = LETTERS[1:5]
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      left_join(right_dup, by = "x") |>
+      collect(),
+    left_dup
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      inner_join(right_dup, by = "x") |>
+      collect(),
+    left_dup
+  )
+
+  # Test with custom suffixes
+  compare_dplyr_binding(
+    .input |>
+      left_join(right_dup, by = "x", suffix = c("_left", "_right")) |>
+      collect(),
+    left_dup
+  )
+})
 
 test_that("right_join", {
   compare_dplyr_binding(
