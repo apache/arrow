@@ -351,7 +351,7 @@ jobs:
       ARROW_HOME: /usr
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
-      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - name: Disable Crash Dialogs
