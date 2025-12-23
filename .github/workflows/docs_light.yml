@@ -69,4 +69,5 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          PYTEST_RST_ARGS: "--doctest-glob=*.rst"
         run: archery docker run conda-python-docs
