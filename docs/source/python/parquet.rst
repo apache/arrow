@@ -276,7 +276,7 @@ The ``FileMetaData`` of a Parquet file can be accessed through
      num_rows: 3
      num_row_groups: 1
      format_version: 2.6
-     serialized_size: 2733
+     serialized_size: ...
 
 or can also be read directly using :func:`~parquet.read_metadata`:
 
@@ -290,7 +290,7 @@ or can also be read directly using :func:`~parquet.read_metadata`:
      num_rows: 3
      num_row_groups: 1
      format_version: 2.6
-     serialized_size: 2733
+     serialized_size: ...
 
 The returned ``FileMetaData`` object allows to inspect the
 `Parquet file metadata <https://github.com/apache/parquet-format#metadata>`__,
@@ -588,7 +588,7 @@ the same:
       num_rows: 3
       num_row_groups: 1
       format_version: 2.6
-      serialized_size: 2004
+      serialized_size: ...
 
 Reading from Partitioned Datasets
 ------------------------------------------------
