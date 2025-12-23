@@ -4117,7 +4117,7 @@ def test_dictionary_with_pandas():
         if index_type == 'uint64':
             # uint64 is not supported due to overflow risk (values > 2^63-1)
             with pytest.raises(TypeError,
-                               match="Converting unsigned dictionary indices"):
+                               match="UInt64 dictionary indices"):
                 d1.to_pandas()
             continue
 
