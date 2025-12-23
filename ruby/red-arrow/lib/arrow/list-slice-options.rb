@@ -32,7 +32,7 @@ module Arrow
     # list element’s length, nil values will be appended to create the requested
     # slice size. The default of nil will return the same type which was passed in.
     #
-    # Since: 23.0.0
+    # @since 23.0.0
     def return_fixed_size_list
       RETURN_FIXED_SIZE_GLIB_TO_RUBY.fetch(
         return_fixed_size_list_raw,
@@ -46,7 +46,7 @@ module Arrow
     # list element’s length, nil values will be appended to create the requested
     # slice size. The default of nil will return the same type which was passed in.
     #
-    # Since: 23.0.0
+    # @since 23.0.0
     def return_fixed_size_list=(return_fixed_size_list)
       self.return_fixed_size_list_raw = RETURN_FIXED_SIZE_RUBY_TO_GLIB.fetch(
         return_fixed_size_list,
@@ -58,7 +58,7 @@ module Arrow
 
     # Optional stop of list slicing. If set to nil, then slice to end.
     #
-    # Since: 23.0.0
+    # @since 23.0.0
     def stop
       stop_raw == LIST_SLICE_OPTIONS_STOP_UNSPECIFIED ? nil : stop_raw
     end
@@ -68,7 +68,7 @@ module Arrow
 
     # Optional stop of list slicing. If set to nil, then slice to end.
     #
-    # Since: 23.0.0
+    # @since 23.0.0
     def stop=(stop)
       self.stop_raw = stop.nil? ? LIST_SLICE_OPTIONS_STOP_UNSPECIFIED : stop
     end
