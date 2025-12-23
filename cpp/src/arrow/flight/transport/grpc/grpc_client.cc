@@ -25,6 +25,7 @@
 #include <sstream>
 #include <string>
 #include <thread>
+#include <tuple>
 #include <unordered_map>
 #include <utility>
 
@@ -448,10 +449,11 @@ arrow::Result<std::pair<std::string, std::string>> GetBearerTokenHeader(
   // Get the auth token if it exists, this can be in the initial or the trailing metadata.
   auto trailing_headers = context.GetServerTrailingMetadata();
   auto initial_headers = context.GetServerInitialMetadata();
-  auto bearer_iter = trailing_headers.find(internal::kAuthHeader);
-  if (bearer_iter == trailing_headers.end()) {
-    bearer_iter = initial_headers.find(internal::kAuthHeader);
-    if (bearer_iter == initial_headers.end()) {
+  auto [bearer_iter, bearer_end] = trailing_headers.equal_range(internal::kAuthHeader);
+  if (bearer_iter == bearer_end) {
+    std::tie(bearer_iter, bearer_end) =
+        initial_headers.equal_range(internal::kAuthHeader);
+    if (bearer_iter == bearer_end) {
       return std::make_pair("", "");
     }
   }
