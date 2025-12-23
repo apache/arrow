@@ -70,4 +70,8 @@ export PYARROW_TEST_S3
 
 # Testing PyArrow
 pytest -r s ${PYTEST_ARGS} --pyargs pyarrow
-pytest ${PYTEST_RST_ARGS} ${arrow_dir}/docs/source/python
+
+# Testing RST documentation examples (if PYTEST_RST_ARGS is set)
+if [ -n "${PYTEST_RST_ARGS}" ]; then
+  pytest ${PYTEST_RST_ARGS} ${arrow_dir}/docs/source/python
+fi
