@@ -2489,7 +2489,7 @@ def test_array_from_different_numpy_datetime_units_raises():
     ms = np.array(data, dtype='datetime64[ms]')
     data = list(s[:2]) + list(ms[2:])
 
-    with pytest.raises(pa.ArrowNotImplementedError):
+    with pytest.raises(pa.ArrowInvalid, match="Cannot mix NumPy datetime64 units s and ms"):
         pa.array(data)
 
 
@@ -2514,8 +2514,8 @@ def test_array_from_timestamp_with_generic_unit():
     x = np.datetime64('2017-01-01 01:01:01.111111111')
     y = np.datetime64('2018-11-22 12:24:48.111111111')
 
-    with pytest.raises(pa.ArrowNotImplementedError,
-                       match='Unbound or generic datetime64 time unit'):
+    with pytest.raises(pa.ArrowInvalid,
+                       match='Cannot mix NumPy datetime64 units'):
         pa.array([n, x, y])
 
 

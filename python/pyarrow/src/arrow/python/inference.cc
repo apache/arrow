@@ -108,6 +108,17 @@ class NumPyDtypeUnifier {
                            GetNumPyTypeName(new_dtype));
   }
 
+  Status InvalidDatetimeUnitMix(PyArray_Descr* new_descr) {
+    auto new_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(new_descr));
+    auto current_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(current_dtype_));
+
+    return Status::Invalid("Cannot mix NumPy datetime64 units ",
+                           DatetimeUnitName(current_meta->meta.base), " and ",
+                           DatetimeUnitName(new_meta->meta.base));
+  }
+
   int Observe_BOOL(PyArray_Descr* descr, int dtype) { return INVALID; }
 
   int Observe_INT8(PyArray_Descr* descr, int dtype) {
@@ -255,7 +266,17 @@ class NumPyDtypeUnifier {
   }
 
   int Observe_DATETIME(PyArray_Descr* dtype_obj) {
-    // TODO: check that units are all the same
+    // Check that datetime units are consistent across all values
+    auto datetime_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(dtype_obj));
+    auto current_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(current_dtype_));
+
+    if (datetime_meta->meta.base != current_meta->meta.base) {
+      // Units don't match - this is invalid
+      return INVALID;
+    }
+
     return OK;
   }
 
@@ -267,6 +288,13 @@ class NumPyDtypeUnifier {
       current_type_num_ = dtype;
       return Status::OK();
     } else if (current_type_num_ == dtype) {
+      // Same type, but for datetime we still need to check units match
+      if (dtype == NPY_DATETIME) {
+        int action = Observe_DATETIME(descr);
+        if (action == INVALID) {
+          return InvalidDatetimeUnitMix(descr);
+        }
+      }
       return Status::OK();
     }
 
@@ -309,6 +337,25 @@ class NumPyDtypeUnifier {
   int current_type_num() const { return current_type_num_; }
 
  private:
+  static const char* DatetimeUnitName(NPY_DATETIMEUNIT unit) {
+    switch (unit) {
+      case NPY_FR_s:
+        return "s";
+      case NPY_FR_ms:
+        return "ms";
+      case NPY_FR_us:
+        return "us";
+      case NPY_FR_ns:
+        return "ns";
+      case NPY_FR_D:
+        return "D";
+      case NPY_FR_GENERIC:
+        return "generic";
+      default:
+        return "unknown";
+    }
+  }
+
   int current_type_num_;
   PyArray_Descr* current_dtype_;
 };
