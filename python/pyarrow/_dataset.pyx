@@ -1064,10 +1064,8 @@ cdef class Dataset(_Weakrefable):
         else:
             raise TypeError(f"names must be list, tuple, or dict, not {type(names)!r}")
 
-        projection = {new_name: ds.field(old_name)
-                      for old_name, new_name in name_mapping.items()}
-
-        self._columns = projection
+        self._columns = {new_name: ds.field(old_name)
+                         for old_name, new_name in name_mapping.items()}
 
         return self
 
