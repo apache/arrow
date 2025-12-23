@@ -145,8 +145,8 @@ session time zone is still PST:
     <class 'pandas.core.frame.DataFrame'>
     RangeIndex: 1 entries, 0 to 0
     Data columns (total 2 columns):
-     #   Column  Non-Null Count  Dtype         
-    ---  ------  --------------  -----         
+     #   Column  Non-Null Count  Dtype
+    ---  ------  --------------  -----
      0   naive   1 non-null      datetime64[ns]
      1   aware   1 non-null      datetime64[ns]
     dtypes: datetime64[ns](2)
