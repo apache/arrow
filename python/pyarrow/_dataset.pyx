@@ -175,6 +175,7 @@ cdef class Dataset(_Weakrefable):
         self.wrapped = sp
         self.dataset = sp.get()
         self._scan_options = dict()
+        self._columns = dict()
 
     @staticmethod
     cdef wrap(const shared_ptr[CDataset]& sp):
@@ -413,8 +414,8 @@ cdef class Dataset(_Weakrefable):
         animal: [["Parrot","Dog","Horse","Centipede"]]
         """
         # Apply column projection from rename_columns() if present
-        if columns is None and 'columns' in self._scan_options:
-            columns = self._scan_options['columns']
+        if columns is None and self._columns:
+            columns = self._columns
 
         return Scanner.from_dataset(
             self,
@@ -1066,7 +1067,7 @@ cdef class Dataset(_Weakrefable):
         projection = {new_name: ds.field(old_name)
                       for old_name, new_name in name_mapping.items()}
 
-        self._scan_options['columns'] = projection
+        self._columns = projection
 
         return self
 
