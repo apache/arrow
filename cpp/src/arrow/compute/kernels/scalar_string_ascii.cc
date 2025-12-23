@@ -38,9 +38,6 @@
 
 namespace arrow {
 
-using internal::EndsWith;
-using internal::StartsWith;
-
 namespace compute {
 namespace internal {
 
@@ -1291,7 +1288,7 @@ struct PlainStartsWithMatcher {
   }
 
   bool Match(std::string_view current) const {
-    return StartsWith(current, options_.pattern);
+    return current.starts_with(options_.pattern);
   }
 };
 
@@ -1309,7 +1306,7 @@ struct PlainEndsWithMatcher {
   }
 
   bool Match(std::string_view current) const {
-    return EndsWith(current, options_.pattern);
+    return current.ends_with(options_.pattern);
   }
 };
 
