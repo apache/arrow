@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -280,6 +278,11 @@ if have_gi
     )
 
     if generate_vapi
+        configure_file(
+            copy: true,
+            input: 'Arrow.metadata',
+            output: 'Arrow-@0@.metadata'.format(gi_api_version),
+        )
         arrow_glib_vapi = gnome.generate_vapi(
             'arrow-glib',
             install: true,
