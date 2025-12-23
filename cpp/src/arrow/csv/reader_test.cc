@@ -502,19 +502,13 @@ TEST(ReaderTests, DefaultColumnTypePartialDefault) {
   convert_options.column_types["id"] = int64();
   convert_options.default_column_type = utf8();
 
-  ASSERT_OK_AND_ASSIGN(
-      auto reader,
-      TableReader::Make(io::default_io_context(), input, read_options, parse_options,
-                        convert_options));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
   ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
 
-  auto expected_schema =
-      schema({
-        field("id", int64()),
-        field("name", utf8()),
-        field("value", utf8()),
-        field("date", utf8())
-      });
+  auto expected_schema = schema({field("id", int64()), field("name", utf8()),
+                                 field("value", utf8()), field("date", utf8())});
   AssertSchemaEqual(expected_schema, table->schema());
 
   auto expected_table = TableFromJSON(
@@ -537,27 +531,24 @@ TEST(ReaderTests, DefaultColumnTypeForcesTypedColumns) {
   auto convert_options = ConvertOptions::Defaults();
   convert_options.default_column_type = utf8();
 
-  ASSERT_OK_AND_ASSIGN(
-      auto reader,
-      TableReader::Make(io::default_io_context(), input, read_options, parse_options,
-                        convert_options));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
   ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
 
-  auto expected_schema = schema(
-      {field("id", utf8()), field("amount", utf8()), field("code", utf8())});
+  auto expected_schema =
+      schema({field("id", utf8()), field("amount", utf8()), field("code", utf8())});
   AssertSchemaEqual(expected_schema, table->schema());
 
   auto expected_table = TableFromJSON(
-      expected_schema,
-      {R"([{"id":"0000404", "amount":"000045.6700", "code":"001"},
+      expected_schema, {R"([{"id":"0000404", "amount":"000045.6700", "code":"001"},
             {"id":"0000505", "amount":"000000.10", "code":"010"}])"});
   ASSERT_TRUE(table->Equals(*expected_table));
 }
 
 TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
   // Input without header; autogenerate column names and default all to strings
-  auto table_buffer = std::make_shared<Buffer>(
-      "AB|000388907|000045.6700\n");
+  auto table_buffer = std::make_shared<Buffer>("AB|000388907|000045.6700\n");
 
   auto input = std::make_shared<io::BufferReader>(table_buffer);
   auto read_options = ReadOptions::Defaults();
@@ -567,19 +558,16 @@ TEST(ReaderTests, DefaultColumnTypeAllStringsNoHeader) {
   auto convert_options = ConvertOptions::Defaults();
   convert_options.default_column_type = utf8();
 
-  ASSERT_OK_AND_ASSIGN(
-      auto reader,
-      TableReader::Make(io::default_io_context(), input, read_options, parse_options,
-                        convert_options));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       TableReader::Make(io::default_io_context(), input, read_options,
+                                         parse_options, convert_options));
   ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
 
   auto expected_schema =
       schema({field("f0", utf8()), field("f1", utf8()), field("f2", utf8())});
   AssertSchemaEqual(expected_schema, table->schema());
 
-  auto expected_table = TableFromJSON(
-      expected_schema,
-      {R"([{
+  auto expected_table = TableFromJSON(expected_schema, {R"([{
         "f0":"AB",
         "f1":"000388907",
         "f2":"000045.6700"

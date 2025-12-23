@@ -678,8 +678,7 @@ class ReaderMixin {
         if (convert_options_.default_column_type != nullptr) {
           conversion_schema_.columns.push_back(ConversionSchema::TypedColumn(
               std::move(col_name), col_index, convert_options_.default_column_type));
-        }
-        else {
+        } else {
           conversion_schema_.columns.push_back(
               ConversionSchema::InferredColumn(std::move(col_name), col_index));
         }
