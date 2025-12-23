@@ -21,9 +21,9 @@
 /// \brief Abstraction layer for C++20 chrono calendar/timezone APIs
 ///
 /// This header provides a unified interface for chrono calendar and timezone
-/// functionality. On compilers with full C++20 chrono support (MSVC 16.10+ and
-/// GCC 14+), it uses std::chrono. On other compilers, it falls back to the
-/// vendored Howard Hinnant date library.
+/// functionality. On compilers with full C++20 chrono support, it uses
+/// std::chrono. On other compilers, it falls back to the vendored Howard Hinnant
+/// date library.
 ///
 /// The main benefit is on Windows where std::chrono uses the system timezone
 /// database, eliminating the need for users to install IANA tzdata separately.
@@ -37,26 +37,17 @@
 
 // Feature detection for C++20 chrono timezone support
 // We only enable for compilers with FULL support (not partial)
+// https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L
 //
-// Compiler support
-// (https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L):
-// - MSVC 19.29 (VS 2019 16.10)+: Full support, uses Windows TZ database
-// - GCC 14+: Full support, requires tzdata.zi on system
-// - GCC 11-13: Partial support only
-// - Clang/libc++: Still partial even in version 19
-// - Apple Clang: Still partial
+// MSVC 19.29+ (VS16.10+): Full C++20 chrono support, uses Windows internal TZ database.
+// GCC libstdc++ has a bug where DST state is incorrectly reset when a timezone
+// transitions between rule sets in tzdata.zi (e.g., Australia/Broken_Hill around
+// 2000-02-29 23:23:24).
+// Until this is fixed, we use the vendored date.h library for GCC.
 
-#if defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  if defined(_MSC_VER)
-// MSVC 19.29+: Full support, uses Windows internal TZ database
-#    define ARROW_USE_STD_CHRONO 1
-#  elif defined(__GLIBCXX__) && __GNUC__ >= 14
-// GCC 14+ with libstdc++: Full support, requires tzdata.zi
-#    define ARROW_USE_STD_CHRONO 1
-#  endif
-#endif
-
-#ifndef ARROW_USE_STD_CHRONO
+#if defined(_MSC_VER) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+#  define ARROW_USE_STD_CHRONO 1
+#else
 #  define ARROW_USE_STD_CHRONO 0
 #endif
 
