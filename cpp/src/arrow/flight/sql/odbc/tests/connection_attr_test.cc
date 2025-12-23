@@ -176,7 +176,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
                                            kOdbcBufferSize, &out_str_len));
   // Length is returned in bytes for SQLGetConnectAttr,
   // we want the number of characters
-  out_str_len /= arrow::flight::sql::odbc::GetSqlWCharSize();
+  out_str_len /= GetSqlWCharSize();
   std::string out_connection_string =
       ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
   EXPECT_FALSE(out_connection_string.empty());
