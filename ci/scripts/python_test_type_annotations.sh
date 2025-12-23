@@ -22,7 +22,7 @@ pyarrow_dir=${1}
 
 if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
   # Install library stubs
-  pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil
+  pip install pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
 
   # Install type checkers
   pip install mypy pyright ty
