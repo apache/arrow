@@ -16,21 +16,21 @@
 // under the License.
 
 #include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_simd512_generated_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
 namespace arrow::internal {
 
 template <typename Uint>
-void unpack_avx512(const uint8_t* in, Uint* out, int batch_size, int num_bits,
-                   int bit_offset) {
-  return unpack_jump<Simd512UnpackerForWidth>(in, out, batch_size, num_bits, bit_offset);
+void unpack_avx512(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
+  return unpack_jump<Simd512UnpackerForWidth>(in, out, opts);
 }
 
-template void unpack_avx512<bool>(const uint8_t*, bool*, int, int, int);
-template void unpack_avx512<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void unpack_avx512<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void unpack_avx512<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void unpack_avx512<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
+template void unpack_avx512<bool>(const uint8_t*, bool*, const UnpackOptions&);
+template void unpack_avx512<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
+template void unpack_avx512<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
+template void unpack_avx512<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
+template void unpack_avx512<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
 }  // namespace arrow::internal
