@@ -449,8 +449,7 @@ arrow::Result<std::pair<std::string, std::string>> GetBearerTokenHeader(
   // Get the auth token if it exists, this can be in the initial or the trailing metadata.
   auto trailing_headers = context.GetServerTrailingMetadata();
   auto initial_headers = context.GetServerInitialMetadata();
-  auto [bearer_iter, bearer_end] =
-      trailing_headers.equal_range(internal::kAuthHeader);
+  auto [bearer_iter, bearer_end] = trailing_headers.equal_range(internal::kAuthHeader);
   if (bearer_iter == bearer_end) {
     std::tie(bearer_iter, bearer_end) =
         initial_headers.equal_range(internal::kAuthHeader);

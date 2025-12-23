@@ -55,30 +55,25 @@ static bool FromGrpcContext(const ::grpc::ClientContext& ctx,
   const std::multimap<::grpc::string_ref, ::grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
 
-  const auto [code_val_begin, code_val_end] =
-      trailers.equal_range(kGrpcStatusCodeHeader);
+  const auto [code_val_begin, code_val_end] = trailers.equal_range(kGrpcStatusCodeHeader);
   if (code_val_begin == code_val_end) return false;
 
   std::optional<std::string> message;
-  if (const auto [it, end] = trailers.equal_range(kGrpcStatusMessageHeader);
-      it != end) {
+  if (const auto [it, end] = trailers.equal_range(kGrpcStatusMessageHeader); it != end) {
     message = std::string(it->second.data(), it->second.size());
   }
 
   std::optional<std::string> detail_message;
-  if (const auto [it, end] = trailers.equal_range(kGrpcStatusDetailHeader);
-      it != end) {
+  if (const auto [it, end] = trailers.equal_range(kGrpcStatusDetailHeader); it != end) {
     detail_message = std::string(it->second.data(), it->second.size());
   }
 
   std::optional<std::string> detail_bin;
-  if (const auto [it, end] = trailers.equal_range(kBinaryErrorDetailsKey);
-      it != end) {
+  if (const auto [it, end] = trailers.equal_range(kBinaryErrorDetailsKey); it != end) {
     detail_bin = std::string(it->second.data(), it->second.size());
   }
 
-  std::string code_str(code_val_begin->second.data(),
-                       code_val_begin->second.size());
+  std::string code_str(code_val_begin->second.data(), code_val_begin->second.size());
   *status = internal::ReconstructStatus(code_str, current_status, std::move(message),
                                         std::move(detail_message), std::move(detail_bin),
                                         std::move(flight_status_detail));
