@@ -59,7 +59,7 @@ class PARQUET_EXPORT RowGroupWriter {
     /// \brief total compressed bytes written by the page writer
     virtual int64_t total_compressed_bytes_written() const = 0;
     /// \brief estimated size of the values that are not written to a page yet
-    virtual int64_t estimated_buffered_value_bytes() const = 0;
+    virtual int64_t EstimatedBufferedValueBytes() const = 0;
 
     virtual bool buffered() const = 0;
   };
@@ -103,7 +103,7 @@ class PARQUET_EXPORT RowGroupWriter {
   int64_t total_compressed_bytes_written() const;
   /// \brief including compressed bytes in page writer and uncompressed data
   /// value buffer.
-  int64_t current_buffered_bytes() const;
+  int64_t total_buffered_bytes() const;
 
   /// Returns whether the current RowGroupWriter is in the buffered mode and is created
   /// by calling ParquetFileWriter::AppendBufferedRowGroup.

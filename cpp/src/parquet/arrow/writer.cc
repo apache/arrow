@@ -404,8 +404,8 @@ class FileWriterImpl : public FileWriter {
     }
     // max_row_group_bytes is applied only after the row group has accumulated data.
     if (row_group_writer_ != nullptr && row_group_writer_->num_rows() > 0) {
-      double avg_row_size = row_group_writer_->current_buffered_bytes() * 1.0 /
-                            row_group_writer_->num_rows();
+      double avg_row_size =
+          row_group_writer_->total_buffered_bytes() * 1.0 / row_group_writer_->num_rows();
       chunk_size = std::min(
           chunk_size,
           static_cast<int64_t>(this->properties().max_row_group_bytes() / avg_row_size));
@@ -496,11 +496,11 @@ class FileWriterImpl : public FileWriter {
       int64_t batch_size =
           std::min(max_row_group_length - group_rows, batch.num_rows() - offset);
       if (group_rows > 0) {
-        int64_t buffered_bytes = row_group_writer_->current_buffered_bytes();
-        double avg_row_bytes = buffered_bytes * 1.0 / group_rows;
+        int64_t buffered_bytes = row_group_writer_->total_buffered_bytes();
+        double avg_row_size = buffered_bytes * 1.0 / group_rows;
         batch_size = std::min(
             batch_size,
-            static_cast<int64_t>((max_row_group_bytes - buffered_bytes) / avg_row_bytes));
+            static_cast<int64_t>((max_row_group_bytes - buffered_bytes) / avg_row_size));
       }
       if (batch_size > 0) {
         RETURN_NOT_OK(WriteBatch(offset, batch_size));
