@@ -149,15 +149,12 @@ struct AltrepVectorBase {
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    SEXP data_class_sym = CAR(ATTRIB(ALTREP_CLASS(alt)));
-    const char* class_name = CHAR(PRINTNAME(data_class_sym));
-
     if (IsMaterialized(alt)) {
-      Rprintf("materialized %s len=%ld\n", class_name,
+      Rprintf("materialized %s len=%ld\n", Impl::class_name,
               static_cast<long>(Rf_xlength(Representation(alt))));  // NOLINT: runtime/int
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
-      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", class_name,
+      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", Impl::class_name,
               reinterpret_cast<void*>(chunked_array.get()),
               chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
               static_cast<long>(chunked_array->null_count()),  // NOLINT: runtime/int
@@ -197,6 +194,7 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // singleton altrep class description
   static R_altrep_class_t class_t;
+  static const char* class_name;
 
   using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
   using Base::IsMaterialized;
@@ -437,10 +435,13 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 };
 template <int sexp_type>
 R_altrep_class_t AltrepVectorPrimitive<sexp_type>::class_t;
+template <int sexp_type>
+const char* AltrepVectorPrimitive<sexp_type>::class_name;
 
 struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   // singleton altrep class description
   static R_altrep_class_t class_t;
+  static const char* class_name;
 
   using Base = AltrepVectorBase<AltrepFactor>;
   using Base::IsMaterialized;
@@ -574,11 +575,10 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     // the representation integer vector
     SEXP dup = PROTECT(Rf_shallow_duplicate(Materialize(alt)));
 
-    // additional attributes from the altrep
-    SEXP atts = PROTECT(Rf_duplicate(ATTRIB(alt)));
-    SET_ATTRIB(dup, atts);
+    // copy attributes from the altrep object
+    DUPLICATE_ATTRIB(dup, alt);
 
-    UNPROTECT(2);
+    UNPROTECT(1);
     return dup;
   }
 
@@ -765,6 +765,7 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   static SEXP Sum(SEXP alt, Rboolean narm) { return nullptr; }
 };
 R_altrep_class_t AltrepFactor::class_t;
+const char* AltrepFactor::class_name;
 
 // Implementation for string arrays
 template <typename Type>
@@ -772,6 +773,7 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   using Base = AltrepVectorBase<AltrepVectorString<Type>>;
 
   static R_altrep_class_t class_t;
+  static const char* class_name;
   using StringArrayType = typename TypeTraits<Type>::ArrayType;
 
   using Base::Representation;
@@ -969,6 +971,8 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
 template <typename Type>
 R_altrep_class_t AltrepVectorString<Type>::class_t;
+template <typename Type>
+const char* AltrepVectorString<Type>::class_name;
 
 // initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
@@ -1016,6 +1020,7 @@ void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
 template <typename AltrepClass>
 void InitAltRealClass(DllInfo* dll, const char* name) {
   AltrepClass::class_t = R_make_altreal_class(name, "arrow", dll);
+  AltrepClass::class_name = name;
   InitAltrepMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltvecMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltRealMethods<AltrepClass>(AltrepClass::class_t, dll);
@@ -1024,6 +1029,7 @@ void InitAltRealClass(DllInfo* dll, const char* name) {
 template <typename AltrepClass>
 void InitAltIntegerClass(DllInfo* dll, const char* name) {
   AltrepClass::class_t = R_make_altinteger_class(name, "arrow", dll);
+  AltrepClass::class_name = name;
   InitAltrepMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltvecMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltIntegerMethods<AltrepClass>(AltrepClass::class_t, dll);
@@ -1032,6 +1038,7 @@ void InitAltIntegerClass(DllInfo* dll, const char* name) {
 template <typename AltrepClass>
 void InitAltStringClass(DllInfo* dll, const char* name) {
   AltrepClass::class_t = R_make_altstring_class(name, "arrow", dll);
+  AltrepClass::class_name = name;
   R_set_altrep_Length_method(AltrepClass::class_t, AltrepClass::Length);
   R_set_altrep_Inspect_method(AltrepClass::class_t, AltrepClass::Inspect);
   R_set_altrep_Duplicate_method(AltrepClass::class_t, AltrepClass::Duplicate);
@@ -1094,10 +1101,11 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 
 bool is_arrow_altrep(SEXP x) {
   if (ALTREP(x)) {
-    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
-    SEXP pkg = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
-
-    if (pkg == symbols::arrow) return true;
+    return R_altrep_inherits(x, AltrepVectorPrimitive<REALSXP>::class_t) ||
+           R_altrep_inherits(x, AltrepVectorPrimitive<INTSXP>::class_t) ||
+           R_altrep_inherits(x, AltrepFactor::class_t) ||
+           R_altrep_inherits(x, AltrepVectorString<StringType>::class_t) ||
+           R_altrep_inherits(x, AltrepVectorString<LargeStringType>::class_t);
   }
 
   return false;
@@ -1160,20 +1168,21 @@ sexp test_arrow_altrep_is_materialized(sexp x) {
     return Rf_ScalarLogical(NA_LOGICAL);
   }
 
-  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
-  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
-
   int result = NA_LOGICAL;
-  if (class_name == "arrow::array_dbl_vector") {
+  if (R_altrep_inherits(x, arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::class_t)) {
     result = arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::IsMaterialized(x);
-  } else if (class_name == "arrow::array_int_vector") {
+  } else if (R_altrep_inherits(
+                 x, arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::class_t)) {
     result = arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::IsMaterialized(x);
-  } else if (class_name == "arrow::array_string_vector") {
+  } else if (R_altrep_inherits(
+                 x, arrow::r::altrep::AltrepVectorString<arrow::StringType>::class_t)) {
     result = arrow::r::altrep::AltrepVectorString<arrow::StringType>::IsMaterialized(x);
-  } else if (class_name == "arrow::array_large_string_vector") {
+  } else if (R_altrep_inherits(
+                 x,
+                 arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::class_t)) {
     result =
         arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::IsMaterialized(x);
-  } else if (class_name == "arrow::array_factor") {
+  } else if (R_altrep_inherits(x, arrow::r::altrep::AltrepFactor::class_t)) {
     result = arrow::r::altrep::AltrepFactor::IsMaterialized(x);
   }
 
@@ -1191,18 +1200,19 @@ bool test_arrow_altrep_force_materialize(sexp x) {
     stop("x is already materialized");
   }
 
-  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
-  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
-
-  if (class_name == "arrow::array_dbl_vector") {
+  if (R_altrep_inherits(x, arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::class_t)) {
     arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::Materialize(x);
-  } else if (class_name == "arrow::array_int_vector") {
+  } else if (R_altrep_inherits(
+                 x, arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::class_t)) {
     arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::Materialize(x);
-  } else if (class_name == "arrow::array_string_vector") {
+  } else if (R_altrep_inherits(
+                 x, arrow::r::altrep::AltrepVectorString<arrow::StringType>::class_t)) {
     arrow::r::altrep::AltrepVectorString<arrow::StringType>::Materialize(x);
-  } else if (class_name == "arrow::array_large_string_vector") {
+  } else if (R_altrep_inherits(
+                 x,
+                 arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::class_t)) {
     arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::Materialize(x);
-  } else if (class_name == "arrow::array_factor") {
+  } else if (R_altrep_inherits(x, arrow::r::altrep::AltrepFactor::class_t)) {
     arrow::r::altrep::AltrepFactor::Materialize(x);
   } else {
     return false;
