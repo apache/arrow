@@ -18,9 +18,9 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
-#include <span>
 
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
@@ -45,9 +45,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/ree_util.h"
-#include <span>
 #include "arrow/visit_type_inline.h"
-
 namespace arrow::compute::internal {
 
 using ::arrow::internal::checked_cast;

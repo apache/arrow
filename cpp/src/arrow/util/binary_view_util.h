@@ -17,11 +17,11 @@
 
 #pragma once
 
+#include <span>
 #include <string_view>
 #include <utility>
 
 #include "arrow/type.h"
-#include <span>
 
 namespace arrow::util {
 

@@ -20,15 +20,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
 #include "arrow/array.h"
 #include "arrow/chunk_resolver.h"
 #include "arrow/compute/kernels/codegen_internal.h"
-#include <span>
 #include "arrow/util/visibility.h"
-
 namespace arrow::compute::internal {
 
 // The target chunk in a chunked array.
@@ -92,13 +91,13 @@ static_assert(sizeof(uint64_t) == sizeof(CompressedChunkLocation));
 class ChunkedArrayResolver {
  private:
   ChunkResolver resolver_;
-  util::span<const Array* const> chunks_;
+  std::span<const Array* const> chunks_;
   std::vector<const Array*> owned_chunks_;
 
  public:
   explicit ChunkedArrayResolver(std::vector<const Array*>&& chunks)
       : resolver_(chunks), chunks_(chunks), owned_chunks_(std::move(chunks)) {}
-  explicit ChunkedArrayResolver(util::span<const Array* const> chunks)
+  explicit ChunkedArrayResolver(std::span<const Array* const> chunks)
       : resolver_(chunks), chunks_(chunks) {}
 
   ARROW_DEFAULT_MOVE_AND_ASSIGN(ChunkedArrayResolver);
@@ -129,8 +128,8 @@ class ARROW_EXPORT ChunkedIndexMapper {
  public:
   ChunkedIndexMapper(const std::vector<const Array*>& chunks, uint64_t* indices_begin,
                      uint64_t* indices_end)
-      : ChunkedIndexMapper(util::span(chunks), indices_begin, indices_end) {}
-  ChunkedIndexMapper(util::span<const Array* const> chunks, uint64_t* indices_begin,
+      : ChunkedIndexMapper(std::span(chunks), indices_begin, indices_end) {}
+  ChunkedIndexMapper(std::span<const Array* const> chunks, uint64_t* indices_begin,
                      uint64_t* indices_end)
       : chunk_lengths_(GetChunkLengths(chunks)),
         indices_begin_(indices_begin),
@@ -154,7 +153,7 @@ class ARROW_EXPORT ChunkedIndexMapper {
   Status PhysicalToLogical();
 
  private:
-  static std::vector<int64_t> GetChunkLengths(util::span<const Array* const> chunks);
+  static std::vector<int64_t> GetChunkLengths(std::span<const Array* const> chunks);
   static std::vector<int64_t> GetChunkLengths(const RecordBatchVector& chunks);
 
   std::vector<int64_t> chunk_lengths_;

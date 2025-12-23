@@ -15,25 +15,22 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/encryption/encryption_internal.h"
-
-#include <openssl/aes.h>
-#include <openssl/err.h>
-#include <openssl/evp.h>
-#include <openssl/rand.h>
-
 #include <algorithm>
 #include <array>
 #include <iostream>
 #include <memory>
+#include <openssl/aes.h>
+#include <openssl/err.h>
+#include <openssl/evp.h>
+#include <openssl/rand.h>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
-#include <span>
 
+#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/openssl_internal.h"
 #include "parquet/exception.h"
-
 using std::span;
 using parquet::ParquetException;
 

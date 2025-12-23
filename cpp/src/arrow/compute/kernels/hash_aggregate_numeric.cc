@@ -18,6 +18,7 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -32,10 +33,8 @@
 #include "arrow/compute/row/grouper.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/int128_internal.h"
-#include <span>
 #include "arrow/util/tdigest_internal.h"
 #include "arrow/visit_type_inline.h"
-
 namespace arrow::compute::internal {
 namespace {
 

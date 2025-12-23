@@ -24,6 +24,7 @@
 #include <cstdint>
 #include <cstring>
 #include <memory>
+#include <span>
 #include <string>
 #include <string_view>
 #include <utility>
@@ -36,10 +37,8 @@
 #include "arrow/util/compare.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/functional.h"
-#include <span>
 #include "arrow/util/string_util.h"
 #include "arrow/util/visibility.h"
-
 namespace arrow {
 
 class BooleanArray;
@@ -155,7 +154,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
     Bitmap bitmaps[N];
     int64_t offsets[N];
     int64_t bit_length = BitLength(bitmaps_arg, N);
-    util::span<const Word> words[N];
+    std::span<const Word> words[N];
     for (size_t i = 0; i < N; ++i) {
       bitmaps[i] = bitmaps_arg[i];
       offsets[i] = bitmaps[i].template word_offset<Word>();
@@ -384,7 +383,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   int64_t length() const { return length_; }
 
   /// span of all bytes which contain any bit in this Bitmap
-  util::span<const uint8_t> bytes() const {
+  std::span<const uint8_t> bytes() const {
     auto byte_offset = offset_ / 8;
     auto byte_count = bit_util::CeilDiv(offset_ + length_, 8) - byte_offset;
     return {data_ + byte_offset, static_cast<size_t>(byte_count)};
@@ -404,7 +403,7 @@ class ARROW_EXPORT Bitmap : public util::ToStringOstreamable<Bitmap>,
   /// \warning The words may contain bytes which lie outside the buffer or are
   /// uninitialized.
   template <typename Word>
-  util::span<const Word> words() const {
+  std::span<const Word> words() const {
     auto bytes_addr = reinterpret_cast<intptr_t>(bytes().data());
     auto words_addr = bytes_addr - bytes_addr % sizeof(Word);
     auto word_byte_count =

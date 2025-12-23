@@ -15,8 +15,6 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/metadata.h"
-
 #include <algorithm>
 #include <cinttypes>
 #include <memory>
@@ -29,6 +27,7 @@
 #include <utility>
 #include <vector>
 
+#include "parquet/metadata.h"
 #include "arrow/io/memory.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
@@ -41,7 +40,6 @@
 #include "parquet/size_statistics.h"
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
-
 using ::arrow::util::SecureString;
 
 namespace parquet {

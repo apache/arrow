@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "arrow/integration/json_internal.h"
-
 #include <cstdint>
 #include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "arrow/integration/json_internal.h"
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
@@ -48,12 +48,10 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
-#include <span>
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
 #include "arrow/visit_type_inline.h"
-
 using arrow::internal::checked_cast;
 using arrow::internal::Enumerate;
 using arrow::internal::ParseValue;
@@ -1461,7 +1459,7 @@ class ArrayReader {
                           GetMemberArray(obj_, "VARIADIC_DATA_BUFFERS"));
 
     using internal::Zip;
-    using util::span;
+    using std::span;
 
     BufferVector buffers;
     buffers.resize(json_variadic_bufs.Size() + 2);

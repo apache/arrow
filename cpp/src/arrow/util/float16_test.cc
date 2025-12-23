@@ -17,16 +17,14 @@
 
 #include <array>
 #include <cmath>
-#include <utility>
-
 #include <gtest/gtest.h>
+#include <span>
+#include <utility>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
-#include <span>
 #include "arrow/util/ubsan.h"
-
 namespace arrow::util {
 namespace {
 

@@ -15,15 +15,14 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gtest/gtest.h>
-
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <gtest/gtest.h>
 #include <limits>
+#include <span>
 #include <utility>
 #include <vector>
-#include <span>
 
 #include "arrow/array.h"
 #include "arrow/array/builder_binary.h"
@@ -40,14 +39,12 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
-#include <span>
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
 #include "parquet/types.h"
-
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;

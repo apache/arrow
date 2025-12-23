@@ -16,14 +16,12 @@
 // under the License.
 
 #include <cstddef>
-#include <iostream>
-
 #include <gtest/gtest.h>
+#include <iostream>
+#include <span>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
-#include <span>
-
 using testing::ElementsAre;
 using testing::ElementsAreArray;
 using testing::PrintToString;
@@ -73,26 +71,26 @@ TEST(Span, TemplateArgumentDeduction) {
   const int const_arr[] = {1, 2, 3};
   std::vector<int> vec;
   const std::vector<int> const_vec;
-  static_assert(std::is_same_v<decltype(span(arr)), std::span<int>>);
-  static_assert(std::is_same_v<decltype(span(vec)), std::span<int>>);
-  static_assert(std::is_same_v<decltype(span(const_arr)), std::span<const int>>);
-  static_assert(std::is_same_v<decltype(span(const_vec)), std::span<const int>>);
+  static_assert(std::is_same_v<decltype(std::span(arr)), std::span<int>>);
+  static_assert(std::is_same_v<decltype(std::span(vec)), std::span<int>>);
+  static_assert(std::is_same_v<decltype(std::span(const_arr)), std::span<const int>>);
+  static_assert(std::is_same_v<decltype(std::span(const_vec)), std::span<const int>>);
 }
 
 TEST(Span, Size) {
   int arr[] = {1, 2, 3};
-  EXPECT_EQ(span(arr).size(), 3);
-  EXPECT_EQ(span(arr).size_bytes(), sizeof(int) * 3);
+  EXPECT_EQ(std::span(arr).size(), 3);
+  EXPECT_EQ(std::span(arr).size_bytes(), sizeof(int) * 3);
 
   std::vector<int> vec;
-  EXPECT_TRUE(span(vec).empty());
-  EXPECT_EQ(span(vec).size(), 0);
-  EXPECT_EQ(span(vec).size_bytes(), 0);
+  EXPECT_TRUE(std::span(vec).empty());
+  EXPECT_EQ(std::span(vec).size(), 0);
+  EXPECT_EQ(std::span(vec).size_bytes(), 0);
 
   vec.resize(999);
-  EXPECT_FALSE(span(vec).empty());
-  EXPECT_EQ(span(vec).size(), 999);
-  EXPECT_EQ(span(vec).size_bytes(), sizeof(int) * 999);
+  EXPECT_FALSE(std::span(vec).empty());
+  EXPECT_EQ(std::span(vec).size(), 999);
+  EXPECT_EQ(std::span(vec).size_bytes(), sizeof(int) * 999);
 }
 
 TEST(Span, Equality) {
@@ -112,49 +110,49 @@ TEST(Span, Equality) {
     check_eq(std::span<int>(), std::span<int>());
 
     int arr[] = {1, 2, 3};
-    check_eq(span(arr), span(arr));
-    check_eq(span(arr).subspan(1), span(arr).subspan(1));
-    check_ne(span(arr).subspan(1), span(arr).subspan(2));
+    check_eq(std::span(arr), std::span(arr));
+    check_eq(std::span(arr).subspan(1), std::span(arr).subspan(1));
+    check_ne(std::span(arr).subspan(1), std::span(arr).subspan(2));
 
     std::vector<int> vec{1, 2, 3};
-    check_eq(span(vec), span(arr));
-    check_eq(span(vec).subspan(1), span(arr).subspan(1));
+    check_eq(std::span(vec), std::span(arr));
+    check_eq(std::span(vec).subspan(1), std::span(arr).subspan(1));
 
     vec = {2, 3, 4};
-    check_ne(span(vec), span(arr));
-    check_eq(span(vec).subspan(0, 2), span(arr).subspan(1));
+    check_ne(std::span(vec), std::span(arr));
+    check_eq(std::span(vec).subspan(0, 2), std::span(arr).subspan(1));
 
     // 0-sized
     vec = {};
-    check_ne(span(vec), span(arr));
-    check_eq(span(vec), span(arr).subspan(3));
+    check_ne(std::span(vec), std::span(arr));
+    check_eq(std::span(vec), std::span(arr).subspan(3));
   }
   {
     // exercise non-integral branch with for loop
     check_eq(std::span<std::string>(), std::span<std::string>());
 
     std::string arr[] = {"a", "b", "c"};
-    check_eq(span(arr), span(arr));
-    check_eq(span(arr).subspan(1), span(arr).subspan(1));
+    check_eq(std::span(arr), std::span(arr));
+    check_eq(std::span(arr).subspan(1), std::span(arr).subspan(1));
 
     std::vector<std::string> vec{"a", "b", "c"};
-    check_eq(span(vec), span(arr));
-    check_eq(span(vec).subspan(1), span(arr).subspan(1));
+    check_eq(std::span(vec), std::span(arr));
+    check_eq(std::span(vec).subspan(1), std::span(arr).subspan(1));
 
     vec = {"b", "c", "d"};
-    check_ne(span(vec), span(arr));
-    check_eq(span(vec).subspan(0, 2), span(arr).subspan(1));
+    check_ne(std::span(vec), std::span(arr));
+    check_eq(std::span(vec).subspan(0, 2), std::span(arr).subspan(1));
 
     // 0-sized
     vec = {};
-    check_ne(span(vec), span(arr));
-    check_eq(span(vec), span(arr).subspan(3));
+    check_ne(std::span(vec), std::span(arr));
+    check_eq(std::span(vec), std::span(arr).subspan(3));
   }
 }
 
 TEST(Span, SubSpan) {
   int arr[] = {1, 2, 3};
-  span s(arr);
+  std::span s(arr);
 
   auto ExpectIdentical = [](std::span<int> l, std::span<int> r) {
     EXPECT_EQ(l.data(), r.data());
@@ -165,7 +163,7 @@ TEST(Span, SubSpan) {
   ExpectIdentical(s.subspan(0, s.size()), s);
 
   for (size_t offset = 0; offset < s.size(); ++offset) {
-    span expected(arr + offset, s.size() - offset);
+    std::span expected(arr + offset, s.size() - offset);
     ExpectIdentical(s.subspan(offset), expected);
     ExpectIdentical(s.subspan(offset, s.size() * 3), expected);
   }
@@ -173,17 +171,17 @@ TEST(Span, SubSpan) {
   EXPECT_TRUE(s.subspan(s.size() * 3).empty());
 
   for (size_t length = 0; length < s.size(); ++length) {
-    span expected(arr, length);
+    std::span expected(arr, length);
     ExpectIdentical(s.subspan(0, length), expected);
   }
 
-  ExpectIdentical(s.subspan(1, 1), span(arr + 1, 1));
+  ExpectIdentical(s.subspan(1, 1), std::span(arr + 1, 1));
 }
 
 TEST(Span, Mutation) {
   size_t arr[] = {9, 9, 9, 9, 9};
 
-  span s(arr);
+  std::span s(arr);
   for (size_t i = 0; i < s.size(); ++i) {
     s[i] = i * i;
   }
@@ -195,9 +193,9 @@ TEST(Span, Mutation) {
       i = rhs;
     }
   };
-  set(span(arr), 0);
-  set(span(arr).subspan(1), 1);
-  set(span(arr).subspan(2, 2), 23);
+  set(std::span(arr), 0);
+  set(std::span(arr).subspan(1), 1);
+  set(std::span(arr).subspan(2, 2), 23);
   EXPECT_THAT(arr, ElementsAre(0, 1, 23, 23, 1));
 }
 

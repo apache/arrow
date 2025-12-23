@@ -15,17 +15,16 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "gmock/gmock.h"
-#include "gtest/gtest.h"
-
 #include <algorithm>
 #include <ostream>
 #include <random>
+#include <span>
 
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
 #include "arrow/buffer.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
-#include <span>
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/schema.h"
 #include "parquet/arrow/writer.h"
@@ -37,7 +36,6 @@
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/types.h"
-
 namespace parquet {
 
 TEST(SizeStatistics, UpdateLevelHistogram) {

@@ -18,23 +18,13 @@
 // __STDC_WANT_LIB_EXT1__ and string.h are required by memset_s:
 // https://en.cppreference.com/w/c/string/byte/memset
 #define __STDC_WANT_LIB_EXT1__ 1
+#include <span>
 #include <string.h>
 #include <utility>
 
-#if defined(ARROW_USE_OPENSSL)
-#  include <openssl/crypto.h>
-#  include <openssl/opensslv.h>
-#endif
-
 #include "arrow/util/windows_compatibility.h"
-#if defined(_WIN32)
-#  include <windows.h>
-#endif
-
 #include "arrow/util/logging.h"
 #include "arrow/util/secure_string.h"
-#include <span>
-
 namespace arrow::util {
 
 /// Note:

@@ -28,7 +28,7 @@
 
 namespace arrow {
 
-using util::span;
+using std::span;
 
 namespace {
 template <typename T>

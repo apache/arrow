@@ -22,11 +22,10 @@
 #include <cstdint>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <string_view>
 #include <vector>
-
-#include <span>
 
 #include "parquet/column_writer.h"
 #include "parquet/file_writer.h"
