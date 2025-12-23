@@ -25,7 +25,7 @@ jobs:
     runs-on: "{{ runs_on }}"
     timeout-minutes: 240
     env:
-      PYTHON_CMD: "py -{{ python_version }}"
+      PYTHON_CMD: "py -{{ python_version }}-arm64"
       CMAKE_BUILD_TYPE: release
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -59,9 +59,10 @@ jobs:
       - name: Build Arrow C++ and PyArrow wheel
         shell: cmd
         env:
+          arch: "ARM64"
           SETUPTOOLS_SCM_PRETEND_VERSION: "{{ arrow.no_rc_version }}"
         run: |
-          call "arrow\ci\scripts\python_wheel_windows_arm64_build.bat"
+          call "arrow\ci\scripts\python_wheel_windows_build.bat"
           
       - uses: actions/upload-artifact@v4
         with:
