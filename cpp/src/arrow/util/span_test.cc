@@ -26,8 +26,6 @@ using testing::ElementsAre;
 using testing::ElementsAreArray;
 using testing::PrintToString;
 
-namespace arrow_util_span_test {
-
 template <typename T>
 std::ostream& operator<<(std::ostream& os, const std::span<T>& span) {
   // Inefficient but good enough for testing
@@ -198,5 +196,3 @@ TEST(Span, Mutation) {
   set(std::span(arr).subspan(2, 2), 23);
   EXPECT_THAT(arr, ElementsAre(0, 1, 23, 23, 1));
 }
-
-}  // namespace arrow_util_span_test
