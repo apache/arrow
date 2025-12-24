@@ -16,14 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 -#}
-MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Message-Id: {{ message_id }}
-Date: {{ date }}
-From: {{ sender_name }} <{{ sender_email }}>
-To: {{ recipient_email }}
-Subject: [NIGHTLY] Arrow Build Report for Job {{report.job.branch}}: {{ (report.tasks_by_state["error"] | length) +  (report.tasks_by_state["failure"] | length) }} failed, {{ report.tasks_by_state["pending"] | length }} pending
-
 Arrow Build Report for Job {{ report.job.branch }}
 
 See https://s3.amazonaws.com/arrow-data/index.html for more information.

@@ -1,11 +1,3 @@
-MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Message-Id: <id@example.com>
-Date: Mon, 22 Dec 2025 22:12:00 -0000
-From: Sender Reporter <sender@arrow.com>
-To: recipient@arrow.com
-Subject: [NIGHTLY] Arrow Build Report for Job ursabot-1: 2 failed, 1 pending
-
 Arrow Build Report for Job ursabot-1
 
 See https://s3.amazonaws.com/arrow-data/index.html for more information.

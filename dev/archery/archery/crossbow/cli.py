@@ -16,6 +16,7 @@
 # under the License.
 
 from datetime import date
+import email.message
 import email.utils
 from pathlib import Path
 import time
@@ -384,14 +385,19 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
 
     job = queue.get(job_name)
     report = Report(job)
-    email_report = EmailReport(
-        date=email.utils.formatdate(),
-        message_id=email.utils.make_msgid(),
-        recipient_email=recipient_email,
-        report=report,
-        sender_email=sender_email,
-        sender_name=sender_name,
+    email_report = EmailReport(report=report)
+    message = email.message.EmailMessage()
+    message.set_charset('utf-8')
+    message['Message-Id'] = email.utils.make_msgid()
+    message['Date'] = email.utils.formatdate()
+    message['From'] = f'{sender_name} <{sender_email}>'
+    message['To'] = recipient_email
+    date = report.datetime.strftime('%Y-%m-%d')
+    message['Subject'] = (
+        f'[{date}] Arrow Build Report for {report.name}: '
+        f'{len(report.failed_jobs())} failed'
     )
+    message.set_content(email_report.render('nightly_report'))
 
     if poll:
         job.wait_until_finished(
@@ -406,10 +412,10 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
             recipient_email=recipient_email,
-            message=email_report.render("nightly_report")
+            message=message
         )
     else:
-        output.write(email_report.render("nightly_report"))
+        output.write(str(message))
 
 
 @crossbow.command()
@@ -645,22 +651,25 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             return
 
     class TokenExpirationReport:
-        def __init__(self, token_expiration_date, days_left):
-            self.token_expiration_date = token_expiration_date
+        def __init__(self, days_left):
             self.days_left = days_left
 
-    report = TokenExpirationReport(
-        token_expiration_date or "ALREADY_EXPIRED", days_left)
-    email_report = EmailReport(
-        date=email.utils.formatdate(),
-        message_id=email.utils.make_msgid(),
-        recipient_email=recipient_email,
-        report=report,
-        sender_email=sender_email,
-        sender_name=sender_name,
-    )
+    if not token_expiration_date:
+        token_expiration_date = 'ALREADY_EXPIRED'
+    report = TokenExpirationReport(days_left)
+    email_report = EmailReport(report)
 
-    message = email_report.render("token_expiration")
+    message = email.message.EmailMessage()
+    message.set_charset('utf-8')
+    message['Message-Id'] = email.utils.make_msgid()
+    message['Date'] = email.utils.formatdate()
+    message['From'] = f'{sender_name} <{sender_email}>'
+    message['To'] = recipient_email
+    message['Subject'] = (
+        f'[CI] Arrow Crossbow Token Expiration in {token_expiration_date}'
+    )
+    message.set_content(email_report.render('token_expiration'))
+
     if send:
         ReportUtils.send_email(
             smtp_user=smtp_user,
@@ -671,4 +680,4 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             message=message
         )
     else:
-        output.write(message)
+        output.write(str(message))

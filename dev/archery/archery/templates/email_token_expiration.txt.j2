@@ -16,14 +16,6 @@
 # specific language governing permissions and limitations
 # under the License.
 -#}
-MIME-Version: 1.0
-Content-Type: text/plain; charset="utf-8"
-Message-Id: {{ message_id }}
-Date: {{ date }}
-From: {{ sender_name }} <{{ sender_email }}>
-To: {{ recipient_email }}
-Subject: [CI] Arrow Crossbow Token Expiration in {{ report.token_expiration_date }}
-
 The Arrow Crossbow Token will expire in {{ report.days_left }} days.
 
 Please generate a new Token. Send it to Apache INFRA to update the CROSSBOW_GITHUB_TOKEN.
