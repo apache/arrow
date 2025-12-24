@@ -259,7 +259,7 @@ class ReportUtils:
             else:
                 smtp.starttls()
             smtp.login(smtp_user, smtp_password)
-            smtp.sendmail(smtp_user, recipient_email, message)
+            smtp.send_message(smtp_user, recipient_email, message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
@@ -277,12 +277,7 @@ class EmailReport(JinjaReport):
         'workflow_report': 'email_workflow_report.txt.j2',
     }
     fields = [
-        'date',
-        'message_id',
-        'recipient_email',
         'report',
-        'sender_email',
-        'sender_name',
     ]
 
 

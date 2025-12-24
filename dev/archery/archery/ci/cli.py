@@ -16,6 +16,7 @@
 # under the License.
 
 import click
+import email.message
 import email.utils
 
 from .core import Workflow
@@ -108,14 +109,23 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
 
     workflow = Workflow(workflow_id, repository,
                         ignore_job=ignore, gh_token=obj['github_token'])
-    email_report = EmailReport(
-        date=email.utils.formatdate(workflow.datetime),
-        message_id=email.utils.make_msgid(),
-        recipient_email=recipient_email,
-        report=workflow,
-        sender_email=sender_email,
-        sender_name=sender_name,
+    email_report = EmailReport(report=workflow)
+    message = email.message.EmailMessage()
+    message.set_charset('utf-8')
+    message['Message-Id'] = email.utils.make_msgid()
+    message['Date'] = email.utils.formatdate(workflow.datetime)
+    message['From'] = f'{sender_name} <{sender_email}>'
+    message['To'] = recipient_email
+    n_errors = len(workflow.tasks_by_state['error'])
+    n_failures = len(workflow.tasks_by_state['failure'])
+    n_pendings = len(workflow.tasks_by_state['pending'])
+    subject = (
+        f'[NIGHTLY] Arrow Build Report for Job {workflow.job.branch}: '
+        f'{n_errors + n_failures} failed, '
+        f'{n_pendings} pending'
     )
+    message['Subject'] = subject
+    message.set_content(email_report.render('workflow_report'))
 
     if send:
         ReportUtils.send_email(
@@ -124,7 +134,7 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
             recipient_email=recipient_email,
-            message=email_report.render("workflow_report")
+            message=message
         )
     else:
-        output.write(email_report.render("workflow_report"))
+        output.write(str(message))
