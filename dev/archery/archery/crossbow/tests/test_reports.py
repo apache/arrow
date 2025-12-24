@@ -76,9 +76,7 @@ def test_crossbow_email_report(load_fixture):
     job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
     report = Report(job)
     assert report.tasks_by_state is not None
-    email_report = EmailReport(report=report, sender_name="Sender Reporter",
-                               sender_email="sender@arrow.com",
-                               recipient_email="recipient@arrow.com")
+    email_report = EmailReport(report=report)
 
     assert (
         email_report.render("nightly_report") == textwrap.dedent(expected_msg)

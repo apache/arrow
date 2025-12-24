@@ -1,7 +1,3 @@
-From: Sender Reporter <sender@arrow.com>
-To: recipient@arrow.com
-Subject: [NIGHTLY] Arrow Build Report for Job ursabot-1: 2 failed, 1 pending
-
 Arrow Build Report for Job ursabot-1
 
 See https://s3.amazonaws.com/arrow-data/index.html for more information.
