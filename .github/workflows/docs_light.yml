@@ -47,6 +47,7 @@ jobs:
     timeout-minutes: 60
     env:
       PYTHON: "3.12"
+      PYTEST_RST_ARGS: "--doctest-glob=*.rst"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6

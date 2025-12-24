@@ -52,14 +52,15 @@ A :class:`Buffer` can be created from any Python object implementing
 the buffer protocol by calling the :func:`py_buffer` function. Let's consider
 a bytes object:
 
-.. ipython:: python
+.. code-block:: python
 
-   import pyarrow as pa
-
-   data = b'abcdefghijklmnopqrstuvwxyz'
-   buf = pa.py_buffer(data)
-   buf
-   buf.size
+   >>> import pyarrow as pa
+   >>> data = b'abcdefghijklmnopqrstuvwxyz'
+   >>> buf = pa.py_buffer(data)
+   >>> buf
+   <pyarrow.Buffer address=... size=26 is_cpu=True is_mutable=False>
+   >>> buf.size
+   26
 
 Creating a Buffer in this way does not allocate any memory; it is a zero-copy
 view on the memory exported from the ``data`` bytes object.
@@ -70,16 +71,18 @@ referenced using the :func:`foreign_buffer` function.
 Buffers can be used in circumstances where a Python buffer or memoryview is
 required, and such conversions are zero-copy:
 
-.. ipython:: python
+.. code-block:: python
 
-   memoryview(buf)
+   >>> memoryview(buf)
+   <memory at ...>
 
 The Buffer's :meth:`~Buffer.to_pybytes` method converts the Buffer's data to a
 Python bytestring (thus making a copy of the data):
 
-.. ipython:: python
+.. code-block:: python
 
-   buf.to_pybytes()
+   >>> buf.to_pybytes()
+   b'abcdefghijklmnopqrstuvwxyz'
 
 Memory Pools
 ------------
@@ -88,26 +91,30 @@ All memory allocations and deallocations (like ``malloc`` and ``free`` in C)
 are tracked in an instance of :class:`MemoryPool`. This means that we can
 then precisely track amount of memory that has been allocated:
 
-.. ipython:: python
+.. code-block:: python
 
-   pa.total_allocated_bytes()
+   >>> pa.total_allocated_bytes()
+   0
 
 Let's allocate a resizable :class:`Buffer` from the default pool:
 
-.. ipython:: python
+.. code-block:: python
 
-   buf = pa.allocate_buffer(1024, resizable=True)
-   pa.total_allocated_bytes()
-   buf.resize(2048)
-   pa.total_allocated_bytes()
+   >>> buf = pa.allocate_buffer(1024, resizable=True)
+   >>> pa.total_allocated_bytes()
+   1024
+   >>> buf.resize(2048)
+   >>> pa.total_allocated_bytes()
+   2048
 
 The default allocator requests memory in a minimum increment of 64 bytes. If
 the buffer is garbage-collected, all of the memory is freed:
 
-.. ipython:: python
+.. code-block:: python
 
-   buf = None
-   pa.total_allocated_bytes()
+   >>> buf = None
+   >>> pa.total_allocated_bytes()
+   0
 
 Besides the default built-in memory pool, there may be additional memory pools
 to choose from (such as `jemalloc <http://jemalloc.net/>`_)
@@ -182,11 +189,12 @@ The :func:`~pyarrow.input_stream` function allows creating a readable
 * If passed a :class:`~pyarrow.Buffer` or a ``memoryview`` object, a
   :class:`~pyarrow.BufferReader` will be returned:
 
-   .. ipython:: python
+   .. code-block:: python
 
-      buf = memoryview(b"some data")
-      stream = pa.input_stream(buf)
-      stream.read(4)
+      >>> buf = memoryview(b"some data")
+      >>> stream = pa.input_stream(buf)
+      >>> stream.read(4)
+      b'some'
 
 * If passed a string or file path, it will open the given file on disk
   for reading, creating a :class:`~pyarrow.OSFile`.  Optionally, the file
@@ -194,14 +202,15 @@ The :func:`~pyarrow.input_stream` function allows creating a readable
   such as ``.gz``, its contents will automatically be decompressed on
   reading.
 
-  .. ipython:: python
+  .. code-block:: python
 
-     import gzip
-     with gzip.open('example.gz', 'wb') as f:
-         f.write(b'some data\n' * 3)
-
-     stream = pa.input_stream('example.gz')
-     stream.read()
+     >>> import gzip
+     >>> with gzip.open('example.gz', 'wb') as f:
+     ...     f.write(b'some data\n' * 3)
+     30
+     >>> stream = pa.input_stream('example.gz')
+     >>> stream.read()
+     b'some data\nsome data\nsome data\n'
 
 * If passed a Python file object, it will wrapped in a :class:`PythonFile`
   such that the Arrow C++ libraries can read data from it (at the expense
@@ -215,13 +224,14 @@ and allows creating a writable :class:`~pyarrow.NativeFile`.  It has the same
 features as explained above for :func:`~pyarrow.input_stream`, such as being
 able to write to buffers or do on-the-fly compression.
 
-.. ipython:: python
+.. code-block:: python
 
-   with pa.output_stream('example1.dat') as stream:
-       stream.write(b'some data')
-
-   f = open('example1.dat', 'rb')
-   f.read()
+   >>> with pa.output_stream('example1.dat') as stream:
+   ...     stream.write(b'some data')
+   9
+   >>> f = open('example1.dat', 'rb')
+   >>> f.read()
+   b'some data'
 
 
 On-Disk and Memory Mapped Files
@@ -231,17 +241,19 @@ PyArrow includes two ways to interact with data on disk: standard operating
 system-level file APIs, and memory-mapped files. In regular Python we can
 write:
 
-.. ipython:: python
+.. code-block:: python
 
-   with open('example2.dat', 'wb') as f:
-       f.write(b'some example data')
+   >>> with open('example2.dat', 'wb') as f:
+   ...     f.write(b'some example data')
+   17
 
 Using pyarrow's :class:`~pyarrow.OSFile` class, you can write:
 
-.. ipython:: python
+.. code-block:: python
 
-   with pa.OSFile('example3.dat', 'wb') as f:
-       f.write(b'some example data')
+   >>> with pa.OSFile('example3.dat', 'wb') as f:
+   ...     f.write(b'some example data')
+   17
 
 For reading files, you can use :class:`~pyarrow.OSFile` or
 :class:`~pyarrow.MemoryMappedFile`. The difference between these is that
@@ -249,33 +261,31 @@ For reading files, you can use :class:`~pyarrow.OSFile` or
 objects. In reads from memory maps, the library constructs a buffer referencing
 the mapped memory without any memory allocation or copying:
 
-.. ipython:: python
+.. code-block:: python
 
-   file_obj = pa.OSFile('example2.dat')
-   mmap = pa.memory_map('example3.dat')
-   file_obj.read(4)
-   mmap.read(4)
+   >>> file_obj = pa.OSFile('example2.dat')
+   >>> mmap = pa.memory_map('example3.dat')
+   >>> file_obj.read(4)
+   b'some'
+   >>> mmap.read(4)
+   b'some'
 
 The ``read`` method implements the standard Python file ``read`` API. To read
 into Arrow Buffer objects, use ``read_buffer``:
 
-.. ipython:: python
+.. code-block:: python
 
-   mmap.seek(0)
-   buf = mmap.read_buffer(4)
-   print(buf)
-   buf.to_pybytes()
+   >>> mmap.seek(0)
+   0
+   >>> buf = mmap.read_buffer(4)
+   >>> buf
+   <pyarrow.Buffer address=... size=4 is_cpu=True is_mutable=False>
+   >>> buf.to_pybytes()
+   b'some'
 
 Many tools in PyArrow, particular the Apache Parquet interface and the file and
 stream messaging tools, are more efficient when used with these ``NativeFile``
 types than with normal Python file objects.
-
-.. ipython:: python
-   :suppress:
-
-   buf = mmap = file_obj = None
-   !rm example.dat
-   !rm example2.dat
 
 In-Memory Reading and Writing
 -----------------------------
@@ -283,16 +293,20 @@ In-Memory Reading and Writing
 To assist with serialization and deserialization of in-memory data, we have
 file interfaces that can read and write to Arrow Buffers.
 
-.. ipython:: python
+.. code-block:: python
 
-   writer = pa.BufferOutputStream()
-   writer.write(b'hello, friends')
-
-   buf = writer.getvalue()
-   buf
-   buf.size
-   reader = pa.BufferReader(buf)
-   reader.seek(7)
-   reader.read(7)
+   >>> writer = pa.BufferOutputStream()
+   >>> writer.write(b'hello, friends')
+   14
+   >>> buf = writer.getvalue()
+   >>> buf
+   <pyarrow.Buffer address=... size=14 is_cpu=True is_mutable=True>
+   >>> buf.size
+   14
+   >>> reader = pa.BufferReader(buf)
+   >>> reader.seek(7)
+   7
+   >>> reader.read(7)
+   b'friends'
 
 These have similar semantics to Python's built-in ``io.BytesIO``.
