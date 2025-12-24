@@ -1444,6 +1444,60 @@ class RunEndEncodeOptions(_RunEndEncodeOptions):
         self._set_options(run_end_type)
 
 
+cdef class _InversePermutationOptions(FunctionOptions):
+    def _set_options(self, max_index=-1, output_type=None):
+        cdef optional[shared_ptr[CDataType]] c_output_type = nullopt
+        if output_type is not None:
+            c_output_type = pyarrow_unwrap_data_type(ensure_type(output_type))
+        self.wrapped.reset(
+            new CInversePermutationOptions(max_index, c_output_type))
+
+
+class InversePermutationOptions(_InversePermutationOptions):
+    """
+    Options for `inverse_permutation` function.
+
+    Parameters
+    ----------
+    max_index : int64, default -1
+        The max value in the input indices to allow.
+        The length of the function’s output will be this value plus 1.
+        If negative, this value will be set to the length of the input indices
+        minus 1 and the length of the function’s output will be the length
+        of the input indices.
+    output_type : DataType, default None
+        The data type for the output array of inverse permutation.
+        If None, the output will be of the same type as the input indices, otherwise
+        must be a signed integer type. An invalid error will be reported if this type
+        is not able to store the length of the input indices.
+    """
+
+    def __init__(self, max_index=-1, output_type=None):
+        self._set_options(max_index, output_type)
+
+
+cdef class _ScatterOptions(FunctionOptions):
+    def _set_options(self, max_index):
+        self.wrapped.reset(new CScatterOptions(max_index))
+
+
+class ScatterOptions(_ScatterOptions):
+    """
+    Options for `scatter` function.
+
+    Parameters
+    ----------
+    max_index : int64, default -1
+        The max value in the input indices to allow.
+        The length of the function’s output will be this value plus 1.
+        If negative, this value will be set to the length of the input indices minus 1
+        and the length of the function’s output will be the length of the input indices.
+    """
+
+    def __init__(self, max_index=-1):
+        self._set_options(max_index)
+
+
 cdef class _TakeOptions(FunctionOptions):
     def _set_options(self, boundscheck):
         self.wrapped.reset(new CTakeOptions(boundscheck))
