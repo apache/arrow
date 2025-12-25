@@ -1446,4 +1446,17 @@ GARROW_AVAILABLE_IN_23_0
 GArrowNullOptions *
 garrow_null_options_new(void);
 
+#define GARROW_TYPE_PAD_OPTIONS (garrow_pad_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowPadOptions, garrow_pad_options, GARROW, PAD_OPTIONS, GArrowFunctionOptions)
+struct _GArrowPadOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPadOptions *
+garrow_pad_options_new(void);
+
 G_END_DECLS
