@@ -17,20 +17,7 @@
 
 #pragma once
 
-#if defined(_MSC_VER)
-#  if defined(_M_AMD64) || defined(_M_X64)
-#    include <intrin.h>  // IWYU pragma: keep
-#  endif
-
-#  pragma intrinsic(_BitScanReverse)
-#  pragma intrinsic(_BitScanForward)
-#  define ARROW_POPCOUNT64 __popcnt64
-#  define ARROW_POPCOUNT32 __popcnt
-#else
-#  define ARROW_POPCOUNT64 __builtin_popcountll
-#  define ARROW_POPCOUNT32 __builtin_popcount
-#endif
-
+#include <bit>
 #include <cstdint>
 #include <type_traits>
 
@@ -66,8 +53,8 @@ static constexpr uint8_t kBytePopcount[] = {
     5, 4, 5, 5, 6, 3, 4, 4, 5, 4, 5, 5, 6, 4, 5, 5, 6, 5, 6, 6, 7, 3, 4, 4, 5, 4, 5, 5, 6,
     4, 5, 5, 6, 5, 6, 6, 7, 4, 5, 5, 6, 5, 6, 6, 7, 5, 6, 6, 7, 6, 7, 7, 8};
 
-static inline uint64_t PopCount(uint64_t bitmap) { return ARROW_POPCOUNT64(bitmap); }
-static inline uint32_t PopCount(uint32_t bitmap) { return ARROW_POPCOUNT32(bitmap); }
+static inline uint64_t PopCount(uint64_t bitmap) { return static_cast<uint64_t>(std::popcount(bitmap)); }
+static inline uint32_t PopCount(uint32_t bitmap) { return static_cast<uint32_t>(std::popcount(bitmap)); }
 
 //
 // Bit-related computations on integer values
@@ -181,95 +168,19 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
 
 /// \brief Count the number of leading zeros in an unsigned integer.
 static inline int CountLeadingZeros(uint32_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 32;
-  return static_cast<int>(__builtin_clz(value));
-#elif defined(_MSC_VER)
-  unsigned long index;                                               // NOLINT
-  if (_BitScanReverse(&index, static_cast<unsigned long>(value))) {  // NOLINT
-    return 31 - static_cast<int>(index);
-  } else {
-    return 32;
-  }
-#else
-  int bitpos = 0;
-  while (value != 0) {
-    value >>= 1;
-    ++bitpos;
-  }
-  return 32 - bitpos;
-#endif
+  return std::countl_zero(value);
 }
 
 static inline int CountLeadingZeros(uint64_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 64;
-  return static_cast<int>(__builtin_clzll(value));
-#elif defined(_MSC_VER)
-  unsigned long index;                     // NOLINT
-  if (_BitScanReverse64(&index, value)) {  // NOLINT
-    return 63 - static_cast<int>(index);
-  } else {
-    return 64;
-  }
-#else
-  int bitpos = 0;
-  while (value != 0) {
-    value >>= 1;
-    ++bitpos;
-  }
-  return 64 - bitpos;
-#endif
+  return std::countl_zero(value);
 }
 
 static inline int CountTrailingZeros(uint32_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 32;
-  return static_cast<int>(__builtin_ctzl(value));
-#elif defined(_MSC_VER)
-  unsigned long index;  // NOLINT
-  if (_BitScanForward(&index, value)) {
-    return static_cast<int>(index);
-  } else {
-    return 32;
-  }
-#else
-  int bitpos = 0;
-  if (value) {
-    while (value & 1 == 0) {
-      value >>= 1;
-      ++bitpos;
-    }
-  } else {
-    bitpos = 32;
-  }
-  return bitpos;
-#endif
+  return std::countr_zero(value);
 }
 
 static inline int CountTrailingZeros(uint64_t value) {
-#if defined(__clang__) || defined(__GNUC__)
-  if (value == 0) return 64;
-  return static_cast<int>(__builtin_ctzll(value));
-#elif defined(_MSC_VER)
-  unsigned long index;  // NOLINT
-  if (_BitScanForward64(&index, value)) {
-    return static_cast<int>(index);
-  } else {
-    return 64;
-  }
-#else
-  int bitpos = 0;
-  if (value) {
-    while (value & 1 == 0) {
-      value >>= 1;
-      ++bitpos;
-    }
-  } else {
-    bitpos = 64;
-  }
-  return bitpos;
-#endif
+  return std::countr_zero(value);
 }
 
 // Returns the minimum number of bits needed to represent an unsigned value
