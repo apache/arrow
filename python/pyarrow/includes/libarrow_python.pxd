@@ -161,6 +161,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
                                  shared_ptr[CTable] table,
                                  PyObject** out)
 
+    c_bool HasNumPyStringDType()
+
     void c_set_default_memory_pool \
         " arrow::py::set_default_memory_pool"(CMemoryPool* pool)\
 
@@ -182,6 +184,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyOutputStream(COutputStream):
         PyOutputStream(object fo)
 
+    cdef enum StringConversionMode "arrow::py::PandasOptions::StringConversionMode":
+        AUTO
+        STRING_DTYPE
+        PYTHON_OBJECT
+
     cdef cppclass PandasOptions:
         CMemoryPool* pool
         c_bool strings_to_categorical
@@ -201,6 +208,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         shared_ptr[const unordered_set[c_string]] categorical_columns
         shared_ptr[const unordered_set[c_string]] extension_columns
         c_bool to_numpy
+        StringConversionMode string_conversion_mode
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:

@@ -2332,6 +2332,38 @@ def test_to_numpy_roundtrip():
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize(
+    "arrow_type",
+    [pa.string(), pa.large_string(), pa.string_view(), pa.large_string_view()],
+)
+@pytest.mark.parametrize("scenario", ["no_nulls", "with_nulls", "sliced", "empty"])
+def test_to_numpy_stringdtype(arrow_type, scenario):
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    values = {
+        "no_nulls": ["a", "b", "c"],
+        "with_nulls": ["a", None, "c"],
+        "sliced": ["z", "a", None, "c", "q"],
+        "empty": [],
+    }
+
+    arr = pa.array(values[scenario], type=arrow_type)
+    if scenario == "sliced":
+        arr = arr.slice(1, 3)
+
+    result = arr.to_numpy(zero_copy_only=False, string_dtype="numpy")
+
+    assert result.dtype == np.dtype(StringDType())
+    assert result.tolist() == arr.to_pylist()
+
+
+@pytest.mark.numpy
 def test_array_uint64_from_py_over_range():
     arr = pa.array([2 ** 63], type=pa.uint64())
     expected = pa.array(np.array([2 ** 63], dtype='u8'))

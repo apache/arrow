@@ -32,12 +32,14 @@
 #include <vector>
 
 #include "arrow/array.h"
+#include "arrow/array/array_binary.h"
 #include "arrow/buffer.h"
 #include "arrow/datum.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/hashing.h"
 #include "arrow/util/int_util.h"
@@ -68,6 +70,15 @@ using internal::CheckIndexBounds;
 using internal::OptionalParallelFor;
 
 namespace py {
+
+ARROW_PYTHON_EXPORT bool HasNumPyStringDType() {
+#if NPY_ABI_VERSION >= 0x02000000
+  return PyArray_StringDType != nullptr;
+#else
+  return false;
+#endif
+}
+
 namespace {
 
 // Fix options for conversion of an inner (child) array.
@@ -344,6 +355,7 @@ class PandasWriter {
  public:
   enum type {
     OBJECT,
+    STRING_DTYPE,
     UINT8,
     INT8,
     UINT16,
@@ -1405,6 +1417,189 @@ class ObjectWriter : public TypedPandasWriter<NPY_OBJECT> {
   }
 };
 
+#if NPY_ABI_VERSION >= 0x02000000
+Status PackStringValue(npy_string_allocator* allocator, npy_packed_static_string* packed,
+                       const std::string_view& view) {
+  const int result = NpyString_pack(allocator, packed, view.data(), view.size());
+  if (result == -1) {
+    RETURN_IF_PYERROR();
+    return Status::Invalid("Failed to pack NumPy StringDType value");
+  }
+  return Status::OK();
+}
+
+Status PackNullString(npy_string_allocator* allocator, npy_packed_static_string* packed) {
+  const int result = NpyString_pack_null(allocator, packed);
+  if (result == -1) {
+    RETURN_IF_PYERROR();
+    return Status::Invalid("Failed to pack NumPy StringDType value");
+  }
+  return Status::OK();
+}
+
+template <typename ArrayType>
+Status WriteOffsetStringValues(const ArrayType& arr, npy_string_allocator* allocator,
+                               char* data, npy_intp stride) {
+  using offset_type = typename ArrayType::offset_type;
+
+  const offset_type* offsets = arr.raw_value_offsets();
+  const auto base_offset = offsets[0];
+  const uint8_t* value_data = arr.value_data()->data();
+  const uint8_t* validity = arr.null_bitmap_data();
+
+  auto pack_values = [&](int64_t position, int64_t length) -> Status {
+    for (int64_t i = 0; i < length; ++i) {
+      const auto start = static_cast<int64_t>(offsets[position + i] - base_offset);
+      const auto end = static_cast<int64_t>(offsets[position + i + 1] - base_offset);
+      auto* packed =
+          reinterpret_cast<npy_packed_static_string*>(data + (position + i) * stride);
+      RETURN_NOT_OK(PackStringValue(
+          allocator, packed,
+          std::string_view(reinterpret_cast<const char*>(value_data + start),
+                           end - start)));
+    }
+    return Status::OK();
+  };
+
+  auto pack_nulls = [&](int64_t position, int64_t length) -> Status {
+    for (int64_t i = 0; i < length; ++i) {
+      auto* packed =
+          reinterpret_cast<npy_packed_static_string*>(data + (position + i) * stride);
+      RETURN_NOT_OK(PackNullString(allocator, packed));
+    }
+    return Status::OK();
+  };
+
+  if (arr.null_count() == 0) {
+    return pack_values(/*position=*/0, arr.length());
+  }
+
+  internal::BitRunReader reader(validity, arr.offset(), arr.length());
+  auto run = reader.NextRun();
+  while (run.length > 0) {
+    if (run.set) {
+      RETURN_NOT_OK(pack_values(run.position - arr.offset(), run.length));
+    } else {
+      RETURN_NOT_OK(pack_nulls(run.position - arr.offset(), run.length));
+    }
+    run = reader.NextRun();
+  }
+
+  return Status::OK();
+}
+
+template <typename ArrayType>
+Status WriteViewStringValues(const ArrayType& arr, npy_string_allocator* allocator,
+                             char* data, npy_intp stride) {
+  const auto* values = arr.raw_values();
+  const uint8_t* validity = arr.null_bitmap_data();
+
+  auto pack_values = [&](int64_t position, int64_t length) -> Status {
+    for (int64_t i = 0; i < length; ++i) {
+      auto* packed =
+          reinterpret_cast<npy_packed_static_string*>(data + (position + i) * stride);
+      RETURN_NOT_OK(PackStringValue(allocator, packed, values[position + i]));
+    }
+    return Status::OK();
+  };
+
+  auto pack_nulls = [&](int64_t position, int64_t length) -> Status {
+    for (int64_t i = 0; i < length; ++i) {
+      auto* packed =
+          reinterpret_cast<npy_packed_static_string*>(data + (position + i) * stride);
+      RETURN_NOT_OK(PackNullString(allocator, packed));
+    }
+    return Status::OK();
+  };
+
+  if (arr.null_count() == 0) {
+    return pack_values(/*position=*/0, arr.length());
+  }
+
+  internal::BitRunReader reader(validity, arr.offset(), arr.length());
+  auto run = reader.NextRun();
+  while (run.length > 0) {
+    if (run.set) {
+      RETURN_NOT_OK(pack_values(run.position - arr.offset(), run.length));
+    } else {
+      RETURN_NOT_OK(pack_nulls(run.position - arr.offset(), run.length));
+    }
+    run = reader.NextRun();
+  }
+
+  return Status::OK();
+}
+
+class StringDTypeWriter : public PandasWriter {
+ public:
+  using PandasWriter::PandasWriter;
+
+  Status TransferSingle(std::shared_ptr<ChunkedArray> data, PyObject* py_ref) override {
+    ARROW_UNUSED(py_ref);
+    RETURN_NOT_OK(CheckNotZeroCopyOnly(*data));
+    RETURN_NOT_OK(EnsureAllocated());
+    return CopyInto(std::move(data), /*rel_placement=*/0);
+  }
+
+  Status CopyInto(std::shared_ptr<ChunkedArray> data, int64_t rel_placement) override {
+    RETURN_NOT_OK(CheckNotZeroCopyOnly(*data));
+
+    PyAcquireGIL lock;
+    auto* np_arr = reinterpret_cast<PyArrayObject*>(block_arr_.obj());
+    auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(PyArray_DESCR(np_arr));
+
+    npy_string_allocator* allocator = NpyString_acquire_allocator(descr);
+    if (allocator == nullptr) {
+      return Status::Invalid("Failed to acquire NumPy StringDType allocator");
+    }
+    struct AllocatorGuard {
+      npy_string_allocator* allocator;
+      explicit AllocatorGuard(npy_string_allocator* alloc) : allocator(alloc) {}
+      ~AllocatorGuard() { NpyString_release_allocator(allocator); }
+    } guard(allocator);
+
+    const npy_intp row_stride = PyArray_STRIDES(np_arr)[1];
+    char* data_start = PyArray_BYTES(np_arr) + rel_placement * PyArray_STRIDES(np_arr)[0];
+    int64_t offset = 0;
+
+    for (const auto& chunk : data->chunks()) {
+      char* chunk_data = data_start + offset * row_stride;
+      switch (data->type()->id()) {
+        case Type::STRING: {
+          const auto& arr = checked_cast<const StringArray&>(*chunk);
+          RETURN_NOT_OK(WriteOffsetStringValues(arr, allocator, chunk_data, row_stride));
+          break;
+        }
+        case Type::LARGE_STRING: {
+          const auto& arr = checked_cast<const LargeStringArray&>(*chunk);
+          RETURN_NOT_OK(WriteOffsetStringValues(arr, allocator, chunk_data, row_stride));
+          break;
+        }
+        case Type::STRING_VIEW: {
+          const auto& arr = checked_cast<const StringViewArray&>(*chunk);
+          RETURN_NOT_OK(WriteViewStringValues(arr, allocator, chunk_data, row_stride));
+          break;
+        }
+        case Type::LARGE_STRING_VIEW: {
+          const auto& arr = checked_cast<const LargeStringViewArray&>(*chunk);
+          RETURN_NOT_OK(WriteViewStringValues(arr, allocator, chunk_data, row_stride));
+          break;
+        }
+        default:
+          return Status::TypeError("Expected an Arrow string array, got ",
+                                   data->type()->ToString());
+      }
+      offset += chunk->length();
+    }
+
+    return Status::OK();
+  }
+
+ protected:
+  Status Allocate() override { return AllocateNDArray(NPY_VSTRING); }
+};
+#endif
+
 static inline bool IsNonNullContiguous(const ChunkedArray& data) {
   return data.num_chunks() == 1 && data.null_count() == 0;
 }
@@ -2056,6 +2251,11 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
     case PandasWriter::EXTENSION:
       *writer = std::make_shared<ExtensionWriter>(options, num_rows, num_columns);
       break;
+#if NPY_ABI_VERSION >= 0x02000000
+    case PandasWriter::STRING_DTYPE:
+      *writer = std::make_shared<StringDTypeWriter>(options, num_rows, num_columns);
+      break;
+#endif
       BLOCK_CASE(OBJECT, ObjectWriter);
       BLOCK_CASE(UINT8, UInt8Writer);
       BLOCK_CASE(INT8, Int8Writer);
@@ -2130,10 +2330,21 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::DOUBLE:
       *output_type = PandasWriter::DOUBLE;
       break;
-    case Type::STRING:        // fall through
-    case Type::LARGE_STRING:  // fall through
-    case Type::STRING_VIEW:   // fall through
-    case Type::BINARY:        // fall through
+    case Type::STRING:               // fall through
+    case Type::LARGE_STRING:         // fall through
+    case Type::STRING_VIEW:          // fall through
+    case Type::LARGE_STRING_VIEW: {  // fall through
+#if NPY_ABI_VERSION >= 0x02000000
+      if (options.to_numpy && options.string_conversion_mode ==
+                                  PandasOptions::StringConversionMode::STRING_DTYPE) {
+        *output_type = PandasWriter::STRING_DTYPE;
+        break;
+      }
+#endif
+      *output_type = PandasWriter::OBJECT;
+      break;
+    }
+    case Type::BINARY:  // fall through
     case Type::LARGE_BINARY:
     case Type::BINARY_VIEW:
     case Type::NA:                       // fall through
