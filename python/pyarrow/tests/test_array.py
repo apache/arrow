@@ -2334,7 +2334,7 @@ def test_to_numpy_roundtrip():
 @pytest.mark.numpy
 @pytest.mark.parametrize(
     "arrow_type",
-    [pa.string(), pa.large_string(), pa.string_view(), pa.large_string_view()],
+    [pa.string(), pa.large_string(), pa.string_view()],
 )
 @pytest.mark.parametrize("scenario", ["no_nulls", "with_nulls", "sliced", "empty"])
 def test_to_numpy_stringdtype(arrow_type, scenario):

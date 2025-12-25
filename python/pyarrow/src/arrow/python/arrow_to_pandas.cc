@@ -1501,13 +1501,15 @@ Status WriteOffsetStringValues(const ArrayType& arr, npy_string_allocator* alloc
   }
 
   arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
+  int64_t position = 0;
   auto run = reader.NextRun();
   while (run.length > 0) {
     if (run.set) {
-      RETURN_NOT_OK(pack_values(run.position - arr.offset(), run.length));
+      RETURN_NOT_OK(pack_values(position, run.length));
     } else {
-      RETURN_NOT_OK(pack_nulls(run.position - arr.offset(), run.length));
+      RETURN_NOT_OK(pack_nulls(position, run.length));
     }
+    position += run.length;
     run = reader.NextRun();
   }
 
@@ -1517,17 +1519,14 @@ Status WriteOffsetStringValues(const ArrayType& arr, npy_string_allocator* alloc
 template <typename ArrayType>
 Status WriteViewStringValues(const ArrayType& arr, npy_string_allocator* allocator,
                              char* data, npy_intp stride) {
-  const auto* values = arr.raw_values();
   const uint8_t* validity = arr.null_bitmap_data();
 
   auto pack_values = [&](int64_t position, int64_t length) -> Status {
     for (int64_t i = 0; i < length; ++i) {
       auto* packed =
           reinterpret_cast<npy_packed_static_string*>(data + (position + i) * stride);
-      const auto view = values[position + i];
-      RETURN_NOT_OK(PackStringValue(
-          allocator, packed,
-          std::string_view(reinterpret_cast<const char*>(view.data()), view.size())));
+      const auto view = arr.GetView(position + i);
+      RETURN_NOT_OK(PackStringValue(allocator, packed, view));
     }
     return Status::OK();
   };
@@ -1546,13 +1545,15 @@ Status WriteViewStringValues(const ArrayType& arr, npy_string_allocator* allocat
   }
 
   arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
+  int64_t position = 0;
   auto run = reader.NextRun();
   while (run.length > 0) {
     if (run.set) {
-      RETURN_NOT_OK(pack_values(run.position - arr.offset(), run.length));
+      RETURN_NOT_OK(pack_values(position, run.length));
     } else {
-      RETURN_NOT_OK(pack_nulls(run.position - arr.offset(), run.length));
+      RETURN_NOT_OK(pack_nulls(position, run.length));
     }
+    position += run.length;
     run = reader.NextRun();
   }
 
@@ -1606,11 +1607,6 @@ class StringDTypeWriter : public PandasWriter {
         }
         case Type::STRING_VIEW: {
           const auto& arr = checked_cast<const StringViewArray&>(*chunk);
-          RETURN_NOT_OK(WriteViewStringValues(arr, allocator, chunk_data, row_stride));
-          break;
-        }
-        case Type::LARGE_STRING_VIEW: {
-          const auto& arr = checked_cast<const LargeStringViewArray&>(*chunk);
           RETURN_NOT_OK(WriteViewStringValues(arr, allocator, chunk_data, row_stride));
           break;
         }
@@ -2359,10 +2355,9 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::DOUBLE:
       *output_type = PandasWriter::DOUBLE;
       break;
-    case Type::STRING:               // fall through
-    case Type::LARGE_STRING:         // fall through
-    case Type::STRING_VIEW:          // fall through
-    case Type::LARGE_STRING_VIEW: {  // fall through
+    case Type::STRING:        // fall through
+    case Type::LARGE_STRING:  // fall through
+    case Type::STRING_VIEW: {  // fall through
 #if NPY_ABI_VERSION >= 0x02000000
       if (options.to_numpy && options.string_conversion_mode ==
                                   PandasOptions::StringConversionMode::STRING_DTYPE) {
