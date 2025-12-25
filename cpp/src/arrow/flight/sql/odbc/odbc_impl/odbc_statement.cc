@@ -761,6 +761,36 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
                                   data_ptr, buffer_length, indicator_ptr);
 }
 
+SQLRETURN ODBCStatement::GetMoreResults() {
+  // Multiple result sets are not supported by Arrow protocol.
+  if (current_result_) {
+    return SQL_NO_DATA;
+  } else {
+    throw DriverException("Function sequence error", "HY010");
+  }
+}
+
+void ODBCStatement::GetColumnCount(SQLSMALLINT* column_count_ptr) {
+  if (!column_count_ptr) {
+    // column count pointer is not valid, do nothing as ODBC spec does not mention this as
+    // an error
+    return;
+  }
+  size_t column_count = ird_->GetRecords().size();
+  *column_count_ptr = static_cast<SQLSMALLINT>(column_count);
+}
+
+void ODBCStatement::GetRowCount(SQLLEN* row_count_ptr) {
+  if (!row_count_ptr) {
+    // row count pointer is not valid, do nothing as ODBC spec does not mention this as an
+    // error
+    return;
+  }
+  // Will always be -1 (meaning number of rows unknown) since only SELECT is supported by
+  // driver
+  *row_count_ptr = -1;
+}
+
 void ODBCStatement::ReleaseStatement() {
   CloseCursor(true);
   connection_.DropStatement(this);

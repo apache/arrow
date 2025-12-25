@@ -713,15 +713,12 @@ def test_zlib_compression_bug():
 
 def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
-    # TODO(dataset) with datasets API it raises OSError instead
-    with pytest.raises((pa.ArrowInvalid, OSError),
-                       match='size is 0 bytes'):
+    with pytest.raises(pa.ArrowInvalid, match='size is 0 bytes'):
         with open(path, 'wb') as f:
             pass
         pq.read_table(path)
 
-    with pytest.raises((pa.ArrowInvalid, OSError),
-                       match='size is 4 bytes'):
+    with pytest.raises(pa.ArrowInvalid, match='size is 4 bytes'):
         with open(path, 'wb') as f:
             f.write(b'ffff')
         pq.read_table(path)

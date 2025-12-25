@@ -67,6 +67,9 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value,
                    SQLINTEGER buffer_size, bool is_unicode);
 
+  /// \brief Revert back to implicitly allocated internal descriptors.
+  /// isApd as True indicates APD descritor is to be reverted.
+  /// isApd as False indicates ARD descritor is to be reverted.
   void RevertAppDescriptor(bool is_apd);
 
   inline ODBCDescriptor* GetIRD() { return ird_.get(); }
@@ -77,6 +80,16 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   SQLRETURN GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                     SQLLEN buffer_length, SQLLEN* indicator_ptr);
+
+  SQLRETURN GetMoreResults();
+
+  /// \brief Return number of columns from data set
+  void GetColumnCount(SQLSMALLINT* column_count_ptr);
+
+  /// \brief Return number of rows affected by an UPDATE, INSERT, or DELETE statement\
+  ///
+  ///  -1 is returned as driver only supports SELECT statement
+  void GetRowCount(SQLLEN* row_count_ptr);
 
   /// \brief Closes the cursor. This does _not_ un-prepare the statement or change
   /// bindings.

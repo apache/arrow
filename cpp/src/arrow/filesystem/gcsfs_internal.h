@@ -17,16 +17,17 @@
 
 #pragma once
 
-#include <google/cloud/credentials.h>
-#include <google/cloud/options.h>
-#include <google/cloud/status.h>
-#include <google/cloud/storage/object_metadata.h>
-#include <google/cloud/storage/well_known_headers.h>
-#include <google/cloud/storage/well_known_parameters.h>
-
 #include <memory>
 #include <string>
 #include <vector>
+
+#include <google/cloud/credentials.h>
+#include <google/cloud/options.h>
+#include <google/cloud/status.h>
+#include <google/cloud/storage/client.h>
+#include <google/cloud/storage/object_metadata.h>
+#include <google/cloud/storage/well_known_headers.h>
+#include <google/cloud/storage/well_known_parameters.h>
 
 #include "arrow/filesystem/filesystem.h"
 

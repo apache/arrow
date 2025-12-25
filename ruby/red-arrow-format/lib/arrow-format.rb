@@ -16,4 +16,5 @@
 # under the License.
 
 require_relative "arrow-format/file-reader"
+require_relative "arrow-format/streaming-reader"
 require_relative "arrow-format/version"

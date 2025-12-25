@@ -146,6 +146,46 @@ class ArrayBuilderTest < Test::Unit::TestCase
                        ["Apache Arrow"],
                      ])
       end
+
+      test("list<uint>s") do
+        values = [
+          [0, 1, 2],
+          [3, 4],
+        ]
+        array = Arrow::Array.new(values)
+        data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
+        assert_equal({
+                       data_type: data_type,
+                       values: [
+                         [0, 1, 2],
+                         [3, 4],
+                       ],
+                     },
+                     {
+                       data_type: array.value_data_type,
+                       values: array.to_a,
+                     })
+      end
+
+      test("list<int>s") do
+        values = [
+          [0, -1, 2],
+          [3, 4],
+        ]
+        array = Arrow::Array.new(values)
+        data_type = Arrow::ListDataType.new(Arrow::Int8DataType.new)
+        assert_equal({
+                       data_type: data_type,
+                       values: [
+                         [0, -1, 2],
+                         [3, 4],
+                       ],
+                     },
+                     {
+                       data_type: array.value_data_type,
+                       values: array.to_a,
+                     })
+      end
     end
 
     sub_test_case("specific builder") do

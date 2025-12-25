@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -82,12 +80,19 @@ if have_gi
         dependencies: arrow_flight_sql_glib_gir_dependencies,
         export_packages: 'arrow-flight-sql-glib',
         extra_args: gir_scanner_extra_args + [
-            '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
-            '--include-uninstalled=./arrow-flight-glib/ArrowFlight-1.0.gir',
+            '--include-uninstalled=arrow-glib/Arrow-@0@.gir'.format(
+                gi_api_version,
+            ),
+            '--include-uninstalled=arrow-flight-glib/ArrowFlight-@0@.gir'.format(
+                gi_api_version,
+            ),
         ],
         header: 'arrow-flight-sql-glib/arrow-flight-sql-glib.h',
         identifier_prefix: 'GAFlightSQL',
-        includes: ['Arrow-1.0', 'ArrowFlight-1.0'],
+        includes: [
+            'Arrow-@0@'.format(gi_api_version),
+            'ArrowFlight-@0@'.format(gi_api_version),
+        ],
         kwargs: generate_gi_common_args,
         namespace: 'ArrowFlightSQL',
         sources: sources + c_headers,

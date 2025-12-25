@@ -108,7 +108,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: ${{ matrix.cache }}-${{ hashFiles('cpp/**') }}
@@ -211,7 +211,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
@@ -280,7 +280,7 @@ jobs:
           echo "CCACHE_DIR=$(ccache --get-config cache_dir)" >> $GITHUB_ENV
           echo "usr-windows-dir="$(cygpath --absolute --windows /usr)"" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ env.CCACHE_DIR }}
           key: python-ccache-windows-${{ env.CACHE_VERSION }}-${{ hashFiles('cpp/**') }}

@@ -86,7 +86,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           # As this key is identical on both matrix builds only one will be able to successfully cache,
@@ -118,7 +118,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-output-${{ matrix.ubuntu }}-${{ matrix.r }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -178,7 +178,7 @@ jobs:
         if: always()
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: test-output-bundled
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
@@ -216,7 +216,7 @@ jobs:
           ci/scripts/ccache_setup.sh
           echo "CCACHE_DIR=$(cygpath --absolute --windows ccache)" >> $GITHUB_ENV
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ccache
           key: r-${{ matrix.config.rtools }}-ccache-mingw-${{ matrix.config.arch }}-${{ hashFiles('cpp/src/**/*.cc','cpp/src/**/*.h)') }}-${{ github.run_id }}
@@ -229,18 +229,19 @@ jobs:
           # static library. The R is not used here but R 4.1 was the last R to use
           # Rtools40.
           r-version: "4.1"
-          rtools-version: 40
+          rtools-version: ${{ matrix.config.rtools }}
           Ncpus: 2
       - name: Build Arrow C++
         shell: bash
         env:
           MINGW_ARCH: ${{ matrix.config.arch }}
+          RTOOLS_VERSION: ${{ matrix.config.rtools }}
         run: ci/scripts/r_windows_build.sh
       - name: Rename libarrow.zip
         # So that they're unique when multiple are downloaded in the next step
         shell: bash
         run: mv libarrow.zip libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
-      - uses: actions/upload-artifact@v5
+      - uses: actions/upload-artifact@v6
         with:
           name: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
           path: libarrow-rtools${{ matrix.config.rtools }}-${{ matrix.config.arch }}.zip
@@ -278,7 +279,7 @@ jobs:
           echo "$HOME/.local/bin" >> $GITHUB_PATH
       - run: mkdir r/windows
       - name: Download artifacts
-        uses: actions/download-artifact@v6
+        uses: actions/download-artifact@v7
         with:
           name: libarrow-rtools40-ucrt64.zip
           path: r/windows

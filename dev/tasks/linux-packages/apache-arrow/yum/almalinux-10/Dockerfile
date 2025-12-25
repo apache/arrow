@@ -47,7 +47,6 @@ RUN \
     llvm-devel \
     llvm-static \
     lz4-devel \
-    make \
     ncurses-devel \
     ninja-build \
     openssl-devel \

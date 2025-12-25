@@ -41,14 +41,7 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
   ARROW_LOG(DEBUG) << "SQLAllocHandle called with type: " << type
                    << ", parent: " << parent
                    << ", result: " << static_cast<const void*>(result);
-  // GH-47706 TODO: Add tests for SQLAllocStmt, pre-requisite requires
-  // SQLDriverConnect implementation
-
-  // GH-47707 TODO: Add tests for SQL_HANDLE_DESC implementation for
-  // descriptor handle, pre-requisite requires SQLAllocStmt
-
   *result = nullptr;
-
   switch (type) {
     case SQL_HANDLE_ENV: {
       using ODBC::ODBCEnvironment;
@@ -144,11 +137,6 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
   ARROW_LOG(DEBUG) << "SQLFreeHandle called with type: " << type
                    << ", handle: " << handle;
-  // GH-47706 TODO: Add tests for SQLFreeStmt, pre-requisite requires
-  // SQLAllocStmt tests
-
-  // GH-47707 TODO: Add tests for SQL_HANDLE_DESC implementation for
-  // descriptor handle
   switch (type) {
     case SQL_HANDLE_ENV: {
       using ODBC::ODBCEnvironment;
@@ -239,7 +227,6 @@ SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
     }
 
     case SQL_UNBIND: {
-      // GH-47716 TODO: Add tests for SQLBindCol unbinding
       using ODBC::ODBCDescriptor;
       using ODBC::ODBCStatement;
       return ODBCStatement::ExecuteWithDiagnostics(handle, SQL_ERROR, [=]() {
@@ -285,7 +272,6 @@ SQLRETURN SQLGetDiagField(SQLSMALLINT handle_type, SQLHANDLE handle,
                    << ", diag_info_ptr: " << diag_info_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-46575 TODO: Add tests for SQLGetDiagField
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCDescriptor;
@@ -550,7 +536,6 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
                    << ", message_text: " << static_cast<const void*>(message_text)
                    << ", buffer_length: " << buffer_length
                    << ", text_length_ptr: " << static_cast<const void*>(text_length_ptr);
-  // GH-46575 TODO: Add tests for SQLGetDiagRec
   using arrow::flight::sql::odbc::Diagnostics;
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
@@ -942,7 +927,6 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value
                    << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
 
-  // GH-47709 TODO: Update SQLGetInfo implementation and add tests for SQLGetInfo
   using ODBC::ODBCConnection;
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
@@ -955,9 +939,8 @@ SQLRETURN SQLGetInfo(SQLHDBC conn, SQLUSMALLINT info_type, SQLPOINTER info_value
       return static_cast<SQLRETURN>(SQL_ERROR);
     }
 
-    connection->GetInfo(info_type, info_value_ptr, buf_len, string_length_ptr,
-                        is_unicode);
-    return static_cast<SQLRETURN>(SQL_SUCCESS);
+    return connection->GetInfo(info_type, info_value_ptr, buf_len, string_length_ptr,
+                               is_unicode);
   });
 }
 
@@ -1092,8 +1075,31 @@ SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT fetch_orientation,
   ARROW_LOG(DEBUG) << "SQLFetchScroll called with stmt: " << stmt
                    << ", fetch_orientation: " << fetch_orientation
                    << ", fetch_offset: " << fetch_offset;
-  // GH-47715 TODO: Implement SQLFetchScroll
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // Only SQL_FETCH_NEXT forward-only fetching orientation is supported,
+    // meaning the behavior of SQLExtendedFetch is same as SQLFetch.
+    if (fetch_orientation != SQL_FETCH_NEXT) {
+      throw DriverException("Optional feature not supported.", "HYC00");
+    }
+    // Ignore fetch_offset as it's not applicable to SQL_FETCH_NEXT
+    ARROW_UNUSED(fetch_offset);
+
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // The SQL_ATTR_ROW_ARRAY_SIZE statement attribute specifies the number of rows in the
+    // rowset.
+    ODBCDescriptor* ard = statement->GetARD();
+    size_t rows = static_cast<size_t>(ard->GetArraySize());
+    if (statement->Fetch(rows)) {
+      return SQL_SUCCESS;
+    } else {
+      // Reached the end of rowset
+      return SQL_NO_DATA;
+    }
+  });
 }
 
 SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_type,
@@ -1102,8 +1108,16 @@ SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
                    << ", record_number: " << record_number << ", c_type: " << c_type
                    << ", data_ptr: " << data_ptr << ", buffer_length: " << buffer_length
                    << ", indicator_ptr: " << static_cast<const void*>(indicator_ptr);
-  // GH-47716 TODO: Implement SQLBindCol
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // GH-47021 TODO: implement driver to return indicator value when data pointer is null
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    ODBCDescriptor* ard = statement->GetARD();
+    ard->BindCol(record_number, c_type, data_ptr, buffer_length, indicator_ptr);
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLCloseCursor(SQLHSTMT stmt) {
@@ -1141,23 +1155,39 @@ SQLRETURN SQLGetData(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
 
 SQLRETURN SQLMoreResults(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLMoreResults called with stmt: " << stmt;
-  // GH-47713 TODO: Implement SQLMoreResults
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  // Multiple result sets are not supported by Arrow protocol. Return SQL_NO_DATA by
+  // default to indicate no data is available.
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    return statement->GetMoreResults();
+  });
 }
 
 SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT* column_count_ptr) {
   ARROW_LOG(DEBUG) << "SQLNumResultCols called with stmt: " << stmt
                    << ", column_count_ptr: "
                    << static_cast<const void*>(column_count_ptr);
-  // GH-47713 TODO: Implement SQLNumResultCols
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    statement->GetColumnCount(column_count_ptr);
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLRowCount(SQLHSTMT stmt, SQLLEN* row_count_ptr) {
   ARROW_LOG(DEBUG) << "SQLRowCount called with stmt: " << stmt
                    << ", column_count_ptr: " << static_cast<const void*>(row_count_ptr);
-  // GH-47713 TODO: Implement SQLRowCount
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    statement->GetRowCount(row_count_ptr);
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLTables(SQLHSTMT stmt, SQLWCHAR* catalog_name,
@@ -1174,8 +1204,24 @@ SQLRETURN SQLTables(SQLHSTMT stmt, SQLWCHAR* catalog_name,
                    << ", table_name_length: " << table_name_length
                    << ", table_type: " << static_cast<const void*>(table_type)
                    << ", table_type_length: " << table_type_length;
-  // GH-47719 TODO: Implement SQLTables
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  using ODBC::SqlWcharToString;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    std::string catalog = SqlWcharToString(catalog_name, catalog_name_length);
+    std::string schema = SqlWcharToString(schema_name, schema_name_length);
+    std::string table = SqlWcharToString(table_name, table_name_length);
+    std::string type = SqlWcharToString(table_type, table_type_length);
+
+    statement->GetTables(catalog_name ? &catalog : nullptr,
+                         schema_name ? &schema : nullptr, table_name ? &table : nullptr,
+                         table_type ? &type : nullptr);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLColumns(SQLHSTMT stmt, SQLWCHAR* catalog_name,
@@ -1194,8 +1240,24 @@ SQLRETURN SQLColumns(SQLHSTMT stmt, SQLWCHAR* catalog_name,
                    << ", table_name_length: " << table_name_length
                    << ", column_name: " << static_cast<const void*>(column_name)
                    << ", column_name_length: " << column_name_length;
-  // GH-47720 TODO: Implement SQLColumns
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  using ODBC::SqlWcharToString;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    std::string catalog = SqlWcharToString(catalog_name, catalog_name_length);
+    std::string schema = SqlWcharToString(schema_name, schema_name_length);
+    std::string table = SqlWcharToString(table_name, table_name_length);
+    std::string column = SqlWcharToString(column_name, column_name_length);
+
+    statement->GetColumns(catalog_name ? &catalog : nullptr,
+                          schema_name ? &schema : nullptr, table_name ? &table : nullptr,
+                          column_name ? &column : nullptr);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT record_number,

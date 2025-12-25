@@ -180,21 +180,25 @@ void FlightSQLOdbcV2RemoteTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcHandleRemoteTestBase::SetUp() {
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() {
   ODBCRemoteTestBase::SetUp();
   if (skipping_test_) {
     return;
   }
 
-  this->AllocEnvConnHandles();
-  allocated_ = true;
+  AllocEnvConnHandles();
 }
 
-void FlightSQLOdbcHandleRemoteTestBase::TearDown() {
-  if (allocated_) {
-    this->FreeEnvConnHandles();
-    allocated_ = false;
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDown() {
+  if (skipping_test_) {
+    return;
   }
+
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
@@ -390,14 +394,19 @@ void FlightSQLOdbcV2MockTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcHandleMockTestBase::SetUp() {
+void FlightSQLOdbcEnvConnHandleMockTestBase::SetUp() {
   ODBCMockTestBase::SetUp();
-  this->AllocEnvConnHandles();
+  AllocEnvConnHandles();
 }
 
-void FlightSQLOdbcHandleMockTestBase::TearDown() {
-  this->FreeEnvConnHandles();
-  ODBCMockTestBase::TearDown();
+void FlightSQLOdbcEnvConnHandleMockTestBase::TearDown() {
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
+
+  ASSERT_OK(server_->Shutdown());
 }
 
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
@@ -482,6 +491,22 @@ bool WriteDSN(Connection::ConnPropertyMap properties) {
   return RegisterDsn(config, w_driver.c_str());
 }
 #endif
+
+std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id) {
+  SQLWCHAR buf[1024];
+  SQLLEN len_indicator = 0;
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetData(stmt, col_id, SQL_C_WCHAR, buf, sizeof(buf), &len_indicator));
+
+  if (len_indicator == SQL_NULL_DATA) {
+    return L"";
+  }
+
+  // indicator is in bytes, so convert to character count
+  size_t char_count = static_cast<size_t>(len_indicator) / GetSqlWCharSize();
+  return std::wstring(buf, buf + char_count);
+}
 
 std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len) {
   std::wstring attr_str;
