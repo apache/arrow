@@ -2494,6 +2494,29 @@ def test_array_from_different_numpy_datetime_units_raises():
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize('unit', [
+    'Y',  # year
+    'M',  # month
+    'W',  # week
+    'h',  # hour
+    'm',  # minute
+    'ps',  # picosecond
+    'fs',  # femtosecond
+    'as',  # attosecond
+])
+def test_array_from_unsupported_numpy_datetime_unit_names(unit):
+    s_data = [np.datetime64('2020-01-01', 's')]
+    unsupported_data = [np.datetime64('2020', unit)]
+
+    # Mix supported unit (s) with unsupported unit
+    data = s_data + unsupported_data
+
+    with pytest.raises(pa.ArrowInvalid,
+                       match=f"Cannot mix NumPy datetime64 units s and {unit}"):
+        pa.array(data)
+
+
+@pytest.mark.numpy
 @pytest.mark.parametrize('unit', ['ns', 'us', 'ms', 's'])
 def test_array_from_list_of_timestamps(unit):
     n = np.datetime64('NaT', unit)

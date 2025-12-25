@@ -339,6 +339,18 @@ class NumPyDtypeUnifier {
  private:
   static const char* DatetimeUnitName(NPY_DATETIMEUNIT unit) {
     switch (unit) {
+      case NPY_FR_Y:
+        return "Y";
+      case NPY_FR_M:
+        return "M";
+      case NPY_FR_W:
+        return "W";
+      case NPY_FR_D:
+        return "D";
+      case NPY_FR_h:
+        return "h";
+      case NPY_FR_m:
+        return "m";
       case NPY_FR_s:
         return "s";
       case NPY_FR_ms:
@@ -347,8 +359,12 @@ class NumPyDtypeUnifier {
         return "us";
       case NPY_FR_ns:
         return "ns";
-      case NPY_FR_D:
-        return "D";
+      case NPY_FR_ps:
+        return "ps";
+      case NPY_FR_fs:
+        return "fs";
+      case NPY_FR_as:
+        return "as";
       case NPY_FR_GENERIC:
         return "generic";
       default:
