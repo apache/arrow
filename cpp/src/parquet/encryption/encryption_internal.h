@@ -21,7 +21,7 @@
 #include <string>
 #include <vector>
 
-#include "arrow/util/span.h"
+#include <span>
 #include "parquet/properties.h"
 #include "parquet/types.h"
 
@@ -62,17 +62,17 @@ class PARQUET_EXPORT AesEncryptor {
 
   /// Encrypts plaintext with the key and aad. Key length is passed only for validation.
   /// If different from value in constructor, exception will be thrown.
-  int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
-                  ::arrow::util::span<const uint8_t> key,
-                  ::arrow::util::span<const uint8_t> aad,
-                  ::arrow::util::span<uint8_t> ciphertext);
+  int32_t Encrypt(std::span<const uint8_t> plaintext,
+                  std::span<const uint8_t> key,
+                  std::span<const uint8_t> aad,
+                  std::span<uint8_t> ciphertext);
 
   /// Encrypts plaintext footer, in order to compute footer signature (tag).
-  int32_t SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
-                              ::arrow::util::span<const uint8_t> key,
-                              ::arrow::util::span<const uint8_t> aad,
-                              ::arrow::util::span<const uint8_t> nonce,
-                              ::arrow::util::span<uint8_t> encrypted_footer);
+  int32_t SignedFooterEncrypt(std::span<const uint8_t> footer,
+                              std::span<const uint8_t> key,
+                              std::span<const uint8_t> aad,
+                              std::span<const uint8_t> nonce,
+                              std::span<uint8_t> encrypted_footer);
 
  private:
   // PIMPL Idiom
@@ -107,10 +107,10 @@ class PARQUET_EXPORT AesDecryptor {
   /// validation. If different from value in constructor, exception will be thrown.
   /// The caller is responsible for ensuring that the plaintext buffer is at least as
   /// large as PlaintextLength(ciphertext_len).
-  int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                  ::arrow::util::span<const uint8_t> key,
-                  ::arrow::util::span<const uint8_t> aad,
-                  ::arrow::util::span<uint8_t> plaintext);
+  int32_t Decrypt(std::span<const uint8_t> ciphertext,
+                  std::span<const uint8_t> key,
+                  std::span<const uint8_t> aad,
+                  std::span<uint8_t> plaintext);
 
  private:
   // PIMPL Idiom
