@@ -19,18 +19,13 @@
 
 #include <arrow/flight/sql/odbc/odbc_impl/spi/connection.h>
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 
 #include <sql.h>
 #include <map>
 #include <memory>
 #include <optional>
 #include <vector>
-
-namespace ODBC {
-class ODBCEnvironment;
-class ODBCDescriptor;
-class ODBCStatement;
-}  // namespace ODBC
 
 /**
  * @brief An abstraction over an ODBC connection handle. This also wraps an SPI

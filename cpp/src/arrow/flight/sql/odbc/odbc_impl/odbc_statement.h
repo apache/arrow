@@ -18,20 +18,14 @@
 #pragma once
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 
 #include <arrow/flight/sql/odbc/odbc_impl/platform.h>
 #include <sql.h>
 #include <memory>
 #include <string>
 
-namespace arrow::flight::sql::odbc {
-class Statement;
-class ResultSet;
-}  // namespace arrow::flight::sql::odbc
-
 namespace ODBC {
-class ODBCConnection;
-class ODBCDescriptor;
 
 /**
  * @brief An abstraction over an ODBC connection handle. This also wraps an SPI
