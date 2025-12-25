@@ -1474,7 +1474,7 @@ Status WriteOffsetStringValues(const ArrayType& arr, npy_string_allocator* alloc
     return pack_values(/*position=*/0, arr.length());
   }
 
-  internal::BitRunReader reader(validity, arr.offset(), arr.length());
+  arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
   auto run = reader.NextRun();
   while (run.length > 0) {
     if (run.set) {
@@ -1519,7 +1519,7 @@ Status WriteViewStringValues(const ArrayType& arr, npy_string_allocator* allocat
     return pack_values(/*position=*/0, arr.length());
   }
 
-  internal::BitRunReader reader(validity, arr.offset(), arr.length());
+  arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
   auto run = reader.NextRun();
   while (run.length > 0) {
     if (run.set) {

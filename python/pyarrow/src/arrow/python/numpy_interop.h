@@ -21,6 +21,10 @@
 
 #include <numpy/numpyconfig.h>  // IWYU pragma: export
 
+#if NPY_ABI_VERSION >= 0x02000000
+#  define NPY_EXPERIMENTAL_DTYPE_API 1
+#endif
+
 // Don't use the deprecated Numpy functions
 #ifdef NPY_1_7_API_VERSION
 #  define NPY_NO_DEPRECATED_API NPY_1_7_API_VERSION
