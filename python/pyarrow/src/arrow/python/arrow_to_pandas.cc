@@ -73,7 +73,8 @@ namespace py {
 
 ARROW_PYTHON_EXPORT bool HasNumPyStringDType() {
 #if NPY_ABI_VERSION >= 0x02000000
-  return PyArray_StringDType != nullptr;
+  auto* dtype_table = reinterpret_cast<PyArray_DTypeMeta**>(PyArray_API + 320);
+  return dtype_table[39] != nullptr;
 #else
   return false;
 #endif
@@ -1418,9 +1419,34 @@ class ObjectWriter : public TypedPandasWriter<NPY_OBJECT> {
 };
 
 #if NPY_ABI_VERSION >= 0x02000000
+inline npy_string_allocator* ArrowNpyString_acquire_allocator(
+    const PyArray_StringDTypeObject* descr) {
+  using Func = npy_string_allocator* (*)(const PyArray_StringDTypeObject*);
+  return reinterpret_cast<Func>(PyArray_API[316])(descr);
+}
+
+inline void ArrowNpyString_release_allocator(npy_string_allocator* allocator) {
+  using Func = void (*)(npy_string_allocator*);
+  reinterpret_cast<Func>(PyArray_API[318])(allocator);
+}
+
+inline int ArrowNpyString_pack(npy_string_allocator* allocator,
+                               npy_packed_static_string* packed, const char* data,
+                               size_t length) {
+  using Func =
+      int (*)(npy_string_allocator*, npy_packed_static_string*, const char*, size_t);
+  return reinterpret_cast<Func>(PyArray_API[314])(allocator, packed, data, length);
+}
+
+inline int ArrowNpyString_pack_null(npy_string_allocator* allocator,
+                                    npy_packed_static_string* packed) {
+  using Func = int (*)(npy_string_allocator*, npy_packed_static_string*);
+  return reinterpret_cast<Func>(PyArray_API[315])(allocator, packed);
+}
+
 Status PackStringValue(npy_string_allocator* allocator, npy_packed_static_string* packed,
                        const std::string_view& view) {
-  const int result = NpyString_pack(allocator, packed, view.data(), view.size());
+  const int result = ArrowNpyString_pack(allocator, packed, view.data(), view.size());
   if (result == -1) {
     RETURN_IF_PYERROR();
     return Status::Invalid("Failed to pack NumPy StringDType value");
@@ -1429,7 +1455,7 @@ Status PackStringValue(npy_string_allocator* allocator, npy_packed_static_string
 }
 
 Status PackNullString(npy_string_allocator* allocator, npy_packed_static_string* packed) {
-  const int result = NpyString_pack_null(allocator, packed);
+  const int result = ArrowNpyString_pack_null(allocator, packed);
   if (result == -1) {
     RETURN_IF_PYERROR();
     return Status::Invalid("Failed to pack NumPy StringDType value");
@@ -1551,14 +1577,14 @@ class StringDTypeWriter : public PandasWriter {
     auto* np_arr = reinterpret_cast<PyArrayObject*>(block_arr_.obj());
     auto* descr = reinterpret_cast<PyArray_StringDTypeObject*>(PyArray_DESCR(np_arr));
 
-    npy_string_allocator* allocator = NpyString_acquire_allocator(descr);
+    npy_string_allocator* allocator = ArrowNpyString_acquire_allocator(descr);
     if (allocator == nullptr) {
       return Status::Invalid("Failed to acquire NumPy StringDType allocator");
     }
     struct AllocatorGuard {
       npy_string_allocator* allocator;
       explicit AllocatorGuard(npy_string_allocator* alloc) : allocator(alloc) {}
-      ~AllocatorGuard() { NpyString_release_allocator(allocator); }
+      ~AllocatorGuard() { ArrowNpyString_release_allocator(allocator); }
     } guard(allocator);
 
     const npy_intp row_stride = PyArray_STRIDES(np_arr)[1];
