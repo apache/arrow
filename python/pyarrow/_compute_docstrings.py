@@ -54,3 +54,60 @@ function_doc_additions["mode"] = """
     >>> modes[1]
     <pyarrow.StructScalar: [('mode', 1), ('count', 2)]>
     """
+
+function_doc_additions["min"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.min(arr1)
+    <pyarrow.Int64Scalar: 1>
+    >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+    >>> pc.min(arr2)
+    <pyarrow.DoubleScalar: 1.0>
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.min(arr3)
+    <pyarrow.DoubleScalar: 1.0>
+    >>> arr4 = pa.array(["z", None, "y", "x"])
+    >>> pc.min(arr4)
+    <pyarrow.StringScalar: 'x'>
+    """
+
+function_doc_additions["max"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.max(arr1)
+    <pyarrow.Int64Scalar: 3>
+    >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+    >>> pc.max(arr2)
+    <pyarrow.DoubleScalar: 3.0>
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.max(arr3)
+    <pyarrow.DoubleScalar: 3.0>
+    >>> arr4 = pa.array(["z", None, "y", "x"])
+    >>> pc.max(arr4)
+    <pyarrow.StringScalar: 'z'>
+    """
+
+function_doc_additions["min_max"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.min_max(arr1)
+    <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
+    >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+    >>> pc.min_max(arr2)
+    <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.min_max(arr3)
+    <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+    >>> arr4 = pa.array(["z", None, "y", "x"])
+    >>> pc.min_max(arr4)
+    <pyarrow.StructScalar: [('min', 'x'), ('max', 'z')]>
+    """
