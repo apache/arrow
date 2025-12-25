@@ -1841,6 +1841,24 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     AssertMinMaxIsNull(array, options);
   }
 
+  void AssertMinMaxIsNaN(const Datum& array, const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
+      ASSERT_TRUE(std::isnan(checked_cast<const ScalarType&>(*val).value));
+    }
+  }
+
+  void AssertMinMaxIsNaN(const std::string& json, const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertMinMaxIsNaN(array, options);
+  }
+
+  void AssertMinMaxIsNaN(const std::vector<std::string>& json,
+                         const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertMinMaxIsNaN(array, options);
+  }
+
   std::shared_ptr<DataType> type_singleton() {
     return default_type_instance<ArrowType>();
   }
@@ -1963,6 +1981,9 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
   this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
+  this->AssertMinMaxIs("[NaN, null, 42]", 42, 42, options);
+  this->AssertMinMaxIsNaN("[NaN, NaN]", options);
+  this->AssertMinMaxIsNaN("[NaN, null]", options);
   this->AssertMinMaxIs(chunked_input1, 1, 9, options);
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
@@ -1980,6 +2001,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
   this->AssertMinMaxIsNull("[5, -Inf, null, 3, 4]", options);
+  this->AssertMinMaxIsNull("[NaN, null]", options);
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
