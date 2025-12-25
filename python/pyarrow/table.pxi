@@ -23,7 +23,7 @@ import warnings
 from cython import sizeof
 
 
-cdef inline StringConversionMode _resolve_string_conversion_mode(object string_dtype):
+cdef inline StringConversionMode _resolve_table_string_conversion_mode(object string_dtype):
     if string_dtype is True:
         return StringConversionMode.STRING_DTYPE
     if string_dtype is False:
@@ -558,7 +558,7 @@ cdef class ChunkedArray(_PandasConvertible):
             object values
 
         c_options.to_numpy = True
-        c_options.string_conversion_mode = _resolve_string_conversion_mode(string_dtype)
+        c_options.string_conversion_mode = _resolve_table_string_conversion_mode(string_dtype)
         if c_options.string_conversion_mode == StringConversionMode.STRING_DTYPE:
             if not HasNumPyStringDType():
                 raise NotImplementedError("NumPy StringDType not available")

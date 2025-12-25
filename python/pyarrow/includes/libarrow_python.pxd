@@ -184,12 +184,11 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyOutputStream(COutputStream):
         PyOutputStream(object fo)
 
-    cdef enum StringConversionMode "arrow::py::PandasOptions::StringConversionMode":
-        AUTO
-        STRING_DTYPE
-        PYTHON_OBJECT
-
     cdef cppclass PandasOptions:
+        cdef enum StringConversionMode:
+            AUTO
+            STRING_DTYPE
+            PYTHON_OBJECT
         CMemoryPool* pool
         c_bool strings_to_categorical
         c_bool zero_copy_only
@@ -209,6 +208,8 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
         shared_ptr[const unordered_set[c_string]] extension_columns
         c_bool to_numpy
         StringConversionMode string_conversion_mode
+
+ctypedef PandasOptions.StringConversionMode StringConversionMode
 
 
 cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
