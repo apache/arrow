@@ -1498,7 +1498,10 @@ Status WriteViewStringValues(const ArrayType& arr, npy_string_allocator* allocat
     for (int64_t i = 0; i < length; ++i) {
       auto* packed =
           reinterpret_cast<npy_packed_static_string*>(data + (position + i) * stride);
-      RETURN_NOT_OK(PackStringValue(allocator, packed, values[position + i]));
+      const auto view = values[position + i];
+      RETURN_NOT_OK(PackStringValue(
+          allocator, packed,
+          std::string_view(reinterpret_cast<const char*>(view.data()), view.size())));
     }
     return Status::OK();
   };
@@ -2337,6 +2340,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
 #if NPY_ABI_VERSION >= 0x02000000
       if (options.to_numpy && options.string_conversion_mode ==
                                   PandasOptions::StringConversionMode::STRING_DTYPE) {
+        // NumPy's StringDType allocator always copies string data, so zero-copy
+        // requests must continue to route through the object-dtype path.
         *output_type = PandasWriter::STRING_DTYPE;
         break;
       }
