@@ -118,7 +118,7 @@ jobs:
         with:
           python-version: 3.12
       - name: Setup Archery
-        run: pip install -e dev/archery[docker]
+        run: pip install -e dev/archery[docker] meson-python
       - name: Execute Docker Build
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
@@ -175,7 +175,7 @@ jobs:
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ON
       # Current oldest supported version according to https://endoflife.date/macos
-      MACOSX_DEPLOYMENT_TARGET: 12.0
+      MACOSX_DEPLOYMENT_TARGET: "12.0"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
@@ -288,11 +288,31 @@ jobs:
         env:
           # We can invalidate the current cache by updating this.
           CACHE_VERSION: "2025-09-16.1"
+      - name: Install conda
+        shell: cmd
+        run: |
+          curl -L https://github.com/conda-forge/miniforge/releases/download/25.11.0-0/Miniforge3-25.11.0-0-Windows-x86_64.exe -o miniforge.exe
+          start /wait "" .\miniforge.exe /S /D=C:\miniforge
+          del .\miniforge.exe
+          C:\miniforge\Scripts\conda.exe init cmd.exe
+          echo C:\miniforge\Scripts;C:\miniforge\Library\bin;C:\miniforge\condabin>> %GITHUB_PATH%
+      - name: Create conda environment
+        shell: cmd
+        run: |
+          conda env create -n pyarrow-dev -f .\ci\conda_env_cpp.txt -y
+          conda env update -n pyarrow-dev -f .\ci\conda_env_python.txt
       - name: Build Arrow C++ and PyArrow
         shell: cmd
+        env:
+          PYTHON_CMD: "python"
         run: |
-          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
+          call activate pyarrow-dev || exit /B 1
+          conda list
+          call "ci\scripts\python_build.bat" %cd% "%CONDA_PREFIX%"
       - name: Test PyArrow
         shell: cmd
+        env:
+          PYTHON_CMD: "python"
         run: |
+          call activate pyarrow-dev
           call "ci\scripts\python_test.bat" %cd%
