@@ -293,6 +293,9 @@ G_BEGIN_DECLS
  * `utf8_lpad`, `utf8_rpad`, `utf8_center`, `ascii_lpad`, `ascii_rpad`, and
  * `ascii_center`.
  *
+ * #GArrowPairwiseOptions is a class to customize the pairwise
+ * functions such as `pairwise_diff` and `pairwise_diff_checked`.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -8252,6 +8255,100 @@ garrow_pad_options_new(void)
   return GARROW_PAD_OPTIONS(g_object_new(GARROW_TYPE_PAD_OPTIONS, NULL));
 }
 
+enum {
+  PROP_PAIRWISE_OPTIONS_PERIODS = 1,
+};
+
+G_DEFINE_TYPE(GArrowPairwiseOptions,
+              garrow_pairwise_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_pairwise_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options = garrow_pairwise_options_get_raw(GARROW_PAIRWISE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PAIRWISE_OPTIONS_PERIODS:
+    options->periods = g_value_get_int64(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_pairwise_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options = garrow_pairwise_options_get_raw(GARROW_PAIRWISE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PAIRWISE_OPTIONS_PERIODS:
+    g_value_set_int64(value, options->periods);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_pairwise_options_init(GArrowPairwiseOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::PairwiseOptions());
+}
+
+static void
+garrow_pairwise_options_class_init(GArrowPairwiseOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_pairwise_options_set_property;
+  gobject_class->get_property = garrow_pairwise_options_get_property;
+
+  arrow::compute::PairwiseOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowPairwiseOptions:periods:
+   *
+   * Periods to shift for applying the binary operation, accepts negative values.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64(
+    "periods",
+    "Periods",
+    "Periods to shift for applying the binary operation, accepts negative values",
+    G_MININT64,
+    G_MAXINT64,
+    options.periods,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_PAIRWISE_OPTIONS_PERIODS, spec);
+}
+
+/**
+ * garrow_pairwise_options_new:
+ *
+ * Returns: A newly created #GArrowPairwiseOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowPairwiseOptions *
+garrow_pairwise_options_new(void)
+{
+  return GARROW_PAIRWISE_OPTIONS(g_object_new(GARROW_TYPE_PAIRWISE_OPTIONS, NULL));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8450,6 +8547,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_pad_options =
       static_cast<const arrow::compute::PadOptions *>(arrow_options);
     auto options = garrow_pad_options_new_raw(arrow_pad_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "PairwiseOptions") {
+    const auto arrow_pairwise_options =
+      static_cast<const arrow::compute::PairwiseOptions *>(arrow_options);
+    auto options = garrow_pairwise_options_new_raw(arrow_pairwise_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -9259,5 +9361,19 @@ arrow::compute::PadOptions *
 garrow_pad_options_get_raw(GArrowPadOptions *options)
 {
   return static_cast<arrow::compute::PadOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowPairwiseOptions *
+garrow_pairwise_options_new_raw(const arrow::compute::PairwiseOptions *arrow_options)
+{
+  return GARROW_PAIRWISE_OPTIONS(
+    g_object_new(GARROW_TYPE_PAIRWISE_OPTIONS, "periods", arrow_options->periods, NULL));
+}
+
+arrow::compute::PairwiseOptions *
+garrow_pairwise_options_get_raw(GArrowPairwiseOptions *options)
+{
+  return static_cast<arrow::compute::PairwiseOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
