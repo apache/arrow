@@ -247,11 +247,13 @@ env:
       path: repo/libarrow
   {% endif %}
   {% if get_nix %}
-  - name: Get Linux binary
+    {% for arch in ["x86_64", "arm64"] %}
+  - name: Get Linux {{ arch }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-libarrow-linux-x86_64
+      name: r-libarrow-linux-{{ arch }}
       path: repo/libarrow
+    {% endfor %}
   {% endif %}
   {% if get_mac %}
     {% for arch in ["x86_64", "arm64"] %}
