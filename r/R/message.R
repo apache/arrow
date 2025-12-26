@@ -76,7 +76,7 @@ Message <- R6Class(
 #'
 #' `MessageReader$create()` takes the following argument:
 #'
-#' * `stream`: An [InputStream] or object coercible to one (e.g., a raw vector)
+#' - `stream`: An [InputStream] or object coercible to one (e.g., a raw vector)
 #'
 #' @rdname MessageReader
 #' @name MessageReader
