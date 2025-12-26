@@ -68,21 +68,21 @@ def _ndarray_to_arrow_type(object values, DataType type):
 
 cdef inline StringConversionMode _resolve_string_conversion_mode(object string_dtype):
     if string_dtype is True:
-        return StringConversionMode.STRING_DTYPE
+        return StringConversionMode_STRING_DTYPE
     if string_dtype is False:
-        return StringConversionMode.PYTHON_OBJECT
+        return StringConversionMode_PYTHON_OBJECT
 
     if string_dtype is None:
-        return StringConversionMode.PYTHON_OBJECT
+        return StringConversionMode_PYTHON_OBJECT
 
     if isinstance(string_dtype, str):
         option = string_dtype.lower()
         if option == "auto":
-            return StringConversionMode.PYTHON_OBJECT
+            return StringConversionMode_PYTHON_OBJECT
         if option in ("numpy", "string", "stringdtype"):
-            return StringConversionMode.STRING_DTYPE
+            return StringConversionMode_STRING_DTYPE
         if option in ("python", "object"):
-            return StringConversionMode.PYTHON_OBJECT
+            return StringConversionMode_PYTHON_OBJECT
 
     raise ValueError(
         "string_dtype must be one of 'auto', 'numpy', 'python', 'object', "
@@ -1809,7 +1809,7 @@ cdef class Array(_PandasConvertible):
                 "Cannot return a writable array if asking for zero-copy")
 
         c_options.string_conversion_mode = _resolve_string_conversion_mode(string_dtype)
-        if c_options.string_conversion_mode == StringConversionMode.STRING_DTYPE:
+        if c_options.string_conversion_mode == StringConversionMode_STRING_DTYPE:
             if not HasNumPyStringDType():
                 raise NotImplementedError("NumPy StringDType not available")
 
