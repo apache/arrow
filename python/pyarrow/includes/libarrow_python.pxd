@@ -184,7 +184,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py" nogil:
     cdef cppclass PyOutputStream(COutputStream):
         PyOutputStream(object fo)
 
-    ctypedef enum StringConversionMode "arrow::py::PandasOptions::StringConversionMode":
+    cdef enum StringConversionMode "arrow::py::PandasOptions::StringConversionMode":
         StringConversionMode_AUTO "arrow::py::PandasOptions::StringConversionMode::AUTO"
         StringConversionMode_STRING_DTYPE "arrow::py::PandasOptions::StringConversionMode::STRING_DTYPE"
         StringConversionMode_PYTHON_OBJECT "arrow::py::PandasOptions::StringConversionMode::PYTHON_OBJECT"
