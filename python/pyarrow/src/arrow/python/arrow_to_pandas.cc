@@ -1500,17 +1500,33 @@ Status WriteOffsetStringValues(const ArrayType& arr, npy_string_allocator* alloc
     return pack_values(/*position=*/0, arr.length());
   }
 
-  arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
-  int64_t position = 0;
-  auto run = reader.NextRun();
-  while (run.length > 0) {
-    if (run.set) {
-      RETURN_NOT_OK(pack_values(position, run.length));
-    } else {
-      RETURN_NOT_OK(pack_nulls(position, run.length));
+  if (validity == nullptr) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      auto* packed = reinterpret_cast<npy_packed_static_string*>(data + i * stride);
+      if (arr.IsNull(i)) {
+        RETURN_NOT_OK(PackNullString(allocator, packed));
+      } else {
+        const auto start = static_cast<int64_t>(offsets[i] - base_offset);
+        const auto end = static_cast<int64_t>(offsets[i + 1] - base_offset);
+        RETURN_NOT_OK(PackStringValue(
+            allocator, packed,
+            std::string_view(reinterpret_cast<const char*>(value_data + start),
+                             end - start)));
+      }
     }
-    position += run.length;
-    run = reader.NextRun();
+  } else {
+    arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
+    int64_t position = 0;
+    auto run = reader.NextRun();
+    while (run.length > 0) {
+      if (run.set) {
+        RETURN_NOT_OK(pack_values(position, run.length));
+      } else {
+        RETURN_NOT_OK(pack_nulls(position, run.length));
+      }
+      position += run.length;
+      run = reader.NextRun();
+    }
   }
 
   return Status::OK();
@@ -1544,17 +1560,29 @@ Status WriteViewStringValues(const ArrayType& arr, npy_string_allocator* allocat
     return pack_values(/*position=*/0, arr.length());
   }
 
-  arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
-  int64_t position = 0;
-  auto run = reader.NextRun();
-  while (run.length > 0) {
-    if (run.set) {
-      RETURN_NOT_OK(pack_values(position, run.length));
-    } else {
-      RETURN_NOT_OK(pack_nulls(position, run.length));
+  if (validity == nullptr) {
+    for (int64_t i = 0; i < arr.length(); ++i) {
+      auto* packed = reinterpret_cast<npy_packed_static_string*>(data + i * stride);
+      if (arr.IsNull(i)) {
+        RETURN_NOT_OK(PackNullString(allocator, packed));
+      } else {
+        const auto view = arr.GetView(i);
+        RETURN_NOT_OK(PackStringValue(allocator, packed, view));
+      }
     }
-    position += run.length;
-    run = reader.NextRun();
+  } else {
+    arrow::internal::BitRunReader reader(validity, arr.offset(), arr.length());
+    int64_t position = 0;
+    auto run = reader.NextRun();
+    while (run.length > 0) {
+      if (run.set) {
+        RETURN_NOT_OK(pack_values(position, run.length));
+      } else {
+        RETURN_NOT_OK(pack_nulls(position, run.length));
+      }
+      position += run.length;
+      run = reader.NextRun();
+    }
   }
 
   return Status::OK();
