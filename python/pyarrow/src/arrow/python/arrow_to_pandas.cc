@@ -2355,8 +2355,8 @@ static Status GetPandasWriterType(const ChunkedArray& data, const PandasOptions&
     case Type::DOUBLE:
       *output_type = PandasWriter::DOUBLE;
       break;
-    case Type::STRING:        // fall through
-    case Type::LARGE_STRING:  // fall through
+    case Type::STRING:         // fall through
+    case Type::LARGE_STRING:   // fall through
     case Type::STRING_VIEW: {  // fall through
 #if NPY_ABI_VERSION >= 0x02000000
       if (options.to_numpy && options.string_conversion_mode ==

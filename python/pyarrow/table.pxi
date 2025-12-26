@@ -558,7 +558,8 @@ cdef class ChunkedArray(_PandasConvertible):
             object values
 
         c_options.to_numpy = True
-        c_options.string_conversion_mode = _resolve_table_string_conversion_mode(string_dtype)
+        c_options.string_conversion_mode = _resolve_table_string_conversion_mode(
+            string_dtype)
         if c_options.string_conversion_mode == StringConversionMode_STRING_DTYPE:
             if not HasNumPyStringDType():
                 raise NotImplementedError("NumPy StringDType not available")
