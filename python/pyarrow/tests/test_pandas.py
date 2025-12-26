@@ -3341,6 +3341,39 @@ def test_create_date32_and_date64_arrays_with_mask():
                            type=pa.date64())
     assert arr_no_null.null_count == 0
 
+    # Test Date32 from NumPy datetime64[D] array with mask
+    arr_np_date32 = np.array([0, 1, 2, 3], dtype='datetime64[D]')
+    mask_np_date32 = np.array([False, False, True, False])
+    result_np_date32 = pa.array(arr_np_date32,
+                                mask=mask_np_date32,
+                                type=pa.date32())
+    expected_np_date32 = pa.array([
+        date(1970, 1, 1),
+        date(1970, 1, 2),
+        None,
+        date(1970, 1, 4),
+    ], type=pa.date32())
+    assert result_np_date32.equals(expected_np_date32)
+    assert result_np_date32.null_count == 1
+    assert result_np_date32[2].as_py() is None
+
+    # Test Date64 from NumPy datetime64[ms] array with mask
+    arr_np_date64 = np.array(
+        [0, 86400000, 172800000, 259200000], dtype='datetime64[ms]')
+    mask_np_date64 = np.array([False, True, False, False])
+    result_np_date64 = pa.array(arr_np_date64,
+                                mask=mask_np_date64,
+                                type=pa.date64())
+    expected_np_date64 = pa.array([
+        date(1970, 1, 1),
+        None,
+        date(1970, 1, 3),
+        date(1970, 1, 4),
+    ], type=pa.date64())
+    assert result_np_date64.equals(expected_np_date64)
+    assert result_np_date64.null_count == 1
+    assert result_np_date64[1].as_py() is None
+
 
 def _fully_loaded_dataframe_example():
     index = pd.MultiIndex.from_arrays([
