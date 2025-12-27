@@ -2459,7 +2459,7 @@ Result<std::shared_ptr<Schema>> Schema::WithNames(
   for (const auto& field : impl_->fields_) {
     new_fields.push_back(field->WithName(*names_itr++));
   }
-  return schema(std::move(new_fields));
+  return schema(std::move(new_fields), metadata());
 }
 
 std::shared_ptr<Schema> Schema::WithMetadata(
