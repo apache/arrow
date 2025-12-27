@@ -771,12 +771,19 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   }
 
   int64_t input_length;
+  std::shared_ptr<SelectionVector> input_selection_vector = nullptr;
   if (!arguments.empty() && all_scalar) {
     // all inputs are scalar, so use a 1-long batch to avoid
     // computing input.length equivalent outputs
     input_length = 1;
   } else {
     input_length = input.length;
+    input_selection_vector = input.selection_vector;
+#ifndef NDEBUG
+    if (input_selection_vector) {
+      RETURN_NOT_OK(input_selection_vector->Validate(input.length));
+    }
+#endif
   }
 
   auto executor = compute::detail::KernelExecutor::MakeScalar();
@@ -790,7 +797,8 @@ Result<Datum> ExecuteScalarExpression(const Expression& expr, const ExecBatch& i
   RETURN_NOT_OK(executor->Init(&kernel_context, {kernel, types, options}));
 
   compute::detail::DatumAccumulator listener;
-  RETURN_NOT_OK(executor->Execute(ExecBatch(arguments, input_length), &listener));
+  RETURN_NOT_OK(executor->Execute(
+      ExecBatch(arguments, input_length, std::move(input_selection_vector)), &listener));
   const auto out = executor->WrapResults(arguments, listener.values());
 #ifndef NDEBUG
   DCHECK_OK(executor->CheckResultType(out, call->function_name.c_str()));
