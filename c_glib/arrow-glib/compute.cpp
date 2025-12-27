@@ -8358,31 +8358,9 @@ enum {
   PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT,
 };
 
-typedef struct _GArrowReplaceSliceOptionsPrivate GArrowReplaceSliceOptionsPrivate;
-struct _GArrowReplaceSliceOptionsPrivate
-{
-  gchar *replacement;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowReplaceSliceOptions,
-                           garrow_replace_slice_options,
-                           GARROW_TYPE_FUNCTION_OPTIONS)
-
-#define GARROW_REPLACE_SLICE_OPTIONS_GET_PRIVATE(object)                                 \
-  static_cast<GArrowReplaceSliceOptionsPrivate *>(                                       \
-    garrow_replace_slice_options_get_instance_private(                                   \
-      GARROW_REPLACE_SLICE_OPTIONS(object)))
-
-static void
-garrow_replace_slice_options_dispose(GObject *object)
-{
-  auto priv = GARROW_REPLACE_SLICE_OPTIONS_GET_PRIVATE(object);
-  if (priv->replacement) {
-    g_free(priv->replacement);
-    priv->replacement = nullptr;
-  }
-  G_OBJECT_CLASS(garrow_replace_slice_options_parent_class)->dispose(object);
-}
+G_DEFINE_TYPE(GArrowReplaceSliceOptions,
+              garrow_replace_slice_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
 
 static void
 garrow_replace_slice_options_set_property(GObject *object,
@@ -8392,7 +8370,6 @@ garrow_replace_slice_options_set_property(GObject *object,
 {
   auto options =
     garrow_replace_slice_options_get_raw(GARROW_REPLACE_SLICE_OPTIONS(object));
-  auto priv = GARROW_REPLACE_SLICE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_REPLACE_SLICE_OPTIONS_START:
@@ -8402,14 +8379,7 @@ garrow_replace_slice_options_set_property(GObject *object,
     options->stop = g_value_get_int64(value);
     break;
   case PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT:
-    {
-      const gchar *replacement = g_value_get_string(value);
-      if (priv->replacement) {
-        g_free(priv->replacement);
-      }
-      priv->replacement = g_strdup(replacement);
-      options->replacement = replacement ? replacement : "";
-    }
+    options->replacement = g_value_get_string(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -8425,7 +8395,6 @@ garrow_replace_slice_options_get_property(GObject *object,
 {
   auto options =
     garrow_replace_slice_options_get_raw(GARROW_REPLACE_SLICE_OPTIONS(object));
-  auto priv = GARROW_REPLACE_SLICE_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_REPLACE_SLICE_OPTIONS_START:
@@ -8435,9 +8404,7 @@ garrow_replace_slice_options_get_property(GObject *object,
     g_value_set_int64(value, options->stop);
     break;
   case PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT:
-    g_value_set_string(value,
-                       priv->replacement ? priv->replacement
-                                         : options->replacement.c_str());
+    g_value_set_string(value, options->replacement.c_str());
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -8448,15 +8415,9 @@ garrow_replace_slice_options_get_property(GObject *object,
 static void
 garrow_replace_slice_options_init(GArrowReplaceSliceOptions *object)
 {
-  auto priv = GARROW_REPLACE_SLICE_OPTIONS_GET_PRIVATE(object);
-  priv->replacement = nullptr;
   auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
   arrow_priv->options = static_cast<arrow::compute::FunctionOptions *>(
     new arrow::compute::ReplaceSliceOptions());
-  // Sync the private replacement string with the C++ options
-  auto arrow_options =
-    garrow_replace_slice_options_get_raw(GARROW_REPLACE_SLICE_OPTIONS(object));
-  priv->replacement = g_strdup(arrow_options->replacement.c_str());
 }
 
 static void
@@ -8464,7 +8425,6 @@ garrow_replace_slice_options_class_init(GArrowReplaceSliceOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = garrow_replace_slice_options_dispose;
   gobject_class->set_property = garrow_replace_slice_options_set_property;
   gobject_class->get_property = garrow_replace_slice_options_get_property;
 
