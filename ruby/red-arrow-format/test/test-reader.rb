@@ -674,6 +674,18 @@ module ReaderTests
           end
         end
 
+        sub_test_case("Decimal128") do
+          def build_array
+            Arrow::Decimal128Array.new({precision: 3, scale: 1},
+                                       ["10.1", nil, "1.11"])
+          end
+
+          def test_read
+            assert_equal([{"value" => ["TODO", nil, "TODO"]}],
+                         read)
+          end
+        end
+
         sub_test_case("List") do
           def build_array
             data_type = Arrow::ListDataType.new(name: "count", type: :int8)

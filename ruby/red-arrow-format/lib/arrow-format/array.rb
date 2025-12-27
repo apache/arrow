@@ -306,6 +306,20 @@ module ArrowFormat
     end
   end
 
+  class DecimalArray < FixedSizeBinaryArray
+    def to_a
+      byte_width = @type.byte_width
+      values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
+        # TODO: How to represent in Ruby?
+        @values_buffer.get_string(offset, byte_width)
+      end
+      apply_validity(values)
+    end
+  end
+
+  class Decimal128Array < DecimalArray
+  end
+
   class VariableSizeListArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, child)
       super(type, size, validity_buffer)

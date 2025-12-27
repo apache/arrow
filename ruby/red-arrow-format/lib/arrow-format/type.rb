@@ -16,10 +16,6 @@
 
 module ArrowFormat
   class Type
-    attr_reader :name
-    def initialize(name)
-      @name = name
-    end
   end
 
   class NullType < Type
@@ -29,8 +25,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("Null")
+    def name
+      "Null"
     end
 
     def build_array(size)
@@ -45,8 +41,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("Boolean")
+    def name
+      "Boolean"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -60,8 +56,8 @@ module ArrowFormat
   class IntType < NumberType
     attr_reader :bit_width
     attr_reader :signed
-    def initialize(name, bit_width, signed)
-      super(name)
+    def initialize(bit_width, signed)
+      super()
       @bit_width = bit_width
       @signed = signed
     end
@@ -75,7 +71,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("Int8", 8, true)
+      super(8, true)
+    end
+
+    def name
+      "Int8"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -91,7 +91,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("UInt8", 8, false)
+      super(8, false)
+    end
+
+    def name
+      "UInt8"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -107,7 +111,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("Int16", 16, true)
+      super(16, true)
+    end
+
+    def name
+      "Int16"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -123,7 +131,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("UInt16", 16, false)
+      super(16, false)
+    end
+
+    def name
+      "UInt16"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -139,7 +151,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("Int32", 32, true)
+      super(32, true)
+    end
+
+    def name
+      "Int32"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -155,7 +171,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("UInt32", 32, false)
+      super(32, false)
+    end
+
+    def name
+      "UInt32"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -171,7 +191,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("Int64", 64, true)
+      super(64, true)
+    end
+
+    def name
+      "Int64"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -187,7 +211,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("UInt64", 64, false)
+      super(64, false)
+    end
+
+    def name
+      "UInt64"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -197,8 +225,8 @@ module ArrowFormat
 
   class FloatingPointType < NumberType
     attr_reader :precision
-    def initialize(name, precision)
-      super(name)
+    def initialize(precision)
+      super()
       @precision = precision
     end
   end
@@ -211,7 +239,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("Float32", :single)
+      super(:single)
+    end
+
+    def name
+      "Float32"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -227,7 +259,11 @@ module ArrowFormat
     end
 
     def initialize
-      super("Float64", :double)
+      super(:double)
+    end
+
+    def name
+      "Float64"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -248,8 +284,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("Date32")
+    def name
+      "Date32"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -264,8 +300,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("Date64")
+    def name
+      "Date64"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -275,15 +311,15 @@ module ArrowFormat
 
   class TimeType < TemporalType
     attr_reader :unit
-    def initialize(name, unit)
-      super(name)
+    def initialize(unit)
+      super()
       @unit = unit
     end
   end
 
   class Time32Type < TimeType
-    def initialize(unit)
-      super("Time32", unit)
+    def name
+      "Time32"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -292,8 +328,8 @@ module ArrowFormat
   end
 
   class Time64Type < TimeType
-    def initialize(unit)
-      super("Time64", unit)
+    def name
+      "Time64"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -305,9 +341,13 @@ module ArrowFormat
     attr_reader :unit
     attr_reader :timezone
     def initialize(unit, timezone)
-      super("Timestamp")
+      super()
       @unit = unit
       @timezone = timezone
+    end
+
+    def name
+      "Timestamp"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -319,8 +359,8 @@ module ArrowFormat
   end
 
   class YearMonthIntervalType < IntervalType
-    def initialize
-      super("YearMonthInterval")
+    def name
+      "YearMonthInterval"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -329,8 +369,8 @@ module ArrowFormat
   end
 
   class DayTimeIntervalType < IntervalType
-    def initialize
-      super("DayTimeInterval")
+    def name
+      "DayTimeInterval"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -339,8 +379,8 @@ module ArrowFormat
   end
 
   class MonthDayNanoIntervalType < IntervalType
-    def initialize
-      super("MonthDayNanoInterval")
+    def name
+      "MonthDayNanoInterval"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -354,8 +394,12 @@ module ArrowFormat
   class DurationType < TemporalType
     attr_reader :unit
     def initialize(unit)
-      super("Duration")
+      super()
       @unit = unit
+    end
+
+    def name
+      "Duration"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -373,8 +417,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("Binary")
+    def name
+      "Binary"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -389,8 +433,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("LargeBinary")
+    def name
+      "LargeBinary"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -409,8 +453,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("UTF8")
+    def name
+      "UTF8"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -425,8 +469,8 @@ module ArrowFormat
       end
     end
 
-    def initialize
-      super("LargeUTF8")
+    def name
+      "LargeUTF8"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -441,8 +485,12 @@ module ArrowFormat
   class FixedSizeBinaryType < Type
     attr_reader :byte_width
     def initialize(byte_width)
-      super("FixedSizeBinary")
+      super()
       @byte_width = byte_width
+    end
+
+    def name
+      "FixedSizeBinary"
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -450,18 +498,42 @@ module ArrowFormat
     end
   end
 
+  class DecimalType < FixedSizeBinaryType
+    attr_reader :precision
+    attr_reader :scale
+    def initialize(byte_width, precision, scale)
+      super(byte_width)
+      @precision = precision
+      @scale = scale
+    end
+  end
+
+  class Decimal128Type < DecimalType
+    def initialize(precision, scale)
+      super(16, precision, scale)
+    end
+
+    def name
+      "Decimal128"
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Decimal128Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class VariableSizeListType < Type
     attr_reader :child
-    def initialize(name, child)
-      super(name)
+    def initialize(child)
+      super()
       @child = child
     end
 
   end
 
   class ListType < VariableSizeListType
-    def initialize(child)
-      super("List", child)
+    def name
+      "List"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
@@ -470,8 +542,8 @@ module ArrowFormat
   end
 
   class LargeListType < VariableSizeListType
-    def initialize(child)
-      super("LargeList", child)
+    def name
+      "LargeList"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
@@ -482,8 +554,12 @@ module ArrowFormat
   class StructType < Type
     attr_reader :children
     def initialize(children)
-      super("Struct")
+      super()
       @children = children
+    end
+
+    def name
+      "Struct"
     end
 
     def build_array(size, validity_buffer, children)
@@ -509,7 +585,11 @@ module ArrowFormat
         raise TypeError.new("Map key field must not be nullable: " +
                             type.children[0].inspect)
       end
-      super("Map", child)
+      super(child)
+    end
+
+    def name
+      "Map"
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
@@ -520,8 +600,8 @@ module ArrowFormat
   class UnionType < Type
     attr_reader :children
     attr_reader :type_ids
-    def initialize(name, children, type_ids)
-      super(name)
+    def initialize(children, type_ids)
+      super()
       @children = children
       @type_ids = type_ids
       @type_indexes = {}
@@ -533,8 +613,8 @@ module ArrowFormat
   end
 
   class DenseUnionType < UnionType
-    def initialize(children, type_ids)
-      super("DenseUnion", children, type_ids)
+    def name
+      "DenseUnion"
     end
 
     def build_array(size, types_buffer, offsets_buffer, children)
@@ -543,8 +623,8 @@ module ArrowFormat
   end
 
   class SparseUnionType < UnionType
-    def initialize(children, type_ids)
-      super("SparseUnion", children, type_ids)
+    def name
+      "SparseUnion"
     end
 
     def build_array(size, types_buffer, children)
