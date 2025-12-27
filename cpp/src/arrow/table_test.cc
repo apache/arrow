@@ -801,6 +801,20 @@ TEST_F(TestTable, RenameColumns) {
   ASSERT_RAISES(Invalid, table->RenameColumns({"hello", "world"}));
 }
 
+TEST_F(TestTable, RenameColumnsPreservesMetadata) {
+  MakeExample1(10);
+  auto metadata = key_value_metadata({"foo", "bar"}, {"fizz", "buzz"});
+  auto schema_with_metadata = schema_->WithMetadata(metadata);
+  auto table = Table::Make(schema_with_metadata, columns_);
+
+  ASSERT_OK_AND_ASSIGN(auto renamed, table->RenameColumns({"zero", "one", "two"}));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+
+  // Verify metadata is preserved
+  ASSERT_NE(nullptr, renamed->schema()->metadata());
+  ASSERT_TRUE(renamed->schema()->metadata()->Equals(*metadata));
+}
+
 TEST_F(TestTable, SelectColumns) {
   MakeExample1(10);
   auto table = Table::Make(schema_, columns_);

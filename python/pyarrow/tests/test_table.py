@@ -1808,6 +1808,31 @@ def test_table_rename_columns(cls):
         (pa.RecordBatch)
     ]
 )
+def test_rename_columns_preserves_metadata(cls):
+    # GH-48024: rename_columns() should preserve schema metadata
+    schema = pa.schema(
+        [pa.field("n_legs", pa.int64()), pa.field("animals", pa.string())],
+        metadata={"source": "zoo"},
+    )
+    if cls == pa.Table:
+        obj = cls.from_arrays([[2, 4], ["Flamingo", "Horse"]], schema=schema)
+    else:
+        obj = cls.from_arrays([pa.array([2, 4]), pa.array(["Flamingo", "Horse"])],
+                              schema=schema)
+    assert obj.schema.metadata == {b"source": b"zoo"}
+
+    new_obj = obj.rename_columns(["n", "name"])
+    assert new_obj.column_names == ["n", "name"]
+    assert new_obj.schema.metadata == {b"source": b"zoo"}
+
+
+@pytest.mark.parametrize(
+    ('cls'),
+    [
+        (pa.Table),
+        (pa.RecordBatch)
+    ]
+)
 def test_table_rename_columns_mapping(cls):
     data = [
         pa.array(range(5)),
