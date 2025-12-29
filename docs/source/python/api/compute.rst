@@ -631,12 +631,12 @@ Compute Options
    RoundToMultipleOptions
    RunEndEncodeOptions
    ScalarAggregateOptions
+   ScatterOptions
    SelectKOptions
    SetLookupOptions
    SkewOptions
    SliceOptions
    SortOptions
-   ScatterOptions
    SplitOptions
    SplitPatternOptions
    StrftimeOptions
