@@ -480,7 +480,7 @@ garrow_csv_write_options_class_init(GArrowCSVWriteOptionsClass *klass)
   spec = g_param_spec_string("null-string",
                              "Null string",
                              "The string to write for null values",
-                             write_options.null_string.c_str(),
+                             "",
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_CSV_WRITE_OPTIONS_NULL_STRING,
@@ -496,7 +496,7 @@ garrow_csv_write_options_class_init(GArrowCSVWriteOptionsClass *klass)
   spec = g_param_spec_string("eol",
                              "EOL",
                              "The end of line character to use for ending rows",
-                             write_options.eol.c_str(),
+                             "\n",
                              static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class, PROP_CSV_WRITE_OPTIONS_EOL, spec);
 
