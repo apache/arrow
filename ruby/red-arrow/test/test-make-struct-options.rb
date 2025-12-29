@@ -16,8 +16,6 @@
 # under the License.
 
 class TestMakeStructOptions < Test::Unit::TestCase
-  include Helper::Buildable
-
   def setup
     @options = Arrow::MakeStructOptions.new
   end
@@ -26,24 +24,45 @@ class TestMakeStructOptions < Test::Unit::TestCase
     assert_equal([], @options.field_names)
     @options.field_names = ["a", "b", "c"]
     assert_equal(["a", "b", "c"], @options.field_names)
+    @options.field_names = []
+    assert_equal([], @options.field_names)
+  end
+
+  def test_field_nullability_property
+    assert_equal([], @options.field_nullability)
+    @options.field_nullability = [true, false, true]
+    assert_equal([true, false, true], @options.field_nullability)
+    @options.field_nullability = []
+    assert_equal([], @options.field_nullability)
+  end
+
+  def test_field_metadata_property
+    assert_equal([], @options.field_metadata)
+    @options.field_metadata = [{"a" => "b"}, {"c" => "d"}]
+    assert_equal([{"a" => "b"}, {"c" => "d"}], @options.field_metadata)
+    @options.field_metadata = []
+    assert_equal([], @options.field_metadata)
   end
 
   def test_make_struct_function
-    a = build_int8_array([1, 2, 3])
-    b = build_boolean_array([true, false, nil])
-    args = [
-      Arrow::ArrayDatum.new(a),
-      Arrow::ArrayDatum.new(b),
-    ]
+    a = Arrow::Int8Array.new([1, 2, 3])
+    b = Arrow::BooleanArray.new([true, false, nil])
+    args = [a, b]
+    metadata1 = {"a" => "b"}
+    metadata2 = {"c" => "d"}
     @options.field_names = ["a", "b"]
+    @options.field_nullability = [false, true]
+    @options.field_metadata = [metadata1, metadata2]
     make_struct_function = Arrow::Function.find("make_struct")
     result = make_struct_function.execute(args, @options).value
 
-    expected = build_struct_array(
-      [
-        Arrow::Field.new("a", Arrow::Int8DataType.new),
-        Arrow::Field.new("b", Arrow::BooleanDataType.new),
-      ],
+    expected = Arrow::StructArray.new(
+      Arrow::StructDataType.new(
+        [
+          Arrow::Field.new("a", Arrow::Int8DataType.new, false),
+          Arrow::Field.new("b", Arrow::BooleanDataType.new, true),
+        ]
+      ),
       [
         {"a" => 1, "b" => true},
         {"a" => 2, "b" => false},
@@ -51,5 +70,8 @@ class TestMakeStructOptions < Test::Unit::TestCase
       ]
     )
     assert_equal(expected, result)
+    fields = result.value_data_type.fields
+    assert_equal(metadata1, fields[0].metadata)
+    assert_equal(metadata2, fields[1].metadata)
   end
 end

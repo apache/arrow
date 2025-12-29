@@ -62,6 +62,11 @@ namespace red_arrow {
   VALUE record_batch_each_raw_record(VALUE obj);
   VALUE table_each_raw_record(VALUE obj);
 
+  VALUE make_struct_options_get_field_nullability(VALUE obj);
+  VALUE make_struct_options_set_field_nullability(VALUE obj, VALUE field_nullability);
+  VALUE make_struct_options_get_field_metadata(VALUE obj);
+  VALUE make_struct_options_set_field_metadata(VALUE obj, VALUE field_metadata);
+
   inline VALUE time_unit_to_scale(const arrow::TimeUnit::type unit) {
     switch (unit) {
     case arrow::TimeUnit::SECOND:

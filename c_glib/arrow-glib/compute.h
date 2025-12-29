@@ -1816,11 +1816,4 @@ GARROW_AVAILABLE_IN_23_0
 GArrowMakeStructOptions *
 garrow_make_struct_options_new(void);
 
-GARROW_AVAILABLE_IN_23_0
-void
-garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
-                                     const char *name,
-                                     gboolean nullability,
-                                     GHashTable *metadata);
-
 G_END_DECLS
