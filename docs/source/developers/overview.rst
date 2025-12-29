@@ -163,7 +163,7 @@ Endianness
 ++++++++++
 
 The Arrow format allows setting endianness.  Due to the popularity of
-little endian architectures, most implementations assume little endian by
+little endian architectures, most of the implementations assume little endian by
 default. There has been some  effort to support big endian platforms as well.
 Based on a `mailing-list discussion
 <https://mail-archives.apache.org/mod_mbox/arrow-dev/202009.mbox/%3cCAK7Z5T--HHhr9Dy43PYhD6m-XoU4qoGwQVLwZsG-kOxXjPTyZA@mail.gmail.com%3e>`__,
