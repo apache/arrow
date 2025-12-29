@@ -1816,6 +1816,83 @@ TYPED_TEST(StatementTest, TestSQLBindColIndicatorOnlySQLUnbind) {
   // EXPECT_EQ(1, char_val_ind);
 }
 
+TYPED_TEST(StatementTest, TestSQLExtendedFetchRowFetching) {
+  // Set SQL_ROWSET_SIZE to fetch 3 rows at once
+
+  constexpr SQLULEN rows = 3;
+  SQLINTEGER val[rows];
+  SQLLEN buf_len = sizeof(val);
+  SQLLEN ind[rows];
+
+  // Same variable will be used for column 1, the value of `val`
+  // should be updated after every SQLFetch call.
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, val, buf_len, ind));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ROWSET_SIZE,
+                                        reinterpret_cast<SQLPOINTER>(rows), 0));
+
+  std::wstring wsql =
+      LR"(
+   SELECT 1 AS small_table
+   UNION ALL
+   SELECT 2
+   UNION ALL
+   SELECT 3;
+ )";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  // Fetch row 1-3.
+  SQLULEN row_count;
+  SQLUSMALLINT row_status[rows];
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExtendedFetch(this->stmt, SQL_FETCH_NEXT, 0, &row_count, row_status));
+  EXPECT_EQ(3, row_count);
+
+  for (int i = 0; i < rows; i++) {
+    EXPECT_EQ(SQL_SUCCESS, row_status[i]);
+  }
+
+  // Verify 1 is returned for row 1
+  EXPECT_EQ(1, val[0]);
+  // Verify 2 is returned for row 2
+  EXPECT_EQ(2, val[1]);
+  // Verify 3 is returned for row 3
+  EXPECT_EQ(3, val[2]);
+
+  // Verify result set has no more data beyond row 3
+  SQLULEN row_count2;
+  SQLUSMALLINT row_status2[rows];
+  EXPECT_EQ(SQL_NO_DATA,
+            SQLExtendedFetch(this->stmt, SQL_FETCH_NEXT, 0, &row_count2, row_status2));
+}
+
+TEST_F(StatementRemoteTest, DISABLED_TestSQLExtendedFetchQueryNullIndicator) {
+  // GH-47110: SQLExtendedFetch should return SQL_SUCCESS_WITH_INFO for 22002
+  // Limitation on mock test server prevents null from working properly, so use remote
+  // server instead. Mock server has type `DENSE_UNION` for null column data.
+  SQLINTEGER val;
+
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+
+  std::wstring wsql = L"SELECT null as null_col;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  SQLULEN row_count1;
+  SQLUSMALLINT row_status1[1];
+
+  // SQLExtendedFetch should return SQL_SUCCESS_WITH_INFO for 22002 state
+  ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
+            SQLExtendedFetch(this->stmt, SQL_FETCH_NEXT, 0, &row_count1, row_status1));
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
+}
+
 TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
   // Verify SQLMoreResults returns SQL_NO_DATA by default.
   std::wstring wsql = L"SELECT 1;";
