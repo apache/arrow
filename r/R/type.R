@@ -166,6 +166,7 @@ infer_type.Expression <- function(x, ...) x$type()
 #'
 #' @rdname FixedWidthType
 #' @name FixedWidthType
+#' @keywords internal
 FixedWidthType <- R6Class(
   "FixedWidthType",
   inherit = DataType,
