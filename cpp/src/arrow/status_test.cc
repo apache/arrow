@@ -342,4 +342,23 @@ TEST(StatusTest, ReturnIfNotOk) {
   ASSERT_EQ(StripContext(st.message()), "StatusLike: 43");
 }
 
+#ifdef ARROW_EXTRA_ERROR_CONTEXT
+TEST(StatusTest, ToStringWithoutContextLines) {
+  Status status = Status::IOError("base error");
+  status.AddContextLine("file1.cc", 42, "expr");
+  status.AddContextLine("file2.cc", 100, "expr");
+
+  ASSERT_EQ(status.ToStringWithoutContextLines(), "IOError: base error");
+
+  Status status2(StatusCode::Invalid,
+                 "Error message\nThis line has: a colon but no digits");
+  status2.AddContextLine("file.cc", 20, "expr");
+
+  std::string result = status2.ToStringWithoutContextLines();
+  ASSERT_EQ(result.find("file.cc:20"), std::string::npos);
+  ASSERT_NE(result.find("This line has: a colon but no digits"), std::string::npos);
+  ASSERT_NE(result.find("Error message"), std::string::npos);
+}
+#endif
+
 }  // namespace arrow
