@@ -76,12 +76,12 @@ module Arrow
         when Integer
           if value < 0
             {
-              builder: IntArrayBuilder.new,
+              builder_type: :int,
               detected: true,
             }
           else
             {
-              builder: UIntArrayBuilder.new,
+              builder_type: :uint,
             }
           end
         when Time
@@ -156,7 +156,7 @@ module Arrow
             break if sub_builder_info and sub_builder_info[:detected]
           end
           if sub_builder_info
-            sub_builder = sub_builder_info[:builder]
+            sub_builder = sub_builder_info[:builder] || create_builder(sub_builder_info)
             return builder_info unless sub_builder
             sub_value_data_type = sub_builder.value_data_type
             field = Field.new("item", sub_value_data_type)
@@ -186,6 +186,10 @@ module Arrow
           data_type = Decimal256DataType.new(builder_info[:precision],
                                              builder_info[:scale])
           Decimal256ArrayBuilder.new(data_type)
+        when :int
+          Int8ArrayBuilder.new
+        when :uint
+          UInt8ArrayBuilder.new
         else
           nil
         end
