@@ -191,26 +191,29 @@ test_that("Error handling for unsupported expressions in join_by", {
 test_that("joins with duplicate column names", {
   # When column names are duplicated (not in by), suffixes are added
   left_dup <- tibble::tibble(
-    x = 1:5,
-    y = 1:5,
-    z = letters[1:5]
+    key = 1:5,
+    shared = 1:5,
+    shared_float = c(1.1, 2.2, 3.3, 4.4, 5.5),
+    left_unique = letters[1:5]
   )
   right_dup <- tibble::tibble(
-    x = 1:5,
-    y = 6:10,
-    z = LETTERS[1:5]
+    key = 1:5,
+    shared = 6:10,
+    shared_float = c(6.1, 7.2, 8.3, 9.4, 10.5),
+    right_unique = LETTERS[1:5]
   )
 
+  # Test with default suffixes (.x and .y)
   compare_dplyr_binding(
     .input |>
-      left_join(right_dup, by = "x") |>
+      left_join(right_dup, by = "key") |>
       collect(),
     left_dup
   )
 
   compare_dplyr_binding(
     .input |>
-      inner_join(right_dup, by = "x") |>
+      inner_join(right_dup, by = "key") |>
       collect(),
     left_dup
   )
@@ -218,9 +221,60 @@ test_that("joins with duplicate column names", {
   # Test with custom suffixes
   compare_dplyr_binding(
     .input |>
-      left_join(right_dup, by = "x", suffix = c("_left", "_right")) |>
+      left_join(right_dup, by = "key", suffix = c("_left", "_right")) |>
       collect(),
     left_dup
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      inner_join(right_dup, by = "key", suffix = c("_left", "_right")) |>
+      collect(),
+    left_dup
+  )
+
+  # Test that column names are correctly suffixed
+  # Verify exact column names match expected pattern using the same fixture
+  result <- arrow_table(left_dup) |>
+    inner_join(
+      arrow_table(right_dup),
+      by = "key",
+      suffix = c("_left", "_right")
+    ) |>
+    collect()
+  res_col_names <- names(result)
+  # Column order: join key first, then left table columns (with suffixes),
+  # then right table columns (with suffixes)
+  expected_col_names <- c(
+    "key",
+    "shared_left",
+    "shared_float_left",
+    "left_unique",
+    "shared_right",
+    "shared_float_right",
+    "right_unique"
+  )
+  expect_equal(expected_col_names, res_col_names)
+})
+
+test_that("joins with incompatible types for join keys", {
+  # Test that joining on columns with incompatible types (int vs float) fails
+  # Arrow requires join keys to have compatible types - type casting is not
+  # automatically performed for join keys
+  left_int <- Table$create(
+    x = c(1L, 2L),
+    shared = c(10L, 20L)
+  )
+  right_float <- Table$create(
+    x = c(1.0, 2.0),
+    shared = c(10.1, 20.2)
+  )
+
+  expect_error(
+    left_int |>
+      left_join(right_float, by = "x") |>
+      collect(),
+    "Incompatible data types for corresponding join field keys"
   )
 })
 
@@ -348,26 +402,6 @@ test_that("arrow dplyr query correctly filters then joins", {
       three = c(NA, FALSE)
     )
   )
-})
-
-test_that("suffix", {
-  left_suf <- Table$create(
-    key = c(1, 2),
-    left_unique = c(2.1, 3.1),
-    shared = c(10.1, 10.3)
-  )
-
-  right_suf <- Table$create(
-    key = c(1, 2, 3, 10, 20),
-    right_unique = c(1.1, 1.2, 3.1, 4.1, 4.3),
-    shared = c(20.1, 30, 40, 50, 60)
-  )
-
-  join_op <- inner_join(left_suf, right_suf, by = "key", suffix = c("_left", "_right"))
-  output <- collect(join_op)
-  res_col_names <- names(output)
-  expected_col_names <- c("key", "left_unique", "shared_left", "right_unique", "shared_right")
-  expect_equal(expected_col_names, res_col_names)
 })
 
 test_that("suffix and implicit schema", {
