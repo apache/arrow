@@ -477,7 +477,8 @@ test_that("Can read Parquet files from a URL", {
   skip_if_offline()
   skip_on_cran()
   skip_if_not_available("snappy")
-  parquet_url <- "https://github.com/apache/arrow/blob/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet?raw=true" # nolint
+  # Use /raw/ path format (same as test-io.R line 74) instead of blob/...?raw=true.
+  parquet_url <- "https://github.com/apache/arrow/raw/64f2cc7986ce672dd1a8cb268d193617a80a1653/r/inst/v0.7.1.parquet" # nolint
   pu <- read_parquet(parquet_url)
   expect_true(tibble::is_tibble(pu))
   expect_identical(dim(pu), c(10L, 11L))
