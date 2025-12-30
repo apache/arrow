@@ -323,6 +323,16 @@ G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVWriteOptions, garrow_csv_write_options, G_TY
     garrow_csv_write_options_get_instance_private(GARROW_CSV_WRITE_OPTIONS(object)))
 
 static void
+garrow_csv_write_options_finalize(GObject *object)
+{
+  auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  priv->write_options.~WriteOptions();
+
+  G_OBJECT_CLASS(garrow_csv_write_options_parent_class)->finalize(object);
+}
+
+static void
 garrow_csv_write_options_set_property(GObject *object,
                                       guint prop_id,
                                       const GValue *value,
@@ -404,6 +414,7 @@ static void
 garrow_csv_write_options_init(GArrowCSVWriteOptions *object)
 {
   auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object);
+  new (&priv->write_options) arrow::csv::WriteOptions;
   priv->write_options = arrow::csv::WriteOptions::Defaults();
 }
 
@@ -414,6 +425,7 @@ garrow_csv_write_options_class_init(GArrowCSVWriteOptionsClass *klass)
 
   auto gobject_class = G_OBJECT_CLASS(klass);
 
+  gobject_class->finalize = garrow_csv_write_options_finalize;
   gobject_class->set_property = garrow_csv_write_options_set_property;
   gobject_class->get_property = garrow_csv_write_options_get_property;
 
