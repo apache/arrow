@@ -39,8 +39,11 @@
 #  include <unistd.h>      // IWYU pragma: keep
 #endif
 
+#include "arrow/array.h"
+#include "arrow/array/builder_union.h"
 #include "arrow/config.h"
 #include "arrow/table.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
 #include "arrow/util/cpu_info.h"
@@ -240,6 +243,57 @@ std::vector<int64_t> GetSupportedHardwareFlags(
     }
   }
   return hardware_flags;
+}
+
+Status MakeUnion(std::shared_ptr<RecordBatch>* out) {
+  // Define schema
+  std::vector<std::shared_ptr<Field>> union_fields(
+      {field("u0", int32()), field("u1", uint8())});
+
+  std::vector<int8_t> type_codes = {5, 10};
+  auto sparse_type = sparse_union(union_fields, type_codes);
+  auto dense_type = dense_union(union_fields, type_codes);
+
+  auto f0 = field("sparse", sparse_type);
+  auto f1 = field("dense", dense_type);
+  auto schema = ::arrow::schema({f0, f1});
+
+  // Create data
+  std::vector<std::shared_ptr<Array>> sparse_children(2);
+  std::vector<std::shared_ptr<Array>> dense_children(2);
+
+  const int64_t length = 7;
+
+  std::shared_ptr<Buffer> type_ids_buffer;
+  std::vector<uint8_t> type_ids = {5, 10, 5, 5, 10, 10, 5};
+  RETURN_NOT_OK(CopyBufferFromVector(type_ids, default_memory_pool(), &type_ids_buffer));
+
+  std::vector<int32_t> u0_values = {0, 1, 2, 3, 4, 5, 6};
+  ArrayFromVector<Int32Type, int32_t>(u0_values, &sparse_children[0]);
+
+  std::vector<uint8_t> u1_values = {10, 11, 12, 13, 14, 15, 16};
+  ArrayFromVector<UInt8Type, uint8_t>(u1_values, &sparse_children[1]);
+
+  // dense children
+  u0_values = {0, 2, 3, 7};
+  ArrayFromVector<Int32Type, int32_t>(u0_values, &dense_children[0]);
+
+  u1_values = {11, 14, 15};
+  ArrayFromVector<UInt8Type, uint8_t>(u1_values, &dense_children[1]);
+
+  std::shared_ptr<Buffer> offsets_buffer;
+  std::vector<int32_t> offsets = {0, 0, 1, 2, 1, 2, 3};
+  RETURN_NOT_OK(CopyBufferFromVector(offsets, default_memory_pool(), &offsets_buffer));
+
+  auto sparse = std::make_shared<SparseUnionArray>(sparse_type, length, sparse_children,
+                                                   type_ids_buffer);
+  auto dense = std::make_shared<DenseUnionArray>(dense_type, length, dense_children,
+                                                 type_ids_buffer, offsets_buffer);
+
+  // construct batch
+  std::vector<std::shared_ptr<Array>> arrays = {sparse, dense};
+  *out = RecordBatch::Make(schema, length, arrays);
+  return Status::OK();
 }
 
 }  // namespace arrow
