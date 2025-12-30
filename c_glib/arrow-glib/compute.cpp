@@ -296,6 +296,9 @@ G_BEGIN_DECLS
  * #GArrowPairwiseOptions is a class to customize the pairwise
  * functions such as `pairwise_diff` and `pairwise_diff_checked`.
  *
+ * #GArrowReplaceSliceOptions is a class to customize the `utf8_replace_slice` and
+ * `binary_replace_slice` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -8349,6 +8352,148 @@ garrow_pairwise_options_new(void)
   return GARROW_PAIRWISE_OPTIONS(g_object_new(GARROW_TYPE_PAIRWISE_OPTIONS, NULL));
 }
 
+enum {
+  PROP_REPLACE_SLICE_OPTIONS_START = 1,
+  PROP_REPLACE_SLICE_OPTIONS_STOP,
+  PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT,
+};
+
+G_DEFINE_TYPE(GArrowReplaceSliceOptions,
+              garrow_replace_slice_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_replace_slice_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_replace_slice_options_get_raw(GARROW_REPLACE_SLICE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_REPLACE_SLICE_OPTIONS_START:
+    options->start = g_value_get_int64(value);
+    break;
+  case PROP_REPLACE_SLICE_OPTIONS_STOP:
+    options->stop = g_value_get_int64(value);
+    break;
+  case PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT:
+    options->replacement = g_value_get_string(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_replace_slice_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_replace_slice_options_get_raw(GARROW_REPLACE_SLICE_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_REPLACE_SLICE_OPTIONS_START:
+    g_value_set_int64(value, options->start);
+    break;
+  case PROP_REPLACE_SLICE_OPTIONS_STOP:
+    g_value_set_int64(value, options->stop);
+    break;
+  case PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT:
+    g_value_set_string(value, options->replacement.c_str());
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_replace_slice_options_init(GArrowReplaceSliceOptions *object)
+{
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ReplaceSliceOptions());
+}
+
+static void
+garrow_replace_slice_options_class_init(GArrowReplaceSliceOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_replace_slice_options_set_property;
+  gobject_class->get_property = garrow_replace_slice_options_get_property;
+
+  arrow::compute::ReplaceSliceOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowReplaceSliceOptions:start:
+   *
+   * Index to start slicing at.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("start",
+                            "Start",
+                            "Index to start slicing at",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.start,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_REPLACE_SLICE_OPTIONS_START, spec);
+
+  /**
+   * GArrowReplaceSliceOptions:stop:
+   *
+   * Index to stop slicing at.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("stop",
+                            "Stop",
+                            "Index to stop slicing at",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.stop,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_REPLACE_SLICE_OPTIONS_STOP, spec);
+
+  /**
+   * GArrowReplaceSliceOptions:replacement:
+   *
+   * String to replace the slice with.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("replacement",
+                             "Replacement",
+                             "String to replace the slice with",
+                             options.replacement.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_REPLACE_SLICE_OPTIONS_REPLACEMENT,
+                                  spec);
+}
+
+/**
+ * garrow_replace_slice_options_new:
+ *
+ * Returns: A newly created #GArrowReplaceSliceOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new(void)
+{
+  return GARROW_REPLACE_SLICE_OPTIONS(
+    g_object_new(GARROW_TYPE_REPLACE_SLICE_OPTIONS, nullptr));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8552,6 +8697,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_pairwise_options =
       static_cast<const arrow::compute::PairwiseOptions *>(arrow_options);
     auto options = garrow_pairwise_options_new_raw(arrow_pairwise_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ReplaceSliceOptions") {
+    const auto arrow_replace_slice_options =
+      static_cast<const arrow::compute::ReplaceSliceOptions *>(arrow_options);
+    auto options = garrow_replace_slice_options_new_raw(arrow_replace_slice_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -9375,5 +9525,26 @@ arrow::compute::PairwiseOptions *
 garrow_pairwise_options_get_raw(GArrowPairwiseOptions *options)
 {
   return static_cast<arrow::compute::PairwiseOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new_raw(
+  const arrow::compute::ReplaceSliceOptions *arrow_options)
+{
+  return GARROW_REPLACE_SLICE_OPTIONS(g_object_new(GARROW_TYPE_REPLACE_SLICE_OPTIONS,
+                                                   "start",
+                                                   arrow_options->start,
+                                                   "stop",
+                                                   arrow_options->stop,
+                                                   "replacement",
+                                                   arrow_options->replacement.c_str(),
+                                                   nullptr));
+}
+
+arrow::compute::ReplaceSliceOptions *
+garrow_replace_slice_options_get_raw(GArrowReplaceSliceOptions *options)
+{
+  return static_cast<arrow::compute::ReplaceSliceOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

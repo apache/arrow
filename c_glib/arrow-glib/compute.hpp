@@ -256,3 +256,9 @@ GArrowPairwiseOptions *
 garrow_pairwise_options_new_raw(const arrow::compute::PairwiseOptions *arrow_options);
 arrow::compute::PairwiseOptions *
 garrow_pairwise_options_get_raw(GArrowPairwiseOptions *options);
+
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new_raw(
+  const arrow::compute::ReplaceSliceOptions *arrow_options);
+arrow::compute::ReplaceSliceOptions *
+garrow_replace_slice_options_get_raw(GArrowReplaceSliceOptions *options);
