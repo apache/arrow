@@ -2099,7 +2099,10 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
   PARQUET_THROW_NOT_OK(ctx->GetScratchData<ParquetCType>(array.length(), &buffer));
 
   SerializeFunctor<ParquetType, ArrowType> functor;
-  RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
+  // The value buffer could be empty if all values are nulls.
+  if (array.null_count() != array.length()) {
+    RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
+  }
   bool no_nulls =
       this->descr()->schema_node()->is_required() || (array.null_count() == 0);
   if (!maybe_parent_nulls && no_nulls) {
