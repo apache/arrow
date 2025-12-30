@@ -8491,7 +8491,7 @@ GArrowReplaceSliceOptions *
 garrow_replace_slice_options_new(void)
 {
   return GARROW_REPLACE_SLICE_OPTIONS(
-    g_object_new(GARROW_TYPE_REPLACE_SLICE_OPTIONS, NULL));
+    g_object_new(GARROW_TYPE_REPLACE_SLICE_OPTIONS, nullptr));
 }
 
 G_END_DECLS
@@ -9539,7 +9539,7 @@ garrow_replace_slice_options_new_raw(
                                                    arrow_options->stop,
                                                    "replacement",
                                                    arrow_options->replacement.c_str(),
-                                                   NULL));
+                                                   nullptr));
 }
 
 arrow::compute::ReplaceSliceOptions *
