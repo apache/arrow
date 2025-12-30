@@ -17,11 +17,11 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_statement_get_type_info.h"
 
-#include <boost/algorithm/string/join.hpp>
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_get_type_info_reader.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
+#include "arrow/util/string.h"
 
 namespace arrow::flight::sql::odbc {
 
@@ -109,8 +109,7 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
 
     const auto& create_params = reader.GetCreateParams();
     if (create_params && !create_params->empty()) {
-      // GH-48093 TODO: replace boost-algorithm with alternatives
-      data.create_params = boost::algorithm::join(*create_params, ",");
+      data.create_params = arrow::internal::JoinStrings(*create_params, ",");
     } else {
       data.create_params = nullopt;
     }
