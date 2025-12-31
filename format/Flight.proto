@@ -649,7 +649,7 @@ message GetSessionOptionsResult {
 /*
  * Request message for the "Close Session" action.
  *
- * The exiting session is referenced via a cookie header.
+ * The existing session is referenced via a cookie header.
  */
 message CloseSessionRequest {
 }

@@ -104,7 +104,7 @@ table RecordBatch {
 
   /// Some types such as Utf8View are represented using a variable number of buffers.
   /// For each such Field in the pre-ordered flattened logical schema, there will be
-  /// an entry in variadicBufferCounts to indicate the number of number of variadic
+  /// an entry in variadicBufferCounts to indicate the number of variadic
   /// buffers which belong to that Field in the current RecordBatch.
   ///
   /// For example, the schema
