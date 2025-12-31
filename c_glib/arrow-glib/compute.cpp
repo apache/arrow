@@ -8923,36 +8923,9 @@ enum {
   PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS,
 };
 
-typedef struct _GArrowReplaceSubstringOptionsPrivate GArrowReplaceSubstringOptionsPrivate;
-struct _GArrowReplaceSubstringOptionsPrivate
-{
-  gchar *pattern;
-  gchar *replacement;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowReplaceSubstringOptions,
-                           garrow_replace_substring_options,
-                           GARROW_TYPE_FUNCTION_OPTIONS)
-
-#define GARROW_REPLACE_SUBSTRING_OPTIONS_GET_PRIVATE(object)                             \
-  static_cast<GArrowReplaceSubstringOptionsPrivate *>(                                   \
-    garrow_replace_substring_options_get_instance_private(                               \
-      GARROW_REPLACE_SUBSTRING_OPTIONS(object)))
-
-static void
-garrow_replace_substring_options_dispose(GObject *object)
-{
-  auto priv = GARROW_REPLACE_SUBSTRING_OPTIONS_GET_PRIVATE(object);
-  if (priv->pattern) {
-    g_free(priv->pattern);
-    priv->pattern = nullptr;
-  }
-  if (priv->replacement) {
-    g_free(priv->replacement);
-    priv->replacement = nullptr;
-  }
-  G_OBJECT_CLASS(garrow_replace_substring_options_parent_class)->dispose(object);
-}
+G_DEFINE_TYPE(GArrowReplaceSubstringOptions,
+              garrow_replace_substring_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
 
 static void
 garrow_replace_substring_options_set_property(GObject *object,
@@ -8962,28 +8935,13 @@ garrow_replace_substring_options_set_property(GObject *object,
 {
   auto options =
     garrow_replace_substring_options_get_raw(GARROW_REPLACE_SUBSTRING_OPTIONS(object));
-  auto priv = GARROW_REPLACE_SUBSTRING_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_REPLACE_SUBSTRING_OPTIONS_PATTERN:
-    {
-      const gchar *pattern = g_value_get_string(value);
-      if (priv->pattern) {
-        g_free(priv->pattern);
-      }
-      priv->pattern = g_strdup(pattern);
-      options->pattern = pattern ? pattern : "";
-    }
+    options->pattern = g_value_get_string(value);
     break;
   case PROP_REPLACE_SUBSTRING_OPTIONS_REPLACEMENT:
-    {
-      const gchar *replacement = g_value_get_string(value);
-      if (priv->replacement) {
-        g_free(priv->replacement);
-      }
-      priv->replacement = g_strdup(replacement);
-      options->replacement = replacement ? replacement : "";
-    }
+    options->replacement = g_value_get_string(value);
     break;
   case PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS:
     options->max_replacements = g_value_get_int64(value);
@@ -9002,16 +8960,13 @@ garrow_replace_substring_options_get_property(GObject *object,
 {
   auto options =
     garrow_replace_substring_options_get_raw(GARROW_REPLACE_SUBSTRING_OPTIONS(object));
-  auto priv = GARROW_REPLACE_SUBSTRING_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_REPLACE_SUBSTRING_OPTIONS_PATTERN:
-    g_value_set_string(value, priv->pattern ? priv->pattern : options->pattern.c_str());
+    g_value_set_string(value, options->pattern.c_str());
     break;
   case PROP_REPLACE_SUBSTRING_OPTIONS_REPLACEMENT:
-    g_value_set_string(value,
-                       priv->replacement ? priv->replacement
-                                         : options->replacement.c_str());
+    g_value_set_string(value, options->replacement.c_str());
     break;
   case PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS:
     g_value_set_int64(value, options->max_replacements);
@@ -9025,17 +8980,9 @@ garrow_replace_substring_options_get_property(GObject *object,
 static void
 garrow_replace_substring_options_init(GArrowReplaceSubstringOptions *object)
 {
-  auto priv = GARROW_REPLACE_SUBSTRING_OPTIONS_GET_PRIVATE(object);
-  priv->pattern = nullptr;
-  priv->replacement = nullptr;
   auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
   arrow_priv->options = static_cast<arrow::compute::FunctionOptions *>(
     new arrow::compute::ReplaceSubstringOptions());
-  // Sync the private strings with the C++ options
-  auto arrow_options =
-    garrow_replace_substring_options_get_raw(GARROW_REPLACE_SUBSTRING_OPTIONS(object));
-  priv->pattern = g_strdup(arrow_options->pattern.c_str());
-  priv->replacement = g_strdup(arrow_options->replacement.c_str());
 }
 
 static void
@@ -9043,7 +8990,6 @@ garrow_replace_substring_options_class_init(GArrowReplaceSubstringOptionsClass *
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = garrow_replace_substring_options_dispose;
   gobject_class->set_property = garrow_replace_substring_options_set_property;
   gobject_class->get_property = garrow_replace_substring_options_get_property;
 
