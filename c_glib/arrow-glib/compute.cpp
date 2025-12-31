@@ -309,6 +309,9 @@ G_BEGIN_DECLS
  * #GArrowRankQuantileOptions is a class to customize the `rank_quantile` and
  * `rank_normal` functions.
  *
+ * #GArrowReplaceSubstringOptions is a class to customize the
+ * `replace_substring` and `replace_substring_regex` functions.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -8914,6 +8917,151 @@ garrow_rank_quantile_options_add_sort_key(GArrowRankQuantileOptions *options,
   garrow_raw_sort_keys_add(arrow_options->sort_keys, sort_key);
 }
 
+enum {
+  PROP_REPLACE_SUBSTRING_OPTIONS_PATTERN = 1,
+  PROP_REPLACE_SUBSTRING_OPTIONS_REPLACEMENT,
+  PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS,
+};
+
+G_DEFINE_TYPE(GArrowReplaceSubstringOptions,
+              garrow_replace_substring_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_replace_substring_options_set_property(GObject *object,
+                                              guint prop_id,
+                                              const GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto options =
+    garrow_replace_substring_options_get_raw(GARROW_REPLACE_SUBSTRING_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_REPLACE_SUBSTRING_OPTIONS_PATTERN:
+    options->pattern = g_value_get_string(value);
+    break;
+  case PROP_REPLACE_SUBSTRING_OPTIONS_REPLACEMENT:
+    options->replacement = g_value_get_string(value);
+    break;
+  case PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS:
+    options->max_replacements = g_value_get_int64(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_replace_substring_options_get_property(GObject *object,
+                                              guint prop_id,
+                                              GValue *value,
+                                              GParamSpec *pspec)
+{
+  auto options =
+    garrow_replace_substring_options_get_raw(GARROW_REPLACE_SUBSTRING_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_REPLACE_SUBSTRING_OPTIONS_PATTERN:
+    g_value_set_string(value, options->pattern.c_str());
+    break;
+  case PROP_REPLACE_SUBSTRING_OPTIONS_REPLACEMENT:
+    g_value_set_string(value, options->replacement.c_str());
+    break;
+  case PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS:
+    g_value_set_int64(value, options->max_replacements);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_replace_substring_options_init(GArrowReplaceSubstringOptions *object)
+{
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::ReplaceSubstringOptions());
+}
+
+static void
+garrow_replace_substring_options_class_init(GArrowReplaceSubstringOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_replace_substring_options_set_property;
+  gobject_class->get_property = garrow_replace_substring_options_get_property;
+
+  arrow::compute::ReplaceSubstringOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowReplaceSubstringOptions:pattern:
+   *
+   * Pattern to match, literal, or regular expression depending on which kernel is used.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string(
+    "pattern",
+    "Pattern",
+    "Pattern to match, literal, or regular expression depending on which kernel is used",
+    options.pattern.c_str(),
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_REPLACE_SUBSTRING_OPTIONS_PATTERN,
+                                  spec);
+
+  /**
+   * GArrowReplaceSubstringOptions:replacement:
+   *
+   * String to replace the pattern with.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("replacement",
+                             "Replacement",
+                             "String to replace the pattern with",
+                             options.replacement.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_REPLACE_SUBSTRING_OPTIONS_REPLACEMENT,
+                                  spec);
+
+  /**
+   * GArrowReplaceSubstringOptions:max-replacements:
+   *
+   * Max number of substrings to replace (-1 means unbounded).
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("max-replacements",
+                            "Max Replacements",
+                            "Max number of substrings to replace (-1 means unbounded)",
+                            -1,
+                            G_MAXINT64,
+                            options.max_replacements,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_REPLACE_SUBSTRING_OPTIONS_MAX_REPLACEMENTS,
+                                  spec);
+}
+
+/**
+ * garrow_replace_substring_options_new:
+ *
+ * Returns: A newly created #GArrowReplaceSubstringOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new(void)
+{
+  return GARROW_REPLACE_SUBSTRING_OPTIONS(
+    g_object_new(GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS, nullptr));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -9137,6 +9285,12 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_rank_quantile_options =
       static_cast<const arrow::compute::RankQuantileOptions *>(arrow_options);
     auto options = garrow_rank_quantile_options_new_raw(arrow_rank_quantile_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "ReplaceSubstringOptions") {
+    const auto arrow_replace_substring_options =
+      static_cast<const arrow::compute::ReplaceSubstringOptions *>(arrow_options);
+    auto options =
+      garrow_replace_substring_options_new_raw(arrow_replace_substring_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -10046,5 +10200,27 @@ arrow::compute::RankQuantileOptions *
 garrow_rank_quantile_options_get_raw(GArrowRankQuantileOptions *options)
 {
   return static_cast<arrow::compute::RankQuantileOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new_raw(
+  const arrow::compute::ReplaceSubstringOptions *arrow_options)
+{
+  return GARROW_REPLACE_SUBSTRING_OPTIONS(
+    g_object_new(GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS,
+                 "pattern",
+                 arrow_options->pattern.c_str(),
+                 "replacement",
+                 arrow_options->replacement.c_str(),
+                 "max-replacements",
+                 arrow_options->max_replacements,
+                 nullptr));
+}
+
+arrow::compute::ReplaceSubstringOptions *
+garrow_replace_substring_options_get_raw(GArrowReplaceSubstringOptions *options)
+{
+  return static_cast<arrow::compute::ReplaceSubstringOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }
