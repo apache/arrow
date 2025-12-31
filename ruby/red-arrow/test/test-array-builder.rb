@@ -147,44 +147,435 @@ class ArrayBuilderTest < Test::Unit::TestCase
                      ])
       end
 
-      test("list<uint>s") do
-        values = [
-          [0, 1, 2],
-          [3, 4],
-        ]
-        array = Arrow::Array.new(values)
-        data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
-        assert_equal({
-                       data_type: data_type,
-                       values: [
-                         [0, 1, 2],
-                         [3, 4],
-                       ],
-                     },
-                     {
-                       data_type: array.value_data_type,
-                       values: array.to_a,
-                     })
-      end
+      sub_test_case("nested integer list") do
+        test("list<uint8>s") do
+          values = [
+            [0, 1, 2],
+            [3, 4],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 1, 2],
+                           [3, 4],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
 
-      test("list<int>s") do
-        values = [
-          [0, -1, 2],
-          [3, 4],
-        ]
-        array = Arrow::Array.new(values)
-        data_type = Arrow::ListDataType.new(Arrow::Int8DataType.new)
-        assert_equal({
-                       data_type: data_type,
-                       values: [
-                         [0, -1, 2],
-                         [3, 4],
-                       ],
-                     },
-                     {
-                       data_type: array.value_data_type,
-                       values: array.to_a,
-                     })
+        test("list<int8>s") do
+          values = [
+            [0, -1, 2],
+            [3, 4],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int8DataType.new)
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -1, 2],
+                           [3, 4],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int8>s boundary") do
+          # Int8 can hold values from -128 to 127.
+          values = [
+            [0, -2**7],
+            [2**7 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int8DataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -128],
+                           [127],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int16>s inferred from int8 underflow") do
+          values = [
+            [0, -2**7 - 1],
+            [2**7 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int16DataType.new)
+
+          # Int8 lower bound is -128
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -129],
+                           [127],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int16>s inferred from int8 overflow") do
+          values = [
+            [0, 2**7],
+            [-2**7],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int16DataType.new)
+
+          # Int8 upper bound is 127
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 128],
+                           [-128],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int16>s boundary") do
+          values = [
+            [0, -2**15],
+            [2**15 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int16DataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -32768],
+                           [32767],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int32>s inferred from int16 underflow") do
+          values = [
+            [0, -2**15 - 1],
+            [2**15 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int32DataType.new)
+
+          # Int16 lower bound is -32768
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -32769],
+                           [32767],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int32>s inferred from int16 overflow") do
+          values = [
+            [0, 2**15],
+            [-2**15],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int32DataType.new)
+
+          # Int16 upper bound is 32767
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 32768],
+                           [-32768],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int32>s boundary") do
+          values = [
+            [0, -2**31],
+            [2**31 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int32DataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -2147483648],
+                           [2147483647],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int64>s inferred from int32 underflow") do
+          values = [
+            [0, -2**31 - 1],
+            [2**31 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int64DataType.new)
+
+          # Int32 lower bound is -2147483648
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, -2147483649],
+                           [2147483647],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<int64>s inferred from int32 overflow") do
+          values = [
+            [0, 2**31],
+            [-2**31],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::Int64DataType.new)
+
+          # Int32 upper bound is 2147483647
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 2147483648],
+                           [-2147483648],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("string fallback from nested int64 array overflow") do
+          values = [
+            [0, 2**63],
+            [-2**63],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::StringDataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           ["0", "9223372036854775808"],
+                           ["-9223372036854775808"],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("string fallback from nested int64 array underflow") do
+          values = [
+            [0, -2**63 - 1],
+            [2**63 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::StringDataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           ["0", "-9223372036854775809"],
+                           ["9223372036854775807"],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint8>s boundary") do
+          # UInt8 can hold values up to 255,
+          values = [
+            [0, 2**8 - 1],
+            [2**8 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 255],
+                           [255],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint16>s") do
+          values = [
+            [0, 2**8],
+            [2**8 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt16DataType.new)
+
+          # UInt8 can hold values up to 255
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 256],
+                           [255],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint16>s boundary") do
+          values = [
+            [0, 2**16 - 1],
+            [2**16 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt16DataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 65535],
+                           [65535],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint32>s") do
+          values = [
+            [0, 2**16],
+            [2**16 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt32DataType.new)
+
+          # UInt16 can hold values up to 65535
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 65536],
+                           [65535],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint32>s boundary") do
+          values = [
+            [0, 2**32 - 1],
+            [2**32 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt32DataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 4294967295],
+                           [4294967295],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("list<uint64>s") do
+          values = [
+            [0, 2**32],
+            [2**32 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::UInt64DataType.new)
+
+          # UInt32 can hold values up to 4294967295
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           [0, 4294967296],
+                           [4294967295],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
+
+        test("string fallback from nested uint64 array overflow") do
+          values = [
+            [0, 2**64],
+            [2**64 - 1],
+          ]
+          array = Arrow::Array.new(values)
+          data_type = Arrow::ListDataType.new(Arrow::StringDataType.new)
+
+          assert_equal({
+                         data_type: data_type,
+                         values: [
+                           ["0", "18446744073709551616"],
+                           ["18446744073709551615"],
+                         ],
+                       },
+                       {
+                         data_type: array.value_data_type,
+                         values: array.to_a,
+                       })
+        end
       end
     end
 
