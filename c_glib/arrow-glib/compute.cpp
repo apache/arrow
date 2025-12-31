@@ -9030,13 +9030,13 @@ garrow_replace_substring_options_class_init(GArrowReplaceSubstringOptionsClass *
                                   spec);
 
   /**
-   * GArrowReplaceSubstringOptions:max_replacements:
+   * GArrowReplaceSubstringOptions:max-replacements:
    *
    * Max number of substrings to replace (-1 means unbounded).
    *
    * Since: 23.0.0
    */
-  spec = g_param_spec_int64("max_replacements",
+  spec = g_param_spec_int64("max-replacements",
                             "Max Replacements",
                             "Max number of substrings to replace (-1 means unbounded)",
                             -1,
@@ -10213,7 +10213,7 @@ garrow_replace_substring_options_new_raw(
                  arrow_options->pattern.c_str(),
                  "replacement",
                  arrow_options->replacement.c_str(),
-                 "max_replacements",
+                 "max-replacements",
                  arrow_options->max_replacements,
                  nullptr));
 }
