@@ -74,14 +74,26 @@ module Arrow
             detected: true,
           }
         when Integer
-          if value < 0
+          builder_info ||= {}
+          min = builder_info[:min] || value
+          max = builder_info[:max] || value
+          min = value if value < min
+          max = value if value > max
+          bit_length = value.bit_length
+
+          if builder_info[:builder_type] == :int || value < 0
             {
               builder_type: :int,
-              detected: true,
+              min: min,
+              max: max,
+              bit_length: [builder_info[:bit_length] || 0, bit_length].max
             }
           else
             {
               builder_type: :uint,
+              min: min,
+              max: max,
+              bit_length: [builder_info[:bit_length] || 0, bit_length].max
             }
           end
         when Time
@@ -150,18 +162,19 @@ module Arrow
             end
           end
         when ::Array
-          sub_builder_info = nil
+          sub_builder_info = builder_info && builder_info[:value_builder_info]
           value.each do |sub_value|
             sub_builder_info = detect_builder_info(sub_value, sub_builder_info)
             break if sub_builder_info and sub_builder_info[:detected]
           end
           if sub_builder_info
             sub_builder = sub_builder_info[:builder] || create_builder(sub_builder_info)
-            return builder_info unless sub_builder
+            return sub_builder_info unless sub_builder
             sub_value_data_type = sub_builder.value_data_type
             field = Field.new("item", sub_value_data_type)
             {
               builder: ListArrayBuilder.new(ListDataType.new(field)),
+              value_builder_info: sub_builder_info,
               detected: sub_builder_info[:detected],
             }
           else
@@ -187,9 +200,33 @@ module Arrow
                                              builder_info[:scale])
           Decimal256ArrayBuilder.new(data_type)
         when :int
-          Int8ArrayBuilder.new
+          required_bit_length = builder_info[:bit_length] + 1
+
+          if required_bit_length <= 8
+            Int8ArrayBuilder.new
+          elsif required_bit_length <= 16
+            Int16ArrayBuilder.new
+          elsif required_bit_length <= 32
+            Int32ArrayBuilder.new
+          elsif required_bit_length <= 64
+            Int64ArrayBuilder.new
+          else
+            StringArrayBuilder.new
+          end
         when :uint
-          UInt8ArrayBuilder.new
+          required_bit_length = builder_info[:bit_length]
+
+          if required_bit_length <= 8
+            UInt8ArrayBuilder.new
+          elsif required_bit_length <= 16
+            UInt16ArrayBuilder.new
+          elsif required_bit_length <= 32
+            UInt32ArrayBuilder.new
+          elsif required_bit_length <= 64
+            UInt64ArrayBuilder.new
+          else
+            StringArrayBuilder.new
+          end
         else
           nil
         end
