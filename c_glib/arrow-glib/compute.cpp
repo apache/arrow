@@ -10003,30 +10003,7 @@ enum {
   PROP_TRIM_OPTIONS_CHARACTERS = 1,
 };
 
-typedef struct _GArrowTrimOptionsPrivate GArrowTrimOptionsPrivate;
-struct _GArrowTrimOptionsPrivate
-{
-  gchar *characters;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowTrimOptions,
-                           garrow_trim_options,
-                           GARROW_TYPE_FUNCTION_OPTIONS)
-
-#define GARROW_TRIM_OPTIONS_GET_PRIVATE(object)                                          \
-  static_cast<GArrowTrimOptionsPrivate *>(                                               \
-    garrow_trim_options_get_instance_private(GARROW_TRIM_OPTIONS(object)))
-
-static void
-garrow_trim_options_dispose(GObject *object)
-{
-  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
-  if (priv->characters) {
-    g_free(priv->characters);
-    priv->characters = nullptr;
-  }
-  G_OBJECT_CLASS(garrow_trim_options_parent_class)->dispose(object);
-}
+G_DEFINE_TYPE(GArrowTrimOptions, garrow_trim_options, GARROW_TYPE_FUNCTION_OPTIONS)
 
 static void
 garrow_trim_options_set_property(GObject *object,
@@ -10035,18 +10012,10 @@ garrow_trim_options_set_property(GObject *object,
                                  GParamSpec *pspec)
 {
   auto options = garrow_trim_options_get_raw(GARROW_TRIM_OPTIONS(object));
-  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_TRIM_OPTIONS_CHARACTERS:
-    {
-      const gchar *characters = g_value_get_string(value);
-      if (priv->characters) {
-        g_free(priv->characters);
-      }
-      priv->characters = g_strdup(characters);
-      options->characters = characters ? characters : "";
-    }
+    options->characters = g_value_get_string(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -10061,12 +10030,10 @@ garrow_trim_options_get_property(GObject *object,
                                  GParamSpec *pspec)
 {
   auto options = garrow_trim_options_get_raw(GARROW_TRIM_OPTIONS(object));
-  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_TRIM_OPTIONS_CHARACTERS:
-    g_value_set_string(value,
-                       priv->characters ? priv->characters : options->characters.c_str());
+    g_value_set_string(value, options->characters.c_str());
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -10077,14 +10044,9 @@ garrow_trim_options_get_property(GObject *object,
 static void
 garrow_trim_options_init(GArrowTrimOptions *object)
 {
-  auto priv = GARROW_TRIM_OPTIONS_GET_PRIVATE(object);
-  priv->characters = nullptr;
   auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
   arrow_priv->options =
     static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::TrimOptions());
-  // Sync the private string with the C++ options
-  auto arrow_options = garrow_trim_options_get_raw(GARROW_TRIM_OPTIONS(object));
-  priv->characters = g_strdup(arrow_options->characters.c_str());
 }
 
 static void
@@ -10092,7 +10054,6 @@ garrow_trim_options_class_init(GArrowTrimOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = garrow_trim_options_dispose;
   gobject_class->set_property = garrow_trim_options_set_property;
   gobject_class->get_property = garrow_trim_options_get_property;
 
