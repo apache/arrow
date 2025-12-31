@@ -9039,7 +9039,7 @@ garrow_replace_substring_options_class_init(GArrowReplaceSubstringOptionsClass *
   spec = g_param_spec_int64("max_replacements",
                             "Max Replacements",
                             "Max number of substrings to replace (-1 means unbounded)",
-                            G_MININT64,
+                            -1,
                             G_MAXINT64,
                             options.max_replacements,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
