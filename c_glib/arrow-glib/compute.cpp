@@ -9059,7 +9059,7 @@ GArrowReplaceSubstringOptions *
 garrow_replace_substring_options_new(void)
 {
   return GARROW_REPLACE_SUBSTRING_OPTIONS(
-    g_object_new(GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS, NULL));
+    g_object_new(GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS, nullptr));
 }
 
 G_END_DECLS
@@ -10215,7 +10215,7 @@ garrow_replace_substring_options_new_raw(
                  arrow_options->replacement.c_str(),
                  "max_replacements",
                  arrow_options->max_replacements,
-                 NULL));
+                 nullptr));
 }
 
 arrow::compute::ReplaceSubstringOptions *
