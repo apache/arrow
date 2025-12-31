@@ -674,6 +674,28 @@ module ReaderTests
           end
         end
 
+        sub_test_case("Decimal128") do
+          def build_array
+            @positive = "12345678901234567890123456789012345.678"
+            @negative = "-12345678901234567890123456789012345.67"
+            Arrow::Decimal128Array.new({precision: 38, scale: 3},
+                                       [@positive, nil, @negative])
+          end
+
+          def test_read
+            assert_equal([
+                           {
+                             "value" => [
+                               BigDecimal(@positive),
+                               nil,
+                               BigDecimal(@negative),
+                             ],
+                           },
+                         ],
+                         read)
+          end
+        end
+
         sub_test_case("List") do
           def build_array
             data_type = Arrow::ListDataType.new(name: "count", type: :int8)

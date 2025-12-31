@@ -14,6 +14,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "bigdecimal"
+
 require_relative "bitmap"
 
 module ArrowFormat
@@ -303,6 +305,41 @@ module ArrowFormat
         @values_buffer.get_string(offset, byte_width)
       end
       apply_validity(values)
+    end
+  end
+
+  class DecimalArray < FixedSizeBinaryArray
+  end
+
+  class Decimal128Array < DecimalArray
+    def to_a
+      byte_width = @type.byte_width
+      buffer_types = [:u64, :s64] # TODO: big endian support
+      values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
+        @values_buffer.get_values(buffer_types, offset)
+      end
+      apply_validity(values).collect do |value|
+        if value.nil?
+          nil
+        else
+          low, high = value
+          BigDecimal(format_value(low, high))
+        end
+      end
+    end
+
+    private
+    def format_value(low, high)
+      width = @type.precision
+      width += 1 if high < 0
+      value = (high << 64) + low
+      string = value.to_s.ljust(width, "0")
+      if @type.scale < 0
+        string << ("0" * -@type.scale)
+      elsif @type.scale > 0
+        string[-@type.scale, 0] = "."
+      end
+      string
     end
   end
 
