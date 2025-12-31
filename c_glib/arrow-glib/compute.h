@@ -1599,4 +1599,54 @@ GARROW_AVAILABLE_IN_23_0
 GArrowRoundBinaryOptions *
 garrow_round_binary_options_new(void);
 
+/**
+ * GArrowCalendarUnit:
+ * @GARROW_CALENDAR_UNIT_NANOSECOND: Nanosecond
+ * @GARROW_CALENDAR_UNIT_MICROSECOND: Microsecond
+ * @GARROW_CALENDAR_UNIT_MILLISECOND: Millisecond
+ * @GARROW_CALENDAR_UNIT_SECOND: Second
+ * @GARROW_CALENDAR_UNIT_MINUTE: Minute
+ * @GARROW_CALENDAR_UNIT_HOUR: Hour
+ * @GARROW_CALENDAR_UNIT_DAY: Day
+ * @GARROW_CALENDAR_UNIT_WEEK: Week
+ * @GARROW_CALENDAR_UNIT_MONTH: Month
+ * @GARROW_CALENDAR_UNIT_QUARTER: Quarter
+ * @GARROW_CALENDAR_UNIT_YEAR: Year
+ *
+ * They correspond to the values of `arrow::compute::CalendarUnit`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_CALENDAR_UNIT_NANOSECOND,
+  GARROW_CALENDAR_UNIT_MICROSECOND,
+  GARROW_CALENDAR_UNIT_MILLISECOND,
+  GARROW_CALENDAR_UNIT_SECOND,
+  GARROW_CALENDAR_UNIT_MINUTE,
+  GARROW_CALENDAR_UNIT_HOUR,
+  GARROW_CALENDAR_UNIT_DAY,
+  GARROW_CALENDAR_UNIT_WEEK,
+  GARROW_CALENDAR_UNIT_MONTH,
+  GARROW_CALENDAR_UNIT_QUARTER,
+  GARROW_CALENDAR_UNIT_YEAR,
+} GArrowCalendarUnit;
+
+#define GARROW_TYPE_CALENDAR_UNIT          (garrow_calendar_unit_get_type())
+
+#define GARROW_TYPE_ROUND_TEMPORAL_OPTIONS (garrow_round_temporal_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundTemporalOptions,
+                         garrow_round_temporal_options,
+                         GARROW,
+                         ROUND_TEMPORAL_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundTemporalOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new(void);
+
 G_END_DECLS

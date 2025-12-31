@@ -292,3 +292,9 @@ garrow_round_binary_options_new_raw(
   const arrow::compute::RoundBinaryOptions *arrow_options);
 arrow::compute::RoundBinaryOptions *
 garrow_round_binary_options_get_raw(GArrowRoundBinaryOptions *options);
+
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new_raw(
+  const arrow::compute::RoundTemporalOptions *arrow_options);
+arrow::compute::RoundTemporalOptions *
+garrow_round_temporal_options_get_raw(GArrowRoundTemporalOptions *options);
