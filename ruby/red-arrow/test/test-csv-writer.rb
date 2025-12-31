@@ -34,12 +34,9 @@ class CSVWriterTest < Test::Unit::TestCase
       count: [2, 9, 5],
     })
 
-    options = Arrow::CSVWriteOptions.new
-    options.delimiter = ";"
-
     buffer = Arrow::ResizableBuffer.new(0)
     Arrow::BufferOutputStream.open(buffer) do |output|
-      Arrow::CSVWriter.open(output, table.schema, options) do |csv_writer|
+      Arrow::CSVWriter.open(output, table.schema, delimiter: ";") do |csv_writer|
         csv_writer.write_table(table)
       end
     end
