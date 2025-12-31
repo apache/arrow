@@ -1442,6 +1442,16 @@ test_that("nchar with namespacing", {
   )
 })
 
+test_that("nchar with keepNA = FALSE", {
+  df <- tibble(x = c("foo", NA_character_, "bar"))
+  compare_dplyr_binding(
+    .input |>
+      mutate(n = nchar(x, keepNA = FALSE)) |>
+      collect(),
+    df
+  )
+})
+
 test_that("str_trim()", {
   compare_dplyr_binding(
     .input |>
