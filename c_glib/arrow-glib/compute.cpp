@@ -296,8 +296,12 @@ G_BEGIN_DECLS
  * #GArrowPairwiseOptions is a class to customize the pairwise
  * functions such as `pairwise_diff` and `pairwise_diff_checked`.
  *
- * #GArrowReplaceSliceOptions is a class to customize the `utf8_replace_slice` and
- * `binary_replace_slice` functions.
+ * #GArrowReplaceSliceOptions is a class to customize the
+ * `utf8_replace_slice` and `binary_replace_slice` functions.
+ *
+ *
+ * #GArrowPartitionNthOptions is a class to customize the
+ * `partition_nth_indices` function.
  *
  * There are many functions to compute data on an array.
  */
@@ -8494,6 +8498,129 @@ garrow_replace_slice_options_new(void)
     g_object_new(GARROW_TYPE_REPLACE_SLICE_OPTIONS, nullptr));
 }
 
+enum {
+  PROP_PARTITION_NTH_OPTIONS_PIVOT = 1,
+  PROP_PARTITION_NTH_OPTIONS_NULL_PLACEMENT,
+};
+
+G_DEFINE_TYPE(GArrowPartitionNthOptions,
+              garrow_partition_nth_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_partition_nth_options_set_property(GObject *object,
+                                          guint prop_id,
+                                          const GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_partition_nth_options_get_raw(GARROW_PARTITION_NTH_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PARTITION_NTH_OPTIONS_PIVOT:
+    options->pivot = g_value_get_int64(value);
+    break;
+  case PROP_PARTITION_NTH_OPTIONS_NULL_PLACEMENT:
+    options->null_placement =
+      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_partition_nth_options_get_property(GObject *object,
+                                          guint prop_id,
+                                          GValue *value,
+                                          GParamSpec *pspec)
+{
+  auto options =
+    garrow_partition_nth_options_get_raw(GARROW_PARTITION_NTH_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_PARTITION_NTH_OPTIONS_PIVOT:
+    g_value_set_int64(value, options->pivot);
+    break;
+  case PROP_PARTITION_NTH_OPTIONS_NULL_PLACEMENT:
+    g_value_set_enum(value, static_cast<GArrowNullPlacement>(options->null_placement));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_partition_nth_options_init(GArrowPartitionNthOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::PartitionNthOptions());
+}
+
+static void
+garrow_partition_nth_options_class_init(GArrowPartitionNthOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_partition_nth_options_set_property;
+  gobject_class->get_property = garrow_partition_nth_options_get_property;
+
+  arrow::compute::PartitionNthOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowPartitionNthOptions:pivot:
+   *
+   * The index into the equivalent sorted array of the partition pivot element.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64(
+    "pivot",
+    "Pivot",
+    "The index into the equivalent sorted array of the partition pivot element",
+    0,
+    G_MAXINT64,
+    options.pivot,
+    static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_PARTITION_NTH_OPTIONS_PIVOT, spec);
+
+  /**
+   * GArrowPartitionNthOptions:null-placement:
+   *
+   * Whether nulls and NaNs are partitioned at the start or at the end.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_enum("null-placement",
+                      "Null placement",
+                      "Whether nulls and NaNs are partitioned at the start or at the end",
+                      GARROW_TYPE_NULL_PLACEMENT,
+                      static_cast<GArrowNullPlacement>(options.null_placement),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_PARTITION_NTH_OPTIONS_NULL_PLACEMENT,
+                                  spec);
+}
+
+/**
+ * garrow_partition_nth_options_new:
+ *
+ * Returns: A newly created #GArrowPartitionNthOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new(void)
+{
+  return GARROW_PARTITION_NTH_OPTIONS(
+    g_object_new(GARROW_TYPE_PARTITION_NTH_OPTIONS, nullptr));
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -8702,6 +8829,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_replace_slice_options =
       static_cast<const arrow::compute::ReplaceSliceOptions *>(arrow_options);
     auto options = garrow_replace_slice_options_new_raw(arrow_replace_slice_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "PartitionNthOptions") {
+    const auto arrow_partition_nth_options =
+      static_cast<const arrow::compute::PartitionNthOptions *>(arrow_options);
+    auto options = garrow_partition_nth_options_new_raw(arrow_partition_nth_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -9546,5 +9678,25 @@ arrow::compute::ReplaceSliceOptions *
 garrow_replace_slice_options_get_raw(GArrowReplaceSliceOptions *options)
 {
   return static_cast<arrow::compute::ReplaceSliceOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new_raw(
+  const arrow::compute::PartitionNthOptions *arrow_options)
+{
+  return GARROW_PARTITION_NTH_OPTIONS(
+    g_object_new(GARROW_TYPE_PARTITION_NTH_OPTIONS,
+                 "pivot",
+                 arrow_options->pivot,
+                 "null-placement",
+                 static_cast<GArrowNullPlacement>(arrow_options->null_placement),
+                 nullptr));
+}
+
+arrow::compute::PartitionNthOptions *
+garrow_partition_nth_options_get_raw(GArrowPartitionNthOptions *options)
+{
+  return static_cast<arrow::compute::PartitionNthOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

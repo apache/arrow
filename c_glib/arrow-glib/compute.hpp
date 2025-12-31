@@ -262,3 +262,9 @@ garrow_replace_slice_options_new_raw(
   const arrow::compute::ReplaceSliceOptions *arrow_options);
 arrow::compute::ReplaceSliceOptions *
 garrow_replace_slice_options_get_raw(GArrowReplaceSliceOptions *options);
+
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new_raw(
+  const arrow::compute::PartitionNthOptions *arrow_options);
+arrow::compute::PartitionNthOptions *
+garrow_partition_nth_options_get_raw(GArrowPartitionNthOptions *options);
