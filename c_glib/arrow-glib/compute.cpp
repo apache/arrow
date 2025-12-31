@@ -10604,8 +10604,6 @@ garrow_split_options_new(void)
 
 enum {
   PROP_MAKE_STRUCT_OPTIONS_FIELD_NAMES = 1,
-  PROP_MAKE_STRUCT_OPTIONS_FIELD_NULLABILITY,
-  PROP_MAKE_STRUCT_OPTIONS_FIELD_METADATA,
 };
 
 G_DEFINE_TYPE(GArrowMakeStructOptions,
@@ -10632,42 +10630,8 @@ garrow_make_struct_options_set_property(GObject *object,
         }
       }
       // Keep nullability and metadata vectors in sync with names.
-      const auto new_size = options->field_names.size();
-      if (options->field_nullability.size() != new_size) {
-        options->field_nullability.assign(new_size, true);
-      }
-      if (options->field_metadata.size() != new_size) {
-        options->field_metadata.assign(new_size, nullptr);
-      }
-    }
-    break;
-  case PROP_MAKE_STRUCT_OPTIONS_FIELD_NULLABILITY:
-    {
-      auto array = static_cast<GArray *>(g_value_get_boxed(value));
-      options->field_nullability.clear();
-      if (array) {
-        for (guint i = 0; i < array->len; ++i) {
-          auto nullability = g_array_index(array, gboolean, i);
-          options->field_nullability.push_back(nullability != FALSE);
-        }
-      }
-    }
-    break;
-  case PROP_MAKE_STRUCT_OPTIONS_FIELD_METADATA:
-    {
-      auto array = static_cast<GPtrArray *>(g_value_get_boxed(value));
-      options->field_metadata.clear();
-      if (array) {
-        for (guint i = 0; i < array->len; ++i) {
-          auto metadata = static_cast<GHashTable *>(g_ptr_array_index(array, i));
-          if (metadata) {
-            options->field_metadata.push_back(
-              garrow_internal_hash_table_to_metadata(metadata));
-          } else {
-            options->field_metadata.push_back(nullptr);
-          }
-        }
-      }
+      options->field_nullability.assign(options->field_names.size(), true);
+      options->field_metadata.assign(options->field_names.size(), NULLPTR);
     }
     break;
   default:
@@ -10694,31 +10658,6 @@ garrow_make_struct_options_get_property(GObject *object,
         strv[i] = g_strdup(names[i].c_str());
       }
       g_value_take_boxed(value, strv);
-    }
-    break;
-  case PROP_MAKE_STRUCT_OPTIONS_FIELD_NULLABILITY:
-    {
-      const auto &nullability = options->field_nullability;
-      auto array = g_array_sized_new(FALSE, FALSE, sizeof(gboolean), nullability.size());
-      for (gsize i = 0; i < nullability.size(); ++i) {
-        gboolean val = nullability[i] ? TRUE : FALSE;
-        g_array_append_val(array, val);
-      }
-      g_value_take_boxed(value, array);
-    }
-    break;
-  case PROP_MAKE_STRUCT_OPTIONS_FIELD_METADATA:
-    {
-      const auto &metadata = options->field_metadata;
-      auto array = g_ptr_array_sized_new(metadata.size());
-      for (gsize i = 0; i < metadata.size(); ++i) {
-        GHashTable *hash_table = nullptr;
-        if (metadata[i]) {
-          hash_table = garrow_internal_hash_table_from_metadata(metadata[i]);
-        }
-        g_ptr_array_add(array, hash_table);
-      }
-      g_value_take_boxed(value, array);
     }
     break;
   default:
@@ -10761,40 +10700,6 @@ garrow_make_struct_options_class_init(GArrowMakeStructOptionsClass *klass)
   g_object_class_install_property(gobject_class,
                                   PROP_MAKE_STRUCT_OPTIONS_FIELD_NAMES,
                                   spec);
-
-  /**
-   * GArrowMakeStructOptions:field-nullability:
-   *
-   * Nullability for each field. This is a #GArray of #gboolean values.
-   *
-   * Since: 23.0.0
-   */
-  spec = g_param_spec_boxed("field-nullability",
-                            "Field nullability",
-                            "Nullability for each field",
-                            G_TYPE_ARRAY,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_MAKE_STRUCT_OPTIONS_FIELD_NULLABILITY,
-                                  spec);
-
-  /**
-   * GArrowMakeStructOptions:field-metadata:
-   *
-   * Metadata for each field. This is a #GPtrArray of #GHashTable pointers
-   * (each hash table has utf8 keys and utf8 values), or %NULL for fields
-   * without metadata.
-   *
-   * Since: 23.0.0
-   */
-  spec = g_param_spec_boxed("field-metadata",
-                            "Field metadata",
-                            "Metadata for each field",
-                            G_TYPE_PTR_ARRAY,
-                            static_cast<GParamFlags>(G_PARAM_READWRITE));
-  g_object_class_install_property(gobject_class,
-                                  PROP_MAKE_STRUCT_OPTIONS_FIELD_METADATA,
-                                  spec);
 }
 
 /**
@@ -10809,6 +10714,37 @@ garrow_make_struct_options_new(void)
 {
   auto options = g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, NULL);
   return GARROW_MAKE_STRUCT_OPTIONS(options);
+}
+
+/**
+ * garrow_make_struct_options_add_field:
+ * @options: A #GArrowMakeStructOptions.
+ * @name: The name of the field to add.
+ * @nullability: Whether the field is nullable.
+ * @metadata: (nullable) (element-type utf8 utf8): A #GHashTable for the field's
+ *   metadata, or %NULL.
+ *
+ * Adds a field to the struct options with the specified name, nullability,
+ * and optional metadata.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
+                                     const char *name,
+                                     gboolean nullability,
+                                     GHashTable *metadata)
+{
+  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  arrow_options->field_names.emplace_back(name);
+  arrow_options->field_nullability.push_back(nullability != FALSE);
+  if (metadata) {
+    arrow_options->field_metadata.push_back(
+      garrow_internal_hash_table_to_metadata(metadata));
+  } else {
+    arrow_options->field_metadata.push_back(nullptr);
+  }
 }
 
 G_END_DECLS
