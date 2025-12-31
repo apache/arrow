@@ -28,7 +28,7 @@ class TestCSVWriter < Test::Unit::TestCase
     buffer = Arrow::ResizableBuffer.new(0)
     output = Arrow::BufferOutputStream.new(buffer)
     begin
-      csv_writer = Arrow::CSVWriter.new(output, schema, nil)
+      csv_writer = Arrow::CSVWriter.new(output, schema)
       begin
         record_batch = Arrow::RecordBatch.new(schema,
                                               message_data.size,
@@ -66,7 +66,7 @@ class TestCSVWriter < Test::Unit::TestCase
     buffer = Arrow::ResizableBuffer.new(0)
     output = Arrow::BufferOutputStream.new(buffer)
     begin
-      csv_writer = Arrow::CSVWriter.new(output, schema, nil)
+      csv_writer = Arrow::CSVWriter.new(output, schema)
       begin
         table = Arrow::Table.new(schema,
                                  [
@@ -117,9 +117,9 @@ class TestCSVWriter < Test::Unit::TestCase
     end
 
     def test_delimiter
-      assert_equal(44, @options.delimiter) # 44 is the ASCII code for comma
+      assert_equal(",".ord, @options.delimiter)
       @options.delimiter = ";".ord
-      assert_equal(59, @options.delimiter) # 59 is the ASCII code for semicolon
+      assert_equal(";".ord, @options.delimiter)
     end
 
     def test_null_string
@@ -136,13 +136,13 @@ class TestCSVWriter < Test::Unit::TestCase
 
     def test_quoting_style
       assert_equal(Arrow::CSVQuotingStyle::NEEDED, @options.quoting_style)
-      @options.quoting_style = Arrow::CSVQuotingStyle::ALL_VALID
+      @options.quoting_style = :all_valid
       assert_equal(Arrow::CSVQuotingStyle::ALL_VALID, @options.quoting_style)
     end
 
     def test_quoting_header
       assert_equal(Arrow::CSVQuotingStyle::NEEDED, @options.quoting_header)
-      @options.quoting_header = Arrow::CSVQuotingStyle::NONE
+      @options.quoting_header = :none
       assert_equal(Arrow::CSVQuotingStyle::NONE, @options.quoting_header)
     end
 
