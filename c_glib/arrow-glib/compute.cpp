@@ -10372,30 +10372,9 @@ enum {
   PROP_ZERO_FILL_OPTIONS_PADDING,
 };
 
-typedef struct _GArrowZeroFillOptionsPrivate GArrowZeroFillOptionsPrivate;
-struct _GArrowZeroFillOptionsPrivate
-{
-  gchar *padding;
-};
-
-G_DEFINE_TYPE_WITH_PRIVATE(GArrowZeroFillOptions,
-                           garrow_zero_fill_options,
-                           GARROW_TYPE_FUNCTION_OPTIONS)
-
-#define GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object)                                     \
-  static_cast<GArrowZeroFillOptionsPrivate *>(                                           \
-    garrow_zero_fill_options_get_instance_private(GARROW_ZERO_FILL_OPTIONS(object)))
-
-static void
-garrow_zero_fill_options_dispose(GObject *object)
-{
-  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
-  if (priv->padding) {
-    g_free(priv->padding);
-    priv->padding = nullptr;
-  }
-  G_OBJECT_CLASS(garrow_zero_fill_options_parent_class)->dispose(object);
-}
+G_DEFINE_TYPE(GArrowZeroFillOptions,
+              garrow_zero_fill_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
 
 static void
 garrow_zero_fill_options_set_property(GObject *object,
@@ -10404,21 +10383,13 @@ garrow_zero_fill_options_set_property(GObject *object,
                                       GParamSpec *pspec)
 {
   auto options = garrow_zero_fill_options_get_raw(GARROW_ZERO_FILL_OPTIONS(object));
-  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_ZERO_FILL_OPTIONS_WIDTH:
     options->width = g_value_get_int64(value);
     break;
   case PROP_ZERO_FILL_OPTIONS_PADDING:
-    {
-      const gchar *padding = g_value_get_string(value);
-      if (priv->padding) {
-        g_free(priv->padding);
-      }
-      priv->padding = g_strdup(padding);
-      options->padding = padding ? padding : "";
-    }
+    options->padding = g_value_get_string(value);
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -10433,14 +10404,13 @@ garrow_zero_fill_options_get_property(GObject *object,
                                       GParamSpec *pspec)
 {
   auto options = garrow_zero_fill_options_get_raw(GARROW_ZERO_FILL_OPTIONS(object));
-  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
 
   switch (prop_id) {
   case PROP_ZERO_FILL_OPTIONS_WIDTH:
     g_value_set_int64(value, options->width);
     break;
   case PROP_ZERO_FILL_OPTIONS_PADDING:
-    g_value_set_string(value, priv->padding ? priv->padding : options->padding.c_str());
+    g_value_set_string(value, options->padding.c_str());
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -10451,14 +10421,9 @@ garrow_zero_fill_options_get_property(GObject *object,
 static void
 garrow_zero_fill_options_init(GArrowZeroFillOptions *object)
 {
-  auto priv = GARROW_ZERO_FILL_OPTIONS_GET_PRIVATE(object);
-  priv->padding = nullptr;
   auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
   arrow_priv->options =
     static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::ZeroFillOptions());
-  // Sync the private string with the C++ options
-  auto arrow_options = garrow_zero_fill_options_get_raw(GARROW_ZERO_FILL_OPTIONS(object));
-  priv->padding = g_strdup(arrow_options->padding.c_str());
 }
 
 static void
@@ -10466,7 +10431,6 @@ garrow_zero_fill_options_class_init(GArrowZeroFillOptionsClass *klass)
 {
   auto gobject_class = G_OBJECT_CLASS(klass);
 
-  gobject_class->dispose = garrow_zero_fill_options_dispose;
   gobject_class->set_property = garrow_zero_fill_options_set_property;
   gobject_class->get_property = garrow_zero_fill_options_get_property;
 
