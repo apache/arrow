@@ -26,7 +26,7 @@
 namespace arrow {
 
 using internal::checked_cast;
-using util::span;
+using std::span;
 
 namespace compute {
 namespace internal {

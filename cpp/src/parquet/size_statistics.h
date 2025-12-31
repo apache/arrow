@@ -22,7 +22,7 @@
 #include <optional>
 #include <vector>
 
-#include "arrow/util/span.h"
+#include <span>
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
 
@@ -96,7 +96,7 @@ PARQUET_EXPORT
 std::ostream& operator<<(std::ostream&, const SizeStatistics&);
 
 PARQUET_EXPORT
-void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
-                          ::arrow::util::span<int64_t> histogram);
+void UpdateLevelHistogram(std::span<const int16_t> levels,
+                          std::span<int64_t> histogram);
 
 }  // namespace parquet
