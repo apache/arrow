@@ -186,12 +186,12 @@ const Connection::ConnPropertyMap& Configuration::GetProperties() const {
   return this->properties_;
 }
 
-std::vector<std::string_view> Configuration::GetCustomKeys() const {
+std::vector<std::string> Configuration::GetCustomKeys() const {
   Connection::ConnPropertyMap copy_props(properties_);
   for (auto& key : FlightSqlConnection::ALL_KEYS) {
     copy_props.erase(std::string(key));
   }
-  std::vector<std::string_view> keys;
+  std::vector<std::string> keys;
   boost::copy(copy_props | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
