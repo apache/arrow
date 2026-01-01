@@ -169,10 +169,9 @@ class ArrayBuilderTest < Test::Unit::TestCase
         end
 
         test("list<int8>s boundary") do
-          # Int8 can hold values from -128 to 127.
           values = [
-            [0, -2**7],
-            [2**7 - 1],
+            [0, GLib::MININT8],
+            [GLib::MAXINT8],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int8)
@@ -180,8 +179,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, -128],
-                           [127],
+                           [0, GLib::MININT8],
+                           [GLib::MAXINT8],
                          ],
                        },
                        {
@@ -192,18 +191,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int16>s inferred from int8 underflow") do
           values = [
-            [0, -2**7 - 1],
-            [2**7 - 1],
+            [0, GLib::MININT8 - 1],
+            [GLib::MAXINT8],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int16)
 
-          # Int8 lower bound is -128
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, -129],
-                           [127],
+                           [0, GLib::MININT8 - 1],
+                           [GLib::MAXINT8],
                          ],
                        },
                        {
@@ -214,18 +212,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int16>s inferred from int8 overflow") do
           values = [
-            [0, 2**7],
-            [-2**7],
+            [0, GLib::MAXINT8 + 1],
+            [GLib::MININT8],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int16)
 
-          # Int8 upper bound is 127
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 128],
-                           [-128],
+                           [0, GLib::MAXINT8 + 1],
+                           [GLib::MININT8],
                          ],
                        },
                        {
@@ -236,8 +233,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int16>s boundary") do
           values = [
-            [0, -2**15],
-            [2**15 - 1],
+            [0, GLib::MININT16],
+            [GLib::MAXINT16],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int16)
@@ -245,8 +242,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, -32768],
-                           [32767],
+                           [0, GLib::MININT16],
+                           [GLib::MAXINT16],
                          ],
                        },
                        {
@@ -257,18 +254,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int32>s inferred from int16 underflow") do
           values = [
-            [0, -2**15 - 1],
-            [2**15 - 1],
+            [0, GLib::MININT16 - 1],
+            [GLib::MAXINT16],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int32)
 
-          # Int16 lower bound is -32768
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, -32769],
-                           [32767],
+                           [0, GLib::MININT16 - 1],
+                           [GLib::MAXINT16],
                          ],
                        },
                        {
@@ -279,18 +275,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int32>s inferred from int16 overflow") do
           values = [
-            [0, 2**15],
-            [-2**15],
+            [0, GLib::MAXINT16 + 1],
+            [GLib::MININT16],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int32)
 
-          # Int16 upper bound is 32767
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 32768],
-                           [-32768],
+                           [0, GLib::MAXINT16 + 1],
+                           [GLib::MININT16],
                          ],
                        },
                        {
@@ -301,8 +296,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int32>s boundary") do
           values = [
-            [0, -2**31],
-            [2**31 - 1],
+            [0, GLib::MININT32],
+            [GLib::MAXINT32],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int32)
@@ -310,8 +305,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, -2147483648],
-                           [2147483647],
+                           [0, GLib::MININT32],
+                           [GLib::MAXINT32],
                          ],
                        },
                        {
@@ -322,18 +317,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int64>s inferred from int32 underflow") do
           values = [
-            [0, -2**31 - 1],
-            [2**31 - 1],
+            [0, GLib::MININT32 - 1],
+            [GLib::MAXINT32],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int64)
 
-          # Int32 lower bound is -2147483648
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, -2147483649],
-                           [2147483647],
+                           [0, GLib::MININT32 - 1],
+                           [GLib::MAXINT32],
                          ],
                        },
                        {
@@ -344,18 +338,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<int64>s inferred from int32 overflow") do
           values = [
-            [0, 2**31],
-            [-2**31],
+            [0, GLib::MAXINT32 + 1],
+            [GLib::MININT32],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:int64)
 
-          # Int32 upper bound is 2147483647
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 2147483648],
-                           [-2147483648],
+                           [0, GLib::MAXINT32 + 1],
+                           [GLib::MININT32],
                          ],
                        },
                        {
@@ -366,8 +359,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("string fallback from nested int64 array overflow") do
           values = [
-            [0, 2**63],
-            [-2**63],
+            [0, GLib::MAXINT64 + 1],
+            [GLib::MININT64],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:string)
@@ -375,8 +368,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           ["0", "9223372036854775808"],
-                           ["-9223372036854775808"],
+                           ["0", "#{GLib::MAXINT64 + 1}"],
+                           ["#{GLib::MININT64}"],
                          ],
                        },
                        {
@@ -387,8 +380,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("string fallback from nested int64 array underflow") do
           values = [
-            [0, -2**63 - 1],
-            [2**63 - 1],
+            [0, GLib::MININT64 - 1],
+            [GLib::MAXINT64],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:string)
@@ -396,8 +389,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           ["0", "-9223372036854775809"],
-                           ["9223372036854775807"],
+                           ["0", "#{GLib::MININT64 - 1}"],
+                           ["#{GLib::MAXINT64}"],
                          ],
                        },
                        {
@@ -407,10 +400,9 @@ class ArrayBuilderTest < Test::Unit::TestCase
         end
 
         test("list<uint8>s boundary") do
-          # UInt8 can hold values up to 255,
           values = [
-            [0, 2**8 - 1],
-            [2**8 - 1],
+            [0, GLib::MAXUINT8],
+            [GLib::MAXUINT8],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:uint8)
@@ -418,8 +410,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 255],
-                           [255],
+                           [0, GLib::MAXUINT8],
+                           [GLib::MAXUINT8],
                          ],
                        },
                        {
@@ -430,18 +422,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<uint16>s") do
           values = [
-            [0, 2**8],
-            [2**8 - 1],
+            [0, GLib::MAXUINT8 + 1],
+            [GLib::MAXUINT8],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:uint16)
 
-          # UInt8 can hold values up to 255
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 256],
-                           [255],
+                           [0, GLib::MAXUINT8 + 1],
+                           [GLib::MAXUINT8],
                          ],
                        },
                        {
@@ -452,8 +443,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<uint16>s boundary") do
           values = [
-            [0, 2**16 - 1],
-            [2**16 - 1],
+            [0, GLib::MAXUINT16],
+            [GLib::MAXUINT16],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:uint16)
@@ -461,8 +452,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 65535],
-                           [65535],
+                           [0, GLib::MAXUINT16],
+                           [GLib::MAXUINT16],
                          ],
                        },
                        {
@@ -473,18 +464,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<uint32>s") do
           values = [
-            [0, 2**16],
-            [2**16 - 1],
+            [0, GLib::MAXUINT16 + 1],
+            [GLib::MAXUINT16],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:uint32)
 
-          # UInt16 can hold values up to 65535
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 65536],
-                           [65535],
+                           [0, GLib::MAXUINT16 + 1],
+                           [GLib::MAXUINT16],
                          ],
                        },
                        {
@@ -495,8 +485,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<uint32>s boundary") do
           values = [
-            [0, 2**32 - 1],
-            [2**32 - 1],
+            [0, GLib::MAXUINT32],
+            [GLib::MAXUINT32],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:uint32)
@@ -504,8 +494,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 4294967295],
-                           [4294967295],
+                           [0, GLib::MAXUINT32],
+                           [GLib::MAXUINT32],
                          ],
                        },
                        {
@@ -516,18 +506,17 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("list<uint64>s") do
           values = [
-            [0, 2**32],
-            [2**32 - 1],
+            [0, GLib::MAXUINT32 + 1],
+            [GLib::MAXUINT32],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:uint64)
 
-          # UInt32 can hold values up to 4294967295
           assert_equal({
                          data_type: data_type,
                          values: [
-                           [0, 4294967296],
-                           [4294967295],
+                           [0, GLib::MAXUINT32 + 1],
+                           [GLib::MAXUINT32],
                          ],
                        },
                        {
@@ -538,8 +527,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
 
         test("string fallback from nested uint64 array overflow") do
           values = [
-            [0, 2**64],
-            [2**64 - 1],
+            [0, GLib::MAXUINT64 + 1],
+            [GLib::MAXUINT64],
           ]
           array = Arrow::Array.new(values)
           data_type = Arrow::ListDataType.new(:string)
@@ -547,8 +536,8 @@ class ArrayBuilderTest < Test::Unit::TestCase
           assert_equal({
                          data_type: data_type,
                          values: [
-                           ["0", "18446744073709551616"],
-                           ["18446744073709551615"],
+                           ["0", "#{GLib::MAXUINT64 + 1}"],
+                           ["#{GLib::MAXUINT64}"],
                          ],
                        },
                        {
