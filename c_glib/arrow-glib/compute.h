@@ -1742,4 +1742,17 @@ GARROW_AVAILABLE_IN_23_0
 GArrowTrimOptions *
 garrow_trim_options_new(void);
 
+#define GARROW_TYPE_WEEK_OPTIONS (garrow_week_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowWeekOptions, garrow_week_options, GARROW, WEEK_OPTIONS, GArrowFunctionOptions)
+struct _GArrowWeekOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowWeekOptions *
+garrow_week_options_new(void);
+
 G_END_DECLS
