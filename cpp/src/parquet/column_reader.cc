@@ -191,6 +191,30 @@ int LevelDecoder::Decode(int batch_size, int16_t* levels) {
   return num_decoded;
 }
 
+int LevelDecoder::DecodeAndCount(int batch_size, int16_t* levels, int64_t* count) {
+  int num_decoded = 0;
+
+  int num_values = std::min(num_values_remaining_, batch_size);
+  if (encoding_ == Encoding::RLE) {
+    num_decoded =
+        rle_decoder_->GetBatchWithCount(levels, num_values, max_level_, count);
+  } else {
+    num_decoded = bit_packed_decoder_->GetBatch(bit_width_, levels, num_values);
+    *count += std::count(levels, levels + num_decoded, max_level_);
+  }
+  if (num_decoded > 0) {
+    internal::MinMax min_max = internal::FindMinMax(levels, num_decoded);
+    if (ARROW_PREDICT_FALSE(min_max.min < 0 || min_max.max > max_level_)) {
+      std::stringstream ss;
+      ss << "Malformed levels. min: " << min_max.min << " max: " << min_max.max
+         << " out of range.  Max Level: " << max_level_;
+      throw ParquetException(ss.str());
+    }
+  }
+  num_values_remaining_ -= num_decoded;
+  return num_decoded;
+}
+
 ReaderProperties default_reader_properties() {
   static ReaderProperties default_reader_properties;
   return default_reader_properties;
@@ -1006,14 +1030,11 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
 
     // If the field is required and non-repeated, there are no definition levels
     if (this->max_def_level_ > 0 && def_levels != nullptr) {
-      *num_def_levels = this->ReadDefinitionLevels(batch_size, def_levels);
-      if (ARROW_PREDICT_FALSE(*num_def_levels != batch_size)) {
+      if (ARROW_PREDICT_FALSE(this->definition_level_decoder_.DecodeAndCount(
+              batch_size, def_levels, non_null_values_to_read) != batch_size)) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
-      // TODO(wesm): this tallying of values-to-decode can be performed with better
-      // cache-efficiency if fused with the level decoding.
-      *non_null_values_to_read +=
-          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
+      *num_def_levels = batch_size;
     } else {
       // Required field, read all values
       if (num_def_levels != nullptr) {
