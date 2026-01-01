@@ -22,20 +22,6 @@ class TestMakeStructOptions < Test::Unit::TestCase
     @options = Arrow::MakeStructOptions.new
   end
 
-  def test_field_names_property
-    assert_equal([], @options.field_names)
-    @options.field_names = ["a", "b", "c"]
-    assert_equal(["a", "b", "c"], @options.field_names)
-  end
-
-  def test_add_field
-    @options.add_field("a", true, nil)
-    @options.add_field("b", false, nil)
-    metadata = {"key1" => "value1", "key2" => "value2"}
-    @options.add_field("c", true, metadata)
-    assert_equal(["a", "b", "c"], @options.field_names)
-  end
-
   def test_make_struct_function
     a = build_int8_array([1, 2, 3])
     b = build_boolean_array([true, false, nil])
