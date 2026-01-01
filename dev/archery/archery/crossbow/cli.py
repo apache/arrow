@@ -16,7 +16,6 @@
 # under the License.
 
 from datetime import date
-import email.message
 import email.utils
 from pathlib import Path
 import time
@@ -386,18 +385,18 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
     job = queue.get(job_name)
     report = Report(job)
     email_report = EmailReport(report=report)
-    message = email.message.EmailMessage()
-    message.set_charset('utf-8')
-    message['Message-Id'] = email.utils.make_msgid()
-    message['Date'] = email.utils.formatdate()
-    message['From'] = f'{sender_name} <{sender_email}>'
-    message['To'] = recipient_email
     date = report.datetime.strftime('%Y-%m-%d')
-    message['Subject'] = (
+    subject = (
         f'[{date}] Arrow Build Report for {report.name}: '
         f'{len(report.failed_jobs())} failed'
     )
-    message.set_content(email_report.render('nightly_report'))
+    headers = {
+        'Date': email.utils.formatdate(report.datetime),
+        'From': f'{sender_name} <{sender_email}>',
+        'To': recipient_email,
+        'Subject': subject,
+    }
+    message = email_report.render('nightly_report', headers)
 
     if poll:
         job.wait_until_finished(
@@ -658,17 +657,15 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
         token_expiration_date = 'ALREADY_EXPIRED'
     report = TokenExpirationReport(days_left)
     email_report = EmailReport(report)
-
-    message = email.message.EmailMessage()
-    message.set_charset('utf-8')
-    message['Message-Id'] = email.utils.make_msgid()
-    message['Date'] = email.utils.formatdate()
-    message['From'] = f'{sender_name} <{sender_email}>'
-    message['To'] = recipient_email
-    message['Subject'] = (
+    subject = (
         f'[CI] Arrow Crossbow Token Expiration in {token_expiration_date}'
     )
-    message.set_content(email_report.render('token_expiration'))
+    headers = {
+        'From': f'{sender_name} <{sender_email}>',
+        'To': recipient_email,
+        'Subject': subject,
+    }
+    message = email_report.render('token_expiration', headers)
 
     if send:
         ReportUtils.send_email(

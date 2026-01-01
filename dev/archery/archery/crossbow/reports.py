@@ -17,6 +17,8 @@
 
 import collections
 import csv
+import email.message
+import email.utils
 import operator
 import fnmatch
 import functools
@@ -279,6 +281,18 @@ class EmailReport(JinjaReport):
     fields = [
         'report',
     ]
+
+    def render(self, template_name, headers):
+        message = email.message.EmailMessage()
+        message.set_charset('utf-8')
+        if 'Message-Id' not in headers:
+            message['Message-Id'] = email.utils.make_msgid()
+        if 'Date' not in headers:
+            message['Date'] = email.utils.formatdate()
+        for (key, value) in headers.items():
+            message[key] = value
+        message.set_content(super().render(template_name))
+        return message
 
 
 class CommentReport(Report):
