@@ -562,7 +562,7 @@ garrow_csv_write_options_class_init(GArrowCSVWriteOptionsClass *klass)
 GArrowCSVWriteOptions *
 garrow_csv_write_options_new(void)
 {
-  auto csv_write_options = g_object_new(GARROW_TYPE_CSV_WRITE_OPTIONS, NULL);
+  auto csv_write_options = g_object_new(GARROW_TYPE_CSV_WRITE_OPTIONS, nullptr);
   return GARROW_CSV_WRITE_OPTIONS(csv_write_options);
 }
 
@@ -611,7 +611,7 @@ garrow_csv_writer_new(GArrowOutputStream *sink,
     auto arrow_writer = *arrow_writer_result;
     return garrow_csv_writer_new_raw(&arrow_writer);
   } else {
-    return NULL;
+    return nullptr;
   }
 }
 
@@ -663,7 +663,7 @@ GArrowCSVWriter *
 garrow_csv_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
 {
   auto writer = GARROW_CSV_WRITER(
-    g_object_new(GARROW_TYPE_CSV_WRITER, "record-batch-writer", arrow_writer, NULL));
+    g_object_new(GARROW_TYPE_CSV_WRITER, "record-batch-writer", arrow_writer, nullptr));
   return writer;
 }
 

@@ -17,6 +17,21 @@
 
 module Arrow
   class CSVWriteOptions
+    class << self
+      def try_convert(value)
+        case value
+        when Hash
+          options = new
+          value.each do |k, v|
+            options.public_send("#{k}=", v)
+          end
+          options
+        else
+          nil
+        end
+      end
+    end
+    
     alias_method :delimiter_raw, :delimiter
     def delimiter
       delimiter_raw.chr
@@ -33,21 +48,6 @@ module Arrow
         delimiter = delimiter.ord
       end
       self.delimiter_raw = delimiter
-    end
-
-    class << self
-      def try_convert(value)
-        case value
-        when Hash
-          options = new
-          value.each do |k, v|
-            options.public_send("#{k}=", v)
-          end
-          options
-        else
-          nil
-        end
-      end
     end
   end
 end
