@@ -1649,4 +1649,33 @@ GARROW_AVAILABLE_IN_23_0
 GArrowRoundTemporalOptions *
 garrow_round_temporal_options_new(void);
 
+#define GARROW_TYPE_SELECT_K_OPTIONS (garrow_select_k_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowSelectKOptions,
+                         garrow_select_k_options,
+                         GARROW,
+                         SELECT_K_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSelectKOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSelectKOptions *
+garrow_select_k_options_new(void);
+
+GARROW_AVAILABLE_IN_23_0
+GList *
+garrow_select_k_options_get_sort_keys(GArrowSelectKOptions *options);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_select_k_options_set_sort_keys(GArrowSelectKOptions *options, GList *sort_keys);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_select_k_options_add_sort_key(GArrowSelectKOptions *options,
+                                     GArrowSortKey *sort_key);
+
 G_END_DECLS

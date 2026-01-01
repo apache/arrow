@@ -318,6 +318,9 @@ G_BEGIN_DECLS
  * #GArrowRoundTemporalOptions is a class to customize the `round_temporal`,
  * `floor_temporal`, and `ceil_temporal` functions.
  *
+ * #GArrowSelectKOptions is a class to customize the
+ * `select_k_unstable` function.
+ *
  * There are many functions to compute data on an array.
  */
 
@@ -9358,6 +9361,146 @@ garrow_round_temporal_options_new(void)
     g_object_new(GARROW_TYPE_ROUND_TEMPORAL_OPTIONS, nullptr));
 }
 
+enum {
+  PROP_SELECT_K_OPTIONS_K = 1,
+};
+
+G_DEFINE_TYPE(GArrowSelectKOptions, garrow_select_k_options, GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_select_k_options_set_property(GObject *object,
+                                     guint prop_id,
+                                     const GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options = garrow_select_k_options_get_raw(GARROW_SELECT_K_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SELECT_K_OPTIONS_K:
+    options->k = g_value_get_int64(value);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_select_k_options_get_property(GObject *object,
+                                     guint prop_id,
+                                     GValue *value,
+                                     GParamSpec *pspec)
+{
+  auto options = garrow_select_k_options_get_raw(GARROW_SELECT_K_OPTIONS(object));
+
+  switch (prop_id) {
+  case PROP_SELECT_K_OPTIONS_K:
+    g_value_set_int64(value, options->k);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_select_k_options_init(GArrowSelectKOptions *object)
+{
+  auto arrow_priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  arrow_priv->options =
+    static_cast<arrow::compute::FunctionOptions *>(new arrow::compute::SelectKOptions());
+}
+
+static void
+garrow_select_k_options_class_init(GArrowSelectKOptionsClass *klass)
+{
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->set_property = garrow_select_k_options_set_property;
+  gobject_class->get_property = garrow_select_k_options_get_property;
+
+  arrow::compute::SelectKOptions options;
+
+  GParamSpec *spec;
+  /**
+   * GArrowSelectKOptions:k:
+   *
+   * The number of k elements to keep.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int64("k",
+                            "K",
+                            "The number of k elements to keep",
+                            G_MININT64,
+                            G_MAXINT64,
+                            options.k,
+                            static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_SELECT_K_OPTIONS_K, spec);
+}
+
+/**
+ * garrow_select_k_options_new:
+ *
+ * Returns: A newly created #GArrowSelectKOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowSelectKOptions *
+garrow_select_k_options_new(void)
+{
+  return GARROW_SELECT_K_OPTIONS(g_object_new(GARROW_TYPE_SELECT_K_OPTIONS, nullptr));
+}
+
+/**
+ * garrow_select_k_options_get_sort_keys:
+ * @options: A #GArrowSelectKOptions.
+ *
+ * Returns: (transfer full) (element-type GArrowSortKey):
+ *   The sort keys to be used.
+ *
+ * Since: 23.0.0
+ */
+GList *
+garrow_select_k_options_get_sort_keys(GArrowSelectKOptions *options)
+{
+  auto arrow_options = garrow_select_k_options_get_raw(options);
+  return garrow_sort_keys_new_raw(arrow_options->sort_keys);
+}
+
+/**
+ * garrow_select_k_options_set_sort_keys:
+ * @options: A #GArrowSelectKOptions.
+ * @sort_keys: (element-type GArrowSortKey): The sort keys to be used.
+ *
+ * Set sort keys to be used.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_select_k_options_set_sort_keys(GArrowSelectKOptions *options, GList *sort_keys)
+{
+  auto arrow_options = garrow_select_k_options_get_raw(options);
+  garrow_raw_sort_keys_set(arrow_options->sort_keys, sort_keys);
+}
+
+/**
+ * garrow_select_k_options_add_sort_key:
+ * @options: A #GArrowSelectKOptions.
+ * @sort_key: The sort key to be added.
+ *
+ * Add a sort key to be used.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_select_k_options_add_sort_key(GArrowSelectKOptions *options,
+                                     GArrowSortKey *sort_key)
+{
+  auto arrow_options = garrow_select_k_options_get_raw(options);
+  garrow_raw_sort_keys_add(arrow_options->sort_keys, sort_key);
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -9597,6 +9740,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_round_temporal_options =
       static_cast<const arrow::compute::RoundTemporalOptions *>(arrow_options);
     auto options = garrow_round_temporal_options_new_raw(arrow_round_temporal_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "SelectKOptions") {
+    const auto arrow_select_k_options =
+      static_cast<const arrow::compute::SelectKOptions *>(arrow_options);
+    auto options = garrow_select_k_options_new_raw(arrow_select_k_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -10572,5 +10720,22 @@ arrow::compute::RoundTemporalOptions *
 garrow_round_temporal_options_get_raw(GArrowRoundTemporalOptions *options)
 {
   return static_cast<arrow::compute::RoundTemporalOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowSelectKOptions *
+garrow_select_k_options_new_raw(const arrow::compute::SelectKOptions *arrow_options)
+{
+  auto options = GARROW_SELECT_K_OPTIONS(
+    g_object_new(GARROW_TYPE_SELECT_K_OPTIONS, "k", arrow_options->k, nullptr));
+  auto arrow_new_options = garrow_select_k_options_get_raw(options);
+  arrow_new_options->sort_keys = arrow_options->sort_keys;
+  return options;
+}
+
+arrow::compute::SelectKOptions *
+garrow_select_k_options_get_raw(GArrowSelectKOptions *options)
+{
+  return static_cast<arrow::compute::SelectKOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

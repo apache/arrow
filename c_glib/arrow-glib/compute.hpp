@@ -298,3 +298,8 @@ garrow_round_temporal_options_new_raw(
   const arrow::compute::RoundTemporalOptions *arrow_options);
 arrow::compute::RoundTemporalOptions *
 garrow_round_temporal_options_get_raw(GArrowRoundTemporalOptions *options);
+
+GArrowSelectKOptions *
+garrow_select_k_options_new_raw(const arrow::compute::SelectKOptions *arrow_options);
+arrow::compute::SelectKOptions *
+garrow_select_k_options_get_raw(GArrowSelectKOptions *options);
