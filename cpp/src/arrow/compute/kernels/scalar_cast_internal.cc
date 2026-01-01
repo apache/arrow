@@ -209,6 +209,13 @@ Status UnpackDictionary(KernelContext* ctx, const ExecSpan& batch, ExecResult* o
   return Status::OK();
 }
 
+Status DecodeRunEndEncoded(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  Datum input(batch[0].array.ToArrayData());
+  ARROW_ASSIGN_OR_RAISE(Datum decoded, RunEndDecode(input, ctx->exec_context()));
+  out->value = std::move(decoded.array());
+  return Status::OK();
+}
+
 Status OutputAllNull(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
   // TODO(wesm): there is no good reason to have to use ArrayData here, so we
   // should clean this up later. This is used in the dict<null>->null cast
@@ -286,6 +293,12 @@ static bool CanCastFromDictionary(Type::type type_id) {
           is_fixed_size_binary(type_id));
 }
 
+static bool CanCastFromRunEndEncoded(Type::type type_id) {
+  return (is_primitive(type_id) ||
+          is_base_binary_like(type_id) ||
+          is_fixed_size_binary(type_id));
+}
+
 void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* func) {
   // From null to this type
   ScalarKernel kernel;
@@ -300,6 +313,13 @@ void AddCommonCasts(Type::type out_type_id, OutputType out_ty, CastFunction* fun
     // Dictionary unpacking not implemented for boolean or nested types.
     DCHECK_OK(func->AddKernel(Type::DICTIONARY, {InputType(Type::DICTIONARY)}, out_ty,
                               UnpackDictionary, NullHandling::COMPUTED_NO_PREALLOCATE,
+                              MemAllocation::NO_PREALLOCATE));
+  }
+
+  // From run-end-encoded to this type
+  if (CanCastFromRunEndEncoded(out_type_id)) {
+    DCHECK_OK(func->AddKernel(Type::RUN_END_ENCODED, {InputType(Type::RUN_END_ENCODED)}, out_ty,
+                              DecodeRunEndEncoded, NullHandling::COMPUTED_NO_PREALLOCATE,
                               MemAllocation::NO_PREALLOCATE));
   }
 
