@@ -318,3 +318,8 @@ GArrowTDigestOptions *
 garrow_tdigest_options_new_raw(const arrow::compute::TDigestOptions *arrow_options);
 arrow::compute::TDigestOptions *
 garrow_tdigest_options_get_raw(GArrowTDigestOptions *options);
+
+GArrowTrimOptions *
+garrow_trim_options_new_raw(const arrow::compute::TrimOptions *arrow_options);
+arrow::compute::TrimOptions *
+garrow_trim_options_get_raw(GArrowTrimOptions *options);

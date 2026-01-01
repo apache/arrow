@@ -1729,4 +1729,17 @@ GARROW_AVAILABLE_IN_23_0
 void
 garrow_tdigest_options_set_qs(GArrowTDigestOptions *options, const gdouble *qs, gsize n);
 
+#define GARROW_TYPE_TRIM_OPTIONS (garrow_trim_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowTrimOptions, garrow_trim_options, GARROW, TRIM_OPTIONS, GArrowFunctionOptions)
+struct _GArrowTrimOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTrimOptions *
+garrow_trim_options_new(void);
+
 G_END_DECLS
