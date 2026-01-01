@@ -1704,4 +1704,29 @@ GARROW_AVAILABLE_IN_23_0
 GArrowSliceOptions *
 garrow_slice_options_new(void);
 
+#define GARROW_TYPE_TDIGEST_OPTIONS (garrow_tdigest_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowTDigestOptions,
+                         garrow_tdigest_options,
+                         GARROW,
+                         TDIGEST_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowTDigestOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTDigestOptions *
+garrow_tdigest_options_new(void);
+GARROW_AVAILABLE_IN_23_0
+const gdouble *
+garrow_tdigest_options_get_qs(GArrowTDigestOptions *options, gsize *n);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_tdigest_options_set_q(GArrowTDigestOptions *options, gdouble q);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_tdigest_options_set_qs(GArrowTDigestOptions *options, const gdouble *qs, gsize n);
+
 G_END_DECLS
