@@ -1771,4 +1771,20 @@ GARROW_AVAILABLE_IN_23_0
 GArrowWinsorizeOptions *
 garrow_winsorize_options_new(void);
 
+#define GARROW_TYPE_ZERO_FILL_OPTIONS (garrow_zero_fill_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowZeroFillOptions,
+                         garrow_zero_fill_options,
+                         GARROW,
+                         ZERO_FILL_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowZeroFillOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new(void);
+
 G_END_DECLS
