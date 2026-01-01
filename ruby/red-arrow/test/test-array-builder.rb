@@ -154,7 +154,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [3, 4],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
+          data_type = Arrow::ListDataType.new(:uint8)
           assert_equal({
                          data_type: data_type,
                          values: [
@@ -175,7 +175,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**7 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int8DataType.new)
+          data_type = Arrow::ListDataType.new(:int8)
 
           assert_equal({
                          data_type: data_type,
@@ -196,7 +196,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**7 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int16DataType.new)
+          data_type = Arrow::ListDataType.new(:int16)
 
           # Int8 lower bound is -128
           assert_equal({
@@ -218,7 +218,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [-2**7],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int16DataType.new)
+          data_type = Arrow::ListDataType.new(:int16)
 
           # Int8 upper bound is 127
           assert_equal({
@@ -240,7 +240,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**15 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int16DataType.new)
+          data_type = Arrow::ListDataType.new(:int16)
 
           assert_equal({
                          data_type: data_type,
@@ -261,7 +261,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**15 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int32DataType.new)
+          data_type = Arrow::ListDataType.new(:int32)
 
           # Int16 lower bound is -32768
           assert_equal({
@@ -283,7 +283,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [-2**15],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int32DataType.new)
+          data_type = Arrow::ListDataType.new(:int32)
 
           # Int16 upper bound is 32767
           assert_equal({
@@ -305,7 +305,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**31 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int32DataType.new)
+          data_type = Arrow::ListDataType.new(:int32)
 
           assert_equal({
                          data_type: data_type,
@@ -326,7 +326,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**31 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int64DataType.new)
+          data_type = Arrow::ListDataType.new(:int64)
 
           # Int32 lower bound is -2147483648
           assert_equal({
@@ -348,7 +348,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [-2**31],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::Int64DataType.new)
+          data_type = Arrow::ListDataType.new(:int64)
 
           # Int32 upper bound is 2147483647
           assert_equal({
@@ -370,7 +370,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [-2**63],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::StringDataType.new)
+          data_type = Arrow::ListDataType.new(:string)
 
           assert_equal({
                          data_type: data_type,
@@ -391,7 +391,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**63 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::StringDataType.new)
+          data_type = Arrow::ListDataType.new(:string)
 
           assert_equal({
                          data_type: data_type,
@@ -413,7 +413,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**8 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt8DataType.new)
+          data_type = Arrow::ListDataType.new(:uint8)
 
           assert_equal({
                          data_type: data_type,
@@ -434,7 +434,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**8 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt16DataType.new)
+          data_type = Arrow::ListDataType.new(:uint16)
 
           # UInt8 can hold values up to 255
           assert_equal({
@@ -456,7 +456,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**16 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt16DataType.new)
+          data_type = Arrow::ListDataType.new(:uint16)
 
           assert_equal({
                          data_type: data_type,
@@ -477,7 +477,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**16 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt32DataType.new)
+          data_type = Arrow::ListDataType.new(:uint32)
 
           # UInt16 can hold values up to 65535
           assert_equal({
@@ -499,7 +499,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**32 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt32DataType.new)
+          data_type = Arrow::ListDataType.new(:uint32)
 
           assert_equal({
                          data_type: data_type,
@@ -520,7 +520,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**32 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::UInt64DataType.new)
+          data_type = Arrow::ListDataType.new(:uint64)
 
           # UInt32 can hold values up to 4294967295
           assert_equal({
@@ -542,7 +542,7 @@ class ArrayBuilderTest < Test::Unit::TestCase
             [2**64 - 1],
           ]
           array = Arrow::Array.new(values)
-          data_type = Arrow::ListDataType.new(Arrow::StringDataType.new)
+          data_type = Arrow::ListDataType.new(:string)
 
           assert_equal({
                          data_type: data_type,
