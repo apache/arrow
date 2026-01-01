@@ -77,9 +77,17 @@ def test_crossbow_email_report(load_fixture):
     report = Report(job)
     assert report.tasks_by_state is not None
     email_report = EmailReport(report=report)
+    headers = {
+        'Message-Id': '<message-id>',
+        'Date': 'Thu, 01 Jan 2026 02:19:16 -0000',
+        'From': 'from@example.com',
+        'To': 'to@example.com',
+        'Subject': 'Arrow Build Report',
+    }
 
     assert (
-        email_report.render("nightly_report") == textwrap.dedent(expected_msg)
+        str(email_report.render("nightly_report", headers)) ==
+        textwrap.dedent(expected_msg)
     )
 
 
