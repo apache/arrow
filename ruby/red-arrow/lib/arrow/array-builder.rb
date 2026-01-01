@@ -79,21 +79,18 @@ module Arrow
           max = builder_info[:max] || value
           min = value if value < min
           max = value if value > max
-          bit_length = value.bit_length
 
           if builder_info[:builder_type] == :int || value < 0
             {
               builder_type: :int,
               min: min,
               max: max,
-              bit_length: [builder_info[:bit_length] || 0, bit_length].max
             }
           else
             {
               builder_type: :uint,
               min: min,
               max: max,
-              bit_length: [builder_info[:bit_length] || 0, bit_length].max
             }
           end
         when Time
@@ -200,29 +197,30 @@ module Arrow
                                              builder_info[:scale])
           Decimal256ArrayBuilder.new(data_type)
         when :int
-          required_bit_length = builder_info[:bit_length] + 1
+          min = builder_info[:min]
+          max = builder_info[:max]
 
-          if required_bit_length <= 8
+          if GLib::MININT8 <= min && max <= GLib::MAXINT8
             Int8ArrayBuilder.new
-          elsif required_bit_length <= 16
+          elsif GLib::MININT16 <= min && max <= GLib::MAXINT16
             Int16ArrayBuilder.new
-          elsif required_bit_length <= 32
+          elsif GLib::MININT32 <= min && max <= GLib::MAXINT32
             Int32ArrayBuilder.new
-          elsif required_bit_length <= 64
+          elsif GLib::MININT64 <= min && max <= GLib::MAXINT64
             Int64ArrayBuilder.new
           else
             StringArrayBuilder.new
           end
         when :uint
-          required_bit_length = builder_info[:bit_length]
+          max = builder_info[:max]
 
-          if required_bit_length <= 8
+          if max <= GLib::MAXUINT8
             UInt8ArrayBuilder.new
-          elsif required_bit_length <= 16
+          elsif max <= GLib::MAXUINT16
             UInt16ArrayBuilder.new
-          elsif required_bit_length <= 32
+          elsif max <= GLib::MAXUINT32
             UInt32ArrayBuilder.new
-          elsif required_bit_length <= 64
+          elsif max <= GLib::MAXUINT64
             UInt64ArrayBuilder.new
           else
             StringArrayBuilder.new
