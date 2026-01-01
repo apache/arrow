@@ -10563,7 +10563,7 @@ garrow_split_options_class_init(GArrowSplitOptionsClass *klass)
   spec = g_param_spec_int64("max-splits",
                             "Max splits",
                             "Maximum number of splits allowed, or unlimited when -1",
-                            G_MININT64,
+                            -1,
                             G_MAXINT64,
                             options.max_splits,
                             static_cast<GParamFlags>(G_PARAM_READWRITE));
