@@ -171,6 +171,8 @@ module ArrowFormat
         case fb_type.bit_width
         when 128
           type = Decimal128Type.new(fb_type.precision, fb_type.scale)
+        when 256
+          type = Decimal256Type.new(fb_type.precision, fb_type.scale)
         end
       end
       Field.new(fb_field.name, type, fb_field.nullable?)

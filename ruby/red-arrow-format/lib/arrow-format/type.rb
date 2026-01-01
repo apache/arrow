@@ -522,6 +522,20 @@ module ArrowFormat
     end
   end
 
+  class Decimal256Type < DecimalType
+    def initialize(precision, scale)
+      super(32, precision, scale)
+    end
+
+    def name
+      "Decimal256"
+    end
+
+    def build_array(size, validity_buffer, values_buffer)
+      Decimal256Array.new(self, size, validity_buffer, values_buffer)
+    end
+  end
+
   class VariableSizeListType < Type
     attr_reader :child
     def initialize(child)
