@@ -10629,7 +10629,7 @@ garrow_make_struct_options_class_init(GArrowMakeStructOptionsClass *klass)
 GArrowMakeStructOptions *
 garrow_make_struct_options_new(void)
 {
-  auto options = g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, NULL);
+  auto options = g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, nullptr);
   return GARROW_MAKE_STRUCT_OPTIONS(options);
 }
 
