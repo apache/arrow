@@ -29,6 +29,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/chrono_internal.h"  // for ARROW_USE_STD_CHRONO
 #include "arrow/util/formatting.h"
 #include "arrow/util/logging_internal.h"
 
@@ -37,6 +38,10 @@ namespace arrow {
 using internal::StringFormatter;
 
 namespace compute {
+
+TEST(ChronoConfig, LogChronoBackend) {
+  std::cout << "ARROW_USE_STD_CHRONO=" << ARROW_USE_STD_CHRONO << std::endl;
+}
 
 class ScalarTemporalTest : public ::testing::Test {
  public:
