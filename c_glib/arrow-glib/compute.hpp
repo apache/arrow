@@ -338,3 +338,8 @@ GArrowZeroFillOptions *
 garrow_zero_fill_options_new_raw(const arrow::compute::ZeroFillOptions *arrow_options);
 arrow::compute::ZeroFillOptions *
 garrow_zero_fill_options_get_raw(GArrowZeroFillOptions *options);
+
+GArrowSplitOptions *
+garrow_split_options_new_raw(const arrow::compute::SplitOptions *arrow_options);
+arrow::compute::SplitOptions *
+garrow_split_options_get_raw(GArrowSplitOptions *options);
