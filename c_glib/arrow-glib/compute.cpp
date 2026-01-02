@@ -10652,8 +10652,7 @@ garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
                                      gboolean nullability,
                                      GHashTable *metadata)
 {
-  auto arrow_options = static_cast<arrow::compute::MakeStructOptions *>(
-    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  auto arrow_options = garrow_make_struct_options_get_raw(options);
   arrow_options->field_names.emplace_back(name);
   arrow_options->field_nullability.push_back(nullability != FALSE);
   if (metadata) {
@@ -12114,8 +12113,7 @@ garrow_make_struct_options_new_raw(const arrow::compute::MakeStructOptions *arro
 {
   auto options =
     GARROW_MAKE_STRUCT_OPTIONS(g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, nullptr));
-  auto arrow_new_options = static_cast<arrow::compute::MakeStructOptions *>(
-    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+  auto arrow_new_options = garrow_make_struct_options_get_raw(options);
   *arrow_new_options = *arrow_options;
   return options;
 }
