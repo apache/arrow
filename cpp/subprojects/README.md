@@ -70,7 +70,7 @@ In the default case, Meson will use the wrap file as a fallback. If a dependency
 can be satisfied by the system, then it will not use the wrap file to download
 any sources. However, you can toggle the behavior of the wrap system via the
 `--wrap-mode=` configuration option. `--wrap-mode=forcefallback` will always
-download and use the source defined in a wrap file, even if the depdendency could
+download and use the source defined in a wrap file, even if the dependency could
 be satisfied by the system. By contrast, `--wrap-mode=nofallback` will require
 that the system satisfies dependencies. For more ways to handle wrap dependencies,
 see https://mesonbuild.com/Subprojects.html#commandline-options

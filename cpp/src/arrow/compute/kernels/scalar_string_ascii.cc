@@ -804,7 +804,7 @@ using AsciiTitle = StringTransformExec<Type, AsciiTitleTransform>;
 const FunctionDoc ascii_upper_doc(
     "Transform ASCII input to uppercase",
     ("For each string in `strings`, return an uppercase version.\n\n"
-     "This function assumes the input is fully ASCII.  It it may contain\n"
+     "This function assumes the input is fully ASCII.  If it may contain\n"
      "non-ASCII characters, use \"utf8_upper\" instead."),
     {"strings"});
 

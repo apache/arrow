@@ -1475,4 +1475,329 @@ GARROW_AVAILABLE_IN_23_0
 GArrowPairwiseOptions *
 garrow_pairwise_options_new(void);
 
+#define GARROW_TYPE_REPLACE_SLICE_OPTIONS (garrow_replace_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowReplaceSliceOptions,
+                         garrow_replace_slice_options,
+                         GARROW,
+                         REPLACE_SLICE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowReplaceSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new(void);
+
+#define GARROW_TYPE_PARTITION_NTH_OPTIONS (garrow_partition_nth_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPartitionNthOptions,
+                         garrow_partition_nth_options,
+                         GARROW,
+                         PARTITION_NTH_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPartitionNthOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new(void);
+
+/**
+ * GArrowPivotWiderUnexpectedKeyBehavior:
+ * @GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_IGNORE: Unexpected pivot keys are ignored
+ * silently.
+ * @GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_RAISE: Unexpected pivot keys return a
+ * KeyError.
+ *
+ * They correspond to the values of
+ * `arrow::compute::PivotWiderOptions::UnexpectedKeyBehavior`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_IGNORE,
+  GARROW_PIVOT_WIDER_UNEXPECTED_KEY_BEHAVIOR_RAISE,
+} GArrowPivotWiderUnexpectedKeyBehavior;
+
+#define GARROW_TYPE_PIVOT_WIDER_OPTIONS (garrow_pivot_wider_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowPivotWiderOptions,
+                         garrow_pivot_wider_options,
+                         GARROW,
+                         PIVOT_WIDER_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowPivotWiderOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new(void);
+
+#define GARROW_TYPE_RANK_QUANTILE_OPTIONS (garrow_rank_quantile_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRankQuantileOptions,
+                         garrow_rank_quantile_options,
+                         GARROW,
+                         RANK_QUANTILE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRankQuantileOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new(void);
+GARROW_AVAILABLE_IN_23_0
+GList *
+garrow_rank_quantile_options_get_sort_keys(GArrowRankQuantileOptions *options);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_rank_quantile_options_set_sort_keys(GArrowRankQuantileOptions *options,
+                                           GList *sort_keys);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_rank_quantile_options_add_sort_key(GArrowRankQuantileOptions *options,
+                                          GArrowSortKey *sort_key);
+
+#define GARROW_TYPE_REPLACE_SUBSTRING_OPTIONS                                            \
+  (garrow_replace_substring_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowReplaceSubstringOptions,
+                         garrow_replace_substring_options,
+                         GARROW,
+                         REPLACE_SUBSTRING_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowReplaceSubstringOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new(void);
+
+#define GARROW_TYPE_ROUND_BINARY_OPTIONS (garrow_round_binary_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundBinaryOptions,
+                         garrow_round_binary_options,
+                         GARROW,
+                         ROUND_BINARY_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundBinaryOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new(void);
+
+/**
+ * GArrowCalendarUnit:
+ * @GARROW_CALENDAR_UNIT_NANOSECOND: Nanosecond
+ * @GARROW_CALENDAR_UNIT_MICROSECOND: Microsecond
+ * @GARROW_CALENDAR_UNIT_MILLISECOND: Millisecond
+ * @GARROW_CALENDAR_UNIT_SECOND: Second
+ * @GARROW_CALENDAR_UNIT_MINUTE: Minute
+ * @GARROW_CALENDAR_UNIT_HOUR: Hour
+ * @GARROW_CALENDAR_UNIT_DAY: Day
+ * @GARROW_CALENDAR_UNIT_WEEK: Week
+ * @GARROW_CALENDAR_UNIT_MONTH: Month
+ * @GARROW_CALENDAR_UNIT_QUARTER: Quarter
+ * @GARROW_CALENDAR_UNIT_YEAR: Year
+ *
+ * They correspond to the values of `arrow::compute::CalendarUnit`.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_CALENDAR_UNIT_NANOSECOND,
+  GARROW_CALENDAR_UNIT_MICROSECOND,
+  GARROW_CALENDAR_UNIT_MILLISECOND,
+  GARROW_CALENDAR_UNIT_SECOND,
+  GARROW_CALENDAR_UNIT_MINUTE,
+  GARROW_CALENDAR_UNIT_HOUR,
+  GARROW_CALENDAR_UNIT_DAY,
+  GARROW_CALENDAR_UNIT_WEEK,
+  GARROW_CALENDAR_UNIT_MONTH,
+  GARROW_CALENDAR_UNIT_QUARTER,
+  GARROW_CALENDAR_UNIT_YEAR,
+} GArrowCalendarUnit;
+
+#define GARROW_TYPE_CALENDAR_UNIT          (garrow_calendar_unit_get_type())
+
+#define GARROW_TYPE_ROUND_TEMPORAL_OPTIONS (garrow_round_temporal_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowRoundTemporalOptions,
+                         garrow_round_temporal_options,
+                         GARROW,
+                         ROUND_TEMPORAL_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowRoundTemporalOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new(void);
+
+#define GARROW_TYPE_SELECT_K_OPTIONS (garrow_select_k_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowSelectKOptions,
+                         garrow_select_k_options,
+                         GARROW,
+                         SELECT_K_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowSelectKOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSelectKOptions *
+garrow_select_k_options_new(void);
+
+GARROW_AVAILABLE_IN_23_0
+GList *
+garrow_select_k_options_get_sort_keys(GArrowSelectKOptions *options);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_select_k_options_set_sort_keys(GArrowSelectKOptions *options, GList *sort_keys);
+
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_select_k_options_add_sort_key(GArrowSelectKOptions *options,
+                                     GArrowSortKey *sort_key);
+
+#define GARROW_TYPE_SKEW_OPTIONS (garrow_skew_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSkewOptions, garrow_skew_options, GARROW, SKEW_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSkewOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSkewOptions *
+garrow_skew_options_new(void);
+
+#define GARROW_TYPE_SLICE_OPTIONS (garrow_slice_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSliceOptions, garrow_slice_options, GARROW, SLICE_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSliceOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSliceOptions *
+garrow_slice_options_new(void);
+
+#define GARROW_TYPE_TDIGEST_OPTIONS (garrow_tdigest_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowTDigestOptions,
+                         garrow_tdigest_options,
+                         GARROW,
+                         TDIGEST_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowTDigestOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTDigestOptions *
+garrow_tdigest_options_new(void);
+GARROW_AVAILABLE_IN_23_0
+const gdouble *
+garrow_tdigest_options_get_qs(GArrowTDigestOptions *options, gsize *n);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_tdigest_options_set_q(GArrowTDigestOptions *options, gdouble q);
+GARROW_AVAILABLE_IN_23_0
+void
+garrow_tdigest_options_set_qs(GArrowTDigestOptions *options, const gdouble *qs, gsize n);
+
+#define GARROW_TYPE_TRIM_OPTIONS (garrow_trim_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowTrimOptions, garrow_trim_options, GARROW, TRIM_OPTIONS, GArrowFunctionOptions)
+struct _GArrowTrimOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTrimOptions *
+garrow_trim_options_new(void);
+
+#define GARROW_TYPE_WEEK_OPTIONS (garrow_week_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowWeekOptions, garrow_week_options, GARROW, WEEK_OPTIONS, GArrowFunctionOptions)
+struct _GArrowWeekOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowWeekOptions *
+garrow_week_options_new(void);
+
+#define GARROW_TYPE_WINSORIZE_OPTIONS (garrow_winsorize_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowWinsorizeOptions,
+                         garrow_winsorize_options,
+                         GARROW,
+                         WINSORIZE_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowWinsorizeOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new(void);
+
+#define GARROW_TYPE_ZERO_FILL_OPTIONS (garrow_zero_fill_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowZeroFillOptions,
+                         garrow_zero_fill_options,
+                         GARROW,
+                         ZERO_FILL_OPTIONS,
+                         GArrowFunctionOptions)
+struct _GArrowZeroFillOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new(void);
+
+#define GARROW_TYPE_SPLIT_OPTIONS (garrow_split_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowSplitOptions, garrow_split_options, GARROW, SPLIT_OPTIONS, GArrowFunctionOptions)
+struct _GArrowSplitOptionsClass
+{
+  GArrowFunctionOptionsClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowSplitOptions *
+garrow_split_options_new(void);
+
 G_END_DECLS

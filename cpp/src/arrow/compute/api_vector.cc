@@ -257,7 +257,7 @@ ListFlattenOptions::ListFlattenOptions(bool recursive)
 constexpr char ListFlattenOptions::kTypeName[];
 
 InversePermutationOptions::InversePermutationOptions(
-    int64_t max_index, std::shared_ptr<DataType> output_type)
+    int64_t max_index, std::optional<std::shared_ptr<DataType>> output_type)
     : FunctionOptions(internal::kInversePermutationOptionsType),
       max_index(max_index),
       output_type(std::move(output_type)) {}

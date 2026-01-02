@@ -25,6 +25,7 @@ require_relative "org/apache/arrow/flatbuf/binary"
 require_relative "org/apache/arrow/flatbuf/bool"
 require_relative "org/apache/arrow/flatbuf/date"
 require_relative "org/apache/arrow/flatbuf/date_unit"
+require_relative "org/apache/arrow/flatbuf/decimal"
 require_relative "org/apache/arrow/flatbuf/duration"
 require_relative "org/apache/arrow/flatbuf/fixed_size_binary"
 require_relative "org/apache/arrow/flatbuf/floating_point"
@@ -166,6 +167,13 @@ module ArrowFormat
         type = LargeUTF8Type.singleton
       when Org::Apache::Arrow::Flatbuf::FixedSizeBinary
         type = FixedSizeBinaryType.new(fb_type.byte_width)
+      when Org::Apache::Arrow::Flatbuf::Decimal
+        case fb_type.bit_width
+        when 128
+          type = Decimal128Type.new(fb_type.precision, fb_type.scale)
+        when 256
+          type = Decimal256Type.new(fb_type.precision, fb_type.scale)
+        end
       end
       Field.new(fb_field.name, type, fb_field.nullable?)
     end
