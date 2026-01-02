@@ -309,12 +309,9 @@ module ArrowFormat
   end
 
   class DecimalArray < FixedSizeBinaryArray
-  end
-
-  class Decimal128Array < DecimalArray
     def to_a
       byte_width = @type.byte_width
-      buffer_types = [:u64, :s64] # TODO: big endian support
+      buffer_types = [:u64] * (byte_width / 8 - 1) + [:s64]
       values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
         @values_buffer.get_values(buffer_types, offset)
       end
@@ -322,25 +319,45 @@ module ArrowFormat
         if value.nil?
           nil
         else
-          low, high = value
-          BigDecimal(format_value(low, high))
+          BigDecimal(format_value(value))
         end
       end
     end
 
     private
-    def format_value(low, high)
+    def format_value(components)
+      highest = components.last
       width = @type.precision
-      width += 1 if high < 0
-      value = (high << 64) + low
-      string = value.to_s.ljust(width, "0")
+      width += 1 if highest < 0
+      value = 0
+      components.reverse_each do |component|
+        value = (value << 64) + component
+      end
+      string = value.to_s
       if @type.scale < 0
         string << ("0" * -@type.scale)
       elsif @type.scale > 0
-        string[-@type.scale, 0] = "."
+        n_digits = string.bytesize
+        n_digits -= 1 if value < 0
+        if n_digits < @type.scale
+          prefix = "0." + ("0" * (@type.scale - n_digits - 1))
+          if value < 0
+            string[1, 0] = prefix
+          else
+            string[0, 0] = prefix
+          end
+        else
+          string[-@type.scale, 0] = "."
+        end
       end
       string
     end
+  end
+
+  class Decimal128Array < DecimalArray
+  end
+
+  class Decimal256Array < DecimalArray
   end
 
   class VariableSizeListArray < Array
