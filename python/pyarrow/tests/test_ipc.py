@@ -779,6 +779,18 @@ def test_message_serialize_read_message(example_messages):
         pa.ipc.read_message(reader)
 
 
+def test_message_repr_shows_actual_values(example_messages):
+    _, messages = example_messages
+
+    for msg in messages:
+        s = str(msg)
+
+        assert '{self.type}' not in s
+        assert '{metadata_len}' not in s
+        assert '{body_len}' not in s
+        assert f'type: {msg.type}' in s
+
+
 @pytest.mark.gzip
 def test_message_read_from_compressed(example_messages):
     # Part of ARROW-5910
