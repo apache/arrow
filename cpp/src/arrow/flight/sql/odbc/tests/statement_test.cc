@@ -646,6 +646,100 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectVarbinaryQueryDefaultType) {
   EXPECT_EQ('\xEF', varbinary_val[2]);
 }
 
+TYPED_TEST(StatementTest, TestGetDataPrecisionScaleUsesIRDAsDefault) {
+  // Verify that SQLGetData uses IRD precision/scale as defaults when ARD values are unset
+  std::wstring wsql = L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;";
+  std::vector<SQLWCHAR> sql(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql[0], static_cast<SQLINTEGER>(sql.size())));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  // Get precision and scale from IRD
+  SQLLEN ird_precision = 0;
+  SQLLEN ird_scale = 0;
+  SQLHDESC ird = nullptr;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(this->stmt, SQL_ATTR_IMP_ROW_DESC, &ird, 0, nullptr));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetDescField(ird, 1, SQL_DESC_PRECISION, &ird_precision, 0, nullptr));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetDescField(ird, 1, SQL_DESC_SCALE, &ird_scale, 0, nullptr));
+
+  // Test with SQL_C_NUMERIC - should use IRD precision/scale
+  SQL_NUMERIC_STRUCT numeric_val;
+  memset(&numeric_val, 0, sizeof(numeric_val));
+  SQLLEN indicator;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_NUMERIC, &numeric_val,
+                                    sizeof(SQL_NUMERIC_STRUCT), &indicator));
+  EXPECT_EQ(static_cast<SQLSMALLINT>(ird_precision), numeric_val.precision);
+  EXPECT_EQ(static_cast<SQLSMALLINT>(ird_scale), numeric_val.scale);
+
+  // Test with SQL_C_DEFAULT when ARD is unset (0) - should fall back to IRD
+  // precision/scale
+  SQLHDESC ard = nullptr;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &ard, 0, nullptr));
+  ASSERT_EQ(SQL_SUCCESS, SQLSetDescField(ard, 1, SQL_DESC_PRECISION,
+                                         reinterpret_cast<SQLPOINTER>(0), 0));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLSetDescField(ard, 1, SQL_DESC_SCALE, reinterpret_cast<SQLPOINTER>(0), 0));
+
+  memset(&numeric_val, 0, sizeof(numeric_val));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_DEFAULT, &numeric_val,
+                                    sizeof(SQL_NUMERIC_STRUCT), &indicator));
+  EXPECT_EQ(static_cast<SQLSMALLINT>(ird_precision), numeric_val.precision);
+  EXPECT_EQ(static_cast<SQLSMALLINT>(ird_scale), numeric_val.scale);
+}
+
+TYPED_TEST(StatementTest, TestGetDataPrecisionScaleUsesARDWhenSet) {
+  // Verify that SQLGetData uses ARD precision/scale when set, for both SQL_ARD_TYPE and
+  // SQL_C_DEFAULT
+  std::wstring wsql = L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;";
+  std::vector<SQLWCHAR> sql(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql[0], static_cast<SQLINTEGER>(sql.size())));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+
+  SQLHDESC ard = nullptr;
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &ard, 0, nullptr));
+
+  // Test with SQL_ARD_TYPE
+  SQLSMALLINT ard_precision = 15;
+  SQLSMALLINT ard_scale = 3;
+  ASSERT_EQ(SQL_SUCCESS, SQLSetDescField(ard, 1, SQL_DESC_PRECISION,
+                                         reinterpret_cast<SQLPOINTER>(ard_precision), 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLSetDescField(ard, 1, SQL_DESC_SCALE,
+                                         reinterpret_cast<SQLPOINTER>(ard_scale), 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLSetDescField(ard, 1, SQL_DESC_TYPE,
+                                         reinterpret_cast<SQLPOINTER>(SQL_C_NUMERIC), 0));
+
+  SQL_NUMERIC_STRUCT numeric_val;
+  memset(&numeric_val, 0, sizeof(numeric_val));
+  SQLLEN indicator;
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_ARD_TYPE, &numeric_val,
+                                    sizeof(SQL_NUMERIC_STRUCT), &indicator));
+  EXPECT_EQ(ard_precision, numeric_val.precision);
+  EXPECT_EQ(ard_scale, numeric_val.scale);
+
+  // Test with SQL_C_DEFAULT
+  ard_precision = 20;
+  ard_scale = 4;
+  ASSERT_EQ(SQL_SUCCESS, SQLSetDescField(ard, 1, SQL_DESC_PRECISION,
+                                         reinterpret_cast<SQLPOINTER>(ard_precision), 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLSetDescField(ard, 1, SQL_DESC_SCALE,
+                                         reinterpret_cast<SQLPOINTER>(ard_scale), 0));
+
+  memset(&numeric_val, 0, sizeof(numeric_val));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_DEFAULT, &numeric_val,
+                                    sizeof(SQL_NUMERIC_STRUCT), &indicator));
+  EXPECT_EQ(ard_precision, numeric_val.precision);
+  EXPECT_EQ(ard_scale, numeric_val.scale);
+}
+
 TYPED_TEST(StatementTest, TestSQLExecDirectGuidQueryUnsupported) {
   // Query GUID as string as SQLite does not support GUID
   std::wstring wsql = L"SELECT 'C77313CF-4E08-47CE-B6DF-94DD2FCF3541' AS guid;";
