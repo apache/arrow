@@ -26,6 +26,8 @@ require_relative "org/apache/arrow/flatbuf/bool"
 require_relative "org/apache/arrow/flatbuf/date"
 require_relative "org/apache/arrow/flatbuf/date_unit"
 require_relative "org/apache/arrow/flatbuf/decimal"
+require_relative "org/apache/arrow/flatbuf/dictionary_encoding"
+require_relative "org/apache/arrow/flatbuf/dictionary_batch"
 require_relative "org/apache/arrow/flatbuf/duration"
 require_relative "org/apache/arrow/flatbuf/fixed_size_binary"
 require_relative "org/apache/arrow/flatbuf/floating_point"
@@ -40,11 +42,12 @@ require_relative "org/apache/arrow/flatbuf/map"
 require_relative "org/apache/arrow/flatbuf/message"
 require_relative "org/apache/arrow/flatbuf/null"
 require_relative "org/apache/arrow/flatbuf/precision"
+require_relative "org/apache/arrow/flatbuf/record_batch"
 require_relative "org/apache/arrow/flatbuf/schema"
 require_relative "org/apache/arrow/flatbuf/struct_"
 require_relative "org/apache/arrow/flatbuf/time"
-require_relative "org/apache/arrow/flatbuf/timestamp"
 require_relative "org/apache/arrow/flatbuf/time_unit"
+require_relative "org/apache/arrow/flatbuf/timestamp"
 require_relative "org/apache/arrow/flatbuf/union"
 require_relative "org/apache/arrow/flatbuf/union_mode"
 require_relative "org/apache/arrow/flatbuf/utf8"
@@ -67,32 +70,7 @@ module ArrowFormat
       when Org::Apache::Arrow::Flatbuf::Bool
         type = BooleanType.singleton
       when Org::Apache::Arrow::Flatbuf::Int
-        case fb_type.bit_width
-        when 8
-          if fb_type.signed?
-            type = Int8Type.singleton
-          else
-            type = UInt8Type.singleton
-          end
-        when 16
-          if fb_type.signed?
-            type = Int16Type.singleton
-          else
-            type = UInt16Type.singleton
-          end
-        when 32
-          if fb_type.signed?
-            type = Int32Type.singleton
-          else
-            type = UInt32Type.singleton
-          end
-        when 64
-          if fb_type.signed?
-            type = Int64Type.singleton
-          else
-            type = UInt64Type.singleton
-          end
-        end
+        type = read_type_int(fb_type)
       when Org::Apache::Arrow::Flatbuf::FloatingPoint
         case fb_type.precision
         when Org::Apache::Arrow::Flatbuf::Precision::SINGLE
@@ -175,14 +153,52 @@ module ArrowFormat
           type = Decimal256Type.new(fb_type.precision, fb_type.scale)
         end
       end
-      Field.new(fb_field.name, type, fb_field.nullable?)
+
+      dictionary = fb_field.dictionary
+      if dictionary
+        dictionary_id = dictionary.id
+        index_type = read_type_int(dictionary.index_type)
+        type = DictionaryType.new(index_type, type, dictionary.ordered?)
+      else
+        dictionary_id = nil
+      end
+      Field.new(fb_field.name, type, fb_field.nullable?, dictionary_id)
+    end
+
+    def read_type_int(fb_type)
+      case fb_type.bit_width
+      when 8
+        if fb_type.signed?
+          Int8Type.singleton
+        else
+          UInt8Type.singleton
+        end
+      when 16
+        if fb_type.signed?
+          Int16Type.singleton
+        else
+          UInt16Type.singleton
+        end
+      when 32
+        if fb_type.signed?
+          Int32Type.singleton
+        else
+          UInt32Type.singleton
+        end
+      when 64
+        if fb_type.signed?
+          Int64Type.singleton
+        else
+          UInt64Type.singleton
+        end
+      end
     end
 
     def read_record_batch(fb_record_batch, schema, body)
       n_rows = fb_record_batch.length
       nodes = fb_record_batch.nodes
       buffers = fb_record_batch.buffers
-      columns = @schema.fields.collect do |field|
+      columns = schema.fields.collect do |field|
         read_column(field, nodes, buffers, body)
       end
       RecordBatch.new(schema, n_rows, columns)
@@ -244,6 +260,11 @@ module ArrowFormat
           read_column(child, nodes, buffers, body)
         end
         field.type.build_array(length, types, children)
+      when DictionaryType
+        indices_buffer = buffers.shift
+        indices = body.slice(indices_buffer.offset, indices_buffer.length)
+        dictionary = find_dictionary(field.dictionary_id)
+        field.type.build_array(length, validity, indices, dictionary)
       end
     end
   end

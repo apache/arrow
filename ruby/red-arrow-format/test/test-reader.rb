@@ -866,6 +866,19 @@ module ReaderTests
                          read)
           end
         end
+
+        sub_test_case("Dictionary") do
+          def build_array
+            values = ["a", "b", "c", nil, "a"]
+            string_array = Arrow::StringArray.new(values)
+            string_array.dictionary_encode
+          end
+
+          def test_read
+            assert_equal([{"value" => ["a", "b", "c", nil, "a"]}],
+                         read)
+          end
+        end
       end
     end
   end

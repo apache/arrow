@@ -78,6 +78,10 @@ module ArrowFormat
       "Int8"
     end
 
+    def buffer_type
+      :S8
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Int8Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -96,6 +100,10 @@ module ArrowFormat
 
     def name
       "UInt8"
+    end
+
+    def buffer_type
+      :U8
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -118,6 +126,10 @@ module ArrowFormat
       "Int16"
     end
 
+    def buffer_type
+      :s16
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Int16Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -136,6 +148,10 @@ module ArrowFormat
 
     def name
       "UInt16"
+    end
+
+    def buffer_type
+      :u16
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -158,6 +174,10 @@ module ArrowFormat
       "Int32"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Int32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -176,6 +196,10 @@ module ArrowFormat
 
     def name
       "UInt32"
+    end
+
+    def buffer_type
+      :u32
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -198,6 +222,10 @@ module ArrowFormat
       "Int64"
     end
 
+    def buffer_type
+      :s64
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Int64Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -216,6 +244,10 @@ module ArrowFormat
 
     def name
       "UInt64"
+    end
+
+    def buffer_type
+      :u64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -643,6 +675,30 @@ module ArrowFormat
 
     def build_array(size, types_buffer, children)
       SparseUnionArray.new(self, size, types_buffer, children)
+    end
+  end
+
+  class DictionaryType < Type
+    attr_reader :index_type
+    attr_reader :value_type
+    attr_reader :ordered
+    def initialize(index_type, value_type, ordered)
+      super()
+      @index_type = index_type
+      @value_type = value_type
+      @ordered = ordered
+    end
+
+    def name
+      "Dictionary"
+    end
+
+    def build_array(size, validity_buffer, indices_buffer, dictionary)
+      DictionaryArray.new(self,
+                          size,
+                          validity_buffer,
+                          indices_buffer,
+                          dictionary)
     end
   end
 end

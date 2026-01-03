@@ -79,54 +79,34 @@ module ArrowFormat
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
+
+    def to_a
+      apply_validity(@values_buffer.values(@type.buffer_type, 0, @size))
+    end
   end
 
   class Int8Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:S8, 0, @size))
-    end
   end
 
   class UInt8Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:U8, 0, @size))
-    end
   end
 
   class Int16Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:s16, 0, @size))
-    end
   end
 
   class UInt16Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:u16, 0, @size))
-    end
   end
 
   class Int32Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:s32, 0, @size))
-    end
   end
 
   class UInt32Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:u32, 0, @size))
-    end
   end
 
   class Int64Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:s64, 0, @size))
-    end
   end
 
   class UInt64Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:u64, 0, @size))
-    end
   end
 
   class FloatingPointArray < Array
@@ -410,6 +390,27 @@ module ArrowFormat
     end
   end
 
+  class MapArray < VariableSizeListArray
+    def to_a
+      super.collect do |entries|
+        if entries.nil?
+          entries
+        else
+          hash = {}
+          entries.each do |key, value|
+            hash[key] = value
+          end
+          hash
+        end
+      end
+    end
+
+    private
+    def offset_type
+      :s32 # TODO: big endian support
+    end
+  end
+
   class UnionArray < Array
     def initialize(type, size, types_buffer, children)
       super(type, size, nil)
@@ -449,24 +450,27 @@ module ArrowFormat
     end
   end
 
-  class MapArray < VariableSizeListArray
-    def to_a
-      super.collect do |entries|
-        if entries.nil?
-          entries
-        else
-          hash = {}
-          entries.each do |key, value|
-            hash[key] = value
-          end
-          hash
-        end
-      end
+  class DictionaryArray < Array
+    def initialize(type, size, validity_buffer, indices_buffer, dictionary)
+      super(type, size, validity_buffer)
+      @indices_buffer = indices_buffer
+      @dictionary = dictionary
     end
 
-    private
-    def offset_type
-      :s32 # TODO: big endian support
+    def to_a
+      values = []
+      @dictionary.each do |dictionary_chunk|
+        values.concat(dictionary_chunk.to_a)
+      end
+      buffer_type = @type.index_type.buffer_type
+      indices = apply_validity(@indices_buffer.values(buffer_type, 0, @size))
+      indices.collect do |index|
+        if index.nil?
+          nil
+        else
+          values[index]
+        end
+      end
     end
   end
 end
