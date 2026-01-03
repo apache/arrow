@@ -28,6 +28,7 @@
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/executor.hpp>
 #include <arrow-glib/expression.hpp>
+#include <arrow-glib/internal-hash-table.hpp>
 #include <arrow-glib/reader.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/scalar.hpp>
@@ -341,6 +342,9 @@ G_BEGIN_DECLS
  *
  * #GArrowSplitOptions is a class to customize the `ascii_split_whitespace` and
  * `utf8_split_whitespace` functions.
+ *
+ * #GArrowMakeStructOptions is a class to customize the `make_struct`
+ * function.
  *
  * There are many functions to compute data on an array.
  */
@@ -10598,6 +10602,67 @@ garrow_split_options_new(void)
   return GARROW_SPLIT_OPTIONS(g_object_new(GARROW_TYPE_SPLIT_OPTIONS, nullptr));
 }
 
+G_DEFINE_TYPE(GArrowMakeStructOptions,
+              garrow_make_struct_options,
+              GARROW_TYPE_FUNCTION_OPTIONS)
+
+static void
+garrow_make_struct_options_init(GArrowMakeStructOptions *object)
+{
+  auto priv = GARROW_FUNCTION_OPTIONS_GET_PRIVATE(object);
+  priv->options = static_cast<arrow::compute::FunctionOptions *>(
+    new arrow::compute::MakeStructOptions());
+}
+
+static void
+garrow_make_struct_options_class_init(GArrowMakeStructOptionsClass *klass)
+{
+}
+
+/**
+ * garrow_make_struct_options_new:
+ *
+ * Returns: A newly created #GArrowMakeStructOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowMakeStructOptions *
+garrow_make_struct_options_new(void)
+{
+  auto options = g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, nullptr);
+  return GARROW_MAKE_STRUCT_OPTIONS(options);
+}
+
+/**
+ * garrow_make_struct_options_add_field:
+ * @options: A #GArrowMakeStructOptions.
+ * @name: The name of the field to add.
+ * @nullability: Whether the field is nullable.
+ * @metadata: (nullable) (element-type utf8 utf8): A #GHashTable for the field's
+ *   metadata, or %NULL.
+ *
+ * Adds a field to the struct options with the specified name, nullability,
+ * and optional metadata.
+ *
+ * Since: 23.0.0
+ */
+void
+garrow_make_struct_options_add_field(GArrowMakeStructOptions *options,
+                                     const char *name,
+                                     gboolean nullability,
+                                     GHashTable *metadata)
+{
+  auto arrow_options = garrow_make_struct_options_get_raw(options);
+  arrow_options->field_names.emplace_back(name);
+  arrow_options->field_nullability.push_back(nullability != FALSE);
+  if (metadata) {
+    arrow_options->field_metadata.push_back(
+      garrow_internal_hash_table_to_metadata(metadata));
+  } else {
+    arrow_options->field_metadata.push_back(nullptr);
+  }
+}
+
 G_END_DECLS
 
 arrow::Result<arrow::FieldRef>
@@ -10882,6 +10947,11 @@ garrow_function_options_new_raw(const arrow::compute::FunctionOptions *arrow_opt
     const auto arrow_split_options =
       static_cast<const arrow::compute::SplitOptions *>(arrow_options);
     auto options = garrow_split_options_new_raw(arrow_split_options);
+    return GARROW_FUNCTION_OPTIONS(options);
+  } else if (arrow_type_name == "MakeStructOptions") {
+    const auto arrow_make_struct_options =
+      static_cast<const arrow::compute::MakeStructOptions *>(arrow_options);
+    auto options = garrow_make_struct_options_new_raw(arrow_make_struct_options);
     return GARROW_FUNCTION_OPTIONS(options);
   } else {
     auto options = g_object_new(GARROW_TYPE_FUNCTION_OPTIONS, NULL);
@@ -12035,5 +12105,22 @@ arrow::compute::SplitOptions *
 garrow_split_options_get_raw(GArrowSplitOptions *options)
 {
   return static_cast<arrow::compute::SplitOptions *>(
+    garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
+}
+
+GArrowMakeStructOptions *
+garrow_make_struct_options_new_raw(const arrow::compute::MakeStructOptions *arrow_options)
+{
+  auto options =
+    GARROW_MAKE_STRUCT_OPTIONS(g_object_new(GARROW_TYPE_MAKE_STRUCT_OPTIONS, nullptr));
+  auto arrow_new_options = garrow_make_struct_options_get_raw(options);
+  *arrow_new_options = *arrow_options;
+  return options;
+}
+
+arrow::compute::MakeStructOptions *
+garrow_make_struct_options_get_raw(GArrowMakeStructOptions *options)
+{
+  return static_cast<arrow::compute::MakeStructOptions *>(
     garrow_function_options_get_raw(GARROW_FUNCTION_OPTIONS(options)));
 }

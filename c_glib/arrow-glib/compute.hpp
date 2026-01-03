@@ -343,3 +343,9 @@ GArrowSplitOptions *
 garrow_split_options_new_raw(const arrow::compute::SplitOptions *arrow_options);
 arrow::compute::SplitOptions *
 garrow_split_options_get_raw(GArrowSplitOptions *options);
+
+GArrowMakeStructOptions *
+garrow_make_struct_options_new_raw(
+  const arrow::compute::MakeStructOptions *arrow_options);
+arrow::compute::MakeStructOptions *
+garrow_make_struct_options_get_raw(GArrowMakeStructOptions *options);

@@ -40,7 +40,7 @@ garrow_internal_hash_table_to_metadata(GHashTable *metadata)
 
 static inline GHashTable *
 garrow_internal_hash_table_from_metadata(
-  const std::shared_ptr<arrow::KeyValueMetadata> &arrow_metadata)
+  const std::shared_ptr<const arrow::KeyValueMetadata> &arrow_metadata)
 {
   auto metadata = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_free);
   const auto &keys = arrow_metadata->keys();
