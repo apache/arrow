@@ -17,6 +17,8 @@
 
 import collections
 import csv
+import email.message
+import email.utils
 import operator
 import fnmatch
 import functools
@@ -259,7 +261,7 @@ class ReportUtils:
             else:
                 smtp.starttls()
             smtp.login(smtp_user, smtp_password)
-            smtp.sendmail(smtp_user, recipient_email, message)
+            smtp.send_message(smtp_user, recipient_email, message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
@@ -278,10 +280,19 @@ class EmailReport(JinjaReport):
     }
     fields = [
         'report',
-        'sender_name',
-        'sender_email',
-        'recipient_email',
     ]
+
+    def render(self, template_name, headers):
+        message = email.message.EmailMessage()
+        message.set_charset('utf-8')
+        if 'Message-Id' not in headers:
+            message['Message-Id'] = email.utils.make_msgid()
+        if 'Date' not in headers:
+            message['Date'] = email.utils.formatdate()
+        for (key, value) in headers.items():
+            message[key] = value
+        message.set_content(super().render(template_name))
+        return message
 
 
 class CommentReport(Report):
