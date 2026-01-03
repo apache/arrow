@@ -108,6 +108,10 @@ void WriterProperties::Builder::CopyColumnSpecificProperties(
     if (col_props.encoding() != default_column_properties_.encoding()) {
       this->encoding(col_path, col_props.encoding());
     }
+
+    if (col_props.bloom_filter_options().has_value()) {
+      this->enable_bloom_filter(col_path, col_props.bloom_filter_options().value());
+    }
   }
 }
 
