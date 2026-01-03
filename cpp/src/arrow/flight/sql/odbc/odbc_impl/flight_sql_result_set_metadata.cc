@@ -222,7 +222,9 @@ Updatability FlightSqlResultSetMetadata::GetUpdatable(int column_position) {
 bool FlightSqlResultSetMetadata::IsAutoUnique(int column_position) {
   ColumnMetadata metadata = GetMetadata(schema_->field(column_position - 1));
 
-  // TODO: Is AutoUnique equivalent to AutoIncrement?
+  // AUTO_UNIQUE_VALUE (ODBC 3.0+) is equivalent to
+  // AUTO_INCREMENT (ODBC 2.0). Both indicate columns
+  // that automatically generate unique values.
   return metadata.GetIsAutoIncrement().ValueOrElse([] { return false; });
 }
 
