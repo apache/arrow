@@ -479,7 +479,7 @@ cdef class Message(_Weakrefable):
         body = self.body
         body_len = 0 if body is None else body.size
 
-        return """pyarrow.Message
+        return f"""pyarrow.Message
 type: {self.type}
 metadata length: {metadata_len}
 body length: {body_len}"""
