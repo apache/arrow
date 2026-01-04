@@ -28,18 +28,23 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_primitive.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
+#include "parquet/arrow/schema.h"
+#include "parquet/arrow/writer.h"
 #include "parquet/column_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
 
 using internal::RecordReader;
+using schema::GroupNode;
 
 namespace arrow {
 
@@ -480,6 +485,29 @@ void ExpectArrayT<::arrow::BooleanType>(void* expected, Array* result) {
   std::shared_ptr<Array> expected_array;
   ARROW_EXPECT_OK(builder.Finish(&expected_array));
   EXPECT_TRUE(result->Equals(*expected_array));
+}
+
+void WriteFile(const std::shared_ptr<WriterProperties>& writer_properties,
+               const std::shared_ptr<::arrow::Table>& table,
+               std::shared_ptr<Buffer>& buffer) {
+  // Get schema from table.
+  auto schema = table->schema();
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  auto arrow_writer_properties = default_arrow_writer_properties();
+  ASSERT_OK_NO_THROW(ToParquetSchema(schema.get(), *writer_properties,
+                                     *arrow_writer_properties, &parquet_schema));
+  auto schema_node = std::static_pointer_cast<GroupNode>(parquet_schema->schema_root());
+
+  // Write table to buffer.
+  auto sink = CreateOutputStream();
+  auto pool = ::arrow::default_memory_pool();
+  auto writer = ParquetFileWriter::Open(sink, schema_node, writer_properties);
+  std::unique_ptr<FileWriter> arrow_writer;
+  ASSERT_OK(FileWriter::Make(pool, std::move(writer), schema, arrow_writer_properties,
+                             &arrow_writer));
+  ASSERT_OK_NO_THROW(arrow_writer->WriteTable(*table));
+  ASSERT_OK_NO_THROW(arrow_writer->Close());
+  ASSERT_OK_AND_ASSIGN(buffer, sink->Finish());
 }
 
 }  // namespace arrow
