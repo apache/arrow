@@ -574,7 +574,8 @@ class ReaderMixin {
         parse_options_(parse_options),
         convert_options_(convert_options),
         count_rows_(count_rows),
-        input_(std::move(input)) {}
+        input_(std::move(input)),
+        rows_read_(std::make_shared<std::atomic<int64_t>>(0)) {}
 
  protected:
   // Read header and column names from buffer, create column builders
@@ -751,6 +752,9 @@ class ReaderMixin {
 
   std::shared_ptr<io::InputStream> input_;
   std::shared_ptr<TaskGroup> task_group_;
+
+  // Shared atomic counter for tracking rows read when max_rows is set
+  std::shared_ptr<std::atomic<int64_t>> rows_read_;
 };
 
 /////////////////////////////////////////////////////////////////////////
@@ -932,16 +936,43 @@ class StreamingReaderImpl : public ReaderMixin,
         MakeGeneratorStartsWith({block}, std::move(readahead_gen));
 
     auto bytes_decoded = bytes_decoded_;
-    auto unwrap_and_record_bytes =
-        [bytes_decoded, prev_bytes_processed](
+    auto rows_read = rows_read_;
+    auto max_rows = read_options_.max_rows;
+    auto unwrap_record_and_limit =
+        [bytes_decoded, rows_read, max_rows, prev_bytes_processed](
             const DecodedBlock& block) mutable -> Result<std::shared_ptr<RecordBatch>> {
       bytes_decoded->fetch_add(block.bytes_processed + prev_bytes_processed);
       prev_bytes_processed = 0;
-      return block.record_batch;
+
+      auto batch = block.record_batch;
+      if (max_rows <= 0 || !batch) {
+        // No limit, return batch as-is
+        return batch;
+      }
+
+      // Atomically check and update row counter
+      int64_t current_rows = rows_read->load(std::memory_order_acquire);
+      if (current_rows >= max_rows) {
+        // Already read enough rows, signal end of stream
+        return std::shared_ptr<RecordBatch>(nullptr);
+      }
+
+      int64_t batch_rows = batch->num_rows();
+      int64_t rows_to_return = std::min(batch_rows, max_rows - current_rows);
+
+      // Update counter atomically
+      rows_read->fetch_add(rows_to_return, std::memory_order_release);
+
+      if (rows_to_return < batch_rows) {
+        // Need to slice the batch to return exact number of rows
+        return batch->Slice(0, rows_to_return);
+      }
+
+      return batch;
     };
 
     auto unwrapped =
-        MakeMappedGenerator(std::move(restarted_gen), std::move(unwrap_and_record_bytes));
+        MakeMappedGenerator(std::move(restarted_gen), std::move(unwrap_record_and_limit));
 
     record_batch_gen_ = MakeCancellable(std::move(unwrapped), io_context_.stop_token());
     return Status::OK();
@@ -998,7 +1029,14 @@ class SerialTableReader : public BaseTableReader {
     }
     // Finish conversion, create schema and table
     RETURN_NOT_OK(task_group_->Finish());
-    return MakeTable();
+    ARROW_ASSIGN_OR_RAISE(auto table, MakeTable());
+
+    // Apply max_rows limit if needed
+    if (read_options_.max_rows > 0 && table->num_rows() > read_options_.max_rows) {
+      table = table->Slice(0, read_options_.max_rows);
+    }
+
+    return table;
   }
 
  protected:
@@ -1078,7 +1116,15 @@ class AsyncThreadedTableReader
           })
           .Then([self]() -> Result<std::shared_ptr<Table>> {
             // Finish conversion, create schema and table
-            return self->MakeTable();
+            ARROW_ASSIGN_OR_RAISE(auto table, self->MakeTable());
+
+            // Apply max_rows limit if needed
+            if (self->read_options_.max_rows > 0 &&
+                table->num_rows() > self->read_options_.max_rows) {
+              return table->Slice(0, self->read_options_.max_rows);
+            }
+
+            return table;
           });
     });
   }
