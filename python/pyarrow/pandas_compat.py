@@ -597,7 +597,7 @@ def dataframe_to_types(df, preserve_index, columns=None):
 
 
 def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
-                        safe=True):
+                        safe=True, truncate_date64_time=True):
     (all_names,
      column_names,
      column_field_names,
@@ -630,7 +630,8 @@ def dataframe_to_arrays(df, schema, preserve_index, nthreads=1, columns=None,
             type_ = field.type
 
         try:
-            result = pa.array(col, type=type_, from_pandas=True, safe=safe)
+            result = pa.array(col, type=type_, from_pandas=True, safe=safe,
+                              truncate_date64_time=truncate_date64_time)
         except (pa.ArrowInvalid,
                 pa.ArrowNotImplementedError,
                 pa.ArrowTypeError) as e:
