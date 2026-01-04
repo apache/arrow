@@ -415,8 +415,7 @@ TEST(TestWriteCSV, EmptyBatchAtStart) {
   // Concatenate empty table with data table
   ASSERT_OK_AND_ASSIGN(auto empty_table, Table::FromRecordBatches(schema, {empty_batch}));
   ASSERT_OK_AND_ASSIGN(auto data_table, Table::FromRecordBatches(schema, {data_batch}));
-  ASSERT_OK_AND_ASSIGN(auto combined_table,
-                       ConcatenateTables({empty_table, data_table}));
+  ASSERT_OK_AND_ASSIGN(auto combined_table, ConcatenateTables({empty_table, data_table}));
 
   ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create());
   ASSERT_OK(WriteCSV(*combined_table, WriteOptions::Defaults(), out.get()));
@@ -435,8 +434,7 @@ TEST(TestWriteCSV, EmptyBatchInMiddle) {
   auto batch2 = RecordBatchFromJSON(schema, R"([{"col1": "b"}])");
 
   ASSERT_OK_AND_ASSIGN(auto table1, Table::FromRecordBatches(schema, {batch1}));
-  ASSERT_OK_AND_ASSIGN(auto empty_table,
-                       Table::FromRecordBatches(schema, {empty_batch}));
+  ASSERT_OK_AND_ASSIGN(auto empty_table, Table::FromRecordBatches(schema, {empty_batch}));
   ASSERT_OK_AND_ASSIGN(auto table2, Table::FromRecordBatches(schema, {batch2}));
   ASSERT_OK_AND_ASSIGN(auto combined_table,
                        ConcatenateTables({table1, empty_table, table2}));
