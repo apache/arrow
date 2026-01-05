@@ -419,6 +419,16 @@ struct PyBytesView {
     return Status::OK();
   }
 
+  // Parse bytes from a uuid.UUID object (stores reference to keep bytes alive)
+  Status ParseUuid(PyObject* obj) {
+    ref.reset(PyObject_GetAttrString(obj, "bytes"));
+    RETURN_IF_PYERROR();
+    bytes = PyBytes_AS_STRING(ref.obj());
+    size = PyBytes_GET_SIZE(ref.obj());
+    is_utf8 = false;
+    return Status::OK();
+  }
+
  protected:
   OwnedRef ref;
 };
