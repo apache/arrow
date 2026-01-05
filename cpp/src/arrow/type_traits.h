@@ -1853,7 +1853,7 @@ concept CFloatingPointConcept =
 
 template <typename T>
 concept CDecimalConcept = std::is_same_v<T, Decimal32> || std::is_same_v<T, Decimal64> ||
-                          std::is_same_v<T, Decimal128> || std::is_same_v<T, Decimal256>;
+    std::is_same_v<T, Decimal128> || std::is_same_v<T, Decimal256>;
 
 /// @}
 
