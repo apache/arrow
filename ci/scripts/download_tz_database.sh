@@ -17,6 +17,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
+# Downloads IANA timezone database for use with the vendored date library
+# on Windows when not using MSVC (e.g., MinGW builds).
+
 set -ex
 
 # Download database

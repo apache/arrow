@@ -242,35 +242,3 @@ def _download_requests(url, out_path):
     with requests.get(url) as response:
         with open(out_path, 'wb') as f:
             f.write(response.content)
-
-
-def download_tzdata_on_windows():
-    r"""
-    Download and extract latest IANA timezone database into the
-    location expected by Arrow which is %USERPROFILE%\Downloads\tzdata.
-    """
-    if sys.platform != 'win32':
-        raise TypeError(f"Timezone database is already provided by {sys.platform}")
-
-    import tarfile
-
-    tzdata_url = "https://data.iana.org/time-zones/tzdata-latest.tar.gz"
-    tzdata_path = os.path.expandvars(r"%USERPROFILE%\Downloads\tzdata")
-    tzdata_compressed_path = os.path.join(tzdata_path, "tzdata.tar.gz")
-    windows_zones_url = "https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml"  # noqa
-    windows_zones_path = os.path.join(tzdata_path, "windowsZones.xml")
-    os.makedirs(tzdata_path, exist_ok=True)
-
-    # Try to download the files with requests and then fall back to urllib. This
-    # works around possible issues in certain older environment (GH-45295)
-    try:
-        _download_requests(tzdata_url, tzdata_compressed_path)
-        _download_requests(windows_zones_url, windows_zones_path)
-    except ImportError:
-        _download_urllib(tzdata_url, tzdata_compressed_path)
-        _download_urllib(windows_zones_url, windows_zones_path)
-
-    assert os.path.exists(tzdata_compressed_path)
-    assert os.path.exists(windows_zones_path)
-
-    tarfile.open(tzdata_compressed_path).extractall(tzdata_path)

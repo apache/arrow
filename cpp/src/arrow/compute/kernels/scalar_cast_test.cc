@@ -2358,15 +2358,7 @@ constexpr char kTimestampSecondsJson[] =
 constexpr char kTimestampExtremeJson[] =
     R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
 
-class CastTimezone : public ::testing::Test {
- protected:
-  void SetUp() override {
-#ifdef _WIN32
-    // Initialize timezone database on Windows
-    ASSERT_OK(InitTestTimezoneDatabase());
-#endif
-  }
-};
+class CastTimezone : public ::testing::Test {};
 
 TEST(Cast, TimestampToDate) {
   // See scalar_temporal_test.cc

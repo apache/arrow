@@ -96,21 +96,3 @@ build_info = _build_info()
 cpp_build_info = build_info.cpp_build_info
 cpp_version = build_info.cpp_build_info.version
 cpp_version_info = build_info.cpp_build_info.version_info
-
-
-def set_timezone_db_path(path):
-    """
-    Configure the path to text timezone database on Windows.
-
-    Parameters
-    ----------
-    path : str
-        Path to text timezone database.
-    """
-    cdef:
-        CGlobalOptions options
-
-    if path is not None:
-        options.timezone_db_path = <c_string>tobytes(path)
-
-    check_status(Initialize(options))
