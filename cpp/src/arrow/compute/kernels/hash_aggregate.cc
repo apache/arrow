@@ -276,46 +276,34 @@ struct AntiExtrema {
   static constexpr CType anti_max() { return std::numeric_limits<CType>::min(); }
 };
 
-template <>
-struct AntiExtrema<bool> {
-  static constexpr bool anti_min() { return true; }
-  static constexpr bool anti_max() { return false; }
+template <CBooleanConcept CType>
+struct AntiExtrema<CType> {
+  static constexpr CType anti_min() { return true; }
+  static constexpr CType anti_max() { return false; }
 };
 
-template <>
-struct AntiExtrema<float> {
-  static constexpr float anti_min() { return std::numeric_limits<float>::infinity(); }
-  static constexpr float anti_max() { return -std::numeric_limits<float>::infinity(); }
+template <CFloatingPointConcept CType>
+struct AntiExtrema<CType> {
+  static constexpr CType anti_min() { return std::numeric_limits<CType>::quiet_NaN(); }
+  static constexpr CType anti_max() { return std::numeric_limits<CType>::quiet_NaN(); }
 };
 
-template <>
-struct AntiExtrema<double> {
-  static constexpr double anti_min() { return std::numeric_limits<double>::infinity(); }
-  static constexpr double anti_max() { return -std::numeric_limits<double>::infinity(); }
+template <CDecimalConcept CType>
+struct AntiExtrema<CType> {
+  static constexpr CType anti_min() { return CType::GetMaxSentinel(); }
+  static constexpr CType anti_max() { return CType::GetMinSentinel(); }
 };
 
-template <>
-struct AntiExtrema<Decimal32> {
-  static constexpr Decimal32 anti_min() { return BasicDecimal32::GetMaxSentinel(); }
-  static constexpr Decimal32 anti_max() { return BasicDecimal32::GetMinSentinel(); }
+template <typename CType>
+struct MinMaxOp {
+  static constexpr CType min(CType a, CType b) { return std::min(a, b); }
+  static constexpr CType max(CType a, CType b) { return std::max(a, b); }
 };
 
-template <>
-struct AntiExtrema<Decimal64> {
-  static constexpr Decimal64 anti_min() { return BasicDecimal64::GetMaxSentinel(); }
-  static constexpr Decimal64 anti_max() { return BasicDecimal64::GetMinSentinel(); }
-};
-
-template <>
-struct AntiExtrema<Decimal128> {
-  static constexpr Decimal128 anti_min() { return BasicDecimal128::GetMaxSentinel(); }
-  static constexpr Decimal128 anti_max() { return BasicDecimal128::GetMinSentinel(); }
-};
-
-template <>
-struct AntiExtrema<Decimal256> {
-  static constexpr Decimal256 anti_min() { return BasicDecimal256::GetMaxSentinel(); }
-  static constexpr Decimal256 anti_max() { return BasicDecimal256::GetMinSentinel(); }
+template <CFloatingPointConcept CType>
+struct MinMaxOp<CType> {
+  static constexpr CType min(CType a, CType b) { return std::fmin(a, b); }
+  static constexpr CType max(CType a, CType b) { return std::fmax(a, b); }
 };
 
 template <typename Type, typename Enable = void>
@@ -352,8 +340,8 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
     VisitGroupedValues<Type>(
         batch,
         [&](uint32_t g, CType val) {
-          GetSet::Set(raw_mins, g, std::min(GetSet::Get(raw_mins, g), val));
-          GetSet::Set(raw_maxes, g, std::max(GetSet::Get(raw_maxes, g), val));
+          GetSet::Set(raw_mins, g, MinMaxOp<CType>::min(GetSet::Get(raw_mins, g), val));
+          GetSet::Set(raw_maxes, g, MinMaxOp<CType>::max(GetSet::Get(raw_maxes, g), val));
           bit_util::SetBit(has_values_.mutable_data(), g);
         },
         [&](uint32_t g) { bit_util::SetBit(has_nulls_.mutable_data(), g); });
@@ -373,12 +361,12 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
     auto g = group_id_mapping.GetValues<uint32_t>(1);
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
          ++other_g, ++g) {
-      GetSet::Set(
-          raw_mins, *g,
-          std::min(GetSet::Get(raw_mins, *g), GetSet::Get(other_raw_mins, other_g)));
-      GetSet::Set(
-          raw_maxes, *g,
-          std::max(GetSet::Get(raw_maxes, *g), GetSet::Get(other_raw_maxes, other_g)));
+      GetSet::Set(raw_mins, *g,
+                  MinMaxOp<CType>::min(GetSet::Get(raw_mins, *g),
+                                       GetSet::Get(other_raw_mins, other_g)));
+      GetSet::Set(raw_maxes, *g,
+                  MinMaxOp<CType>::max(GetSet::Get(raw_maxes, *g),
+                                       GetSet::Get(other_raw_maxes, other_g)));
 
       if (bit_util::GetBit(other->has_values_.data(), other_g)) {
         bit_util::SetBit(has_values_.mutable_data(), *g);
