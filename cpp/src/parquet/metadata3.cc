@@ -1174,7 +1174,7 @@ inline uint32_t CountLeadingZeros32(uint32_t v) {
   return count;
 }
 
-inline size_t ULEB32Len(uint32_t v) {
+inline int32_t ULEB32Len(uint32_t v) {
   return 1 + ((32 - CountLeadingZeros32(v | 0x1)) * 9) / 64;
 }
 
@@ -1207,7 +1207,7 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
   return;
 }
 
-::arrow::Result<size_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer) {
+::arrow::Result<int32_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer) {
   if (buf->size() < 8) return 8;
   PARQUET_THROW_NOT_OK(CheckMagicNumber(buf->data() + buf->size() - 4));
   uint32_t md_len = LoadLE32(buf->data() + buf->size() -8);
