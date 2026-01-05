@@ -186,7 +186,8 @@ struct Footer {
     std::string bytes = ReadFile(filename);
     auto md = DeserializeThrift(bytes);
     std::string flatbuf;
-    parquet::ToFlatbuffer(&md, &flatbuf);  // removes unsupported fields for fair comparison
+    // removes unsupported fields for fair comparison
+    parquet::ToFlatbuffer(&md, &flatbuf);
     return {GetBasename(filename), Serialize(md), std::move(flatbuf), std::move(md)};
   }
 };
@@ -204,7 +205,7 @@ void AppendUleb(uint32_t x, std::string* out) {
     out->push_back(c + 0x80);
     x >>= 7;
   }
-};
+}
 
 std::string AppendExtension(std::string thrift, const std::string& ext) {
   thrift.back() = '\x08';      // replace stop field with binary type

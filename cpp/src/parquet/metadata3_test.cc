@@ -17,8 +17,8 @@
 
 #include "parquet/metadata3.h"
 
-#include <fstream>
 #include <gtest/gtest.h>
+#include <fstream>
 
 #include "arrow/io/memory.h"
 #include "arrow/testing/gtest_compat.h"
@@ -50,8 +50,8 @@ class TestMetadata3RoundTrip : public ::testing::Test {
  protected:
   // Helper to verify flatbuffer is valid
   void VerifyFlatbuffer(const std::string& flatbuf) {
-    // FlatBuffers require proper alignment. When copied to a string, alignment may be lost.
-    // Create an aligned buffer for verification
+    // FlatBuffers require proper alignment. When copied to a string, alignment may be
+    // lost. Create an aligned buffer for verification
     std::vector<uint8_t> aligned_buffer(flatbuf.begin(), flatbuf.end());
     flatbuffers::Verifier verifier(aligned_buffer.data(), aligned_buffer.size());
     ASSERT_TRUE(format3::VerifyFileMetaDataBuffer(verifier));
@@ -59,7 +59,7 @@ class TestMetadata3RoundTrip : public ::testing::Test {
 
   // Helper to compare logical equivalence of Thrift FileMetaData after round-trip
   void AssertFileMetadataLogicallyEqual(const format::FileMetaData& original,
-                                         const format::FileMetaData& converted) {
+                                        const format::FileMetaData& converted) {
     // Compare file-level metadata
     ASSERT_EQ(original.version, converted.version);
     ASSERT_EQ(original.num_rows, converted.num_rows);
@@ -88,7 +88,8 @@ class TestMetadata3RoundTrip : public ::testing::Test {
         ASSERT_EQ(orig_col.path_in_schema, conv_col.path_in_schema);
 
         // Compare dictionary_page_offset
-        ASSERT_EQ(orig_col.__isset.dictionary_page_offset, conv_col.__isset.dictionary_page_offset);
+        ASSERT_EQ(orig_col.__isset.dictionary_page_offset,
+                  conv_col.__isset.dictionary_page_offset);
         if (orig_col.__isset.dictionary_page_offset) {
           ASSERT_EQ(orig_col.dictionary_page_offset, conv_col.dictionary_page_offset);
         }
@@ -114,8 +115,9 @@ class TestMetadata3RoundTrip : public ::testing::Test {
                                   orig_col.type == format::Type::FIXED_LEN_BYTE_ARRAY);
 
             if (is_byte_array) {
-              // For byte arrays, verify that truncated statistics form a conservative (wider) range
-              // converted_min <= original_min and converted_max >= original_max
+              // For byte arrays, verify that truncated statistics form a conservative
+              // (wider) range converted_min <= original_min and converted_max >=
+              // original_max
               ASSERT_LE(conv_stats.min_value, orig_stats.min_value)
                   << "Converted min should be <= original min for conservative filtering";
               ASSERT_GE(conv_stats.max_value, orig_stats.max_value)
@@ -144,8 +146,8 @@ class TestMetadata3RoundTrip : public ::testing::Test {
                                         const std::vector<std::string>& names) {
     schema::NodeVector fields;
     for (size_t i = 0; i < types.size(); ++i) {
-      fields.push_back(schema::PrimitiveNode::Make(
-          names[i], Repetition::OPTIONAL, types[i], ConvertedType::NONE));
+      fields.push_back(schema::PrimitiveNode::Make(names[i], Repetition::OPTIONAL,
+                                                   types[i], ConvertedType::NONE));
     }
     return std::static_pointer_cast<GroupNode>(
         GroupNode::Make("schema", Repetition::REQUIRED, fields));
@@ -160,9 +162,7 @@ class TestMetadata3RoundTrip : public ::testing::Test {
     auto writer_props = props;
     if (!writer_props) {
       // Enable metadata3 by default for these tests
-      writer_props = WriterProperties::Builder()
-          .enable_write_metadata3()
-          ->build();
+      writer_props = WriterProperties::Builder().enable_write_metadata3()->build();
     }
 
     auto file_writer = ParquetFileWriter::Open(sink, schema, writer_props);
@@ -293,12 +293,13 @@ TEST_F(TestMetadata3RoundTrip, DebugFlatbufferVerification) {
   ThriftDeserializer deserializer(reader_props);
   format::FileMetaData thrift_md;
   uint32_t len = static_cast<uint32_t>(thrift_serialized.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift_serialized.data()),
-                                  &len, &thrift_md);
+  deserializer.DeserializeMessage(
+      reinterpret_cast<const uint8_t*>(thrift_serialized.data()), &len, &thrift_md);
 
   // Check writer properties
   auto writer_props = WriterProperties::Builder().enable_write_metadata3()->build();
-  std::cout << "Writer properties write_metadata3(): " << (writer_props->write_metadata3() ? "TRUE" : "FALSE") << std::endl;
+  std::cout << "Writer properties write_metadata3(): "
+            << (writer_props->write_metadata3() ? "TRUE" : "FALSE") << std::endl;
 
   // Print schema info
   std::cout << "Schema size: " << thrift_md.schema.size() << std::endl;
@@ -321,12 +322,14 @@ TEST_F(TestMetadata3RoundTrip, DebugFlatbufferVerification) {
 
   // Check file size
   std::cout << "Parquet file size: " << buffer->size() << " bytes" << std::endl;
-  std::cout << "Thrift metadata size: " << thrift_serialized.size() << " bytes" << std::endl;
+  std::cout << "Thrift metadata size: " << thrift_serialized.size() << " bytes"
+            << std::endl;
 
   // Extract the flatbuffer from the file
   std::string extracted_flatbuf;
   auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
-  std::cout << "ExtractFlatbuffer result: " << result.ok() << ", size: " << *result << std::endl;
+  std::cout << "ExtractFlatbuffer result: " << result.ok() << ", size: " << *result
+            << std::endl;
 
   // Check the last few bytes of metadata to see if flatbuffer marker is there
   if (buffer->size() > 100) {
@@ -360,19 +363,24 @@ TEST_F(TestMetadata3RoundTrip, DebugFlatbufferVerification) {
 
     // Also check if we can read it
     auto fmd = format3::GetFileMetaData(extracted_flatbuf.data());
-    std::cout << "Can read FileMetaData: " << (fmd != nullptr ? "YES" : "NO") << std::endl;
+    std::cout << "Can read FileMetaData: " << (fmd != nullptr ? "YES" : "NO")
+              << std::endl;
     if (fmd) {
       std::cout << "Version: " << fmd->version() << std::endl;
       std::cout << "Num rows: " << fmd->num_rows() << std::endl;
     }
 
-    ASSERT_TRUE(valid) << "Flatbuffer verification should pass for writer-created flatbuffers";
+    ASSERT_TRUE(valid)
+        << "Flatbuffer verification should pass for writer-created flatbuffers";
   } else {
     std::cout << "No flatbuffer found in file" << std::endl;
     if (!converted) {
-      std::cout << "Reason: ToFlatbuffer() returned false - metadata cannot be converted" << std::endl;
+      std::cout << "Reason: ToFlatbuffer() returned false - metadata cannot be converted"
+                << std::endl;
     } else {
-      std::cout << "ToFlatbuffer succeeded but flatbuffer not found in file - writer may not be using it" << std::endl;
+      std::cout << "ToFlatbuffer succeeded but flatbuffer not found in file - writer may "
+                   "not be using it"
+                << std::endl;
     }
   }
 }
@@ -404,10 +412,13 @@ TEST_F(TestMetadata3RoundTrip, Int32Columns) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
@@ -437,17 +448,19 @@ TEST_F(TestMetadata3RoundTrip, Int64Columns) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
 // Test round-trip with FLOAT and DOUBLE columns
 TEST_F(TestMetadata3RoundTrip, FloatDoubleColumns) {
-  auto schema =
-      MakeSchema({Type::FLOAT, Type::DOUBLE}, {"float_col", "double_col"});
+  auto schema = MakeSchema({Type::FLOAT, Type::DOUBLE}, {"float_col", "double_col"});
   auto buffer = WriteParquetFile(schema, /*num_rowgroups=*/2, /*rows_per_rowgroup=*/100);
 
   // Read back without metadata3 to get Thrift metadata
@@ -471,10 +484,13 @@ TEST_F(TestMetadata3RoundTrip, FloatDoubleColumns) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
@@ -504,19 +520,22 @@ TEST_F(TestMetadata3RoundTrip, ByteArrayColumns) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
 // Test round-trip with FIXED_LEN_BYTE_ARRAY columns
 TEST_F(TestMetadata3RoundTrip, FixedLenByteArrayColumns) {
   schema::NodeVector fields;
-  fields.push_back(schema::PrimitiveNode::Make(
-      "flba_col", Repetition::OPTIONAL, Type::FIXED_LEN_BYTE_ARRAY,
-      ConvertedType::NONE, FLBA_LENGTH));
+  fields.push_back(schema::PrimitiveNode::Make("flba_col", Repetition::OPTIONAL,
+                                               Type::FIXED_LEN_BYTE_ARRAY,
+                                               ConvertedType::NONE, FLBA_LENGTH));
   auto schema = std::static_pointer_cast<GroupNode>(
       GroupNode::Make("schema", Repetition::REQUIRED, fields));
 
@@ -543,10 +562,13 @@ TEST_F(TestMetadata3RoundTrip, FixedLenByteArrayColumns) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
@@ -578,10 +600,13 @@ TEST_F(TestMetadata3RoundTrip, MixedColumnTypes) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
@@ -599,8 +624,8 @@ TEST_F(TestMetadata3RoundTrip, AppendAndExtractFlatbuffer) {
   ThriftDeserializer deserializer(reader_props);
   format::FileMetaData original_md;
   uint32_t len = static_cast<uint32_t>(thrift_serialized.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift_serialized.data()),
-                                  &len, &original_md);
+  deserializer.DeserializeMessage(
+      reinterpret_cast<const uint8_t*>(thrift_serialized.data()), &len, &original_md);
 
   // Convert to flatbuffer
   std::string flatbuf;
@@ -678,8 +703,7 @@ TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferRoundTrip) {
 
   // Now extract the flatbuffer
   auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(thrift_str.data()),
-      thrift_str.size());
+      reinterpret_cast<const uint8_t*>(thrift_str.data()), thrift_str.size());
 
   std::string extracted_flatbuf;
   auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
@@ -706,8 +730,7 @@ TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferNotPresent) {
   mock_thrift.append(footer, 8);
 
   auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(mock_thrift.data()),
-      mock_thrift.size());
+      reinterpret_cast<const uint8_t*>(mock_thrift.data()), mock_thrift.size());
 
   std::string extracted_flatbuf;
   auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
@@ -723,8 +746,7 @@ TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferBufferTooSmall) {
   // Create a buffer with less than 8 bytes
   std::string small_data = "PAR1";
   auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(small_data.data()),
-      small_data.size());
+      reinterpret_cast<const uint8_t*>(small_data.data()), small_data.size());
 
   std::string extracted_flatbuf;
   auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
@@ -779,8 +801,7 @@ TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferCompressed) {
 
   // Extract
   auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(thrift_str.data()),
-      thrift_str.size());
+      reinterpret_cast<const uint8_t*>(thrift_str.data()), thrift_str.size());
 
   std::string extracted_flatbuf;
   auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
@@ -806,21 +827,18 @@ TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferInvalidMagic) {
   std::memcpy(footer + 4, "XXXX", 4);  // Invalid magic
   data.append(footer, 8);
 
-  auto buffer = std::make_shared<Buffer>(
-      reinterpret_cast<const uint8_t*>(data.data()),
-      data.size());
+  auto buffer = std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(data.data()),
+                                         data.size());
 
   std::string extracted_flatbuf;
   // ExtractFlatbuffer throws an exception for invalid magic number
-  EXPECT_THROW({
-    ExtractFlatbuffer(buffer, &extracted_flatbuf);
-  }, ParquetException);
+  EXPECT_THROW({ ExtractFlatbuffer(buffer, &extracted_flatbuf); }, ParquetException);
 }
 
 // Test with large number of row groups
 TEST_F(TestMetadata3RoundTrip, ManyRowGroups) {
-  auto schema = MakeSchema({Type::INT32, Type::INT64, Type::FLOAT},
-                          {"col1", "col2", "col3"});
+  auto schema =
+      MakeSchema({Type::INT32, Type::INT64, Type::FLOAT}, {"col1", "col2", "col3"});
   auto buffer = WriteParquetFile(schema, /*num_rowgroups=*/10, /*rows_per_rowgroup=*/50);
 
   // Read back without metadata3 to get Thrift metadata
@@ -844,17 +862,20 @@ TEST_F(TestMetadata3RoundTrip, ManyRowGroups) {
   format::FileMetaData md1, md2;
   uint32_t len1 = static_cast<uint32_t>(thrift1.size());
   uint32_t len2 = static_cast<uint32_t>(thrift2.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1, &md1);
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2, &md2);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift1.data()), &len1,
+                                  &md1);
+  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift2.data()), &len2,
+                                  &md2);
 
-  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be equivalent
+  // Compare: metadata read from Thrift vs metadata read from Flatbuffer should be
+  // equivalent
   AssertFileMetadataLogicallyEqual(md1, md2);
 }
 
 // Test flatbuffer size is smaller than thrift for typical cases
 TEST_F(TestMetadata3RoundTrip, FlatbufferSizeComparison) {
   auto schema = MakeSchema({Type::INT32, Type::INT64, Type::FLOAT, Type::DOUBLE},
-                          {"col1", "col2", "col3", "col4"});
+                           {"col1", "col2", "col3", "col4"});
   auto buffer = WriteParquetFile(schema, /*num_rowgroups=*/5, /*rows_per_rowgroup=*/100);
 
   auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
@@ -866,8 +887,8 @@ TEST_F(TestMetadata3RoundTrip, FlatbufferSizeComparison) {
   ThriftDeserializer deserializer(reader_props);
   format::FileMetaData original_md;
   uint32_t len = static_cast<uint32_t>(thrift_serialized.size());
-  deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(thrift_serialized.data()),
-                                  &len, &original_md);
+  deserializer.DeserializeMessage(
+      reinterpret_cast<const uint8_t*>(thrift_serialized.data()), &len, &original_md);
 
   std::string flatbuf;
   ASSERT_TRUE(ToFlatbuffer(&original_md, &flatbuf));

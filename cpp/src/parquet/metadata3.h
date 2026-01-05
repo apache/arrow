@@ -65,7 +65,7 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift);
 // Returns the size of the flatbuffer if found (and writes to out_flatbuffer),
 // returns 0 if no flatbuffer extension is present, or returns the required
 // buffer size if the input buffer is too small.
-::arrow::Result<size_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer);
+::arrow::Result<int32_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer);
 
 }  // using namespace parquet
 
