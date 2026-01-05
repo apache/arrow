@@ -156,21 +156,15 @@ std::string format(const char* fmt, const Duration& d) {
   return std::vformat(std::string("{:") + fmt + "}", std::make_format_args(d));
 }
 
-// Literals namespace
-namespace literals {
-// Month literals
 inline constexpr std::chrono::month jan = std::chrono::January;
 inline constexpr std::chrono::month dec = std::chrono::December;
 
-// Weekday literals
 inline constexpr std::chrono::weekday sun = std::chrono::Sunday;
 inline constexpr std::chrono::weekday mon = std::chrono::Monday;
 inline constexpr std::chrono::weekday wed = std::chrono::Wednesday;
 inline constexpr std::chrono::weekday thu = std::chrono::Thursday;
 
-// last specifier
 inline constexpr std::chrono::last_spec last = std::chrono::last;
-}  // namespace literals
 
 #else  // !ARROW_USE_STD_CHRONO
 
@@ -251,8 +245,6 @@ std::basic_ostream<CharT, Traits>& to_stream(
   return vendored::to_stream(os, fmt, zt);
 }
 
-// Literals namespace
-namespace literals {
 inline constexpr vendored::month jan = vendored::jan;
 inline constexpr vendored::month dec = vendored::dec;
 
@@ -262,7 +254,6 @@ inline constexpr vendored::weekday wed = vendored::wed;
 inline constexpr vendored::weekday thu = vendored::thu;
 
 inline constexpr vendored::last_spec last = vendored::last;
-}  // namespace literals
 
 #endif  // ARROW_USE_STD_CHRONO
 
