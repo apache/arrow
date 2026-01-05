@@ -41,6 +41,7 @@
 // transitions between rule sets in tzdata.zi (e.g., Australia/Broken_Hill around
 // 2000-02-29 23:23:24).
 // Until this is fixed, we use the vendored date.h library for GCC.
+// See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
 
 #if defined(_MSC_VER) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
 #  define ARROW_USE_STD_CHRONO 1
