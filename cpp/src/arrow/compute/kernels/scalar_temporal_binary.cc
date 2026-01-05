@@ -41,25 +41,25 @@ namespace chrono = arrow::internal::chrono;
 namespace {
 
 using chrono::days;
+using chrono::dec;
 using chrono::floor;
 using chrono::hh_mm_ss;
+using chrono::jan;
+using chrono::last;
 using chrono::local_days;
 using chrono::local_time;
+using chrono::mon;
+using chrono::sun;
 using chrono::sys_days;
 using chrono::sys_time;
+using chrono::thu;
 using chrono::trunc;
+using chrono::wed;
 using chrono::weekday;
 using chrono::weeks;
 using chrono::year_month_day;
 using chrono::year_month_weekday;
 using chrono::years;
-using chrono::dec;
-using chrono::jan;
-using chrono::last;
-using chrono::mon;
-using chrono::sun;
-using chrono::thu;
-using chrono::wed;
 using internal::applicator::ScalarBinaryNotNullStatefulEqualTypes;
 
 using DayOfWeekState = OptionsWrapper<DayOfWeekOptions>;
