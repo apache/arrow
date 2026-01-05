@@ -2079,13 +2079,13 @@ def test_max_rows_basic():
     opts = ReadOptions(max_rows=2)
     table = read_csv(io.BytesIO(rows), read_options=opts)
     assert table.num_rows == 2
-    assert table.to_pydict() == {"a": ["1", "4"], "b": ["2", "5"], "c": ["3", "6"]}
+    assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
 
     # Read 1 row
     opts = ReadOptions(max_rows=1)
     table = read_csv(io.BytesIO(rows), read_options=opts)
     assert table.num_rows == 1
-    assert table.to_pydict() == {"a": ["1"], "b": ["2"], "c": ["3"]}
+    assert table.to_pydict() == {"a": [1], "b": [2], "c": [3]}
 
     # Read more than available (should return all)
     opts = ReadOptions(max_rows=100)
@@ -2101,7 +2101,7 @@ def test_max_rows_with_skip_rows():
     table = read_csv(io.BytesIO(rows), read_options=opts)
     assert table.num_rows == 2
     assert list(table.column_names) == ["a", "b", "c"]
-    assert table.to_pydict() == {"a": ["1", "4"], "b": ["2", "5"], "c": ["3", "6"]}
+    assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
 
 
 def test_max_rows_with_skip_rows_after_names():
@@ -2111,7 +2111,7 @@ def test_max_rows_with_skip_rows_after_names():
     opts = ReadOptions(skip_rows_after_names=2, max_rows=2)
     table = read_csv(io.BytesIO(rows), read_options=opts)
     assert table.num_rows == 2
-    assert table.to_pydict() == {"a": ["1", "4"], "b": ["2", "5"], "c": ["3", "6"]}
+    assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
 
 
 def test_max_rows_edge_cases():
