@@ -39,10 +39,6 @@ using internal::StringFormatter;
 
 namespace compute {
 
-TEST(ChronoConfig, LogChronoBackend) {
-  std::cout << "ARROW_USE_STD_CHRONO=" << ARROW_USE_STD_CHRONO << std::endl;
-}
-
 class ScalarTemporalTest : public ::testing::Test {
  public:
   const char* date32s =
