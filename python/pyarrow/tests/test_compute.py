@@ -203,14 +203,14 @@ def test_option_class_equality(request):
                        first_week_is_fully_in_year=False),
         pc.ZeroFillOptions(4, "0"),
     ]
-    # Timezone database might not be installed on Windows or Emscripten
+    # Timezone database might not be installed on Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database might not be installed on Windows or Emscripten
+        # Timezone database might not be installed on Emscripten
         if (
             cls not in classes
             and (request.config.pyarrow.is_enabled["timezone_data"])
@@ -2547,7 +2547,7 @@ def test_extract_datetime_components(request):
 
     # Test timezone aware timestamp array
     if not request.config.pyarrow.is_enabled["timezone_data"]:
-        pytest.skip('Timezone database is not installed on Windows')
+        pytest.skip('Timezone database is not available')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)

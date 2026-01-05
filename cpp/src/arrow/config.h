@@ -64,13 +64,6 @@ struct RuntimeInfo {
 
   /// The SIMD level available on the OS and CPU
   std::string detected_simd_level;
-
-  /// Whether using the OS-based timezone database
-  /// This is set at compile-time.
-  bool using_os_timezone_db;
-
-  /// The path to the timezone database; by default None.
-  std::optional<std::string> timezone_db_path;
 };
 
 /// \brief Get runtime build info.
@@ -85,14 +78,5 @@ const BuildInfo& GetBuildInfo();
 ///
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
-
-struct GlobalOptions {
-  /// Path to text timezone database. This is only configurable on Windows,
-  /// which does not have a compatible OS timezone database.
-  std::optional<std::string> timezone_db_path;
-};
-
-ARROW_EXPORT
-Status Initialize(const GlobalOptions& options) noexcept;
 
 }  // namespace arrow

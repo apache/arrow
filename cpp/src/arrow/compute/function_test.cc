@@ -95,11 +95,9 @@ TEST(FunctionOptions, Equality) {
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::MILLI, true));
   options.emplace_back(new StrptimeOptions("%Y", TimeUnit::type::NANO));
   options.emplace_back(new StrftimeOptions("%Y-%m-%dT%H:%M:%SZ", "C"));
-#ifndef _WIN32
   options.emplace_back(new AssumeTimezoneOptions(
       "Europe/Amsterdam", AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE,
       AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE));
-#endif
   options.emplace_back(new PadOptions(5, " "));
   options.emplace_back(new PadOptions(10, "A"));
   options.emplace_back(new PadOptions(10, "A", false));

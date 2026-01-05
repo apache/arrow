@@ -112,13 +112,6 @@ UnionTypeFactories() {
 // Status
 ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 
-// Return the value of the ARROW_TIMEZONE_DATABASE environment variable
-ARROW_TESTING_EXPORT std::optional<std::string> GetTestTimezoneDatabaseRoot();
-
-// Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable
-// This is only relevant on Windows, since other OSs have compatible databases built-in
-ARROW_TESTING_EXPORT Status InitTestTimezoneDatabase();
-
 // Get a TCP port number to listen on.  This is a different number every time,
 // as reusing the same port across tests can produce spurious bind errors on
 // Windows.

@@ -22,7 +22,6 @@ import pyarrow as pa
 from pyarrow import Codec
 from pyarrow import fs
 from pyarrow.lib import is_threading_enabled
-from pyarrow.tests.util import windows_has_tzdata
 import sys
 
 
@@ -108,9 +107,7 @@ if sys.platform == "emscripten":
     defaults['processes'] = False
     defaults['sockets'] = False
 
-if sys.platform == "win32":
-    defaults['timezone_data'] = windows_has_tzdata()
-elif sys.platform == "emscripten":
+if sys.platform == "emscripten":
     defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:

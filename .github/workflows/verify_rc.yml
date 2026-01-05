@@ -228,9 +228,6 @@ jobs:
         run: |
           choco install --no-progress --yes boost-msvc-14.1
           choco install --no-progress --yes wget
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
       - name: Run verification
         env:
           GH_TOKEN: ${{ github.token }}
