@@ -327,7 +327,7 @@ def arrays(draw, type, size=None, nullable=True):
         value = st.dates()
     elif pa.types.is_timestamp(ty):
         if zoneinfo is None:
-            pytest.skip('no module named zoneinfo (or tzdata on Windows)')
+            pytest.skip('no module named zoneinfo')
         if ty.tz is None:
             pytest.skip('requires timezone not None')
         min_int64 = -(2**63)
