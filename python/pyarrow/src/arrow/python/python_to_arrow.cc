@@ -36,6 +36,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
 #include "arrow/chunked_array.h"
+#include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
@@ -512,7 +513,12 @@ class PyValue {
 
   static Status Convert(const FixedSizeBinaryType* type, const O&, I obj,
                         PyBytesView& view) {
-    ARROW_RETURN_NOT_OK(view.ParseString(obj));
+    // Check if obj is a uuid.UUID instance
+    if (type->byte_width() == 16 && internal::IsPyUuid(obj)) {
+      ARROW_RETURN_NOT_OK(view.ParseUuid(obj));
+    } else {
+      ARROW_RETURN_NOT_OK(view.ParseString(obj));
+    }
     if (view.size != type->byte_width()) {
       std::stringstream ss;
       ss << "expected to be length " << type->byte_width() << " was " << view.size;
@@ -1268,9 +1274,16 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
   // In some cases, type inference may be "loose", like strings. If the user
   // passed pa.string(), then we will error if we encounter any non-UTF8
   // value. If not, then we will allow the result to be a BinaryArray
+  std::shared_ptr<DataType> extension_type;
   if (options.type == nullptr) {
     ARROW_ASSIGN_OR_RAISE(options.type, InferArrowType(seq, mask, options.from_pandas));
     options.strict = false;
+    // If type inference returned an extension type, convert using
+    // the storage type and then wrap the result as an extension array
+    if (options.type->id() == Type::EXTENSION) {
+      extension_type = options.type;
+      options.type = checked_cast<const ExtensionType&>(*options.type).storage_type();
+    }
   } else {
     options.strict = true;
   }
@@ -1278,6 +1291,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
 
   ARROW_ASSIGN_OR_RAISE(auto converter, (MakeConverter<PyConverter, PyConverterTrait>(
                                             options.type, options, pool)));
+  std::shared_ptr<ChunkedArray> result;
   if (converter->may_overflow()) {
     // The converter hierarchy contains binary- or list-like builders which can overflow
     // depending on the input values. Wrap the converter with a chunker which detects
@@ -1288,7 +1302,7 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     } else {
       RETURN_NOT_OK(chunked_converter->Extend(seq, size));
     }
-    return chunked_converter->ToChunkedArray();
+    ARROW_ASSIGN_OR_RAISE(result, chunked_converter->ToChunkedArray());
   } else {
     // If the converter can't overflow spare the capacity error checking on the hot-path,
     // this improves the performance roughly by ~10% for primitive types.
@@ -1297,8 +1311,13 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     } else {
       RETURN_NOT_OK(converter->Extend(seq, size));
     }
-    return converter->ToChunkedArray();
+    ARROW_ASSIGN_OR_RAISE(result, converter->ToChunkedArray());
   }
+  // If we inferred an extension type, wrap as an extension array
+  if (extension_type != nullptr) {
+    return ExtensionType::WrapArray(extension_type, result);
+  }
+  return result;
 }
 
 }  // namespace py
