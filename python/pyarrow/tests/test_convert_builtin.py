@@ -1381,18 +1381,13 @@ def test_sequence_timestamp_nanoseconds():
                                                       23, 34, 123456)
 
 
-@pytest.mark.pandas
 @pytest.mark.timezone_data
 def test_sequence_timestamp_from_int_with_unit():
-    # TODO(wesm): This test might be rewritten to assert the actual behavior
-    # when pandas is not installed
-
     data = [1]
 
     s = pa.timestamp('s')
     ms = pa.timestamp('ms')
     us = pa.timestamp('us')
-    ns = pa.timestamp('ns')
 
     arr_s = pa.array(data, type=s)
     assert len(arr_s) == 1
@@ -1418,22 +1413,71 @@ def test_sequence_timestamp_from_int_with_unit():
     )
     assert str(arr_us[0]) == "1970-01-01 00:00:00.000001"
 
-    arr_ns = pa.array(data, type=ns)
-    assert len(arr_ns) == 1
-    assert arr_ns.type == ns
-    assert repr(arr_ns[0].as_py()) == (
-        "Timestamp('1970-01-01 00:00:00.000000001')"
-    )
-    assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
-
     expected_exc = TypeError
 
     class CustomClass():
         pass
 
-    for ty in [ns, pa.date32(), pa.date64()]:
+    for ty in [pa.timestamp('ns'), pa.date32(), pa.date64()]:
         with pytest.raises(expected_exc):
             pa.array([1, CustomClass()], type=ty)
+
+
+@pytest.mark.pandas
+@pytest.mark.timezone_data
+def test_sequence_timestamp_from_int_with_unit_nanosecond():
+    # With pandas installed, nanosecond timestamps return pd.Timestamp
+    # with full nanosecond precision (see scalar.pxi in _datetime_from_int)
+    import pandas as pd
+
+    data = [1]
+    ns = pa.timestamp('ns')
+
+    arr_ns = pa.array(data, type=ns)
+    assert len(arr_ns) == 1
+    assert arr_ns.type == ns
+
+    result = arr_ns[0].as_py()
+    assert isinstance(result, pd.Timestamp)
+    assert repr(result) == (
+        "Timestamp('1970-01-01 00:00:00.000000001')"
+    )
+    assert str(arr_ns[0]) == "1970-01-01 00:00:00.000000001"
+
+
+@pytest.mark.nopandas
+@pytest.mark.timezone_data
+def test_sequence_timestamp_from_int_nanosecond_without_pandas():
+    # Without pandas, nanosecond timestamps raise ValueError if value
+    # is not safely convertible to microseconds (value % 1000 != 0)
+    data = [1]
+    ns = pa.timestamp('ns')
+
+    arr_ns = pa.array(data, type=ns)
+    assert len(arr_ns) == 1
+    assert arr_ns.type == ns
+
+    with pytest.raises(ValueError, match="not safely convertible to microseconds"):
+        arr_ns[0].as_py()
+
+
+@pytest.mark.nopandas
+@pytest.mark.timezone_data
+def test_sequence_timestamp_from_int_nanosecond_divisible_without_pandas():
+    # Without pandas, nanosecond timestamps that are divisible by 1000
+    # can be safely converted to microseconds (value % 1000 == 0)
+    data = [1000]
+    ns = pa.timestamp('ns')
+
+    arr_ns = pa.array(data, type=ns)
+    assert len(arr_ns) == 1
+    assert arr_ns.type == ns
+
+    result = arr_ns[0].as_py()
+    assert repr(result) == (
+        "datetime.datetime(1970, 1, 1, 0, 0, 0, 1)"
+    )
+    assert str(arr_ns[0]) == "1970-01-01 00:00:00.000001"
 
 
 def test_sequence_duration():
