@@ -366,8 +366,6 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
-          export LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
-          echo ODBC_INCLUDE_DIR="$LIBIODBC_DIR/include" >> $GITHUB_ENV
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -392,6 +390,8 @@ jobs:
           # include path. So we disable -Werror to avoid build error
           # by warnings from packages installed by Homebrew.
           export BUILD_WARNING_LEVEL=PRODUCTION
+          LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
+          export ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Test
