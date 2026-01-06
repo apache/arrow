@@ -709,6 +709,11 @@ TEST_F(ScalarTemporalTest, TestIsLeapYear) {
 }
 
 TEST_F(ScalarTemporalTest, TestZoned1) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   std::vector<std::string> timezones = {"Pacific/Marquesas", "-09:30"};
   for (const auto& timezone : timezones) {
     auto unit = timestamp(TimeUnit::NANO, timezone);
@@ -807,6 +812,11 @@ TEST_F(ScalarTemporalTest, TestZoned1) {
 }
 
 TEST_F(ScalarTemporalTest, TestZoned2) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   for (auto u : TimeUnit::values()) {
     auto unit = timestamp(u, "Australia/Broken_Hill");
     auto month = "[1, 3, 1, 5, 1, 12, 12, 12, 1, 1, 1, 1, 12, 12, 12, 1, null]";
@@ -2768,6 +2778,11 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilUTC) {
 }
 
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, CeilZoned) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   std::string op = "ceil_temporal";
 
   // Data for tests below was generated via lubridate with the exception
@@ -3158,6 +3173,11 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorUTC) {
 }
 
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, FloorZoned) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   std::string op = "floor_temporal";
 
   // Data for tests below was generated via lubridate with the exception
@@ -3591,6 +3611,11 @@ TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundUTC) {
 }
 
 TEST_F(ScalarTemporalTestMultipleSinceGreaterUnit, RoundZoned) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   std::string op = "round_temporal";
 
   // Data for tests below was generated via lubridate with the exception
