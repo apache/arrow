@@ -274,16 +274,15 @@ struct GroupedCountImpl : public GroupedAggregator {
 // XXX: Consider making these concepts complete and moving to public header.
 
 template <typename T>
-concept CBooleanConcept = std::is_same_v<T, bool>;
+concept CBooleanConcept = std::same_as<T, bool>;
 
 // XXX: Ideally we want to have std::floating_point<Float16> = true.
 template <typename T>
-concept CFloatingPointConcept =
-    std::floating_point<T> || std::is_same_v<T, util::Float16>;
+concept CFloatingPointConcept = std::floating_point<T> || std::same_as<T, util::Float16>;
 
 template <typename T>
-concept CDecimalConcept = std::is_same_v<T, Decimal32> || std::is_same_v<T, Decimal64> ||
-    std::is_same_v<T, Decimal128> || std::is_same_v<T, Decimal256>;
+concept CDecimalConcept = std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||
+    std::same_as<T, Decimal128> || std::same_as<T, Decimal256>;
 
 template <typename CType>
 struct AntiExtrema {
