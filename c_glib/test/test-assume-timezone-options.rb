@@ -45,6 +45,7 @@ class TestAssumeTimezoneOptions < Test::Unit::TestCase
   end
 
   def test_assume_timezone_function
+    omit("std::chrono not available on Windows MinGW") if Gem.win_platform?
     args = [
       Arrow::ArrayDatum.new(build_timestamp_array(:milli, [1504953190000])),
     ]
