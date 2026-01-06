@@ -17,6 +17,8 @@
 
 #include "./arrow_types.h"
 
+#include <optional>
+
 #include <arrow/config.h>
 
 // [[arrow::export]]
@@ -30,4 +32,16 @@ std::vector<std::string> build_info() {
 std::vector<std::string> runtime_info() {
   auto info = arrow::GetRuntimeInfo();
   return {info.simd_level, info.detected_simd_level};
+}
+
+// [[arrow::export]]
+void set_timezone_database(cpp11::strings path) {
+  auto paths = cpp11::as_cpp<std::vector<std::string>>(path);
+  if (path.size() != 1) {
+    cpp11::stop("Must provide a single path to the timezone database.");
+  }
+
+  arrow::GlobalOptions options;
+  options.timezone_db_path = std::make_optional(paths[0]);
+  arrow::StopIfNotOk(arrow::Initialize(options));
 }

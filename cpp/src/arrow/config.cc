@@ -78,4 +78,18 @@ RuntimeInfo GetRuntimeInfo() {
   return info;
 }
 
+Status Initialize(const GlobalOptions& options) noexcept {
+  if (options.timezone_db_path.has_value()) {
+#if !USE_OS_TZDB
+    try {
+      arrow_vendored::date::set_install(options.timezone_db_path.value());
+      arrow_vendored::date::reload_tzdb();
+    } catch (const std::runtime_error& e) {
+      return Status::IOError(e.what());
+    }
+#endif
+  }
+  return Status::OK();
+}
+
 }  // namespace arrow
