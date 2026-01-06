@@ -32,7 +32,7 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 description = "Python library for Apache Arrow"
 readme = {file = "README.md", content-type = "text/markdown"}
-license = "Apache-2.0"
+license = {text = "Apache-2.0"}
 license-files = [
     "LICENSE.txt",
     "NOTICE.txt",
