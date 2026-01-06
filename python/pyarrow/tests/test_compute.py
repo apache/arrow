@@ -883,6 +883,38 @@ def test_generated_docstrings():
             Alternative way of passing options.
         memory_pool : pyarrow.MemoryPool, optional
             If not passed, will allocate memory from the default memory pool.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import pyarrow.compute as pc
+        >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+        >>> pc.min_max(arr1)
+
+        Using `skip_nulls` to handle null values.
+
+        <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
+        >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+        >>> pc.min_max(arr2)
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr2, skip_nulls=False)
+        <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+        Using `ScalarAggregateOptions` to control minimum number of non-null values.
+
+        >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+        >>> pc.min_max(arr3)
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+        <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+        >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+        <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+        This function also works with string values.
+
+        >>> arr4 = pa.array(["z", None, "y", "x"])
+        >>> pc.min_max(arr4)
+        <pyarrow.StructScalar: [('min', 'x'), ('max', 'z')]>
         """)
     # Without options
     assert pc.add.__doc__ == textwrap.dedent("""\
