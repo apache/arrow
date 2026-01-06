@@ -35,6 +35,7 @@ class TestStrftimeOptions < Test::Unit::TestCase
   end
 
   def test_strftime_function
+    omit("Missing tzdata on Windows") if Gem.win_platform?
     args = [
       Arrow::ArrayDatum.new(build_timestamp_array(:milli, [1504953190854])),
     ]
