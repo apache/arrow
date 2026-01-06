@@ -348,9 +348,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
       - uses: msys2/setup-msys2@v2
         with:
           msystem: ${{ matrix.msystem_upper }}
