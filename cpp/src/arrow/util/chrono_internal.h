@@ -39,15 +39,20 @@
 // eliminating the need for users to install IANA tzdata separately.
 //
 // On Windows with MinGW/GCC: libstdc++ reads tzdata files via TZDIR env var.
-// The tzdata files must be provided (e.g., via the tzdb R package).
+// Set TZDIR=/usr/share/zoneinfo to use the system tzdata.
 //
 // On non-Windows: GCC libstdc++ has a bug where DST state is incorrectly reset when
 // a timezone transitions between rule sets (e.g., Australia/Broken_Hill around
 // 2000-02-29). Until this is fixed, we use the vendored date.h library.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
 
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-#  define ARROW_USE_STD_CHRONO 1
+#if defined(_WIN32)
+// On Windows, use std::chrono if available (MSVC or MinGW with C++20 support)
+#  if defined(_MSC_VER) || (defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L)
+#    define ARROW_USE_STD_CHRONO 1
+#  else
+#    define ARROW_USE_STD_CHRONO 0
+#  endif
 #else
 #  define ARROW_USE_STD_CHRONO 0
 #endif
