@@ -364,14 +364,14 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
   return Status::OK();
 }
 
-// Cast buffer from FromType to ToType with optional overflow checking.
+// Downcast buffer from FromType to ToType with optional overflow checking.
 // This function only supports narrowing casts (FromType wider than ToType).
 // Do not use this function for widening casts (ToType wider than FromType).
 template <typename FromType, typename ToType>
-Status StaticCastBuffer(const Buffer& input, int64_t length, MemoryPool* pool,
-                        const uint8_t* null_bitmap,
-                        const compute::CastOptions& cast_options,
-                        std::shared_ptr<Buffer>* out) {
+Status StaticDowncastBuffer(const Buffer& input, int64_t length, MemoryPool* pool,
+                            const uint8_t* null_bitmap,
+                            const compute::CastOptions& cast_options,
+                            std::shared_ptr<Buffer>* out) {
   ARROW_ASSIGN_OR_RAISE(auto result, AllocateBuffer(sizeof(ToType) * length, pool));
 
   auto in_values = reinterpret_cast<const FromType*>(input.data());
@@ -516,7 +516,7 @@ inline Status NumPyConverter::ConvertData<Date32Type>(std::shared_ptr<Buffer>* d
     if (date_dtype->meta.base == NPY_FR_D) {
       // Downcast from int64 to int32 with overflow checking
       const uint8_t* null_bitmap_ptr = null_bitmap_ ? null_bitmap_->data() : nullptr;
-      RETURN_NOT_OK((StaticCastBuffer<int64_t, int32_t>(
+      RETURN_NOT_OK((StaticDowncastBuffer<int64_t, int32_t>(
           **data, length_, pool_, null_bitmap_ptr, cast_options_, data)));
     } else {
       ARROW_ASSIGN_OR_RAISE(input_type, NumPyDtypeToArrow(dtype_));
