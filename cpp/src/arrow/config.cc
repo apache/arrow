@@ -78,6 +78,8 @@ RuntimeInfo GetRuntimeInfo() {
   return info;
 }
 
+// TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
+// https://github.com/apache/arrow/issues/48743
 Status Initialize(const GlobalOptions& options) noexcept {
   if (options.timezone_db_path.has_value()) {
 #if !USE_OS_TZDB

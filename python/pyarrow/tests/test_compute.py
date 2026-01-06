@@ -2381,9 +2381,18 @@ def test_strftime():
             for fmt in formats:
                 options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
-                # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
-                assert result.equals(expected)
+                if sys.platform == "win32" and fmt == "%Z":
+                    # TODO(GH-48743): On Windows, std::chrono returns GMT
+                    # offset style (e.g. "GMT+1") instead of timezone
+                    # abbreviations (e.g. "CET")
+                    # https://github.com/apache/arrow/issues/48743
+                    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+                    for val in result:
+                        assert val.as_py() is None or val.as_py().startswith("GMT") \
+                            or val.as_py() == "UTC"
+                else:
+                    assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
 
@@ -2397,7 +2406,15 @@ def test_strftime():
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
-        assert result.equals(expected)
+        if sys.platform == "win32":
+            # TODO(GH-48743): On Windows, std::chrono returns GMT offset style
+            # https://github.com/apache/arrow/issues/48743
+            # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+            for val in result:
+                assert val.as_py() is None or "GMT" in val.as_py() \
+                    or "UTC" in val.as_py()
+        else:
+            assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
@@ -2614,7 +2631,9 @@ def test_assume_timezone():
             pc.assume_timezone(ta_zoned, options=options)
 
     invalid_options = pc.AssumeTimezoneOptions("Europe/Brusselsss")
-    with pytest.raises(ValueError, match="not found in timezone database"):
+    with pytest.raises(ValueError,
+                       match="not found in timezone database|"
+                             "unable to locate time_zone"):
         pc.assume_timezone(ta, options=invalid_options)
 
     timezone = "Europe/Brussels"
@@ -2769,6 +2788,11 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
+# TODO(GH-48743): Re-enable when GCC bug is fixed
+# https://github.com/apache/arrow/issues/48743
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+@pytest.mark.skipif(sys.platform == 'win32',
+                    reason="Test triggers GCC timezone bug on Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))

@@ -34,6 +34,8 @@ std::vector<std::string> runtime_info() {
   return {info.simd_level, info.detected_simd_level};
 }
 
+// TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
+// https://github.com/apache/arrow/issues/48743
 // [[arrow::export]]
 void set_timezone_database(cpp11::strings path) {
   auto paths = cpp11::as_cpp<std::vector<std::string>>(path);
