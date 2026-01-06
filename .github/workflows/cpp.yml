@@ -388,5 +388,9 @@ jobs:
           ci/scripts/install_gcs_testbench.sh default
       - name: Test
         shell: msys2 {0}
+        env:
+          # TODO(GH-48743): TZDIR is needed for libstdc++ std::chrono timezone support
+          # https://github.com/apache/arrow/issues/48743
+          TZDIR: /usr/share/zoneinfo
         run: |
           ci/scripts/cpp_test.sh "$(pwd)" "$(pwd)/build"
