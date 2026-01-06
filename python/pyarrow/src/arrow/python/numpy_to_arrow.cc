@@ -364,6 +364,9 @@ Status CastBuffer(const std::shared_ptr<DataType>& in_type,
   return Status::OK();
 }
 
+// Cast buffer from FromType to ToType with optional overflow checking.
+// This function only supports narrowing casts (FromType wider than ToType).
+// Do not use this function for widening casts (ToType wider than FromType).
 template <typename FromType, typename ToType>
 Status StaticCastBuffer(const Buffer& input, int64_t length, MemoryPool* pool,
                         const uint8_t* null_bitmap,
@@ -379,9 +382,11 @@ Status StaticCastBuffer(const Buffer& input, int64_t length, MemoryPool* pool,
 
   for (int64_t i = 0; i < length; ++i) {
     FromType value = *in_values++;
-    // Skip overflow check for null values
-    bool is_null = (null_bitmap != nullptr) && !bit_util::GetBit(null_bitmap, i);
-    if (!is_null && !cast_options.allow_int_overflow && (value < kMin || value > kMax)) {
+    // Check overflow only when cast_options.allow_int_overflow is false and value is not
+    // null
+    bool check_overflow = !cast_options.allow_int_overflow &&
+                          ((null_bitmap == nullptr) || bit_util::GetBit(null_bitmap, i));
+    if (check_overflow && (value < kMin || value > kMax)) {
       return Status::Invalid("Integer value ", value, " out of bounds for int",
                              sizeof(ToType) * 8, " conversion at index ", i);
     }
