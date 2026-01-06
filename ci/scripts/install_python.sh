@@ -87,7 +87,7 @@ EOF
 
     echo "Installing Pip..."
     $python -m ensurepip
-    $python -m pip install -U pip setuptools
+    $python -m pip install -U pip "setuptools>=77"
 else
     echo "Unsupported platform: $platform"
     exit 1
