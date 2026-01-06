@@ -24,6 +24,10 @@
 
 #include <gtest/gtest.h>
 
+// Many tests are disabled for MacOS due to iODBC limitations with ODBC 2.0 APIs and
+// identifiers such as SQLColAttributes, SQL_COLUMN_AUTO_INCREMENT,
+// SQL_COLUMN_QUALIFIER_NAME.
+
 namespace arrow::flight::sql::odbc {
 
 template <typename T>
@@ -364,6 +368,7 @@ void GetSQLColAttributeNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMAL
             SQLColAttribute(stmt, idx, field_identifier, 0, 0, nullptr, value));
 }
 
+#ifndef __APPLE__
 void GetSQLColAttributesNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMALLINT idx,
                                 SQLUSMALLINT field_identifier, SQLLEN* value) {
   // Execute query and check SQLColAttribute numeric attribute
@@ -377,7 +382,7 @@ void GetSQLColAttributesNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMA
   ASSERT_EQ(SQL_SUCCESS,
             SQLColAttributes(stmt, idx, field_identifier, 0, 0, nullptr, value));
 }
-
+#endif  // __APPLE__
 }  // namespace
 
 TYPED_TEST(ColumnsTest, SQLColumnsTestInputData) {
@@ -1387,7 +1392,8 @@ TEST_F(ColumnsMockTest, TestSQLColAttributeAllTypes) {
                        SQL_FALSE);                   // expected_unsigned_column
 }
 
-TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAllTypesODBCVer2) {
+#ifndef __APPLE__
+TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAllTypes) {
   // Tests ODBC 2.0 API SQLColAttributes
   this->CreateTableAllDataType();
 
@@ -1446,6 +1452,7 @@ TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAllTypesODBCVer2) {
                         SQL_PRED_NONE,                // expected_searchable
                         SQL_FALSE);                   // expected_unsigned_column
 }
+#endif  // __APPLE__
 
 TEST_F(ColumnsRemoteTest, TestSQLColAttributeAllTypes) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
@@ -1910,6 +1917,7 @@ TYPED_TEST(ColumnsTest, TestSQLColAttributeCaseSensitive) {
   ASSERT_EQ(SQL_FALSE, value);
 }
 
+#ifndef __APPLE__
 TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesCaseSensitive) {
   // Arrow limitation: returns SQL_FALSE for case sensitive column
   // Tests ODBC 2.0 API SQLColAttributes
@@ -1924,6 +1932,7 @@ TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesCaseSensitive) {
   GetSQLColAttributesNumeric(this->stmt, wsql, 28, SQL_COLUMN_CASE_SENSITIVE, &value);
   ASSERT_EQ(SQL_FALSE, value);
 }
+#endif  // __APPLE__
 
 TEST_F(ColumnsMockTest, TestSQLColAttributeUniqueValue) {
   // Mock server limitation: returns false for auto-increment column
@@ -1935,6 +1944,7 @@ TEST_F(ColumnsMockTest, TestSQLColAttributeUniqueValue) {
   ASSERT_EQ(SQL_FALSE, value);
 }
 
+#ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAutoIncrement) {
   // Tests ODBC 2.0 API SQLColAttributes
   // Mock server limitation: returns false for auto-increment column
@@ -1945,6 +1955,7 @@ TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAutoIncrement) {
   GetSQLColAttributeNumeric(this->stmt, wsql, 1, SQL_COLUMN_AUTO_INCREMENT, &value);
   ASSERT_EQ(SQL_FALSE, value);
 }
+#endif  // __APPLE__
 
 TEST_F(ColumnsMockTest, TestSQLColAttributeBaseTableName) {
   this->CreateTableAllDataType();
@@ -1955,6 +1966,7 @@ TEST_F(ColumnsMockTest, TestSQLColAttributeBaseTableName) {
   ASSERT_EQ(std::wstring(L"AllTypesTable"), value);
 }
 
+#ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesTableName) {
   // Tests ODBC 2.0 API SQLColAttributes
   this->CreateTableAllDataType();
@@ -1964,6 +1976,7 @@ TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesTableName) {
   GetSQLColAttributesString(this->stmt, wsql, 1, SQL_COLUMN_TABLE_NAME, value);
   ASSERT_EQ(std::wstring(L"AllTypesTable"), value);
 }
+#endif  // __APPLE__
 
 TEST_F(ColumnsMockTest, TestSQLColAttributeCatalogName) {
   // Mock server limitattion: mock doesn't return catalog for result metadata,
@@ -1985,6 +1998,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeCatalogName) {
   ASSERT_EQ(std::wstring(L""), value);
 }
 
+#ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesQualifierName) {
   // Mock server limitattion: mock doesn't return catalog for result metadata,
   // and the defautl catalog should be 'main'
@@ -2005,6 +2019,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesQualifierName) {
   GetSQLColAttributeString(this->stmt, wsql, 1, SQL_COLUMN_QUALIFIER_NAME, value);
   ASSERT_EQ(std::wstring(L""), value);
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ColumnsTest, TestSQLColAttributeCount) {
   std::wstring wsql = this->GetQueryAllDataTypes();
@@ -2050,6 +2065,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeSchemaName) {
   ASSERT_EQ(std::wstring(L""), value);
 }
 
+#ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesOwnerName) {
   // Tests ODBC 2.0 API SQLColAttributes
   this->CreateTableAllDataType();
@@ -2071,6 +2087,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesOwnerName) {
   GetSQLColAttributesString(this->stmt, wsql, 1, SQL_COLUMN_OWNER_NAME, value);
   ASSERT_EQ(std::wstring(L""), value);
 }
+#endif  // __APPLE__
 
 TEST_F(ColumnsMockTest, TestSQLColAttributeTableName) {
   this->CreateTableAllDataType();
@@ -2119,6 +2136,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeTypeName) {
   ASSERT_EQ(std::wstring(L"TIMESTAMP"), value);
 }
 
+#ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesTypeName) {
   // Tests ODBC 2.0 API SQLColAttributes
   this->CreateTableAllDataType();
@@ -2159,6 +2177,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesTypeName) {
   GetSQLColAttributesString(this->stmt, L"", 9, SQL_COLUMN_TYPE_NAME, value);
   ASSERT_EQ(std::wstring(L"TIMESTAMP"), value);
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ColumnsTest, TestSQLColAttributeUnnamed) {
   std::wstring wsql = this->GetQueryAllDataTypes();
@@ -2175,6 +2194,7 @@ TYPED_TEST(ColumnsTest, TestSQLColAttributeUpdatable) {
   ASSERT_EQ(SQL_ATTR_READWRITE_UNKNOWN, value);
 }
 
+#ifndef __APPLE__
 TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesUpdatable) {
   // Tests ODBC 2.0 API SQLColAttributes
   std::wstring wsql = this->GetQueryAllDataTypes();
@@ -2183,6 +2203,7 @@ TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesUpdatable) {
   GetSQLColAttributesNumeric(this->stmt, wsql, 1, SQL_COLUMN_UPDATABLE, &value);
   ASSERT_EQ(SQL_ATTR_READWRITE_UNKNOWN, value);
 }
+#endif  // __APPLE__
 
 TEST_F(ColumnsMockTest, SQLDescribeColValidateInput) {
   this->CreateTestTables();

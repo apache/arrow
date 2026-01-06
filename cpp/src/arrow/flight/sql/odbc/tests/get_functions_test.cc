@@ -40,6 +40,8 @@ using TestTypesOdbcV2 =
     ::testing::Types<FlightSQLOdbcV2MockTestBase, FlightSQLOdbcV2RemoteTestBase>;
 TYPED_TEST_SUITE(GetFunctionsOdbcV2Test, TestTypesOdbcV2);
 
+// MacOS driver manager iODBC does not support SQLGetFunctions for ODBC 3.x or 2.x driver
+#ifndef __APPLE__
 TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsAllFunctions) {
   // Verify driver manager return values for SQLGetFunctions
 
@@ -216,5 +218,6 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPI) {
     api_exists = -1;
   }
 }
+#endif  // __APPLE__
 
 }  // namespace arrow::flight::sql::odbc
