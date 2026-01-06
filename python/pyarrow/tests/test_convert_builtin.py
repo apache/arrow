@@ -1461,6 +1461,25 @@ def test_sequence_timestamp_from_int_nanosecond_without_pandas():
         arr_ns[0].as_py()
 
 
+@pytest.mark.nopandas
+@pytest.mark.timezone_data
+def test_sequence_timestamp_from_int_nanosecond_divisible_without_pandas():
+    # Without pandas, nanosecond timestamps that are divisible by 1000
+    # can be safely converted to microseconds (value % 1000 == 0)
+    data = [1000]
+    ns = pa.timestamp('ns')
+
+    arr_ns = pa.array(data, type=ns)
+    assert len(arr_ns) == 1
+    assert arr_ns.type == ns
+
+    result = arr_ns[0].as_py()
+    assert repr(result) == (
+        "datetime.datetime(1970, 1, 1, 0, 0, 0, 1)"
+    )
+    assert str(arr_ns[0]) == "1970-01-01 00:00:00.000001"
+
+
 def test_sequence_duration():
     td1 = datetime.timedelta(2, 3601, 1)
     td2 = datetime.timedelta(1, 100, 1000)
