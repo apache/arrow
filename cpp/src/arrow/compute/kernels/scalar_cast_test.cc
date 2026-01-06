@@ -2396,11 +2396,6 @@ TEST(Cast, TimestampToDate) {
 }
 
 TEST_F(CastTimezone, ZonedTimestampToDate) {
-  // TODO(GH-48743): Re-enable when GCC bug is fixed or tzdata is available
-  // https://github.com/apache/arrow/issues/48743
-#if defined(_WIN32) && !defined(_MSC_VER)
-  GTEST_SKIP() << "Timezone database not available on Windows MinGW (GH-48743).";
-#endif
   {
     // See TestZoned in scalar_temporal_test.cc
     auto timestamps =
