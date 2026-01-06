@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <concepts>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -1835,25 +1834,6 @@ constexpr bool is_nested(const DataType& type) { return is_nested(type.id()); }
 ///
 /// Convenience for checking using the type's id
 constexpr bool is_union(const DataType& type) { return is_union(type.id()); }
-
-/// @}
-
-/// \addtogroup c-type-concepts
-/// @{
-
-// XXX: To be completed with more concepts as needed.
-
-template <typename T>
-concept CBooleanConcept = std::is_same_v<T, bool>;
-
-// XXX: Ideally we want to have std::floating_point<Float16> = true.
-template <typename T>
-concept CFloatingPointConcept =
-    std::floating_point<T> || std::is_same_v<T, util::Float16>;
-
-template <typename T>
-concept CDecimalConcept = std::is_same_v<T, Decimal32> || std::is_same_v<T, Decimal64> ||
-    std::is_same_v<T, Decimal128> || std::is_same_v<T, Decimal256>;
 
 /// @}
 
