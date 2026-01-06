@@ -108,5 +108,5 @@ java/.mvn/.develocity/
 filtered_rat.txt
 rat.txt
 
-# rc
+# for ODBC DLL
 *.rc
