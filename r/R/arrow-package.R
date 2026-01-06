@@ -153,6 +153,8 @@ s3_finalizer <- new.env(parent = emptyenv())
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
 
+    # TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
+    # https://github.com/apache/arrow/issues/48743
     # Try to set timezone database for MinGW builds
     configure_tzdb()
   }
@@ -171,6 +173,8 @@ s3_finalizer <- new.env(parent = emptyenv())
   invisible()
 }
 
+# TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
+# https://github.com/apache/arrow/issues/48743
 configure_tzdb <- function() {
   # This is needed on Windows MinGW builds where std::chrono timezone support
   # is not available (older GCC versions). The tzdb R package provides the

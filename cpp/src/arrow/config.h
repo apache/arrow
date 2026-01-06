@@ -79,12 +79,16 @@ const BuildInfo& GetBuildInfo();
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
 
+// TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
+// https://github.com/apache/arrow/issues/48743
 struct GlobalOptions {
   /// Path to text timezone database. This is only used on Windows MinGW
   /// builds where std::chrono timezone support is not available.
   std::optional<std::string> timezone_db_path;
 };
 
+// TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
+// https://github.com/apache/arrow/issues/48743
 ARROW_EXPORT
 Status Initialize(const GlobalOptions& options) noexcept;
 
