@@ -69,7 +69,7 @@ void CheckSQLDescribeCol(SQLHSTMT stmt, const SQLUSMALLINT column_index,
   EXPECT_EQ(expected_nullable, nullable);
 }
 
-void CheckSQLDescribeColODBC2(SQLHSTMT stmt) {
+void CheckSQLDescribeColODBCVer2(SQLHSTMT stmt) {
   const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
                                     static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
                                     static_cast<const SQLWCHAR*>(L"PRECISION"),
@@ -111,7 +111,7 @@ void CheckSQLDescribeColODBC2(SQLHSTMT stmt) {
   }
 }
 
-void CheckSQLDescribeColODBC3(SQLHSTMT stmt) {
+void CheckSQLDescribeColODBCVer3(SQLHSTMT stmt) {
   const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
                                     static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
                                     static_cast<const SQLWCHAR*>(L"COLUMN_SIZE"),
@@ -232,7 +232,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                  // expected_num_prec_radix
                       NULL);                 // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check tinyint data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -258,7 +258,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check bigint data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -284,7 +284,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check longvarbinary data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -310,7 +310,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                            // expected_num_prec_radix
                       NULL);                           // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check varbinary data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -336,7 +336,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                        // expected_num_prec_radix
                       NULL);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check text data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -363,7 +363,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check longvarchar data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -389,7 +389,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                          // expected_num_prec_radix
                       NULL);                         // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check char data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -416,7 +416,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check integer data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -442,7 +442,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check smallint data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -468,7 +468,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                       // expected_num_prec_radix
                       NULL);                      // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check float data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -494,7 +494,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                    // expected_num_prec_radix
                       NULL);                   // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check double data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -520,7 +520,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check numeric data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -547,7 +547,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check varchar data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -574,7 +574,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check date data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -600,7 +600,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                   // expected_num_prec_radix
                       NULL);                  // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check time data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -626,7 +626,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                   // expected_num_prec_radix
                       NULL);                  // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check timestamp data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -652,7 +652,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       NULL,                        // expected_num_prec_radix
                       NULL);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
@@ -682,7 +682,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                  // expected_num_prec_radix
                       NULL);                 // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check tinyint data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -708,7 +708,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check bigint data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -734,7 +734,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check longvarbinary data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -760,7 +760,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                            // expected_num_prec_radix
                       NULL);                           // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check varbinary data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -786,7 +786,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                        // expected_num_prec_radix
                       NULL);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check text data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -813,7 +813,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check longvarchar data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -839,7 +839,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                          // expected_num_prec_radix
                       NULL);                         // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check char data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -866,7 +866,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check integer data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -892,7 +892,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check smallint data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -918,7 +918,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                       // expected_num_prec_radix
                       NULL);                      // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check float data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -944,7 +944,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                    // expected_num_prec_radix
                       NULL);                   // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check double data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -970,7 +970,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check numeric data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -997,7 +997,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check varchar data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1024,7 +1024,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check date data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1050,7 +1050,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,   // expected_num_prec_radix
                       NULL);  // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check time data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1076,7 +1076,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,   // expected_num_prec_radix
                       NULL);  // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // Check timestamp data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1102,7 +1102,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       NULL,   // expected_num_prec_radix
                       NULL);  // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBit) {
@@ -1132,7 +1132,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBit) {
                       NULL,                  // expected_num_prec_radix
                       NULL);                 // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1165,7 +1165,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoTinyInt) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1198,7 +1198,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBigInt) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1231,7 +1231,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarbinary) {
                       NULL,                            // expected_num_prec_radix
                       NULL);                           // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1296,7 +1296,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check longvarchar data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1322,7 +1322,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
                       NULL,                          // expected_num_prec_radix
                       NULL);                         // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1356,7 +1356,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoChar) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1389,7 +1389,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInteger) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1422,7 +1422,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSmallInt) {
                       NULL,                       // expected_num_prec_radix
                       NULL);                      // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1455,7 +1455,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoFloat) {
                       NULL,                    // expected_num_prec_radix
                       NULL);                   // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1488,7 +1488,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
                       NULL,                     // expected_num_prec_radix
                       NULL);                    // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // Check numeric data type
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
@@ -1515,7 +1515,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1549,7 +1549,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarchar) {
                       NULL,                      // expected_num_prec_radix
                       NULL);                     // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1582,7 +1582,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeDate) {
                       NULL,                   // expected_num_prec_radix
                       NULL);                  // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1616,7 +1616,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLDate) {
                       NULL,                   // expected_num_prec_radix
                       NULL);                  // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1649,7 +1649,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
                       NULL,   // expected_num_prec_radix
                       NULL);  // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1690,7 +1690,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
                       NULL,                   // expected_num_prec_radix
                       NULL);                  // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1724,7 +1724,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTime) {
                       NULL,                   // expected_num_prec_radix
                       NULL);                  // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1757,7 +1757,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
                       NULL,   // expected_num_prec_radix
                       NULL);  // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1798,7 +1798,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
                       NULL,                        // expected_num_prec_radix
                       NULL);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1832,7 +1832,7 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTimestamp) {
                       NULL,                        // expected_num_prec_radix
                       NULL);                       // expected_interval_prec
 
-  CheckSQLDescribeColODBC3(this->stmt);
+  CheckSQLDescribeColODBCVer3(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
@@ -1865,7 +1865,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
                       NULL,   // expected_num_prec_radix
                       NULL);  // expected_interval_prec
 
-  CheckSQLDescribeColODBC2(this->stmt);
+  CheckSQLDescribeColODBCVer2(this->stmt);
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));

@@ -2458,7 +2458,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
   }
 }
 
-TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBC2) {
+TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
   SQLWCHAR column_name[1024];
   SQLSMALLINT buf_char_len =
@@ -2668,7 +2668,7 @@ TYPED_TEST(ColumnsTest, SQLColumnsGetMetadataBySQLDescribeCol) {
   }
 }
 
-TYPED_TEST(ColumnsOdbcV2Test, SQLColumnsGetMetadataBySQLDescribeColODBC2) {
+TYPED_TEST(ColumnsOdbcV2Test, SQLColumnsGetMetadataBySQLDescribeColODBCVer2) {
   SQLWCHAR column_name[1024];
   SQLSMALLINT buf_char_len =
       static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());

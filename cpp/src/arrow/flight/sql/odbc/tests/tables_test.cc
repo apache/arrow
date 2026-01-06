@@ -534,7 +534,7 @@ TYPED_TEST(TablesTest, SQLTablesGetMetadataBySQLDescribeCol) {
   }
 }
 
-TYPED_TEST(TablesOdbcV2Test, SQLTablesGetMetadataBySQLDescribeColODBC2) {
+TYPED_TEST(TablesOdbcV2Test, SQLTablesGetMetadataBySQLDescribeColODBCVer2) {
   SQLWCHAR column_name[1024];
   SQLSMALLINT buf_char_len =
       static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
