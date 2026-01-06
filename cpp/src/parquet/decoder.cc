@@ -1058,7 +1058,10 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   int32_t* bytes_offsets = byte_array_offsets_->mutable_data_as<int32_t>();
   for (int i = 0; i < dictionary_length_; ++i) {
-    memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
+    // Avoid calling memcpy with nullptr which is undefined behavior
+    if (dict_values[i].len > 0) {
+      memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
+    }
     bytes_offsets[i] = offset;
     dict_values[i].ptr = bytes_data + offset;
     offset += dict_values[i].len;
