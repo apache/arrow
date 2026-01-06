@@ -79,4 +79,13 @@ const BuildInfo& GetBuildInfo();
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
 
+struct GlobalOptions {
+  /// Path to text timezone database. This is only used on Windows MinGW
+  /// builds where std::chrono timezone support is not available.
+  std::optional<std::string> timezone_db_path;
+};
+
+ARROW_EXPORT
+Status Initialize(const GlobalOptions& options) noexcept;
+
 }  // namespace arrow

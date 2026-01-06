@@ -33,17 +33,18 @@
 #include <string_view>
 
 // Feature detection for C++20 chrono timezone support
-// We only enable for compilers with FULL support (not partial)
 // https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L
+//
+// On Windows with MSVC: std::chrono uses Windows' internal timezone database,
+// eliminating the need for users to install IANA tzdata separately.
+//
+// On Windows with MinGW/GCC: libstdc++ reads tzdata files via TZDIR env var.
+// The tzdata files must be provided (e.g., via the tzdb R package).
 //
 // On non-Windows: GCC libstdc++ has a bug where DST state is incorrectly reset when
 // a timezone transitions between rule sets (e.g., Australia/Broken_Hill around
 // 2000-02-29). Until this is fixed, we use the vendored date.h library.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-//
-// On Windows: Use std::chrono which accesses Windows' internal timezone database,
-// eliminating the need for users to install IANA tzdata separately. We tolerate
-// the GCC bug here since Windows users are less likely to be using GCC.
 
 #if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
 #  define ARROW_USE_STD_CHRONO 1
