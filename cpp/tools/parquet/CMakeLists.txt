@@ -34,7 +34,7 @@ if(PARQUET_BUILD_EXECUTABLES)
     # Avoid unsetting RPATH when installing
     set_target_properties(${TOOL} PROPERTIES INSTALL_RPATH_USE_LINK_PATH TRUE)
     install(TARGETS ${TOOL} ${INSTALL_IS_OPTIONAL}
-            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR} COMPONENT parquet_${TOOL})
+            RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
   endforeach(TOOL)
 
   add_dependencies(parquet ${PARQUET_TOOLS})

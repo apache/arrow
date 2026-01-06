@@ -349,8 +349,7 @@ string(REPLACE "${CMAKE_BINARY_DIR}" "<CMAKE_BINARY_DIR>" REDACTED_CXX_FLAGS
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
-        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util"
-        COMPONENT arrow_config)
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/arrow/util")
 
 set(ARROW_SRCS
     builder.cc
@@ -1052,8 +1051,7 @@ if(ARROW_BUILD_BUNDLED_DEPENDENCIES)
   get_target_property(arrow_bundled_dependencies_path arrow_bundled_dependencies
                       IMPORTED_LOCATION)
   install(FILES ${arrow_bundled_dependencies_path} ${INSTALL_IS_OPTIONAL}
-          DESTINATION ${CMAKE_INSTALL_LIBDIR}
-          COMPONENT arrow_bundled_dependencies)
+          DESTINATION ${CMAKE_INSTALL_LIBDIR})
   string(PREPEND ARROW_PC_LIBS_PRIVATE " -larrow_bundled_dependencies")
   list(INSERT ARROW_STATIC_INSTALL_INTERFACE_LIBS 0 "Arrow::arrow_bundled_dependencies")
 endif()
@@ -1170,7 +1168,6 @@ if(ARROW_BUILD_SHARED AND NOT WIN32)
   if(ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_INSTALL)
     install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libarrow_gdb.py"
             DESTINATION "${ARROW_GDB_AUTO_LOAD_LIBARROW_GDB_DIR}"
-            COMPONENT arrow_gdb
             RENAME "$<TARGET_FILE_NAME:arrow_shared>-gdb.py")
   endif()
 endif()
@@ -1234,13 +1231,11 @@ arrow_install_all_headers("arrow")
 
 config_summary_cmake_setters("${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake")
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/ArrowOptions.cmake
-        DESTINATION "${ARROW_CMAKE_DIR}/Arrow"
-        COMPONENT arrow_options_cmake)
+        DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
 
 # For backward compatibility for find_package(arrow)
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/arrow-config.cmake
-        DESTINATION "${ARROW_CMAKE_DIR}/Arrow"
-        COMPONENT arrow_config_cmake)
+        DESTINATION "${ARROW_CMAKE_DIR}/Arrow")
 
 #
 # Unit tests

@@ -59,8 +59,7 @@ if(ARROW_BUILD_UTILITIES OR ARROW_BUILD_INTEGRATION)
 
   if(ARROW_BUILD_UTILITIES)
     install(TARGETS arrow-file-to-stream arrow-stream-to-file ${INSTALL_IS_OPTIONAL}
-            DESTINATION ${CMAKE_INSTALL_BINDIR}
-            COMPONENT arrow_ipc_utilities)
+            DESTINATION ${CMAKE_INSTALL_BINDIR})
   endif()
 
   if(ARROW_BUILD_INTEGRATION)

@@ -113,6 +113,9 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   # GH-47877 TODO: set up `arrow_flight_sql_odbc` component for Linux Installer
   if(WIN32)
     # Install ODBC and its Arrow dependencies
+    install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+            DESTINATION bin
+            COMPONENT arrow_flight_sql_odbc)
     install(TARGETS arrow_shared
                     arrow_compute_shared
                     arrow_flight_shared
@@ -136,8 +139,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   endif()
 
   get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-  set(CPACK_COMPONENTS_ALL Unspecified)
-  list(APPEND CPACK_COMPONENTS_ALL "arrow_flight_sql_odbc")
+  set(CPACK_COMPONENTS_ALL "arrow_flight_sql_odbc")
 
   if(WIN32)
     # WiX msi installer on Windows
