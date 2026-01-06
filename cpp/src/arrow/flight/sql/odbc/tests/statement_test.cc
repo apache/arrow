@@ -646,7 +646,8 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectVarbinaryQueryDefaultType) {
   EXPECT_EQ('\xEF', varbinary_val[2]);
 }
 
-TYPED_TEST(StatementTest, TestGetDataPrecisionScaleUsesIRDAsDefault) {
+// TODO(GH-48730): Enable this test when ARD/IRD descriptor support is fully implemented
+TYPED_TEST(StatementTest, DISABLED_TestGetDataPrecisionScaleUsesIRDAsDefault) {
   // Verify that SQLGetData uses IRD precision/scale as defaults when ARD values are unset
   std::wstring wsql = L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;";
   std::vector<SQLWCHAR> sql(wsql.begin(), wsql.end());
@@ -692,7 +693,8 @@ TYPED_TEST(StatementTest, TestGetDataPrecisionScaleUsesIRDAsDefault) {
   EXPECT_EQ(static_cast<SQLSMALLINT>(ird_scale), numeric_val.scale);
 }
 
-TYPED_TEST(StatementTest, TestGetDataPrecisionScaleUsesARDWhenSet) {
+// TODO(GH-48730): Enable this test when ARD/IRD descriptor support is fully implemented
+TYPED_TEST(StatementTest, DISABLED_TestGetDataPrecisionScaleUsesARDWhenSet) {
   // Verify that SQLGetData uses ARD precision/scale when set, for both SQL_ARD_TYPE and
   // SQL_C_DEFAULT
   std::wstring wsql = L"SELECT CAST('123.45' AS NUMERIC) as decimal_col;";

@@ -25,6 +25,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/spi/result_set_metadata.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/statement.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
+#include "arrow/type.h"
 
 #include <sql.h>
 #include <sqlext.h>
@@ -746,8 +747,8 @@ SQLRETURN ODBCStatement::GetData(SQLSMALLINT record_number, SQLSMALLINT c_type,
   // Get precision and scale from IRD (implementation row descriptor) as defaults.
   // These can be overridden by ARD (application row descriptor) if specified.
   const DescriptorRecord& ird_record = ird_->GetRecords()[record_number - 1];
-  int precision = ird_record.precision > 0 ? ird_record.precision
-                                           : 38;  // Default to max decimal precision
+  int precision =
+      ird_record.precision > 0 ? ird_record.precision : Decimal128Type::kMaxPrecision;
   int scale = ird_record.scale;
 
   if (c_type == SQL_ARD_TYPE) {
