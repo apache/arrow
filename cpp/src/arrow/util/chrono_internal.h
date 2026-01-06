@@ -36,14 +36,16 @@
 // We only enable for compilers with FULL support (not partial)
 // https://en.cppreference.com/w/cpp/compiler_support/20.html#cpp_lib_chrono_201907L
 //
-// MSVC 19.29+ (VS16.10+): Full C++20 chrono support, uses Windows internal TZ database.
-// GCC libstdc++ has a bug where DST state is incorrectly reset when a timezone
-// transitions between rule sets in tzdata.zi (e.g., Australia/Broken_Hill around
-// 2000-02-29 23:23:24).
-// Until this is fixed, we use the vendored date.h library for GCC.
+// On non-Windows: GCC libstdc++ has a bug where DST state is incorrectly reset when
+// a timezone transitions between rule sets (e.g., Australia/Broken_Hill around
+// 2000-02-29). Until this is fixed, we use the vendored date.h library.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+//
+// On Windows: Use std::chrono which accesses Windows' internal timezone database,
+// eliminating the need for users to install IANA tzdata separately. We tolerate
+// the GCC bug here since Windows users are less likely to be using GCC.
 
-#if defined(_MSC_VER) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
 #  define ARROW_USE_STD_CHRONO 1
 #else
 #  define ARROW_USE_STD_CHRONO 0
