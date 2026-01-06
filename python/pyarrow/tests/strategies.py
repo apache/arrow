@@ -46,11 +46,28 @@ except ImportError:
 import pyarrow as pa
 
 
-# TODO(kszucs): alphanum_text, surrogate_text
+# Text generation strategies for various character sets
 custom_text = st.text(
     alphabet=st.characters(
         min_codepoint=0x41,
         max_codepoint=0x7E
+    )
+)
+
+# alphanum_text: Only alphanumeric characters (a-z, A-Z, 0-9)
+alphanum_text = st.text(
+    alphabet=st.characters(
+        whitelist_categories=('Ll', 'Lu', 'Nd'),  # Lowercase, Uppercase, Decimal Number
+        min_codepoint=0x30,  # Start from '0' (U+0030)
+        max_codepoint=0x7A   # End at 'z' (U+007A)
+    )
+)
+
+# surrogate_text: Unicode supplementary planes (U+10000 to U+10FFFF)
+surrogate_text = st.text(
+    alphabet=st.characters(
+        min_codepoint=0x10000,  # Start of Plane 1 (Supplementary Multilingual Plane)
+        max_codepoint=0x10FFFF  # End of valid Unicode range (last code point)
     )
 )
 
@@ -164,8 +181,10 @@ metadata = st.dictionaries(st.text(), st.text())
 
 
 @st.composite
-def fields(draw, type_strategy=primitive_types):
-    name = draw(custom_text)
+def fields(draw, type_strategy=primitive_types, name_strategy=None):
+    if name_strategy is None:
+        name_strategy = custom_text
+    name = draw(name_strategy)
     typ = draw(type_strategy)
     if pa.types.is_null(typ):
         nullable = True
@@ -243,7 +262,11 @@ all_types = st.deferred(
         struct_types(all_types)
     )
 )
-all_fields = fields(all_types)
+all_fields = st.one_of(
+    fields(all_types),  # custom_text
+    fields(all_types, name_strategy=alphanum_text),
+    fields(all_types, name_strategy=surrogate_text)
+)
 all_schemas = schemas(all_types)
 
 
