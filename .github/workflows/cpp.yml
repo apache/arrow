@@ -366,6 +366,18 @@ jobs:
         run: |
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
+      - name: Download Timezone Database for vendored date library (Clang64)
+        if: matrix.msystem_upper == 'CLANG64'
+        shell: msys2 {0}
+        run: |
+          # TODO(GH-48743): Clang64 uses vendored date library which needs tzdata
+          # https://github.com/apache/arrow/issues/48743
+          mkdir -p /c/Users/runneradmin/Downloads/tzdata
+          curl -sL https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz | \
+            tar -xz -C /c/Users/runneradmin/Downloads/tzdata
+          # Also need windowsZones.xml from Unicode CLDR for Windows timezone mapping
+          curl -sL -o /c/Users/runneradmin/Downloads/tzdata/windowsZones.xml \
+            https://raw.githubusercontent.com/unicode-org/cldr/main/common/supplemental/windowsZones.xml
       - name: Download MinIO
         shell: msys2 {0}
         run: |
@@ -386,18 +398,6 @@ jobs:
           PIPX_BASE_PYTHON: ${{ steps.python-install.outputs.python-path }}
         run: |
           ci/scripts/install_gcs_testbench.sh default
-      - name: Download tzdata for vendored date library (Clang64)
-        if: matrix.msystem_upper == 'CLANG64'
-        shell: msys2 {0}
-        run: |
-          # TODO(GH-48743): Clang64 uses vendored date library which needs tzdata
-          # https://github.com/apache/arrow/issues/48743
-          mkdir -p /c/Users/runneradmin/Downloads/tzdata
-          curl -sL https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz | \
-            tar -xz -C /c/Users/runneradmin/Downloads/tzdata
-          # Also need windowsZones.xml from Unicode CLDR for Windows timezone mapping
-          curl -sL -o /c/Users/runneradmin/Downloads/tzdata/windowsZones.xml \
-            https://raw.githubusercontent.com/unicode-org/cldr/main/common/supplemental/windowsZones.xml
       - name: Test
         shell: msys2 {0}
         env:
