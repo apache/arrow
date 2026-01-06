@@ -17,7 +17,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Used by macOS ODBC installer script and macOS ODBC testing
+# Used by macOS ODBC installer script `install_odbc_ini.sh` and macOS ODBC testing
+
+set -euo pipefail
+
+# Admin privilege is needed to add ODBC driver registration
+if [ $EUID -ne 0 ]; then 
+    echo "Please run this script with sudo"
+    exit 1
+fi
 
 ODBC_64BIT="$1"
 
@@ -39,12 +47,6 @@ DSN_NAME="Apache Arrow Flight SQL ODBC DSN"
 mkdir -p $HOME/Library/ODBC
 
 touch "$USER_ODBCINST_FILE"
-
-# Admin privilege is needed to add ODBC driver registration
-if [ $EUID -ne 0 ]; then 
-    echo "Please run this script with sudo"
-    exit 1
-fi
 
 if grep -q "^\[$DRIVER_NAME\]" "$USER_ODBCINST_FILE"; then
   echo "Driver [$DRIVER_NAME] already exists in odbcinst.ini"
