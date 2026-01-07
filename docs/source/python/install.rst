@@ -83,9 +83,6 @@ and **pytz**, **dateutil** or **tzdata** package for timezones.
 tzdata on Windows
 ^^^^^^^^^^^^^^^^^
 
-.. TODO(GH-48593): Remove when libc++ supports std::chrono timezone
-   https://github.com/apache/arrow/issues/48593
-
 While Arrow uses the OS-provided timezone database on Linux and macOS, it requires a
 user-provided database on Windows. To download and extract the text version of
 the IANA timezone database follow the instructions in the C++

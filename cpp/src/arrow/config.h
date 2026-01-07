@@ -67,13 +67,9 @@ struct RuntimeInfo {
 
   /// Whether using the OS-based timezone database
   /// This is set at compile-time.
-  // ARROW_DEPRECATED("Deprecated in 23.0.0")
   bool using_os_timezone_db;
 
   /// The path to the timezone database; by default None.
-  /// This is only used on some Windows builds where
-  /// std::chrono timezone support is not available.
-  // ARROW_DEPRECATED("Deprecated in 23.0.0")
   std::optional<std::string> timezone_db_path;
 };
 
@@ -90,18 +86,12 @@ const BuildInfo& GetBuildInfo();
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
 
-// TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
-// https://github.com/apache/arrow/issues/48743
 struct GlobalOptions {
-  /// The path to the timezone database; by default None.
-  /// This is only used on some Windows builds where
-  /// std::chrono timezone support is not available.
-  // ARROW_DEPRECATED("Deprecated in 23.0.0")
+  /// Path to text timezone database. This is only configurable on Windows,
+  /// which does not have a compatible OS timezone database.
   std::optional<std::string> timezone_db_path;
 };
 
-// TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
-// https://github.com/apache/arrow/issues/48743
 ARROW_EXPORT
 Status Initialize(const GlobalOptions& options) noexcept;
 

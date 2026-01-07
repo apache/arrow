@@ -122,8 +122,6 @@ TEST(Misc, BuildInfo) {
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
 
-// TODO(GH-48593): Remove when libc++ supports std::chrono timezone
-// https://github.com/apache/arrow/issues/48593
 TEST(Misc, SetTimezoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
