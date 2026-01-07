@@ -46,14 +46,14 @@
 // 2000-02-29). Until this is fixed, we use the vendored date.h library.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
 
-#if defined(_WIN32)
-// On Windows, use std::chrono if available (MSVC or MinGW with C++20 support)
-#  if defined(_MSC_VER) || (defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L)
-#    define ARROW_USE_STD_CHRONO 1
-#  else
-#    define ARROW_USE_STD_CHRONO 0
-#  endif
+#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+// Use std::chrono on Windows when timezone support is available (MSVC or libstdc++)
+// MSVC uses Windows' internal timezone database, libstdc++ uses TZDIR environment
+// variable
+#  define ARROW_USE_STD_CHRONO 1
 #else
+// Use vendored date library (non-Windows, or libc++/older libraries without timezone
+// support)
 #  define ARROW_USE_STD_CHRONO 0
 #endif
 

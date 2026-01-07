@@ -56,7 +56,7 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
+from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo,
                          MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
