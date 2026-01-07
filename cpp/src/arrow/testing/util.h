@@ -113,11 +113,13 @@ UnionTypeFactories() {
 ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 
 // TODO(GH-48593): Remove when we have full std::chrono support
+// on windows.
 // https://github.com/apache/arrow/issues/48593
 // Return the value of the ARROW_TIMEZONE_DATABASE environment variable
 ARROW_TESTING_EXPORT std::optional<std::string> GetTestTimezoneDatabaseRoot();
 
 // TODO(GH-48593): Remove when we have full std::chrono support
+// on windows.
 // https://github.com/apache/arrow/issues/48593
 // Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable
 // This is only relevant on Windows, since other OSs have compatible databases built-in
