@@ -192,6 +192,16 @@ jobs:
               - UBUNTU=22.04
             image: ubuntu-cuda-cpp
             title: AMD64 Ubuntu 22 CUDA 11.7.1
+          - envs:
+              - CUDA=13.0.2
+              - UBUNTU=24.04
+            image: ubuntu-cuda-python
+            title: AMD64 Ubuntu 24 CUDA Python 13.0.2
+          - envs:
+              - CUDA=11.7.1
+              - UBUNTU=22.04
+            image: ubuntu-cuda-python
+            title: AMD64 Ubuntu 22 CUDA Python 11.7.1
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
