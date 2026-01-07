@@ -64,6 +64,17 @@ struct RuntimeInfo {
 
   /// The SIMD level available on the OS and CPU
   std::string detected_simd_level;
+
+  /// Whether using the OS-based timezone database
+  /// This is set at compile-time.
+  // ARROW_DEPRECATED("Deprecated in 23.0.0")
+  bool using_os_timezone_db;
+
+  /// The path to the timezone database; by default None.
+  /// This is only used on some Windows builds where
+  /// std::chrono timezone support is not available.
+  // ARROW_DEPRECATED("Deprecated in 23.0.0")
+  std::optional<std::string> timezone_db_path;
 };
 
 /// \brief Get runtime build info.
@@ -82,8 +93,10 @@ RuntimeInfo GetRuntimeInfo();
 // TODO(GH-48743): Remove when RTools upgrades to GCC with std::chrono timezone support
 // https://github.com/apache/arrow/issues/48743
 struct GlobalOptions {
-  /// Path to text timezone database. This is only used on Windows MinGW
-  /// builds where std::chrono timezone support is not available.
+  /// The path to the timezone database; by default None.
+  /// This is only used on some Windows builds where
+  /// std::chrono timezone support is not available.
+  // ARROW_DEPRECATED("Deprecated in 23.0.0")
   std::optional<std::string> timezone_db_path;
 };
 
