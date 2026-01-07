@@ -57,6 +57,12 @@ else
   cuda_version="${DEFAULT_CUDA_VERSION}"
 fi
 
+# Install CUDA compatibility package for CUDA 13
+if [ "${cuda_version}" = "13" ]; then
+  apt update
+  apt install -y cuda-compat-13-0
+fi
+
 if [ "${numba_cuda}" = "master" ]; then
   pip install "numba-cuda[cu${cuda_version}] @ https://github.com/NVIDIA/numba-cuda/archive/main.tar.gz"
 elif [ "${numba_cuda}" = "latest" ]; then
