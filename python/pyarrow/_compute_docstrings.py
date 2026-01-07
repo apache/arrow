@@ -130,10 +130,10 @@ function_doc_additions["min_max"] = """
     >>> import pyarrow.compute as pc
     >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
     >>> pc.min_max(arr1)
+    <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
 
     Using `skip_nulls` to handle null values.
 
-    <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
     >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
     >>> pc.min_max(arr2)
     <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
