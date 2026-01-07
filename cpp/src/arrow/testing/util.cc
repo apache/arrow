@@ -122,6 +122,29 @@ Status GetTestResourceRoot(std::string* out) {
   return Status::OK();
 }
 
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+// https://github.com/apache/arrow/issues/48593
+std::optional<std::string> GetTestTimezoneDatabaseRoot() {
+  const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
+  if (!c_root) {
+    return std::optional<std::string>();
+  }
+  return std::make_optional(std::string(c_root));
+}
+
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+// https://github.com/apache/arrow/issues/48593
+Status InitTestTimezoneDatabase() {
+  auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
+  // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
+  if (!maybe_tzdata.has_value()) return Status::OK();
+
+  auto tzdata_path = std::string(maybe_tzdata.value());
+  arrow::GlobalOptions options = {std::make_optional(tzdata_path)};
+  ARROW_RETURN_NOT_OK(arrow::Initialize(options));
+  return Status::OK();
+}
+
 int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port
   // and then closing it.  Since ephemeral port allocation tends to avoid

@@ -244,7 +244,8 @@ def _download_requests(url, out_path):
         with open(out_path, 'wb') as f:
             f.write(response.content)
 
-
+# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+# https://github.com/apache/arrow/issues/48593
 def download_tzdata_on_windows():
     r"""
     Download and extract latest IANA timezone database into the

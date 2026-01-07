@@ -203,14 +203,14 @@ def test_option_class_equality(request):
                        first_week_is_fully_in_year=False),
         pc.ZeroFillOptions(4, "0"),
     ]
-    # Timezone database might not be installed on Emscripten
+    # Timezone database might not be installed on Windows or Emscripten
     if request.config.pyarrow.is_enabled["timezone_data"]:
         options.append(pc.AssumeTimezoneOptions("Europe/Ljubljana"))
 
     classes = {type(option) for option in options}
 
     for cls in exported_option_classes:
-        # Timezone database might not be installed on Emscripten
+        # Timezone database might not be installed on Windows or Emscripten
         if (
             cls not in classes
             and (request.config.pyarrow.is_enabled["timezone_data"])
@@ -2381,6 +2381,7 @@ def test_strftime():
             for fmt in formats:
                 options = pc.StrftimeOptions(fmt)
                 result = pc.strftime(tsa, options=options)
+                # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
                 if sys.platform == "win32" and fmt == "%Z":
                     # TODO(GH-48743): On Windows, std::chrono returns GMT
@@ -2564,7 +2565,7 @@ def test_extract_datetime_components(request):
 
     # Test timezone aware timestamp array
     if not request.config.pyarrow.is_enabled["timezone_data"]:
-        pytest.skip('Timezone database is not available')
+        pytest.skip('Timezone database is not installed on Windows')
     else:
         for timezone in timezones:
             _check_datetime_components(timestamps, timezone)
