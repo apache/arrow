@@ -48,7 +48,11 @@ def write_parquet(table, location, encryption_config=None):
     # Change scenario ID to test different cases.
     # https://github.com/protegrity/arrow/issues/204 for more details.
 
-    scenario_id = 5
+    scenario_id_raw = os.getenv("BASE_APP_SCENARIO_ID", "5")
+    try:
+        scenario_id = int(scenario_id_raw)
+    except ValueError as exc:
+        raise ValueError(f"Invalid SCENARIO_ID: {scenario_id_raw!r} (must be an integer)") from exc
 
     match scenario_id:
         case 1:
@@ -254,11 +258,11 @@ def get_external_encryption_config(plaintext_footer=True):
             "customer_name": {
                 "encryption_algorithm": "EXTERNAL_DBPA_V1",
                 "encryption_key": "customer_key"
-            }#, intentionally left out to test per-column encryption for the 'has_subscription' column.
-            # "has_subscription": {
-            #    "encryption_algorithm": "EXTERNAL_DBPA_V1",
-            #    "encryption_key": "has_subscription_key"
-            # }
+            },
+            "has_subscription": {
+               "encryption_algorithm": "EXTERNAL_DBPA_V1",
+               "encryption_key": "has_subscription_key"
+            }
         },
         app_context = {
             "user_id": "Picard1701",
