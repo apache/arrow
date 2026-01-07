@@ -23,7 +23,9 @@ class RactorTest < Test::Unit::TestCase
     require_ruby(3, 1, 0)
     array = Arrow::Array.new([1, 2, 3])
     chunked_array = Arrow::ChunkedArray.new([array])
+    p chunked_array.instance_variables
     Ractor.make_shareable(chunked_array)
+    p chunked_array.instance_variables
     ractor = Ractor.new do
       recived_chunked_array = Ractor.receive
       recived_chunked_array.chunks
