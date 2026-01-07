@@ -4255,6 +4255,7 @@ TEST_F(TestDayTimeIntervalBuilder, TestAppend) {
   ASSERT_OK(builder.Append(value1));
   ASSERT_OK(builder.Append(value2));
   ASSERT_OK(builder.AppendNull());
+  ASSERT_EQ(1, builder.null_count());  // Verify null count in builder
   ASSERT_OK(builder.Reserve(3));
   builder.UnsafeAppend(value3);
 
@@ -4263,7 +4264,19 @@ TEST_F(TestDayTimeIntervalBuilder, TestAppend) {
   VerifyValue(builder, 3, value3);
 
   ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
-  ASSERT_TRUE(array->IsNull(2));
+  const auto& day_time_array = checked_cast<const DayTimeIntervalArray&>(*array);
+
+  // Verify null value
+  ASSERT_TRUE(day_time_array.IsNull(2));
+  ASSERT_EQ(1, day_time_array.null_count());
+
+  // Verify non-null values in the array
+  ASSERT_FALSE(day_time_array.IsNull(0));
+  ASSERT_EQ(day_time_array.GetValue(0), value1);
+  ASSERT_FALSE(day_time_array.IsNull(1));
+  ASSERT_EQ(day_time_array.GetValue(1), value2);
+  ASSERT_FALSE(day_time_array.IsNull(3));
+  ASSERT_EQ(day_time_array.GetValue(3), value3);
 }
 
 TEST_F(TestDayTimeIntervalBuilder, TestBulkAppend) {
