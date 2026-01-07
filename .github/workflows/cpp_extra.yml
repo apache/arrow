@@ -172,7 +172,7 @@ jobs:
   cuda:
     needs: check-labels
     name: ${{ matrix.title }}
-    runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64"
+    runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64/spot=capacity-optimized"
     if: >-
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
