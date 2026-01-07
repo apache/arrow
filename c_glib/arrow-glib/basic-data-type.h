@@ -584,6 +584,26 @@ GARROW_AVAILABLE_IN_7_0
 GArrowMonthDayNanoIntervalDataType *
 garrow_month_day_nano_interval_data_type_new(void);
 
+#define GARROW_TYPE_DURATION_DATA_TYPE (garrow_duration_data_type_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(GArrowDurationDataType,
+                         garrow_duration_data_type,
+                         GARROW,
+                         DURATION_DATA_TYPE,
+                         GArrowTemporalDataType)
+struct _GArrowDurationDataTypeClass
+{
+  GArrowTemporalDataTypeClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDurationDataType *
+garrow_duration_data_type_new(GArrowTimeUnit unit);
+
+GARROW_AVAILABLE_IN_23_0
+GArrowTimeUnit
+garrow_duration_data_type_get_unit(GArrowDurationDataType *data_type);
+
 #define GARROW_TYPE_DECIMAL_DATA_TYPE (garrow_decimal_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowDecimalDataType,

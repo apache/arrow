@@ -48,6 +48,12 @@ if(ARROW_GCS)
                  filesystem
                  EXTRA_LINK_LIBS
                  google-cloud-cpp::storage)
+  if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+    if(TARGET arrow-gcsfs-test)
+      target_compile_options(arrow-gcsfs-test PRIVATE -Wno-documentation
+                                                      -Wno-documentation-deprecated-sync)
+    endif()
+  endif()
 endif()
 
 if(ARROW_AZURE)

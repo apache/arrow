@@ -81,24 +81,24 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            clang-tools: 14
+            clang-tools: 18
             image: conda-cpp
-            llvm: 14
+            llvm: 18
             runs-on: ubuntu-latest
             simd-level: AVX2
             title: AMD64 Conda C++ AVX2
             ubuntu: 22.04
           - arch: amd64
-            clang-tools: 14
+            clang-tools: 18
             image: ubuntu-cpp-sanitizer
-            llvm: 14
+            llvm: 18
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu 24.04 C++ ASAN UBSAN
             ubuntu: 24.04
           - arch: arm64v8
-            clang-tools: 14
+            clang-tools: 18
             image: ubuntu-cpp
-            llvm: 14
+            llvm: 18
             runs-on: ubuntu-24.04-arm
             title: ARM64 Ubuntu 22.04 C++
             ubuntu: 22.04
@@ -110,12 +110,12 @@ jobs:
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5.0.1
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
@@ -123,7 +123,7 @@ jobs:
       - name: Setup Python on hosted runner
         if: |
           matrix.runs-on == 'ubuntu-latest'
-        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        uses: actions/setup-python@v6
         with:
           python-version: 3
       - name: Setup Python on self-hosted runner
@@ -163,7 +163,7 @@ jobs:
     timeout-minutes: 45
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -218,7 +218,7 @@ jobs:
           sysctl -a | grep cpu
           sysctl -a | grep "hw.optional"
       - name: Checkout Arrow
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -235,7 +235,7 @@ jobs:
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest ${ARROW_HOME}
       - name: Set up Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6
         with:
           python-version: 3.12
       - name: Install Google Cloud Storage Testbench
@@ -250,7 +250,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
@@ -344,7 +344,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v6.0.0
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -356,7 +356,7 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ccache
           key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}
@@ -378,7 +378,7 @@ jobs:
             https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELEASE.2024-09-13T20-26-02Z
           chmod +x /usr/local/bin/minio.exe
       - name: Set up Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6
         id: python-install
         with:
           python-version: '3.12'

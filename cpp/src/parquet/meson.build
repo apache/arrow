@@ -17,6 +17,7 @@
 
 parquet_srcs = files(
     '../generated/parquet_types.cpp',
+    'arrow/fuzz_internal.cc',
     'arrow/path_internal.cc',
     'arrow/reader.cc',
     'arrow/reader_internal.cc',

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/utf8.h"
@@ -105,7 +107,7 @@ class FlightSQLOdbcV2RemoteTestBase : public FlightSQLODBCRemoteTestBase {
   void SetUp() override;
 };
 
-class FlightSQLOdbcHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
+class FlightSQLOdbcEnvConnHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
  protected:
   void SetUp() override;
   void TearDown() override;
@@ -197,7 +199,7 @@ class FlightSQLOdbcV2MockTestBase : public FlightSQLODBCMockTestBase {
   void SetUp() override;
 };
 
-class FlightSQLOdbcHandleMockTestBase : public FlightSQLODBCMockTestBase {
+class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase {
  protected:
   void SetUp() override;
   void TearDown() override;
@@ -249,6 +251,12 @@ bool WriteDSN(std::string connection_str);
 /// \param[in] properties map.
 /// \return true on success
 bool WriteDSN(Connection::ConnPropertyMap properties);
+
+/// \brief Get wide string column.
+/// \param[in] stmt Statement.
+/// \param[in] col_id Column ID to check.
+/// \return wstring
+std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id);
 
 /// \brief Check wide char vector and convert into wstring
 /// \param[in] str_val Vector of SQLWCHAR.

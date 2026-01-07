@@ -26,6 +26,8 @@
 #include "arrow/flight/sql/api.h"
 #include "arrow/flight/types.h"
 
+#include <optional>
+
 namespace arrow::flight::sql::odbc {
 
 class FlightSqlStatement : public Statement {
@@ -49,12 +51,13 @@ class FlightSqlStatement : public Statement {
   FlightSqlStatement(const Diagnostics& diagnostics, FlightSqlClient& sql_client,
                      FlightClientOptions client_options, FlightCallOptions call_options,
                      const MetadataSettings& metadata_settings);
+  ~FlightSqlStatement();
 
   bool SetAttribute(StatementAttributeId attribute, const Attribute& value) override;
 
-  boost::optional<Attribute> GetAttribute(StatementAttributeId attribute) override;
+  std::optional<Attribute> GetAttribute(StatementAttributeId attribute) override;
 
-  boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
+  std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) override;
 
   bool ExecutePrepared() override;
