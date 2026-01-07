@@ -193,10 +193,10 @@ jobs:
             image: ubuntu-cuda-cpp
             title: AMD64 Ubuntu 22 CUDA 11.7.1
           - envs:
-              - CUDA=13.0.2
+              - CUDA=13.1.80
               - UBUNTU=24.04
             image: ubuntu-cuda-python
-            title: AMD64 Ubuntu 24 CUDA Python 13.0.2
+            title: AMD64 Ubuntu 24 CUDA Python 13.1.80
           - envs:
               - CUDA=11.7.1
               - UBUNTU=22.04
