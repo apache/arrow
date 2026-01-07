@@ -64,7 +64,7 @@ function_doc_additions["min"] = """
     >>> pc.min(arr1)
     <pyarrow.Int64Scalar: 1>
 
-    Using `skip_nulls` to handle null values.
+    Using ``skip_nulls`` to handle null values.
 
     >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
     >>> pc.min(arr2)
@@ -72,7 +72,7 @@ function_doc_additions["min"] = """
     >>> pc.min(arr2, skip_nulls=False)
     <pyarrow.DoubleScalar: None>
 
-    Using `ScalarAggregateOptions` to control minimum number of non-null values.
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
 
     >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
     >>> pc.min(arr3)
@@ -98,7 +98,7 @@ function_doc_additions["max"] = """
     >>> pc.max(arr1)
     <pyarrow.Int64Scalar: 3>
 
-    Using `skip_nulls` to handle null values.
+    Using ``skip_nulls`` to handle null values.
 
     >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
     >>> pc.max(arr2)
@@ -106,7 +106,7 @@ function_doc_additions["max"] = """
     >>> pc.max(arr2, skip_nulls=False)
     <pyarrow.DoubleScalar: None>
 
-    Using `ScalarAggregateOptions` to control minimum number of non-null values.
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
 
     >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
     >>> pc.max(arr3)
@@ -132,7 +132,7 @@ function_doc_additions["min_max"] = """
     >>> pc.min_max(arr1)
     <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
 
-    Using `skip_nulls` to handle null values.
+    Using ``skip_nulls`` to handle null values.
 
     >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
     >>> pc.min_max(arr2)
@@ -140,7 +140,7 @@ function_doc_additions["min_max"] = """
     >>> pc.min_max(arr2, skip_nulls=False)
     <pyarrow.StructScalar: [('min', None), ('max', None)]>
 
-    Using `ScalarAggregateOptions` to control minimum number of non-null values.
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
 
     >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
     >>> pc.min_max(arr3)

@@ -892,7 +892,7 @@ def test_generated_docstrings():
         >>> pc.min_max(arr1)
         <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
 
-        Using `skip_nulls` to handle null values.
+        Using ``skip_nulls`` to handle null values.
 
         >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
         >>> pc.min_max(arr2)
@@ -900,7 +900,7 @@ def test_generated_docstrings():
         >>> pc.min_max(arr2, skip_nulls=False)
         <pyarrow.StructScalar: [('min', None), ('max', None)]>
 
-        Using `ScalarAggregateOptions` to control minimum number of non-null values.
+        Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
 
         >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
         >>> pc.min_max(arr3)
