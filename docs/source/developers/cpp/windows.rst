@@ -381,6 +381,18 @@ be defined, and similarly for ``-DARROW_FLIGHT_SQL=ON``.
                               ARROW_FLIGHT_STATIC
                               ARROW_FLIGHT_SQL_STATIC)
 
+Downloading the Timezone Database
+=================================
+
+.. TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+   https://github.com/apache/arrow/issues/48593
+
+To run some of the compute unit tests on Windows, the IANA timezone database
+and the Windows timezone mapping need to be downloaded first. See
+:ref:`download-timezone-database` for download instructions. To set a non-default
+path for the timezone database while running the unit tests, set the
+``ARROW_TIMEZONE_DATABASE`` environment variable.
+
 Replicating Appveyor Builds
 ===========================
 

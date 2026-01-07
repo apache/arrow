@@ -64,6 +64,10 @@ std::string MakeSimdLevelString(QueryFlagFunction&& query_flag) {
   }
 }
 
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+// https://github.com/apache/arrow/issues/48593
+std::optional<std::string> timezone_db_path;
+
 };  // namespace
 
 const BuildInfo& GetBuildInfo() { return kBuildInfo; }
@@ -75,6 +79,12 @@ RuntimeInfo GetRuntimeInfo() {
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsSupported(flags); });
   info.detected_simd_level =
       MakeSimdLevelString([&](int64_t flags) { return cpu_info->IsDetected(flags); });
+  info.using_os_timezone_db = USE_OS_TZDB;
+#if !USE_OS_TZDB
+  info.timezone_db_path = timezone_db_path;
+#else
+  info.timezone_db_path = std::optional<std::string>();
+#endif
   return info;
 }
 
@@ -89,7 +99,12 @@ Status Initialize(const GlobalOptions& options) noexcept {
     } catch (const std::runtime_error& e) {
       return Status::IOError(e.what());
     }
-#endif
+    timezone_db_path = options.timezone_db_path.value();
+#else
+    return Status::Invalid(
+        "Arrow was set to use OS timezone database at compile time, "
+        "so a downloaded database cannot be provided at runtime.");
+#endif  // !USE_OS_TZDB
   }
   return Status::OK();
 }
