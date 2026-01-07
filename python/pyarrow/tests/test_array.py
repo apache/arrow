@@ -2216,6 +2216,58 @@ def test_date64_from_builtin_datetime():
     assert as_i8[0].as_py() == as_i8[1].as_py()
 
 
+def test_create_date32_and_date64_arrays_with_mask():
+    # Test Date32 array creation from Python list with mask
+    arr_date32 = pa.array([0, 0, 1, 2],
+                          mask=[False, False, True, False],
+                          type=pa.date32())
+    expected_date32 = pa.array([
+        datetime.date(1970, 1, 1),
+        datetime.date(1970, 1, 1),
+        None,
+        datetime.date(1970, 1, 3),
+    ], type=pa.date32())
+    assert arr_date32.equals(expected_date32)
+
+    # Test Date32 array creation from Python dates
+    arr_date32_dates = pa.array([
+        datetime.date(2023, 1, 1),
+        datetime.date(2023, 1, 2),
+        None,
+        datetime.date(2023, 1, 4),
+    ], type=pa.date32())
+    assert arr_date32_dates.null_count == 1
+    assert arr_date32_dates[2].as_py() is None
+
+    # Test Date64 array creation from Python list with mask
+    arr_date64 = pa.array([0, 86400000, 172800000, 259200000],
+                          mask=[False, False, True, False],
+                          type=pa.date64())
+    expected_date64 = pa.array([
+        datetime.date(1970, 1, 1),
+        datetime.date(1970, 1, 2),
+        None,
+        datetime.date(1970, 1, 4),
+    ], type=pa.date64())
+    assert arr_date64.equals(expected_date64)
+
+    # Test Date64 array creation from Python dates
+    arr_date64_dates = pa.array([
+        datetime.date(2023, 1, 1),
+        datetime.date(2023, 1, 2),
+        None,
+        datetime.date(2023, 1, 4),
+    ], type=pa.date64())
+    assert arr_date64_dates.null_count == 1
+    assert arr_date64_dates[2].as_py() is None
+
+    # Test Date32 with all nulls mask
+    arr_all_null = pa.array([0, 1, 2, 3],
+                            mask=[True, True, True, True],
+                            type=pa.date32())
+    assert arr_all_null.null_count == 4
+
+
 @pytest.mark.parametrize(('ty', 'values'), [
     ('bool', [True, False, True]),
     ('uint8', range(0, 255)),
