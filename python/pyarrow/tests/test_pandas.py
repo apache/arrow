@@ -3278,8 +3278,6 @@ class TestConvertMisc:
 
 
 def test_safe_cast_from_float_with_nans_to_int():
-    # TODO(kszucs): write tests for creating Date32 and Date64 arrays, see
-    #               ARROW-4258 and https://github.com/apache/arrow/pull/3395
     values = pd.Series([1, 2, None, 4])
     arr = pa.Array.from_pandas(values, type=pa.int32(), safe=True)
     expected = pa.array([1, 2, None, 4], type=pa.int32())
