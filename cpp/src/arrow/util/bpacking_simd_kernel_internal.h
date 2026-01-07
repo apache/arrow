@@ -57,8 +57,8 @@ constexpr T max_value(const std::array<T, N>& arr) {
   return out;
 }
 
-template <const auto& kArr, typename Arch, std::size_t... Is>
-constexpr auto make_batch_constant_impl(std::index_sequence<Is...>) {
+template <std::array kArr, typename Arch, std::size_t... Is>
+constexpr auto array_to_batch_constant_impl(std::index_sequence<Is...>) {
   using Array = std::decay_t<decltype(kArr)>;
   using value_type = typename Array::value_type;
 
@@ -66,9 +66,10 @@ constexpr auto make_batch_constant_impl(std::index_sequence<Is...>) {
 }
 
 /// Make a ``xsimd::batch_constant`` from a static constexpr array.
-template <const auto& kArr, typename Arch>
-constexpr auto make_batch_constant() {
-  return make_batch_constant_impl<kArr, Arch>(std::make_index_sequence<kArr.size()>());
+template <std::array kArr, typename Arch>
+constexpr auto array_to_batch_constant() {
+  return array_to_batch_constant_impl<kArr, Arch>(
+      std::make_index_sequence<kArr.size()>());
 }
 
 template <typename T, std::size_t N>
@@ -127,11 +128,9 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
                    xsimd::batch_constant<uint8_t, Arch, kIdx...> mask)
     -> xsimd::batch<uint8_t, Arch> {
   if constexpr (std::is_base_of_v<xsimd::avx2, Arch>) {
-    static constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
-    static constexpr auto kSelfSwizzleArr = kPlan.self_lane;
-    constexpr auto kSelfSwizzle = make_batch_constant<kSelfSwizzleArr, Arch>();
-    static constexpr auto kCrossSwizzleArr = kPlan.cross_lane;
-    constexpr auto kCrossSwizzle = make_batch_constant<kCrossSwizzleArr, Arch>();
+    constexpr auto kPlan = BuildSwizzleBiLaneGenericPlan(std::array{kIdx...});
+    constexpr auto kSelfSwizzle = array_to_batch_constant<kPlan.self_lane, Arch>();
+    constexpr auto kCrossSwizzle = array_to_batch_constant<kPlan.cross_lane, Arch>();
 
     struct LaneMask {
       static constexpr uint8_t get(uint8_t i, uint8_t n) {
@@ -604,9 +603,9 @@ struct MediumKernel {
 
   template <int kReadIdx, int kSwizzleIdx, int kShiftIdx>
   static void unpack_one_shift_impl(const simd_batch& words, unpacked_type* out) {
-    static constexpr auto kRightShiftsArr =
+    constexpr auto kRightShiftsArr =
         kPlan.shifts.at(kReadIdx).at(kSwizzleIdx).at(kShiftIdx);
-    constexpr auto kRightShifts = make_batch_constant<kRightShiftsArr, arch_type>();
+    constexpr auto kRightShifts = array_to_batch_constant<kRightShiftsArr, arch_type>();
     constexpr auto kMask = kPlan.mask;
     constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
                                  kSwizzleIdx * kPlan.unpacked_per_swizzle() +
@@ -628,8 +627,8 @@ struct MediumKernel {
   template <int kReadIdx, int kSwizzleIdx, int... kShiftIds>
   static void unpack_one_swizzle_impl(const simd_bytes& bytes, unpacked_type* out,
                                       std::integer_sequence<int, kShiftIds...>) {
-    static constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
-    constexpr auto kSwizzles = make_batch_constant<kSwizzlesArr, arch_type>();
+    constexpr auto kSwizzlesArr = kPlan.swizzles.at(kReadIdx).at(kSwizzleIdx);
+    constexpr auto kSwizzles = array_to_batch_constant<kSwizzlesArr, arch_type>();
 
     const auto swizzled = swizzle_bytes(bytes, kSwizzles);
     const auto words = xsimd::bitwise_cast<uint_type>(swizzled);
@@ -759,15 +758,14 @@ struct LargeKernel {
 
   template <int kReadIdx>
   static void unpack_one_read_impl(const uint8_t* in, unpacked_type* out) {
-    static constexpr auto kLowSwizzlesArr = kPlan.low_swizzles.at(kReadIdx);
-    constexpr auto kLowSwizzles = make_batch_constant<kLowSwizzlesArr, arch_type>();
-    static constexpr auto kLowRShiftsArr = kPlan.low_rshifts.at(kReadIdx);
-    constexpr auto kLowRShifts = make_batch_constant<kLowRShiftsArr, arch_type>();
-
-    static constexpr auto kHighSwizzlesArr = kPlan.high_swizzles.at(kReadIdx);
-    constexpr auto kHighSwizzles = make_batch_constant<kHighSwizzlesArr, arch_type>();
-    static constexpr auto kHighLShiftsArr = kPlan.high_lshifts.at(kReadIdx);
-    constexpr auto kHighLShifts = make_batch_constant<kHighLShiftsArr, arch_type>();
+    constexpr auto kLowSwizzles =
+        array_to_batch_constant<kPlan.low_swizzles.at(kReadIdx), arch_type>();
+    constexpr auto kLowRShifts =
+        array_to_batch_constant<kPlan.low_rshifts.at(kReadIdx), arch_type>();
+    constexpr auto kHighSwizzles =
+        array_to_batch_constant<kPlan.high_swizzles.at(kReadIdx), arch_type>();
+    constexpr auto kHighLShifts =
+        array_to_batch_constant<kPlan.high_lshifts.at(kReadIdx), arch_type>();
 
     const auto bytes =
         load_bytes<kPlan.bytes_per_read(), arch_type>(in + kPlan.reads.at(kReadIdx));
