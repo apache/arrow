@@ -123,6 +123,7 @@ Status GetTestResourceRoot(std::string* out) {
 }
 
 // TODO(GH-48593): Remove when we have full std::chrono support
+// on windows.
 // https://github.com/apache/arrow/issues/48593
 std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
@@ -133,6 +134,7 @@ std::optional<std::string> GetTestTimezoneDatabaseRoot() {
 }
 
 // TODO(GH-48593): Remove when we have full std::chrono support
+// on windows.
 // https://github.com/apache/arrow/issues/48593
 Status InitTestTimezoneDatabase() {
   auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
