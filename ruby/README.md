@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# Apache Arrow Ruby 5
+# Apache Arrow Ruby 6
 
 Here are the official Ruby bindings for Apache Arrow.
 
