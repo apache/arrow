@@ -123,7 +123,7 @@ def get_external_encryption_config(plaintext_footer=True):
             "user_id": "Picard1701",
             "location": "Presidio"
         },
-        connection_config={
+        configuration_properties={
             "EXTERNAL_DBPA_V1": {
                 "config_file": "path/to/config/file",
                 "config_file_decryption_key": "some_key",
@@ -158,7 +158,7 @@ def get_external_decryption_config():
             "user_id": "Picard1701",
             "location": "Presidio"
         },
-        connection_config={
+        configuration_properties={
             "EXTERNAL_DBPA_V1": {
                 "config_file": "path/to/config/file",
                 "config_file_decryption_key": "some_key",
@@ -253,7 +253,7 @@ def test_external_encryption_configuration_properties():
         "location": "Presidio"
     }
 
-    assert external_encryption_config.connection_config == {
+    assert external_encryption_config.configuration_properties == {
         "EXTERNAL_DBPA_V1": {
             "config_file": "path/to/config/file",
             "config_file_decryption_key": "some_key",
@@ -310,15 +310,15 @@ def test_external_encryption_per_column_encryption_new_algorithm():
     )
 
 
-def test_external_encryption_connection_config_invalid_types():
-    """Ensure connection_config rejects non-string keys or values."""
+def test_external_encryption_configuration_properties_invalid_types():
+    """Ensure configuration_properties rejects non-string keys or values."""
     with pytest.raises(
             TypeError,
             match="All inner config keys/values must be str"):
         config = ppe.ExternalEncryptionConfiguration(
             footer_key="key"
         )
-        config.connection_config = {
+        config.configuration_properties = {
             "EXTERNAL_DBPA_V1": {
                 "config_file": "path/to/file",
                 123: "should-fail"  # Invalid: key is not a string
@@ -331,7 +331,7 @@ def test_external_encryption_connection_config_invalid_types():
         config = ppe.ExternalEncryptionConfiguration(
             footer_key="key"
         )
-        config.connection_config = {
+        config.configuration_properties = {
             "EXTERNAL_DBPA_V1": {
                 "config_file": ["not", "a", "string"]  # Invalid: value is not a string
             }
@@ -350,9 +350,9 @@ def test_external_encryption_rejects_none_values():
     with pytest.raises(ValueError, match="app_context must be JSON-serializable"):
         config.app_context = None
 
-    # connection_config: expect ValueError due to None not being iterable
-    with pytest.raises(ValueError, match="Connection config value cannot be None"):
-        config.connection_config = None
+    # configuration_properties: expect ValueError due to None not being iterable
+    with pytest.raises(ValueError, match="Configuration properties value cannot be None"):
+        config.configuration_properties = None
 
 
 def test_external_file_encryption_properties_rejects_column_in_two_places():
@@ -407,7 +407,7 @@ def test_external_decryption_configuration_properties():
         "user_id": "Picard1701",
         "location": "Presidio"
     }
-    assert external_decryption_config.connection_config == {
+    assert external_decryption_config.configuration_properties == {
         "EXTERNAL_DBPA_V1": {
             "config_file": "path/to/config/file",
             "config_file_decryption_key": "some_key",
@@ -416,13 +416,13 @@ def test_external_decryption_configuration_properties():
     }
 
 
-def test_external_decryption_connection_config_invalid_types():
-    """Ensure connection_config rejects non-string keys or values."""
+def test_external_decryption_configuration_properties_invalid_types():
+    """Ensure configuration_properties rejects non-string keys or values."""
 
     # Outer key is not a string (int instead of cipher name string)
     with pytest.raises(AttributeError, match="'int' object has no attribute 'upper'"):
         config = ppe.ExternalDecryptionConfiguration()
-        config.connection_config = {
+        config.configuration_properties = {
             123: {  # invalid outer key
                 "config_file": "should-fail"
             }
@@ -434,14 +434,14 @@ def test_external_decryption_connection_config_invalid_types():
         match="Inner value for cipher AES_GCM_V1 must be a dict"
     ):
         config = ppe.ExternalDecryptionConfiguration()
-        config.connection_config = {
+        config.configuration_properties = {
             "AES_GCM_V1": ["not", "a", "dict"]  # invalid outer value (should be dict)
         }
 
     # Inner key is not a string
     with pytest.raises(TypeError, match="All inner config keys/values must be str"):
         config = ppe.ExternalDecryptionConfiguration()
-        config.connection_config = {
+        config.configuration_properties = {
             "AES_GCM_V1": {
                 123: "should-fail"  # invalid inner key
             }
@@ -450,7 +450,7 @@ def test_external_decryption_connection_config_invalid_types():
     # Inner value is not a string
     with pytest.raises(TypeError, match="All inner config keys/values must be str"):
         config = ppe.ExternalDecryptionConfiguration()
-        config.connection_config = {
+        config.configuration_properties = {
             "AES_GCM_V1": {
                 "config_file": ["not", "a", "string"]  # invalid inner value
             }
@@ -498,7 +498,7 @@ def get_custom_external_encryption_properties(encryption_algorithm, per_column_e
             "user_id": "Picard1701",
             "location": "Presidio"
         },
-        connection_config={
+        configuration_properties={
             "EXTERNAL_DBPA_V1": {
                 "config_file": "path/to/config/file",
                 "config_file_decryption_key": "some_key",

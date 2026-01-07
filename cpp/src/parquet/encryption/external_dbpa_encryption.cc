@@ -49,7 +49,7 @@ namespace {
 // Shared between the encryptor and decryptor.
 std::unique_ptr<dbps::external::DataBatchProtectionAgentInterface> LoadAndInitializeAgent(
     const std::string& column_name,
-    const std::map<std::string, std::string>& connection_config,
+    const std::map<std::string, std::string>& configuration_properties,
     const std::string& app_context,
     const std::string& key_id,
     Type::type data_type,
@@ -64,9 +64,9 @@ std::unique_ptr<dbps::external::DataBatchProtectionAgentInterface> LoadAndInitia
   const std::string DECRYPT_TIMEOUT_KEY = "agent_decrypt_timeout_ms";
 
   // Step 1: Get path to the shared library  
-  auto it = connection_config.find(SHARED_LIBRARY_PATH_KEY);
-  if (it == connection_config.end()) {
-    auto const msg = "Required configuration key '" + SHARED_LIBRARY_PATH_KEY + "' not found in connection_config";
+  auto it = configuration_properties.find(SHARED_LIBRARY_PATH_KEY);
+  if (it == configuration_properties.end()) {
+    auto const msg = "Required configuration key '" + SHARED_LIBRARY_PATH_KEY + "' not found in configuration_properties";
     ARROW_LOG(ERROR) << msg;
     throw ParquetException(msg);
   }
@@ -89,20 +89,20 @@ std::unique_ptr<dbps::external::DataBatchProtectionAgentInterface> LoadAndInitia
   int64_t init_timeout_ms    = 10*1000; //10 seconds
   int64_t encrypt_timeout_ms = 30*1000; //30 seconds
   int64_t decrypt_timeout_ms = 30*1000; //30 seconds.
-  // Override the default values if they are present in the connection_config.
+  // Override the default values if they are present in the configuration_properties.
   try {
-    if (connection_config.find(INIT_TIMEOUT_KEY) != connection_config.end()) {
-      init_timeout_ms = std::stoi(connection_config.at(INIT_TIMEOUT_KEY));
+    if (configuration_properties.find(INIT_TIMEOUT_KEY) != configuration_properties.end()) {
+      init_timeout_ms = std::stoi(configuration_properties.at(INIT_TIMEOUT_KEY));
     }
-    if (connection_config.find(ENCRYPT_TIMEOUT_KEY) != connection_config.end()) {
-      encrypt_timeout_ms = std::stoi(connection_config.at(ENCRYPT_TIMEOUT_KEY));
+    if (configuration_properties.find(ENCRYPT_TIMEOUT_KEY) != configuration_properties.end()) {
+      encrypt_timeout_ms = std::stoi(configuration_properties.at(ENCRYPT_TIMEOUT_KEY));
     }
-    if (connection_config.find(DECRYPT_TIMEOUT_KEY) != connection_config.end()) {
-        decrypt_timeout_ms = std::stoi(connection_config.at(DECRYPT_TIMEOUT_KEY));
+    if (configuration_properties.find(DECRYPT_TIMEOUT_KEY) != configuration_properties.end()) {
+        decrypt_timeout_ms = std::stoi(configuration_properties.at(DECRYPT_TIMEOUT_KEY));
     }
   } catch (const std::exception& e) {
-    ARROW_LOG(ERROR) << "Failed to parse timeout values from connection_config: " << e.what();
-    throw ParquetException("Failed to parse timeout values from connection_config");
+    ARROW_LOG(ERROR) << "Failed to parse timeout values from configuration_properties: " << e.what();
+    throw ParquetException("Failed to parse timeout values from configuration_properties");
   }
 
   ARROW_LOG(DEBUG) << "init_timeout_ms    = " << init_timeout_ms;
@@ -125,7 +125,7 @@ std::unique_ptr<dbps::external::DataBatchProtectionAgentInterface> LoadAndInitia
 
   executor_wrapped_agent->init(
     /*column_name*/ column_name,
-    /*connection_config*/ connection_config,
+    /*configuration_properties*/ configuration_properties,
     /*app_context*/ app_context,
     /*column_key_id*/ key_id,
     /*data_type*/ DBPAEnumUtils::ParquetTypeToDBPA(data_type), 
@@ -203,12 +203,12 @@ return metadata_map;
 ExternalDBPAEncryptorAdapter::ExternalDBPAEncryptorAdapter(
   ParquetCipher::type algorithm, std::string column_name, std::string key_id,
   Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
-  std::optional<int> datatype_length, std::string app_context, std::map<std::string, std::string> connection_config,
+  std::optional<int> datatype_length, std::string app_context, std::map<std::string, std::string> configuration_properties,
   std::unique_ptr<DataBatchProtectionAgentInterface> agent_instance)
   : algorithm_(algorithm), column_name_(column_name), key_id_(key_id),
     data_type_(data_type), compression_type_(compression_type),
     encoding_type_(encoding_type), datatype_length_(datatype_length), app_context_(app_context),
-    connection_config_(connection_config),
+    configuration_properties_(configuration_properties),
     agent_instance_(std::move(agent_instance)) {
 
       if (algorithm != ParquetCipher::EXTERNAL_DBPA_V1) {
@@ -219,7 +219,7 @@ ExternalDBPAEncryptorAdapter::ExternalDBPAEncryptorAdapter(
 std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id,
     Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
-    std::string app_context, std::map<std::string, std::string> connection_config,
+    std::string app_context, std::map<std::string, std::string> configuration_properties,
     std::optional<int> datatype_length) {
 
         // Ensure DBPA logging threshold is configured before any logs here
@@ -235,8 +235,8 @@ std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make
           ARROW_LOG(DEBUG) << "  compression_type = " << compression_type;
           ARROW_LOG(DEBUG) << "  encoding_type = " << encoding_type;
           ARROW_LOG(DEBUG) << "  app_context = " << app_context;
-          ARROW_LOG(DEBUG) << "  connection_config:";
-          for (const auto& [key, value] : connection_config) {
+          ARROW_LOG(DEBUG) << "  configuration_properties:";
+          for (const auto& [key, value] : configuration_properties) {
             ARROW_LOG(DEBUG) << "    " << key << " = " << value;
           }
         }
@@ -248,7 +248,7 @@ std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make
         ARROW_LOG(DEBUG) << "ExternalDBPAEncryptorAdapter::ExternalDBPAEncryptorAdapter() -- loading and initializing agent";
         // Load and initialize the agent using the utility function
         auto agent_instance = LoadAndInitializeAgent(
-          column_name, connection_config, app_context, key_id, data_type, compression_type, datatype_length,
+          column_name, configuration_properties, app_context, key_id, data_type, compression_type, datatype_length,
           /*key_value_metadata*/ nullptr);
 
         //if we got to this point, the agent was initialized successfully
@@ -265,7 +265,7 @@ std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make
             /*encoding_type*/ encoding_type,
             /*datatype_length*/ datatype_length,
             /*app_context*/ app_context,
-            /*connection_config*/ connection_config,
+            /*configuration_properties*/ configuration_properties,
             /*agent_instance*/ std::move(agent_instance))
         );
 
@@ -337,8 +337,8 @@ int32_t ExternalDBPAEncryptorAdapter::InvokeExternalEncrypt(
         ARROW_LOG(DEBUG) << "Compression Type: [" << compression_type_ << "]";
         ARROW_LOG(DEBUG) << "Encoding Type: [" << encoding_type_ << "]";
         ARROW_LOG(DEBUG) << "App Context: [" << app_context_ << "]";
-        ARROW_LOG(DEBUG) << "Connection Config:";
-        for (const auto& [cfg_key, cfg_value] : connection_config_) {
+        ARROW_LOG(DEBUG) << "Configuration Properties:";
+        for (const auto& [cfg_key, cfg_value] : configuration_properties_) {
           ARROW_LOG(DEBUG) << "  [" << cfg_key << "]: [" << cfg_value << "]";
         }
       }
@@ -389,9 +389,9 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
   }
   auto column_path = column_chunk_metadata->descr()->path();
   if (encryptor_cache_.find(column_path->ToDotString()) == encryptor_cache_.end()) {
-    auto connection_config = external_file_encryption_properties->connection_config();
-    if (connection_config.find(algorithm) == connection_config.end()) {
-      throw ParquetException("External DBPA encryption requires its connection configuration");
+    auto configuration_properties = external_file_encryption_properties->configuration_properties();
+    if (configuration_properties.find(algorithm) == configuration_properties.end()) {
+      throw ParquetException("External DBPA encryption requires its configuration properties");
     }
 
     auto column_encryption_properties = external_file_encryption_properties
@@ -411,7 +411,7 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
     auto compression_type = column_chunk_metadata->properties()->compression(column_path);
     auto encoding_type = column_chunk_metadata->properties()->encoding(column_path);
     auto app_context = external_file_encryption_properties->app_context();
-    auto connection_config_for_algorithm = connection_config.at(algorithm);
+    auto connection_config_for_algorithm = configuration_properties.at(algorithm);
 
     std::string key_id;
     try {
@@ -441,13 +441,13 @@ ExternalDBPADecryptorAdapter::ExternalDBPADecryptorAdapter(
   ParquetCipher::type algorithm, std::string column_name, std::string key_id,
   Type::type data_type, Compression::type compression_type,
   std::vector<Encoding::type> encoding_types, std::optional<int> datatype_length, std::string app_context,
-  std::map<std::string, std::string> connection_config,
+  std::map<std::string, std::string> configuration_properties,
   std::unique_ptr<DataBatchProtectionAgentInterface> agent_instance,
   std::shared_ptr<const KeyValueMetadata> key_value_metadata)
   : algorithm_(algorithm), column_name_(column_name), key_id_(key_id),
     data_type_(data_type), compression_type_(compression_type),
     encoding_types_(encoding_types), datatype_length_(datatype_length), app_context_(app_context),
-    connection_config_(connection_config),
+    configuration_properties_(configuration_properties),
     agent_instance_(std::move(agent_instance)) {
 
     if (algorithm != ParquetCipher::EXTERNAL_DBPA_V1) {
@@ -462,7 +462,7 @@ std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make
     ParquetCipher::type algorithm, std::string column_name, std::string key_id,
     Type::type data_type, Compression::type compression_type,
     std::vector<Encoding::type> encoding_types, std::string app_context,
-    std::map<std::string, std::string> connection_config,
+    std::map<std::string, std::string> configuration_properties,
     std::optional<int> datatype_length,
     std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
 
@@ -489,8 +489,8 @@ std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make
           ARROW_LOG(DEBUG) << ss.str();
         }
         ARROW_LOG(DEBUG) << "  app_context = " << app_context;
-        ARROW_LOG(DEBUG) << "  connection_config:";
-        for (const auto& [key, value] : connection_config) {
+        ARROW_LOG(DEBUG) << "  configuration_properties:";
+        for (const auto& [key, value] : configuration_properties) {
           ARROW_LOG(DEBUG) << "    " << key << " = " << value;
         }
         ARROW_LOG(DEBUG) << "  key_value_metadata:";
@@ -503,7 +503,7 @@ std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make
         ARROW_LOG(DEBUG) << "ExternalDBPADecryptorAdapter::ExternalDBPADecryptorAdapter() -- loading and initializing agent";
         // Load and initialize the agent using the utility function
         auto agent_instance = LoadAndInitializeAgent(
-            column_name, connection_config, app_context, key_id, data_type, compression_type, datatype_length,
+            column_name, configuration_properties, app_context, key_id, data_type, compression_type, datatype_length,
             /*key_value_metadata*/ key_value_metadata);
 
         //if we got to this point, the agent was initialized successfully
@@ -519,7 +519,7 @@ std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make
             /*encoding_types*/ encoding_types,
             /*datatype_length*/ datatype_length,
             /*app_context*/ app_context,
-            /*connection_config*/ connection_config,
+            /*configuration_properties*/ configuration_properties,
             /*agent_instance*/ std::move(agent_instance),
             /*key_value_metadata*/ key_value_metadata)
         );
@@ -584,8 +584,8 @@ int32_t ExternalDBPADecryptorAdapter::InvokeExternalDecrypt(
           ARROW_LOG(DEBUG) << ss.str();
         }
         ARROW_LOG(DEBUG) << "App Context: [" << app_context_ << "]";
-        ARROW_LOG(DEBUG) << "Connection Config:";
-        for (const auto& [key, value] : connection_config_) {
+        ARROW_LOG(DEBUG) << "Configuration Properties:";
+        for (const auto& [key, value] : configuration_properties_) {
           ARROW_LOG(DEBUG) << "  [" << key << "]: [" << value << "]";
         }
       }
@@ -633,9 +633,9 @@ std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecr
     if (column_chunk_metadata == nullptr || crypto_metadata == nullptr) {
       throw ParquetException("External DBPA decryption requires column chunk and crypto metadata");
     }
-    auto connection_config = external_file_decryption_properties->connection_config();
-    if (connection_config.find(algorithm) == connection_config.end()) {
-      throw ParquetException("External DBPA decryption requires its connection configuration");
+    auto configuration_properties = external_file_decryption_properties->configuration_properties();
+    if (configuration_properties.find(algorithm) == configuration_properties.end()) {
+      throw ParquetException("External DBPA decryption requires its configuration properties");
     }
     auto column_path = column_chunk_metadata->descr()->path();
     auto data_type = column_chunk_metadata->descr()->physical_type();
@@ -646,7 +646,7 @@ std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecr
     auto compression_type = column_chunk_metadata->compression();
     auto encoding_types = column_chunk_metadata->encodings();
     auto app_context = external_file_decryption_properties->app_context();
-    auto connection_config_for_algorithm = connection_config.at(algorithm);
+    auto connection_config_for_algorithm = configuration_properties.at(algorithm);
     auto key_value_metadata = column_chunk_metadata->key_value_metadata();
 
     std::string key_id;

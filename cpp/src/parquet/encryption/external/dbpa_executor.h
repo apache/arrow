@@ -70,7 +70,7 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
    */
   void init(
       std::string column_name,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::string app_context,
       std::string column_key_id,
       Type::type data_type,

@@ -136,7 +136,7 @@ std::string app_context;
 /// For security, these values should never be sent in this config, only the locations of 
 /// the files that the external encryptor will know how to access.
 std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
-    connection_config;
+    configuration_properties;
 };
 
 struct PARQUET_EXPORT DecryptionConfiguration {
@@ -163,7 +163,7 @@ struct PARQUET_EXPORT ExternalDecryptionConfiguration : public DecryptionConfigu
   /// For security, these values should never be sent in this config, only the locations of 
   /// the files that the external decryptor will know how to access.
   std::unordered_map<ParquetCipher::type, std::unordered_map<std::string, std::string>>
-      connection_config;
+      configuration_properties;
 };
 
 /// This is a core class, that translates the parameters of high level encryption (like

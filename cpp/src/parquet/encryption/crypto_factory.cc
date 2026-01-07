@@ -73,13 +73,13 @@ int ValidateAndGetKeyLength(int32_t dek_length_bits) {
   return dek_length_bits / 8;
 }
 
-std::map<ParquetCipher::type, std::map<std::string, std::string>> ConvertConnectionConfig(
+std::map<ParquetCipher::type, std::map<std::string, std::string>> ConvertConfigurationProperties(
   const std::unordered_map<ParquetCipher::type, 
-                           std::unordered_map<std::string, std::string>>& connection_config) {
+                           std::unordered_map<std::string, std::string>>& configuration_properties) {
 
   std::map<ParquetCipher::type, std::map<std::string, std::string>> converted_config;
 
-    for (const auto& [cipher_type, inner_config] : connection_config) {
+    for (const auto& [cipher_type, inner_config] : configuration_properties) {
         if (!IsParquetCipherSupported(cipher_type)) {
             throw ParquetException("Invalid ParquetCipher type: " + 
               std::to_string(static_cast<int>(cipher_type)));
@@ -88,10 +88,10 @@ std::map<ParquetCipher::type, std::map<std::string, std::string>> ConvertConnect
         std::map<std::string, std::string> converted_inner;
         for (const auto& [key, value] : inner_config) {
             if (key.empty()) {
-                throw ParquetException("Empty key in connection config");
+                throw ParquetException("Empty key in configuration properties");
             }            
             if (value.empty()) {
-                throw ParquetException("Empty value for key '" + key + "' in connection config");
+                throw ParquetException("Empty value for key '" + key + "' in configuration properties");
             }            
             converted_inner[key] = value;
         }          
@@ -239,9 +239,9 @@ CryptoFactory::GetExternalFileEncryptionProperties(
     external_properties_builder.app_context(external_encryption_config.app_context);
   }
 
-  if (!external_encryption_config.connection_config.empty()) {
-    external_properties_builder.connection_config(ConvertConnectionConfig(
-      external_encryption_config.connection_config));
+  if (!external_encryption_config.configuration_properties.empty()) {
+    external_properties_builder.configuration_properties(ConvertConfigurationProperties(
+      external_encryption_config.configuration_properties));
   }
 
   if (key_material_store != nullptr) {
@@ -353,9 +353,9 @@ CryptoFactory::GetExternalFileDecryptionProperties(
     builder.app_context(external_decryption_config.app_context);
   }
 
-  if (!external_decryption_config.connection_config.empty()) {
-    builder.connection_config(ConvertConnectionConfig(
-      external_decryption_config.connection_config));
+  if (!external_decryption_config.configuration_properties.empty()) {
+    builder.configuration_properties(ConvertConfigurationProperties(
+      external_decryption_config.configuration_properties));
   }
 
   return builder.build_external();

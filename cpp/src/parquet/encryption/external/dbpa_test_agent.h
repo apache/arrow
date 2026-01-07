@@ -42,7 +42,7 @@ class DBPATestAgent : public DataBatchProtectionAgentInterface {
 
   void init(
       std::string column_name,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::string app_context,
       std::string column_key_id,
       Type::type data_type,
@@ -55,7 +55,7 @@ class DBPATestAgent : public DataBatchProtectionAgentInterface {
     }
     // Store the key id so we can use it for simple test XOR encryption/decryption
     key_ = std::move(column_key_id);
-    connection_config_ = std::move(connection_config);
+    configuration_properties_ = std::move(configuration_properties);
   }
 
   std::unique_ptr<EncryptionResult> Encrypt(
@@ -72,7 +72,7 @@ class DBPATestAgent : public DataBatchProtectionAgentInterface {
   // Used as a simple XOR key for test encryption/decryption
   std::string key_;
   // Stored connection configuration from init(); used to toggle test behaviors
-  std::map<std::string, std::string> connection_config_;
+  std::map<std::string, std::string> configuration_properties_;
   // Count Encrypt() calls to allow staged behavior in tests
   size_t encrypt_calls_ = 0;
 };

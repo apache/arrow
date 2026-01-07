@@ -142,7 +142,7 @@ TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
     config.per_column_encryption = per_column_encryption;
     config.app_context = 
         "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}";
-    config.connection_config = {
+    config.configuration_properties = {
         {ParquetCipher::EXTERNAL_DBPA_V1, {{"file_path", "path/to/file"}}}
     };
 
@@ -177,15 +177,15 @@ TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
     EXPECT_FALSE(column_properties_3->parquet_cipher().has_value());
 
     EXPECT_FALSE(properties->app_context().empty());
-    EXPECT_FALSE(properties->connection_config().empty());
+    EXPECT_FALSE(properties->configuration_properties().empty());
     EXPECT_EQ(properties->app_context(), config.app_context);
-    EXPECT_NE(properties->connection_config().find(ParquetCipher::EXTERNAL_DBPA_V1),
-              properties->connection_config().end());
-    EXPECT_EQ(properties->connection_config().find(ParquetCipher::AES_GCM_CTR_V1),
-              properties->connection_config().end());
-    EXPECT_NE(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).find("file_path"),
-              properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
-    EXPECT_EQ(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
+    EXPECT_NE(properties->configuration_properties().find(ParquetCipher::EXTERNAL_DBPA_V1),
+              properties->configuration_properties().end());
+    EXPECT_EQ(properties->configuration_properties().find(ParquetCipher::AES_GCM_CTR_V1),
+              properties->configuration_properties().end());
+    EXPECT_NE(properties->configuration_properties().at(ParquetCipher::EXTERNAL_DBPA_V1).find("file_path"),
+              properties->configuration_properties().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
+    EXPECT_EQ(properties->configuration_properties().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
               "path/to/file");
 }
 
@@ -244,7 +244,7 @@ TEST_F(CryptoFactoryTest, BasicDecryptionConfig) {
     EXPECT_TRUE(properties->plaintext_files_allowed());
     EXPECT_THAT(properties->key_retriever(), testing::NotNull());
     EXPECT_TRUE(properties->app_context().empty());
-    EXPECT_TRUE(properties->connection_config().empty());
+    EXPECT_TRUE(properties->configuration_properties().empty());
 }
 
 TEST_F(CryptoFactoryTest, ExternalDecryptionConfig) {
@@ -252,7 +252,7 @@ TEST_F(CryptoFactoryTest, ExternalDecryptionConfig) {
     config.cache_lifetime_seconds = 600;
     config.app_context = 
         "{\"user_id\": \"abc123\", \"location\": {\"lat\": 9.7489, \"lon\": -83.7534}}";
-    config.connection_config = {
+    config.configuration_properties = {
         {ParquetCipher::EXTERNAL_DBPA_V1, {{"file_path", "path/to/file"}}}
     };
 
@@ -261,15 +261,15 @@ TEST_F(CryptoFactoryTest, ExternalDecryptionConfig) {
     EXPECT_TRUE(properties->plaintext_files_allowed());
     EXPECT_THAT(properties->key_retriever(), testing::NotNull());
     EXPECT_FALSE(properties->app_context().empty());
-    EXPECT_FALSE(properties->connection_config().empty());
+    EXPECT_FALSE(properties->configuration_properties().empty());
     EXPECT_EQ(properties->app_context(), config.app_context);
-    EXPECT_NE(properties->connection_config().find(ParquetCipher::EXTERNAL_DBPA_V1),
-              properties->connection_config().end());
-    EXPECT_EQ(properties->connection_config().find(ParquetCipher::AES_GCM_CTR_V1),
-              properties->connection_config().end());
-    EXPECT_NE(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).find("file_path"),
-              properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
-    EXPECT_EQ(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
+    EXPECT_NE(properties->configuration_properties().find(ParquetCipher::EXTERNAL_DBPA_V1),
+              properties->configuration_properties().end());
+    EXPECT_EQ(properties->configuration_properties().find(ParquetCipher::AES_GCM_CTR_V1),
+              properties->configuration_properties().end());
+    EXPECT_NE(properties->configuration_properties().at(ParquetCipher::EXTERNAL_DBPA_V1).find("file_path"),
+              properties->configuration_properties().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
+    EXPECT_EQ(properties->configuration_properties().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
               "path/to/file");
 }
 

@@ -378,7 +378,7 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
  
      Builder* app_context(std::string context);
  
-     Builder* connection_config(
+     Builder* configuration_properties(
        std::map<ParquetCipher::type, std::map<std::string, std::string>> config);
  
      /// Forward all base class property methods to the base class Builder so we can return the
@@ -423,21 +423,21 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
  
     private:
      std::string app_context_;
-     std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
+     std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
    };
  
    const std::string& app_context() const {
      return app_context_;
    }
  
-   const std::map<ParquetCipher::type, std::map<std::string, std::string>>& 
-       connection_config() const {
-     return connection_config_;
+   const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
+       configuration_properties() const {
+     return configuration_properties_;
    }
  
   private:
    std::string app_context_;
-   std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
+   std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
  
    ExternalFileDecryptionProperties(
      ::arrow::util::SecureString footer_key,
@@ -447,7 +447,7 @@ class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionPro
      ColumnPathToDecryptionPropertiesMap column_decryption_properties,
      bool plaintext_files_allowed,
      std::string app_context,
-     std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config);
+     std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties);
  };
 
 class PARQUET_EXPORT FileEncryptionProperties {
@@ -565,7 +565,7 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
      /// needed by the external encryptors, including location of a dynamically-linked library,
      /// or config files where the external encryptors can find urls, certificates, and parameters
      /// needed to make a remote call. 
-     Builder* connection_config(
+     Builder* configuration_properties(
        std::map<ParquetCipher::type, std::map<std::string, std::string>> config);
  
      /// Forward all base class property methods to the base class Builder so we can return the
@@ -609,7 +609,7 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
  
     private:
      std::string app_context_;
-     std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
+     std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
    };
  
    const std::string& app_context() const {
@@ -617,13 +617,13 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
    }
  
    const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
-      connection_config() const {
-     return connection_config_;
+      configuration_properties() const {
+    return configuration_properties_;
    }
  
   private:
    std::string app_context_;
-   std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config_;
+   std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
  
    ExternalFileEncryptionProperties(ParquetCipher::type cipher,
          ::arrow::util::SecureString footer_key,
@@ -631,7 +631,7 @@ class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionPro
          std::string aad_prefix, bool store_aad_prefix_in_file,
          ColumnPathToEncryptionPropertiesMap encrypted_columns,
          std::string app_context,
-         std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config);
+         std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties);
  };
 
 }  // namespace parquet

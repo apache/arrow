@@ -203,8 +203,8 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
                  encryption_algorithm=None,
                  plaintext_footer=None, double_wrapping=None,
                  cache_lifetime=None, internal_key_material=None,
-                 data_key_length_bits=None, per_column_encryption=None,
-                 app_context=None, connection_config=None):
+                data_key_length_bits=None, per_column_encryption=None,
+                app_context=None, configuration_properties=None):
 
         # Initialize pointer first so the get/set forwards work.
         self.external_configuration.reset(
@@ -224,8 +224,8 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
 
         if app_context is not None:
             self.app_context = app_context
-        if connection_config is not None:
-            self.connection_config = connection_config
+        if configuration_properties is not None:
+            self.configuration_properties = configuration_properties
         if per_column_encryption is not None:
             self.per_column_encryption = per_column_encryption
 
@@ -319,14 +319,14 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
             raise TypeError(f"Failed to serialize app_context: {repr(value)}")
 
     @property
-    def connection_config(self):
-        """Get the connection configuration as a Python dictionary."""
+    def configuration_properties(self):
+        """Get the configuration properties as a Python dictionary."""
 
         cdef pair[ParquetCipher, unordered_map[c_string, c_string]] outer_pair
         cdef pair[c_string, c_string] inner_pair
         result = {}
 
-        for outer_pair in self.external_configuration.get().connection_config:
+        for outer_pair in self.external_configuration.get().configuration_properties:
             cipher_name = cipher_to_name(outer_pair.first)
             inner_map = {}
             for inner_pair in outer_pair.second:
@@ -335,11 +335,11 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
 
         return result
 
-    @connection_config.setter
-    def connection_config(self, dict value):
-        """Set the connection configuration from a Python dictionary."""
+    @configuration_properties.setter
+    def configuration_properties(self, dict value):
+        """Set the configuration properties from a Python dictionary."""
         if value is None:
-            raise ValueError("Connection config value cannot be None")
+            raise ValueError("Configuration properties value cannot be None")
 
         cdef unordered_map[ParquetCipher, unordered_map[c_string, c_string]] cpp_map
         cdef unordered_map[c_string, c_string] inner_cpp_map
@@ -358,7 +358,7 @@ cdef class ExternalEncryptionConfiguration(EncryptionConfiguration):
                 inner_cpp_map[tobytes(k)] = tobytes(v)
             cpp_map[cipher_enum] = inner_cpp_map
 
-        self.external_configuration.get().connection_config = cpp_map
+        self.external_configuration.get().configuration_properties = cpp_map
 
     @property
     def per_column_encryption(self):
@@ -432,7 +432,7 @@ cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
     # Avoid mistakingly creating attributes
     __slots__ = ()
 
-    def __init__(self, *, cache_lifetime=None, app_context=None, connection_config=None):
+    def __init__(self, *, cache_lifetime=None, app_context=None, configuration_properties=None):
         # Initialize the pointer first so the get/set forwards work.
         # Super init will run the setters/getters below so we need the pointer to exist.
         self.external_configuration.reset(new CExternalDecryptionConfiguration())
@@ -443,8 +443,8 @@ cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
 
         if app_context is not None:
             self.app_context = app_context
-        if connection_config is not None:
-            self.connection_config = connection_config
+        if configuration_properties is not None:
+            self.configuration_properties = configuration_properties
 
     """ Forward all attributes get/set methods to the superclass """
     """ The superclass already converts to/from bytes and does additional processing needed """
@@ -481,14 +481,14 @@ cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
             raise TypeError(f"Failed to serialize app_context: {repr(value)}")
 
     @property
-    def connection_config(self):
-        """Get the connection configuration as a Python dictionary."""
+    def configuration_properties(self):
+        """Get the configuration properties as a Python dictionary."""
 
         cdef pair[ParquetCipher, unordered_map[c_string, c_string]] outer_pair
         cdef pair[c_string, c_string] inner_pair
         result = {}
 
-        for outer_pair in self.external_configuration.get().connection_config:
+        for outer_pair in self.external_configuration.get().configuration_properties:
             cipher_name = cipher_to_name(outer_pair.first)
             inner_map = {}
             for inner_pair in outer_pair.second:
@@ -497,11 +497,11 @@ cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
 
         return result
 
-    @connection_config.setter
-    def connection_config(self, dict value):
-        """Set the connection configuration from a Python dictionary."""
+    @configuration_properties.setter
+    def configuration_properties(self, dict value):
+        """Set the configuration properties from a Python dictionary."""
         if value is None:
-            raise ValueError("Connection config value cannot be None")
+            raise ValueError("Configuration properties value cannot be None")
 
         cdef unordered_map[ParquetCipher, unordered_map[c_string, c_string]] cpp_map
         cdef unordered_map[c_string, c_string] inner_cpp_map
@@ -518,7 +518,7 @@ cdef class ExternalDecryptionConfiguration(DecryptionConfiguration):
                 inner_cpp_map[tobytes(k)] = tobytes(v)
             cpp_map[cipher_enum] = inner_cpp_map
 
-        self.external_configuration.get().connection_config = cpp_map
+        self.external_configuration.get().configuration_properties = cpp_map
 
     cdef inline shared_ptr[CExternalDecryptionConfiguration] unwrap_external(self) nogil:
         return self.external_configuration

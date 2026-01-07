@@ -89,11 +89,11 @@ auto ExecuteWithTimeout(const std::string& operation_name,
     // they will be re-thrown by future.get()  (original exception is thrown unchanged, no wrapping))
     if constexpr (std::is_void_v<ReturnType>) {
       future.get();
-      ARROW_LOG(DEBUG) << "[DBPAExecutor] SUCCESS: " << operation_name << " completed successfully";
+      ARROW_LOG(DEBUG) << "[DBPAExecutor] COMPLETED: " << operation_name << " operation.";
       return;
     } else {
       auto result = future.get();
-      ARROW_LOG(DEBUG) << "[DBPAExecutor] SUCCESS: " << operation_name << " completed successfully";
+      ARROW_LOG(DEBUG) << "[DBPAExecutor] COMPLETED: " << operation_name << " operation.";
       return result;
     }
   } 
@@ -138,7 +138,7 @@ DBPAExecutor::DBPAExecutor(std::unique_ptr<DataBatchProtectionAgentInterface> ag
 
 void DBPAExecutor::init(
     std::string column_name,
-    std::map<std::string, std::string> connection_config,
+    std::map<std::string, std::string> configuration_properties,
     std::string app_context,
     std::string column_key_id,
     Type::type data_type,
@@ -151,18 +151,18 @@ void DBPAExecutor::init(
 
   ExecuteWithTimeout("init", init_timeout_milliseconds_, 
                 [this](std::string col_name, 
-                       std::map<std::string, std::string> conn_config,
+                       std::map<std::string, std::string> config_props,
                        std::string app_ctx,
                        std::string col_key_id,
                        Type::type dt,
                        std::optional<int> dt_len,
                        CompressionCodec::type comp_type,
                        std::optional<std::map<std::string, std::string>> col_enc_metadata) {
-                  wrapped_agent_->init(std::move(col_name), std::move(conn_config),
+                  wrapped_agent_->init(std::move(col_name), std::move(config_props),
                                       std::move(app_ctx), std::move(col_key_id),
                                       dt, dt_len, comp_type, std::move(col_enc_metadata));
                 },
-                std::move(column_name), std::move(connection_config),
+                std::move(column_name), std::move(configuration_properties),
                 std::move(app_context), std::move(column_key_id),
                 data_type, datatype_length, compression_type, std::move(column_encryption_metadata));
 }

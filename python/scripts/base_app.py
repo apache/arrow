@@ -268,7 +268,7 @@ def get_external_encryption_config(plaintext_footer=True):
             "user_id": "Picard1701",
             "location": "Presidio"
         },
-        connection_config = get_dbpa_connection_config()
+        configuration_properties = get_dbpa_configuration_properties()
     )
 
 def get_encryption_config(plaintext_footer=True):
@@ -294,7 +294,7 @@ def get_external_decryption_config():
             "user_id": "Picard1701",
             "location": "Presidio"
         },
-        connection_config = get_dbpa_connection_config()
+        configuration_properties = get_dbpa_configuration_properties()
     )
 
 def get_config_file():
@@ -313,10 +313,10 @@ def get_config_file():
     #did not find the file. return None and let the caller handle it.
     #throw an error
 
-    raise FileNotFoundError(f"Connection config [{config_file_name}] file not found")
+    raise FileNotFoundError(f"Configuration properties file [{config_file_name}] not found")
 
 
-def get_dbpa_connection_config():
+def get_dbpa_configuration_properties():
     #we read the name of the external DBPA agent library from the environment variable DBPA_LIBRARY_PATH.
     #if not available, we use the default to 'libDBPATestAgent.so'.
     #this library performs key-independent, XOR encryption/decryption, and is built as part of the Parquet Arrow tests.
@@ -325,7 +325,7 @@ def get_dbpa_connection_config():
         'DBPA_LIBRARY_PATH', 
         'libDBPATestAgent.so' if platform.system() == 'Linux' else 'libDBPATestAgent.dylib')
 
-    connection_config = {
+    configuration_properties = {
         "EXTERNAL_DBPA_V1": {
             "agent_library_path": agent_library_path,
             "agent_init_timeout_ms": "15000",
@@ -339,9 +339,9 @@ def get_dbpa_connection_config():
 
     if (config_file_required):
         config_path = get_config_file()
-        connection_config["EXTERNAL_DBPA_V1"]["connection_config_file_path"] = config_path
+        configuration_properties["EXTERNAL_DBPA_V1"]["connection_config_file_path"] = config_path
 
-    return connection_config
+    return configuration_properties
 
 
 if __name__ == "__main__":

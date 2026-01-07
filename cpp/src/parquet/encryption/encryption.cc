@@ -160,16 +160,16 @@ ExternalFileDecryptionProperties::Builder* ExternalFileDecryptionProperties::Bui
 }
 
 ExternalFileDecryptionProperties::Builder* 
-ExternalFileDecryptionProperties::Builder::connection_config(
+ExternalFileDecryptionProperties::Builder::configuration_properties(
     std::map<ParquetCipher::type, std::map<std::string, std::string>> config) {
-  if (connection_config_.size() != 0) {
-    throw ParquetException("Connection config already set");
+  if (configuration_properties_.size() != 0) {
+    throw ParquetException("Configuration properties already set");
   }
 
   if (config.size() == 0) {
     return this;
   }
-  connection_config_ = std::move(config);
+  configuration_properties_ = std::move(config);
   return this;
 }
 
@@ -178,7 +178,7 @@ ExternalFileDecryptionProperties::Builder::build_external() {
   return std::shared_ptr<ExternalFileDecryptionProperties>(new ExternalFileDecryptionProperties(
     footer_key_, key_retriever_, check_plaintext_footer_integrity_, aad_prefix_,
     aad_prefix_verifier_, column_decryption_properties_, plaintext_files_allowed_,
-    app_context_, connection_config_));
+    app_context_, configuration_properties_));
 }
 
 ExternalFileDecryptionProperties::ExternalFileDecryptionProperties(
@@ -189,12 +189,12 @@ ExternalFileDecryptionProperties::ExternalFileDecryptionProperties(
     ColumnPathToDecryptionPropertiesMap column_decryption_properties,
     bool plaintext_files_allowed,
     std::string app_context,
-    std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config)
+    std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties)
     : FileDecryptionProperties(footer_key, key_retriever, check_plaintext_footer_integrity,
                                aad_prefix, aad_prefix_verifier, column_decryption_properties,
                                plaintext_files_allowed),
       app_context_(app_context),
-      connection_config_(connection_config) {}
+      configuration_properties_(configuration_properties) {}
 
 ColumnDecryptionProperties::Builder* ColumnDecryptionProperties::Builder::key(
     SecureString key) {
@@ -404,17 +404,17 @@ ExternalFileEncryptionProperties::Builder* ExternalFileEncryptionProperties::Bui
 }
 
 ExternalFileEncryptionProperties::Builder*
-ExternalFileEncryptionProperties::Builder::connection_config(
+ExternalFileEncryptionProperties::Builder::configuration_properties(
     std::map<ParquetCipher::type, std::map<std::string, std::string>> config) {
-  if (connection_config_.size() != 0) {
-    throw ParquetException("Connection config already set");
+  if (configuration_properties_.size() != 0) {
+    throw ParquetException("Configuration properties already set");
   }
 
   if (config.size() == 0) {
     return this;
   }
 
-  connection_config_ = std::move(config);
+  configuration_properties_ = std::move(config);
   return this;
 }
 
@@ -422,7 +422,7 @@ std::shared_ptr<ExternalFileEncryptionProperties>
 ExternalFileEncryptionProperties::Builder::build_external() {
   return std::shared_ptr<ExternalFileEncryptionProperties>(new ExternalFileEncryptionProperties(
     parquet_cipher_, footer_key_, footer_key_metadata_, encrypted_footer_, aad_prefix_,
-    store_aad_prefix_in_file_, encrypted_columns_, app_context_, connection_config_));
+    store_aad_prefix_in_file_, encrypted_columns_, app_context_, configuration_properties_));
 }
 
 ExternalFileEncryptionProperties::ExternalFileEncryptionProperties(
@@ -431,11 +431,11 @@ ExternalFileEncryptionProperties::ExternalFileEncryptionProperties(
     std::string aad_prefix, bool store_aad_prefix_in_file,
     ColumnPathToEncryptionPropertiesMap encrypted_columns,
     std::string app_context,
-    std::map<ParquetCipher::type, std::map<std::string, std::string>> connection_config)
+    std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties)
     : FileEncryptionProperties(cipher, footer_key, footer_key_metadata, encrypted_footer,
                                aad_prefix, store_aad_prefix_in_file, encrypted_columns),
       app_context_(app_context),
-      connection_config_(connection_config) {}
+      configuration_properties_(configuration_properties) {}
 
 
 }  // namespace parquet

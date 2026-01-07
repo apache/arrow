@@ -41,7 +41,7 @@ class ExternalDBPAEncryptorAdapter : public EncryptorInterface {
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       Encoding::type encoding_type, std::string app_context,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::optional<int> datatype_length);
 
   ~ExternalDBPAEncryptorAdapter() = default;
@@ -88,7 +88,7 @@ class ExternalDBPAEncryptorAdapter : public EncryptorInterface {
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       Encoding::type encoding_type, std::optional<int> datatype_length, std::string app_context,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::unique_ptr<DataBatchProtectionAgentInterface> agent_instance);
 
     int32_t InvokeExternalEncrypt(
@@ -104,7 +104,7 @@ class ExternalDBPAEncryptorAdapter : public EncryptorInterface {
     Encoding::type encoding_type_;
     std::optional<int> datatype_length_;
     std::string app_context_;
-    std::map<std::string, std::string> connection_config_;
+    std::map<std::string, std::string> configuration_properties_;
 
     std::unique_ptr<dbps::external::DataBatchProtectionAgentInterface> agent_instance_;
 
@@ -153,7 +153,7 @@ class ExternalDBPADecryptorAdapter : public DecryptorInterface {
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       std::vector<Encoding::type> encoding_types, std::string app_context,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::optional<int> datatype_length,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 
@@ -197,7 +197,7 @@ class ExternalDBPADecryptorAdapter : public DecryptorInterface {
       ParquetCipher::type algorithm, std::string column_name,
       std::string key_id, Type::type data_type, Compression::type compression_type,
       std::vector<Encoding::type> encoding_types, std::optional<int> datatype_length,
-      std::string app_context, std::map<std::string, std::string> connection_config,
+      std::string app_context, std::map<std::string, std::string> configuration_properties,
       std::unique_ptr<DataBatchProtectionAgentInterface> agent_instance,
       std::shared_ptr<const KeyValueMetadata> key_value_metadata);
 
@@ -215,7 +215,7 @@ class ExternalDBPADecryptorAdapter : public DecryptorInterface {
     std::vector<Encoding::type> encoding_types_;
     std::optional<int> datatype_length_;
     std::string app_context_;
-    std::map<std::string, std::string> connection_config_;
+    std::map<std::string, std::string> configuration_properties_;
 
     std::unique_ptr<dbps::external::DataBatchProtectionAgentInterface> agent_instance_;
 

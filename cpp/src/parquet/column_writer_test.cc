@@ -1989,7 +1989,7 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption) {
       ->set_plaintext_footer()
       ->algorithm(ParquetCipher::AES_GCM_V1)
       ->app_context(app_context_)
-      ->connection_config({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
+      ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
   auto file_encryption_properties = fep_builder.build_external();
 
   auto writer_properties_builder = WriterProperties::Builder();
@@ -2017,7 +2017,7 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption) {
   decryption_properties_builder.footer_key(kFooterEncryptionKey_)
           ->column_keys(decryption_columns)
           ->app_context(app_context_)
-          ->connection_config({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
+          ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
   reader_properties.file_decryption_properties(decryption_properties_builder.build_external());
 
   auto file_reader = ParquetFileReader::Open(
@@ -2062,7 +2062,7 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_MultiplePagesNoConflic
       ->set_plaintext_footer()
       ->algorithm(ParquetCipher::AES_GCM_V1)
       ->app_context(app_context_)
-      ->connection_config({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
+      ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
   auto file_encryption_properties = fep_builder.build_external();
 
   auto writer_properties_builder = WriterProperties::Builder();
@@ -2113,7 +2113,7 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_ConflictingMetadataThr
       ->set_plaintext_footer()
       ->algorithm(ParquetCipher::AES_GCM_V1)
       ->app_context(app_context_)
-      ->connection_config({{ParquetCipher::EXTERNAL_DBPA_V1, {
+      ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, {
         {"dbpa_test_force_conflicting_metadata", "1"},
         {"agent_library_path", library_path_}
       }}});

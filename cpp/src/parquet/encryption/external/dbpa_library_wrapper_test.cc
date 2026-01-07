@@ -189,7 +189,7 @@ class MockCompanionDBPA {
 
   // Init tracking methods
   const std::string& GetInitColumnName() const { return init_column_name_; }
-  const std::map<std::string, std::string>& GetInitConnectionConfig() const { return init_connection_config_; }
+  const std::map<std::string, std::string>& GetInitConfigurationProperties() const { return init_configuration_properties_; }
   const std::string& GetInitAppContext() const { return init_app_context_; }
   const std::string& GetInitColumnKeyId() const { return init_column_key_id_; }
   Type::type GetInitDataType() const { return init_data_type_; }
@@ -223,7 +223,7 @@ class MockCompanionDBPA {
   // Init parameter tracking
   void SetInitParameters(
       std::string column_name,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::string app_context,
       std::string column_key_id,
       Type::type data_type,
@@ -231,7 +231,7 @@ class MockCompanionDBPA {
       std::optional<int> datatype_length = std::nullopt,
       std::optional<std::map<std::string, std::string>> column_encryption_metadata = std::nullopt) {
     init_column_name_ = std::move(column_name);
-    init_connection_config_ = std::move(connection_config);
+    init_configuration_properties_ = std::move(configuration_properties);
     init_app_context_ = std::move(app_context);
     init_column_key_id_ = std::move(column_key_id);
     init_data_type_ = data_type;
@@ -255,7 +255,7 @@ class MockCompanionDBPA {
   
   // Init parameters
   std::string init_column_name_;
-  std::map<std::string, std::string> init_connection_config_;
+  std::map<std::string, std::string> init_configuration_properties_;
   std::string init_app_context_;
   std::string init_column_key_id_;
   Type::type init_data_type_;
@@ -550,7 +550,7 @@ TEST_F(DBPALibraryWrapperTest, InitDelegation) {
   
   // Verify the correct parameters were passed to the mock
   EXPECT_EQ(mock_companion_->GetInitColumnName(), column_name);
-  EXPECT_EQ(mock_companion_->GetInitConnectionConfig(), connection_config);
+  EXPECT_EQ(mock_companion_->GetInitConfigurationProperties(), connection_config);
   EXPECT_EQ(mock_companion_->GetInitAppContext(), app_context);
   EXPECT_EQ(mock_companion_->GetInitColumnKeyId(), column_key_id);
   EXPECT_EQ(mock_companion_->GetInitDataType(), data_type);
@@ -597,7 +597,7 @@ TEST_F(DBPALibraryWrapperTest, InitDelegationWithEmptyParameters) {
   
   // Verify the empty parameters were passed correctly
   EXPECT_EQ(mock_companion_->GetInitColumnName(), empty_column_name);
-  EXPECT_EQ(mock_companion_->GetInitConnectionConfig(), empty_connection_config);
+  EXPECT_EQ(mock_companion_->GetInitConfigurationProperties(), empty_connection_config);
   EXPECT_EQ(mock_companion_->GetInitAppContext(), empty_app_context);
   EXPECT_EQ(mock_companion_->GetInitColumnKeyId(), empty_column_key_id);
   EXPECT_EQ(mock_companion_->GetInitDataType(), data_type);
@@ -794,7 +794,7 @@ TEST_F(DBPALibraryWrapperTest, InitWithEncryptDecryptOperations) {
   
   // Verify init parameters are still accessible
   EXPECT_EQ(mock_companion_->GetInitColumnName(), column_name);
-  EXPECT_EQ(mock_companion_->GetInitConnectionConfig(), connection_config);
+  EXPECT_EQ(mock_companion_->GetInitConfigurationProperties(), connection_config);
   EXPECT_EQ(mock_companion_->GetInitAppContext(), app_context);
   EXPECT_EQ(mock_companion_->GetInitColumnKeyId(), column_key_id);
   EXPECT_EQ(mock_companion_->GetInitDataType(), data_type);

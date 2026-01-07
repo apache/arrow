@@ -1298,7 +1298,7 @@ namespace parquet {
         ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
         ->encrypted_columns(enc_cols)
         ->app_context(app_context)
-        ->connection_config({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+        ->configuration_properties({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
                               {{"agent_library_path", library_path}}}});
     auto file_enc_props = fep_builder.build_external();
   
@@ -1323,7 +1323,7 @@ namespace parquet {
     dep_builder.footer_key(footer_key)
         ->column_keys(dec_cols)
         ->app_context(app_context)
-        ->connection_config({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+        ->configuration_properties({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
                               {{"agent_library_path", library_path}}}});
     reader_props.file_decryption_properties(dep_builder.build_external());
   

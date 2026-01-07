@@ -93,7 +93,7 @@ public:
     
     // Track parameters from last calls
     std::string last_init_column_name_;
-    std::map<std::string, std::string> last_init_connection_config_;
+    std::map<std::string, std::string> last_init_configuration_properties_;
     std::string last_init_app_context_;
     std::string last_init_column_key_id_;
     Type::type last_init_data_type_;
@@ -117,7 +117,7 @@ public:
     std::string throw_message_ = "Mock agent error";
     
     void init(std::string column_name,
-              std::map<std::string, std::string> connection_config,
+              std::map<std::string, std::string> configuration_properties,
               std::string app_context,
               std::string column_key_id,
               Type::type data_type,
@@ -126,7 +126,7 @@ public:
               std::optional<std::map<std::string, std::string>> column_encryption_metadata) override {
         init_call_count_++;
         last_init_column_name_ = column_name;
-        last_init_connection_config_ = connection_config;
+        last_init_configuration_properties_ = configuration_properties;
         last_init_app_context_ = app_context;
         last_init_column_key_id_ = column_key_id;
         last_init_data_type_ = data_type;
@@ -246,7 +246,7 @@ TEST_F(DBPAExecutorTest, InitForwardsToWrappedAgent) {
   
   // Verify all parameters were forwarded correctly
   EXPECT_EQ(mock_agent_ptr_->last_init_column_name_, column_name);
-  EXPECT_EQ(mock_agent_ptr_->last_init_connection_config_, connection_config);
+  EXPECT_EQ(mock_agent_ptr_->last_init_configuration_properties_, connection_config);
   EXPECT_EQ(mock_agent_ptr_->last_init_app_context_, app_context);
   EXPECT_EQ(mock_agent_ptr_->last_init_column_key_id_, column_key_id);
   EXPECT_EQ(mock_agent_ptr_->last_init_data_type_, data_type);
@@ -332,7 +332,7 @@ TEST_F(DBPAExecutorTest, MultipleCallsAreProperlyForwarded) {
   
   // Verify the last call parameters (second call)
   EXPECT_EQ(mock_agent_ptr_->last_init_column_name_, "column1");
-  EXPECT_EQ(mock_agent_ptr_->last_init_connection_config_["key1"], "value1");
+  EXPECT_EQ(mock_agent_ptr_->last_init_configuration_properties_["key1"], "value1");
   EXPECT_EQ(mock_agent_ptr_->last_init_app_context_, "context1");
   EXPECT_EQ(mock_agent_ptr_->last_init_column_key_id_, "key1");
   EXPECT_EQ(mock_agent_ptr_->last_init_data_type_, Type::type::INT32);

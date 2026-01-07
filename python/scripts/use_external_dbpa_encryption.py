@@ -109,8 +109,8 @@ def get_external_encryption_config(use_remote_service):
         # Additional context for the external encryptor. Arrow will just forward this value to
         # the external encryptor, and does not read its contents.
         app_context=get_app_context(),
-        # Connection configuration for the external encryptor.
-        connection_config=get_dbpa_connection_config(use_remote_service)
+        # Configuration properties for the external encryptor.
+        configuration_properties=get_dbpa_configuration_properties(use_remote_service)
     )
 
 def get_external_file_encryption_properties(external_encryption_config):
@@ -133,8 +133,8 @@ def get_external_decryption_config(use_remote_service):
         cache_lifetime=datetime.timedelta(minutes=2.0),
         # Additional context for the external decryptor.
         app_context=get_app_context(),
-        # Connection configuration for the external decryptor.
-        connection_config=get_dbpa_connection_config(use_remote_service)
+        # Configuration properties for the external decryptor.
+        configuration_properties=get_dbpa_configuration_properties(use_remote_service)
     )
 
 def get_external_file_decryption_properties(external_decryption_config):
@@ -157,7 +157,7 @@ def get_app_context():
 # ################################################################################################
 
 """
-Set up the connection configuration for the external DBPA encryptor.
+Set up the configuration properties for the external DBPA encryptor.
 Each application can provide its own timeout values for the external DBPA encryptor operations.
 If none are provided, default values are used on the encryptor side.
 These timeout values are not network related, but rather a protection mechanism to avoid the
@@ -171,8 +171,8 @@ information needed to connect to the external DBPA service.
 This includes the server URL and the authentication credentials, which the application must procure
 on its own.
 """
-def get_dbpa_connection_config(use_remote_service):
-    connection_config = {
+def get_dbpa_configuration_properties(use_remote_service):
+    configuration_properties = {
         "EXTERNAL_DBPA_V1": {
             "agent_init_timeout_ms": "15000",
             "agent_encrypt_timeout_ms": "35000",
@@ -182,16 +182,16 @@ def get_dbpa_connection_config(use_remote_service):
     if use_remote_service:
         agent_library_path = (
             'libdbpsRemoteAgent.so' if platform.system() == 'Linux' else 'libdbpsRemoteAgent.dylib')
-        connection_config["EXTERNAL_DBPA_V1"]["agent_library_path"] = agent_library_path
+        configuration_properties["EXTERNAL_DBPA_V1"]["agent_library_path"] = agent_library_path
         # Make sure this is the absolute path to the connection config file.
         remote_file_path = '/arrowdev/python/scripts/test_connection_config_file.json'
-        connection_config["EXTERNAL_DBPA_V1"]["connection_config_file_path"] = remote_file_path
+        configuration_properties["EXTERNAL_DBPA_V1"]["connection_config_file_path"] = remote_file_path
     else:
         agent_library_path = (
             'libdbpsLocalAgent.so' if platform.system() == 'Linux' else 'libdbpsLocalAgent.dylib')
-        connection_config["EXTERNAL_DBPA_V1"]["agent_library_path"] = agent_library_path
+        configuration_properties["EXTERNAL_DBPA_V1"]["agent_library_path"] = agent_library_path
 
-    return connection_config
+    return configuration_properties
 
 # ################################################################################################
 

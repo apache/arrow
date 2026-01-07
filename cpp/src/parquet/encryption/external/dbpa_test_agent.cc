@@ -110,8 +110,8 @@ std::unique_ptr<EncryptionResult> DBPATestAgent::Encrypt(
   }
 
   // For tests, optionally force a conflicting metadata value on subsequent calls
-  auto it = connection_config_.find("dbpa_test_force_conflicting_metadata");
-  bool force_conflict = (it != connection_config_.end() && it->second == "1");
+  auto it = configuration_properties_.find("dbpa_test_force_conflicting_metadata");
+  bool force_conflict = (it != configuration_properties_.end() && it->second == "1");
   encrypt_calls_++;
   if (force_conflict && encrypt_calls_ >= 2) {
     // Return a different value for test_key1 to trigger conflict in writer

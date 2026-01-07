@@ -72,14 +72,14 @@ class DBPALibraryWrapper : public DataBatchProtectionAgentInterface {
   // Decorator implementation of init method
   inline void init(
       std::string column_name,
-      std::map<std::string, std::string> connection_config,
+      std::map<std::string, std::string> configuration_properties,
       std::string app_context,
       std::string column_key_id,
       Type::type data_type,
       std::optional<int> datatype_length,
       CompressionCodec::type compression_type,
       std::optional<std::map<std::string, std::string>> column_encryption_metadata) override {
-    wrapped_agent_->init(std::move(column_name), std::move(connection_config),
+    wrapped_agent_->init(std::move(column_name), std::move(configuration_properties),
                         std::move(app_context), std::move(column_key_id),
                         data_type, datatype_length, compression_type, std::move(column_encryption_metadata));
   }
