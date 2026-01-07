@@ -55,6 +55,14 @@ module Arrow
 
     alias_method :chunks_raw, :chunks
     def chunks
+      # Ractor.make_shareable calls rb_obj_freeze() at C level,
+      # bypassing Ruby's freeze method. This leaves @chunks unset on a frozen object.
+      # Attempting to assign would cause FrozenError (or deadlock on Windows).
+      if frozen? && !instance_variable_defined?(:@chunks)
+        return chunks_raw
+      end
+      
+      # Normal path: cache and share input references
       @chunks ||= chunks_raw.tap do |_chunks|
         _chunks.each do |chunk|
           share_input(chunk)
