@@ -107,6 +107,22 @@ TEST_F(CryptoFactoryTest, BasicEncryptionConfig) {
     EXPECT_FALSE(column_properties_2->parquet_cipher().has_value());
 }
 
+TEST_F(CryptoFactoryTest, EncryptionConfigWithExternalDbpaAlgorithmThrowsException) {
+    EncryptionConfiguration config("kf");
+    config.encryption_algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
+
+    try {
+        auto properties = crypto_factory_.GetFileEncryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(
+            xcp.what(),
+            HasSubstr("EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
+}
+
 TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
     ExternalEncryptionConfiguration config("kf");
     config.plaintext_footer = true;
@@ -171,6 +187,24 @@ TEST_F(CryptoFactoryTest, ExternalEncryptionConfig) {
               properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).end());
     EXPECT_EQ(properties->connection_config().at(ParquetCipher::EXTERNAL_DBPA_V1).at("file_path"),
               "path/to/file");
+}
+
+TEST_F(CryptoFactoryTest, ExternalEncryptionConfigWithExternalDbpaAlgorithmThrowsException) {
+    ExternalEncryptionConfiguration config("kf");
+    config.plaintext_footer = true;
+    config.column_keys = "kc3:col3,col4";
+    config.encryption_algorithm = ParquetCipher::EXTERNAL_DBPA_V1;
+
+    try {
+        auto properties = crypto_factory_.GetExternalFileEncryptionProperties(kms_config_, config);
+        FAIL() << "ParquetException should have been raised";
+    } catch (const ParquetException& xcp) {
+        EXPECT_THAT(
+            xcp.what(),
+            HasSubstr("EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption"));
+    } catch (...) {
+        FAIL() << "Caught unexpected exception type";
+    }
 }
 
 TEST_F(CryptoFactoryTest, ColumnRepeatedInMapsThrowsException) {

@@ -112,6 +112,9 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     const KmsConnectionConfig& kms_connection_config,
     const EncryptionConfiguration& encryption_config, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  if (encryption_config.encryption_algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
+    throw ParquetException("EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption");
+  }
   if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
     throw ParquetException("Either column_keys or uniform_encryption must be set");
   } else if (encryption_config.uniform_encryption &&
@@ -161,6 +164,9 @@ CryptoFactory::GetExternalFileEncryptionProperties(
   // If uniform_encryption is not set then either column_keys or per_column_encryption must have
   // values.
   // If uniform_encryption is set, then both column_keys and per_column_encryption must be empty.
+  if (external_encryption_config.encryption_algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
+    throw ParquetException("EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption");
+  }
   bool no_columns_encrypted = external_encryption_config.column_keys.empty() &&
                               external_encryption_config.per_column_encryption.empty();
   if (!external_encryption_config.uniform_encryption && no_columns_encrypted) {
