@@ -370,7 +370,8 @@ jobs:
         if: matrix.msystem_upper == 'CLANG64'
         shell: bash
         run: |
-          # TODO(GH-48743): Clang64 uses vendored date library which needs tzdata
+          # TODO(GH-48743): msys2 clang64 uses libc++ and vendored date.h library
+          # which needs tzdata database to build Arrow with time zone support.
           # https://github.com/apache/arrow/issues/48743
           ci/scripts/download_tz_database.sh
       - name: Download MinIO
