@@ -3726,6 +3726,8 @@ function(build_opentelemetry)
 
   prepare_fetchcontent()
 
+  # Unity build causes symbol redefinition errors in protobuf-generated code
+  set(CMAKE_UNITY_BUILD FALSE)
   set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
   set(WITH_EXAMPLES OFF)
   set(WITH_OTLP_HTTP ON)
