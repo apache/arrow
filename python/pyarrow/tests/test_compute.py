@@ -3930,7 +3930,8 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     (0, 1,),
     (0, 2,),
     (1, 2,),
-    (2, 4,)
+    (2, 4,),
+    (0, 0,)
 ))
 @pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
@@ -3978,18 +3979,17 @@ def test_list_slice_field_names_retained(return_fixed_size, type):
 
 def test_list_slice_bad_parameters():
     arr = pa.array([[1]], pa.list_(pa.int8(), 1))
-    msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
+    msg = (
+        r"`start`(.*) should be greater than or equal to 0 "
+        r"and not greater than `stop`(.*)"
+    )
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, -1, 1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
 
-    # TODO(ARROW-18281): start==stop -> empty lists
-    with pytest.raises(pa.ArrowInvalid, match=msg):
-        pc.list_slice(arr, 0, 0)  # start == stop?
-
     # Step not >= 1
-    msg = "`step` must be >= 1, got: "
+    msg = "`step` must be greater than or equal to 1, got: "
     with pytest.raises(pa.ArrowInvalid, match=msg + "0"):
         pc.list_slice(arr, 0, 1, step=0)
     with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):
