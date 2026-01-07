@@ -285,8 +285,9 @@ class BufferedInputStream::Impl : public BufferedBase {
 
   // Resize internal read buffer. Note that the internal buffer-size
   // should not be larger than the raw_read_bound_.
-  // It might change the buffer_size_, but will not change buffer states
-  // buffer_pos_ and bytes_buffered_.
+  // It might change the buffer_size_, and may reset buffer_pos_ to 0
+  // when bytes_buffered_ == 0 to reuse the beginning of the buffer.
+  // bytes_buffered_ will not be changed.
   Status SetBufferSize(int64_t new_buffer_size) {
     if (new_buffer_size <= 0) {
       return Status::Invalid("Buffer size should be positive");
