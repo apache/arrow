@@ -37,11 +37,12 @@ add_subdirectory(tests)
 arrow_install_all_headers("arrow/flight/sql/odbc")
 
 # ODBC Release information
-set(ODBC_PACKAGE_VERSION_MAJOR "1")
-set(ODBC_PACKAGE_VERSION_MINOR "0")
-set(ODBC_PACKAGE_VERSION_PATCH "0")
+# Flight SQL ODBC version uses Arrow version
+set(ODBC_PACKAGE_VERSION_MAJOR "${arrow_VERSION_MAJOR}")
+set(ODBC_PACKAGE_VERSION_MINOR "${arrow_VERSION_MINOR}")
+set(ODBC_PACKAGE_VERSION_PATCH "${arrow_VERSION_PATCH}")
 set(ODBC_PACKAGE_NAME "Apache Arrow Flight SQL ODBC")
-set(ODBC_PACKAGE_VENDOR "Apache Arrow")
+set(ODBC_PACKAGE_VENDOR "Apache Software Foundation")
 
 set(ARROW_FLIGHT_SQL_ODBC_SRCS entry_points.cc odbc_api.cc)
 
@@ -99,7 +100,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
   set(CPACK_RESOURCE_FILE_LICENSE
       "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt")
-  # Tentative version 1.0.0
+
   set(CPACK_PACKAGE_VERSION_MAJOR ${ODBC_PACKAGE_VERSION_MAJOR})
   set(CPACK_PACKAGE_VERSION_MINOR ${ODBC_PACKAGE_VERSION_MINOR})
   set(CPACK_PACKAGE_VERSION_PATCH ${ODBC_PACKAGE_VERSION_PATCH})
@@ -107,7 +108,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   set(CPACK_PACKAGE_NAME ${ODBC_PACKAGE_NAME})
   set(CPACK_PACKAGE_VENDOR ${ODBC_PACKAGE_VENDOR})
   set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "Apache Arrow Flight SQL ODBC Driver")
-  set(CPACK_PACKAGE_CONTACT "#GH-47787 TODO arrow maintainers")
+  set(CPACK_PACKAGE_CONTACT "dev@arrow.apache.org")
 
   # GH-47876 TODO: set up `arrow_flight_sql_odbc` component for macOS Installer
   # GH-47877 TODO: set up `arrow_flight_sql_odbc` component for Linux Installer
@@ -158,6 +159,6 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   include(CPack)
   cpack_add_component(arrow_flight_sql_odbc
                       DISPLAY_NAME "ODBC library"
-                      DESCRIPTION "ODBC library bin, required to install"
+                      DESCRIPTION "Apache Arrow Flight SQL ODBC library bin, required to install"
                       REQUIRED)
 endif()

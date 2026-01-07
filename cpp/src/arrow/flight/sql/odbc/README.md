@@ -25,14 +25,18 @@ After the build succeeds, the ODBC DLL will be located in
 1. Open Windows Power Shell as administrator.
 
 2. Register your ODBC DLL:
-    Need to replace <path\to\repo> with actual path to repository in the commands.
 
-    i. `cd to repo.`
-    ii. `cd <path\to\repo>`
-    iii. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
-    `.\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll`
-    Example command for reference:
-    `.\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll`
+   Need to replace <path\to\repo> with actual path to repository in the commands.
+   1. `cd to repo.`
+   2. `cd <path\to\repo>`
+   3. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
+      ```
+      .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
+      ```
+      Example command for reference:
+      ```
+      .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll
+      ```
 
 If the registration is successful, then Apache Arrow Flight SQL ODBC Driver 
 should show as an available ODBC driver in the x64 ODBC Driver Manager.

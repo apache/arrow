@@ -445,13 +445,14 @@ jobs:
         run: |
           # Verify WiX version
           wix --version
-          cd "${{ github.workspace }}\build\cpp"
+          cd build/cpp
           cpack
       - name: Upload the artifacts to the job
         uses: actions/upload-artifact@v6
         with:
           name: flight-sql-odbc-msi-installer
-          path: ${{ github.workspace }}\build\cpp\Apache Arrow Flight SQL ODBC-1.0.0-win64.msi
+          path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
+          if-no-files-found: error
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
