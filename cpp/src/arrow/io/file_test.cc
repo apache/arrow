@@ -116,14 +116,14 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
 }
 
 TEST_F(TestFileOutputStream, FileNameValidUtf8) {
-  // Test that file operations work with valid UTF-8 filenames.
+  // Test that file operations work with UTF-8 filenames (Korean + emoji).
   // On Windows, PlatformFilename::FromString() converts UTF-8 strings to wide strings.
   // On Unix, filenames are treated as opaque byte strings.
   std::string utf8_file_name = "test_file_한국어_😀.txt";
   std::string utf8_path = TempFile(utf8_file_name);
 
   ASSERT_OK_AND_ASSIGN(auto file, FileOutputStream::Open(utf8_path));
-  const char* data = "UTF-8 test data";
+  const char* data = "test content";
   ASSERT_OK(file->Write(data, strlen(data)));
   ASSERT_OK(file->Close());
 
