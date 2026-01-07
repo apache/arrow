@@ -2384,11 +2384,10 @@ def test_strftime():
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
                 if sys.platform == "win32" and fmt == "%Z":
-                    # TODO(GH-48743): On Windows, std::chrono returns GMT
+                    # TODO(GH-48767): On Windows, std::chrono returns GMT
+                    # https://github.com/apache/arrow/issues/48767
                     # offset style (e.g. "GMT+1") instead of timezone
                     # abbreviations (e.g. "CET")
-                    # https://github.com/apache/arrow/issues/48743
-                    # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
                     for val in result:
                         assert val.as_py() is None or val.as_py().startswith("GMT") \
                             or val.as_py() == "UTC"
@@ -2408,9 +2407,8 @@ def test_strftime():
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
         if sys.platform == "win32":
-            # TODO(GH-48743): On Windows, std::chrono returns GMT offset style
-            # https://github.com/apache/arrow/issues/48743
-            # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+            # TODO(GH-48767): On Windows, std::chrono returns GMT offset style
+            # https://github.com/apache/arrow/issues/48767
             for val in result:
                 assert val.as_py() is None or "GMT" in val.as_py() \
                     or "UTC" in val.as_py()
