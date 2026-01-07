@@ -224,6 +224,11 @@ jobs:
           python-version: 3
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
+      - name: Display NVIDIA SMI details
+        run: |
+          nvidia-smi
+          nvidia-smi -L
+          nvidia-smi -q -d Memory
       - name: Execute Docker Build
         continue-on-error: ${{ matrix.continue-on-error || false }}
         env:

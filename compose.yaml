@@ -1006,6 +1006,7 @@ services:
     deploy: *cuda-deploy
     command: &python-command >
       /bin/bash -c "
+        nvidia-smi &&
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         /arrow/ci/scripts/python_test.sh /arrow"
