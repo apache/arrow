@@ -337,7 +337,7 @@ class NumPyDtypeUnifier {
   int current_type_num() const { return current_type_num_; }
 
  private:
-  static const char* DatetimeUnitName(NPY_DATETIMEUNIT unit) {
+  static std::string DatetimeUnitName(NPY_DATETIMEUNIT unit) {
     switch (unit) {
       case NPY_FR_Y:
         return "Y";
@@ -368,7 +368,7 @@ class NumPyDtypeUnifier {
       case NPY_FR_GENERIC:
         return "generic";
       default:
-        return "unknown";
+        return "unknown (" + std::to_string(static_cast<int>(unit)) + ")";
     }
   }
 

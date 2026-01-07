@@ -2489,7 +2489,8 @@ def test_array_from_different_numpy_datetime_units_raises():
     ms = np.array(data, dtype='datetime64[ms]')
     data = list(s[:2]) + list(ms[2:])
 
-    with pytest.raises(pa.ArrowInvalid, match="Cannot mix NumPy datetime64 units s and ms"):
+    with pytest.raises(pa.ArrowInvalid,
+                       match="Cannot mix NumPy datetime64 units s and ms"):
         pa.array(data)
 
 
