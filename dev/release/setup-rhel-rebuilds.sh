@@ -22,6 +22,7 @@
 
 set -exu
 
+# shellcheck source=/dev/null
 distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
 
 if [ "${distribution_version}" -eq 8 ]; then
