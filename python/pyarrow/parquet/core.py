@@ -715,7 +715,7 @@ def _sanitized_spark_field_name(name):
     return _SPARK_DISALLOWED_CHARS.sub('_', name)
 
 
-def _sanitize_field_recursive(field):
+def _sanitize_spark_field_recursive(field):
     """
     Recursively sanitize field names in struct types for Spark compatibility.
 
@@ -729,14 +729,16 @@ def _sanitize_field_recursive(field):
     type_changed = False
 
     if pa.types.is_struct(field.type):
-        sanitized_fields = [_sanitize_field_recursive(f) for f in field.type]
-        if any(changed for _, changed in sanitized_fields):
-            sanitized_type = pa.struct([f for f, _ in sanitized_fields])
+        sanitized_fields, changed = zip(
+            *[_sanitize_spark_field_recursive(f) for f in field.type])
+        if any(changed):
+            sanitized_type = pa.struct(sanitized_fields)
             type_changed = True
     elif pa.types.is_list(field.type) or pa.types.is_large_list(field.type):
         # Sanitize the value field of list types
         value_field = field.type.value_field
-        sanitized_value_field, value_changed = _sanitize_field_recursive(value_field)
+        sanitized_value_field, value_changed = _sanitize_spark_field_recursive(
+            value_field)
         if value_changed:
             if pa.types.is_list(field.type):
                 sanitized_type = pa.list_(sanitized_value_field)
@@ -747,7 +749,8 @@ def _sanitize_field_recursive(field):
         # Sanitize the value field of fixed_size_list types
         value_field = field.type.value_field
         list_size = field.type.list_size
-        sanitized_value_field, value_changed = _sanitize_field_recursive(value_field)
+        sanitized_value_field, value_changed = _sanitize_spark_field_recursive(
+            value_field)
         if value_changed:
             sanitized_type = pa.list_(sanitized_value_field, list_size)
             type_changed = True
@@ -755,8 +758,8 @@ def _sanitize_field_recursive(field):
         # Sanitize both key and item fields of map types
         key_field = field.type.key_field
         item_field = field.type.item_field
-        sanitized_key_field, key_changed = _sanitize_field_recursive(key_field)
-        sanitized_item_field, item_changed = _sanitize_field_recursive(item_field)
+        sanitized_key_field, key_changed = _sanitize_spark_field_recursive(key_field)
+        sanitized_item_field, item_changed = _sanitize_spark_field_recursive(item_field)
         if key_changed or item_changed:
             sanitized_type = pa.map_(sanitized_key_field, sanitized_item_field,
                                      keys_sorted=field.type.keys_sorted)
@@ -777,7 +780,7 @@ def _sanitize_schema(schema, flavor):
     schema_changed = False
 
     for field in schema:
-        sanitized_field, changed = _sanitize_field_recursive(field)
+        sanitized_field, changed = _sanitize_spark_field_recursive(field)
         sanitized_fields.append(sanitized_field)
         schema_changed = schema_changed or changed
 
