@@ -287,6 +287,16 @@ def test_pre_buffer(pre_buffer):
     assert pf.read().num_rows == N
 
 
+def test_iter_batches_read_ree(tempdir):
+    filename = tempdir / 'pandas_roundtrip.parquet'
+    arrow_table = pa.table({'col1': ["a", "b"], 'col2': [0, 1]})
+    _write_table(arrow_table, filename, version='2.6')
+    ree_col_name = "col1"
+    parquet_file = pq.ParquetFile(filename, read_ree = [ree_col_name])
+    batch = next(parquet_file.iter_batches())
+    assert pa.types.is_run_end_encoded(batch.schema.field(ree_col_name).type)
+
+
 def test_parquet_file_explicitly_closed(tempdir):
     """
     Unopened files should be closed explicitly after use,

@@ -65,7 +65,8 @@ class PARQUET_EXPORT RowGroupReader {
   // EXPERIMENTAL: Construct a RecordReader for the indicated column of the row group.
   // Ownership is shared with the RowGroupReader.
   std::shared_ptr<internal::RecordReader> RecordReader(int i,
-                                                       bool read_dictionary = false);
+                                                       bool read_dictionary = false,
+                                                       bool read_ree = false);
 
   // Construct a ColumnReader, trying to enable exposed encoding.
   //
@@ -83,7 +84,7 @@ class PARQUET_EXPORT RowGroupReader {
 
   // Construct a RecordReader, trying to enable exposed encoding.
   //
-  // For dictionary encoding, currently we only support column chunks that are
+  // For dictionary and run-end encoding, currently we only support column chunks that are
   // fully dictionary encoded byte arrays. The caller should verify if the reader can read
   // and expose the dictionary by checking the reader's read_dictionary(). If a column
   // chunk uses dictionary encoding but then falls back to plain encoding, the returned

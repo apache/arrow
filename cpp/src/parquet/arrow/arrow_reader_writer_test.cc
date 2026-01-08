@@ -38,6 +38,7 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/initialize.h"
 #include "arrow/extension/json.h"
 #include "arrow/io/api.h"
 #include "arrow/record_batch.h"
@@ -61,6 +62,8 @@
 #ifdef ARROW_CSV
 #  include "arrow/csv/api.h"
 #endif
+
+#include "arrow/acero/test_util_internal.h"
 
 #include "parquet/api/reader.h"
 #include "parquet/api/writer.h"
@@ -4910,6 +4913,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
 
     std::shared_ptr<Table> actual;
     ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 
@@ -5054,6 +5058,92 @@ TEST_P(TestArrowReadDictionary, ReadWholeFileDense) {
 INSTANTIATE_TEST_SUITE_P(
     ReadDictionary, TestArrowReadDictionary,
     ::testing::ValuesIn(TestArrowReadDictionary::null_probabilities()));
+
+class TestArrowReadRunEndEncoded : public ::testing::TestWithParam<double> {
+ public:
+  static constexpr int kNumRowGroups = 16;
+
+  struct {
+    int num_rows = 1024 * kNumRowGroups;
+    int num_row_groups = kNumRowGroups;
+    int num_uniques = 128;
+  } options;
+
+  void SetUp() override {
+    ASSERT_OK(::arrow::compute::Initialize());
+    properties_ = default_arrow_reader_properties();
+
+    GenerateData(GetParam());
+  }
+
+  void GenerateData(double null_probability) {
+    constexpr int64_t min_length = 2;
+    constexpr int64_t max_length = 100;
+    ::arrow::random::RandomArrayGenerator rag(0);
+    dense_values_ = rag.StringWithRepeats(options.num_rows, options.num_uniques,
+                                          min_length, max_length, null_probability);
+    expected_dense_ = MakeSimpleTable(dense_values_, /*nullable=*/true);
+  }
+
+  void TearDown() override {}
+
+  void WriteSimple() {
+    // Write `num_row_groups` row groups; each row group will have a different dictionary
+    ASSERT_NO_FATAL_FAILURE(
+        WriteTableToBuffer(expected_dense_, options.num_rows / options.num_row_groups,
+                           default_arrow_writer_properties(), &buffer_));
+  }
+
+  void CheckReadWholeFile(const Table& expected) {
+    ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
+
+    std::shared_ptr<Table> actual;
+    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
+  }
+
+  static std::vector<double> null_probabilities() { return {0.0, 0.5, 1}; }
+
+ protected:
+  std::shared_ptr<Array> dense_values_;
+  std::shared_ptr<Table> expected_dense_;
+  std::shared_ptr<Table> expected_dict_;
+  std::shared_ptr<Buffer> buffer_;
+  ArrowReaderProperties properties_;
+
+  ::arrow::Result<std::unique_ptr<FileReader>> GetReader() {
+    std::unique_ptr<FileReader> reader;
+
+    FileReaderBuilder builder;
+    RETURN_NOT_OK(builder.Open(std::make_shared<BufferReader>(buffer_)));
+    RETURN_NOT_OK(builder.properties(properties_)->Build(&reader));
+
+    return reader;
+  }
+};
+
+TEST_P(TestArrowReadRunEndEncoded, ReadWholeFile) {
+  properties_.set_read_ree(0, true);
+
+  WriteSimple();
+
+  auto num_row_groups = options.num_row_groups;
+  auto chunk_size = options.num_rows / num_row_groups;
+
+  std::vector<std::shared_ptr<Array>> chunks(num_row_groups);
+  for (int i = 0; i < num_row_groups; ++i) {
+    chunks[i] = dense_values_->Slice(chunk_size * i, chunk_size);
+  }
+  auto ex_table = MakeSimpleTable(std::make_shared<ChunkedArray>(chunks),
+                                  /*nullable=*/true);
+  ASSERT_OK_AND_ASSIGN(ex_table, ::arrow::acero::RunEndEncodeTableColumns(*ex_table, {0}));
+
+  CheckReadWholeFile(*ex_table);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ReadRunEndEncoded, TestArrowReadRunEndEncoded,
+    ::testing::ValuesIn(TestArrowReadRunEndEncoded::null_probabilities()));
 
 TEST(TestArrowWriteDictionaries, ChangingDictionaries) {
   constexpr int num_unique = 50;
