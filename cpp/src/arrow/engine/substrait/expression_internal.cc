@@ -1249,27 +1249,37 @@ Result<std::unique_ptr<substrait::Expression>> MakeListElementReference(
 Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCall(
     const SubstraitCall& call, ExtensionSet* ext_set,
     const ConversionOptions& conversion_options) {
+
+  auto scalar_fn =
+      std::make_unique<substrait::Expression::ScalarFunction>();
+
+  // Encode function ONCE per scalar function (FIX)
   ARROW_ASSIGN_OR_RAISE(uint32_t anchor, ext_set->EncodeFunction(call.id()));
-  auto scalar_fn = std::make_unique<substrait::Expression::ScalarFunction>();
   scalar_fn->set_function_reference(anchor);
+
   ARROW_ASSIGN_OR_RAISE(
       std::unique_ptr<substrait::Type> output_type,
-      ToProto(*call.output_type(), call.output_nullable(), ext_set, conversion_options));
+      ToProto(*call.output_type(), call.output_nullable(),
+              ext_set, conversion_options));
   scalar_fn->set_allocated_output_type(output_type.release());
 
   for (int i = 0; i < call.size(); i++) {
     substrait::FunctionArgument* arg = scalar_fn->add_arguments();
     if (call.HasEnumArg(i)) {
-      ARROW_ASSIGN_OR_RAISE(std::string_view enum_val, call.GetEnumArg(i));
+      ARROW_ASSIGN_OR_RAISE(std::string_view enum_val,
+                            call.GetEnumArg(i));
       arg->set_enum_(std::string(enum_val));
     } else if (call.HasValueArg(i)) {
-      ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg, call.GetValueArg(i));
-      ARROW_ASSIGN_OR_RAISE(std::unique_ptr<substrait::Expression> value_expr,
-                            ToProto(value_arg, ext_set, conversion_options));
+      ARROW_ASSIGN_OR_RAISE(compute::Expression value_arg,
+                            call.GetValueArg(i));
+      ARROW_ASSIGN_OR_RAISE(
+          std::unique_ptr<substrait::Expression> value_expr,
+          ToProto(value_arg, ext_set, conversion_options));
       arg->set_allocated_value(value_expr.release());
     } else {
-      return Status::Invalid("Call reported having ", call.size(),
-                             " arguments but no argument could be found at index ", i);
+      return Status::Invalid(
+          "Call reported having ", call.size(),
+          " arguments but no argument could be found at index ", i);
     }
   }
 
@@ -1277,13 +1287,13 @@ Result<std::unique_ptr<substrait::Expression::ScalarFunction>> EncodeSubstraitCa
     substrait::FunctionOption* fn_option = scalar_fn->add_options();
     fn_option->set_name(option.first);
     for (const auto& opt_val : option.second) {
-      std::string* pref = fn_option->add_preference();
-      *pref = opt_val;
+      *fn_option->add_preference() = opt_val;
     }
   }
 
   return scalar_fn;
 }
+
 
 Result<std::vector<std::unique_ptr<substrait::Expression>>> DatumToLiterals(
     const Datum& datum, ExtensionSet* ext_set,
