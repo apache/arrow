@@ -73,7 +73,8 @@ class GANDIVA_EXPORT LLVMTypes {
 
   template <typename ctype, size_t N = (sizeof(ctype) * CHAR_BIT)>
   llvm::Constant* int_constant(ctype val) {
-    return llvm::ConstantInt::get(context_, llvm::APInt(N, val));
+    constexpr bool is_signed = std::is_signed_v<ctype>;
+    return llvm::ConstantInt::get(context_, llvm::APInt(N, val, is_signed));
   }
 
   llvm::Constant* i1_constant(bool val) { return int_constant<bool, 1>(val); }
