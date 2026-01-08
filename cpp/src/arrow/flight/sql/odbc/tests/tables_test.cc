@@ -340,9 +340,9 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForUnicodeTableByTableName) {
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForInvalidTableNameNoData) {
   this->CreateTestTables();
 
-  SQLWCHAR invalid_table_name[] = L"NonExistanttable_name";
+  SQLWCHAR invalid_table_name[] = L"NonExistenttable_name";
 
-  //  Try to get metadata for a non-existant table name
+  //  Try to get metadata for a non-existent table name
   ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                    invalid_table_name, SQL_NTS, nullptr, SQL_NTS));
 

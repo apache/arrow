@@ -2044,7 +2044,6 @@ def test_copy_files_directory(tempdir):
 
     # Copy directory with local file paths
     destination_dir1 = tempdir / "destination1"
-    # TODO need to create?
     destination_dir1.mkdir()
     copy_files(str(source_dir), str(destination_dir1))
     check_copied_files(destination_dir1)

@@ -23,16 +23,15 @@ FROM ${base}
 
 # Define the full version number otherwise choco falls back to patch number 0 (3.10 => 3.10.0)
 ARG python=3.10
-RUN (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py -3.10") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PYTHON_CMD "py -3.11") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.10" && setx PYTHON_CMD "py -3.12") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.9" && setx PYTHON_CMD "py -3.13") & \
-    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0" && setx PYTHON_CMD "py -3.14")
 
-RUN choco install -r -y --pre --no-progress python --version=%PYTHON_VERSION%
-RUN %PYTHON_CMD% -m pip install -U pip setuptools
+ARG python_variant=default
+ENV PYTHON_VERSION=${python}
+ENV PYTHON_VARIANT=${python_variant}
+RUN pymanager install --version %PYTHON_VERSION% --variant %PYTHON_VARIANT%
+
+RUN py -%PYTHON_VERSION% -m pip install -U pip setuptools
 
 COPY python/requirements-wheel-build.txt C:/arrow/python/
-RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
+RUN py -%PYTHON_VERSION% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
 
 ENV PYTHON=${python}

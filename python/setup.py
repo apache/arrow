@@ -23,6 +23,7 @@ import os.path
 from os.path import join as pjoin
 import re
 import shlex
+import shutil
 import sys
 import warnings
 
@@ -33,6 +34,7 @@ else:
     from distutils import sysconfig
 
 from setuptools import setup, Extension, Distribution
+from setuptools.command.sdist import sdist
 
 from Cython.Distutils import build_ext as _build_ext
 import Cython
@@ -395,11 +397,41 @@ class BinaryDistribution(Distribution):
         return True
 
 
+class CopyLicenseSdist(sdist):
+    """Custom sdist command that copies license files from parent directory."""
+
+    def make_release_tree(self, base_dir, files):
+        # Call parent to do the normal work
+        super().make_release_tree(base_dir, files)
+
+        # Define source (parent dir) and destination (sdist root) for license files
+        license_files = [
+            ("LICENSE.txt", "../LICENSE.txt"),
+            ("NOTICE.txt", "../NOTICE.txt"),
+        ]
+
+        for dest_name, src_path in license_files:
+            src_full = os.path.join(os.path.dirname(__file__), src_path)
+            dest_full = os.path.join(base_dir, dest_name)
+
+            # Remove any existing file/symlink at destination
+            if os.path.exists(dest_full) or os.path.islink(dest_full):
+                os.unlink(dest_full)
+
+            if not os.path.exists(src_full):
+                msg = f"Required license file not found: {src_full}"
+                raise FileNotFoundError(msg)
+
+            shutil.copy2(src_full, dest_full)
+            print(f"Copied {src_path} to {dest_name} in sdist")
+
+
 setup(
     distclass=BinaryDistribution,
     # Dummy extension to trigger build_ext
     ext_modules=[Extension('__dummy__', sources=[])],
     cmdclass={
-        'build_ext': build_ext
+        'build_ext': build_ext,
+        'sdist': CopyLicenseSdist,
     },
 )

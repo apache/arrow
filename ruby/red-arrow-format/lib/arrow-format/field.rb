@@ -18,10 +18,12 @@ module ArrowFormat
   class Field
     attr_reader :name
     attr_reader :type
-    def initialize(name, type, nullable)
+    attr_reader :dictionary_id
+    def initialize(name, type, nullable, dictionary_id)
       @name = name
       @type = type
       @nullable = nullable
+      @dictionary_id = dictionary_id
     end
 
     def nullable?

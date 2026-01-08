@@ -38,7 +38,7 @@ table Footer {
 
 struct Block {
 
-  /// Index to the start of the RecordBlock (note this is past the Message header)
+  /// Index to the start of the RecordBatch (note this is past the Message header)
   offset: long;
 
   /// Length of the metadata

@@ -101,7 +101,7 @@ jobs:
               "${RELEASE_TARBALL}"
           fi
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: release-candidate
           path: ${{ env.RELEASE_TARBALL }}*

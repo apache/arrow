@@ -55,31 +55,25 @@ static bool FromGrpcContext(const ::grpc::ClientContext& ctx,
   const std::multimap<::grpc::string_ref, ::grpc::string_ref>& trailers =
       ctx.GetServerTrailingMetadata();
 
-  const auto code_val = trailers.find(kGrpcStatusCodeHeader);
-  if (code_val == trailers.end()) return false;
+  const auto [code_val_begin, code_val_end] = trailers.equal_range(kGrpcStatusCodeHeader);
+  if (code_val_begin == code_val_end) return false;
 
-  const auto message_val = trailers.find(kGrpcStatusMessageHeader);
-  const std::optional<std::string> message =
-      message_val == trailers.end()
-          ? std::nullopt
-          : std::optional<std::string>(
-                std::string(message_val->second.data(), message_val->second.size()));
+  std::optional<std::string> message;
+  if (const auto [it, end] = trailers.equal_range(kGrpcStatusMessageHeader); it != end) {
+    message = std::string(it->second.data(), it->second.size());
+  }
 
-  const auto detail_val = trailers.find(kGrpcStatusDetailHeader);
-  const std::optional<std::string> detail_message =
-      detail_val == trailers.end()
-          ? std::nullopt
-          : std::optional<std::string>(
-                std::string(detail_val->second.data(), detail_val->second.size()));
+  std::optional<std::string> detail_message;
+  if (const auto [it, end] = trailers.equal_range(kGrpcStatusDetailHeader); it != end) {
+    detail_message = std::string(it->second.data(), it->second.size());
+  }
 
-  const auto grpc_detail_val = trailers.find(kBinaryErrorDetailsKey);
-  const std::optional<std::string> detail_bin =
-      grpc_detail_val == trailers.end()
-          ? std::nullopt
-          : std::optional<std::string>(std::string(grpc_detail_val->second.data(),
-                                                   grpc_detail_val->second.size()));
+  std::optional<std::string> detail_bin;
+  if (const auto [it, end] = trailers.equal_range(kBinaryErrorDetailsKey); it != end) {
+    detail_bin = std::string(it->second.data(), it->second.size());
+  }
 
-  std::string code_str(code_val->second.data(), code_val->second.size());
+  std::string code_str(code_val_begin->second.data(), code_val_begin->second.size());
   *status = internal::ReconstructStatus(code_str, current_status, std::move(message),
                                         std::move(detail_message), std::move(detail_bin),
                                         std::move(flight_status_detail));

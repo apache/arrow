@@ -747,6 +747,10 @@ class TableTest < Test::Unit::TestCase
           @file.path
         end
 
+        def teardown
+          GC.start # Ensure freeing Arrow::Table that refers @file.path.
+        end
+
         sub_test_case("save: auto detect") do
           test("arrow") do
             output = create_output(".arrow")

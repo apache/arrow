@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 223 R functions to the corresponding
+The package also has mappings of 224 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -341,6 +341,7 @@ Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any f
 \item \code{\link[stringr:str_detect]{str_detect()}}
 \item \code{\link[stringr:str_dup]{str_dup()}}
 \item \code{\link[stringr:str_starts]{str_ends()}}
+\item \code{\link[stringr:str_like]{str_ilike()}}
 \item \code{\link[stringr:str_length]{str_length()}}
 \item \code{\link[stringr:str_like]{str_like()}}
 \item \code{\link[stringr:str_pad]{str_pad()}}

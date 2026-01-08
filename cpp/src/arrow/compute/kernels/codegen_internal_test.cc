@@ -51,6 +51,22 @@ TEST(TestDispatchBest, CastBinaryDecimalArgs) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       NotImplemented, ::testing::HasSubstr("Decimals with negative scales not supported"),
       CastBinaryDecimalArgs(DecimalPromotion::kAdd, &args));
+
+  // Non-castable -> unchanged
+  for (const auto promotion :
+       {DecimalPromotion::kAdd, DecimalPromotion::kMultiply, DecimalPromotion::kDivide}) {
+    for (const auto& args : std::vector<std::vector<TypeHolder>>{
+             {decimal128(3, 2), boolean()},
+             {boolean(), decimal128(3, 2)},
+             {decimal128(3, 2), utf8()},
+             {utf8(), decimal128(3, 2)},
+         }) {
+      auto args_copy = args;
+      ASSERT_OK(CastBinaryDecimalArgs(promotion, &args_copy));
+      AssertTypeEqual(*args_copy[0], *args[0]);
+      AssertTypeEqual(*args_copy[1], *args[1]);
+    }
+  }
 }
 
 TEST(TestDispatchBest, CastDecimalArgs) {

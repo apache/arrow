@@ -17,11 +17,11 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_statement_get_type_info.h"
 
-#include <boost/algorithm/string/join.hpp>
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_get_type_info_reader.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
+#include "arrow/util/string.h"
 
 namespace arrow::flight::sql::odbc {
 
@@ -108,14 +108,16 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
     data.literal_suffix = reader.GetLiteralSuffix();
 
     const auto& create_params = reader.GetCreateParams();
-    if (create_params) {
-      data.create_params = boost::algorithm::join(*create_params, ",");
+    if (create_params && !create_params->empty()) {
+      data.create_params = arrow::internal::JoinStrings(*create_params, ",");
     } else {
       data.create_params = nullopt;
     }
 
     data.nullable = reader.GetNullable() ? NULLABILITY_NULLABLE : NULLABILITY_NO_NULLS;
     data.case_sensitive = reader.GetCaseSensitive();
+    // GH-47237 return SEARCHABILITY_LIKE_ONLY and SEARCHABILITY_ALL_EXPECT_LIKE for
+    // appropriate data types
     data.searchable = reader.GetSearchable() ? SEARCHABILITY_ALL : SEARCHABILITY_NONE;
     data.unsigned_attribute = reader.GetUnsignedAttribute();
     data.fixed_prec_scale = reader.GetFixedPrecScale();
@@ -123,9 +125,9 @@ Result<std::shared_ptr<RecordBatch>> TransformInner(
     data.local_type_name = reader.GetLocalTypeName();
     data.minimum_scale = reader.GetMinimumScale();
     data.maximum_scale = reader.GetMaximumScale();
-    data.sql_data_type =
+    data.sql_data_type = util::GetNonConciseDataType(
         EnsureRightSqlCharType(static_cast<SqlDataType>(reader.GetSqlDataType()),
-                               metadata_settings_.use_wide_char);
+                               metadata_settings_.use_wide_char));
     data.sql_datetime_sub =
         util::GetSqlDateTimeSubCode(static_cast<SqlDataType>(data.data_type));
     data.num_prec_radix = reader.GetNumPrecRadix();

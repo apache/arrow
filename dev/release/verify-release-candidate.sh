@@ -270,8 +270,7 @@ test_yum() {
                     "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "centos:7"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/x86_64 \
                --rm \

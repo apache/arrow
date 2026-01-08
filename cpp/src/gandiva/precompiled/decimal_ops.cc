@@ -527,7 +527,8 @@ double ToDouble(const BasicDecimalScalar128& in, bool* overflow) {
 
 BasicDecimal128 FromInt64(int64_t in, int32_t precision, int32_t scale, bool* overflow) {
   // check if multiplying by scale will cause an overflow.
-  DECIMAL_OVERFLOW_IF(std::abs(in) > GetMaxValue(precision - scale), overflow);
+  const auto max_val = GetMaxValue(precision - scale);
+  DECIMAL_OVERFLOW_IF(in > max_val || in < -max_val, overflow);
   return in * BasicDecimal128::GetScaleMultiplier(scale);
 }
 

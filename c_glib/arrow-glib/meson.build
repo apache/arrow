@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -30,6 +28,7 @@ sources = files(
     'decimal.cpp',
     'decoder.cpp',
     'error.cpp',
+    'executor.cpp',
     'expression.cpp',
     'field.cpp',
     'interval.cpp',
@@ -87,6 +86,7 @@ c_headers = files(
     'decimal.h',
     'decoder.h',
     'error.h',
+    'executor.h',
     'expression.h',
     'field.h',
     'interval.h',
@@ -137,6 +137,7 @@ cpp_headers = files(
     'decimal.hpp',
     'decoder.hpp',
     'error.hpp',
+    'executor.hpp',
     'expression.hpp',
     'field.hpp',
     'interval.hpp',
@@ -277,6 +278,11 @@ if have_gi
     )
 
     if generate_vapi
+        configure_file(
+            copy: true,
+            input: 'Arrow.metadata',
+            output: 'Arrow-@0@.metadata'.format(gi_api_version),
+        )
         arrow_glib_vapi = gnome.generate_vapi(
             'arrow-glib',
             install: true,

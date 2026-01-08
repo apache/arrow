@@ -172,15 +172,19 @@ Status MakeListArray(const std::shared_ptr<Array>& child_array, int num_lists,
 
   offsets[num_lists] = static_cast<offset_type>(child_array->length());
 
-  /// TODO(wesm): Implement support for nulls in ListArray::FromArrays
-  std::shared_ptr<Buffer> null_bitmap, offsets_buffer;
-  RETURN_NOT_OK(GetBitmapFromVector(valid_lists, &null_bitmap));
-  RETURN_NOT_OK(CopyBufferFromVector(offsets, pool, &offsets_buffer));
+  // Create offsets array
+  using OffsetArrowType = typename TypeTraits<TypeClass>::OffsetType;
+  std::shared_ptr<Array> offsets_array;
+  ArrayFromVector<OffsetArrowType, offset_type>(offsets, &offsets_array);
 
-  *out = std::make_shared<ArrayType>(std::make_shared<TypeClass>(child_array->type()),
-                                     num_lists, offsets_buffer, child_array, null_bitmap,
-                                     kUnknownNullCount);
-  return (**out).Validate();
+  // Create null bitmap
+  std::shared_ptr<Buffer> null_bitmap;
+  RETURN_NOT_OK(GetBitmapFromVector(valid_lists, &null_bitmap));
+
+  // Use FromArrays which supports nulls via null_bitmap parameter
+  ARROW_ASSIGN_OR_RAISE(*out, ArrayType::FromArrays(*offsets_array, *child_array, pool,
+                                                    null_bitmap, kUnknownNullCount));
+  return Status::OK();
 }
 
 Status MakeRandomListViewArray(const std::shared_ptr<Array>& child_array, int num_lists,

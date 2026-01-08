@@ -889,7 +889,7 @@ test_that("stri_reverse and arrow_ascii_reverse functions", {
   )
 })
 
-test_that("str_like", {
+test_that("str_like and str_ilike", {
   df <- tibble(x = c("Foo and bar", "baz and qux and quux"))
 
   # No match - entire string
@@ -899,10 +899,12 @@ test_that("str_like", {
       collect(),
     df
   )
+
   # with namespacing
   compare_dplyr_binding(
     .input |>
-      mutate(x = stringr::str_like(x, "baz")) |>
+      mutate(x_like = stringr::str_like(x, "baz")) |>
+      mutate(x_ilike = stringr::str_ilike(x, "foo%")) |>
       collect(),
     df
   )
@@ -910,7 +912,8 @@ test_that("str_like", {
   # Match - entire string
   compare_dplyr_binding(
     .input |>
-      mutate(x = str_like(x, "Foo and bar")) |>
+      mutate(x_like = str_like(x, "foo and bar")) |>
+      mutate(x_ilike = str_ilike(x, "foo and bar")) |>
       collect(),
     df
   )
@@ -918,32 +921,22 @@ test_that("str_like", {
   # Wildcard
   compare_dplyr_binding(
     .input |>
-      mutate(x = str_like(x, "f%", ignore_case = TRUE)) |>
+      mutate(like_lower = str_like(x, "f%")) |>
+      mutate(like_upper = str_like(x, "F%")) |>
+      mutate(ilike_lower = str_ilike(x, "f%")) |>
+      mutate(ilike_upper = str_ilike(x, "F%")) |>
+      mutate(like_percent = str_like(x, "%baz%")) |>
+      mutate(like_underscore = str_like(x, "_a%")) |>
+      mutate(ilike_mixed = str_ilike(x, "%BAZ%")) |>
+      mutate(ilike_underscore = str_ilike(x, "_a%")) |>
       collect(),
     df
   )
 
-  # Ignore case
-  compare_dplyr_binding(
-    .input |>
-      mutate(x = str_like(x, "f%", ignore_case = FALSE)) |>
-      collect(),
-    df
-  )
-
-  # Single character
-  compare_dplyr_binding(
-    .input |>
-      mutate(x = str_like(x, "_a%")) |>
-      collect(),
-    df
-  )
-
-  compare_dplyr_binding(
-    .input |>
-      mutate(x = str_like(x, "%baz%")) |>
-      collect(),
-    df
+  x <- Expression$field_ref("x")
+  expect_warning(
+    call_binding("str_like", x, pattern = "f%", ignore_case = TRUE),
+    "The `ignore_case` argument of `str_like\\(\\)` is deprecated"
   )
 })
 

@@ -259,11 +259,31 @@ register_bindings_string_regex <- function() {
 
   register_binding(
     "stringr::str_like",
-    function(string, pattern, ignore_case = TRUE) {
+    function(string, pattern, ignore_case) {
+      # TODO: Remove ignore_case parameter after stringr removes it (stringr >= 2.0.0?)
+      if (!missing(ignore_case)) {
+        warning(
+          "The `ignore_case` argument of `str_like()` is deprecated as of stringr 1.6.0.\n",
+          "`str_like()` is always case sensitive.\n",
+          "Use `str_ilike()` for case insensitive string matching.",
+          call. = FALSE
+        )
+      }
       Expression$create(
         "match_like",
         string,
-        options = list(pattern = pattern, ignore_case = ignore_case)
+        options = list(pattern = pattern, ignore_case = FALSE)
+      )
+    }
+  )
+
+  register_binding(
+    "stringr::str_ilike",
+    function(string, pattern) {
+      Expression$create(
+        "match_like",
+        string,
+        options = list(pattern = pattern, ignore_case = TRUE)
       )
     }
   )

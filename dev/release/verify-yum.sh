@@ -60,16 +60,6 @@ uninstall_command="dnf remove -y"
 clean_command="dnf clean"
 info_command="dnf info --enablerepo=crb"
 
-# GH-42128
-# Switch all repos to point to to vault.centos.org, use for EOL distros
-fix_eol_repositories() {
-  sed -i \
-    -e 's/^mirrorlist/#mirrorlist/' \
-    -e 's/^#baseurl/baseurl/' \
-    -e 's/mirror\.centos\.org/vault.centos.org/' \
-    /etc/yum.repos.d/*.repo
-}
-
 echo "::group::Prepare repository"
 
 case "${distribution}-${distribution_version}" in
@@ -96,23 +86,6 @@ case "${distribution}-${distribution_version}" in
     # problem.
     install_command="dnf install -y --allowerasing"
     info_command="dnf info"
-    ;;
-  centos-7)
-    distribution_prefix="centos"
-    cmake_package=cmake3
-    cmake_command=cmake3
-    devtoolset=11
-    scl_package=centos-release-scl-rh
-    have_arrow_libs=yes
-    have_flight=no
-    have_gandiva=no
-    have_ruby=no
-    have_vala=no
-    install_command="yum install -y"
-    uninstall_command="yum remove -y"
-    clean_command="yum clean"
-    info_command="yum info"
-    fix_eol_repositories
     ;;
   centos-*)
     distribution_prefix="centos"
@@ -191,14 +164,6 @@ echo "::endgroup::"
 echo "::group::Test Apache Arrow C++"
 mkdir -p build
 ${install_command} ${enablerepo_epel} arrow-devel-${package_version}
-if [ -n "${devtoolset}" ]; then
-  ${install_command} ${scl_package}
-  sed -i \
-    -e 's/^mirrorlist/#mirrorlist/' \
-    -e 's/^#baseurl/baseurl/' \
-    -e 's/mirror\.centos\.org/vault.centos.org/' \
-    /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-fi
 ${install_command} \
   ${cmake_package} \
   git \
@@ -229,7 +194,7 @@ if [ "${cmake_version_major}" -gt "3" ] || \
   ${cmake_command} .
   make -j$(nproc)
   ./arrow-example
-  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
+  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++2a
   ./arrow-example
   popd
 fi
