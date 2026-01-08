@@ -58,7 +58,7 @@ on:
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 permissions:
   contents: read
@@ -72,7 +72,7 @@ jobs:
   ubuntu:
     name: AMD64 Ubuntu ${{ matrix.ubuntu }} GLib & Ruby
     runs-on: ubuntu-latest
-    if: false
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -128,7 +128,7 @@ jobs:
   macos:
     name: ARM64 macOS 14 GLib & Ruby
     runs-on: macos-latest
-    if: false
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
     env:
       ARROW_BUILD_STATIC: OFF
@@ -317,7 +317,7 @@ jobs:
   windows-msvc:
     name: AMD64 Windows MSVC GLib
     runs-on: windows-2022
-    if: false
+    if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 240
     strategy:
       fail-fast: false
