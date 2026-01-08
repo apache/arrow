@@ -83,9 +83,9 @@ bool FlightSqlStatement::SetAttribute(StatementAttributeId attribute,
     case MAX_LENGTH:
       return CheckIfSetToOnlyValidValue(value, static_cast<size_t>(0));
     case QUERY_TIMEOUT:
-      if (boost::get<size_t>(value) > 0) {
+      if (std::get<size_t>(value) > 0) {
         call_options_.timeout =
-            TimeoutDuration{static_cast<double>(boost::get<size_t>(value))};
+            TimeoutDuration{static_cast<double>(std::get<size_t>(value))};
       } else {
         call_options_.timeout = TimeoutDuration{-1};
         // Intentional fall-through.

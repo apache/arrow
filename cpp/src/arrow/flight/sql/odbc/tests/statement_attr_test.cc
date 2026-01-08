@@ -104,14 +104,18 @@ void ValidateSetStmtAttr(SQLHSTMT statement, SQLINTEGER attribute, SQLPOINTER va
 
 // Validate error return value and code
 void ValidateSetStmtAttrErrorCode(SQLHSTMT statement, SQLINTEGER attribute,
-                                  SQLULEN new_value, std::string_view error_code) {
+                                  SQLULEN new_value, SQLRETURN expected_rc,
+                                  std::string_view error_code) {
   SQLINTEGER string_length_ptr = sizeof(SQLULEN);
 
-  ASSERT_EQ(SQL_ERROR,
+  ASSERT_EQ(expected_rc,
             SQLSetStmtAttr(statement, attribute, reinterpret_cast<SQLPOINTER>(new_value),
-                           string_length_ptr));
+                           string_length_ptr))
+      << GetOdbcErrorMessage(SQL_HANDLE_STMT, statement);
 
-  VerifyOdbcErrorState(SQL_HANDLE_STMT, statement, error_code);
+  if (expected_rc == SQL_ERROR) {
+    VerifyOdbcErrorState(SQL_HANDLE_STMT, statement, error_code);
+  }
 }
 }  // namespace
 
@@ -329,8 +333,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
-TYPED_TEST(StatementAttributeTest, DISABLED_TestSQLGetStmtAttrRowNumber) {
-  // GH-47711 TODO: enable test after SQLExecDirect support
+TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
@@ -418,21 +421,21 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppRowDesc) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
   // Optional feature not implemented
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_ENABLE, SQL_ASYNC_ENABLE_OFF,
-                               kErrorStateHYC00);
+                               SQL_ERROR, kErrorStateHYC00);
 }
 #endif
 
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtEventUnsupported) {
   // Driver does not support asynchronous notification
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0,
+  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0, SQL_ERROR,
                                kErrorStateHY118);
 }
 #endif
 
 #ifdef SQL_ATTR_ASYNC_STMT_PCALLBACK
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCCallbackUnsupported) {
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK, 0,
+  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK, 0, SQL_ERROR,
                                kErrorStateHYC00);
 }
 #endif
@@ -440,7 +443,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCCallbackUnsuppor
 #ifdef SQL_ATTR_ASYNC_STMT_PCONTEXT
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCContextUnsupported) {
   // Optional feature not implemented
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT, 0,
+  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT, 0, SQL_ERROR,
                                kErrorStateHYC00);
 }
 #endif
@@ -477,12 +480,25 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrFetchBookmarkPointer) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPParamDesc) {
   // Invalid use of an automatically allocated descriptor handle
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_PARAM_DESC,
-                               static_cast<SQLULEN>(0), kErrorStateHY017);
+                               static_cast<SQLULEN>(0),
+#ifdef __APPLE__
+                               // iODBC on MacOS returns SQL_INVALID_HANDLE for this case
+                               SQL_INVALID_HANDLE,
+#else
+                               SQL_ERROR,
+#endif
+                               kErrorStateHY017);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPRowDesc) {
   // Invalid use of an automatically allocated descriptor handle
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_ROW_DESC, static_cast<SQLULEN>(0),
+#ifdef __APPLE__
+                               // iODBC on MacOS returns SQL_INVALID_HANDLE for this case
+                               SQL_INVALID_HANDLE,
+#else
+                               SQL_ERROR,
+#endif
                                kErrorStateHY017);
 }
 
@@ -497,7 +513,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMaxLength) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMaxRows) {
   // Cannot set read-only attribute
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_MAX_ROWS, static_cast<SQLULEN>(0),
-                               kErrorStateHY092);
+                               SQL_ERROR, kErrorStateHY092);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMetadataID) {
@@ -602,7 +618,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowBindType) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowNumber) {
   // Cannot set read-only attribute
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ROW_NUMBER, static_cast<SQLULEN>(0),
-                               kErrorStateHY092);
+                               SQL_ERROR, kErrorStateHY092);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowOperationPtr) {

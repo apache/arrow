@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/odbc_impl/accessors/types.h"
 #include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
@@ -42,7 +43,7 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
       }
     }
   } else {
-    // Duplicate this loop to avoid null checks within the loop.
+    // Duplicate above for-loop to exit early when null value is found
     for (int64_t i = starting_row; i < starting_row + cells; ++i) {
       if (array->IsNull(i)) {
         throw NullWithoutIndicatorException();
@@ -54,7 +55,7 @@ inline size_t CopyFromArrayValuesToBinding(ARRAY_TYPE* array, ColumnBinding* bin
   // Note that the array should already have been sliced down to the same number
   // of elements in the ODBC data array by the point in which this function is called.
   const auto* values = array->raw_values();
-  memcpy(binding->buffer, &values[starting_row], element_size * cells);
+  std::memcpy(binding->buffer, &values[starting_row], element_size * cells);
 
   return cells;
 }

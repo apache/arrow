@@ -36,7 +36,6 @@ HINSTANCE GetHInstance() {
   TCHAR sz_file_name[MAX_PATH];
   GetModuleFileName(NULL, sz_file_name, MAX_PATH);
 
-  // TODO: This needs to be the module name.
   HINSTANCE h_instance = GetModuleHandle(sz_file_name);
 
   if (h_instance == NULL) {
