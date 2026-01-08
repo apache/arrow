@@ -458,10 +458,7 @@ inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
   if (bytes_to_decode > data_size || bytes_to_decode > INT_MAX) {
     ParquetException::EofException();
   }
-  // If bytes_to_decode == 0, data could be null
-  if (bytes_to_decode > 0) {
-    memcpy(out, data, static_cast<size_t>(bytes_to_decode));
-  }
+  SafeMemcpy(out, data, static_cast<size_t>(bytes_to_decode));
   return static_cast<int>(bytes_to_decode);
 }
 
@@ -675,7 +672,7 @@ inline int PlainDecoder<FLBAType>::DecodeArrow(
 
   // 1. Copy directly into the FixedSizeBinary data buffer, packed to the right.
   uint8_t* decode_out = builder->GetMutableValue(builder->length() + null_count);
-  memcpy(decode_out, data_, values_decoded * byte_width);
+  SafeMemcpy(decode_out, data_, values_decoded * byte_width);
 
   // 2. Expand the values into their final positions.
   if (null_count == 0) {
@@ -1058,10 +1055,7 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   int32_t* bytes_offsets = byte_array_offsets_->mutable_data_as<int32_t>();
   for (int i = 0; i < dictionary_length_; ++i) {
-    // Avoid calling memcpy with nullptr which is undefined behavior
-    if (dict_values[i].len > 0) {
-      memcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
-    }
+    SafeMemcpy(bytes_data + offset, dict_values[i].ptr, dict_values[i].len);
     bytes_offsets[i] = offset;
     dict_values[i].ptr = bytes_data + offset;
     offset += dict_values[i].len;
@@ -1082,7 +1076,7 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
                                                 /*shrink_to_fit=*/false));
   uint8_t* bytes_data = byte_array_data_->mutable_data();
   for (int32_t i = 0, offset = 0; i < dictionary_length_; ++i, offset += fixed_len) {
-    memcpy(bytes_data + offset, dict_values[i].ptr, fixed_len);
+    std::memcpy(bytes_data + offset, dict_values[i].ptr, fixed_len);
     dict_values[i].ptr = bytes_data + offset;
   }
 }
@@ -2020,9 +2014,9 @@ class DeltaByteArrayDecoderImpl : public TypedDecoderImpl<DType> {
     // Both prefix and suffix are non-empty, so we need to decode the string
     // into `data_ptr`.
     // 1. Copy the prefix
-    memcpy(*data_ptr, prefix->data(), prefix_len_ptr[i]);
+    SafeMemcpy(*data_ptr, prefix->data(), prefix_len_ptr[i]);
     // 2. Copy the suffix.
-    memcpy(*data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
+    SafeMemcpy(*data_ptr + prefix_len_ptr[i], buffer[i].ptr, buffer[i].len);
     // 3. Point buffer[i] to the decoded string.
     buffer[i].ptr = *data_ptr;
     buffer[i].len += prefix_len_ptr[i];
