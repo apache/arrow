@@ -26,7 +26,7 @@ After the build succeeds, the ODBC DLL will be located in
 
 2. Register your ODBC DLL:
 
-   Need to replace <path\to\repo> with actual path to repository in the commands.
+   Need to replace `<path\to\repo>` with actual path to repository in the commands.
    1. `cd to repo.`
    2. `cd <path\to\repo>`
    3. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
