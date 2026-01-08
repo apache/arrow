@@ -54,9 +54,9 @@ on:
       - 'compose.yaml'
       - 'ruby/**'
 
-# concurrency:
-#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-#   cancel-in-progress: true
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}-${{ github.run_id }}
+  cancel-in-progress: false
 
 permissions:
   contents: read
