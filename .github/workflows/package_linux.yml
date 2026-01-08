@@ -61,8 +61,10 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   # Upload to GitHub Release
   contents: write
+  pull-requests: read
 
 jobs:
   check-labels:
