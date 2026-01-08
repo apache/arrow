@@ -322,6 +322,26 @@ environment variable (which requires the ``locales`` package or equivalent):
 
    $ export LC_ALL="en_US.UTF-8"
 
+
+.. note::
+   If you are building with tests (``-DARROW_BUILD_TESTS=ON``), you must ensure
+   the test data submodules are initialized and the environment variables
+   ``ARROW_TEST_DATA`` and ``PARQUET_TEST_DATA`` are set. Without these, several
+   tests (especially IPC and Parquet tests) will fail with an ``IOError``.
+
+   To initialize submodules, run:
+
+   .. code-block:: shell
+
+      $ git submodule update --init --recursive
+
+   Then set the variables to the absolute paths of your testing data folders:
+
+   .. code-block:: shell
+
+      $ export ARROW_TEST_DATA="<absolute_path_to_arrow>/testing/data"
+      $ export PARQUET_TEST_DATA="<absolute_path_to_arrow>/cpp/submodules/parquet-testing/data"
+      
 Faster builds with Ninja
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
