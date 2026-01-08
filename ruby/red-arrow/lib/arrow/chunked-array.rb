@@ -55,8 +55,8 @@ module Arrow
 
     alias_method :chunks_raw, :chunks
     def chunks
-      if frozen?
-        return chunks_raw
+      if frozen? && !instance_variable_defined?(:@chunks)
+        raise "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
       end
       @chunks ||= chunks_raw.tap do |_chunks|
         _chunks.each do |chunk|
