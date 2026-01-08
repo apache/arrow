@@ -54,9 +54,10 @@ on:
       - 'compose.yaml'
       - 'ruby/**'
 
-concurrency:
-  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
-  cancel-in-progress: true
+# TODO: Temporarily disabled for testing - restore before merging
+# concurrency:
+#   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+#   cancel-in-progress: true
 
 permissions:
   contents: read
