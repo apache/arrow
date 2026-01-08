@@ -748,4 +748,76 @@ TEST(TestFieldRef, GetChildren) {
   AssertArraysEqual(*a, *expected_a);
 }
 
+TEST(TestStructBuilderUnsafe, UnsafeAppend) {
+  auto int_type = int32();
+  auto str_type = utf8();
+  auto struct_type = struct_({field("int", int_type), field("str", str_type)});
+  auto pool = default_memory_pool();
+  auto int_builder = std::make_shared<Int32Builder>(pool);
+  auto str_builder = std::make_shared<StringBuilder>(pool);
+  StructBuilder builder(struct_type, pool, {int_builder, str_builder});
+  ASSERT_OK(builder.Reserve(2));
+
+  builder.UnsafeAppend();
+  ASSERT_OK(int_builder->Append(1));
+  ASSERT_OK(str_builder->Append("hello"));
+  builder.UnsafeAppend();
+  ASSERT_OK(int_builder->Append(2));
+  ASSERT_OK(str_builder->Append("arrow"));
+
+  ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
+  auto expected_array = ArrayFromJSON(
+      struct_type, R"([{"int": 1, "str": "hello"}, {"int": 2, "str": "arrow"}])");
+  AssertArraysEqual(*final_array, *expected_array);
+}
+
+TEST(TestStructBuilderUnsafe, UnsafeAppendNull) {
+  auto int_type = int32();
+  auto str_type = utf8();
+  auto struct_type = struct_({field("int", int_type), field("str", str_type)});
+  auto pool = default_memory_pool();
+  auto int_builder = std::make_shared<Int32Builder>(pool);
+  auto str_builder = std::make_shared<StringBuilder>(pool);
+  StructBuilder builder(struct_type, pool, {int_builder, str_builder});
+  ASSERT_OK(builder.Reserve(3));
+
+  builder.UnsafeAppend();
+  ASSERT_OK(int_builder->Append(1));
+  ASSERT_OK(str_builder->Append("hello"));
+  ASSERT_OK(builder.UnsafeAppendNull());
+  builder.UnsafeAppend();
+  ASSERT_OK(int_builder->Append(2));
+  ASSERT_OK(str_builder->Append("arrow"));
+
+  ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
+  auto expected_array = ArrayFromJSON(
+      struct_type, R"([{"int": 1, "str": "hello"}, null, {"int": 2, "str": "arrow"}])");
+  AssertArraysEqual(*final_array, *expected_array);
+}
+
+TEST(TestStructBuilderUnsafe, UnsafeAppendNulls) {
+  auto int_type = int32();
+  auto str_type = utf8();
+  auto struct_type = struct_({field("int", int_type), field("str", str_type)});
+  auto pool = default_memory_pool();
+  auto int_builder = std::make_shared<Int32Builder>(pool);
+  auto str_builder = std::make_shared<StringBuilder>(pool);
+  StructBuilder builder(struct_type, pool, {int_builder, str_builder});
+  ASSERT_OK(builder.Reserve(4));
+
+  builder.UnsafeAppend();
+  ASSERT_OK(int_builder->Append(1));
+  ASSERT_OK(str_builder->Append("hello"));
+  ASSERT_OK(builder.UnsafeAppendNulls(2));
+  builder.UnsafeAppend();
+  ASSERT_OK(int_builder->Append(2));
+  ASSERT_OK(str_builder->Append("arrow"));
+
+  ASSERT_OK_AND_ASSIGN(auto final_array, builder.Finish());
+  auto expected_array = ArrayFromJSON(
+      struct_type,
+      R"([{"int": 1, "str": "hello"}, null, null, {"int": 2, "str": "arrow"}])");
+  AssertArraysEqual(*final_array, *expected_array);
+}
+
 }  // namespace arrow
