@@ -713,6 +713,26 @@ TEST_F(TestSchema, TestRemoveMetadata) {
   ASSERT_TRUE(new_schema->metadata() == nullptr);
 }
 
+TEST_F(TestSchema, TestWithNamesPreservesMetadata) {
+  auto f0 = field("f0", int32());
+  auto f1 = field("f1", uint8(), false);
+  auto f2 = field("f2", utf8());
+  auto metadata = key_value_metadata({{"foo", "bar"}, {"fizz", "buzz"}});
+  auto schema_with_metadata = std::make_shared<Schema>(
+      std::vector<std::shared_ptr<Field>>{f0, f1, f2}, metadata);
+
+  ASSERT_OK_AND_ASSIGN(auto renamed, schema_with_metadata->WithNames({"a", "b", "c"}));
+
+  // Verify names are updated
+  ASSERT_EQ("a", renamed->field(0)->name());
+  ASSERT_EQ("b", renamed->field(1)->name());
+  ASSERT_EQ("c", renamed->field(2)->name());
+
+  // Verify metadata is preserved
+  ASSERT_NE(nullptr, renamed->metadata());
+  ASSERT_TRUE(renamed->metadata()->Equals(*metadata));
+}
+
 void AssertSchemaBuilderYield(const SchemaBuilder& builder,
                               const std::shared_ptr<Schema>& expected) {
   ASSERT_OK_AND_ASSIGN(auto schema, builder.Finish());
