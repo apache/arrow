@@ -84,6 +84,13 @@ struct ARROW_COMPUTE_EXPORT KeyEncoder {
   static bool IsNull(const uint8_t* encoded_bytes) {
     return encoded_bytes[0] == kNullByte;
   }
+
+  struct EncoderInfo {
+    bool is_fixed_width;
+    int32_t fixed_width;
+  };
+
+  virtual EncoderInfo GetEncoderInfo() const = 0;
 };
 
 struct ARROW_COMPUTE_EXPORT BooleanKeyEncoder : KeyEncoder {
@@ -100,6 +107,10 @@ struct ARROW_COMPUTE_EXPORT BooleanKeyEncoder : KeyEncoder {
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
                                             MemoryPool* pool) override;
+
+  EncoderInfo GetEncoderInfo() const override {
+    return EncoderInfo{/*is_fixed_width=*/true, 2};
+  }
 };
 
 struct ARROW_COMPUTE_EXPORT FixedWidthKeyEncoder : KeyEncoder {
@@ -119,6 +130,10 @@ struct ARROW_COMPUTE_EXPORT FixedWidthKeyEncoder : KeyEncoder {
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
                                             MemoryPool* pool) override;
 
+  EncoderInfo GetEncoderInfo() const override {
+    return EncoderInfo{/*is_fixed_width=*/true, byte_width_ + 1};
+  }
+
   std::shared_ptr<DataType> type_;
   const int byte_width_;
 };
@@ -132,6 +147,8 @@ struct ARROW_COMPUTE_EXPORT DictionaryKeyEncoder : FixedWidthKeyEncoder {
 
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
                                             MemoryPool* pool) override;
+
+  // Uses `GetEncoderInfo` in `FixedWidthKeyEncoder`
 
   MemoryPool* pool_;
   std::shared_ptr<Array> dictionary_;
@@ -249,6 +266,10 @@ struct VarLengthKeyEncoder : KeyEncoder {
 
   explicit VarLengthKeyEncoder(std::shared_ptr<DataType> type) : type_(std::move(type)) {}
 
+  EncoderInfo GetEncoderInfo() const override {
+    return EncoderInfo{/*is_fixed_width=*/false, /*fixed_width=*/5};
+  }
+
   std::shared_ptr<DataType> type_;
 };
 
@@ -267,6 +288,10 @@ struct ARROW_COMPUTE_EXPORT NullKeyEncoder : KeyEncoder {
   Result<std::shared_ptr<ArrayData>> Decode(uint8_t** encoded_bytes, int32_t length,
                                             MemoryPool* pool) override {
     return ArrayData::Make(null(), length, {NULLPTR}, length);
+  }
+
+  EncoderInfo GetEncoderInfo() const override {
+    return EncoderInfo{/*is_fixed_width=*/true, /*fixed_width=*/0};
   }
 };
 
@@ -349,23 +374,49 @@ class ARROW_COMPUTE_EXPORT RowEncoder {
       return std::string(reinterpret_cast<const char*>(encoded_nulls_.data()),
                          encoded_nulls_.size());
     }
-    int32_t row_length = offsets_[i + 1] - offsets_[i];
-    return std::string(reinterpret_cast<const char*>(bytes_.data() + offsets_[i]),
+    int32_t row_length = 0;
+    int32_t row_offset = 0;
+    if (IsFixedWidth()) {
+      row_length = fixed_width_length_;
+      row_offset = i * fixed_width_length_;
+    } else {
+      row_length = offsets_[i + 1] - offsets_[i];
+      row_offset = offsets_[i];
+    }
+    return std::string(reinterpret_cast<const char*>(bytes_.data() + row_offset),
                        row_length);
   }
 
   int32_t num_rows() const {
+    if (IsFixedWidth()) {
+      return fixed_width_row_count_;
+    }
     return offsets_.empty() ? 0 : static_cast<int32_t>(offsets_.size() - 1);
   }
 
  private:
+  Status EncodeAndAppendForFixedWidth(const ExecSpan& batch);
+  bool IsFixedWidth() const noexcept {
+    return fixed_width_length_ != kInvalidFixedWidthOffset;
+  }
+
+ private:
+  static constexpr int32_t kInvalidFixedWidthOffset = 1;
   ExecContext* ctx_{nullptr};
   std::vector<std::shared_ptr<KeyEncoder>> encoders_;
+  // When all columns in a row are fixed-width or NA, the encoded row
+  // doesn't need to maintain the row offsets. In this case, the
+  // offsets_.size() would be also empty.
+  int32_t fixed_width_length_{kInvalidFixedWidthOffset};
+  int32_t fixed_width_row_count_{0};
   // offsets_ vector stores the starting position (offset) of each encoded row
   // within the bytes_ vector. This allows for quick access to individual rows.
   //
   // The size would be num_rows + 1 if not empty, the last element is the total
   // length of the bytes_ vector.
+  //
+  // When all columns in a row are fixed-width or NA, the offsets_ can be
+  // eliminated, and the encoded row can be accessed by fixed_width_length_.
   std::vector<int32_t> offsets_;
   // The encoded bytes of all non "kRowIdForNulls" rows.
   std::vector<uint8_t> bytes_;
