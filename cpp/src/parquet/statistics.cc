@@ -890,9 +890,8 @@ inline void TypedStatisticsImpl<ByteArrayType>::Copy(const ByteArray& src, ByteA
                                                      ResizableBuffer* buffer) {
   if (dst->ptr == src.ptr) return;
   PARQUET_THROW_NOT_OK(buffer->Resize(src.len, false));
-  // Avoid calling memcpy with nullptr which is undefined behavior
   if (src.len > 0) {
-    std::memcpy(buffer->mutable_data(), src.ptr, src.len);
+    memcpy(buffer->mutable_data(), src.ptr, src.len);
   }
   *dst = ByteArray(src.len, buffer->data());
 }
