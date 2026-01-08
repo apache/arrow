@@ -147,9 +147,6 @@ struct CTypeTraits<Decimal256Type> {
   using CType = Decimal256;
 };
 
-
-
-
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
                                    ArrowScalarType, ArrowTensorType, SingletonFn)        \
   template <>                                                                            \
