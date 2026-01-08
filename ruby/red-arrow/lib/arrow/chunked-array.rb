@@ -55,19 +55,30 @@ module Arrow
 
     alias_method :chunks_raw, :chunks
     def chunks
+      warn "DEBUG 1: frozen=#{frozen?}, has_@chunks=#{instance_variable_defined?(:@chunks)}"
+      
       # Ractor.make_shareable calls rb_obj_freeze() at C level,
       # bypassing Ruby's freeze method. This leaves @chunks unset on a frozen object.
       # Attempting to assign would cause FrozenError (or deadlock on Windows).
       if frozen? && !instance_variable_defined?(:@chunks)
+        warn "DEBUG 2: Taking workaround path"
         return chunks_raw
       end
       
+      warn "DEBUG 3: About to call @chunks ||="
       # Normal path: cache and share input references
-      @chunks ||= chunks_raw.tap do |_chunks|
-        _chunks.each do |chunk|
-          share_input(chunk)
+      @chunks ||= begin
+        warn "DEBUG 4: Inside ||= block, calling chunks_raw"
+        chunks_raw.tap do |_chunks|
+          warn "DEBUG 5: Got chunks, about to iterate"
+          _chunks.each do |chunk|
+            share_input(chunk)
+          end
+          warn "DEBUG 6: Done iterating"
         end
       end
+      warn "DEBUG 7: Returning @chunks"
+      @chunks
     end
 
     alias_method :get_chunk_raw, :get_chunk
