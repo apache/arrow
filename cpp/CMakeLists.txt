@@ -16,6 +16,8 @@
 # under the License.
 
 cmake_minimum_required(VERSION 3.25)
+# Allow older bundled dependencies to build with CMake 4.0+
+set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
 message(STATUS "Building using CMake version: ${CMAKE_VERSION}")
 
 # https://www.cmake.org/cmake/help/latest/policy/CMP0025.html
