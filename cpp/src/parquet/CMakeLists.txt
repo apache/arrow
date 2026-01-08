@@ -525,6 +525,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                    encryption/external_dbpa_encryption_test.cc
                    encryption/write_configurations_test.cc
                    encryption/read_configurations_test.cc
+                   encryption/per_column_encryption_test.cc
                    encryption/external/test_utils.cc
                    encryption/properties_test.cc
                    encryption/crypto_factory_test.cc
