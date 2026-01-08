@@ -1,0 +1,83 @@
+<!---
+  Licensed to the Apache Software Foundation (ASF) under one
+  or more contributor license agreements.  See the NOTICE file
+  distributed with this work for additional information
+  regarding copyright ownership.  The ASF licenses this file
+  to you under the Apache License, Version 2.0 (the
+  "License"); you may not use this file except in compliance
+  with the License.  You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing,
+  software distributed under the License is distributed on an
+  "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+  KIND, either express or implied.  See the License for the
+  specific language governing permissions and limitations
+  under the License.
+-->
+
+## Steps to Register the 64-bit Apache Arrow ODBC driver on Windows
+
+After the build succeeds, the ODBC DLL will be located in 
+`build\debug\Debug` for a debug build and `build\release\Release` for a release build.
+
+1. Open Power Shell as administrator.
+
+2. Register your ODBC DLL:
+    Need to replace <path\to\repo> with actual path to repository in the commands.
+
+    i. `cd to repo.`
+    ii. `cd <path\to\repo>`
+    iii. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
+    `.\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll`
+    Example command for reference:
+    `.\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll`
+
+If the registration is successful, then Apache Arrow Flight SQL ODBC Driver 
+should show as an available ODBC driver in the x64 ODBC Driver Manager.
+
+## Steps to Generate Windows Installer
+1. Build with  `ARROW_FLIGHT_SQL_ODBC=ON` and `ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON`.
+2. `cd` to `build` folder.
+3. Run `cpack`. 
+
+If the generation is successful, you will find `Apache Arrow Flight SQL ODBC-<version>-win64.msi` generated under the `build` folder.
+
+## Steps to Register the 64-bit Apache Arrow ODBC driver on macOS
+
+After the build succeeds, the ODBC DYLIB will be located in 
+`build\debug` for a debug build and `build\release` for a release build.
+
+1. Open terminal shell.
+
+2. Register your ODBC DYLIB:
+    Need to replace <path\to\repo> with actual path to repository in the commands.
+
+    i. `cd to repo.`
+    ii. `cd <path\to\repo>`
+    iii. Give script permission to execute
+    `chmod +x cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh`
+    iv. Run script with `sudo` to register your ODBC DYLIB as Apache Arrow Flight SQL ODBC Driver
+    `sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh <path\to\repo>/cpp/build/< release | debug >/libarrow_flight_sql_odbc.dylib`
+    Example command for reference:
+    `sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh /path/to/arrow/cpp/build/release/libarrow_flight_sql_odbc.dylib`
+
+If the registration is successful, then Apache Arrow Flight SQL ODBC Driver 
+should be shown at `~/Library/ODBC/odbcinst.ini`
+
+## Steps to Enable Logging
+Arrow Flight SQL ODBC driver uses Arrow's internal logging framework. By default, the log messages are printed to the terminal.
+1. Set environment variable `ARROW_ODBC_LOG_LEVEL` to any of the following valid values to enable logging. If `ARROW_ODBC_LOG_LEVEL` is set to a non-empty string that does not match any of the following values, `DEBUG` level is used by default. 
+
+The characters are case-insensitive.
+- TRACE
+- DEBUG 
+- INFO
+- WARNING
+- ERROR 
+- FATAL
+
+The Windows ODBC driver currently does not support writing log files. `ARROW_USE_GLOG` is required to write log files, and `ARROW_USE_GLOG` is disabled on Windows platform since plasma using `glog` is not fully tested on windows.
+
+Note: GH-47670 running more than 1 tests with logging enabled is not fully supported. 

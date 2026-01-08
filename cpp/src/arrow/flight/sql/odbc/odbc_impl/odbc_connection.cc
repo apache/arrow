@@ -21,6 +21,7 @@
 #include "arrow/util/utf8.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/attribute_utils.h"
+#include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_descriptor.h"
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_environment.h"
@@ -233,8 +234,8 @@ SQLRETURN ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_COLUMN_ALIAS:
     case SQL_DBMS_NAME:
     case SQL_DBMS_VER:
-    case SQL_DRIVER_NAME:  // TODO: This should be the driver's filename and shouldn't
-                           // come from the SPI.
+    case SQL_DRIVER_NAME:  // GH-47858 TODO: This should be the driver's filename and
+                           // shouldn't come from the SPI.
     case SQL_DRIVER_VER:
     case SQL_SEARCH_PATTERN_ESCAPE:
     case SQL_SERVER_NAME:
@@ -260,7 +261,7 @@ SQLRETURN ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_SPECIAL_CHARACTERS:
     case SQL_XOPEN_CLI_YEAR: {
       const auto& info = spi_connection_->GetInfo(info_type);
-      const std::string& info_value = boost::get<std::string>(info);
+      const std::string& info_value = std::get<std::string>(info);
       return GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
                                 output_length, GetDiagnostics());
     }
@@ -350,7 +351,7 @@ SQLRETURN ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_SQL92_VALUE_EXPRESSIONS:
     case SQL_STANDARD_CLI_CONFORMANCE: {
       const auto& info = spi_connection_->GetInfo(info_type);
-      uint32_t info_value = boost::get<uint32_t>(info);
+      uint32_t info_value = std::get<uint32_t>(info);
       GetAttribute(info_value, value, buffer_length, output_length);
       return SQL_SUCCESS;
     }
@@ -385,7 +386,7 @@ SQLRETURN ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
     case SQL_ODBC_SQL_CONFORMANCE:
     case SQL_ODBC_SAG_CLI_CONFORMANCE: {
       const auto& info = spi_connection_->GetInfo(info_type);
-      uint16_t info_value = boost::get<uint16_t>(info);
+      uint16_t info_value = std::get<uint16_t>(info);
       GetAttribute(info_value, value, buffer_length, output_length);
       return SQL_SUCCESS;
     }
@@ -396,7 +397,7 @@ SQLRETURN ODBCConnection::GetInfo(SQLUSMALLINT info_type, SQLPOINTER value,
       if (!attr) {
         throw DriverException("Optional feature not supported.", "HYC00");
       }
-      const std::string& info_value = boost::get<std::string>(*attr);
+      const std::string& info_value = std::get<std::string>(*attr);
       return GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
                                 output_length, GetDiagnostics());
     }
@@ -414,7 +415,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
   bool successfully_written = false;
   switch (attribute) {
     // Internal connection attributes
-#ifdef SQL_ATR_ASYNC_DBC_EVENT
+#ifdef SQL_ATTR_ASYNC_DBC_EVENT
     case SQL_ATTR_ASYNC_DBC_EVENT:
       throw DriverException("Optional feature not supported.", "HYC00");
 #endif
@@ -422,7 +423,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     case SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE:
       throw DriverException("Optional feature not supported.", "HYC00");
 #endif
-#ifdef SQL_ATTR_ASYNC_PCALLBACK
+#ifdef SQL_ATTR_ASYNC_DBC_PCALLBACK
     case SQL_ATTR_ASYNC_DBC_PCALLBACK:
       throw DriverException("Optional feature not supported.", "HYC00");
 #endif
@@ -450,7 +451,7 @@ void ODBCConnection::SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
       throw DriverException("Cannot set read-only attribute", "HY092");
     case SQL_ATTR_TRACE:  // DM-only
       throw DriverException("Cannot set read-only attribute", "HY092");
-    case SQL_ATTR_TRACEFILE:
+    case SQL_ATTR_TRACEFILE:  // DM-only
       throw DriverException("Optional feature not supported.", "HYC00");
     case SQL_ATTR_TRANSLATE_LIB:
       throw DriverException("Optional feature not supported.", "HYC00");
@@ -591,7 +592,7 @@ SQLRETURN ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
       if (!catalog) {
         throw DriverException("Optional feature not supported.", "HYC00");
       }
-      const std::string& info_value = boost::get<std::string>(*catalog);
+      const std::string& info_value = std::get<std::string>(*catalog);
       return GetStringAttribute(is_unicode, info_value, true, value, buffer_length,
                                 output_length, GetDiagnostics());
     }
@@ -620,7 +621,7 @@ SQLRETURN ODBCConnection::GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
     throw DriverException("Invalid attribute", "HY092");
   }
 
-  GetAttribute(static_cast<SQLUINTEGER>(boost::get<uint32_t>(*spi_attribute)), value,
+  GetAttribute(static_cast<SQLUINTEGER>(std::get<uint32_t>(*spi_attribute)), value,
                buffer_length, output_length);
   return SQL_SUCCESS;
 }

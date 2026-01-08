@@ -1115,7 +1115,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
   EXPECT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
 
-TEST_F(ColumnsMockTest, TestSQLColumnsColumnPattern) {
+TEST_F(ColumnsMockTest, TestSQLColumnsColumnPatternSegFault) {
   // Checks filtering table with column name pattern.
   // Only check table and column name
 
@@ -2193,7 +2193,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColValidateInput) {
   SQLUSMALLINT bookmark_column = 0;
   SQLUSMALLINT out_of_range_column = 4;
   SQLUSMALLINT negative_column = -1;
-  SQLWCHAR column_name[1024];
+  SQLWCHAR column_name[1024] = {0};
   SQLSMALLINT buf_char_len =
       static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
   SQLSMALLINT name_length = 0;
@@ -2210,7 +2210,12 @@ TEST_F(ColumnsMockTest, SQLDescribeColValidateInput) {
   EXPECT_EQ(SQL_ERROR, SQLDescribeCol(this->stmt, bookmark_column, column_name,
                                       buf_char_len, &name_length, &data_type,
                                       &column_size, &decimal_digits, &nullable));
+#ifdef __APPLE__
+  // non-standard odbc error code for invalid column index
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1002);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState07009);
+#endif  // __APPLE__
 
   // Invalid descriptor index - index out of range
   EXPECT_EQ(SQL_ERROR, SQLDescribeCol(this->stmt, out_of_range_column, column_name,

@@ -45,10 +45,10 @@ add_library(arrow_odbc_spi_impl
             config/connection_string_parser.h
             diagnostics.cc
             diagnostics.h
-            error_codes.h
             encoding.cc
             encoding.h
             encoding_utils.h
+            error_codes.h
             exceptions.cc
             exceptions.h
             flight_sql_auth_method.cc

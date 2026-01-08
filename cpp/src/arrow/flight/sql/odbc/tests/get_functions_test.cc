@@ -87,7 +87,7 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsAllFunctions) {
   }
 }
 
-TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsAllFunctionsODBCVer2) {
+TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsAllFunctions) {
   // Verify driver manager return values for SQLGetFunctions
 
   // ODBC 2.0 SQLGetFunctions returns 100 elements according to spec
@@ -175,7 +175,7 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsUnsupportedSingleAPI) {
   }
 }
 
-TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPIODBCVer2) {
+TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPI) {
   const std::vector<SQLUSMALLINT> supported_functions = {
       SQL_API_SQLCONNECT, SQL_API_SQLGETINFO, SQL_API_SQLDESCRIBECOL,
       SQL_API_SQLGETTYPEINFO, SQL_API_SQLDISCONNECT, SQL_API_SQLNUMRESULTCOLS,
@@ -199,7 +199,7 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPIODBCVer2
   }
 }
 
-TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPIODBCVer2) {
+TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPI) {
   const std::vector<SQLUSMALLINT> unsupported_functions = {
       SQL_API_SQLPUTDATA,        SQL_API_SQLPARAMDATA,        SQL_API_SQLSETCURSORNAME,
       SQL_API_SQLGETCURSORNAME,  SQL_API_SQLSTATISTICS,       SQL_API_SQLSPECIALCOLUMNS,

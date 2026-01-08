@@ -247,6 +247,56 @@ SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
   return SQL_ERROR;
 }
 
+#if defined(__APPLE__)
+SQLRETURN SQLError(SQLHENV env, SQLHDBC conn, SQLHSTMT stmt, SQLWCHAR* sql_state,
+                   SQLINTEGER* native_error_ptr, SQLWCHAR* message_text,
+                   SQLSMALLINT buffer_length, SQLSMALLINT* text_length_ptr) {
+  ARROW_LOG(DEBUG) << "SQLError called with env: " << env << ", conn: " << conn
+                   << ", stmt: " << stmt
+                   << ", sql_state: " << static_cast<const void*>(sql_state)
+                   << ", native_error_ptr: " << static_cast<const void*>(native_error_ptr)
+                   << ", message_text: " << static_cast<const void*>(message_text)
+                   << ", buffer_length: " << buffer_length
+                   << ", text_length_ptr: " << static_cast<const void*>(text_length_ptr);
+
+  SQLSMALLINT handle_type;
+  SQLHANDLE handle;
+
+  if (env) {
+    handle_type = SQL_HANDLE_ENV;
+    handle = static_cast<SQLHANDLE>(env);
+  } else if (conn) {
+    handle_type = SQL_HANDLE_DBC;
+    handle = static_cast<SQLHANDLE>(conn);
+  } else if (stmt) {
+    handle_type = SQL_HANDLE_STMT;
+    handle = static_cast<SQLHANDLE>(stmt);
+  } else {
+    return static_cast<SQLRETURN>(SQL_INVALID_HANDLE);
+  }
+
+  // Use the last record
+  SQLINTEGER diag_number;
+  SQLSMALLINT diag_number_length;
+
+  SQLRETURN ret = arrow::flight::sql::odbc::SQLGetDiagField(
+      handle_type, handle, 0, SQL_DIAG_NUMBER, &diag_number, sizeof(SQLINTEGER), 0);
+  if (ret != SQL_SUCCESS) {
+    return ret;
+  }
+
+  if (diag_number == 0) {
+    return SQL_NO_DATA;
+  }
+
+  SQLSMALLINT rec_number = static_cast<SQLSMALLINT>(diag_number);
+
+  return arrow::flight::sql::odbc::SQLGetDiagRec(
+      handle_type, handle, rec_number, sql_state, native_error_ptr, message_text,
+      buffer_length, text_length_ptr);
+}
+#endif  // __APPLE__
+
 inline bool IsValidStringFieldArgs(SQLPOINTER diag_info_ptr, SQLSMALLINT buffer_length,
                                    SQLSMALLINT* string_length_ptr, bool is_unicode) {
   const SQLSMALLINT char_size = is_unicode ? GetSqlWCharSize() : sizeof(char);
@@ -536,7 +586,6 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
                    << ", message_text: " << static_cast<const void*>(message_text)
                    << ", buffer_length: " << buffer_length
                    << ", text_length_ptr: " << static_cast<const void*>(text_length_ptr);
-  using arrow::flight::sql::odbc::Diagnostics;
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCDescriptor;
@@ -736,7 +785,6 @@ SQLRETURN SQLGetConnectAttr(SQLHDBC conn, SQLINTEGER attribute, SQLPOINTER value
                    << ", attribute: " << attribute << ", value_ptr: " << value_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-
   using ODBC::ODBCConnection;
 
   return ODBCConnection::ExecuteWithDiagnostics(conn, SQL_ERROR, [=]() {
@@ -855,7 +903,7 @@ SQLRETURN SQLDriverConnect(SQLHDBC conn, SQLHWND window_handle,
     }
 #else
     // Attempt connection without loading DSN window on macOS/Linux
-    connection->Connect(dsn, properties, missing_properties);
+    connection->Connect(dsn_value, properties, missing_properties);
 #endif
     // Copy connection string to out_connection_string after connection attempt
     return ODBC::GetStringAttribute(true, connection_string, false, out_connection_string,
@@ -1384,7 +1432,7 @@ SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT record_number,
 }
 
 SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT data_type) {
-  // GH-47237 TODO: return SQL_PRED_CHAR and SQL_PRED_BASIC for
+  // GH-47237 return SQL_PRED_CHAR and SQL_PRED_BASIC for
   // appropriate data types in `SEARCHABLE` field
   ARROW_LOG(DEBUG) << "SQLGetTypeInfoW called with stmt: " << stmt
                    << " data_type: " << data_type;

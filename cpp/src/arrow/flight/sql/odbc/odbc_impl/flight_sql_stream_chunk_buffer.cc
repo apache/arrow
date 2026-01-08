@@ -20,8 +20,6 @@
 
 namespace arrow::flight::sql::odbc {
 
-using arrow::Result;
-
 FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     FlightSqlClient& flight_sql_client, const FlightClientOptions& client_options,
     const FlightCallOptions& call_options, const std::shared_ptr<FlightInfo>& flight_info,
@@ -58,10 +56,10 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
     util::ThrowIfNotOK(result.status());
     std::shared_ptr<FlightStreamReader> stream_reader_ptr(std::move(result.ValueOrDie()));
 
-    BlockingQueue<std::pair<Result<FlightStreamChunk>,
-                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier = [=]()
-        -> std::optional<
-            std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>> {
+    BlockingQueue<std::pair<arrow::Result<FlightStreamChunk>,
+                            std::shared_ptr<FlightSqlClient>>>::Supplier supplier =
+        [=]() -> std::optional<std::pair<arrow::Result<FlightStreamChunk>,
+                                         std::shared_ptr<FlightSqlClient>>> {
       auto result = stream_reader_ptr->Next();
       bool is_not_ok = !result.ok();
       bool is_not_empty = result.ok() && (result.ValueOrDie().data != nullptr);
@@ -82,13 +80,13 @@ FlightStreamChunkBuffer::FlightStreamChunkBuffer(
 }
 
 bool FlightStreamChunkBuffer::GetNext(FlightStreamChunk* chunk) {
-  std::pair<Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>
+  std::pair<arrow::Result<FlightStreamChunk>, std::shared_ptr<FlightSqlClient>>
       closeable_endpoint_stream_pair;
   if (!queue_.Pop(&closeable_endpoint_stream_pair)) {
     return false;
   }
 
-  Result<FlightStreamChunk> result = closeable_endpoint_stream_pair.first;
+  arrow::Result<FlightStreamChunk> result = closeable_endpoint_stream_pair.first;
   if (!result.status().ok()) {
     Close();
     throw DriverException(result.status().message());

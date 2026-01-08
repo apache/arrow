@@ -17,17 +17,17 @@
 
 #pragma once
 
-#include "arrow/util/utf8.h"
+#include <boost/variant.hpp>
+#include <boost/xpressive/xpressive.hpp>
 
+#include <codecvt>
+#include <functional>
+#include <optional>
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
 #include "arrow/flight/types.h"
-
-#include <boost/xpressive/xpressive.hpp>
-#include <codecvt>
-#include <functional>
-#include <optional>
+#include "arrow/util/utf8.h"
 
 #define CONVERT_WIDE_STR(wstring_var, utf8_target)                                \
   wstring_var = [&] {                                                             \
@@ -57,7 +57,7 @@ inline void ThrowIfNotOK(const Status& status) {
 
 template <typename T, typename AttributeTypeT>
 inline bool CheckIfSetToOnlyValidValue(const AttributeTypeT& value, T allowed_value) {
-  return boost::get<T>(value) == allowed_value;
+  return std::get<T>(value) == allowed_value;
 }
 
 template <typename BUILDER, typename T>

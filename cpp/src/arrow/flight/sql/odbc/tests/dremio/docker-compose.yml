@@ -15,34 +15,21 @@
 # specific language governing permissions and limitations
 # under the License.
 
-brew "aws-sdk-cpp"
-brew "bash"
-brew "boost"
-brew "brotli"
-brew "bzip2"
-brew "c-ares"
-brew "curl"
-brew "ccache"
-brew "cmake"
-brew "git"
-brew "glog"
-brew "googletest"
-brew "grpc"
-brew "libiodbc"
-brew "llvm"
-brew "lz4"
-brew "mimalloc"
-brew "ninja"
-brew "node"
-brew "openssl"
-brew "pkgconf"
-brew "protobuf"
-brew "python"
-brew "rapidjson"
-brew "re2"
-brew "snappy"
-brew "thrift"
-brew "utf8proc"
-brew "wget"
-brew "xsimd"
-brew "zstd"
+# GH-48068 TODO: run remote ODBC tests on Linux
+
+services:
+  dremio:
+    platform: linux/x86_64
+    image: dremio/dremio-oss:latest
+    ports:
+      - 9047:9047  # REST API
+      - 31010:31010  # JDBC/ODBC
+      - 32010:32010
+    container_name: dremio_container
+    environment:
+    - DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$$en_US
+    healthcheck:
+      test: curl --fail http://localhost:9047 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 30
