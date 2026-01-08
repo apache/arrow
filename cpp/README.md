@@ -32,4 +32,3 @@ to install pre-compiled binary versions of the library.
 Please refer to our latest [C++ Development Documentation][1].
 
 [1]: https://arrow.apache.org/docs/dev/developers/cpp/
-test
