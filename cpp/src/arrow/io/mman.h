@@ -39,10 +39,73 @@
 #  define FILE_MAP_EXECUTE 0x0020
 #endif
 
+// Map Windows error codes from GetLastError() to POSIX errno values.
+//
+// Parameters:
+//   err: Must be a DWORD value from GetLastError() (not HRESULT, not NTSTATUS).
+//        This function is called immediately after Windows API calls that set
+//        the last error via SetLastError() / GetLastError().
+//   deferr: Default errno value to return for unmapped errors. Callers pass
+//           EPERM as the default to maintain behavioral compatibility.
+//
+// Returns:
+//   POSIX errno value for known errors, or deferr for unmapped errors.
+//
+// Note: This function mirrors the mapping from Arrow's WinErrorToErrno() function
+// (in arrow/util/io_util.cc) for consistency. All mapped error codes return the
+// same errno values as WinErrorToErrno(). We cannot call WinErrorToErrno()
+// directly because it's in an anonymous namespace and not exported, and this
+// header must remain lightweight without additional dependencies.
+//
+// Unlike WinErrorToErrno() which returns 0 for unmapped errors, this function
+// returns the deferr parameter to maintain compatibility with callers that
+// explicitly pass a default (typically EPERM).
+//
+// The mapping covers common errors from memory mapping operations:
+// - File/handle errors (ERROR_FILE_NOT_FOUND, ERROR_ACCESS_DENIED, etc.)
+// - Memory/resource errors (ERROR_NOT_ENOUGH_MEMORY, etc.)
+// - Parameter errors (ERROR_INVALID_PARAMETER, etc.)
 static inline int __map_mman_error(const DWORD err, const int deferr) {
   if (err == 0) return 0;
-  // TODO: implement
-  return err;
+
+  switch (err) {
+    // File/path not found errors - matches WinErrorToErrno
+    case ERROR_FILE_NOT_FOUND:        // 2
+    case ERROR_PATH_NOT_FOUND:        // 3
+      return ENOENT;
+
+    // Access/permission errors - matches WinErrorToErrno
+    case ERROR_ACCESS_DENIED:         // 5
+    case ERROR_SHARING_VIOLATION:     // 32
+    case ERROR_LOCK_VIOLATION:        // 33
+      return EACCES;
+
+    // Invalid handle errors - matches WinErrorToErrno
+    case ERROR_INVALID_HANDLE:        // 6
+    case ERROR_INVALID_TARGET_HANDLE: // 114
+      return EBADF;
+
+    // Invalid parameter/function errors - matches WinErrorToErrno
+    case ERROR_INVALID_PARAMETER:     // 87
+    case ERROR_INVALID_FUNCTION:      // 1
+      return EINVAL;
+
+    // Memory/resource errors - matches WinErrorToErrno
+    case ERROR_ARENA_TRASHED:         // 7
+    case ERROR_NOT_ENOUGH_MEMORY:     // 8
+    case ERROR_INVALID_BLOCK:         // 9
+      return ENOMEM;
+
+    case ERROR_TOO_MANY_OPEN_FILES:   // 4
+      return EMFILE;
+
+    case ERROR_DISK_FULL:             // 112
+      return ENOSPC;
+
+    // Default: return the provided default errno for unmapped errors
+    default:
+      return deferr;
+  }
 }
 
 static inline DWORD __map_mmap_prot_page(const int prot) {
