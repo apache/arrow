@@ -245,17 +245,17 @@ passing them to the ``join_type`` argument:
 
 .. code-block:: python
 
-   >>> table1.join(table2, keys='id', join_type="full outer")
+   >>> table1.join(table2, keys='id', join_type="full outer").combine_chunks().sort_by('id')
    pyarrow.Table
    id: int64
    year: int64
    n_legs: int64
    animal: string
    ----
-   id: [[3,1,2],[4]]
-   year: [[2019,2020,2022],[null]]
-   n_legs: [[5,null,null],[100]]
-   animal: [["Brittle stars",null,null],["Centipede"]]
+   id: [[1,2,3,4]]
+   year: [[2020,2022,2019,null]]
+   n_legs: [[null,null,5,100]]
+   animal: [[null,null,"Brittle stars","Centipede"]]
 
 It's also possible to provide additional join keys, so that the
 join happens on two keys instead of one. For example we can add
