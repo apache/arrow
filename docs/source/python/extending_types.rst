@@ -476,8 +476,8 @@ You can find the official list of canonical extension types in the
 :ref:`format_canonical_extensions` section. Here we add examples on how to
 use them in PyArrow.
 
-Fixed size tensor
-"""""""""""""""""
+Fixed shape tensor
+""""""""""""""""""
 
 To create an array of tensors with equal shape (fixed shape tensor array) we
 first need to define a fixed shape tensor extension type with value type
@@ -487,7 +487,7 @@ and shape:
 
    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
 
-Then we need the storage array with :func:`pyarrow.list_` type where ``value_type```
+Then we need the storage array with :func:`pyarrow.list_` type where ``value_type``
 is the fixed shape tensor value type and list size is a product of ``tensor_type``
 shape elements. Then we can create an array of tensors with
 ``pa.ExtensionArray.from_storage()`` method:
@@ -629,3 +629,41 @@ for ``NCHW`` format where:
 * C: number of channels of the image
 * H: height of the image
 * W: width of the image
+
+UUID
+""""
+
+The UUID extension type (``arrow.uuid``) represents universally unique
+identifiers as 16-byte fixed-size binary values. PyArrow provides integration
+with Python's built-in :mod:`uuid` module, including automatic type inference.
+
+Creating UUID scalars and arrays
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+PyArrow infers the UUID type from Python's ``uuid.UUID`` objects,
+so you can pass them directly to :func:`pyarrow.scalar` and :func:`pyarrow.array`:
+
+.. code-block:: python
+
+   >>> import uuid
+   >>> import pyarrow as pa
+
+   >>> pa.scalar(uuid.uuid4())
+   <pyarrow.UuidScalar: UUID('59c67eec-f171-4f6f-898b-7b4cdbd2821d')>
+
+   >>> uuids = [uuid.uuid4() for _ in range(3)]
+   >>> arr = pa.array(uuids)
+   >>> arr.type
+   UuidType(extension<arrow.uuid>)
+
+You can also explicitly specify the UUID type using :func:`pyarrow.uuid`:
+
+.. code-block:: python
+
+   >>> pa.array([uuid.uuid4(), uuid.uuid4()], type=pa.uuid())
+   <pyarrow.lib.UuidArray object at ...>
+   [
+     77C17B9296554636A54C6A7EF37A70E4,
+     B71D2BF764374A60A1DEECB102A77B16
+   ]
+

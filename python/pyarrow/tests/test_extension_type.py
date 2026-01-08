@@ -1439,10 +1439,7 @@ def test_uuid_array_from_python():
     assert len(arr) == 4
     assert arr.null_count == 1
     for i, u in enumerate(uuids):
-        if u is None:
-            assert arr[i].as_py() is None
-        else:
-            assert arr[i].as_py() == u
+        assert arr[i].as_py() == u
 
     # Test type inference for arrays
     arr = pa.array(uuids)
