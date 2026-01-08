@@ -314,15 +314,6 @@ The unit tests are not built by default. After building, one can also invoke
 the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
 depends on ``python`` being available).
 
-On some Linux distributions, running the test suite might require setting an
-explicit locale. If you see any locale-related errors, try setting the
-environment variable (which requires the ``locales`` package or equivalent):
-
-.. code-block::
-
-   $ export LC_ALL="en_US.UTF-8"
-
-
 .. note::
    If you are building with tests (``-DARROW_BUILD_TESTS=ON``), you must ensure
    the test data submodules are initialized and the environment variables
@@ -341,7 +332,15 @@ environment variable (which requires the ``locales`` package or equivalent):
 
       $ export ARROW_TEST_DATA="<absolute_path_to_arrow>/testing/data"
       $ export PARQUET_TEST_DATA="<absolute_path_to_arrow>/cpp/submodules/parquet-testing/data"
-      
+  
+On some Linux distributions, running the test suite might require setting an
+explicit locale. If you see any locale-related errors, try setting the
+environment variable (which requires the ``locales`` package or equivalent):
+
+.. code-block::
+
+   $ export LC_ALL="en_US.UTF-8"
+    
 Faster builds with Ninja
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
