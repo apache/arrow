@@ -19,38 +19,9 @@ name: CUDA Extra
 
 on:
   push:
-    branches:
-      - '**'
-      - '!dependabot/**'
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/cuda_extra.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/docker/linux-apt-python-3.dockerfile'
-      - 'ci/scripts/ccache_setup.sh'
-      - 'ci/scripts/cpp_*'
-      - 'ci/scripts/install_numba.sh'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'format/Flight.proto'
-      - 'python/**'
     tags:
       - '**'
   pull_request:
-    paths:
-      - '.dockerignore'
-      - '.github/workflows/check_labels.yml'
-      - '.github/workflows/cuda_extra.yml'
-      - '.github/workflows/report_ci.yml'
-      - 'ci/docker/linux-apt-python-3.dockerfile'
-      - 'ci/scripts/ccache_setup.sh'
-      - 'ci/scripts/cpp_*'
-      - 'ci/scripts/install_numba.sh'
-      - 'cpp/**'
-      - 'compose.yaml'
-      - 'format/Flight.proto'
-      - 'python/**'
     types:
       - labeled
       - opened
