@@ -132,14 +132,10 @@ auto swizzle_bytes(const xsimd::batch<uint8_t, Arch>& batch,
     constexpr auto kSelfSwizzle = array_to_batch_constant<kPlan.self_lane, Arch>();
     constexpr auto kCrossSwizzle = array_to_batch_constant<kPlan.cross_lane, Arch>();
 
-    struct LaneMask {
-      static constexpr uint8_t get(uint8_t i, uint8_t n) {
-        constexpr auto kMask = std::array{kIdx...};
-        return kMask[i] % (kMask.size() / 2);
-      }
-    };
+    constexpr auto kLaneMaskArr =
+        std::array{static_cast<uint8_t>(kIdx % (mask.size / 2))...};
+    constexpr auto kLaneMask = array_to_batch_constant<kLaneMaskArr, Arch>();
 
-    constexpr auto kLaneMask = xsimd::make_batch_constant<uint8_t, Arch, LaneMask>();
     if constexpr (isOnlyFromLow(mask)) {
       auto broadcast = _mm256_permute2x128_si256(batch, batch, 0x00);  // [low | low]
       return _mm256_shuffle_epi8(broadcast, kLaneMask.as_batch());
@@ -163,17 +159,21 @@ constexpr auto make_mult(xsimd::batch_constant<Int, Arch, kShifts...>) {
   return xsimd::batch_constant<Int, Arch, static_cast<Int>(1u << kShifts)...>();
 }
 
-template <typename Int, int kOffset, int kLength, Int... kVals>
-struct SelectStride {
-  static constexpr auto kShiftsArr = std::array{kVals...};
-
-  static constexpr Int get(int i, int n) { return kShiftsArr[kLength * i + kOffset]; }
-};
+template <typename Int, int kOffset, int kLength, typename Arr>
+constexpr auto select_stride_impl(Arr shifts) {
+  std::array<Int, shifts.size() / kLength> out{};
+  for (std::size_t i = 0; i < out.size(); ++i) {
+    out[i] = shifts[kLength * i + kOffset];
+  }
+  return out;
+}
 
 template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
 constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
-  return xsimd::make_batch_constant<
-      ToInt, Arch, SelectStride<Int, kOffset, sizeof(ToInt) / sizeof(Int), kShifts...>>();
+  constexpr auto kStridesArr =
+      select_stride_impl<ToInt, kOffset, sizeof(ToInt) / sizeof(Int)>(
+          std::array{kShifts...});
+  return array_to_batch_constant<kStridesArr, Arch>();
 }
 
 template <typename Arch>
@@ -272,17 +272,15 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
   // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
   // shift right will not be available but a left shift (fallback) exists.
   if constexpr (kHasSse2 && (IntSize != sizeof(uint64_t))) {
-    static constexpr auto kShiftsArr = std::array{kShifts...};
-    static constexpr Int kMaxRightShift = max_value(kShiftsArr);
-
-    struct MakeShifts {
-      static constexpr Int get(int i, int n) { return kMaxRightShift - kShiftsArr.at(i); }
-    };
+    constexpr auto kShiftsArr = std::array{kShifts...};
+    constexpr Int kMaxRightShift = max_value(kShiftsArr);
+    constexpr auto kLShiftsArr =
+        std::array{static_cast<Int>(kMaxRightShift - kShifts)...};
 
     // TODO(xsimd 14.0) this can be simplified to
     // constexpr auto kRShifts = xsimd::make_batch_constant<Int, kMaxRightShift, Arch>() -
     // shifts;
-    constexpr auto kLShifts = xsimd::make_batch_constant<Int, Arch, MakeShifts>();
+    constexpr auto kLShifts = array_to_batch_constant<kLShiftsArr, Arch>();
 
     const auto lshifted = left_shift(batch, kLShifts);
     // TODO(xsimd 14.0) this can be simplified to
@@ -365,9 +363,9 @@ struct KernelShape {
 template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct KernelTraits {
   static constexpr KernelShape kShape = {
-      /* .simd_bit_size_= */ kSimdBitSize,
-      /* .unpacked_bit_size= */ 8 * sizeof(UnpackedUint),
-      /* .packed_bit_size_= */ kPackedBitSize,
+      .simd_bit_size_ = kSimdBitSize,
+      .unpacked_bit_size_ = 8 * sizeof(UnpackedUint),
+      .packed_bit_size_ = kPackedBitSize,
   };
 
   using unpacked_type = UnpackedUint;
@@ -459,9 +457,9 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
   } while (packed_start_bit % 8 != 0);
 
   return {
-      /* .reads_per_kernel_= */ reads_per_kernel,
-      /* .swizzles_per_read_= */ swizzles_per_read,
-      /* .shifts_per_swizzle_= */ shifts_per_swizzle,
+      .reads_per_kernel_ = reads_per_kernel,
+      .swizzles_per_read_ = swizzles_per_read,
+      .shifts_per_swizzle_ = shifts_per_swizzle,
   };
 }
 
@@ -617,7 +615,7 @@ struct MediumKernel {
     const auto shifted = right_shift_by_excess(words, kRightShifts);
     const auto vals = shifted & kMask;
     if constexpr (std::is_same_v<unpacked_type, bool>) {
-      const xsimd::batch_bool<uint_type, arch_type> bools(vals);
+      const xsimd::batch_bool<uint_type, arch_type> bools = vals != 0;
       bools.store_unaligned(out + kOutOffset);
     } else {
       vals.store_unaligned(out + kOutOffset);
