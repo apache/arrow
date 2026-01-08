@@ -53,6 +53,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/config.h"  // for ARROW_CSV and PARQUET_REQUIRE_ENCRYPTION
 #include "arrow/util/decimal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
@@ -5944,14 +5945,18 @@ struct ColumnIndexObject {
   }
 };
 
+// Parquet uses little-endian encoding for plain numeric types
 auto encode_int64 = [](int64_t value) {
-  return std::string(reinterpret_cast<const char*>(&value), sizeof(int64_t));
+  uint64_t le_value = ::arrow::bit_util::ToLittleEndian(static_cast<uint64_t>(value));
+  return std::string(reinterpret_cast<const char*>(&le_value), sizeof(int64_t));
 };
 
 auto encode_double = [](double value) {
-  return std::string(reinterpret_cast<const char*>(&value), sizeof(double));
+  uint64_t int_value;
+  std::memcpy(&int_value, &value, sizeof(double));
+  uint64_t le_value = ::arrow::bit_util::ToLittleEndian(int_value);
+  return std::string(reinterpret_cast<const char*>(&le_value), sizeof(double));
 };
-
 }  // namespace
 
 class ParquetPageIndexRoundTripTest : public ::testing::Test {

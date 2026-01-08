@@ -28,6 +28,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_builders.h"
 #include "arrow/util/config.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/key_value_metadata.h"
 
 #include "parquet/column_page.h"
@@ -1260,11 +1261,16 @@ void EncodeLevels(Encoding::type encoding, int16_t max_level, int num_levels,
   // encode levels
   if (encoding == Encoding::RLE) {
     // leave space to write the rle length value
+#if ARROW_LITTLE_ENDIAN
     encoder.Init(encoding, max_level, num_levels, bytes.data() + sizeof(int32_t),
                  static_cast<int>(bytes.size()));
-
+#else
+    encoder.Init(encoding, max_level, num_levels, bytes.data() + sizeof(int32_t),
+                 static_cast<int>(bytes.size() - sizeof(int32_t)));
+#endif
     levels_count = encoder.Encode(num_levels, input_levels);
-    (reinterpret_cast<int32_t*>(bytes.data()))[0] = encoder.len();
+    *reinterpret_cast<int32_t*>(bytes.data()) =
+        ::arrow::bit_util::ToLittleEndian(encoder.len());
   } else {
     encoder.Init(encoding, max_level, num_levels, bytes.data(),
                  static_cast<int>(bytes.size()));

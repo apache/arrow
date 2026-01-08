@@ -1037,17 +1037,25 @@ void TestStatisticsSortOrder<Int32Type>::SetValues() {
     values_[i] = i - 5;  // {-5, -4, -3, -2, -1, 0, 1, 2, 3, 4};
   }
 
-  // Write UINT32 min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+  // Write UINT32 min/max values (converted to little-endian)
+  {
+    c_type le_min = ::arrow::bit_util::ToLittleEndian(values_[5]);
+    c_type le_max = ::arrow::bit_util::ToLittleEndian(values_[4]);
+    stats_[0]
+        .set_min(std::string(reinterpret_cast<const char*>(&le_min), sizeof(c_type)))
+        .set_max(std::string(reinterpret_cast<const char*>(&le_max), sizeof(c_type)));
+  }
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 
-  // Write INT32 min/max values
-  stats_[1]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  // Write INT32 min/max values (converted to little-endian)
+  {
+    c_type le_min = ::arrow::bit_util::ToLittleEndian(values_[0]);
+    c_type le_max = ::arrow::bit_util::ToLittleEndian(values_[9]);
+    stats_[1]
+        .set_min(std::string(reinterpret_cast<const char*>(&le_min), sizeof(c_type)))
+        .set_max(std::string(reinterpret_cast<const char*>(&le_max), sizeof(c_type)));
+  }
   stats_[1].is_max_value_exact = true;
   stats_[1].is_min_value_exact = true;
 }
@@ -1069,17 +1077,25 @@ void TestStatisticsSortOrder<Int64Type>::SetValues() {
     values_[i] = i - 5;  // {-5, -4, -3, -2, -1, 0, 1, 2, 3, 4};
   }
 
-  // Write UINT64 min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[5]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[4]), sizeof(c_type)));
+  // Write UINT64 min/max values (converted to little-endian)
+  {
+    c_type le_min = ::arrow::bit_util::ToLittleEndian(values_[5]);
+    c_type le_max = ::arrow::bit_util::ToLittleEndian(values_[4]);
+    stats_[0]
+        .set_min(std::string(reinterpret_cast<const char*>(&le_min), sizeof(c_type)))
+        .set_max(std::string(reinterpret_cast<const char*>(&le_max), sizeof(c_type)));
+  }
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 
-  // Write INT64 min/max values
-  stats_[1]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  // Write INT64 min/max values (converted to little-endian)
+  {
+    c_type le_min = ::arrow::bit_util::ToLittleEndian(values_[0]);
+    c_type le_max = ::arrow::bit_util::ToLittleEndian(values_[9]);
+    stats_[1]
+        .set_min(std::string(reinterpret_cast<const char*>(&le_min), sizeof(c_type)))
+        .set_max(std::string(reinterpret_cast<const char*>(&le_max), sizeof(c_type)));
+  }
   stats_[1].is_max_value_exact = true;
   stats_[1].is_min_value_exact = true;
 }
@@ -1092,10 +1108,14 @@ void TestStatisticsSortOrder<FloatType>::SetValues() {
                  5;  // {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0};
   }
 
-  // Write Float min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  // Write Float min/max values (converted to little-endian)
+  {
+    c_type le_min = ::arrow::bit_util::ToLittleEndian(values_[0]);
+    c_type le_max = ::arrow::bit_util::ToLittleEndian(values_[9]);
+    stats_[0]
+        .set_min(std::string(reinterpret_cast<const char*>(&le_min), sizeof(c_type)))
+        .set_max(std::string(reinterpret_cast<const char*>(&le_max), sizeof(c_type)));
+  }
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 }
@@ -1108,10 +1128,14 @@ void TestStatisticsSortOrder<DoubleType>::SetValues() {
                  5;  // {-5.0, -4.0, -3.0, -2.0, -1.0, 0.0, 1.0, 2.0, 3.0, 4.0};
   }
 
-  // Write Double min/max values
-  stats_[0]
-      .set_min(std::string(reinterpret_cast<const char*>(&values_[0]), sizeof(c_type)))
-      .set_max(std::string(reinterpret_cast<const char*>(&values_[9]), sizeof(c_type)));
+  // Write Double min/max values (converted to little-endian)
+  {
+    c_type le_min = ::arrow::bit_util::ToLittleEndian(values_[0]);
+    c_type le_max = ::arrow::bit_util::ToLittleEndian(values_[9]);
+    stats_[0]
+        .set_min(std::string(reinterpret_cast<const char*>(&le_min), sizeof(c_type)))
+        .set_max(std::string(reinterpret_cast<const char*>(&le_max), sizeof(c_type)));
+  }
   stats_[0].is_max_value_exact = true;
   stats_[0].is_min_value_exact = true;
 }
@@ -1283,7 +1307,9 @@ TEST_F(TestStatisticsSortOrderFLBA, UnknownSortOrder) {
 
 template <typename T>
 static std::string EncodeValue(const T& val) {
-  return std::string(reinterpret_cast<const char*>(&val), sizeof(val));
+  // Parquet encoded values should be in little-endian format
+  T le_val = ::arrow::bit_util::ToLittleEndian(val);
+  return std::string(reinterpret_cast<const char*>(&le_val), sizeof(le_val));
 }
 static std::string EncodeValue(const FLBA& val, int length = sizeof(uint16_t)) {
   return std::string(reinterpret_cast<const char*>(val.ptr), length);
