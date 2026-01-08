@@ -72,7 +72,12 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_vote
-    github_token = File.read(@env)[/^GH_TOKEN=(.*)$/, 1]
+    # Read token from ENV in CI, .env file for local dev
+    if ENV["GITHUB_ACTIONS"]
+      github_token = ENV["GH_TOKEN"]
+    else
+      github_token = File.read(@env)[/^GH_TOKEN=(.*)$/, 1]
+    end
     uri = URI.parse("https://api.github.com/graphql")
     n_issues_query = {
       "query" => <<-QUERY,

@@ -106,8 +106,11 @@ jobs:
           pip install "cython>=3.1" setuptools pytest requests setuptools-scm
       - name: Run Release Test
         shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          echo "GH_TOKEN=${{ secrets.GITHUB_TOKEN }}" > dev/release/.env
+          # Create empty .env file for scripts that source it
+          touch dev/release/.env
           ci/scripts/release_test.sh $(pwd)
       - name: Run Merge Script Test
         shell: bash
