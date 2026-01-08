@@ -43,12 +43,12 @@
 #include <aws/core/client/CoreErrors.h>
 #include <aws/core/client/RetryStrategy.h>
 #include <aws/core/utils/logging/ConsoleLogSystem.h>
-#include <aws/s3/S3Client.h>
-#include <aws/s3/model/CreateBucketRequest.h>
-#include <aws/s3/model/DeleteObjectsRequest.h>
-#include <aws/s3/model/GetObjectRequest.h>
-#include <aws/s3/model/ListObjectsV2Request.h>
-#include <aws/s3/model/PutObjectRequest.h>
+#include <aws/s3-crt/S3CrtClient.h>
+#include <aws/s3-crt/model/CreateBucketRequest.h>
+#include <aws/s3-crt/model/DeleteObjectsRequest.h>
+#include <aws/s3-crt/model/GetObjectRequest.h>
+#include <aws/s3-crt/model/ListObjectsV2Request.h>
+#include <aws/s3-crt/model/PutObjectRequest.h>
 #include <aws/sts/STSClient.h>
 
 #include "arrow/filesystem/filesystem.h"
@@ -206,7 +206,7 @@ class S3TestMixin : public AwsTestMixin {
   }
 
   void TearDown() override {
-    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // Aws::S3Crt::S3CrtClient destruction relies on AWS SDK, so it must be
     // reset before Aws::ShutdownAPI
     client_.reset();
     client_config_.reset();
@@ -229,10 +229,10 @@ class S3TestMixin : public AwsTestMixin {
         std::make_shared<ConnectRetryStrategy>(kRetryInterval, kMaxRetryDuration);
     credentials_ = {ToAwsString(minio_->access_key()), ToAwsString(minio_->secret_key())};
     bool use_virtual_addressing = false;
-    client_.reset(
-        new Aws::S3::S3Client(credentials_, *client_config_,
-                              Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
-                              use_virtual_addressing));
+    client_.reset(new Aws::S3Crt::S3CrtClient(
+        credentials_, *client_config_,
+        Aws::Client::AWSAuthV4Signer::PayloadSigningPolicy::Never,
+        use_virtual_addressing));
     return Status::OK();
   }
 
@@ -242,7 +242,7 @@ class S3TestMixin : public AwsTestMixin {
   std::shared_ptr<MinioTestServer> minio_;
   std::unique_ptr<Aws::Client::ClientConfiguration> client_config_;
   Aws::Auth::AWSCredentials credentials_;
-  std::unique_ptr<Aws::S3::S3Client> client_;
+  std::unique_ptr<Aws::S3Crt::S3CrtClient> client_;
   // Use plain HTTP by default, as this allows us to listen on different loopback
   // addresses and thus minimize the risk of address reuse (HTTPS requires the
   // hostname to match the certificate's subject name, constraining us to a
@@ -250,7 +250,7 @@ class S3TestMixin : public AwsTestMixin {
   bool enable_tls_ = false;
 };
 
-void AssertGetObject(Aws::S3::Model::GetObjectResult& result,
+void AssertGetObject(Aws::S3Crt::Model::GetObjectResult& result,
                      const std::string& expected) {
   auto length = static_cast<int64_t>(expected.length());
   ASSERT_EQ(result.GetContentLength(), length);
@@ -264,9 +264,9 @@ void AssertGetObject(Aws::S3::Model::GetObjectResult& result,
   ASSERT_TRUE(actual == expected);  // Avoid ASSERT_EQ on large data
 }
 
-void AssertObjectContents(Aws::S3::S3Client* client, const std::string& bucket,
+void AssertObjectContents(Aws::S3Crt::S3CrtClient* client, const std::string& bucket,
                           const std::string& key, const std::string& expected) {
-  Aws::S3::Model::GetObjectRequest req;
+  Aws::S3Crt::Model::GetObjectRequest req;
   req.SetBucket(ToAwsString(bucket));
   req.SetKey(ToAwsString(key));
   ARROW_AWS_ASSIGN_OR_FAIL(auto result, client->GetObject(req));
@@ -512,7 +512,7 @@ class TestS3FS : public S3TestMixin {
     MakeFileSystem();
     // Set up test bucket
     {
-      Aws::S3::Model::CreateBucketRequest req;
+      Aws::S3Crt::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("bucket"));
       ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
       req.SetBucket(ToAwsString("empty-bucket"));
@@ -523,14 +523,14 @@ class TestS3FS : public S3TestMixin {
   }
 
   void TearDown() override {
-    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // Aws::S3Crt::S3CrtClient destruction relies on AWS SDK, so it must be
     // reset before Aws::ShutdownAPI
     fs_.reset();
     S3TestMixin::TearDown();
   }
 
   Status PopulateTestBucket() {
-    Aws::S3::Model::PutObjectRequest req;
+    Aws::S3Crt::Model::PutObjectRequest req;
     req.SetBucket(ToAwsString("bucket"));
     req.SetKey(ToAwsString("emptydir/"));
     RETURN_NOT_OK(OutcomeToStatus("PutObject", client_->PutObject(req)));
@@ -553,11 +553,11 @@ class TestS3FS : public S3TestMixin {
   Status RestoreTestBucket() {
     // First empty the test bucket, and then re-upload initial test files.
 
-    Aws::S3::Model::Delete delete_object;
+    Aws::S3Crt::Model::Delete delete_object;
     {
       // Mostly taken from
       // https://github.com/awsdocs/aws-doc-sdk-examples/blob/main/cpp/example_code/s3/list_objects.cpp
-      Aws::S3::Model::ListObjectsV2Request req;
+      Aws::S3Crt::Model::ListObjectsV2Request req;
       req.SetBucket(Aws::String{"bucket"});
 
       Aws::String continuation_token;
@@ -571,10 +571,11 @@ class TestS3FS : public S3TestMixin {
         if (!outcome.IsSuccess()) {
           return OutcomeToStatus("ListObjectsV2", outcome);
         } else {
-          Aws::Vector<Aws::S3::Model::Object> objects = outcome.GetResult().GetContents();
+          Aws::Vector<Aws::S3Crt::Model::Object> objects =
+              outcome.GetResult().GetContents();
           for (const auto& object : objects) {
             delete_object.AddObjects(
-                Aws::S3::Model::ObjectIdentifier().WithKey(object.GetKey()));
+                Aws::S3Crt::Model::ObjectIdentifier().WithKey(object.GetKey()));
           }
 
           continuation_token = outcome.GetResult().GetNextContinuationToken();
@@ -583,7 +584,7 @@ class TestS3FS : public S3TestMixin {
     }
 
     {
-      Aws::S3::Model::DeleteObjectsRequest req;
+      Aws::S3Crt::Model::DeleteObjectsRequest req;
 
       req.SetDelete(std::move(delete_object));
       req.SetBucket(Aws::String{"bucket"});
@@ -1658,7 +1659,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
     S3TestMixin::SetUp();
     // Set up test bucket
     {
-      Aws::S3::Model::CreateBucketRequest req;
+      Aws::S3Crt::Model::CreateBucketRequest req;
       req.SetBucket(ToAwsString("s3fs-test-bucket"));
       ASSERT_OK(OutcomeToStatus("CreateBucket", client_->CreateBucket(req)));
     }
@@ -1672,7 +1673,7 @@ class TestS3FSGeneric : public S3TestMixin, public GenericFileSystemTest {
   }
 
   void TearDown() override {
-    // Aws::S3::S3Client destruction relies on AWS SDK, so it must be
+    // Aws::S3Crt::S3CrtClient destruction relies on AWS SDK, so it must be
     // reset before Aws::ShutdownAPI
     s3fs_.reset();
     fs_.reset();
