@@ -303,14 +303,15 @@ class PyValue {
     return value;
   }
 
-  static Result<int64_t> Convert(const Date64Type*, const O&, I obj) {
+  static Result<int64_t> Convert(const Date64Type*, const O& options, I obj) {
     int64_t value;
     if (PyDateTime_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_DateTime*>(obj);
       value = internal::PyDateTime_to_ms(pydate);
-      // Truncate any intraday milliseconds
-      // TODO: introduce an option for this
-      value -= value % 86400000LL;
+      // Truncate any intraday milliseconds if the option is enabled
+      if (options.truncate_date64_time) {
+        value -= value % 86400000LL;
+      }
     } else if (PyDate_Check(obj)) {
       auto pydate = reinterpret_cast<PyDateTime_Date*>(obj);
       value = internal::PyDate_to_ms(pydate);
