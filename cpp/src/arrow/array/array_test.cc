@@ -4305,7 +4305,7 @@ TEST_F(TestDayTimeIntervalBuilder, TestConstructors) {
   DayTimeIntervalBuilder builder1;
   ASSERT_EQ(builder1.type()->id(), Type::INTERVAL_DAY_TIME);
 
-  MemoryPool* pool = default_memory_pool();
+  auto pool = default_memory_pool();
   DayTimeIntervalBuilder builder2(pool);
   ASSERT_EQ(builder2.type()->id(), Type::INTERVAL_DAY_TIME);
 
