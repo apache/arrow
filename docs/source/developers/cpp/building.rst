@@ -332,7 +332,7 @@ depends on ``python`` being available).
 
       $ export ARROW_TEST_DATA="<absolute_path_to_arrow>/testing/data"
       $ export PARQUET_TEST_DATA="<absolute_path_to_arrow>/cpp/submodules/parquet-testing/data"
-  
+
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
 environment variable (which requires the ``locales`` package or equivalent):
@@ -340,7 +340,7 @@ environment variable (which requires the ``locales`` package or equivalent):
 .. code-block::
 
    $ export LC_ALL="en_US.UTF-8"
-    
+
 Faster builds with Ninja
 ~~~~~~~~~~~~~~~~~~~~~~~~
 
