@@ -3983,6 +3983,11 @@ function(build_awssdk)
       if("${AWSSDK_PRODUCT}" STREQUAL "aws-lc")
         # We don't need to link aws-lc. It's used only by s2n-tls.
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
+        # Disable -Werror for s2n-tls: it has Clang 18 warnings that it intentionally allows.
+        # See: https://github.com/aws/s2n-tls/issues/5696
+        if(TARGET s2n)
+          target_compile_options(s2n PRIVATE -Wno-error)
+        endif()
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
