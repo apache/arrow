@@ -448,11 +448,12 @@ class TestConvertMetadata:
         assert len(md) == 1
         assert md['encoding'] == 'UTF-8'
 
-    def test_datetimetz_column_index(self):
+    @pytest.mark.parametrize('unit', ['us', 'ns'])
+    def test_datetimetz_column_index(self, unit):
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
-                start='2017-01-01', periods=3, tz='America/New_York', unit='us'
+                start='2017-01-01', periods=3, tz='America/New_York', unit=unit
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
@@ -461,7 +462,7 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'datetimetz'
-        assert column_indexes['numpy_type'] == 'datetime64[us]'
+        assert column_indexes['numpy_type'] == f'datetime64[{unit}]'
 
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
