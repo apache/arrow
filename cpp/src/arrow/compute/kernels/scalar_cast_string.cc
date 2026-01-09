@@ -632,9 +632,8 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
     ARROW_ASSIGN_OR_RAISE(output->buffers[2], input_data->CopySlice(0, input_data->size(),
                                                                     ctx->memory_pool()));
   } else {
-    // TODO(wesm): it should already be nullptr, so we may be able to remove
-    // this
-    output->buffers[2] = nullptr;
+    // Verify output->buffers[2] is already nullptr from PrepareOutput's resize() call
+    DCHECK_EQ(output->buffers[2], nullptr);
   }
 
   return Status::OK();
