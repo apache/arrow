@@ -191,6 +191,7 @@ if arrow_cpp_build_lib_dir == ''
         'Parquet',
         kwargs: common_args,
         modules: ['Parquet::parquet_shared'],
+        required: false,
     )
 else
     base_include_directories += [
