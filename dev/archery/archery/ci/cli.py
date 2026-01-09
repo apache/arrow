@@ -16,7 +16,6 @@
 # under the License.
 
 import click
-import email.utils
 
 from .core import Workflow
 from ..crossbow.reports import ChatReport, EmailReport, ReportUtils
@@ -74,6 +73,22 @@ def report_chat(obj, workflow_id, send, repository, ignore, webhook,
         output.write(report_chat.render("workflow_report"))
 
 
+class WorkflowEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('workflow_report', **kwargs)
+
+    def date(self):
+        return self.report.datetime
+
+    def subject(self):
+        workflow = self.report
+        date = self.date().strftime('%Y-%m-%d')
+        return (
+            f'[{date}] Arrow Build Report for Job {workflow.name}: '
+            f'{len(workflow.failed_jobs())} failed'
+        )
+
+
 @ci.command()
 @click.argument('workflow_id', required=True)
 @click.option('--sender-name', '-n',
@@ -108,22 +123,12 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
 
     workflow = Workflow(workflow_id, repository,
                         ignore_job=ignore, gh_token=obj['github_token'])
-    email_report = EmailReport(report=workflow)
-    n_errors = len(workflow.tasks_by_state['error'])
-    n_failures = len(workflow.tasks_by_state['failure'])
-    n_pendings = len(workflow.tasks_by_state['pending'])
-    subject = (
-        f'[NIGHTLY] Arrow Build Report for Job {workflow.job.branch}: '
-        f'{n_errors + n_failures} failed, '
-        f'{n_pendings} pending'
+    email_report = WorkflowEmailReport(
+        report=workflow,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
     )
-    headers = {
-        'Date': email.utils.formatdate(workflow.datetime),
-        'From': f'{sender_name} <{sender_email}>',
-        'To': recipient_email,
-        'Subject': subject,
-    }
-    message = email_report.render('workflow_report', headers)
 
     if send:
         ReportUtils.send_email(
@@ -131,8 +136,7 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=message
+            report=email_report
         )
     else:
-        output.write(str(message))
+        output.write(str(email_report.render()))

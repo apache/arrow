@@ -17,6 +17,8 @@
 
 import collections
 import csv
+import datetime
+import email.headerregistry
 import email.message
 import email.utils
 import operator
@@ -248,7 +250,7 @@ class ReportUtils:
 
     @classmethod
     def send_email(cls, smtp_user, smtp_password, smtp_server, smtp_port,
-                   recipient_email, message):
+                   report):
         from smtplib import SMTP, SMTP_SSL
 
         if smtp_port == 465:
@@ -261,7 +263,8 @@ class ReportUtils:
             else:
                 smtp.starttls()
             smtp.login(smtp_user, smtp_password)
-            smtp.send_message(smtp_user, recipient_email, message)
+            message = report.render()
+            smtp.send_message(smtp_user, report.recipient_email, message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
@@ -273,25 +276,40 @@ class ReportUtils:
 
 
 class EmailReport(JinjaReport):
-    templates = {
-        'nightly_report': 'email_nightly_report.txt.j2',
-        'token_expiration': 'email_token_expiration.txt.j2',
-        'workflow_report': 'email_workflow_report.txt.j2',
-    }
     fields = [
         'report',
+        'sender_name',
+        'sender_email',
+        'recipient_email',
     ]
 
-    def render(self, template_name, headers):
+    def __init__(self, template_name, **kwargs):
+        self._template_name = template_name
+        super().__init__(**kwargs)
+
+    @property
+    def templates(self):
+        return {
+            self._template_name: f'email_{self._template_name}.txt.j2',
+        }
+
+    def date(self):
+        return None
+
+    def render(self):
         message = email.message.EmailMessage()
         message.set_charset('utf-8')
-        if 'Message-Id' not in headers:
-            message['Message-Id'] = email.utils.make_msgid()
-        if 'Date' not in headers:
-            message['Date'] = email.utils.formatdate()
-        for (key, value) in headers.items():
-            message[key] = value
-        message.set_content(super().render(template_name))
+        message['Message-Id'] = email.utils.make_msgid()
+        date = self.date()
+        if isinstance(date, datetime.datetime):
+            message['Date'] = date
+        else:
+            message['Date'] = email.utils.formatdate(date)
+        message['From'] = email.headerregistry.Address(
+            self.sender_name, addr_spec=self.sender_email)
+        message['To'] = email.headerregistry.Address(addr_spec=self.recipient_email)
+        message['Subject'] = self.subject()
+        message.set_content(super().render(self._template_name))
         return message
 
 

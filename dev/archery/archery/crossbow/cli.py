@@ -16,7 +16,6 @@
 # under the License.
 
 from datetime import date
-import email.utils
 from pathlib import Path
 import time
 import sys
@@ -344,6 +343,22 @@ def latest_prefix(obj, prefix, fetch):
     click.echo(latest.branch)
 
 
+class NightlyEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('nightly_report', **kwargs)
+
+    def subject(self):
+        report = self.report
+        n_errors = len(report.tasks_by_state['error'])
+        n_failures = len(report.tasks_by_state['failure'])
+        n_pendings = len(report.tasks_by_state['pending'])
+        return (
+            f'[NIGHTLY] Arrow Build Report for Job {report.job.branch}: '
+            f'{n_errors + n_failures} failed, '
+            f'{n_pendings} pending'
+        )
+
+
 @crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--sender-name', '-n',
@@ -384,19 +399,12 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
 
     job = queue.get(job_name)
     report = Report(job)
-    email_report = EmailReport(report=report)
-    date = report.datetime.strftime('%Y-%m-%d')
-    subject = (
-        f'[{date}] Arrow Build Report for {report.name}: '
-        f'{len(report.failed_jobs())} failed'
+    email_report = NightlyEmailReport(
+        report=report,
+        sender_name=sender_name,
+        sender_email=sender_email,
+        recipient_email=recipient_email
     )
-    headers = {
-        'Date': email.utils.formatdate(report.datetime),
-        'From': f'{sender_name} <{sender_email}>',
-        'To': recipient_email,
-        'Subject': subject,
-    }
-    message = email_report.render('nightly_report', headers)
 
     if poll:
         job.wait_until_finished(
@@ -410,11 +418,10 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=message
+            report=email_report
         )
     else:
-        output.write(str(message))
+        output.write(str(email_report.render()))
 
 
 @crossbow.command()
@@ -610,6 +617,17 @@ def delete_old_branches(obj, dry_run, days, maximum):
             print(batch)
 
 
+class TokenExpirationEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('token_expiration', **kwargs)
+
+    def subject(self):
+        token_expiration_date = self.report.token_expiration_date
+        return (
+            f'[CI] Arrow Crossbow Token Expiration in {token_expiration_date}'
+        )
+
+
 @crossbow.command()
 @click.option('--days', default=30,
               help='Notification will be sent if expiration date is '
@@ -650,22 +668,14 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             return
 
     class TokenExpirationReport:
-        def __init__(self, days_left):
+        def __init__(self, token_expiration_date, days_left):
+            self.token_expiration_date = token_expiration_date
             self.days_left = days_left
 
     if not token_expiration_date:
         token_expiration_date = 'ALREADY_EXPIRED'
-    report = TokenExpirationReport(days_left)
-    email_report = EmailReport(report)
-    subject = (
-        f'[CI] Arrow Crossbow Token Expiration in {token_expiration_date}'
-    )
-    headers = {
-        'From': f'{sender_name} <{sender_email}>',
-        'To': recipient_email,
-        'Subject': subject,
-    }
-    message = email_report.render('token_expiration', headers)
+    report = TokenExpirationReport(token_expiration_date, days_left)
+    email_report = TokenExpirationEmailReport(report)
 
     if send:
         ReportUtils.send_email(
@@ -673,8 +683,7 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=message
+            report=email_report
         )
     else:
-        output.write(str(message))
+        output.write(str(email_report.render()))

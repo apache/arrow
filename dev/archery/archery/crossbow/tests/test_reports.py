@@ -15,11 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+import re
 import textwrap
 
+from archery.crossbow.cli import (NightlyEmailReport, TokenExpirationEmailReport)
 from archery.crossbow.core import yaml
-from archery.crossbow.reports import (ChatReport, CommentReport, EmailReport,
-                                      Report)
+from archery.crossbow.reports import (ChatReport, CommentReport, Report)
 
 
 def test_crossbow_comment_formatter(load_fixture):
@@ -71,24 +72,54 @@ def test_crossbow_chat_report_extra_message_success(load_fixture):
     assert report_chat.render("text") == textwrap.dedent(expected_msg)
 
 
-def test_crossbow_email_report(load_fixture):
-    expected_msg = load_fixture('email-report.txt')
+def test_crossbow_nightly_email_report(load_fixture):
+    expected_msg = load_fixture('nightly-email-report.txt')
     job = load_fixture('crossbow-job.yaml', decoder=yaml.load)
     report = Report(job)
     assert report.tasks_by_state is not None
-    email_report = EmailReport(report=report)
-    headers = {
-        'Message-Id': '<message-id>',
-        'Date': 'Thu, 01 Jan 2026 02:19:16 -0000',
-        'From': 'from@example.com',
-        'To': 'to@example.com',
-        'Subject': 'Arrow Build Report',
-    }
-
-    assert (
-        str(email_report.render("nightly_report", headers)) ==
-        textwrap.dedent(expected_msg)
+    email_report = NightlyEmailReport(
+        report=report,
+        sender_name='Sender Reporter',
+        sender_email='sender@arrow.com',
+        recipient_email='recipient@arrow.com'
     )
+
+    actual = str(email_report.render())
+    # Normalize dynamic headers
+    actual = re.sub(r'(?m)^Message-Id: <.+?>',
+                    'Message-Id: <message-id>',
+                    actual)
+    actual = re.sub(r'(?m)^Date: [^\n]+ -0000$',
+                    'Date: date',
+                    actual)
+    assert actual == textwrap.dedent(expected_msg)
+
+
+def test_crossbow_token_expiration_email_report(load_fixture):
+    expected_msg = load_fixture('token-expiration-email-report.txt')
+
+    class TokenExpirationReport:
+        def __init__(self, token_expiration_date, days_left):
+            self.token_expiration_date = token_expiration_date
+            self.days_left = days_left
+
+    report = TokenExpirationReport('2026-01-17', 7)
+    email_report = TokenExpirationEmailReport(
+        report=report,
+        sender_name='Sender Reporter',
+        sender_email='sender@arrow.com',
+        recipient_email='recipient@arrow.com'
+    )
+
+    actual = str(email_report.render())
+    # Normalize dynamic headers
+    actual = re.sub(r'(?m)^Message-Id: <.+?>',
+                    'Message-Id: <message-id>',
+                    actual)
+    actual = re.sub(r'(?m)^Date: [^\n]+ -0000$',
+                    'Date: date',
+                    actual)
+    assert actual == textwrap.dedent(expected_msg)
 
 
 def test_crossbow_export_report(load_fixture):
