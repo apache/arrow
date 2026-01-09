@@ -108,7 +108,13 @@ cdef class ReadOptions(_Weakrefable):
         The order of application is as follows:
         - `skip_rows` is applied (if non-zero);
         - column names are read (unless `column_names` is set);
-        - `skip_rows_after_names` is applied (if non-zero).
+        - `skip_rows_after_names` is applied (if non-zero);
+        - up to `max_rows` rows are read (if positive).
+    max_rows : int, optional (default -1)
+        Maximum number of rows to read from the CSV file.
+        If -1, read all rows. If a positive number, read exactly that many rows
+        (or fewer if the file has fewer rows). This parameter counts actual data rows
+        after applying skip_rows and skip_rows_after_names.
     column_names : list, optional
         The column names of the target table.  If empty, fall back on
         `autogenerate_column_names`.
@@ -186,7 +192,7 @@ cdef class ReadOptions(_Weakrefable):
         self.options.reset(new CCSVReadOptions(CCSVReadOptions.Defaults()))
 
     def __init__(self, *, use_threads=None, block_size=None, skip_rows=None,
-                 skip_rows_after_names=None, column_names=None,
+                 skip_rows_after_names=None, max_rows=None, column_names=None,
                  autogenerate_column_names=None, encoding='utf8'):
         if use_threads is not None:
             self.use_threads = use_threads
@@ -196,6 +202,8 @@ cdef class ReadOptions(_Weakrefable):
             self.skip_rows = skip_rows
         if skip_rows_after_names is not None:
             self.skip_rows_after_names = skip_rows_after_names
+        if max_rows is not None:
+            self.max_rows = max_rows
         if column_names is not None:
             self.column_names = column_names
         if autogenerate_column_names is not None:
@@ -258,6 +266,21 @@ cdef class ReadOptions(_Weakrefable):
         deref(self.options).skip_rows_after_names = value
 
     @property
+    def max_rows(self):
+        """
+        Maximum number of rows to read from the CSV file.
+
+        If -1 (default), all rows are read. If a positive number,
+        exactly that many rows are read (or fewer if the file has fewer rows).
+        This limit is applied after skip_rows and skip_rows_after_names.
+        """
+        return deref(self.options).max_rows
+
+    @max_rows.setter
+    def max_rows(self, value):
+        deref(self.options).max_rows = value
+
+    @property
     def column_names(self):
         """
         The column names of the target table.  If empty, fall back on
@@ -303,6 +326,7 @@ cdef class ReadOptions(_Weakrefable):
             self.block_size == other.block_size and
             self.skip_rows == other.skip_rows and
             self.skip_rows_after_names == other.skip_rows_after_names and
+            self.max_rows == other.max_rows and
             self.column_names == other.column_names and
             self.autogenerate_column_names ==
             other.autogenerate_column_names and
@@ -319,12 +343,12 @@ cdef class ReadOptions(_Weakrefable):
     def __getstate__(self):
         return (self.use_threads, self.block_size, self.skip_rows,
                 self.column_names, self.autogenerate_column_names,
-                self.encoding, self.skip_rows_after_names)
+                self.encoding, self.skip_rows_after_names, self.max_rows)
 
     def __setstate__(self, state):
         (self.use_threads, self.block_size, self.skip_rows,
          self.column_names, self.autogenerate_column_names,
-         self.encoding, self.skip_rows_after_names) = state
+         self.encoding, self.skip_rows_after_names, self.max_rows) = state
 
     def __eq__(self, other):
         try:

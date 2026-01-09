@@ -62,6 +62,14 @@ Status ReadOptions::Validate() const {
     return Status::Invalid("ReadOptions: skip_rows_after_names cannot be negative: ",
                            skip_rows_after_names);
   }
+  if (ARROW_PREDICT_FALSE(max_rows == 0)) {
+    return Status::Invalid("ReadOptions: max_rows cannot be 0 (use -1 for unlimited): ",
+                           max_rows);
+  }
+  if (ARROW_PREDICT_FALSE(max_rows < -1)) {
+    return Status::Invalid("ReadOptions: max_rows cannot be negative except -1: ",
+                           max_rows);
+  }
   if (ARROW_PREDICT_FALSE(autogenerate_column_names && !column_names.empty())) {
     return Status::Invalid(
         "ReadOptions: autogenerate_column_names cannot be true when column_names are "
