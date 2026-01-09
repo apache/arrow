@@ -23,6 +23,17 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN echo "debconf debconf/frontend select Noninteractive" | \
         debconf-set-selections
 
+# Install CUDA 13 compatibility layer for systems with CUDA 12 drivers
+# This is required for runs-on GPU instances which have CUDA 12.9 drivers
+# See: https://docs.nvidia.com/deploy/cuda-compatibility/forward-compatibility.html
+ARG cuda
+RUN if [ -n "${cuda}" ] && [ "$(echo ${cuda} | cut -d. -f1)" = "13" ]; then \
+      apt-get update -y -q && \
+      apt-get install -y -q --no-install-recommends cuda-compat-13-0 && \
+      apt-get clean && \
+      rm -rf /var/lib/apt/lists*; \
+    fi
+
 # Installs LLVM toolchain, for Gandiva and testing other compilers
 #
 # Note that this is installed before the base packages to improve iteration

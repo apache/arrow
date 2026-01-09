@@ -555,6 +555,7 @@ services:
         base: nvidia/cuda:${CUDA}-devel-ubuntu${UBUNTU}
         clang_tools: ${CLANG_TOOLS}
         cmake: ${CMAKE}
+        cuda: ${CUDA}
         llvm: ${LLVM}
     shm_size: *shm-size
     ulimits: *ulimits
