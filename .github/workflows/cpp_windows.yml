@@ -84,9 +84,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
       - name: Install msys2 (for tzdata for ORC tests)
         uses: msys2/setup-msys2@v2
         id: setup-msys2

@@ -138,6 +138,8 @@ def test_import_at_shutdown():
     subprocess.check_call([sys.executable, "-c", code])
 
 
+# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+# https://github.com/apache/arrow/issues/48593
 @pytest.mark.skipif(sys.platform == "win32",
                     reason="Path to timezone database is not configurable "
                            "on non-Windows platforms")
