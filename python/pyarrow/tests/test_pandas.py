@@ -450,10 +450,14 @@ class TestConvertMetadata:
 
     @pytest.mark.parametrize('unit', ['us', 'ns'])
     def test_datetimetz_column_index(self, unit):
+        ext_kwargs = {}
+        if Version(pd.__version__) >= Version("2.0.0"):
+            # unit argument not supported on date_range for pandas < 2.0.0
+            ext_kwargs = {'unit': unit}
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
-                start='2017-01-01', periods=3, tz='America/New_York', unit=unit
+                start='2017-01-01', periods=3, tz='America/New_York', **ext_kwargs
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
@@ -462,7 +466,10 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'datetimetz'
-        assert column_indexes['numpy_type'] == f'datetime64[{unit}]'
+        if ext_kwargs:
+            assert column_indexes['numpy_type'] == f'datetime64[{unit}]'
+        else:
+            assert column_indexes['numpy_type'] == 'datetime64[ns]'
 
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
@@ -711,8 +718,12 @@ class TestConvertMetadata:
         # It is possible that the metadata and actual schema is not fully
         # matching (eg no timezone information for tz-aware column)
         # -> to_pandas() conversion should not fail on that
+        ext_kwargs = {}
+        if Version(pd.__version__) >= Version("2.0.0"):
+            # unit argument not supported on date_range for pandas < 2.0.0
+            ext_kwargs = {'unit': 'ns'}
         df = pd.DataFrame({"datetime": pd.date_range(
-            "2020-01-01", periods=3, unit='ns')})
+            "2020-01-01", periods=3, **ext_kwargs)})
 
         # OPTION 1: casting after conversion
         table = pa.Table.from_pandas(df)
