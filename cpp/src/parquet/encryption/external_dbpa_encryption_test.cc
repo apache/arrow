@@ -52,19 +52,17 @@ class ExternalDBPAEncryptorAdapterTest : public ::testing::Test {
 
   std::unique_ptr<ExternalDBPAEncryptorAdapter> CreateEncryptor(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id, 
-    Type::type data_type, Compression::type compression_type, Encoding::type encoding_type) {
+    Type::type data_type, Compression::type compression_type) {
     return ExternalDBPAEncryptorAdapter::Make(
       algorithm, column_name, key_id, data_type, 
-      compression_type, encoding_type, app_context_, 
-      connection_config_, std::nullopt);
+      compression_type, app_context_, connection_config_, std::nullopt);
   }
 
   std::unique_ptr<ExternalDBPADecryptorAdapter> CreateDecryptor(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id, 
-    Type::type data_type, Compression::type compression_type, Encoding::type encoding_type) {
+    Type::type data_type, Compression::type compression_type) {
     return ExternalDBPADecryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, 
-      compression_type, {encoding_type}, app_context_, 
+      algorithm, column_name, key_id, data_type, compression_type, app_context_, 
       connection_config_, std::nullopt, key_value_metadata_);
   }
 
@@ -73,8 +71,7 @@ class ExternalDBPAEncryptorAdapterTest : public ::testing::Test {
       Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
       std::string plaintext) {
     std::unique_ptr<ExternalDBPAEncryptorAdapter> encryptor = ExternalDBPAEncryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, 
-      compression_type, encoding_type, app_context_, 
+      algorithm, column_name, key_id, data_type, compression_type, app_context_, 
       connection_config_, std::nullopt);
 
     // Create a simple EncodingProperties for testing using the builder pattern
@@ -117,7 +114,7 @@ class ExternalDBPAEncryptorAdapterTest : public ::testing::Test {
 
     std::unique_ptr<ExternalDBPADecryptorAdapter> decryptor = ExternalDBPADecryptorAdapter::Make(
       algorithm, column_name, key_id, data_type,
-      compression_type, {encoding_type}, app_context_,
+      compression_type, app_context_,
       connection_config_, std::nullopt, key_value_metadata_);
 
     decryptor->UpdateEncodingProperties(builder.Build());
@@ -177,10 +174,9 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, GetKeyValueMetadataReturnsNullWhenEmpty
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   auto encryptor = ExternalDBPAEncryptorAdapter::Make(
-    algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+    algorithm, column_name, key_id, data_type, compression_type,
     app_context_, connection_config_, std::nullopt);
 
   // No encryption performed yet; metadata should be empty for any module
@@ -196,9 +192,8 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, SignedFooterEncryptionThrowsException) 
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
   std::unique_ptr<ExternalDBPAEncryptorAdapter> encryptor = CreateEncryptor(
-    algorithm, column_name, key_id, data_type, compression_type, encoding_type);
+    algorithm, column_name, key_id, data_type, compression_type);
   std::vector<uint8_t> encrypted_footer(10, '\0');
   EXPECT_THROW(encryptor->SignedFooterEncrypt(
     str2span(/*footer*/""), str2span(/*key*/""), str2span(/*aad*/""), str2span(/*nonce*/""),
@@ -211,10 +206,9 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptWithoutUpdateEncodingPropertiesT
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   auto encryptor = ExternalDBPAEncryptorAdapter::Make(
-    algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+    algorithm, column_name, key_id, data_type, compression_type,
     app_context_, connection_config_, std::nullopt);
 
   std::string plaintext = "abc";
@@ -232,10 +226,9 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptWithoutUpdateEncodingPropertiesT
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   auto decryptor = ExternalDBPADecryptorAdapter::Make(
-    algorithm, column_name, key_id, data_type, compression_type, {encoding_type},
+    algorithm, column_name, key_id, data_type, compression_type,
     app_context_, connection_config_, std::nullopt, key_value_metadata_);
 
   std::string ciphertext = "xyz";
@@ -255,18 +248,17 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptorUnsupportedAlgorithmThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   EXPECT_THROW(
     CreateEncryptor(
-      unsupported_algo, column_name, key_id, data_type, compression_type, encoding_type),
+      unsupported_algo, column_name, key_id, data_type, compression_type),
     ParquetException);
 
   // Also test AES_GCM_CTR_V1
   unsupported_algo = ParquetCipher::AES_GCM_CTR_V1;
   EXPECT_THROW(
     CreateEncryptor(
-      unsupported_algo, column_name, key_id, data_type, compression_type, encoding_type),
+      unsupported_algo, column_name, key_id, data_type, compression_type),
     ParquetException);
 }
 
@@ -278,11 +270,10 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorUnsupportedAlgorithmThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   EXPECT_THROW(
     ExternalDBPADecryptorAdapter::Make(
-      unsupported_algo, column_name, key_id, data_type, compression_type, {encoding_type},
+      unsupported_algo, column_name, key_id, data_type, compression_type,
       app_context_, connection_config_, std::nullopt, key_value_metadata_),
     ParquetException);
 
@@ -290,7 +281,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorUnsupportedAlgorithmThrows) {
   unsupported_algo = ParquetCipher::AES_GCM_CTR_V1;
   EXPECT_THROW(
     ExternalDBPADecryptorAdapter::Make(
-      unsupported_algo, column_name, key_id, data_type, compression_type, {encoding_type},
+      unsupported_algo, column_name, key_id, data_type, compression_type,
       app_context_, connection_config_, std::nullopt, key_value_metadata_),
     std::exception);
 }
@@ -301,14 +292,13 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptorMissingLibraryPathThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   std::map<std::string, std::string> bad_config = { {"config_path", "path/to/file"} };
   std::string app_context = "{}";
 
   EXPECT_THROW(
     ExternalDBPAEncryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+      algorithm, column_name, key_id, data_type, compression_type,
       app_context, bad_config, std::nullopt),
   std::exception);
 }
@@ -319,7 +309,6 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptorInvalidLibraryPathThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   std::map<std::string, std::string> bad_config = {
     {"agent_library_path", "/definitely/not/a/real/libDBPA.so"}
@@ -328,7 +317,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptorInvalidLibraryPathThrows) {
 
   EXPECT_THROW(
     ExternalDBPAEncryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+      algorithm, column_name, key_id, data_type, compression_type,
       app_context, bad_config, std::nullopt),
     std::exception);
 }
@@ -339,7 +328,6 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptorInvalidTimeoutValuesThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   std::string library_path = parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
   std::map<std::string, std::string> bad_config = {
@@ -351,7 +339,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptorInvalidTimeoutValuesThrows) {
 
   EXPECT_THROW(
     ExternalDBPAEncryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, compression_type, encoding_type,
+      algorithm, column_name, key_id, data_type, compression_type,
       app_context, bad_config, std::nullopt),
     std::exception);
 }
@@ -362,14 +350,13 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorMissingLibraryPathThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   std::map<std::string, std::string> bad_config = { {"config_path", "path/to/file"} };
   std::string app_context = "{}";
 
   EXPECT_THROW(
     ExternalDBPADecryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, compression_type, {encoding_type},
+      algorithm, column_name, key_id, data_type, compression_type,
       app_context, bad_config, std::nullopt, key_value_metadata_),
     std::exception);
 }
@@ -380,7 +367,6 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorInvalidLibraryPathThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   std::map<std::string, std::string> bad_config = {
     {"agent_library_path", "/definitely/not/a/real/libDBPA.so"}
@@ -389,7 +375,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorInvalidLibraryPathThrows) {
 
   EXPECT_THROW(
     ExternalDBPADecryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, compression_type, {encoding_type},
+      algorithm, column_name, key_id, data_type, compression_type,
       app_context, bad_config, std::nullopt, key_value_metadata_),
     std::exception);
 }
@@ -400,7 +386,6 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorInvalidTimeoutValuesThrows) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
 
   std::string library_path = parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
   std::map<std::string, std::string> bad_config = {
@@ -412,7 +397,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptorInvalidTimeoutValuesThrows) {
 
   EXPECT_THROW(
     ExternalDBPADecryptorAdapter::Make(
-      algorithm, column_name, key_id, data_type, compression_type, {encoding_type},
+      algorithm, column_name, key_id, data_type, compression_type,
       app_context, bad_config, std::nullopt, key_value_metadata_),
     std::exception);
 }
@@ -505,7 +490,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptWithWrongKeyIdFails) {
   };
 
   auto encryptor = ExternalDBPAEncryptorAdapter::Make(
-    algorithm, column_name, correct_key_id, data_type, compression_type, encoding_type,
+    algorithm, column_name, correct_key_id, data_type, compression_type,
     app_context, config, std::nullopt);
 
   // Build encoding properties
@@ -537,7 +522,7 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptWithWrongKeyIdFails) {
   std::string ciphertext_str(ciphertext_buffer->data(), ciphertext_buffer->data() + enc_len);
 
   auto decryptor = ExternalDBPADecryptorAdapter::Make(
-    algorithm, column_name, wrong_key_id, data_type, compression_type, {encoding_type},
+    algorithm, column_name, wrong_key_id, data_type, compression_type,
     app_context, config, std::nullopt, key_value_metadata_);
 
   decryptor->UpdateEncodingProperties(builder.Build());
@@ -566,12 +551,11 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, EncryptCallShouldFail) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
   std::string plaintext = "Jean-Luc Picard";
   std::vector<uint8_t> ciphertext_buffer(plaintext.size(), '\0');
 
   std::unique_ptr<ExternalDBPAEncryptorAdapter> encryptor = CreateEncryptor(
-    algorithm, column_name, key_id, data_type, compression_type, encoding_type);
+    algorithm, column_name, key_id, data_type, compression_type);
   ASSERT_FALSE(encryptor->CanCalculateCiphertextLength());
   ASSERT_LE(plaintext.size(),
             static_cast<size_t>(std::numeric_limits<int32_t>::max()));
@@ -590,12 +574,11 @@ TEST_F(ExternalDBPAEncryptorAdapterTest, DecryptCallShouldFail) {
   std::string key_id = "employee_name_key";
   Type::type data_type = Type::BYTE_ARRAY;
   Compression::type compression_type = Compression::UNCOMPRESSED;
-  Encoding::type encoding_type = Encoding::PLAIN;
   std::string ciphertext = "Jean-Luc Picard";
   std::vector<uint8_t> plaintext_buffer(ciphertext.size(), '\0');
 
   std::unique_ptr<ExternalDBPADecryptorAdapter> decryptor = CreateDecryptor(
-    algorithm, column_name, key_id, data_type, compression_type, encoding_type);
+    algorithm, column_name, key_id, data_type, compression_type);
   ASSERT_FALSE(decryptor->CanCalculateLengths());
   ASSERT_LE(ciphertext.size(),
             static_cast<size_t>(std::numeric_limits<int32_t>::max()));

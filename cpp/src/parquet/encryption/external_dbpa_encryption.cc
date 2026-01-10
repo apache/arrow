@@ -202,12 +202,12 @@ return metadata_map;
 //at this point, the agent_instance is assumed to be initialized.
 ExternalDBPAEncryptorAdapter::ExternalDBPAEncryptorAdapter(
   ParquetCipher::type algorithm, std::string column_name, std::string key_id,
-  Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
-  std::optional<int> datatype_length, std::string app_context, std::map<std::string, std::string> configuration_properties,
+  Type::type data_type, Compression::type compression_type, std::optional<int> datatype_length,
+  std::string app_context, std::map<std::string, std::string> configuration_properties,
   std::unique_ptr<DataBatchProtectionAgentInterface> agent_instance)
   : algorithm_(algorithm), column_name_(column_name), key_id_(key_id),
     data_type_(data_type), compression_type_(compression_type),
-    encoding_type_(encoding_type), datatype_length_(datatype_length), app_context_(app_context),
+    datatype_length_(datatype_length), app_context_(app_context),
     configuration_properties_(configuration_properties),
     agent_instance_(std::move(agent_instance)) {
 
@@ -218,8 +218,8 @@ ExternalDBPAEncryptorAdapter::ExternalDBPAEncryptorAdapter(
 
 std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id,
-    Type::type data_type, Compression::type compression_type, Encoding::type encoding_type,
-    std::string app_context, std::map<std::string, std::string> configuration_properties,
+    Type::type data_type, Compression::type compression_type, std::string app_context,
+    std::map<std::string, std::string> configuration_properties,
     std::optional<int> datatype_length) {
 
         // Ensure DBPA logging threshold is configured before any logs here
@@ -233,7 +233,6 @@ std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make
           ARROW_LOG(DEBUG) << "  key_id = " << key_id;
           ARROW_LOG(DEBUG) << "  data_type = " << data_type;
           ARROW_LOG(DEBUG) << "  compression_type = " << compression_type;
-          ARROW_LOG(DEBUG) << "  encoding_type = " << encoding_type;
           ARROW_LOG(DEBUG) << "  app_context = " << app_context;
           ARROW_LOG(DEBUG) << "  configuration_properties:";
           for (const auto& [key, value] : configuration_properties) {
@@ -262,7 +261,6 @@ std::unique_ptr<ExternalDBPAEncryptorAdapter> ExternalDBPAEncryptorAdapter::Make
             /*key_id*/ key_id,
             /*data_type*/ data_type,
             /*compression_type*/ compression_type,
-            /*encoding_type*/ encoding_type,
             /*datatype_length*/ datatype_length,
             /*app_context*/ app_context,
             /*configuration_properties*/ configuration_properties,
@@ -335,7 +333,6 @@ int32_t ExternalDBPAEncryptorAdapter::InvokeExternalEncrypt(
         ARROW_LOG(DEBUG) << "Key ID: [" << key_id_ << "]";
         ARROW_LOG(DEBUG) << "Data Type: [" << data_type_ << "]";
         ARROW_LOG(DEBUG) << "Compression Type: [" << compression_type_ << "]";
-        ARROW_LOG(DEBUG) << "Encoding Type: [" << encoding_type_ << "]";
         ARROW_LOG(DEBUG) << "App Context: [" << app_context_ << "]";
         ARROW_LOG(DEBUG) << "Configuration Properties:";
         for (const auto& [cfg_key, cfg_value] : configuration_properties_) {
@@ -409,7 +406,6 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
       datatype_length = column_chunk_metadata->descr()->type_length();
     }
     auto compression_type = column_chunk_metadata->properties()->compression(column_path);
-    auto encoding_type = column_chunk_metadata->properties()->encoding(column_path);
     auto app_context = external_file_encryption_properties->app_context();
     auto connection_config_for_algorithm = configuration_properties.at(algorithm);
 
@@ -426,7 +422,7 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
 
     encryptor_cache_[column_path->ToDotString()] = ExternalDBPAEncryptorAdapter::Make(
         algorithm, column_path->ToDotString(), key_id, data_type, compression_type,
-        encoding_type, app_context, connection_config_for_algorithm, datatype_length);
+        app_context, connection_config_for_algorithm, datatype_length);
   }
 
   return encryptor_cache_[column_path->ToDotString()].get();
@@ -440,13 +436,13 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
 ExternalDBPADecryptorAdapter::ExternalDBPADecryptorAdapter(
   ParquetCipher::type algorithm, std::string column_name, std::string key_id,
   Type::type data_type, Compression::type compression_type,
-  std::vector<Encoding::type> encoding_types, std::optional<int> datatype_length, std::string app_context,
+  std::optional<int> datatype_length, std::string app_context,
   std::map<std::string, std::string> configuration_properties,
   std::unique_ptr<DataBatchProtectionAgentInterface> agent_instance,
   std::shared_ptr<const KeyValueMetadata> key_value_metadata)
   : algorithm_(algorithm), column_name_(column_name), key_id_(key_id),
     data_type_(data_type), compression_type_(compression_type),
-    encoding_types_(encoding_types), datatype_length_(datatype_length), app_context_(app_context),
+    datatype_length_(datatype_length), app_context_(app_context),
     configuration_properties_(configuration_properties),
     agent_instance_(std::move(agent_instance)) {
 
@@ -461,8 +457,7 @@ ExternalDBPADecryptorAdapter::ExternalDBPADecryptorAdapter(
 std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make(
     ParquetCipher::type algorithm, std::string column_name, std::string key_id,
     Type::type data_type, Compression::type compression_type,
-    std::vector<Encoding::type> encoding_types, std::string app_context,
-    std::map<std::string, std::string> configuration_properties,
+    std::string app_context, std::map<std::string, std::string> configuration_properties,
     std::optional<int> datatype_length,
     std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
 
@@ -479,15 +474,6 @@ std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make
         ARROW_LOG(DEBUG) << "  key_id = " << key_id;
         ARROW_LOG(DEBUG) << "  data_type = " << data_type;
         ARROW_LOG(DEBUG) << "  compression_type = " << compression_type;
-        {
-          std::stringstream ss;
-          ss << "  encoding_types = [";
-          for (const auto& encoding : encoding_types) {
-            ss << static_cast<int>(encoding) << " ";
-          }
-          ss << "]";
-          ARROW_LOG(DEBUG) << ss.str();
-        }
         ARROW_LOG(DEBUG) << "  app_context = " << app_context;
         ARROW_LOG(DEBUG) << "  configuration_properties:";
         for (const auto& [key, value] : configuration_properties) {
@@ -516,7 +502,6 @@ std::unique_ptr<ExternalDBPADecryptorAdapter> ExternalDBPADecryptorAdapter::Make
             /*key_id*/ key_id,
             /*data_type*/ data_type,
             /*compression_type*/ compression_type,
-            /*encoding_types*/ encoding_types,
             /*datatype_length*/ datatype_length,
             /*app_context*/ app_context,
             /*configuration_properties*/ configuration_properties,
@@ -574,15 +559,6 @@ int32_t ExternalDBPADecryptorAdapter::InvokeExternalDecrypt(
         ARROW_LOG(DEBUG) << "Key ID: [" << key_id_ << "]";
         ARROW_LOG(DEBUG) << "Data Type: [" << data_type_ << "]";
         ARROW_LOG(DEBUG) << "Compression Type: [" << compression_type_ << "]";
-        {
-          std::stringstream ss;
-          ss << "Encoding Types: [";
-          for (const auto& encoding_type : encoding_types_) {
-            ss << static_cast<int>(encoding_type) << " ";
-          }
-          ss << "]";
-          ARROW_LOG(DEBUG) << ss.str();
-        }
         ARROW_LOG(DEBUG) << "App Context: [" << app_context_ << "]";
         ARROW_LOG(DEBUG) << "Configuration Properties:";
         for (const auto& [key, value] : configuration_properties_) {
@@ -644,7 +620,6 @@ std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecr
       datatype_length = column_chunk_metadata->descr()->type_length();
     }
     auto compression_type = column_chunk_metadata->compression();
-    auto encoding_types = column_chunk_metadata->encodings();
     auto app_context = external_file_decryption_properties->app_context();
     auto connection_config_for_algorithm = configuration_properties.at(algorithm);
     auto key_value_metadata = column_chunk_metadata->key_value_metadata();
@@ -661,9 +636,8 @@ std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecr
     }
 
     return ExternalDBPADecryptorAdapter::Make(
-        algorithm, column_path->ToDotString(), key_id, data_type, compression_type,
-        encoding_types, app_context, connection_config_for_algorithm, datatype_length,
-        key_value_metadata);
+        algorithm, column_path->ToDotString(), key_id, data_type, compression_type, app_context,
+        connection_config_for_algorithm, datatype_length, key_value_metadata);
  }
 
 }  // namespace parquet::encryption
