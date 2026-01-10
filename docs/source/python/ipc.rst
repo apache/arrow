@@ -15,16 +15,6 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. ipython:: python
-    :suppress:
-
-    # set custom tmp working directory for files that create data
-    import os
-    import tempfile
-
-    orig_working_dir = os.getcwd()
-    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
-    os.chdir(temp_working_dir)
 
 .. currentmodule:: pyarrow
 
@@ -54,32 +44,31 @@ Using streams
 
 First, let's create a small record batch:
 
-.. ipython:: python
+.. code-block:: python
 
-   import pyarrow as pa
-
-   data = [
-       pa.array([1, 2, 3, 4]),
-       pa.array(['foo', 'bar', 'baz', None]),
-       pa.array([True, None, False, True])
-   ]
-
-   batch = pa.record_batch(data, names=['f0', 'f1', 'f2'])
-   batch.num_rows
-   batch.num_columns
+   >>> import pyarrow as pa
+   >>> data = [
+   ...     pa.array([1, 2, 3, 4]),
+   ...     pa.array(['foo', 'bar', 'baz', None]),
+   ...     pa.array([True, None, False, True])
+   ... ]
+   >>> batch = pa.record_batch(data, names=['f0', 'f1', 'f2'])
+   >>> batch.num_rows
+   4
+   >>> batch.num_columns
+   3
 
 Now, we can begin writing a stream containing some number of these batches. For
 this we use :class:`~pyarrow.RecordBatchStreamWriter`, which can write to a
 writeable ``NativeFile`` object or a writeable Python object. For convenience,
 this one can be created with :func:`~pyarrow.ipc.new_stream`:
 
-.. ipython:: python
+.. code-block:: python
 
-   sink = pa.BufferOutputStream()
-
-   with pa.ipc.new_stream(sink, batch.schema) as writer:
-      for i in range(5):
-         writer.write_batch(batch)
+   >>> sink = pa.BufferOutputStream()
+   >>> with pa.ipc.new_stream(sink, batch.schema) as writer:
+   ...     for i in range(5):
+   ...         writer.write_batch(batch)
 
 Here we used an in-memory Arrow buffer stream (``sink``),
 but this could have been a socket or some other IO sink.
@@ -88,29 +77,34 @@ When creating the ``StreamWriter``, we pass the schema, since the schema
 (column names and types) must be the same for all of the batches sent in this
 particular stream. Now we can do:
 
-.. ipython:: python
+.. code-block:: python
 
-   buf = sink.getvalue()
-   buf.size
+   >>> buf = sink.getvalue()
+   >>> buf.size
+   1984
 
 Now ``buf`` contains the complete stream as an in-memory byte buffer. We can
 read such a stream with :class:`~pyarrow.RecordBatchStreamReader` or the
 convenience function ``pyarrow.ipc.open_stream``:
 
-.. ipython:: python
+.. code-block:: python
 
-   with pa.ipc.open_stream(buf) as reader:
-         schema = reader.schema
-         batches = [b for b in reader]
-
-   schema
-   len(batches)
+   >>> with pa.ipc.open_stream(buf) as reader:
+   ...     schema = reader.schema
+   ...     batches = [b for b in reader]
+   >>> schema
+   f0: int64
+   f1: string
+   f2: bool
+   >>> len(batches)
+   5
 
 We can check the returned batches are the same as the original input:
 
-.. ipython:: python
+.. code-block:: python
 
-   batches[0].equals(batch)
+   >>> batches[0].equals(batch)
+   True
 
 An important point is that if the input source supports zero-copy reads
 (e.g. like a memory map, or ``pyarrow.BufferReader``), then the returned
@@ -123,35 +117,36 @@ The :class:`~pyarrow.RecordBatchFileWriter` has the same API as
 :class:`~pyarrow.RecordBatchStreamWriter`. You can create one with
 :func:`~pyarrow.ipc.new_file`:
 
-.. ipython:: python
+.. code-block:: python
 
-   sink = pa.BufferOutputStream()
-
-   with pa.ipc.new_file(sink, batch.schema) as writer:
-      for i in range(10):
-         writer.write_batch(batch)
-
-   buf = sink.getvalue()
-   buf.size
+   >>> sink = pa.BufferOutputStream()
+   >>> with pa.ipc.new_file(sink, batch.schema) as writer:
+   ...     for i in range(10):
+   ...         writer.write_batch(batch)
+   >>> buf = sink.getvalue()
+   >>> buf.size
+   4226
 
 The difference between :class:`~pyarrow.RecordBatchFileReader` and
 :class:`~pyarrow.RecordBatchStreamReader` is that the input source must have a
 ``seek`` method for random access. The stream reader only requires read
 operations. We can also use the :func:`~pyarrow.ipc.open_file` method to open a file:
 
-.. ipython:: python
+.. code-block:: python
 
-   with pa.ipc.open_file(buf) as reader:
-      num_record_batches = reader.num_record_batches
-      b = reader.get_batch(3)
+   >>> with pa.ipc.open_file(buf) as reader:
+   ...     num_record_batches = reader.num_record_batches
+   ...     b = reader.get_batch(3)
 
 Because we have access to the entire payload, we know the number of record
 batches in the file, and can read any at random.
 
-.. ipython:: python
+.. code-block:: python
 
-   num_record_batches
-   b.equals(batch)
+   >>> num_record_batches
+   10
+   >>> b.equals(batch)
+   True
 
 Reading from Stream and File Format for pandas
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -160,12 +155,17 @@ The stream and file reader classes have a special ``read_pandas`` method to
 simplify reading multiple record batches and converting them to a single
 DataFrame output:
 
-.. ipython:: python
+.. code-block:: python
 
-   with pa.ipc.open_file(buf) as reader:
-      df = reader.read_pandas()
-
-   df[:5]
+   >>> with pa.ipc.open_file(buf) as reader:
+   ...     df = reader.read_pandas()
+   >>> df[:5]
+      f0    f1     f2
+   0   1   foo   True
+   1   2   bar   None
+   2   3   baz  False
+   3   4  None   True
+   4   1   foo   True
 
 Efficiently Writing and Reading Arrow Data
 ------------------------------------------
@@ -183,18 +183,16 @@ that can be used to write batches of data to that file.
 For example to write an array of 10M integers, we could write it in 1000 chunks
 of 10000 entries:
 
-.. ipython:: python
+.. code-block:: python
 
-      BATCH_SIZE = 10000
-      NUM_BATCHES = 1000
-
-      schema = pa.schema([pa.field('nums', pa.int32())])
-
-      with pa.OSFile('bigfile.arrow', 'wb') as sink:
-         with pa.ipc.new_file(sink, schema) as writer:
-            for row in range(NUM_BATCHES):
-                  batch = pa.record_batch([pa.array(range(BATCH_SIZE), type=pa.int32())], schema)
-                  writer.write(batch)
+   >>> BATCH_SIZE = 10000
+   >>> NUM_BATCHES = 1000
+   >>> schema = pa.schema([pa.field('nums', pa.int32())])
+   >>> with pa.OSFile('bigfile.arrow', 'wb') as sink:
+   ...     with pa.ipc.new_file(sink, schema) as writer:
+   ...         for row in range(NUM_BATCHES):
+   ...             batch = pa.record_batch([pa.array(range(BATCH_SIZE), type=pa.int32())], schema)
+   ...             writer.write(batch)
 
 record batches support multiple columns, so in practice we always write the
 equivalent of a :class:`~pyarrow.Table`.
@@ -206,13 +204,14 @@ by directly mapping the data from disk and avoid allocating any new memory on re
 Under normal conditions, reading back our file will consume a few hundred megabytes
 of memory:
 
-.. ipython:: python
+.. code-block:: python
 
-      with pa.OSFile('bigfile.arrow', 'rb') as source:
-         loaded_array = pa.ipc.open_file(source).read_all()
-
-      print("LEN:", len(loaded_array))
-      print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+   >>> with pa.OSFile('bigfile.arrow', 'rb') as source:
+   ...     loaded_array = pa.ipc.open_file(source).read_all()
+   >>> print("LEN:", len(loaded_array))
+   LEN: 10000000
+   >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+   RSS: 38MB
 
 To more efficiently read big data from disk, we can memory map the file, so that
 Arrow can directly reference the data mapped from disk and avoid having to
@@ -221,12 +220,14 @@ In such case the operating system will be able to page in the mapped memory
 lazily and page it out without any write back cost when under pressure,
 allowing to more easily read arrays bigger than the total memory.
 
-.. ipython:: python
+.. code-block:: python
 
-      with pa.memory_map('bigfile.arrow', 'rb') as source:
-         loaded_array = pa.ipc.open_file(source).read_all()
-      print("LEN:", len(loaded_array))
-      print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+   >>> with pa.memory_map('bigfile.arrow', 'rb') as source:
+   ...     loaded_array = pa.ipc.open_file(source).read_all()
+   >>> print("LEN:", len(loaded_array))
+   LEN: 10000000
+   >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
+   RSS: 0MB
 
 .. note::
 

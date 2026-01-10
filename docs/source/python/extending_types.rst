@@ -90,16 +90,16 @@ by implementing the ``__arrow_array__`` method (similar to numpy's ``__array__``
 protocol).
 
 For example, to support conversion of your duck array class to an Arrow array,
-define the ``__arrow_array__`` method to return an Arrow array::
+define the ``__arrow_array__`` method to return an Arrow array:
 
-    class MyDuckArray:
+.. code-block:: python
 
-        ...
-
-        def __arrow_array__(self, type=None):
-            # convert the underlying array values to a PyArrow Array
-            import pyarrow
-            return pyarrow.array(..., type=type)
+    >>> class MyDuckArray:
+    ...
+    ...     def __arrow_array__(self, type=None):
+    ...         # convert the underlying array values to a PyArrow Array
+    ...         import pyarrow
+    ...         return pyarrow.array(..., type=type)
 
 The ``__arrow_array__`` method takes an optional ``type`` keyword which is passed
 through from :func:`pyarrow.array`. The method is allowed to return either
@@ -138,51 +138,55 @@ PyArrow allows you to define extension types from Python by subclassing
 :class:`ExtensionType` and giving the derived class its own extension name
 and mechanism to (de)serialize any parameters. For example, we could define
 a custom rational type for fractions which can be represented as a pair of
-integers::
+integers:
 
-    class RationalType(pa.ExtensionType):
+.. code-block:: python
 
-        def __init__(self, data_type: pa.DataType):
-            if not pa.types.is_integer(data_type):
-                raise TypeError(f"data_type must be an integer type not {data_type}")
-
-            super().__init__(
-                pa.struct(
-                    [
-                        ("numer", data_type),
-                        ("denom", data_type),
-                    ],
-                ),
-                "my_package.rational",
-            )
-
-        def __arrow_ext_serialize__(self) -> bytes:
-            # No parameters are necessary
-            return b""
-
-        @classmethod
-        def __arrow_ext_deserialize__(cls, storage_type, serialized):
-            # Sanity checks, not required but illustrate the method signature.
-            assert pa.types.is_struct(storage_type)
-            assert pa.types.is_integer(storage_type[0].type)
-            assert storage_type[0].type == storage_type[1].type
-            assert serialized == b""
-
-            # return an instance of this subclass
-            return RationalType(storage_type[0].type)
+    >>> import pyarrow as pa
+    >>> class RationalType(pa.ExtensionType):
+    ...
+    ...     def __init__(self, data_type: pa.DataType):
+    ...         if not pa.types.is_integer(data_type):
+    ...             raise TypeError(f"data_type must be an integer type not {data_type}")
+    ...
+    ...         super().__init__(
+    ...             pa.struct(
+    ...                 [
+    ...                     ("numer", data_type),
+    ...                     ("denom", data_type),
+    ...                 ],
+    ...             ),
+    ...             "my_package.rational",
+    ...         )
+    ...
+    ...     def __arrow_ext_serialize__(self) -> bytes:
+    ...         # No parameters are necessary
+    ...         return b""
+    ...
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         # Sanity checks, not required but illustrate the method signature.
+    ...         assert pa.types.is_struct(storage_type)
+    ...         assert pa.types.is_integer(storage_type[0].type)
+    ...         assert storage_type[0].type == storage_type[1].type
+    ...         assert serialized == b""
+    ...
+    ...         # return an instance of this subclass
+    ...         return RationalType(storage_type[0].type)
 
 
 The special methods ``__arrow_ext_serialize__`` and ``__arrow_ext_deserialize__``
 define the serialization and deserialization of an extension type instance.
 
-This can now be used to create arrays and tables holding the extension type::
+This can now be used to create arrays and tables holding the extension type:
+
+.. code-block:: python
 
     >>> rational_type = RationalType(pa.int32())
     >>> rational_type.extension_name
     'my_package.rational'
     >>> rational_type.storage_type
     StructType(struct<numer: int32, denom: int32>)
-
     >>> storage_array = pa.array(
     ...     [
     ...         {"numer": 10, "denom": 17},
@@ -194,7 +198,7 @@ This can now be used to create arrays and tables holding the extension type::
     >>> # or equivalently
     >>> arr = pa.ExtensionArray.from_storage(rational_type, storage_array)
     >>> arr
-    <pyarrow.lib.ExtensionArray object at 0x1067f5420>
+    <pyarrow.lib.ExtensionArray object at ...>
     -- is_valid: all not null
     -- child 0 type: int32
       [
@@ -210,23 +214,29 @@ This can now be used to create arrays and tables holding the extension type::
 This array can be included in RecordBatches, sent over IPC and received in
 another Python process. The receiving process must explicitly register the
 extension type for deserialization, otherwise it will fall back to the
-storage type::
+storage type:
+
+.. code-block:: python
 
     >>> pa.register_extension_type(RationalType(pa.int32()))
 
 For example, creating a RecordBatch and writing it to a stream using the
-IPC protocol::
+IPC protocol:
+
+.. code-block:: python
 
     >>> batch = pa.RecordBatch.from_arrays([arr], ["ext"])
     >>> sink = pa.BufferOutputStream()
     >>> with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
-    ...    writer.write_batch(batch)
+    ...     writer.write_batch(batch)
     >>> buf = sink.getvalue()
 
-and then reading it back yields the proper type::
+and then reading it back yields the proper type:
+
+.. code-block:: python
 
     >>> with pa.ipc.open_stream(buf) as reader:
-    ...    result = reader.read_all()
+    ...     result = reader.read_all()
     >>> result.column("ext").type
     RationalType(StructType(struct<numer: int32, denom: int32>))
 
@@ -234,7 +244,9 @@ Further, note that while we registered the concrete type
 ``RationalType(pa.int32())``, the same extension name
 (``"my_package.rational"``) is used by ``RationalType(integer_type)``
 for *all* Arrow integer types. As such, the above code also allows users to
-(de)serialize these data types::
+(de)serialize these data types:
+
+.. code-block:: python
 
     >>> big_rational_type = RationalType(pa.int64())
     >>> storage_array = pa.array(
@@ -248,10 +260,10 @@ for *all* Arrow integer types. As such, the above code also allows users to
     >>> batch = pa.RecordBatch.from_arrays([arr], ["ext"])
     >>> sink = pa.BufferOutputStream()
     >>> with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
-    ...    writer.write_batch(batch)
+    ...     writer.write_batch(batch)
     >>> buf = sink.getvalue()
     >>> with pa.ipc.open_stream(buf) as reader:
-    ...    result = reader.read_all()
+    ...     result = reader.read_all()
     >>> result.column("ext").type
     RationalType(StructType(struct<numer: int64, denom: int64>))
 
@@ -273,31 +285,31 @@ representing time spans (e.g., a frequency of a day, a month, a quarter, etc).
 It is stored as an int64 array which is interpreted as the number of time spans
 of the given frequency since 1970.
 
-::
+.. code-block:: python
 
-    class PeriodType(pa.ExtensionType):
-
-        def __init__(self, freq):
-            # attributes need to be set first before calling
-            # super init (as that calls serialize)
-            self._freq = freq
-            super().__init__(pa.int64(), "my_package.period")
-
-        @property
-        def freq(self):
-            return self._freq
-
-        def __arrow_ext_serialize__(self):
-            return "freq={}".format(self.freq).encode()
-
-        @classmethod
-        def __arrow_ext_deserialize__(cls, storage_type, serialized):
-            # Return an instance of this subclass given the serialized
-            # metadata.
-            serialized = serialized.decode()
-            assert serialized.startswith("freq=")
-            freq = serialized.split("=")[1]
-            return PeriodType(freq)
+    >>> class PeriodType(pa.ExtensionType):
+    ...
+    ...     def __init__(self, freq):
+    ...         # attributes need to be set first before calling
+    ...         # super init (as that calls serialize)
+    ...         self._freq = freq
+    ...         super().__init__(pa.int64(), "my_package.period")
+    ...
+    ...     @property
+    ...     def freq(self):
+    ...         return self._freq
+    ...
+    ...     def __arrow_ext_serialize__(self):
+    ...         return "freq={}".format(self.freq).encode()
+    ...
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         # Return an instance of this subclass given the serialized
+    ...         # metadata.
+    ...         serialized = serialized.decode()
+    ...         assert serialized.startswith("freq=")
+    ...         freq = serialized.split("=")[1]
+    ...         return PeriodType(freq)
 
 Here, we ensure to store all information in the serialized metadata that is
 needed to reconstruct the instance (in the ``__arrow_ext_deserialize__`` class
@@ -318,51 +330,55 @@ definition of the extension type.
 
 For instance, let us consider the example from the `Numpy Quickstart <https://docs.scipy.org/doc/numpy-1.13.0/user/quickstart.html>`_ of points in 3D space.
 We can store these as a fixed-size list, where we wish to be able to extract
-the data as a 2-D Numpy array ``(N, 3)`` without any copy::
+the data as a 2-D Numpy array ``(N, 3)`` without any copy:
 
-    class Point3DArray(pa.ExtensionArray):
-        def to_numpy_array(self):
-            return self.storage.flatten().to_numpy().reshape((-1, 3))
+.. code-block:: python
 
+    >>> class Point3DArray(pa.ExtensionArray):
+    ...     def to_numpy_array(self):
+    ...         return self.storage.flatten().to_numpy().reshape((-1, 3))
+    >>> class Point3DType(pa.ExtensionType):
+    ...     def __init__(self):
+    ...         super().__init__(pa.list_(pa.float32(), 3), "my_package.Point3DType")
+    ...
+    ...     def __arrow_ext_serialize__(self):
+    ...         return b""
+    ...
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         return Point3DType()
+    ...
+    ...     def __arrow_ext_class__(self):
+    ...         return Point3DArray
 
-    class Point3DType(pa.ExtensionType):
-        def __init__(self):
-            super().__init__(pa.list_(pa.float32(), 3), "my_package.Point3DType")
+Arrays built using this extension type now have the expected custom array class:
 
-        def __arrow_ext_serialize__(self):
-            return b""
-
-        @classmethod
-        def __arrow_ext_deserialize__(cls, storage_type, serialized):
-            return Point3DType()
-
-        def __arrow_ext_class__(self):
-            return Point3DArray
-
-Arrays built using this extension type now have the expected custom array class::
+.. code-block:: python
 
     >>> storage = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.float32(), 3))
     >>> arr = pa.ExtensionArray.from_storage(Point3DType(), storage)
     >>> arr
-    <__main__.Point3DArray object at 0x7f40dea80670>
+    <__main__.Point3DArray object at ...>
     [
-        [
-            1,
-            2,
-            3
-        ],
-        [
-            4,
-            5,
-            6
-        ]
+      [
+        1,
+        2,
+        3
+      ],
+      [
+        4,
+        5,
+        6
+      ]
     ]
 
-The additional methods in the extension class are then available to the user::
+The additional methods in the extension class are then available to the user:
+
+.. code-block:: python
 
     >>> arr.to_numpy_array()
     array([[1., 2., 3.],
-       [4., 5., 6.]], dtype=float32)
+           [4., 5., 6.]], dtype=float32)
 
 
 This array can be sent over IPC, received in another Python process, and the custom
@@ -378,37 +394,37 @@ If you want scalars of your custom extension type to convert to a custom type wh
 :meth:`ExtensionScalar.as_py()` is called, you can override the
 :meth:`ExtensionScalar.as_py()` method by subclassing :class:`ExtensionScalar`.
 For example, if we wanted the above example 3D point type to return a custom
-3D point class instead of a list, we would implement::
+3D point class instead of a list, we would implement:
 
-    from collections import namedtuple
+.. code-block:: python
 
-    Point3D = namedtuple("Point3D", ["x", "y", "z"])
+    >>> from collections import namedtuple
+    >>> Point3D = namedtuple("Point3D", ["x", "y", "z"])
+    >>> class Point3DScalar(pa.ExtensionScalar):
+    ...     def as_py(self, **kwargs) -> Point3D:
+    ...         return Point3D(*self.value.as_py(**kwargs))
+    >>> class Point3DType(pa.ExtensionType):
+    ...     def __init__(self):
+    ...         super().__init__(pa.list_(pa.float32(), 3), "my_package.Point3DType")
+    ...
+    ...     def __arrow_ext_serialize__(self):
+    ...         return b""
+    ...
+    ...     @classmethod
+    ...     def __arrow_ext_deserialize__(cls, storage_type, serialized):
+    ...         return Point3DType()
+    ...
+    ...     def __arrow_ext_scalar_class__(self):
+    ...         return Point3DScalar
 
-    class Point3DScalar(pa.ExtensionScalar):
-        def as_py(self) -> Point3D:
-            return Point3D(*self.value.as_py())
+Arrays built using this extension type now provide scalars that convert to our ``Point3D`` class:
 
-    class Point3DType(pa.ExtensionType):
-        def __init__(self):
-            super().__init__(pa.list_(pa.float32(), 3), "my_package.Point3DType")
-
-        def __arrow_ext_serialize__(self):
-            return b""
-
-        @classmethod
-        def __arrow_ext_deserialize__(cls, storage_type, serialized):
-            return Point3DType()
-
-        def __arrow_ext_scalar_class__(self):
-            return Point3DScalar
-
-Arrays built using this extension type now provide scalars that convert to our ``Point3D`` class::
+.. code-block:: python
 
     >>> storage = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.float32(), 3))
     >>> arr = pa.ExtensionArray.from_storage(Point3DType(), storage)
     >>> arr[0].as_py()
     Point3D(x=1.0, y=2.0, z=3.0)
-
     >>> arr.to_pylist()
     [Point3D(x=1.0, y=2.0, z=3.0), Point3D(x=4.0, y=5.0, z=6.0)]
 
@@ -426,26 +442,28 @@ For this, the :meth:`ExtensionType.to_pandas_dtype` method needs to be
 implemented, and should return a ``pandas.api.extensions.ExtensionDtype``
 subclass instance.
 
-Using the pandas period type from above as example, this would look like::
+Using the pandas period type from above as example, this would look like:
 
-    class PeriodType(pa.ExtensionType):
-        ...
+.. code-block:: python
 
-        def to_pandas_dtype(self):
-            import pandas as pd
-            return pd.PeriodDtype(freq=self.freq)
+    >>> class PeriodType(pa.ExtensionType):
+    ...
+    ...     def to_pandas_dtype(self):
+    ...         import pandas as pd
+    ...         return pd.PeriodDtype(freq=self.freq)
 
 Secondly, the pandas ``ExtensionDtype`` on its turn needs to have the
 ``__from_arrow__`` method implemented: a method that given a PyArrow Array
 or ChunkedArray of the extension type can construct the corresponding
-pandas ``ExtensionArray``. This method should have the following signature::
+pandas ``ExtensionArray``. This method should have the following signature:
 
+.. code-block:: python
 
-    class MyExtensionDtype(pd.api.extensions.ExtensionDtype):
-        ...
-
-        def __from_arrow__(self, array: pyarrow.Array/ChunkedArray) -> pandas.ExtensionArray:
-            ...
+    >>> import pandas as pd
+    >>> class MyExtensionDtype(pd.api.extensions.ExtensionDtype):
+    ...
+    ...     def __from_arrow__(self, array):  # pyarrow.Array/ChunkedArray -> pandas.ExtensionArray
+    ...         pass
 
 This way, you can control the conversion of a PyArrow ``Array`` of your PyArrow
 extension type to a pandas ``ExtensionArray`` that can be stored in a DataFrame.
@@ -530,12 +548,14 @@ in the numpy ndarray:
    >>> numpy_tensor
    array([[[  1.,   2.],
            [  3.,   4.]],
+   <BLANKLINE>
           [[ 10.,  20.],
            [ 30.,  40.]],
+   <BLANKLINE>
           [[100., 200.],
-           [300., 400.]]])
+           [300., 400.]]], dtype=float32)
     >>> numpy_tensor.shape
-   (3, 2, 2)
+    (3, 2, 2)
 
 .. note::
 
