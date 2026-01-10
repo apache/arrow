@@ -39,6 +39,7 @@ on:
       - 'ci/scripts/util_*'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'dev/archery/archery/**'
       - 'format/Flight.proto'
       - 'testing'
     tags:
@@ -61,6 +62,7 @@ on:
       - 'ci/scripts/util_*'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'dev/archery/archery/**'
       - 'format/Flight.proto'
       - 'testing'
     types:

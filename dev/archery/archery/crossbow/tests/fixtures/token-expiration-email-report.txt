@@ -1,0 +1,14 @@
+MIME-Version: 1.0
+Message-Id: <message-id>
+Date: date
+From: Sender Reporter <sender@arrow.com>
+To: recipient@arrow.com
+Subject: [CI] Arrow Crossbow Token Expiration in 2026-01-17
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+
+The Arrow Crossbow Token will expire in 7 days.
+
+Please generate a new Token. Send it to Apache INFRA to update the
+CROSSBOW_GITHUB_TOKEN. Update it on the crossbow repository and in
+the Azure pipelines.
