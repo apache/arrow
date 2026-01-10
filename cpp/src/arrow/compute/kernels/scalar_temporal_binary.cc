@@ -313,11 +313,11 @@ using NanosecondsBetween = UnitsBetween<std::chrono::nanoseconds, Duration, Loca
 // ----------------------------------------------------------------------
 // Registration helpers
 
-template <
-    template <typename...> class Op,
-    template <template <typename...> class OpExec, typename Duration, typename InType,
-              typename OutType, typename... Args> class ExecTemplate,
-    typename OutType>
+template <template <typename...> class Op,
+          template <template <typename...> class OpExec, typename Duration,
+                    typename InType, typename OutType, typename... Args>
+          class ExecTemplate,
+          typename OutType>
 struct BinaryTemporalFactory {
   OutputType out_type;
   KernelInit init;

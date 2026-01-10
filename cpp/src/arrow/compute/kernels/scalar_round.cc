@@ -1227,10 +1227,11 @@ Status FixedRoundDecimalExec(KernelContext* ctx, const ExecSpan& batch, ExecResu
 // ----------------------------------------------------------------------
 // Begin round kernel generation and function registration
 
-template <template <typename, RoundMode, typename...> class Op,
-          template <typename, typename,
-                    template <typename, RoundMode, typename...> typename> class Kernel,
-          typename OptionsType>
+template <
+    template <typename, RoundMode, typename...> class Op,
+    template <typename, typename, template <typename, RoundMode, typename...> typename>
+    class Kernel,
+    typename OptionsType>
 struct RoundKernelGenerator {
   template <typename ArrowType>
   Status Visit(const ArrowType& type, ArrayKernelExec* exec, KernelInit* init) {

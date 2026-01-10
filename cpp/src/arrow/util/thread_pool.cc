@@ -219,9 +219,7 @@ Status SerialExecutor::SpawnReal(TaskHints hints, FnOnce<void()> task,
 
 void SerialExecutor::Finish() {
   auto state = state_;
-  {
-    state->finished = true;
-  }
+  { state->finished = true; }
   // empty any tasks from the loop on finish
   RunLoop();
 }

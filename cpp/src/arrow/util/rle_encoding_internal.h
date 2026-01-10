@@ -753,8 +753,8 @@ bool RleBitPackedDecoder<T>::Get(value_type* val) {
 }
 
 template <typename T>
-auto RleBitPackedDecoder<T>::GetBatch(value_type* out, rle_size_t batch_size)
-    -> rle_size_t {
+auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
+                                      rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
   rle_size_t values_read = 0;
@@ -867,8 +867,8 @@ template <typename Converter, typename BitRunReader, typename BitRun, typename v
 auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
                   rle_size_t batch_size, rle_size_t null_count,
                   rle_size_t value_bit_width, BitRunReader* validity_reader,
-                  BitRun* validity_run, RleRunDecoder<value_type>* decoder)
-    -> GetSpacedResult<rle_size_t> {
+                  BitRun* validity_run,
+                  RleRunDecoder<value_type>* decoder) -> GetSpacedResult<rle_size_t> {
   ARROW_DCHECK_GT(batch_size, 0);
   // The equality case is handled in the main loop in GetSpaced
   ARROW_DCHECK_LT(null_count, batch_size);
@@ -1147,8 +1147,8 @@ struct NoOpConverter {
 template <typename T>
 auto RleBitPackedDecoder<T>::GetBatchSpaced(rle_size_t batch_size, rle_size_t null_count,
                                             const uint8_t* valid_bits,
-                                            int64_t valid_bits_offset, value_type* out)
-    -> rle_size_t {
+                                            int64_t valid_bits_offset,
+                                            value_type* out) -> rle_size_t {
   if (null_count == 0) {
     return GetBatch(out, batch_size);
   }
@@ -1296,8 +1296,8 @@ template <typename T>
 template <typename V>
 auto RleBitPackedDecoder<T>::GetBatchWithDictSpaced(
     const V* dictionary, int32_t dictionary_length, V* out, rle_size_t batch_size,
-    rle_size_t null_count, const uint8_t* valid_bits, int64_t valid_bits_offset)
-    -> rle_size_t {
+    rle_size_t null_count, const uint8_t* valid_bits,
+    int64_t valid_bits_offset) -> rle_size_t {
   if (null_count == 0) {
     return GetBatchWithDict<V>(dictionary, dictionary_length, out, batch_size);
   }
