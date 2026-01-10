@@ -78,7 +78,7 @@ build_type = click.Choice(["debug", "relwithdebinfo", "release"],
 warn_level_type = click.Choice(["everything", "checkin", "production"],
                                case_sensitive=False)
 
-simd_level = click.Choice(["NONE", "SSE4_2", "AVX2", "AVX512"],
+simd_level = click.Choice(["NONE", "DEFAULT", "SSE4_2", "AVX2", "AVX512"],
                           case_sensitive=True)
 
 
