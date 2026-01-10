@@ -1419,6 +1419,18 @@ TEST(TestFixedSizeListScalar, Cast) {
   ASSERT_EQ(casted_str->ToString(), scalar.ToString());
 }
 
+TEST(TestFixedSizeListScalar, Hashing) {
+  auto inner_type = fixed_size_list(int32(), 2);
+  auto outer_type = fixed_size_list(inner_type, 3);
+  auto g = ArrayFromJSON(outer_type,
+                         "[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]");
+  auto h = ArrayFromJSON(outer_type, "[[[7, 8], [9, 10], [11, 12]]]");
+  ASSERT_OK_AND_ASSIGN(auto g1, g->GetScalar(1));
+  ASSERT_OK_AND_ASSIGN(auto h0, h->GetScalar(0));
+  ASSERT_EQ(*g1, *h0);
+  ASSERT_EQ(g1->hash(), h0->hash());
+}
+
 TEST(TestMapScalar, Basics) {
   auto value =
       ArrayFromJSON(struct_({field("key", utf8(), false), field("value", int8())}),
