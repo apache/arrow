@@ -995,3 +995,68 @@ def test_map_scalar_with_empty_values():
     s = pa.scalar(v, type=map_type)
 
     assert s.as_py(maps_as_pydicts="strict") == v
+
+
+@pytest.fixture
+def int_scalars():
+    scl1 = pa.scalar(42)
+    scl2 = pa.scalar(-17)
+
+    return scl1, scl2
+
+
+@pytest.fixture
+def float_scalars():
+    scl1 = pa.scalar(42.7)
+    scl2 = pa.scalar(-17.9)
+
+    return scl1, scl2
+
+
+def test_arithmetic_dunders(int_scalars):
+    # GH-32007
+    scl1, scl2 = int_scalars
+
+    assert (scl1 + scl2).equals(pc.add_checked(scl1, scl2))
+    assert (scl2 / scl1).equals(pc.divide_checked(scl2, scl1))
+    assert (scl1 * scl2).equals(pc.multiply_checked(scl1, scl2))
+    assert (-scl1).equals(pc.negate_checked(scl1))
+    assert (scl1 ** 2).equals(pc.power_checked(scl1, 2))
+    assert (scl1 - scl2).equals(pc.subtract_checked(scl1, scl2))
+
+
+def test_bitwise_dunders(int_scalars):
+    # GH-32007
+    scl1, scl2 = int_scalars
+
+    assert (scl1 & scl2).equals(pc.bit_wise_and(scl1, scl2))
+    assert (scl1 | scl2).equals(pc.bit_wise_or(scl1, scl2))
+    assert (scl1 ^ scl2).equals(pc.bit_wise_xor(scl1, scl2))
+    assert (scl2 << scl1).equals(pc.shift_left_checked(scl2, scl1))
+    assert (scl2 >> scl1).equals(pc.shift_right_checked(scl2, scl1))
+
+
+def test_math_dunders(float_scalars):
+    # GH-32007
+    import math
+
+    scl1, _ = float_scalars
+
+    assert abs(scl1).equals(pc.abs_checked(scl1))
+    assert round(scl1).equals(pc.round(scl1))
+    assert math.trunc(scl1).equals(pc.trunc(scl1))
+    assert math.floor(scl1).equals(pc.floor(scl1))
+    assert math.ceil(scl1).equals(pc.ceil(scl1))
+
+
+def test_dunders_unmatching_types():
+    # GH-32007
+    error_match = r"Function '\w+' has no kernel matching input types"
+    string_scl = pa.scalar("abc")
+    double_scl = pa.scalar(1.23)
+
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
+        string_scl + double_scl
+        string_scl - double_scl
+        string_scl / double_scl
+        string_scl * double_scl
