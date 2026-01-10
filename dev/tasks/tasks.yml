@@ -41,9 +41,6 @@ groups:
 
 {############################# Testing tasks #################################}
 
-  cuda:
-    - test-cuda-*
-
   test:
     - test-*
 
@@ -762,34 +759,11 @@ tasks:
     artifacts:
       - docs.tar.gz
 
-  ############################## CUDA tests #################################
-
-{% for ubuntu, cuda in [("22.04", "11.7.1"), ("24.04", "13.0.2")] %}
-  test-cuda-cpp-ubuntu-{{ ubuntu }}-cuda-{{ cuda }}:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        CUDA: {{ cuda }}
-        UBUNTU: {{ ubuntu }}
-      image: ubuntu-cuda-cpp
-
-  test-cuda-python-ubuntu-{{ ubuntu }}-cuda-{{ cuda }}:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        CUDA: {{ cuda }}
-        UBUNTU: {{ ubuntu }}
-      image: ubuntu-cuda-python
-{% endfor %}
-
   ############################## Fuzz tests #################################
 
   test-build-cpp-fuzz:
     ci: github
     template: fuzz-tests/github.oss-fuzz.yml
-
 
   ############################## vcpkg tests ##################################
 
