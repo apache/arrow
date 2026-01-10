@@ -71,10 +71,10 @@ class MyBrokenInt:
 
 def check_struct_type(ty, expected):
     """
-    Check a struct type is as expected, but not taking order into account.
+    Check a struct type is as expected, including field order.
     """
     assert pa.types.is_struct(ty)
-    assert set(ty) == set(expected)
+    assert list(ty) == list(expected)
 
 
 def test_iterable_types():
@@ -2014,21 +2014,25 @@ def test_struct_from_dicts_inference():
     assert arr.to_pylist() == data
 
     # With omitted values
+    # Field order is determined by first occurrence: a, c from first dict, then b from fourth
     data = [{'a': 5, 'c': True},
             None,
             {},
             {'a': None, 'b': 'bar'}]
-    expected = [{'a': 5, 'b': None, 'c': True},
+    expected_type_omitted = pa.struct([pa.field('a', pa.int64()),
+                                       pa.field('c', pa.bool_()),
+                                       pa.field('b', pa.string())])
+    expected = [{'a': 5, 'c': True, 'b': None},
                 None,
-                {'a': None, 'b': None, 'c': None},
-                {'a': None, 'b': 'bar', 'c': None}]
+                {'a': None, 'c': None, 'b': None},
+                {'a': None, 'c': None, 'b': 'bar'}]
 
     arr = pa.array(data)
     data_as_ndarray = np.empty(len(data), dtype=object)
     data_as_ndarray[:] = data
     arr2 = pa.array(data)
 
-    check_struct_type(arr.type, expected_type)
+    check_struct_type(arr.type, expected_type_omitted)
     assert arr.to_pylist() == expected
     assert arr.equals(arr2)
 
@@ -2052,6 +2056,23 @@ def test_struct_from_dicts_inference():
     # Mixing structs and scalars is rejected
     with pytest.raises((pa.ArrowInvalid, pa.ArrowTypeError)):
         pa.array([1, {'a': 2}])
+
+
+def test_struct_from_dicts_field_order():
+    # GH-40053: Struct fields should preserve dictionary key insertion order
+    data = [{'b': 2, 'a': 1}, {'b': 4, 'a': 3}]
+    arr = pa.array(data)
+    expected_type = pa.struct([('b', pa.int64()), ('a', pa.int64())])
+    assert arr.type == expected_type
+    assert arr.to_pylist() == data
+
+    # Nested structs also preserve order
+    data = [{'b': {'y': 1, 'x': 2}, 'a': 3}]
+    arr = pa.array(data)
+    expected_type = pa.struct([('b', pa.struct([('y', pa.int64()),
+                                                ('x', pa.int64())])),
+                               ('a', pa.int64())])
+    assert arr.type == expected_type
 
 
 def test_structarray_from_arrays_coerce():
