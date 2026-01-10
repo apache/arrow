@@ -24,9 +24,9 @@ cython>=3.1
 cloudpickle
 fsspec
 hypothesis
+meson-python
 numpy>=1.16.6
 pytest
 pytest-faulthandler
 s3fs>=2023.10.0
-setuptools>=77
 setuptools_scm>=8
