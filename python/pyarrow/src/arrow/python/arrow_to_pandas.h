@@ -140,6 +140,12 @@ struct PandasOptions {
   // Used internally to decipher between to_numpy() and to_pandas() when
   // the expected output differs
   bool to_numpy = false;
+
+  enum class StringConversionMode { AUTO, STRING_DTYPE, PYTHON_OBJECT };
+
+  // Controls how string-like Arrow arrays are converted when calling
+  // Array.to_numpy/ChunkedArray.to_numpy
+  StringConversionMode string_conversion_mode = StringConversionMode::PYTHON_OBJECT;
 };
 
 ARROW_PYTHON_EXPORT
@@ -160,6 +166,8 @@ Status ConvertChunkedArrayToPandas(const PandasOptions& options,
 ARROW_PYTHON_EXPORT
 Status ConvertTableToPandas(const PandasOptions& options, std::shared_ptr<Table> table,
                             PyObject** out);
+
+ARROW_PYTHON_EXPORT bool HasNumPyStringDType();
 
 }  // namespace py
 }  // namespace arrow
