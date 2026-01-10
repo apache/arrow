@@ -1150,5 +1150,48 @@ TEST_F(TestStdio, ReadStdinReadAfterClose) {
   ASSERT_EQ(sizeof(buffer), input.Tell());
 }
 
+#ifdef _WIN32
+// Test Windows error code mapping in mman.h
+// Note: We include mman.h here to test the __map_mman_error function directly
+#include "arrow/io/mman.h"
+
+TEST(TestMmanErrorMapping, MapCommonErrors) {
+  // Test that common Windows error codes map correctly to POSIX errno values.
+  // This verifies __map_mman_error() matches Arrow's WinErrorToErrno conventions.
+
+  // File/path not found errors
+  ASSERT_EQ(__map_mman_error(ERROR_FILE_NOT_FOUND, EPERM), ENOENT);
+  ASSERT_EQ(__map_mman_error(ERROR_PATH_NOT_FOUND, EPERM), ENOENT);
+
+  // Access/permission errors
+  ASSERT_EQ(__map_mman_error(ERROR_ACCESS_DENIED, EPERM), EACCES);
+  ASSERT_EQ(__map_mman_error(ERROR_SHARING_VIOLATION, EPERM), EACCES);
+  ASSERT_EQ(__map_mman_error(ERROR_LOCK_VIOLATION, EPERM), EACCES);
+
+  // Invalid handle errors
+  ASSERT_EQ(__map_mman_error(ERROR_INVALID_HANDLE, EPERM), EBADF);
+  ASSERT_EQ(__map_mman_error(ERROR_INVALID_TARGET_HANDLE, EPERM), EBADF);
+
+  // Invalid parameter/function errors
+  ASSERT_EQ(__map_mman_error(ERROR_INVALID_PARAMETER, EPERM), EINVAL);
+  ASSERT_EQ(__map_mman_error(ERROR_INVALID_FUNCTION, EPERM), EINVAL);
+
+  // Memory/resource errors
+  ASSERT_EQ(__map_mman_error(ERROR_ARENA_TRASHED, EPERM), ENOMEM);
+  ASSERT_EQ(__map_mman_error(ERROR_NOT_ENOUGH_MEMORY, EPERM), ENOMEM);
+  ASSERT_EQ(__map_mman_error(ERROR_INVALID_BLOCK, EPERM), ENOMEM);
+
+  ASSERT_EQ(__map_mman_error(ERROR_TOO_MANY_OPEN_FILES, EPERM), EMFILE);
+  ASSERT_EQ(__map_mman_error(ERROR_DISK_FULL, EPERM), ENOSPC);
+
+  // Zero error code
+  ASSERT_EQ(__map_mman_error(0, EPERM), 0);
+
+  // Unknown/unmapped error codes should return the default (deferr)
+  ASSERT_EQ(__map_mman_error(99999, EPERM), EPERM);
+  ASSERT_EQ(__map_mman_error(12345, EINVAL), EINVAL);
+}
+#endif  // _WIN32
+
 }  // namespace io
 }  // namespace arrow
