@@ -22,7 +22,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
-#if defined _WIN32 || defined _WIN64
+#if defined _WIN32
 // winuser.h needs to be included after windows.h, which is defined in platform.h
 #  include <winuser.h>
 #endif

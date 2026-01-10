@@ -49,13 +49,8 @@ add_arrow_test(flight_sql_odbc_test
                ${SQLite3_LIBRARIES}
                arrow_odbc_spi_impl)
 
-# On Windows, cmake uses suffix `DIRS` for ODBC include headers, and
-# on unix, cmake uses suffix `DIR`.
-if(WIN32)
-  target_include_directories(arrow-flight-sql-odbc-test PUBLIC ${ODBC_INCLUDE_DIRS})
-else()
-  target_include_directories(arrow-flight-sql-odbc-test PUBLIC ${ODBC_INCLUDE_DIR})
-endif()
+find_package(ODBC REQUIRED)
+target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)
 
 # Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
 set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)
