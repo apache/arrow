@@ -3946,15 +3946,11 @@ def test_list_slice_field_names_retained(return_fixed_size, type):
 
 def test_list_slice_bad_parameters():
     arr = pa.array([[1]], pa.list_(pa.int8(), 1))
-    msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
+    msg = r"`start`(.*) should be >= 0 and not greater than `stop`(.*)"
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, -1, 1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
-
-    # TODO(ARROW-18281): start==stop -> empty lists
-    with pytest.raises(pa.ArrowInvalid, match=msg):
-        pc.list_slice(arr, 0, 0)  # start == stop?
 
     # Step not >= 1
     msg = "`step` must be >= 1, got: "
@@ -3962,6 +3958,33 @@ def test_list_slice_bad_parameters():
         pc.list_slice(arr, 0, 1, step=0)
     with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):
         pc.list_slice(arr, 0, 1, step=-1)
+
+
+def test_list_slice_empty_lists():
+    # Test start == stop should return empty lists
+    arr = pa.array([[1, 2, 3], [4, 5, None], [6, None, None], None])
+    result = pc.list_slice(arr, 0, 0)
+    expected = pa.array([[], [], [], None], type=pa.list_(pa.int64()))
+    assert result.equals(expected)
+
+    # Test with different start positions
+    result = pc.list_slice(arr, 1, 1)
+    assert result.equals(expected)
+
+    result = pc.list_slice(arr, 2, 2)
+    assert result.equals(expected)
+
+    # Test with large_list
+    arr_large = pa.array([[1, 2, 3], [4, 5, None]], pa.large_list(pa.int64()))
+    result = pc.list_slice(arr_large, 0, 0)
+    expected_large = pa.array([[], []], pa.large_list(pa.int64()))
+    assert result.equals(expected_large)
+
+    # Test with fixed_size_list -> output is fixed_size_list[0]
+    arr_fixed = pa.array([[1, 2, 3], [4, 5, 6]], pa.list_(pa.int64(), 3))
+    result = pc.list_slice(arr_fixed, 0, 0)
+    expected_fixed = pa.array([[], []], pa.list_(pa.int64(), 0))
+    assert result.equals(expected_fixed)
 
 
 def check_run_end_encode_decode(value_type, run_end_encode_opts=None):
