@@ -704,6 +704,16 @@ static inline std::string ByteArrayToString(const ByteArray& a) {
   return std::string(reinterpret_cast<const char*>(a.ptr), a.len);
 }
 
+/// \brief Safe memcpy that avoids undefined behavior when src is nullptr.
+///
+/// According to the C++ standard, calling std::memcpy with a nullptr is undefined
+/// behavior even when size is 0. This function guards against that case.
+static inline void SafeMemcpy(void* dest, const void* src, size_t size) {
+  if (size > 0) {
+    std::memcpy(dest, src, size);
+  }
+}
+
 static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds) {
   std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
 }
