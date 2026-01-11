@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
@@ -195,6 +196,5 @@ std::vector<std::string> Configuration::GetCustomKeys() const {
   boost::copy(copy_props | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
-
 }  // namespace config
 }  // namespace arrow::flight::sql::odbc

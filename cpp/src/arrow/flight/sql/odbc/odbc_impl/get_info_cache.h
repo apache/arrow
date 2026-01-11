@@ -17,13 +17,12 @@
 
 #pragma once
 
-#include "arrow/flight/sql/client.h"
-#include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
-
 #include <atomic>
 #include <memory>
 #include <mutex>
 #include <unordered_map>
+#include "arrow/flight/sql/client.h"
+#include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
 namespace arrow::flight::sql::odbc {
 

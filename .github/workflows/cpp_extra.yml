@@ -341,8 +341,11 @@ jobs:
     if: >-
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++') ||
+      contains(join(github.event.pull_request.changed_files, ' '), 'cpp/src/arrow/flight/sql/odbc/')
     timeout-minutes: 240
+    permissions:
+      packages: write
     env:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
@@ -351,10 +354,10 @@ jobs:
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
-      ARROW_SIMD_LEVEL: AVX2
+      ARROW_HOME: /usr
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
-      VCPKG_BINARY_SOURCES: 'clear;nuget,GitHub,readwrite'
+      VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
       - name: Disable Crash Dialogs
@@ -373,10 +376,6 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
-      - name: Install cmake
-        shell: bash
-        run: |
-          ci/scripts/install_cmake.sh 4.1.2 /usr
       - name: Install ccache
         shell: bash
         run: |

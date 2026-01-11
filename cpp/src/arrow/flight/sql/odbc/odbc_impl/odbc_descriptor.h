@@ -126,8 +126,8 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
   inline SQLUSMALLINT* GetArrayStatusPtr() { return array_status_ptr_; }
 
   inline void SetRowsProcessed(SQLULEN rows) {
-    if (rows_processed_ptr_) {
-      *rows_processed_ptr_ = rows;
+    if (rows_proccessed_ptr_) {
+      *rows_proccessed_ptr_ = rows;
     }
   }
 
@@ -144,7 +144,7 @@ class ODBCDescriptor : public ODBCHandle<ODBCDescriptor> {
   ODBCStatement* parent_statement_;
   SQLUSMALLINT* array_status_ptr_;
   SQLULEN* bind_offset_ptr_;
-  SQLULEN* rows_processed_ptr_;
+  SQLULEN* rows_proccessed_ptr_;
   SQLULEN array_size_;
   SQLINTEGER bind_type_;
   SQLSMALLINT highest_one_based_bound_record_;
