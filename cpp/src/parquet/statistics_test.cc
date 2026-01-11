@@ -1804,5 +1804,236 @@ TEST(TestEncodedStatistics, ApplyStatSizeLimits) {
   EXPECT_FALSE(statistics->HasMinMax());
 }
 
+// GH-47995: Empty string minimum should be preserved after merge
+TEST(TestByteArrayStatistics, MergeWithEmptyStringMin) {
+  NodePtr node =
+      PrimitiveNode::Make("StringColumn", Repetition::OPTIONAL, Type::BYTE_ARRAY);
+  ColumnDescriptor descr(node, 1, 1);
+
+  // Create statistics with empty string as min, "zzz" as max
+  auto stats1 = MakeStatistics<ByteArrayType>(&descr);
+  std::vector<ByteArray> values1 = {ByteArray(""), ByteArray("abc"), ByteArray("zzz")};
+  stats1->Update(values1.data(), values1.size(), 0);
+  ASSERT_TRUE(stats1->HasMinMax());
+  EXPECT_EQ(stats1->min(), ByteArray(""));
+  EXPECT_EQ(stats1->max(), ByteArray("zzz"));
+
+  // Create statistics with "aaa" as min, "bbb" as max
+  auto stats2 = MakeStatistics<ByteArrayType>(&descr);
+  std::vector<ByteArray> values2 = {ByteArray("aaa"), ByteArray("bbb")};
+  stats2->Update(values2.data(), values2.size(), 0);
+  ASSERT_TRUE(stats2->HasMinMax());
+  EXPECT_EQ(stats2->min(), ByteArray("aaa"));
+  EXPECT_EQ(stats2->max(), ByteArray("bbb"));
+
+  // Merge stats2 into stats1: min should still be "", max should be "zzz"
+  stats1->Merge(*stats2);
+  ASSERT_TRUE(stats1->HasMinMax());
+  EXPECT_EQ(stats1->min(), ByteArray(""));
+  EXPECT_EQ(stats1->max(), ByteArray("zzz"));
+
+  // Create fresh statistics and merge in opposite order
+  auto stats3 = MakeStatistics<ByteArrayType>(&descr);
+  std::vector<ByteArray> values3 = {ByteArray(""), ByteArray("abc"), ByteArray("zzz")};
+  stats3->Update(values3.data(), values3.size(), 0);
+
+  auto stats4 = MakeStatistics<ByteArrayType>(&descr);
+  std::vector<ByteArray> values4 = {ByteArray("aaa"), ByteArray("bbb")};
+  stats4->Update(values4.data(), values4.size(), 0);
+
+  // Merge stats3 into stats4: min should become "", max should become "zzz"
+  stats4->Merge(*stats3);
+  ASSERT_TRUE(stats4->HasMinMax());
+  EXPECT_EQ(stats4->min(), ByteArray(""));
+  EXPECT_EQ(stats4->max(), ByteArray("zzz"));
+}
+
+// GH-47995: Comprehensive tests for ByteArray statistics merge with empty strings.
+// Tests all combinations of (no min/max) vs (has min/max) with min="" or min="aaa".
+TEST(TestByteArrayStatistics, MergeEmptyStringComprehensive) {
+  NodePtr node =
+      PrimitiveNode::Make("StringColumn", Repetition::OPTIONAL, Type::BYTE_ARRAY);
+  ColumnDescriptor descr(node, 1, 1);
+
+  auto make_empty_stats = [&]() { return MakeStatistics<ByteArrayType>(&descr); };
+
+  auto make_stats_with_empty_min = [&]() {
+    auto stats = MakeStatistics<ByteArrayType>(&descr);
+    std::vector<ByteArray> values = {ByteArray(""), ByteArray("zzz")};
+    stats->Update(values.data(), values.size(), 0);
+    return stats;
+  };
+
+  auto make_stats_with_nonempty_min = [&]() {
+    auto stats = MakeStatistics<ByteArrayType>(&descr);
+    std::vector<ByteArray> values = {ByteArray("aaa"), ByteArray("yyy")};
+    stats->Update(values.data(), values.size(), 0);
+    return stats;
+  };
+
+  // 1. no min/max, merge (no min/max) -> no min/max
+  {
+    auto stats = make_empty_stats();
+    ASSERT_FALSE(stats->HasMinMax());
+    stats->Merge(*make_empty_stats());
+    ASSERT_FALSE(stats->HasMinMax()) << "empty + empty = empty";
+  }
+
+  // 2. no min/max, merge (min="", max="zzz") -> min="", max="zzz"
+  {
+    auto stats = make_empty_stats();
+    ASSERT_FALSE(stats->HasMinMax());
+    stats->Merge(*make_stats_with_empty_min());
+    ASSERT_TRUE(stats->HasMinMax()) << "empty + has_minmax = has_minmax";
+    EXPECT_EQ(stats->min(), ByteArray(""));
+    EXPECT_EQ(stats->max(), ByteArray("zzz"));
+  }
+
+  // 3. no min/max, merge (min="aaa", max="yyy") -> min="aaa", max="yyy"
+  {
+    auto stats = make_empty_stats();
+    ASSERT_FALSE(stats->HasMinMax());
+    stats->Merge(*make_stats_with_nonempty_min());
+    ASSERT_TRUE(stats->HasMinMax()) << "empty + has_minmax = has_minmax";
+    EXPECT_EQ(stats->min(), ByteArray("aaa"));
+    EXPECT_EQ(stats->max(), ByteArray("yyy"));
+  }
+
+  // 3b. no min/max, merge (min="", max="") -> min="", max=""
+  {
+    auto stats = make_empty_stats();
+    ASSERT_FALSE(stats->HasMinMax());
+    auto other = MakeStatistics<ByteArrayType>(&descr);
+    std::vector<ByteArray> values = {ByteArray("")};
+    other->Update(values.data(), values.size(), 0);
+    ASSERT_TRUE(other->HasMinMax());
+    EXPECT_EQ(other->min(), ByteArray(""));
+    EXPECT_EQ(other->max(), ByteArray(""));
+    stats->Merge(*other);
+    ASSERT_TRUE(stats->HasMinMax()) << "empty + (min='', max='') = has_minmax";
+    EXPECT_EQ(stats->min(), ByteArray(""));
+    EXPECT_EQ(stats->max(), ByteArray(""));
+  }
+
+  // 3c. (min="", max=""), merge (no min/max) -> min="", max=""
+  {
+    auto stats = MakeStatistics<ByteArrayType>(&descr);
+    std::vector<ByteArray> values = {ByteArray("")};
+    stats->Update(values.data(), values.size(), 0);
+    ASSERT_TRUE(stats->HasMinMax());
+    EXPECT_EQ(stats->min(), ByteArray(""));
+    EXPECT_EQ(stats->max(), ByteArray(""));
+    stats->Merge(*make_empty_stats());
+    ASSERT_TRUE(stats->HasMinMax()) << "(min='', max='') + empty = has_minmax";
+    EXPECT_EQ(stats->min(), ByteArray(""));
+    EXPECT_EQ(stats->max(), ByteArray(""));
+  }
+
+  // 4. (min="", max="zzz"), merge (no min/max) -> min="", max="zzz"
+  {
+    auto stats = make_stats_with_empty_min();
+    ASSERT_TRUE(stats->HasMinMax());
+    stats->Merge(*make_empty_stats());
+    ASSERT_TRUE(stats->HasMinMax()) << "has_minmax + empty = has_minmax";
+    EXPECT_EQ(stats->min(), ByteArray(""));
+    EXPECT_EQ(stats->max(), ByteArray("zzz"));
+  }
+
+  // 5. (min="", max="zzz"), merge (min="", max="yyy") -> min="", max="zzz"
+  {
+    auto stats = make_stats_with_empty_min();
+    auto other = make_stats_with_empty_min();
+    // Modify other to have different max for clarity
+    stats->Merge(*other);
+    ASSERT_TRUE(stats->HasMinMax());
+    EXPECT_EQ(stats->min(), ByteArray(""));
+    EXPECT_EQ(stats->max(), ByteArray("zzz"));
+  }
+
+  // 6. (min="", max="zzz"), merge (min="aaa", max="yyy") -> min="", max="zzz"
+  {
+    auto stats = make_stats_with_empty_min();
+    stats->Merge(*make_stats_with_nonempty_min());
+    ASSERT_TRUE(stats->HasMinMax());
+    EXPECT_EQ(stats->min(), ByteArray("")) << "empty string < 'aaa'";
+    EXPECT_EQ(stats->max(), ByteArray("zzz")) << "'zzz' > 'yyy'";
+  }
+
+  // 7. (min="aaa", max="yyy"), merge (no min/max) -> min="aaa", max="yyy"
+  {
+    auto stats = make_stats_with_nonempty_min();
+    stats->Merge(*make_empty_stats());
+    ASSERT_TRUE(stats->HasMinMax());
+    EXPECT_EQ(stats->min(), ByteArray("aaa"));
+    EXPECT_EQ(stats->max(), ByteArray("yyy"));
+  }
+
+  // 8. (min="aaa", max="yyy"), merge (min="", max="zzz") -> min="", max="zzz"
+  {
+    auto stats = make_stats_with_nonempty_min();
+    stats->Merge(*make_stats_with_empty_min());
+    ASSERT_TRUE(stats->HasMinMax());
+    EXPECT_EQ(stats->min(), ByteArray("")) << "empty string < 'aaa'";
+    EXPECT_EQ(stats->max(), ByteArray("zzz")) << "'zzz' > 'yyy'";
+  }
+
+  // 9. (min="aaa", max="yyy"), merge (min="bbb", max="xxx") -> min="aaa", max="yyy"
+  {
+    auto stats = make_stats_with_nonempty_min();
+    auto other = MakeStatistics<ByteArrayType>(&descr);
+    std::vector<ByteArray> values = {ByteArray("bbb"), ByteArray("xxx")};
+    other->Update(values.data(), values.size(), 0);
+    stats->Merge(*other);
+    ASSERT_TRUE(stats->HasMinMax());
+    EXPECT_EQ(stats->min(), ByteArray("aaa"));
+    EXPECT_EQ(stats->max(), ByteArray("yyy"));
+  }
+}
+
+// GH-47995: Statistics from encoded empty string min should be preserved after merge.
+// This test reproduces the bug where empty string min (encoded as "") results in
+// ByteArray with ptr=nullptr after internal Copy(), which was incorrectly rejected
+// by CleanStatistic().
+TEST(TestByteArrayStatistics, MergeEncodedEmptyStringMin) {
+  NodePtr node =
+      PrimitiveNode::Make("StringColumn", Repetition::OPTIONAL, Type::BYTE_ARRAY);
+  ColumnDescriptor descr(node, 1, 1);
+
+  // Create statistics from encoded values (simulates reading from Parquet metadata)
+  // Empty string "" as min, "zzz" as max
+  std::string encoded_min = "";  // empty string
+  std::string encoded_max = "zzz";
+  auto stats1 = Statistics::Make(&descr, encoded_min, encoded_max,
+                                 /*num_values=*/100, /*null_count=*/0,
+                                 /*distinct_count=*/0, /*has_min_max=*/true,
+                                 /*has_null_count=*/true, /*has_distinct_count=*/false);
+  auto typed_stats1 = std::dynamic_pointer_cast<TypedStatistics<ByteArrayType>>(stats1);
+  ASSERT_TRUE(typed_stats1->HasMinMax());
+  EXPECT_EQ(typed_stats1->min(), ByteArray(""));
+  EXPECT_EQ(typed_stats1->max(), ByteArray("zzz"));
+
+  // Create second statistics with "aaa" as min, "bbb" as max
+  std::string encoded_min2 = "aaa";
+  std::string encoded_max2 = "bbb";
+  auto stats2 = Statistics::Make(&descr, encoded_min2, encoded_max2,
+                                 /*num_values=*/100, /*null_count=*/0,
+                                 /*distinct_count=*/0, /*has_min_max=*/true,
+                                 /*has_null_count=*/true, /*has_distinct_count=*/false);
+  auto typed_stats2 = std::dynamic_pointer_cast<TypedStatistics<ByteArrayType>>(stats2);
+  ASSERT_TRUE(typed_stats2->HasMinMax());
+
+  // Create a fresh stats object and merge both
+  auto merged = MakeStatistics<ByteArrayType>(&descr);
+  merged->Merge(*typed_stats1);
+  ASSERT_TRUE(merged->HasMinMax()) << "Min/max should be preserved after first merge";
+  EXPECT_EQ(merged->min(), ByteArray(""));
+  EXPECT_EQ(merged->max(), ByteArray("zzz"));
+
+  merged->Merge(*typed_stats2);
+  ASSERT_TRUE(merged->HasMinMax()) << "Min/max should be preserved after second merge";
+  EXPECT_EQ(merged->min(), ByteArray(""));  // empty string should still be min
+  EXPECT_EQ(merged->max(), ByteArray("zzz"));
+}
+
 }  // namespace test
 }  // namespace parquet
