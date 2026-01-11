@@ -594,11 +594,12 @@ class FileSystemWriteTest : public testing::TestWithParam<std::tuple<bool, bool>
 };
 
 TEST_P(FileSystemWriteTest, Write) {
-  auto plan_factory = [](const FileSystemDatasetWriteOptions& write_options,
-                         std::function<Future<std::optional<cp::ExecBatch>>()>*
-                             sink_gen) {
-    return std::vector<acero::Declaration>{{"write", WriteNodeOptions{write_options}}};
-  };
+  auto plan_factory =
+      [](const FileSystemDatasetWriteOptions& write_options,
+         std::function<Future<std::optional<cp::ExecBatch>>()>* sink_gen) {
+        return std::vector<acero::Declaration>{
+            {"write", WriteNodeOptions{write_options}}};
+      };
   TestDatasetWriteRoundTrip(plan_factory, /*has_output=*/false);
 }
 

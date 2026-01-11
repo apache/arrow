@@ -76,8 +76,8 @@ std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
 // Tests for NthToIndices
 
 template <typename ArrayType>
-auto GetLogicalValue(const ArrayType& array, uint64_t index)
-    -> decltype(array.GetView(index)) {
+auto GetLogicalValue(const ArrayType& array,
+                     uint64_t index) -> decltype(array.GetView(index)) {
   return array.GetView(index);
 }
 

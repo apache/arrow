@@ -876,20 +876,18 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   std::string format = "%Y-%d-%m %H:%M:%S%z";
   auto parser = TimestampParser::MakeStrptime(format);
 
-  std::vector<std::string> values = {
-    "2018-01-01 00:00:00+0000",
-    "2018-01-01 00:00:00+0100",
+  std::vector<std::string> values = {"2018-01-01 00:00:00+0000",
+                                     "2018-01-01 00:00:00+0100",
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
 // glibc < 2.28 doesn't support "-0117" timezone offset.
 // See also: https://github.com/apache/arrow/issues/43808
 #  if ((__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 28)) || (__GLIBC__ >= 3)
-    "2018-01-01 00:00:00-0117",
+                                     "2018-01-01 00:00:00-0117",
 #  endif
 #else
-    "2018-01-01 00:00:00-0117",
+                                     "2018-01-01 00:00:00-0117",
 #endif
-    "2018-01-01 00:00:00+0130"
-  };
+                                     "2018-01-01 00:00:00+0130"};
 
   // N.B. GNU %z supports ISO8601 format while BSD %z supports only
   // +HHMM or -HHMM and POSIX doesn't appear to define %z at all

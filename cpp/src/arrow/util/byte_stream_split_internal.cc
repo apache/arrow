@@ -35,9 +35,9 @@ struct ByteStreamSplitDecodeDynamic {
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   constexpr static auto implementations() {
-    return std::array {
-      Implementation {
-        DispatchLevel::NONE,
+    return std::array{
+        Implementation{
+            DispatchLevel::NONE,
 #if defined(ARROW_HAVE_NEON)
             // We always expect Neon to be available on Arm64
             &ByteStreamSplitDecodeSimd<xsimd::neon64, kNumStreams>,
@@ -47,13 +47,12 @@ struct ByteStreamSplitDecodeDynamic {
 #else
             &ByteStreamSplitDecodeScalar<kNumStreams>,
 #endif
-      }
-      ,
+        },
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-          Implementation{
-              DispatchLevel::AVX2,
-              &ByteStreamSplitDecodeSimd<xsimd::avx2, kNumStreams>,
-          },
+        Implementation{
+            DispatchLevel::AVX2,
+            &ByteStreamSplitDecodeSimd<xsimd::avx2, kNumStreams>,
+        },
 #endif
     };
   }
@@ -83,9 +82,9 @@ struct ByteStreamSplitEncodeDynamic {
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   constexpr static auto implementations() {
-    return std::array {
-      Implementation {
-        DispatchLevel::NONE,
+    return std::array{
+        Implementation{
+            DispatchLevel::NONE,
 #if defined(ARROW_HAVE_NEON)
             // We always expect Neon to be available on Arm64
             &ByteStreamSplitEncodeSimd<xsimd::neon64, kNumStreams>,
@@ -95,10 +94,9 @@ struct ByteStreamSplitEncodeDynamic {
 #else
             &ByteStreamSplitEncodeScalar<kNumStreams>,
 #endif
-      }
-      ,
+        },
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-          Implementation{DispatchLevel::AVX2, &ByteStreamSplitEncodeAvx2<kNumStreams>},
+        Implementation{DispatchLevel::AVX2, &ByteStreamSplitEncodeAvx2<kNumStreams>},
 #endif
     };
   }
