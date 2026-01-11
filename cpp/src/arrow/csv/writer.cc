@@ -659,6 +659,8 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
 
   Status TranslateMinimalBatch(const RecordBatch& batch) {
     if (batch.num_rows() == 0) {
+      // GH-36889: Clear buffer to avoid writing stale content (e.g., header)
+      RETURN_NOT_OK(data_buffer_->Resize(0, /*shrink_to_fit=*/false));
       return Status::OK();
     }
     offsets_.resize(batch.num_rows());
