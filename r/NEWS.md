@@ -19,6 +19,10 @@
 
 # arrow 22.0.0.9000
 
+## New features
+
+- `nchar()` supports the `keepNA = FALSE` argument to replace `NA` values with `2` (@HyukjinKwon, #48665).
+
 # arrow 22.0.0
 
 ## New features
