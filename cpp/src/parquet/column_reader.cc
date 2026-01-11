@@ -93,6 +93,27 @@ inline void CheckNumberDecoded(int64_t number_decoded, int64_t expected) {
 constexpr std::string_view kErrorRepDefLevelNotMatchesNumValues =
     "Number of decoded rep / def levels do not match num_values in page header";
 
+inline int64_t CountMaxDefLevels(const int16_t* levels, int64_t num_levels,
+                                 int16_t max_def_level) {
+  if (num_levels <= 0) {
+    return 0;
+  }
+  const int16_t rhs = static_cast<int16_t>(max_def_level - 1);
+  int64_t count = 0;
+  int64_t offset = 0;
+  for (; offset + 64 <= num_levels; offset += 64) {
+    const uint64_t bitmap =
+        internal::GreaterThanBitmap(levels + offset, 64, rhs);
+    count += static_cast<int64_t>(bit_util::PopCount(bitmap));
+  }
+  if (offset < num_levels) {
+    const uint64_t bitmap =
+        internal::GreaterThanBitmap(levels + offset, num_levels - offset, rhs);
+    count += static_cast<int64_t>(bit_util::PopCount(bitmap));
+  }
+  return count;
+}
+
 }  // namespace
 
 LevelDecoder::LevelDecoder() : num_values_remaining_(0) {}
@@ -1010,10 +1031,8 @@ class TypedColumnReaderImpl : public TypedColumnReader<DType>,
       if (ARROW_PREDICT_FALSE(*num_def_levels != batch_size)) {
         throw ParquetException(kErrorRepDefLevelNotMatchesNumValues);
       }
-      // TODO(wesm): this tallying of values-to-decode can be performed with better
-      // cache-efficiency if fused with the level decoding.
       *non_null_values_to_read +=
-          std::count(def_levels, def_levels + *num_def_levels, this->max_def_level_);
+          CountMaxDefLevels(def_levels, *num_def_levels, this->max_def_level_);
     } else {
       // Required field, read all values
       if (num_def_levels != nullptr) {
