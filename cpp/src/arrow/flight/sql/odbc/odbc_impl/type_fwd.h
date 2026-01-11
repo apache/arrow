@@ -23,6 +23,7 @@ class ResultSet;
 class ResultSetMetadata;
 }
 
+// TODO: Replace ODBC namespace with namespace arrow::flight::sql::odbc #48083
 namespace ODBC {
 class ODBCEnvironment;
 class ODBCDescriptor;
