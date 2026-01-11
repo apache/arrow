@@ -65,7 +65,6 @@ RUN dnf update -y && \
         utf8proc-devel \
         wget \
         which \
-        xsimd-devel \
         zlib-devel
 
 COPY ci/scripts/install_minio.sh /arrow/ci/scripts/
@@ -109,4 +108,5 @@ ENV ARROW_ACERO=ON \
     PARQUET_BUILD_EXAMPLES=ON \
     PARQUET_BUILD_EXECUTABLES=ON \
     PATH=/usr/lib/ccache/:$PATH \
-    PYARROW_TEST_GANDIVA=OFF
+    PYARROW_TEST_GANDIVA=OFF \
+    xsimd_SOURCE=BUNDLED
