@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -14,7 +14,27 @@ module ArrowFormat
     module Apache
       module Arrow
         module Flatbuf
-          class Message < ::FlatBuffers::Table
+          class Message < ::FlatBuffers::RootTable
+            class << self
+              def file_identifier
+                ""
+              end
+
+              def file_extension
+                ""
+              end
+            end
+
+            FIELDS = {
+              version: ::FlatBuffers::Field.new(:version, 0, 4, :short, 0),
+              header_type: ::FlatBuffers::Field.new(:header_type, 1, 6, :utype, 0),
+              header: ::FlatBuffers::Field.new(:header, 2, 8, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::MessageHeader", 0),
+              body_length: ::FlatBuffers::Field.new(:body_length, 3, 10, :long, 0),
+              custom_metadata: ::FlatBuffers::Field.new(:custom_metadata, 4, 12, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::KeyValue"], 0),
+            }
+
+            Data = define_data_class
+
             def body_length
               field_offset = @view.unpack_virtual_offset(10)
               return 0 if field_offset.zero?

@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -18,6 +18,16 @@ module ArrowFormat
           # batch. Some systems call this a "row batch" internally and others a "record
           # batch".
           class RecordBatch < ::FlatBuffers::Table
+            FIELDS = {
+              length: ::FlatBuffers::Field.new(:length, 0, 4, :long, 0),
+              nodes: ::FlatBuffers::Field.new(:nodes, 1, 6, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::FieldNode"], 0),
+              buffers: ::FlatBuffers::Field.new(:buffers, 2, 8, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Buffer"], 0),
+              compression: ::FlatBuffers::Field.new(:compression, 3, 10, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::BodyCompression", 0),
+              variadic_buffer_counts: ::FlatBuffers::Field.new(:variadic_buffer_counts, 4, 12, [:long], 0),
+            }
+
+            Data = define_data_class
+
             # Buffers correspond to the pre-ordered flattened buffer tree
             #
             # The number of buffers appended to this list depends on the schema. For
@@ -64,7 +74,7 @@ module ArrowFormat
 
             # Some types such as Utf8View are represented using a variable number of buffers.
             # For each such Field in the pre-ordered flattened logical schema, there will be
-            # an entry in variadicBufferCounts to indicate the number of number of variadic
+            # an entry in variadicBufferCounts to indicate the number of variadic
             # buffers which belong to that Field in the current RecordBatch.
             #
             # For example, the schema

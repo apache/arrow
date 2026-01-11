@@ -32,6 +32,10 @@ module ArrowFormat
     def build_array(size)
       NullArray.new(self, size)
     end
+
+    def to_flat_buffers
+      FB::Null::Data.new
+    end
   end
 
   class BooleanType < Type
@@ -55,11 +59,14 @@ module ArrowFormat
 
   class IntType < NumberType
     attr_reader :bit_width
-    attr_reader :signed
     def initialize(bit_width, signed)
       super()
       @bit_width = bit_width
       @signed = signed
+    end
+
+    def signed?
+      @signed
     end
   end
 
@@ -681,12 +688,15 @@ module ArrowFormat
   class DictionaryType < Type
     attr_reader :index_type
     attr_reader :value_type
-    attr_reader :ordered
     def initialize(index_type, value_type, ordered)
       super()
       @index_type = index_type
       @value_type = value_type
       @ordered = ordered
+    end
+
+    def ordered?
+      @ordered
     end
 
     def name

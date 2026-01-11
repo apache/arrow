@@ -123,7 +123,7 @@ module ArrowFormat
 
     def consume_metadata(target)
       metadata_buffer = target.slice(0, @metadata_length)
-      @message = Org::Apache::Arrow::Flatbuf::Message.new(metadata_buffer)
+      @message = FB::Message.new(metadata_buffer)
       @body_length = @message.body_length
       if @body_length < 0
         raise ReadError.new("Negative body length: " +
@@ -174,7 +174,7 @@ module ArrowFormat
         process_schema_message(message, body)
       when :initial_dictionaries
         header = message.header
-        unless header.is_a?(Org::Apache::Arrow::Flatbuf::DictionaryBatch)
+        unless header.is_a?(FB::DictionaryBatch)
           raise ReadError.new("Not a dictionary batch message: " +
                               header.inspect)
         end
@@ -184,9 +184,9 @@ module ArrowFormat
         end
       when :data
         case message.header
-        when Org::Apache::Arrow::Flatbuf::DictionaryBatch
+        when FB::DictionaryBatch
           process_dictionary_batch_message(message, body)
-        when Org::Apache::Arrow::Flatbuf::RecordBatch
+        when FB::RecordBatch
           process_record_batch_message(message, body)
         end
       end
@@ -194,7 +194,7 @@ module ArrowFormat
 
     def process_schema_message(message, body)
       header = message.header
-      unless header.is_a?(Org::Apache::Arrow::Flatbuf::Schema)
+      unless header.is_a?(FB::Schema)
         raise ReadError.new("Not a schema message: " +
                             header.inspect)
       end

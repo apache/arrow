@@ -31,18 +31,32 @@ module ArrowFormat
 
     def valid?(i)
       return true if @validity_buffer.nil?
-      (@validity_buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
+      validity_bitmap[i] == 1
     end
 
     def null?(i)
       not valid?(i)
     end
 
+    def n_nulls
+      if @validity_buffer.nil?
+        0
+      else
+        # TODO: popcount
+        validity_bitmap.count do |bit|
+          bit == 1
+        end
+      end
+    end
+
     private
+    def validity_bitmap
+      @validity_bitmap ||= Bitmap.new(@validity_buffer, @size)
+    end
+
     def apply_validity(array)
       return array if @validity_buffer.nil?
-      @validity_bitmap ||= Bitmap.new(@validity_buffer, @size)
-      @validity_bitmap.each_with_index do |bit, i|
+      validity_bitmap.each_with_index do |bit, i|
         array[i] = nil if bit.zero?
       end
       array
@@ -54,17 +68,30 @@ module ArrowFormat
       super(type, size, nil)
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+    end
+
     def to_a
       [nil] * @size
     end
   end
 
-  class BooleanArray < Array
+  class PrimitiveArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@values_buffer)
+    end
+  end
+
+  class BooleanArray < PrimitiveArray
     def to_a
       @values_bitmap ||= Bitmap.new(@values_buffer, @size)
       values = @values_bitmap.each.collect do |bit|
@@ -74,12 +101,7 @@ module ArrowFormat
     end
   end
 
-  class IntArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
-      super(type, size, validity_buffer)
-      @values_buffer = values_buffer
-    end
-
+  class IntArray < PrimitiveArray
     def to_a
       apply_validity(@values_buffer.values(@type.buffer_type, 0, @size))
     end
@@ -109,11 +131,7 @@ module ArrowFormat
   class UInt64Array < IntArray
   end
 
-  class FloatingPointArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
-      super(type, size, validity_buffer)
-      @values_buffer = values_buffer
-    end
+  class FloatingPointArray < PrimitiveArray
   end
 
   class Float32Array < FloatingPointArray
@@ -128,11 +146,7 @@ module ArrowFormat
     end
   end
 
-  class TemporalArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
-      super(type, size, validity_buffer)
-      @values_buffer = values_buffer
-    end
+  class TemporalArray < PrimitiveArray
   end
 
   class DateArray < TemporalArray
@@ -215,6 +229,14 @@ module ArrowFormat
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
       @values_buffer = values_buffer
+    end
+
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@offsets_buffer)
+      yield(@values_buffer)
     end
 
     def to_a

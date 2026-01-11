@@ -17,9 +17,6 @@
 
 require_relative "streaming-reader"
 
-require_relative "org/apache/arrow/flatbuf/block"
-require_relative "org/apache/arrow/flatbuf/footer"
-
 module ArrowFormat
   class FileReader
     include Enumerable
@@ -59,9 +56,9 @@ module ArrowFormat
     end
 
     def read(i)
-      fb_message, body = read_block(@record_batch_blocks[i])
+      fb_message, body = read_block(@record_batch_blocks[i], :record_batch, i)
       fb_header = fb_message.header
-      unless fb_header.is_a?(Org::Apache::Arrow::Flatbuf::RecordBatch)
+      unless fb_header.is_a?(FB::RecordBatch)
         raise FileReadError.new(@buffer,
                                 "Not a record batch message: #{i}: " +
                                 fb_header.class.name)
@@ -104,10 +101,10 @@ module ArrowFormat
       footer_size = @buffer.get_value(FOOTER_SIZE_FORMAT, footer_size_offset)
       footer_data = @buffer.slice(footer_size_offset - footer_size,
                                   footer_size)
-      Org::Apache::Arrow::Flatbuf::Footer.new(footer_data)
+      FB::Footer.new(footer_data)
     end
 
-    def read_block(block)
+    def read_block(block, type, i)
       offset = block.offset
 
       # If we can report property error information, we can use
@@ -127,7 +124,7 @@ module ArrowFormat
       continuation = @buffer.slice(offset, continuation_size)
       unless continuation == CONTINUATION_BUFFER
         raise FileReadError.new(@buffer,
-                                "Invalid continuation: #{i}: " +
+                                "Invalid continuation: #{type}: #{i}: " +
                                 continuation.inspect)
       end
       offset += continuation_size
@@ -141,14 +138,14 @@ module ArrowFormat
         metadata_length_size
       unless metadata_length == expected_metadata_length
         raise FileReadError.new(@buffer,
-                                "Invalid metadata length #{i}: " +
+                                "Invalid metadata length: #{type}: #{i}: " +
                                 "expected:#{expected_metadata_length} " +
                                 "actual:#{metadata_length}")
       end
       offset += metadata_length_size
 
       metadata = @buffer.slice(offset, metadata_length)
-      fb_message = Org::Apache::Arrow::Flatbuf::Message.new(metadata)
+      fb_message = FB::Message.new(metadata)
       offset += metadata_length
 
       body = @buffer.slice(offset, block.body_length)
@@ -167,10 +164,10 @@ module ArrowFormat
       end
 
       dictionaries = {}
-      dictionary_blocks.each do |block|
-        fb_message, body = read_block(block)
+      dictionary_blocks.each_with_index do |block, i|
+        fb_message, body = read_block(block, :dictionary_block, i)
         fb_header = fb_message.header
-        unless fb_header.is_a?(Org::Apache::Arrow::Flatbuf::DictionaryBatch)
+        unless fb_header.is_a?(FB::DictionaryBatch)
           raise FileReadError.new(@buffer,
                                   "Not a dictionary batch message: " +
                                   fb_header.inspect)
