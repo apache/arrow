@@ -3984,6 +3984,11 @@ function(build_awssdk)
         # We don't need to link aws-lc. It's used only by s2n-tls.
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
+        # Disable -Werror for s2n-tls: it has Clang 18 warnings that it intentionally allows.
+        # See: https://github.com/aws/s2n-tls/issues/5696
+        if(TARGET s2n)
+          target_compile_options(s2n PRIVATE -Wno-error)
+        endif()
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
         # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.
