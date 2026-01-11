@@ -86,10 +86,10 @@ if [ "$ARROW_R_DEV" = "true" ] && [ -f "data-raw/codegen.R" ]; then
   ${R_HOME}/bin/Rscript data-raw/codegen.R
 fi
 
-# Arrow requires C++17, so check for it
-if [ ! "`${R_HOME}/bin/R CMD config CXX17`" ]; then
+# Arrow requires C++20, so check for it
+if [ ! "`${R_HOME}/bin/R CMD config CXX20`" ]; then
   echo "------------------------- NOTE ---------------------------"
-  echo "Cannot install arrow: a C++17 compiler is required."
+  echo "Cannot install arrow: a C++20 compiler is required."
   echo "See https://arrow.apache.org/docs/r/articles/install.html"
   echo "---------------------------------------------------------"
   exit 1
@@ -265,7 +265,7 @@ set_pkg_vars () {
   # match the substring. However, expr always outputs the number of matched characters
   # to stdout, to avoid noise in the log we redirect the output to /dev/null
   if [ "$UNAME" = "Darwin" ] && expr $(sw_vers -productVersion) : '10\.13' >/dev/null 2>&1; then
-    # avoid C++17 availability warnings on macOS < 11
+    # avoid C++20 availability warnings on macOS < 11
     PKG_CFLAGS="$PKG_CFLAGS -D_LIBCPP_DISABLE_AVAILABILITY"
   fi
 }
@@ -408,11 +408,11 @@ else
 fi
 
 # Test that we can compile something with those flags
-CXX17="`${R_HOME}/bin/R CMD config CXX17` -E"
-CXX17FLAGS=`"${R_HOME}"/bin/R CMD config CXX17FLAGS`
-CXX17STD=`"${R_HOME}"/bin/R CMD config CXX17STD`
+CXX20="`${R_HOME}/bin/R CMD config CXX20` -E"
+CXX20FLAGS=`"${R_HOME}"/bin/R CMD config CXX20FLAGS`
+CXX20STD=`"${R_HOME}"/bin/R CMD config CXX20STD`
 CPPFLAGS=`"${R_HOME}"/bin/R CMD config CPPFLAGS`
-TEST_CMD="${CXX17} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX17FLAGS} ${CXX17STD} -xc++ -"
+TEST_CMD="${CXX20} ${CPPFLAGS} ${PKG_CFLAGS} ${CXX20FLAGS} ${CXX20STD} -xc++ -"
 TEST_ERROR=$(echo "#include $PKG_TEST_HEADER" | ${TEST_CMD} -o /dev/null 2>&1)
 
 if [ $? -eq 0 ]; then
