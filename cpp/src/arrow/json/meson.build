@@ -24,6 +24,7 @@ exc = executable(
         'from_string_test.cc',
         'parser_test.cc',
         'reader_test.cc',
+        'writer_test.cc',
     ],
     dependencies: [arrow_test_dep, rapidjson_dep],
 )
@@ -35,6 +36,13 @@ exc = executable(
     dependencies: [arrow_benchmark_dep, rapidjson_dep],
 )
 benchmark('arrow-json-parser-benchmark', exc)
+
+exc = executable(
+    'arrow-json-writer-benchmark',
+    sources: ['writer_benchmark.cc'],
+    dependencies: [arrow_benchmark_dep, rapidjson_dep],
+)
+benchmark('arrow-json-writer-benchmark', exc)
 
 install_headers(
     [
@@ -51,6 +59,7 @@ install_headers(
         'reader.h',
         'test_common.h',
         'type_fwd.h',
+        'writer.h',
     ],
     subdir: 'arrow/json',
 )
