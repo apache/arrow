@@ -178,6 +178,7 @@ def test_read_options(pickle_module):
                                  encoding='utf16',
                                  skip_rows_after_names=27)
 
+    assert opts.block_size is not None
     assert opts.block_size > 0
     opts.block_size = 12345
     assert opts.block_size == 12345
@@ -302,6 +303,7 @@ def test_convert_options(pickle_module):
     with pytest.raises(ValueError):
         opts.decimal_point = '..'
 
+    assert opts.auto_dict_max_cardinality is not None
     assert opts.auto_dict_max_cardinality > 0
     opts.auto_dict_max_cardinality = 99999
     assert opts.auto_dict_max_cardinality == 99999
@@ -323,7 +325,7 @@ def test_convert_options(pickle_module):
     with pytest.raises(TypeError, match='DataType expected'):
         opts.column_types = {'a': None}
     with pytest.raises(TypeError):
-        opts.column_types = 0
+        opts.column_types = 0  # type: ignore[reportAttributeAccessIssue]
 
     assert isinstance(opts.null_values, list)
     assert '' in opts.null_values
@@ -1158,10 +1160,14 @@ class BaseCSVTableRead(BaseTestCSV):
         table = self.read_bytes(rows, convert_options=opts,
                                 validate_full=False)
         assert table.schema == schema
-        dict_values = table['a'].chunk(0).dictionary
+        column_chunk = table.column('a').chunk(0)
+        assert isinstance(column_chunk, pa.DictionaryArray)
+        dict_values = column_chunk.dictionary
         assert len(dict_values) == 2
         assert dict_values[0].as_py() == "ab"
-        assert dict_values[1].as_buffer() == b"cd\xff"
+        dict_value = dict_values[1]
+        assert isinstance(dict_value, pa.StringScalar)
+        assert dict_value.as_buffer() == b"cd\xff"
 
         # With invalid UTF8, checked
         opts.check_utf8 = True
@@ -1502,7 +1508,7 @@ class BaseCSVTableRead(BaseTestCSV):
 
         # Interruption should have arrived timely
         assert last_duration <= 2.0
-        e = exc_info.__context__
+        e = exc_info.__context__  # type: ignore[possibly-missing-attribute, misc]
         assert isinstance(e, pa.ArrowCancelled)
         assert e.signum == signal.SIGINT
 
@@ -1866,6 +1872,9 @@ class TestThreadedStreamingCSVRead(BaseStreamingCSVRead):
 
 
 class BaseTestCompressedCSVRead:
+    def write_file(self, path, contents):
+        pass
+    csv_filename = ""
 
     def setUp(self):
         self.tmpdir = tempfile.mkdtemp(prefix='arrow-csv-test-')
@@ -1997,7 +2006,7 @@ def test_write_quoting_style():
             except Exception as e:
                 # This will trigger when we try to write a comma (,)
                 # without quotes, which is invalid
-                assert isinstance(e, res)
+                assert isinstance(e, res)  # type: ignore[invalid-argument-type]
                 break
         assert buf.getvalue() == res
         buf.seek(0)
