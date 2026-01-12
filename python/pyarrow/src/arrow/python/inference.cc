@@ -711,7 +711,7 @@ class TypeInferrer {
         size_t new_index = struct_inferrers_.size();
         struct_inferrers_.emplace_back(
             key, TypeInferrer(pandas_null_sentinels_, validate_interval_, make_unions_));
-        struct_field_index_.emplace(key, new_index);
+        struct_field_index_.emplace(std::move(key), new_index);
         visitor = &struct_inferrers_.back().second;
       } else {
         // Existing field - retrieve from vector
