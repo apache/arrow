@@ -22,13 +22,14 @@
 jobs:
   homebrew:
     name: "Homebrew"
-    runs-on: macos-14
+    runs-on: macos-latest
     steps:
       {{ macros.github_checkout_arrow()|indent }}
 
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         run: |
+          brew fetch --force --deps --HEAD apache-arrow
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow
