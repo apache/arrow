@@ -2006,7 +2006,7 @@ def test_struct_from_dicts_inference():
     assert arr.to_pylist() == data
 
     # With omitted values
-    # GH-40053: Field order is determined by first occurrence: a, c from first dict, then b from fourth
+    # GH-40053: Field order follows first occurrence (a, c, then b)
     data = [{'a': 5, 'c': True},
             None,
             {},
