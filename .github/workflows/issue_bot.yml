@@ -68,7 +68,6 @@ jobs:
                 "issue_number": context.payload.issue.number,
                 "body": repo_moved_msg(moved_components[0]),
               });
-              console.log("blub")
               return;
             }
 
