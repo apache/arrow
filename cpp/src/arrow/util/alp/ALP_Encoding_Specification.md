@@ -30,11 +30,11 @@ ALP encoding consists of a page-level header followed by one or more encoded vec
 |                           ALP PAGE                               |
 +-------------+-------------+-------------+-------+----------------+
 | Page Header |  Vector 1   |  Vector 2   |  ...  |   Vector N     |
-|  (8 bytes)  | (variable)  | (variable)  |       |  (variable)    |
+| (16 bytes)  | (variable)  | (variable)  |       |  (variable)    |
 +-------------+-------------+-------------+-------+----------------+
 ```
 
-### 2.2 Page Header (8 bytes)
+### 2.2 Page Header (16 bytes)
 
 | Offset | Field            | Size    | Type   | Description                        |
 |--------|------------------|---------|--------|------------------------------------|
@@ -43,15 +43,16 @@ ALP encoding consists of a page-level header followed by one or more encoded vec
 | 2      | bit_pack_layout  | 1 byte  | uint8  | Bit packing layout (0 = normal)    |
 | 3      | reserved         | 1 byte  | uint8  | Reserved for future use            |
 | 4      | vector_size      | 4 bytes | uint32 | Elements per vector (must be 1024) |
+| 8      | num_elements     | 8 bytes | uint64 | Total element count in this page   |
 
 ```
-Page Header Layout (8 bytes)
-+---------+------------------+----------------+----------+------------------+
-| version | compression_mode | bit_pack_layout| reserved |   vector_size    |
-| 1 byte  |     1 byte       |     1 byte     |  1 byte  |     4 bytes      |
-|  0x01   |      0x00        |      0x00      |   0x00   |   0x00000400     |
-+---------+------------------+----------------+----------+------------------+
-   Byte 0        Byte 1           Byte 2        Byte 3      Bytes 4-7
+Page Header Layout (16 bytes)
++---------+------------------+----------------+----------+------------------+------------------+
+| version | compression_mode | bit_pack_layout| reserved |   vector_size    |   num_elements   |
+| 1 byte  |     1 byte       |     1 byte     |  1 byte  |     4 bytes      |     8 bytes      |
+|  0x01   |      0x00        |      0x00      |   0x00   |   0x00000400     |  (total count)   |
++---------+------------------+----------------+----------+------------------+------------------+
+   Byte 0        Byte 1           Byte 2        Byte 3      Bytes 4-7          Bytes 8-15
 ```
 
 ### 2.3 Encoded Vector Structure
@@ -61,11 +62,11 @@ Page Header Layout (8 bytes)
 |                           ENCODED VECTOR                                   |
 +-------------------+-----------------+--------------------+------------------+
 |    VectorInfo     |  Packed Values  | Exception Positions| Exception Values |
-|    (24 bytes)     |   (variable)    |    (variable)      |   (variable)     |
+|    (14 bytes)     |   (variable)    |    (variable)      |   (variable)     |
 +-------------------+-----------------+--------------------+------------------+
 ```
 
-### 2.4 VectorInfo Structure (24 bytes)
+### 2.4 VectorInfo Structure (14 bytes)
 
 | Offset | Field              | Size     | Type   | Description                             |
 |--------|--------------------|----------|--------|-----------------------------------------|
@@ -74,18 +75,19 @@ Page Header Layout (8 bytes)
 | 9      | factor             | 1 byte   | uint8  | Decimal factor f (0 <= f <= e)          |
 | 10     | bit_width          | 1 byte   | uint8  | Bits per packed value (0-64)            |
 | 11     | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
-| 12     | num_elements       | 2 bytes  | uint16 | Element count in vector (<= 1024)       |
-| 14     | num_exceptions     | 2 bytes  | uint16 | Number of exception values              |
-| 16     | bit_packed_size    | 2 bytes  | uint16 | Packed values section size (bytes)      |
-| 18     | [padding]          | 6 bytes  | -      | Alignment padding                       |
+| 12     | num_exceptions     | 2 bytes  | uint16 | Number of exception values              |
+
+**Note:** The following fields are NOT stored in VectorInfo:
+- `num_elements`: Derived from the page header. For vectors 1..N-1, it equals `vector_size` (1024). For the last vector, it equals `num_elements % vector_size` (or `vector_size` if evenly divisible).
+- `bit_packed_size`: Computed on-demand as `ceil(num_elements * bit_width / 8)`.
 
 ### 2.5 Data Section Sizes
 
-| Section             | Size Formula                    | Description                    |
-|---------------------|---------------------------------|--------------------------------|
-| Packed Values       | bit_packed_size bytes           | Bit-packed delta values        |
-| Exception Positions | num_exceptions x 2 bytes        | uint16 indices of exceptions   |
-| Exception Values    | num_exceptions x sizeof(T)      | Original float/double values   |
+| Section             | Size Formula                              | Description                    |
+|---------------------|-------------------------------------------|--------------------------------|
+| Packed Values       | ceil(num_elements x bit_width / 8) bytes  | Bit-packed delta values        |
+| Exception Positions | num_exceptions x 2 bytes                  | uint16 indices of exceptions   |
+| Exception Values    | num_exceptions x sizeof(T)                | Original float/double values   |
 
 ---
 
@@ -288,15 +290,15 @@ packed_size = ceil(4 x 10 / 8) = 5 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| VectorInfo         | FOR=12, e=2, f=0, bw=10, n=4, exc=0  | 24 bytes |
+| VectorInfo         | FOR=12, e=2, f=0, bw=10, exc=0       | 14 bytes |
 | Packed Values      | 111, 444, 777, 0 (10 bits each)      | 5 bytes  |
 | Exception Positions| (none)                               | 0 bytes  |
 | Exception Values   | (none)                               | 0 bytes  |
-| **TOTAL**          | -                                    | **29 bytes** |
+| **TOTAL**          | -                                    | **19 bytes** |
 
-Compression ratio: 16 bytes input --> 29 bytes output (overhead due to small input)
+Compression ratio: 16 bytes input --> 19 bytes output (overhead due to small input)
 
-Note: With 1024 values, the 24-byte header overhead becomes negligible.
+Note: With 1024 values, the 14-byte header overhead becomes negligible.
 
 ---
 
@@ -349,11 +351,11 @@ packed_size = ceil(4 x 4 / 8) = 2 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| VectorInfo         | FOR=15, e=1, f=0, bw=4, n=4, exc=2   | 24 bytes |
+| VectorInfo         | FOR=15, e=1, f=0, bw=4, exc=2        | 14 bytes |
 | Packed Values      | 0, 0, 10, 0 (4 bits each)            | 2 bytes  |
 | Exception Positions| [1, 3]                               | 4 bytes  |
 | Exception Values   | [NaN, 0.333...]                      | 8 bytes  |
-| **TOTAL**          | -                                    | **38 bytes** |
+| **TOTAL**          | -                                    | **28 bytes** |
 
 ---
 
@@ -442,7 +444,7 @@ Example values: 19.99, 5.49, 149.00, 0.99, 299.99, ...
 ### 8.1 Vector Size Formula
 
 ```
-vector_size = sizeof(VectorInfo)           // 24 bytes
+vector_size = sizeof(VectorInfo)           // 14 bytes
             + bit_packed_size              // ceil(num_elements x bit_width / 8)
             + num_exceptions x 2           // exception positions (uint16)
             + num_exceptions x sizeof(T)   // exception values
@@ -451,8 +453,8 @@ vector_size = sizeof(VectorInfo)           // 24 bytes
 ### 8.2 Maximum Compressed Size
 
 ```
-max_size = sizeof(PageHeader)              // 8 bytes
-         + num_vectors x sizeof(VectorInfo)  // 24 bytes each
+max_size = sizeof(PageHeader)              // 16 bytes
+         + num_vectors x sizeof(VectorInfo)  // 14 bytes each
          + num_elements x sizeof(T)          // worst case: all values packed
          + num_elements x sizeof(T)          // worst case: all exceptions
          + num_elements x 2                  // exception positions
@@ -487,7 +489,20 @@ where num_vectors = ceil(num_elements / 1024)
 
 ## Appendix A: Byte Layout Diagram
 
-### Complete Vector Serialization
+### Page Header (16 bytes)
+
+```
+Byte Offset   Content
+-----------   -------------------------------------------------------
+0             version (uint8)
+1             compression_mode (uint8)
+2             bit_pack_layout (uint8)
+3             reserved (uint8)
+4-7           vector_size (uint32, little-endian)
+8-15          num_elements (uint64, little-endian) - total element count
+```
+
+### Complete Vector Serialization (VectorInfo: 14 bytes)
 
 ```
 Byte Offset   Content
@@ -497,22 +512,19 @@ Byte Offset   Content
 9             factor (uint8)
 10            bit_width (uint8)
 11            reserved (uint8)
-12-13         num_elements (uint16, little-endian)
-14-15         num_exceptions (uint16, little-endian)
-16-17         bit_packed_size (uint16, little-endian)
-18-23         padding (6 bytes)
-24            +-----------------------------------------+
+12-13         num_exceptions (uint16, little-endian)
+14            +-----------------------------------------+
               |                                         |
               |        Packed Values                    |
-              |        (bit_packed_size bytes)          |
+              |        (P = ceil(n * bit_width / 8))    |
               |                                         |
-24+P          +-----------------------------------------+
+14+P          +-----------------------------------------+
               |                                         |
               |        Exception Positions              |
               |        (num_exceptions x 2 bytes)       |
               |        [pos0, pos1, pos2, ...]          |
               |                                         |
-24+P+E*2      +-----------------------------------------+
+14+P+E*2      +-----------------------------------------+
               |                                         |
               |        Exception Values                 |
               |        (num_exceptions x sizeof(T))     |
@@ -520,7 +532,9 @@ Byte Offset   Content
               |                                         |
               +-----------------------------------------+
 
-where P = bit_packed_size, E = num_exceptions
+where n = num_elements for this vector (from page header)
+      P = bit_packed_size = ceil(n * bit_width / 8)
+      E = num_exceptions
 ```
 
 ---
