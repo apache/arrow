@@ -520,6 +520,8 @@ endif()
 set(PARQUET_PC_REQUIRES "")
 set(PARQUET_PC_REQUIRES_PRIVATE "")
 
+include(ThirdpartyToolchain)
+
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
@@ -533,8 +535,6 @@ string(REPLACE "-std=c++20" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 
 # Add C++-only flags, like -std=c++20
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
-
-include(ThirdpartyToolchain)
 
 # ASAN / TSAN / UBSAN
 if(ARROW_FUZZING)
