@@ -161,14 +161,14 @@ struct AlpExponentAndFactor {
 /// Helper class to encapsulate all metadata of an encoded vector to be able
 /// to load and decompress it.
 ///
-/// NOTE: num_elements is NOT serialized - it's stored once in the page header
-/// (AlpHeader) and inferred for each vector during decompression. This saves
-/// 8 bytes per vector (2 bytes data + 6 bytes padding reduction).
+/// NOTE: num_elements and bit_packed_size are NOT stored:
+///   - num_elements: stored once in page header (AlpHeader), passed to functions
+///   - bit_packed_size: computed on-demand via GetBitPackedSize(num_elements, bit_width)
 ///
-/// Serialization format (stored as raw binary, 16 bytes):
+/// Serialization format (14 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedVectorInfo (16 bytes stored)  |
+///   |  AlpEncodedVectorInfo (14 bytes stored)  |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
@@ -178,10 +178,6 @@ struct AlpExponentAndFactor {
 ///   |   10    |  bit_width (uint8_t)|  1 byte  |
 ///   |   11    |  reserved (uint8_t) |  1 byte  |
 ///   |   12    |  num_exceptions     |  2 bytes |
-///   |   14    |  bit_packed_size    |  2 bytes |
-///   +------------------------------------------+
-///   |  NOT STORED (in-memory only):            |
-///   |   16    |  num_elements       |  2 bytes |
 ///   +------------------------------------------+
 struct AlpEncodedVectorInfo {
   /// Delta used for frame of reference encoding
@@ -194,31 +190,36 @@ struct AlpEncodedVectorInfo {
   uint8_t reserved = 0;
   /// Number of exceptions stored in this vector
   uint16_t num_exceptions = 0;
-  /// Overall bitpacked size of non-exception values (max ~8KB for 1024 elements)
-  uint16_t bit_packed_size = 0;
-  /// Number of elements encoded in this vector (NOT serialized - provided by caller)
-  uint16_t num_elements = 0;
 
-  /// Size of the serialized portion (first 16 bytes, excludes num_elements)
-  static constexpr uint64_t kStoredSize = 16;
+  /// Size of the serialized portion (14 bytes)
+  static constexpr uint64_t kStoredSize = 14;
+
+  /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
+  ///
+  /// This value is NOT stored to save space. It can always be computed:
+  ///   bit_packed_size = ceil(num_elements * bit_width / 8)
+  ///
+  /// \param[in] num_elements number of elements in this vector
+  /// \param[in] bit_width bits per element
+  /// \return the size in bytes of the bitpacked data
+  static uint64_t GetBitPackedSize(uint16_t num_elements, uint8_t bit_width) {
+    return (static_cast<uint64_t>(num_elements) * bit_width + 7) / 8;
+  }
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
   /// \param[out] output_buffer the buffer to store the compressed data into
-  /// \note num_elements is NOT stored - it's inferred from the page header
   void Store(arrow::util::span<char> output_buffer) const;
 
   /// \brief Load a compressed vector into the state from a compact format
   ///
   /// \param[in] input_buffer the buffer to load from
-  /// \param[in] num_elements the number of elements (from page header)
   /// \return the loaded AlpEncodedVectorInfo
-  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer,
-                                   uint16_t num_elements);
+  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer);
 
   /// \brief Get serialized size of the encoded vector info
   ///
-  /// \return the size in bytes (16 bytes, excludes num_elements)
+  /// \return the size in bytes (14 bytes)
   static uint64_t GetStoredSize() { return kStoredSize; }
 
   bool operator==(const AlpEncodedVectorInfo& other) const;
@@ -237,11 +238,10 @@ struct AlpEncodedVectorInfo {
 ///   +------------------------------------------------------------+
 ///   |  Section              |  Size (bytes)        | Description |
 ///   +-----------------------+----------------------+-------------+
-///   |  1. VectorInfo        |  sizeof(VectorInfo)  |  Metadata   |
-///   |     (see above)       |  (24 bytes)          |             |
+///   |  1. VectorInfo        |  14 bytes            |  Metadata   |
 ///   +-----------------------+----------------------+-------------+
 ///   |  2. Packed Values     |  bit_packed_size     |  Bitpacked  |
-///   |     (compressed data) |  (variable)          |  integers   |
+///   |     (compressed data) |  (computed)          |  integers   |
 ///   +-----------------------+----------------------+-------------+
 ///   |  3. Exception Pos     |  num_exceptions * 2  |  uint16_t[] |
 ///   |     (indices)         |  (variable)          |  positions  |
@@ -251,16 +251,18 @@ struct AlpEncodedVectorInfo {
 ///   +------------------------------------------------------------+
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
-///   - VectorInfo:        36 bytes
+///   - VectorInfo:         14 bytes
 ///   - Packed Values:    1024 bytes (1024 * 8 bits / 8)
 ///   - Exception Pos:      10 bytes (5 * 2)
 ///   - Exception Values:   20 bytes (5 * 4)
-///   Total:              1090 bytes
+///   Total:              1068 bytes
 template <typename T>
 class AlpEncodedVector {
  public:
   /// Metadata of the encoded vector
   AlpEncodedVectorInfo vector_info;
+  /// Number of elements in this vector (not serialized; from page header)
+  uint16_t num_elements = 0;
   /// Successfully encoded and bitpacked data
   arrow::internal::StaticVector<uint8_t, AlpConstants::kAlpVectorSize * sizeof(T)>
       packed_values;
@@ -274,16 +276,17 @@ class AlpEncodedVector {
   /// \return the stored size in bytes
   uint64_t GetStoredSize() const;
 
-  /// \brief Get the stored size for a given vector info
+  /// \brief Get the stored size for a given vector info and element count
   ///
   /// \param[in] info the vector info to calculate size for
+  /// \param[in] num_elements the number of elements in this vector
   /// \return the stored size in bytes
-  static uint64_t GetStoredSize(const AlpEncodedVectorInfo& info);
+  static uint64_t GetStoredSize(const AlpEncodedVectorInfo& info, uint16_t num_elements);
 
   /// \brief Get the number of elements in this vector
   ///
   /// \return number of elements
-  uint64_t GetNumElements() const { return vector_info.num_elements; }
+  uint64_t GetNumElements() const { return num_elements; }
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
@@ -317,6 +320,8 @@ template <typename T>
 struct AlpEncodedVectorView {
   /// Metadata of the encoded vector (copied, small fixed size)
   AlpEncodedVectorInfo vector_info;
+  /// Number of elements in this vector (not serialized; from page header)
+  uint16_t num_elements = 0;
   /// View into bitpacked data (no copy)
   arrow::util::span<const uint8_t> packed_values;
   /// View into exception values (no copy)
@@ -487,12 +492,13 @@ class AlpCompression : private AlpConstants {
   /// \param[out] output_vector output buffer to write decoded floats to
   /// \param[in] input_vector encoded integers (after bit unpacking and unFOR)
   /// \param[in] vector_info metadata with exponent, factor, decoding params
+  /// \param[in] num_elements number of elements to decode
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecodeVector(TargetType* output_vector,
                            arrow::util::span<ExactType> input_vector,
-                           AlpEncodedVectorInfo vector_info);
+                           AlpEncodedVectorInfo vector_info, uint16_t num_elements);
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
@@ -520,10 +526,11 @@ class AlpCompression : private AlpConstants {
   ///
   /// \param[in] packed_integers the bitpacked integer data to unpack
   /// \param[in] vector_info metadata with bit width and unpacking parameters
+  /// \param[in] num_elements number of elements to unpack
   /// \return a vector of unpacked integers (still with frame of reference)
   static arrow::internal::StaticVector<ExactType, kAlpVectorSize> BitUnpackIntegers(
       arrow::util::span<const uint8_t> packed_integers,
-      AlpEncodedVectorInfo vector_info);
+      AlpEncodedVectorInfo vector_info, uint16_t num_elements);
 
   /// \brief Patch exceptions into the decoded output vector
   ///

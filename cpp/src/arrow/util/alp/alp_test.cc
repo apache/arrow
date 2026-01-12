@@ -219,29 +219,27 @@ TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   info.bit_width = 12;
   info.reserved = 0;
   info.num_exceptions = 10;
-  info.bit_packed_size = 1536;
-  info.num_elements = 1024;  // Not serialized, provided by caller
 
   std::vector<char> buffer(AlpEncodedVectorInfo::GetStoredSize() + 10);
   info.Store({buffer.data(), buffer.size()});
 
-  // Note: num_elements is passed to Load() since it's not stored
+  // Load (num_elements is not stored, so not passed here)
   AlpEncodedVectorInfo loaded =
-      AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()}, 1024);
+      AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()});
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference, 0x123456789ABCDEF0ULL);
   EXPECT_EQ(loaded.exponent_and_factor.exponent, 5);
   EXPECT_EQ(loaded.exponent_and_factor.factor, 3);
   EXPECT_EQ(loaded.bit_width, 12);
-  EXPECT_EQ(loaded.num_elements, 1024);
   EXPECT_EQ(loaded.num_exceptions, 10);
-  EXPECT_EQ(loaded.bit_packed_size, 1536);
+  // bit_packed_size is computed, not stored
+  EXPECT_EQ(AlpEncodedVectorInfo::GetBitPackedSize(1024, 12), 1536);
 }
 
 TEST(AlpEncodedVectorInfoTest, Size) {
-  // Verify the stored size is 16 bytes (num_elements not stored)
-  EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), 16);
-  EXPECT_EQ(AlpEncodedVectorInfo::kStoredSize, 16);
+  // Verify the stored size is 14 bytes (num_elements and bit_packed_size not stored)
+  EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), 14);
+  EXPECT_EQ(AlpEncodedVectorInfo::kStoredSize, 14);
 }
 
 // ============================================================================
