@@ -149,12 +149,15 @@ struct AltrepVectorBase {
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
+    SEXP class_sym = R_altrep_class_name(alt);
+    const char* class_name = CHAR(PRINTNAME(class_sym));
+
     if (IsMaterialized(alt)) {
-      Rprintf("materialized %s len=%ld\n", Impl::class_name,
+      Rprintf("materialized %s len=%ld\n", class_name,
               static_cast<long>(Rf_xlength(Representation(alt))));  // NOLINT: runtime/int
     } else {
       const auto& chunked_array = GetChunkedArray(alt);
-      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", Impl::class_name,
+      Rprintf("%s<%p, %s, %d chunks, %ld nulls> len=%ld\n", class_name,
               reinterpret_cast<void*>(chunked_array.get()),
               chunked_array->type()->ToString().c_str(), chunked_array->num_chunks(),
               static_cast<long>(chunked_array->null_count()),  // NOLINT: runtime/int
@@ -194,7 +197,6 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 
   // singleton altrep class description
   static R_altrep_class_t class_t;
-  static const char* class_name;
 
   using c_type = typename std::conditional<sexp_type == REALSXP, double, int>::type;
   using Base::IsMaterialized;
@@ -435,13 +437,10 @@ struct AltrepVectorPrimitive : public AltrepVectorBase<AltrepVectorPrimitive<sex
 };
 template <int sexp_type>
 R_altrep_class_t AltrepVectorPrimitive<sexp_type>::class_t;
-template <int sexp_type>
-const char* AltrepVectorPrimitive<sexp_type>::class_name;
 
 struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   // singleton altrep class description
   static R_altrep_class_t class_t;
-  static const char* class_name;
 
   using Base = AltrepVectorBase<AltrepFactor>;
   using Base::IsMaterialized;
@@ -765,7 +764,6 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
   static SEXP Sum(SEXP alt, Rboolean narm) { return nullptr; }
 };
 R_altrep_class_t AltrepFactor::class_t;
-const char* AltrepFactor::class_name;
 
 // Implementation for string arrays
 template <typename Type>
@@ -773,7 +771,6 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
   using Base = AltrepVectorBase<AltrepVectorString<Type>>;
 
   static R_altrep_class_t class_t;
-  static const char* class_name;
   using StringArrayType = typename TypeTraits<Type>::ArrayType;
 
   using Base::Representation;
@@ -971,8 +968,6 @@ struct AltrepVectorString : public AltrepVectorBase<AltrepVectorString<Type>> {
 
 template <typename Type>
 R_altrep_class_t AltrepVectorString<Type>::class_t;
-template <typename Type>
-const char* AltrepVectorString<Type>::class_name;
 
 // initialize altrep, altvec, altreal, and altinteger methods
 template <typename AltrepClass>
@@ -1020,7 +1015,6 @@ void InitAltIntegerMethods(R_altrep_class_t class_t, DllInfo* dll) {
 template <typename AltrepClass>
 void InitAltRealClass(DllInfo* dll, const char* name) {
   AltrepClass::class_t = R_make_altreal_class(name, "arrow", dll);
-  AltrepClass::class_name = name;
   InitAltrepMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltvecMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltRealMethods<AltrepClass>(AltrepClass::class_t, dll);
@@ -1029,7 +1023,6 @@ void InitAltRealClass(DllInfo* dll, const char* name) {
 template <typename AltrepClass>
 void InitAltIntegerClass(DllInfo* dll, const char* name) {
   AltrepClass::class_t = R_make_altinteger_class(name, "arrow", dll);
-  AltrepClass::class_name = name;
   InitAltrepMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltvecMethods<AltrepClass>(AltrepClass::class_t, dll);
   InitAltIntegerMethods<AltrepClass>(AltrepClass::class_t, dll);
@@ -1038,7 +1031,6 @@ void InitAltIntegerClass(DllInfo* dll, const char* name) {
 template <typename AltrepClass>
 void InitAltStringClass(DllInfo* dll, const char* name) {
   AltrepClass::class_t = R_make_altstring_class(name, "arrow", dll);
-  AltrepClass::class_name = name;
   R_set_altrep_Length_method(AltrepClass::class_t, AltrepClass::Length);
   R_set_altrep_Inspect_method(AltrepClass::class_t, AltrepClass::Inspect);
   R_set_altrep_Duplicate_method(AltrepClass::class_t, AltrepClass::Duplicate);

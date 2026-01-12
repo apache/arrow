@@ -50,6 +50,13 @@
 #define DATAPTR(x) (void*)STRING_PTR(x)
 #endif
 
+// R_altrep_class_name doesn't exist before R 4.6
+#if R_VERSION < R_Version(4, 6, 0)
+inline SEXP R_altrep_class_name(SEXP x) {
+  return ALTREP(x) ? CAR(ATTRIB(ALTREP_CLASS(x))) : R_NilValue;
+}
+#endif
+
 namespace arrow {
 namespace r {
 
