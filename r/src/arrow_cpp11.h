@@ -39,11 +39,6 @@
 #define ARROW_R_DCHECK(EXPR)
 #endif
 
-// For context, see:
-// https://github.com/r-devel/r-svn/blob/6418faeb6f5d87d3d9b92b8978773bc3856b4b6f/src/main/altrep.c#L37
-#define ALTREP_CLASS_SERIALIZED_CLASS(x) ATTRIB(x)
-#define ALTREP_SERIALIZED_CLASS_PKGSYM(x) CADR(x)
-
 #if (R_VERSION < R_Version(3, 5, 0))
 #define LOGICAL_RO(x) ((const int*)LOGICAL(x))
 #define INTEGER_RO(x) ((const int*)INTEGER(x))
@@ -53,6 +48,16 @@
 #define RAW_RO(x) ((const Rbyte*)RAW(x))
 #define DATAPTR_RO(x) ((const void*)STRING_PTR(x))
 #define DATAPTR(x) (void*)STRING_PTR(x)
+#endif
+
+// R_altrep_class_name and R_altrep_class_package don't exist before R 4.6
+#if R_VERSION < R_Version(4, 6, 0)
+inline SEXP R_altrep_class_name(SEXP x) {
+  return ALTREP(x) ? CAR(ATTRIB(ALTREP_CLASS(x))) : R_NilValue;
+}
+inline SEXP R_altrep_class_package(SEXP x) {
+  return ALTREP(x) ? CADR(ATTRIB(ALTREP_CLASS(x))) : R_NilValue;
+}
 #endif
 
 namespace arrow {
