@@ -1093,11 +1093,8 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 
 bool is_arrow_altrep(SEXP x) {
   if (ALTREP(x)) {
-    return R_altrep_inherits(x, AltrepVectorPrimitive<REALSXP>::class_t) ||
-           R_altrep_inherits(x, AltrepVectorPrimitive<INTSXP>::class_t) ||
-           R_altrep_inherits(x, AltrepFactor::class_t) ||
-           R_altrep_inherits(x, AltrepVectorString<StringType>::class_t) ||
-           R_altrep_inherits(x, AltrepVectorString<LargeStringType>::class_t);
+    SEXP pkg = R_altrep_class_package(x);
+    if (pkg == symbols::arrow) return true;
   }
 
   return false;
@@ -1160,21 +1157,20 @@ sexp test_arrow_altrep_is_materialized(sexp x) {
     return Rf_ScalarLogical(NA_LOGICAL);
   }
 
+  SEXP class_sym = R_altrep_class_name(x);
+  std::string class_name(CHAR(PRINTNAME(class_sym)));
+
   int result = NA_LOGICAL;
-  if (R_altrep_inherits(x, arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::class_t)) {
+  if (class_name == "arrow::array_dbl_vector") {
     result = arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::IsMaterialized(x);
-  } else if (R_altrep_inherits(
-                 x, arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::class_t)) {
+  } else if (class_name == "arrow::array_int_vector") {
     result = arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::IsMaterialized(x);
-  } else if (R_altrep_inherits(
-                 x, arrow::r::altrep::AltrepVectorString<arrow::StringType>::class_t)) {
+  } else if (class_name == "arrow::array_string_vector") {
     result = arrow::r::altrep::AltrepVectorString<arrow::StringType>::IsMaterialized(x);
-  } else if (R_altrep_inherits(
-                 x,
-                 arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::class_t)) {
+  } else if (class_name == "arrow::array_large_string_vector") {
     result =
         arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::IsMaterialized(x);
-  } else if (R_altrep_inherits(x, arrow::r::altrep::AltrepFactor::class_t)) {
+  } else if (class_name == "arrow::array_factor") {
     result = arrow::r::altrep::AltrepFactor::IsMaterialized(x);
   }
 
@@ -1192,19 +1188,18 @@ bool test_arrow_altrep_force_materialize(sexp x) {
     stop("x is already materialized");
   }
 
-  if (R_altrep_inherits(x, arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::class_t)) {
+  SEXP class_sym = R_altrep_class_name(x);
+  std::string class_name(CHAR(PRINTNAME(class_sym)));
+
+  if (class_name == "arrow::array_dbl_vector") {
     arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::Materialize(x);
-  } else if (R_altrep_inherits(
-                 x, arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::class_t)) {
+  } else if (class_name == "arrow::array_int_vector") {
     arrow::r::altrep::AltrepVectorPrimitive<INTSXP>::Materialize(x);
-  } else if (R_altrep_inherits(
-                 x, arrow::r::altrep::AltrepVectorString<arrow::StringType>::class_t)) {
+  } else if (class_name == "arrow::array_string_vector") {
     arrow::r::altrep::AltrepVectorString<arrow::StringType>::Materialize(x);
-  } else if (R_altrep_inherits(
-                 x,
-                 arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::class_t)) {
+  } else if (class_name == "arrow::array_large_string_vector") {
     arrow::r::altrep::AltrepVectorString<arrow::LargeStringType>::Materialize(x);
-  } else if (R_altrep_inherits(x, arrow::r::altrep::AltrepFactor::class_t)) {
+  } else if (class_name == "arrow::array_factor") {
     arrow::r::altrep::AltrepFactor::Materialize(x);
   } else {
     return false;
