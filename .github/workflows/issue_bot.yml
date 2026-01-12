@@ -48,9 +48,9 @@ jobs:
               "nanoarrow": "arrow-nanoarrow",
             };
 
-            let repo_moved_msg = (component, repo) => `Thanks for your report! The ${component} implementation has moved to https://github.com/apache/${repo}.
-
-This issue has been closed automatically - please open a new issue there.`;
+            let repo_moved_msg = (component, repo) =>
+              `Thanks for your report! The ${component} implementation has moved to https://github.com/apache/${repo}.\n\n` +
+              `This issue has been closed automatically - please open a new issue there.`;
 
             let split_body = context.payload.issue.body.split('### Component(s)');
             if (split_body.length != 2) throw new Error('No components found!');
