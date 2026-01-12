@@ -41,7 +41,7 @@ namespace {
 /// stores the total element count for the page, allowing per-vector element
 /// counts to be inferred (all vectors except the last have vector_size elements).
 ///
-/// Serialization format (version 2):
+/// Serialization format (version 1):
 ///
 ///   +---------------------------------------------------+
 ///   |  AlpHeader (16 bytes)                             |
@@ -79,9 +79,8 @@ struct AlpHeader {
   /// \param[in] v the version number
   /// \return the size in bytes
   static constexpr size_t GetSizeForVersion(uint8_t v) {
-    // Version 2 header is 16 bytes (added num_elements)
-    // Version 1 header was 8 bytes (deprecated)
-    return (v == 2) ? 16 : (v == 1) ? 8 : 0;
+    // Version 1 header is 16 bytes
+    return (v == 1) ? 16 : 0;
   }
 
   /// \brief Check whether the given version is valid
@@ -89,7 +88,7 @@ struct AlpHeader {
   /// \param[in] v the version to check
   /// \return the version if valid, otherwise asserts
   static uint8_t IsValidVersion(uint8_t v) {
-    ARROW_CHECK(v == 1 || v == 2) << "invalid_version: " << static_cast<int>(v);
+    ARROW_CHECK(v == 1) << "invalid_version: " << static_cast<int>(v);
     return v;
   }
 
@@ -193,12 +192,9 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint64_t num_elements, const char
   ARROW_CHECK(header.GetCompressionMode() == AlpMode::kAlp)
       << "alp_decode_unsupported_mode";
 
-  // For version 2+, num_elements is in header; for version 1, use caller's value
-  const uint64_t total_elements =
-      (header.version >= 2) ? header.num_elements : num_elements;
-
   DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
-                        header.GetBitPackLayout(), header.vector_size, total_elements);
+                        header.GetBitPackLayout(), header.vector_size,
+                        header.num_elements);
 }
 
 template void AlpWrapper<float>::Decode(float* decomp, uint64_t num_elements,

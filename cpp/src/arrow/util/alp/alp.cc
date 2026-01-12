@@ -608,14 +608,16 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
   }
 
   // Transfer compressed data into a serializable format.
+  // Field order: frame_of_reference, exponent_and_factor, bit_width, reserved,
+  //              num_exceptions, bit_packed_size, num_elements (not serialized)
   const AlpEncodedVectorInfo vector_info{
       encoding_result.frame_of_reference,
       exponent_and_factor,
       bitpacking_result.bit_width,
       0,  // reserved
-      num_elements,
-      static_cast<uint16_t>(encoding_result.exceptions.size()),
-      bitpacking_result.bit_packed_size};
+      static_cast<uint16_t>(encoding_result.exceptions.size()),  // num_exceptions
+      bitpacking_result.bit_packed_size,
+      num_elements};  // num_elements (at end, not serialized)
 
   return AlpEncodedVector<T>{vector_info, bitpacking_result.packed_integers,
                              encoding_result.exceptions,
