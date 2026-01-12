@@ -37,14 +37,14 @@ namespace {
 
 /// \brief Header structure for ALP compression blocks
 ///
-/// Contains metadata required to decompress the data. Note that compressed_size
-/// and num_elements are NOT stored in the header - they are available from the
-/// page header and passed to the Decode() function.
+/// Contains page-level metadata for ALP compression. The num_elements field
+/// stores the total element count for the page, allowing per-vector element
+/// counts to be inferred (all vectors except the last have vector_size elements).
 ///
-/// Serialization format (version 1):
+/// Serialization format (version 2):
 ///
 ///   +---------------------------------------------------+
-///   |  AlpHeader (8 bytes)                              |
+///   |  AlpHeader (16 bytes)                             |
 ///   +---------------------------------------------------+
 ///   |  Offset |  Field              |  Size             |
 ///   +---------+---------------------+-------------------+
@@ -53,6 +53,7 @@ namespace {
 ///   |    2    |  bit_pack_layout    |  1 byte (uint8)   |
 ///   |    3    |  reserved           |  1 byte (uint8)   |
 ///   |    4    |  vector_size        |  4 bytes (uint32) |
+///   |    8    |  num_elements       |  8 bytes (uint64) |
 ///   +---------------------------------------------------+
 ///
 /// \note version must remain the first field to allow reading the rest
@@ -69,14 +70,18 @@ struct AlpHeader {
   /// Vector size used for compression.
   /// Must be AlpConstants::kAlpVectorSize for decompression.
   uint32_t vector_size = 0;
+  /// Total number of elements in the page.
+  /// Per-vector element count is inferred: vector_size for all but the last vector.
+  uint64_t num_elements = 0;
 
   /// \brief Get the size in bytes of the AlpHeader for a version
   ///
   /// \param[in] v the version number
   /// \return the size in bytes
   static constexpr size_t GetSizeForVersion(uint8_t v) {
-    // Version 1 header is 8 bytes
-    return (v == 1) ? 8 : 0;
+    // Version 2 header is 16 bytes (added num_elements)
+    // Version 1 header was 8 bytes (deprecated)
+    return (v == 2) ? 16 : (v == 1) ? 8 : 0;
   }
 
   /// \brief Check whether the given version is valid
@@ -84,8 +89,23 @@ struct AlpHeader {
   /// \param[in] v the version to check
   /// \return the version if valid, otherwise asserts
   static uint8_t IsValidVersion(uint8_t v) {
-    ARROW_CHECK(v == 1) << "invalid_version: " << static_cast<int>(v);
+    ARROW_CHECK(v == 1 || v == 2) << "invalid_version: " << static_cast<int>(v);
     return v;
+  }
+
+  /// \brief Calculate the number of elements for a given vector index
+  ///
+  /// \param[in] vector_index the 0-based index of the vector
+  /// \return the number of elements in this vector
+  uint16_t GetVectorNumElements(uint64_t vector_index) const {
+    const uint64_t num_full_vectors = num_elements / vector_size;
+    const uint64_t remainder = num_elements % vector_size;
+    if (vector_index < num_full_vectors) {
+      return static_cast<uint16_t>(vector_size);  // Full vector
+    } else if (vector_index == num_full_vectors && remainder > 0) {
+      return static_cast<uint16_t>(remainder);  // Last partial vector
+    }
+    return 0;  // Invalid index
   }
 
   /// \brief Get the AlpMode enum from the stored uint8_t
@@ -152,6 +172,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   header.bit_pack_layout = static_cast<uint8_t>(AlpBitPackLayout::kNormal);
   header.vector_size = AlpConstants::kAlpVectorSize;
+  header.num_elements = element_count;
 
   std::memcpy(encoded_header, &header, header_size);
   *comp_size = header_size + compression_progress.num_compressed_bytes_produced;
@@ -172,8 +193,12 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint64_t num_elements, const char
   ARROW_CHECK(header.GetCompressionMode() == AlpMode::kAlp)
       << "alp_decode_unsupported_mode";
 
+  // For version 2+, num_elements is in header; for version 1, use caller's value
+  const uint64_t total_elements =
+      (header.version >= 2) ? header.num_elements : num_elements;
+
   DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
-                        header.GetBitPackLayout());
+                        header.GetBitPackLayout(), header.vector_size, total_elements);
 }
 
 template void AlpWrapper<float>::Decode(float* decomp, uint64_t num_elements,
@@ -243,25 +268,43 @@ template <typename T>
 template <typename TargetType>
 auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                               const char* comp, size_t comp_size,
-                              AlpBitPackLayout bit_pack_layout) -> DecompressionProgress {
+                              AlpBitPackLayout bit_pack_layout,
+                              uint32_t vector_size, uint64_t total_elements)
+    -> DecompressionProgress {
   uint64_t input_offset = 0;
   uint64_t output_offset = 0;
-  while (input_offset < comp_size && output_offset < decomp_element_count) {
-    // Use zero-copy view to avoid memory allocation and copying
-    const AlpEncodedVectorView<T> encoded_view =
-        AlpEncodedVectorView<T>::LoadView({comp + input_offset, comp_size - input_offset});
-    const uint64_t compressed_size = encoded_view.GetStoredSize();
-    const uint64_t element_count = encoded_view.vector_info.num_elements;
+  uint64_t vector_index = 0;
 
-    ARROW_CHECK(output_offset + element_count <= decomp_element_count)
-        << "alp_decode_output_too_small: " << output_offset << " vs " << element_count
-        << " vs " << decomp_element_count;
+  // Calculate per-vector element count from total and position
+  const uint64_t num_full_vectors = total_elements / vector_size;
+  const uint64_t remainder = total_elements % vector_size;
+
+  while (input_offset < comp_size && output_offset < decomp_element_count) {
+    // Calculate this vector's element count
+    uint16_t this_vector_elements;
+    if (vector_index < num_full_vectors) {
+      this_vector_elements = static_cast<uint16_t>(vector_size);
+    } else if (vector_index == num_full_vectors && remainder > 0) {
+      this_vector_elements = static_cast<uint16_t>(remainder);
+    } else {
+      break;  // No more vectors
+    }
+
+    // Use zero-copy view to avoid memory allocation and copying
+    const AlpEncodedVectorView<T> encoded_view = AlpEncodedVectorView<T>::LoadView(
+        {comp + input_offset, comp_size - input_offset}, this_vector_elements);
+    const uint64_t compressed_size = encoded_view.GetStoredSize();
+
+    ARROW_CHECK(output_offset + this_vector_elements <= decomp_element_count)
+        << "alp_decode_output_too_small: " << output_offset << " vs "
+        << this_vector_elements << " vs " << decomp_element_count;
 
     AlpCompression<T>::DecompressVectorView(encoded_view, bit_pack_layout,
                                             decomp + output_offset);
 
     input_offset += compressed_size;
-    output_offset += element_count;
+    output_offset += this_vector_elements;
+    vector_index++;
   }
 
   return DecompressionProgress{output_offset, input_offset};
