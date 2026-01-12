@@ -42,7 +42,7 @@ TEST(AlpConstantsTest, SamplerConstants) {
   EXPECT_GT(AlpConstants::kSamplerVectorSize, 0);
   EXPECT_GT(AlpConstants::kSamplerRowgroupSize, 0);
   EXPECT_GT(AlpConstants::kSamplerSamplesPerVector, 0);
-  EXPECT_EQ(AlpConstants::kAlpVersion, 1);
+  EXPECT_EQ(AlpConstants::kAlpVersion, 2);  // Version 2: num_elements in page header
 }
 
 // ============================================================================
@@ -218,15 +218,16 @@ TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   info.exponent_and_factor = {5, 3};
   info.bit_width = 12;
   info.reserved = 0;
-  info.num_elements = 1024;
   info.num_exceptions = 10;
   info.bit_packed_size = 1536;
+  info.num_elements = 1024;  // Not serialized, provided by caller
 
   std::vector<char> buffer(AlpEncodedVectorInfo::GetStoredSize() + 10);
   info.Store({buffer.data(), buffer.size()});
 
+  // Note: num_elements is passed to Load() since it's not stored
   AlpEncodedVectorInfo loaded =
-      AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()});
+      AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()}, 1024);
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference, 0x123456789ABCDEF0ULL);
   EXPECT_EQ(loaded.exponent_and_factor.exponent, 5);
@@ -238,8 +239,9 @@ TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
 }
 
 TEST(AlpEncodedVectorInfoTest, Size) {
-  // Verify the stored size is as expected (18 bytes data + padding)
-  EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), sizeof(AlpEncodedVectorInfo));
+  // Verify the stored size is 16 bytes (num_elements not stored)
+  EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), 16);
+  EXPECT_EQ(AlpEncodedVectorInfo::kStoredSize, 16);
 }
 
 // ============================================================================
@@ -492,9 +494,9 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
   std::vector<char> buffer(encoded.GetStoredSize());
   encoded.Store({buffer.data(), buffer.size()});
 
-  // Load
-  auto loaded =
-      AlpEncodedVector<TypeParam>::Load({buffer.data(), buffer.size()});
+  // Load (pass num_elements since it's not stored in the buffer)
+  auto loaded = AlpEncodedVector<TypeParam>::Load(
+      {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size()));
 
   // Verify metadata
   EXPECT_EQ(encoded.vector_info, loaded.vector_info);

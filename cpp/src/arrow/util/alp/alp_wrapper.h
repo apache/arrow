@@ -122,13 +122,16 @@ class AlpWrapper {
   /// \param[in] comp the compressed buffer to be decompressed
   /// \param[in] comp_size the size of the compressed data
   /// \param[in] bit_pack_layout the bit packing layout used
+  /// \param[in] vector_size the number of elements per vector (from header)
+  /// \param[in] total_elements the total number of elements in the page (from header)
   /// \return the decompression progress
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static DecompressionProgress DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                                          const char* comp, size_t comp_size,
-                                         AlpBitPackLayout bit_pack_layout);
+                                         AlpBitPackLayout bit_pack_layout,
+                                         uint32_t vector_size, uint64_t total_elements);
 
   /// \brief Load the AlpHeader from compressed data
   ///
