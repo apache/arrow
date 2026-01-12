@@ -50,25 +50,39 @@ void AlpEncodedVectorInfo::Store(arrow::util::span<char> output_buffer) const {
       << "alp_vector_info_output_too_small: " << output_buffer.size() << " vs "
       << GetStoredSize();
 
-  std::memcpy(output_buffer.data(), this, GetStoredSize());
+  // Only store the first kStoredSize bytes (excludes num_elements at the end)
+  std::memcpy(output_buffer.data(), this, kStoredSize);
 }
 
 AlpEncodedVectorInfo AlpEncodedVectorInfo::Load(
-    arrow::util::span<const char> input_buffer) {
+    arrow::util::span<const char> input_buffer, uint16_t num_elements) {
   ARROW_CHECK(input_buffer.size() >= GetStoredSize())
       << "alp_vector_info_input_too_small: " << input_buffer.size() << " vs "
       << GetStoredSize();
+  ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
+      << "alp_compression_state_element_count_too_large: " << num_elements << " vs "
+      << AlpConstants::kAlpVectorSize;
 
-  AlpEncodedVectorInfo result;
-  std::memcpy(&result, input_buffer.data(), GetStoredSize());
-  ARROW_CHECK(result.num_elements <= AlpConstants::kAlpVectorSize)
-      << "alp_compression_state_element_count_too_large: " << result.num_elements
-      << " vs " << AlpConstants::kAlpVectorSize;
+  AlpEncodedVectorInfo result{};
+  // Load only the serialized portion (first kStoredSize bytes) field-by-field
+  // to avoid memcpy warning on non-trivial type
+  const char* ptr = input_buffer.data();
+  std::memcpy(&result.frame_of_reference, ptr, sizeof(result.frame_of_reference));
+  ptr += sizeof(result.frame_of_reference);
+  std::memcpy(&result.exponent_and_factor, ptr, sizeof(result.exponent_and_factor));
+  ptr += sizeof(result.exponent_and_factor);
+  std::memcpy(&result.bit_width, ptr, sizeof(result.bit_width));
+  ptr += sizeof(result.bit_width);
+  std::memcpy(&result.reserved, ptr, sizeof(result.reserved));
+  ptr += sizeof(result.reserved);
+  std::memcpy(&result.num_exceptions, ptr, sizeof(result.num_exceptions));
+  ptr += sizeof(result.num_exceptions);
+  std::memcpy(&result.bit_packed_size, ptr, sizeof(result.bit_packed_size));
+  // Set num_elements from the caller (page header provides this)
+  result.num_elements = num_elements;
 
   return result;
 }
-
-uint64_t AlpEncodedVectorInfo::GetStoredSize() { return sizeof(AlpEncodedVectorInfo); }
 
 // ----------------------------------------------------------------------
 // AlpEncodedVector implementation
@@ -112,9 +126,9 @@ void AlpEncodedVector<T>::Store(arrow::util::span<char> output_buffer) const {
 
 template <typename T>
 AlpEncodedVector<T> AlpEncodedVector<T>::Load(
-    arrow::util::span<const char> input_buffer) {
+    arrow::util::span<const char> input_buffer, uint16_t num_elements) {
   AlpEncodedVector<T> result;
-  result.vector_info = AlpEncodedVectorInfo::Load(input_buffer);
+  result.vector_info = AlpEncodedVectorInfo::Load(input_buffer, num_elements);
   uint64_t input_offset = AlpEncodedVectorInfo::GetStoredSize();
 
   const uint64_t overall_size = GetStoredSize(result.vector_info);
@@ -122,9 +136,6 @@ AlpEncodedVector<T> AlpEncodedVector<T>::Load(
   ARROW_CHECK(input_buffer.size() >= overall_size)
       << "alp_compression_state_input_too_small: " << input_buffer.size() << " vs "
       << overall_size;
-  ARROW_CHECK(result.vector_info.num_elements <= AlpConstants::kAlpVectorSize)
-      << "alp_compression_state_element_count_too_large: "
-      << result.vector_info.num_elements << " vs " << AlpConstants::kAlpVectorSize;
 
   // Optimization: Use UnsafeResize to avoid zero-initialization before memcpy.
   // This is safe for POD types since we immediately overwrite with memcpy.
@@ -158,18 +169,15 @@ uint64_t AlpEncodedVector<T>::GetStoredSize() const {
 
 template <typename T>
 AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
-    arrow::util::span<const char> input_buffer) {
+    arrow::util::span<const char> input_buffer, uint16_t num_elements) {
   AlpEncodedVectorView<T> result;
-  result.vector_info = AlpEncodedVectorInfo::Load(input_buffer);
+  result.vector_info = AlpEncodedVectorInfo::Load(input_buffer, num_elements);
   uint64_t input_offset = AlpEncodedVectorInfo::GetStoredSize();
 
   const uint64_t overall_size = AlpEncodedVector<T>::GetStoredSize(result.vector_info);
 
   ARROW_CHECK(input_buffer.size() >= overall_size)
       << "alp_view_input_too_small: " << input_buffer.size() << " vs " << overall_size;
-  ARROW_CHECK(result.vector_info.num_elements <= AlpConstants::kAlpVectorSize)
-      << "alp_view_element_count_too_large: " << result.vector_info.num_elements
-      << " vs " << AlpConstants::kAlpVectorSize;
 
   // Create spans pointing directly into the input buffer (zero-copy)
   result.packed_values = {
