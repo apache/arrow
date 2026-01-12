@@ -29,6 +29,8 @@ jobs:
       {{ macros.configure_homebrew_arrow(formula)|indent }}
       - name: Test formula
         run: |
+          rm -rf ~/Library/Caches/Homebrew/downloads/
+          
           brew install -v --HEAD apache-arrow
           brew test apache-arrow
           brew audit --strict apache-arrow
