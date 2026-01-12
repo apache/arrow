@@ -33,11 +33,24 @@ jobs:
     permissions:
       issues: write
     steps:
-      - uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
+      - uses: actions/github-script@v8
         with:
           script: |
-            let repo_moved_msg = component => `The ${component} implementation has moved to https://github.com/apache/arrow-${component.toLowerCase}.` +
-              "\nPlease close this one and open your issue there.";
+            const moved_repos = {
+              "Go": "arrow-go",
+              "Java": "arrow-java",
+              "JavaScript": "arrow-js",
+              "Julia": "arrow-julia",
+              "Rust": "arrow-rs",
+              "Swift": "arrow-swift",
+              "C#": "arrow-dotnet",
+              "DataFusion": "datafusion",
+              "nanoarrow": "arrow-nanoarrow",
+            };
+
+            let repo_moved_msg = (component, repo) => `Thanks for your report! The ${component} implementation has moved to https://github.com/apache/${repo}.
+
+This issue has been closed automatically - please open a new issue there.`;
 
             let split_body = context.payload.issue.body.split('### Component(s)');
             if (split_body.length != 2) throw new Error('No components found!');
@@ -59,18 +72,23 @@ jobs:
             let components = split_body[1]
               .split(',')
               .map(component => component.trim());
-            let moved_components = components.filter(comp => ["Go"].includes(comp));
+            let moved_component = components.find(comp => comp in moved_repos);
 
-            if (moved_components.length != 0) {
+            if (moved_component) {
                await github.rest.issues.createComment({
                 "owner": context.repo.owner,
                 "repo": context.repo.repo,
                 "issue_number": context.payload.issue.number,
-                "body": repo_moved_msg(moved_components[0]),
+                "body": repo_moved_msg(moved_component, moved_repos[moved_component]),
+              });
+              await github.rest.issues.update({
+                "owner": context.repo.owner,
+                "repo": context.repo.repo,
+                "issue_number": context.payload.issue.number,
+                "state": "closed",
               });
               return;
             }
-
 
             let component_labels = components.map(component => "Component: " + component);
 
