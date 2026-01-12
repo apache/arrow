@@ -42,7 +42,7 @@ TEST(AlpConstantsTest, SamplerConstants) {
   EXPECT_GT(AlpConstants::kSamplerVectorSize, 0);
   EXPECT_GT(AlpConstants::kSamplerRowgroupSize, 0);
   EXPECT_GT(AlpConstants::kSamplerSamplesPerVector, 0);
-  EXPECT_EQ(AlpConstants::kAlpVersion, 2);  // Version 2: num_elements in page header
+  EXPECT_EQ(AlpConstants::kAlpVersion, 1);
 }
 
 // ============================================================================
