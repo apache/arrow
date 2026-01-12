@@ -61,7 +61,7 @@ jobs:
               .map(component => component.trim());
             let moved_components = components.filter(comp => ["Go"].includes(comp));
 
-            if (moved_components.length != 0){
+            if (moved_components.length != 0) {
                await github.rest.issues.createComment({
                 "owner": context.repo.owner,
                 "repo": context.repo.repo,
