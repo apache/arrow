@@ -61,24 +61,20 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - envs:
-              - CUDA=12.9.0
-              - UBUNTU=24.04
+          - cuda: 12.9.0
+            ubuntu: 24.04
             image: ubuntu-cuda-cpp
             title: AMD64 Ubuntu 24 CUDA 12.9.0
-          - envs:
-              - CUDA=11.7.1
-              - UBUNTU=22.04
+          - cuda: 11.7.1
+            ubuntu: 22.04
             image: ubuntu-cuda-cpp
             title: AMD64 Ubuntu 22 CUDA 11.7.1
-          - envs:
-              - CUDA=12.9.0
-              - UBUNTU=24.04
+          - cuda: 12.9.0
+            ubuntu: 24.04
             image: ubuntu-cuda-python
             title: AMD64 Ubuntu 24 CUDA 12.9.0 Python
-          - envs:
-              - CUDA=11.7.1
-              - UBUNTU=22.04
+          - cuda: 11.7.1
+            ubuntu: 22.04
             image: ubuntu-cuda-python
             title: AMD64 Ubuntu 22 CUDA 11.7.1 Python
     env:
@@ -113,16 +109,12 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
-          ENVS: ${{ toJSON(matrix.envs) }}
+          CUDA: ${{ matrix.cuda }}
+          UBUNTU: ${{ matrix.ubuntu }}
         run: |
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
-          if [ "${ENVS}" != "null" ]; then
-            echo "${ENVS}" | jq -r '.[]' | while read env; do
-              echo "${env}" >> .env
-            done
-          fi
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Docker Push
         if: >-
