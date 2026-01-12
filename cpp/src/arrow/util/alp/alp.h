@@ -161,10 +161,14 @@ struct AlpExponentAndFactor {
 /// Helper class to encapsulate all metadata of an encoded vector to be able
 /// to load and decompress it.
 ///
-/// Serialization format (stored as raw binary struct, optimized for packing):
+/// NOTE: num_elements is NOT serialized - it's stored once in the page header
+/// (AlpHeader) and inferred for each vector during decompression. This saves
+/// 8 bytes per vector (2 bytes data + 6 bytes padding reduction).
+///
+/// Serialization format (stored as raw binary, 16 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedVectorInfo (24 bytes)         |
+///   |  AlpEncodedVectorInfo (16 bytes stored)  |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
@@ -173,10 +177,11 @@ struct AlpExponentAndFactor {
 ///   |    9    |  factor (uint8_t)   |  1 byte  |
 ///   |   10    |  bit_width (uint8_t)|  1 byte  |
 ///   |   11    |  reserved (uint8_t) |  1 byte  |
-///   |   12    |  num_elements       |  2 bytes |
-///   |   14    |  num_exceptions     |  2 bytes |
-///   |   16    |  bit_packed_size    |  2 bytes |
-///   |   18    |  [padding]          |  6 bytes |
+///   |   12    |  num_exceptions     |  2 bytes |
+///   |   14    |  bit_packed_size    |  2 bytes |
+///   +------------------------------------------+
+///   |  NOT STORED (in-memory only):            |
+///   |   16    |  num_elements       |  2 bytes |
 ///   +------------------------------------------+
 struct AlpEncodedVectorInfo {
   /// Delta used for frame of reference encoding
@@ -187,28 +192,34 @@ struct AlpEncodedVectorInfo {
   uint8_t bit_width = 0;
   /// Reserved for future use (padding for alignment)
   uint8_t reserved = 0;
-  /// Number of elements encoded in this vector
-  uint16_t num_elements = 0;
   /// Number of exceptions stored in this vector
   uint16_t num_exceptions = 0;
   /// Overall bitpacked size of non-exception values (max ~8KB for 1024 elements)
   uint16_t bit_packed_size = 0;
+  /// Number of elements encoded in this vector (NOT serialized - provided by caller)
+  uint16_t num_elements = 0;
+
+  /// Size of the serialized portion (first 16 bytes, excludes num_elements)
+  static constexpr uint64_t kStoredSize = 16;
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
   /// \param[out] output_buffer the buffer to store the compressed data into
+  /// \note num_elements is NOT stored - it's inferred from the page header
   void Store(arrow::util::span<char> output_buffer) const;
 
   /// \brief Load a compressed vector into the state from a compact format
   ///
   /// \param[in] input_buffer the buffer to load from
+  /// \param[in] num_elements the number of elements (from page header)
   /// \return the loaded AlpEncodedVectorInfo
-  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer);
+  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer,
+                                   uint16_t num_elements);
 
   /// \brief Get serialized size of the encoded vector info
   ///
-  /// \return the size in bytes
-  static uint64_t GetStoredSize();
+  /// \return the size in bytes (16 bytes, excludes num_elements)
+  static uint64_t GetStoredSize() { return kStoredSize; }
 
   bool operator==(const AlpEncodedVectorInfo& other) const;
 };
@@ -282,8 +293,10 @@ class AlpEncodedVector {
   /// \brief Load a compressed vector from a compact format from an input buffer
   ///
   /// \param[in] input_buffer the buffer to load from
+  /// \param[in] num_elements the number of elements (from page header)
   /// \return the loaded AlpEncodedVector
-  static AlpEncodedVector Load(arrow::util::span<const char> input_buffer);
+  static AlpEncodedVector Load(arrow::util::span<const char> input_buffer,
+                               uint16_t num_elements);
 
   bool operator==(const AlpEncodedVector<T>& other) const;
 };
@@ -314,8 +327,10 @@ struct AlpEncodedVectorView {
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
   /// \param[in] input_buffer the buffer to create a view into
+  /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data
-  static AlpEncodedVectorView LoadView(arrow::util::span<const char> input_buffer);
+  static AlpEncodedVectorView LoadView(arrow::util::span<const char> input_buffer,
+                                       uint16_t num_elements);
 
   /// \brief Get the stored size of this vector in the buffer
   ///
