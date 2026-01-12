@@ -7,10 +7,10 @@
 ## 1. Layout
 
 ```
-[Page Header (8B)] [Vector 1] [Vector 2] ... [Vector N]
+[Page Header (16B)] [Vector 1] [Vector 2] ... [Vector N]
 ```
 
-### Page Header (8 bytes)
+### Page Header (16 bytes)
 
 | Offset | Field | Size | Value |
 |--------|-------|------|-------|
@@ -19,14 +19,15 @@
 | 2 | layout | 1B | 0 (normal) |
 | 3 | reserved | 1B | 0 |
 | 4 | vector_size | 4B | 1024 |
+| 8 | num_elements | 8B | total element count |
 
 ### Vector
 
 ```
-[VectorInfo (24B)] [PackedValues] [ExceptionPos] [ExceptionVals]
+[VectorInfo (14B)] [PackedValues] [ExceptionPos] [ExceptionVals]
 ```
 
-### VectorInfo (24 bytes)
+### VectorInfo (14 bytes)
 
 | Offset | Field | Size | Type |
 |--------|-------|------|------|
@@ -35,16 +36,19 @@
 | 9 | factor | 1B | uint8, 0..e |
 | 10 | bit_width | 1B | uint8, 0..64 |
 | 11 | reserved | 1B | - |
-| 12 | num_elements | 2B | uint16, <=1024 |
-| 14 | num_exceptions | 2B | uint16 |
-| 16 | bit_packed_size | 2B | uint16 |
-| 18 | padding | 6B | - |
+| 12 | num_exceptions | 2B | uint16 |
+
+Note: `num_elements` per vector is derived from page header:
+- Vectors 1..N-1: `num_elements = vector_size` (1024)
+- Last vector: `num_elements = total % vector_size` (or vector_size if evenly divisible)
+
+Note: `bit_packed_size` is computed: `ceil(num_elements * bit_width / 8)`
 
 ### Data Sections
 
 | Section | Size |
 |---------|------|
-| PackedValues | `bit_packed_size` |
+| PackedValues | `ceil(num_elements * bit_width / 8)` |
 | ExceptionPos | `num_exceptions * 2` |
 | ExceptionVals | `num_exceptions * sizeof(T)` |
 
@@ -113,7 +117,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | bit_width | `ceil(log2(778))` | 10 |
 | packed_size | `ceil(4*10/8)` | 5B |
 
-**Output:** 24B (info) + 5B (packed) = **29B**
+**Output:** 14B (info) + 5B (packed) = **19B**
 
 ### Example 2: With Exceptions
 
@@ -127,7 +131,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | FOR=15 | `delta = [0, 0, 10, 0]` |
 | bit_width=4 | packed_size = 2B |
 
-**Output:** 24B + 2B + 4B + 8B = **38B**
+**Output:** 14B + 2B + 4B + 8B = **28B**
 
 ### Example 3: 1024 Monetary Values ($0.01-$999.99)
 
@@ -136,7 +140,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | e=2, f=0 | range: 1..99999 |
 | bit_width | ceil(log2(99999)) = 17 |
 | packed_size | ceil(1024*17/8) = 2176B |
-| **Total** | ~2200B vs 4096B PLAIN (**46% smaller**) |
+| **Total** | ~2190B vs 4096B PLAIN (**47% smaller**) |
 
 ---
 
@@ -157,12 +161,12 @@ value[exception_pos[j]] = exception_val[j]  // patch
 
 **Per vector:**
 ```
-size = 24 + ceil(n * bw / 8) + exc * (2 + sizeof(T))
+size = 14 + ceil(n * bw / 8) + exc * (2 + sizeof(T))
 ```
 
 **Max compressed size:**
 ```
-max = 8 + ceil(n/1024) * 24 + n * sizeof(T) * 2 + n * 2
+max = 16 + ceil(n/1024) * 14 + n * sizeof(T) * 2 + n * 2
 ```
 
 ---
@@ -179,6 +183,19 @@ max = 8 + ceil(n/1024) * 24 + n * sizeof(T) * 2 + n * 2
 
 ## Appendix: Byte Layout
 
+**Page Header:**
+```
+Offset  Field
+------  -----
+0       version
+1       compression_mode
+2       bit_pack_layout
+3       reserved
+4-7     vector_size
+8-15    num_elements (total)
+```
+
+**VectorInfo:**
 ```
 Offset  Field
 ------  -----
@@ -187,13 +204,10 @@ Offset  Field
 9       factor
 10      bit_width
 11      reserved
-12-13   num_elements
-14-15   num_exceptions
-16-17   bit_packed_size
-18-23   padding
-24      packed_values[bit_packed_size]
-24+P    exception_pos[num_exceptions]
-24+P+2E exception_vals[num_exceptions]
+12-13   num_exceptions
+14      packed_values[P] (P = ceil(n * bw / 8))
+14+P    exception_pos[num_exceptions]
+14+P+2E exception_vals[num_exceptions]
 ```
 
-Where `P = bit_packed_size`, `E = num_exceptions`
+Where `n = num_elements for this vector`, `P = bit_packed_size`, `E = num_exceptions`
