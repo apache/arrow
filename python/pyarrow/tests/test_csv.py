@@ -2067,34 +2067,35 @@ def test_read_csv_gil_deadlock():
             read_csv(MyBytesIO(data))
 
 
-def test_write_csv_empty_batch_no_duplicate_header():
-    # GH-36889: Empty batches at the start should not cause duplicate headers
-    table = pa.table({"col1": ["a", "b", "c"]})
-
-    # Concatenate empty table with data table
-    empty_table = table.schema.empty_table()
-    combined = pa.concat_tables([empty_table, table])
+@pytest.mark.parametrize("tables,expected", [
+    # GH-36889: Empty batch at the beginning
+    (
+        lambda: [pa.table({"col1": []}).cast(pa.schema([("col1", pa.string())])),
+                 pa.table({"col1": ["a"]}),
+                 pa.table({"col1": ["b"]})],
+        b'"col1"\n"a"\n"b"\n'
+    ),
+    # GH-36889: Empty batch in the middle
+    (
+        lambda: [pa.table({"col1": ["a"]}),
+                 pa.table({"col1": []}).cast(pa.schema([("col1", pa.string())])),
+                 pa.table({"col1": ["b"]})],
+        b'"col1"\n"a"\n"b"\n'
+    ),
+    # GH-36889: Empty batch at the end
+    (
+        lambda: [pa.table({"col1": ["a"]}),
+                 pa.table({"col1": ["b"]}),
+                 pa.table({"col1": []}).cast(pa.schema([("col1", pa.string())]))],
+        b'"col1"\n"a"\n"b"\n'
+    ),
+])
+def test_write_csv_empty_batch_should_not_pollute_output(tables, expected):
+    combined = pa.concat_tables(tables())
 
     buf = io.BytesIO()
     write_csv(combined, buf)
     buf.seek(0)
     result = buf.read()
 
-    # Should have exactly one header, not two
-    assert result == b'"col1"\n"a"\n"b"\n"c"\n'
-
-
-def test_write_csv_empty_batch_in_middle():
-    # GH-36889: Empty batches in the middle should not cause issues
-    table1 = pa.table({"col1": ["a"]})
-    table2 = pa.table({"col1": ["b"]})
-    empty_table = table1.schema.empty_table()
-
-    combined = pa.concat_tables([table1, empty_table, table2])
-
-    buf = io.BytesIO()
-    write_csv(combined, buf)
-    buf.seek(0)
-    result = buf.read()
-
-    assert result == b'"col1"\n"a"\n"b"\n'
+    assert result == expected
