@@ -70,7 +70,6 @@ Suggests:
     sys,
     testthat (>= 3.1.0),
     tibble,
-    tzdb,
     withr
 LinkingTo: cpp11 (>= 0.4.2)
 Collate:

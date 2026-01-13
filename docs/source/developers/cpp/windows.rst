@@ -384,11 +384,16 @@ be defined, and similarly for ``-DARROW_FLIGHT_SQL=ON``.
 Downloading the Timezone Database
 =================================
 
-To run some of the compute unit tests on Windows, the IANA timezone database
-and the Windows timezone mapping need to be downloaded first. See
-:ref:`download-timezone-database` for download instructions. To set a non-default
-path for the timezone database while running the unit tests, set the
-``ARROW_TIMEZONE_DATABASE`` environment variable.
+When building with MSVC or recent MinGW GCC (version 13+), Arrow uses the
+Windows timezone database or the system-provided tzdata respectively, and
+no additional setup is needed.
+
+When building with Clang/libc++ (e.g., MSYS2 Clang64), the IANA timezone
+database and the Windows timezone mapping need to be downloaded first to run
+some of the compute unit tests. See :ref:`download-timezone-database` for
+download instructions. To set a non-default path for the timezone database
+while running the unit tests, set the ``ARROW_TIMEZONE_DATABASE`` environment
+variable.
 
 Replicating Appveyor Builds
 ===========================

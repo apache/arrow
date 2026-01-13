@@ -83,35 +83,36 @@ and **pytz**, **dateutil** or **tzdata** package for timezones.
 tzdata on Windows
 ^^^^^^^^^^^^^^^^^
 
-While Arrow uses the OS-provided timezone database on Linux and macOS, it requires a
-user-provided database on Windows. To download and extract the text version of
+On Linux and macOS, Arrow uses the OS-provided timezone database. On Windows,
+Arrow uses the Windows timezone database when built with MSVC or recent MinGW GCC
+(version 13+), which covers most pre-built packages. No additional setup is needed
+for these builds.
+
+However, when PyArrow is built with Clang/libc++ on Windows, a user-provided
+IANA timezone database is required. To download and extract the text version of
 the IANA timezone database follow the instructions in the C++
-:ref:`download-timezone-database` or use pyarrow utility function
-``pyarrow.util.download_tzdata_on_windows()`` that does the same.
+:ref:`download-timezone-database` or use the (deprecated) pyarrow utility function
+``pyarrow.util.download_tzdata_on_windows()``.
 
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``.
 If the database has been downloaded in a different location, you will need to set
-a custom path to the database from Python:
+a custom path to the database from Python using the (deprecated)
+``pa.set_timezone_db_path("custom_path")`` function.
 
-.. code-block:: python
-
-   >>> import pyarrow as pa
-   >>> pa.set_timezone_db_path("custom_path")
-
-You may encounter problems writing datetime data to an ORC file if you install
-pyarrow with pip. One possible solution to fix this problem:
+.. note::
+   You may encounter problems writing datetime data to an ORC file if you install
+   pyarrow with pip. One possible solution to fix this problem:
 
    1. Install tzdata with ``pip install tzdata``
    2. Set the environment variable ``TZDIR = path\to\.venv\Lib\site-packages\tzdata\``
 
-You can find where ``tzdata`` is installed with the following python
-command:
+   You can find where ``tzdata`` is installed with the following python command:
 
-.. code-block:: python
+   .. code-block:: python
 
-   >>> import tzdata
-   >>> print(tzdata.__file__)
-   path\to\.venv\Lib\site-packages\tzdata\__init__.py
+      >>> import tzdata
+      >>> print(tzdata.__file__)
+      path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
 
 .. _python-conda-differences:
