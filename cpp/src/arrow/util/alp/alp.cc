@@ -570,8 +570,11 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
   const auto frame_of_reference = static_cast<ExactType>(*min);
 
   for (SignedExactType& encoded_integer : encoded_integers) {
-    ExactType& u_encoded_integer = *reinterpret_cast<ExactType*>(&encoded_integer);
-    u_encoded_integer -= frame_of_reference;
+    // Use SafeCopy to avoid strict aliasing violation when converting between
+    // signed and unsigned integer types of the same size.
+    ExactType unsigned_value = util::SafeCopy<ExactType>(encoded_integer);
+    unsigned_value -= frame_of_reference;
+    encoded_integer = util::SafeCopy<SignedExactType>(unsigned_value);
   }
 
   const ExactType min_max_diff =
