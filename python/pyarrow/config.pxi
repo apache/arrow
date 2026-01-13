@@ -104,7 +104,7 @@ def set_timezone_db_path(path):
     """
     Configure the path to text timezone database on Windows.
 
-    .. deprecated:: 23.0.0
+    .. deprecated:: 24.0.0
        This function is deprecated and will be removed in a future version.
        PyArrow now uses the operating system's timezone database on Windows.
 
@@ -115,7 +115,7 @@ def set_timezone_db_path(path):
     """
 
     warnings.warn(
-        "pyarrow.set_timezone_db_path is deprecated as of 23.0.0 "
+        "pyarrow.set_timezone_db_path is deprecated as of 24.0.0 "
         "and will be removed in a future version. PyArrow now uses the "
         "operating system's timezone database on Windows.",
         FutureWarning,

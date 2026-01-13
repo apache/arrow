@@ -251,13 +251,13 @@ def download_tzdata_on_windows():
     Download and extract latest IANA timezone database into the
     location expected by Arrow which is %USERPROFILE%\Downloads\tzdata.
 
-    .. deprecated:: 23.0.0
+    .. deprecated:: 24.0.0
        This function is deprecated and will be removed in a future version.
        PyArrow now uses the operating system's timezone database on Windows.
     """
 
     warnings.warn(
-        "pyarrow.util.download_tzdata_on_windows is deprecated as of 23.0.0 "
+        "pyarrow.util.download_tzdata_on_windows is deprecated as of 24.0.0 "
         "and will be removed in a future version. PyArrow now uses the "
         "operating system's timezone database on Windows.",
         FutureWarning,

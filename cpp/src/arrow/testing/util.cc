@@ -122,9 +122,8 @@ Status GetTestResourceRoot(std::string* out) {
   return Status::OK();
 }
 
-// TODO(GH-48593): Remove when we have full std::chrono support
-// on windows.
-// https://github.com/apache/arrow/issues/48593
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
+ARROW_SUPPRESS_DEPRECATION_WARNING
 std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
   if (!c_root) {
@@ -133,9 +132,7 @@ std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   return std::make_optional(std::string(c_root));
 }
 
-// TODO(GH-48593): Remove when we have full std::chrono support
-// on windows.
-// https://github.com/apache/arrow/issues/48593
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 Status InitTestTimezoneDatabase() {
   auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
   // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
@@ -146,6 +143,7 @@ Status InitTestTimezoneDatabase() {
   ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 int GetListenPort() {
   // Get a new available port number by binding a socket to an ephemeral port

@@ -88,6 +88,7 @@ RuntimeInfo GetRuntimeInfo() {
 
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezone
 // https://github.com/apache/arrow/issues/48593
+ARROW_SUPPRESS_DEPRECATION_WARNING
 Status Initialize(const GlobalOptions& options) noexcept {
   if (options.timezone_db_path.has_value()) {
 #if !USE_OS_TZDB
@@ -106,5 +107,6 @@ Status Initialize(const GlobalOptions& options) noexcept {
   }
   return Status::OK();
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace arrow
