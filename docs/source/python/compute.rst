@@ -424,15 +424,18 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
    ...    "y" : pa.int64()
    ... }
    >>> output_type = pa.int64()
+   >>>
    >>> def to_np(val):
    ...     if isinstance(val, pa.Scalar):
    ...        return val.as_py()
    ...     else:
    ...        return np.array(val)
+   >>>
    >>> def gcd_numpy(ctx, x, y):
    ...     np_x = to_np(x)
    ...     np_y = to_np(y)
    ...     return pa.array(np.gcd(np_x, np_y))
+   >>>
    >>> pc.register_scalar_function(gcd_numpy,
    ...                            function_name,
    ...                            function_docs,

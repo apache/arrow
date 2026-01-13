@@ -918,9 +918,11 @@ schema without having to get any of the batches.::
 .. code-block:: python
 
    >>> schema = pa.schema([('x', pa.int64())])
+   >>>
    >>> def iter_record_batches():
    ...    for i in range(2):
    ...       yield pa.RecordBatch.from_arrays([pa.array([1, 2, 3])], schema=schema)
+   >>>
    >>> reader = pa.RecordBatchReader.from_batches(schema, iter_record_batches())
    >>> print(reader.schema)
    x: int64
