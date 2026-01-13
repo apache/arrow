@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -27,6 +27,13 @@ module ArrowFormat
           # measurements with leap seconds will need to be corrected when ingesting
           # into Arrow (for example by replacing the value 86400 with 86399).
           class Time < ::FlatBuffers::Table
+            FIELDS = {
+              unit: ::FlatBuffers::Field.new(:unit, 0, 4, :short, 0),
+              bit_width: ::FlatBuffers::Field.new(:bit_width, 1, 6, :int, 0),
+            }
+
+            Data = define_data_class
+
             def bit_width
               field_offset = @view.unpack_virtual_offset(6)
               return 32 if field_offset.zero?

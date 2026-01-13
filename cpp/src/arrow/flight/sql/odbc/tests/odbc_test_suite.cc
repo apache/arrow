@@ -180,9 +180,20 @@ void FlightSQLOdbcV2RemoteTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() { AllocEnvConnHandles(); }
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() {
+  ODBCRemoteTestBase::SetUp();
+  if (skipping_test_) {
+    return;
+  }
+
+  AllocEnvConnHandles();
+}
 
 void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDown() {
+  if (skipping_test_) {
+    return;
+  }
+
   // Free connection handle
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
 

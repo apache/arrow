@@ -74,13 +74,25 @@ RUN `
 
 # Install choco CLI
 #
-# Switch into Powershell just for this command because choco only provides a
-# Powershell installation script. After, we switch back to cmd.
+# Switch into Powershell just for the following commands because choco and Python install manager (MSIX)
+# only provide a Powershell installation scripts. After, we switch back to cmd.
 #
 # See https://chocolatey.org/install#completely-offline-install
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 RUN `
-  Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+  Set-ExecutionPolicy Bypass -Scope Process -Force; `
+  [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; `
+  iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install the Python install manager
+#
+# See https://docs.python.org/dev/using/windows.html#python-install-manager and
+# https://www.python.org/ftp/python/pymanager/
+RUN `
+  $pymanager_url = 'https://www.python.org/ftp/python/pymanager/python-manager-25.0.msix'; `
+  Invoke-WebRequest -Uri $pymanager_url -OutFile 'C:\Windows\pymanager.msix'; `
+  Add-AppxPackage C:\Windows\pymanager.msix
+
 SHELL ["cmd", "/S", "/C"]
 
 # Install CMake and other tools

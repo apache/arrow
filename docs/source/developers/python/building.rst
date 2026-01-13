@@ -476,7 +476,7 @@ To install an editable PyArrow build, run the following command from the
 
 .. code-block::
 
-   pip install -e . --no-build-isolation``
+   pip install -e . --no-build-isolation
 
 This creates an *editable install*, meaning changes to the Python source code
 will be reflected immediately without needing to reinstall the package.

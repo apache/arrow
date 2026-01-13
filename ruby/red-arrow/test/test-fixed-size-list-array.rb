@@ -15,20 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-FROM centos:7
-
-ARG DEBUG
-
-# GH-42128
-# Switch repos to point to to vault.centos.org because Centos Stream 8 is EOL
-RUN sed -i \
-  -e 's/^mirrorlist/#mirrorlist/' \
-  -e 's/^#baseurl/baseurl/' \
-  -e 's/mirror\.centos\.org/vault.centos.org/' \
-  /etc/yum.repos.d/*.repo
-
-RUN \
-  quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
-  yum install -y ${quiet} \
-    rpmdevtools && \
-  yum clean ${quiet} all
+class FixedSizeListArrayTest < Test::Unit::TestCase
+  sub_test_case(".new") do
+    test("build") do
+      data_type = [:fixed_size_list, :int8, 2]
+      values = [
+        [1, 2],
+        [3, 4],
+        nil,
+      ]
+      array = Arrow::FixedSizeListArray.new(data_type, values)
+      assert_equal(values, array.map { |v| v&.to_a })
+    end
+  end
+end

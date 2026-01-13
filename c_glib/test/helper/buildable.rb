@@ -118,6 +118,12 @@ module Helper
                   values)
     end
 
+    def build_duration_array(unit, values)
+      data_type = Arrow::DurationDataType.new(unit)
+      build_array(Arrow::DurationArrayBuilder.new(data_type),
+                  values)
+    end
+
     def build_binary_array(values)
       build_array(Arrow::BinaryArrayBuilder.new, values)
     end
