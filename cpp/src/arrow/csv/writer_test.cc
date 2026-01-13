@@ -406,45 +406,35 @@ INSTANTIATE_TEST_SUITE_P(
                          "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n")));
 #endif
 
-// GH-36889: Empty batches at the start should not cause duplicate headers
-TEST(TestWriteCSV, EmptyBatchAtStart) {
+TEST(TestWriteCSV, EmptyBatchShouldNotPolluteOutput) {
   auto schema = arrow::schema({field("col1", utf8())});
   auto empty_batch = RecordBatchFromJSON(schema, "[]");
-  auto data_batch = RecordBatchFromJSON(schema, R"([{"col1": "a"}, {"col1": "b"}])");
+  auto batch_a = RecordBatchFromJSON(schema, R"([{"col1": "a"}])");
+  auto batch_b = RecordBatchFromJSON(schema, R"([{"col1": "b"}])");
 
-  // Concatenate empty table with data table
-  ASSERT_OK_AND_ASSIGN(auto empty_table, Table::FromRecordBatches(schema, {empty_batch}));
-  ASSERT_OK_AND_ASSIGN(auto data_table, Table::FromRecordBatches(schema, {data_batch}));
-  ASSERT_OK_AND_ASSIGN(auto combined_table, ConcatenateTables({empty_table, data_table}));
+  struct TestParam {
+    std::shared_ptr<Table> table;
+    std::string expected_output;
+  };
 
-  ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create());
-  ASSERT_OK(WriteCSV(*combined_table, WriteOptions::Defaults(), out.get()));
-  ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
+  std::vector<TestParam> test_params = {
+      // Empty batch in the beginning
+      {Table::FromRecordBatches(schema, {empty_batch, batch_a, batch_b}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+      // Empty batch in the middle
+      {Table::FromRecordBatches(schema, {batch_a, empty_batch, batch_b}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+      // Empty batch in the end
+      {Table::FromRecordBatches(schema, {batch_a, batch_b, empty_batch}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+  };
 
-  std::string result(reinterpret_cast<const char*>(buffer->data()), buffer->size());
-  // Should have exactly one header, not two
-  EXPECT_EQ(result, "\"col1\"\n\"a\"\n\"b\"\n");
-}
-
-// GH-36889: Empty batches in the middle should not cause issues
-TEST(TestWriteCSV, EmptyBatchInMiddle) {
-  auto schema = arrow::schema({field("col1", utf8())});
-  auto batch1 = RecordBatchFromJSON(schema, R"([{"col1": "a"}])");
-  auto empty_batch = RecordBatchFromJSON(schema, "[]");
-  auto batch2 = RecordBatchFromJSON(schema, R"([{"col1": "b"}])");
-
-  ASSERT_OK_AND_ASSIGN(auto table1, Table::FromRecordBatches(schema, {batch1}));
-  ASSERT_OK_AND_ASSIGN(auto empty_table, Table::FromRecordBatches(schema, {empty_batch}));
-  ASSERT_OK_AND_ASSIGN(auto table2, Table::FromRecordBatches(schema, {batch2}));
-  ASSERT_OK_AND_ASSIGN(auto combined_table,
-                       ConcatenateTables({table1, empty_table, table2}));
-
-  ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create());
-  ASSERT_OK(WriteCSV(*combined_table, WriteOptions::Defaults(), out.get()));
-  ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
-
-  std::string result(reinterpret_cast<const char*>(buffer->data()), buffer->size());
-  EXPECT_EQ(result, "\"col1\"\n\"a\"\n\"b\"\n");
+  for (const auto& param : test_params) {
+    ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create());
+    ASSERT_OK(WriteCSV(*param.table, WriteOptions::Defaults(), out.get()));
+    ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
+    EXPECT_EQ(buffer->ToString(), param.expected_output);
+  }
 }
 
 }  // namespace csv
