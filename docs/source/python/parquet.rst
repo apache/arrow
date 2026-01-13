@@ -499,7 +499,7 @@ individual table writes are wrapped using ``with`` statements so the
 .. code-block:: python
 
    >>> # Remote file-system example
-   >>> from pyarrow.fs import HadoopFileSystem
+   >>> from pyarrow.fs import HadoopFileSystem  # doctest: +SKIP
    >>> fs = HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path)  # doctest: +SKIP
    >>> pq.write_to_dataset(table, root_path='dataset_name',  # doctest: +SKIP
    ...                     partition_cols=['one', 'two'], filesystem=fs)
@@ -686,7 +686,7 @@ filesystems, through the ``filesystem`` keyword:
 
    >>> from pyarrow import fs
 
-   >>> s3  = fs.S3FileSystem(region="us-east-2")
+   >>> s3  = fs.S3FileSystem(region="us-east-2")  # doctest: +SKIP
    >>> table = pq.read_table("bucket/object/key/prefix", filesystem=s3)  # doctest: +SKIP
 
 Currently, :class:`HDFS <pyarrow.fs.HadoopFileSystem>` and
