@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //File.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Footer (//File.fbs)
 
@@ -18,7 +18,27 @@ module ArrowFormat
           # ----------------------------------------------------------------------
           # Arrow File metadata
           #
-          class Footer < ::FlatBuffers::Table
+          class Footer < ::FlatBuffers::RootTable
+            class << self
+              def file_identifier
+                ""
+              end
+
+              def file_extension
+                ""
+              end
+            end
+
+            FIELDS = {
+              version: ::FlatBuffers::Field.new(:version, 0, 4, :short, 0),
+              schema: ::FlatBuffers::Field.new(:schema, 1, 6, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Schema", 0),
+              dictionaries: ::FlatBuffers::Field.new(:dictionaries, 2, 8, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Block"], 0),
+              record_batches: ::FlatBuffers::Field.new(:record_batches, 3, 10, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Block"], 0),
+              custom_metadata: ::FlatBuffers::Field.new(:custom_metadata, 4, 12, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::KeyValue"], 0),
+            }
+
+            Data = define_data_class
+
             # User-defined metadata
             def custom_metadata
               field_offset = @view.unpack_virtual_offset(12)

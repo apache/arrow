@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -118,6 +118,13 @@ module ArrowFormat
           # was UTC; for example, the naive date-time "January 1st 1970, 00h00" would
           # be encoded as timestamp value 0.
           class Timestamp < ::FlatBuffers::Table
+            FIELDS = {
+              unit: ::FlatBuffers::Field.new(:unit, 0, 4, :short, 0),
+              timezone: ::FlatBuffers::Field.new(:timezone, 1, 6, :string, 0),
+            }
+
+            Data = define_data_class
+
             # The timezone is an optional string indicating the name of a timezone,
             # one of:
             #
