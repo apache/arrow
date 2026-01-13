@@ -526,6 +526,180 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
 }
 
 // ============================================================================
+// AlpEncodedVectorView Tests - Alignment Safety
+// ============================================================================
+
+// This test exercises AlpEncodedVectorView::LoadView which was previously
+// vulnerable to undefined behavior from misaligned memory access (ubsan error).
+// The old code used reinterpret_cast to create spans pointing directly into
+// the buffer for exception_positions (uint16_t*) and exceptions (T*), which
+// could violate alignment requirements when bit_packed_size was odd.
+//
+// The fix copies these into aligned StaticVector storage.
+TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
+  AlpCompression<TypeParam> compressor;
+  AlpEncodingPreset preset{};
+
+  // Create data with exceptions to ensure exception handling code path is hit.
+  // NaN, Inf, and -0.0 all become exceptions.
+  std::vector<TypeParam> input(64);
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (i % 10 == 0) {
+      // Every 10th value is NaN - becomes an exception
+      input[i] = std::numeric_limits<TypeParam>::quiet_NaN();
+    } else if (i % 10 == 5) {
+      // Some infinities - also exceptions
+      input[i] = std::numeric_limits<TypeParam>::infinity();
+    } else {
+      // Normal compressible values
+      input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
+    }
+  }
+
+  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+
+  // Verify we actually have exceptions
+  EXPECT_GT(encoded.vector_info.num_exceptions, 0)
+      << "Test requires exceptions to exercise alignment code path";
+
+  // Store to buffer
+  std::vector<char> buffer(encoded.GetStoredSize());
+  encoded.Store({buffer.data(), buffer.size()});
+
+  // Load using zero-copy view - this was where the ubsan error occurred
+  auto view = AlpEncodedVectorView<TypeParam>::LoadView(
+      {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size()));
+
+  // Verify view loaded correctly
+  EXPECT_EQ(view.vector_info, encoded.vector_info);
+  EXPECT_EQ(view.num_elements, input.size());
+  EXPECT_EQ(view.exception_positions.size(), encoded.vector_info.num_exceptions);
+  EXPECT_EQ(view.exceptions.size(), encoded.vector_info.num_exceptions);
+
+  // Decompress using the view - this exercises PatchExceptions with the
+  // StaticVector members (previously spans that could be misaligned)
+  std::vector<TypeParam> output(input.size());
+  compressor.DecompressVectorView(view, AlpBitPackLayout::kNormal, output.data());
+
+  // Verify bit-exact reconstruction
+  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
+            0);
+}
+
+// Test specifically designed to create misaligned buffer offsets.
+// VectorInfo is 14 bytes. If bit_packed_size is odd, exception_positions
+// starts at an odd offset (14 + odd = odd), violating uint16_t alignment.
+TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
+  AlpCompression<TypeParam> compressor;
+  AlpEncodingPreset preset{};
+
+  // Create a small vector with specific size to get odd bit_packed_size.
+  // 5 elements with bit_width=8 -> bit_packed_size=5 (odd)
+  // 7 elements with bit_width=8 -> bit_packed_size=7 (odd)
+  // 9 elements with bit_width=8 -> bit_packed_size=9 (odd)
+  // We want to ensure at least one exception exists.
+  std::vector<TypeParam> input = {
+      static_cast<TypeParam>(1.0),
+      static_cast<TypeParam>(2.0),
+      static_cast<TypeParam>(3.0),
+      std::numeric_limits<TypeParam>::quiet_NaN(),  // Exception
+      static_cast<TypeParam>(5.0),
+      static_cast<TypeParam>(6.0),
+      std::numeric_limits<TypeParam>::infinity(),  // Exception
+  };
+
+  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+
+  // Verify we have exceptions
+  EXPECT_GE(encoded.vector_info.num_exceptions, 2)
+      << "Expected at least 2 exceptions (NaN and Inf)";
+
+  // Store to buffer
+  std::vector<char> buffer(encoded.GetStoredSize());
+  encoded.Store({buffer.data(), buffer.size()});
+
+  // Calculate where exceptions start to verify potential misalignment
+  const uint64_t vector_info_size = AlpEncodedVectorInfo::GetStoredSize();  // 14
+  const uint64_t bit_packed_size = AlpEncodedVectorInfo::GetBitPackedSize(
+      static_cast<uint16_t>(input.size()), encoded.vector_info.bit_width);
+  const uint64_t exception_pos_offset = vector_info_size + bit_packed_size;
+
+  // Log alignment info for debugging
+  SCOPED_TRACE("VectorInfo size: " + std::to_string(vector_info_size));
+  SCOPED_TRACE("Bit packed size: " + std::to_string(bit_packed_size));
+  SCOPED_TRACE("Exception pos offset: " + std::to_string(exception_pos_offset));
+  SCOPED_TRACE("Offset is aligned: " +
+               std::to_string(exception_pos_offset % alignof(uint16_t) == 0));
+
+  // Load using view - with old code, this would trigger ubsan if misaligned
+  auto view = AlpEncodedVectorView<TypeParam>::LoadView(
+      {buffer.data(), buffer.size()}, static_cast<uint16_t>(input.size()));
+
+  // Access exceptions explicitly - with old code using spans, this would
+  // be undefined behavior if the buffer wasn't properly aligned
+  EXPECT_EQ(view.exception_positions.size(), encoded.vector_info.num_exceptions);
+  EXPECT_EQ(view.exceptions.size(), encoded.vector_info.num_exceptions);
+
+  // Verify exception positions are accessible and valid
+  for (size_t i = 0; i < view.exception_positions.size(); ++i) {
+    EXPECT_LT(view.exception_positions[i], input.size())
+        << "Exception position out of bounds at index " << i;
+  }
+
+  // Decompress and verify
+  std::vector<TypeParam> output(input.size());
+  compressor.DecompressVectorView(view, AlpBitPackLayout::kNormal, output.data());
+
+  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
+            0);
+}
+
+// Test with buffer allocated at intentionally odd offset to maximize
+// chance of hitting misalignment issues on systems that don't crash.
+TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
+  AlpCompression<TypeParam> compressor;
+  AlpEncodingPreset preset{};
+
+  // Data with exceptions
+  std::vector<TypeParam> input(32);
+  for (size_t i = 0; i < input.size(); ++i) {
+    if (i % 8 == 0) {
+      input[i] = std::numeric_limits<TypeParam>::quiet_NaN();
+    } else {
+      input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.5);
+    }
+  }
+
+  auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
+  EXPECT_GT(encoded.vector_info.num_exceptions, 0);
+
+  // Allocate buffer with extra byte, then use offset to create misaligned start
+  std::vector<char> oversized_buffer(encoded.GetStoredSize() + 16);
+
+  // Try different offsets to hit various alignment scenarios
+  for (size_t offset = 0; offset < 8; ++offset) {
+    char* buffer_start = oversized_buffer.data() + offset;
+    arrow::util::span<char> buffer(buffer_start, encoded.GetStoredSize());
+
+    encoded.Store(buffer);
+
+    // Load view from potentially misaligned buffer
+    auto view = AlpEncodedVectorView<TypeParam>::LoadView(
+        {buffer_start, encoded.GetStoredSize()},
+        static_cast<uint16_t>(input.size()));
+
+    // Decompress - this is where the fix matters
+    std::vector<TypeParam> output(input.size());
+    compressor.DecompressVectorView(view, AlpBitPackLayout::kNormal, output.data());
+
+    // Verify
+    EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
+              0)
+        << "Failed at buffer offset " << offset;
+  }
+}
+
+// ============================================================================
 // AlpWrapper Tests
 // ============================================================================
 
