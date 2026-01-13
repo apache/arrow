@@ -353,7 +353,7 @@ repos:
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
-          ?^dev/release/07-binary-verify\.sh$|
+          ?^dev/release/08-binary-verify\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
           ?^dev/release/post-08-docs\.sh$|
