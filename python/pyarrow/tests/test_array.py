@@ -2470,6 +2470,31 @@ def test_array_from_numpy_datetime_overflow():
     result = pa.array(valid_arr, type=pa.date32())
     assert len(result) == 5
 
+    # Test with different masks (null bitmaps)
+    # Null at overflow position should not trigger overflow error
+    arr_with_null = np.array([overflow_value], dtype='datetime64[D]')
+    mask = np.array([True])  # True means null in numpy masked arrays
+    result = pa.array(arr_with_null, type=pa.date32(), mask=mask)
+    assert result.null_count == 1
+    assert len(result) == 1
+
+    # Mix of null and overflow values - nulls skipped, overflows still caught
+    arr_mixed = np.array([overflow_value, 100, underflow_value],
+                         dtype='datetime64[D]')
+    mask_first_null = np.array([True, False, False])
+    # First value is null (skipped), third value overflows (error raised)
+    with pytest.raises(pa.ArrowInvalid, match='value .* out of bounds'):
+        pa.array(arr_mixed, type=pa.date32(), mask=mask_first_null)
+
+    # All overflow values but all masked (nulls) should succeed
+    arr_all_overflow = np.array([overflow_value, underflow_value,
+                                 overflow_value + 1000],
+                                dtype='datetime64[D]')
+    mask_all_null = np.array([True, True, True])
+    result = pa.array(arr_all_overflow, type=pa.date32(), mask=mask_all_null)
+    assert result.null_count == 3
+    assert len(result) == 3
+
 
 def test_array_from_naive_datetimes():
     arr = pa.array([
