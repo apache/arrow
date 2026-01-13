@@ -195,21 +195,26 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
   const uint64_t bit_packed_size =
       AlpEncodedVectorInfo::GetBitPackedSize(num_elements, result.vector_info.bit_width);
 
-  // Create spans pointing directly into the input buffer (zero-copy)
+  // Zero-copy for packed values (bytes have no alignment requirements)
   result.packed_values = {
       reinterpret_cast<const uint8_t*>(input_buffer.data() + input_offset),
       bit_packed_size};
   input_offset += bit_packed_size;
 
+  // Copy exception positions into aligned storage to avoid UB from misaligned access.
+  // Exceptions are rare (typically < 5%), so the copy overhead is negligible.
   const uint64_t exception_position_size =
       result.vector_info.num_exceptions * sizeof(AlpConstants::PositionType);
-  result.exception_positions = {
-      reinterpret_cast<const uint16_t*>(input_buffer.data() + input_offset),
-      result.vector_info.num_exceptions};
+  result.exception_positions.UnsafeResize(result.vector_info.num_exceptions);
+  std::memcpy(result.exception_positions.data(), input_buffer.data() + input_offset,
+              exception_position_size);
   input_offset += exception_position_size;
 
-  result.exceptions = {reinterpret_cast<const T*>(input_buffer.data() + input_offset),
-                       result.vector_info.num_exceptions};
+  // Copy exception values into aligned storage to avoid UB from misaligned access.
+  const uint64_t exception_size = result.vector_info.num_exceptions * sizeof(T);
+  result.exceptions.UnsafeResize(result.vector_info.num_exceptions);
+  std::memcpy(result.exceptions.data(), input_buffer.data() + input_offset,
+              exception_size);
 
   return result;
 }
@@ -780,13 +785,17 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
 
   switch (bit_pack_layout) {
     case AlpBitPackLayout::kNormal: {
-      // Use the view's spans directly - no copy needed
+      // Use zero-copy for packed values, aligned copies for exceptions
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(encoded_view.packed_values, vector_info, num_elements);
       DecodeVector<TargetType>(output, {encoded_integers.data(), num_elements},
                                vector_info, num_elements);
-      PatchExceptions<TargetType>(output, encoded_view.exceptions,
-                                  encoded_view.exception_positions);
+      // Create spans from the aligned StaticVectors for PatchExceptions
+      PatchExceptions<TargetType>(
+          output,
+          {encoded_view.exceptions.data(), encoded_view.exceptions.size()},
+          {encoded_view.exception_positions.data(),
+           encoded_view.exception_positions.size()});
     } break;
     default:
       ARROW_CHECK(false) << "invalid_bit_pack_layout: "
