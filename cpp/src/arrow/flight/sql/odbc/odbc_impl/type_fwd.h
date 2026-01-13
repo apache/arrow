@@ -21,12 +21,12 @@ namespace arrow::flight::sql::odbc {
 class Statement;
 class ResultSet;
 class ResultSetMetadata;
-}
+}  // namespace arrow::flight::sql::odbc
 
-// TODO: Replace ODBC namespace with namespace arrow::flight::sql::odbc #48083
+// GH-48083 TODO: Replace ODBC namespace with namespace arrow::flight::sql::odbc
 namespace ODBC {
 class ODBCEnvironment;
 class ODBCDescriptor;
 class ODBCStatement;
 class ODBCConnection;
-}
+}  // namespace ODBC
