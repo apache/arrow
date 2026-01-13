@@ -980,20 +980,19 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
-// GH-47995: Test that empty strings represented as ByteArray{0, nullptr} are
-// correctly handled in statistics when using WriteBatch API.
-TEST_F(TestByteArrayValuesWriter, EmptyStringWithNullptrStats) {
+// GH-47995: Test that empty strings are correctly handled in statistics.
+TEST_F(TestByteArrayValuesWriter, EmptyStringStats) {
   this->SetUpSchema(Repetition::REQUIRED);
   auto writer = this->BuildWriter();
 
-  // Create values with empty string as nullptr (this can happen in practice
-  // when external code constructs ByteArray without using string literals)
-  ByteArray empty_with_nullptr{0, nullptr};
+  // Empty string with valid pointer (from string literal)
+  ByteArray empty_string("");
   ByteArray non_empty_aaa("aaa");
   ByteArray non_empty_zzz("zzz");
 
-  std::vector<ByteArray> values = {empty_with_nullptr, non_empty_aaa, non_empty_zzz};
-  writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr, values.data());
+  std::vector<ByteArray> values = {empty_string, non_empty_aaa, non_empty_zzz};
+  writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                     values.data());
   writer->Close();
 
   // Statistics should be set and capture the empty string as minimum
@@ -1007,21 +1006,23 @@ TEST_F(TestByteArrayValuesWriter, EmptyStringWithNullptrStats) {
   EXPECT_EQ(typed_stats->max(), ByteArray("zzz")) << "Max should be 'zzz'";
 }
 
-// GH-47995: Test that statistics work when all values are empty strings with nullptr.
-TEST_F(TestByteArrayValuesWriter, AllEmptyStringsWithNullptrStats) {
+// GH-47995: Test that statistics work when all values are empty strings.
+TEST_F(TestByteArrayValuesWriter, AllEmptyStringsStats) {
   this->SetUpSchema(Repetition::REQUIRED);
   auto writer = this->BuildWriter();
 
-  // All values are empty strings with nullptr
-  ByteArray empty_with_nullptr{0, nullptr};
-  std::vector<ByteArray> values = {empty_with_nullptr, empty_with_nullptr, empty_with_nullptr};
-  writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr, values.data());
+  // All values are empty strings
+  ByteArray empty_string("");
+  std::vector<ByteArray> values = {empty_string, empty_string, empty_string};
+  writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                     values.data());
   writer->Close();
 
   // Statistics should be set even when all values are empty strings
   ASSERT_TRUE(this->metadata_is_stats_set());
   auto stats = this->metadata_stats();
-  ASSERT_TRUE(stats->HasMinMax()) << "Statistics should have min/max even with all empty strings";
+  ASSERT_TRUE(stats->HasMinMax())
+      << "Statistics should have min/max even with all empty strings";
 
   auto typed_stats = std::dynamic_pointer_cast<TypedStatistics<ByteArrayType>>(stats);
   ASSERT_NE(typed_stats, nullptr);

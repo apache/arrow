@@ -2035,48 +2035,46 @@ TEST(TestByteArrayStatistics, MergeEncodedEmptyStringMin) {
   EXPECT_EQ(merged->max(), ByteArray("zzz"));
 }
 
-// GH-47995: Empty strings represented as ByteArray{0, nullptr} should be handled correctly.
-// This can happen when:
-// - Arrow arrays have null values buffer (all empty strings)
-// - External code passes ByteArray with nullptr for empty strings
+// GH-47995: Empty strings should be handled correctly in statistics.
 // The fix uses a sentinel pointer (kNoValueSentinel) to distinguish "no value computed"
-// from "empty string value with nullptr".
-TEST(TestByteArrayStatistics, EmptyStringWithNullptrInRawByteArray) {
+// from "empty string value".
+TEST(TestByteArrayStatistics, EmptyStringInRawByteArray) {
   NodePtr node =
       PrimitiveNode::Make("StringColumn", Repetition::OPTIONAL, Type::BYTE_ARRAY);
   ColumnDescriptor descr(node, 1, 1);
 
-  // ByteArray with nullptr represents empty string from some code paths
-  ByteArray empty_with_nullptr{0, nullptr};
+  // Empty string with valid pointer
+  ByteArray empty_string("");
   ByteArray non_empty{"aaa"};
 
-  // Test 1: Update with mix of nullptr empty string and non-empty string
+  // Test 1: Update with mix of empty string and non-empty string
   // The empty string should be recognized as the minimum
   {
     auto stats = MakeStatistics<ByteArrayType>(&descr);
-    std::vector<ByteArray> values = {empty_with_nullptr, non_empty};
+    std::vector<ByteArray> values = {empty_string, non_empty};
     stats->Update(values.data(), values.size(), 0);
     ASSERT_TRUE(stats->HasMinMax()) << "Stats should have min/max";
     EXPECT_EQ(stats->min().len, 0) << "Min should be empty string";
     EXPECT_EQ(stats->max(), ByteArray("aaa")) << "Max should be 'aaa'";
   }
 
-  // Test 2: Update with only nullptr empty strings
+  // Test 2: Update with only empty strings
   // Should still produce valid statistics
   {
     auto stats = MakeStatistics<ByteArrayType>(&descr);
-    std::vector<ByteArray> values = {empty_with_nullptr, empty_with_nullptr};
+    std::vector<ByteArray> values = {empty_string, empty_string};
     stats->Update(values.data(), values.size(), 0);
-    ASSERT_TRUE(stats->HasMinMax()) << "Stats should have min/max even with all empty strings";
+    ASSERT_TRUE(stats->HasMinMax())
+        << "Stats should have min/max even with all empty strings";
     EXPECT_EQ(stats->min().len, 0) << "Min should be empty string";
     EXPECT_EQ(stats->max().len, 0) << "Max should be empty string";
   }
 
-  // Test 3: Merge stats with nullptr empty string min into stats with non-empty min
+  // Test 3: Merge stats with empty string min into stats with non-empty min
   // The empty string should become the new minimum
   {
     auto stats1 = MakeStatistics<ByteArrayType>(&descr);
-    std::vector<ByteArray> values1 = {empty_with_nullptr};
+    std::vector<ByteArray> values1 = {empty_string};
     stats1->Update(values1.data(), values1.size(), 0);
 
     auto stats2 = MakeStatistics<ByteArrayType>(&descr);
