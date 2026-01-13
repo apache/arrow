@@ -71,25 +71,25 @@ After ODBC has been registered, you can run the ODBC tests. It is recommended to
 
 1. Run ODBC unit test: 
 
-```
-.\cpp\build\< release | debug >\< Release | Debug>\arrow-odbc-spi-impl-test.exe
-```
+    ```
+    .\cpp\build\< release | debug >\< Release | Debug>\arrow-odbc-spi-impl-test.exe
+    ```
 2. Set up and run ODBC remote test:
 
    1. Set up a Dremio open source docker instance:
    
       1. Run this command inside the docker terminal to create a Dremio open source docker.
-      ```
-      docker run -p 9047:9047 -p 31010:31010 -p 45678:45678 -p 32010:32010 -e DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dpaths.dist=file:///opt/dremio/data/dist dremio/dremio-oss
-      ```
+          ```
+          docker run -p 9047:9047 -p 31010:31010 -p 45678:45678 -p 32010:32010 -e DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dpaths.dist=file:///opt/dremio/data/dist dremio/dremio-oss
+          ```
 
       2. Enable unicode support in Docker: 
 
           1. Open `dremio-env` in an editor. The file is located in the `/opt/dremio/conf` directory.
           2. Set the `DREMIO_JAVA_SERVER_EXTRA_OPTS` property to the following value:
-          ```
-          DREMIO_JAVA_SERVER_EXTRA_OPTS='-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$en_US'
-          ```
+              ```
+              DREMIO_JAVA_SERVER_EXTRA_OPTS='-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$en_US'
+              ```
       3. Navigate to: http://localhost:9047 and create an user account. The account credentials will be used for remote testing.
 
       4. Create test table:
@@ -116,11 +116,11 @@ After ODBC has been registered, you can run the ODBC tests. It is recommended to
           ```
       5. The docker instance only needs to be set up once, and can be re-used for running the tests.
    2. Replace `REDACTED` with actual Dremio docker credentials in the command. Set environment variable `ARROW_FLIGHT_SQL_ODBC_CONN` to 
-   ```
-   driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=32010;pwd=REDACTED;uid=REDACTED;useEncryption=false;
-   ```
+      ```
+      driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=32010;pwd=REDACTED;uid=REDACTED;useEncryption=false;useWideChar=true;
+      ```
    3. Run ODBC remote test: 
 
-   ```
-   .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
-   ```
+      ```
+      .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
+      ```
