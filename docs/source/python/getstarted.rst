@@ -151,7 +151,6 @@ and will lazily load chunks of data only when iterating over them
 
 .. code-block:: python
 
-   >>> import datetime
    >>> current_year = 2025
    >>> for table_chunk in birthdays_dataset.to_batches():
    ...     print("AGES", pc.subtract(current_year, table_chunk["years"]))
