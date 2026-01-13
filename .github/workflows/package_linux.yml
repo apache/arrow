@@ -232,6 +232,8 @@ jobs:
             ${GITHUB_REF_NAME} \
             release_candidate.yml
       - name: Build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pushd dev/tasks/linux-packages
           rake docker:pull || :
