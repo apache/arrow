@@ -207,7 +207,7 @@ jobs:
         continue-on-error: true
       - name: Save the test output
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: test-output-{{ "${{ matrix.config.r_image }}" }}
           path: r/check/arrow.Rcheck/tests/testthat.Rout*
