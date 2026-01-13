@@ -308,26 +308,34 @@ class AlpEncodedVector {
 // AlpEncodedVectorView
 
 /// \class AlpEncodedVectorView
-/// \brief A zero-copy view into compressed ALP data
+/// \brief A view into compressed ALP data optimized for decompression
 ///
-/// Unlike AlpEncodedVector which copies data into internal buffers,
-/// AlpEncodedVectorView holds spans that point directly to the compressed
-/// data buffer. This avoids memory copies during decompression.
+/// Unlike AlpEncodedVector which copies all data into internal buffers,
+/// AlpEncodedVectorView uses zero-copy for the large packed values array
+/// while copying the small exception arrays into aligned storage.
+///
+/// The packed values are accessed via a span (zero-copy) since they are
+/// byte arrays with no alignment requirements. Exception positions and
+/// values are copied into aligned StaticVectors because:
+///   1. The serialized data may not be properly aligned for uint16_t/T access
+///   2. Exceptions are rare (typically < 5%), so copying is negligible
+///   3. This avoids undefined behavior from misaligned memory access
 ///
 /// Use LoadView() to create a view, then pass to DecompressVectorView().
-/// The underlying buffer must remain valid for the lifetime of the view.
+/// The underlying buffer must remain valid for the lifetime of the view
+/// (for packed_values access).
 template <typename T>
 struct AlpEncodedVectorView {
   /// Metadata of the encoded vector (copied, small fixed size)
   AlpEncodedVectorInfo vector_info;
   /// Number of elements in this vector (not serialized; from page header)
   uint16_t num_elements = 0;
-  /// View into bitpacked data (no copy)
+  /// View into bitpacked data (zero-copy, bytes have no alignment requirements)
   arrow::util::span<const uint8_t> packed_values;
-  /// View into exception values (no copy)
-  arrow::util::span<const T> exceptions;
-  /// View into exception positions (no copy)
-  arrow::util::span<const uint16_t> exception_positions;
+  /// Exception positions (copied into aligned storage to avoid UB from misaligned access)
+  arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exception_positions;
+  /// Exception values (copied into aligned storage to avoid UB from misaligned access)
+  arrow::internal::StaticVector<T, AlpConstants::kAlpVectorSize> exceptions;
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
