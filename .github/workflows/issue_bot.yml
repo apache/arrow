@@ -45,7 +45,6 @@ jobs:
               "Swift": "arrow-swift",
               "C#": "arrow-dotnet",
               "DataFusion": "datafusion",
-              "nanoarrow": "arrow-nanoarrow",
             };
 
             let repo_moved_msg = (component, repo) =>
