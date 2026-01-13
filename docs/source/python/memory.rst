@@ -229,8 +229,8 @@ able to write to buffers or do on-the-fly compression.
    >>> with pa.output_stream('example1.dat') as stream:
    ...     stream.write(b'some data')
    9
-   >>> f = open('example1.dat', 'rb')
-   >>> f.read()
+   >>> with open('example1.dat', 'rb') as f:
+   ...     f.read()
    b'some data'
 
 
