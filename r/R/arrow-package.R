@@ -152,11 +152,6 @@ s3_finalizer <- new.env(parent = emptyenv())
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
-
-    # TODO(GH-48743): Remove when RTools upgrades to libstdc++ with std::chrono timezone support
-    # https://github.com/apache/arrow/issues/48743
-    # Try to set timezone database for MinGW builds
-    configure_tzdb()
   }
 
   # Set interrupt handlers
@@ -171,24 +166,6 @@ s3_finalizer <- new.env(parent = emptyenv())
   reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
 
   invisible()
-}
-
-# TODO(GH-48743): Remove when RTools upgrades to libstdc++ with std::chrono timezone support
-# https://github.com/apache/arrow/issues/48743
-configure_tzdb <- function() {
-  # This is needed on Windows MinGW builds where std::chrono timezone support
-  # is not available (older GCC versions). The tzdb R package provides the
-  # IANA timezone database.
-  if (requireNamespace("tzdb", quietly = TRUE)) {
-    tzdb::tzdb_initialize()
-    set_timezone_database(tzdb::tzdb_path("text"))
-  } else {
-    msg <- paste(
-      "The tzdb package is not installed.",
-      "Timezones will not be available to Arrow compute functions."
-    )
-    packageStartupMessage(msg)
-  }
 }
 
 .onAttach <- function(libname, pkgname) {

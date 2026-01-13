@@ -86,8 +86,8 @@ RuntimeInfo GetRuntimeInfo() {
   return info;
 }
 
-// TODO(GH-48743): Remove when RTools upgrades to libstdc++ with std::chrono timezone
-// support https://github.com/apache/arrow/issues/48743
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+// https://github.com/apache/arrow/issues/48593
 Status Initialize(const GlobalOptions& options) noexcept {
   if (options.timezone_db_path.has_value()) {
 #if !USE_OS_TZDB

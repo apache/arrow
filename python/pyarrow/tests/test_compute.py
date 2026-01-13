@@ -2787,11 +2787,12 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# TODO(GH-48743): Re-enable when GCC bug is fixed
+# TODO(GH-48743): Re-enable when GCC libstdc++ bug is fixed
 # https://github.com/apache/arrow/issues/48743
 # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
-@pytest.mark.skipif(sys.platform == 'win32',
-                    reason="Test triggers GCC timezone bug on Windows")
+@pytest.mark.skipif(
+    sys.platform == 'win32' and pa.cpp_build_info.compiler_id == 'GNU',
+    reason="Test triggers GCC libstdc++ timezone bug on Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
