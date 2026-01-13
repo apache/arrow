@@ -50,7 +50,7 @@ namespace internal {
 extern PyDateTime_CAPI* datetime_api;
 
 ARROW_PYTHON_EXPORT
-void InitDatetime();
+int InitDatetime();
 #endif
 
 // Returns the MonthDayNano namedtuple type (increments the reference count).
