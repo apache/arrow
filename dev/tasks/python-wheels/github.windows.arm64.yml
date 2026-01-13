@@ -35,11 +35,17 @@ jobs:
           python-version: "{{ python_version }}"
           architecture: "arm64"
 
+      - name: Install Python build dependencies
+        shell: cmd
+        run: |
+          %PYTHON_CMD% -m pip install --upgrade pip
+          %PYTHON_CMD% -m pip install cython numpy setuptools_scm setuptools wheel
+          
       - name: Cache vcpkg dependencies
         uses: actions/cache@v4
         with:
           path: C:\vcpkg\installed
-          key: "{% raw %}vcpkg-installed-windows-arm64-${{ hashFiles('arrow/ci/vcpkg/vcpkg.json', 'arrow/ci/vcpkg/arm64-windows-*.cmake') }}{% endraw %}"      
+          key: "{% raw %}vcpkg-installed-windows-arm64-${{ hashFiles('arrow/ci/vcpkg/vcpkg.json') }}{% endraw %}"      
           restore-keys: vcpkg-installed-windows-arm64-
 
       - name: Install vcpkg dependencies
@@ -56,10 +62,11 @@ jobs:
             --x-feature=orc ^
             --x-feature=parquet ^
             --x-feature=s3
+            
       - name: Build Arrow C++ and PyArrow wheel
         shell: cmd
         env:
-          arch: "ARM64"
+          ARCH: "ARM64"
           SETUPTOOLS_SCM_PRETEND_VERSION: "{{ arrow.no_rc_version }}"
         run: |
           call "arrow\ci\scripts\python_wheel_windows_build.bat"
