@@ -227,6 +227,9 @@ if "%arch%"=="ARM64" (
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
+@REM For Windows ARM64, use --add-path to help delvewheel locate and
+@REM bundle native ARM64 DLL dependencies (from vcpkg and pyarrow)
+@REM that are not in standard system locations.
 if "%arch%"=="ARM64" (
     %PYTHON_CMD% -m delvewheel repair -vv --add-path "%ARROW_DIST%\bin" ^
     --add-path "C:\vcpkg\installed\arm64-windows\bin" --ignore-existing ^
