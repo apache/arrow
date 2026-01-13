@@ -112,17 +112,17 @@ UnionTypeFactories() {
 // Status
 ARROW_TESTING_EXPORT Status GetTestResourceRoot(std::string*);
 
-// TODO(GH-48593): Remove when we have full std::chrono support
-// on windows.
-// https://github.com/apache/arrow/issues/48593
+/// \deprecated Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
 // Return the value of the ARROW_TIMEZONE_DATABASE environment variable
+ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_TESTING_EXPORT std::optional<std::string> GetTestTimezoneDatabaseRoot();
 
-// TODO(GH-48593): Remove when we have full std::chrono support
-// on windows.
-// https://github.com/apache/arrow/issues/48593
-// Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable
-// This is only relevant on Windows, since other OSs have compatible databases built-in
+/// \deprecated Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
+// Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable.
+// Only relevant for Windows builds with Clang/libc++ which use vendored date library.
+ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_TESTING_EXPORT Status InitTestTimezoneDatabase();
 
 // Get a TCP port number to listen on.  This is a different number every time,
