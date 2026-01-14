@@ -16,7 +16,7 @@
 |--------|-------|------|-------|
 | 0 | version | 1B | 1 |
 | 1 | mode | 1B | 0 (ALP) |
-| 2 | layout | 1B | 0 (normal) |
+| 2 | integer_encoding | 1B | 0 (bit-pack) |
 | 3 | reserved | 1B | 0 |
 | 4 | vector_size | 4B | 1024 |
 | 8 | num_elements | 4B | total element count (uint32) |
@@ -206,7 +206,7 @@ Offset  Field
 ------  -----
 0       version
 1       compression_mode
-2       bit_pack_layout
+2       integer_encoding
 3       reserved
 4-7     vector_size (uint32)
 8-11    num_elements (uint32, total count)

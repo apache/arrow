@@ -652,14 +652,14 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
       FindBestExponentAndFactor(input_span, preset.combinations);
   const EncodingResult encoding_result = EncodeVector(input_span, exponent_and_factor);
   BitPackingResult bitpacking_result;
-  switch (preset.bit_pack_layout) {
-    case AlpBitPackLayout::kNormal:
+  switch (preset.integer_encoding) {
+    case AlpIntegerEncoding::kBitPack:
       bitpacking_result =
           BitPackIntegers(encoding_result.encoded_integers, encoding_result.min_max_diff);
       break;
     default:
-      ARROW_CHECK(false) << "invalid_bit_pack_layout: "
-                         << static_cast<int>(preset.bit_pack_layout);
+      ARROW_CHECK(false) << "invalid_integer_encoding: "
+                         << static_cast<int>(preset.integer_encoding);
       break;
   }
 
@@ -782,14 +782,14 @@ void AlpCompression<T>::PatchExceptions(
 template <typename T>
 template <typename TargetType>
 void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vector,
-                                         const AlpBitPackLayout bit_pack_layout,
+                                         const AlpIntegerEncoding integer_encoding,
                                          TargetType* output) {
   static_assert(sizeof(T) <= sizeof(TargetType));
   const AlpEncodedVectorInfo<T>& vector_info = packed_vector.vector_info;
   const uint16_t num_elements = packed_vector.num_elements;
 
-  switch (bit_pack_layout) {
-    case AlpBitPackLayout::kNormal: {
+  switch (integer_encoding) {
+    case AlpIntegerEncoding::kBitPack: {
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(packed_vector.packed_values, vector_info, num_elements);
       DecodeVector<TargetType>(output, {encoded_integers.data(), num_elements},
@@ -798,8 +798,8 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
                                   packed_vector.exception_positions);
     } break;
     default:
-      ARROW_CHECK(false) << "invalid_bit_pack_layout: "
-                         << static_cast<int>(bit_pack_layout);
+      ARROW_CHECK(false) << "invalid_integer_encoding: "
+                         << static_cast<int>(integer_encoding);
       break;
   }
 }
@@ -807,14 +807,14 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
 template <typename T>
 template <typename TargetType>
 void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
-                                             const AlpBitPackLayout bit_pack_layout,
+                                             const AlpIntegerEncoding integer_encoding,
                                              TargetType* output) {
   static_assert(sizeof(T) <= sizeof(TargetType));
   const AlpEncodedVectorInfo<T>& vector_info = encoded_view.vector_info;
   const uint16_t num_elements = encoded_view.num_elements;
 
-  switch (bit_pack_layout) {
-    case AlpBitPackLayout::kNormal: {
+  switch (integer_encoding) {
+    case AlpIntegerEncoding::kBitPack: {
       // Use zero-copy for packed values, aligned copies for exceptions
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(encoded_view.packed_values, vector_info, num_elements);
@@ -828,8 +828,8 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
            encoded_view.exception_positions.size()});
     } break;
     default:
-      ARROW_CHECK(false) << "invalid_bit_pack_layout: "
-                         << static_cast<int>(bit_pack_layout);
+      ARROW_CHECK(false) << "invalid_integer_encoding: "
+                         << static_cast<int>(integer_encoding);
       break;
   }
 }
@@ -838,23 +838,23 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
 // Template instantiations
 
 template void AlpCompression<float>::DecompressVector<double>(
-    const AlpEncodedVector<float>& packed_vector, AlpBitPackLayout bit_pack_layout,
+    const AlpEncodedVector<float>& packed_vector, AlpIntegerEncoding integer_encoding,
     double* output);
 template void AlpCompression<float>::DecompressVector<float>(
-    const AlpEncodedVector<float>& packed_vector, AlpBitPackLayout bit_pack_layout,
+    const AlpEncodedVector<float>& packed_vector, AlpIntegerEncoding integer_encoding,
     float* output);
 template void AlpCompression<double>::DecompressVector<double>(
-    const AlpEncodedVector<double>& packed_vector, AlpBitPackLayout bit_pack_layout,
+    const AlpEncodedVector<double>& packed_vector, AlpIntegerEncoding integer_encoding,
     double* output);
 
 template void AlpCompression<float>::DecompressVectorView<double>(
-    const AlpEncodedVectorView<float>& encoded_view, AlpBitPackLayout bit_pack_layout,
+    const AlpEncodedVectorView<float>& encoded_view, AlpIntegerEncoding integer_encoding,
     double* output);
 template void AlpCompression<float>::DecompressVectorView<float>(
-    const AlpEncodedVectorView<float>& encoded_view, AlpBitPackLayout bit_pack_layout,
+    const AlpEncodedVectorView<float>& encoded_view, AlpIntegerEncoding integer_encoding,
     float* output);
 template void AlpCompression<double>::DecompressVectorView<double>(
-    const AlpEncodedVectorView<double>& encoded_view, AlpBitPackLayout bit_pack_layout,
+    const AlpEncodedVectorView<double>& encoded_view, AlpIntegerEncoding integer_encoding,
     double* output);
 
 template class AlpCompression<float>;
