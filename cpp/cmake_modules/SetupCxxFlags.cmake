@@ -139,14 +139,14 @@ if(NOT DEFINED CMAKE_C_STANDARD)
   set(CMAKE_C_STANDARD 11)
 endif()
 
-# This ensures that things like c++17 get passed correctly
+# This ensures that a standard higher than the minimum can be passed correctly
 if(NOT DEFINED CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 17)
-elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 17)
-  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 17")
+  set(CMAKE_CXX_STANDARD 20)
+elseif(${CMAKE_CXX_STANDARD} VERSION_LESS 20)
+  message(FATAL_ERROR "Cannot set a CMAKE_CXX_STANDARD smaller than 20")
 endif()
 
-# We require a C++17 compliant compiler
+# We require a C++20 compliant compiler
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ARROW-6848: Do not use GNU (or other CXX) extensions

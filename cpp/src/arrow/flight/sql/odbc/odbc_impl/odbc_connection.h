@@ -53,12 +53,13 @@ class ODBCConnection : public ODBCHandle<ODBCConnection> {
                const arrow::flight::sql::odbc::Connection::ConnPropertyMap& properties,
                std::vector<std::string_view>& missing_properties);
 
-  void GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
-               SQLSMALLINT* output_length, bool is_unicode);
+  SQLRETURN GetInfo(SQLUSMALLINT info_type, SQLPOINTER value, SQLSMALLINT buffer_length,
+                    SQLSMALLINT* output_length, bool is_unicode);
   void SetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER string_length,
                       bool isUnicode);
-  void GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value, SQLINTEGER buffer_length,
-                      SQLINTEGER* output_length, bool is_unicode);
+  SQLRETURN GetConnectAttr(SQLINTEGER attribute, SQLPOINTER value,
+                           SQLINTEGER buffer_length, SQLINTEGER* output_length,
+                           bool is_unicode);
 
   ~ODBCConnection() = default;
 

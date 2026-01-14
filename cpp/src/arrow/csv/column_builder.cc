@@ -47,7 +47,8 @@ namespace csv {
 
 class BlockParser;
 
-class ConcreteColumnBuilder : public ColumnBuilder {
+class ConcreteColumnBuilder : public ColumnBuilder,
+                              public std::enable_shared_from_this<ConcreteColumnBuilder> {
  public:
   explicit ConcreteColumnBuilder(MemoryPool* pool, std::shared_ptr<TaskGroup> task_group,
                                  int32_t col_index = -1)
@@ -133,8 +134,8 @@ class ConcreteColumnBuilder : public ColumnBuilder {
 class NullColumnBuilder : public ConcreteColumnBuilder {
  public:
   explicit NullColumnBuilder(const std::shared_ptr<DataType>& type, MemoryPool* pool,
-                             const std::shared_ptr<TaskGroup>& task_group)
-      : ConcreteColumnBuilder(pool, task_group), type_(type) {}
+                             std::shared_ptr<TaskGroup> task_group)
+      : ConcreteColumnBuilder(pool, std::move(task_group)), type_(type) {}
 
   void Insert(int64_t block_index, const std::shared_ptr<BlockParser>& parser) override;
 
@@ -152,15 +153,17 @@ void NullColumnBuilder::Insert(int64_t block_index,
   const int32_t num_rows = parser->num_rows();
   DCHECK_GE(num_rows, 0);
 
-  task_group_->Append([this, block_index, num_rows]() -> Status {
-    std::unique_ptr<ArrayBuilder> builder;
-    RETURN_NOT_OK(MakeBuilder(pool_, type_, &builder));
-    std::shared_ptr<Array> res;
-    RETURN_NOT_OK(builder->AppendNulls(num_rows));
-    RETURN_NOT_OK(builder->Finish(&res));
+  // `self` keeps us alive, `this` allows easy access to derived / protected member vars
+  task_group_->Append(
+      [self = shared_from_this(), this, block_index, num_rows]() -> Status {
+        std::unique_ptr<ArrayBuilder> builder;
+        RETURN_NOT_OK(MakeBuilder(pool_, type_, &builder));
+        std::shared_ptr<Array> res;
+        RETURN_NOT_OK(builder->AppendNulls(num_rows));
+        RETURN_NOT_OK(builder->Finish(&res));
 
-    return SetChunk(block_index, res);
-  });
+        return SetChunk(block_index, res);
+      });
 }
 
 //////////////////////////////////////////////////////////////////////////
@@ -169,11 +172,11 @@ void NullColumnBuilder::Insert(int64_t block_index,
 class TypedColumnBuilder : public ConcreteColumnBuilder {
  public:
   TypedColumnBuilder(const std::shared_ptr<DataType>& type, int32_t col_index,
-                     const ConvertOptions& options, MemoryPool* pool,
-                     const std::shared_ptr<TaskGroup>& task_group)
-      : ConcreteColumnBuilder(pool, task_group, col_index),
+                     std::shared_ptr<ConvertOptions> options, MemoryPool* pool,
+                     std::shared_ptr<TaskGroup> task_group)
+      : ConcreteColumnBuilder(pool, std::move(task_group), col_index),
         type_(type),
-        options_(options) {}
+        options_(std::move(options)) {}
 
   Status Init();
 
@@ -185,13 +188,13 @@ class TypedColumnBuilder : public ConcreteColumnBuilder {
   std::shared_ptr<DataType> type_;
   // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
   // thousands of columns), so avoid copying it in each TypedColumnBuilder.
-  const ConvertOptions& options_;
+  std::shared_ptr<ConvertOptions> options_;
 
   std::shared_ptr<Converter> converter_;
 };
 
 Status TypedColumnBuilder::Init() {
-  ARROW_ASSIGN_OR_RAISE(converter_, Converter::Make(type_, options_, pool_));
+  ARROW_ASSIGN_OR_RAISE(converter_, Converter::Make(type_, *options_, pool_));
   return Status::OK();
 }
 
@@ -202,7 +205,7 @@ void TypedColumnBuilder::Insert(int64_t block_index,
   ReserveChunks(block_index);
 
   // We're careful that all references in the closure outlive the Append() call
-  task_group_->Append([this, parser, block_index]() -> Status {
+  task_group_->Append([self = shared_from_this(), this, parser, block_index]() -> Status {
     return SetChunk(block_index, converter_->Convert(*parser, col_index_));
   });
 }
@@ -212,11 +215,11 @@ void TypedColumnBuilder::Insert(int64_t block_index,
 
 class InferringColumnBuilder : public ConcreteColumnBuilder {
  public:
-  InferringColumnBuilder(int32_t col_index, const ConvertOptions& options,
-                         MemoryPool* pool, const std::shared_ptr<TaskGroup>& task_group)
-      : ConcreteColumnBuilder(pool, task_group, col_index),
-        options_(options),
-        infer_status_(options) {}
+  InferringColumnBuilder(int32_t col_index, std::shared_ptr<ConvertOptions> options,
+                         MemoryPool* pool, std::shared_ptr<TaskGroup> task_group)
+      : ConcreteColumnBuilder(pool, std::move(task_group), col_index),
+        options_(std::move(options)),
+        infer_status_(*options_) {}
 
   Status Init();
 
@@ -237,7 +240,8 @@ class InferringColumnBuilder : public ConcreteColumnBuilder {
 
   // CAUTION: ConvertOptions can grow large (if it customizes hundreds or
   // thousands of columns), so avoid copying it in each InferringColumnBuilder.
-  const ConvertOptions& options_;
+  // However, it needs to be owned because of async task execution, hence shared_ptr.
+  std::shared_ptr<ConvertOptions> options_;
 
   // Current inference status
   InferStatus infer_status_;
@@ -257,7 +261,9 @@ Status InferringColumnBuilder::UpdateType() {
 }
 
 void InferringColumnBuilder::ScheduleConvertChunk(int64_t chunk_index) {
-  task_group_->Append([this, chunk_index]() { return TryConvertChunk(chunk_index); });
+  task_group_->Append([self = shared_from_this(), this, chunk_index]() {
+    return TryConvertChunk(chunk_index);
+  });
 }
 
 Status InferringColumnBuilder::TryConvertChunk(int64_t chunk_index) {
@@ -361,26 +367,26 @@ Result<std::shared_ptr<ChunkedArray>> InferringColumnBuilder::Finish() {
 
 Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::Make(
     MemoryPool* pool, const std::shared_ptr<DataType>& type, int32_t col_index,
-    const ConvertOptions& options, const std::shared_ptr<TaskGroup>& task_group) {
-  auto ptr =
-      std::make_shared<TypedColumnBuilder>(type, col_index, options, pool, task_group);
+    std::shared_ptr<ConvertOptions> options, std::shared_ptr<TaskGroup> task_group) {
+  auto ptr = std::make_shared<TypedColumnBuilder>(type, col_index, std::move(options),
+                                                  pool, std::move(task_group));
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
 Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::Make(
-    MemoryPool* pool, int32_t col_index, const ConvertOptions& options,
-    const std::shared_ptr<TaskGroup>& task_group) {
-  auto ptr =
-      std::make_shared<InferringColumnBuilder>(col_index, options, pool, task_group);
+    MemoryPool* pool, int32_t col_index, std::shared_ptr<ConvertOptions> options,
+    std::shared_ptr<TaskGroup> task_group) {
+  auto ptr = std::make_shared<InferringColumnBuilder>(col_index, std::move(options), pool,
+                                                      std::move(task_group));
   RETURN_NOT_OK(ptr->Init());
   return ptr;
 }
 
 Result<std::shared_ptr<ColumnBuilder>> ColumnBuilder::MakeNull(
     MemoryPool* pool, const std::shared_ptr<DataType>& type,
-    const std::shared_ptr<TaskGroup>& task_group) {
-  return std::make_shared<NullColumnBuilder>(type, pool, task_group);
+    std::shared_ptr<TaskGroup> task_group) {
+  return std::make_shared<NullColumnBuilder>(type, pool, std::move(task_group));
 }
 
 }  // namespace csv

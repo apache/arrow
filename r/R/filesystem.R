@@ -499,13 +499,13 @@ default_s3_options <- list(
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
-#' bucket <- s3_bucket("voltrondata-labs-datasets")
+#' bucket <- s3_bucket("arrow-datasets")
 #'
 #' @examplesIf FALSE
 #' # Turn on debug logging. The following line of code should be run in a fresh
 #' # R session prior to any calls to `s3_bucket()` (or other S3 functions)
 #' Sys.setenv("ARROW_S3_LOG_LEVEL" = "DEBUG")
-#' bucket <- s3_bucket("voltrondata-labs-datasets")
+#' bucket <- s3_bucket("arrow-datasets")
 #'
 #' @export
 s3_bucket <- function(bucket, ...) {
@@ -541,7 +541,7 @@ s3_bucket <- function(bucket, ...) {
 #' relative path. Note that this function's success does not guarantee that you
 #' are authorized to access the bucket's contents.
 #' @examplesIf FALSE
-#' bucket <- gs_bucket("voltrondata-labs-datasets")
+#' bucket <- gs_bucket("arrow-datasets")
 #' @export
 gs_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))

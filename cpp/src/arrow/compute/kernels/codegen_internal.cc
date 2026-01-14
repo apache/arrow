@@ -393,10 +393,21 @@ TypeHolder CommonBinary(const TypeHolder* begin, size_t count) {
   return large_binary();
 }
 
+bool CastableToDecimal(const DataType& type) {
+  return is_numeric(type.id()) || is_decimal(type.id());
+}
+
 Status CastBinaryDecimalArgs(DecimalPromotion promotion, std::vector<TypeHolder>* types) {
   const DataType& left_type = *(*types)[0];
   const DataType& right_type = *(*types)[1];
   DCHECK(is_decimal(left_type.id()) || is_decimal(right_type.id()));
+
+  if ((is_decimal(left_type.id()) && !CastableToDecimal(right_type)) ||
+      (is_decimal(right_type.id()) && !CastableToDecimal(left_type))) {
+    // If the other type is not castable to decimal, do not cast. The dispatch will
+    // gracefully fail by kernel selection.
+    return Status::OK();
+  }
 
   // decimal + float64 = float64
   // decimal + float32 is roughly float64 + float32 so we choose float64

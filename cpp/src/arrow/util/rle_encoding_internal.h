@@ -532,6 +532,10 @@ class RleBitPackedEncoder {
   }
 
   /// Returns the maximum byte size it could take to encode 'num_values'.
+  ///
+  /// Note: because of the way CheckBufferFull() is called, you have to
+  /// reserve an extra "RleEncoder::MinBufferSize" bytes. These extra bytes
+  /// won't be used but not reserving them can cause the encoder to fail.
   static int64_t MaxBufferSize(int bit_width, int64_t num_values) {
     // For a bit_width > 1, the worst case is the repetition of "literal run of length 8
     // and then a repeated run of length 8".

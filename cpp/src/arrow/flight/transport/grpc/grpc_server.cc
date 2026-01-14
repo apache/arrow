@@ -25,6 +25,8 @@
 #include <unordered_map>
 #include <utility>
 
+#include "arrow/flight/transport/grpc/customize_grpc.h"
+
 #include <grpcpp/grpcpp.h>
 
 #include "arrow/buffer.h"
@@ -305,9 +307,10 @@ class GrpcServiceHandler final : public FlightService::Service {
       }
     } else {
       const auto client_metadata = context->client_metadata();
-      const auto auth_header = client_metadata.find(kGrpcAuthHeader);
+      const auto [auth_header, auth_header_end] =
+          client_metadata.equal_range(kGrpcAuthHeader);
       std::string token;
-      if (auth_header == client_metadata.end()) {
+      if (auth_header == auth_header_end) {
         token = "";
       } else {
         token = std::string(auth_header->second.data(), auth_header->second.length());

@@ -1841,6 +1841,24 @@ class TestPrimitiveMinMaxKernel : public ::testing::Test {
     AssertMinMaxIsNull(array, options);
   }
 
+  void AssertMinMaxIsNaN(const Datum& array, const ScalarAggregateOptions& options) {
+    ASSERT_OK_AND_ASSIGN(Datum out, MinMax(array, options));
+    for (const auto& val : out.scalar_as<StructScalar>().value) {
+      ASSERT_TRUE(std::isnan(checked_cast<const ScalarType&>(*val).value));
+    }
+  }
+
+  void AssertMinMaxIsNaN(const std::string& json, const ScalarAggregateOptions& options) {
+    auto array = ArrayFromJSON(type_singleton(), json);
+    AssertMinMaxIsNaN(array, options);
+  }
+
+  void AssertMinMaxIsNaN(const std::vector<std::string>& json,
+                         const ScalarAggregateOptions& options) {
+    auto array = ChunkedArrayFromJSON(type_singleton(), json);
+    AssertMinMaxIsNaN(array, options);
+  }
+
   std::shared_ptr<DataType> type_singleton() {
     return default_type_instance<ArrowType>();
   }
@@ -1963,6 +1981,9 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs("[5, Inf, 2, 3, 4]", 2.0, INFINITY, options);
   this->AssertMinMaxIs("[5, NaN, 2, 3, 4]", 2, 5, options);
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
+  this->AssertMinMaxIs("[NaN, null, 42]", 42, 42, options);
+  this->AssertMinMaxIsNaN("[NaN, NaN]", options);
+  this->AssertMinMaxIsNaN("[NaN, null]", options);
   this->AssertMinMaxIs(chunked_input1, 1, 9, options);
   this->AssertMinMaxIs(chunked_input2, 1, 9, options);
   this->AssertMinMaxIs(chunked_input3, 1, 9, options);
@@ -1980,6 +2001,7 @@ TYPED_TEST(TestFloatingMinMaxKernel, Floats) {
   this->AssertMinMaxIs("[5, -Inf, 2, 3, 4]", -INFINITY, 5, options);
   this->AssertMinMaxIsNull("[5, null, 2, 3, 4]", options);
   this->AssertMinMaxIsNull("[5, -Inf, null, 3, 4]", options);
+  this->AssertMinMaxIsNull("[NaN, null]", options);
   this->AssertMinMaxIsNull(chunked_input1, options);
   this->AssertMinMaxIsNull(chunked_input2, options);
   this->AssertMinMaxIsNull(chunked_input3, options);
@@ -3275,15 +3297,8 @@ void CheckVarStd(const Datum& array, const VarianceOptions& options,
   auto var = checked_cast<const DoubleScalar*>(out_var.scalar().get());
   auto std = checked_cast<const DoubleScalar*>(out_std.scalar().get());
   ASSERT_TRUE(var->is_valid && std->is_valid);
-  // Near zero these macros don't work as well
-  // (and MinGW can give results slightly off from zero)
-  if (std::abs(expected_var) < 1e-20) {
-    ASSERT_NEAR(std->value * std->value, var->value, 1e-20);
-    ASSERT_NEAR(var->value, expected_var, 1e-20);
-  } else {
-    ASSERT_DOUBLE_EQ(std->value * std->value, var->value);
-    ASSERT_DOUBLE_EQ(var->value, expected_var);  // < 4ULP
-  }
+  AssertWithinUlp(std->value * std->value, var->value, /*n_ulps=*/2);
+  AssertWithinUlp(var->value, expected_var, /*n_ulps=*/5);
 }
 
 template <typename ArrowType>
@@ -4159,6 +4174,14 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
 
   void VerifyTDigest(const std::shared_ptr<ChunkedArray>& chunked,
                      std::vector<double>& quantiles) {
+    // For some reason, TDigest computations with libc++ seem much less accurate.
+    // A possible explanation is that libc++ has less precise implementations
+    // of std::sin and std::asin, used in the TDigest implementation.
+#  ifdef _LIBCPP_VERSION
+    constexpr double kRelativeTolerance = 0.09;
+#  else
+    constexpr double kRelativeTolerance = 0.05;
+#  endif
     TDigestOptions options(quantiles);
     ASSERT_OK_AND_ASSIGN(Datum out, TDigest(chunked, options));
     const auto& out_array = out.make_array();
@@ -4173,7 +4196,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     const double* approx = out_array->data()->GetValues<double>(1);
     for (size_t i = 0; i < quantiles.size(); ++i) {
       const auto& exact_scalar = checked_pointer_cast<DoubleScalar>(exact[i][0].scalar());
-      const double tolerance = std::fabs(exact_scalar->value) * 0.05;
+      const double tolerance = std::fabs(exact_scalar->value) * kRelativeTolerance;
       EXPECT_NEAR(approx[i], exact_scalar->value, tolerance) << quantiles[i];
     }
   }

@@ -460,9 +460,14 @@ cdef class CudaBuffer(Buffer):
         """
         import ctypes
         from numba.cuda.cudadrv.driver import MemoryPointer
-        return MemoryPointer(self.context.to_numba(),
-                             pointer=ctypes.c_void_p(self.address),
-                             size=self.size)
+        try:
+            return MemoryPointer(self.context.to_numba(),
+                                 pointer=ctypes.c_void_p(self.address),
+                                 size=self.size)
+        except TypeError:
+            # Newer Numba does not take a context argument anymore
+            return MemoryPointer(pointer=ctypes.c_void_p(self.address),
+                                 size=self.size)
 
     cdef getitem(self, int64_t i):
         return self.copy_to_host(position=i, nbytes=1)[0]

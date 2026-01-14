@@ -182,6 +182,24 @@ gparquet_arrow_file_reader_new_path(const gchar *path, GError **error)
 }
 
 /**
+ * gparquet_arrow_file_reader_close:
+ * @reader: A #GParquetArrowFileReader.
+ *
+ * Close the reader.
+ *
+ * Since: 23.0.0
+ */
+void
+gparquet_arrow_file_reader_close(GParquetArrowFileReader *reader)
+{
+  auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
+  auto parquet_reader = parquet_arrow_file_reader->parquet_reader();
+  if (parquet_reader) {
+    parquet_reader->Close();
+  }
+}
+
+/**
  * gparquet_arrow_file_reader_read_table:
  * @reader: A #GParquetArrowFileReader.
  * @error: (nullable): Return location for a #GError or %NULL.

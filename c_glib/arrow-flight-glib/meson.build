@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -84,11 +82,13 @@ if have_gi
         dependencies: declare_dependency(sources: arrow_glib_gir),
         export_packages: 'arrow-flight-glib',
         extra_args: gir_scanner_extra_args + [
-            '--include-uninstalled=./arrow-glib/Arrow-1.0.gir',
+            '--include-uninstalled=arrow-glib/Arrow-@0@.gir'.format(
+                gi_api_version,
+            ),
         ],
         header: 'arrow-flight-glib/arrow-flight-glib.h',
         identifier_prefix: 'GAFlight',
-        includes: ['Arrow-1.0'],
+        includes: ['Arrow-@0@'.format(gi_api_version)],
         kwargs: generate_gi_common_args,
         namespace: 'ArrowFlight',
         sources: sources + c_headers,

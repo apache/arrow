@@ -17,14 +17,12 @@
 
 #pragma once
 
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <map>
+#include <optional>
 #include <vector>
 
 namespace arrow::flight::sql::odbc {
-
-using boost::optional;
 
 class ResultSet;
 
@@ -39,16 +37,19 @@ class Statement {
   virtual ~Statement() = default;
 
   /// \brief Statement attributes that can be called at anytime.
-  ////TODO: Document attributes
   enum StatementAttributeId {
-    MAX_LENGTH,   // size_t - The maximum length when retrieving variable length data. 0
-                  // means no limit.
-    METADATA_ID,  // size_t - Modifies catalog function arguments to be identifiers.
-                  // SQL_TRUE or SQL_FALSE.
-    NOSCAN,  // size_t - Indicates that the driver does not scan for escape sequences.
-             // Default to SQL_NOSCAN_OFF
-    QUERY_TIMEOUT,  // size_t - The time to wait in seconds for queries to execute. 0 to
-                    // have no timeout.
+    /// \brief Maximum length when retrieving variable length data.
+    /// Type: size_t. Value 0 means no limit.
+    MAX_LENGTH,
+    /// \brief Modifies catalog function arguments to be identifiers.
+    /// Type: size_t. Values: SQL_TRUE or SQL_FALSE.
+    METADATA_ID,
+    /// \brief Indicates that the driver does not scan for escape sequences.
+    /// Type: size_t. Default: SQL_NOSCAN_OFF.
+    NOSCAN,
+    /// \brief The time to wait in seconds for queries to execute.
+    /// Type: size_t. Value 0 means no timeout.
+    QUERY_TIMEOUT,
   };
 
   typedef boost::variant<size_t> Attribute;
@@ -69,14 +70,14 @@ class Statement {
   ///
   /// \param attribute Attribute identifier to be retrieved.
   /// \return Value associated with the attribute.
-  virtual optional<Statement::Attribute> GetAttribute(
+  virtual std::optional<Statement::Attribute> GetAttribute(
       Statement::StatementAttributeId attribute) = 0;
 
   /// \brief Prepares the statement.
   /// Returns ResultSetMetadata if query returns a result set,
-  /// otherwise it returns `boost::none`.
+  /// otherwise it returns `std::nullopt`.
   /// \param query The SQL query to prepare.
-  virtual boost::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
+  virtual std::optional<std::shared_ptr<ResultSetMetadata>> Prepare(
       const std::string& query) = 0;
 
   /// \brief Execute the prepared statement.
