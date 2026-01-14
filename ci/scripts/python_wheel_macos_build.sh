@@ -177,7 +177,7 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 pushd ${source_dir}/python
 # We first populate stub docstrings and then build the wheel
 python setup.py build_ext --inplace
-python -m pip install griffe libcst
+python -m pip install click griffe libcst
 python ../dev/update_stub_docstrings.py pyarrow-stubs
 
 python setup.py bdist_wheel
