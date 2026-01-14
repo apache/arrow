@@ -45,8 +45,8 @@ using std::chrono::duration_cast;
 using ArrowTimeZone = std::variant<const time_zone*, OffsetZone>;
 
 template <class Duration, class Func>
-auto ApplyTimeZone(const ArrowTimeZone& tz, sys_time<Duration> st, Func&& func)
-    -> decltype(func(zoned_time<Duration>{})) {
+auto ApplyTimeZone(const ArrowTimeZone& tz, sys_time<Duration> st,
+                   Func&& func) -> decltype(func(zoned_time<Duration>{})) {
   return std::visit(
       [&](auto&& zone) {
         if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
@@ -60,8 +60,8 @@ auto ApplyTimeZone(const ArrowTimeZone& tz, sys_time<Duration> st, Func&& func)
 
 template <class Duration, class Func>
 auto ApplyTimeZone(const ArrowTimeZone& tz, local_time<Duration> lt,
-                   std::optional<choose> c, Func&& func)
-    -> decltype(func(zoned_time<Duration>{})) {
+                   std::optional<choose> c,
+                   Func&& func) -> decltype(func(zoned_time<Duration>{})) {
   return std::visit(
       [&](auto&& zone) {
         if constexpr (std::is_pointer_v<std::decay_t<decltype(zone)> >) {
