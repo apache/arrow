@@ -388,7 +388,7 @@ struct AlpEncodedVectorView {
 /// \brief Bit packing layout
 ///
 /// Currently only normal bit packing is implemented.
-enum class AlpIntegerEncoding { kBitPack };
+enum class AlpIntegerEncoding { kForBitPack };
 
 // ----------------------------------------------------------------------
 // AlpEncodingPreset
@@ -405,7 +405,7 @@ struct AlpEncodingPreset {
   /// Best compressed size for the preset
   uint64_t best_compressed_size = 0;
   /// Bit packing layout used for bitpacking
-  AlpIntegerEncoding integer_encoding = AlpIntegerEncoding::kBitPack;
+  AlpIntegerEncoding integer_encoding = AlpIntegerEncoding::kForBitPack;
 };
 
 template <typename T>
