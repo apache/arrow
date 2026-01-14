@@ -5797,8 +5797,8 @@ TEST(TestArrowReadWrite, WriteRecordBatchNotProduceEmptyRowGroup) {
 TEST(TestArrowReadWrite, WriteRecordBatchFlushRowGroupByBufferedSize) {
   auto pool = ::arrow::default_memory_pool();
   auto sink = CreateOutputStream();
-  // Limit the max bytes in a row group to 10 so that each batch produces a new group.
-  auto writer_properties = WriterProperties::Builder().max_row_group_bytes(10)->build();
+  // Limit the max bytes in a row group to 100 so that each batch produces a new group.
+  auto writer_properties = WriterProperties::Builder().max_row_group_bytes(100)->build();
   auto arrow_writer_properties = default_arrow_writer_properties();
 
   // Prepare schema
