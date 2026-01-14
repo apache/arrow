@@ -67,7 +67,7 @@ struct AlpHeader {
   /// Compression mode (currently only kAlp is supported).
   uint8_t compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   /// Bit packing layout used for bitpacking.
-  uint8_t integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kBitPack);
+  uint8_t integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
   /// Reserved for future use (also ensures 4-byte alignment for vector_size).
   uint8_t reserved = 0;
   /// Vector size used for compression.
@@ -172,7 +172,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   AlpHeader header{};
   header.version = version;
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
-  header.integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kBitPack);
+  header.integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
   header.vector_size = AlpConstants::kAlpVectorSize;
   header.num_elements = static_cast<uint32_t>(element_count);
 
