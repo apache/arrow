@@ -24,10 +24,23 @@
 ### Vector
 
 ```
-[VectorInfo (14B)] [PackedValues] [ExceptionPos] [ExceptionVals]
+[VectorInfo (10B for float, 14B for double)] [PackedValues] [ExceptionPos] [ExceptionVals]
 ```
 
-### VectorInfo (14 bytes)
+### VectorInfo (type-dependent size)
+
+**Float (10 bytes):**
+
+| Offset | Field | Size | Type |
+|--------|-------|------|------|
+| 0 | frame_of_reference | 4B | uint32 |
+| 4 | exponent | 1B | uint8, 0..10 |
+| 5 | factor | 1B | uint8, 0..e |
+| 6 | bit_width | 1B | uint8, 0..32 |
+| 7 | reserved | 1B | - |
+| 8 | num_exceptions | 2B | uint16 |
+
+**Double (14 bytes):**
 
 | Offset | Field | Size | Type |
 |--------|-------|------|------|
@@ -117,7 +130,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | bit_width | `ceil(log2(778))` | 10 |
 | packed_size | `ceil(4*10/8)` | 5B |
 
-**Output:** 14B (info) + 5B (packed) = **19B**
+**Output:** 10B (info, float) + 5B (packed) = **15B**
 
 ### Example 2: With Exceptions
 
@@ -131,7 +144,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | FOR=15 | `delta = [0, 0, 10, 0]` |
 | bit_width=4 | packed_size = 2B |
 
-**Output:** 14B + 2B + 4B + 8B = **28B**
+**Output:** 10B (info, float) + 2B (packed) + 4B (pos) + 8B (vals) = **24B**
 
 ### Example 3: 1024 Monetary Values ($0.01-$999.99)
 
@@ -140,7 +153,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | e=2, f=0 | range: 1..99999 |
 | bit_width | ceil(log2(99999)) = 17 |
 | packed_size | ceil(1024*17/8) = 2176B |
-| **Total** | ~2190B vs 4096B PLAIN (**47% smaller**) |
+| **Total (float)** | 10B + 2176B = ~2186B vs 4096B PLAIN (**47% smaller**) |
 
 ---
 
@@ -161,12 +174,14 @@ value[exception_pos[j]] = exception_val[j]  // patch
 
 **Per vector:**
 ```
-size = 14 + ceil(n * bw / 8) + exc * (2 + sizeof(T))
+# H = VectorInfo header size (10 for float, 14 for double)
+size = H + ceil(n * bw / 8) + exc * (2 + sizeof(T))
 ```
 
 **Max compressed size:**
 ```
-max = 16 + ceil(n/1024) * 14 + n * sizeof(T) * 2 + n * 2
+# H = VectorInfo header size (10 for float, 14 for double)
+max = 16 + ceil(n/1024) * H + n * sizeof(T) * 2 + n * 2
 ```
 
 ---
@@ -195,11 +210,26 @@ Offset  Field
 8-15    num_elements (total)
 ```
 
-**VectorInfo:**
+**VectorInfo (Float, 10 bytes):**
 ```
 Offset  Field
 ------  -----
-0-7     frame_of_reference
+0-3     frame_of_reference (uint32)
+4       exponent
+5       factor
+6       bit_width
+7       reserved
+8-9     num_exceptions
+10      packed_values[P] (P = ceil(n * bw / 8))
+10+P    exception_pos[num_exceptions]
+10+P+2E exception_vals[num_exceptions]
+```
+
+**VectorInfo (Double, 14 bytes):**
+```
+Offset  Field
+------  -----
+0-7     frame_of_reference (uint64)
 8       exponent
 9       factor
 10      bit_width
