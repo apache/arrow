@@ -70,7 +70,7 @@ void BlockSplitBloomFilter::Init(const uint8_t* bitset, uint32_t num_bytes) {
 
   num_bytes_ = num_bytes;
   PARQUET_ASSIGN_OR_THROW(data_, ::arrow::AllocateBuffer(num_bytes_, pool_));
-  memcpy(data_->mutable_data(), bitset, num_bytes_);
+  std::memcpy(data_->mutable_data(), bitset, num_bytes_);
 
   this->hasher_ = std::make_unique<XxHasher>();
 }
@@ -157,10 +157,8 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   auto buffer = AllocateBuffer(properties.memory_pool(), bloom_filter_size);
 
   const auto bloom_filter_bytes_in_header = header_buf->size() - header_size;
-  if (bloom_filter_bytes_in_header > 0) {
-    std::memcpy(buffer->mutable_data(), header_buf->data() + header_size,
-                static_cast<size_t>(bloom_filter_bytes_in_header));
-  }
+  SafeMemcpy(buffer->mutable_data(), header_buf->data() + header_size,
+             static_cast<size_t>(bloom_filter_bytes_in_header));
 
   const auto required_read_size = bloom_filter_size - bloom_filter_bytes_in_header;
   PARQUET_ASSIGN_OR_THROW(
