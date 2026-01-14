@@ -653,7 +653,7 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
   const EncodingResult encoding_result = EncodeVector(input_span, exponent_and_factor);
   BitPackingResult bitpacking_result;
   switch (preset.integer_encoding) {
-    case AlpIntegerEncoding::kBitPack:
+    case AlpIntegerEncoding::kForBitPack:
       bitpacking_result =
           BitPackIntegers(encoding_result.encoded_integers, encoding_result.min_max_diff);
       break;
@@ -789,7 +789,7 @@ void AlpCompression<T>::DecompressVector(const AlpEncodedVector<T>& packed_vecto
   const uint16_t num_elements = packed_vector.num_elements;
 
   switch (integer_encoding) {
-    case AlpIntegerEncoding::kBitPack: {
+    case AlpIntegerEncoding::kForBitPack: {
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(packed_vector.packed_values, vector_info, num_elements);
       DecodeVector<TargetType>(output, {encoded_integers.data(), num_elements},
@@ -814,7 +814,7 @@ void AlpCompression<T>::DecompressVectorView(const AlpEncodedVectorView<T>& enco
   const uint16_t num_elements = encoded_view.num_elements;
 
   switch (integer_encoding) {
-    case AlpIntegerEncoding::kBitPack: {
+    case AlpIntegerEncoding::kForBitPack: {
       // Use zero-copy for packed values, aligned copies for exceptions
       arrow::internal::StaticVector<ExactType, kAlpVectorSize> encoded_integers =
           BitUnpackIntegers(encoded_view.packed_values, vector_info, num_elements);
