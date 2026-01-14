@@ -6282,5 +6282,232 @@ TEST_F(ParquetPageIndexRoundTripTest, EnablePerColumn) {
                             /*null_counts=*/{0}}));
 }
 
+// ============================================================================
+// ALP Encoding File-Level Integration Tests
+// ============================================================================
+
+class ParquetAlpEncodingTest : public ::testing::Test {
+ public:
+  void SetUp() override {}
+
+  void TestAlpRoundTrip(const std::shared_ptr<Table>& table) {
+    // Create writer properties with ALP encoding for float/double columns
+    auto writer_props = WriterProperties::Builder()
+                            .disable_dictionary()
+                            ->encoding(Encoding::ALP)
+                            ->build();
+
+    std::shared_ptr<Table> result;
+    DoRoundtrip(table, table->num_rows(), &result, writer_props);
+
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+  }
+
+  void TestAlpWithCompression(const std::shared_ptr<Table>& table,
+                              Compression::type compression) {
+    auto writer_props = WriterProperties::Builder()
+                            .disable_dictionary()
+                            ->encoding(Encoding::ALP)
+                            ->compression(compression)
+                            ->build();
+
+    std::shared_ptr<Table> result;
+    DoRoundtrip(table, table->num_rows(), &result, writer_props);
+
+    ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+  }
+};
+
+TEST_F(ParquetAlpEncodingTest, SimpleFloatTable) {
+  auto schema = ::arrow::schema({::arrow::field("floats", ::arrow::float32())});
+  auto table = ::arrow::TableFromJSON(
+      schema, {R"([[1.5], [2.5], [3.5], [4.5], [5.5], [6.5], [7.5], [8.5], [9.5], [10.5]])"});
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, SimpleDoubleTable) {
+  auto schema = ::arrow::schema({::arrow::field("doubles", ::arrow::float64())});
+  auto table = ::arrow::TableFromJSON(
+      schema, {R"([[1.123], [2.234], [3.345], [4.456], [5.567], [6.678], [7.789], [8.890], [9.901]])"});
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, MixedTypesWithFloatDouble) {
+  auto schema = ::arrow::schema({::arrow::field("id", ::arrow::int64()),
+                                 ::arrow::field("value_f", ::arrow::float32()),
+                                 ::arrow::field("value_d", ::arrow::float64()),
+                                 ::arrow::field("name", ::arrow::utf8())});
+  auto table =
+      ::arrow::TableFromJSON(schema, {R"([[1, 1.5, 1.125, "a"],
+                                          [2, 2.5, 2.250, "b"],
+                                          [3, 3.5, 3.375, "c"],
+                                          [4, 4.5, 4.500, "d"],
+                                          [5, 5.5, 5.625, "e"]])"});
+  // Use ALP encoding only for float/double columns, default for others
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding("value_f", Encoding::ALP)
+                          ->encoding("value_d", Encoding::ALP)
+                          ->build();
+
+  std::shared_ptr<Table> result;
+  DoRoundtrip(table, table->num_rows(), &result, writer_props);
+
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
+TEST_F(ParquetAlpEncodingTest, LargeFloatDataset) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto float_array = rag.Float32(10000, -1000.0f, 1000.0f);
+
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float32())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(float_array)});
+
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, LargeDoubleDataset) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto double_array = rag.Float64(10000, -1000.0, 1000.0);
+
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
+
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, DecimalLikeValues) {
+  // Test values that ALP compresses well (2 decimal places)
+  std::vector<double> values(1000);
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = 100.0 + static_cast<double>(i) * 0.01;
+  }
+
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+
+  auto schema = ::arrow::schema({::arrow::field("decimals", ::arrow::float64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, SpecialFloatValues) {
+  // Test with NaN, Inf, -Inf, -0.0
+  auto schema = ::arrow::schema({::arrow::field("specials", ::arrow::float64())});
+
+  // TableFromJSON doesn't support Infinity/NaN literals, so we create the array manually
+  std::vector<double> values = {
+      1.0,
+      std::numeric_limits<double>::infinity(),
+      -std::numeric_limits<double>::infinity(),
+      std::numeric_limits<double>::quiet_NaN(),
+      0.0,
+      -0.0,
+      2.5,
+      3.5};
+
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, FloatWithNulls) {
+  // Test with null values
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
+  auto table =
+      ::arrow::TableFromJSON(schema, {R"([[1.5], [null], [3.5], [null], [5.5], [6.5], [null], [8.5]])"});
+
+  TestAlpRoundTrip(table);
+}
+
+TEST_F(ParquetAlpEncodingTest, MultipleRowGroups) {
+  ::arrow::random::RandomArrayGenerator rag(123);
+  auto double_array = rag.Float64(5000, -100.0, 100.0);
+
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
+
+  // Write with small row group size to create multiple row groups
+  auto writer_props = WriterProperties::Builder()
+                          .disable_dictionary()
+                          ->encoding(Encoding::ALP)
+                          ->build();
+
+  std::shared_ptr<Table> result;
+  DoRoundtrip(table, /*row_group_size=*/1000, &result, writer_props);
+
+  ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
+}
+
+#ifdef ARROW_WITH_ZSTD
+TEST_F(ParquetAlpEncodingTest, AlpWithZstdCompression) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto double_array = rag.Float64(5000, -1000.0, 1000.0);
+
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(double_array)});
+
+  TestAlpWithCompression(table, Compression::ZSTD);
+}
+#endif
+
+#ifdef ARROW_WITH_SNAPPY
+TEST_F(ParquetAlpEncodingTest, AlpWithSnappyCompression) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto float_array = rag.Float32(5000, -1000.0f, 1000.0f);
+
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float32())});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(float_array)});
+
+  TestAlpWithCompression(table, Compression::SNAPPY);
+}
+#endif
+
+TEST_F(ParquetAlpEncodingTest, VerifyAlpEncodingUsed) {
+  // Verify that ALP encoding is actually being used
+  auto schema = ::arrow::schema({::arrow::field("values", ::arrow::float64())});
+
+  std::vector<double> values(1000);
+  for (size_t i = 0; i < values.size(); ++i) {
+    values[i] = static_cast<double>(i) * 0.123;
+  }
+
+  std::shared_ptr<::arrow::Array> array;
+  ::arrow::ArrayFromVector<::arrow::DoubleType>(values, &array);
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(array)});
+
+  auto writer_props =
+      WriterProperties::Builder().disable_dictionary()->encoding(Encoding::ALP)->build();
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK(WriteTable(*table, ::arrow::default_memory_pool(), sink, table->num_rows(),
+                       writer_props));
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  // Read back and verify encoding in metadata
+  auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(buffer));
+  auto metadata = reader->metadata();
+
+  ASSERT_EQ(metadata->num_row_groups(), 1);
+  auto row_group = metadata->RowGroup(0);
+  ASSERT_EQ(row_group->num_columns(), 1);
+
+  auto column_chunk = row_group->ColumnChunk(0);
+  auto encodings = column_chunk->encodings();
+
+  // Verify ALP is one of the encodings used
+  bool has_alp = false;
+  for (auto encoding : encodings) {
+    if (encoding == Encoding::ALP) {
+      has_alp = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(has_alp) << "ALP encoding not found in column encodings";
+}
+
 }  // namespace arrow
 }  // namespace parquet

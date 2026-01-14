@@ -661,6 +661,78 @@ BENCHMARK(BM_ByteStreamSplitEncode_Float_Neon)->Apply(ByteStreamSplitApply);
 BENCHMARK(BM_ByteStreamSplitEncode_Double_Neon)->Apply(ByteStreamSplitApply);
 #endif
 
+// ----------------------------------------------------------------------
+// ALP encoding/decoding benchmarks
+
+static void BM_AlpEncodingFloat(benchmark::State& state) {
+  std::vector<float> values(state.range(0), 64.0f);
+  auto encoder = MakeTypedEncoder<FloatType>(Encoding::ALP);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(float));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+BENCHMARK(BM_AlpEncodingFloat)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_AlpDecodingFloat(benchmark::State& state) {
+  std::vector<float> values(state.range(0), 64.0f);
+  auto encoder = MakeTypedEncoder<FloatType>(Encoding::ALP);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<FloatType>(Encoding::ALP);
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    std::vector<float> output(values.size());
+    decoder->Decode(output.data(), static_cast<int>(values.size()));
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(float));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+BENCHMARK(BM_AlpDecodingFloat)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_AlpEncodingDouble(benchmark::State& state) {
+  std::vector<double> values(state.range(0), 64.0);
+  auto encoder = MakeTypedEncoder<DoubleType>(Encoding::ALP);
+  for (auto _ : state) {
+    encoder->Put(values.data(), static_cast<int>(values.size()));
+    encoder->FlushValues();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(double));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+BENCHMARK(BM_AlpEncodingDouble)->Range(MIN_RANGE, MAX_RANGE);
+
+static void BM_AlpDecodingDouble(benchmark::State& state) {
+  std::vector<double> values(state.range(0), 64.0);
+  auto encoder = MakeTypedEncoder<DoubleType>(Encoding::ALP);
+  encoder->Put(values.data(), static_cast<int>(values.size()));
+  std::shared_ptr<Buffer> buf = encoder->FlushValues();
+
+  for (auto _ : state) {
+    auto decoder = MakeTypedDecoder<DoubleType>(Encoding::ALP);
+    decoder->SetData(static_cast<int>(values.size()), buf->data(),
+                     static_cast<int>(buf->size()));
+    std::vector<double> output(values.size());
+    decoder->Decode(output.data(), static_cast<int>(values.size()));
+    benchmark::ClobberMemory();
+  }
+  state.SetBytesProcessed(state.iterations() * state.range(0) * sizeof(double));
+  state.SetItemsProcessed(state.iterations() * state.range(0));
+}
+
+BENCHMARK(BM_AlpDecodingDouble)->Range(MIN_RANGE, MAX_RANGE);
+
+// ----------------------------------------------------------------------
+// DeltaBitPacking encoding/decoding benchmarks
+
 template <typename DType>
 static auto MakeDeltaBitPackingInputFixed(size_t length) {
   using T = typename DType::c_type;

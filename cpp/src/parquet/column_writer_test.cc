@@ -2380,5 +2380,89 @@ TYPED_TEST(TestColumnWriterMaxRowsPerPage, RequiredLargeChunk) {
   }
 }
 
+// ----------------------------------------------------------------------
+// ALP Encoding Tests for Float/Double Columns
+// ----------------------------------------------------------------------
+
+using TestFloatValuesWriter = TestPrimitiveWriter<FloatType>;
+using TestDoubleValuesWriter = TestPrimitiveWriter<DoubleType>;
+
+TEST_F(TestFloatValuesWriter, RequiredAlpEncoding) {
+  this->TestRequiredWithEncoding(Encoding::ALP);
+}
+
+TEST_F(TestDoubleValuesWriter, RequiredAlpEncoding) {
+  this->TestRequiredWithEncoding(Encoding::ALP);
+}
+
+TEST_F(TestFloatValuesWriter, AlpWithStats) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, true,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithStats) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, true,
+                                 LARGE_SIZE);
+}
+
+#ifdef ARROW_WITH_ZSTD
+TEST_F(TestFloatValuesWriter, AlpWithZstdCompression) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, false,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithZstdCompression) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, false,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestFloatValuesWriter, AlpWithZstdCompressionAndStats) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, true,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithZstdCompressionAndStats) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::ZSTD, false, true,
+                                 LARGE_SIZE);
+}
+#endif
+
+#ifdef ARROW_WITH_SNAPPY
+TEST_F(TestFloatValuesWriter, AlpWithSnappyCompression) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::SNAPPY, false, false,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithSnappyCompression) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::SNAPPY, false, false,
+                                 LARGE_SIZE);
+}
+#endif
+
+#ifdef ARROW_WITH_LZ4
+TEST_F(TestFloatValuesWriter, AlpWithLz4Compression) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::LZ4, false, false,
+                                 LARGE_SIZE);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithLz4Compression) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::LZ4, false, false,
+                                 LARGE_SIZE);
+}
+#endif
+
+// Test ALP with page checksum verification
+TEST_F(TestFloatValuesWriter, AlpWithPageChecksum) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, false,
+                                 LARGE_SIZE, Codec::UseDefaultCompressionLevel(),
+                                 /*enable_checksum=*/true);
+}
+
+TEST_F(TestDoubleValuesWriter, AlpWithPageChecksum) {
+  this->TestRequiredWithSettings(Encoding::ALP, Compression::UNCOMPRESSED, false, false,
+                                 LARGE_SIZE, Codec::UseDefaultCompressionLevel(),
+                                 /*enable_checksum=*/true);
+}
+
 }  // namespace test
 }  // namespace parquet
