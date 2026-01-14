@@ -40,7 +40,7 @@ ALP encoding consists of a page-level header followed by one or more encoded vec
 |--------|------------------|---------|--------|------------------------------------|
 | 0      | version          | 1 byte  | uint8  | Format version (must be 1)         |
 | 1      | compression_mode | 1 byte  | uint8  | Compression mode (0 = ALP)         |
-| 2      | integer_encoding | 1 byte  | uint8  | Integer encoding method (0 = bit-pack) |
+| 2      | integer_encoding | 1 byte  | uint8  | Integer encoding method (0 = FOR+bit-pack) |
 | 3      | reserved         | 1 byte  | uint8  | Reserved for future use            |
 | 4      | vector_size      | 4 bytes | uint32 | Elements per vector (must be 1024) |
 | 8      | num_elements     | 4 bytes | uint32 | Total element count in this page   |
