@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/util/type_fwd.h"
 #include "benchmark/benchmark.h"
 
 #include <algorithm>
@@ -164,6 +165,25 @@ static void ReferenceCompression(benchmark::State& state) {  // NOLINT non-const
   state.SetBytesProcessed(state.iterations() * data.size());
 }
 
+template <int COMPRESSION_LEVEL = kUseDefaultCompressionLevel, bool USE_CONTEXT = false>
+static void ReferenceZstdCompression(
+    benchmark::State& state) {                        // NOLINT non-const reference
+  auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
+
+  ZstdCodecOptions codeOptions;
+  codeOptions.compression_level = COMPRESSION_LEVEL;
+  codeOptions.compression_context = USE_CONTEXT;
+  auto codec = *Codec::Create(Compression::ZSTD, codeOptions);
+
+  while (state.KeepRunning()) {
+    std::vector<uint8_t> compressed_data;
+    auto compressed_size = Compress(codec.get(), data, &compressed_data);
+    state.counters["ratio"] =
+        static_cast<double>(data.size()) / static_cast<double>(compressed_size);
+  }
+  state.SetBytesProcessed(state.iterations() * data.size());
+}
+
 static void StreamingDecompression(
     Compression::type compression, const std::vector<uint8_t>& data,
     benchmark::State& state) {  // NOLINT non-const reference
@@ -206,6 +226,31 @@ static void ReferenceStreamingDecompression(
   StreamingDecompression(COMPRESSION, data, state);
 }
 
+template <int COMPRESSION_LEVEL = kUseDefaultCompressionLevel, bool USE_CONTEXT = false>
+static void ReferenceZstdDecompression(
+    benchmark::State& state) {                        // NOLINT non-const reference
+  auto data = MakeCompressibleData(8 * 1024 * 1024);  // 8 MB
+
+  ZstdCodecOptions codeOptions;
+  codeOptions.compression_level = COMPRESSION_LEVEL;
+  codeOptions.decompression_context = USE_CONTEXT;
+  auto codec = *Codec::Create(Compression::ZSTD, codeOptions);
+
+  std::vector<uint8_t> compressed_data;
+  ARROW_UNUSED(Compress(codec.get(), data, &compressed_data));
+  state.counters["ratio"] =
+      static_cast<double>(data.size()) / static_cast<double>(compressed_data.size());
+
+  std::vector<uint8_t> decompressed_data(data);
+  while (state.KeepRunning()) {
+    auto result = codec->Decompress(compressed_data.size(), compressed_data.data(),
+                                    decompressed_data.size(), decompressed_data.data());
+    ARROW_CHECK(result.ok());
+    ARROW_CHECK(*result == static_cast<int64_t>(decompressed_data.size()));
+  }
+  state.SetBytesProcessed(state.iterations() * data.size());
+}
+
 template <Compression::type COMPRESSION>
 static void ReferenceDecompression(
     benchmark::State& state) {                        // NOLINT non-const reference
@@ -244,9 +289,23 @@ BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::BROTLI);
 
 #  ifdef ARROW_WITH_ZSTD
 BENCHMARK_TEMPLATE(ReferenceStreamingCompression, Compression::ZSTD);
-BENCHMARK_TEMPLATE(ReferenceCompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 3);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 6);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 9);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 1, true);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 3, true);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 6, true);
+BENCHMARK_TEMPLATE(ReferenceZstdCompression, 9, true);
 BENCHMARK_TEMPLATE(ReferenceStreamingDecompression, Compression::ZSTD);
-BENCHMARK_TEMPLATE(ReferenceDecompression, Compression::ZSTD);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 3);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 6);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 9);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 1, true);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 3, true);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 6, true);
+BENCHMARK_TEMPLATE(ReferenceZstdDecompression, 9, true);
 #  endif
 
 #  ifdef ARROW_WITH_LZ4

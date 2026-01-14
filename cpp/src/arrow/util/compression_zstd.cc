@@ -173,10 +173,18 @@ class ZSTDCompressor : public Compressor {
 
 class ZSTDCodec : public Codec {
  public:
-  explicit ZSTDCodec(int compression_level)
+  explicit ZSTDCodec(int compression_level, bool compression_context,
+                     bool decompression_context)
       : compression_level_(compression_level == kUseDefaultCompressionLevel
                                ? kZSTDDefaultCompressionLevel
-                               : compression_level) {}
+                               : compression_level),
+        compression_context_(compression_context ? ZSTD_createCCtx() : nullptr),
+        decompression_context_(decompression_context ? ZSTD_createDCtx() : nullptr) {}
+
+  ~ZSTDCodec() override {
+    ZSTD_freeCCtx(compression_context_);
+    ZSTD_freeDCtx(decompression_context_);
+  }
 
   Result<int64_t> Decompress(int64_t input_len, const uint8_t* input,
                              int64_t output_buffer_len, uint8_t* output_buffer) override {
@@ -188,8 +196,15 @@ class ZSTDCodec : public Codec {
       output_buffer = &empty_buffer;
     }
 
-    size_t ret = ZSTD_decompress(output_buffer, static_cast<size_t>(output_buffer_len),
-                                 input, static_cast<size_t>(input_len));
+    size_t ret;
+    if (decompression_context_ == nullptr) {
+      ret = ZSTD_decompress(output_buffer, static_cast<size_t>(output_buffer_len), input,
+                            static_cast<size_t>(input_len));
+    } else {
+      ret = ZSTD_decompressDCtx(decompression_context_, output_buffer,
+                                static_cast<size_t>(output_buffer_len), input,
+                                static_cast<size_t>(input_len));
+    }
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "ZSTD decompression failed: ");
     }
@@ -207,8 +222,15 @@ class ZSTDCodec : public Codec {
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
-    size_t ret = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len),
-                               input, static_cast<size_t>(input_len), compression_level_);
+    size_t ret;
+    if (compression_context_ == nullptr) {
+      ret = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len), input,
+                          static_cast<size_t>(input_len), compression_level_);
+    } else {
+      ret = ZSTD_compressCCtx(compression_context_, output_buffer,
+                              static_cast<size_t>(output_buffer_len), input,
+                              static_cast<size_t>(input_len), compression_level_);
+    }
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "ZSTD compression failed: ");
     }
@@ -236,12 +258,16 @@ class ZSTDCodec : public Codec {
 
  private:
   const int compression_level_;
+  ZSTD_CCtx* const compression_context_;
+  ZSTD_DCtx* const decompression_context_;
 };
 
 }  // namespace
 
-std::unique_ptr<Codec> MakeZSTDCodec(int compression_level) {
-  return std::make_unique<ZSTDCodec>(compression_level);
+std::unique_ptr<Codec> MakeZSTDCodec(int compression_level, bool compression_context,
+                                     bool decompression_context) {
+  return std::make_unique<ZSTDCodec>(compression_level, compression_context,
+                                     decompression_context);
 }
 
 }  // namespace internal

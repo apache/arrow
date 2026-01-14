@@ -142,6 +142,15 @@ class ARROW_EXPORT BrotliCodecOptions : public CodecOptions {
   std::optional<int> window_bits;
 };
 
+// ----------------------------------------------------------------------
+// Zstd codec options implementation
+
+class ARROW_EXPORT ZstdCodecOptions : public CodecOptions {
+ public:
+  bool compression_context = false;
+  bool decompression_context = false;
+};
+
 /// \brief Compression codec
 class ARROW_EXPORT Codec {
  public:

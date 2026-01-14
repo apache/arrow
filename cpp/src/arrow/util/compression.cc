@@ -200,11 +200,15 @@ Result<std::unique_ptr<Codec>> Codec::Create(Compression::type codec_type,
       codec = internal::MakeLz4HadoopRawCodec();
 #endif
       break;
-    case Compression::ZSTD:
+    case Compression::ZSTD: {
 #ifdef ARROW_WITH_ZSTD
-      codec = internal::MakeZSTDCodec(compression_level);
+      auto opt = dynamic_cast<const ZstdCodecOptions*>(&codec_options);
+      codec = internal::MakeZSTDCodec(compression_level,
+                                      opt ? opt->compression_context : false,
+                                      opt ? opt->decompression_context : false);
 #endif
       break;
+    }
     case Compression::BZ2:
 #ifdef ARROW_WITH_BZ2
       codec = internal::MakeBZ2Codec(compression_level);
