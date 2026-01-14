@@ -215,136 +215,144 @@ if needs_parquet
     endif
 endif
 
-gnu_symbol_visibility = host_machine.system() == 'darwin' ? 'default' : 'inlineshidden'
+# Avoid building Pyarrow if it is a source distribution.
+if not get_option('sdist')
 
-if get_option('default_library') == 'static'
-    pyarrow_private_args = ['-DARROW_PYTHON_STATIC']
-    pyarrow_public_args = ['-DARROW_PYTHON_STATIC']
-else
-    pyarrow_private_args = ['-DARROW_PYTHON_EXPORTING']
-    pyarrow_public_args = []
-endif
+    gnu_symbol_visibility = host_machine.system() == 'darwin' ? 'default' : 'inlineshidden'
 
-pyarrow_lib = library(
-    'arrow_python',
-    sources: pyarrow_srcs,
-    include_directories: ['src'],
-    dependencies: libpyarrow_deps + [
-        numpy_dep,
-        cython_generated_dep,
-        py.dependency(),
-    ],
-    cpp_args: pyarrow_private_args,
-    install: true,
-    install_dir: py.get_install_dir() / 'pyarrow',
-    gnu_symbol_visibility: gnu_symbol_visibility,
-    override_options: ['b_lundef=false'],
-)
-pyarrow_lib_dep = declare_dependency(
-    link_with: [pyarrow_lib],
-    compile_args: pyarrow_public_args,
-)
-
-if needs_flight
     if get_option('default_library') == 'static'
-        pyarrow_flight_private_args = ['-DARROW_PYFLIGHT_STATIC']
-        pyarrow_flight_public_args = ['-DARROW_PYFLIGHT_STATIC']
+        pyarrow_private_args = ['-DARROW_PYTHON_STATIC']
+        pyarrow_public_args = ['-DARROW_PYTHON_STATIC']
     else
-        pyarrow_flight_private_args = ['-DARROW_PYFLIGHT_EXPORTING']
-        pyarrow_flight_public_args = []
+        pyarrow_private_args = ['-DARROW_PYTHON_EXPORTING']
+        pyarrow_public_args = []
     endif
 
-    pyarrow_flight_lib = library(
-        'arrow_flight_lib',
-        sources: ['src/arrow/python/flight.cc'],
-        dependencies: [arrow_flight_dep, pyarrow_lib_dep, py.dependency()],
+    pyarrow_lib = library(
+        'arrow_python',
+        sources: pyarrow_srcs,
         include_directories: ['src'],
-        cpp_args: pyarrow_flight_private_args,
+        dependencies: libpyarrow_deps + [
+            numpy_dep,
+            cython_generated_dep,
+            py.dependency(),
+        ],
+        cpp_args: pyarrow_private_args,
         install: true,
         install_dir: py.get_install_dir() / 'pyarrow',
         gnu_symbol_visibility: gnu_symbol_visibility,
         override_options: ['b_lundef=false'],
     )
-
-    pyarrow_flight_dep = declare_dependency(
-        link_with: [pyarrow_flight_lib],
-        dependencies: [arrow_flight_dep],
-        compile_args: pyarrow_flight_public_args,
+    pyarrow_lib_dep = declare_dependency(
+        link_with: [pyarrow_lib],
+        compile_args: pyarrow_public_args,
     )
-    cython_modules += {'_flight': {'dependencies': [pyarrow_flight_dep]}}
-endif
 
-if needs_parquet_encryption
-    if get_option('default_library') == 'static'
-        pyarrow_pq_enc_private_args = [
-            '-DARROW_PYTHON_PARQUET_ENCRYPTION_STATIC',
-        ]
-        pyarrow_pq_enc_public_args = [
-            '-DARROW_PYTHON_PARQUET_ENCRYPTION_STATIC',
-        ]
-    else
-        pyarrow_pq_enc_private_args = [
-            '-DARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING',
-        ]
-        pyarrow_pq_enc_public_args = []
+    if needs_flight
+        if get_option('default_library') == 'static'
+            pyarrow_flight_private_args = ['-DARROW_PYFLIGHT_STATIC']
+            pyarrow_flight_public_args = ['-DARROW_PYFLIGHT_STATIC']
+        else
+            pyarrow_flight_private_args = ['-DARROW_PYFLIGHT_EXPORTING']
+            pyarrow_flight_public_args = []
+        endif
+
+        pyarrow_flight_lib = library(
+            'arrow_flight_lib',
+            sources: ['src/arrow/python/flight.cc'],
+            dependencies: [arrow_flight_dep, pyarrow_lib_dep, py.dependency()],
+            include_directories: ['src'],
+            cpp_args: pyarrow_flight_private_args,
+            install: true,
+            install_dir: py.get_install_dir() / 'pyarrow',
+            gnu_symbol_visibility: gnu_symbol_visibility,
+            override_options: ['b_lundef=false'],
+        )
+
+        pyarrow_flight_dep = declare_dependency(
+            link_with: [pyarrow_flight_lib],
+            dependencies: [arrow_flight_dep],
+            compile_args: pyarrow_flight_public_args,
+        )
+        cython_modules += {'_flight': {'dependencies': [pyarrow_flight_dep]}}
     endif
 
-    pyarrow_encryption_lib = library(
-        'arrow_python_parquet_encryption',
-        sources: ['src/arrow/python/parquet_encryption.cc'],
-        include_directories: ['src'],
-        dependencies: [parquet_dep, pyarrow_lib_dep, py.dependency()],
-        cpp_args: pyarrow_pq_enc_private_args,
-        install: true,
-        install_dir: py.get_install_dir() / 'pyarrow',
-        gnu_symbol_visibility: gnu_symbol_visibility,
-        override_options: ['b_lundef=false'],
-    )
+    if needs_parquet_encryption
+        if get_option('default_library') == 'static'
+            pyarrow_pq_enc_private_args = [
+                '-DARROW_PYTHON_PARQUET_ENCRYPTION_STATIC',
+            ]
+            pyarrow_pq_enc_public_args = [
+                '-DARROW_PYTHON_PARQUET_ENCRYPTION_STATIC',
+            ]
+        else
+            pyarrow_pq_enc_private_args = [
+                '-DARROW_PYTHON_PARQUET_ENCRYPTION_EXPORTING',
+            ]
+            pyarrow_pq_enc_public_args = []
+        endif
 
-    pyarrow_parquet_encryption_dep = declare_dependency(
-        link_with: [pyarrow_encryption_lib],
-        dependencies: [parquet_dep],
-        compile_args: pyarrow_pq_enc_public_args,
-    )
+        pyarrow_encryption_lib = library(
+            'arrow_python_parquet_encryption',
+            sources: ['src/arrow/python/parquet_encryption.cc'],
+            include_directories: ['src'],
+            dependencies: [parquet_dep, pyarrow_lib_dep, py.dependency()],
+            cpp_args: pyarrow_pq_enc_private_args,
+            install: true,
+            install_dir: py.get_install_dir() / 'pyarrow',
+            gnu_symbol_visibility: gnu_symbol_visibility,
+            override_options: ['b_lundef=false'],
+        )
 
-    cython_modules += {
-        '_parquet_encryption': {
-            'dependencies': [pyarrow_parquet_encryption_dep],
-        },
-    }
+        pyarrow_parquet_encryption_dep = declare_dependency(
+            link_with: [pyarrow_encryption_lib],
+            dependencies: [parquet_dep],
+            compile_args: pyarrow_pq_enc_public_args,
+        )
 
-    if needs_dataset
         cython_modules += {
-            '_dataset_parquet_encryption': {
-                'dependencies': [
-                    arrow_dataset_dep,
-                    pyarrow_parquet_encryption_dep,
-                ],
+            '_parquet_encryption': {
+                'dependencies': [pyarrow_parquet_encryption_dep],
             },
         }
+
+        if needs_dataset
+            cython_modules += {
+                '_dataset_parquet_encryption': {
+                    'dependencies': [
+                        arrow_dataset_dep,
+                        pyarrow_parquet_encryption_dep,
+                    ],
+                },
+            }
+        endif
     endif
+
+    foreach key, val : cython_modules
+        cython_mod_name = '@0@.pyx'.format(key)
+        py.extension_module(
+            key,
+            sources: [cython_mod_name],
+            include_directories: ['src'],
+            cython_args: cython_args,
+            dependencies: [arrow_dep, pyarrow_lib_dep, numpy_dep] + val.get(
+                'dependencies',
+                [],
+            ),
+            override_options: ['cython_language=cpp'],
+            install: true,
+            subdir: 'pyarrow',
+            install_rpath: '$ORIGIN',
+            gnu_symbol_visibility: gnu_symbol_visibility,
+        )
+
+        install_data(
+            cython_mod_name,
+            install_dir: py.get_install_dir() / 'pyarrow',
+        )
+    endforeach
+
 endif
-
-foreach key, val : cython_modules
-    cython_mod_name = '@0@.pyx'.format(key)
-    py.extension_module(
-        key,
-        sources: [cython_mod_name],
-        include_directories: ['src'],
-        cython_args: cython_args,
-        dependencies: [arrow_dep, pyarrow_lib_dep, numpy_dep] + val.get(
-            'dependencies',
-            [],
-        ),
-        override_options: ['cython_language=cpp'],
-        install: true,
-        subdir: 'pyarrow',
-        install_rpath: '$ORIGIN',
-        gnu_symbol_visibility: gnu_symbol_visibility,
-    )
-
-    install_data(cython_mod_name, install_dir: py.get_install_dir() / 'pyarrow')
-endforeach
 
 cython_headers = [
     '_acero.pxd',
