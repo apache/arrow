@@ -336,9 +336,75 @@ jobs:
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
 
-  odbc:
+  odbc-macos:
     needs: check-labels
-    name: ODBC
+    name: ODBC ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+    runs-on: macos-${{ matrix.macos-version }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "15-intel"
+          - architecture: ARM64
+            macos-version: "14"
+    env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_HOME: /tmp/local
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6.0.0
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install Dependencies
+        run: |
+          brew bundle --file=cpp/Brewfile
+          export LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
+          echo ODBC_INCLUDE_DIR="$LIBIODBC_DIR/include" >> $GITHUB_ENV
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-ccache-macos-${{ matrix.macos-version }}-
+      - name: Build
+        run: |
+          # Homebrew uses /usr/local as prefix. So packages
+          # installed by Homebrew also use /usr/local/include. We
+          # want to include headers for packages installed by
+          # Homebrew as system headers to ignore warnings in them.
+          # But "-isystem /usr/local/include" isn't used by CMake
+          # because /usr/local/include is marked as the default
+          # include path. So we disable -Werror to avoid build error
+          # by warnings from packages installed by Homebrew.
+          export BUILD_WARNING_LEVEL=PRODUCTION
+          export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Test
+        shell: bash
+        run: |
+          sudo sysctl -w kern.coredump=1
+          sudo sysctl -w kern.corefile=/tmp/core.%N.%P
+          ulimit -c unlimited  # must enable within the same shell
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  odbc-msvc:
+    needs: check-labels
+    name: ODBC Windows
     runs-on: windows-2022
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -486,6 +552,7 @@ jobs:
       - jni-linux
       - jni-macos
       - msvc-arm64
-      - odbc
+      - odbc-macos
+      - odbc-msvc
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit
