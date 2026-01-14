@@ -24,54 +24,118 @@
 # python ../dev/update_stub_docstrings.py pyarrow-stubs
 
 
+import argparse
+import importlib
+import inspect
 from pathlib import Path
 from textwrap import indent
 
-import click
-# TODO: perhaps replace griffe with importlib
-import griffe
-from griffe import AliasResolutionError
 import libcst
 from libcst import matchers as m
 
 
-def _get_docstring(name, package, indentation):
-    # print("extract_docstrings", name)
-    try:
-        obj = package.get_member(name)
-    except (KeyError, ValueError, AliasResolutionError):
-        # Some cython __init__ symbols can't be found
-        # e.g. pyarrow.lib.OSFile.__init__
-        stack = name.split(".")
-        parent_name = ".".join(stack[:-1])
+def _resolve_object(module, path):
+    """
+    Resolve an object by dotted path from a base module.
 
+    Parameters
+    ----------
+    module : module
+        The base module (e.g., pyarrow)
+    path : str
+        Dotted path like "lib.Array" or "lib.concat_arrays"
+
+    Returns
+    -------
+    tuple
+        (obj, parent, obj_name) or (None, None, None) if not found
+    """
+    if not path:
+        return module, None, module.__name__
+
+    parts = path.split(".")
+    parent = None
+    obj = module
+
+    for part in parts:
+        parent = obj
         try:
-            obj = package.get_member(parent_name).all_members[stack[-1]]
-        except (KeyError, ValueError, AliasResolutionError):
-            print(f"{name} not found in {package.name}, it's probably ok.")
-            return None
+            obj = getattr(obj, part)
+        except AttributeError:
+            # Fallback: try __dict__ access for special methods like __init__
+            # that may not be directly accessible via getattr
+            if hasattr(parent, "__dict__"):
+                obj = parent.__dict__.get(part)
+                if obj is not None:
+                    continue
+            # Try vars() as another fallback
+            try:
+                obj = vars(parent).get(part)
+                if obj is not None:
+                    continue
+            except TypeError:
+                pass
+            return None, None, None
 
-    if obj.has_docstring:
-        docstring = obj.docstring.value
-        # Remove signature if present in docstring
-        if docstring.startswith(obj.name) or (
-            (hasattr(obj.parent, "name") and
-                docstring.startswith(f"{obj.parent.name}.{obj.name}"))):
-            docstring = "\n".join(docstring.splitlines()[2:])
-        # Skip empty docstrings
-        if docstring.strip() == "":
-            return None
-        # Indent docstring
-        indentation_prefix = indentation * "    "
-        docstring = indent(docstring + '\n"""', indentation_prefix)
-        docstring = '"""\n' + docstring
-        return docstring
-    return None
+    # Get the object's simple name
+    obj_name = getattr(obj, "__name__", parts[-1])
+    return obj, parent, obj_name
+
+
+def _get_docstring(name, module, indentation):
+    """
+    Extract and format docstring for a symbol.
+
+    Parameters
+    ----------
+    name : str
+        Dotted name like "lib.Array" or "lib.concat_arrays"
+    module : module
+        The pyarrow module
+    indentation : int
+        Number of indentation levels (4 spaces each)
+
+    Returns
+    -------
+    str or None
+        Formatted docstring ready for insertion, or None if not found
+    """
+    obj, parent, obj_name = _resolve_object(module, name)
+
+    if obj is None:
+        print(f"{name} not found in {module.__name__}, it's probably ok.")
+        return None
+
+    # Get docstring using inspect.getdoc for cleaner formatting
+    docstring = inspect.getdoc(obj)
+    if not docstring:
+        return None
+
+    # Get parent name for signature detection
+    parent_name = getattr(parent, "__name__", None) if parent else None
+
+    # Remove signature if present in docstring
+    # Cython/pybind11 often include signatures like "func_name(...)\n\n..."
+    if docstring.startswith(obj_name) or (
+        parent_name is not None and docstring.startswith(f"{parent_name}.{obj_name}")
+    ):
+        docstring = "\n".join(docstring.splitlines()[2:])
+
+    # Skip empty docstrings
+    if not docstring.strip():
+        return None
+
+    # Format as docstring with proper indentation
+    indentation_prefix = indentation * "    "
+    docstring = indent(docstring + '\n"""', indentation_prefix)
+    docstring = '"""\n' + docstring
+
+    return docstring
 
 
 class ReplaceEllipsis(libcst.CSTTransformer):
-    def __init__(self, package, namespace):
-        self.package = package
+    def __init__(self, module, namespace):
+        self.module = module
         self.base_namespace = namespace
         self.stack = []
         self.indentation = 0
@@ -90,7 +154,7 @@ class ReplaceEllipsis(libcst.CSTTransformer):
                 name = statement.body[0].targets[0].target.value
                 if self.base_namespace:
                     name = f"{self.base_namespace}.{name}"
-                docstring = _get_docstring(name, self.package, 0)
+                docstring = _get_docstring(name, self.module, 0)
                 if docstring is not None:
                     new_expr = libcst.Expr(value=libcst.SimpleString(docstring))
                     new_line = libcst.SimpleStatementLine(body=[new_expr])
@@ -123,14 +187,14 @@ class ReplaceEllipsis(libcst.CSTTransformer):
         )
 
         if m.matches(updated_node, class_matcher_1):
-            docstring = _get_docstring(name, self.package, self.indentation)
+            docstring = _get_docstring(name, self.module, self.indentation)
             if docstring is not None:
                 new_node = libcst.SimpleString(value=docstring)
                 updated_node = updated_node.deep_replace(
                     updated_node.body.body[0].body[0].value, new_node)
 
         if m.matches(updated_node, class_matcher_2):
-            docstring = _get_docstring(name, self.package, self.indentation)
+            docstring = _get_docstring(name, self.module, self.indentation)
             if docstring is not None:
                 new_docstring = libcst.SimpleString(value=docstring)
                 new_docstring_stmt = libcst.SimpleStatementLine(
@@ -161,7 +225,7 @@ class ReplaceEllipsis(libcst.CSTTransformer):
                     m.Ellipsis()
                 )]))
         if m.matches(original_node, function_matcher):
-            docstring = _get_docstring(name, self.package, self.indentation)
+            docstring = _get_docstring(name, self.module, self.indentation)
             if docstring is not None:
                 new_docstring = libcst.SimpleString(value=docstring)
                 new_docstring_stmt = libcst.SimpleStatementLine(
@@ -175,17 +239,25 @@ class ReplaceEllipsis(libcst.CSTTransformer):
         return updated_node
 
 
-@click.command()
-@click.argument('pyarrow_folder', type=click.Path(resolve_path=True))
 def add_docs_to_stub_files(pyarrow_folder):
+    """
+    Update stub files with docstrings extracted from pyarrow runtime.
+
+    Parameters
+    ----------
+    pyarrow_folder : Path
+        Path to the pyarrow-stubs folder
+    """
     print("Updating docstrings of stub files in:", pyarrow_folder)
-    package = griffe.load("pyarrow", try_relative_path=True,
-                          force_inspection=True, resolve_aliases=True)
+
+    # Load pyarrow using importlib
+    pyarrow_module = importlib.import_module("pyarrow")
+
     lib_modules = ["array", "builder", "compat", "config", "device", "error", "io",
                    "_ipc", "memory", "pandas_shim", "scalar", "table", "tensor",
                    "_types"]
 
-    for stub_file in Path(pyarrow_folder).rglob('*.pyi'):
+    for stub_file in pyarrow_folder.rglob('*.pyi'):
         if stub_file.name == "_stubs_typing.pyi":
             continue
         module = stub_file.with_suffix('').name
@@ -201,11 +273,21 @@ def add_docs_to_stub_files(pyarrow_folder):
         elif module == "__init__":
             module = ""
 
-        modified_tree = tree.visit(ReplaceEllipsis(package, module))
+        modified_tree = tree.visit(ReplaceEllipsis(pyarrow_module, module))
         with open(stub_file, "w") as f:
             f.write(modified_tree.code)
         print("\n")
 
 
 if __name__ == "__main__":
-    add_docs_to_stub_files()
+    parser = argparse.ArgumentParser(
+        description="Extract docstrings from pyarrow and update stub files."
+    )
+    parser.add_argument(
+        "pyarrow_folder",
+        type=Path,
+        help="Path to the pyarrow-stubs folder"
+    )
+    args = parser.parse_args()
+
+    add_docs_to_stub_files(args.pyarrow_folder.resolve())

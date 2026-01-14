@@ -134,7 +134,7 @@ pushd C:\arrow\python
 
 @REM We first populate stub docstrings and then build the wheel
 %PYTHON_CMD% setup.py build_ext --inplace
-%PYTHON_CMD% -m pip install click griffe libcst
+%PYTHON_CMD% -m pip install libcst
 %PYTHON_CMD% ..\dev\update_stub_docstrings.py pyarrow-stubs
 
 @REM Build wheel
