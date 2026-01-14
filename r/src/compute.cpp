@@ -163,10 +163,20 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     // cpp11 does not support bool here so use int
     auto orders = cpp11::as_cpp<std::vector<int>>(options["orders"]);
     std::vector<Key> keys;
+// GCC 14+ with C++20 raises a false positive -Wmaybe-uninitialized warning
+// due to std::variant move operations in arrow::FieldRef. This is a known
+// GCC issue with variant's move constructor analysis.
+#if defined(__GNUC__) && __GNUC__ >= 14
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmaybe-uninitialized"
+#endif
     for (size_t i = 0; i < names.size(); i++) {
       keys.push_back(
           Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
     }
+#if defined(__GNUC__) && __GNUC__ >= 14
+#pragma GCC diagnostic pop
+#endif
     auto out = std::make_shared<Options>(Options(keys));
     return out;
   }
