@@ -41,10 +41,13 @@ namespace {
 /// stores the total element count for the page, allowing per-vector element
 /// counts to be inferred (all vectors except the last have vector_size elements).
 ///
+/// Note: num_elements is uint32_t because Parquet page headers use i32 for num_values.
+/// See: https://github.com/apache/parquet-format/blob/master/src/main/thrift/parquet.thrift
+///
 /// Serialization format (version 1):
 ///
 ///   +---------------------------------------------------+
-///   |  AlpHeader (16 bytes)                             |
+///   |  AlpHeader (12 bytes)                             |
 ///   +---------------------------------------------------+
 ///   |  Offset |  Field              |  Size             |
 ///   +---------+---------------------+-------------------+
@@ -53,7 +56,7 @@ namespace {
 ///   |    2    |  bit_pack_layout    |  1 byte (uint8)   |
 ///   |    3    |  reserved           |  1 byte (uint8)   |
 ///   |    4    |  vector_size        |  4 bytes (uint32) |
-///   |    8    |  num_elements       |  8 bytes (uint64) |
+///   |    8    |  num_elements       |  4 bytes (uint32) |
 ///   +---------------------------------------------------+
 ///
 /// \note version must remain the first field to allow reading the rest
@@ -70,17 +73,17 @@ struct AlpHeader {
   /// Vector size used for compression.
   /// Must be AlpConstants::kAlpVectorSize for decompression.
   uint32_t vector_size = 0;
-  /// Total number of elements in the page.
+  /// Total number of elements in the page (uint32_t since Parquet uses i32).
   /// Per-vector element count is inferred: vector_size for all but the last vector.
-  uint64_t num_elements = 0;
+  uint32_t num_elements = 0;
 
   /// \brief Get the size in bytes of the AlpHeader for a version
   ///
   /// \param[in] v the version number
   /// \return the size in bytes
   static constexpr size_t GetSizeForVersion(uint8_t v) {
-    // Version 1 header is 16 bytes
-    return (v == 1) ? 16 : 0;
+    // Version 1 header is 12 bytes
+    return (v == 1) ? 12 : 0;
   }
 
   /// \brief Check whether the given version is valid
@@ -171,7 +174,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   header.bit_pack_layout = static_cast<uint8_t>(AlpBitPackLayout::kNormal);
   header.vector_size = AlpConstants::kAlpVectorSize;
-  header.num_elements = element_count;
+  header.num_elements = static_cast<uint32_t>(element_count);
 
   std::memcpy(encoded_header, &header, header_size);
   *comp_size = header_size + compression_progress.num_compressed_bytes_produced;
@@ -179,7 +182,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
 template <typename T>
 template <typename TargetType>
-void AlpWrapper<T>::Decode(TargetType* decomp, uint64_t num_elements, const char* comp,
+void AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
                            size_t comp_size) {
   const AlpHeader header = LoadHeader(comp, comp_size);
   ARROW_CHECK(header.vector_size == AlpConstants::kAlpVectorSize)
@@ -197,11 +200,11 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint64_t num_elements, const char
                         header.num_elements);
 }
 
-template void AlpWrapper<float>::Decode(float* decomp, uint64_t num_elements,
+template void AlpWrapper<float>::Decode(float* decomp, uint32_t num_elements,
                                         const char* comp, size_t comp_size);
-template void AlpWrapper<float>::Decode(double* decomp, uint64_t num_elements,
+template void AlpWrapper<float>::Decode(double* decomp, uint32_t num_elements,
                                         const char* comp, size_t comp_size);
-template void AlpWrapper<double>::Decode(double* decomp, uint64_t num_elements,
+template void AlpWrapper<double>::Decode(double* decomp, uint32_t num_elements,
                                          const char* comp, size_t comp_size);
 
 template <typename T>
@@ -265,7 +268,7 @@ template <typename TargetType>
 auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                               const char* comp, size_t comp_size,
                               AlpBitPackLayout bit_pack_layout,
-                              uint32_t vector_size, uint64_t total_elements)
+                              uint32_t vector_size, uint32_t total_elements)
     -> DecompressionProgress {
   uint64_t input_offset = 0;
   uint64_t output_offset = 0;
