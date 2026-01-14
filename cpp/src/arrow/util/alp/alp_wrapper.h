@@ -122,7 +122,7 @@ class AlpWrapper {
   /// \param[in] decomp_element_count the number of floats to decompress
   /// \param[in] comp the compressed buffer to be decompressed
   /// \param[in] comp_size the size of the compressed data
-  /// \param[in] bit_pack_layout the bit packing layout used
+  /// \param[in] integer_encoding the bit packing layout used
   /// \param[in] vector_size the number of elements per vector (from header)
   /// \param[in] total_elements the total number of elements in the page (from header).
   ///            Uses uint32_t since Parquet page headers use i32 for num_values.
@@ -132,7 +132,7 @@ class AlpWrapper {
   template <typename TargetType>
   static DecompressionProgress DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                                          const char* comp, size_t comp_size,
-                                         AlpBitPackLayout bit_pack_layout,
+                                         AlpIntegerEncoding integer_encoding,
                                          uint32_t vector_size, uint32_t total_elements);
 
   /// \brief Load the AlpHeader from compressed data
