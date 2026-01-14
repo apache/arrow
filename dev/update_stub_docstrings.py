@@ -27,8 +27,12 @@
 import argparse
 import importlib
 import inspect
+import sys
 from pathlib import Path
 from textwrap import indent
+
+# Add current directory to path to find locally built pyarrow
+sys.path.insert(0, ".")
 
 import libcst
 from libcst import matchers as m
