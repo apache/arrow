@@ -53,7 +53,7 @@ namespace {
 ///   +---------+---------------------+-------------------+
 ///   |    0    |  version            |  1 byte (uint8)   |
 ///   |    1    |  compression_mode   |  1 byte (uint8)   |
-///   |    2    |  bit_pack_layout    |  1 byte (uint8)   |
+///   |    2    |  integer_encoding    |  1 byte (uint8)   |
 ///   |    3    |  reserved           |  1 byte (uint8)   |
 ///   |    4    |  vector_size        |  4 bytes (uint32) |
 ///   |    8    |  num_elements       |  4 bytes (uint32) |
@@ -67,7 +67,7 @@ struct AlpHeader {
   /// Compression mode (currently only kAlp is supported).
   uint8_t compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   /// Bit packing layout used for bitpacking.
-  uint8_t bit_pack_layout = static_cast<uint8_t>(AlpBitPackLayout::kNormal);
+  uint8_t integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kBitPack);
   /// Reserved for future use (also ensures 4-byte alignment for vector_size).
   uint8_t reserved = 0;
   /// Vector size used for compression.
@@ -115,9 +115,9 @@ struct AlpHeader {
     return static_cast<AlpMode>(compression_mode);
   }
 
-  /// \brief Get the AlpBitPackLayout enum from the stored uint8_t
-  AlpBitPackLayout GetBitPackLayout() const {
-    return static_cast<AlpBitPackLayout>(bit_pack_layout);
+  /// \brief Get the AlpIntegerEncoding enum from the stored uint8_t
+  AlpIntegerEncoding GetIntegerEncoding() const {
+    return static_cast<AlpIntegerEncoding>(integer_encoding);
   }
 };
 
@@ -172,7 +172,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   AlpHeader header{};
   header.version = version;
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
-  header.bit_pack_layout = static_cast<uint8_t>(AlpBitPackLayout::kNormal);
+  header.integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kBitPack);
   header.vector_size = AlpConstants::kAlpVectorSize;
   header.num_elements = static_cast<uint32_t>(element_count);
 
@@ -196,7 +196,7 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char
       << "alp_decode_unsupported_mode";
 
   DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
-                        header.GetBitPackLayout(), header.vector_size,
+                        header.GetIntegerEncoding(), header.vector_size,
                         header.num_elements);
 }
 
@@ -267,7 +267,7 @@ template <typename T>
 template <typename TargetType>
 auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                               const char* comp, size_t comp_size,
-                              AlpBitPackLayout bit_pack_layout,
+                              AlpIntegerEncoding integer_encoding,
                               uint32_t vector_size, uint32_t total_elements)
     -> DecompressionProgress {
   uint64_t input_offset = 0;
@@ -298,7 +298,7 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
         << "alp_decode_output_too_small: " << output_offset << " vs "
         << this_vector_elements << " vs " << decomp_element_count;
 
-    AlpCompression<T>::DecompressVectorView(encoded_view, bit_pack_layout,
+    AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
                                             decomp + output_offset);
 
     input_offset += compressed_size;

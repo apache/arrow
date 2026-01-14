@@ -383,12 +383,12 @@ struct AlpEncodedVectorView {
 };
 
 // ----------------------------------------------------------------------
-// AlpBitPackLayout
+// AlpIntegerEncoding
 
 /// \brief Bit packing layout
 ///
 /// Currently only normal bit packing is implemented.
-enum class AlpBitPackLayout { kNormal };
+enum class AlpIntegerEncoding { kBitPack };
 
 // ----------------------------------------------------------------------
 // AlpEncodingPreset
@@ -405,7 +405,7 @@ struct AlpEncodingPreset {
   /// Best compressed size for the preset
   uint64_t best_compressed_size = 0;
   /// Bit packing layout used for bitpacking
-  AlpBitPackLayout bit_pack_layout = AlpBitPackLayout::kNormal;
+  AlpIntegerEncoding integer_encoding = AlpIntegerEncoding::kBitPack;
 };
 
 template <typename T>
@@ -444,27 +444,27 @@ class AlpCompression : private AlpConstants {
   /// \brief Decompress a compressed vector with ALP
   ///
   /// \param[in] encoded_vector the ALP encoded vector to be decompressed
-  /// \param[in] bit_pack_layout the bit packing layout used
+  /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
   ///             Must be able to contain encoded_vector.GetNumElements().
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecompressVector(const AlpEncodedVector<T>& encoded_vector,
-                               AlpBitPackLayout bit_pack_layout,
+                               AlpIntegerEncoding integer_encoding,
                                TargetType* output_vector);
 
   /// \brief Decompress using a zero-copy view (faster, no memory allocation)
   ///
   /// \param[in] encoded_view the zero-copy view into compressed data
-  /// \param[in] bit_pack_layout the bit packing layout used
+  /// \param[in] integer_encoding the integer encoding method used
   /// \param[out] output_vector the vector of floats to decompress into.
   ///             Must be able to contain encoded_view.vector_info.num_elements.
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecompressVectorView(const AlpEncodedVectorView<T>& encoded_view,
-                                   AlpBitPackLayout bit_pack_layout,
+                                   AlpIntegerEncoding integer_encoding,
                                    TargetType* output_vector);
 
  protected:
