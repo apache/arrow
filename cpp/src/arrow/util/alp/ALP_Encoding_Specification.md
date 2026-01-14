@@ -30,32 +30,32 @@ ALP encoding consists of a page-level header followed by one or more encoded vec
 |                           ALP PAGE                               |
 +-------------+-------------+-------------+-------+----------------+
 | Page Header |  Vector 1   |  Vector 2   |  ...  |   Vector N     |
-| (12 bytes)  | (variable)  | (variable)  |       |  (variable)    |
+| (8 bytes)   | (variable)  | (variable)  |       |  (variable)    |
 +-------------+-------------+-------------+-------+----------------+
 ```
 
-### 2.2 Page Header (12 bytes)
+### 2.2 Page Header (8 bytes)
 
 | Offset | Field            | Size    | Type   | Description                        |
 |--------|------------------|---------|--------|------------------------------------|
 | 0      | version          | 1 byte  | uint8  | Format version (must be 1)         |
 | 1      | compression_mode | 1 byte  | uint8  | Compression mode (0 = ALP)         |
 | 2      | integer_encoding | 1 byte  | uint8  | Integer encoding method (0 = FOR+bit-pack) |
-| 3      | reserved         | 1 byte  | uint8  | Reserved for future use            |
-| 4      | vector_size      | 4 bytes | uint32 | Elements per vector (must be 1024) |
-| 8      | num_elements     | 4 bytes | uint32 | Total element count in this page   |
+| 3      | log_vector_size  | 1 byte  | uint8  | Log2 of vector size (10 = 1024)    |
+| 4      | num_elements     | 4 bytes | uint32 | Total element count in this page   |
 
-Note: `num_elements` is uint32 because Parquet page headers use i32 for num_values.
-See: https://github.com/apache/parquet-format/blob/master/src/main/thrift/parquet.thrift
+**Notes:**
+- `log_vector_size` stores the base-2 logarithm of the vector size. The actual vector size is computed as `2^log_vector_size`. For example, 10 means 2^10 = 1024 elements per vector.
+- `num_elements` is uint32 because Parquet page headers use i32 for num_values. See: https://github.com/apache/parquet-format/blob/master/src/main/thrift/parquet.thrift
 
 ```
-Page Header Layout (12 bytes)
-+---------+------------------+----------------+----------+------------------+------------------+
-| version | compression_mode | integer_encoding| reserved |   vector_size    |   num_elements   |
-| 1 byte  |     1 byte       |     1 byte     |  1 byte  |     4 bytes      |     4 bytes      |
-|  0x01   |      0x00        |      0x00      |   0x00   |   0x00000400     |  (total count)   |
-+---------+------------------+----------------+----------+------------------+------------------+
-   Byte 0        Byte 1           Byte 2        Byte 3      Bytes 4-7          Bytes 8-11
+Page Header Layout (8 bytes)
++---------+------------------+------------------+------------------+------------------+
+| version | compression_mode | integer_encoding | log_vector_size  |   num_elements   |
+| 1 byte  |     1 byte       |     1 byte       |     1 byte       |     4 bytes      |
+|  0x01   |      0x00        |      0x00        |      0x0A        |  (total count)   |
++---------+------------------+------------------+------------------+------------------+
+   Byte 0        Byte 1           Byte 2             Byte 3            Bytes 4-7
 ```
 
 ### 2.3 Encoded Vector Structure
@@ -476,7 +476,7 @@ vector_size = H                            // 10 bytes (float) or 14 bytes (doub
 
 ```
 # H = VectorInfo header size (10 bytes for float, 14 bytes for double)
-max_size = sizeof(PageHeader)              // 12 bytes
+max_size = sizeof(PageHeader)              // 8 bytes
          + num_vectors x H                   // 10 or 14 bytes each
          + num_elements x sizeof(T)          // worst case: all values packed
          + num_elements x sizeof(T)          // worst case: all exceptions
@@ -512,7 +512,7 @@ where num_vectors = ceil(num_elements / 1024)
 
 ## Appendix A: Byte Layout Diagram
 
-### Page Header (12 bytes)
+### Page Header (8 bytes)
 
 ```
 Byte Offset   Content
@@ -520,11 +520,12 @@ Byte Offset   Content
 0             version (uint8)
 1             compression_mode (uint8)
 2             integer_encoding (uint8)
-3             reserved (uint8)
-4-7           vector_size (uint32, little-endian)
-8-11          num_elements (uint32, little-endian) - total element count
+3             log_vector_size (uint8) - actual size = 2^log_vector_size
+4-7           num_elements (uint32, little-endian) - total element count
 
-Note: num_elements uses uint32 because Parquet page headers use i32 for num_values.
+Notes:
+- log_vector_size stores log base 2 of vector size. For 1024: log_vector_size = 10.
+- num_elements uses uint32 because Parquet page headers use i32 for num_values.
 ```
 
 ### Complete Vector Serialization (Float: VectorInfo 10 bytes)
