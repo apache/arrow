@@ -212,20 +212,21 @@ TEST(AlpIntegrationTest, LargeDoubleDataset) {
 // AlpEncodedVectorInfo Serialization Tests
 // ============================================================================
 
-TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
-  AlpEncodedVectorInfo info{};
+TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTripDouble) {
+  // Test with double (8-byte frame_of_reference, 14 bytes total)
+  AlpEncodedVectorInfo<double> info{};
   info.frame_of_reference = 0x123456789ABCDEF0ULL;
   info.exponent_and_factor = {5, 3};
   info.bit_width = 12;
   info.reserved = 0;
   info.num_exceptions = 10;
 
-  std::vector<char> buffer(AlpEncodedVectorInfo::GetStoredSize() + 10);
+  std::vector<char> buffer(AlpEncodedVectorInfo<double>::GetStoredSize() + 10);
   info.Store({buffer.data(), buffer.size()});
 
   // Load (num_elements is not stored, so not passed here)
-  AlpEncodedVectorInfo loaded =
-      AlpEncodedVectorInfo::Load({buffer.data(), buffer.size()});
+  AlpEncodedVectorInfo<double> loaded =
+      AlpEncodedVectorInfo<double>::Load({buffer.data(), buffer.size()});
   EXPECT_EQ(info, loaded);
   EXPECT_EQ(loaded.frame_of_reference, 0x123456789ABCDEF0ULL);
   EXPECT_EQ(loaded.exponent_and_factor.exponent, 5);
@@ -233,13 +234,38 @@ TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTrip) {
   EXPECT_EQ(loaded.bit_width, 12);
   EXPECT_EQ(loaded.num_exceptions, 10);
   // bit_packed_size is computed, not stored
-  EXPECT_EQ(AlpEncodedVectorInfo::GetBitPackedSize(1024, 12), 1536);
+  EXPECT_EQ(AlpEncodedVectorInfo<double>::GetBitPackedSize(1024, 12), 1536);
+}
+
+TEST(AlpEncodedVectorInfoTest, StoreLoadRoundTripFloat) {
+  // Test with float (4-byte frame_of_reference, 10 bytes total)
+  AlpEncodedVectorInfo<float> info{};
+  info.frame_of_reference = 0x12345678U;
+  info.exponent_and_factor = {5, 3};
+  info.bit_width = 12;
+  info.reserved = 0;
+  info.num_exceptions = 10;
+
+  std::vector<char> buffer(AlpEncodedVectorInfo<float>::GetStoredSize() + 10);
+  info.Store({buffer.data(), buffer.size()});
+
+  AlpEncodedVectorInfo<float> loaded =
+      AlpEncodedVectorInfo<float>::Load({buffer.data(), buffer.size()});
+  EXPECT_EQ(info, loaded);
+  EXPECT_EQ(loaded.frame_of_reference, 0x12345678U);
+  EXPECT_EQ(loaded.exponent_and_factor.exponent, 5);
+  EXPECT_EQ(loaded.exponent_and_factor.factor, 3);
+  EXPECT_EQ(loaded.bit_width, 12);
+  EXPECT_EQ(loaded.num_exceptions, 10);
 }
 
 TEST(AlpEncodedVectorInfoTest, Size) {
-  // Verify the stored size is 14 bytes (num_elements and bit_packed_size not stored)
-  EXPECT_EQ(AlpEncodedVectorInfo::GetStoredSize(), 14);
-  EXPECT_EQ(AlpEncodedVectorInfo::kStoredSize, 14);
+  // Verify sizes: float=10 bytes, double=14 bytes
+  // (frame_of_reference is 4 bytes for float, 8 bytes for double)
+  EXPECT_EQ(AlpEncodedVectorInfo<float>::GetStoredSize(), 10);
+  EXPECT_EQ(AlpEncodedVectorInfo<float>::kStoredSize, 10);
+  EXPECT_EQ(AlpEncodedVectorInfo<double>::GetStoredSize(), 14);
+  EXPECT_EQ(AlpEncodedVectorInfo<double>::kStoredSize, 14);
 }
 
 // ============================================================================
@@ -587,7 +613,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
 }
 
 // Test specifically designed to create misaligned buffer offsets.
-// VectorInfo is 14 bytes. If bit_packed_size is odd, exception_positions
+// VectorInfo is 10 bytes for float, 14 for double. If bit_packed_size is odd, exception_positions
 // starts at an odd offset (14 + odd = odd), violating uint16_t alignment.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   AlpCompression<TypeParam> compressor;
@@ -619,8 +645,8 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   encoded.Store({buffer.data(), buffer.size()});
 
   // Calculate where exceptions start to verify potential misalignment
-  const uint64_t vector_info_size = AlpEncodedVectorInfo::GetStoredSize();  // 14
-  const uint64_t bit_packed_size = AlpEncodedVectorInfo::GetBitPackedSize(
+  const uint64_t vector_info_size = AlpEncodedVectorInfo<TypeParam>::GetStoredSize();
+  const uint64_t bit_packed_size = AlpEncodedVectorInfo<TypeParam>::GetBitPackedSize(
       static_cast<uint16_t>(input.size()), encoded.vector_info.bit_width);
   const uint64_t exception_pos_offset = vector_info_size + bit_packed_size;
 
