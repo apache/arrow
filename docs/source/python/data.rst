@@ -913,7 +913,7 @@ Record Batch Readers
 
 Many functions in PyArrow either return or take as an argument a :class:`RecordBatchReader`.
 It can be used like any iterable of record batches, but also provides their common
-schema without having to get any of the batches.::
+schema without having to get any of the batches.
 
 .. code-block:: python
 
