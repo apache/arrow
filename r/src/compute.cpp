@@ -155,18 +155,20 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
   }
 
   if (func_name == "sort_indices") {
+    using Key = arrow::compute::SortKey;
     using Order = arrow::compute::SortOrder;
     using Options = arrow::compute::SortOptions;
     auto names = cpp11::as_cpp<std::vector<std::string>>(options["names"]);
     // false means descending, true means ascending
     // cpp11 does not support bool here so use int
     auto orders = cpp11::as_cpp<std::vector<int>>(options["orders"]);
-    auto out = std::make_shared<Options>();
-    out->sort_keys.reserve(names.size());
+    // Use resize + assignment to avoid vector growth operations that trigger
+    // false positive -Wmaybe-uninitialized warnings in GCC 14 with std::variant
+    std::vector<Key> keys(names.size(), Key("", Order::Ascending));
     for (size_t i = 0; i < names.size(); i++) {
-      out->sort_keys.emplace_back(names[i],
-                                  (orders[i] > 0) ? Order::Descending : Order::Ascending);
+      keys[i] = Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending);
     }
+    auto out = std::make_shared<Options>(std::move(keys));
     return out;
   }
 
