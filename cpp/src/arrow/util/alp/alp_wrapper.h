@@ -65,13 +65,14 @@ class AlpWrapper {
   /// \param[out] decomp pointer to the memory region we will decode into.
   ///             The caller is responsible for ensuring this is big enough
   ///             to hold num_elements values.
-  /// \param[in] num_elements number of elements to decode (from page header)
+  /// \param[in] num_elements number of elements to decode (from page header).
+  ///            Uses uint32_t since Parquet page headers use i32 for num_values.
   /// \param[in] comp pointer to the input that is to be decoded
   /// \param[in] comp_size size of the input in bytes (from page header)
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void Decode(TargetType* decomp, uint64_t num_elements, const char* comp,
+  static void Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
                      size_t comp_size);
 
   /// \brief Get the maximum compressed size of an uncompressed buffer
@@ -123,7 +124,8 @@ class AlpWrapper {
   /// \param[in] comp_size the size of the compressed data
   /// \param[in] bit_pack_layout the bit packing layout used
   /// \param[in] vector_size the number of elements per vector (from header)
-  /// \param[in] total_elements the total number of elements in the page (from header)
+  /// \param[in] total_elements the total number of elements in the page (from header).
+  ///            Uses uint32_t since Parquet page headers use i32 for num_values.
   /// \return the decompression progress
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
@@ -131,7 +133,7 @@ class AlpWrapper {
   static DecompressionProgress DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                                          const char* comp, size_t comp_size,
                                          AlpBitPackLayout bit_pack_layout,
-                                         uint32_t vector_size, uint64_t total_elements);
+                                         uint32_t vector_size, uint32_t total_elements);
 
   /// \brief Load the AlpHeader from compressed data
   ///

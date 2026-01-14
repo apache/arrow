@@ -1048,7 +1048,7 @@ TEST(AlpRobustnessTest, InvalidVersion) {
 
 TEST(AlpRobustnessTest, TruncatedHeader) {
   // Test with buffer too small for header
-  std::vector<char> tiny_buffer(5);  // Less than header size (16 bytes)
+  std::vector<char> tiny_buffer(5);  // Less than header size (12 bytes)
 
   std::vector<double> output(100);
   // Should abort due to ARROW_CHECK
