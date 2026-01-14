@@ -214,7 +214,7 @@ uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
   uint64_t max_alp_size = AlpHeader::GetSizeForVersion(version);
   // Add per-vector header sizes.
   max_alp_size +=
-      sizeof(AlpEncodedVectorInfo) *
+      sizeof(AlpEncodedVectorInfo<T>) *
       std::ceil(static_cast<double>(element_count) / AlpConstants::kAlpVectorSize);
   // Worst case: everything is an exception, except two values that are chosen
   // with large difference to make FOR encoding for placeholders impossible.

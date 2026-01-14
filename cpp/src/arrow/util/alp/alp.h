@@ -156,19 +156,40 @@ struct AlpExponentAndFactor {
 // ----------------------------------------------------------------------
 // AlpEncodedVectorInfo
 
-/// \brief Metadata for an encoded vector
+/// \brief Metadata for an encoded vector (templated on floating-point type)
 ///
 /// Helper class to encapsulate all metadata of an encoded vector to be able
 /// to load and decompress it.
+///
+/// The frame_of_reference field uses the same size as the encoded integer type:
+///   - float:  uint32_t frame_of_reference (4 bytes)
+///   - double: uint64_t frame_of_reference (8 bytes)
+///
+/// This saves 4 bytes per vector for float columns.
 ///
 /// NOTE: num_elements and bit_packed_size are NOT stored:
 ///   - num_elements: stored once in page header (AlpHeader), passed to functions
 ///   - bit_packed_size: computed on-demand via GetBitPackedSize(num_elements, bit_width)
 ///
-/// Serialization format (14 bytes):
+/// Serialization format for float (10 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedVectorInfo (14 bytes stored)  |
+///   |  AlpEncodedVectorInfo<float> (10 bytes)  |
+///   +------------------------------------------+
+///   |  Offset |  Field              |  Size    |
+///   +---------+---------------------+----------+
+///   |    0    |  frame_of_reference |  4 bytes |
+///   |    4    |  exponent (uint8_t) |  1 byte  |
+///   |    5    |  factor (uint8_t)   |  1 byte  |
+///   |    6    |  bit_width (uint8_t)|  1 byte  |
+///   |    7    |  reserved (uint8_t) |  1 byte  |
+///   |    8    |  num_exceptions     |  2 bytes |
+///   +------------------------------------------+
+///
+/// Serialization format for double (14 bytes):
+///
+///   +------------------------------------------+
+///   |  AlpEncodedVectorInfo<double> (14 bytes) |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
@@ -179,9 +200,18 @@ struct AlpExponentAndFactor {
 ///   |   11    |  reserved (uint8_t) |  1 byte  |
 ///   |   12    |  num_exceptions     |  2 bytes |
 ///   +------------------------------------------+
+///
+/// \tparam T the floating point type (float or double)
+template <typename T>
 struct AlpEncodedVectorInfo {
-  /// Delta used for frame of reference encoding
-  uint64_t frame_of_reference = 0;
+  static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
+                "AlpEncodedVectorInfo only supports float and double");
+
+  /// Use uint32_t for float, uint64_t for double (matches encoded integer size)
+  using ExactType = typename AlpTypedConstants<T>::FloatingToExact;
+
+  /// Delta used for frame of reference encoding (4 bytes for float, 8 for double)
+  ExactType frame_of_reference = 0;
   /// Exponent and factor used for compression
   AlpExponentAndFactor exponent_and_factor;
   /// Bitwidth used for bitpacking
@@ -191,8 +221,8 @@ struct AlpEncodedVectorInfo {
   /// Number of exceptions stored in this vector
   uint16_t num_exceptions = 0;
 
-  /// Size of the serialized portion (14 bytes)
-  static constexpr uint64_t kStoredSize = 14;
+  /// Size of the serialized portion (10 bytes for float, 14 for double)
+  static constexpr uint64_t kStoredSize = sizeof(ExactType) + 6;
 
   /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
   ///
@@ -219,7 +249,7 @@ struct AlpEncodedVectorInfo {
 
   /// \brief Get serialized size of the encoded vector info
   ///
-  /// \return the size in bytes (14 bytes)
+  /// \return the size in bytes (10 for float, 14 for double)
   static uint64_t GetStoredSize() { return kStoredSize; }
 
   bool operator==(const AlpEncodedVectorInfo& other) const;
@@ -238,7 +268,8 @@ struct AlpEncodedVectorInfo {
 ///   +------------------------------------------------------------+
 ///   |  Section              |  Size (bytes)        | Description |
 ///   +-----------------------+----------------------+-------------+
-///   |  1. VectorInfo        |  14 bytes            |  Metadata   |
+///   |  1. VectorInfo        |  10B (float) or      |  Metadata   |
+///   |                       |  14B (double)        |             |
 ///   +-----------------------+----------------------+-------------+
 ///   |  2. Packed Values     |  bit_packed_size     |  Bitpacked  |
 ///   |     (compressed data) |  (computed)          |  integers   |
@@ -251,16 +282,16 @@ struct AlpEncodedVectorInfo {
 ///   +------------------------------------------------------------+
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
-///   - VectorInfo:         14 bytes
+///   - VectorInfo:         10 bytes (float)
 ///   - Packed Values:    1024 bytes (1024 * 8 bits / 8)
 ///   - Exception Pos:      10 bytes (5 * 2)
 ///   - Exception Values:   20 bytes (5 * 4)
-///   Total:              1068 bytes
+///   Total:              1064 bytes
 template <typename T>
 class AlpEncodedVector {
  public:
-  /// Metadata of the encoded vector
-  AlpEncodedVectorInfo vector_info;
+  /// Metadata of the encoded vector (templated to match T)
+  AlpEncodedVectorInfo<T> vector_info;
   /// Number of elements in this vector (not serialized; from page header)
   uint16_t num_elements = 0;
   /// Successfully encoded and bitpacked data
@@ -281,7 +312,7 @@ class AlpEncodedVector {
   /// \param[in] info the vector info to calculate size for
   /// \param[in] num_elements the number of elements in this vector
   /// \return the stored size in bytes
-  static uint64_t GetStoredSize(const AlpEncodedVectorInfo& info, uint16_t num_elements);
+  static uint64_t GetStoredSize(const AlpEncodedVectorInfo<T>& info, uint16_t num_elements);
 
   /// \brief Get the number of elements in this vector
   ///
@@ -326,8 +357,8 @@ class AlpEncodedVector {
 /// (for packed_values access).
 template <typename T>
 struct AlpEncodedVectorView {
-  /// Metadata of the encoded vector (copied, small fixed size)
-  AlpEncodedVectorInfo vector_info;
+  /// Metadata of the encoded vector (copied, small fixed size, templated to match T)
+  AlpEncodedVectorInfo<T> vector_info;
   /// Number of elements in this vector (not serialized; from page header)
   uint16_t num_elements = 0;
   /// View into bitpacked data (zero-copy, bytes have no alignment requirements)
@@ -506,7 +537,7 @@ class AlpCompression : private AlpConstants {
   template <typename TargetType>
   static void DecodeVector(TargetType* output_vector,
                            arrow::util::span<ExactType> input_vector,
-                           AlpEncodedVectorInfo vector_info, uint16_t num_elements);
+                           AlpEncodedVectorInfo<T> vector_info, uint16_t num_elements);
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
@@ -538,7 +569,7 @@ class AlpCompression : private AlpConstants {
   /// \return a vector of unpacked integers (still with frame of reference)
   static arrow::internal::StaticVector<ExactType, kAlpVectorSize> BitUnpackIntegers(
       arrow::util::span<const uint8_t> packed_integers,
-      AlpEncodedVectorInfo vector_info, uint16_t num_elements);
+      AlpEncodedVectorInfo<T> vector_info, uint16_t num_elements);
 
   /// \brief Patch exceptions into the decoded output vector
   ///
