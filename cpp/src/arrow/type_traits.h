@@ -147,6 +147,16 @@ struct CTypeTraits<Decimal256Type> {
   using CType = Decimal256;
 };
 
+template <> struct CTypeTraits<Decimal32Type> {
+  using ArrowType = Decimal32Type;
+  using CType = Decimal32;
+};
+
+template <> struct CTypeTraits<Decimal64Type> {
+  using ArrowType = Decimal64Type;
+  using CType = Decimal64;
+};
+
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
                                    ArrowScalarType, ArrowTensorType, SingletonFn)        \
   template <>                                                                            \
