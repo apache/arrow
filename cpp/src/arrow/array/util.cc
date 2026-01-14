@@ -15,18 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include "arrow/array/util.h"
+
 #include <algorithm>
 #include <array>
 #include <cstdint>
 #include <cstring>
 #include <limits>
 #include <memory>
-#include <span>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
-#include "arrow/array/util.h"
 #include "arrow/array.h"
 #include "arrow/array/builder_base.h"
 #include "arrow/array/concatenate.h"

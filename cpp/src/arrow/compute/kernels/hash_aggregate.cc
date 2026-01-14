@@ -50,8 +50,6 @@ namespace arrow::compute::internal {
 
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::FirstTimeBitmapWriter;
-using std::span;
-
 namespace {
 
 // ----------------------------------------------------------------------

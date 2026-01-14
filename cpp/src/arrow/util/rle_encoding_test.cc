@@ -19,10 +19,11 @@
 
 #include <cstdint>
 #include <cstring>
-#include <gtest/gtest.h>
 #include <random>
 #include <span>
 #include <vector>
+
+#include <gtest/gtest.h>
 
 #include "arrow/array.h"
 #include "arrow/array/concatenate.h"

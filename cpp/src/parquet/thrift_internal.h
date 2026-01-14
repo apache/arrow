@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "parquet/windows_compatibility.h"
+
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -26,8 +28,6 @@
 #include <type_traits>
 #include <utility>
 #include <vector>
-
-#include "parquet/windows_compatibility.h"
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
 #define ARITHMETIC_RIGHT_SHIFT 1

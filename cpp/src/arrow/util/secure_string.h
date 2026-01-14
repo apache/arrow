@@ -18,9 +18,9 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 
-#include <span>
 #include "arrow/util/visibility.h"
 
 namespace arrow::util {
@@ -56,8 +56,8 @@ class ARROW_EXPORT SecureString {
   [[nodiscard]] std::size_t length() const;
   [[nodiscard]] std::size_t capacity() const;
 
-  [[nodiscard]] span<uint8_t> as_span();
-  [[nodiscard]] span<const uint8_t> as_span() const;
+  [[nodiscard]] std::span<uint8_t> as_span();
+  [[nodiscard]] std::span<const uint8_t> as_span() const;
   [[nodiscard]] std::string_view as_view() const;
 
   void Dispose();

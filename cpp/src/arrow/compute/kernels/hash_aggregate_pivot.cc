@@ -18,9 +18,9 @@
 #include <cmath>
 #include <functional>
 #include <memory>
+#include <span>
 #include <string>
 #include <vector>
-#include <span>
 
 #include "arrow/array/concatenate.h"
 #include "arrow/compute/api_aggregate.h"
@@ -37,8 +37,6 @@
 #include "arrow/visit_type_inline.h"
 
 namespace arrow::compute::internal {
-
-using std::span;
 
 namespace {
 
@@ -57,7 +55,7 @@ struct GroupedPivotAccumulator {
     return Status::OK();
   }
 
-  Status Consume(span<const uint32_t> groups, const std::shared_ptr<ArrayData>& keys,
+  Status Consume(std::span<const uint32_t> groups, const std::shared_ptr<ArrayData>& keys,
                  const ArraySpan& values) {
     // To dispatch the values into the right (group, key) coordinates,
     // we first compute a vector of take indices for each output column.
@@ -178,8 +176,8 @@ struct GroupedPivotAccumulator {
     return MergeColumns(std::move(new_columns));
   }
 
-  Status Consume(span<const uint32_t> groups, std::optional<PivotWiderKeyIndex> maybe_key,
-                 const ArraySpan& values) {
+  Status Consume(std::span<const uint32_t> groups,
+                 std::optional<PivotWiderKeyIndex> maybe_key, const ArraySpan& values) {
     if (!maybe_key.has_value()) {
       // Nothing to update
       return Status::OK();

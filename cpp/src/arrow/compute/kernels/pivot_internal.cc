@@ -37,8 +37,6 @@
 
 namespace arrow::compute::internal {
 
-using std::span;
-
 struct ConcretePivotWiderKeyMapper : public PivotWiderKeyMapper {
   Status Init(const DataType& key_type, const PivotWiderOptions* options,
               ExecContext* ctx) {

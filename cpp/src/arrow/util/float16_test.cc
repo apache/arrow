@@ -17,9 +17,10 @@
 
 #include <array>
 #include <cmath>
-#include <gtest/gtest.h>
 #include <span>
 #include <utility>
+
+#include <gtest/gtest.h>
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/endian.h"
