@@ -23,9 +23,8 @@ source_dir=${1}/python
 
 pushd "${source_dir}"
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION:-}
-# Meson dist must be run from a VCS, so initiate a dummy repo
-git init .
-git add --all .
-git commit -m "dummy commit for meson dist"
-${PYTHON:-python} -m build --sdist .
+# The mounted source directory is already a git repository, so mark it as safe
+git config --global --add safe.directory "${1}"
+${PYTHON:-python} -m pip install build
+${PYTHON:-python} -m build --sdist . -Csetup-args="-Dsdist=true"
 popd

@@ -18,7 +18,6 @@
 project(
     'pyarrow',
     'cython',
-    'cpp',
     version: run_command(
         'python',
         '-m',
@@ -31,6 +30,11 @@ project(
     meson_version: '>=1.4.0',
     default_options: ['buildtype=release', 'cpp_std=c++20'],
 )
+
+if not get_option('sdist')
+    add_languages('cpp', native: false)
+    cc = meson.get_compiler('cpp')
+endif
 
 py = import('python').find_installation(pure: false)
 
@@ -85,7 +89,5 @@ print(incdir)
 
     numpy_dep = declare_dependency(include_directories: incdir_numpy)
 endif
-
-cc = meson.get_compiler('cpp')
 
 subdir('pyarrow')

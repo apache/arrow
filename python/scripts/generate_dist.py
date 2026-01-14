@@ -26,9 +26,14 @@ def main():
     dest_dir = pathlib.Path(os.environ["MESON_DIST_ROOT"]).resolve()
 
     license_file = parent_dir / 'LICENSE.txt'
-    shutil.copy(license_file, dest_dir)
+    dest_license = dest_dir / 'LICENSE.txt'
+    dest_license.unlink(missing_ok=True)
+    shutil.copy(license_file, dest_license)
+
     notice_file = parent_dir / 'NOTICE.txt'
-    shutil.copy(notice_file, dest_dir)
+    dest_notice = dest_dir / 'NOTICE.txt'
+    dest_notice.unlink(missing_ok=True)
+    shutil.copy(notice_file, dest_notice)
 
 
 if __name__ == "__main__":
