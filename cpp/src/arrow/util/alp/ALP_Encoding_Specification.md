@@ -40,7 +40,7 @@ ALP encoding consists of a page-level header followed by one or more encoded vec
 |--------|------------------|---------|--------|------------------------------------|
 | 0      | version          | 1 byte  | uint8  | Format version (must be 1)         |
 | 1      | compression_mode | 1 byte  | uint8  | Compression mode (0 = ALP)         |
-| 2      | bit_pack_layout  | 1 byte  | uint8  | Bit packing layout (0 = normal)    |
+| 2      | integer_encoding | 1 byte  | uint8  | Integer encoding method (0 = bit-pack) |
 | 3      | reserved         | 1 byte  | uint8  | Reserved for future use            |
 | 4      | vector_size      | 4 bytes | uint32 | Elements per vector (must be 1024) |
 | 8      | num_elements     | 4 bytes | uint32 | Total element count in this page   |
@@ -51,7 +51,7 @@ See: https://github.com/apache/parquet-format/blob/master/src/main/thrift/parque
 ```
 Page Header Layout (12 bytes)
 +---------+------------------+----------------+----------+------------------+------------------+
-| version | compression_mode | bit_pack_layout| reserved |   vector_size    |   num_elements   |
+| version | compression_mode | integer_encoding| reserved |   vector_size    |   num_elements   |
 | 1 byte  |     1 byte       |     1 byte     |  1 byte  |     4 bytes      |     4 bytes      |
 |  0x01   |      0x00        |      0x00      |   0x00   |   0x00000400     |  (total count)   |
 +---------+------------------+----------------+----------+------------------+------------------+
@@ -519,7 +519,7 @@ Byte Offset   Content
 -----------   -------------------------------------------------------
 0             version (uint8)
 1             compression_mode (uint8)
-2             bit_pack_layout (uint8)
+2             integer_encoding (uint8)
 3             reserved (uint8)
 4-7           vector_size (uint32, little-endian)
 8-11          num_elements (uint32, little-endian) - total element count
