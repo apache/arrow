@@ -7,10 +7,10 @@
 ## 1. Layout
 
 ```
-[Page Header (16B)] [Vector 1] [Vector 2] ... [Vector N]
+[Page Header (12B)] [Vector 1] [Vector 2] ... [Vector N]
 ```
 
-### Page Header (16 bytes)
+### Page Header (12 bytes)
 
 | Offset | Field | Size | Value |
 |--------|-------|------|-------|
@@ -19,7 +19,9 @@
 | 2 | layout | 1B | 0 (normal) |
 | 3 | reserved | 1B | 0 |
 | 4 | vector_size | 4B | 1024 |
-| 8 | num_elements | 8B | total element count |
+| 8 | num_elements | 4B | total element count (uint32) |
+
+Note: `num_elements` is uint32 (not uint64) because Parquet page headers use i32 for num_values.
 
 ### Vector
 
@@ -181,7 +183,7 @@ size = H + ceil(n * bw / 8) + exc * (2 + sizeof(T))
 **Max compressed size:**
 ```
 # H = VectorInfo header size (10 for float, 14 for double)
-max = 16 + ceil(n/1024) * H + n * sizeof(T) * 2 + n * 2
+max = 12 + ceil(n/1024) * H + n * sizeof(T) * 2 + n * 2
 ```
 
 ---
@@ -198,7 +200,7 @@ max = 16 + ceil(n/1024) * H + n * sizeof(T) * 2 + n * 2
 
 ## Appendix: Byte Layout
 
-**Page Header:**
+**Page Header (12 bytes):**
 ```
 Offset  Field
 ------  -----
@@ -206,8 +208,8 @@ Offset  Field
 1       compression_mode
 2       bit_pack_layout
 3       reserved
-4-7     vector_size
-8-15    num_elements (total)
+4-7     vector_size (uint32)
+8-11    num_elements (uint32, total count)
 ```
 
 **VectorInfo (Float, 10 bytes):**
