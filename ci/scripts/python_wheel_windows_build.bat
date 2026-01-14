@@ -140,6 +140,9 @@ pushd C:\arrow\python
 %PYTHON_CMD% -m pip install griffe libcst
 %PYTHON_CMD% ..\dev\update_stub_docstrings.py pyarrow-stubs
 
+@REM Build wheel
+%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
+
 @REM Repair the wheel with delvewheel
 @REM
 @REM Since we bundled the Arrow C++ libraries ourselves, we only need to

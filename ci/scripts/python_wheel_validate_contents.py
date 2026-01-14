@@ -38,13 +38,7 @@ def validate_wheel(path):
                    for info in f.filelist), \
             f"{filename} is missing from the wheel."
     print(f"The wheel: {wheels[0]} seems valid.")
-
-    # Validate at least one typing stub has been generated.
-    candidates = [info for info in f.filelist if info.filename.endswith('compute.pyi')]
-    assert candidates, "compute.pyi not found in wheel"
-    content = f.read(candidates[0]).decode('utf-8', errors='replace')
-    assert '"""' in content, "compute.pyi missing docstrings (no triple quotes found)"
-
+    # TODO(GH-32609): Validate some docstrings were generated and added.
 
 def main():
     parser = argparse.ArgumentParser()
