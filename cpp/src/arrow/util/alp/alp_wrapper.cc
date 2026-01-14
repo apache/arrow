@@ -44,19 +44,23 @@ namespace {
 /// Note: num_elements is uint32_t because Parquet page headers use i32 for num_values.
 /// See: https://github.com/apache/parquet-format/blob/master/src/main/thrift/parquet.thrift
 ///
+/// Note: log_vector_size stores the base-2 logarithm of the vector size.
+/// The actual vector size is computed as: 1u << log_vector_size (i.e., 2^log_vector_size).
+/// For example, log_vector_size=10 means vector_size=1024.
+/// This allows representing any power-of-2 vector size up to 2^255 in a single byte.
+///
 /// Serialization format (version 1):
 ///
 ///   +---------------------------------------------------+
-///   |  AlpHeader (12 bytes)                             |
+///   |  AlpHeader (8 bytes)                              |
 ///   +---------------------------------------------------+
 ///   |  Offset |  Field              |  Size             |
 ///   +---------+---------------------+-------------------+
 ///   |    0    |  version            |  1 byte (uint8)   |
 ///   |    1    |  compression_mode   |  1 byte (uint8)   |
-///   |    2    |  integer_encoding    |  1 byte (uint8)   |
-///   |    3    |  reserved           |  1 byte (uint8)   |
-///   |    4    |  vector_size        |  4 bytes (uint32) |
-///   |    8    |  num_elements       |  4 bytes (uint32) |
+///   |    2    |  integer_encoding   |  1 byte (uint8)   |
+///   |    3    |  log_vector_size    |  1 byte (uint8)   |
+///   |    4    |  num_elements       |  4 bytes (uint32) |
 ///   +---------------------------------------------------+
 ///
 /// \note version must remain the first field to allow reading the rest
@@ -66,13 +70,11 @@ struct AlpHeader {
   uint8_t version = 0;
   /// Compression mode (currently only kAlp is supported).
   uint8_t compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
-  /// Bit packing layout used for bitpacking.
+  /// Integer encoding method used (currently only kForBitPack is supported).
   uint8_t integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
-  /// Reserved for future use (also ensures 4-byte alignment for vector_size).
-  uint8_t reserved = 0;
-  /// Vector size used for compression.
-  /// Must be AlpConstants::kAlpVectorSize for decompression.
-  uint32_t vector_size = 0;
+  /// Log base 2 of vector size. Actual vector size = 1u << log_vector_size.
+  /// For example: 10 means 2^10 = 1024 elements per vector.
+  uint8_t log_vector_size = 0;
   /// Total number of elements in the page (uint32_t since Parquet uses i32).
   /// Per-vector element count is inferred: vector_size for all but the last vector.
   uint32_t num_elements = 0;
@@ -82,8 +84,8 @@ struct AlpHeader {
   /// \param[in] v the version number
   /// \return the size in bytes
   static constexpr size_t GetSizeForVersion(uint8_t v) {
-    // Version 1 header is 12 bytes
-    return (v == 1) ? 12 : 0;
+    // Version 1 header is 8 bytes
+    return (v == 1) ? 8 : 0;
   }
 
   /// \brief Check whether the given version is valid
@@ -95,11 +97,31 @@ struct AlpHeader {
     return v;
   }
 
+  /// \brief Compute the actual vector size from log_vector_size
+  ///
+  /// \return the vector size (2^log_vector_size)
+  uint32_t GetVectorSize() const { return 1u << log_vector_size; }
+
+  /// \brief Compute log base 2 of a power-of-2 value
+  ///
+  /// \param[in] value a power-of-2 value
+  /// \return the log base 2 of value
+  static uint8_t Log2(uint32_t value) {
+    ARROW_CHECK(value > 0 && (value & (value - 1)) == 0)
+        << "value_must_be_power_of_2: " << value;
+    uint8_t log = 0;
+    while ((1u << log) < value) {
+      ++log;
+    }
+    return log;
+  }
+
   /// \brief Calculate the number of elements for a given vector index
   ///
   /// \param[in] vector_index the 0-based index of the vector
   /// \return the number of elements in this vector
   uint16_t GetVectorNumElements(uint64_t vector_index) const {
+    const uint32_t vector_size = GetVectorSize();
     const uint64_t num_full_vectors = num_elements / vector_size;
     const uint64_t remainder = num_elements % vector_size;
     if (vector_index < num_full_vectors) {
@@ -173,7 +195,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
   header.version = version;
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   header.integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
-  header.vector_size = AlpConstants::kAlpVectorSize;
+  header.log_vector_size = AlpHeader::Log2(AlpConstants::kAlpVectorSize);
   header.num_elements = static_cast<uint32_t>(element_count);
 
   std::memcpy(encoded_header, &header, header_size);
@@ -185,8 +207,9 @@ template <typename TargetType>
 void AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
                            size_t comp_size) {
   const AlpHeader header = LoadHeader(comp, comp_size);
-  ARROW_CHECK(header.vector_size == AlpConstants::kAlpVectorSize)
-      << "unsupported_vector_size: " << header.vector_size;
+  const uint32_t vector_size = header.GetVectorSize();
+  ARROW_CHECK(vector_size == AlpConstants::kAlpVectorSize)
+      << "unsupported_vector_size: " << vector_size;
 
   const size_t header_size = AlpHeader::GetSizeForVersion(header.version);
   const char* compression_body = comp + header_size;
@@ -196,7 +219,7 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char
       << "alp_decode_unsupported_mode";
 
   DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
-                        header.GetIntegerEncoding(), header.vector_size,
+                        header.GetIntegerEncoding(), vector_size,
                         header.num_elements);
 }
 
