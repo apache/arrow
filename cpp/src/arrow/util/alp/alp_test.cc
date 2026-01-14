@@ -60,7 +60,7 @@ class AlpCompressionFloatTest : public ::testing::Test {
 
     // Decompress
     std::vector<float> output(input.size());
-    compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+    compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
     // Verify
     ASSERT_EQ(output.size(), input.size());
@@ -128,7 +128,7 @@ class AlpCompressionDoubleTest : public ::testing::Test {
 
     // Decompress
     std::vector<double> output(input.size());
-    compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+    compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
     // Verify
     ASSERT_EQ(output.size(), input.size());
@@ -180,7 +180,7 @@ TEST(AlpIntegrationTest, LargeFloatDataset) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<float> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
   for (size_t i = 0; i < input.size(); ++i) {
     EXPECT_FLOAT_EQ(output[i], input[i]);
@@ -201,7 +201,7 @@ TEST(AlpIntegrationTest, LargeDoubleDataset) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<double> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
   for (size_t i = 0; i < input.size(); ++i) {
     EXPECT_DOUBLE_EQ(output[i], input[i]);
@@ -281,7 +281,7 @@ class AlpEdgeCaseTest : public ::testing::Test {
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     std::vector<T> output(input.size());
-    compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+    compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
     ASSERT_EQ(output.size(), input.size());
     // Use memcmp for bit-exact comparison (important for -0.0, NaN)
@@ -336,13 +336,13 @@ TYPED_TEST(AlpEdgeCaseTest, JustOverVectorSize) {
   auto encoded1 = compressor.CompressVector(input.data(),
                                             AlpConstants::kAlpVectorSize, preset);
   std::vector<TypeParam> output1(AlpConstants::kAlpVectorSize);
-  compressor.DecompressVector(encoded1, AlpIntegerEncoding::kBitPack, output1.data());
+  compressor.DecompressVector(encoded1, AlpIntegerEncoding::kForBitPack, output1.data());
 
   // Process remaining element
   auto encoded2 = compressor.CompressVector(
       input.data() + AlpConstants::kAlpVectorSize, 1, preset);
   std::vector<TypeParam> output2(1);
-  compressor.DecompressVector(encoded2, AlpIntegerEncoding::kBitPack, output2.data());
+  compressor.DecompressVector(encoded2, AlpIntegerEncoding::kForBitPack, output2.data());
 
   // Verify
   EXPECT_EQ(std::memcmp(output1.data(), input.data(),
@@ -527,7 +527,7 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
 
   // Decompress loaded and verify
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVector(loaded, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVector(loaded, AlpIntegerEncoding::kForBitPack, output.data());
 
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
             0);
@@ -605,7 +605,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   // Decompress using the view - this exercises PatchExceptions with the
   // StaticVector members (previously spans that could be misaligned)
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVectorView(view, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
   // Verify bit-exact reconstruction
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
@@ -674,7 +674,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
 
   // Decompress and verify
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVectorView(view, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
             0);
@@ -716,7 +716,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
 
     // Decompress - this is where the fix matters
     std::vector<TypeParam> output(input.size());
-    compressor.DecompressVectorView(view, AlpIntegerEncoding::kBitPack, output.data());
+    compressor.DecompressVectorView(view, AlpIntegerEncoding::kForBitPack, output.data());
 
     // Verify
     EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
@@ -864,7 +864,7 @@ TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
 
   // Verify round-trip
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
             0);
 }
@@ -885,7 +885,7 @@ TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     std::vector<TypeParam> output(input.size());
-    compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+    compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
     EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
               0)
@@ -906,7 +906,7 @@ TYPED_TEST(AlpEdgeCaseTest, LargeBitWidths) {
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<TypeParam> output(input.size());
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)),
             0);
@@ -978,7 +978,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
       static_cast<uint16_t>(std::min(data.size(), size_t(1024))), preset);
 
   std::vector<TypeParam> output(std::min(data.size(), size_t(1024)));
-  compressor.DecompressVector(encoded, AlpIntegerEncoding::kBitPack, output.data());
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
 
   EXPECT_EQ(std::memcmp(output.data(), data.data(), output.size() * sizeof(TypeParam)),
             0);

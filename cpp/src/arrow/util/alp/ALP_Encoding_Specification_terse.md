@@ -16,7 +16,7 @@
 |--------|-------|------|-------|
 | 0 | version | 1B | 1 |
 | 1 | mode | 1B | 0 (ALP) |
-| 2 | integer_encoding | 1B | 0 (bit-pack) |
+| 2 | integer_encoding | 1B | 0 (FOR+bit-pack) |
 | 3 | reserved | 1B | 0 |
 | 4 | vector_size | 4B | 1024 |
 | 8 | num_elements | 4B | total element count (uint32) |
