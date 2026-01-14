@@ -21,11 +21,8 @@ set PYARROW_DIR=%1
 
 echo Annotation testing on Windows ...
 
-@REM Install library stubs
-%PYTHON_CMD% -m pip install pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil || exit /B 1
-
-@REM Install other dependencies for type checking
-%PYTHON_CMD% -m pip install fsspec || exit /B 1
+@REM Install library stubs. Note some libraries contain their own type hints so they need to be installed
+%PYTHON_CMD% -m pip install fsspec pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil || exit /B 1
 
 @REM Install type checkers
 %PYTHON_CMD% -m pip install mypy pyright ty || exit /B 1

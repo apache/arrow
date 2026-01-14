@@ -21,14 +21,15 @@ set -ex
 pyarrow_dir=${1}
 
 if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
-  # Install library stubs
-  pip install pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
+  if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+    . "${ARROW_PYTHON_VENV}/bin/activate"
+  fi
+
+  # Install library stubs. Note some libraries contain their own type hints so they need to be installed
+  pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
 
   # Install type checkers
   pip install mypy pyright ty
-
-  # Install other dependencies for type checking
-  pip install fsspec
 
   # Run type checkers
   pushd ${pyarrow_dir}

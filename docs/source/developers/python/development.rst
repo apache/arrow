@@ -42,7 +42,7 @@ Unit Testing
 ============
 
 We are using `pytest <https://docs.pytest.org/en/latest/>`_ to develop our unit
-test suite. After `building the project <building.html>`_ you can run its unit tests
+test suite. After `building the project <build_pyarrow>`_ you can run its unit tests
 like so:
 
 .. code-block::
