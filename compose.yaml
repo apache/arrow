@@ -1719,9 +1719,9 @@ services:
       cache_from:
         - ${REPO}:amd64-ubuntu-r-valgrind
       args:
-        base: wch1/r-debug:latest
+        base: rhub/valgrind:latest
         cmake: ${CMAKE}
-        r_bin: RDvalgrind
+        r_bin: R
         tz: ${TZ}
     environment:
       <<: [*common, *ccache, *sccache]
