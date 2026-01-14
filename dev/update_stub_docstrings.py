@@ -210,6 +210,5 @@ def add_docs_to_stub_files(pyarrow_folder):
 
 
 if __name__ == "__main__":
-    docstrings_map = {}
     add_docs_to_stub_files(obj={})
 
