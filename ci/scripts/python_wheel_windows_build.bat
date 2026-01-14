@@ -138,7 +138,6 @@ pushd C:\arrow\python
 @REM We first populate stub docstrings and then build the wheel
 %PYTHON_CMD% setup.py build_ext --inplace
 %PYTHON_CMD% -m pip install griffe libcst
-%PYTHON_CMD% ..\dev\update_stub_docstrings.py pyarrow-stubs
 
 @REM Repair the wheel with delvewheel
 @REM
