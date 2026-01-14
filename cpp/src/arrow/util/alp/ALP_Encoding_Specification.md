@@ -62,11 +62,29 @@ Page Header Layout (16 bytes)
 |                           ENCODED VECTOR                                   |
 +-------------------+-----------------+--------------------+------------------+
 |    VectorInfo     |  Packed Values  | Exception Positions| Exception Values |
-|    (14 bytes)     |   (variable)    |    (variable)      |   (variable)     |
+|  (10B/14B)*       |   (variable)    |    (variable)      |   (variable)     |
 +-------------------+-----------------+--------------------+------------------+
+* 10 bytes for float, 14 bytes for double
 ```
 
-### 2.4 VectorInfo Structure (14 bytes)
+### 2.4 VectorInfo Structure (type-dependent size)
+
+The VectorInfo size depends on the data type:
+- **Float:** 10 bytes (4-byte frame_of_reference)
+- **Double:** 14 bytes (8-byte frame_of_reference)
+
+#### Float VectorInfo (10 bytes)
+
+| Offset | Field              | Size     | Type   | Description                             |
+|--------|--------------------|----------|--------|-----------------------------------------|
+| 0      | frame_of_reference | 4 bytes  | uint32 | Minimum encoded value (FOR baseline)    |
+| 4      | exponent           | 1 byte   | uint8  | Decimal exponent e (0-10 for float)     |
+| 5      | factor             | 1 byte   | uint8  | Decimal factor f (0 <= f <= e)          |
+| 6      | bit_width          | 1 byte   | uint8  | Bits per packed value (0-32)            |
+| 7      | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
+| 8      | num_exceptions     | 2 bytes  | uint16 | Number of exception values              |
+
+#### Double VectorInfo (14 bytes)
 
 | Offset | Field              | Size     | Type   | Description                             |
 |--------|--------------------|----------|--------|-----------------------------------------|
@@ -290,15 +308,15 @@ packed_size = ceil(4 x 10 / 8) = 5 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| VectorInfo         | FOR=12, e=2, f=0, bw=10, exc=0       | 14 bytes |
+| VectorInfo         | FOR=12, e=2, f=0, bw=10, exc=0       | 10 bytes (float) |
 | Packed Values      | 111, 444, 777, 0 (10 bits each)      | 5 bytes  |
 | Exception Positions| (none)                               | 0 bytes  |
 | Exception Values   | (none)                               | 0 bytes  |
-| **TOTAL**          | -                                    | **19 bytes** |
+| **TOTAL**          | -                                    | **15 bytes** |
 
-Compression ratio: 16 bytes input --> 19 bytes output (overhead due to small input)
+Compression ratio: 16 bytes input --> 15 bytes output (**6% smaller**)
 
-Note: With 1024 values, the 14-byte header overhead becomes negligible.
+Note: With 1024 values, the 10-byte (float) or 14-byte (double) header overhead becomes negligible.
 
 ---
 
@@ -351,11 +369,11 @@ packed_size = ceil(4 x 4 / 8) = 2 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| VectorInfo         | FOR=15, e=1, f=0, bw=4, exc=2        | 14 bytes |
+| VectorInfo         | FOR=15, e=1, f=0, bw=4, exc=2        | 10 bytes (float) |
 | Packed Values      | 0, 0, 10, 0 (4 bits each)            | 2 bytes  |
 | Exception Positions| [1, 3]                               | 4 bytes  |
 | Exception Values   | [NaN, 0.333...]                      | 8 bytes  |
-| **TOTAL**          | -                                    | **28 bytes** |
+| **TOTAL**          | -                                    | **24 bytes** |
 
 ---
 
@@ -444,7 +462,8 @@ Example values: 19.99, 5.49, 149.00, 0.99, 299.99, ...
 ### 8.1 Vector Size Formula
 
 ```
-vector_size = sizeof(VectorInfo)           // 14 bytes
+# H = VectorInfo header size (10 bytes for float, 14 bytes for double)
+vector_size = H                            // 10 bytes (float) or 14 bytes (double)
             + bit_packed_size              // ceil(num_elements x bit_width / 8)
             + num_exceptions x 2           // exception positions (uint16)
             + num_exceptions x sizeof(T)   // exception values
@@ -453,8 +472,9 @@ vector_size = sizeof(VectorInfo)           // 14 bytes
 ### 8.2 Maximum Compressed Size
 
 ```
+# H = VectorInfo header size (10 bytes for float, 14 bytes for double)
 max_size = sizeof(PageHeader)              // 16 bytes
-         + num_vectors x sizeof(VectorInfo)  // 14 bytes each
+         + num_vectors x H                   // 10 or 14 bytes each
          + num_elements x sizeof(T)          // worst case: all values packed
          + num_elements x sizeof(T)          // worst case: all exceptions
          + num_elements x 2                  // exception positions
@@ -502,7 +522,26 @@ Byte Offset   Content
 8-15          num_elements (uint64, little-endian) - total element count
 ```
 
-### Complete Vector Serialization (VectorInfo: 14 bytes)
+### Complete Vector Serialization (Float: VectorInfo 10 bytes)
+
+```
+Byte Offset   Content
+-----------   -------------------------------------------------------
+0-3           frame_of_reference (uint32, little-endian)
+4             exponent (uint8)
+5             factor (uint8)
+6             bit_width (uint8)
+7             reserved (uint8)
+8-9           num_exceptions (uint16, little-endian)
+10            +-----------------------------------------+
+              |                                         |
+              |        Packed Values                    |
+              |        (P = ceil(n * bit_width / 8))    |
+              |                                         |
+10+P          +-----------------------------------------+
+```
+
+### Complete Vector Serialization (Double: VectorInfo 14 bytes)
 
 ```
 Byte Offset   Content
