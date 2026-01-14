@@ -148,6 +148,13 @@ if(NOT MSVC)
 endif()
 
 #
+# Generated Flatbuffer sources
+set(PARQUET_FLATBUFFER_SOURCE_DIR "${ARROW_SOURCE_DIR}/src/generated/")
+
+set_source_files_properties("${PARQUET_FLATBUFFER_SOURCE_DIR}/parquet3_generated.h"
+                            PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+
+#
 # Library config
 
 set(PARQUET_SRCS
@@ -179,6 +186,7 @@ set(PARQUET_SRCS
     level_comparison.cc
     level_conversion.cc
     metadata.cc
+    metadata3.cc
     xxhasher.cc
     page_index.cc
     "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
@@ -307,6 +315,8 @@ add_arrow_lib(parquet
               STATIC_INSTALL_INTERFACE_LIBS
               ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
 
+target_include_directories(parquet_objlib SYSTEM PRIVATE ${ARROW_SOURCE_DIR}/thirdparty/flatbuffers/include)
+
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC
               "${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp")
@@ -320,7 +330,7 @@ if(ARROW_TESTING)
   # Even though this is still just an object library we still need to
   # "link" our dependencies so that include paths are configured
   # correctly
-  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK})
+  target_link_libraries(parquet_testing PUBLIC ${ARROW_GTEST_GMOCK} thrift::thrift)
   list(APPEND PARQUET_TEST_LINK_LIBS parquet_testing RapidJSON)
 endif()
 
@@ -339,6 +349,8 @@ endif()
 
 add_definitions(-DPARQUET_THRIFT_VERSION_MAJOR=${Thrift_VERSION_MAJOR})
 add_definitions(-DPARQUET_THRIFT_VERSION_MINOR=${Thrift_VERSION_MINOR})
+add_definitions(-DPARQUET_FLATBUFFERS_VERSION_MAJOR=${flatbuffers_VERSION_MAJOR})
+add_definitions(-DPARQUET_FLATBUFFERS_VERSION_MINOR=${flatbuffers_VERSION_MINOR})
 
 # Thrift requires these definitions for some types that we use
 foreach(LIB_TARGET ${PARQUET_LIBRARIES})
@@ -378,6 +390,7 @@ add_parquet_test(internals-test
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
                  metadata_test.cc
+                 metadata3_test.cc
                  page_index_test.cc
                  properties_test.cc
                  public_api_test.cc
@@ -445,6 +458,7 @@ add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(metadata_benchmark)
+add_parquet_benchmark(metadata3_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
                       benchmark_util.cc)
 add_parquet_benchmark(arrow/reader_writer_benchmark PREFIX "parquet-arrow")
