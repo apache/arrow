@@ -32,6 +32,10 @@ on:
         description: "Whether to force running the jobs"
         value: ${{ jobs.check-labels.outputs.force }}
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   check-labels:
     name: Check labels

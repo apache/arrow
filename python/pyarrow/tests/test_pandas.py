@@ -212,13 +212,14 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_column_index_names_with_tz(self):
+    @pytest.mark.parametrize("tz", [None, "Europe/Brussels"])
+    def test_column_index_names_datetime(self, tz):
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex
 
         df = pd.DataFrame(
             np.random.randn(5, 3),
-            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz="CET")
+            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz=tz)
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -447,11 +448,16 @@ class TestConvertMetadata:
         assert len(md) == 1
         assert md['encoding'] == 'UTF-8'
 
-    def test_datetimetz_column_index(self):
+    @pytest.mark.parametrize('unit', ['us', 'ns'])
+    def test_datetimetz_column_index(self, unit):
+        ext_kwargs = {}
+        if Version(pd.__version__) >= Version("2.0.0"):
+            # unit argument not supported on date_range for pandas < 2.0.0
+            ext_kwargs = {'unit': unit}
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
-                start='2017-01-01', periods=3, tz='America/New_York'
+                start='2017-01-01', periods=3, tz='America/New_York', **ext_kwargs
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
@@ -460,7 +466,10 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'datetimetz'
-        assert column_indexes['numpy_type'] == 'datetime64[ns]'
+        if ext_kwargs:
+            assert column_indexes['numpy_type'] == f'datetime64[{unit}]'
+        else:
+            assert column_indexes['numpy_type'] == 'datetime64[ns]'
 
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
@@ -525,11 +534,6 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
-            # TODO: regression in pandas, hopefully fixed in next version
-            # https://issues.apache.org/jira/browse/ARROW-18394
-            # https://github.com/pandas-dev/pandas/issues/50127
-            pytest.skip("Regression in pandas 2.0.0")
         column_data = ['い']
         key = 'あ'.encode()
         data = {key: column_data}
@@ -709,7 +713,12 @@ class TestConvertMetadata:
         # It is possible that the metadata and actual schema is not fully
         # matching (eg no timezone information for tz-aware column)
         # -> to_pandas() conversion should not fail on that
-        df = pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=3)})
+        ext_kwargs = {}
+        if Version(pd.__version__) >= Version("2.0.0"):
+            # unit argument not supported on date_range for pandas < 2.0.0
+            ext_kwargs = {'unit': 'ns'}
+        df = pd.DataFrame({"datetime": pd.date_range(
+            "2020-01-01", periods=3, **ext_kwargs)})
 
         # OPTION 1: casting after conversion
         table = pa.Table.from_pandas(df)
@@ -3309,12 +3318,6 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
-        # TODO: regression in pandas, hopefully fixed in next version
-        # https://issues.apache.org/jira/browse/ARROW-18394
-        # https://github.com/pandas-dev/pandas/issues/50127
-        pytest.skip("Regression in pandas 2.0.0")
-
     df = pd.DataFrame(columns=columns)
     table1 = pa.Table.from_pandas(df)
     table2 = pa.Table.from_pandas(table1.to_pandas())

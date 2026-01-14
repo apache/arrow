@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -22,6 +22,8 @@ module ArrowFormat
             # uncompressed length may be set to -1 to indicate that the data that
             # follows is not compressed, which can be useful for cases where
             # compression does not yield appreciable savings.
+            # Also, empty buffers can optionally be written out as 0-byte compressed
+            # buffers, thereby omitting the 8-bytes length header.
             BUFFER = register("BUFFER", 0)
           end
         end

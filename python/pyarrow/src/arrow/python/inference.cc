@@ -22,8 +22,8 @@
 
 #include <algorithm>
 #include <limits>
-#include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -704,15 +704,19 @@ class TypeInferrer {
                                  Py_TYPE(key_obj)->tp_name, "'");
       }
       // Get or create visitor for this key
-      auto it = struct_inferrers_.find(key);
-      if (it == struct_inferrers_.end()) {
-        it = struct_inferrers_
-                 .insert(
-                     std::make_pair(key, TypeInferrer(pandas_null_sentinels_,
-                                                      validate_interval_, make_unions_)))
-                 .first;
+      TypeInferrer* visitor;
+      auto it = struct_field_index_.find(key);
+      if (it == struct_field_index_.end()) {
+        // New field - add to vector and index
+        size_t new_index = struct_inferrers_.size();
+        struct_inferrers_.emplace_back(
+            key, TypeInferrer(pandas_null_sentinels_, validate_interval_, make_unions_));
+        struct_field_index_.emplace(std::move(key), new_index);
+        visitor = &struct_inferrers_.back().second;
+      } else {
+        // Existing field - retrieve from vector
+        visitor = &struct_inferrers_[it->second].second;
       }
-      TypeInferrer* visitor = &it->second;
 
       // We ignore termination signals from child visitors for now
       //
@@ -730,7 +734,8 @@ class TypeInferrer {
 
   Status GetStructType(std::shared_ptr<DataType>* out) {
     std::vector<std::shared_ptr<Field>> fields;
-    for (auto&& it : struct_inferrers_) {
+    fields.reserve(struct_inferrers_.size());
+    for (auto& it : struct_inferrers_) {
       std::shared_ptr<DataType> field_type;
       RETURN_NOT_OK(it.second.GetType(&field_type));
       fields.emplace_back(field(it.first, field_type));
@@ -762,7 +767,8 @@ class TypeInferrer {
   int64_t numpy_dtype_count_;
   int64_t interval_count_;
   std::unique_ptr<TypeInferrer> list_inferrer_;
-  std::map<std::string, TypeInferrer> struct_inferrers_;
+  std::vector<std::pair<std::string, TypeInferrer>> struct_inferrers_;
+  std::unordered_map<std::string, size_t> struct_field_index_;
   std::shared_ptr<DataType> scalar_type_;
 
   // If we observe a strongly-typed value in e.g. a NumPy array, we can store

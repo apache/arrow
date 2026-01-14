@@ -934,7 +934,7 @@ class TestStreamingReader < Test::Unit::TestCase
   end
 
   def read
-    @reader.to_a.collect do |record_batch|
+    @reader.collect do |record_batch|
       record_batch.to_h.tap do |hash|
         hash.each do |key, value|
           hash[key] = value.to_a

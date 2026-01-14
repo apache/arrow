@@ -30,6 +30,8 @@
 #include "arrow/util/config.h"
 #include "arrow/util/key_value_metadata.h"
 
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -138,7 +140,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
-    return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
+    return std::dynamic_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED,
@@ -2377,6 +2379,87 @@ TYPED_TEST(TestColumnWriterMaxRowsPerPage, RequiredLargeChunk) {
 
     this->BuildReader();
     ASSERT_NO_FATAL_FAILURE(this->VerifyMaxRowsPerPage(max_rows_per_page));
+  }
+}
+
+template <typename TestType>
+class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
+ public:
+  void SetUp() override {
+    TestPrimitiveWriter<TestType>::SetUp();
+    builder_ = nullptr;
+    bloom_filter_ = nullptr;
+  }
+
+  std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
+      int64_t output_size, const ColumnProperties& column_properties) {
+    this->sink_ = CreateOutputStream();
+
+    WriterProperties::Builder properties_builder;
+    if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
+        column_properties.encoding() == Encoding::RLE_DICTIONARY) {
+      properties_builder.enable_dictionary();
+    } else {
+      properties_builder.disable_dictionary();
+      properties_builder.encoding(column_properties.encoding());
+    }
+    auto path = this->schema_.Column(0)->path();
+    if (column_properties.bloom_filter_enabled()) {
+      properties_builder.enable_bloom_filter(path,
+                                             *column_properties.bloom_filter_options());
+    } else {
+      properties_builder.disable_bloom_filter(path);
+    }
+    this->writer_properties_ = properties_builder.build();
+
+    this->metadata_ =
+        ColumnChunkMetaDataBuilder::Make(this->writer_properties_, this->descr_);
+    auto pager = PageWriter::Open(this->sink_, column_properties.compression(),
+                                  this->metadata_.get());
+
+    builder_ = BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
+    builder_->AppendRowGroup();
+    bloom_filter_ = builder_->CreateBloomFilter(/*column_ordinal=*/0);
+
+    return std::dynamic_pointer_cast<TypedColumnWriter<TestType>>(
+        ColumnWriter::Make(this->metadata_.get(), std::move(pager),
+                           this->writer_properties_.get(), bloom_filter_));
+  }
+
+  std::unique_ptr<BloomFilterBuilder> builder_;
+  BloomFilter* bloom_filter_{nullptr};  // Will be created and owned by `builder_`.
+};
+
+// Note: BooleanType is excluded.
+using TestBloomFilterTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType,
+                                              DoubleType, ByteArrayType, FLBAType>;
+
+TYPED_TEST_SUITE(TestBloomFilterWriter, TestBloomFilterTypes);
+
+TYPED_TEST(TestBloomFilterWriter, Basic) {
+  this->GenerateData(SMALL_SIZE);
+
+  ColumnProperties column_properties;
+  column_properties.set_bloom_filter_options(BloomFilterOptions{SMALL_SIZE, 0.05});
+
+  auto writer = this->BuildWriter(SMALL_SIZE, column_properties);
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+  writer->Close();
+
+  // Make sure that column values are read correctly
+  this->SetupValuesOut(SMALL_SIZE);
+  this->ReadColumnFully();
+  ASSERT_EQ(SMALL_SIZE, this->values_read_);
+  ASSERT_EQ(this->values_, this->values_out_);
+
+  // Verify values are found by bloom filter
+  for (auto& value : this->values_) {
+    if constexpr (std::is_same_v<TypeParam, FLBAType>) {
+      EXPECT_TRUE(this->bloom_filter_->FindHash(
+          this->bloom_filter_->Hash(&value, this->descr_->type_length())));
+    } else {
+      EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(value)));
+    }
   }
 }
 

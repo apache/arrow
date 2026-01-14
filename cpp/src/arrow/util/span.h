@@ -44,13 +44,13 @@ writing code which would break when it is replaced by std::span.)");
   using element_type = T;
   using value_type = std::remove_cv_t<T>;
   using iterator = T*;
-  using const_iterator = T const*;
+  using const_iterator = const T*;
 
   span() = default;
   span(const span&) = default;
   span& operator=(const span&) = default;
 
-  template <typename M, typename = std::enable_if_t<std::is_same_v<T, M const>>>
+  template <typename M, typename = std::enable_if_t<std::is_same_v<T, const M>>>
   // NOLINTNEXTLINE runtime/explicit
   constexpr span(span<M> mut) : span{mut.data(), mut.size()} {}
 
@@ -100,7 +100,7 @@ writing code which would break when it is replaced by std::span.)");
       return std::memcmp(data_, other.data_, size_bytes()) == 0;
     } else {
       T* ptr = data_;
-      for (T const& e : other) {
+      for (const T& e : other) {
         if (*ptr++ != e) return false;
       }
       return true;
@@ -120,7 +120,7 @@ template <typename T>
 span(T*, size_t) -> span<T>;
 
 template <typename T>
-constexpr span<std::byte const> as_bytes(span<T> s) {
+constexpr span<const std::byte> as_bytes(span<T> s) {
   return {reinterpret_cast<const std::byte*>(s.data()), s.size_bytes()};
 }
 

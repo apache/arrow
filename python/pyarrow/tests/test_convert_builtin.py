@@ -69,14 +69,6 @@ class MyBrokenInt:
         1/0  # MARKER
 
 
-def check_struct_type(ty, expected):
-    """
-    Check a struct type is as expected, but not taking order into account.
-    """
-    assert pa.types.is_struct(ty)
-    assert set(ty) == set(expected)
-
-
 def test_iterable_types():
     arr1 = pa.array(StrangeIterable([0, 1, 2, 3]))
     arr2 = pa.array((0, 1, 2, 3))
@@ -2010,25 +2002,29 @@ def test_struct_from_dicts_inference():
             {'a': 6, 'b': 'bar', 'c': False}]
 
     arr = pa.array(data)
-    check_struct_type(arr.type, expected_type)
+    assert arr.type == expected_type
     assert arr.to_pylist() == data
 
     # With omitted values
+    # GH-40053: Field order follows first occurrence (a, c, then b)
     data = [{'a': 5, 'c': True},
             None,
             {},
             {'a': None, 'b': 'bar'}]
-    expected = [{'a': 5, 'b': None, 'c': True},
+    expected_type_omitted = pa.struct([pa.field('a', pa.int64()),
+                                       pa.field('c', pa.bool_()),
+                                       pa.field('b', pa.string())])
+    expected = [{'a': 5, 'c': True, 'b': None},
                 None,
-                {'a': None, 'b': None, 'c': None},
-                {'a': None, 'b': 'bar', 'c': None}]
+                {'a': None, 'c': None, 'b': None},
+                {'a': None, 'c': None, 'b': 'bar'}]
 
     arr = pa.array(data)
     data_as_ndarray = np.empty(len(data), dtype=object)
     data_as_ndarray[:] = data
     arr2 = pa.array(data)
 
-    check_struct_type(arr.type, expected_type)
+    assert arr.type == expected_type_omitted
     assert arr.to_pylist() == expected
     assert arr.equals(arr2)
 
@@ -2042,6 +2038,7 @@ def test_struct_from_dicts_inference():
             {'a': None, 'b': 'bar'}]
     arr = pa.array(data)
 
+    assert arr.type == expected_type
     assert arr.to_pylist() == data
 
     # Edge cases
