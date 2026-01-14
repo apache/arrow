@@ -133,13 +133,13 @@ class ReplaceEllipsis(libcst.CSTTransformer):
             docstring = _get_docstring(name, self.package, self.indentation)
             if docstring is not None:
                 new_docstring = libcst.SimpleString(value=docstring)
-                new_body = [
-                    libcst.SimpleWhitespace(self.indentation * "    "),
-                    libcst.Expr(value=new_docstring),
-                    libcst.Newline()
-                ] + list(updated_node.body.body)
-                new_body = libcst.IndentedBlock(body=new_body)
-                updated_node = updated_node.with_changes(body=new_body)
+                new_docstring_stmt = libcst.SimpleStatementLine(
+                    body=[libcst.Expr(value=new_docstring)]
+                )
+                new_body = [new_docstring_stmt] + list(updated_node.body.body)
+                updated_node = updated_node.with_changes(
+                    body=updated_node.body.with_changes(body=new_body)
+                )
 
         self.stack.pop()
         self.indentation -= 1
@@ -164,12 +164,10 @@ class ReplaceEllipsis(libcst.CSTTransformer):
             docstring = _get_docstring(name, self.package, self.indentation)
             if docstring is not None:
                 new_docstring = libcst.SimpleString(value=docstring)
-                new_body = [
-                    libcst.SimpleWhitespace(self.indentation * "    "),
-                    libcst.Expr(value=new_docstring),
-                    libcst.Newline()
-                ]
-                new_body = libcst.IndentedBlock(body=new_body)
+                new_docstring_stmt = libcst.SimpleStatementLine(
+                    body=[libcst.Expr(value=new_docstring)]
+                )
+                new_body = libcst.IndentedBlock(body=[new_docstring_stmt])
                 updated_node = updated_node.with_changes(body=new_body)
 
         self.stack.pop()
@@ -210,5 +208,5 @@ def add_docs_to_stub_files(pyarrow_folder):
 
 
 if __name__ == "__main__":
-    add_docs_to_stub_files(obj={})
+    add_docs_to_stub_files()
 
