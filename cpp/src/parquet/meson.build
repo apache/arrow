@@ -27,6 +27,7 @@ parquet_srcs = files(
     'arrow/writer.cc',
     'bloom_filter.cc',
     'bloom_filter_reader.cc',
+    'bloom_filter_writer.cc',
     'chunker_internal.cc',
     'column_reader.cc',
     'column_scanner.cc',
@@ -136,6 +137,7 @@ install_headers(
         'benchmark_util.h',
         'bloom_filter.h',
         'bloom_filter_reader.h',
+        'bloom_filter_writer.h',
         'column_page.h',
         'column_reader.h',
         'column_scanner.h',
@@ -145,6 +147,7 @@ install_headers(
         'file_reader.h',
         'file_writer.h',
         'hasher.h',
+        'index_location.h',
         'level_comparison.h',
         'level_comparison_inc.h',
         'level_conversion.h',
@@ -191,7 +194,7 @@ configure_file(
 parquet_tests = {
     'internals-test': {
         'sources': files(
-            'bloom_filter_reader_test.cc',
+            'bloom_filter_reader_writer_test.cc',
             'bloom_filter_test.cc',
             'encoding_test.cc',
             'geospatial/statistics_test.cc',
@@ -229,6 +232,7 @@ parquet_tests = {
             'arrow/variant_test.cc',
         ),
     },
+    'arrow-index-test': {'sources': files('arrow/index_test.cc')},
     'arrow-internals-test': {
         'sources': files(
             'arrow/path_internal_test.cc',
