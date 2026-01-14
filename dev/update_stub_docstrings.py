@@ -31,11 +31,11 @@ import sys
 from pathlib import Path
 from textwrap import indent
 
-# Add current directory to path to find locally built pyarrow
-sys.path.insert(0, ".")
-
 import libcst
 from libcst import matchers as m
+
+# Add current directory to path to find locally built pyarrow
+sys.path.insert(0, ".")
 
 
 def _resolve_object(module, path):
@@ -66,13 +66,8 @@ def _resolve_object(module, path):
         try:
             obj = getattr(obj, part)
         except AttributeError:
-            # Fallback: try __dict__ access for special methods like __init__
+            # Fallback: try vars() for special methods like __init__
             # that may not be directly accessible via getattr
-            if hasattr(parent, "__dict__"):
-                obj = parent.__dict__.get(part)
-                if obj is not None:
-                    continue
-            # Try vars() as another fallback
             try:
                 obj = vars(parent).get(part)
                 if obj is not None:
@@ -137,7 +132,7 @@ def _get_docstring(name, module, indentation):
     return docstring
 
 
-class ReplaceEllipsis(libcst.CSTTransformer):
+class DocstringInserter(libcst.CSTTransformer):
     def __init__(self, module, namespace):
         self.module = module
         self.base_namespace = namespace
@@ -277,7 +272,7 @@ def add_docs_to_stub_files(pyarrow_folder):
         elif module == "__init__":
             module = ""
 
-        modified_tree = tree.visit(ReplaceEllipsis(pyarrow_module, module))
+        modified_tree = tree.visit(DocstringInserter(pyarrow_module, module))
         with open(stub_file, "w") as f:
             f.write(modified_tree.code)
         print("\n")

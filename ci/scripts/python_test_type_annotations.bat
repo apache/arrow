@@ -23,7 +23,7 @@ if "%PYARROW_TEST_ANNOTATIONS%"=="ON" (
     echo Annotation testing on Windows ...
 
     @REM Install library stubs. Note some libraries contain their own type hints so they need to be installed.
-    %PYTHON_CMD% -m pip install fsspec pandas-stubs scipy-stubs sphinx types-cffi types-psutil types-requests types-python-dateutil || exit /B 1
+    %PYTHON_CMD% -m pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil || exit /B 1
 
     @REM Install type checkers
     %PYTHON_CMD% -m pip install mypy pyright ty || exit /B 1
@@ -31,7 +31,10 @@ if "%PYARROW_TEST_ANNOTATIONS%"=="ON" (
     @REM Run type checkers
     pushd %PYARROW_DIR%
 
-    mypy
-    pyright
-    ty check
+    mypy || exit /B 1
+    pyright || exit /B 1
+    ty check || exit /B 1
+    popd
+) else (
+    echo Annotation testing skipped on Windows ...
 )

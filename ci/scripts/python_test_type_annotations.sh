@@ -36,6 +36,7 @@ if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
   mypy
   pyright
   ty check;
+  popd
 else
   echo "Skipping type annotation tests";
 fi
