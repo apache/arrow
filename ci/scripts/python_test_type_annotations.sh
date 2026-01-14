@@ -25,7 +25,7 @@ if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
     . "${ARROW_PYTHON_VENV}/bin/activate"
   fi
 
-  # Install library stubs. Note some libraries contain their own type hints so they need to be installed
+  # Install library stubs. Note some libraries contain their own type hints so they need to be installed.
   pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
 
   # Install type checkers

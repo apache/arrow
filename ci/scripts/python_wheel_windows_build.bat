@@ -132,13 +132,13 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
 
-@REM Build wheel
-%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
-
 @REM We first populate stub docstrings and then build the wheel
 %PYTHON_CMD% setup.py build_ext --inplace
 %PYTHON_CMD% -m pip install griffe libcst
 %PYTHON_CMD% ..\dev\update_stub_docstrings.py pyarrow-stubs
+
+@REM Build wheel
+%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
