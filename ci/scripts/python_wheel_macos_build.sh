@@ -170,7 +170,7 @@ pushd ${source_dir}/python
 python -m build --sdist --wheel . --no-isolation
 # We first populate stub docstrings and then build the wheel
 python setup.py build_ext --inplace
-python -m pip install click griffe libcst
+python -m pip install libcst
 python ../dev/update_stub_docstrings.py pyarrow-stubs
 
 python setup.py bdist_wheel
