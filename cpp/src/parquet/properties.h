@@ -189,13 +189,16 @@ struct PARQUET_EXPORT BloomFilterOptions {
   ///
   /// Below is a table to demonstrate estimated size using common values.
   ///
-  /// | ndv        | fpp   | bits/key | size.     |
+  /// | ndv        | fpp   | bits/key | size      |
   /// |:-----------|:------|:---------|:----------|
   /// | 100,000    | 0.10  | 10.5     | 128 KiB   |
+  /// | 100,000    | 0.05  | 10.5     | 128 KiB   |
   /// | 100,000    | 0.01  | 10.5     | 128 KiB   |
   /// | 1,000,000  | 0.10  | 8.4      | 1024 KiB  |
+  /// | 1,000,000  | 0.05  | 8.4      | 1024 KiB  |
   /// | 1,000,000  | 0.01  | 16.8     | 2048 KiB  |
   /// | 10,000,000 | 0.10  | 6.7      | 8192 KiB  |
+  /// | 10,000,000 | 0.05  | 13.4     | 16384 KiB |
   /// | 10,000,000 | 0.01  | 13.4     | 16384 KiB |
   double fpp = 0.05;
 };
