@@ -230,10 +230,6 @@ IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) 
   for (size_t i = 0; i != bloom_filters_.size(); ++i) {
     auto& row_group_bloom_filters = bloom_filters_[i];
     for (const auto& [column_id, filter] : row_group_bloom_filters) {
-      if (ARROW_PREDICT_FALSE(filter == nullptr)) {
-        throw ParquetException("Bloom filter cannot be null");
-      }
-
       // TODO(GH-43138): Determine the quality of bloom filter before writing it.
       PARQUET_ASSIGN_OR_THROW(int64_t offset, sink->Tell());
       filter->WriteTo(sink);

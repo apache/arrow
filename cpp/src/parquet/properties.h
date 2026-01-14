@@ -181,21 +181,22 @@ struct PARQUET_EXPORT BloomFilterOptions {
 
   /// False-positive probability (FPP) of the bloom filter.
   ///
-  /// Lower FPP values require more disk and memory space. Recommended values are
-  /// 0.1, 0.05, or 0.001. Very small values are counterproductive as the bitset
-  /// may exceed the size of the actual data. Set ndv appropriately to minimize
-  /// space usage.
+  /// Lower FPP values require more disk and memory space. For a fixed ndv, the
+  /// space requirement grows roughly proportional to log(1/fpp). Recommended
+  /// values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+  /// the bitset may exceed the size of the actual data. Set ndv appropriately
+  /// to minimize space usage.
   ///
   /// Below is a table to demonstrate estimated size using common values.
   ///
-  /// | ndv        | fpp   | bits/key | theoretical | actual (Po2) |
-  /// |:-----------|:------|:---------|:------------|:-------------|
-  /// | 100,000    | 0.10  | ~6.0     | 75 KB       | **128 KB**   |
-  /// | 100,000    | 0.01  | ~10.5    | 131 KB      | **256 KB**   |
-  /// | 1,000,000  | 0.10  | ~6.0     | 750 KB      | **1 MB**     |
-  /// | 1,000,000  | 0.01  | ~10.5    | 1.31 MB     | **2 MB**     |
-  /// | 10,000,000 | 0.10  | ~6.0     | 7.5 MB      | **8 MB**     |
-  /// | 10,000,000 | 0.01  | ~10.5    | 13.1 MB     | **16 MB**    |
+  /// | ndv        | fpp   | bits/key | theoretical | actual |
+  /// |:-----------|:------|:---------|:------------|:-------|
+  /// | 100,000    | 0.10  | ~6.0     | 75 KB       | 128 KB |
+  /// | 100,000    | 0.01  | ~10.5    | 131 KB      | 256 KB |
+  /// | 1,000,000  | 0.10  | ~6.0     | 750 KB      | 1 MB   |
+  /// | 1,000,000  | 0.01  | ~10.5    | 1.31 MB     | 2 MB   |
+  /// | 10,000,000 | 0.10  | ~6.0     | 7.5 MB      | 8 MB   |
+  /// | 10,000,000 | 0.01  | ~10.5    | 13.1 MB     | 16 MB  |
 
   double fpp = 0.05;
 };
