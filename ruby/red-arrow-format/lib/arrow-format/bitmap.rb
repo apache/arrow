@@ -23,6 +23,10 @@ module ArrowFormat
       @n_values = n_values
     end
 
+    def [](i)
+      (@validity_buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
+    end
+
     def each
       return to_enum(__method__) unless block_given?
 

@@ -170,34 +170,6 @@ TEST(SplitString, LimitZero) {
   EXPECT_EQ(parts[2], "c");
 }
 
-TEST(StartsWith, Basics) {
-  std::string empty{};
-  std::string abc{"abc"};
-  std::string abcdef{"abcdef"};
-  std::string def{"def"};
-  ASSERT_TRUE(StartsWith(empty, empty));
-  ASSERT_TRUE(StartsWith(abc, empty));
-  ASSERT_TRUE(StartsWith(abc, abc));
-  ASSERT_TRUE(StartsWith(abcdef, abc));
-  ASSERT_FALSE(StartsWith(abc, abcdef));
-  ASSERT_FALSE(StartsWith(def, abcdef));
-  ASSERT_FALSE(StartsWith(abcdef, def));
-}
-
-TEST(EndsWith, Basics) {
-  std::string empty{};
-  std::string abc{"abc"};
-  std::string abcdef{"abcdef"};
-  std::string def{"def"};
-  ASSERT_TRUE(EndsWith(empty, empty));
-  ASSERT_TRUE(EndsWith(abc, empty));
-  ASSERT_TRUE(EndsWith(abc, abc));
-  ASSERT_TRUE(EndsWith(abcdef, def));
-  ASSERT_FALSE(EndsWith(abcdef, abc));
-  ASSERT_FALSE(EndsWith(def, abcdef));
-  ASSERT_FALSE(EndsWith(abcdef, abc));
-}
-
 TEST(RegexMatch, Basics) {
   std::regex regex("a+(b*)(c+)d+");
   std::string_view b, c;
@@ -260,9 +232,9 @@ TEST(ToChars, FloatingPoint) {
     // to std::to_string which may make ad hoc formatting choices, so we cannot
     // really test much about the result.
     auto result = ToChars(0.0f);
-    ASSERT_TRUE(StartsWith(result, "0")) << result;
+    ASSERT_TRUE(result.starts_with("0")) << result;
     result = ToChars(0.25);
-    ASSERT_TRUE(StartsWith(result, "0.25")) << result;
+    ASSERT_TRUE(result.starts_with("0.25")) << result;
   }
 }
 

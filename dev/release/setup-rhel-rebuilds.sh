@@ -16,13 +16,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# A script to install dependencies required for release
-# verification on Red Hat Enterprise Linux 10 clones in particular
-# on AlmaLinux 10
+# A script to install dependencies required for release verification
+# on Red Hat Enterprise Linux 8 or later clones in particular on
+# AlmaLinux 8 or later.
 
 set -exu
 
-dnf -y install 'dnf-command(config-manager)'
+# shellcheck source=/dev/null
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
+
+if [ "${distribution_version}" -eq 8 ]; then
+  dnf -y install 'dnf-command(config-manager)'
+  dnf config-manager --set-enabled powertools
+  python_devel=python3.12-devel
+else
+  python_devel=python3-devel
+fi
 dnf -y update
 dnf -y groupinstall "Development Tools"
 dnf -y install \
@@ -35,7 +44,7 @@ dnf -y install \
   ncurses-devel \
   ninja-build \
   openssl-devel \
-  python3-devel \
+  ${python_devel} \
   ruby-devel \
   sqlite-devel \
   vala-devel \

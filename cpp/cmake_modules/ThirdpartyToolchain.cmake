@@ -1974,7 +1974,9 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} protobuf::libprotobuf
+      PARENT_SCOPE)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -3724,6 +3726,8 @@ function(build_opentelemetry)
 
   prepare_fetchcontent()
 
+  # Unity build causes symbol redefinition errors in protobuf-generated code
+  set(CMAKE_UNITY_BUILD FALSE)
   set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
   set(WITH_EXAMPLES OFF)
   set(WITH_OTLP_HTTP ON)
@@ -3980,6 +3984,11 @@ function(build_awssdk)
         # We don't need to link aws-lc. It's used only by s2n-tls.
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
+        # Disable -Werror for s2n-tls: it has Clang 18 warnings that it intentionally allows.
+        # See: https://github.com/aws/s2n-tls/issues/5696
+        if(TARGET s2n)
+          target_compile_options(s2n PRIVATE -Wno-error)
+        endif()
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
         # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.

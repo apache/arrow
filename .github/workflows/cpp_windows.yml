@@ -33,6 +33,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   windows:
     runs-on: ${{ inputs.os }}

@@ -21,7 +21,6 @@ on:
   pull_request:
     paths:
       - '.dockerignore'
-      - 'docs/**'
       - '.github/workflows/docs_light.yml'
       - 'ci/docker/conda.dockerfile'
       - 'ci/docker/conda-cpp.dockerfile'
@@ -29,6 +28,8 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/python_build.sh'
       - 'compose.yaml'
+      - 'cpp/apidoc/**'
+      - 'docs/**'
 
 permissions:
   contents: read

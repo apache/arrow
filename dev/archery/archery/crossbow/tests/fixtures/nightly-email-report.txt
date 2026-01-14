@@ -1,6 +1,11 @@
+MIME-Version: 1.0
+Message-Id: <message-id>
+Date: date
 From: Sender Reporter <sender@arrow.com>
 To: recipient@arrow.com
 Subject: [NIGHTLY] Arrow Build Report for Job ursabot-1: 2 failed, 1 pending
+Content-Type: text/plain; charset="utf-8"
+Content-Transfer-Encoding: 7bit
 
 Arrow Build Report for Job ursabot-1
 

@@ -1405,9 +1405,10 @@ bool IsDirectory(std::string_view key, const S3Model::HeadObjectResult& result) 
   }
   // Otherwise, if its content type starts with "application/x-directory",
   // it's a directory
-  if (::arrow::internal::StartsWith(result.GetContentType(), kAwsDirectoryContentType)) {
+  if (result.GetContentType().starts_with(kAwsDirectoryContentType)) {
     return true;
   }
+
   // Otherwise, it's a regular file.
   return false;
 }

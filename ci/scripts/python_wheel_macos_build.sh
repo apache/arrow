@@ -56,8 +56,10 @@ if [[ $FREE_THREADED_BUILD == "True"  ]]; then
 fi
 
 pip install \
+  --force-reinstall \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
+  --upgrade \
   -r ${source_dir}/python/requirements-wheel-build.txt
 pip install "delocate>=0.10.3"
 

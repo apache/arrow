@@ -1180,31 +1180,36 @@ Status CheckAligned(const FileBlock& block) {
   return Status::OK();
 }
 
+template <typename MessagePtr>
+Result<MessagePtr> CheckBodyLength(MessagePtr message, const FileBlock& block) {
+  if (message->body_length() != block.body_length) {
+    return Status::Invalid(
+        "Mismatching body length for IPC message "
+        "(Block.bodyLength: ",
+        block.body_length, " vs. Message.bodyLength: ", message->body_length(), ")");
+  }
+  // NOTE: we cannot check metadata length as easily as we would have to account
+  // for the additional IPC signalisation (such as optional continuation bytes).
+  return message;
+}
+
 Result<std::unique_ptr<Message>> ReadMessageFromBlock(
     const FileBlock& block, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
   RETURN_NOT_OK(CheckAligned(block));
-  // TODO(wesm): this breaks integration tests, see ARROW-3256
-  // DCHECK_EQ((*out)->body_length(), block.body_length);
-
   ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
                                                   file, fields_loader));
-  return message;
+  return CheckBodyLength(std::move(message), block);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
     const FileBlock& block, io::RandomAccessFile* file, const io::IOContext& io_context) {
-  if (!bit_util::IsMultipleOf8(block.offset) ||
-      !bit_util::IsMultipleOf8(block.metadata_length) ||
-      !bit_util::IsMultipleOf8(block.body_length)) {
-    return Status::Invalid("Unaligned block in IPC file");
-  }
-
-  // TODO(wesm): this breaks integration tests, see ARROW-3256
-  // DCHECK_EQ((*out)->body_length(), block.body_length);
-
+  RETURN_NOT_OK(CheckAligned(block));
   return ReadMessageAsync(block.offset, block.metadata_length, block.body_length, file,
-                          io_context);
+                          io_context)
+      .Then([block](std::shared_ptr<Message> message) {
+        return CheckBodyLength(std::move(message), block);
+      });
 }
 
 class RecordBatchFileReaderImpl;

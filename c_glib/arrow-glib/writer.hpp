@@ -20,6 +20,8 @@
 #pragma once
 
 #include <arrow/api.h>
+#include <arrow/csv/options.h>
+#include <arrow/csv/writer.h>
 #include <arrow/ipc/api.h>
 #include <arrow/ipc/feather.h>
 
@@ -42,3 +44,11 @@ GARROW_AVAILABLE_IN_ALL
 GArrowRecordBatchFileWriter *
 garrow_record_batch_file_writer_new_raw(
   std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer);
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCSVWriter *
+garrow_csv_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer);
+
+GARROW_AVAILABLE_IN_23_0
+arrow::csv::WriteOptions *
+garrow_csv_write_options_get_raw(GArrowCSVWriteOptions *options);

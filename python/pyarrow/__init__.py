@@ -29,12 +29,10 @@ streaming messaging and interprocess communication.
 For more information see the official page at https://arrow.apache.org
 """
 
-import gc as _gc
 import importlib as _importlib
 import os as _os
 import platform as _platform
 import sys as _sys
-import warnings as _warnings
 
 try:
     from ._generated_version import version as __version__
@@ -58,7 +56,6 @@ except ImportError:
     except ImportError:
         __version__ = None
 
-import pyarrow.lib as _lib
 from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_path,
                          MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
