@@ -320,11 +320,6 @@ if [ "$ARROW_R_CXXFLAGS" ]; then
   PKG_CFLAGS="$PKG_CFLAGS $ARROW_R_CXXFLAGS"
 fi
 
-# GCC 14+ with C++20 raises false positive -Wmaybe-uninitialized warnings
-# due to std::variant move operations in arrow::FieldRef.
-# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80635
-PKG_CFLAGS="$PKG_CFLAGS -Wno-maybe-uninitialized"
-
 echo "*** Writing $(pwd)/src/Makevars.win"
 sed -e "s|@cflags@|$PKG_CFLAGS|" -e "s|@libs@|$PKG_LIBS|" src/Makevars.in > src/Makevars.win
 
