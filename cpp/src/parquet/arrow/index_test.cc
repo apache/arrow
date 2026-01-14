@@ -532,34 +532,6 @@ class ParquetBloomFilterRoundTripTest : public ::testing::Test,
 };
 
 TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTrip) {
-  auto schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
-  BloomFilterOptions options{10, 0.05};
-  auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter("c0", options)
-                               ->enable_bloom_filter("c1", options)
-                               ->max_row_group_length(4)
-                               ->build();
-  auto table = ::arrow::TableFromJSON(
-      schema, {R"([[1,"a"],[2,"b"],[3,"c"],[null,"d"],[5,null],[6,"f"]])"});
-  WriteFile(writer_properties, table);
-
-  constexpr int kNumRowGroups = 2;
-  constexpr int kNumBFColumns = 2;
-  const std::vector<int64_t> kRowGroupRowCount{4, 2};
-
-  ReadBloomFilters(kNumRowGroups);
-  ASSERT_EQ(kNumRowGroups * kNumBFColumns, bloom_filters_.size());
-
-  VerifyBloomFilterAcrossRowGroups<::arrow::Int64Type>(table->column(0), kNumRowGroups,
-                                                       kRowGroupRowCount, kNumBFColumns,
-                                                       /*col_idx=*/0);
-  VerifyBloomFilterAcrossRowGroups<::arrow::StringType>(table->column(1), kNumRowGroups,
-                                                        kRowGroupRowCount, kNumBFColumns,
-                                                        /*col_idx=*/1);
-}
-
-TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
   const std::vector<std::string> json_contents = {
       R"([[1,"a"],[2,"b"],[3,"c"],[null,"d"],[5,null],[6,"f"]])"};
 
@@ -574,41 +546,55 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
   constexpr int kNumBFColumns = 2;
   const std::vector<int64_t> kRowGroupRowCount{4, 2};
 
-  struct StringTypeTestCase {
+  struct TestCase {
     std::shared_ptr<::arrow::DataType> arrow_type;
+    bool use_dictionary_encoding;
     std::function<void(ParquetBloomFilterRoundTripTest*,
                        const std::shared_ptr<ChunkedArray>&, const std::vector<int64_t>&)>
         verify_func;
   };
+  std::vector<TestCase> test_cases;
 
-  std::vector<StringTypeTestCase> test_cases = {
-      {::arrow::utf8(),
-       [&](auto* test, auto& col, auto& counts) {
-         test->template VerifyBloomFilterAcrossRowGroups<::arrow::StringType>(
-             col, kNumRowGroups, kRowGroupRowCount, kNumBFColumns, /*col_idx=*/1);
-       }},
-      {::arrow::large_utf8(),
-       [&](auto* test, auto& col, auto& counts) {
-         test->template VerifyBloomFilterAcrossRowGroups<::arrow::LargeStringType>(
-             col, kNumRowGroups, kRowGroupRowCount, kNumBFColumns, /*col_idx=*/1);
-       }},
-      {::arrow::utf8_view(), [&](auto* test, auto& col, auto& counts) {
-         test->template VerifyBloomFilterAcrossRowGroups<::arrow::StringViewType>(
-             col, kNumRowGroups, kRowGroupRowCount, kNumBFColumns, /*col_idx=*/1);
-       }}};
+  // Test each string type with and without dictionary encoding
+  for (bool use_dict : {false, true}) {
+    test_cases.push_back(
+        {::arrow::utf8(), use_dict, [&](auto* test, auto& col, auto& counts) {
+           test->template VerifyBloomFilterAcrossRowGroups<::arrow::StringType>(
+               col, kNumRowGroups, kRowGroupRowCount, kNumBFColumns, /*col_idx=*/1);
+         }});
+    test_cases.push_back(
+        {::arrow::large_utf8(), use_dict, [&](auto* test, auto& col, auto& counts) {
+           test->template VerifyBloomFilterAcrossRowGroups<::arrow::LargeStringType>(
+               col, kNumRowGroups, kRowGroupRowCount, kNumBFColumns, /*col_idx=*/1);
+         }});
+    test_cases.push_back(
+        {::arrow::utf8_view(), use_dict, [&](auto* test, auto& col, auto& counts) {
+           test->template VerifyBloomFilterAcrossRowGroups<::arrow::StringViewType>(
+               col, kNumRowGroups, kRowGroupRowCount, kNumBFColumns, /*col_idx=*/1);
+         }});
+  }
 
   for (const auto& test_case : test_cases) {
     bloom_filters_.clear();
 
-    auto dict_schema = ::arrow::schema(
-        {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::int64())),
-         ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
-    auto origin_schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
-                                          ::arrow::field("c1", test_case.arrow_type)});
+    auto schema = ::arrow::schema({::arrow::field("c0", ::arrow::int64()),
+                                   ::arrow::field("c1", test_case.arrow_type)});
+    std::shared_ptr<Table> table;
 
-    auto dict_encoded_table = ::arrow::TableFromJSON(dict_schema, json_contents);
-    auto table = ::arrow::TableFromJSON(origin_schema, json_contents);
-    WriteFile(writer_properties, dict_encoded_table);
+    if (test_case.use_dictionary_encoding) {
+      // Write dictionary-encoded data
+      auto dict_schema = ::arrow::schema(
+          {::arrow::field("c0", ::arrow::dictionary(::arrow::int64(), ::arrow::int64())),
+           ::arrow::field("c1", ::arrow::dictionary(::arrow::int64(), ::arrow::utf8()))});
+      table = ::arrow::TableFromJSON(dict_schema, json_contents);
+      WriteFile(writer_properties, table);
+      // Verify against non-dictionary-encoded data
+      table = ::arrow::TableFromJSON(schema, json_contents);
+    } else {
+      // Both write and verify use the same non-dictionary schema
+      table = ::arrow::TableFromJSON(schema, json_contents);
+      WriteFile(writer_properties, ::arrow::TableFromJSON(schema, json_contents));
+    }
 
     ReadBloomFilters(kNumRowGroups);
     ASSERT_EQ(kNumRowGroups * kNumBFColumns, bloom_filters_.size());
@@ -622,15 +608,15 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripDictionary) {
 
 TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
   auto schema = ::arrow::schema(
-      {::arrow::field("c0", ::arrow::int64()), ::arrow::field("c1", ::arrow::utf8())});
+      {::arrow::field("c0", ::arrow::utf8()), ::arrow::field("c1", ::arrow::int64())});
   BloomFilterOptions options{10, 0.05};
   auto writer_properties = WriterProperties::Builder()
-                               .enable_bloom_filter("c0", options)
-                               ->disable_bloom_filter("c1")
+                               .disable_bloom_filter("c0")
+                               ->enable_bloom_filter("c1", options)
                                ->max_row_group_length(4)
                                ->build();
   auto table = ::arrow::TableFromJSON(
-      schema, {R"([[1,"a"],[2,"b"],[3,"c"],[null,"d"],[5,null],[6,"f"]])"});
+      schema, {R"([["a",1],["b",2],["c",3],["d",null],[null,5],["f",6]])"});
   WriteFile(writer_properties, table);
 
   constexpr int kNumRowGroups = 2;
@@ -638,11 +624,11 @@ TEST_F(ParquetBloomFilterRoundTripTest, SimpleRoundTripWithOneFilter) {
   const std::vector<int64_t> kRowGroupRowCount{4, 2};
 
   ReadBloomFilters(kNumRowGroups,
-                   /*expect_columns_without_bloom_filter=*/{1});
+                   /*expect_columns_without_bloom_filter=*/{0});
   ASSERT_EQ(kNumRowGroups * kNumBFColumns, bloom_filters_.size());
 
-  // Only verify c0 since c1 doesn't have bloom filter
-  VerifyBloomFilterAcrossRowGroups<::arrow::Int64Type>(table->column(0), kNumRowGroups,
+  // Only verify c1 since c0 doesn't have bloom filter
+  VerifyBloomFilterAcrossRowGroups<::arrow::Int64Type>(table->column(1), kNumRowGroups,
                                                        kRowGroupRowCount, kNumBFColumns,
                                                        /*col_idx=*/0);
 }

@@ -26,6 +26,7 @@
 namespace parquet {
 
 /// \brief Writer for updating a bloom filter with values of a specific Parquet type.
+/// \note Boolean type is not supported.
 template <typename ParquetType>
 class PARQUET_EXPORT TypedBloomFilterWriter {
  public:

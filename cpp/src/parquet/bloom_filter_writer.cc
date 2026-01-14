@@ -43,10 +43,6 @@ TypedBloomFilterWriter<ParquetType>::TypedBloomFilterWriter(const ColumnDescript
 
 template <typename ParquetType>
 void TypedBloomFilterWriter<ParquetType>::Update(const T* values, int64_t num_values) {
-  if constexpr (std::is_same_v<ParquetType, BooleanType>) {
-    throw ParquetException("Bloom filter is not supported for boolean type");
-  }
-
   ARROW_DCHECK(bloom_filter_ != nullptr);
   std::array<uint64_t, kHashBatchSize> hashes;
   for (int64_t i = 0; i < num_values; i += kHashBatchSize) {
@@ -189,8 +185,9 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
   const WriterProperties* properties_;
   bool finished_ = false;
 
-  using RowGroupBloomFilters = std::map<int32_t, std::shared_ptr<BloomFilter>>;
-  std::map<int32_t, RowGroupBloomFilters> bloom_filters_;
+  using RowGroupBloomFilters =
+      std::map</*column_id=*/int32_t, std::shared_ptr<BloomFilter>>;
+  std::vector<RowGroupBloomFilters> bloom_filters_;  // indexed by row group ordinal
 };
 
 void BloomFilterBuilderImpl::AppendRowGroup() {
@@ -198,7 +195,7 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
     throw ParquetException(
         "Cannot append a new row group to a finished BloomFilterBuilder");
   }
-  bloom_filters_.emplace(bloom_filters_.size(), RowGroupBloomFilters());
+  bloom_filters_.emplace_back();
 }
 
 BloomFilter* BloomFilterBuilderImpl::CreateBloomFilter(int32_t column_ordinal) {
@@ -209,11 +206,11 @@ BloomFilter* BloomFilterBuilderImpl::CreateBloomFilter(int32_t column_ordinal) {
     return nullptr;
   }
 
-  auto& curr_rg_bfs = bloom_filters_.rbegin()->second;
+  auto& curr_rg_bfs = *bloom_filters_.rbegin();
   if (curr_rg_bfs.find(column_ordinal) != curr_rg_bfs.cend()) {
     std::stringstream ss;
     ss << "Bloom filter already exists for column: " << column_ordinal
-       << ", row group: " << bloom_filters_.rbegin()->first;
+       << ", row group: " << (bloom_filters_.size() - 1);
     throw ParquetException(ss.str());
   }
 
@@ -230,7 +227,8 @@ IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) 
 
   IndexLocations locations;
 
-  for (const auto& [row_group_ordinal, row_group_bloom_filters] : bloom_filters_) {
+  for (size_t i = 0; i != bloom_filters_.size(); ++i) {
+    auto& row_group_bloom_filters = bloom_filters_[i];
     for (const auto& [column_id, filter] : row_group_bloom_filters) {
       if (ARROW_PREDICT_FALSE(filter == nullptr)) {
         throw ParquetException("Bloom filter cannot be null");
@@ -245,10 +243,10 @@ IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) 
         throw ParquetException(
             "Bloom filter size is too large, size: " + std::to_string(pos - offset) +
             ", column: " + std::to_string(column_id) +
-            ", row group: " + std::to_string(row_group_ordinal));
+            ", row group: " + std::to_string(i));
       }
 
-      locations.emplace_back(ColumnChunkId{row_group_ordinal, column_id},
+      locations.emplace_back(ColumnChunkId{static_cast<int32_t>(i), column_id},
                              IndexLocation{offset, static_cast<int32_t>(pos - offset)});
     }
   }

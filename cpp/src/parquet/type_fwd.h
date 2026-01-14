@@ -90,6 +90,8 @@ class ColumnIndex;
 class OffsetIndex;
 class BloomFilter;
 struct BloomFilterOptions;
+struct ColumnChunkId;
+struct IndexLocation;
 
 namespace arrow {
 
