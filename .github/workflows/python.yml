@@ -303,5 +303,7 @@ jobs:
           call "ci\scripts\python_test.bat" %cd%
       - name: Test annotations
         shell: cmd
+        env:
+          PYARROW_TEST_ANNOTATIONS: "ON"
         run: |
           call "ci\scripts\python_test_type_annotations.bat" %cd%\python
