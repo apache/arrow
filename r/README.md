@@ -44,7 +44,7 @@ There are some special cases to note:
 
 - On Linux the installation process can sometimes be more involved because CRAN does not host binaries for Linux. For more information please see the [installation guide](https://arrow.apache.org/docs/r/articles/install.html).
 
-- If you are compiling arrow from source, please note that as of version 22.0.0, arrow requires C++20 to build. This has implications on Windows and CentOS 7. For Windows users it means you need to be running an R version of 4.1 or later. See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance.
+- If you are compiling arrow from source, please note that as of version 23.0.0, arrow requires C++20 to build. This has implications on Windows and CentOS 7. For Windows users it means you need to be running an R version of 4.3 or later (though R 4.2 has incomplete support and might work with special configuration). See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance.
 
 - Development versions of arrow are released nightly. For information on how to install nightly builds please see the [installing nightly builds](https://arrow.apache.org/docs/r/articles/install_nightly.html) article.
 
