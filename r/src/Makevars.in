@@ -25,6 +25,11 @@ PKG_CPPFLAGS=@cflags@
 # https://bugs.llvm.org/show_bug.cgi?id=39191
 # https://www.mail-archive.com/gcc-bugs@gcc.gnu.org/msg534862.html
 # PKG_CXXFLAGS=$(CXX_VISIBILITY)
+
+# GCC 14+ with C++20 raises false positive -Wmaybe-uninitialized warnings
+# due to std::variant move operations in arrow::FieldRef.
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=80635
+PKG_CXXFLAGS=-Wno-maybe-uninitialized
 CXX_STD=CXX20
 PKG_LIBS=@libs@
 
