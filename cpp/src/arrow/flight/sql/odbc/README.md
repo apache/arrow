@@ -27,9 +27,9 @@ After the build succeeds, the ODBC DLL will be located in
 2. Register your ODBC DLL:
 
    Need to replace `<path\to\repo>` with actual path to repository in the commands.
-   1. `cd to repo.`
-   2. `cd <path\to\repo>`
-   3. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
+
+   1. `cd <path\to\repo>`
+   2. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
       ```
       .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
       ```
@@ -65,3 +65,62 @@ The characters are case-insensitive.
 The Windows ODBC driver currently does not support writing log files. `ARROW_USE_GLOG` is required to write log files, and `ARROW_USE_GLOG` is disabled on Windows platform since plasma using `glog` is not fully tested on windows.
 
 Note: GH-47670 running more than 1 tests with logging enabled is not fully supported. 
+
+## Steps to Run the ODBC tests
+After ODBC has been registered, you can run the ODBC tests. It is recommended to run the ODBC tests locally first.
+
+1. Run ODBC unit test: 
+
+    ```
+    .\cpp\build\< release | debug >\< Release | Debug>\arrow-odbc-spi-impl-test.exe
+    ```
+2. Set up and run ODBC remote test:
+
+   1. Set up a Dremio open source docker instance:
+   
+      1. Run this command inside the docker terminal to create a Dremio open source docker.
+          ```
+          docker run -p 9047:9047 -p 31010:31010 -p 45678:45678 -p 32010:32010 -e DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dpaths.dist=file:///opt/dremio/data/dist dremio/dremio-oss
+          ```
+
+      2. Enable unicode support in Docker: 
+
+          1. Open `dremio-env` in an editor. The file is located in the `/opt/dremio/conf` directory.
+          2. Set the `DREMIO_JAVA_SERVER_EXTRA_OPTS` property to the following value:
+              ```
+              DREMIO_JAVA_SERVER_EXTRA_OPTS='-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$en_US'
+              ```
+      3. Navigate to: http://localhost:9047 and create an user account. The account credentials will be used for remote testing.
+
+      4. Create test table:
+          
+          Run this query inside Dremio
+          ```
+          Create Table $scratch.ODBCTest As 
+          SELECT
+            CAST(2147483647 AS INTEGER) AS sinteger_max,
+
+            CAST(9223372036854775807 AS BIGINT) AS sbigint_max,
+
+            CAST(999999999 AS DECIMAL(38, 0)) AS decimal_positive,
+
+            CAST(3.40282347E38 AS FLOAT) AS float_max,
+
+            CAST(1.7976931348623157E308 AS DOUBLE) AS double_max,
+
+            CAST(true AS BOOLEAN) AS bit_true,
+
+            CAST(DATE '9999-12-31' AS DATE) AS date_max,
+            CAST(TIME '23:59:59' AS TIME) AS time_max,
+            CAST(TIMESTAMP '9999-12-31 23:59:59' AS TIMESTAMP) AS timestamp_max;
+          ```
+      5. The docker instance only needs to be set up once, and can be re-used for running the tests.
+   2. Replace `REDACTED` with actual Dremio docker credentials in the command. Set environment variable `ARROW_FLIGHT_SQL_ODBC_CONN` to 
+      ```
+      driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=32010;pwd=REDACTED;uid=REDACTED;useEncryption=false;useWideChar=true;
+      ```
+   3. Run ODBC remote test: 
+
+      ```
+      .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
+      ```
