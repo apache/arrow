@@ -29,6 +29,7 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/archery/archery/**'
       - 'dev/release/binary-task.rb'
       - 'dev/release/verify-apt.sh'
       - 'dev/release/verify-yum.sh'
@@ -43,6 +44,7 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/archery/archery/**'
       - 'dev/release/binary-task.rb'
       - 'dev/release/verify-apt.sh'
       - 'dev/release/verify-yum.sh'
@@ -61,8 +63,10 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   # Upload to GitHub Release
   contents: write
+  pull-requests: read
 
 jobs:
   check-labels:
@@ -228,6 +232,8 @@ jobs:
             ${GITHUB_REF_NAME} \
             release_candidate.yml
       - name: Build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pushd dev/tasks/linux-packages
           rake docker:pull || :

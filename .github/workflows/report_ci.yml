@@ -20,6 +20,10 @@ name: Report CI results
 on:
   workflow_call:
 
+permissions:
+  actions: read
+  contents: read
+
 jobs:
   report-ci:
     runs-on: ubuntu-latest

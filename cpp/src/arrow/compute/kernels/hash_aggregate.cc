@@ -282,7 +282,7 @@ concept CFloatingPointConcept = std::floating_point<T> || std::same_as<T, util::
 
 template <typename T>
 concept CDecimalConcept = std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||
-    std::same_as<T, Decimal128> || std::same_as<T, Decimal256>;
+                          std::same_as<T, Decimal128> || std::same_as<T, Decimal256>;
 
 template <typename CType>
 struct AntiExtrema {

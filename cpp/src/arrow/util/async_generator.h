@@ -1439,9 +1439,8 @@ class MergedGenerator {
             immediate_inner(next_item.result());
             if (immediate_inner.was_empty) {
               Future<AsyncGenerator<T>> next_source = state->PullSource();
-              if (next_source.TryAddCallback([this] {
-                    return OuterCallback{state, index};
-                  })) {
+              if (next_source.TryAddCallback(
+                      [this] { return OuterCallback{state, index}; })) {
                 // We hit an unfinished future so we can stop looping
                 return;
               }

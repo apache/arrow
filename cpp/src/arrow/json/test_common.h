@@ -89,7 +89,7 @@ struct GenerateImpl {
   Status Visit(const NullType&) { return OK(writer.Null()); }
 
   Status Visit(const BooleanType&) {
-    return OK(writer.Bool(std::uniform_int_distribution<uint16_t>{}(e)&1));
+    return OK(writer.Bool(std::uniform_int_distribution<uint16_t>{}(e) & 1));
   }
 
   template <typename T>

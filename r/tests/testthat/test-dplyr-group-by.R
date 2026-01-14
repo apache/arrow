@@ -271,38 +271,6 @@ test_that("group_by() with .add", {
     tbl |>
       group_by(dbl2)
   )
-  suppressWarnings(compare_dplyr_binding(
-    .input |>
-      group_by(dbl2) |>
-      group_by(add = FALSE) |>
-      collect(),
-    tbl,
-    warning = "deprecated"
-  ))
-  suppressWarnings(compare_dplyr_binding(
-    .input |>
-      group_by(dbl2) |>
-      group_by(add = TRUE) |>
-      collect(),
-    tbl,
-    warning = "deprecated"
-  ))
-  expect_warning(
-    tbl |>
-      arrow_table() |>
-      group_by(add = TRUE) |>
-      collect(),
-    "The `add` argument of `group_by\\(\\)` is deprecated"
-  )
-  expect_error(
-    suppressWarnings(
-      tbl |>
-        arrow_table() |>
-        group_by(add = dbl2) |>
-        collect()
-    ),
-    "object 'dbl2' not found"
-  )
 })
 
 test_that("Can use across() within group_by()", {

@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -18,6 +18,18 @@ module ArrowFormat
           # A field represents a named column in a record / row batch or child of a
           # nested type.
           class Field < ::FlatBuffers::Table
+            FIELDS = {
+              name: ::FlatBuffers::Field.new(:name, 0, 4, :string, 0),
+              nullable?: ::FlatBuffers::Field.new(:nullable?, 1, 6, :bool, 0),
+              type_type: ::FlatBuffers::Field.new(:type_type, 2, 8, :utype, 0),
+              type: ::FlatBuffers::Field.new(:type, 3, 10, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Type", 0),
+              dictionary: ::FlatBuffers::Field.new(:dictionary, 4, 12, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::DictionaryEncoding", 0),
+              children: ::FlatBuffers::Field.new(:children, 5, 14, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Field"], 0),
+              custom_metadata: ::FlatBuffers::Field.new(:custom_metadata, 6, 16, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::KeyValue"], 0),
+            }
+
+            Data = define_data_class
+
             # children apply only to nested data types like Struct, List and Union. For
             # primitive types children will have length 0.
             def children

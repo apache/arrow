@@ -2836,7 +2836,6 @@ cdef class _ServerMiddlewareFactoryWrapper(ServerMiddlewareFactory):
         for key, factory in self.factories.items():
             instance = factory.start_call(info, headers)
             if instance:
-                # TODO: prevent duplicate keys
                 instances[key] = instance
         if instances:
             wrapper = _ServerMiddlewareWrapper(instances)

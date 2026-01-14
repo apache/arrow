@@ -43,8 +43,7 @@ void Span::reset() {
 
 #else
 
-Span::Span() noexcept { /* details is left a nullptr */
-}
+Span::Span() noexcept { /* details is left a nullptr */ }
 
 bool Span::valid() const { return false; }
 void Span::reset() {}
