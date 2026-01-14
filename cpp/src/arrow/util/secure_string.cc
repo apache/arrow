@@ -22,11 +22,18 @@
 #include <span>
 #include <utility>
 
-#include <openssl/crypto.h>
+#if defined(ARROW_USE_OPENSSL)
+#  include <openssl/crypto.h>
+#  include <openssl/opensslv.h>
+#endif
 
 #include "arrow/util/logging.h"
 #include "arrow/util/secure_string.h"
 #include "arrow/util/windows_compatibility.h"
+
+#if defined(_WIN32)
+#  include <windows.h>
+#endif
 namespace arrow::util {
 
 /// Note:
