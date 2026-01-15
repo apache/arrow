@@ -23,23 +23,27 @@ ALP works by converting floating-point values to integers using decimal scaling,
 
 ALP encoding consists of a page-level header followed by one or more encoded vectors. Each vector contains up to 1024 elements.
 
-### 2.1 Page Layout Diagram (Metadata-at-Start)
+### 2.1 Page Layout Diagram (Grouped Metadata-at-Start)
 
-The page uses a **metadata-at-start** layout for efficient random access. All VectorInfo
-metadata is stored contiguously after the header, followed by all data sections.
+The page uses a **grouped metadata-at-start** layout for efficient random access.
+Metadata is split into two sections:
+1. **AlpInfo Section**: ALP-specific metadata (4 bytes per vector, fixed)
+2. **ForInfo Section**: FOR encoding metadata (6/10 bytes per vector, type-dependent)
+
+This separation allows future integer encodings to replace FOR without changing AlpInfo.
 
 ```
-+------------------------------------------------------------------+
-|                           ALP PAGE                               |
-+-------------+------------------------------------------------+---+
-| Page Header |        Metadata Array        |    Data Array       |
-| (8 bytes)   | [VectorInfo₀|VectorInfo₁|...] | [Data₀|Data₁|...]  |
-+-------------+------------------------------------------------+---+
++------------------------------------------------------------------------------+
+|                                 ALP PAGE                                      |
++--------+----------------------+----------------------+-----------------------+
+| Header |    AlpInfo Array     |    ForInfo Array     |     Data Array        |
+| (8B)   | [AlpInfo₀|AlpInfo₁|…]| [ForInfo₀|ForInfo₁|…]| [Data₀|Data₁|…]       |
++--------+----------------------+----------------------+-----------------------+
 ```
 
 This layout enables O(1) random access to any vector by:
-1. Reading all VectorInfo first (contiguous, cache-friendly, typically ~1-2 KB)
-2. Computing data offsets from VectorInfo
+1. Reading all AlpInfo and ForInfo first (contiguous, cache-friendly)
+2. Computing data offsets from ForInfo (bit_width) and AlpInfo (num_exceptions)
 3. Seeking directly to the target vector's data
 
 ### 2.2 Page Header (8 bytes)
@@ -68,16 +72,15 @@ Page Header Layout (8 bytes)
 
 ### 2.3 Encoded Vector Structure
 
-Each vector consists of a VectorInfo (metadata) and a Data section. In the page layout,
-all VectorInfo are stored together first, followed by all Data sections.
+Each vector has two metadata structs (AlpInfo and ForInfo) and a Data section.
+In the page layout, all AlpInfo are stored together, then all ForInfo, then all Data.
 
-**VectorInfo (stored in metadata array):**
+**Per-Vector Metadata:**
 ```
-+-------------------+
-|    VectorInfo     |
-|  (10B for float,  |
-|   14B for double) |
-+-------------------+
++-------------------+-------------------+
+|     AlpInfo       |     ForInfo       |
+|    (4 bytes)      | (6B float/10B dbl)|
++-------------------+-------------------+
 ```
 
 **Data Section (stored in data array):**
@@ -88,48 +91,56 @@ all VectorInfo are stored together first, followed by all Data sections.
 +-----------------+--------------------+------------------+
 ```
 
-**Complete page layout example (3 vectors):**
+**Complete page layout example (3 vectors, float):**
 ```
-+--------+---------------+---------------+---------------+--------+--------+--------+
-| Header | VectorInfo₀   | VectorInfo₁   | VectorInfo₂   | Data₀  | Data₁  | Data₂  |
-| (8B)   | (10B/14B)     | (10B/14B)     | (10B/14B)     | (var)  | (var)  | (var)  |
-+--------+---------------+---------------+---------------+--------+--------+--------+
-         |<----------- Metadata Array ----------->|<------- Data Array ------->|
++--------+-----+-----+-----+-------+-------+-------+--------+--------+--------+
+| Header |AlpI₀|AlpI₁|AlpI₂|ForI₀  |ForI₁  |ForI₂  | Data₀  | Data₁  | Data₂  |
+| (8B)   |(4B) |(4B) |(4B) |(6B)   |(6B)   |(6B)   | (var)  | (var)  | (var)  |
++--------+-----+-----+-----+-------+-------+-------+--------+--------+--------+
+         |<--- AlpInfo --->|<--- ForInfo --->|<--------- Data -------->|
 ```
 
-### 2.4 VectorInfo Structure (type-dependent size)
+### 2.4 AlpInfo Structure (fixed 4 bytes)
 
-The VectorInfo size depends on the data type:
-- **Float:** 10 bytes (4-byte frame_of_reference)
-- **Double:** 14 bytes (8-byte frame_of_reference)
+AlpInfo contains ALP-specific metadata that is independent of the integer encoding:
 
-#### Float VectorInfo (10 bytes)
+| Offset | Field          | Size     | Type   | Description                             |
+|--------|----------------|----------|--------|-----------------------------------------|
+| 0      | exponent       | 1 byte   | uint8  | Decimal exponent e (0-10/18)            |
+| 1      | factor         | 1 byte   | uint8  | Decimal factor f (0 <= f <= e)          |
+| 2      | num_exceptions | 2 bytes  | uint16 | Number of exception values              |
+
+### 2.5 ForInfo Structure (type-dependent size)
+
+ForInfo contains FOR (Frame of Reference) encoding metadata. The size depends on type:
+- **Float:** 6 bytes (4-byte frame_of_reference)
+- **Double:** 10 bytes (8-byte frame_of_reference)
+
+#### Float ForInfo (6 bytes)
 
 | Offset | Field              | Size     | Type   | Description                             |
 |--------|--------------------|----------|--------|-----------------------------------------|
 | 0      | frame_of_reference | 4 bytes  | uint32 | Minimum encoded value (FOR baseline)    |
-| 4      | exponent           | 1 byte   | uint8  | Decimal exponent e (0-10 for float)     |
-| 5      | factor             | 1 byte   | uint8  | Decimal factor f (0 <= f <= e)          |
-| 6      | bit_width          | 1 byte   | uint8  | Bits per packed value (0-32)            |
-| 7      | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
-| 8      | num_exceptions     | 2 bytes  | uint16 | Number of exception values              |
+| 4      | bit_width          | 1 byte   | uint8  | Bits per packed value (0-32)            |
+| 5      | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
 
-#### Double VectorInfo (14 bytes)
+#### Double ForInfo (10 bytes)
 
 | Offset | Field              | Size     | Type   | Description                             |
 |--------|--------------------|----------|--------|-----------------------------------------|
 | 0      | frame_of_reference | 8 bytes  | uint64 | Minimum encoded value (FOR baseline)    |
-| 8      | exponent           | 1 byte   | uint8  | Decimal exponent e (0-18 for double)    |
-| 9      | factor             | 1 byte   | uint8  | Decimal factor f (0 <= f <= e)          |
-| 10     | bit_width          | 1 byte   | uint8  | Bits per packed value (0-64)            |
-| 11     | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
-| 12     | num_exceptions     | 2 bytes  | uint16 | Number of exception values              |
+| 8      | bit_width          | 1 byte   | uint8  | Bits per packed value (0-64)            |
+| 9      | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
 
-**Note:** The following fields are NOT stored in VectorInfo:
-- `num_elements`: Derived from the page header. For vectors 1..N-1, it equals `vector_size` (1024). For the last vector, it equals `num_elements % vector_size` (or `vector_size` if evenly divisible).
-- `bit_packed_size`: Computed on-demand as `ceil(num_elements * bit_width / 8)`.
+**Total metadata size per vector:**
+- **Float:** 4 + 6 = 10 bytes
+- **Double:** 4 + 10 = 14 bytes
 
-### 2.5 Data Section Sizes
+**Note:** The following are NOT stored:
+- `num_elements`: Derived from page header. For vectors 1..N-1, equals `vector_size` (1024). For last vector, equals `num_elements % vector_size` (or `vector_size` if evenly divisible).
+- `bit_packed_size`: Computed as `ceil(num_elements * bit_width / 8)`.
+
+### 2.6 Data Section Sizes
 
 | Section             | Size Formula                              | Description                    |
 |---------------------|-------------------------------------------|--------------------------------|
