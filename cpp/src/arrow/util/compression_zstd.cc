@@ -41,11 +41,26 @@ Status ZSTDError(size_t ret, const char* prefix_msg) {
 }
 
 // ----------------------------------------------------------------------
+// ZSTD context deleter implementation
+struct ZSTDContextDeleter {
+  void operator()(ZSTD_DCtx* r) {
+    if (r) {
+      ZSTD_freeDCtx(r);
+    }
+  }
+  void operator()(ZSTD_CCtx* r) {
+    if (r) {
+      ZSTD_freeCCtx(r);
+    }
+  }
+};
+
+// ----------------------------------------------------------------------
 // ZSTD decompressor implementation
 
 class ZSTDDecompressor : public Decompressor {
  public:
-  ZSTDDecompressor() : stream_(ZSTD_createDStream()) {}
+  ZSTDDecompressor() : stream_(ZSTD_createDStream()), finished_(false) {}
 
   ~ZSTDDecompressor() override { ZSTD_freeDStream(stream_); }
 
@@ -187,9 +202,14 @@ class ZSTDCodec : public Codec {
       DCHECK_EQ(output_buffer_len, 0);
       output_buffer = &empty_buffer;
     }
-
-    size_t ret = ZSTD_decompress(output_buffer, static_cast<size_t>(output_buffer_len),
-                                 input, static_cast<size_t>(input_len));
+    // Decompression context for ZSTD contains several large heap allocations.
+    // This method is additionally used in a free-threaded context so caching in a class
+    // member is not possible.
+    thread_local std::unique_ptr<ZSTD_DCtx, ZSTDContextDeleter> decompression_context{
+        ZSTD_createDCtx(), ZSTDContextDeleter{}};
+    size_t ret = ZSTD_decompressDCtx(decompression_context.get(), output_buffer,
+                                     static_cast<size_t>(output_buffer_len), input,
+                                     static_cast<size_t>(input_len));
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "ZSTD decompression failed: ");
     }
@@ -207,8 +227,14 @@ class ZSTDCodec : public Codec {
 
   Result<int64_t> Compress(int64_t input_len, const uint8_t* input,
                            int64_t output_buffer_len, uint8_t* output_buffer) override {
-    size_t ret = ZSTD_compress(output_buffer, static_cast<size_t>(output_buffer_len),
-                               input, static_cast<size_t>(input_len), compression_level_);
+    // Compression context for ZSTD contains several large heap allocations.
+    // This method is additionally used in a free-threaded context so caching in a class
+    // member is not possible.
+    thread_local std::unique_ptr<ZSTD_CCtx, ZSTDContextDeleter> compression_context{
+        ZSTD_createCCtx(), ZSTDContextDeleter{}};
+    size_t ret = ZSTD_compressCCtx(compression_context.get(), output_buffer,
+                                   static_cast<size_t>(output_buffer_len), input,
+                                   static_cast<size_t>(input_len), compression_level_);
     if (ZSTD_isError(ret)) {
       return ZSTDError(ret, "ZSTD compression failed: ");
     }
