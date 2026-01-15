@@ -16,12 +16,15 @@
 // under the License.
 
 #include <algorithm>
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <memory>
 #include <ostream>
 #include <random>
+#include <span>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -446,36 +449,17 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
   }
 }
 
-TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
-  // for now only GZIP & Brotli codec options supported, since it has specific parameters
-  // to be customized, other codecs could directly go with CodecOptions, could add more
-  // specific codec options if needed.
-  struct CombinationOption {
-    int level;
-    GZipFormat format;
-    int window_bits;
-    bool expect_success;
-  };
-  constexpr CombinationOption combinations[] = {{2, GZipFormat::ZLIB, 12, true},
-                                                {9, GZipFormat::GZIP, 9, true},
-                                                {9, GZipFormat::GZIP, 20, false},
-                                                {5, GZipFormat::DEFLATE, -12, false},
-                                                {-992, GZipFormat::GZIP, 15, false}};
-
+template <std::derived_from<arrow::util::CodecOptions> T>
+void CheckSpecifyCodecOptions(Compression::type compression,
+                              std::span<const std::pair<T, bool>> options) {
   std::vector<uint8_t> data = MakeRandomData(2000);
-  for (const auto& combination : combinations) {
-    const auto compression = Compression::GZIP;
+  for (const auto& [codec_option, expect_success] : options) {
     if (!Codec::IsAvailable(compression)) {
       // Support for this codec hasn't been built
       continue;
     }
-    auto codec_options = arrow::util::GZipCodecOptions();
-    codec_options.compression_level = combination.level;
-    codec_options.gzip_format = combination.format;
-    codec_options.window_bits = combination.window_bits;
-    const auto expect_success = combination.expect_success;
-    auto result1 = Codec::Create(compression, codec_options);
-    auto result2 = Codec::Create(compression, codec_options);
+    auto result1 = Codec::Create(compression, codec_option);
+    auto result2 = Codec::Create(compression, codec_option);
     ASSERT_EQ(expect_success, result1.ok());
     ASSERT_EQ(expect_success, result2.ok());
     if (expect_success) {
@@ -484,37 +468,92 @@ TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
   }
 }
 
-TEST(TestCodecMisc, SpecifyCodecOptionsBrotli) {
-  // for now only GZIP & Brotli codec options supported, since it has specific parameters
-  // to be customized, other codecs could directly go with CodecOptions, could add more
-  // specific codec options if needed.
-  struct CombinationOption {
-    int level;
-    int window_bits;
-    bool expect_success;
+TEST(TestCodecMisc, SpecifyCodecOptionsGZip) {
+  auto make_option = [](int compression_level, GZipFormat format,
+                        std::optional<int> window_bits) {
+    arrow::util::GZipCodecOptions option;
+    option.compression_level = compression_level;
+    option.gzip_format = format;
+    option.window_bits = window_bits;
+    return option;
   };
-  constexpr CombinationOption combinations[] = {
-      {8, 22, true}, {11, 10, true}, {1, 24, true}, {5, -12, false}, {-992, 25, false}};
+  const std::pair<arrow::util::GZipCodecOptions, bool> options[]{
+      {make_option(5, GZipFormat::GZIP, 15), true},
+      {make_option(9, GZipFormat::ZLIB, 12), true},
+      {make_option(-1, GZipFormat::DEFLATE, 10), true},
+      {make_option(10, GZipFormat::GZIP, 25), false},
+      {make_option(-992, GZipFormat::GZIP, 15), false},
+  };
+  CheckSpecifyCodecOptions<arrow::util::GZipCodecOptions>(Compression::GZIP, options);
+}
 
-  std::vector<uint8_t> data = MakeRandomData(2000);
-  for (const auto& combination : combinations) {
-    const auto compression = Compression::BROTLI;
-    if (!Codec::IsAvailable(compression)) {
-      // Support for this codec hasn't been built
-      continue;
-    }
-    auto codec_options = arrow::util::BrotliCodecOptions();
-    codec_options.compression_level = combination.level;
-    codec_options.window_bits = combination.window_bits;
-    const auto expect_success = combination.expect_success;
-    auto result1 = Codec::Create(compression, codec_options);
-    auto result2 = Codec::Create(compression, codec_options);
-    ASSERT_EQ(expect_success, result1.ok());
-    ASSERT_EQ(expect_success, result2.ok());
-    if (expect_success) {
-      CheckCodecRoundtrip(*result1, *result2, data);
-    }
-  }
+TEST(TestCodecMisc, SpecifyCodecOptionsBrotli) {
+  auto make_option = [](int compression_level, std::optional<int> window_bits) {
+    arrow::util::BrotliCodecOptions option;
+    option.compression_level = compression_level;
+    option.window_bits = window_bits;
+    return option;
+  };
+  const std::pair<arrow::util::BrotliCodecOptions, bool> options[]{
+      {make_option(8, 22), true},     {make_option(11, 10), true},
+      {make_option(1, 24), true},     {make_option(5, -12), false},
+      {make_option(-992, 25), false},
+  };
+  CheckSpecifyCodecOptions<arrow::util::BrotliCodecOptions>(Compression::BROTLI, options);
+}
+
+TEST(TestCodecMisc, SpecifyCodecOptionsZstd) {
+  auto make_option = [](int compression_level,
+                        std::vector<std::pair<int, int>> compression_context_params,
+                        std::vector<std::pair<int, int>> decompression_context_params) {
+    arrow::util::ZstdCodecOptions option;
+    option.compression_level = compression_level;
+    option.compression_context_params = std::move(compression_context_params);
+    option.decompression_context_params = std::move(decompression_context_params);
+    return option;
+  };
+  constexpr int ZSTD_c_windowLog = 101;
+  constexpr int ZSTD_d_windowLogMax = 100;
+  const std::pair<arrow::util::ZstdCodecOptions, bool> options[]{
+      {make_option(2, {}, {}), true},
+      {make_option(9, {}, {}), true},
+      {make_option(15, {}, {}), true},
+      {make_option(-992, {}, {}), true},
+      {make_option(3, {{ZSTD_c_windowLog, 23}}, {}), true},
+      {make_option(3, {{ZSTD_c_windowLog, 28}}, {{ZSTD_d_windowLogMax, 28}}), true}};
+  CheckSpecifyCodecOptions<arrow::util::ZstdCodecOptions>(Compression::ZSTD, options);
+}
+
+TEST(TestCodecMisc, ZstdLargerWindowLog) {
+  constexpr int ZSTD_c_windowLog = 101;
+  constexpr int ZSTD_d_windowLogMax = 100;
+
+  arrow::util::ZstdCodecOptions option1;
+  option1.compression_level = 3;
+
+  arrow::util::ZstdCodecOptions option2;
+  option2.compression_level = 3;
+  option2.compression_context_params = {{ZSTD_c_windowLog, 23}};
+  option2.decompression_context_params = {{ZSTD_d_windowLogMax, 23}};
+
+  std::vector<uint8_t> data = MakeRandomData(4 * 1024 * 1024);
+  data.reserve(data.size() * 2);
+  data.insert(data.end(), data.begin(), data.end());
+
+  ASSERT_OK_AND_ASSIGN(auto result1, Codec::Create(Compression::ZSTD, option1));
+  ASSERT_OK_AND_ASSIGN(auto result2, Codec::Create(Compression::ZSTD, option2));
+
+  int max_compressed_len =
+      static_cast<int>(result1->MaxCompressedLen(data.size(), data.data()));
+  std::vector<uint8_t> compressed(max_compressed_len);
+
+  ASSERT_OK_AND_ASSIGN(
+      int64_t actual_size1,
+      result1->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
+  ASSERT_OK_AND_ASSIGN(
+      int64_t actual_size2,
+      result2->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
+  ASSERT_GT(actual_size1, actual_size2);
 }
 
 TEST_P(CodecTest, MinMaxCompressionLevel) {
