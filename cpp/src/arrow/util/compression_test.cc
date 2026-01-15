@@ -533,6 +533,7 @@ TEST(TestCodecMisc, ZstdLargerWindowLog) {
 
   arrow::util::ZstdCodecOptions option2;
   option2.compression_level = 3;
+  // 1 << 23 = 8MB window size, default 2MB under level 3.
   option2.compression_context_params = {{ZSTD_c_windowLog, 23}};
   option2.decompression_context_params = {{ZSTD_d_windowLogMax, 23}};
 
