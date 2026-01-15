@@ -310,8 +310,7 @@ jobs:
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_FLIGHT_SQL: ON
-      ARROW_FLIGHT_SQL_ODBC: ON
-      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
+      ARROW_FLIGHT_SQL_ODBC: OFF
       ARROW_GANDIVA: ON
       ARROW_GCS: ON
       ARROW_HDFS: OFF
@@ -390,10 +389,6 @@ jobs:
           PIPX_BASE_PYTHON: ${{ steps.python-install.outputs.python-path }}
         run: |
           ci/scripts/install_gcs_testbench.sh default
-      - name: Register Flight SQL ODBC Driver
-        shell: cmd
-        run: |
-          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\libarrow_flight_sql_odbc.dll
       - name: Test
         shell: msys2 {0}
         run: |
