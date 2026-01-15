@@ -86,8 +86,9 @@ namespace alp {
 //                                        | packed bytes
 //                                        v
 //   +------------------------------------------------------------------+
-//   | 5. SERIALIZATION (see AlpEncodedVector diagram below)            |
-//   |    [VectorInfo][PackedData][ExceptionPos][ExceptionValues]       |
+//   | 5. SERIALIZATION (metadata-at-start layout for random access)   |
+//   |    [Header][VectorInfo₀|VectorInfo₁|...][Data₀|Data₁|...]       |
+//   |    All VectorInfo first, then all data sections consecutively.  |
 //   +------------------------------------------------------------------+
 //
 //
@@ -252,6 +253,18 @@ struct AlpEncodedVectorInfo {
   /// \return the size in bytes (10 for float, 14 for double)
   static uint64_t GetStoredSize() { return kStoredSize; }
 
+  /// \brief Get the size of the data section (packed values + exceptions)
+  ///
+  /// This does NOT include the VectorInfo size, only the variable-length data.
+  ///
+  /// \param[in] num_elements number of elements in this vector
+  /// \return the size in bytes of packed values + exception positions + exceptions
+  uint64_t GetDataStoredSize(uint16_t num_elements) const {
+    const uint64_t bit_packed_size = GetBitPackedSize(num_elements, bit_width);
+    return bit_packed_size +
+           num_exceptions * (sizeof(AlpConstants::PositionType) + sizeof(T));
+  }
+
   bool operator==(const AlpEncodedVectorInfo& other) const;
 };
 
@@ -261,10 +274,10 @@ struct AlpEncodedVectorInfo {
 /// \class AlpEncodedVector
 /// \brief A compressed ALP vector with metadata
 ///
-/// Complete serialization format for an ALP compressed vector:
+/// Per-vector data layout:
 ///
 ///   +------------------------------------------------------------+
-///   |  AlpEncodedVector<T> Serialized Layout                     |
+///   |  AlpEncodedVector<T> Data Layout                           |
 ///   +------------------------------------------------------------+
 ///   |  Section              |  Size (bytes)        | Description |
 ///   +-----------------------+----------------------+-------------+
@@ -280,6 +293,20 @@ struct AlpEncodedVectorInfo {
 ///   |  4. Exception Values  |  num_exceptions *    |  T[] (float/|
 ///   |     (original floats) |  sizeof(T)           |  double)    |
 ///   +------------------------------------------------------------+
+///
+/// Page-level layout (metadata-at-start for efficient random access):
+///
+///   +------------------------------------------------------------+
+///   |  Page Layout                                               |
+///   +------------------------------------------------------------+
+///   |  [Header (8B)]                                             |
+///   |  [VectorInfo₀ | VectorInfo₁ | ... | VectorInfoₙ]           |
+///   |  [Data₀ | Data₁ | ... | Dataₙ]                             |
+///   +------------------------------------------------------------+
+///
+/// The metadata-at-start layout enables O(1) random access to any vector
+/// by reading all VectorInfo first, computing data offsets, then seeking
+/// directly to the target vector's data.
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
 ///   - VectorInfo:         10 bytes (float)
@@ -321,8 +348,25 @@ class AlpEncodedVector {
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
+  /// Stores [VectorInfo][PackedValues][ExceptionPositions][ExceptionValues]
+  ///
   /// \param[out] output_buffer the buffer to store the compressed data into
   void Store(arrow::util::span<char> output_buffer) const;
+
+  /// \brief Store only the data section (without VectorInfo) into an output buffer
+  ///
+  /// Stores [PackedValues][ExceptionPositions][ExceptionValues]
+  /// Use this for the metadata-at-start layout where VectorInfo is stored separately.
+  ///
+  /// \param[out] output_buffer the buffer to store the data section into
+  void StoreDataOnly(arrow::util::span<char> output_buffer) const;
+
+  /// \brief Get the size of the data section only (without VectorInfo)
+  ///
+  /// \return the size in bytes of packed values + exception positions + exceptions
+  uint64_t GetDataStoredSize() const {
+    return vector_info.GetDataStoredSize(num_elements);
+  }
 
   /// \brief Load a compressed vector from a compact format from an input buffer
   ///
@@ -370,16 +414,38 @@ struct AlpEncodedVectorView {
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
+  /// Expects format: [VectorInfo][PackedValues][ExceptionPositions][ExceptionValues]
+  ///
   /// \param[in] input_buffer the buffer to create a view into
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data
   static AlpEncodedVectorView LoadView(arrow::util::span<const char> input_buffer,
                                        uint16_t num_elements);
 
+  /// \brief Create a zero-copy view from data-only buffer (VectorInfo provided separately)
+  ///
+  /// Use this for the metadata-at-start layout where VectorInfo is stored separately.
+  /// Expects format: [PackedValues][ExceptionPositions][ExceptionValues] (no VectorInfo)
+  ///
+  /// \param[in] input_buffer the buffer containing only the data section
+  /// \param[in] info the VectorInfo (loaded separately from metadata array)
+  /// \param[in] num_elements the number of elements (from page header)
+  /// \return the view into the compressed data
+  static AlpEncodedVectorView LoadViewDataOnly(arrow::util::span<const char> input_buffer,
+                                               const AlpEncodedVectorInfo<T>& info,
+                                               uint16_t num_elements);
+
   /// \brief Get the stored size of this vector in the buffer
   ///
-  /// \return the stored size in bytes
+  /// \return the stored size in bytes (includes VectorInfo + data)
   uint64_t GetStoredSize() const;
+
+  /// \brief Get the size of the data section only (without VectorInfo)
+  ///
+  /// \return the size in bytes of packed values + exception positions + exceptions
+  uint64_t GetDataStoredSize() const {
+    return vector_info.GetDataStoredSize(num_elements);
+  }
 };
 
 // ----------------------------------------------------------------------

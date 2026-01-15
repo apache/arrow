@@ -112,16 +112,17 @@ void AlpEncodedVector<T>::Store(arrow::util::span<char> output_buffer) const {
       << "alp_bit_packed_vector_store_output_too_small: " << output_buffer.size()
       << " vs " << overall_size;
   vector_info.Store(output_buffer);
-  uint64_t compression_offset = AlpEncodedVectorInfo<T>::GetStoredSize();
+  // Store data section after VectorInfo
+  StoreDataOnly({output_buffer.data() + AlpEncodedVectorInfo<T>::GetStoredSize(),
+                 output_buffer.size() - AlpEncodedVectorInfo<T>::GetStoredSize()});
+}
 
-  // Compute bit_packed_size from num_elements and bit_width
-  const uint64_t bit_packed_size =
-      AlpEncodedVectorInfo<T>::GetBitPackedSize(num_elements, vector_info.bit_width);
-
-  // Store all successfully compressed values first.
-  std::memcpy(output_buffer.data() + compression_offset, packed_values.data(),
-              bit_packed_size);
-  compression_offset += bit_packed_size;
+template <typename T>
+void AlpEncodedVector<T>::StoreDataOnly(arrow::util::span<char> output_buffer) const {
+  const uint64_t data_size = GetDataStoredSize();
+  ARROW_CHECK(output_buffer.size() >= data_size)
+      << "alp_bit_packed_vector_store_data_output_too_small: " << output_buffer.size()
+      << " vs " << data_size;
 
   ARROW_CHECK(vector_info.num_exceptions == exceptions.size() &&
               vector_info.num_exceptions == exception_positions.size())
@@ -129,21 +130,30 @@ void AlpEncodedVector<T>::Store(arrow::util::span<char> output_buffer) const {
       << vector_info.num_exceptions << " vs " << exceptions.size() << " vs "
       << exception_positions.size();
 
-  // Store exceptions, consisting of their positions and their values.
+  uint64_t offset = 0;
+
+  // Compute bit_packed_size from num_elements and bit_width
+  const uint64_t bit_packed_size =
+      AlpEncodedVectorInfo<T>::GetBitPackedSize(num_elements, vector_info.bit_width);
+
+  // Store all successfully compressed values first.
+  std::memcpy(output_buffer.data() + offset, packed_values.data(), bit_packed_size);
+  offset += bit_packed_size;
+
+  // Store exception positions.
   const uint64_t exception_position_size =
       vector_info.num_exceptions * sizeof(AlpConstants::PositionType);
-  std::memcpy(output_buffer.data() + compression_offset, exception_positions.data(),
+  std::memcpy(output_buffer.data() + offset, exception_positions.data(),
               exception_position_size);
-  compression_offset += exception_position_size;
+  offset += exception_position_size;
 
+  // Store exception values.
   const uint64_t exception_size = vector_info.num_exceptions * sizeof(T);
-  std::memcpy(output_buffer.data() + compression_offset, exceptions.data(),
-              exception_size);
-  compression_offset += exception_size;
+  std::memcpy(output_buffer.data() + offset, exceptions.data(), exception_size);
+  offset += exception_size;
 
-  ARROW_CHECK(compression_offset == overall_size)
-      << "alp_bit_packed_vector_size_mismatch: " << compression_offset << " vs "
-      << overall_size;
+  ARROW_CHECK(offset == data_size)
+      << "alp_bit_packed_vector_data_size_mismatch: " << offset << " vs " << data_size;
 }
 
 template <typename T>
@@ -210,7 +220,6 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
   AlpEncodedVectorView<T> result;
   result.vector_info = AlpEncodedVectorInfo<T>::Load(input_buffer);
   result.num_elements = num_elements;
-  uint64_t input_offset = AlpEncodedVectorInfo<T>::GetStoredSize();
 
   const uint64_t overall_size =
       AlpEncodedVector<T>::GetStoredSize(result.vector_info, num_elements);
@@ -218,9 +227,42 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
   ARROW_CHECK(input_buffer.size() >= overall_size)
       << "alp_view_input_too_small: " << input_buffer.size() << " vs " << overall_size;
 
+  // Load data section (after VectorInfo)
+  const uint64_t info_size = AlpEncodedVectorInfo<T>::GetStoredSize();
+  AlpEncodedVectorView<T> data_view = LoadViewDataOnly(
+      {input_buffer.data() + info_size, input_buffer.size() - info_size},
+      result.vector_info, num_elements);
+
+  // Copy the loaded data into result
+  result.packed_values = data_view.packed_values;
+  result.exception_positions = std::move(data_view.exception_positions);
+  result.exceptions = std::move(data_view.exceptions);
+
+  return result;
+}
+
+template <typename T>
+AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadViewDataOnly(
+    arrow::util::span<const char> input_buffer, const AlpEncodedVectorInfo<T>& info,
+    uint16_t num_elements) {
+  ARROW_CHECK(num_elements <= AlpConstants::kAlpVectorSize)
+      << "alp_view_data_only_element_count_too_large: " << num_elements << " vs "
+      << AlpConstants::kAlpVectorSize;
+
+  AlpEncodedVectorView<T> result;
+  result.vector_info = info;
+  result.num_elements = num_elements;
+
+  const uint64_t data_size = info.GetDataStoredSize(num_elements);
+  ARROW_CHECK(input_buffer.size() >= data_size)
+      << "alp_view_data_only_input_too_small: " << input_buffer.size() << " vs "
+      << data_size;
+
+  uint64_t input_offset = 0;
+
   // Compute bit_packed_size from num_elements and bit_width
   const uint64_t bit_packed_size =
-      AlpEncodedVectorInfo<T>::GetBitPackedSize(num_elements, result.vector_info.bit_width);
+      AlpEncodedVectorInfo<T>::GetBitPackedSize(num_elements, info.bit_width);
 
   // Zero-copy for packed values (bytes have no alignment requirements)
   result.packed_values = {
@@ -231,15 +273,15 @@ AlpEncodedVectorView<T> AlpEncodedVectorView<T>::LoadView(
   // Copy exception positions into aligned storage to avoid UB from misaligned access.
   // Exceptions are rare (typically < 5%), so the copy overhead is negligible.
   const uint64_t exception_position_size =
-      result.vector_info.num_exceptions * sizeof(AlpConstants::PositionType);
-  result.exception_positions.UnsafeResize(result.vector_info.num_exceptions);
+      info.num_exceptions * sizeof(AlpConstants::PositionType);
+  result.exception_positions.UnsafeResize(info.num_exceptions);
   std::memcpy(result.exception_positions.data(), input_buffer.data() + input_offset,
               exception_position_size);
   input_offset += exception_position_size;
 
   // Copy exception values into aligned storage to avoid UB from misaligned access.
-  const uint64_t exception_size = result.vector_info.num_exceptions * sizeof(T);
-  result.exceptions.UnsafeResize(result.vector_info.num_exceptions);
+  const uint64_t exception_size = info.num_exceptions * sizeof(T);
+  result.exceptions.UnsafeResize(info.num_exceptions);
   std::memcpy(result.exceptions.data(), input_buffer.data() + input_offset,
               exception_size);
 
