@@ -285,6 +285,8 @@ UUID
    A specific UUID version is not required or guaranteed. This extension represents
    UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
 
+.. _opaque_extension:
+
 Opaque
 ======
 
