@@ -155,80 +155,119 @@ struct AlpExponentAndFactor {
 };
 
 // ----------------------------------------------------------------------
-// AlpEncodedVectorInfo
+// AlpEncodedVectorInfo (non-templated, ALP core metadata)
 
-/// \brief Metadata for an encoded vector (templated on floating-point type)
+/// \brief ALP-specific metadata for an encoded vector (non-templated)
 ///
-/// Helper class to encapsulate all metadata of an encoded vector to be able
-/// to load and decompress it.
+/// Contains the metadata specific to ALP's float-to-integer conversion:
+///   - exponent/factor: parameters for decimal encoding
+///   - num_exceptions: count of values that couldn't be losslessly encoded
 ///
-/// The frame_of_reference field uses the same size as the encoded integer type:
+/// This struct is the same size regardless of the floating-point type (float/double).
+/// It is separate from the integer encoding metadata (e.g., FOR) to allow
+/// different integer encodings to be used in the future.
+///
+/// Serialization format (4 bytes):
+///
+///   +------------------------------------------+
+///   |  AlpEncodedVectorInfo (4 bytes)          |
+///   +------------------------------------------+
+///   |  Offset |  Field              |  Size    |
+///   +---------+---------------------+----------+
+///   |    0    |  exponent (uint8_t) |  1 byte  |
+///   |    1    |  factor (uint8_t)   |  1 byte  |
+///   |    2    |  num_exceptions     |  2 bytes |
+///   +------------------------------------------+
+struct AlpEncodedVectorInfo {
+  /// Exponent used for decimal encoding (multiply by 10^exponent)
+  uint8_t exponent = 0;
+  /// Factor used for decimal encoding (divide by 10^factor)
+  uint8_t factor = 0;
+  /// Number of exceptions stored in this vector
+  uint16_t num_exceptions = 0;
+
+  /// Size of the serialized portion (4 bytes, fixed)
+  static constexpr uint64_t kStoredSize = 4;
+
+  /// \brief Store the ALP metadata into an output buffer
+  void Store(arrow::util::span<char> output_buffer) const;
+
+  /// \brief Load ALP metadata from an input buffer
+  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer);
+
+  /// \brief Get serialized size of the ALP metadata
+  static uint64_t GetStoredSize() { return kStoredSize; }
+
+  /// \brief Get exponent and factor as a combined struct
+  AlpExponentAndFactor GetExponentAndFactor() const {
+    return AlpExponentAndFactor{exponent, factor};
+  }
+
+  bool operator==(const AlpEncodedVectorInfo& other) const {
+    return exponent == other.exponent && factor == other.factor &&
+           num_exceptions == other.num_exceptions;
+  }
+
+  bool operator!=(const AlpEncodedVectorInfo& other) const { return !(*this == other); }
+};
+
+// ----------------------------------------------------------------------
+// AlpEncodedForVectorInfo (templated, FOR integer encoding metadata)
+
+/// \brief FOR (Frame of Reference) encoding metadata for an encoded vector
+///
+/// Contains the metadata specific to FOR bit-packing integer encoding:
+///   - frame_of_reference: minimum value subtracted from all encoded integers
+///   - bit_width: number of bits used to pack each delta value
+///
+/// This struct is templated because frame_of_reference size depends on T:
 ///   - float:  uint32_t frame_of_reference (4 bytes)
 ///   - double: uint64_t frame_of_reference (8 bytes)
 ///
-/// This saves 4 bytes per vector for float columns.
-///
-/// NOTE: num_elements and bit_packed_size are NOT stored:
-///   - num_elements: stored once in page header (AlpHeader), passed to functions
-///   - bit_packed_size: computed on-demand via GetBitPackedSize(num_elements, bit_width)
-///
-/// Serialization format for float (10 bytes):
+/// Serialization format for float (6 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedVectorInfo<float> (10 bytes)  |
+///   |  AlpEncodedForVectorInfo<float> (6B)     |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
 ///   |    0    |  frame_of_reference |  4 bytes |
-///   |    4    |  exponent (uint8_t) |  1 byte  |
-///   |    5    |  factor (uint8_t)   |  1 byte  |
-///   |    6    |  bit_width (uint8_t)|  1 byte  |
-///   |    7    |  reserved (uint8_t) |  1 byte  |
-///   |    8    |  num_exceptions     |  2 bytes |
+///   |    4    |  bit_width (uint8_t)|  1 byte  |
+///   |    5    |  reserved (uint8_t) |  1 byte  |
 ///   +------------------------------------------+
 ///
-/// Serialization format for double (14 bytes):
+/// Serialization format for double (10 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedVectorInfo<double> (14 bytes) |
+///   |  AlpEncodedForVectorInfo<double> (10B)   |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
 ///   |    0    |  frame_of_reference |  8 bytes |
-///   |    8    |  exponent (uint8_t) |  1 byte  |
-///   |    9    |  factor (uint8_t)   |  1 byte  |
-///   |   10    |  bit_width (uint8_t)|  1 byte  |
-///   |   11    |  reserved (uint8_t) |  1 byte  |
-///   |   12    |  num_exceptions     |  2 bytes |
+///   |    8    |  bit_width (uint8_t)|  1 byte  |
+///   |    9    |  reserved (uint8_t) |  1 byte  |
 ///   +------------------------------------------+
 ///
 /// \tparam T the floating point type (float or double)
 template <typename T>
-struct AlpEncodedVectorInfo {
+struct AlpEncodedForVectorInfo {
   static_assert(std::is_same_v<T, float> || std::is_same_v<T, double>,
-                "AlpEncodedVectorInfo only supports float and double");
+                "AlpEncodedForVectorInfo only supports float and double");
 
   /// Use uint32_t for float, uint64_t for double (matches encoded integer size)
   using ExactType = typename AlpTypedConstants<T>::FloatingToExact;
 
   /// Delta used for frame of reference encoding (4 bytes for float, 8 for double)
   ExactType frame_of_reference = 0;
-  /// Exponent and factor used for compression
-  AlpExponentAndFactor exponent_and_factor;
   /// Bitwidth used for bitpacking
   uint8_t bit_width = 0;
   /// Reserved for future use (padding for alignment)
   uint8_t reserved = 0;
-  /// Number of exceptions stored in this vector
-  uint16_t num_exceptions = 0;
 
-  /// Size of the serialized portion (10 bytes for float, 14 for double)
-  static constexpr uint64_t kStoredSize = sizeof(ExactType) + 6;
+  /// Size of the serialized portion (6 bytes for float, 10 for double)
+  static constexpr uint64_t kStoredSize = sizeof(ExactType) + 2;
 
   /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
-  ///
-  /// This value is NOT stored to save space. It can always be computed:
-  ///   bit_packed_size = ceil(num_elements * bit_width / 8)
   ///
   /// \param[in] num_elements number of elements in this vector
   /// \param[in] bit_width bits per element
@@ -237,35 +276,32 @@ struct AlpEncodedVectorInfo {
     return (static_cast<uint64_t>(num_elements) * bit_width + 7) / 8;
   }
 
-  /// \brief Store the compressed vector in a compact format into an output buffer
-  ///
-  /// \param[out] output_buffer the buffer to store the compressed data into
+  /// \brief Store the FOR metadata into an output buffer
   void Store(arrow::util::span<char> output_buffer) const;
 
-  /// \brief Load a compressed vector into the state from a compact format
-  ///
-  /// \param[in] input_buffer the buffer to load from
-  /// \return the loaded AlpEncodedVectorInfo
-  static AlpEncodedVectorInfo Load(arrow::util::span<const char> input_buffer);
+  /// \brief Load FOR metadata from an input buffer
+  static AlpEncodedForVectorInfo Load(arrow::util::span<const char> input_buffer);
 
-  /// \brief Get serialized size of the encoded vector info
-  ///
-  /// \return the size in bytes (10 for float, 14 for double)
+  /// \brief Get serialized size of the FOR metadata
   static uint64_t GetStoredSize() { return kStoredSize; }
 
   /// \brief Get the size of the data section (packed values + exceptions)
   ///
-  /// This does NOT include the VectorInfo size, only the variable-length data.
-  ///
   /// \param[in] num_elements number of elements in this vector
+  /// \param[in] num_exceptions number of exceptions (from AlpEncodedVectorInfo)
   /// \return the size in bytes of packed values + exception positions + exceptions
-  uint64_t GetDataStoredSize(uint16_t num_elements) const {
+  uint64_t GetDataStoredSize(uint16_t num_elements, uint16_t num_exceptions) const {
     const uint64_t bit_packed_size = GetBitPackedSize(num_elements, bit_width);
     return bit_packed_size +
            num_exceptions * (sizeof(AlpConstants::PositionType) + sizeof(T));
   }
 
-  bool operator==(const AlpEncodedVectorInfo& other) const;
+  bool operator==(const AlpEncodedForVectorInfo& other) const {
+    return frame_of_reference == other.frame_of_reference &&
+           bit_width == other.bit_width;
+  }
+
+  bool operator!=(const AlpEncodedForVectorInfo& other) const { return !(*this == other); }
 };
 
 // ----------------------------------------------------------------------
@@ -281,44 +317,49 @@ struct AlpEncodedVectorInfo {
 ///   +------------------------------------------------------------+
 ///   |  Section              |  Size (bytes)        | Description |
 ///   +-----------------------+----------------------+-------------+
-///   |  1. VectorInfo        |  10B (float) or      |  Metadata   |
-///   |                       |  14B (double)        |             |
+///   |  1. AlpInfo           |  4B (fixed)          |  ALP meta   |
 ///   +-----------------------+----------------------+-------------+
-///   |  2. Packed Values     |  bit_packed_size     |  Bitpacked  |
+///   |  2. ForInfo           |  6B (float) or       |  FOR meta   |
+///   |                       |  10B (double)        |             |
+///   +-----------------------+----------------------+-------------+
+///   |  3. Packed Values     |  bit_packed_size     |  Bitpacked  |
 ///   |     (compressed data) |  (computed)          |  integers   |
 ///   +-----------------------+----------------------+-------------+
-///   |  3. Exception Pos     |  num_exceptions * 2  |  uint16_t[] |
+///   |  4. Exception Pos     |  num_exceptions * 2  |  uint16_t[] |
 ///   |     (indices)         |  (variable)          |  positions  |
 ///   +-----------------------+----------------------+-------------+
-///   |  4. Exception Values  |  num_exceptions *    |  T[] (float/|
+///   |  5. Exception Values  |  num_exceptions *    |  T[] (float/|
 ///   |     (original floats) |  sizeof(T)           |  double)    |
 ///   +------------------------------------------------------------+
 ///
-/// Page-level layout (metadata-at-start for efficient random access):
+/// Page-level layout (grouped metadata-at-start for efficient random access):
 ///
 ///   +------------------------------------------------------------+
 ///   |  Page Layout                                               |
 ///   +------------------------------------------------------------+
 ///   |  [Header (8B)]                                             |
-///   |  [VectorInfo₀ | VectorInfo₁ | ... | VectorInfoₙ]           |
-///   |  [Data₀ | Data₁ | ... | Dataₙ]                             |
+///   |  [AlpInfo₀ | AlpInfo₁ | ... | AlpInfoₙ]    ← ALP metadata  |
+///   |  [ForInfo₀ | ForInfo₁ | ... | ForInfoₙ]    ← FOR metadata  |
+///   |  [Data₀ | Data₁ | ... | Dataₙ]             ← Compressed    |
 ///   +------------------------------------------------------------+
 ///
-/// The metadata-at-start layout enables O(1) random access to any vector
-/// by reading all VectorInfo first, computing data offsets, then seeking
-/// directly to the target vector's data.
+/// The grouped metadata layout enables O(1) random access and separates
+/// ALP-specific metadata from integer encoding metadata (FOR).
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
-///   - VectorInfo:         10 bytes (float)
-///   - Packed Values:    1024 bytes (1024 * 8 bits / 8)
-///   - Exception Pos:      10 bytes (5 * 2)
-///   - Exception Values:   20 bytes (5 * 4)
-///   Total:              1064 bytes
+///   - AlpInfo:            4 bytes (fixed)
+///   - ForInfo:            6 bytes (float)
+///   - Packed Values:   1024 bytes (1024 * 8 bits / 8)
+///   - Exception Pos:     10 bytes (5 * 2)
+///   - Exception Values:  20 bytes (5 * 4)
+///   Total:             1064 bytes
 template <typename T>
 class AlpEncodedVector {
  public:
-  /// Metadata of the encoded vector (templated to match T)
-  AlpEncodedVectorInfo<T> vector_info;
+  /// ALP-specific metadata (exponent, factor, num_exceptions)
+  AlpEncodedVectorInfo alp_info;
+  /// FOR-specific metadata (frame_of_reference, bit_width)
+  AlpEncodedForVectorInfo<T> for_info;
   /// Number of elements in this vector (not serialized; from page header)
   uint16_t num_elements = 0;
   /// Successfully encoded and bitpacked data
@@ -329,17 +370,24 @@ class AlpEncodedVector {
   /// Positions of the exceptions in the decompressed vector
   arrow::internal::StaticVector<uint16_t, AlpConstants::kAlpVectorSize> exception_positions;
 
+  /// Total metadata size (AlpInfo + ForInfo)
+  static constexpr uint64_t kMetadataStoredSize =
+      AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
+
   /// \brief Get the size of the vector if stored into a sequential memory block
   ///
   /// \return the stored size in bytes
   uint64_t GetStoredSize() const;
 
-  /// \brief Get the stored size for a given vector info and element count
+  /// \brief Get the stored size for given metadata and element count
   ///
-  /// \param[in] info the vector info to calculate size for
+  /// \param[in] alp_info the ALP metadata
+  /// \param[in] for_info the FOR metadata
   /// \param[in] num_elements the number of elements in this vector
   /// \return the stored size in bytes
-  static uint64_t GetStoredSize(const AlpEncodedVectorInfo<T>& info, uint16_t num_elements);
+  static uint64_t GetStoredSize(const AlpEncodedVectorInfo& alp_info,
+                                const AlpEncodedForVectorInfo<T>& for_info,
+                                uint16_t num_elements);
 
   /// \brief Get the number of elements in this vector
   ///
@@ -348,24 +396,24 @@ class AlpEncodedVector {
 
   /// \brief Store the compressed vector in a compact format into an output buffer
   ///
-  /// Stores [VectorInfo][PackedValues][ExceptionPositions][ExceptionValues]
+  /// Stores [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues]
   ///
   /// \param[out] output_buffer the buffer to store the compressed data into
   void Store(arrow::util::span<char> output_buffer) const;
 
-  /// \brief Store only the data section (without VectorInfo) into an output buffer
+  /// \brief Store only the data section (without metadata) into an output buffer
   ///
   /// Stores [PackedValues][ExceptionPositions][ExceptionValues]
-  /// Use this for the metadata-at-start layout where VectorInfo is stored separately.
+  /// Use this for the grouped layout where metadata is stored separately.
   ///
   /// \param[out] output_buffer the buffer to store the data section into
   void StoreDataOnly(arrow::util::span<char> output_buffer) const;
 
-  /// \brief Get the size of the data section only (without VectorInfo)
+  /// \brief Get the size of the data section only (without metadata)
   ///
   /// \return the size in bytes of packed values + exception positions + exceptions
   uint64_t GetDataStoredSize() const {
-    return vector_info.GetDataStoredSize(num_elements);
+    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
   }
 
   /// \brief Load a compressed vector from a compact format from an input buffer
@@ -401,8 +449,10 @@ class AlpEncodedVector {
 /// (for packed_values access).
 template <typename T>
 struct AlpEncodedVectorView {
-  /// Metadata of the encoded vector (copied, small fixed size, templated to match T)
-  AlpEncodedVectorInfo<T> vector_info;
+  /// ALP-specific metadata (exponent, factor, num_exceptions)
+  AlpEncodedVectorInfo alp_info;
+  /// FOR-specific metadata (frame_of_reference, bit_width)
+  AlpEncodedForVectorInfo<T> for_info;
   /// Number of elements in this vector (not serialized; from page header)
   uint16_t num_elements = 0;
   /// View into bitpacked data (zero-copy, bytes have no alignment requirements)
@@ -414,7 +464,7 @@ struct AlpEncodedVectorView {
 
   /// \brief Create a zero-copy view from a compact format input buffer
   ///
-  /// Expects format: [VectorInfo][PackedValues][ExceptionPositions][ExceptionValues]
+  /// Expects format: [AlpInfo][ForInfo][PackedValues][ExceptionPositions][ExceptionValues]
   ///
   /// \param[in] input_buffer the buffer to create a view into
   /// \param[in] num_elements the number of elements (from page header)
@@ -422,29 +472,31 @@ struct AlpEncodedVectorView {
   static AlpEncodedVectorView LoadView(arrow::util::span<const char> input_buffer,
                                        uint16_t num_elements);
 
-  /// \brief Create a zero-copy view from data-only buffer (VectorInfo provided separately)
+  /// \brief Create a zero-copy view from data-only buffer (metadata provided separately)
   ///
-  /// Use this for the metadata-at-start layout where VectorInfo is stored separately.
-  /// Expects format: [PackedValues][ExceptionPositions][ExceptionValues] (no VectorInfo)
+  /// Use this for the grouped layout where AlpInfo and ForInfo are stored separately.
+  /// Expects format: [PackedValues][ExceptionPositions][ExceptionValues] (no metadata)
   ///
   /// \param[in] input_buffer the buffer containing only the data section
-  /// \param[in] info the VectorInfo (loaded separately from metadata array)
+  /// \param[in] alp_info the ALP metadata (loaded separately)
+  /// \param[in] for_info the FOR metadata (loaded separately)
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data
   static AlpEncodedVectorView LoadViewDataOnly(arrow::util::span<const char> input_buffer,
-                                               const AlpEncodedVectorInfo<T>& info,
+                                               const AlpEncodedVectorInfo& alp_info,
+                                               const AlpEncodedForVectorInfo<T>& for_info,
                                                uint16_t num_elements);
 
   /// \brief Get the stored size of this vector in the buffer
   ///
-  /// \return the stored size in bytes (includes VectorInfo + data)
+  /// \return the stored size in bytes (includes AlpInfo + ForInfo + data)
   uint64_t GetStoredSize() const;
 
-  /// \brief Get the size of the data section only (without VectorInfo)
+  /// \brief Get the size of the data section only (without metadata)
   ///
   /// \return the size in bytes of packed values + exception positions + exceptions
   uint64_t GetDataStoredSize() const {
-    return vector_info.GetDataStoredSize(num_elements);
+    return for_info.GetDataStoredSize(num_elements, alp_info.num_exceptions);
   }
 };
 
@@ -454,18 +506,23 @@ struct AlpEncodedVectorView {
 /// \class AlpMetadataCache
 /// \brief Cache for vector metadata to enable O(1) random access to any vector
 ///
-/// With the metadata-at-start layout, all vector metadata is stored contiguously
-/// after the header. This class loads all metadata into memory and precomputes
-/// cumulative data offsets, enabling O(1) access to any vector's data.
+/// With the grouped metadata layout, ALP metadata and FOR metadata are stored
+/// in separate contiguous sections after the header. This class loads both
+/// metadata types into memory and precomputes cumulative data offsets,
+/// enabling O(1) access to any vector's data.
+///
+/// Page layout:
+///   [Header][AlpInfos...][ForInfos...][Data...]
 ///
 /// Usage:
 /// \code
 ///   // Load metadata from compressed buffer
 ///   AlpMetadataCache<T> cache = AlpMetadataCache<T>::Load(
-///       num_vectors, vector_size, total_elements, metadata_buffer);
+///       num_vectors, vector_size, total_elements, alp_metadata, for_metadata);
 ///
 ///   // Access metadata for any vector in O(1)
-///   const auto& info = cache.GetVectorInfo(vector_idx);
+///   const auto& alp_info = cache.GetAlpInfo(vector_idx);
+///   const auto& for_info = cache.GetForInfo(vector_idx);
 ///
 ///   // Get offset to any vector's data in O(1)
 ///   uint64_t data_offset = cache.GetVectorDataOffset(vector_idx);
@@ -478,25 +535,37 @@ struct AlpEncodedVectorView {
 template <typename T>
 class AlpMetadataCache {
  public:
-  /// \brief Load all metadata from buffer and precompute data offsets
+  /// \brief Load all metadata from separate ALP and FOR buffers
   ///
   /// \param[in] num_vectors number of vectors in the block
   /// \param[in] vector_size size of each full vector (typically 1024)
   /// \param[in] total_elements total number of elements across all vectors
-  /// \param[in] metadata_buffer buffer containing all vector metadata contiguously
-  /// \return a metadata cache with all vector info and precomputed offsets
+  /// \param[in] alp_metadata_buffer buffer containing all AlpEncodedVectorInfo contiguously
+  /// \param[in] for_metadata_buffer buffer containing all AlpEncodedForVectorInfo contiguously
+  /// \return a metadata cache with all metadata and precomputed offsets
   static AlpMetadataCache Load(uint32_t num_vectors, uint32_t vector_size,
                                uint32_t total_elements,
-                               arrow::util::span<const char> metadata_buffer);
+                               arrow::util::span<const char> alp_metadata_buffer,
+                               arrow::util::span<const char> for_metadata_buffer);
 
-  /// \brief Get metadata for vector at given index
+  /// \brief Get ALP metadata for vector at given index
   ///
   /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
-  /// \return reference to the vector's metadata
-  const AlpEncodedVectorInfo<T>& GetVectorInfo(uint32_t vector_idx) const {
-    ARROW_CHECK(vector_idx < vector_infos_.size())
+  /// \return reference to the vector's ALP metadata
+  const AlpEncodedVectorInfo& GetAlpInfo(uint32_t vector_idx) const {
+    ARROW_CHECK(vector_idx < alp_infos_.size())
         << "vector_index_out_of_range: " << vector_idx;
-    return vector_infos_[vector_idx];
+    return alp_infos_[vector_idx];
+  }
+
+  /// \brief Get FOR metadata for vector at given index
+  ///
+  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
+  /// \return reference to the vector's FOR metadata
+  const AlpEncodedForVectorInfo<T>& GetForInfo(uint32_t vector_idx) const {
+    ARROW_CHECK(vector_idx < for_infos_.size())
+        << "vector_index_out_of_range: " << vector_idx;
+    return for_infos_[vector_idx];
   }
 
   /// \brief Get offset to vector's data from start of data section
@@ -522,25 +591,40 @@ class AlpMetadataCache {
   /// \brief Get number of vectors in the cache
   ///
   /// \return number of vectors
-  uint32_t GetNumVectors() const { return static_cast<uint32_t>(vector_infos_.size()); }
+  uint32_t GetNumVectors() const { return static_cast<uint32_t>(alp_infos_.size()); }
 
   /// \brief Get total size of the data section in bytes
   ///
   /// \return total data size
   uint64_t GetTotalDataSize() const { return total_data_size_; }
 
-  /// \brief Get total size of the metadata section in bytes
+  /// \brief Get total size of the ALP metadata section in bytes
   ///
-  /// \return total metadata size (num_vectors * VectorInfo stored size)
-  uint64_t GetMetadataSectionSize() const {
-    return vector_infos_.size() * AlpEncodedVectorInfo<T>::kStoredSize;
+  /// \return total ALP metadata size (num_vectors * AlpEncodedVectorInfo::kStoredSize)
+  uint64_t GetAlpMetadataSectionSize() const {
+    return alp_infos_.size() * AlpEncodedVectorInfo::kStoredSize;
+  }
+
+  /// \brief Get total size of the FOR metadata section in bytes
+  ///
+  /// \return total FOR metadata size (num_vectors * AlpEncodedForVectorInfo<T>::kStoredSize)
+  uint64_t GetForMetadataSectionSize() const {
+    return for_infos_.size() * AlpEncodedForVectorInfo<T>::kStoredSize;
+  }
+
+  /// \brief Get total size of all metadata sections in bytes
+  ///
+  /// \return total metadata size (ALP + FOR)
+  uint64_t GetTotalMetadataSectionSize() const {
+    return GetAlpMetadataSectionSize() + GetForMetadataSectionSize();
   }
 
  private:
-  std::vector<AlpEncodedVectorInfo<T>> vector_infos_;
-  std::vector<uint64_t> cumulative_data_offsets_;  // Offset from data section start
-  std::vector<uint16_t> vector_num_elements_;      // Number of elements in each vector
-  uint64_t total_data_size_ = 0;                   // Total size of data section
+  std::vector<AlpEncodedVectorInfo> alp_infos_;           // ALP metadata per vector
+  std::vector<AlpEncodedForVectorInfo<T>> for_infos_;     // FOR metadata per vector
+  std::vector<uint64_t> cumulative_data_offsets_;         // Offset from data section start
+  std::vector<uint16_t> vector_num_elements_;             // Number of elements in each vector
+  uint64_t total_data_size_ = 0;                          // Total size of data section
 };
 
 // ----------------------------------------------------------------------
@@ -690,15 +774,18 @@ class AlpCompression : private AlpConstants {
   /// \brief Decode a vector of integers back to floating point values
   ///
   /// \param[out] output_vector output buffer to write decoded floats to
-  /// \param[in] input_vector encoded integers (after bit unpacking and unFOR)
-  /// \param[in] vector_info metadata with exponent, factor, decoding params
+  /// \param[in] input_vector encoded integers (after bit unpacking, still with FOR)
+  /// \param[in] alp_info ALP metadata with exponent and factor
+  /// \param[in] for_info FOR metadata with frame_of_reference
   /// \param[in] num_elements number of elements to decode
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
   static void DecodeVector(TargetType* output_vector,
                            arrow::util::span<ExactType> input_vector,
-                           AlpEncodedVectorInfo<T> vector_info, uint16_t num_elements);
+                           const AlpEncodedVectorInfo& alp_info,
+                           const AlpEncodedForVectorInfo<T>& for_info,
+                           uint16_t num_elements);
 
   /// \brief Helper struct to encapsulate the result from BitPackIntegers
   struct BitPackingResult {
@@ -725,12 +812,12 @@ class AlpCompression : private AlpConstants {
   /// The result is still encoded (FOR applied) and needs decoding to get floats.
   ///
   /// \param[in] packed_integers the bitpacked integer data to unpack
-  /// \param[in] vector_info metadata with bit width and unpacking parameters
+  /// \param[in] for_info FOR metadata with bit width and frame of reference
   /// \param[in] num_elements number of elements to unpack
   /// \return a vector of unpacked integers (still with frame of reference)
   static arrow::internal::StaticVector<ExactType, kAlpVectorSize> BitUnpackIntegers(
       arrow::util::span<const uint8_t> packed_integers,
-      AlpEncodedVectorInfo<T> vector_info, uint16_t num_elements);
+      const AlpEncodedForVectorInfo<T>& for_info, uint16_t num_elements);
 
   /// \brief Patch exceptions into the decoded output vector
   ///

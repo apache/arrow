@@ -4,14 +4,15 @@
 
 ---
 
-## 1. Layout (Metadata-at-Start)
+## 1. Layout (Grouped Metadata-at-Start)
 
 ```
-[Page Header (8B)] [VectorInfo₀|VectorInfo₁|...] [Data₀|Data₁|...]
-                   |<---- Metadata Array ---->|<--- Data Array --->|
+[Header(8B)] [AlpInfo₀|AlpInfo₁|...] [ForInfo₀|ForInfo₁|...] [Data₀|Data₁|...]
+             |<--- AlpInfo Array -->|<--- ForInfo Array -->|<-- Data Array -->|
 ```
 
-All VectorInfo stored first (enables O(1) random access), then all data sections.
+AlpInfo (ALP-specific) and ForInfo (FOR-specific) stored separately, then data.
+Total metadata: 10B per vector (float), 14B per vector (double).
 
 ### Page Header (8 bytes)
 
@@ -27,37 +28,37 @@ All VectorInfo stored first (enables O(1) random access), then all data sections
 - `log_vector_size` = log2(vector_size). Actual size = `2^log_vector_size`.
 - `num_elements` is uint32 because Parquet page headers use i32 for num_values.
 
-### Vector Components
+### AlpInfo (4 bytes, fixed)
 
-**VectorInfo** (in metadata array): 10B for float, 14B for double
-**Data Section** (in data array):
-```
-[PackedValues] [ExceptionPos] [ExceptionVals]
-```
+| Offset | Field | Size | Type |
+|--------|-------|------|------|
+| 0 | exponent | 1B | uint8, 0..10/18 |
+| 1 | factor | 1B | uint8, 0..e |
+| 2 | num_exceptions | 2B | uint16 |
 
-### VectorInfo (type-dependent size)
+### ForInfo (type-dependent)
 
-**Float (10 bytes):**
+**Float (6 bytes):**
 
 | Offset | Field | Size | Type |
 |--------|-------|------|------|
 | 0 | frame_of_reference | 4B | uint32 |
-| 4 | exponent | 1B | uint8, 0..10 |
-| 5 | factor | 1B | uint8, 0..e |
-| 6 | bit_width | 1B | uint8, 0..32 |
-| 7 | reserved | 1B | - |
-| 8 | num_exceptions | 2B | uint16 |
+| 4 | bit_width | 1B | uint8, 0..32 |
+| 5 | reserved | 1B | - |
 
-**Double (14 bytes):**
+**Double (10 bytes):**
 
 | Offset | Field | Size | Type |
 |--------|-------|------|------|
 | 0 | frame_of_reference | 8B | uint64 |
-| 8 | exponent | 1B | uint8, 0..18 |
-| 9 | factor | 1B | uint8, 0..e |
-| 10 | bit_width | 1B | uint8, 0..64 |
-| 11 | reserved | 1B | - |
-| 12 | num_exceptions | 2B | uint16 |
+| 8 | bit_width | 1B | uint8, 0..64 |
+| 9 | reserved | 1B | - |
+
+### Data Section
+
+```
+[PackedValues] [ExceptionPos] [ExceptionVals]
+```
 
 Note: `num_elements` per vector is derived from page header:
 - Vectors 1..N-1: `num_elements = vector_size` (1024)
