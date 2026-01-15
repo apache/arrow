@@ -96,11 +96,6 @@ bool PyFloat_IsNaN(PyObject* obj);
 ARROW_PYTHON_EXPORT
 bool IsPyUuid(PyObject* obj);
 
-// \brief Get bytes from a uuid.UUID instance
-// Returns a borrowed reference to a 16-byte bytes object
-ARROW_PYTHON_EXPORT
-PyObject* GetUuidBytes(PyObject* obj);
-
 inline bool IsPyBinary(PyObject* obj) {
   return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
 }

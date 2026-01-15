@@ -346,10 +346,14 @@ void InitUuidStaticData() {
 
 bool IsPyUuid(PyObject* obj) {
   InitUuidStaticData();
-  return uuid_UUID && PyObject_IsInstance(obj, uuid_UUID);
+  if (!uuid_UUID) return false;
+  int result = PyObject_IsInstance(obj, uuid_UUID);
+  if (result < 0) {
+    PyErr_Clear();
+    return false;
+  }
+  return result == 1;
 }
-
-PyObject* GetUuidBytes(PyObject* obj) { return PyObject_GetAttrString(obj, "bytes"); }
 
 namespace {
 
