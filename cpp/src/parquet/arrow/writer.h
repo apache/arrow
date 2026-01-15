@@ -139,8 +139,8 @@ class PARQUET_EXPORT FileWriter {
   /// `store_schema` being unusable during read.
   virtual ::arrow::Status AddKeyValueMetadata(
       const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
-  /// \brief Estimate compressed bytes per row from closed row groups or the active row
-  /// group.
+  /// \brief Estimate compressed bytes per row from data written so far.
+  /// \note std::nullopt will be returned if there is no row written.
   virtual std::optional<double> EstimateCompressedBytesPerRow() const = 0;
   /// \brief Return the file metadata, only available after calling Close().
   virtual const std::shared_ptr<FileMetaData> metadata() const = 0;

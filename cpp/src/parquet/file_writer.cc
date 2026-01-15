@@ -349,7 +349,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       if (row_group_writer_) {
         num_rows_ += row_group_writer_->num_rows();
         row_group_writer_->Close();
-        compressed_bytes_ += row_group_writer_->total_compressed_bytes_written();
+        written_compressed_bytes_ += row_group_writer_->total_compressed_bytes_written();
       }
       row_group_writer_.reset();
 
@@ -373,7 +373,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   int64_t num_rows() const override { return num_rows_; }
 
-  int64_t compressed_bytes() const override { return compressed_bytes_; }
+  int64_t written_compressed_bytes() const override { return written_compressed_bytes_; }
 
   const std::shared_ptr<WriterProperties>& properties() const override {
     return properties_;
@@ -383,7 +383,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (row_group_writer_) {
       num_rows_ += row_group_writer_->num_rows();
       row_group_writer_->Close();
-      compressed_bytes_ += row_group_writer_->total_compressed_bytes_written();
+      written_compressed_bytes_ += row_group_writer_->total_compressed_bytes_written();
     }
     int16_t row_group_ordinal = -1;  // row group ordinal not set
     if (file_encryptor_ != nullptr) {
@@ -439,7 +439,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         properties_(std::move(properties)),
         num_row_groups_(0),
         num_rows_(0),
-        compressed_bytes_(0),
+        written_compressed_bytes_(0),
         metadata_(FileMetaDataBuilder::Make(&schema_, properties_)) {
     PARQUET_ASSIGN_OR_THROW(int64_t position, sink_->Tell());
     if (position == 0) {
@@ -493,7 +493,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   const std::shared_ptr<WriterProperties> properties_;
   int num_row_groups_;
   int64_t num_rows_;
-  int64_t compressed_bytes_;
+  int64_t written_compressed_bytes_;
   std::unique_ptr<FileMetaDataBuilder> metadata_;
   // Only one of the row group writers is active at a time
   std::unique_ptr<RowGroupWriter> row_group_writer_;
@@ -669,7 +669,8 @@ void ParquetFileWriter::AddKeyValueMetadata(
 std::optional<double> ParquetFileWriter::EstimateCompressedBytesPerRow() const {
   if (contents_ && contents_->num_rows() > 0) {
     // Use written row groups to estimate.
-    return static_cast<double>(contents_->compressed_bytes()) / contents_->num_rows();
+    return static_cast<double>(contents_->written_compressed_bytes()) /
+           contents_->num_rows();
   }
   if (file_metadata_) {
     // Use closed file metadata to estimate.

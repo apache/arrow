@@ -396,7 +396,7 @@ class FileWriterImpl : public FileWriter {
     RETURN_NOT_OK(table.Validate());
 
     if (chunk_size <= 0 && table.num_rows() > 0) {
-      return Status::Invalid("rows per row_group must be greater than 0");
+      return Status::Invalid("chunk size per row_group must be greater than 0");
     } else if (!table.schema()->Equals(*schema_, /*check_metadata=*/false)) {
       return Status::Invalid("table schema does not match this writer's. table:'",
                              table.schema()->ToString(), "' this:'", schema_->ToString(),
