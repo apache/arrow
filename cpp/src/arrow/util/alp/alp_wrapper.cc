@@ -337,54 +337,42 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
   // [Data₀ | Data₁ | ... | Dataₙ]                     ← All data after
 
   // Calculate number of vectors
-  const uint64_t num_full_vectors = total_elements / vector_size;
-  const uint64_t remainder = total_elements % vector_size;
-  const uint64_t num_vectors = num_full_vectors + (remainder > 0 ? 1 : 0);
+  const uint32_t num_vectors =
+      (total_elements + vector_size - 1) / vector_size;
 
   if (num_vectors == 0) {
     return DecompressionProgress{0, 0};
   }
 
-  // Phase 1: Read all VectorInfo from the metadata array (contiguous read)
-  const uint64_t info_size_per_vector = AlpEncodedVectorInfo<T>::kStoredSize;
-  const uint64_t total_info_size = num_vectors * info_size_per_vector;
+  const uint64_t total_info_size =
+      static_cast<uint64_t>(num_vectors) * AlpEncodedVectorInfo<T>::kStoredSize;
 
   ARROW_CHECK(comp_size >= total_info_size)
       << "alp_decode_comp_size_too_small_for_metadata: " << comp_size << " vs "
       << total_info_size;
 
-  std::vector<AlpEncodedVectorInfo<T>> all_info(num_vectors);
-  for (uint64_t i = 0; i < num_vectors; i++) {
-    all_info[i] = AlpEncodedVectorInfo<T>::Load(
-        {comp + i * info_size_per_vector, info_size_per_vector});
-  }
+  // Load all metadata into cache (precomputes data offsets for O(1) random access)
+  const AlpMetadataCache<T> cache = AlpMetadataCache<T>::Load(
+      num_vectors, vector_size, total_elements, {comp, total_info_size});
 
-  // Phase 2: Compute data offsets for each vector (enables O(1) random access)
-  std::vector<uint64_t> data_offsets(num_vectors);
-  uint64_t data_offset = total_info_size;
-  for (uint64_t i = 0; i < num_vectors; i++) {
-    data_offsets[i] = data_offset;
-    const uint16_t this_vector_elements =
-        (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
-                               : static_cast<uint16_t>(remainder);
-    data_offset += all_info[i].GetDataStoredSize(this_vector_elements);
-  }
+  // Pointer to start of data section
+  const char* data_section = comp + total_info_size;
+  const size_t data_section_size = comp_size - total_info_size;
 
-  // Phase 3: Decode each vector using the precomputed offsets
+  // Decode each vector using the cache
   uint64_t output_offset = 0;
-  for (uint64_t vector_index = 0; vector_index < num_vectors; vector_index++) {
-    const uint16_t this_vector_elements =
-        (vector_index < num_full_vectors) ? static_cast<uint16_t>(vector_size)
-                                          : static_cast<uint16_t>(remainder);
+  for (uint32_t vector_index = 0; vector_index < cache.GetNumVectors(); vector_index++) {
+    const uint16_t this_vector_elements = cache.GetVectorNumElements(vector_index);
 
     ARROW_CHECK(output_offset + this_vector_elements <= decomp_element_count)
         << "alp_decode_output_too_small: " << output_offset << " vs "
         << this_vector_elements << " vs " << decomp_element_count;
 
-    // Use LoadViewDataOnly since VectorInfo is stored separately
+    // Use LoadViewDataOnly since VectorInfo is stored separately in the cache
+    const uint64_t data_offset = cache.GetVectorDataOffset(vector_index);
     const AlpEncodedVectorView<T> encoded_view = AlpEncodedVectorView<T>::LoadViewDataOnly(
-        {comp + data_offsets[vector_index], comp_size - data_offsets[vector_index]},
-        all_info[vector_index], this_vector_elements);
+        {data_section + data_offset, data_section_size - data_offset},
+        cache.GetVectorInfo(vector_index), this_vector_elements);
 
     AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
                                             decomp + output_offset);
@@ -392,7 +380,7 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
     output_offset += this_vector_elements;
   }
 
-  return DecompressionProgress{output_offset, data_offset};
+  return DecompressionProgress{output_offset, total_info_size + cache.GetTotalDataSize()};
 }
 
 // ----------------------------------------------------------------------

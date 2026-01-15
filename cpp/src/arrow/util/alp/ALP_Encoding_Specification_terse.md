@@ -4,11 +4,14 @@
 
 ---
 
-## 1. Layout
+## 1. Layout (Metadata-at-Start)
 
 ```
-[Page Header (8B)] [Vector 1] [Vector 2] ... [Vector N]
+[Page Header (8B)] [VectorInfo₀|VectorInfo₁|...] [Data₀|Data₁|...]
+                   |<---- Metadata Array ---->|<--- Data Array --->|
 ```
+
+All VectorInfo stored first (enables O(1) random access), then all data sections.
 
 ### Page Header (8 bytes)
 
@@ -24,10 +27,12 @@
 - `log_vector_size` = log2(vector_size). Actual size = `2^log_vector_size`.
 - `num_elements` is uint32 because Parquet page headers use i32 for num_values.
 
-### Vector
+### Vector Components
 
+**VectorInfo** (in metadata array): 10B for float, 14B for double
+**Data Section** (in data array):
 ```
-[VectorInfo (10B for float, 14B for double)] [PackedValues] [ExceptionPos] [ExceptionVals]
+[PackedValues] [ExceptionPos] [ExceptionVals]
 ```
 
 ### VectorInfo (type-dependent size)
