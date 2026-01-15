@@ -102,7 +102,7 @@ bool DictionaryMayHaveLogicalNulls(const ArrayData& data) {
 
 namespace {
 
-BufferSpan PackVariadicBuffers(util::span<const std::shared_ptr<Buffer>> buffers) {
+BufferSpan PackVariadicBuffers(std::span<const std::shared_ptr<Buffer>> buffers) {
   return {const_cast<uint8_t*>(reinterpret_cast<const uint8_t*>(buffers.data())),
           static_cast<int64_t>(buffers.size() * sizeof(std::shared_ptr<Buffer>))};
 }
@@ -322,7 +322,7 @@ void ArraySpan::SetMembers(const ArrayData& data) {
 
   if (type_id == Type::STRING_VIEW || type_id == Type::BINARY_VIEW) {
     // store the span of data buffers in the third buffer
-    this->buffers[2] = internal::PackVariadicBuffers(util::span(data.buffers).subspan(2));
+    this->buffers[2] = internal::PackVariadicBuffers(std::span(data.buffers).subspan(2));
   }
 
   if (type_id == Type::DICTIONARY) {
@@ -679,7 +679,7 @@ std::shared_ptr<ArrayData> ArraySpan::ToArrayData() const {
   return result;
 }
 
-util::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
+std::span<const std::shared_ptr<Buffer>> ArraySpan::GetVariadicBuffers() const {
   DCHECK(HasVariadicBuffers());
   return {buffers[2].data_as<std::shared_ptr<Buffer>>(),
           static_cast<size_t>(buffers[2].size) / sizeof(std::shared_ptr<Buffer>)};
