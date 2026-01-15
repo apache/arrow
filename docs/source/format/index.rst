@@ -37,5 +37,6 @@ Specifications
    Flight
    FlightSql
    ADBC
+   Security
    Integration
    Glossary
