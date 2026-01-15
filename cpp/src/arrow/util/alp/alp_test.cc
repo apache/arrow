@@ -269,6 +269,157 @@ TEST(AlpEncodedVectorInfoTest, Size) {
 }
 
 // ============================================================================
+// AlpMetadataCache Tests
+// ============================================================================
+
+template <typename T>
+class AlpMetadataCacheTest : public ::testing::Test {};
+
+using MetadataCacheTypes = ::testing::Types<float, double>;
+TYPED_TEST_SUITE(AlpMetadataCacheTest, MetadataCacheTypes);
+
+TYPED_TEST(AlpMetadataCacheTest, LoadEmptyBuffer) {
+  // Test loading empty cache
+  AlpMetadataCache<TypeParam> cache =
+      AlpMetadataCache<TypeParam>::Load(0, 1024, 0, {});
+  EXPECT_EQ(cache.GetNumVectors(), 0);
+  EXPECT_EQ(cache.GetTotalDataSize(), 0);
+  EXPECT_EQ(cache.GetMetadataSectionSize(), 0);
+}
+
+TYPED_TEST(AlpMetadataCacheTest, LoadSingleVector) {
+  // Create a single VectorInfo
+  AlpEncodedVectorInfo<TypeParam> info{};
+  info.frame_of_reference = 100;
+  info.exponent_and_factor = {5, 3};
+  info.bit_width = 8;
+  info.num_exceptions = 5;
+
+  const uint16_t num_elements = 1024;
+
+  // Store it
+  std::vector<char> buffer(AlpEncodedVectorInfo<TypeParam>::kStoredSize);
+  info.Store({buffer.data(), buffer.size()});
+
+  // Load into cache
+  AlpMetadataCache<TypeParam> cache =
+      AlpMetadataCache<TypeParam>::Load(1, 1024, num_elements, {buffer.data(), buffer.size()});
+
+  EXPECT_EQ(cache.GetNumVectors(), 1);
+  EXPECT_EQ(cache.GetVectorNumElements(0), num_elements);
+  EXPECT_EQ(cache.GetVectorDataOffset(0), 0);  // First vector starts at offset 0
+
+  // Verify VectorInfo was loaded correctly
+  const auto& loaded_info = cache.GetVectorInfo(0);
+  EXPECT_EQ(loaded_info.frame_of_reference, info.frame_of_reference);
+  EXPECT_EQ(loaded_info.exponent_and_factor.exponent, info.exponent_and_factor.exponent);
+  EXPECT_EQ(loaded_info.exponent_and_factor.factor, info.exponent_and_factor.factor);
+  EXPECT_EQ(loaded_info.bit_width, info.bit_width);
+  EXPECT_EQ(loaded_info.num_exceptions, info.num_exceptions);
+
+  // Verify total data size
+  const uint64_t expected_data_size = info.GetDataStoredSize(num_elements);
+  EXPECT_EQ(cache.GetTotalDataSize(), expected_data_size);
+  EXPECT_EQ(cache.GetMetadataSectionSize(), AlpEncodedVectorInfo<TypeParam>::kStoredSize);
+}
+
+TYPED_TEST(AlpMetadataCacheTest, LoadMultipleVectors) {
+  // Create 3 vectors with different properties
+  constexpr uint32_t num_vectors = 3;
+  constexpr uint32_t vector_size = 1024;
+  constexpr uint32_t total_elements = 2500;  // 2 full vectors + 452 remainder
+
+  std::vector<AlpEncodedVectorInfo<TypeParam>> infos(num_vectors);
+  infos[0].frame_of_reference = 100;
+  infos[0].bit_width = 8;
+  infos[0].num_exceptions = 5;
+
+  infos[1].frame_of_reference = 200;
+  infos[1].bit_width = 12;
+  infos[1].num_exceptions = 10;
+
+  infos[2].frame_of_reference = 300;
+  infos[2].bit_width = 6;
+  infos[2].num_exceptions = 2;
+
+  // Store all VectorInfos contiguously
+  const uint64_t info_size = AlpEncodedVectorInfo<TypeParam>::kStoredSize;
+  std::vector<char> buffer(num_vectors * info_size);
+  for (uint32_t i = 0; i < num_vectors; i++) {
+    infos[i].Store({buffer.data() + i * info_size, info_size});
+  }
+
+  // Load into cache
+  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
+      num_vectors, vector_size, total_elements, {buffer.data(), buffer.size()});
+
+  EXPECT_EQ(cache.GetNumVectors(), num_vectors);
+
+  // Check element counts
+  EXPECT_EQ(cache.GetVectorNumElements(0), 1024);  // Full vector
+  EXPECT_EQ(cache.GetVectorNumElements(1), 1024);  // Full vector
+  EXPECT_EQ(cache.GetVectorNumElements(2), 452);   // Remainder
+
+  // Check data offsets are cumulative
+  EXPECT_EQ(cache.GetVectorDataOffset(0), 0);
+
+  const uint64_t offset1 = infos[0].GetDataStoredSize(1024);
+  EXPECT_EQ(cache.GetVectorDataOffset(1), offset1);
+
+  const uint64_t offset2 = offset1 + infos[1].GetDataStoredSize(1024);
+  EXPECT_EQ(cache.GetVectorDataOffset(2), offset2);
+
+  // Check total data size
+  const uint64_t expected_total =
+      infos[0].GetDataStoredSize(1024) + infos[1].GetDataStoredSize(1024) +
+      infos[2].GetDataStoredSize(452);
+  EXPECT_EQ(cache.GetTotalDataSize(), expected_total);
+
+  // Verify metadata section size
+  EXPECT_EQ(cache.GetMetadataSectionSize(), num_vectors * info_size);
+}
+
+TYPED_TEST(AlpMetadataCacheTest, RandomAccessToVectors) {
+  // Test O(1) random access to any vector's data offset
+  constexpr uint32_t num_vectors = 10;
+  constexpr uint32_t vector_size = 1024;
+  constexpr uint32_t total_elements = 10240;  // Exactly 10 full vectors
+
+  std::vector<AlpEncodedVectorInfo<TypeParam>> infos(num_vectors);
+  for (uint32_t i = 0; i < num_vectors; i++) {
+    infos[i].bit_width = 8 + (i % 4);  // Varying bit widths
+    infos[i].num_exceptions = i;       // Varying exception counts
+  }
+
+  const uint64_t info_size = AlpEncodedVectorInfo<TypeParam>::kStoredSize;
+  std::vector<char> buffer(num_vectors * info_size);
+  for (uint32_t i = 0; i < num_vectors; i++) {
+    infos[i].Store({buffer.data() + i * info_size, info_size});
+  }
+
+  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
+      num_vectors, vector_size, total_elements, {buffer.data(), buffer.size()});
+
+  // Verify random access works correctly - access in non-sequential order
+  std::vector<uint32_t> access_order = {5, 0, 9, 3, 7, 1, 8, 2, 6, 4};
+
+  // Compute expected offsets manually
+  std::vector<uint64_t> expected_offsets(num_vectors);
+  uint64_t cumulative = 0;
+  for (uint32_t i = 0; i < num_vectors; i++) {
+    expected_offsets[i] = cumulative;
+    cumulative += infos[i].GetDataStoredSize(vector_size);
+  }
+
+  for (uint32_t idx : access_order) {
+    EXPECT_EQ(cache.GetVectorDataOffset(idx), expected_offsets[idx]);
+    EXPECT_EQ(cache.GetVectorNumElements(idx), vector_size);
+    EXPECT_EQ(cache.GetVectorInfo(idx).bit_width, infos[idx].bit_width);
+    EXPECT_EQ(cache.GetVectorInfo(idx).num_exceptions, infos[idx].num_exceptions);
+  }
+}
+
+// ============================================================================
 // Edge Case Tests
 // ============================================================================
 
