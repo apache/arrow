@@ -49,7 +49,7 @@ namespace {
 /// For example, log_vector_size=10 means vector_size=1024.
 /// This allows representing any power-of-2 vector size up to 2^255 in a single byte.
 ///
-/// Serialization format (version 1):
+/// Header format (version 1):
 ///
 ///   +---------------------------------------------------+
 ///   |  AlpHeader (8 bytes)                              |
@@ -62,6 +62,19 @@ namespace {
 ///   |    3    |  log_vector_size    |  1 byte (uint8)   |
 ///   |    4    |  num_elements       |  4 bytes (uint32) |
 ///   +---------------------------------------------------+
+///
+/// Page-level layout (metadata-at-start for efficient random access):
+///
+///   +-------------------------------------------------------------------+
+///   |  [AlpHeader (8B)]                                                 |
+///   |  [VectorInfo₀ | VectorInfo₁ | ... | VectorInfoₙ]  ← Metadata      |
+///   |  [Data₀ | Data₁ | ... | Dataₙ]                    ← Data sections |
+///   +-------------------------------------------------------------------+
+///
+/// This layout enables O(1) random access to any vector by:
+/// 1. Reading all VectorInfo first (contiguous, cache-friendly)
+/// 2. Computing data offsets from VectorInfo
+/// 3. Seeking directly to the target vector's data
 ///
 /// \note version must remain the first field to allow reading the rest
 ///       of the header based on version number.
@@ -258,32 +271,58 @@ template <typename T>
 auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
                               size_t comp_size, const AlpEncodingPreset& combinations)
     -> CompressionProgress {
-  uint64_t output_offset = 0;
-  uint64_t input_offset = 0;
-  uint64_t remaining_output_size = comp_size;
+  // METADATA-AT-START LAYOUT:
+  // [VectorInfo₀ | VectorInfo₁ | ... | VectorInfoₙ]  ← All metadata first
+  // [Data₀ | Data₁ | ... | Dataₙ]                     ← All data after
 
+  // Phase 1: Compress all vectors and collect them
+  std::vector<AlpEncodedVector<T>> encoded_vectors;
+  const uint64_t num_vectors =
+      (element_count + AlpConstants::kAlpVectorSize - 1) / AlpConstants::kAlpVectorSize;
+  encoded_vectors.reserve(num_vectors);
+
+  uint64_t input_offset = 0;
   for (uint64_t remaining_elements = element_count; remaining_elements > 0;
        remaining_elements -= std::min(AlpConstants::kAlpVectorSize, remaining_elements)) {
     const uint64_t elements_to_encode =
         std::min(AlpConstants::kAlpVectorSize, remaining_elements);
-    const AlpEncodedVector<T> encoded_vector = AlpCompression<T>::CompressVector(
-        decomp + input_offset, elements_to_encode, combinations);
-
-    const uint64_t compressed_vector_size = encoded_vector.GetStoredSize();
-    if (compressed_vector_size == 0 || compressed_vector_size > remaining_output_size) {
-      return CompressionProgress{0, 0};
-    }
-
-    ARROW_CHECK(encoded_vector.GetStoredSize() <= remaining_output_size)
-        << "alp_encode_cannot_store_compressed_vector";
-
-    encoded_vector.Store({comp + output_offset, remaining_output_size});
-
-    remaining_output_size -= compressed_vector_size;
-    output_offset += compressed_vector_size;
+    encoded_vectors.push_back(AlpCompression<T>::CompressVector(
+        decomp + input_offset, static_cast<uint16_t>(elements_to_encode), combinations));
     input_offset += elements_to_encode;
   }
-  return CompressionProgress{output_offset, input_offset};
+
+  // Calculate total size needed
+  const uint64_t total_info_size =
+      encoded_vectors.size() * AlpEncodedVectorInfo<T>::kStoredSize;
+  uint64_t total_data_size = 0;
+  for (const auto& vec : encoded_vectors) {
+    total_data_size += vec.GetDataStoredSize();
+  }
+  const uint64_t total_size = total_info_size + total_data_size;
+
+  if (total_size > comp_size) {
+    return CompressionProgress{0, 0};
+  }
+
+  // Phase 2: Write all VectorInfo first (metadata array)
+  uint64_t info_offset = 0;
+  for (const auto& vec : encoded_vectors) {
+    vec.vector_info.Store({comp + info_offset, AlpEncodedVectorInfo<T>::kStoredSize});
+    info_offset += AlpEncodedVectorInfo<T>::kStoredSize;
+  }
+
+  // Phase 3: Write all data sections consecutively
+  uint64_t data_offset = total_info_size;
+  for (const auto& vec : encoded_vectors) {
+    const uint64_t data_size = vec.GetDataStoredSize();
+    vec.StoreDataOnly({comp + data_offset, data_size});
+    data_offset += data_size;
+  }
+
+  ARROW_CHECK(data_offset == total_size)
+      << "alp_encode_size_mismatch: " << data_offset << " vs " << total_size;
+
+  return CompressionProgress{total_size, element_count};
 }
 
 template <typename T>
@@ -293,43 +332,67 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                               AlpIntegerEncoding integer_encoding,
                               uint32_t vector_size, uint32_t total_elements)
     -> DecompressionProgress {
-  uint64_t input_offset = 0;
-  uint64_t output_offset = 0;
-  uint64_t vector_index = 0;
+  // METADATA-AT-START LAYOUT:
+  // [VectorInfo₀ | VectorInfo₁ | ... | VectorInfoₙ]  ← All metadata first
+  // [Data₀ | Data₁ | ... | Dataₙ]                     ← All data after
 
-  // Calculate per-vector element count from total and position
+  // Calculate number of vectors
   const uint64_t num_full_vectors = total_elements / vector_size;
   const uint64_t remainder = total_elements % vector_size;
+  const uint64_t num_vectors = num_full_vectors + (remainder > 0 ? 1 : 0);
 
-  while (input_offset < comp_size && output_offset < decomp_element_count) {
-    // Calculate this vector's element count
-    uint16_t this_vector_elements;
-    if (vector_index < num_full_vectors) {
-      this_vector_elements = static_cast<uint16_t>(vector_size);
-    } else if (vector_index == num_full_vectors && remainder > 0) {
-      this_vector_elements = static_cast<uint16_t>(remainder);
-    } else {
-      break;  // No more vectors
-    }
+  if (num_vectors == 0) {
+    return DecompressionProgress{0, 0};
+  }
 
-    // Use zero-copy view to avoid memory allocation and copying
-    const AlpEncodedVectorView<T> encoded_view = AlpEncodedVectorView<T>::LoadView(
-        {comp + input_offset, comp_size - input_offset}, this_vector_elements);
-    const uint64_t compressed_size = encoded_view.GetStoredSize();
+  // Phase 1: Read all VectorInfo from the metadata array (contiguous read)
+  const uint64_t info_size_per_vector = AlpEncodedVectorInfo<T>::kStoredSize;
+  const uint64_t total_info_size = num_vectors * info_size_per_vector;
+
+  ARROW_CHECK(comp_size >= total_info_size)
+      << "alp_decode_comp_size_too_small_for_metadata: " << comp_size << " vs "
+      << total_info_size;
+
+  std::vector<AlpEncodedVectorInfo<T>> all_info(num_vectors);
+  for (uint64_t i = 0; i < num_vectors; i++) {
+    all_info[i] = AlpEncodedVectorInfo<T>::Load(
+        {comp + i * info_size_per_vector, info_size_per_vector});
+  }
+
+  // Phase 2: Compute data offsets for each vector (enables O(1) random access)
+  std::vector<uint64_t> data_offsets(num_vectors);
+  uint64_t data_offset = total_info_size;
+  for (uint64_t i = 0; i < num_vectors; i++) {
+    data_offsets[i] = data_offset;
+    const uint16_t this_vector_elements =
+        (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
+                               : static_cast<uint16_t>(remainder);
+    data_offset += all_info[i].GetDataStoredSize(this_vector_elements);
+  }
+
+  // Phase 3: Decode each vector using the precomputed offsets
+  uint64_t output_offset = 0;
+  for (uint64_t vector_index = 0; vector_index < num_vectors; vector_index++) {
+    const uint16_t this_vector_elements =
+        (vector_index < num_full_vectors) ? static_cast<uint16_t>(vector_size)
+                                          : static_cast<uint16_t>(remainder);
 
     ARROW_CHECK(output_offset + this_vector_elements <= decomp_element_count)
         << "alp_decode_output_too_small: " << output_offset << " vs "
         << this_vector_elements << " vs " << decomp_element_count;
 
+    // Use LoadViewDataOnly since VectorInfo is stored separately
+    const AlpEncodedVectorView<T> encoded_view = AlpEncodedVectorView<T>::LoadViewDataOnly(
+        {comp + data_offsets[vector_index], comp_size - data_offsets[vector_index]},
+        all_info[vector_index], this_vector_elements);
+
     AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
                                             decomp + output_offset);
 
-    input_offset += compressed_size;
     output_offset += this_vector_elements;
-    vector_index++;
   }
 
-  return DecompressionProgress{output_offset, input_offset};
+  return DecompressionProgress{output_offset, data_offset};
 }
 
 // ----------------------------------------------------------------------

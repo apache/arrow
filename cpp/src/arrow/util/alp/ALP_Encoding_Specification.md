@@ -23,16 +23,24 @@ ALP works by converting floating-point values to integers using decimal scaling,
 
 ALP encoding consists of a page-level header followed by one or more encoded vectors. Each vector contains up to 1024 elements.
 
-### 2.1 Page Layout Diagram
+### 2.1 Page Layout Diagram (Metadata-at-Start)
+
+The page uses a **metadata-at-start** layout for efficient random access. All VectorInfo
+metadata is stored contiguously after the header, followed by all data sections.
 
 ```
 +------------------------------------------------------------------+
 |                           ALP PAGE                               |
-+-------------+-------------+-------------+-------+----------------+
-| Page Header |  Vector 1   |  Vector 2   |  ...  |   Vector N     |
-| (8 bytes)   | (variable)  | (variable)  |       |  (variable)    |
-+-------------+-------------+-------------+-------+----------------+
++-------------+------------------------------------------------+---+
+| Page Header |        Metadata Array        |    Data Array       |
+| (8 bytes)   | [VectorInfo₀|VectorInfo₁|...] | [Data₀|Data₁|...]  |
++-------------+------------------------------------------------+---+
 ```
+
+This layout enables O(1) random access to any vector by:
+1. Reading all VectorInfo first (contiguous, cache-friendly, typically ~1-2 KB)
+2. Computing data offsets from VectorInfo
+3. Seeking directly to the target vector's data
 
 ### 2.2 Page Header (8 bytes)
 
