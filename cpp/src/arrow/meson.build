@@ -515,6 +515,7 @@ if needs_json
                 'json/object_writer.cc',
                 'json/parser.cc',
                 'json/reader.cc',
+                'json/writer.cc',
             ],
             'dependencies': [rapidjson_dep],
         },
