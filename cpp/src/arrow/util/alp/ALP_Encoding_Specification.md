@@ -68,14 +68,33 @@ Page Header Layout (8 bytes)
 
 ### 2.3 Encoded Vector Structure
 
+Each vector consists of a VectorInfo (metadata) and a Data section. In the page layout,
+all VectorInfo are stored together first, followed by all Data sections.
+
+**VectorInfo (stored in metadata array):**
 ```
-+----------------------------------------------------------------------------+
-|                           ENCODED VECTOR                                   |
-+-------------------+-----------------+--------------------+------------------+
-|    VectorInfo     |  Packed Values  | Exception Positions| Exception Values |
-|  (10B/14B)*       |   (variable)    |    (variable)      |   (variable)     |
-+-------------------+-----------------+--------------------+------------------+
-* 10 bytes for float, 14 bytes for double
++-------------------+
+|    VectorInfo     |
+|  (10B for float,  |
+|   14B for double) |
++-------------------+
+```
+
+**Data Section (stored in data array):**
+```
++-----------------+--------------------+------------------+
+|  Packed Values  | Exception Positions| Exception Values |
+|   (variable)    |    (variable)      |   (variable)     |
++-----------------+--------------------+------------------+
+```
+
+**Complete page layout example (3 vectors):**
+```
++--------+---------------+---------------+---------------+--------+--------+--------+
+| Header | VectorInfo₀   | VectorInfo₁   | VectorInfo₂   | Data₀  | Data₁  | Data₂  |
+| (8B)   | (10B/14B)     | (10B/14B)     | (10B/14B)     | (var)  | (var)  | (var)  |
++--------+---------------+---------------+---------------+--------+--------+--------+
+         |<----------- Metadata Array ----------->|<------- Data Array ------->|
 ```
 
 ### 2.4 VectorInfo Structure (type-dependent size)

@@ -449,6 +449,101 @@ struct AlpEncodedVectorView {
 };
 
 // ----------------------------------------------------------------------
+// AlpMetadataCache
+
+/// \class AlpMetadataCache
+/// \brief Cache for vector metadata to enable O(1) random access to any vector
+///
+/// With the metadata-at-start layout, all vector metadata is stored contiguously
+/// after the header. This class loads all metadata into memory and precomputes
+/// cumulative data offsets, enabling O(1) access to any vector's data.
+///
+/// Usage:
+/// \code
+///   // Load metadata from compressed buffer
+///   AlpMetadataCache<T> cache = AlpMetadataCache<T>::Load(
+///       num_vectors, vector_size, total_elements, metadata_buffer);
+///
+///   // Access metadata for any vector in O(1)
+///   const auto& info = cache.GetVectorInfo(vector_idx);
+///
+///   // Get offset to any vector's data in O(1)
+///   uint64_t data_offset = cache.GetVectorDataOffset(vector_idx);
+///
+///   // Get number of elements in a specific vector
+///   uint16_t num_elements = cache.GetVectorNumElements(vector_idx);
+/// \endcode
+///
+/// \tparam T the floating point type (float or double)
+template <typename T>
+class AlpMetadataCache {
+ public:
+  /// \brief Load all metadata from buffer and precompute data offsets
+  ///
+  /// \param[in] num_vectors number of vectors in the block
+  /// \param[in] vector_size size of each full vector (typically 1024)
+  /// \param[in] total_elements total number of elements across all vectors
+  /// \param[in] metadata_buffer buffer containing all vector metadata contiguously
+  /// \return a metadata cache with all vector info and precomputed offsets
+  static AlpMetadataCache Load(uint32_t num_vectors, uint32_t vector_size,
+                               uint32_t total_elements,
+                               arrow::util::span<const char> metadata_buffer);
+
+  /// \brief Get metadata for vector at given index
+  ///
+  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
+  /// \return reference to the vector's metadata
+  const AlpEncodedVectorInfo<T>& GetVectorInfo(uint32_t vector_idx) const {
+    ARROW_CHECK(vector_idx < vector_infos_.size())
+        << "vector_index_out_of_range: " << vector_idx;
+    return vector_infos_[vector_idx];
+  }
+
+  /// \brief Get offset to vector's data from start of data section
+  ///
+  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
+  /// \return byte offset from start of data section to this vector's data
+  uint64_t GetVectorDataOffset(uint32_t vector_idx) const {
+    ARROW_CHECK(vector_idx < cumulative_data_offsets_.size())
+        << "vector_index_out_of_range: " << vector_idx;
+    return cumulative_data_offsets_[vector_idx];
+  }
+
+  /// \brief Get number of elements in vector at given index
+  ///
+  /// \param[in] vector_idx index of the vector (0 to num_vectors-1)
+  /// \return number of elements in this vector
+  uint16_t GetVectorNumElements(uint32_t vector_idx) const {
+    ARROW_CHECK(vector_idx < vector_num_elements_.size())
+        << "vector_index_out_of_range: " << vector_idx;
+    return vector_num_elements_[vector_idx];
+  }
+
+  /// \brief Get number of vectors in the cache
+  ///
+  /// \return number of vectors
+  uint32_t GetNumVectors() const { return static_cast<uint32_t>(vector_infos_.size()); }
+
+  /// \brief Get total size of the data section in bytes
+  ///
+  /// \return total data size
+  uint64_t GetTotalDataSize() const { return total_data_size_; }
+
+  /// \brief Get total size of the metadata section in bytes
+  ///
+  /// \return total metadata size (num_vectors * VectorInfo stored size)
+  uint64_t GetMetadataSectionSize() const {
+    return vector_infos_.size() * AlpEncodedVectorInfo<T>::kStoredSize;
+  }
+
+ private:
+  std::vector<AlpEncodedVectorInfo<T>> vector_infos_;
+  std::vector<uint64_t> cumulative_data_offsets_;  // Offset from data section start
+  std::vector<uint16_t> vector_num_elements_;      // Number of elements in each vector
+  uint64_t total_data_size_ = 0;                   // Total size of data section
+};
+
+// ----------------------------------------------------------------------
 // AlpIntegerEncoding
 
 /// \brief Bit packing layout
