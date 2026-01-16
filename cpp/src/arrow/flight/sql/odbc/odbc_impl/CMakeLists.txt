@@ -107,6 +107,7 @@ add_library(arrow_odbc_spi_impl
             system_trust_store.cc
             system_trust_store.h
             types.h
+            type_fwd.h
             type_utilities.h
             util.cc
             util.h)

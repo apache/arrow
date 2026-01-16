@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 
 #include <sql.h>
 #include <memory>
@@ -28,7 +29,6 @@ class Driver;
 }  // namespace arrow::flight::sql::odbc
 
 namespace ODBC {
-class ODBCConnection;
 
 /**
  * @brief An abstraction over an ODBC environment handle.
