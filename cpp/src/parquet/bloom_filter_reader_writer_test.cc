@@ -153,7 +153,8 @@ TEST(BloomFilterBuilder, BasicRoundTrip) {
 TEST(BloomFilterBuilder, InvalidOperations) {
   SchemaDescriptor schema;
   schema::NodePtr root = schema::GroupNode::Make(
-      "schema", Repetition::REPEATED, {schema::ByteArray("c1"), schema::Boolean("c2")});
+      "schema", Repetition::REPEATED,
+      {schema::ByteArray("c1"), schema::Boolean("c2"), schema::Boolean("c3")});
   schema.Init(root);
 
   WriterProperties::Builder properties_builder;
@@ -173,10 +174,11 @@ TEST(BloomFilterBuilder, InvalidOperations) {
 
   // Column ordinal is out of bound.
   bloom_filter_builder->AppendRowGroup();
-  EXPECT_THROW_THAT([&]() { bloom_filter_builder->CreateBloomFilter(2); },
+  EXPECT_THROW_THAT([&]() { bloom_filter_builder->CreateBloomFilter(3); },
                     ParquetException,
-                    ::testing::Property(&ParquetException::what,
-                                        ::testing::HasSubstr("Invalid column ordinal")));
+                    ::testing::Property(
+                        &ParquetException::what,
+                        ::testing::HasSubstr("Invalid Column Index: 3 Num columns: 3")));
 
   // Boolean type is not supported.
   EXPECT_THROW_THAT(
@@ -184,6 +186,8 @@ TEST(BloomFilterBuilder, InvalidOperations) {
       ::testing::Property(
           &ParquetException::what,
           ::testing::HasSubstr("BloomFilterBuilder does not support boolean type")));
+  // Null should be returned instead of throwing exception for non-enabled boolean type.
+  EXPECT_EQ(bloom_filter_builder->CreateBloomFilter(2), nullptr);
 
   // Create a created bloom filter should throw.
   ASSERT_NO_THROW(bloom_filter_builder->CreateBloomFilter(0));
