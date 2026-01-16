@@ -703,6 +703,13 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, true,
                                  LARGE_SIZE);
 }
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCodecOptions) {
+  constexpr int ZSTD_c_windowLog = 101;
+  auto codec_options = std::make_shared<::arrow::util::ZstdCodecOptions>();
+  codec_options->compression_context_params = {{ZSTD_c_windowLog, 23}};
+  this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::ZSTD, false, false,
+                                     LARGE_SIZE, codec_options);
+}
 #endif
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
