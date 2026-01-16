@@ -376,8 +376,9 @@ template struct AlpEncodedVectorView<double>;
 template <typename T>
 AlpMetadataCache<T> AlpMetadataCache<T>::Load(
     uint32_t num_vectors, uint32_t vector_size, uint32_t total_elements,
+    AlpIntegerEncoding integer_encoding,
     arrow::util::span<const char> alp_metadata_buffer,
-    arrow::util::span<const char> for_metadata_buffer) {
+    arrow::util::span<const char> int_encoding_metadata_buffer) {
   AlpMetadataCache<T> cache;
 
   if (num_vectors == 0) {
@@ -385,19 +386,13 @@ AlpMetadataCache<T> AlpMetadataCache<T>::Load(
   }
 
   const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
-  const uint64_t for_info_size = AlpEncodedForVectorInfo<T>::kStoredSize;
   const uint64_t expected_alp_size = num_vectors * alp_info_size;
-  const uint64_t expected_for_size = num_vectors * for_info_size;
 
   ARROW_CHECK(alp_metadata_buffer.size() >= expected_alp_size)
       << "alp_metadata_cache_alp_buffer_too_small: " << alp_metadata_buffer.size()
       << " vs " << expected_alp_size;
-  ARROW_CHECK(for_metadata_buffer.size() >= expected_for_size)
-      << "alp_metadata_cache_for_buffer_too_small: " << for_metadata_buffer.size()
-      << " vs " << expected_for_size;
 
   cache.alp_infos_.reserve(num_vectors);
-  cache.for_infos_.reserve(num_vectors);
   cache.cumulative_data_offsets_.reserve(num_vectors);
   cache.vector_num_elements_.reserve(num_vectors);
 
@@ -405,34 +400,50 @@ AlpMetadataCache<T> AlpMetadataCache<T>::Load(
   const uint32_t num_full_vectors = total_elements / vector_size;
   const uint32_t remainder = total_elements % vector_size;
 
-  uint64_t cumulative_offset = 0;
+  // Load integer encoding metadata based on encoding type
+  switch (integer_encoding) {
+    case AlpIntegerEncoding::kForBitPack: {
+      const uint64_t for_info_size = AlpEncodedForVectorInfo<T>::kStoredSize;
+      const uint64_t expected_for_size = num_vectors * for_info_size;
+      ARROW_CHECK(int_encoding_metadata_buffer.size() >= expected_for_size)
+          << "alp_metadata_cache_for_buffer_too_small: "
+          << int_encoding_metadata_buffer.size() << " vs " << expected_for_size;
+      cache.for_infos_.reserve(num_vectors);
 
-  for (uint32_t i = 0; i < num_vectors; i++) {
-    // Load AlpInfo
-    const AlpEncodedVectorInfo alp_info = AlpEncodedVectorInfo::Load(
-        {alp_metadata_buffer.data() + i * alp_info_size, alp_info_size});
-    cache.alp_infos_.push_back(alp_info);
+      uint64_t cumulative_offset = 0;
+      for (uint32_t i = 0; i < num_vectors; i++) {
+        // Load AlpInfo
+        const AlpEncodedVectorInfo alp_info = AlpEncodedVectorInfo::Load(
+            {alp_metadata_buffer.data() + i * alp_info_size, alp_info_size});
+        cache.alp_infos_.push_back(alp_info);
 
-    // Load ForInfo
-    const AlpEncodedForVectorInfo<T> for_info = AlpEncodedForVectorInfo<T>::Load(
-        {for_metadata_buffer.data() + i * for_info_size, for_info_size});
-    cache.for_infos_.push_back(for_info);
+        // Load ForInfo for kForBitPack encoding
+        const AlpEncodedForVectorInfo<T> for_info = AlpEncodedForVectorInfo<T>::Load(
+            {int_encoding_metadata_buffer.data() + i * for_info_size, for_info_size});
+        cache.for_infos_.push_back(for_info);
 
-    // Calculate number of elements for this vector
-    const uint16_t this_vector_elements =
-        (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
-                               : static_cast<uint16_t>(remainder);
-    cache.vector_num_elements_.push_back(this_vector_elements);
+        // Calculate number of elements for this vector
+        const uint16_t this_vector_elements =
+            (i < num_full_vectors) ? static_cast<uint16_t>(vector_size)
+                                   : static_cast<uint16_t>(remainder);
+        cache.vector_num_elements_.push_back(this_vector_elements);
 
-    // Store cumulative offset (offset to start of this vector's data)
-    cache.cumulative_data_offsets_.push_back(cumulative_offset);
+        // Store cumulative offset (offset to start of this vector's data)
+        cache.cumulative_data_offsets_.push_back(cumulative_offset);
 
-    // Advance offset by this vector's data size
-    cumulative_offset +=
-        for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+        // Advance offset by this vector's data size
+        cumulative_offset +=
+            for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+      }
+      cache.total_data_size_ = cumulative_offset;
+    } break;
+
+    default:
+      ARROW_CHECK(false) << "unsupported_integer_encoding: "
+                         << static_cast<int>(integer_encoding);
+      break;
   }
 
-  cache.total_data_size_ = cumulative_offset;
   return cache;
 }
 
