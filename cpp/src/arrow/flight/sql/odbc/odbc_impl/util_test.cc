@@ -23,7 +23,8 @@
 #include "arrow/testing/builder.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 
@@ -48,7 +49,7 @@ void AssertConvertedArray(const std::shared_ptr<Array>& expected_array,
   ASSERT_EQ(expected_array->ToString(), converted_array->ToString());
 }
 
-std::shared_ptr<Array> convertArray(const std::shared_ptr<Array>& original_array,
+std::shared_ptr<Array> ConvertArray(const std::shared_ptr<Array>& original_array,
                                     CDataType c_type) {
   auto converter = util::GetConverter(original_array->type_id(), c_type);
   return converter(original_array);
@@ -60,7 +61,7 @@ void TestArrayConversion(const std::vector<std::string>& input,
   std::shared_ptr<Array> original_array;
   ArrayFromVector<StringType, std::string>(input, &original_array);
 
-  auto converted_array = convertArray(original_array, c_type);
+  auto converted_array = ConvertArray(original_array, c_type);
 
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
@@ -71,7 +72,7 @@ void TestTime32ArrayConversion(const std::vector<int32_t>& input,
   std::shared_ptr<Array> original_array;
   ArrayFromVector<Time32Type, int32_t>(time32(TimeUnit::MILLI), input, &original_array);
 
-  auto converted_array = convertArray(original_array, c_type);
+  auto converted_array = ConvertArray(original_array, c_type);
 
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }
@@ -82,7 +83,7 @@ void TestTime64ArrayConversion(const std::vector<int64_t>& input,
   std::shared_ptr<Array> original_array;
   ArrayFromVector<Time64Type, int64_t>(time64(TimeUnit::NANO), input, &original_array);
 
-  auto converted_array = convertArray(original_array, c_type);
+  auto converted_array = ConvertArray(original_array, c_type);
 
   AssertConvertedArray(expected_array, converted_array, input.size(), arrow_type);
 }

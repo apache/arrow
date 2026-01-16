@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <boost/variant.hpp>
 #include <map>
 #include <optional>
+#include <variant>
 #include <vector>
 
 namespace arrow::flight::sql::odbc {
@@ -52,7 +52,7 @@ class Statement {
     QUERY_TIMEOUT,
   };
 
-  typedef boost::variant<size_t> Attribute;
+  typedef std::variant<size_t> Attribute;
 
   /// \brief Set a statement attribute (may be called at any time)
   ///
