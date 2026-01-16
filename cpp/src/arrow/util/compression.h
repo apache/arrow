@@ -149,6 +149,7 @@ class ARROW_EXPORT BrotliCodecOptions : public CodecOptions {
 
 class ARROW_EXPORT ZstdCodecOptions : public CodecOptions {
  public:
+  // Valid keys can be found at https://facebook.github.io/zstd/zstd_manual.html.
   std::vector<std::pair<int, int>> compression_context_params;
   std::vector<std::pair<int, int>> decompression_context_params;
 };
