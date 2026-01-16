@@ -154,6 +154,12 @@ struct ARROW_EXPORT ReadOptions {
   /// Number of rows to skip after the column names are read, if any
   int32_t skip_rows_after_names = 0;
 
+  /// Maximum number of rows to read from the CSV file.
+  /// If -1 (default), read all rows.
+  /// If 0, return error (invalid).
+  /// If positive, read exactly this many rows (or fewer if file is shorter).
+  int64_t max_rows = -1;
+
   /// Column names for the target table.
   /// If empty, fall back on autogenerate_column_names.
   std::vector<std::string> column_names;
