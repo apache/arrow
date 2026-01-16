@@ -459,14 +459,14 @@ jobs:
           if-no-files-found: error
       # Upload ODBC installer as nightly release in scheduled runs
       - name: Prepare ODBC installer for sync
-        if: github.event_name == 'schedule'
+        # if: github.event_name == 'schedule' # -AL- for testing purpose, temporarily disable `if` check
         run: |
           mkdir odbc-installer
-          Move-Item build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi odbc-installer/
-          tree odbc-installer
+          Move-Item "build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi" odbc-installer/
+          tree odbc-installer /f
       - name: Sync to Remote
-        if: github.event_name == 'schedule'
-        uses: ./arrow/.github/actions/sync-nightlies
+        # if: github.event_name == 'schedule'
+        uses: ./.github/actions/sync-nightlies
         with:
           upload: true
           switches: -avzh --update --delete --progress
