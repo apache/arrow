@@ -26,6 +26,7 @@
 #include "arrow/compute/api.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
+#include "arrow/type_traits.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/json_converter.h"
 
@@ -37,19 +38,6 @@
 namespace arrow::flight::sql::odbc {
 namespace util {
 namespace {
-bool IsComplexType(Type::type type_id) {
-  switch (type_id) {
-    case Type::LIST:
-    case Type::LARGE_LIST:
-    case Type::FIXED_SIZE_LIST:
-    case Type::MAP:
-    case Type::STRUCT:
-      return true;
-    default:
-      return false;
-  }
-}
-
 SqlDataType GetDefaultSqlCharType(bool use_wide_char) {
   return use_wide_char ? SqlDataType_WCHAR : SqlDataType_CHAR;
 }
@@ -998,7 +986,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       return finish.ValueOrDie();
     };
-  } else if (IsComplexType(original_type_id) &&
+  } else if (is_nested(original_type_id) &&
              (target_type == CDataType_CHAR || target_type == CDataType_WCHAR)) {
     return [=](const std::shared_ptr<Array>& original_array) {
       const auto& json_conversion_result = ConvertToJson(original_array);
