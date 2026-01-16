@@ -513,48 +513,124 @@ TEST(TestCodecMisc, SpecifyCodecOptionsZstd) {
     return option;
   };
   constexpr int ZSTD_c_windowLog = 101;
-  constexpr int ZSTD_d_windowLogMax = 100;
   const std::pair<arrow::util::ZstdCodecOptions, bool> options[]{
       {make_option(2, {}, {}), true},
       {make_option(9, {}, {}), true},
       {make_option(15, {}, {}), true},
       {make_option(-992, {}, {}), true},
       {make_option(3, {{ZSTD_c_windowLog, 23}}, {}), true},
-      {make_option(3, {{ZSTD_c_windowLog, 28}}, {{ZSTD_d_windowLogMax, 28}}), true}};
+      {make_option(3, {{ZSTD_c_windowLog, 28}}, {}), true}};
   CheckSpecifyCodecOptions<arrow::util::ZstdCodecOptions>(Compression::ZSTD, options);
 }
 
 TEST(TestCodecMisc, ZstdLargerWindowLog) {
   constexpr int ZSTD_c_windowLog = 101;
-  constexpr int ZSTD_d_windowLogMax = 100;
 
   arrow::util::ZstdCodecOptions option1;
-  option1.compression_level = 3;
-
   arrow::util::ZstdCodecOptions option2;
-  option2.compression_level = 3;
-  // 1 << 23 = 8MB window size, default 2MB under level 3.
-  option2.compression_context_params = {{ZSTD_c_windowLog, 23}};
-  option2.decompression_context_params = {{ZSTD_d_windowLogMax, 23}};
+  option2.compression_context_params = {{ZSTD_c_windowLog, 28}};
 
   std::vector<uint8_t> data = MakeRandomData(4 * 1024 * 1024);
   data.reserve(data.size() * 2);
   data.insert(data.end(), data.begin(), data.end());
 
-  ASSERT_OK_AND_ASSIGN(auto result1, Codec::Create(Compression::ZSTD, option1));
-  ASSERT_OK_AND_ASSIGN(auto result2, Codec::Create(Compression::ZSTD, option2));
+  auto compress = [&data](const arrow::util::ZstdCodecOptions& codecOption)
+      -> Result<std::vector<uint8_t>> {
+    ARROW_ASSIGN_OR_RAISE(auto codec, Codec::Create(Compression::ZSTD, codecOption));
+    auto max_compressed_len = codec->MaxCompressedLen(data.size(), data.data());
+    std::vector<uint8_t> compressed(max_compressed_len);
 
-  int max_compressed_len =
-      static_cast<int>(result1->MaxCompressedLen(data.size(), data.data()));
-  std::vector<uint8_t> compressed(max_compressed_len);
+    ARROW_ASSIGN_OR_RAISE(
+        auto actual_size,
+        codec->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
+    compressed.resize(actual_size);
+    return compressed;
+  };
 
-  ASSERT_OK_AND_ASSIGN(
-      int64_t actual_size1,
-      result1->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
-  ASSERT_OK_AND_ASSIGN(
-      int64_t actual_size2,
-      result2->Compress(data.size(), data.data(), max_compressed_len, compressed.data()));
-  ASSERT_GT(actual_size1, actual_size2);
+  ASSERT_OK_AND_ASSIGN(auto compressed1, compress(option1));
+  ASSERT_OK_AND_ASSIGN(auto compressed2, compress(option2));
+  ASSERT_GT(compressed1.size(), compressed2.size());
+}
+
+TEST(TestCodecMisc, ZstdStreamLargerWindowLog) {
+  constexpr int ZSTD_c_windowLog = 101;
+  constexpr int ZSTD_d_windowLogMax = 100;
+
+  arrow::util::ZstdCodecOptions option1;
+  arrow::util::ZstdCodecOptions option2;
+  option2.compression_context_params = {{ZSTD_c_windowLog, 28}};
+  option2.decompression_context_params = {{ZSTD_d_windowLogMax, 28}};
+
+  std::vector<uint8_t> data = MakeRandomData(4 * 1024 * 1024);
+  data.reserve(data.size() * 2);
+  data.insert(data.end(), data.begin(), data.end());
+
+  ASSERT_OK_AND_ASSIGN(auto codec1, Codec::Create(Compression::ZSTD, option1));
+  ASSERT_OK_AND_ASSIGN(auto codec2, Codec::Create(Compression::ZSTD, option2));
+
+  auto compress = [&data](Codec& codec) -> Result<std::vector<uint8_t>> {
+    auto max_compressed_len = codec.MaxCompressedLen(data.size(), data.data());
+    std::vector<uint8_t> compressed(max_compressed_len);
+
+    int64_t bytes_written = 0;
+    int64_t bytes_read = 0;
+    ARROW_ASSIGN_OR_RAISE(auto compressor, codec.MakeCompressor());
+    while (bytes_read < static_cast<int64_t>(data.size())) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto result,
+          compressor->Compress(data.size() - bytes_read, data.data() + bytes_read,
+                               max_compressed_len - bytes_written,
+                               compressed.data() + bytes_written));
+      bytes_written += result.bytes_written;
+      bytes_read += result.bytes_read;
+    }
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(auto result,
+                            compressor->End(max_compressed_len - bytes_written,
+                                            compressed.data() + bytes_written));
+      bytes_written += result.bytes_written;
+      if (!result.should_retry) {
+        break;
+      }
+    }
+    compressed.resize(bytes_written);
+    return compressed;
+  };
+
+  ASSERT_OK_AND_ASSIGN(auto compressed1, compress(*codec1));
+  ASSERT_OK_AND_ASSIGN(auto compressed2, compress(*codec2));
+  ASSERT_GT(compressed1.size(), compressed2.size());
+
+  ASSERT_OK_AND_ASSIGN(auto decompressor1, codec1->MakeDecompressor());
+  ASSERT_OK_AND_ASSIGN(auto decompressor2, codec2->MakeDecompressor());
+
+  std::vector<uint8_t> decompressed(data.size());
+  // Using a windowLog greater than ZSTD_WINDOWLOG_LIMIT_DEFAULT(1 << 27) requires
+  // explicitly allowing such size at decompression stage.
+  auto ret = decompressor1->Decompress(compressed2.size(), compressed2.data(),
+                                       decompressed.size(), decompressed.data());
+  ASSERT_NOT_OK(ret);
+  ASSERT_EQ(ret.status().message(),
+            "ZSTD decompress failed: Frame requires too much memory for decoding");
+
+  int64_t bytes_written = 0;
+  int64_t bytes_read = 0;
+  while (true) {
+    ASSERT_OK_AND_ASSIGN(auto result,
+                         decompressor2->Decompress(compressed2.size() - bytes_read,
+                                                   compressed2.data() + bytes_read,
+                                                   decompressed.size() - bytes_written,
+                                                   decompressed.data() + bytes_written));
+    bytes_read += result.bytes_read;
+    bytes_written += result.bytes_written;
+    if (!result.need_more_output) {
+      break;
+    }
+  }
+  ASSERT_TRUE(decompressor2->IsFinished());
+  ASSERT_EQ(bytes_read, compressed2.size());
+  ASSERT_EQ(bytes_written, data.size());
+  ASSERT_EQ(decompressed, data);
 }
 
 TEST_P(CodecTest, MinMaxCompressionLevel) {
