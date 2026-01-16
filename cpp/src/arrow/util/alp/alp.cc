@@ -73,7 +73,7 @@ AlpEncodedVectorInfo AlpEncodedVectorInfo::Load(
 }
 
 // ----------------------------------------------------------------------
-// AlpEncodedForVectorInfo implementation (templated, 6/10 bytes)
+// AlpEncodedForVectorInfo implementation (templated, 5/9 bytes)
 
 template <typename T>
 void AlpEncodedForVectorInfo<T>::Store(arrow::util::span<char> output_buffer) const {
@@ -87,9 +87,8 @@ void AlpEncodedForVectorInfo<T>::Store(arrow::util::span<char> output_buffer) co
   std::memcpy(ptr, &frame_of_reference, sizeof(frame_of_reference));
   ptr += sizeof(frame_of_reference);
 
-  // bit_width, reserved: 1 byte each
-  *ptr++ = static_cast<char>(bit_width);
-  *ptr++ = static_cast<char>(reserved);
+  // bit_width: 1 byte
+  *ptr = static_cast<char>(bit_width);
 }
 
 template <typename T>
@@ -106,9 +105,8 @@ AlpEncodedForVectorInfo<T> AlpEncodedForVectorInfo<T>::Load(
   std::memcpy(&result.frame_of_reference, ptr, sizeof(result.frame_of_reference));
   ptr += sizeof(result.frame_of_reference);
 
-  // bit_width, reserved: 1 byte each
-  result.bit_width = static_cast<uint8_t>(*ptr++);
-  result.reserved = static_cast<uint8_t>(*ptr++);
+  // bit_width: 1 byte
+  result.bit_width = static_cast<uint8_t>(*ptr);
 
   return result;
 }
@@ -829,10 +827,9 @@ AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
   result.alp_info.num_exceptions =
       static_cast<uint16_t>(encoding_result.exceptions.size());
 
-  // FOR metadata (6/10 bytes)
+  // FOR metadata (5/9 bytes)
   result.for_info.frame_of_reference = encoding_result.frame_of_reference;
   result.for_info.bit_width = bitpacking_result.bit_width;
-  result.for_info.reserved = 0;
 
   result.num_elements = num_elements;
   result.packed_values = bitpacking_result.packed_integers;
