@@ -183,10 +183,9 @@ struct ListSlice {
     const auto* list_type = checked_cast<const BaseListType*>(list_array.type);
 
     // Pre-conditions
-    if (opts.start < 0 || (opts.stop.has_value() && opts.start >= opts.stop.value())) {
-      // TODO(ARROW-18281): support start == stop which should give empty lists
+    if (opts.start < 0 || (opts.stop.has_value() && opts.start > opts.stop.value())) {
       return Status::Invalid("`start`(", opts.start,
-                             ") should be greater than 0 and smaller than `stop`(",
+                             ") should be >= 0 and not greater than `stop`(",
                              ToString(opts.stop), ")");
     }
     if (opts.step < 1) {

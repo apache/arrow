@@ -306,6 +306,32 @@ TEST(TestScalarNested, ListSliceOutputEqualsInputType) {
   }
 }
 
+TEST(TestScalarNested, ListSliceEmptyLists) {
+  // start == stop should return empty lists
+  auto input = ArrayFromJSON(list(int32()), "[[1, 2, 3], [4, 5], null]");
+  ListSliceOptions args(/*start=*/0, /*stop=*/0, /*step=*/1);
+  auto expected = ArrayFromJSON(list(int32()), "[[], [], null]");
+  CheckScalarUnary("list_slice", input, expected, &args);
+
+  // Different start position
+  args.start = 1;
+  args.stop = 1;
+  CheckScalarUnary("list_slice", input, expected, &args);
+
+  // Large list
+  auto input_large = ArrayFromJSON(large_list(int32()), "[[1, 2, 3], [4, 5]]");
+  args.start = 0;
+  args.stop = 0;
+  auto expected_large = ArrayFromJSON(large_list(int32()), "[[], []]");
+  CheckScalarUnary("list_slice", input_large, expected_large, &args);
+
+  // Fixed size list -> fixed size list[0]
+  auto input_fixed = ArrayFromJSON(fixed_size_list(int32(), 3), "[[1, 2, 3], [4, 5, 6]]");
+  args.return_fixed_size_list = true;
+  auto expected_fixed = ArrayFromJSON(fixed_size_list(int32(), 0), "[[], []]");
+  CheckScalarUnary("list_slice", input_fixed, expected_fixed, &args);
+}
+
 TEST(TestScalarNested, ListSliceBadParameters) {
   auto input = ArrayFromJSON(list(int32()), "[[1]]");
 
@@ -314,23 +340,14 @@ TEST(TestScalarNested, ListSliceBadParameters) {
                         /*return_fixed_size_list=*/true);
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      ::testing::HasSubstr(
-          "`start`(-1) should be greater than 0 and smaller than `stop`(1)"),
+      ::testing::HasSubstr("`start`(-1) should be >= 0 and not greater than `stop`(1)"),
       CallFunction("list_slice", {input}, &args));
   // start greater than stop
   args.start = 1;
   args.stop = 0;
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
-      ::testing::HasSubstr(
-          "`start`(1) should be greater than 0 and smaller than `stop`(0)"),
-      CallFunction("list_slice", {input}, &args));
-  // start same as stop
-  args.stop = args.start;
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      Invalid,
-      ::testing::HasSubstr(
-          "`start`(1) should be greater than 0 and smaller than `stop`(1)"),
+      ::testing::HasSubstr("`start`(1) should be >= 0 and not greater than `stop`(0)"),
       CallFunction("list_slice", {input}, &args));
   // stop not set and FixedSizeList requested with variable sized input
   args.stop = std::nullopt;
