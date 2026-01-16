@@ -497,6 +497,31 @@ struct AlpEncodedVectorView {
 };
 
 // ----------------------------------------------------------------------
+// AlpIntegerEncoding
+
+/// \brief Integer encoding method used after ALP decimal encoding
+///
+/// Currently only FOR+BitPack is implemented. Future encodings can be added
+/// by extending this enum and adding corresponding metadata structs.
+enum class AlpIntegerEncoding : uint8_t { kForBitPack = 0 };
+
+/// \brief Get the per-vector metadata size for a given integer encoding
+///
+/// \tparam T the floating point type (float or double)
+/// \param[in] encoding the integer encoding method
+/// \return size in bytes of the per-vector metadata for this encoding
+template <typename T>
+inline uint64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding encoding) {
+  switch (encoding) {
+    case AlpIntegerEncoding::kForBitPack:
+      return AlpEncodedForVectorInfo<T>::kStoredSize;
+    default:
+      ARROW_CHECK(false) << "unknown_integer_encoding: " << static_cast<int>(encoding);
+      return 0;
+  }
+}
+
+// ----------------------------------------------------------------------
 // AlpMetadataCache
 
 /// \class AlpMetadataCache
@@ -531,18 +556,21 @@ struct AlpEncodedVectorView {
 template <typename T>
 class AlpMetadataCache {
  public:
-  /// \brief Load all metadata from separate ALP and FOR buffers
+  /// \brief Load all metadata from separate ALP and integer encoding metadata buffers
   ///
   /// \param[in] num_vectors number of vectors in the block
   /// \param[in] vector_size size of each full vector (typically 1024)
   /// \param[in] total_elements total number of elements across all vectors
+  /// \param[in] integer_encoding the integer encoding method used (determines metadata format)
   /// \param[in] alp_metadata_buffer buffer containing all AlpEncodedVectorInfo contiguously
-  /// \param[in] for_metadata_buffer buffer containing all AlpEncodedForVectorInfo contiguously
+  /// \param[in] int_encoding_metadata_buffer buffer containing integer encoding metadata
+  ///            (AlpEncodedForVectorInfo for kForBitPack)
   /// \return a metadata cache with all metadata and precomputed offsets
   static AlpMetadataCache Load(uint32_t num_vectors, uint32_t vector_size,
                                uint32_t total_elements,
+                               AlpIntegerEncoding integer_encoding,
                                arrow::util::span<const char> alp_metadata_buffer,
-                               arrow::util::span<const char> for_metadata_buffer);
+                               arrow::util::span<const char> int_encoding_metadata_buffer);
 
   /// \brief Get ALP metadata for vector at given index
   ///
@@ -622,14 +650,6 @@ class AlpMetadataCache {
   std::vector<uint16_t> vector_num_elements_;             // Number of elements in each vector
   uint64_t total_data_size_ = 0;                          // Total size of data section
 };
-
-// ----------------------------------------------------------------------
-// AlpIntegerEncoding
-
-/// \brief Bit packing layout
-///
-/// Currently only normal bit packing is implemented.
-enum class AlpIntegerEncoding { kForBitPack };
 
 // ----------------------------------------------------------------------
 // AlpEncodingPreset

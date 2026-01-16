@@ -289,8 +289,8 @@ TYPED_TEST_SUITE(AlpMetadataCacheTest, MetadataCacheTypes);
 
 TYPED_TEST(AlpMetadataCacheTest, LoadEmptyBuffer) {
   // Test loading empty cache
-  AlpMetadataCache<TypeParam> cache =
-      AlpMetadataCache<TypeParam>::Load(0, 1024, 0, {}, {});
+  AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
+      0, 1024, 0, AlpIntegerEncoding::kForBitPack, {}, {});
   EXPECT_EQ(cache.GetNumVectors(), 0);
   EXPECT_EQ(cache.GetTotalDataSize(), 0);
   EXPECT_EQ(cache.GetTotalMetadataSectionSize(), 0);
@@ -318,8 +318,8 @@ TYPED_TEST(AlpMetadataCacheTest, LoadSingleVector) {
 
   // Load into cache
   AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      1, 1024, num_elements, {alp_buffer.data(), alp_buffer.size()},
-      {for_buffer.data(), for_buffer.size()});
+      1, 1024, num_elements, AlpIntegerEncoding::kForBitPack,
+      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
 
   EXPECT_EQ(cache.GetNumVectors(), 1);
   EXPECT_EQ(cache.GetVectorNumElements(0), num_elements);
@@ -387,8 +387,8 @@ TYPED_TEST(AlpMetadataCacheTest, LoadMultipleVectors) {
 
   // Load into cache
   AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      num_vectors, vector_size, total_elements, {alp_buffer.data(), alp_buffer.size()},
-      {for_buffer.data(), for_buffer.size()});
+      num_vectors, vector_size, total_elements, AlpIntegerEncoding::kForBitPack,
+      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
 
   EXPECT_EQ(cache.GetNumVectors(), num_vectors);
 
@@ -451,8 +451,8 @@ TYPED_TEST(AlpMetadataCacheTest, RandomAccessToVectors) {
   }
 
   AlpMetadataCache<TypeParam> cache = AlpMetadataCache<TypeParam>::Load(
-      num_vectors, vector_size, total_elements, {alp_buffer.data(), alp_buffer.size()},
-      {for_buffer.data(), for_buffer.size()});
+      num_vectors, vector_size, total_elements, AlpIntegerEncoding::kForBitPack,
+      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
 
   // Verify random access works correctly - access in non-sequential order
   std::vector<uint32_t> access_order = {5, 0, 9, 3, 7, 1, 8, 2, 6, 4};

@@ -293,16 +293,18 @@ auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* com
     input_offset += elements_to_encode;
   }
 
-  // Calculate total size needed
+  // Calculate total size needed based on integer encoding
+  const AlpIntegerEncoding integer_encoding = combinations.integer_encoding;
   const uint64_t total_alp_info_size =
       encoded_vectors.size() * AlpEncodedVectorInfo::kStoredSize;
-  const uint64_t total_for_info_size =
-      encoded_vectors.size() * AlpEncodedForVectorInfo<T>::kStoredSize;
+  const uint64_t total_int_encoding_info_size =
+      encoded_vectors.size() * GetIntegerEncodingMetadataSize<T>(integer_encoding);
   uint64_t total_data_size = 0;
   for (const auto& vec : encoded_vectors) {
     total_data_size += vec.GetDataStoredSize();
   }
-  const uint64_t total_size = total_alp_info_size + total_for_info_size + total_data_size;
+  const uint64_t total_size =
+      total_alp_info_size + total_int_encoding_info_size + total_data_size;
 
   if (total_size > comp_size) {
     return CompressionProgress{0, 0};
@@ -315,15 +317,25 @@ auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* com
     alp_info_offset += AlpEncodedVectorInfo::kStoredSize;
   }
 
-  // Phase 3: Write all ForInfo next (FOR metadata section)
-  uint64_t for_info_offset = total_alp_info_size;
-  for (const auto& vec : encoded_vectors) {
-    vec.for_info.Store({comp + for_info_offset, AlpEncodedForVectorInfo<T>::kStoredSize});
-    for_info_offset += AlpEncodedForVectorInfo<T>::kStoredSize;
+  // Phase 3: Write integer encoding metadata based on encoding type
+  uint64_t int_encoding_offset = total_alp_info_size;
+  switch (integer_encoding) {
+    case AlpIntegerEncoding::kForBitPack: {
+      for (const auto& vec : encoded_vectors) {
+        vec.for_info.Store(
+            {comp + int_encoding_offset, AlpEncodedForVectorInfo<T>::kStoredSize});
+        int_encoding_offset += AlpEncodedForVectorInfo<T>::kStoredSize;
+      }
+    } break;
+
+    default:
+      ARROW_CHECK(false) << "unsupported_integer_encoding: "
+                         << static_cast<int>(integer_encoding);
+      break;
   }
 
   // Phase 4: Write all data sections consecutively
-  uint64_t data_offset = total_alp_info_size + total_for_info_size;
+  uint64_t data_offset = total_alp_info_size + total_int_encoding_info_size;
   for (const auto& vec : encoded_vectors) {
     const uint64_t data_size = vec.GetDataStoredSize();
     vec.StoreDataOnly({comp + data_offset, data_size});
@@ -345,7 +357,7 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
     -> DecompressionProgress {
   // GROUPED METADATA LAYOUT:
   // [AlpInfo₀ | AlpInfo₁ | ... | AlpInfoₙ]     ← All ALP metadata (4B each)
-  // [ForInfo₀ | ForInfo₁ | ... | ForInfoₙ]     ← All FOR metadata (6/10B each)
+  // [IntEncodingInfo₀ | ... | IntEncodingInfoₙ] ← Integer encoding metadata (varies by type)
   // [Data₀ | Data₁ | ... | Dataₙ]               ← All data sections
 
   // Calculate number of vectors
@@ -358,9 +370,9 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
 
   const uint64_t total_alp_info_size =
       static_cast<uint64_t>(num_vectors) * AlpEncodedVectorInfo::kStoredSize;
-  const uint64_t total_for_info_size =
-      static_cast<uint64_t>(num_vectors) * AlpEncodedForVectorInfo<T>::kStoredSize;
-  const uint64_t total_metadata_size = total_alp_info_size + total_for_info_size;
+  const uint64_t total_int_encoding_info_size =
+      static_cast<uint64_t>(num_vectors) * GetIntegerEncodingMetadataSize<T>(integer_encoding);
+  const uint64_t total_metadata_size = total_alp_info_size + total_int_encoding_info_size;
 
   ARROW_CHECK(comp_size >= total_metadata_size)
       << "alp_decode_comp_size_too_small_for_metadata: " << comp_size << " vs "
@@ -368,9 +380,9 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
 
   // Load all metadata into cache (precomputes data offsets for O(1) random access)
   const AlpMetadataCache<T> cache = AlpMetadataCache<T>::Load(
-      num_vectors, vector_size, total_elements,
+      num_vectors, vector_size, total_elements, integer_encoding,
       {comp, total_alp_info_size},
-      {comp + total_alp_info_size, total_for_info_size});
+      {comp + total_alp_info_size, total_int_encoding_info_size});
 
   // Pointer to start of data section
   const char* data_section = comp + total_metadata_size;
@@ -385,14 +397,26 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
         << "alp_decode_output_too_small: " << output_offset << " vs "
         << this_vector_elements << " vs " << decomp_element_count;
 
-    // Use LoadViewDataOnly since AlpInfo and ForInfo are stored separately in the cache
-    const uint64_t data_offset = cache.GetVectorDataOffset(vector_index);
-    const AlpEncodedVectorView<T> encoded_view = AlpEncodedVectorView<T>::LoadViewDataOnly(
-        {data_section + data_offset, data_section_size - data_offset},
-        cache.GetAlpInfo(vector_index), cache.GetForInfo(vector_index), this_vector_elements);
+    // Decode based on integer encoding type
+    switch (integer_encoding) {
+      case AlpIntegerEncoding::kForBitPack: {
+        // Use LoadViewDataOnly since AlpInfo and ForInfo are stored separately in the cache
+        const uint64_t data_offset = cache.GetVectorDataOffset(vector_index);
+        const AlpEncodedVectorView<T> encoded_view =
+            AlpEncodedVectorView<T>::LoadViewDataOnly(
+                {data_section + data_offset, data_section_size - data_offset},
+                cache.GetAlpInfo(vector_index), cache.GetForInfo(vector_index),
+                this_vector_elements);
 
-    AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
-                                            decomp + output_offset);
+        AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
+                                                decomp + output_offset);
+      } break;
+
+      default:
+        ARROW_CHECK(false) << "unsupported_integer_encoding: "
+                           << static_cast<int>(integer_encoding);
+        break;
+    }
 
     output_offset += this_vector_elements;
   }
