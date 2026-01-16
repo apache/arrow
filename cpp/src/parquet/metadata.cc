@@ -834,6 +834,43 @@ class FileMetaData::FileMetaDataImpl {
                   tag, encryption::kGcmTagLength);
   }
 
+  bool VerifySignature(std::span<const uint8_t> serialized_metadata,
+                       std::span<const uint8_t> signature) {
+    // Verify decryption properties are set
+    if (file_decryptor_ == nullptr) {
+      throw ParquetException("Decryption not set properly. cannot verify signature");
+    }
+
+    if (signature.size() != encryption::kGcmTagLength + encryption::kNonceLength) {
+      throw ParquetInvalidOrCorruptedFileException(
+          "Invalid footer encryption signature (expected ",
+          encryption::kGcmTagLength + encryption::kNonceLength, " bytes, got ",
+          signature.size(), ")");
+    }
+
+    // Encrypt plaintext serialized metadata so as to compute its signature
+    auto nonce = signature.subspan(0, encryption::kNonceLength);
+    auto tag = signature.subspan(encryption::kNonceLength);
+    const SecureString& key = file_decryptor_->GetFooterKey();
+    const std::string& aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
+
+    auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
+                                                        static_cast<int>(key.size()),
+                                                        true, false /*write_length*/);
+
+    std::shared_ptr<Buffer> encrypted_buffer =
+        AllocateBuffer(file_decryptor_->pool(),
+                       aes_encryptor->CiphertextLength(serialized_metadata.size()));
+    int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+        serialized_metadata, key.as_span(), str2span(aad), nonce,
+        encrypted_buffer->mutable_span_as<uint8_t>());
+    DCHECK_EQ(encrypted_len, encrypted_buffer->size());
+    // Check computed signature against expected
+    return 0 ==
+           memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
+                  tag.data(), encryption::kGcmTagLength);
+  }
+
   inline uint32_t size() const { return metadata_len_; }
   inline int num_columns() const { return schema_.num_columns(); }
   inline int64_t num_rows() const { return metadata_->num_rows; }
@@ -1081,6 +1118,11 @@ std::unique_ptr<RowGroupMetaData> FileMetaData::RowGroup(int i) const {
 
 bool FileMetaData::VerifySignature(const void* signature) {
   return impl_->VerifySignature(signature);
+}
+
+bool FileMetaData::VerifySignature(std::span<const uint8_t> serialized_metadata,
+                                   std::span<const uint8_t> signature) {
+  return impl_->VerifySignature(serialized_metadata, signature);
 }
 
 uint32_t FileMetaData::size() const { return impl_->size(); }
