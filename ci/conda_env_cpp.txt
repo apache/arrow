@@ -35,11 +35,11 @@ libboost-devel
 libgrpc
 libprotobuf
 libutf8proc
-lz4-c
+lz4-c>=1.10.0
 make
 meson
 ninja
-nodejs
+nodejs>=16
 orc<2.1.0
 pkg-config
 python
