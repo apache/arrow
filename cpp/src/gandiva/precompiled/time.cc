@@ -747,11 +747,12 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
 
   // adjust the milliseconds
   if (sub_seconds_len > 0) {
-    if (sub_seconds_len > 3) {
-      const char* msg = "Invalid millis for timestamp value ";
-      set_error_for_date(length, input, msg, context);
-      return 0;
+    // Truncate to 3 digits (milliseconds precision) if more digits are provided
+    while (sub_seconds_len > 3) {
+      ts_fields[TimeFields::kSubSeconds] /= 10;
+      sub_seconds_len--;
     }
+    // Pad with zeros if less than 3 digits
     while (sub_seconds_len < 3) {
       ts_fields[TimeFields::kSubSeconds] *= 10;
       sub_seconds_len++;
@@ -867,12 +868,12 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
 
   // adjust the milliseconds
   if (sub_seconds_len > 0) {
-    if (sub_seconds_len > 3) {
-      const char* msg = "Invalid millis for time value ";
-      set_error_for_date(length, input, msg, context);
-      return 0;
+    // Truncate to 3 digits (milliseconds precision) if more digits are provided
+    while (sub_seconds_len > 3) {
+      time_fields[TimeFields::kSubSeconds - TimeFields::kHours] /= 10;
+      sub_seconds_len--;
     }
-
+    // Pad with zeros if less than 3 digits
     while (sub_seconds_len < 3) {
       time_fields[TimeFields::kSubSeconds - TimeFields::kHours] *= 10;
       sub_seconds_len++;
