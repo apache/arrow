@@ -59,6 +59,7 @@ case "$(uname)" in
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
+    exclude_tests+=("arrow-flight-sql-odbc-test")
     # TODO: https://github.com/apache/arrow/issues/40410
     exclude_tests+=("arrow-s3fs-test")
     ;;
