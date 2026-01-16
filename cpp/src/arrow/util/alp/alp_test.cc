@@ -269,12 +269,12 @@ TEST(AlpEncodedVectorInfoTest, Size) {
 }
 
 TEST(AlpEncodedForVectorInfoTest, Size) {
-  // AlpEncodedForVectorInfo: float=6 bytes, double=10 bytes
-  // (frame_of_reference is 4 bytes for float, 8 bytes for double, + 2 bytes)
-  EXPECT_EQ(AlpEncodedForVectorInfo<float>::kStoredSize, 6);
-  EXPECT_EQ(AlpEncodedForVectorInfo<float>::GetStoredSize(), 6);
-  EXPECT_EQ(AlpEncodedForVectorInfo<double>::kStoredSize, 10);
-  EXPECT_EQ(AlpEncodedForVectorInfo<double>::GetStoredSize(), 10);
+  // AlpEncodedForVectorInfo: float=5 bytes, double=9 bytes
+  // (frame_of_reference is 4 bytes for float, 8 bytes for double, + 1 byte for bit_width)
+  EXPECT_EQ(AlpEncodedForVectorInfo<float>::kStoredSize, 5);
+  EXPECT_EQ(AlpEncodedForVectorInfo<float>::GetStoredSize(), 5);
+  EXPECT_EQ(AlpEncodedForVectorInfo<double>::kStoredSize, 9);
+  EXPECT_EQ(AlpEncodedForVectorInfo<double>::GetStoredSize(), 9);
 }
 
 // ============================================================================
