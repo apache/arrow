@@ -26,6 +26,7 @@
 #include "arrow/table.h"
 #include "arrow/util/base64.h"
 #include "arrow/util/fuzz_internal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "parquet/arrow/reader.h"
 #include "parquet/bloom_filter.h"
@@ -95,16 +96,20 @@ std::shared_ptr<DecryptionKeyRetriever> MakeKeyRetriever() {
 namespace {
 
 Status FuzzReadData(std::unique_ptr<FileReader> reader) {
-  auto st = Status::OK();
+  auto final_status = Status::OK();
   for (int i = 0; i < reader->num_row_groups(); ++i) {
     std::shared_ptr<Table> table;
     auto row_group_status = reader->ReadRowGroup(i, &table);
     if (row_group_status.ok()) {
+      // When reading returns successfully, the Arrow data should be structurally
+      // valid so that it can be read normally. If that is not the case, abort
+      // so that the error can be published by OSS-Fuzz.
+      ARROW_CHECK_OK(table->Validate());
       row_group_status &= table->ValidateFull();
     }
-    st &= row_group_status;
+    final_status &= row_group_status;
   }
-  return st;
+  return final_status;
 }
 
 template <typename DType>
