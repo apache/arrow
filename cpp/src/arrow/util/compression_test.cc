@@ -605,8 +605,8 @@ TEST(TestCodecMisc, ZstdStreamLargerWindowLog) {
   ASSERT_OK_AND_ASSIGN(auto decompressor2, codec2->MakeDecompressor());
 
   std::vector<uint8_t> decompressed(data.size());
-  // Using a windowLog greater than ZSTD_WINDOWLOG_LIMIT_DEFAULT(1 << 27) requires
-  // explicitly allowing such size at decompression stage.
+  // Using a windowLog greater than ZSTD_WINDOWLOG_LIMIT_DEFAULT(1 << 27) at compression
+  // stage requires explicitly allowing such size at streaming decompression stage.
   auto ret = decompressor1->Decompress(compressed2.size(), compressed2.data(),
                                        decompressed.size(), decompressed.data());
   ASSERT_NOT_OK(ret);
