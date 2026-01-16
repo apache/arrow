@@ -28,7 +28,7 @@ ALP encoding consists of a page-level header followed by one or more encoded vec
 The page uses a **grouped metadata-at-start** layout for efficient random access.
 Metadata is split into two sections:
 1. **AlpInfo Section**: ALP-specific metadata (4 bytes per vector, fixed)
-2. **ForInfo Section**: FOR encoding metadata (6/10 bytes per vector, type-dependent)
+2. **ForInfo Section**: FOR encoding metadata (5/9 bytes per vector, type-dependent)
 
 This separation allows future integer encodings to replace FOR without changing AlpInfo.
 
@@ -79,7 +79,7 @@ In the page layout, all AlpInfo are stored together, then all ForInfo, then all 
 ```
 +-------------------+-------------------+
 |     AlpInfo       |     ForInfo       |
-|    (4 bytes)      | (6B float/10B dbl)|
+|    (4 bytes)      | (5B float/9B dbl) |
 +-------------------+-------------------+
 ```
 
@@ -95,7 +95,7 @@ In the page layout, all AlpInfo are stored together, then all ForInfo, then all 
 ```
 +--------+-----+-----+-----+-------+-------+-------+--------+--------+--------+
 | Header |AlpI₀|AlpI₁|AlpI₂|ForI₀  |ForI₁  |ForI₂  | Data₀  | Data₁  | Data₂  |
-| (8B)   |(4B) |(4B) |(4B) |(6B)   |(6B)   |(6B)   | (var)  | (var)  | (var)  |
+| (8B)   |(4B) |(4B) |(4B) |(5B)   |(5B)   |(5B)   | (var)  | (var)  | (var)  |
 +--------+-----+-----+-----+-------+-------+-------+--------+--------+--------+
          |<--- AlpInfo --->|<--- ForInfo --->|<--------- Data -------->|
 ```
@@ -113,28 +113,26 @@ AlpInfo contains ALP-specific metadata that is independent of the integer encodi
 ### 2.5 ForInfo Structure (type-dependent size)
 
 ForInfo contains FOR (Frame of Reference) encoding metadata. The size depends on type:
-- **Float:** 6 bytes (4-byte frame_of_reference)
-- **Double:** 10 bytes (8-byte frame_of_reference)
+- **Float:** 5 bytes (4-byte frame_of_reference + 1-byte bit_width)
+- **Double:** 9 bytes (8-byte frame_of_reference + 1-byte bit_width)
 
-#### Float ForInfo (6 bytes)
+#### Float ForInfo (5 bytes)
 
 | Offset | Field              | Size     | Type   | Description                             |
 |--------|--------------------|----------|--------|-----------------------------------------|
 | 0      | frame_of_reference | 4 bytes  | uint32 | Minimum encoded value (FOR baseline)    |
 | 4      | bit_width          | 1 byte   | uint8  | Bits per packed value (0-32)            |
-| 5      | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
 
-#### Double ForInfo (10 bytes)
+#### Double ForInfo (9 bytes)
 
 | Offset | Field              | Size     | Type   | Description                             |
 |--------|--------------------|----------|--------|-----------------------------------------|
 | 0      | frame_of_reference | 8 bytes  | uint64 | Minimum encoded value (FOR baseline)    |
 | 8      | bit_width          | 1 byte   | uint8  | Bits per packed value (0-64)            |
-| 9      | reserved           | 1 byte   | uint8  | Reserved (padding)                      |
 
 **Total metadata size per vector:**
-- **Float:** 4 + 6 = 10 bytes
-- **Double:** 4 + 10 = 14 bytes
+- **Float:** 4 + 5 = 9 bytes
+- **Double:** 4 + 9 = 13 bytes
 
 **Note:** The following are NOT stored:
 - `num_elements`: Derived from page header. For vectors 1..N-1, equals `vector_size` (1024). For last vector, equals `num_elements % vector_size` (or `vector_size` if evenly divisible).
@@ -349,7 +347,7 @@ packed_size = ceil(4 x 10 / 8) = 5 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| VectorInfo         | FOR=12, e=2, f=0, bw=10, exc=0       | 10 bytes (float) |
+| VectorInfo         | FOR=12, e=2, f=0, bw=10, exc=0       | 9 bytes (float) |
 | Packed Values      | 111, 444, 777, 0 (10 bits each)      | 5 bytes  |
 | Exception Positions| (none)                               | 0 bytes  |
 | Exception Values   | (none)                               | 0 bytes  |
@@ -410,7 +408,7 @@ packed_size = ceil(4 x 4 / 8) = 2 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| VectorInfo         | FOR=15, e=1, f=0, bw=4, exc=2        | 10 bytes (float) |
+| VectorInfo         | FOR=15, e=1, f=0, bw=4, exc=2        | 9 bytes (float) |
 | Packed Values      | 0, 0, 10, 0 (4 bits each)            | 2 bytes  |
 | Exception Positions| [1, 3]                               | 4 bytes  |
 | Exception Values   | [NaN, 0.333...]                      | 8 bytes  |
@@ -503,8 +501,8 @@ Example values: 19.99, 5.49, 149.00, 0.99, 299.99, ...
 ### 8.1 Vector Size Formula
 
 ```
-# H = VectorInfo header size (10 bytes for float, 14 bytes for double)
-vector_size = H                            // 10 bytes (float) or 14 bytes (double)
+# H = VectorInfo header size (9 bytes for float, 13 bytes for double)
+vector_size = H                            // 9 bytes (float) or 13 bytes (double)
             + bit_packed_size              // ceil(num_elements x bit_width / 8)
             + num_exceptions x 2           // exception positions (uint16)
             + num_exceptions x sizeof(T)   // exception values
@@ -513,9 +511,9 @@ vector_size = H                            // 10 bytes (float) or 14 bytes (doub
 ### 8.2 Maximum Compressed Size
 
 ```
-# H = VectorInfo header size (10 bytes for float, 14 bytes for double)
+# H = VectorInfo header size (9 bytes for float, 13 bytes for double)
 max_size = sizeof(PageHeader)              // 8 bytes
-         + num_vectors x H                   // 10 or 14 bytes each
+         + num_vectors x H                   // 9 or 13 bytes each
          + num_elements x sizeof(T)          // worst case: all values packed
          + num_elements x sizeof(T)          // worst case: all exceptions
          + num_elements x 2                  // exception positions
@@ -566,42 +564,42 @@ Notes:
 - num_elements uses uint32 because Parquet page headers use i32 for num_values.
 ```
 
-### Complete Vector Serialization (Float: VectorInfo 10 bytes)
+### Complete Vector Serialization (Float: VectorInfo 9 bytes)
 
 ```
 Byte Offset   Content
 -----------   -------------------------------------------------------
-0-3           frame_of_reference (uint32, little-endian)
-4             exponent (uint8)
-5             factor (uint8)
-6             bit_width (uint8)
-7             reserved (uint8)
-8-9           num_exceptions (uint16, little-endian)
-10            +-----------------------------------------+
-              |                                         |
+              --- AlpInfo (4 bytes) ---
+0             exponent (uint8)
+1             factor (uint8)
+2-3           num_exceptions (uint16, little-endian)
+              --- ForInfo (5 bytes) ---
+4-7           frame_of_reference (uint32, little-endian)
+8             bit_width (uint8)
+              --- Data Section ---
+9             +-----------------------------------------+
               |        Packed Values                    |
               |        (P = ceil(n * bit_width / 8))    |
-              |                                         |
-10+P          +-----------------------------------------+
+9+P           +-----------------------------------------+
 ```
 
-### Complete Vector Serialization (Double: VectorInfo 14 bytes)
+### Complete Vector Serialization (Double: VectorInfo 13 bytes)
 
 ```
 Byte Offset   Content
 -----------   -------------------------------------------------------
-0-7           frame_of_reference (uint64, little-endian)
-8             exponent (uint8)
-9             factor (uint8)
-10            bit_width (uint8)
-11            reserved (uint8)
-12-13         num_exceptions (uint16, little-endian)
-14            +-----------------------------------------+
-              |                                         |
+              --- AlpInfo (4 bytes) ---
+0             exponent (uint8)
+1             factor (uint8)
+2-3           num_exceptions (uint16, little-endian)
+              --- ForInfo (9 bytes) ---
+4-11          frame_of_reference (uint64, little-endian)
+12            bit_width (uint8)
+              --- Data Section ---
+13            +-----------------------------------------+
               |        Packed Values                    |
               |        (P = ceil(n * bit_width / 8))    |
-              |                                         |
-14+P          +-----------------------------------------+
+13+P          +-----------------------------------------+
               |                                         |
               |        Exception Positions              |
               |        (num_exceptions x 2 bytes)       |

@@ -224,28 +224,26 @@ struct AlpEncodedVectorInfo {
 ///   - float:  uint32_t frame_of_reference (4 bytes)
 ///   - double: uint64_t frame_of_reference (8 bytes)
 ///
-/// Serialization format for float (6 bytes):
+/// Serialization format for float (5 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedForVectorInfo<float> (6B)     |
+///   |  AlpEncodedForVectorInfo<float> (5B)     |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
 ///   |    0    |  frame_of_reference |  4 bytes |
 ///   |    4    |  bit_width (uint8_t)|  1 byte  |
-///   |    5    |  reserved (uint8_t) |  1 byte  |
 ///   +------------------------------------------+
 ///
-/// Serialization format for double (10 bytes):
+/// Serialization format for double (9 bytes):
 ///
 ///   +------------------------------------------+
-///   |  AlpEncodedForVectorInfo<double> (10B)   |
+///   |  AlpEncodedForVectorInfo<double> (9B)    |
 ///   +------------------------------------------+
 ///   |  Offset |  Field              |  Size    |
 ///   +---------+---------------------+----------+
 ///   |    0    |  frame_of_reference |  8 bytes |
 ///   |    8    |  bit_width (uint8_t)|  1 byte  |
-///   |    9    |  reserved (uint8_t) |  1 byte  |
 ///   +------------------------------------------+
 ///
 /// \tparam T the floating point type (float or double)
@@ -261,11 +259,9 @@ struct AlpEncodedForVectorInfo {
   ExactType frame_of_reference = 0;
   /// Bitwidth used for bitpacking
   uint8_t bit_width = 0;
-  /// Reserved for future use (padding for alignment)
-  uint8_t reserved = 0;
 
-  /// Size of the serialized portion (6 bytes for float, 10 for double)
-  static constexpr uint64_t kStoredSize = sizeof(ExactType) + 2;
+  /// Size of the serialized portion (5 bytes for float, 9 for double)
+  static constexpr uint64_t kStoredSize = sizeof(ExactType) + 1;
 
   /// \brief Compute the bitpacked size in bytes from num_elements and bit_width
   ///

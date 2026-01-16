@@ -12,7 +12,7 @@
 ```
 
 AlpInfo (ALP-specific) and ForInfo (FOR-specific) stored separately, then data.
-Total metadata: 10B per vector (float), 14B per vector (double).
+Total metadata: 9B per vector (float), 13B per vector (double).
 
 ### Page Header (8 bytes)
 
@@ -38,21 +38,19 @@ Total metadata: 10B per vector (float), 14B per vector (double).
 
 ### ForInfo (type-dependent)
 
-**Float (6 bytes):**
+**Float (5 bytes):**
 
 | Offset | Field | Size | Type |
 |--------|-------|------|------|
 | 0 | frame_of_reference | 4B | uint32 |
 | 4 | bit_width | 1B | uint8, 0..32 |
-| 5 | reserved | 1B | - |
 
-**Double (10 bytes):**
+**Double (9 bytes):**
 
 | Offset | Field | Size | Type |
 |--------|-------|------|------|
 | 0 | frame_of_reference | 8B | uint64 |
 | 8 | bit_width | 1B | uint8, 0..64 |
-| 9 | reserved | 1B | - |
 
 ### Data Section
 
@@ -139,7 +137,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | bit_width | `ceil(log2(778))` | 10 |
 | packed_size | `ceil(4*10/8)` | 5B |
 
-**Output:** 10B (info, float) + 5B (packed) = **15B**
+**Output:** 9B (info, float) + 5B (packed) = **14B**
 
 ### Example 2: With Exceptions
 
@@ -153,7 +151,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | FOR=15 | `delta = [0, 0, 10, 0]` |
 | bit_width=4 | packed_size = 2B |
 
-**Output:** 10B (info, float) + 2B (packed) + 4B (pos) + 8B (vals) = **24B**
+**Output:** 9B (info, float) + 2B (packed) + 4B (pos) + 8B (vals) = **23B**
 
 ### Example 3: 1024 Monetary Values ($0.01-$999.99)
 
@@ -162,7 +160,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | e=2, f=0 | range: 1..99999 |
 | bit_width | ceil(log2(99999)) = 17 |
 | packed_size | ceil(1024*17/8) = 2176B |
-| **Total (float)** | 10B + 2176B = ~2186B vs 4096B PLAIN (**47% smaller**) |
+| **Total (float)** | 9B + 2176B = ~2185B vs 4096B PLAIN (**47% smaller**) |
 
 ---
 
@@ -218,7 +216,7 @@ Offset  Field
 4-7     num_elements (uint32, total count)
 ```
 
-**VectorInfo (Float, 10 bytes):**
+**VectorInfo (Float, 9 bytes):**
 ```
 Offset  Field
 ------  -----
@@ -233,7 +231,7 @@ Offset  Field
 10+P+2E exception_vals[num_exceptions]
 ```
 
-**VectorInfo (Double, 14 bytes):**
+**VectorInfo (Double, 13 bytes):**
 ```
 Offset  Field
 ------  -----
