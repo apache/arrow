@@ -272,7 +272,6 @@ else
     -DgRPC_SOURCE=${gRPC_SOURCE:-} \
     -DGTest_SOURCE=${GTest_SOURCE:-} \
     -Dlz4_SOURCE=${lz4_SOURCE:-} \
-    -DODBC_INCLUDE_DIR="${ODBC_INCLUDE_DIR:-}" \
     -Dopentelemetry-cpp_SOURCE=${opentelemetry_cpp_SOURCE:-} \
     -DORC_SOURCE=${ORC_SOURCE:-} \
     -DPARQUET_BUILD_EXAMPLES=${PARQUET_BUILD_EXAMPLES:-OFF} \
