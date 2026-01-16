@@ -264,7 +264,7 @@ class ReportUtils:
                 smtp.starttls()
             smtp.login(smtp_user, smtp_password)
             message = report.render()
-            smtp.send_message(smtp_user, report.recipient_email, message)
+            smtp.send_message(message)
 
     @classmethod
     def write_csv(cls, report, add_headers=True):
