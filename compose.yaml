@@ -924,7 +924,8 @@ services:
       ["
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
 
   conda-python-emscripten:
     # Usage:
@@ -1008,7 +1009,8 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow"
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"
 
   debian-python:
     # Usage:
@@ -1510,7 +1512,8 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         mamba uninstall -y numpy &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
 
   conda-python-docs:
     # Usage:
@@ -1536,7 +1539,8 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
 
   conda-python-dask:
     # Possible $DASK parameters:
