@@ -758,9 +758,9 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
   }
 
   // Analyze FOR.
-  const auto [min, max] =
+  const auto [min_it, max_it] =
       std::minmax_element(encoded_integers.begin(), encoded_integers.end());
-  const auto frame_of_reference = static_cast<ExactType>(*min);
+  const auto frame_of_reference = static_cast<ExactType>(*min_it);
 
   for (SignedExactType& encoded_integer : encoded_integers) {
     // Use SafeCopy to avoid strict aliasing violation when converting between
@@ -771,7 +771,7 @@ auto AlpCompression<T>::EncodeVector(arrow::util::span<const T> input_vector,
   }
 
   const ExactType min_max_diff =
-      (static_cast<ExactType>(*max) - static_cast<ExactType>(*min));
+      (static_cast<ExactType>(*max_it) - static_cast<ExactType>(*min_it));
   return EncodingResult{encoded_integers, exceptions, exception_positions, min_max_diff,
                         frame_of_reference};
 }
