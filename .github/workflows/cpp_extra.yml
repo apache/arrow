@@ -457,6 +457,26 @@ jobs:
           name: flight-sql-odbc-msi-installer
           path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
           if-no-files-found: error
+      # Upload ODBC installer as nightly release in scheduled runs
+      - name: Prepare ODBC installer for sync
+        if: github.event_name == 'schedule'
+        run: |
+          mkdir odbc-installer
+          Move-Item "build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi" odbc-installer/
+          tree odbc-installer /f
+      - name: Sync to Remote
+        if: github.event_name == 'schedule'
+        uses: ./.github/actions/sync-nightlies
+        with:
+          upload: true
+          switches: -avzh --update --delete --progress
+          local_path: odbc-installer
+          remote_path: ${{ secrets.NIGHTLIES_RSYNC_PATH }}/arrow/odbc
+          remote_host: ${{ secrets.NIGHTLIES_RSYNC_HOST }}
+          remote_port: ${{ secrets.NIGHTLIES_RSYNC_PORT }}
+          remote_user: ${{ secrets.NIGHTLIES_RSYNC_USER }}
+          remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
+          remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
