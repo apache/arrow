@@ -46,6 +46,22 @@ TEST(AlpConstantsTest, SamplerConstants) {
 }
 
 // ============================================================================
+// AlpIntegerEncoding Tests
+// ============================================================================
+
+TEST(AlpIntegerEncodingTest, GetIntegerEncodingMetadataSize) {
+  // Verify helper returns correct sizes for kForBitPack
+  EXPECT_EQ(GetIntegerEncodingMetadataSize<float>(AlpIntegerEncoding::kForBitPack),
+            AlpEncodedForVectorInfo<float>::kStoredSize);
+  EXPECT_EQ(GetIntegerEncodingMetadataSize<double>(AlpIntegerEncoding::kForBitPack),
+            AlpEncodedForVectorInfo<double>::kStoredSize);
+
+  // Verify actual byte sizes (frame_of_reference + bit_width, no reserved)
+  EXPECT_EQ(GetIntegerEncodingMetadataSize<float>(AlpIntegerEncoding::kForBitPack), 5);
+  EXPECT_EQ(GetIntegerEncodingMetadataSize<double>(AlpIntegerEncoding::kForBitPack), 9);
+}
+
+// ============================================================================
 // ALP Compression Tests (Float)
 // ============================================================================
 
@@ -502,6 +518,28 @@ TYPED_TEST_SUITE(AlpEdgeCaseTest, EdgeCaseTestTypes);
 TYPED_TEST(AlpEdgeCaseTest, SingleElement) {
   std::vector<TypeParam> input = {static_cast<TypeParam>(42.5)};
   this->TestCompressDecompress(input);
+}
+
+TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
+  // Test zero elements - empty vector
+  // The wrapper API requires decomp_size to be a multiple of sizeof(T),
+  // and 0 is a valid multiple. This tests the boundary condition.
+  std::vector<TypeParam> input;
+
+  uint64_t max_size = AlpWrapper<TypeParam>::GetMaxCompressedSize(0);
+  std::vector<char> buffer(max_size > 0 ? max_size : 8);  // Ensure some buffer
+  size_t comp_size = buffer.size();
+
+  AlpWrapper<TypeParam>::Encode(input.data(), 0, buffer.data(), &comp_size);
+
+  // Decode zero elements
+  std::vector<TypeParam> output;
+  AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), 0,
+                                                    buffer.data(), comp_size);
+
+  // Both should be empty
+  EXPECT_EQ(input.size(), output.size());
+  EXPECT_EQ(input.size(), 0);
 }
 
 TYPED_TEST(AlpEdgeCaseTest, TwoElements) {
@@ -1225,6 +1263,54 @@ TYPED_TEST(AlpSamplerTest, EmptySample) {
 }
 
 // ============================================================================
+// Empty Input Tests
+// ============================================================================
+
+TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
+  // Test compressing zero elements - edge case that should be handled gracefully
+  std::vector<TypeParam> empty_input;
+  AlpCompression<TypeParam> compressor;
+  AlpEncodingPreset preset{};
+
+  // Compress 0 elements - should produce a valid (minimal) encoded vector
+  auto encoded = compressor.CompressVector(empty_input.data(), 0, preset);
+
+  EXPECT_EQ(encoded.num_elements, 0);
+  EXPECT_EQ(encoded.alp_info.num_exceptions, 0);
+  EXPECT_EQ(encoded.packed_values.size(), 0);
+  EXPECT_EQ(encoded.exceptions.size(), 0);
+  EXPECT_EQ(encoded.exception_positions.size(), 0);
+
+  // Decompress should also handle 0 elements
+  std::vector<TypeParam> output;
+  compressor.DecompressVector(encoded, AlpIntegerEncoding::kForBitPack, output.data());
+  // No crash = success for empty case
+}
+
+TYPED_TEST(AlpWrapperTest, EmptyInput) {
+  // Test wrapper with zero elements
+  std::vector<TypeParam> empty_input;
+
+  uint64_t max_comp_size = AlpWrapper<TypeParam>::GetMaxCompressedSize(0);
+  EXPECT_GT(max_comp_size, 0);  // Should at least have header space
+
+  std::vector<char> comp_buffer(max_comp_size);
+  size_t comp_size = comp_buffer.size();
+
+  // Encode 0 bytes (0 elements)
+  AlpWrapper<TypeParam>::Encode(empty_input.data(), 0, comp_buffer.data(), &comp_size);
+
+  // Should produce at least the header
+  EXPECT_GT(comp_size, 0);
+
+  // Decode 0 elements
+  std::vector<TypeParam> output;
+  AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), 0,
+                                                     comp_buffer.data(), comp_size);
+  // No crash = success
+}
+
+// ============================================================================
 // Corrupted Data Handling Tests
 // ============================================================================
 
@@ -1288,6 +1374,48 @@ TEST(AlpRobustnessTest, TruncatedData) {
 
   // Verify successful decode
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(double)), 0);
+}
+
+TEST(AlpRobustnessTest, MetadataCacheOutOfBounds) {
+  // Test that AlpMetadataCache properly checks bounds on vector access
+  // Create a cache with 2 vectors
+  AlpEncodedVectorInfo alp_info{};
+  alp_info.exponent = 5;
+  alp_info.factor = 3;
+  alp_info.num_exceptions = 0;
+
+  AlpEncodedForVectorInfo<double> for_info{};
+  for_info.frame_of_reference = 100;
+  for_info.bit_width = 8;
+
+  constexpr uint32_t num_vectors = 2;
+  const uint64_t alp_info_size = AlpEncodedVectorInfo::kStoredSize;
+  const uint64_t for_info_size = AlpEncodedForVectorInfo<double>::kStoredSize;
+
+  std::vector<char> alp_buffer(num_vectors * alp_info_size);
+  std::vector<char> for_buffer(num_vectors * for_info_size);
+
+  for (uint32_t i = 0; i < num_vectors; i++) {
+    alp_info.Store({alp_buffer.data() + i * alp_info_size, alp_info_size});
+    for_info.Store({for_buffer.data() + i * for_info_size, for_info_size});
+  }
+
+  AlpMetadataCache<double> cache = AlpMetadataCache<double>::Load(
+      num_vectors, 1024, 2048, AlpIntegerEncoding::kForBitPack,
+      {alp_buffer.data(), alp_buffer.size()}, {for_buffer.data(), for_buffer.size()});
+
+  // Valid accesses should work
+  EXPECT_EQ(cache.GetNumVectors(), 2);
+  EXPECT_NO_FATAL_FAILURE(cache.GetAlpInfo(0));
+  EXPECT_NO_FATAL_FAILURE(cache.GetAlpInfo(1));
+  EXPECT_NO_FATAL_FAILURE(cache.GetForInfo(0));
+  EXPECT_NO_FATAL_FAILURE(cache.GetForInfo(1));
+
+  // Out-of-bounds access should abort (ARROW_CHECK)
+  EXPECT_DEATH_IF_SUPPORTED(cache.GetAlpInfo(2), "vector_index_out_of_range");
+  EXPECT_DEATH_IF_SUPPORTED(cache.GetForInfo(2), "vector_index_out_of_range");
+  EXPECT_DEATH_IF_SUPPORTED(cache.GetVectorDataOffset(2), "vector_index_out_of_range");
+  EXPECT_DEATH_IF_SUPPORTED(cache.GetVectorNumElements(2), "vector_index_out_of_range");
 }
 #endif  // GTEST_HAS_DEATH_TEST
 
