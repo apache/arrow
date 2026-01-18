@@ -122,6 +122,8 @@ TEST(Misc, BuildInfo) {
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
 
+// TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
+ARROW_SUPPRESS_DEPRECATION_WARNING
 TEST(Misc, SetTimezoneConfig) {
 #ifndef _WIN32
   GTEST_SKIP() << "Can only set the Timezone database on Windows";
@@ -163,5 +165,6 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK(arrow::Initialize(options));
 #endif
 }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 }  // namespace arrow

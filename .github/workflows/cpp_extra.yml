@@ -377,6 +377,10 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: ci/scripts/download_tz_database.sh
+      - name: Install cmake
+        shell: bash
+        run: |
+          ci/scripts/install_cmake.sh 4.1.2 /usr
       - name: Install ccache
         shell: bash
         run: |

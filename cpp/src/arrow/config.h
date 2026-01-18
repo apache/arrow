@@ -22,6 +22,7 @@
 
 #include "arrow/status.h"
 #include "arrow/util/config.h"  // IWYU pragma: export
+#include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -86,12 +87,20 @@ const BuildInfo& GetBuildInfo();
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
 
-struct GlobalOptions {
-  /// Path to text timezone database. This is only configurable on Windows,
-  /// which does not have a compatible OS timezone database.
+/// \deprecated Deprecated in 24.0.0. This struct is only needed for
+/// Windows builds with Clang/libc++ and will be removed once libc++
+/// supports std::chrono timezones.
+struct ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
+    GlobalOptions {
+  /// Path to text timezone database. This is only configurable on Windows
+  /// builds using Clang/libc++ which require the vendored date library.
   std::optional<std::string> timezone_db_path;
 };
 
+/// \deprecated Deprecated in 24.0.0. This function is only needed for
+/// Windows builds with Clang/libc++ and will be removed once libc++
+/// supports std::chrono timezones.
+ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_EXPORT
 Status Initialize(const GlobalOptions& options) noexcept;
 
