@@ -26,6 +26,10 @@
 - Ensure `MAKEFLAGS` being passed during compilation (#48341)
 - Update bundled RE2 to enable Alpine Linux builds (#48011)
 
+## New features
+
+- `nchar()` supports the `keepNA = FALSE` argument to replace `NA` values with `2` (@HyukjinKwon, #48665).
+
 # arrow 22.0.0
 
 ## New features
