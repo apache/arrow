@@ -42,6 +42,10 @@ module Arrow
       @data.to_arrow_chunked_array
     end
 
+    def values
+      @data.values
+    end
+
     def name
       @field.name
     end

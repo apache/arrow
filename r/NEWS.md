@@ -17,7 +17,20 @@
   under the License.
 -->
 
-# arrow 22.0.0.9000
+# arrow 23.0.0.9000
+
+# arrow 23.0.0
+# arrow 22.0.0.1
+
+## Minor improvements and fixes
+
+- Turn off GCS support by default; bundle if enabled (#48343)
+- Ensure `MAKEFLAGS` being passed during compilation (#48341)
+- Update bundled RE2 to enable Alpine Linux builds (#48011)
+
+## New features
+
+- `nchar()` supports the `keepNA = FALSE` argument to replace `NA` values with `2` (@HyukjinKwon, #48665).
 
 # arrow 22.0.0
 

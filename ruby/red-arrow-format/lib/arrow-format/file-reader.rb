@@ -17,9 +17,6 @@
 
 require_relative "streaming-reader"
 
-require_relative "org/apache/arrow/flatbuf/block"
-require_relative "org/apache/arrow/flatbuf/footer"
-
 module ArrowFormat
   class FileReader
     include Enumerable
@@ -49,74 +46,30 @@ module ArrowFormat
 
       validate
       @footer = read_footer
-      @record_batches = @footer.record_batches
+      @record_batch_blocks = @footer.record_batches
       @schema = read_schema(@footer.schema)
+      @dictionaries = read_dictionaries
     end
 
     def n_record_batches
-      @record_batches.size
+      @record_batch_blocks.size
     end
 
     def read(i)
-      block = @record_batches[i]
-
-      offset = block.offset
-
-      # If we can report property error information, we can use
-      # MessagePullReader here.
-      #
-      # message_pull_reader = MessagePullReader.new do |message, body|
-      #   return read_record_batch(message.header, @schema, body)
-      # end
-      # chunk = @buffer.slice(offset,
-      #                       MessagePullReader::CONTINUATION_SIZE +
-      #                       MessagePullReader::METADATA_LENGTH_SIZE +
-      #                       block.meta_data_length +
-      #                       block.body_length)
-      # message_pull_reader.consume(chunk)
-
-      continuation_size = CONTINUATION_BUFFER.size
-      continuation = @buffer.slice(offset, continuation_size)
-      unless continuation == CONTINUATION_BUFFER
-        raise FileReadError.new(@buffer,
-                                "Invalid continuation: #{i}: " +
-                                continuation.inspect)
-      end
-      offset += continuation_size
-
-      metadata_length_type = MessagePullReader::METADATA_LENGTH_TYPE
-      metadata_length_size = MessagePullReader::METADATA_LENGTH_SIZE
-      metadata_length = @buffer.get_value(metadata_length_type, offset)
-      expected_metadata_length =
-        block.meta_data_length -
-        continuation_size -
-        metadata_length_size
-      unless metadata_length == expected_metadata_length
-        raise FileReadError.new(@buffer,
-                                "Invalid metadata length #{i}: " +
-                                "expected:#{expected_metadata_length} " +
-                                "actual:#{metadata_length}")
-      end
-      offset += metadata_length_size
-
-      metadata = @buffer.slice(offset, metadata_length)
-      fb_message = Org::Apache::Arrow::Flatbuf::Message.new(metadata)
+      fb_message, body = read_block(@record_batch_blocks[i], :record_batch, i)
       fb_header = fb_message.header
-      unless fb_header.is_a?(Org::Apache::Arrow::Flatbuf::RecordBatch)
+      unless fb_header.is_a?(FB::RecordBatch)
         raise FileReadError.new(@buffer,
                                 "Not a record batch message: #{i}: " +
                                 fb_header.class.name)
       end
-      offset += metadata_length
-
-      body = @buffer.slice(offset, block.body_length)
       read_record_batch(fb_header, @schema, body)
     end
 
     def each
       return to_enum(__method__) {n_record_batches} unless block_given?
 
-      @record_batches.size.times do |i|
+      @record_batch_blocks.size.times do |i|
         yield(read(i))
       end
     end
@@ -148,7 +101,110 @@ module ArrowFormat
       footer_size = @buffer.get_value(FOOTER_SIZE_FORMAT, footer_size_offset)
       footer_data = @buffer.slice(footer_size_offset - footer_size,
                                   footer_size)
-      Org::Apache::Arrow::Flatbuf::Footer.new(footer_data)
+      FB::Footer.new(footer_data)
+    end
+
+    def read_block(block, type, i)
+      offset = block.offset
+
+      # If we can report property error information, we can use
+      # MessagePullReader here.
+      #
+      # message_pull_reader = MessagePullReader.new do |message, body|
+      #   return read_record_batch(message.header, @schema, body)
+      # end
+      # chunk = @buffer.slice(offset,
+      #                       MessagePullReader::CONTINUATION_SIZE +
+      #                       MessagePullReader::METADATA_LENGTH_SIZE +
+      #                       block.meta_data_length +
+      #                       block.body_length)
+      # message_pull_reader.consume(chunk)
+
+      continuation_size = CONTINUATION_BUFFER.size
+      continuation = @buffer.slice(offset, continuation_size)
+      unless continuation == CONTINUATION_BUFFER
+        raise FileReadError.new(@buffer,
+                                "Invalid continuation: #{type}: #{i}: " +
+                                continuation.inspect)
+      end
+      offset += continuation_size
+
+      metadata_length_type = MessagePullReader::METADATA_LENGTH_TYPE
+      metadata_length_size = MessagePullReader::METADATA_LENGTH_SIZE
+      metadata_length = @buffer.get_value(metadata_length_type, offset)
+      expected_metadata_length =
+        block.meta_data_length -
+        continuation_size -
+        metadata_length_size
+      unless metadata_length == expected_metadata_length
+        raise FileReadError.new(@buffer,
+                                "Invalid metadata length: #{type}: #{i}: " +
+                                "expected:#{expected_metadata_length} " +
+                                "actual:#{metadata_length}")
+      end
+      offset += metadata_length_size
+
+      metadata = @buffer.slice(offset, metadata_length)
+      fb_message = FB::Message.new(metadata)
+      offset += metadata_length
+
+      body = @buffer.slice(offset, block.body_length)
+
+      [fb_message, body]
+    end
+
+    def read_dictionaries
+      dictionary_blocks = @footer.dictionaries
+      return nil if dictionary_blocks.nil?
+
+      dictionary_fields = {}
+      @schema.fields.each do |field|
+        next unless field.type.is_a?(DictionaryType)
+        dictionary_fields[field.dictionary_id] = field
+      end
+
+      dictionaries = {}
+      dictionary_blocks.each_with_index do |block, i|
+        fb_message, body = read_block(block, :dictionary_block, i)
+        fb_header = fb_message.header
+        unless fb_header.is_a?(FB::DictionaryBatch)
+          raise FileReadError.new(@buffer,
+                                  "Not a dictionary batch message: " +
+                                  fb_header.inspect)
+        end
+
+        id = fb_header.id
+        if fb_header.delta?
+          unless dictionaries.key?(id)
+            raise FileReadError.new(@buffer,
+                                    "A delta dictionary batch message " +
+                                    "must exist after a non delta " +
+                                    "dictionary batch message: " +
+                                    fb_header.inspect)
+          end
+        else
+          if dictionaries.key?(id)
+            raise FileReadError.new(@buffer,
+                                    "Multiple non delta dictionary batch " +
+                                    "messages for the same ID is invalid: " +
+                                    fb_header.inspect)
+          end
+        end
+
+        value_type = dictionary_fields[id].type.value_type
+        schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+        record_batch = read_record_batch(fb_header.data, schema, body)
+        if fb_header.delta?
+          dictionaries[id] << record_batch.columns[0]
+        else
+          dictionaries[id] = [record_batch.columns[0]]
+        end
+      end
+      dictionaries
+    end
+
+    def find_dictionary(id)
+      @dictionaries[id]
     end
   end
 end

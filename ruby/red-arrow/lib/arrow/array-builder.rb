@@ -74,14 +74,23 @@ module Arrow
             detected: true,
           }
         when Integer
-          if value < 0
+          builder_info ||= {}
+          min = builder_info[:min] || value
+          max = builder_info[:max] || value
+          min = value if value < min
+          max = value if value > max
+
+          if builder_info[:builder_type] == :int || value < 0
             {
-              builder: IntArrayBuilder.new,
-              detected: true,
+              builder_type: :int,
+              min: min,
+              max: max,
             }
           else
             {
-              builder: UIntArrayBuilder.new,
+              builder_type: :uint,
+              min: min,
+              max: max,
             }
           end
         when Time
@@ -150,18 +159,19 @@ module Arrow
             end
           end
         when ::Array
-          sub_builder_info = nil
+          sub_builder_info = builder_info && builder_info[:value_builder_info]
           value.each do |sub_value|
             sub_builder_info = detect_builder_info(sub_value, sub_builder_info)
             break if sub_builder_info and sub_builder_info[:detected]
           end
           if sub_builder_info
-            sub_builder = sub_builder_info[:builder]
-            return builder_info unless sub_builder
+            sub_builder = sub_builder_info[:builder] || create_builder(sub_builder_info)
+            return sub_builder_info unless sub_builder
             sub_value_data_type = sub_builder.value_data_type
             field = Field.new("item", sub_value_data_type)
             {
               builder: ListArrayBuilder.new(ListDataType.new(field)),
+              value_builder_info: sub_builder_info,
               detected: sub_builder_info[:detected],
             }
           else
@@ -186,6 +196,35 @@ module Arrow
           data_type = Decimal256DataType.new(builder_info[:precision],
                                              builder_info[:scale])
           Decimal256ArrayBuilder.new(data_type)
+        when :int
+          min = builder_info[:min]
+          max = builder_info[:max]
+
+          if GLib::MININT8 <= min && max <= GLib::MAXINT8
+            Int8ArrayBuilder.new
+          elsif GLib::MININT16 <= min && max <= GLib::MAXINT16
+            Int16ArrayBuilder.new
+          elsif GLib::MININT32 <= min && max <= GLib::MAXINT32
+            Int32ArrayBuilder.new
+          elsif GLib::MININT64 <= min && max <= GLib::MAXINT64
+            Int64ArrayBuilder.new
+          else
+            StringArrayBuilder.new
+          end
+        when :uint
+          max = builder_info[:max]
+
+          if max <= GLib::MAXUINT8
+            UInt8ArrayBuilder.new
+          elsif max <= GLib::MAXUINT16
+            UInt16ArrayBuilder.new
+          elsif max <= GLib::MAXUINT32
+            UInt32ArrayBuilder.new
+          elsif max <= GLib::MAXUINT64
+            UInt64ArrayBuilder.new
+          else
+            StringArrayBuilder.new
+          end
         else
           nil
         end

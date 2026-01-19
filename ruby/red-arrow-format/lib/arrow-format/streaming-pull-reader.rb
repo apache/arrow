@@ -123,7 +123,7 @@ module ArrowFormat
 
     def consume_metadata(target)
       metadata_buffer = target.slice(0, @metadata_length)
-      @message = Org::Apache::Arrow::Flatbuf::Message.new(metadata_buffer)
+      @message = FB::Message.new(metadata_buffer)
       @body_length = @message.body_length
       if @body_length < 0
         raise ReadError.new("Negative body length: " +
@@ -151,6 +151,8 @@ module ArrowFormat
       end
       @state = :schema
       @schema = nil
+      @dictionaries = nil
+      @dictionary_fields = nil
     end
 
     def next_required_size
@@ -170,30 +172,71 @@ module ArrowFormat
       case @state
       when :schema
         process_schema_message(message, body)
-      when :record_batch
-        process_record_batch_message(message, body)
+      when :initial_dictionaries
+        header = message.header
+        unless header.is_a?(FB::DictionaryBatch)
+          raise ReadError.new("Not a dictionary batch message: " +
+                              header.inspect)
+        end
+        process_dictionary_batch_message(message, body)
+        if @dictionaries.size == @dictionary_fields.size
+          @state = :data
+        end
+      when :data
+        case message.header
+        when FB::DictionaryBatch
+          process_dictionary_batch_message(message, body)
+        when FB::RecordBatch
+          process_record_batch_message(message, body)
+        end
       end
     end
 
     def process_schema_message(message, body)
       header = message.header
-      unless header.is_a?(Org::Apache::Arrow::Flatbuf::Schema)
+      unless header.is_a?(FB::Schema)
         raise ReadError.new("Not a schema message: " +
                             header.inspect)
       end
 
       @schema = read_schema(header)
-      # TODO: initial dictionaries support
-      @state = :record_batch
+      @dictionaries = {}
+      @dictionary_fields = {}
+      @schema.fields.each do |field|
+        next unless field.type.is_a?(DictionaryType)
+        @dictionary_fields[field.dictionary_id] = field
+      end
+      if @dictionaries.size < @dictionary_fields.size
+        @state = :initial_dictionaries
+      else
+        @state = :data
+      end
+    end
+
+    def process_dictionary_batch_message(message, body)
+      header = message.header
+      if @state == :initial_dictionaries and header.delta?
+        raise ReadError.new("An initial dictionary batch message must be " +
+                            "a non delta dictionary batch message: " +
+                            header.inspect)
+      end
+      field = @dictionary_fields[header.id]
+      value_type = field.type.value_type
+      schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+      record_batch = read_record_batch(header.data, schema, body)
+      if header.delta?
+        @dictionaries[header.id] << record_batch.columns[0]
+      else
+        @dictionaries[header.id] = [record_batch.columns[0]]
+      end
+    end
+
+    def find_dictionary(id)
+      @dictionaries[id]
     end
 
     def process_record_batch_message(message, body)
       header = message.header
-      unless header.is_a?(Org::Apache::Arrow::Flatbuf::RecordBatch)
-        raise ReadError.new("Not a record batch message: " +
-                            header.inspect)
-      end
-
       @on_read.call(read_record_batch(header, @schema, body))
     end
   end

@@ -44,7 +44,10 @@
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/type_traits.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/visit_array_inline.h"
+#include "arrow/visit_data_inline.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/chunker_internal.h"
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
@@ -1280,7 +1283,8 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
 
   TypedColumnWriterImpl(ColumnChunkMetaDataBuilder* metadata,
                         std::unique_ptr<PageWriter> pager, const bool use_dictionary,
-                        Encoding::type encoding, const WriterProperties* properties)
+                        Encoding::type encoding, const WriterProperties* properties,
+                        BloomFilter* bloom_filter)
       : ColumnWriterImpl(metadata, std::move(pager), use_dictionary, encoding,
                          properties) {
     current_encoder_ = MakeEncoder(ParquetType::type_num, encoding, use_dictionary,
@@ -1292,6 +1296,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     // Will be null if not using dictionary, but that's ok
     current_dict_encoder_ =
         dynamic_cast<DictEncoder<ParquetType>*>(current_encoder_.get());
+
+    if (bloom_filter != nullptr) {
+      bloom_filter_writer_ = std::make_unique<BloomFilterWriter>(descr_, bloom_filter);
+    }
 
     // GH-46205: Geometry/Geography are the first non-nested logical types to have a
     // SortOrder::UNKNOWN. Currently, the presence of statistics is tied to
@@ -1621,6 +1629,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
  private:
   using ValueEncoderType = typename EncodingTraits<ParquetType>::Encoder;
   using TypedStats = TypedStatistics<ParquetType>;
+  using BloomFilterWriter = TypedBloomFilterWriter<ParquetType>;
   std::unique_ptr<Encoder> current_encoder_;
   // Downcasted observers of current_encoder_.
   // The downcast is performed once as opposed to at every use since
@@ -1633,6 +1642,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
   std::unique_ptr<SizeStatistics> page_size_statistics_;
   std::shared_ptr<SizeStatistics> chunk_size_statistics_;
   std::shared_ptr<geospatial::GeoStatistics> chunk_geospatial_statistics_;
+  std::unique_ptr<BloomFilterWriter> bloom_filter_writer_;
   bool pages_change_on_record_boundaries_;
 
   // If writing a sequence of ::arrow::DictionaryArray to the writer, we keep the
@@ -1867,6 +1877,9 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
         chunk_geospatial_statistics_->Update(values, num_values);
       }
     }
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->Update(values, num_values);
+    }
   }
 
   /// \brief Write values with spaces and update page statistics accordingly.
@@ -1888,8 +1901,15 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     if (num_values != num_spaced_values) {
       current_value_encoder_->PutSpaced(values, static_cast<int>(num_spaced_values),
                                         valid_bits, valid_bits_offset);
+      if (bloom_filter_writer_ != nullptr) {
+        bloom_filter_writer_->UpdateSpaced(values, num_spaced_values, valid_bits,
+                                           valid_bits_offset);
+      }
     } else {
       current_value_encoder_->Put(values, static_cast<int>(num_values));
+      if (bloom_filter_writer_ != nullptr) {
+        bloom_filter_writer_->Update(values, num_values);
+      }
     }
     if (page_statistics_ != nullptr) {
       page_statistics_->UpdateSpaced(values, valid_bits, valid_bits_offset,
@@ -1976,16 +1996,19 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                                  &exec_ctx));
       referenced_dictionary = referenced_dictionary_datum.make_array();
     }
-
-    int64_t non_null_count = chunk_indices->length() - chunk_indices->null_count();
-    page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
-    page_statistics_->IncrementNumValues(non_null_count);
-    page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
-
+    if (page_statistics_ != nullptr) {
+      int64_t non_null_count = chunk_indices->length() - chunk_indices->null_count();
+      page_statistics_->IncrementNullCount(num_chunk_levels - non_null_count);
+      page_statistics_->IncrementNumValues(non_null_count);
+      page_statistics_->Update(*referenced_dictionary, /*update_counts=*/false);
+    }
     if (chunk_geospatial_statistics_ != nullptr) {
       throw ParquetException(
           "Writing dictionary-encoded GEOMETRY or GEOGRAPHY with statistics is not "
           "supported");
+    }
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->Update(*referenced_dictionary);
     }
   };
 
@@ -2003,7 +2026,7 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowDictionary(
                       AddIfNotNull(rep_levels, offset));
     std::shared_ptr<Array> writeable_indices =
         indices->Slice(value_offset, batch_num_spaced_values);
-    if (page_statistics_) {
+    if (page_statistics_ || bloom_filter_writer_) {
       update_stats(/*num_chunk_levels=*/batch_size, writeable_indices);
     }
     PARQUET_ASSIGN_OR_THROW(
@@ -2476,6 +2499,11 @@ Status TypedColumnWriterImpl<ByteArrayType>::WriteArrowDense(
     if (chunk_geospatial_statistics_ != nullptr) {
       chunk_geospatial_statistics_->Update(*data_slice);
     }
+
+    if (bloom_filter_writer_ != nullptr) {
+      bloom_filter_writer_->Update(*data_slice);
+    }
+
     CommitWriteAndCheckPageLimit(batch_size, batch_num_values, batch_size - non_null,
                                  check_page);
     CheckDictionarySizeLimit();
@@ -2644,7 +2672,8 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
 
 std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* metadata,
                                                  std::unique_ptr<PageWriter> pager,
-                                                 const WriterProperties* properties) {
+                                                 const WriterProperties* properties,
+                                                 BloomFilter* bloom_filter) {
   const ColumnDescriptor* descr = metadata->descr();
   const bool use_dictionary = properties->dictionary_enabled(descr->path()) &&
                               descr->physical_type() != Type::BOOLEAN;
@@ -2660,32 +2689,38 @@ std::shared_ptr<ColumnWriter> ColumnWriter::Make(ColumnChunkMetaDataBuilder* met
     encoding = properties->dictionary_index_encoding();
   }
   switch (descr->physical_type()) {
-    case Type::BOOLEAN:
+    case Type::BOOLEAN: {
+      if (bloom_filter != nullptr) {
+        throw ParquetException("Bloom filter is not supported for boolean type");
+      }
       return std::make_shared<TypedColumnWriterImpl<BooleanType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties,
+          /*bloom_filter=*/nullptr);
+    }
     case Type::INT32:
       return std::make_shared<TypedColumnWriterImpl<Int32Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::INT64:
       return std::make_shared<TypedColumnWriterImpl<Int64Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::INT96:
       return std::make_shared<TypedColumnWriterImpl<Int96Type>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::FLOAT:
       return std::make_shared<TypedColumnWriterImpl<FloatType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::DOUBLE:
       return std::make_shared<TypedColumnWriterImpl<DoubleType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<ByteArrayType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     case Type::FIXED_LEN_BYTE_ARRAY:
       return std::make_shared<TypedColumnWriterImpl<FLBAType>>(
-          metadata, std::move(pager), use_dictionary, encoding, properties);
+          metadata, std::move(pager), use_dictionary, encoding, properties, bloom_filter);
     default:
-      ParquetException::NYI("type reader not implemented");
+      ParquetException::NYI("Column writer not implemented for type: " +
+                            TypeToString(descr->physical_type()));
   }
   // Unreachable code, but suppress compiler warning
   return std::shared_ptr<ColumnWriter>(nullptr);

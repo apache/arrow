@@ -674,6 +674,70 @@ module ReaderTests
           end
         end
 
+        sub_test_case("Decimal128") do
+          def build_array
+            @positive_small = "1.200"
+            @positive_large = ("1234567890" * 3) + "12345.678"
+            @negative_small = "-1.200"
+            @negative_large = "-" + ("1234567890" * 3) + "12345.678"
+            Arrow::Decimal128Array.new({precision: 38, scale: 3},
+                                       [
+                                         @positive_large,
+                                         @positive_small,
+                                         nil,
+                                         @negative_small,
+                                         @negative_large,
+                                       ])
+          end
+
+          def test_read
+            assert_equal([
+                           {
+                             "value" => [
+                               BigDecimal(@positive_large),
+                               BigDecimal(@positive_small),
+                               nil,
+                               BigDecimal(@negative_small),
+                               BigDecimal(@negative_large),
+                             ],
+                           },
+                         ],
+                         read)
+          end
+        end
+
+        sub_test_case("Decimal256") do
+          def build_array
+            @positive_small = "1.200"
+            @positive_large = ("1234567890" * 7) + "123.456"
+            @negative_small = "-1.200"
+            @negative_large = "-" + ("1234567890" * 7) + "123.456"
+            Arrow::Decimal256Array.new({precision: 76, scale: 3},
+                                       [
+                                         @positive_large,
+                                         @positive_small,
+                                         nil,
+                                         @negative_small,
+                                         @negative_large,
+                                       ])
+          end
+
+          def test_read
+            assert_equal([
+                           {
+                             "value" => [
+                               BigDecimal(@positive_large),
+                               BigDecimal(@positive_small),
+                               nil,
+                               BigDecimal(@negative_small),
+                               BigDecimal(@negative_large),
+                             ],
+                           },
+                         ],
+                         read)
+          end
+        end
+
         sub_test_case("List") do
           def build_array
             data_type = Arrow::ListDataType.new(name: "count", type: :int8)
@@ -802,6 +866,19 @@ module ReaderTests
                          read)
           end
         end
+
+        sub_test_case("Dictionary") do
+          def build_array
+            values = ["a", "b", "c", nil, "a"]
+            string_array = Arrow::StringArray.new(values)
+            string_array.dictionary_encode
+          end
+
+          def test_read
+            assert_equal([{"value" => ["a", "b", "c", nil, "a"]}],
+                         read)
+          end
+        end
       end
     end
   end
@@ -857,7 +934,7 @@ class TestStreamingReader < Test::Unit::TestCase
   end
 
   def read
-    @reader.to_a.collect do |record_batch|
+    @reader.collect do |record_batch|
       record_batch.to_h.tap do |hash|
         hash.each do |key, value|
           hash[key] = value.to_a

@@ -46,10 +46,9 @@ arrange.arrow_dplyr_query <- function(.data, ..., .by_group = FALSE) {
         # dplyr lets you arrange on e.g. x < mean(x), but we haven't implemented it.
         # But we could, the same way it works in mutate() via join, if someone asks.
         # Until then, just error.
-        # TODO: add a test for this
         arrow_not_supported(
           .actual_msg = "Expression not supported in arrange() in Arrow",
-          call = expr
+          call = exprs[[i]]
         )
       }
       descs[i] <- x[["desc"]]

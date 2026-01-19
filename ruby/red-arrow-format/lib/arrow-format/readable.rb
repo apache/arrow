@@ -17,36 +17,10 @@
 
 require_relative "array"
 require_relative "field"
+require_relative "flat-buffers"
 require_relative "record-batch"
 require_relative "schema"
 require_relative "type"
-
-require_relative "org/apache/arrow/flatbuf/binary"
-require_relative "org/apache/arrow/flatbuf/bool"
-require_relative "org/apache/arrow/flatbuf/date"
-require_relative "org/apache/arrow/flatbuf/date_unit"
-require_relative "org/apache/arrow/flatbuf/duration"
-require_relative "org/apache/arrow/flatbuf/fixed_size_binary"
-require_relative "org/apache/arrow/flatbuf/floating_point"
-require_relative "org/apache/arrow/flatbuf/int"
-require_relative "org/apache/arrow/flatbuf/interval"
-require_relative "org/apache/arrow/flatbuf/interval_unit"
-require_relative "org/apache/arrow/flatbuf/large_binary"
-require_relative "org/apache/arrow/flatbuf/large_list"
-require_relative "org/apache/arrow/flatbuf/large_utf8"
-require_relative "org/apache/arrow/flatbuf/list"
-require_relative "org/apache/arrow/flatbuf/map"
-require_relative "org/apache/arrow/flatbuf/message"
-require_relative "org/apache/arrow/flatbuf/null"
-require_relative "org/apache/arrow/flatbuf/precision"
-require_relative "org/apache/arrow/flatbuf/schema"
-require_relative "org/apache/arrow/flatbuf/struct_"
-require_relative "org/apache/arrow/flatbuf/time"
-require_relative "org/apache/arrow/flatbuf/timestamp"
-require_relative "org/apache/arrow/flatbuf/time_unit"
-require_relative "org/apache/arrow/flatbuf/union"
-require_relative "org/apache/arrow/flatbuf/union_mode"
-require_relative "org/apache/arrow/flatbuf/utf8"
 
 module ArrowFormat
   module Readable
@@ -61,120 +35,140 @@ module ArrowFormat
     def read_field(fb_field)
       fb_type = fb_field.type
       case fb_type
-      when Org::Apache::Arrow::Flatbuf::Null
+      when FB::Null
         type = NullType.singleton
-      when Org::Apache::Arrow::Flatbuf::Bool
+      when FB::Bool
         type = BooleanType.singleton
-      when Org::Apache::Arrow::Flatbuf::Int
-        case fb_type.bit_width
-        when 8
-          if fb_type.signed?
-            type = Int8Type.singleton
-          else
-            type = UInt8Type.singleton
-          end
-        when 16
-          if fb_type.signed?
-            type = Int16Type.singleton
-          else
-            type = UInt16Type.singleton
-          end
-        when 32
-          if fb_type.signed?
-            type = Int32Type.singleton
-          else
-            type = UInt32Type.singleton
-          end
-        when 64
-          if fb_type.signed?
-            type = Int64Type.singleton
-          else
-            type = UInt64Type.singleton
-          end
-        end
-      when Org::Apache::Arrow::Flatbuf::FloatingPoint
+      when FB::Int
+        type = read_type_int(fb_type)
+      when FB::FloatingPoint
         case fb_type.precision
-        when Org::Apache::Arrow::Flatbuf::Precision::SINGLE
+        when FB::Precision::SINGLE
           type = Float32Type.singleton
-        when Org::Apache::Arrow::Flatbuf::Precision::DOUBLE
+        when FB::Precision::DOUBLE
           type = Float64Type.singleton
         end
-      when Org::Apache::Arrow::Flatbuf::Date
+      when FB::Date
         case fb_type.unit
-        when Org::Apache::Arrow::Flatbuf::DateUnit::DAY
+        when FB::DateUnit::DAY
           type = Date32Type.singleton
-        when Org::Apache::Arrow::Flatbuf::DateUnit::MILLISECOND
+        when FB::DateUnit::MILLISECOND
           type = Date64Type.singleton
         end
-      when Org::Apache::Arrow::Flatbuf::Time
+      when FB::Time
         case fb_type.bit_width
         when 32
           case fb_type.unit
-          when Org::Apache::Arrow::Flatbuf::TimeUnit::SECOND
+          when FB::TimeUnit::SECOND
             type = Time32Type.new(:second)
-          when Org::Apache::Arrow::Flatbuf::TimeUnit::MILLISECOND
+          when FB::TimeUnit::MILLISECOND
             type = Time32Type.new(:millisecond)
           end
         when 64
           case fb_type.unit
-          when Org::Apache::Arrow::Flatbuf::TimeUnit::MICROSECOND
+          when FB::TimeUnit::MICROSECOND
             type = Time64Type.new(:microsecond)
-          when Org::Apache::Arrow::Flatbuf::TimeUnit::NANOSECOND
+          when FB::TimeUnit::NANOSECOND
             type = Time64Type.new(:nanosecond)
           end
         end
-      when Org::Apache::Arrow::Flatbuf::Timestamp
+      when FB::Timestamp
         unit = fb_type.unit.name.downcase.to_sym
         type = TimestampType.new(unit, fb_type.timezone)
-      when Org::Apache::Arrow::Flatbuf::Interval
+      when FB::Interval
         case fb_type.unit
-        when Org::Apache::Arrow::Flatbuf::IntervalUnit::YEAR_MONTH
+        when FB::IntervalUnit::YEAR_MONTH
           type = YearMonthIntervalType.new
-        when Org::Apache::Arrow::Flatbuf::IntervalUnit::DAY_TIME
+        when FB::IntervalUnit::DAY_TIME
           type = DayTimeIntervalType.new
-        when Org::Apache::Arrow::Flatbuf::IntervalUnit::MONTH_DAY_NANO
+        when FB::IntervalUnit::MONTH_DAY_NANO
           type = MonthDayNanoIntervalType.new
         end
-      when Org::Apache::Arrow::Flatbuf::Duration
+      when FB::Duration
         unit = fb_type.unit.name.downcase.to_sym
         type = DurationType.new(unit)
-      when Org::Apache::Arrow::Flatbuf::List
+      when FB::List
         type = ListType.new(read_field(fb_field.children[0]))
-      when Org::Apache::Arrow::Flatbuf::LargeList
+      when FB::LargeList
         type = LargeListType.new(read_field(fb_field.children[0]))
-      when Org::Apache::Arrow::Flatbuf::Struct
+      when FB::Struct
         children = fb_field.children.collect {|child| read_field(child)}
         type = StructType.new(children)
-      when Org::Apache::Arrow::Flatbuf::Union
+      when FB::Union
         children = fb_field.children.collect {|child| read_field(child)}
         type_ids = fb_type.type_ids
         case fb_type.mode
-        when Org::Apache::Arrow::Flatbuf::UnionMode::DENSE
+        when FB::UnionMode::DENSE
           type = DenseUnionType.new(children, type_ids)
-        when Org::Apache::Arrow::Flatbuf::UnionMode::SPARSE
+        when FB::UnionMode::SPARSE
           type = SparseUnionType.new(children, type_ids)
         end
-      when Org::Apache::Arrow::Flatbuf::Map
+      when FB::Map
         type = MapType.new(read_field(fb_field.children[0]))
-      when Org::Apache::Arrow::Flatbuf::Binary
+      when FB::Binary
         type = BinaryType.singleton
-      when Org::Apache::Arrow::Flatbuf::LargeBinary
+      when FB::LargeBinary
         type = LargeBinaryType.singleton
-      when Org::Apache::Arrow::Flatbuf::Utf8
+      when FB::Utf8
         type = UTF8Type.singleton
-      when Org::Apache::Arrow::Flatbuf::LargeUtf8
+      when FB::LargeUtf8
         type = LargeUTF8Type.singleton
-      when Org::Apache::Arrow::Flatbuf::FixedSizeBinary
+      when FB::FixedSizeBinary
         type = FixedSizeBinaryType.new(fb_type.byte_width)
+      when FB::Decimal
+        case fb_type.bit_width
+        when 128
+          type = Decimal128Type.new(fb_type.precision, fb_type.scale)
+        when 256
+          type = Decimal256Type.new(fb_type.precision, fb_type.scale)
+        end
       end
-      Field.new(fb_field.name, type, fb_field.nullable?)
+
+      dictionary = fb_field.dictionary
+      if dictionary
+        dictionary_id = dictionary.id
+        index_type = read_type_int(dictionary.index_type)
+        type = DictionaryType.new(index_type, type, dictionary.ordered?)
+      else
+        dictionary_id = nil
+      end
+      Field.new(fb_field.name, type, fb_field.nullable?, dictionary_id)
+    end
+
+    def read_type_int(fb_type)
+      case fb_type.bit_width
+      when 8
+        if fb_type.signed?
+          Int8Type.singleton
+        else
+          UInt8Type.singleton
+        end
+      when 16
+        if fb_type.signed?
+          Int16Type.singleton
+        else
+          UInt16Type.singleton
+        end
+      when 32
+        if fb_type.signed?
+          Int32Type.singleton
+        else
+          UInt32Type.singleton
+        end
+      when 64
+        if fb_type.signed?
+          Int64Type.singleton
+        else
+          UInt64Type.singleton
+        end
+      end
     end
 
     def read_record_batch(fb_record_batch, schema, body)
       n_rows = fb_record_batch.length
       nodes = fb_record_batch.nodes
       buffers = fb_record_batch.buffers
-      columns = @schema.fields.collect do |field|
+      columns = schema.fields.collect do |field|
         read_column(field, nodes, buffers, body)
       end
       RecordBatch.new(schema, n_rows, columns)
@@ -236,6 +230,11 @@ module ArrowFormat
           read_column(child, nodes, buffers, body)
         end
         field.type.build_array(length, types, children)
+      when DictionaryType
+        indices_buffer = buffers.shift
+        indices = body.slice(indices_buffer.offset, indices_buffer.length)
+        dictionary = find_dictionary(field.dictionary_id)
+        field.type.build_array(length, validity, indices, dictionary)
       end
     end
   end

@@ -56,6 +56,9 @@ SqlDataType GetDefaultSqlCharType(bool use_wide_char) {
 SqlDataType GetDefaultSqlVarcharType(bool use_wide_char) {
   return use_wide_char ? SqlDataType_WVARCHAR : SqlDataType_VARCHAR;
 }
+SqlDataType GetDefaultSqlLongVarcharType(bool use_wide_char) {
+  return use_wide_char ? SqlDataType_WLONGVARCHAR : SqlDataType_LONGVARCHAR;
+}
 CDataType GetDefaultCCharType(bool use_wide_char) {
   return use_wide_char ? CDataType_WCHAR : CDataType_CHAR;
 }
@@ -147,6 +150,9 @@ SqlDataType EnsureRightSqlCharType(SqlDataType data_type, bool use_wide_char) {
     case SqlDataType_VARCHAR:
     case SqlDataType_WVARCHAR:
       return GetDefaultSqlVarcharType(use_wide_char);
+    case SqlDataType_LONGVARCHAR:
+    case SqlDataType_WLONGVARCHAR:
+      return GetDefaultSqlLongVarcharType(use_wide_char);
     default:
       return data_type;
   }
@@ -748,10 +754,12 @@ bool NeedArrayConversion(Type::type original_type_id, CDataType data_type) {
       return data_type != CDataType_BINARY;
     case Type::DECIMAL128:
       return data_type != CDataType_NUMERIC;
+    case Type::DURATION:
     case Type::LIST:
     case Type::LARGE_LIST:
     case Type::FIXED_SIZE_LIST:
     case Type::MAP:
+    case Type::STRING_VIEW:
     case Type::STRUCT:
       return data_type == CDataType_CHAR || data_type == CDataType_WCHAR;
     default:

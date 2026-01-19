@@ -310,11 +310,11 @@ compile_test_program <- function(code) {
     openssl_dir <- paste0("-I", openssl_root_dir, "/include")
   }
   runner <- paste(
-    R_CMD_config("CXX17"),
+    R_CMD_config("CXX20"),
     openssl_dir,
     R_CMD_config("CPPFLAGS"),
-    R_CMD_config("CXX17FLAGS"),
-    R_CMD_config("CXX17STD"),
+    R_CMD_config("CXX20FLAGS"),
+    R_CMD_config("CXX20STD"),
     "-E",
     "-xc++"
   )
@@ -565,8 +565,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     # is found, it will be used by the libarrow build, and this does
     # not affect how R compiles the arrow bindings.
     CC = sub("^.*ccache", "", R_CMD_config("CC")),
-    CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX17")), R_CMD_config("CXX17STD")),
-    # CXXFLAGS = R_CMD_config("CXX17FLAGS"), # We don't want the same debug symbols
+    CXX = paste(
+      sub("^.*ccache", "", R_CMD_config("CXX20")),
+      R_CMD_config("CXX20STD")
+    ),
+    # CXXFLAGS = R_CMD_config("CXX20FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS"),
     N_JOBS = ncores
   )

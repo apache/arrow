@@ -47,13 +47,13 @@ classdef Table < arrow.tabular.Tabular
 
             import arrow.tabular.internal.validateArrayLengths
             import arrow.tabular.internal.validateColumnNames
-            import arrow.array.internal.getArrayProxyIDs
+            import arrow.array.internal.getProxyIDs
 
             numColumns = numel(arrowArrays);
             validateArrayLengths(arrowArrays);
             validateColumnNames(opts.ColumnNames, numColumns);
 
-            arrayProxyIDs = getArrayProxyIDs(arrowArrays);
+            arrayProxyIDs = getProxyIDs(arrowArrays);
             args = struct(Method="from_arrays", ArrayProxyIDs=arrayProxyIDs, ColumnNames=opts.ColumnNames);
             proxyName = "arrow.tabular.proxy.Table";
             proxy = arrow.internal.proxy.create(proxyName, args);
@@ -83,8 +83,7 @@ classdef Table < arrow.tabular.Tabular
                 end
             end
 
-            % TODO: Rename getArrayProxyIDs to getProxyIDs
-            proxyIDs = arrow.array.internal.getArrayProxyIDs(batches);
+            proxyIDs = arrow.array.internal.getProxyIDs(batches);
             args = struct(Method="from_record_batches", RecordBatchProxyIDs=proxyIDs);
             proxyName = "arrow.tabular.proxy.Table";
             proxy = arrow.internal.proxy.create(proxyName, args);

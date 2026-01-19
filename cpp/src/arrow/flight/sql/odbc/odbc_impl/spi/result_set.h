@@ -22,13 +22,12 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
 
 #include <sqltypes.h>
 
 namespace arrow::flight::sql::odbc {
-
-class ResultSetMetadata;
 
 class ResultSet {
  protected:
