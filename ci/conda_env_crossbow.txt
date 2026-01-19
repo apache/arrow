@@ -16,7 +16,7 @@
 # under the License.
 
 click
-github3.py
+pygithub
 jinja2
 jira
 pygit2

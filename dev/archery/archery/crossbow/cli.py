@@ -531,13 +531,13 @@ def download_artifacts(obj, job_name, target_dir, dry_run, fetch,
                 return False
 
             if need_download():
-                import github3
+                from github import GithubException
                 max_n_retries = 5
                 n_retries = 0
                 while True:
                     try:
-                        asset.download(path)
-                    except github3.exceptions.GitHubException as error:
+                        asset.download_asset(str(path))
+                    except GithubException as error:
                         n_retries += 1
                         if n_retries == max_n_retries:
                             raise
