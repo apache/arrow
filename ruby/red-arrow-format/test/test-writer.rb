@@ -20,7 +20,14 @@ module WriterTests
     case red_arrow_type
     when Arrow::NullDataType
       ArrowFormat::NullType.singleton
+    when Arrow::BooleanDataType
+      ArrowFormat::BooleanType.singleton
     end
+  end
+
+  def convert_buffer(buffer)
+    return nil if buffer.nil?
+    IO::Buffer.for(buffer.data.to_s)
   end
 
   def convert_array(red_arrow_array)
@@ -28,6 +35,10 @@ module WriterTests
     case type
     when ArrowFormat::NullType
       type.build_array(red_arrow_array.size)
+    when ArrowFormat::BooleanType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
+                       convert_buffer(red_arrow_array.data_buffer))
     end
   end
 
@@ -41,6 +52,17 @@ module WriterTests
 
           def test_write
             assert_equal([nil, nil, nil],
+                         @values)
+          end
+        end
+
+        sub_test_case("Boolean") do
+          def build_array
+            Arrow::BooleanArray.new([true, nil, false])
+          end
+
+          def test_write
+            assert_equal([true, nil, false],
                          @values)
           end
         end

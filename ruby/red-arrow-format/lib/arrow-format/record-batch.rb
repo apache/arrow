@@ -14,8 +14,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require_relative "buffer-alignable"
+
 module ArrowFormat
   class RecordBatch
+    include BufferAlignable
+
     attr_reader :schema
     attr_reader :n_rows
     attr_reader :columns
@@ -44,15 +48,16 @@ module ArrowFormat
       end
       offset = 0
       fb_record_batch.buffers = all_buffers_enumerator.collect do |buffer|
-        buffer_flat_buffesr = FB::Buffer::Data.new
-        buffer_flat_buffesr.offset = offset
+        fb_buffer = FB::Buffer::Data.new
+        fb_buffer.offset = offset
         if buffer
-          offset += buffer.size
-          buffer_flat_buffesr.length = buffer.size
+          aligned_size = aligned_buffer_size(buffer)
+          offset += aligned_size
+          fb_buffer.length = aligned_size
         else
-          buffer_flat_buffesr.length = 0
+          fb_buffer.length = 0
         end
-        buffer_flat_buffesr
+        fb_buffer
       end
       # body_compression = FB::BodyCompression::Data.new
       # body_compression.codec = ...
