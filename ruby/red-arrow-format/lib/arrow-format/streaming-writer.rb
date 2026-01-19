@@ -15,11 +15,11 @@
 # specific language governing permissions and limitations
 # under the License.
 
-require_relative "flat-buffers"
+require_relative "buffer-alignable"
 
 module ArrowFormat
   class StreamingWriter
-    include FlatBuffers::Alignable
+    include BufferAlignable
 
     ALIGNMENT_SIZE = IO::Buffer.size_of(:u64)
     CONTINUATION = "\xFF\xFF\xFF\xFF".b.freeze
@@ -40,7 +40,7 @@ module ArrowFormat
     def write_record_batch(record_batch)
       body_length = 0
       record_batch.all_buffers_enumerator.each do |buffer|
-        body_length += buffer.size if buffer
+        body_length += aligned_buffer_size(buffer) if buffer
       end
       metadata = build_metadata(record_batch.to_flat_buffers, body_length)
       fb_block = FB::Block::Data.new
@@ -53,7 +53,7 @@ module ArrowFormat
       @fb_record_batch_blocks << fb_block
       write_message(metadata) do
         record_batch.all_buffers_enumerator.each do |buffer|
-          write_data(buffer) if buffer
+          write_buffer(buffer) if buffer
         end
       end
     end
@@ -69,8 +69,22 @@ module ArrowFormat
 
     private
     def write_data(data)
-      @output << data
-      @offset += data.bytesize
+      case data
+      when IO::Buffer
+        # TODO: We should use IO::Buffer#write to avoid needless copy.
+        # data.write(@output)
+        @output << data.get_string
+        @offset += data.size
+      else
+        @output << data
+        @offset += data.bytesize
+      end
+    end
+
+    def write_buffer(buffer)
+      write_data(buffer)
+      padding_size = buffer_padding_size(buffer)
+      write_data(padding(padding_size)) if padding_size > 0
     end
 
     def build_metadata(header, body_length=0)
