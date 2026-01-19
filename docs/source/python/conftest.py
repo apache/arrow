@@ -22,7 +22,8 @@ import pytest
 @pytest.fixture(autouse=True)
 def _docdir(request):
     # Trigger ONLY for the doctests
-    is_doctest = request.node.__class__.__name__ == 'DoctestItem'
+    from _pytest.doctest import DoctestItem
+    is_doctest = isinstance(request.node, DoctestItem)
 
     if is_doctest:
         # Get the fixture dynamically by its name.
