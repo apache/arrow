@@ -3366,10 +3366,6 @@ function(build_google_cloud_cpp_storage)
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
   build_crc32c_once()
 
-  # Curl is required on all platforms, but building it internally might also trip over S3's copy.
-  # For now, force its inclusion from the underlying system or fail.
-  find_curl()
-
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
@@ -3453,6 +3449,9 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
     )
   endif()
 
+  # curl is required on all platforms. We always use system curl to
+  # avoid conflict.
+  find_curl()
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
