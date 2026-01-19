@@ -24,9 +24,7 @@
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/visit_data_inline.h>
 
-#include <cpp11/altrep.hpp>
 #include <cpp11/declarations.hpp>
-#if defined(HAS_ALTREP)
 
 #if R_VERSION < R_Version(3, 6, 0)
 
@@ -1115,29 +1113,6 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
 }  // namespace altrep
 }  // namespace r
 }  // namespace arrow
-
-#else  // HAS_ALTREP
-
-namespace arrow {
-namespace r {
-namespace altrep {
-
-// return an altrep R vector that shadows the array if possible
-SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
-  return R_NilValue;
-}
-
-bool is_arrow_altrep(SEXP) { return false; }
-
-std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
-
-bool is_unmaterialized_arrow_altrep(SEXP) { return false; }
-
-}  // namespace altrep
-}  // namespace r
-}  // namespace arrow
-
-#endif
 
 // [[arrow::export]]
 bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }
