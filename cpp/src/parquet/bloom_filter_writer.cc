@@ -199,12 +199,12 @@ void BloomFilterBuilderImpl::AppendRowGroup() {
 }
 
 BloomFilter* BloomFilterBuilderImpl::CreateBloomFilter(int32_t column_ordinal) {
-  CheckState(column_ordinal);
-
   auto opts = properties_->bloom_filter_options(schema_->Column(column_ordinal)->path());
   if (!opts.has_value()) {
     return nullptr;
   }
+
+  CheckState(column_ordinal);
 
   auto& curr_rg_bfs = *bloom_filters_.rbegin();
   if (curr_rg_bfs.find(column_ordinal) != curr_rg_bfs.cend()) {
