@@ -133,7 +133,6 @@ session time zone is still PST:
    +-------------------+-------------------+
    |2019-01-01 00:00:00|2019-01-01 00:00:00|
    +-------------------+-------------------+
-   <BLANKLINE>
 
     >>> pst_df.toPandas()  # doctest: +SKIP
            naive      aware
