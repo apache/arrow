@@ -265,65 +265,37 @@ fi
 
 echo "::group::Downgrade Gandiva"
 ${APT_INSTALL} --allow-downgrades \
-  gir1.2-arrow-1.0=${previous_package_version} \
-  gir1.2-gandiva-1.0=${previous_package_version} \
-  libarrow${previous_major_version}00=${previous_package_version} \
-  libarrow-acero${previous_major_version}00=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
-  libarrow-compute${previous_major_version}00=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
-  libarrow-glib${previous_major_version}00=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
-  libgandiva${previous_major_version}00=${previous_package_version} \
   libgandiva-dev=${previous_package_version} \
-  libgandiva-glib${previous_major_version}00=${previous_package_version} \
   libgandiva-glib-dev=${previous_package_version} \
-  libparquet${previous_major_version}00=${previous_package_version} \
   libparquet-dev=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Flight SQL"
 ${APT_INSTALL} --allow-downgrades \
-  gir1.2-arrow-1.0=${previous_package_version} \
-  gir1.2-arrow-flight-1.0=${previous_package_version} \
-  gir1.2-arrow-flight-sql-1.0=${previous_package_version} \
-  libarrow${previous_major_version}00=${previous_package_version} \
-  libarrow-acero${previous_major_version}00=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
-  libarrow-compute${previous_major_version}00=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
-  libarrow-flight${previous_major_version}00=${previous_package_version} \
   libarrow-flight-dev=${previous_package_version} \
-  libarrow-flight-glib${previous_major_version}00=${previous_package_version} \
   libarrow-flight-glib-dev=${previous_package_version} \
   libarrow-flight-sql-dev=${previous_package_version} \
   libarrow-flight-sql-glib-dev=${previous_package_version} \
-  libarrow-glib${previous_major_version}00=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Dataset"
 ${APT_INSTALL} --allow-downgrades \
-  gir1.2-arrow-1.0=${previous_package_version} \
-  gir1.2-arrow-dataset-1.0=${previous_package_version} \
-  gir1.2-parquet-1.0=${previous_package_version} \
-  libarrow${previous_major_version}00=${previous_package_version} \
-  libarrow-acero${previous_major_version}00=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
-  libarrow-compute${previous_major_version}00=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
-  libarrow-dataset${previous_major_version}00=${previous_package_version} \
   libarrow-dataset-dev=${previous_package_version} \
   libarrow-dataset-glib${previous_major_version}00=${previous_package_version} \
   libarrow-dataset-glib-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
-  libarrow-glib${previous_major_version}00=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
-  libparquet${previous_major_version}00=${previous_package_version} \
   libparquet-dev=${previous_package_version} \
-  libparquet-glib${previous_major_version}00=${previous_package_version} \
   libparquet-glib-dev=${previous_package_version}
 echo "::endgroup::"
 
