@@ -291,7 +291,6 @@ ${APT_INSTALL} --allow-downgrades \
   libarrow-acero-dev=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dataset-dev=${previous_package_version} \
-  libarrow-dataset-glib${previous_major_version}00=${previous_package_version} \
   libarrow-dataset-glib-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
