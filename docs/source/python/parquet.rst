@@ -139,13 +139,13 @@ but won't help much with resident memory consumption.
 
 .. code-block:: python
 
-      >>> pq_array = pa.parquet.read_table(path, memory_map=True)  # doctest: +SKIP
-      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))  # doctest: +SKIP
-      RSS: 4299MB
+   >>> pq_array = pa.parquet.read_table(path, memory_map=True)  # doctest: +SKIP
+   >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))  # doctest: +SKIP
+   RSS: 4299MB
 
-      >>> pq_array = pa.parquet.read_table(path, memory_map=False)  # doctest: +SKIP
-      >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))  # doctest: +SKIP
-      RSS: 4299MB
+   >>> pq_array = pa.parquet.read_table(path, memory_map=False)  # doctest: +SKIP
+   >>> print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))  # doctest: +SKIP
+   RSS: 4299MB
 
 If you need to deal with Parquet data bigger than memory,
 the :ref:`dataset` and partitioning is probably what you are looking for.
@@ -581,14 +581,14 @@ the same:
    ...     metadata_collector=metadata_collector
    ... )
 
-    >>> pq.read_metadata("_metadata")
-    <pyarrow._parquet.FileMetaData object at ...>
-      created_by: parquet-cpp-arrow version ...
-      num_columns: 3
-      num_rows: 3
-      num_row_groups: 1
-      format_version: 2.6
-      serialized_size: ...
+   >>> pq.read_metadata("_metadata")
+   <pyarrow._parquet.FileMetaData object at ...>
+     created_by: parquet-cpp-arrow version ...
+     num_columns: 3
+     num_rows: 3
+     num_row_groups: 1
+     format_version: 2.6
+     serialized_size: ...
 
 Reading from Partitioned Datasets
 ------------------------------------------------
