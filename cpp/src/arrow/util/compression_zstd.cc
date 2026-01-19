@@ -229,7 +229,7 @@ class ZSTDCodec : public Codec {
   Result<CCtxPtr> CreateCCtx() const {
     CCtxPtr cctx{ZSTD_createCCtx(), ZSTD_freeCCtx};
     if (cctx == nullptr) {
-      return Status::IOError("ZSTD_CCtx create failed: Unknown error");
+      return Status::OutOfMemory("ZSTD_CCtx create failed");
     }
     auto ret =
         ZSTD_CCtx_setParameter(cctx.get(), ZSTD_c_compressionLevel, compression_level_);
@@ -248,7 +248,7 @@ class ZSTDCodec : public Codec {
   Result<DCtxPtr> CreateDCtx() const {
     DCtxPtr dctx{ZSTD_createDCtx(), ZSTD_freeDCtx};
     if (dctx == nullptr) {
-      return Status::IOError("ZSTD_DCtx create failed: Unknown error");
+      return Status::OutOfMemory("ZSTD_DCtx create failed");
     }
     for (auto& [key, value] : decompression_context_params_) {
       auto ret =
