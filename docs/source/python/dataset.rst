@@ -811,18 +811,18 @@ to supply a visitor that will be called as each file is created:
     >>> ds.write_dataset(table, "dataset_visited", format="parquet", partitioning=part,
     ...                  file_visitor=file_visitor)
     path=dataset_visited/c=.../part-0.parquet
-    size=824 bytes
+    size=... bytes
     metadata=<pyarrow._parquet.FileMetaData object at ...>
-      created_by: parquet-cpp-arrow version 23.0.0-SNAPSHOT
+      created_by: parquet-cpp-arrow version ...
       num_columns: 2
       num_rows: 5
       num_row_groups: 1
       format_version: 2.6
       serialized_size: 0
     path=dataset_visited/c=.../part-0.parquet
-    size=826 bytes
+    size=... bytes
     metadata=<pyarrow._parquet.FileMetaData object at ...>
-      created_by: parquet-cpp-arrow version 23.0.0-SNAPSHOT
+      created_by: parquet-cpp-arrow version ...
       num_columns: 2
       num_rows: 5
       num_row_groups: 1
