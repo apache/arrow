@@ -249,13 +249,14 @@ python -m build --wheel . \
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
-deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
+delocate-listdeps ${source_dir}/python/dist/*.whl
 
-if echo $deps | grep -v "^pyarrow/lib\(arrow\|parquet\)"; then
+echo "=== (${PYTHON_VERSION}) Bundle shared libraries into wheel ==="
+delocate-wheel -w ${source_dir}/python/repaired_wheels -v ${source_dir}/python/dist/*.whl
+
+echo "=== (${PYTHON_VERSION}) Validate there are no non-bundled shared dependencies ==="
+deps=$(delocate-listdeps ${source_dir}/python/repaired_wheels/*.whl)
+if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
-
-# Move the verified wheels
-mkdir -p ${source_dir}/python/repaired_wheels
-mv ${source_dir}/python/dist/*.whl ${source_dir}/python/repaired_wheels/
