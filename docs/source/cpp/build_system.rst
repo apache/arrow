@@ -235,10 +235,9 @@ will manage consistent versions of Arrow and its dependencies.
 Runtime Dependencies
 ====================
 
-On Linux and macOS, Arrow uses the OS-provided timezone database. On Windows,
-Arrow uses the Windows timezone database when built with MSVC or recent MinGW GCC
-(version 13+). However, when built with Clang/libc++ on Windows, Arrow requires
-a user-provided IANA timezone database.
+On most platforms, Arrow uses the OS-provided timezone database. However,
+when built with Clang/libc++ on Windows, Arrow requires a user-provided IANA
+timezone database.
 
 To download the timezone database for libc++ builds, you must download and
 extract the text version of the IANA timezone database and add the Windows
