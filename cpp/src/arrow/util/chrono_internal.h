@@ -46,15 +46,29 @@
 // 2000-02-29). Until this is fixed, we use the vendored date.h library.
 // See: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
 
-#if defined(_WIN32) && defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
-// Use std::chrono on Windows when timezone support is available (MSVC or libstdc++)
-// MSVC uses Windows' internal timezone database, libstdc++ uses TZDIR environment
-// variable
-#  define ARROW_USE_STD_CHRONO 1
+#if defined(_WIN32)
+  // On Windows, try to use std::chrono if C++20 is available
+  #if defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
+    // Feature test macro indicates full C++20 chrono timezone support
+    #define ARROW_USE_STD_CHRONO 1
+  #elif defined(_MSC_VER) && __cplusplus >= 202002L
+    // MSVC with C++20 supports chrono timezones
+    // Use Windows' internal timezone database
+    #define ARROW_USE_STD_CHRONO 1
+  #elif defined(__GNUC__) && __cplusplus >= 202002L
+    // GCC with C++20 - attempt to use std::chrono
+    // Note: Full timezone support requires GCC 11+ and libstdc++ with timezone support
+    // For older GCC versions, this may fail at compile time if timezone APIs are missing
+    // Requires TZDIR environment variable to be set for libstdc++
+    #define ARROW_USE_STD_CHRONO 1
+  #else
+    // Use vendored date library (no C++20 or unknown compiler)
+    #define ARROW_USE_STD_CHRONO 0
+  #endif
 #else
-// Use vendored date library (non-Windows, or libc++/older libraries without timezone
-// support)
-#  define ARROW_USE_STD_CHRONO 0
+  // Use vendored date library (non-Windows, or libc++/older libraries without timezone
+  // support)
+  #define ARROW_USE_STD_CHRONO 0
 #endif
 
 #if ARROW_USE_STD_CHRONO
