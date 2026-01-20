@@ -2409,9 +2409,10 @@ def test_strftime():
         if sys.platform == "win32":
             # TODO(GH-48767): On Windows, std::chrono returns GMT offset style
             # https://github.com/apache/arrow/issues/48767
-            for val in result:
-                assert val.as_py() is None or "GMT" in val.as_py() \
-                    or "UTC" in val.as_py()
+            # Check that all non-null values are a valid GMT offset
+            is_valid = pc.match_substring_regex(result, "^GMT[+-][0-9]+$") | pc.is_null(result)
+            assert not pc.any(~is_valid).as_py(), \
+                "All timezone values should be GMT offset format (e.g. 'GMT+1', 'GMT-5')"
         else:
             assert result.equals(expected)
 
@@ -2787,11 +2788,6 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# TODO(GH-48743): Re-enable when Windows timezone issues are resolved
-# https://github.com/apache/arrow/issues/48743
-@pytest.mark.skipif(
-    sys.platform == 'win32',
-    reason="Timezone rounding tests have platform-specific issues on Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))

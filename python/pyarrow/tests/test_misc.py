@@ -138,11 +138,6 @@ def test_import_at_shutdown():
     subprocess.check_call([sys.executable, "-c", code])
 
 
-# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
-# https://github.com/apache/arrow/issues/48593
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="Timezone database path behavior varies by Windows build configuration")
 def test_set_timezone_db_path_raises_with_os_tzdb():
     # set_timezone_db_path raises an error when Arrow uses OS timezone database
     with pytest.raises(ArrowInvalid,
