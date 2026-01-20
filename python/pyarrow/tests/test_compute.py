@@ -2410,7 +2410,8 @@ def test_strftime():
             # TODO(GH-48767): On Windows, std::chrono returns GMT offset style
             # https://github.com/apache/arrow/issues/48767
             # Check that all non-null values are a valid GMT offset
-            is_valid = pc.match_substring_regex(result, "^GMT[+-][0-9]+$") | pc.is_null(result)
+            is_valid = pc.match_substring_regex(
+                result, "^GMT[+-][0-9]+$") | pc.is_null(result)
             assert not pc.any(~is_valid).as_py(), \
                 "All timezone values should be GMT offset format (e.g. 'GMT+1', 'GMT-5')"
         else:
