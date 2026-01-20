@@ -1628,20 +1628,3 @@ def test_swapped_byte_order_fails(numpy_native_dtype):
     # Struct type array
     with pytest.raises(pa.ArrowNotImplementedError):
         pa.StructArray.from_arrays([np_arr], names=['a'])
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
