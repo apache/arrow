@@ -19,15 +19,17 @@
 
 set -e
 
+DEFAULT_VERSION=0.12.0
+
 if [  "$#" -lt 2 ] || [ "$#" -gt 3 ]; then
     echo "Usage: $0 <build> <prefix> <version>"
-    echo "Will default to version=0.3.0 "
+    echo "Will default to version=${DEFAULT_VERSION}"
     exit 1
 fi
 
 BUILD=$1
 PREFIX=$2
-VERSION=${3:-0.3.0}
+VERSION=${3:-${DEFAULT_VERSION}}
 ARCH=$(uname -m)
 
 if [ "${ARCH}" != x86_64 ] && [ "${ARCH}" != aarch64 ]; then

@@ -741,24 +741,25 @@ An example encryption configuration:
 
 .. note::
 
-   Encrypting columns that have nested fields (struct, map or list data types)
-   requires column keys for the inner fields, not the outer column itself.
-   Configuring a column key for the outer column causes
-   this error (here the column name is ``col``):
+   Columns with nested fields (struct or map data types) can be encrypted as a whole, or only
+   individual fields. Configure an encryption key for the root column name to encrypt all nested
+   fields with this key, or configure a key for individual leaf nested fields.
 
-   .. code-block::
+   Conventionally, the key and value fields of a map column ``m`` have the names
+   ``m.key_value.key`` and ``m.key_value.value``, respectively.
+   An inner field ``f`` of a struct column ``s`` has the name ``s.f``.
 
-      OSError: Encrypted column col not in file schema
+   With above example, *all* inner fields are encrypted with the same key by configuring that key
+   for column ``m`` and ``s``, respectively.
 
 An example encryption configuration for columns with nested fields, where
-all columns will be encrypted with the same key identified by ``column_key_id``:
+all columns are encrypted with the same key identified by ``column_key_id``:
 
 .. code-block:: python
 
    import pyarrow.parquet.encryption as pe
 
    schema = pa.schema([
-     ("ListColumn", pa.list_(pa.int32())),
      ("MapColumn", pa.map_(pa.string(), pa.int32())),
      ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
    ])
@@ -766,11 +767,26 @@ all columns will be encrypted with the same key identified by ``column_key_id``:
    encryption_config = pe.EncryptionConfiguration(
       footer_key="footer_key_name",
       column_keys={
-         "column_key_id": [
-           "ListColumn.list.element",
-           "MapColumn.key_value.key", "MapColumn.key_value.value",
-           "StructColumn.f1", "StructColumn.f2"
-         ],
+         "column_key_id": [ "MapColumn", "StructColumn" ],
+      },
+   )
+
+An example encryption configuration for columns with nested fields, where
+some inner fields are encrypted with the same key identified by ``column_key_id``:
+
+.. code-block:: python
+
+   import pyarrow.parquet.encryption as pe
+
+   schema = pa.schema([
+     ("MapColumn", pa.map_(pa.string(), pa.int32())),
+     ("StructColumn", pa.struct([("f1", pa.int32()), ("f2", pa.string())])),
+   ])
+
+   encryption_config = pe.EncryptionConfiguration(
+      footer_key="footer_key_name",
+      column_keys={
+         "column_key_id": [ "MapColumn.key_value.value", "StructColumn.f1" ],
       },
    )
 

@@ -49,7 +49,6 @@ using arrow::FieldVector;
 using arrow::KeyValueMetadata;
 using arrow::Status;
 using arrow::internal::checked_cast;
-using arrow::internal::EndsWith;
 using arrow::internal::ToChars;
 
 using ArrowType = arrow::DataType;

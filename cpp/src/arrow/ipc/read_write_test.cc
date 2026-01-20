@@ -952,23 +952,23 @@ TEST_F(TestWriteRecordBatch, SliceTruncatesBuffers) {
 }
 
 TEST_F(TestWriteRecordBatch, RoundtripPreservesBufferSizes) {
-  // ARROW-7975
+  // ARROW-7975: deserialized buffers should have logically exact size (no padding)
   random::RandomArrayGenerator rg(/*seed=*/0);
+  constexpr int64_t kLength = 30;
 
-  int64_t length = 15;
-  auto arr = rg.String(length, 0, 10, 0.1);
-  auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), length, {arr});
+  auto arr =
+      rg.String(kLength, /*min_length=*/0, /*max_length=*/10, /*null_probability=*/0.3);
+  ASSERT_NE(arr->null_count(), 0);  // required for validity bitmap size assertion below
 
-  ASSERT_OK_AND_ASSIGN(
-      mmap_, io::MemoryMapFixture::InitMemoryMap(
-                 /*buffer_size=*/1 << 20, TempFile("test-roundtrip-buffer-sizes")));
+  auto batch = RecordBatch::Make(::arrow::schema({field("f0", utf8())}), kLength, {arr});
+
   DictionaryMemo dictionary_memo;
   ASSERT_OK_AND_ASSIGN(
       auto result,
       DoStandardRoundTrip(*batch, IpcWriteOptions::Defaults(), &dictionary_memo));
 
-  // Make sure that the validity bitmap is size 2 as expected
-  ASSERT_EQ(2, arr->data()->buffers[0]->size());
+  // Make sure that the validity bitmap has expected size
+  ASSERT_EQ(bit_util::BytesForBits(kLength), arr->data()->buffers[0]->size());
 
   for (size_t i = 0; i < arr->data()->buffers.size(); ++i) {
     ASSERT_EQ(arr->data()->buffers[i]->size(),

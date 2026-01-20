@@ -149,8 +149,8 @@ struct AltrepVectorBase {
   // What gets printed on .Internal(inspect(<the altrep object>))
   static Rboolean Inspect(SEXP alt, int pre, int deep, int pvec,
                           void (*inspect_subtree)(SEXP, int, int, int)) {
-    SEXP data_class_sym = CAR(ATTRIB(ALTREP_CLASS(alt)));
-    const char* class_name = CHAR(PRINTNAME(data_class_sym));
+    SEXP class_sym = R_altrep_class_name(alt);
+    const char* class_name = CHAR(PRINTNAME(class_sym));
 
     if (IsMaterialized(alt)) {
       Rprintf("materialized %s len=%ld\n", class_name,
@@ -574,11 +574,10 @@ struct AltrepFactor : public AltrepVectorBase<AltrepFactor> {
     // the representation integer vector
     SEXP dup = PROTECT(Rf_shallow_duplicate(Materialize(alt)));
 
-    // additional attributes from the altrep
-    SEXP atts = PROTECT(Rf_duplicate(ATTRIB(alt)));
-    SET_ATTRIB(dup, atts);
+    // copy attributes from the altrep object
+    DUPLICATE_ATTRIB(dup, alt);
 
-    UNPROTECT(2);
+    UNPROTECT(1);
     return dup;
   }
 
@@ -1094,9 +1093,7 @@ SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
 
 bool is_arrow_altrep(SEXP x) {
   if (ALTREP(x)) {
-    SEXP info = ALTREP_CLASS_SERIALIZED_CLASS(ALTREP_CLASS(x));
-    SEXP pkg = ALTREP_SERIALIZED_CLASS_PKGSYM(info);
-
+    SEXP pkg = R_altrep_class_package(x);
     if (pkg == symbols::arrow) return true;
   }
 
@@ -1160,8 +1157,8 @@ sexp test_arrow_altrep_is_materialized(sexp x) {
     return Rf_ScalarLogical(NA_LOGICAL);
   }
 
-  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
-  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+  SEXP class_sym = R_altrep_class_name(x);
+  std::string class_name(CHAR(PRINTNAME(class_sym)));
 
   int result = NA_LOGICAL;
   if (class_name == "arrow::array_dbl_vector") {
@@ -1191,8 +1188,8 @@ bool test_arrow_altrep_force_materialize(sexp x) {
     stop("x is already materialized");
   }
 
-  sexp data_class_sym = CAR(ATTRIB(ALTREP_CLASS(x)));
-  std::string class_name(CHAR(PRINTNAME(data_class_sym)));
+  SEXP class_sym = R_altrep_class_name(x);
+  std::string class_name(CHAR(PRINTNAME(class_sym)));
 
   if (class_name == "arrow::array_dbl_vector") {
     arrow::r::altrep::AltrepVectorPrimitive<REALSXP>::Materialize(x);

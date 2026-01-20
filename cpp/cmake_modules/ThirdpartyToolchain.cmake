@@ -1867,82 +1867,120 @@ endif()
 # ----------------------------------------------------------------------
 # Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
-macro(build_protobuf)
-  message(STATUS "Building Protocol Buffers from source")
-  set(PROTOBUF_VENDORED TRUE)
-  set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep-install")
+function(build_protobuf)
+  list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
+  message(STATUS "Building Protocol Buffers from source using FetchContent")
+  set(PROTOBUF_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(PROTOBUF_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_fc-install")
+  set(PROTOBUF_PREFIX
+      "${PROTOBUF_PREFIX}"
+      PARENT_SCOPE)
   set(PROTOBUF_INCLUDE_DIR "${PROTOBUF_PREFIX}/include")
+  set(PROTOBUF_INCLUDE_DIR
+      "${PROTOBUF_INCLUDE_DIR}"
+      PARENT_SCOPE)
+
+  fetchcontent_declare(protobuf
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${PROTOBUF_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
+                       SOURCE_SUBDIR cmake)
+
+  prepare_fetchcontent()
+
   # This flag is based on what the user initially requested but if
   # we've fallen back to building protobuf we always build it statically
   # so we need to reset the flag so that we can link against it correctly
   # later.
   set(Protobuf_USE_STATIC_LIBS ON)
-  # Newer protobuf releases always have a lib prefix independent from CMAKE_STATIC_LIBRARY_PREFIX
-  set(PROTOBUF_STATIC_LIB
-      "${PROTOBUF_PREFIX}/lib/libprotobuf${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(PROTOC_STATIC_LIB "${PROTOBUF_PREFIX}/lib/libprotoc${CMAKE_STATIC_LIBRARY_SUFFIX}")
-  set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
-  set(PROTOBUF_COMPILER "${PROTOBUF_PREFIX}/bin/protoc")
 
   # Strip lto flags (which may be added by dh_auto_configure)
   # See https://github.com/protocolbuffers/protobuf/issues/7092
-  set(PROTOBUF_C_FLAGS ${EP_C_FLAGS})
-  set(PROTOBUF_CXX_FLAGS ${EP_CXX_FLAGS})
-  string(REPLACE "-flto=auto" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
-  string(REPLACE "-ffat-lto-objects" "" PROTOBUF_C_FLAGS "${PROTOBUF_C_FLAGS}")
-  string(REPLACE "-flto=auto" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
-  string(REPLACE "-ffat-lto-objects" "" PROTOBUF_CXX_FLAGS "${PROTOBUF_CXX_FLAGS}")
-  set(PROTOBUF_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_CXX_FLAGS=${PROTOBUF_CXX_FLAGS}"
-      "-DCMAKE_C_FLAGS=${PROTOBUF_C_FLAGS}"
-      "-DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}"
-      -Dprotobuf_BUILD_TESTS=OFF
-      -Dprotobuf_DEBUG_POSTFIX=)
+  string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+  string(REPLACE "-flto=auto" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+  string(REPLACE "-ffat-lto-objects" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+  set(protobuf_BUILD_TESTS OFF)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
-    list(APPEND PROTOBUF_CMAKE_ARGS "-Dprotobuf_MSVC_STATIC_RUNTIME=OFF")
+    set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
-  if(ZLIB_ROOT)
-    list(APPEND PROTOBUF_CMAKE_ARGS "-DZLIB_ROOT=${ZLIB_ROOT}")
-  endif()
-  set(PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS CMAKE_ARGS ${PROTOBUF_CMAKE_ARGS} SOURCE_SUBDIR
-                                         "cmake")
 
-  externalproject_add(protobuf_ep
-                      ${EP_COMMON_OPTIONS} ${PROTOBUF_EXTERNAL_PROJECT_ADD_ARGS}
-                      BUILD_BYPRODUCTS "${PROTOBUF_STATIC_LIB}" "${PROTOBUF_COMPILER}"
-                      BUILD_IN_SOURCE 1
-                      URL ${PROTOBUF_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+  # Unity build causes some build errors
+  set(CMAKE_UNITY_BUILD OFF)
 
-  file(MAKE_DIRECTORY "${PROTOBUF_INCLUDE_DIR}")
+  fetchcontent_makeavailable(protobuf)
+
+  # Get the actual include directory from the Protobuf target.
+  # For FetchContent, this points to the source directory which contains the .proto files.
+  set(PROTOBUF_INCLUDE_DIR "${protobuf_SOURCE_DIR}/src")
   # For compatibility of CMake's FindProtobuf.cmake.
   set(Protobuf_INCLUDE_DIRS "${PROTOBUF_INCLUDE_DIR}")
+  set(Protobuf_INCLUDE_DIRS
+      "${Protobuf_INCLUDE_DIRS}"
+      PARENT_SCOPE)
+  # Set import dirs so protoc can find well-known types like timestamp.proto
+  set(Protobuf_IMPORT_DIRS "${PROTOBUF_INCLUDE_DIR}")
+  set(Protobuf_IMPORT_DIRS
+      "${Protobuf_IMPORT_DIRS}"
+      PARENT_SCOPE)
 
-  add_library(arrow::protobuf::libprotobuf STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotobuf PROPERTIES IMPORTED_LOCATION
-                                                                "${PROTOBUF_STATIC_LIB}")
-  target_include_directories(arrow::protobuf::libprotobuf BEFORE
-                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-  add_library(arrow::protobuf::libprotoc STATIC IMPORTED)
-  set_target_properties(arrow::protobuf::libprotoc PROPERTIES IMPORTED_LOCATION
-                                                              "${PROTOC_STATIC_LIB}")
-  target_include_directories(arrow::protobuf::libprotoc BEFORE
-                             INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-  add_executable(arrow::protobuf::protoc IMPORTED)
-  set_target_properties(arrow::protobuf::protoc PROPERTIES IMPORTED_LOCATION
-                                                           "${PROTOBUF_COMPILER}")
+  # For FetchContent builds, protoc and libprotoc are regular targets, not imported.
+  # We can't get their locations at configure time, so we set placeholders.
+  # The actual locations will be resolved at build time or by the install step.
+  set(PROTOBUF_COMPILER "$<TARGET_FILE:protobuf::protoc>")
+  set(PROTOC_STATIC_LIB "$<TARGET_FILE:protobuf::libprotoc>")
+  set(Protobuf_PROTOC_LIBRARY "${PROTOC_STATIC_LIB}")
 
-  add_dependencies(arrow::protobuf::libprotobuf protobuf_ep)
-  add_dependencies(arrow::protobuf::protoc protobuf_ep)
+  # gRPC requires Protobuf to be installed to a known location.
+  # We have to do this in two steps to avoid double installation of Protobuf
+  # when Arrow is installed.
+  # This custom target ensures Protobuf is built before we install
+  add_custom_target(protobuf_built
+                    DEPENDS protobuf::libprotobuf protobuf::libprotobuf-lite
+                            protobuf::libprotoc protobuf::protoc)
 
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS arrow::protobuf::libprotobuf)
+  # Disable Protobuf's install script after it's built to prevent double installation
+  add_custom_command(OUTPUT "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake"
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
+                     COMMAND ${CMAKE_COMMAND} -E echo
+                             "# Protobuf install disabled to prevent double installation with Arrow"
+                             > "${protobuf_BINARY_DIR}/cmake_install.cmake"
+                     DEPENDS protobuf_built
+                     COMMENT "Disabling Protobuf install to prevent double installation"
+                     VERBATIM)
+
+  add_custom_target(protobuf_install_disabled ALL
+                    DEPENDS "${protobuf_BINARY_DIR}/cmake_install.cmake.saved")
+
+  # Install Protobuf to PROTOBUF_PREFIX for dependendants to find
+  add_custom_command(OUTPUT "${PROTOBUF_PREFIX}/.protobuf_installed"
+                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.saved"
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.tmp"
+                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${PROTOBUF_PREFIX}
+                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
+                             "${protobuf_BINARY_DIR}/cmake_install.cmake.tmp" ||
+                             ${CMAKE_COMMAND} -E true
+                     COMMAND ${CMAKE_COMMAND} -E touch
+                             "${PROTOBUF_PREFIX}/.protobuf_installed"
+                     DEPENDS protobuf_install_disabled
+                     COMMENT "Installing Protobuf to ${PROTOBUF_PREFIX} for gRPC"
+                     VERBATIM)
+
+  # Make protobuf_fc depend on the install completion marker
+  add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} protobuf::libprotobuf
+      PARENT_SCOPE)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
     # system also, as it is used when building Arrow
-    # We do this by calling CMake as a child process
-    # with CXXFLAGS / CFLAGS and CMake flags cleared.
     set(PROTOBUF_HOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/protobuf_ep_host-install")
     set(PROTOBUF_HOST_COMPILER "${PROTOBUF_HOST_PREFIX}/bin/protoc")
 
@@ -1953,13 +1991,14 @@ macro(build_protobuf)
         -Dprotobuf_BUILD_TESTS=OFF
         -Dprotobuf_DEBUG_POSTFIX=)
 
+    # We reuse the FetchContent downloaded source but build it with host compiler
     externalproject_add(protobuf_ep_host
                         ${EP_COMMON_OPTIONS}
                         CMAKE_ARGS ${PROTOBUF_HOST_CMAKE_ARGS}
+                        SOURCE_DIR "${protobuf_SOURCE_DIR}"
+                        SOURCE_SUBDIR cmake
                         BUILD_BYPRODUCTS "${PROTOBUF_HOST_COMPILER}"
-                        BUILD_IN_SOURCE 1
-                        URL ${PROTOBUF_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
+                        DOWNLOAD_COMMAND "" DOWNLOAD_EXTRACT_TIMESTAMP TRUE)
 
     add_executable(arrow::protobuf::host_protoc IMPORTED)
     set_target_properties(arrow::protobuf::host_protoc
@@ -1967,7 +2006,8 @@ macro(build_protobuf)
 
     add_dependencies(arrow::protobuf::host_protoc protobuf_ep_host)
   endif()
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_PROTOBUF)
   if(ARROW_FLIGHT_SQL)
@@ -2017,7 +2057,10 @@ if(ARROW_WITH_PROTOBUF)
                      REQUIRED_VERSION
                      ${ARROW_PROTOBUF_REQUIRED_VERSION})
 
-  if(NOT Protobuf_USE_STATIC_LIBS AND MSVC_TOOLCHAIN)
+  # If PROTOBUF_VENDORED we build static protobuf from source via FetchContent
+  if(NOT PROTOBUF_VENDORED
+     AND NOT Protobuf_USE_STATIC_LIBS
+     AND MSVC_TOOLCHAIN)
     add_definitions(-DPROTOBUF_USE_DLLS)
   endif()
 
@@ -2128,8 +2171,12 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
+    set(SUBSTRAIT_PROTOC_INCLUDES "-I${SUBSTRAIT_LOCAL_DIR}/proto")
+    if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
+      list(APPEND SUBSTRAIT_PROTOC_INCLUDES "-I${Protobuf_INCLUDE_DIRS}")
+    endif()
     add_custom_command(OUTPUT "${SUBSTRAIT_PROTO_GEN}.cc" "${SUBSTRAIT_PROTO_GEN}.h"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${SUBSTRAIT_PROTOC_INCLUDES}
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${SUBSTRAIT_LOCAL_DIR}/proto/substrait/${SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
@@ -2147,10 +2194,11 @@ macro(build_substrait)
                                              SKIP_UNITY_BUILD_INCLUSION TRUE)
       list(APPEND SUBSTRAIT_PROTO_GEN_ALL "${ARROW_SUBSTRAIT_PROTO_GEN}.${EXT}")
     endforeach()
+    set(ARROW_SUBSTRAIT_PROTOC_INCLUDES ${SUBSTRAIT_PROTOC_INCLUDES}
+                                        "-I${ARROW_SUBSTRAIT_PROTOS_DIR}")
     add_custom_command(OUTPUT "${ARROW_SUBSTRAIT_PROTO_GEN}.cc"
                               "${ARROW_SUBSTRAIT_PROTO_GEN}.h"
-                       COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${SUBSTRAIT_LOCAL_DIR}/proto"
-                               "-I${ARROW_SUBSTRAIT_PROTOS_DIR}"
+                       COMMAND ${ARROW_PROTOBUF_PROTOC} ${ARROW_SUBSTRAIT_PROTOC_INCLUDES}
                                "--cpp_out=${SUBSTRAIT_CPP_DIR}"
                                "${ARROW_SUBSTRAIT_PROTOS_DIR}/substrait/${ARROW_SUBSTRAIT_PROTO}.proto"
                        DEPENDS ${PROTO_DEPENDS} substrait_ep)
@@ -2807,52 +2855,21 @@ function(build_re2)
   set(RE2_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(RE2_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/re2_fc-install")
-  set(RE2_PREFIX
-      "${RE2_PREFIX}"
-      PARENT_SCOPE)
 
   fetchcontent_declare(re2
+                       ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${RE2_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_RE2_BUILD_SHA256_CHECKSUM}")
   prepare_fetchcontent()
 
   # Unity build causes some build errors
   set(CMAKE_UNITY_BUILD OFF)
+
   fetchcontent_makeavailable(re2)
 
-  # This custom target ensures re2 is built before we install
-  add_custom_target(re2_built DEPENDS re2::re2)
-
-  add_custom_command(OUTPUT "${re2_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${re2_BINARY_DIR}/cmake_install.cmake"
-                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# RE2 install disabled to prevent double installation with Arrow"
-                             > "${re2_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS re2_built
-                     COMMENT "Disabling RE2 install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(re2_install_disabled ALL
-                    DEPENDS "${re2_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install RE2 to RE2_PREFIX for gRPC to find
-  add_custom_command(OUTPUT "${RE2_PREFIX}/.re2_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${re2_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${RE2_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${re2_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch "${RE2_PREFIX}/.re2_installed"
-                     DEPENDS re2_install_disabled
-                     COMMENT "Installing RE2 to ${RE2_PREFIX} for gRPC"
-                     VERBATIM)
-
-  add_custom_target(re2_fc DEPENDS "${RE2_PREFIX}/.re2_installed")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS} re2::re2
@@ -2985,10 +3002,6 @@ function(build_cares)
   set(CARES_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(CARES_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/cares_fc-install")
-  set(CARES_PREFIX
-      "${CARES_PREFIX}"
-      PARENT_SCOPE)
 
   fetchcontent_declare(cares
                        URL ${CARES_SOURCE_URL}
@@ -2998,48 +3011,8 @@ function(build_cares)
 
   set(CARES_SHARED OFF)
   set(CARES_STATIC ON)
-  set(CARES_INSTALL ON)
   set(CARES_BUILD_TOOLS OFF)
-  set(CARES_BUILD_TESTS OFF)
   fetchcontent_makeavailable(cares)
-
-  # gRPC requires c-ares to be installed to a known location.
-  # We have to do this in two steps to avoid double installation of c-ares
-  # when Arrow is installed.
-  # This custom target ensures c-ares is built before we install
-  add_custom_target(cares_built DEPENDS c-ares::cares)
-
-  # Disable c-ares's install script after it's built to prevent double installation
-  add_custom_command(OUTPUT "${cares_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${cares_BINARY_DIR}/cmake_install.cmake"
-                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# c-ares install disabled to prevent double installation with Arrow"
-                             > "${cares_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS cares_built
-                     COMMENT "Disabling c-ares install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(cares_install_disabled ALL
-                    DEPENDS "${cares_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install c-ares to CARES_PREFIX for gRPC to find
-  add_custom_command(OUTPUT "${CARES_PREFIX}/.cares_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${cares_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${CARES_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${cares_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch "${CARES_PREFIX}/.cares_installed"
-                     DEPENDS cares_install_disabled
-                     COMMENT "Installing c-ares to ${CARES_PREFIX} for gRPC"
-                     VERBATIM)
-
-  # Make cares_fc depend on the install completion marker
-  add_custom_target(cares_fc DEPENDS "${CARES_PREFIX}/.cares_installed")
 
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
@@ -3063,138 +3036,26 @@ function(build_absl)
   set(ABSL_VENDORED
       TRUE
       PARENT_SCOPE)
-  set(ABSL_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/absl_fc-install")
-  set(ABSL_PREFIX
-      "${ABSL_PREFIX}"
-      PARENT_SCOPE)
 
   if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
     string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
   endif()
 
   fetchcontent_declare(absl
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${ABSL_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
-  # We have to enable Abseil install to generate abslConfig.cmake
-  # so gRPC can find Abseil through ExternalProject_Add. Our expectation
-  # is that this will not be necessary once gRPC supports FetchContent.
+  # We have to enable Abseil install to add Abseil targets to an export set.
+  # But we don't install Abseil by EXCLUDE_FROM_ALL.
   set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
 
-  # This custom target is required due to a timing issue between FetchContent
-  # and the install command below, which is necessary for GRPC to find Abseil
-  # due to mixing FetchContent and ExternalProject_Add.
-  # Create a target that depends on ALL Abseil libraries that will be installed.
-  # This ensures they're all built before we try to install.
-  add_custom_target(absl_built
-                    DEPENDS absl::bad_any_cast_impl
-                            absl::bad_optional_access
-                            absl::bad_variant_access
-                            absl::base
-                            absl::city
-                            absl::civil_time
-                            absl::cord
-                            absl::cord_internal
-                            absl::cordz_functions
-                            absl::cordz_handle
-                            absl::cordz_info
-                            absl::cordz_sample_token
-                            absl::debugging_internal
-                            absl::demangle_internal
-                            absl::examine_stack
-                            absl::exponential_biased
-                            absl::failure_signal_handler
-                            absl::flags
-                            absl::flags_commandlineflag
-                            absl::flags_commandlineflag_internal
-                            absl::flags_config
-                            absl::flags_internal
-                            absl::flags_marshalling
-                            absl::flags_parse
-                            absl::flags_private_handle_accessor
-                            absl::flags_program_name
-                            absl::flags_reflection
-                            absl::flags_usage
-                            absl::flags_usage_internal
-                            absl::graphcycles_internal
-                            absl::hash
-                            absl::hashtablez_sampler
-                            absl::int128
-                            absl::leak_check
-                            absl::leak_check_disable
-                            absl::log_severity
-                            absl::low_level_hash
-                            absl::malloc_internal
-                            absl::periodic_sampler
-                            absl::random_distributions
-                            absl::random_internal_distribution_test_util
-                            absl::random_internal_platform
-                            absl::random_internal_pool_urbg
-                            absl::random_internal_randen
-                            absl::random_internal_randen_hwaes
-                            absl::random_internal_randen_hwaes_impl
-                            absl::random_internal_randen_slow
-                            absl::random_internal_seed_material
-                            absl::random_seed_gen_exception
-                            absl::random_seed_sequences
-                            absl::raw_hash_set
-                            absl::raw_logging_internal
-                            absl::scoped_set_env
-                            absl::spinlock_wait
-                            absl::stacktrace
-                            absl::status
-                            absl::statusor
-                            absl::str_format_internal
-                            absl::strerror
-                            absl::strings
-                            absl::strings_internal
-                            absl::symbolize
-                            absl::synchronization
-                            absl::throw_delegate
-                            absl::time
-                            absl::time_zone)
-
-  # gRPC requires Abseil to be installed to a known location.
-  # We have to do this in two steps to avoid double installation of Abseil
-  # when Arrow is installed.
-  # Disable Abseil's install script this target runs after Abseil is built
-  # and replaces its cmake_install.cmake with a no-op so Arrow does not install it
-  # outside of the build tree.
-  add_custom_command(OUTPUT "${absl_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${absl_BINARY_DIR}/cmake_install.cmake"
-                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
-                     COMMAND ${CMAKE_COMMAND} -E echo
-                             "# Abseil install disabled to prevent double installation with Arrow"
-                             > "${absl_BINARY_DIR}/cmake_install.cmake"
-                     DEPENDS absl_built
-                     COMMENT "Disabling Abseil's install to prevent double installation"
-                     VERBATIM)
-
-  add_custom_target(absl_install_disabled ALL
-                    DEPENDS "${absl_BINARY_DIR}/cmake_install.cmake.saved")
-
-  # Install Abseil to ABSL_PREFIX for gRPC to find.
-  # Using the saved original cmake_install.cmake.saved install script
-  # for other dependencies to find Abseil.
-  add_custom_command(OUTPUT "${ABSL_PREFIX}/.absl_installed"
-                     COMMAND ${CMAKE_COMMAND} -E copy_if_different
-                             "${absl_BINARY_DIR}/cmake_install.cmake.saved"
-                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp"
-                     COMMAND ${CMAKE_COMMAND} -DCMAKE_INSTALL_PREFIX=${ABSL_PREFIX}
-                             -DCMAKE_INSTALL_CONFIG_NAME=$<CONFIG> -P
-                             "${absl_BINARY_DIR}/cmake_install.cmake.tmp" ||
-                             ${CMAKE_COMMAND} -E true
-                     COMMAND ${CMAKE_COMMAND} -E touch "${ABSL_PREFIX}/.absl_installed"
-                     DEPENDS absl_install_disabled
-                     COMMENT "Installing Abseil to ${ABSL_PREFIX} for gRPC"
-                     VERBATIM)
-
-  # Make absl_fc depend on the install completion marker
-  add_custom_target(absl_fc DEPENDS "${ABSL_PREFIX}/.absl_installed")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
   if(APPLE)
     # This is due to upstream absl::cctz issue
@@ -3209,7 +3070,7 @@ function(build_absl)
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
-macro(build_grpc)
+function(build_grpc)
   resolve_dependency(c-ares
                      ARROW_CMAKE_PACKAGE_NAME
                      ArrowFlight
@@ -3220,280 +3081,103 @@ macro(build_grpc)
                      PC_PACKAGE_NAMES
                      libcares)
 
-  message(STATUS "Building gRPC from source")
+  list(APPEND CMAKE_MESSAGE_INDENT "gRPC: ")
+  message(STATUS "Building gRPC from source using FetchContent")
+  set(GRPC_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
-  set(GRPC_BUILD_DIR "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-prefix/src/grpc_ep-build")
-  set(GRPC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/grpc_ep-install")
-  set(GRPC_HOME "${GRPC_PREFIX}")
-  set(GRPC_INCLUDE_DIR "${GRPC_PREFIX}/include")
+  fetchcontent_declare(grpc
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${GRPC_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}")
 
-  set(GRPC_STATIC_LIBRARY_GPR
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}gpr${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPC
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPCPP
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_ADDRESS_SORTING
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}address_sorting${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}grpc++_reflection${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_STATIC_LIBRARY_UPB
-      "${GRPC_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}upb${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-  set(GRPC_CPP_PLUGIN "${GRPC_PREFIX}/bin/grpc_cpp_plugin${CMAKE_EXECUTABLE_SUFFIX}")
+  prepare_fetchcontent()
 
-  set(GRPC_CMAKE_PREFIX)
-
-  add_custom_target(grpc_dependencies)
-
-  if(ABSL_VENDORED)
-    add_dependencies(grpc_dependencies absl_fc)
-  endif()
-  if(CARES_VENDORED)
-    add_dependencies(grpc_dependencies cares_fc)
-  endif()
-
-  if(GFLAGS_VENDORED)
-    add_dependencies(grpc_dependencies gflags_ep)
-  endif()
-
-  if(RE2_VENDORED)
-    add_dependencies(grpc_dependencies re2_fc)
-  endif()
-
-  add_dependencies(grpc_dependencies ${ARROW_PROTOBUF_LIBPROTOBUF} c-ares::cares
-                   ZLIB::ZLIB)
-
-  get_target_property(GRPC_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_filename_component(GRPC_PB_ROOT "${GRPC_PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-  get_target_property(GRPC_Protobuf_PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC}
-                      IMPORTED_LOCATION)
-
-  # For FetchContent c-ares, use the install prefix directly
-  if(CARES_VENDORED)
-    set(GRPC_CARES_ROOT "${CARES_PREFIX}")
-  else()
-    get_target_property(GRPC_CARES_INCLUDE_DIR c-ares::cares
-                        INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(GRPC_CARES_ROOT "${GRPC_CARES_INCLUDE_DIR}" DIRECTORY)
-  endif()
-
-  # For FetchContent RE2, use the install prefix directly
-  if(RE2_VENDORED)
-    set(GRPC_RE2_ROOT "${RE2_PREFIX}")
-  else()
-    get_target_property(GRPC_RE2_INCLUDE_DIR re2::re2 INTERFACE_INCLUDE_DIRECTORIES)
-    get_filename_component(GRPC_RE2_ROOT "${GRPC_RE2_INCLUDE_DIR}" DIRECTORY)
-  endif()
-
-  # Put Abseil, etc. first so that local directories are searched
-  # before (what are likely) system directories
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ABSL_PREFIX}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_PB_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_CARES_ROOT}")
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${GRPC_RE2_ROOT}")
-
-  # ZLIB is never vendored
-  set(GRPC_CMAKE_PREFIX "${GRPC_CMAKE_PREFIX};${ZLIB_ROOT}")
-
-  if(RAPIDJSON_VENDORED)
-    add_dependencies(grpc_dependencies rapidjson_ep)
-  endif()
-
-  # Yuck, see https://stackoverflow.com/a/45433229/776560
-  string(REPLACE ";" ${EP_LIST_SEPARATOR} GRPC_PREFIX_PATH_ALT_SEP "${GRPC_CMAKE_PREFIX}")
-
-  set(GRPC_C_FLAGS "${EP_C_FLAGS}")
-  set(GRPC_CXX_FLAGS "${EP_CXX_FLAGS}")
-  if(NOT MSVC)
-    # Negate warnings that gRPC cannot build under
-    # See https://github.com/grpc/grpc/issues/29417
-    string(APPEND
-           GRPC_C_FLAGS
-           " -Wno-attributes"
-           " -Wno-format-security"
-           " -Wno-unknown-warning-option")
-    string(APPEND
-           GRPC_CXX_FLAGS
-           " -Wno-attributes"
-           " -Wno-format-security"
-           " -Wno-unknown-warning-option")
-  endif()
-
-  set(GRPC_CMAKE_ARGS
-      "${EP_COMMON_CMAKE_ARGS}"
-      "-DCMAKE_C_FLAGS=${GRPC_C_FLAGS}"
-      "-DCMAKE_CXX_FLAGS=${GRPC_CXX_FLAGS}"
-      -DCMAKE_INSTALL_PREFIX=${GRPC_PREFIX}
-      -DCMAKE_PREFIX_PATH='${GRPC_PREFIX_PATH_ALT_SEP}'
-      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY}
-      -DgRPC_ABSL_PROVIDER=package
-      -DgRPC_BUILD_CSHARP_EXT=OFF
-      -DgRPC_BUILD_GRPC_CSHARP_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_NODE_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_OBJECTIVE_C_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_PHP_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_PYTHON_PLUGIN=OFF
-      -DgRPC_BUILD_GRPC_RUBY_PLUGIN=OFF
-      -DgRPC_BUILD_TESTS=OFF
-      -DgRPC_CARES_PROVIDER=package
-      -DgRPC_MSVC_STATIC_RUNTIME=${ARROW_USE_STATIC_CRT}
-      -DgRPC_PROTOBUF_PROVIDER=package
-      -DgRPC_RE2_PROVIDER=package
-      -DgRPC_SSL_PROVIDER=package
-      -DgRPC_ZLIB_PROVIDER=package)
   if(PROTOBUF_VENDORED)
-    list(APPEND GRPC_CMAKE_ARGS -DgRPC_PROTOBUF_PACKAGE_TYPE=CONFIG)
+    set(_gRPC_PROTOBUF_LIBRARIES "protobuf::libprotobuf")
+
+    set(_gRPC_PROTOBUF_PROTOC_LIBRARIES "protobuf::libprotoc")
+
+    set(_gRPC_PROTOBUF_PROTOC_EXECUTABLE "$<TARGET_FILE:protobuf::protoc>")
+
+    # gRPC needs this at configure time.
+    get_filename_component(_protobuf_root_dir "${protobuf_SOURCE_DIR}" DIRECTORY)
+    set(_gRPC_PROTOBUF_WELLKNOWN_INCLUDE_DIR "${_protobuf_root_dir}/src")
   endif()
 
-  # XXX the gRPC git checkout is huge and takes a long time
-  # Ideally, we should be able to use the tarballs, but they don't contain
-  # vendored dependencies such as c-ares...
-  externalproject_add(grpc_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${GRPC_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GRPC_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS ${GRPC_STATIC_LIBRARY_GPR}
-                                       ${GRPC_STATIC_LIBRARY_GRPC}
-                                       ${GRPC_STATIC_LIBRARY_GRPCPP}
-                                       ${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}
-                                       ${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}
-                                       ${GRPC_STATIC_LIBRARY_UPB}
-                                       ${GRPC_CPP_PLUGIN}
-                      CMAKE_ARGS ${GRPC_CMAKE_ARGS}
-                      DEPENDS ${grpc_dependencies})
+  # Use "none" provider for c-ares or re2, either we vendored it or we already found it.
+  set(gRPC_CARES_PROVIDER
+      "none"
+      CACHE STRING "" FORCE)
+  set(_gRPC_CARES_LIBRARIES "c-ares::cares")
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${GRPC_INCLUDE_DIR})
+  set(gRPC_RE2_PROVIDER "none")
+  set(_gRPC_RE2_LIBRARIES "re2::re2")
 
-  add_library(gRPC::upb STATIC IMPORTED)
-  set_target_properties(gRPC::upb PROPERTIES IMPORTED_LOCATION
-                                             "${GRPC_STATIC_LIBRARY_UPB}")
-  target_include_directories(gRPC::upb BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  set(gRPC_SSL_PROVIDER "none")
+  set(_gRPC_SSL_LIBRARIES "OpenSSL::SSL;OpenSSL::Crypto")
+  set(gRPC_ZLIB_PROVIDER "package")
+  set(gRPC_INSTALL OFF)
+  set(gRPC_BUILD_TESTS OFF)
 
-  set(GRPC_GPR_ABSL_LIBRARIES
-      # We need a flattened list of Abseil libraries for the static linking case,
-      # because our method for creating arrow_bundled_dependencies.a doesn't walk
-      # the dependency tree of targets.
-      #
-      # This list should be updated when we change Abseil / gRPC versions. It can
-      # be generated with:
-      # pkg-config --libs --static grpc \
-      #   | tr " " "\n" \
-      #   | grep ^-labsl_ \
-      #   | sed 's/^-labsl_/absl::/'
-      absl::raw_hash_set
-      absl::hashtablez_sampler
-      absl::hash
-      absl::city
-      absl::low_level_hash
-      absl::random_distributions
-      absl::random_seed_sequences
-      absl::random_internal_pool_urbg
-      absl::random_internal_randen
-      absl::random_internal_randen_hwaes
-      absl::random_internal_randen_hwaes_impl
-      absl::random_internal_randen_slow
-      absl::random_internal_platform
-      absl::random_internal_seed_material
-      absl::random_seed_gen_exception
-      absl::statusor
-      absl::status
-      absl::cord
-      absl::cordz_info
-      absl::cord_internal
-      absl::cordz_functions
-      absl::exponential_biased
-      absl::cordz_handle
-      absl::bad_optional_access
-      absl::str_format_internal
-      absl::synchronization
-      absl::graphcycles_internal
-      absl::stacktrace
-      absl::symbolize
-      absl::debugging_internal
-      absl::demangle_internal
-      absl::malloc_internal
-      absl::time
-      absl::civil_time
-      absl::strings
-      absl::strings_internal
-      absl::base
-      absl::spinlock_wait
-      absl::int128
-      absl::throw_delegate
-      absl::time_zone
-      absl::bad_variant_access
-      absl::raw_logging_internal
-      absl::log_severity)
+  # Add warning suppression flags for gRPC build.
+  if(NOT MSVC)
+    string(APPEND CMAKE_C_FLAGS " -Wno-attributes -Wno-format-security")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-attributes -Wno-format-security")
+  endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang" OR CMAKE_CXX_COMPILER_ID STREQUAL
+                                                    "Clang")
+    string(APPEND CMAKE_C_FLAGS " -Wno-unknown-warning-option")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-unknown-warning-option")
+  endif()
 
-  add_library(gRPC::gpr STATIC IMPORTED)
-  set_target_properties(gRPC::gpr PROPERTIES IMPORTED_LOCATION
-                                             "${GRPC_STATIC_LIBRARY_GPR}")
-  target_link_libraries(gRPC::gpr INTERFACE ${GRPC_GPR_ABSL_LIBRARIES})
-  target_include_directories(gRPC::gpr BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  fetchcontent_makeavailable(grpc)
 
-  add_library(gRPC::address_sorting STATIC IMPORTED)
-  set_target_properties(gRPC::address_sorting
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_ADDRESS_SORTING}")
-  target_include_directories(gRPC::address_sorting BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${grpc_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
 
-  add_library(gRPC::grpc++_reflection STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++_reflection
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GRPC_STATIC_LIBRARY_GRPCPP_REFLECTION}")
-  target_include_directories(gRPC::grpc++_reflection BEFORE
-                             INTERFACE "${GRPC_INCLUDE_DIR}")
+  # FetchContent builds gRPC libraries without gRPC:: prefix.
+  # Create gRPC:: alias targets for consistency.
+  set(GRPC_LIBRARY_TARGETS
+      address_sorting
+      gpr
+      grpc
+      grpc++
+      grpc++_reflection
+      upb)
 
-  add_library(gRPC::grpc STATIC IMPORTED)
-  set_target_properties(gRPC::grpc PROPERTIES IMPORTED_LOCATION
-                                              "${GRPC_STATIC_LIBRARY_GRPC}")
-  target_link_libraries(gRPC::grpc
-                        INTERFACE gRPC::gpr
-                                  gRPC::upb
-                                  gRPC::address_sorting
-                                  re2::re2
-                                  c-ares::cares
-                                  ZLIB::ZLIB
-                                  OpenSSL::SSL
-                                  Threads::Threads)
-  target_include_directories(gRPC::grpc BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  foreach(target ${GRPC_LIBRARY_TARGETS})
+    if(TARGET ${target} AND NOT TARGET gRPC::${target})
+      add_library(gRPC::${target} ALIAS ${target})
+    endif()
+  endforeach()
 
-  add_library(gRPC::grpc++ STATIC IMPORTED)
-  set_target_properties(gRPC::grpc++ PROPERTIES IMPORTED_LOCATION
-                                                "${GRPC_STATIC_LIBRARY_GRPCPP}")
-  target_link_libraries(gRPC::grpc++ INTERFACE gRPC::grpc ${ARROW_PROTOBUF_LIBPROTOBUF})
-  target_include_directories(gRPC::grpc++ BEFORE INTERFACE "${GRPC_INCLUDE_DIR}")
+  if(TARGET grpc_cpp_plugin AND NOT TARGET gRPC::grpc_cpp_plugin)
+    add_executable(gRPC::grpc_cpp_plugin ALIAS grpc_cpp_plugin)
+  endif()
 
-  add_executable(gRPC::grpc_cpp_plugin IMPORTED)
-  set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES IMPORTED_LOCATION
-                                                         ${GRPC_CPP_PLUGIN})
-
-  add_dependencies(grpc_ep grpc_dependencies)
-  add_dependencies(gRPC::grpc++ grpc_ep)
-  add_dependencies(gRPC::grpc_cpp_plugin grpc_ep)
-  set(GRPC_VENDORED TRUE)
+  # gRPC headers use deprecated std::iterator that causes compilation errors.
+  # This workaround can be removed once we upgrade to a newer gRPC version.
+  if(NOT MSVC)
+    foreach(target ${GRPC_LIBRARY_TARGETS})
+      if(TARGET ${target})
+        target_compile_options(${target} INTERFACE -Wno-error=deprecated-declarations)
+      endif()
+    endforeach()
+  endif()
 
   # ar -M rejects with the "libgrpc++.a" filename because "+" is a line
   # continuation character in these scripts, so we have to create a copy of the
-  # static lib that we will bundle later
-
+  # static lib that we will bundle later.
   set(GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR
       "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}grpcpp${CMAKE_STATIC_LIBRARY_SUFFIX}"
   )
   add_custom_command(OUTPUT ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
                      COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:gRPC::grpc++>
                              ${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}
-                     DEPENDS grpc_ep)
+                     DEPENDS gRPC::grpc++)
   add_library(gRPC::grpcpp_for_bundling STATIC IMPORTED)
   set_target_properties(gRPC::grpcpp_for_bundling
                         PROPERTIES IMPORTED_LOCATION
@@ -3504,6 +3188,7 @@ macro(build_grpc)
   add_custom_target(grpc_copy_grpc++ ALL DEPENDS "${GRPC_STATIC_LIBRARY_GRPCPP_FOR_AR}")
   add_dependencies(gRPC::grpcpp_for_bundling grpc_copy_grpc++)
 
+  # Add gRPC libraries to bundled static libs.
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
        gRPC::address_sorting
@@ -3511,10 +3196,11 @@ macro(build_grpc)
        gRPC::grpc
        gRPC::grpcpp_for_bundling
        gRPC::upb)
-  if(ABSL_VENDORED)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ${GRPC_GPR_ABSL_LIBRARIES})
-  endif()
-endmacro()
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
   set(ARROW_ABSL_REQUIRED_VERSION 20211102)
@@ -3599,75 +3285,70 @@ endif()
 # ----------------------------------------------------------------------
 # GCS and dependencies
 
-macro(build_crc32c_once)
-  if(NOT TARGET crc32c_ep)
-    message(STATUS "Building crc32c from source")
-    # Build crc32c
-    set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_ep-install")
-    set(CRC32C_INCLUDE_DIR "${CRC32C_PREFIX}/include")
-    set(CRC32C_CMAKE_ARGS
-        ${EP_COMMON_CMAKE_ARGS}
-        "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-        -DCRC32C_BUILD_TESTS=OFF
-        -DCRC32C_BUILD_BENCHMARKS=OFF
-        -DCRC32C_USE_GLOG=OFF)
+function(build_crc32c_once)
+  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
+  message(STATUS "Building CRC32C from source using FetchContent")
+  set(CRC32C_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
+  set(CRC32C_PREFIX
+      "${CRC32C_PREFIX}"
+      PARENT_SCOPE)
 
-    set(_CRC32C_STATIC_LIBRARY
-        "${CRC32C_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}crc32c${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(CRC32C_BUILD_BYPRODUCTS ${_CRC32C_STATIC_LIBRARY})
-    set(CRC32C_LIBRARIES crc32c)
+  fetchcontent_declare(crc32c
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${CRC32C_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
 
-    externalproject_add(crc32c_ep
-                        ${EP_COMMON_OPTIONS}
-                        INSTALL_DIR ${CRC32C_PREFIX}
-                        URL ${CRC32C_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${CRC32C_CMAKE_ARGS}
-                        BUILD_BYPRODUCTS ${CRC32C_BUILD_BYPRODUCTS})
-    # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-    file(MAKE_DIRECTORY "${CRC32C_INCLUDE_DIR}")
-    add_library(Crc32c::crc32c STATIC IMPORTED)
-    set_target_properties(Crc32c::crc32c PROPERTIES IMPORTED_LOCATION
-                                                    ${_CRC32C_STATIC_LIBRARY})
-    target_include_directories(Crc32c::crc32c BEFORE INTERFACE "${CRC32C_INCLUDE_DIR}")
-    add_dependencies(Crc32c::crc32c crc32c_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS Crc32c::crc32c)
+  prepare_fetchcontent()
+
+  set(CRC32C_BUILD_TESTS OFF)
+  set(CRC32C_BUILD_BENCHMARKS OFF)
+  set(CRC32C_USE_GLOG OFF)
+  fetchcontent_makeavailable(crc32c)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
-endmacro()
 
-macro(build_nlohmann_json)
-  message(STATUS "Building nlohmann-json from source")
-  # "Build" nlohmann-json
-  set(NLOHMANN_JSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/nlohmann_json_ep-install")
-  set(NLOHMANN_JSON_INCLUDE_DIR "${NLOHMANN_JSON_PREFIX}/include")
-  set(NLOHMANN_JSON_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      # google-cloud-cpp requires JSON_MultipleHeaders=ON
-      -DJSON_BuildTests=OFF -DJSON_MultipleHeaders=ON)
+  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
+  if(NOT TARGET Crc32c::crc32c)
+    add_library(Crc32c::crc32c ALIAS crc32c)
+  endif()
 
-  # We can remove this once we remove -DCMAKE_POLICY_VERSION_MINIMUM=3.5
-  # from EP_COMMON_CMAKE_ARGS.
-  list(REMOVE_ITEM NLOHMANN_JSON_CMAKE_ARGS -DCMAKE_POLICY_VERSION_MINIMUM=3.5)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
+      PARENT_SCOPE)
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
-  set(NLOHMANN_JSON_BUILD_BYPRODUCTS ${NLOHMANN_JSON_PREFIX}/include/nlohmann/json.hpp)
+function(build_nlohmann_json)
+  list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
+  message(STATUS "Building nlohmann-json from source using FetchContent")
+  set(NLOHMANN_JSON_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  fetchcontent_declare(nlohmann_json
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${NLOHMANN_JSON_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}")
 
-  externalproject_add(nlohmann_json_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${NLOHMANN_JSON_PREFIX}
-                      URL ${NLOHMANN_JSON_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_NLOHMANN_JSON_BUILD_SHA256_CHECKSUM}"
-                      CMAKE_ARGS ${NLOHMANN_JSON_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${NLOHMANN_JSON_BUILD_BYPRODUCTS})
+  prepare_fetchcontent()
 
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${NLOHMANN_JSON_INCLUDE_DIR})
+  # google-cloud-cpp requires JSON_MultipleHeaders=ON
+  set(JSON_BuildTests OFF)
+  set(JSON_MultipleHeaders ON)
+  set(JSON_Install ON)
+  fetchcontent_makeavailable(nlohmann_json)
 
-  add_library(nlohmann_json::nlohmann_json INTERFACE IMPORTED)
-  target_include_directories(nlohmann_json::nlohmann_json BEFORE
-                             INTERFACE "${NLOHMANN_JSON_INCLUDE_DIR}")
-  add_dependencies(nlohmann_json::nlohmann_json nlohmann_json_ep)
-endmacro()
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${nlohmann_json_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
 if(ARROW_WITH_NLOHMANN_JSON)
   resolve_dependency(nlohmann_json)
   get_target_property(nlohmann_json_INCLUDE_DIR nlohmann_json::nlohmann_json
@@ -3675,9 +3356,12 @@ if(ARROW_WITH_NLOHMANN_JSON)
   message(STATUS "Found nlohmann_json headers: ${nlohmann_json_INCLUDE_DIR}")
 endif()
 
-macro(build_google_cloud_cpp_storage)
-  message(STATUS "Building google-cloud-cpp from source")
-  message(STATUS "Only building the google-cloud-cpp::storage component")
+function(build_google_cloud_cpp_storage)
+  list(APPEND CMAKE_MESSAGE_INDENT "google-cloud-cpp: ")
+  message(STATUS "Building google-cloud-cpp from source using FetchContent")
+  set(GOOGLE_CLOUD_CPP_VENDORED
+      TRUE
+      PARENT_SCOPE)
 
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
   build_crc32c_once()
@@ -3686,156 +3370,40 @@ macro(build_google_cloud_cpp_storage)
   # For now, force its inclusion from the underlying system or fail.
   find_curl()
 
-  # Build google-cloud-cpp, with only storage_client
+  fetchcontent_declare(google_cloud_cpp
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${google_cloud_cpp_storage_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
-  # Inject vendored packages via CMAKE_PREFIX_PATH
-  if(ABSL_VENDORED)
-    list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ABSL_PREFIX})
+  prepare_fetchcontent()
+
+  message(STATUS "Only building the google-cloud-cpp::storage component")
+  set(GOOGLE_CLOUD_CPP_ENABLE storage)
+  # We need this to build with OpenSSL 3.0.
+  # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
+  set(GOOGLE_CLOUD_CPP_ENABLE_WERROR OFF)
+  set(GOOGLE_CLOUD_CPP_WITH_MOCKS OFF)
+  # Disable installation when embedded via FetchContent
+  # set(GOOGLE_CLOUD_CPP_ENABLE_INSTALL OFF)
+  set(BUILD_TESTING OFF)
+  # Unity build causes some build errors.
+  set(CMAKE_UNITY_BUILD FALSE)
+
+  fetchcontent_makeavailable(google_cloud_cpp)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
-  if(ZLIB_VENDORED)
-    list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${ZLIB_PREFIX})
-  endif()
-  list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${CRC32C_PREFIX})
-  list(APPEND GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
-
-  string(JOIN ${EP_LIST_SEPARATOR} GOOGLE_CLOUD_CPP_PREFIX_PATH
-         ${GOOGLE_CLOUD_CPP_PREFIX_PATH_LIST})
-
-  set(GOOGLE_CLOUD_CPP_INSTALL_PREFIX
-      "${CMAKE_CURRENT_BINARY_DIR}/google_cloud_cpp_ep-install")
-  set(GOOGLE_CLOUD_CPP_INCLUDE_DIR "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/include")
-  set(GOOGLE_CLOUD_CPP_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=<INSTALL_DIR>"
-      -DCMAKE_INSTALL_RPATH=$ORIGIN
-      -DCMAKE_PREFIX_PATH=${GOOGLE_CLOUD_CPP_PREFIX_PATH}
-      # Compile only the storage library and its dependencies. To enable
-      # other services (Spanner, Bigtable, etc.) add them (as a list) to this
-      # parameter. Each has its own `google-cloud-cpp::*` library.
-      -DGOOGLE_CLOUD_CPP_ENABLE=storage
-      # We need this to build with OpenSSL 3.0.
-      # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
-      -DGOOGLE_CLOUD_CPP_ENABLE_WERROR=OFF
-      -DGOOGLE_CLOUD_CPP_WITH_MOCKS=OFF
-      -DOPENSSL_CRYPTO_LIBRARY=${OPENSSL_CRYPTO_LIBRARY}
-      -DOPENSSL_INCLUDE_DIR=${OPENSSL_INCLUDE_DIR}
-      -DOPENSSL_SSL_LIBRARY=${OPENSSL_SSL_LIBRARY})
-
-  add_custom_target(google_cloud_cpp_dependencies)
-
-  if(ABSL_VENDORED)
-    add_dependencies(google_cloud_cpp_dependencies absl_fc)
-  endif()
-  if(ZLIB_VENDORED)
-    add_dependencies(google_cloud_cpp_dependencies zlib_ep)
-  endif()
-  add_dependencies(google_cloud_cpp_dependencies crc32c_ep)
-  add_dependencies(google_cloud_cpp_dependencies nlohmann_json::nlohmann_json)
-
-  set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE
-      "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_storage${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-
-  set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL
-      "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_rest_internal${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
-
-  set(GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON
-      "${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}google_cloud_cpp_common${CMAKE_STATIC_LIBRARY_SUFFIX}"
-  )
 
   # Remove unused directories to save build directory storage.
   # 141MB -> 79MB
-  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND ${CMAKE_COMMAND} -E)
-  if(CMAKE_VERSION VERSION_LESS 3.17)
-    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND remove_directory)
-  else()
-    list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND rm -rf)
-  endif()
-  list(APPEND GOOGLE_CLOUD_CPP_PATCH_COMMAND ci)
-
-  externalproject_add(google_cloud_cpp_ep
-                      ${EP_COMMON_OPTIONS}
-                      INSTALL_DIR ${GOOGLE_CLOUD_CPP_INSTALL_PREFIX}
-                      URL ${google_cloud_cpp_storage_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
-                      CMAKE_ARGS ${GOOGLE_CLOUD_CPP_CMAKE_ARGS}
-                      BUILD_BYPRODUCTS ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}
-                                       ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}
-                                       ${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}
-                      DEPENDS google_cloud_cpp_dependencies)
-
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${GOOGLE_CLOUD_CPP_INCLUDE_DIR})
-
-  add_library(google-cloud-cpp::common STATIC IMPORTED)
-  set_target_properties(google-cloud-cpp::common
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_COMMON}")
-  target_include_directories(google-cloud-cpp::common BEFORE
-                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
-  # Refer to https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/google_cloud_cpp_common.cmake
-  # (substitute `main` for the SHA of the version we use)
-  # Version 1.39.0 is at a different place (they refactored after):
-  # https://github.com/googleapis/google-cloud-cpp/blob/29e5af8ca9b26cec62106d189b50549f4dc1c598/google/cloud/CMakeLists.txt#L146-L155
-  target_link_libraries(google-cloud-cpp::common
-                        INTERFACE absl::base
-                                  absl::cord
-                                  absl::memory
-                                  absl::optional
-                                  absl::span
-                                  absl::time
-                                  absl::variant
-                                  Threads::Threads
-                                  OpenSSL::Crypto)
-
-  add_library(google-cloud-cpp::rest-internal STATIC IMPORTED)
-  set_target_properties(google-cloud-cpp::rest-internal
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_REST_INTERNAL}")
-  target_include_directories(google-cloud-cpp::rest-internal BEFORE
-                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
-  target_link_libraries(google-cloud-cpp::rest-internal
-                        INTERFACE absl::span
-                                  google-cloud-cpp::common
-                                  CURL::libcurl
-                                  nlohmann_json::nlohmann_json
-                                  OpenSSL::SSL
-                                  OpenSSL::Crypto)
-  if(WIN32)
-    target_link_libraries(google-cloud-cpp::rest-internal INTERFACE ws2_32)
-  endif()
-
-  add_library(google-cloud-cpp::storage STATIC IMPORTED)
-  set_target_properties(google-cloud-cpp::storage
-                        PROPERTIES IMPORTED_LOCATION
-                                   "${GOOGLE_CLOUD_CPP_STATIC_LIBRARY_STORAGE}")
-  target_include_directories(google-cloud-cpp::storage BEFORE
-                             INTERFACE "${GOOGLE_CLOUD_CPP_INCLUDE_DIR}")
-  # Update this from https://github.com/googleapis/google-cloud-cpp/blob/main/google/cloud/storage/google_cloud_cpp_storage.cmake
-  target_link_libraries(google-cloud-cpp::storage
-                        INTERFACE google-cloud-cpp::common
-                                  google-cloud-cpp::rest-internal
-                                  absl::memory
-                                  absl::strings
-                                  absl::str_format
-                                  absl::time
-                                  absl::variant
-                                  nlohmann_json::nlohmann_json
-                                  Crc32c::crc32c
-                                  CURL::libcurl
-                                  Threads::Threads
-                                  OpenSSL::SSL
-                                  OpenSSL::Crypto
-                                  ZLIB::ZLIB)
-  add_dependencies(google-cloud-cpp::storage google_cloud_cpp_ep)
-
+  file(REMOVE_RECURSE "${google_cloud_cpp_SOURCE_DIR}/ci")
   list(APPEND
        ARROW_BUNDLED_STATIC_LIBS
        google-cloud-cpp::storage
-       google-cloud-cpp::rest-internal
+       google-cloud-cpp::rest_internal
        google-cloud-cpp::common)
+
   if(ABSL_VENDORED)
     # Figure out what absl libraries (not header-only) are required by the
     # google-cloud-cpp libraries above and add them to the bundled_dependencies
@@ -3871,7 +3439,13 @@ macro(build_google_cloud_cpp_storage)
          absl::time
          absl::time_zone)
   endif()
-endmacro()
+
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP)
   if(NOT ARROW_ENABLE_THREADING)
@@ -3946,11 +3520,6 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
     set(PROTOBUF_HOME ${Protobuf_ROOT})
-    # ORC uses this.
-    if(PROTOBUF_VENDORED)
-      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
-    endif()
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
@@ -3993,7 +3562,24 @@ function(build_orc)
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
 
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc)
+    # ar -M rejects paths with "c++/" because "+" is a line continuation
+    # character in MRI scripts, so we have to create a copy of the static lib
+    # that we will bundle later (same issue as libgrpc++.a).
+    set(ORC_STATIC_LIBRARY_FOR_AR
+        "${CMAKE_CURRENT_BINARY_DIR}/${CMAKE_STATIC_LIBRARY_PREFIX}orc_for_bundling${CMAKE_STATIC_LIBRARY_SUFFIX}"
+    )
+    add_custom_command(OUTPUT ${ORC_STATIC_LIBRARY_FOR_AR}
+                       COMMAND ${CMAKE_COMMAND} -E copy $<TARGET_FILE:orc>
+                               ${ORC_STATIC_LIBRARY_FOR_AR}
+                       DEPENDS orc)
+    add_library(orc::orc_for_bundling STATIC IMPORTED)
+    set_target_properties(orc::orc_for_bundling PROPERTIES IMPORTED_LOCATION
+                                                           "${ORC_STATIC_LIBRARY_FOR_AR}")
+    set_source_files_properties("${ORC_STATIC_LIBRARY_FOR_AR}" PROPERTIES GENERATED TRUE)
+    add_custom_target(orc_copy_lib ALL DEPENDS "${ORC_STATIC_LIBRARY_FOR_AR}")
+    add_dependencies(orc::orc_for_bundling orc_copy_lib)
+
+    list(APPEND ARROW_BUNDLED_STATIC_LIBS orc::orc_for_bundling)
   else()
     set(ORC_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/orc_ep-install")
     set(ORC_HOME "${ORC_PREFIX}")
@@ -4105,212 +3691,89 @@ endif()
 # ----------------------------------------------------------------------
 # OpenTelemetry C++
 
-macro(build_opentelemetry)
-  message(STATUS "Building OpenTelemetry from source")
+function(build_opentelemetry)
+  list(APPEND CMAKE_MESSAGE_INDENT "OpenTelemetry: ")
+  message(STATUS "Building OpenTelemetry from source using FetchContent")
+
   if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
     message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
                         "Protobuf is version ${Protobuf_VERSION}")
   endif()
 
-  set(OPENTELEMETRY_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/opentelemetry_ep-install")
-  set(OPENTELEMETRY_INCLUDE_DIR "${OPENTELEMETRY_PREFIX}/include")
-  set(OPENTELEMETRY_STATIC_LIB
-      "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry${CMAKE_STATIC_LIBRARY_SUFFIX}"
+  set(OPENTELEMETRY_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  fetchcontent_declare(opentelemetry_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
   )
-  set(_OPENTELEMETRY_APIS api ext sdk)
-  set(_OPENTELEMETRY_LIBS
-      common
-      http_client_curl
-      logs
-      ostream_log_record_exporter
-      ostream_span_exporter
-      otlp_http_client
-      otlp_http_log_record_exporter
-      otlp_http_exporter
-      otlp_recordable
-      proto
-      resources
-      trace
-      version)
-  set(OPENTELEMETRY_BUILD_BYPRODUCTS)
-  set(OPENTELEMETRY_LIBRARIES)
 
-  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_APIS})
-    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} INTERFACE IMPORTED)
-    target_include_directories(opentelemetry-cpp::${_OPENTELEMETRY_LIB} BEFORE
-                               INTERFACE "${OPENTELEMETRY_INCLUDE_DIR}")
-  endforeach()
-  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
-    # N.B. OTel targets and libraries don't follow any consistent naming scheme
-    if(_OPENTELEMETRY_LIB STREQUAL "http_client_curl")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_span_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_span${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_client")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_client${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "otlp_http_log_record_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_otlp_http_log${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    elseif(_OPENTELEMETRY_LIB STREQUAL "ostream_log_record_exporter")
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_exporter_ostream_logs${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    else()
-      set(_OPENTELEMETRY_STATIC_LIBRARY
-          "${OPENTELEMETRY_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}opentelemetry_${_OPENTELEMETRY_LIB}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-      )
-    endif()
-    add_library(opentelemetry-cpp::${_OPENTELEMETRY_LIB} STATIC IMPORTED)
-    set_target_properties(opentelemetry-cpp::${_OPENTELEMETRY_LIB}
-                          PROPERTIES IMPORTED_LOCATION ${_OPENTELEMETRY_STATIC_LIBRARY})
-    list(APPEND OPENTELEMETRY_BUILD_BYPRODUCTS ${_OPENTELEMETRY_STATIC_LIBRARY})
-    list(APPEND OPENTELEMETRY_LIBRARIES opentelemetry-cpp::${_OPENTELEMETRY_LIB})
-  endforeach()
+  # Use FetchContent_Populate instead of MakeAvailable because opentelemetry-proto
+  # has no CMakeLists.txt.
+  cmake_policy(PUSH)
+  if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+  endif()
+  fetchcontent_populate(opentelemetry_proto)
+  cmake_policy(POP)
 
-  set(OPENTELEMETRY_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${OPENTELEMETRY_PREFIX}"
-      -DWITH_EXAMPLES=OFF)
+  fetchcontent_declare(opentelemetry_cpp
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
 
-  set(OPENTELEMETRY_PREFIX_PATH_LIST)
-  # Don't specify the DEPENDS unless we actually have dependencies, else
-  # Ninja/other build systems may consider this target to always be dirty
-  set(_OPENTELEMETRY_DEPENDENCIES)
-  add_custom_target(opentelemetry_dependencies)
+  prepare_fetchcontent()
 
-  set(_OPENTELEMETRY_DEPENDENCIES "opentelemetry_dependencies")
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${OPENTELEMETRY_LIBRARIES})
-  list(APPEND OPENTELEMETRY_PREFIX_PATH_LIST ${NLOHMANN_JSON_PREFIX})
+  # Unity build causes symbol redefinition errors in protobuf-generated code
+  set(CMAKE_UNITY_BUILD FALSE)
+  set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
+  set(WITH_EXAMPLES OFF)
+  set(WITH_OTLP_HTTP ON)
+  set(WITH_OTLP_GRPC OFF)
+  set(WITH_FUNC_TESTS OFF)
+  # These options are slated for removal in v1.14 and their features are deemed stable
+  # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+  # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+  # client initialization. There may still be a solution, but we disable them for now.
+  set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
+  set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
 
-  get_target_property(OPENTELEMETRY_PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  get_target_property(OPENTELEMETRY_PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF}
-                      IMPORTED_LOCATION)
-  get_target_property(OPENTELEMETRY_PROTOC_EXECUTABLE ${ARROW_PROTOBUF_PROTOC}
-                      IMPORTED_LOCATION)
-  list(APPEND
-       OPENTELEMETRY_CMAKE_ARGS
-       -DWITH_OTLP_HTTP=ON
-       -DWITH_OTLP_GRPC=OFF
-       # Disabled because it seemed to cause linking errors. May be worth a closer look.
-       -DWITH_FUNC_TESTS=OFF
-       # These options are slated for removal in v1.14 and their features are deemed stable
-       # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
-       # finicky - resulting in build failures or ABI-related runtime errors during HTTP
-       # client initialization. There may still be a solution, but we disable them for now.
-       -DWITH_OTLP_HTTP_SSL_PREVIEW=OFF
-       -DWITH_OTLP_HTTP_SSL_TLS_PREVIEW=OFF
-       "-DProtobuf_INCLUDE_DIR=${OPENTELEMETRY_PROTOBUF_INCLUDE_DIR}"
-       "-DProtobuf_LIBRARY=${OPENTELEMETRY_PROTOBUF_LIBRARY}"
-       "-DProtobuf_PROTOC_EXECUTABLE=${OPENTELEMETRY_PROTOC_EXECUTABLE}")
+  fetchcontent_makeavailable(opentelemetry_cpp)
 
-  # OpenTelemetry with OTLP enabled requires Protobuf definitions from a
-  # submodule. This submodule path is hardcoded into their CMake definitions,
-  # and submodules are not included in their releases. Add a custom build step
-  # to download and extract the Protobufs.
-
-  # Adding such a step is rather complicated, so instead: create a separate
-  # ExternalProject that just fetches the Protobufs, then add a custom step
-  # to the main build to copy the Protobufs.
-  externalproject_add(opentelemetry_proto_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
-                      URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
-                      BUILD_COMMAND ""
-                      CONFIGURE_COMMAND ""
-                      INSTALL_COMMAND ""
-                      EXCLUDE_FROM_ALL OFF)
-
-  add_dependencies(opentelemetry_dependencies nlohmann_json::nlohmann_json
-                   opentelemetry_proto_ep ${ARROW_PROTOBUF_LIBPROTOBUF})
-
-  string(JOIN "${EP_LIST_SEPARATOR}" OPENTELEMETRY_PREFIX_PATH
-         ${OPENTELEMETRY_PREFIX_PATH_LIST})
-  list(APPEND OPENTELEMETRY_CMAKE_ARGS "-DCMAKE_PREFIX_PATH=${OPENTELEMETRY_PREFIX_PATH}")
-
-  if(CMAKE_SYSTEM_PROCESSOR STREQUAL "s390x")
-    # OpenTelemetry tries to determine the processor arch for vcpkg, which fails
-    # on s390x, even though it doesn't use vcpkg there. Tell it ARCH manually
-    externalproject_add(opentelemetry_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
-                        CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env ARCH=s390x
-                                          ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR}
-                                          "<SOURCE_DIR><SOURCE_SUBDIR>"
-                                          ${OPENTELEMETRY_CMAKE_ARGS}
-                        BUILD_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target all
-                        INSTALL_COMMAND ${CMAKE_COMMAND} --build "<BINARY_DIR>" --target
-                                        install
-                        URL ${OPENTELEMETRY_SOURCE_URL}
-                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
-                        EXCLUDE_FROM_ALL NOT
-                        ${ARROW_WITH_OPENTELEMETRY}
-                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
-  else()
-    externalproject_add(opentelemetry_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}"
-                        CMAKE_ARGS ${OPENTELEMETRY_CMAKE_ARGS}
-                        URL ${OPENTELEMETRY_SOURCE_URL}
-                        BUILD_BYPRODUCTS ${OPENTELEMETRY_BUILD_BYPRODUCTS}
-                        EXCLUDE_FROM_ALL NOT
-                        ${ARROW_WITH_OPENTELEMETRY}
-                        DEPENDS ${_OPENTELEMETRY_DEPENDENCIES})
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${opentelemetry_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
-  externalproject_add_step(opentelemetry_ep download_proto
-                           COMMAND ${CMAKE_COMMAND} -E copy_directory
-                                   $<TARGET_PROPERTY:opentelemetry_proto_ep,_EP_SOURCE_DIR>/opentelemetry
-                                   $<TARGET_PROPERTY:opentelemetry_ep,_EP_SOURCE_DIR>/third_party/opentelemetry-proto/opentelemetry
-                           DEPENDEES download
-                           DEPENDERS configure)
+  # Remove unused directories to save build directory storage
+  file(REMOVE_RECURSE "${opentelemetry_cpp_SOURCE_DIR}/ci")
 
-  set(OPENTELEMETRY_VENDORED 1)
+  # OpenTelemetry creates its own targets. We need to add them to bundled static libs.
+  # The targets created by OpenTelemetry's CMakeLists.txt use the opentelemetry:: namespace.
+  # List of libraries that we actually need and want to bundle.
+  set(_OPENTELEMETRY_BUNDLED_LIBS
+      opentelemetry-cpp::common
+      opentelemetry-cpp::http_client_curl
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_client
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::otlp_http_exporter
+      opentelemetry-cpp::otlp_recordable
+      opentelemetry-cpp::proto
+      opentelemetry-cpp::resources
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::version)
 
-  target_link_libraries(opentelemetry-cpp::common
-                        INTERFACE opentelemetry-cpp::api opentelemetry-cpp::sdk
-                                  Threads::Threads)
-  target_link_libraries(opentelemetry-cpp::resources INTERFACE opentelemetry-cpp::common)
-  target_link_libraries(opentelemetry-cpp::trace INTERFACE opentelemetry-cpp::common
-                                                           opentelemetry-cpp::resources)
-  target_link_libraries(opentelemetry-cpp::logs INTERFACE opentelemetry-cpp::common
-                                                          opentelemetry-cpp::resources)
-  target_link_libraries(opentelemetry-cpp::http_client_curl
-                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::ext
-                                  CURL::libcurl)
-  target_link_libraries(opentelemetry-cpp::proto INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
-  target_link_libraries(opentelemetry-cpp::otlp_recordable
-                        INTERFACE opentelemetry-cpp::logs opentelemetry-cpp::trace
-                                  opentelemetry-cpp::resources opentelemetry-cpp::proto)
-  target_link_libraries(opentelemetry-cpp::otlp_http_client
-                        INTERFACE opentelemetry-cpp::common opentelemetry-cpp::proto
-                                  opentelemetry-cpp::http_client_curl
-                                  nlohmann_json::nlohmann_json)
-  target_link_libraries(opentelemetry-cpp::otlp_http_exporter
-                        INTERFACE opentelemetry-cpp::otlp_recordable
-                                  opentelemetry-cpp::otlp_http_client)
-  target_link_libraries(opentelemetry-cpp::otlp_http_log_record_exporter
-                        INTERFACE opentelemetry-cpp::otlp_recordable
-                                  opentelemetry-cpp::otlp_http_client)
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
 
-  foreach(_OPENTELEMETRY_LIB ${_OPENTELEMETRY_LIBS})
-    add_dependencies(opentelemetry-cpp::${_OPENTELEMETRY_LIB} opentelemetry_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS opentelemetry-cpp::${_OPENTELEMETRY_LIB})
-  endforeach()
-
-  # Work around https://gitlab.kitware.com/cmake/cmake/issues/15052
-  file(MAKE_DIRECTORY ${OPENTELEMETRY_INCLUDE_DIR})
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_OPENTELEMETRY)
   if(NOT ARROW_ENABLE_THREADING)
@@ -4521,6 +3984,11 @@ function(build_awssdk)
         # We don't need to link aws-lc. It's used only by s2n-tls.
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
+        # Disable -Werror for s2n-tls: it has Clang 18 warnings that it intentionally allows.
+        # See: https://github.com/aws/s2n-tls/issues/5696
+        if(TARGET s2n)
+          target_compile_options(s2n PRIVATE -Wno-error)
+        endif()
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
         # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.

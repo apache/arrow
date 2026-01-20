@@ -50,7 +50,7 @@ repos:
           )
         types: []
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v18.1.8
     hooks:
       - id: clang-format
         name: C++ Format
@@ -93,7 +93,7 @@ repos:
           ?^cpp/thirdparty/|
           )
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v18.1.8
     hooks:
       - id: clang-format
         alias: c-glib
@@ -101,7 +101,7 @@ repos:
         files: >-
           ^c_glib/
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v18.1.8
     hooks:
       - id: clang-format
         name: MATLAB (C++) Format
@@ -156,7 +156,7 @@ repos:
         files: >-
           ^python/
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v18.1.8
     hooks:
       - id: clang-format
         alias: python
@@ -213,7 +213,7 @@ repos:
         files: >-
             ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v14.0.6
+    rev: v18.1.8
     hooks:
       - id: clang-format
         alias: r
@@ -251,6 +251,7 @@ repos:
         exclude: >-
           (
           ?^dev/tasks/homebrew-formulae/.*\.rb$|
+          ?^ruby/red-arrow-format/lib/arrow-format/org/.*\.rb$|
           )
   - repo: https://github.com/cheshirekow/cmake-format-precommit
     rev: v0.6.13
@@ -352,7 +353,7 @@ repos:
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
-          ?^dev/release/07-binary-verify\.sh$|
+          ?^dev/release/08-binary-verify\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
           ?^dev/release/post-08-docs\.sh$|

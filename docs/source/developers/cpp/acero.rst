@@ -328,7 +328,7 @@ this leads to problems with cache locality.  For example, let's assume we have a
 exec nodes, scan, project, and then filter (this is a very common use case).  Now let's assume there are 100 batches.
 In a task-per-operator model we would have tasks like "Scan Batch 5", "Project Batch 5", and "Filter Batch 5".  Each
 of those tasks is potentially going to access the same data.  For example, maybe the ``project`` and ``filter`` nodes need
-to read the same column.  A column which is intially created in a decode phase of the ``scan`` node.  To maximize cache
+to read the same column.  A column which is initially created in a decode phase of the ``scan`` node.  To maximize cache
 utilization we would need to carefully schedule our tasks to ensure that all three of those tasks are run consecutively
 and assigned to the same CPU core.
 

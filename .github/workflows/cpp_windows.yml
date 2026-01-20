@@ -33,6 +33,9 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   windows:
     runs-on: ${{ inputs.os }}
@@ -63,7 +66,7 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_CXX_STANDARD: "17"
+      CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
@@ -77,7 +80,7 @@ jobs:
             /d 1 `
             /f
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -105,7 +108,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-windows-${{ inputs.arch }}-${{ hashFiles('cpp/**') }}

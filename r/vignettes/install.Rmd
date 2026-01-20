@@ -23,8 +23,8 @@ but there are a few things to note.
 
 ### Compilers
 
-As of version 10.0.0, arrow requires a C++17 compiler to build.
-For `gcc`, this generally means version 7 or newer. Most contemporary Linux
+As of version 22.0.0, arrow requires a C++20 compiler to build.
+For `gcc`, this generally means version 10 or newer. Most contemporary Linux
 distributions have a new enough compiler; however, CentOS 7 is a notable
 exception, as it ships with gcc 4.8.
 

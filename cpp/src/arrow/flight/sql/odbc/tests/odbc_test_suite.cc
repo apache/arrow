@@ -61,13 +61,11 @@ void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
-  // GH-47710: TODO Allocate a statement using alloc handle
-  // ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
 }
 
 void ODBCRemoteTestBase::Disconnect() {
-  // GH-47710: TODO Close statement
-  // EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
 
   // Disconnect from ODBC
   EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
@@ -182,21 +180,25 @@ void FlightSQLOdbcV2RemoteTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcHandleRemoteTestBase::SetUp() {
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() {
   ODBCRemoteTestBase::SetUp();
   if (skipping_test_) {
     return;
   }
 
-  this->AllocEnvConnHandles();
-  allocated_ = true;
+  AllocEnvConnHandles();
 }
 
-void FlightSQLOdbcHandleRemoteTestBase::TearDown() {
-  if (allocated_) {
-    this->FreeEnvConnHandles();
-    allocated_ = false;
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDown() {
+  if (skipping_test_) {
+    return;
   }
+
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
@@ -392,14 +394,19 @@ void FlightSQLOdbcV2MockTestBase::SetUp() {
   connected_ = true;
 }
 
-void FlightSQLOdbcHandleMockTestBase::SetUp() {
+void FlightSQLOdbcEnvConnHandleMockTestBase::SetUp() {
   ODBCMockTestBase::SetUp();
-  this->AllocEnvConnHandles();
+  AllocEnvConnHandles();
 }
 
-void FlightSQLOdbcHandleMockTestBase::TearDown() {
-  this->FreeEnvConnHandles();
-  ODBCMockTestBase::TearDown();
+void FlightSQLOdbcEnvConnHandleMockTestBase::TearDown() {
+  // Free connection handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
+
+  // Free environment handle
+  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
+
+  ASSERT_OK(server_->Shutdown());
 }
 
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
@@ -485,6 +492,22 @@ bool WriteDSN(Connection::ConnPropertyMap properties) {
 }
 #endif
 
+std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id) {
+  SQLWCHAR buf[1024];
+  SQLLEN len_indicator = 0;
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetData(stmt, col_id, SQL_C_WCHAR, buf, sizeof(buf), &len_indicator));
+
+  if (len_indicator == SQL_NULL_DATA) {
+    return L"";
+  }
+
+  // indicator is in bytes, so convert to character count
+  size_t char_count = static_cast<size_t>(len_indicator) / GetSqlWCharSize();
+  return std::wstring(buf, buf + char_count);
+}
+
 std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len) {
   std::wstring attr_str;
   if (str_len == 0) {
@@ -492,22 +515,22 @@ std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT 
   } else {
     EXPECT_GT(str_len, 0);
     EXPECT_LE(str_len, static_cast<SQLSMALLINT>(kOdbcBufferSize));
-    attr_str = std::wstring(str_val.begin(),
-                            str_val.begin() + str_len / ODBC::GetSqlWCharSize());
+    attr_str =
+        std::wstring(str_val.begin(), str_val.begin() + str_len / GetSqlWCharSize());
   }
   return attr_str;
 }
 
 void CheckStringColumnW(SQLHSTMT stmt, int col_id, const std::wstring& expected) {
   SQLWCHAR buf[1024];
-  SQLLEN buf_len = sizeof(buf) * ODBC::GetSqlWCharSize();
+  SQLLEN buf_len = sizeof(buf) * GetSqlWCharSize();
 
   ASSERT_EQ(SQL_SUCCESS, SQLGetData(stmt, col_id, SQL_C_WCHAR, buf, buf_len, &buf_len));
 
   EXPECT_GT(buf_len, 0);
 
   // returned buf_len is in bytes so convert to length in characters
-  size_t char_count = static_cast<size_t>(buf_len) / ODBC::GetSqlWCharSize();
+  size_t char_count = static_cast<size_t>(buf_len) / GetSqlWCharSize();
   std::wstring returned(buf, buf + char_count);
 
   EXPECT_EQ(expected, returned);

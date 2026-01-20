@@ -1229,9 +1229,9 @@ TEST(Substrait, ExtensionSetFromPlan) {
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_OK_AND_ASSIGN(auto sink_decls,
-                         DeserializePlans(
-                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+    ASSERT_OK_AND_ASSIGN(
+        auto sink_decls,
+        DeserializePlans(*buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
 
     EXPECT_OK_AND_ASSIGN(auto decoded_null_type, ext_set.DecodeType(42));
     EXPECT_EQ(decoded_null_type.id.uri, kArrowExtTypesUri);
@@ -1665,9 +1665,9 @@ TEST(Substrait, JoinPlanBasic) {
        {std::shared_ptr<ExtensionIdRegistry>(), MakeExtensionIdRegistry()}) {
     ExtensionIdRegistry* ext_id_reg = sp_ext_id_reg.get();
     ExtensionSet ext_set(ext_id_reg);
-    ASSERT_OK_AND_ASSIGN(auto sink_decls,
-                         DeserializePlans(
-                             *buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
+    ASSERT_OK_AND_ASSIGN(
+        auto sink_decls,
+        DeserializePlans(*buf, [] { return kNullConsumer; }, ext_id_reg, &ext_set));
 
     auto join_decl = sink_decls[0].inputs[0];
 

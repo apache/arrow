@@ -92,12 +92,14 @@ class PARQUET_EXPORT BloomFilter {
   /// @param value the value to hash.
   /// @return hash result.
   virtual uint64_t Hash(const Int96* value) const = 0;
+  uint64_t Hash(const Int96& value) const { return Hash(&value); }
 
   /// Compute hash for ByteArray value by using its plain encoding result.
   ///
   /// @param value the value to hash.
   /// @return hash result.
   virtual uint64_t Hash(const ByteArray* value) const = 0;
+  uint64_t Hash(const ByteArray& value) const { return Hash(&value); }
 
   /// Compute hash for fixed byte array value by using its plain encoding result.
   ///
@@ -105,6 +107,13 @@ class PARQUET_EXPORT BloomFilter {
   /// @param len the value length.
   /// @return hash result.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
+  uint64_t Hash(const FLBA& value, uint32_t len) const { return Hash(&value, len); }
+
+  /// Compute hash for std::string_view value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  /// @return hash result.
+  virtual uint64_t Hash(std::string_view value) const = 0;
 
   /// Batch compute hashes for 32 bits values by using its plain encoding result.
   ///
@@ -277,6 +286,7 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   uint64_t Hash(const FLBA* value, uint32_t len) const override {
     return hasher_->Hash(value, len);
   }
+  uint64_t Hash(std::string_view value) const override { return hasher_->Hash(value); }
 
   void Hashes(const int32_t* values, int num_values, uint64_t* hashes) const override {
     hasher_->Hashes(values, num_values, hashes);
