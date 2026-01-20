@@ -114,6 +114,7 @@ TEST_F(TestFileOutputStream, FileNameWideCharConversionRangeException) {
   ASSERT_RAISES(Invalid, FileOutputStream::Open(file_name));
   ASSERT_RAISES(Invalid, ReadableFile::Open(file_name));
 }
+#endif
 
 TEST_F(TestFileOutputStream, FileNameValidUtf8) {
   // Test that file operations work with UTF-8 filenames (Korean + emoji).
@@ -134,7 +135,6 @@ TEST_F(TestFileOutputStream, FileNameValidUtf8) {
             std::string(data));
   ASSERT_OK(readable_file->Close());
 }
-#endif
 
 TEST_F(TestFileOutputStream, DestructorClosesFile) {
   int fd_file;
