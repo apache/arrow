@@ -87,20 +87,23 @@ const BuildInfo& GetBuildInfo();
 ARROW_EXPORT
 RuntimeInfo GetRuntimeInfo();
 
-/// \deprecated Deprecated in 24.0.0. This struct is only needed for
-/// Windows builds with Clang/libc++ and will be removed once libc++
-/// supports std::chrono timezones.
-struct ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
-    GlobalOptions {
+/// \brief Configuration options for Arrow initialization.
+///
+/// This struct allows configuring Arrow's runtime behavior. Currently
+/// used for timezone database configuration on Windows builds with Clang/libc++.
+/// Can be extended for other options in the future.
+ARROW_SUPPRESS_DEPRECATION_WARNING
+struct GlobalOptions {
+  /// \deprecated Deprecated in 24.0.0. This member is only needed for
+  /// Windows builds with Clang/libc++ and will be removed once libc++
+  /// supports std::chrono timezones.
   /// Path to text timezone database. This is only configurable on Windows
   /// builds using Clang/libc++ which require the vendored date library.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
   std::optional<std::string> timezone_db_path;
 };
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
-/// \deprecated Deprecated in 24.0.0. This function is only needed for
-/// Windows builds with Clang/libc++ and will be removed once libc++
-/// supports std::chrono timezones.
-ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_EXPORT
 Status Initialize(const GlobalOptions& options) noexcept;
 
