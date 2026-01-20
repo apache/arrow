@@ -39,7 +39,7 @@ lz4-c
 make
 meson
 ninja
-nodejs>=16
+nodejs
 orc<2.1.0
 pkg-config
 python
