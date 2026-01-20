@@ -106,9 +106,11 @@ integrations in other projects, we'd be happy to have you involved:
 ## Continuous Integration Sponsors
 
 We use [runs-on][5] for managing the project self-hosted runners.
+We use [AWS][6] for some of the required infrastructure for the project.
 
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
 [4]: https://arrow.apache.org/docs/dev/developers/index.html
 [5]: https://runs-on.com/
+[6]: https://aws.amazon.com/
