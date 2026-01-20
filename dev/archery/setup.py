@@ -31,8 +31,6 @@ extras = {
     'benchmark': ['pandas'],
     'crossbow': ['pygithub', jinja_req, 'pygit2>=1.14.0', 'requests',
                  'ruamel.yaml', 'setuptools_scm>=8.0.0'],
-    'crossbow-upload': ['pygithub', jinja_req, 'ruamel.yaml',
-                        'setuptools_scm'],
     'docker': ['ruamel.yaml', 'python-dotenv'],
     'integration': ['cffi', 'numpy'],
     'integration-java': ['jpype1'],
