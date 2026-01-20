@@ -2384,13 +2384,13 @@ def test_strftime():
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
                 if sys.platform == "win32" and fmt == "%Z":
-                    # TODO(GH-48767): On Windows, std::chrono returns GMT
+                    # TODO(GH-48767): On Windows, std::chrono returns GMT offset
+                    # instead of timezone abbreviations (e.g. "CET")
                     # https://github.com/apache/arrow/issues/48767
-                    # offset style (e.g. "GMT+1") instead of timezone
-                    # abbreviations (e.g. "CET")
-                    for val in result:
-                        assert val.as_py() is None or val.as_py().startswith("GMT") \
-                            or val.as_py() == "UTC"
+                    is_valid = pc.or_kleene(pc.match_substring_regex(
+                        result, "^GMT[+-][0-9]+$"), pc.is_null(result))
+                    assert not pc.any(~is_valid).as_py(), \
+                        "All timezone values should be GMT offset format (e.g. GMT+1)"
                 else:
                     assert result.equals(expected)
 
@@ -2407,13 +2407,13 @@ def test_strftime():
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
         if sys.platform == "win32":
-            # TODO(GH-48767): On Windows, std::chrono returns GMT offset style
+            # TODO(GH-48767): On Windows, std::chrono returns GMT offset
+            # instead of timezone abbreviations (e.g. "CET")
             # https://github.com/apache/arrow/issues/48767
-            # Check that all non-null values are a valid GMT offset
-            is_valid = pc.match_substring_regex(
-                result, "^GMT[+-][0-9]+$") | pc.is_null(result)
+            is_valid = pc.or_kleene(pc.match_substring_regex(
+                result, "^GMT[+-][0-9]+$"), pc.is_null(result))
             assert not pc.any(~is_valid).as_py(), \
-                "All timezone values should be GMT offset format (e.g. 'GMT+1', 'GMT-5')"
+                "All timezone values should be GMT offset format (e.g. GMT+1)"
         else:
             assert result.equals(expected)
 
@@ -2789,6 +2789,10 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="On Windows timezone database differs for "
+           "Asia/Kolkata 1943-12-15 00:00:00+06:30")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
