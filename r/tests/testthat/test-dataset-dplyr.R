@@ -73,11 +73,18 @@ test_that("filter() on timestamp columns", {
   skip_if_not_available("re2")
 
   # Skip on Windows if timezone database is not available
+  # Try to create a timestamp with UTC timezone to verify database is available
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
-    tzdb_path <- file.path(Sys.getenv("USERPROFILE"), "Downloads", "tzdata")
-    if (!dir.exists(tzdb_path)) {
-      skip("Timezone database not found on Windows")
-    }
+    tryCatch({
+      # Try to create a timestamp with UTC to verify timezone database is available
+      test_timestamp <- timestamp("ns", "UTC")
+      # If we get here, try to actually use it
+      test_array <- Array$create(as.POSIXct("2015-05-04 03:12:39", tz = "UTC"))
+    }, error = function(e) {
+      if (grepl("Timezone database not found", e$message)) {
+        skip("Timezone database not found on Windows")
+      }
+    })
   }
 
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
@@ -129,11 +136,17 @@ test_that("filter() on date32 columns", {
   skip_if_not_available("re2")
 
   # Skip on Windows if timezone database is not available
+  # Test if Arrow can actually use UTC timezone
   if (tolower(Sys.info()[["sysname"]]) == "windows") {
-    tzdb_path <- file.path(Sys.getenv("USERPROFILE"), "Downloads", "tzdata")
-    if (!dir.exists(tzdb_path)) {
-      skip("Timezone database not found on Windows")
-    }
+    tryCatch({
+      # Try to create a timestamp with UTC to verify timezone database is available
+      test_ts <- timestamp("ns", "UTC")
+      test_array <- Array$create(as.POSIXct("2020-02-02 00:00:00", tz = "UTC"))
+    }, error = function(e) {
+      if (grepl("Timezone database not found", e$message)) {
+        skip("Timezone database not found on Windows")
+      }
+    })
   }
 
   # Also with timestamp scalar
