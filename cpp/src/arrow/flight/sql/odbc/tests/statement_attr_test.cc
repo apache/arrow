@@ -391,7 +391,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowsetSize) {
   EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
-TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppParamDescSegFault) {
+TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppParamDesc) {
   SQLULEN app_param_desc = 0;
   SQLINTEGER string_length_ptr;
 
@@ -404,7 +404,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppParamDescSegFault) {
                       static_cast<SQLULEN>(app_param_desc));
 }
 
-TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppRowDescSegFault) {
+TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppRowDesc) {
   SQLULEN app_row_desc = 0;
   SQLINTEGER string_length_ptr;
 

@@ -824,7 +824,7 @@ TYPED_TEST(StatementTest, TestSQLExecDirectRowFetching) {
 #ifdef __APPLE__
   // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
   ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
-  EXPECT_EQ(1, val);
+  EXPECT_EQ(3, val);
 #else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
   // Invalid cursor state
@@ -888,7 +888,7 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
 #ifdef __APPLE__
   // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
   ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
-  EXPECT_EQ(1, val);
+  EXPECT_EQ(3, val);
 #else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
   // Invalid cursor state

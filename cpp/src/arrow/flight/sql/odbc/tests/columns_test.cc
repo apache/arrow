@@ -24,9 +24,7 @@
 
 #include <gtest/gtest.h>
 
-// Many tests are disabled for MacOS due to iODBC limitations with ODBC 2.0 APIs and
-// identifiers such as SQLColAttributes, SQL_COLUMN_AUTO_INCREMENT,
-// SQL_COLUMN_QUALIFIER_NAME.
+// Many tests are disabled for MacOS due to iODBC limitations.
 
 namespace arrow::flight::sql::odbc {
 
@@ -241,6 +239,7 @@ void CheckSQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT idx,
   EXPECT_EQ(expected_unsigned_column, unsigned_col);
 }
 
+#ifndef __APPLE__
 void CheckSQLColAttributes(SQLHSTMT stmt, SQLUSMALLINT idx,
                            const std::wstring& expected_column_name,
                            SQLLEN expected_data_type, SQLLEN expected_display_size,
@@ -310,6 +309,7 @@ void CheckSQLColAttributes(SQLHSTMT stmt, SQLUSMALLINT idx,
   EXPECT_EQ(expected_searchable, searchable);
   EXPECT_EQ(expected_unsigned_column, unsigned_col);
 }
+#endif  // __APPLE__
 
 void GetSQLColAttributeString(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMALLINT idx,
                               SQLUSMALLINT field_identifier, std::wstring& value) {
@@ -1392,6 +1392,7 @@ TEST_F(ColumnsMockTest, TestSQLColAttributeAllTypes) {
                        SQL_FALSE);                   // expected_unsigned_column
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAllTypes) {
   // Tests ODBC 2.0 API SQLColAttributes
@@ -1619,6 +1620,8 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeAllTypes) {
                        SQL_TRUE);                       // expected_unsigned_column
 }
 
+// iODBC does not support SQLColAttribute in ODBC 2.0 mode.
+#ifndef __APPLE__
 TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributeAllTypesODBCVer2) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
   std::wstring wsql = L"SELECT * from $scratch.ODBCTest;";
@@ -1783,6 +1786,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributeAllTypesODBCVer2) {
                        SQL_TRUE);                       // expected_unsigned_column
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesAllTypesODBCVer2) {
   // Tests ODBC 2.0 API SQLColAttributes
   // Test assumes there is a table $scratch.ODBCTest in remote server
@@ -1902,6 +1906,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesAllTypesODBCVer2) {
                         SQL_SEARCHABLE,                  // expected_searchable
                         SQL_TRUE);                       // expected_unsigned_column
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ColumnsTest, TestSQLColAttributeCaseSensitive) {
   // Arrow limitation: returns SQL_FALSE for case sensitive column
@@ -1917,6 +1922,7 @@ TYPED_TEST(ColumnsTest, TestSQLColAttributeCaseSensitive) {
   ASSERT_EQ(SQL_FALSE, value);
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesCaseSensitive) {
   // Arrow limitation: returns SQL_FALSE for case sensitive column
@@ -1944,6 +1950,7 @@ TEST_F(ColumnsMockTest, TestSQLColAttributeUniqueValue) {
   ASSERT_EQ(SQL_FALSE, value);
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAutoIncrement) {
   // Tests ODBC 2.0 API SQLColAttributes
@@ -1966,6 +1973,7 @@ TEST_F(ColumnsMockTest, TestSQLColAttributeBaseTableName) {
   ASSERT_EQ(std::wstring(L"AllTypesTable"), value);
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesTableName) {
   // Tests ODBC 2.0 API SQLColAttributes
@@ -1998,6 +2006,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeCatalogName) {
   ASSERT_EQ(std::wstring(L""), value);
 }
 
+// iODBC does not support SQLColAttribute in ODBC 2.0 mode.
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesQualifierName) {
   // Mock server limitattion: mock doesn't return catalog for result metadata,
@@ -2065,6 +2074,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeSchemaName) {
   ASSERT_EQ(std::wstring(L""), value);
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesOwnerName) {
   // Tests ODBC 2.0 API SQLColAttributes
@@ -2136,6 +2146,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeTypeName) {
   ASSERT_EQ(std::wstring(L"TIMESTAMP"), value);
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesTypeName) {
   // Tests ODBC 2.0 API SQLColAttributes
@@ -2194,6 +2205,7 @@ TYPED_TEST(ColumnsTest, TestSQLColAttributeUpdatable) {
   ASSERT_EQ(SQL_ATTR_READWRITE_UNKNOWN, value);
 }
 
+// iODBC does not support SQLColAttributes for ODBC 3.0 attributes.
 #ifndef __APPLE__
 TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesUpdatable) {
   // Tests ODBC 2.0 API SQLColAttributes

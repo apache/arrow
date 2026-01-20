@@ -160,6 +160,8 @@ TYPED_TEST(ErrorsHandleTest, DISABLED_TestSQLGetDiagFieldWForConnectFailureNTS) 
   EXPECT_GT(message_text_length, 100);
 }
 
+// iODBC does not support application allocated descriptors.
+#ifndef __APPLE__
 TYPED_TEST(ErrorsTest, TestSQLGetDiagFieldWForDescriptorFailureFromDriverManager) {
   SQLHDESC descriptor;
 
@@ -256,6 +258,7 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecForDescriptorFailureFromDriverManager) {
   // Free descriptor handle
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, descriptor));
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagRecForConnectFailure) {
   // Invalid connect string

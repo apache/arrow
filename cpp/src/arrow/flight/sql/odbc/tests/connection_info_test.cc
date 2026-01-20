@@ -67,21 +67,18 @@ void GetInfo(SQLHDBC connection, SQLUSMALLINT info_type, SQLWCHAR* value,
 }
 }  // namespace
 
-// Test disabled until we resolve bus error on MacOS
-#ifdef DISABLE_TEST
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoTruncation) {
   static constexpr int info_len = 1;
   SQLWCHAR value[info_len] = L"";
   SQLSMALLINT message_length;
 
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetInfo(this->conn, SQL_KEYWORDS, value, info_len, &message_length));
+            SQLGetInfo(this->conn, SQL_INTEGRITY, value, info_len, &message_length));
 
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState01004);
   EXPECT_GT(message_length, 0);
 }
-#endif
 
 // Driver Information
 
@@ -792,17 +789,14 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoIntegrity) {
   EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"N"), value);
 }
 
-// Test disabled until we resolve bus error on MacOS
-#ifdef DISABLE_TEST
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoKeywords) {
-  // Keyword strings can require 5000 buffer length
-  static constexpr int info_len = kOdbcBufferSize * 5;
+  // Keyword strings can require 10000 buffer length
+  static constexpr int info_len = kOdbcBufferSize * 10;
   SQLWCHAR value[info_len] = L"";
   GetInfo(this->conn, SQL_KEYWORDS, value, info_len);
 
   EXPECT_GT(wcslen(value), 0);
 }
-#endif
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoLikeEscapeClause) {
   SQLWCHAR value[kOdbcBufferSize] = L"";
