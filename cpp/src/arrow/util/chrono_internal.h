@@ -48,9 +48,14 @@
 
 #if defined(_WIN32)
   // On Windows, try to use std::chrono if C++20 is available
+  // Note: Clang with libc++ on Windows does not support C++20 chrono timezones
   #if defined(__cpp_lib_chrono) && __cpp_lib_chrono >= 201907L
     // Feature test macro indicates full C++20 chrono timezone support
     #define ARROW_USE_STD_CHRONO 1
+  #elif defined(__clang__) && defined(_LIBCPP_VERSION)
+    // Clang with libc++ on Windows does not support C++20 chrono timezones
+    // Use vendored date library
+    #define ARROW_USE_STD_CHRONO 0
   #elif defined(_MSC_VER) && __cplusplus >= 202002L
     // MSVC with C++20 supports chrono timezones
     // Use Windows' internal timezone database
