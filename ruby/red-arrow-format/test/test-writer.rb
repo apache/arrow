@@ -22,6 +22,12 @@ module WriterTests
       ArrowFormat::NullType.singleton
     when Arrow::BooleanDataType
       ArrowFormat::BooleanType.singleton
+    when Arrow::Int8DataType
+      ArrowFormat::Int8Type.singleton
+    when Arrow::UInt8DataType
+      ArrowFormat::UInt8Type.singleton
+    else
+      raise "Unsupported type: #{red_arrow_type.inspect}"
     end
   end
 
@@ -35,10 +41,12 @@ module WriterTests
     case type
     when ArrowFormat::NullType
       type.build_array(red_arrow_array.size)
-    when ArrowFormat::BooleanType
+    when ArrowFormat::PrimitiveType
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.data_buffer))
+    else
+      raise "Unsupported array #{red_arrow_array.inspect}"
     end
   end
 
@@ -63,6 +71,28 @@ module WriterTests
 
           def test_write
             assert_equal([true, nil, false],
+                         @values)
+          end
+        end
+
+        sub_test_case("Int8") do
+          def build_array
+            Arrow::Int8Array.new([-128, nil, 127])
+          end
+
+          def test_write
+            assert_equal([-128, nil, 127],
+                         @values)
+          end
+        end
+
+        sub_test_case("UInt8") do
+          def build_array
+            Arrow::UInt8Array.new([0, nil, 255])
+          end
+
+          def test_write
+            assert_equal([0, nil, 255],
                          @values)
           end
         end

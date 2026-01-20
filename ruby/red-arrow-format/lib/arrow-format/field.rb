@@ -30,12 +30,12 @@ module ArrowFormat
       @nullable
     end
 
-    def to_flat_buffers
+    def to_flatbuffers
       fb_field = FB::Field::Data.new
       fb_field.name = @name
       fb_field.nullable = @nullable
       if @type.is_a?(DictionaryType)
-        fb_field.type = @type.value_type.to_flat_buffers
+        fb_field.type = @type.value_type.to_flatbuffers
         dictionary_encoding = FB::DictionaryEncoding::Data.new
         dictionary_encoding.id = @dictionary_id
         int = FB::Int::Data.new
@@ -47,10 +47,10 @@ module ArrowFormat
           FB::DictionaryKind::DENSE_ARRAY
         fb_field.dictionary = dictionary
       else
-        fb_field.type = @type.to_flat_buffers
+        fb_field.type = @type.to_flatbuffers
       end
       if @type.respond_to?(:children)
-        fb_field.children = @type.children.collect(&:to_flat_buffers)
+        fb_field.children = @type.children.collect(&:to_flatbuffers)
       end
       # fb_field.custom_metadata = @custom_metadata
       fb_field
