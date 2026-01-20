@@ -212,8 +212,6 @@ def test_signal_refcycle():
         assert wr() is None
 
 
-# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
-# https://github.com/apache/arrow/issues/48593
 @pytest.mark.skipif(sys.platform != "win32",
                     reason="Timezone database is already provided.")
 def test_download_tzdata_on_windows():
