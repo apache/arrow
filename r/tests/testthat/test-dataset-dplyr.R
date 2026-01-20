@@ -72,6 +72,14 @@ test_that("filter() with %in%", {
 test_that("filter() on timestamp columns", {
   skip_if_not_available("re2")
 
+  # Skip on Windows if timezone database is not available
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    tzdb_path <- file.path(Sys.getenv("USERPROFILE"), "Downloads", "tzdata")
+    if (!dir.exists(tzdb_path)) {
+      skip("Timezone database not found on Windows")
+    }
+  }
+
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
   expect_equal(
     ds |>
@@ -119,6 +127,14 @@ test_that("filter() on date32 columns", {
   )
 
   skip_if_not_available("re2")
+
+  # Skip on Windows if timezone database is not available
+  if (tolower(Sys.info()[["sysname"]]) == "windows") {
+    tzdb_path <- file.path(Sys.getenv("USERPROFILE"), "Downloads", "tzdata")
+    if (!dir.exists(tzdb_path)) {
+      skip("Timezone database not found on Windows")
+    }
+  }
 
   # Also with timestamp scalar
   expect_equal(
