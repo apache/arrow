@@ -52,6 +52,10 @@ module ArrowFormat
     def build_array(size, validity_buffer, values_buffer)
       BooleanArray.new(self, size, validity_buffer, values_buffer)
     end
+
+    def to_flat_buffers
+      FB::Bool::Data.new
+    end
   end
 
   class NumberType < Type

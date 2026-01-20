@@ -46,7 +46,7 @@ Gem::Specification.new do |spec|
   spec.files += Dir.glob("lib/**/*.rb")
   spec.files += Dir.glob("doc/text/*")
 
-  spec.add_runtime_dependency("red-flatbuffers", ">=0.0.4")
+  spec.add_runtime_dependency("red-flatbuffers", ">=0.0.5")
 
   github_url = "https://github.com/apache/arrow"
   spec.metadata = {
