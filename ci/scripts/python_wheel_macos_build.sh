@@ -256,7 +256,7 @@ delocate-wheel -w ${source_dir}/python/repaired_wheels -v ${source_dir}/python/d
 
 echo "=== (${PYTHON_VERSION}) Validate there are no non-bundled shared dependencies ==="
 deps=$(delocate-listdeps ${source_dir}/python/repaired_wheels/*.whl)
-if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
+if echo $deps | grep -v "^pyarrow/.dylibs/lib\(arrow\|gandiva\|parquet\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
