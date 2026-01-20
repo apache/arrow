@@ -1490,9 +1490,8 @@ Result<AsyncGenerator<T>> MakeSequencedMergedGenerator(
   if (max_subscriptions == 1) {
     return Status::Invalid("Use MakeConcatenatedGenerator if max_subscriptions is 1");
   }
-  AsyncGenerator<AsyncGenerator<T>> autostarting_source = MakeMappedGenerator(
-      std::move(source),
-      [](const AsyncGenerator<T>& sub) { return MakeAutoStartingGenerator(sub); });
+  AsyncGenerator<AsyncGenerator<T>> autostarting_source =
+      MakeMappedGenerator(std::move(source), MakeAutoStartingGenerator<T>);
   AsyncGenerator<AsyncGenerator<T>> sub_readahead =
       MakeSerialReadaheadGenerator(std::move(autostarting_source), max_subscriptions - 1);
   return MakeConcatenatedGenerator(std::move(sub_readahead));

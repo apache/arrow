@@ -36,8 +36,7 @@ struct Empty {
   }
 };
 
-/// Helper struct for examining lambdas and other callables.
-/// TODO(ARROW-12655) support function pointers
+/// Helper struct for examining lambdas, functors, and function pointers.
 struct call_traits {
  public:
   template <typename R, typename... A>
@@ -49,11 +48,23 @@ struct call_traits {
   template <typename F>
   static std::true_type is_overloaded_impl(...);
 
+  // Function pointer overloads for return_type_impl
+  template <typename R, typename... A>
+  static R return_type_impl(R (*)(A...));
+
   template <typename F, typename R, typename... A>
   static R return_type_impl(R (F::*)(A...));
 
   template <typename F, typename R, typename... A>
   static R return_type_impl(R (F::*)(A...) const);
+
+  template <typename F, typename R, typename... A>
+  static R return_type_impl(R (F::*)(A...) &&);
+
+  // Function pointer overloads for argument_type_impl
+  template <std::size_t I, typename R, typename... A>
+  static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
+      R (*)(A...));
 
   template <std::size_t I, typename F, typename R, typename... A>
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
@@ -67,6 +78,10 @@ struct call_traits {
   static typename std::tuple_element<I, std::tuple<A...>>::type argument_type_impl(
       R (F::*)(A...) &&);
 
+  // Function pointer overloads for argument_count_impl
+  template <typename R, typename... A>
+  static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (*)(A...));
+
   template <typename F, typename R, typename... A>
   static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...));
 
@@ -77,12 +92,33 @@ struct call_traits {
   template <typename F, typename R, typename... A>
   static std::integral_constant<int, sizeof...(A)> argument_count_impl(R (F::*)(A...) &&);
 
+ private:
+  // Helper to detect function pointers
+  template <typename T>
+  struct is_function_pointer {
+    using decayed = typename std::decay<T>::type;
+    using pointee = typename std::remove_pointer<decayed>::type;
+    static constexpr bool value =
+        std::is_pointer<decayed>::value && std::is_function<pointee>::value;
+  };
+
+ public:
   /// bool constant indicating whether F is a callable with more than one possible
   /// signature. Will be true_type for objects which define multiple operator() or which
   /// define a template operator()
+  template <typename F, bool IsFuncPtr = is_function_pointer<F>::value>
+  struct is_overloaded_base {
+    using type = decltype(is_overloaded_impl<typename std::decay<F>::type>(NULLPTR));
+  };
+
+  // Function pointers are never overloaded
   template <typename F>
-  using is_overloaded =
-      decltype(is_overloaded_impl<typename std::decay<F>::type>(NULLPTR));
+  struct is_overloaded_base<F, true> {
+    using type = std::false_type;
+  };
+
+  template <typename F>
+  using is_overloaded = typename is_overloaded_base<F>::type;
 
   template <typename F, typename T = void>
   using enable_if_overloaded = typename std::enable_if<is_overloaded<F>::value, T>::type;
@@ -91,16 +127,62 @@ struct call_traits {
   using disable_if_overloaded =
       typename std::enable_if<!is_overloaded<F>::value, T>::type;
 
+ private:
+  // SFINAE-friendly helpers that dispatch based on whether F is a function pointer
+  template <std::size_t I, typename F, bool IsFuncPtr = is_function_pointer<F>::value>
+  struct argument_type_helper;
+
+  // Specialization for function pointers
+  template <std::size_t I, typename F>
+  struct argument_type_helper<I, F, true> {
+    using type =
+        decltype(argument_type_impl<I>(std::declval<typename std::decay<F>::type>()));
+  };
+
+  // Specialization for functors/lambdas
+  template <std::size_t I, typename F>
+  struct argument_type_helper<I, F, false> {
+    using type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
+  };
+
+  template <typename F, bool IsFuncPtr = is_function_pointer<F>::value>
+  struct argument_count_helper;
+
+  template <typename F>
+  struct argument_count_helper<F, true> {
+    using type =
+        decltype(argument_count_impl(std::declval<typename std::decay<F>::type>()));
+  };
+
+  template <typename F>
+  struct argument_count_helper<F, false> {
+    using type = decltype(argument_count_impl(&std::decay<F>::type::operator()));
+  };
+
+  template <typename F, bool IsFuncPtr = is_function_pointer<F>::value>
+  struct return_type_helper;
+
+  template <typename F>
+  struct return_type_helper<F, true> {
+    using type = decltype(return_type_impl(std::declval<typename std::decay<F>::type>()));
+  };
+
+  template <typename F>
+  struct return_type_helper<F, false> {
+    using type = decltype(return_type_impl(&std::decay<F>::type::operator()));
+  };
+
+ public:
   /// If F is not overloaded, the argument types of its call operator can be
   /// extracted via call_traits::argument_type<Index, F>
   template <std::size_t I, typename F>
-  using argument_type = decltype(argument_type_impl<I>(&std::decay<F>::type::operator()));
+  using argument_type = typename argument_type_helper<I, F>::type;
 
   template <typename F>
-  using argument_count = decltype(argument_count_impl(&std::decay<F>::type::operator()));
+  using argument_count = typename argument_count_helper<F>::type;
 
   template <typename F>
-  using return_type = decltype(return_type_impl(&std::decay<F>::type::operator()));
+  using return_type = typename return_type_helper<F>::type;
 
   template <typename F, typename T, typename RT = T>
   using enable_if_return =

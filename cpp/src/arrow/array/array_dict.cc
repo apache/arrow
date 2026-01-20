@@ -540,8 +540,7 @@ Result<std::shared_ptr<ChunkedArray>> DictionaryUnifier::UnifyChunkedArray(
     return array;
   }
   ArrayVector chunks(array->num_chunks());
-  std::transform(data_chunks.begin(), data_chunks.end(), chunks.begin(),
-                 [](const std::shared_ptr<ArrayData>& data) { return MakeArray(data); });
+  std::transform(data_chunks.begin(), data_chunks.end(), chunks.begin(), MakeArray);
   return std::make_shared<ChunkedArray>(std::move(chunks), array->type());
 }
 
