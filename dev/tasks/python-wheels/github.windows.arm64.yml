@@ -70,7 +70,14 @@ jobs:
           SETUPTOOLS_SCM_PRETEND_VERSION: "{{ arrow.no_rc_version }}"
         run: |
           call "arrow\ci\scripts\python_wheel_windows_build.bat"
-          
+      
+      - name: Test wheel
+        shell: cmd
+        env:
+          ARCH: "ARM64"
+        run: |
+          call "arrow\ci\scripts\python_wheel_windows_test.bat"
+
       - uses: actions/upload-artifact@v4
         with:
           name: wheel
