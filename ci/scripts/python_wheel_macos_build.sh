@@ -251,7 +251,7 @@ popd
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
 deps=$(delocate-listdeps ${source_dir}/python/dist/*.whl)
 
-if echo $deps | grep -v "^pyarrow/lib\(arrow\|gandiva\|parquet\)"; then
+if echo $deps | grep -v "^pyarrow/lib\(arrow\|parquet\)"; then
   echo "There are non-bundled shared library dependencies."
   exit 1
 fi
