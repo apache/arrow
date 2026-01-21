@@ -2789,10 +2789,9 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="On Windows timezone database differs for "
-           "Asia/Kolkata 1943-12-15 00:00:00+06:30")
+# TODO(GH-48743): Re-enable when Windows timezone issues are resolved
+# https://github.com/apache/arrow/issues/48743
+@pytest.mark.skipif(sys.platform == "win32")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
