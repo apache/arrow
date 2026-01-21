@@ -452,11 +452,12 @@ TEST(TestCodecMisc, SpecifyCompressionLevel) {
 template <std::derived_from<arrow::util::CodecOptions> T>
 void CheckSpecifyCodecOptions(Compression::type compression,
                               std::span<const std::pair<T, bool>> options) {
+  if (!Codec::IsAvailable(compression)) {
+    GTEST_SKIP() << "Support for this codec hasn't been built";
+  }
+
   std::vector<uint8_t> data = MakeRandomData(2000);
   for (const auto& [codec_option, expect_success] : options) {
-    if (!Codec::IsAvailable(compression)) {
-      GTEST_SKIP() << "Support for this codec hasn't been built";
-    }
     auto result1 = Codec::Create(compression, codec_option);
     auto result2 = Codec::Create(compression, codec_option);
     ASSERT_EQ(expect_success, result1.ok());
@@ -523,6 +524,10 @@ TEST(TestCodecMisc, SpecifyCodecOptionsZstd) {
 }
 
 TEST(TestCodecMisc, ZstdLargerWindowLog) {
+#ifndef ARROW_WITH_ZSTD
+  GTEST_SKIP() << "Test requires Zstd compression";
+#endif
+
   constexpr int ZSTD_c_windowLog = 101;
 
   arrow::util::ZstdCodecOptions option1;
@@ -552,6 +557,10 @@ TEST(TestCodecMisc, ZstdLargerWindowLog) {
 }
 
 TEST(TestCodecMisc, ZstdStreamLargerWindowLog) {
+#ifndef ARROW_WITH_ZSTD
+  GTEST_SKIP() << "Test requires Zstd compression";
+#endif
+
   constexpr int ZSTD_c_windowLog = 101;
   constexpr int ZSTD_d_windowLogMax = 100;
 
