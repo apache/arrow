@@ -33,7 +33,7 @@ module ArrowFormat
     end
 
     def start(schema)
-      write_message(build_metadata(schema.to_flat_buffers))
+      write_message(build_metadata(schema.to_flatbuffers))
       # TODO: Write dictionaries
     end
 
@@ -42,7 +42,7 @@ module ArrowFormat
       record_batch.all_buffers_enumerator.each do |buffer|
         body_length += aligned_buffer_size(buffer) if buffer
       end
-      metadata = build_metadata(record_batch.to_flat_buffers, body_length)
+      metadata = build_metadata(record_batch.to_flatbuffers, body_length)
       fb_block = FB::Block::Data.new
       fb_block.offset = @offset
       fb_block.meta_data_length =

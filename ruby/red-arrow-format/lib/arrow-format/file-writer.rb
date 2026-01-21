@@ -23,7 +23,7 @@ module ArrowFormat
     MAGIC_PADDING = "\x00\x00"
 
     def start(schema)
-      @fb_schema = schema.to_flat_buffers
+      @fb_schema = schema.to_flatbuffers
       write_data(MAGIC)
       write_data(MAGIC_PADDING)
       super

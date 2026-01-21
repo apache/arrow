@@ -37,7 +37,7 @@ module ArrowFormat
       hash
     end
 
-    def to_flat_buffers
+    def to_flatbuffers
       fb_record_batch = FB::RecordBatch::Data.new
       fb_record_batch.length = @n_rows
       fb_record_batch.nodes = all_columns_enumerator.collect do |array|
