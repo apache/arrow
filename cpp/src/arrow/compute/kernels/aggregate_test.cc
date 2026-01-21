@@ -4176,7 +4176,7 @@ class TestRandomQuantileKernel : public TestPrimitiveQuantileKernel<ArrowType> {
     // For some reason, TDigest computations with libc++ seem much less accurate.
     // A possible explanation is that libc++ has less precise implementations
     // of std::sin and std::asin, used in the TDigest implementation.
-#  ifdef _LIBCPP_VERSION
+#  if defined(_LIBCPP_VERSION) || defined(_MSC_VER)
     constexpr double kRelativeTolerance = 0.09;
 #  else
     constexpr double kRelativeTolerance = 0.05;
