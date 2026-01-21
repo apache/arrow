@@ -465,8 +465,7 @@ jobs:
           Move-Item "build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi" odbc-installer/
           tree odbc-installer /f
       - name: Install rsync
-        # -AL- comment out `if` check later
-        # if: github.event_name == 'schedule'
+        if: github.event_name == 'schedule'
         run: |
           choco install --no-progress --yes rsync
       - name: Sync to Remote
