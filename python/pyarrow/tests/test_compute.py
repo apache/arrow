@@ -2794,7 +2794,7 @@ def _check_temporal_rounding(ts, values, unit):
 # TODO(GH-48743): Re-enable when Windows timezone issues are resolved
 # https://github.com/apache/arrow/issues/48743
 @pytest.mark.skipif(sys.platform == "win32",
-                    "Skipping temporal rounding tests on Windows")
+                    reason="Skipping temporal rounding tests on Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
