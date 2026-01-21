@@ -100,6 +100,15 @@ struct GlobalOptions {
   /// builds using Clang/libc++ which require the vendored date library.
   ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
   std::optional<std::string> timezone_db_path;
+
+  ARROW_SUPPRESS_DEPRECATION_WARNING
+  GlobalOptions() = default;
+  ~GlobalOptions() = default;
+  GlobalOptions(const GlobalOptions&) = default;
+  GlobalOptions(GlobalOptions&&) = default;
+  GlobalOptions& operator=(const GlobalOptions&) = default;
+  GlobalOptions& operator=(GlobalOptions&&) = default;
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 };
 
 ARROW_EXPORT

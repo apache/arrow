@@ -123,7 +123,6 @@ Status GetTestResourceRoot(std::string* out) {
 }
 
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
-ARROW_SUPPRESS_DEPRECATION_WARNING
 std::optional<std::string> GetTestTimezoneDatabaseRoot() {
   const char* c_root = std::getenv("ARROW_TIMEZONE_DATABASE");
   if (!c_root) {
@@ -133,6 +132,7 @@ std::optional<std::string> GetTestTimezoneDatabaseRoot() {
 }
 
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
+ARROW_SUPPRESS_DEPRECATION_WARNING
 Status InitTestTimezoneDatabase() {
   auto maybe_tzdata = GetTestTimezoneDatabaseRoot();
   // If missing, timezone database will default to %USERPROFILE%\Downloads\tzdata
