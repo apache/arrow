@@ -250,18 +250,24 @@ class ArrayLoader {
     }
   }
 
-  Result<size_t> GetVariadicCount(int i) {
+  Result<int64_t> GetVariadicCount(int i) {
     auto* variadic_counts = metadata_->variadicBufferCounts();
     CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicBufferCounts");
     if (i >= static_cast<int>(variadic_counts->size())) {
       return Status::IOError("variadic_count_index out of range.");
     }
     int64_t count = variadic_counts->Get(i);
-    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
-      return Status::IOError(
-          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    if (count < 0) {
+      return Status::IOError("variadic buffer count must be positive");
     }
-    return static_cast<size_t>(count);
+    // Detect an excessive variadic buffer count to avoid potential memory blowup
+    // (GH-48900).
+    const auto max_buffer_count =
+        static_cast<int64_t>(metadata_->buffers()->size()) - buffer_index_;
+    if (count > max_buffer_count) {
+      return Status::IOError("variadic buffer count exceeds available number of buffers");
+    }
+    return count;
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
@@ -398,7 +404,7 @@ class ArrayLoader {
     ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
                           GetVariadicCount(variadic_count_index_++));
     out_->buffers.resize(data_buffer_count + 2);
-    for (size_t i = 0; i < data_buffer_count; ++i) {
+    for (int64_t i = 0; i < data_buffer_count; ++i) {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
     }
     return Status::OK();
