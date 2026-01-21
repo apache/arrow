@@ -139,7 +139,8 @@ Status InitTestTimezoneDatabase() {
   if (!maybe_tzdata.has_value()) return Status::OK();
 
   auto tzdata_path = std::string(maybe_tzdata.value());
-  arrow::GlobalOptions options = {std::make_optional(tzdata_path)};
+  arrow::GlobalOptions options;
+  options.timezone_db_path = std::make_optional(tzdata_path);
   ARROW_RETURN_NOT_OK(arrow::Initialize(options));
   return Status::OK();
 }
