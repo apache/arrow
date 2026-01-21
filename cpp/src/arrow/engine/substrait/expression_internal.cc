@@ -846,7 +846,7 @@ struct ScalarToProtoImpl {
   }
   Status Visit(const HalfFloatScalar& s) {
     google::protobuf::UInt32Value value;
-    value.set_value(s.value);
+    value.set_value(s.value.bits());
     return EncodeUserDefined(*s.type, value);
   }
   Status Visit(const FloatScalar& s) { return Primitive(&Lit::set_fp32, s); }
