@@ -482,7 +482,15 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      BinaryArray.new(self, size, validity_buffer, offsets_buffer, values_buffer)
+      BinaryArray.new(self,
+                      size,
+                      validity_buffer,
+                      offsets_buffer,
+                      values_buffer)
+    end
+
+    def to_flatbuffers
+      FB::Binary::Data.new
     end
   end
 
