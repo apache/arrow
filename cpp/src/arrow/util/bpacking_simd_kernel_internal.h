@@ -842,16 +842,15 @@ struct ForwardToKernel : WorkingKernel {
 // Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
 template <typename Traits, typename Arch = typename Traits::arch_type>
 constexpr bool MediumShouldUseUint32 =
-    (HasSse2<Arch> || HasSse2<Arch>)&&  //
+    (HasSse2<Arch> || HasSse2<Arch>) &&  //
     (Traits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
     (Traits::kShape.packed_bit_size() < 32) &&
     KernelTraitsWithUnpack<Traits, uint32_t>::kShape.is_medium();
 
 // Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
 template <typename Traits, typename Arch = typename Traits::arch_type>
-constexpr bool LargeShouldUseUint16 = HasSse2<Arch> &&
-                                      (Traits::kShape.unpacked_byte_size() ==
-                                       sizeof(uint8_t));
+constexpr bool LargeShouldUseUint16 =
+    HasSse2<Arch> && (Traits::kShape.unpacked_byte_size() == sizeof(uint8_t));
 
 // A ``std::enable_if`` that works on MSVC
 template <typename Traits>
