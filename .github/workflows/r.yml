@@ -277,6 +277,12 @@ jobs:
           mkdir -p "$HOME/.local/bin"
           ci/scripts/install_minio.sh latest "$HOME/.local"
           echo "$HOME/.local/bin" >> $GITHUB_PATH
+      - name: Download Timezone Database
+        shell: bash
+        run: |
+          # RTools 40's MinGW GCC may not support C++20 chrono timezones,
+          # so Arrow uses the vendored date library which requires tzdata
+          ci/scripts/download_tz_database.sh
       - run: mkdir r/windows
       - name: Download artifacts
         uses: actions/download-artifact@v7
