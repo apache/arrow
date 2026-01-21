@@ -21,6 +21,7 @@
 #include <map>
 #include <memory>
 #include <optional>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -331,8 +332,8 @@ class PARQUET_EXPORT FileMetaData {
   EncryptionAlgorithm encryption_algorithm() const;
   const std::string& footer_signing_key_metadata() const;
 
-  /// \brief Verify signature of FileMetaData when file is encrypted but footer
-  /// is not encrypted (plaintext footer).
+  PARQUET_DEPRECATED(
+      "Deprecated in 24.0.0. If you need this functionality, please report an issue.")
   bool VerifySignature(const void* signature);
 
   void WriteTo(::arrow::io::OutputStream* dst,
@@ -391,6 +392,11 @@ class PARQUET_EXPORT FileMetaData {
 
   void set_file_decryptor(std::shared_ptr<InternalFileDecryptor> file_decryptor);
   const std::shared_ptr<InternalFileDecryptor>& file_decryptor() const;
+
+  // Verify the signature of a plaintext footer.
+  static bool VerifySignature(std::span<const uint8_t> serialized_metadata,
+                              std::span<const uint8_t> signature,
+                              InternalFileDecryptor* file_decryptor);
 
   // PIMPL Idiom
   FileMetaData();

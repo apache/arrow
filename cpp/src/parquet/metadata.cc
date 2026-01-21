@@ -1169,6 +1169,42 @@ void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
   return impl_->WriteTo(dst, encryptor);
 }
 
+bool FileMetaData::VerifySignature(std::span<const uint8_t> serialized_metadata,
+                                   std::span<const uint8_t> signature,
+                                   InternalFileDecryptor* file_decryptor) {
+  DCHECK_NE(file_decryptor, nullptr);
+
+  // In plaintext footer, the "signature" is the concatenation of the nonce used
+  // for GCM encryption, and the authentication tag obtained after GCM encryption.
+  if (signature.size() != encryption::kGcmTagLength + encryption::kNonceLength) {
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid footer encryption signature (expected ",
+        encryption::kGcmTagLength + encryption::kNonceLength, " bytes, got ",
+        signature.size(), ")");
+  }
+
+  // Encrypt plaintext serialized metadata so as to compute its signature
+  auto nonce = signature.subspan(0, encryption::kNonceLength);
+  auto tag = signature.subspan(encryption::kNonceLength);
+  const SecureString& key = file_decryptor->GetFooterKey();
+  const std::string& aad = encryption::CreateFooterAad(file_decryptor->file_aad());
+
+  auto aes_encryptor = encryption::AesEncryptor::Make(
+      file_decryptor->algorithm(), static_cast<int>(key.size()), /*metadata=*/true,
+      /*write_length=*/false);
+
+  std::shared_ptr<Buffer> encrypted_buffer =
+      AllocateBuffer(file_decryptor->pool(),
+                     aes_encryptor->CiphertextLength(serialized_metadata.size()));
+  int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+      serialized_metadata, key.as_span(), str2span(aad), nonce,
+      encrypted_buffer->mutable_span_as<uint8_t>());
+  DCHECK_EQ(encrypted_len, encrypted_buffer->size());
+  // Check computed signature against expected
+  return 0 == memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
+                     tag.data(), encryption::kGcmTagLength);
+}
+
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
  public:
   FileCryptoMetaDataImpl() = default;
