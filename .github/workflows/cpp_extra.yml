@@ -579,6 +579,59 @@ jobs:
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
+  odbc-check-tags:
+    needs: odbc
+    name: ODBC Check RC Tag
+    runs-on: ubuntu-latest
+    outputs:
+      rc-tag: ${{ steps.check-rc.outputs.rc-tag }}
+    if: github.ref_type == 'tag' && github.repository == 'apache/arrow'
+    steps:
+      - name: Check Arrow RC Tag
+        id: check-rc
+        run: |
+          if [[ "${GITHUB_REF_NAME}" =~ ^apache-arrow-.*-rc.*$ ]]; then
+            echo "RC tag found"
+            echo "rc-tag=true" >> "${GITHUB_OUTPUT}"
+          else
+            echo "RC tag not found"
+            echo "rc-tag=false" >> "${GITHUB_OUTPUT}"
+          fi
+
+  odbc-release:
+    needs: odbc-check-tags
+    name: ODBC release
+    runs-on: ubuntu-latest
+    if: needs.odbc-check-tags.outputs.rc-tag == 'true'
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download the artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: flight-sql-odbc-msi-installer
+      # Upload ODBC as GitHub release if release candidate tag is used
+      - name: Wait for creating GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            "Apache Arrow Flight SQL ODBC"-*-win64.msi
+
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
     needs:
