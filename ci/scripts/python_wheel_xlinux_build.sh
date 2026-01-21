@@ -258,6 +258,12 @@ popd
 
 rm -rf dist/temp-fix-wheel
 
+echo "=== (${PYTHON_VERSION}) Show wheel details before repairing ==="
+auditwheel show dist/pyarrow-*.whl
+
 echo "=== (${PYTHON_VERSION}) Tag the wheel with ${LINUX_WHEEL_KIND}${LINUX_WHEEL_VERSION} ==="
 auditwheel repair dist/pyarrow-*.whl -w repaired_wheels
+
+echo "=== (${PYTHON_VERSION}) Show wheel details after repairing ==="
+auditwheel show repaired_wheels/pyarrow-*.whl
 popd
