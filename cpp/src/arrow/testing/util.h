@@ -120,8 +120,8 @@ ARROW_TESTING_EXPORT std::optional<std::string> GetTestTimezoneDatabaseRoot();
 
 /// \deprecated Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.
 // TODO(GH-48593): Remove when libc++ supports std::chrono timezones.
-// Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable.
-// Only relevant for Windows builds with Clang/libc++ which use vendored date library.
+// Set the Timezone database based on the ARROW_TIMEZONE_DATABASE env variable
+// Only relevant for Windows builds with Clang/libc++ which use vendored date library
 ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
 ARROW_TESTING_EXPORT Status InitTestTimezoneDatabase();
 
