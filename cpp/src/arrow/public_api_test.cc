@@ -152,7 +152,8 @@ TEST(Misc, SetTimezoneConfig) {
   ASSERT_OK_AND_ASSIGN(auto tempdir, arrow::internal::TemporaryDir::Make("tzdata"));
 
   // Validate that setting tzdb to that dir fails
-  arrow::GlobalOptions options = {std::make_optional(tempdir->path().ToString())};
+  arrow::GlobalOptions options;
+  options.timezone_db_path = std::make_optional(tempdir->path().ToString());
   ASSERT_NOT_OK(arrow::Initialize(options));
 
   // Copy tzdb data from ~/Downloads
