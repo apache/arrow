@@ -2512,12 +2512,9 @@ class TestArrowWriteSerialize : public ::testing::Test {
 };
 
 TEST_F(TestArrowWriteSerialize, AllNulls) {
-  std::shared_ptr<::arrow::Buffer> null_bitmap;
-  ASSERT_OK_AND_ASSIGN(null_bitmap, ::arrow::AllocateBitmap(100));
-  // Set all bits to 0 (null)
-  ::arrow::bit_util::SetBitsTo(null_bitmap->mutable_data(), 0, 100, false);
-
-  std::shared_ptr<::arrow::Buffer> data_buffer = nullptr;
+  std::shared_ptr<::arrow::Buffer> null_bitmap, data_buffer;
+  ASSERT_OK_AND_ASSIGN(null_bitmap, ::arrow::AllocateEmptyBitmap(100));
+  ASSERT_OK_AND_ASSIGN(data_buffer, ::arrow::AllocateBuffer(0));
 
   auto array_data =
       ::arrow::ArrayData::Make(::arrow::int8(), 100, {null_bitmap, data_buffer}, 100);
