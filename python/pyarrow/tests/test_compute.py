@@ -2391,7 +2391,7 @@ def test_strftime():
                         result, "^GMT[+-][0-9]+$"), pc.is_null(result))
                     assert not pc.any(pc.invert(is_valid)).as_py(), \
                         "All timezone values should be GMT offset format (e.g. GMT+1)" \
-                        f"Actual: {result}"
+                        f"\nActual: {result}"
                 else:
                     assert result.equals(expected)
 
@@ -2412,10 +2412,10 @@ def test_strftime():
             # instead of timezone abbreviations (e.g. "CET")
             # https://github.com/apache/arrow/issues/48767
             is_valid = pc.or_kleene(pc.match_substring_regex(
-                result, "^GMT[+-][0-9]+$"), pc.is_null(result))
+                result, "GMT[+-][0-9]+$"), pc.is_null(result))
             assert not pc.any(pc.invert(is_valid)).as_py(), \
                 "All timezone values should be GMT offset format (e.g. GMT+1)" \
-                f"Actual: {result}"
+                f"\nActual: {result}"
         else:
             assert result.equals(expected)
 
