@@ -20,6 +20,22 @@
 # arrow 23.0.0.9000
 
 # arrow 23.0.0
+
+## New features
+
+- `nchar()` now supports `keepNA = FALSE` (@HyukjinKwon, #48665).
+- `stringr::str_ilike()` binding for case-insensitive pattern matching (#48262).
+
+## Minor improvements and fixes
+
+- Fix slow performance reading files with large number of columns (#48104).
+- Fix segfault when calling `concat_tables()` on a `RecordBatch` (#47885).
+- Writing partitioned datasets on S3 no longer requires `ListBucket` permissions (@HaochengLIU, #47599).
+
+## Installation
+
+- As of version 23.0.0, `arrow` requires C++20 to build from source. This means that you may need a newer compiler than the default on some older systems. See `vignette("install", package = "arrow")` for guidance.
+
 # arrow 22.0.0.1
 
 ## Minor improvements and fixes
@@ -27,10 +43,6 @@
 - Turn off GCS support by default; bundle if enabled (#48343)
 - Ensure `MAKEFLAGS` being passed during compilation (#48341)
 - Update bundled RE2 to enable Alpine Linux builds (#48011)
-
-## New features
-
-- `nchar()` supports the `keepNA = FALSE` argument to replace `NA` values with `2` (@HyukjinKwon, #48665).
 
 # arrow 22.0.0
 
