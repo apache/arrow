@@ -136,6 +136,7 @@ Available convert options are:
 
   ~ConvertOptions.check_utf8
   ~ConvertOptions.column_types
+  ~ConvertOptions.default_column_type
   ~ConvertOptions.null_values
   ~ConvertOptions.true_values
   ~ConvertOptions.false_values
