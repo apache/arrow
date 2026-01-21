@@ -81,9 +81,13 @@ TEST(TestWriterProperties, AdvancedHandling) {
 }
 
 TEST(TestWriterProperties, SetCodecOptions) {
+  constexpr int ZSTD_c_windowLog = 101;
+
   WriterProperties::Builder builder;
   builder.compression("gzip", Compression::GZIP);
-  builder.compression("zstd", Compression::ZSTD);
+  auto zstd_codec_options = std::make_shared<::arrow::util::ZstdCodecOptions>();
+  zstd_codec_options->compression_context_params = {{ZSTD_c_windowLog, 23}};
+  builder.codec_options("zstd", zstd_codec_options);
   builder.compression("brotli", Compression::BROTLI);
   auto gzip_codec_options = std::make_shared<::arrow::util::GZipCodecOptions>();
   gzip_codec_options->compression_level = 5;
