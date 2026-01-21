@@ -32,11 +32,11 @@ struct UnpackDynamicFunction {
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static constexpr auto implementations() {
-    return std::array {
+    return std::array{
 #if defined(ARROW_HAVE_SSE4_2)
-      Implementation{DispatchLevel::NONE, &unpack_sse4_2<Uint>},
+        Implementation{DispatchLevel::NONE, &unpack_sse4_2<Uint>},
 #else
-      Implementation{DispatchLevel::NONE, &unpack_scalar<Uint>},
+        Implementation{DispatchLevel::NONE, &unpack_scalar<Uint>},
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
         Implementation{DispatchLevel::AVX2, &unpack_avx2<Uint>},
