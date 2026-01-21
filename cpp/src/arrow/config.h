@@ -92,7 +92,6 @@ RuntimeInfo GetRuntimeInfo();
 /// This struct allows configuring Arrow's runtime behavior. Currently
 /// used for timezone database configuration on Windows builds with Clang/libc++.
 /// Can be extended for other options in the future.
-ARROW_SUPPRESS_DEPRECATION_WARNING
 struct GlobalOptions {
   /// \deprecated Deprecated in 24.0.0. This member is only needed for
   /// Windows builds with Clang/libc++ and will be removed once libc++
@@ -102,7 +101,6 @@ struct GlobalOptions {
   ARROW_DEPRECATED("Deprecated in 24.0.0. Only needed for Clang/libc++ on Windows.")
   std::optional<std::string> timezone_db_path;
 };
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 ARROW_EXPORT
 Status Initialize(const GlobalOptions& options) noexcept;
