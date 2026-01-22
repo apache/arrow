@@ -75,6 +75,13 @@ module ArrowFormat
     def signed?
       @signed
     end
+
+    def to_flatbuffers
+      fb_type = FB::Int::Data.new
+      fb_type.bit_width = @bit_width
+      fb_type.signed = @signed
+      fb_type
+    end
   end
 
   class Int8Type < IntType
@@ -99,13 +106,6 @@ module ArrowFormat
     def build_array(size, validity_buffer, values_buffer)
       Int8Array.new(self, size, validity_buffer, values_buffer)
     end
-
-    def to_flatbuffers
-      fb_type = FB::Int::Data.new
-      fb_type.bit_width = 8
-      fb_type.signed = true
-      fb_type
-    end
   end
 
   class UInt8Type < IntType
@@ -129,13 +129,6 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, values_buffer)
       UInt8Array.new(self, size, validity_buffer, values_buffer)
-    end
-
-    def to_flatbuffers
-      fb_type = FB::Int::Data.new
-      fb_type.bit_width = 8
-      fb_type.signed = false
-      fb_type
     end
   end
 
