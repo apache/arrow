@@ -38,6 +38,10 @@ module WriterTests
       ArrowFormat::Int64Type.singleton
     when Arrow::UInt64DataType
       ArrowFormat::UInt64Type.singleton
+    when Arrow::FloatDataType
+      ArrowFormat::Float32Type.singleton
+    when Arrow::DoubleDataType
+      ArrowFormat::Float64Type.singleton
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
     when Arrow::StringDataType
@@ -188,6 +192,28 @@ module WriterTests
 
           def test_write
             assert_equal([0, nil, 18446744073709551615],
+                         @values)
+          end
+        end
+
+        sub_test_case("Float32") do
+          def build_array
+            Arrow::FloatArray.new([-0.5, nil, 0.5])
+          end
+
+          def test_write
+            assert_equal([-0.5, nil, 0.5],
+                         @values)
+          end
+        end
+
+        sub_test_case("Float64") do
+          def build_array
+            Arrow::DoubleArray.new([-0.5, nil, 0.5])
+          end
+
+          def test_write
+            assert_equal([-0.5, nil, 0.5],
                          @values)
           end
         end
