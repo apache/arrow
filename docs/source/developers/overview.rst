@@ -165,6 +165,8 @@ We are not opposed to the use of AI tools in generating PRs, but recommend
 the following:
 
 * Only take on a PR if you are able to debug and own the changes yourself
+* Review all lines of generated code before creating the PR to understand
+  every detail, just as if you had written it yourself
 * Make sure that the PR title and body match the style and length of others
   in this repo
 * Follow coding conventions used in the rest of the codebase
@@ -172,6 +174,10 @@ the following:
 * If there are parts you don't fully understand, add inline comments
   explaining what steps you took to verify correctness, and reference any
   sources that guided your changes (e.g. "took a similar approach to #123456")
+* AI tools are notorious for generating overly verbose comments, unnecessary
+  test cases, and fixing test failures using incorrect approaches - make sure
+  to check for and fix these issues
+* Break down large PRs into smaller ones to make review easier
 
 PR authors are also responsible for disclosing any copyrighted materials in
 submitted contributions. See the `ASF's guidance on AI-generated code
