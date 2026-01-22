@@ -566,6 +566,27 @@ bool is_valid_time(const int hours, const int minutes, const int seconds) {
          seconds < 60;
 }
 
+// Normalize sub-seconds value to milliseconds precision (3 digits).
+// Truncates if more than 3 digits are provided, pads with zeros if fewer than 3 digits
+FORCE_INLINE
+int32_t normalize_subseconds_to_millis(int32_t subseconds, int32_t num_digits) {
+  if (num_digits <= 0 || num_digits == 3) {
+    // No need to adjust
+    return subseconds;
+  }
+  // Calculate the power of 10 adjustment needed
+  int32_t digit_diff = num_digits - 3;
+  while (digit_diff > 0) {
+    subseconds /= 10;
+    digit_diff--;
+  }
+  while (digit_diff < 0) {
+    subseconds *= 10;
+    digit_diff++;
+  }
+  return subseconds;
+}
+
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
 // If date1 is later than date2, then the result is positive.
 // If date1 is earlier than date2, then the result is negative.
@@ -746,18 +767,8 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   }
 
   // adjust the milliseconds
-  if (sub_seconds_len > 0) {
-    // Truncate to 3 digits (milliseconds precision) if more digits are provided
-    while (sub_seconds_len > 3) {
-      ts_fields[TimeFields::kSubSeconds] /= 10;
-      sub_seconds_len--;
-    }
-    // Pad with zeros if less than 3 digits
-    while (sub_seconds_len < 3) {
-      ts_fields[TimeFields::kSubSeconds] *= 10;
-      sub_seconds_len++;
-    }
-  }
+  ts_fields[TimeFields::kSubSeconds] =
+    normalize_subseconds_to_millis(ts_fields[TimeFields::kSubSeconds], sub_seconds_len);
   // handle timezone
   if (encountered_zone) {
     int err = 0;
@@ -867,18 +878,8 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
   }
 
   // adjust the milliseconds
-  if (sub_seconds_len > 0) {
-    // Truncate to 3 digits (milliseconds precision) if more digits are provided
-    while (sub_seconds_len > 3) {
-      time_fields[TimeFields::kSubSeconds - TimeFields::kHours] /= 10;
-      sub_seconds_len--;
-    }
-    // Pad with zeros if less than 3 digits
-    while (sub_seconds_len < 3) {
-      time_fields[TimeFields::kSubSeconds - TimeFields::kHours] *= 10;
-      sub_seconds_len++;
-    }
-  }
+  time_fields[TimeFields::kSubSeconds - TimeFields::kHours] = normalize_subseconds_to_millis(
+    time_fields[TimeFields::kSubSeconds - TimeFields::kHours], sub_seconds_len);
 
   int32_t input_hours = time_fields[TimeFields::kHours - TimeFields::kHours];
   int32_t input_minutes = time_fields[TimeFields::kMinutes - TimeFields::kHours];
