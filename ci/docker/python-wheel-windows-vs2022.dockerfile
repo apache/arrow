@@ -27,7 +27,8 @@ ARG python=3.10
 ARG python_variant=default
 ENV PYTHON_VERSION=${python}
 ENV PYTHON_VARIANT=${python_variant}
-RUN pymanager install --version %PYTHON_VERSION% --variant %PYTHON_VARIANT%
+# TODO: Fix pymanager to support freethread variants
+RUN pymanager install %PYTHON_VERSION%
 
 RUN py -%PYTHON_VERSION% -m pip install -U pip setuptools
 
