@@ -202,9 +202,12 @@ class FileReaderImpl : public FileReader {
 
   std::shared_ptr<RowGroupReader> RowGroup(int row_group_index) override;
 
-  Status ReadTable(const std::vector<int>& indices,
-                   std::shared_ptr<Table>* out) override {
-    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), indices, out);
+  Result<std::shared_ptr<Table>> ReadTable(
+      const std::vector<int>& column_indices) override {
+    std::shared_ptr<Table> table;
+    RETURN_NOT_OK(ReadRowGroups(Iota(reader_->metadata()->num_row_groups()),
+                                column_indices, &table));
+    return table;
   }
 
   Status GetFieldReader(int i,
@@ -305,8 +308,8 @@ class FileReaderImpl : public FileReader {
     return ReadColumn(i, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
-  Status ReadTable(std::shared_ptr<Table>* table) override {
-    return ReadTable(Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadTable() override {
+    return ReadTable(Iota(reader_->metadata()->num_columns()));
   }
 
   Status ReadRowGroups(const std::vector<int>& row_groups,
@@ -1336,6 +1339,17 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
   ARROW_ASSIGN_OR_RAISE(auto tmp,
                         GetRecordBatchReader(row_group_indices, column_indices));
   out->reset(tmp.release());
+  return Status::OK();
+}
+
+Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadTable());
+  return Status::OK();
+}
+
+Status FileReader::ReadTable(const std::vector<int>& column_indices,
+                             std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadTable(column_indices));
   return Status::OK();
 }
 

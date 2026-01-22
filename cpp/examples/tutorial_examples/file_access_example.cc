@@ -185,9 +185,8 @@ arrow::Status RunMain() {
   // (Doc section: Parquet OpenFile)
 
   // (Doc section: Parquet Read)
-  std::shared_ptr<arrow::Table> parquet_table;
   // Read the table.
-  PARQUET_THROW_NOT_OK(reader->ReadTable(&parquet_table));
+  PARQUET_ASSIGN_OR_THROW(auto parquet_table, reader->ReadTable());
   // (Doc section: Parquet Read)
 
   // (Doc section: Parquet Write)

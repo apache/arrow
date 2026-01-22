@@ -37,8 +37,7 @@ arrow::Status ReadFullFile(std::string path_to_file) {
   ARROW_ASSIGN_OR_RAISE(arrow_reader, parquet::arrow::OpenFile(input, pool));
 
   // Read entire file as a single Arrow table
-  std::shared_ptr<arrow::Table> table;
-  ARROW_RETURN_NOT_OK(arrow_reader->ReadTable(&table));
+  ARROW_RETURN_NOT_OK(arrow_reader->ReadTable().status());
   return arrow::Status::OK();
 }
 
