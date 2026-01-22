@@ -457,19 +457,23 @@ jobs:
           name: flight-sql-odbc-msi-installer
           path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
           if-no-files-found: error
-      # Upload ODBC installer as nightly release in scheduled runs
+
+  odbc-nightly:
+    needs: odbc
+    name: ODBC nightly
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.repository = 'apache/arrow'
+    steps:
+      - name: Download the artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: flight-sql-odbc-msi-installer
       - name: Prepare ODBC installer for sync
-        if: github.event_name == 'schedule'
         run: |
           mkdir odbc-installer
-          Move-Item "build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi" odbc-installer/
+          mv *.msi odbc-installer/
           tree odbc-installer /f
-      - name: Install rsync
-        if: github.event_name == 'schedule'
-        run: |
-          choco install --no-progress --yes rsync
       - name: Sync to Remote
-        if: github.event_name == 'schedule'
         uses: ./.github/actions/sync-nightlies
         with:
           upload: true
