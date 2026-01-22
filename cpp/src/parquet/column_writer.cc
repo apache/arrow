@@ -2100,6 +2100,8 @@ Status TypedColumnWriterImpl<ParquetType>::WriteArrowSerialize(
 
   SerializeFunctor<ParquetType, ArrowType> functor;
   // The value buffer could be empty if all values are nulls.
+  // The output buffer will then remain uninitialized, but that's ok since
+  // null value slots are not written in Parquet.
   if (array.null_count() != array.length()) {
     RETURN_NOT_OK(functor.Serialize(checked_cast<const ArrayType&>(array), ctx, buffer));
   }
