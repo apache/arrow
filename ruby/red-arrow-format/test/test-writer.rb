@@ -40,6 +40,8 @@ module WriterTests
       ArrowFormat::UInt64Type.singleton
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
+    when Arrow::LargeBinaryDataType
+      ArrowFormat::LargeBinaryType.singleton
     when Arrow::StringDataType
       ArrowFormat::UTF8Type.singleton
     else
@@ -195,6 +197,17 @@ module WriterTests
         sub_test_case("Binary") do
           def build_array
             Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
+          end
+
+          def test_write
+            assert_equal(["Hello".b, nil, "World".b],
+                         @values)
+          end
+        end
+
+        sub_test_case("LargeBinary") do
+          def build_array
+            Arrow::LargeBinaryArray.new(["Hello".b, nil, "World".b])
           end
 
           def test_write

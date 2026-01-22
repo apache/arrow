@@ -69,6 +69,7 @@ namespace red_arrow {
       VISIT(Float)
       VISIT(Double)
       VISIT(Binary)
+      VISIT(LargeBinary)
       VISIT(String)
       VISIT(FixedSizeBinary)
       VISIT(Date32)
