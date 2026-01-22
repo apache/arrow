@@ -161,25 +161,21 @@ without further review.
 Human-generated mistakes tend to be easier to spot and reason about, and
 code review often feels like a collaborative learning experience that
 benefits both submitter and reviewer. When a PR appears to have been
-generated without much engagement from the submitter, it can feel like work
-that the maintainer might as well have done themselves.
+generated without much engagement from the submitter, reviewers with access
+to AI tools could more efficiently generate the code directly.
 
 We are not opposed to the use of AI tools in generating PRs, but recommend
 the following:
 
-* Only take on a PR if you are able to debug and own the changes yourself
-* Review all lines of generated code before creating the PR to understand
-  every detail, just as if you had written it yourself
-* Make sure that the PR title and body match the style and length of others
-  in this repo
-* Follow coding conventions used in the rest of the codebase
+* Only take on a PR if you are able to debug and own the changes yourself -
+  review all generated code to understand every detail
+* Match the style and conventions used in the rest of the codebase, including
+  PR titles and descriptions
 * Be upfront about AI usage and summarise what was AI-generated
-* If there are parts you don't fully understand, add inline comments
-  explaining what steps you took to verify correctness, and reference any
-  sources that guided your changes (e.g. "took a similar approach to #123456")
-* AI tools are notorious for generating overly verbose comments, unnecessary
-  test cases, and fixing test failures using incorrect approaches - make sure
-  to check for and fix these issues
+* If there are parts you don't fully understand, leave comments on your own PR
+  explaining what steps you took to verify correctness
+* Watch for AI's tendency to generate overly verbose comments, unnecessary
+  test cases, and incorrect fixes
 * Break down large PRs into smaller ones to make review easier
 
 PR authors are also responsible for disclosing any copyrighted materials in
