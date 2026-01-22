@@ -528,6 +528,10 @@ module ArrowFormat
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
     end
+
+    def to_flatbuffers
+      FB::Utf8::Data.new
+    end
   end
 
   class LargeUTF8Type < VariableSizeBinaryType
