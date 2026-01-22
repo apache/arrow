@@ -514,7 +514,7 @@ class PyValue {
   static Status Convert(const FixedSizeBinaryType* type, const O&, I obj,
                         PyBytesView& view) {
     // Check if obj is a uuid.UUID instance
-    if (type->byte_width() == 16 && internal::IsPyUuid(obj)) {
+    if (internal::IsPyUuid(obj)) {
       ARROW_RETURN_NOT_OK(view.ParseUuid(obj));
     } else {
       ARROW_RETURN_NOT_OK(view.ParseString(obj));
