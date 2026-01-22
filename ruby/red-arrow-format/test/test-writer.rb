@@ -40,6 +40,8 @@ module WriterTests
       ArrowFormat::UInt64Type.singleton
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
+    when Arrow::StringDataType
+      ArrowFormat::UTF8Type.singleton
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
@@ -197,6 +199,17 @@ module WriterTests
 
           def test_write
             assert_equal(["Hello".b, nil, "World".b],
+                         @values)
+          end
+        end
+
+        sub_test_case("String") do
+          def build_array
+            Arrow::StringArray.new(["Hello", nil, "World"])
+          end
+
+          def test_write
+            assert_equal(["Hello", nil, "World"],
                          @values)
           end
         end
