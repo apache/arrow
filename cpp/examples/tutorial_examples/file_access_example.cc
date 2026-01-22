@@ -186,7 +186,8 @@ arrow::Status RunMain() {
 
   // (Doc section: Parquet Read)
   // Read the table.
-  PARQUET_ASSIGN_OR_THROW(auto parquet_table, reader->ReadTable());
+  std::shared_ptr<arrow::Table> parquet_table;
+  PARQUET_ASSIGN_OR_THROW(parquet_table, reader->ReadTable());
   // (Doc section: Parquet Read)
 
   // (Doc section: Parquet Write)
