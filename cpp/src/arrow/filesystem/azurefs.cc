@@ -1363,6 +1363,7 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
     directory_client.GetAccessControlList();
     return HNSSupport::kEnabled;
   } catch (std::out_of_range& exception) {
+    ARROW_UNUSED(exception);
     // Azurite issue detected.
     DCHECK(IsDfsEmulator(options));
     return HNSSupport::kDisabled;
@@ -2500,6 +2501,7 @@ class AzureFileSystem::Impl {
             auto delete_result = deferred_response.GetResponse();
             success = delete_result.Value.Deleted;
           } catch (const Core::RequestFailedException& exception) {
+            ARROW_UNUSED(exception);
             success = false;
           }
           if (!success) {
@@ -3217,6 +3219,11 @@ class AzureFileSystem::Impl {
 
 std::atomic<LeaseGuard::SteadyClock::time_point> LeaseGuard::latest_known_expiry_time_ =
     SteadyClock::time_point{SteadyClock::duration::zero()};
+
+// Destructor must be defined here where Impl is a complete type.
+// Defining it in the header (even as = default) causes MSVC to fail
+// because it tries to instantiate std::default_delete<Impl> before Impl is defined.
+AzureFileSystem::~AzureFileSystem() {}
 
 AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
     : FileSystem(impl->io_context()), impl_(std::move(impl)) {

@@ -251,7 +251,9 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   void ForceCachedHierarchicalNamespaceSupport(int hns_support);
 
  public:
-  ~AzureFileSystem() override = default;
+  // Destructor must be defined in the .cc file where Impl is complete,
+  // otherwise MSVC fails with "use of undefined type" for std::unique_ptr<Impl>.
+  ~AzureFileSystem() override;
 
   static Result<std::shared_ptr<AzureFileSystem>> Make(
       const AzureOptions& options, const io::IOContext& = io::default_io_context());
