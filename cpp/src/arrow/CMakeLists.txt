@@ -137,7 +137,7 @@ if(ARROW_ENABLE_THREADING)
   list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS Threads::Threads)
 endif()
 
-set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK} ${ARROW_GTEST_GTEST_MAIN})
+set(ARROW_TEST_LINK_TOOLCHAIN ${ARROW_GTEST_GMOCK_MAIN})
 set(ARROW_TEST_STATIC_LINK_LIBS arrow::flatbuffers arrow_testing_static arrow_static
                                 ${ARROW_TEST_LINK_TOOLCHAIN})
 set(ARROW_TEST_SHARED_LINK_LIBS arrow::flatbuffers arrow_testing_shared arrow_shared
@@ -491,6 +491,7 @@ set(ARROW_UTIL_SRCS
     util/bitmap_ops.cc
     util/bpacking.cc
     util/byte_size.cc
+    util/byte_stream_split_internal.cc
     util/cancel.cc
     util/compression.cc
     util/counting_semaphore.cc
@@ -517,7 +518,7 @@ set(ARROW_UTIL_SRCS
     util/ree_util.cc
     util/secure_string.cc
     util/string.cc
-    util/string_builder.cc
+    util/string_util.cc
     util/task_group.cc
     util/tdigest.cc
     util/thread_pool.cc
@@ -529,6 +530,8 @@ set(ARROW_UTIL_SRCS
     util/uri.cc
     util/utf8.cc
     util/value_parsing.cc)
+
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_avx2.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_avx512.cc)
@@ -638,13 +641,13 @@ else()
 endif()
 
 set(ARROW_TESTING_SHARED_LINK_LIBS arrow_shared ${ARROW_GTEST_GTEST})
-set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON Boost::process)
-set(ARROW_TESTING_STATIC_LINK_LIBS
-    arrow::flatbuffers
-    RapidJSON
-    Boost::process
-    arrow_static
-    ${ARROW_GTEST_GTEST})
+set(ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::flatbuffers RapidJSON)
+set(ARROW_TESTING_STATIC_LINK_LIBS arrow::flatbuffers RapidJSON arrow_static
+                                   ${ARROW_GTEST_GTEST})
+if(ARROW_ENABLE_THREADING)
+  list(APPEND ARROW_TESTING_SHARED_PRIVATE_LINK_LIBS arrow::Boost::process)
+  list(APPEND ARROW_TESTING_STATIC_LINK_LIBS arrow::Boost::process)
+endif()
 set(ARROW_TESTING_SHARED_INSTALL_INTERFACE_LIBS Arrow::arrow_shared)
 set(ARROW_TESTING_STATIC_INSTALL_INTERFACE_LIBS Arrow::arrow_static)
 # that depend on gtest
@@ -736,7 +739,8 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
     compute/kernels/vector_selection_internal.cc
-    compute/kernels/vector_selection_take_internal.cc)
+    compute/kernels/vector_selection_take_internal.cc
+    compute/kernels/vector_swizzle.cc)
 
 if(ARROW_COMPUTE)
   # If libarrow_compute.a is only built, "pkg-config --cflags --libs
@@ -786,7 +790,6 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc
-       compute/kernels/vector_swizzle.cc
        compute/key_hash_internal.cc
        compute/key_map_internal.cc
        compute/light_array_internal.cc

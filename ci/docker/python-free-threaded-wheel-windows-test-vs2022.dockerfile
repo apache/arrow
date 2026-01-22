@@ -37,16 +37,13 @@ ENV PYTHON_CMD="py -${python}t"
 SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
-COPY python/requirements-wheel-test.txt C:/arrow/python/
+COPY python/requirements-wheel-test-3.13t.txt C:/arrow/python/
 # Cython and Pandas wheels for 3.13 free-threaded are not released yet
 RUN %PYTHON_CMD% -m pip install \
     --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple \
     --pre \
     --prefer-binary \
-    -r C:/arrow/python/requirements-wheel-test.txt
-# cffi-based tests would crash when importing cffi.
-# hadolint ignore=DL3059
-RUN %PYTHON_CMD% -m pip uninstall -y cffi
+    -r C:/arrow/python/requirements-wheel-test-3.13t.txt
 
 ENV PYTHON="${python}t"
 ENV PYTHON_GIL=0

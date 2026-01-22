@@ -19,9 +19,8 @@
 
 #include "arrow/matlab/array/proxy/array.h"
 #include "arrow/matlab/array/proxy/chunked_array.h"
-#include "arrow/matlab/array/proxy/wrap.h"
 #include "arrow/matlab/error/error.h"
-#include "arrow/matlab/type/proxy/wrap.h"
+#include "arrow/matlab/proxy/wrap.h"
 
 #include "libmexclass/proxy/ProxyManager.h"
 
@@ -53,6 +52,7 @@ ChunkedArray::ChunkedArray(std::shared_ptr<arrow::ChunkedArray> chunked_array)
     : chunked_array{std::move(chunked_array)} {
   // Register Proxy methods.
   REGISTER_METHOD(ChunkedArray, getNumElements);
+  REGISTER_METHOD(ChunkedArray, getNumNulls);
   REGISTER_METHOD(ChunkedArray, getNumChunks);
   REGISTER_METHOD(ChunkedArray, getChunk);
   REGISTER_METHOD(ChunkedArray, getType);
@@ -95,6 +95,13 @@ void ChunkedArray::getNumElements(libmexclass::proxy::method::Context& context) 
   context.outputs[0] = num_elements_mda;
 }
 
+void ChunkedArray::getNumNulls(libmexclass::proxy::method::Context& context) {
+  namespace mda = ::matlab::data;
+  mda::ArrayFactory factory;
+  auto num_nulls_mda = factory.createScalar(chunked_array->null_count());
+  context.outputs[0] = num_nulls_mda;
+}
+
 void ChunkedArray::getNumChunks(libmexclass::proxy::method::Context& context) {
   namespace mda = ::matlab::data;
   mda::ArrayFactory factory;
@@ -126,35 +133,15 @@ void ChunkedArray::getChunk(libmexclass::proxy::method::Context& context) {
   }
 
   const auto array = chunked_array->chunk(index);
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto array_proxy,
-                                      arrow::matlab::array::proxy::wrap(array), context,
-                                      error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
-
-  const auto array_proxy_id = libmexclass::proxy::ProxyManager::manageProxy(array_proxy);
-  const auto type_id = static_cast<int64_t>(array->type_id());
-
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(array_proxy_id);
-  output[0]["TypeID"] = factory.createScalar(type_id);
-  context.outputs[0] = output;
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(context.outputs[0],
+                                      arrow::matlab::proxy::wrap_and_manage(array),
+                                      context, error::UNKNOWN_PROXY_FOR_ARRAY_TYPE);
 }
 
 void ChunkedArray::getType(libmexclass::proxy::method::Context& context) {
-  namespace mda = ::matlab::data;
-
-  mda::ArrayFactory factory;
-
-  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(auto type_proxy,
-                                      type::proxy::wrap(chunked_array->type()), context,
-                                      error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
-
-  const auto proxy_id = libmexclass::proxy::ProxyManager::manageProxy(type_proxy);
-  const auto type_id = static_cast<int32_t>(type_proxy->unwrap()->id());
-
-  mda::StructArray output = factory.createStructArray({1, 1}, {"ProxyID", "TypeID"});
-  output[0]["ProxyID"] = factory.createScalar(proxy_id);
-  output[0]["TypeID"] = factory.createScalar(type_id);
-  context.outputs[0] = output;
+  MATLAB_ASSIGN_OR_ERROR_WITH_CONTEXT(
+      context.outputs[0], arrow::matlab::proxy::wrap_and_manage(chunked_array->type()),
+      context, error::ARRAY_FAILED_TO_CREATE_TYPE_PROXY);
 }
 
 void ChunkedArray::isEqual(libmexclass::proxy::method::Context& context) {

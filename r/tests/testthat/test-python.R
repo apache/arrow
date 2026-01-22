@@ -22,8 +22,8 @@ test_that("install_pyarrow", {
   # Windows CI machine doesn't pick up the right python or something
   skip_on_os("windows")
   skip_if_not_installed("reticulate")
-  # PyArrow doesn't support Python 3.8 or earlier
-  skip_on_python_older_than("3.9")
+  # PyArrow doesn't support Python 3.9 or earlier
+  skip_on_python_older_than("3.10")
   # no pyarrow wheels for macos 10.13
   skip_if(on_macos_10_13_or_lower())
 

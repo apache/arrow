@@ -117,17 +117,50 @@ TEST(TypePrinter, StatisticsTypes) {
 
   smin = std::string("abcdef");
   smax = std::string("ijklmnop");
-  ASSERT_STREQ("abcdef", FormatStatValue(Type::BYTE_ARRAY, smin).c_str());
-  ASSERT_STREQ("ijklmnop", FormatStatValue(Type::BYTE_ARRAY, smax).c_str());
+  ASSERT_EQ(smin, FormatStatValue(Type::BYTE_ARRAY, smin, LogicalType::String()));
+  ASSERT_EQ(smax, FormatStatValue(Type::BYTE_ARRAY, smax, LogicalType::String()));
+  ASSERT_EQ("0x616263646566", FormatStatValue(Type::BYTE_ARRAY, smin));
+  ASSERT_EQ("0x696a6b6c6d6e6f70", FormatStatValue(Type::BYTE_ARRAY, smax));
 
   // PARQUET-1357: FormatStatValue truncates binary statistics on zero character
   smax.push_back('\0');
-  ASSERT_EQ(smax, FormatStatValue(Type::BYTE_ARRAY, smax));
+  ASSERT_EQ(smax, FormatStatValue(Type::BYTE_ARRAY, smax, LogicalType::String()));
+  ASSERT_EQ("0x696a6b6c6d6e6f7000", FormatStatValue(Type::BYTE_ARRAY, smax));
 
+  // String
   smin = std::string("abcdefgh");
   smax = std::string("ijklmnop");
-  ASSERT_STREQ("abcdefgh", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin).c_str());
-  ASSERT_STREQ("ijklmnop", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax).c_str());
+  ASSERT_EQ(smin,
+            FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin, LogicalType::String()));
+  ASSERT_EQ(smax,
+            FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax, LogicalType::String()));
+  ASSERT_EQ("0x6162636465666768", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin));
+  ASSERT_EQ("0x696a6b6c6d6e6f70", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smax));
+
+  // Decimal
+  int32_t int32_decimal = 1024;
+  smin = std::string(reinterpret_cast<char*>(&int32_decimal), sizeof(int32_t));
+  ASSERT_EQ("10.24", FormatStatValue(Type::INT32, smin, LogicalType::Decimal(6, 2)));
+
+  int64_t int64_decimal = 102'400'000'000;
+  smin = std::string(reinterpret_cast<char*>(&int64_decimal), sizeof(int64_t));
+  ASSERT_EQ("10240000.0000",
+            FormatStatValue(Type::INT64, smin, LogicalType::Decimal(18, 4)));
+
+  std::vector<char> bytes = {0x11, 0x22, 0x33, 0x44};
+  smin = std::string(bytes.begin(), bytes.end());
+  ASSERT_EQ("28745.4020",
+            FormatStatValue(Type::BYTE_ARRAY, smin, LogicalType::Decimal(10, 4)));
+  ASSERT_EQ("28745.4020", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin,
+                                          LogicalType::Decimal(10, 4)));
+  ASSERT_EQ("0x11223344", FormatStatValue(Type::BYTE_ARRAY, smin));
+  ASSERT_EQ("0x11223344", FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin));
+
+  // Float16
+  bytes = {0x1c, 0x50};
+  smin = std::string(bytes.begin(), bytes.end());
+  ASSERT_EQ("32.875",
+            FormatStatValue(Type::FIXED_LEN_BYTE_ARRAY, smin, LogicalType::Float16()));
 }
 
 TEST(TestInt96Timestamp, Decoding) {

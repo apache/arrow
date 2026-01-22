@@ -144,6 +144,9 @@ ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleIntSchema();
 
 ARROW_FLIGHT_EXPORT
+std::shared_ptr<Schema> ExampleFloatSchema();
+
+ARROW_FLIGHT_EXPORT
 std::shared_ptr<Schema> ExampleStringSchema();
 
 ARROW_FLIGHT_EXPORT

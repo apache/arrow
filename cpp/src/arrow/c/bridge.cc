@@ -713,6 +713,8 @@ Status ExportRecordBatch(const RecordBatch& batch, struct ArrowArray* out,
 //////////////////////////////////////////////////////////////////////////
 // C device arrays
 
+namespace {
+
 Status ValidateDeviceInfo(const ArrayData& data,
                           std::optional<DeviceAllocationType>* device_type,
                           int64_t* device_id) {
@@ -752,6 +754,8 @@ Result<std::pair<std::optional<DeviceAllocationType>, int64_t>> ValidateDeviceIn
   RETURN_NOT_OK(ValidateDeviceInfo(data, &device_type, &device_id));
   return std::make_pair(device_type, device_id);
 }
+
+}  // namespace
 
 Status ExportDeviceArray(const Array& array, std::shared_ptr<Device::SyncEvent> sync,
                          struct ArrowDeviceArray* out, struct ArrowSchema* out_schema) {
@@ -1255,15 +1259,15 @@ struct SchemaImporter {
       return f_parser_.Invalid();
     }
     if (prec_scale.size() == 2) {
-      type_ = decimal128(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal128Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 32) {
-      type_ = decimal32(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal32Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 64) {
-      type_ = decimal64(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal64Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 128) {
-      type_ = decimal128(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal128Type::Make(prec_scale[0], prec_scale[1]));
     } else if (prec_scale[2] == 256) {
-      type_ = decimal256(prec_scale[0], prec_scale[1]);
+      ARROW_ASSIGN_OR_RAISE(type_, Decimal256Type::Make(prec_scale[0], prec_scale[1]));
     } else {
       return f_parser_.Invalid();
     }

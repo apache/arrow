@@ -1429,7 +1429,7 @@ class File(object):
         self.path = path
 
     def skip_tester(self, tester):
-        """Skip this test for the given tester (such as 'C#').
+        """Skip this test for the given tester (such as '.NET').
         """
         self.skipped_testers.add(tester)
         return self
@@ -1951,23 +1951,23 @@ def get_generated_json_files(tempdir=None):
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
         .skip_tester('nanoarrow')
         # TODO(https://github.com/apache/arrow/issues/38045)
-        .skip_format(SKIP_FLIGHT, 'C#'),
+        .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_dictionary_unsigned_case()
         .skip_tester('nanoarrow')
         .skip_tester('Java')  # TODO(ARROW-9377)
         # TODO(https://github.com/apache/arrow/issues/38045)
-        .skip_format(SKIP_FLIGHT, 'C#'),
+        .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_nested_dictionary_case()
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/622)
         .skip_tester('nanoarrow')
         .skip_tester('Java')  # TODO(ARROW-7779)
         # TODO(https://github.com/apache/arrow/issues/38045)
-        .skip_format(SKIP_FLIGHT, 'C#'),
+        .skip_format(SKIP_FLIGHT, '.NET'),
 
         generate_run_end_encoded_case()
-        .skip_tester('C#')
+        .skip_tester('.NET')
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
@@ -1980,7 +1980,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Rust'),
 
         generate_list_view_case()
-        .skip_tester('C#')     # Doesn't support large list views
+        .skip_tester('.NET')     # Doesn't support large list views
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
@@ -1992,7 +1992,7 @@ def get_generated_json_files(tempdir=None):
         .skip_format(SKIP_C_SCHEMA, 'C++')
         .skip_format(SKIP_C_ARRAY, 'C++')
         # TODO(https://github.com/apache/arrow/issues/38045)
-        .skip_format(SKIP_FLIGHT, 'C#'),
+        .skip_format(SKIP_FLIGHT, '.NET'),
     ]
 
     generated_paths = []

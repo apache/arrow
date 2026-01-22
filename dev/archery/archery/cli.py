@@ -670,8 +670,9 @@ def _set_default(opt, default):
               help="Seed for PRNG when generating test data")
 @click.option('--with-cpp', type=bool, default=False,
               help='Include C++ in integration tests')
-@click.option('--with-csharp', type=bool, default=False,
-              help='Include C# in integration tests')
+@click.option('--with-dotnet', type=bool, default=False,
+              help='Include .NET in integration tests',
+              envvar="ARCHERY_INTEGRATION_WITH_DOTNET")
 @click.option('--with-java', type=bool, default=False,
               help='Include Java in integration tests',
               envvar="ARCHERY_INTEGRATION_WITH_JAVA")
@@ -783,7 +784,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
     gen_path = args['write_generated_json']
 
-    implementations = ['cpp', 'csharp', 'java', 'js', 'go', 'nanoarrow', 'rust']
+    implementations = ['cpp', 'dotnet', 'java', 'js', 'go', 'nanoarrow', 'rust']
     formats = ['ipc', 'flight', 'c_data']
 
     enabled_implementations = 0
@@ -815,7 +816,7 @@ def integration(with_all=False, random_seed=12345, **args):
 
 
 @archery.command()
-@click.option('--arrow-token', envvar='ARROW_GITHUB_TOKEN',
+@click.option('--arrow-token', envvar=['GH_TOKEN', 'ARROW_GITHUB_TOKEN'],
               help='OAuth token for responding comment in the arrow repo')
 @click.option('--committers-file', '-c', type=click.File('r', encoding='utf8'))
 @click.option('--event-name', '-n', required=True)
@@ -872,6 +873,8 @@ add_optional_command("docker", module=".docker.cli", function="docker",
 add_optional_command("release", module=".release.cli", function="release",
                      parent=archery)
 add_optional_command("crossbow", module=".crossbow.cli", function="crossbow",
+                     parent=archery)
+add_optional_command("ci", module=".ci.cli", function="ci",
                      parent=archery)
 
 

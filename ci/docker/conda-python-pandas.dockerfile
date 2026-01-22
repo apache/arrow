@@ -17,7 +17,7 @@
 
 ARG repo
 ARG arch=amd64
-ARG python=3.9
+ARG python=3.10
 FROM ${repo}:${arch}-conda-python-${python}
 
 ARG pandas=latest

@@ -1176,7 +1176,7 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
   while (offset < num_levels) {
     int64_t end_offset = std::min(offset + batch_size, num_levels);
 
-    // Find next record boundary (i.e. ref_level = 0)
+    // Find next record boundary (i.e. rep_level = 0)
     while (end_offset < num_levels && rep_levels[end_offset] != 0) {
       end_offset++;
     }
@@ -1196,19 +1196,22 @@ inline void DoInBatches(const int16_t* def_levels, const int16_t* rep_levels,
         last_record_begin_offset--;
       }
 
-      if (offset < last_record_begin_offset) {
+      if (offset <= last_record_begin_offset) {
         // We have found the beginning of last record and can check page size.
         action(offset, last_record_begin_offset - offset, /*check_page_size=*/true);
         offset = last_record_begin_offset;
       }
 
-      // There is no record boundary in this chunk and cannot check page size.
+      // Write remaining data after the record boundary,
+      // or all data if no boundary was found.
       action(offset, end_offset - offset, /*check_page_size=*/false);
     }
 
     offset = end_offset;
   }
 }
+
+namespace {
 
 bool DictionaryDirectWriteSupported(const ::arrow::Array& array) {
   DCHECK_EQ(array.type_id(), ::arrow::Type::DICTIONARY);
@@ -1229,6 +1232,8 @@ Status ConvertDictionaryToDense(const ::arrow::Array& array, MemoryPool* pool,
   *out = cast_output.make_array();
   return Status::OK();
 }
+
+}  // namespace
 
 template <typename ParquetType>
 class TypedColumnWriterImpl : public ColumnWriterImpl,
@@ -2110,33 +2115,30 @@ struct SerializeFunctor<
                    ArrowWriteContext* ctx, value_type* out) {
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = TransferValue<ArrowType::kByteWidth>(array.Value(i));
+        out[i] = TransferValue(array.Value(i));
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] =
-            array.IsValid(i) ? TransferValue<ArrowType::kByteWidth>(array.Value(i)) : 0;
+        out[i] = array.IsValid(i) ? TransferValue(array.Value(i)) : 0;
       }
     }
 
     return Status::OK();
   }
 
-  template <int byte_width>
+ private:
   value_type TransferValue(const uint8_t* in) const {
-    static_assert(byte_width == 16 || byte_width == 32,
-                  "only 16 and 32 byte Decimals supported");
-    value_type value = 0;
-    if constexpr (byte_width == 16) {
-      ::arrow::Decimal128 decimal_value(in);
-      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
-    } else {
-      ::arrow::Decimal256 decimal_value(in);
+    using DecimalValue = typename ::arrow::TypeTraits<ArrowType>::CType;
+    DecimalValue decimal_value(in);
+    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
       // Decimal256 does not provide ToInteger, but we are sure it fits in the target
       // integer type.
-      value = static_cast<value_type>(decimal_value.low_bits());
+      return static_cast<value_type>(decimal_value.low_bits());
+    } else {
+      value_type value = 0;
+      PARQUET_THROW_NOT_OK(decimal_value.ToInteger(&value));
+      return value;
     }
-    return value;
   }
 };
 
@@ -2174,6 +2176,8 @@ Status TypedColumnWriterImpl<Int32Type>::WriteArrowDense(
       WRITE_ZERO_COPY_CASE(DATE32)
       WRITE_SERIALIZE_CASE(DATE64)
       WRITE_SERIALIZE_CASE(TIME32)
+      WRITE_SERIALIZE_CASE(DECIMAL32)
+      WRITE_SERIALIZE_CASE(DECIMAL64)
       WRITE_SERIALIZE_CASE(DECIMAL128)
       WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
@@ -2345,6 +2349,8 @@ Status TypedColumnWriterImpl<Int64Type>::WriteArrowDense(
       WRITE_SERIALIZE_CASE(UINT64)
       WRITE_ZERO_COPY_CASE(TIME64)
       WRITE_ZERO_COPY_CASE(DURATION)
+      WRITE_SERIALIZE_CASE(DECIMAL32)
+      WRITE_SERIALIZE_CASE(DECIMAL64)
       WRITE_SERIALIZE_CASE(DECIMAL128)
       WRITE_SERIALIZE_CASE(DECIMAL256)
     default:
@@ -2486,12 +2492,11 @@ struct SerializeFunctor<
 
     if (array.null_count() == 0) {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = FixDecimalEndianness<ArrowType::kByteWidth>(array.GetValue(i), offset);
+        out[i] = FixDecimalEndianness(array.GetValue(i), offset);
       }
     } else {
       for (int64_t i = 0; i < array.length(); i++) {
-        out[i] = array.IsValid(i) ? FixDecimalEndianness<ArrowType::kByteWidth>(
-                                        array.GetValue(i), offset)
+        out[i] = array.IsValid(i) ? FixDecimalEndianness(array.GetValue(i), offset)
                                   : FixedLenByteArray();
       }
     }
@@ -2499,8 +2504,9 @@ struct SerializeFunctor<
     return Status::OK();
   }
 
+ private:
   // Parquet's Decimal are stored with FixedLength values where the length is
-  // proportional to the precision. Arrow's Decimal are always stored with 16/32
+  // proportional to the precision. Arrow's Decimal are always stored with 4/8/16/32
   // bytes. Thus the internal FLBA pointer must be adjusted by the offset calculated
   // here.
   int32_t Offset(const Array& array) {
@@ -2514,29 +2520,37 @@ struct SerializeFunctor<
     int64_t non_null_count = array.length() - array.null_count();
     int64_t size = non_null_count * ArrowType::kByteWidth;
     scratch_buffer = AllocateBuffer(ctx->memory_pool, size);
-    scratch = reinterpret_cast<int64_t*>(scratch_buffer->mutable_data());
+    scratch = scratch_buffer->mutable_data();
   }
 
-  template <int byte_width>
   FixedLenByteArray FixDecimalEndianness(const uint8_t* in, int64_t offset) {
-    const auto* u64_in = reinterpret_cast<const int64_t*>(in);
     auto out = reinterpret_cast<const uint8_t*>(scratch) + offset;
-    static_assert(byte_width == 16 || byte_width == 32,
-                  "only 16 and 32 byte Decimals supported");
-    if (byte_width == 32) {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+    if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal32Type>) {
+      const auto* u32_in = reinterpret_cast<const uint32_t*>(in);
+      auto p = reinterpret_cast<uint32_t*>(scratch);
+      *p++ = ::arrow::bit_util::ToBigEndian(u32_in[0]);
+      scratch = reinterpret_cast<uint8_t*>(p);
     } else {
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
-      *scratch++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      const auto* u64_in = reinterpret_cast<const uint64_t*>(in);
+      auto p = reinterpret_cast<uint64_t*>(scratch);
+      if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal64Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal128Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      } else if constexpr (std::is_same_v<ArrowType, ::arrow::Decimal256Type>) {
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[3]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[2]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[1]);
+        *p++ = ::arrow::bit_util::ToBigEndian(u64_in[0]);
+      }
+      scratch = reinterpret_cast<uint8_t*>(p);
     }
     return FixedLenByteArray(out);
   }
 
   std::shared_ptr<ResizableBuffer> scratch_buffer;
-  int64_t* scratch;
+  uint8_t* scratch;
 };
 
 // ----------------------------------------------------------------------
@@ -2572,6 +2586,8 @@ Status TypedColumnWriterImpl<FLBAType>::WriteArrowDense(
     const ::arrow::Array& array, ArrowWriteContext* ctx, bool maybe_parent_nulls) {
   switch (array.type()->id()) {
     WRITE_SERIALIZE_CASE(FIXED_SIZE_BINARY)
+    WRITE_SERIALIZE_CASE(DECIMAL32)
+    WRITE_SERIALIZE_CASE(DECIMAL64)
     WRITE_SERIALIZE_CASE(DECIMAL128)
     WRITE_SERIALIZE_CASE(DECIMAL256)
     WRITE_SERIALIZE_CASE(HALF_FLOAT)

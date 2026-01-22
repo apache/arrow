@@ -189,8 +189,12 @@ Status ErrorToStatus(const std::string& prefix, const std::string& operation,
                          "'.";
     }
   }
+
+  auto request_id = error.GetRequestId();
+  auto request_str = request_id.empty() ? "" : (" (Request ID: " + request_id + ")");
+
   return Status::IOError(prefix, "AWS Error ", ss.str(), " during ", operation,
-                         " operation: ", error.GetMessage(),
+                         " operation: ", error.GetMessage(), request_str,
                          wrong_region_msg.value_or(""));
 }
 

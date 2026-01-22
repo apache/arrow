@@ -831,7 +831,7 @@ register_bindings_datetime_rounding <- function() {
 register_bindings_hms <- function() {
   numeric_to_time32 <- function(x) {
     # The only numeric which can be cast to time32 is int32 so double cast to make sure
-    cast(cast(x, int32()), time32(unit = "s"))
+    cast(cast(x, int32()), time32(unit = "ms"))
   }
 
   datetime_to_time32 <- function(datetime) {
@@ -850,14 +850,14 @@ register_bindings_hms <- function() {
         abort("All arguments must be numeric or NA_real_")
       }
 
-      total_secs <- seconds +
-        Expression$create("multiply_checked", minutes, 60) +
-        Expression$create("multiply_checked", hours, 3600) +
-        Expression$create("multiply_checked", days, 86400)
+      total_ms <- Expression$create("multiply_checked", seconds, 1000) +
+        Expression$create("multiply_checked", minutes, 60000) +
+        Expression$create("multiply_checked", hours, 3600000) +
+        Expression$create("multiply_checked", days, 86400000)
 
-      return(numeric_to_time32(total_secs))
+      return(numeric_to_time32(total_ms))
     },
-    notes = "subsecond times not supported"
+    notes = "nanosecond times not supported"
   )
 
   register_binding(
@@ -868,20 +868,22 @@ register_bindings_hms <- function() {
       }
 
       if (call_binding("is.numeric", x)) {
-        return(numeric_to_time32(x))
+        return(numeric_to_time32(Expression$create("multiply_checked", x, 1000)))
       }
 
       if (call_binding("is.character", x)) {
-        dash <- call_binding("gsub", ":", "-", x)
-        as_date_time_string <- call_binding("str_c", "1970-01-01", dash, sep = "-")
-        as_date_time <- Expression$create(
+        # Parse time strings using strptime with a time format
+        # Since strptime expects full datetime strings, we need to prefix with a dummy date
+        # Note: Arrow's strptime doesn't support subsecond precision for time parsing
+        prefixed_string <- call_binding("str_c", "1970-01-01 ", x)
+        parsed_datetime <- Expression$create(
           "strptime",
-          as_date_time_string,
-          options = list(format = "%Y-%m-%d-%H-%M-%S", unit = 0L)
+          prefixed_string,
+          options = list(format = "%Y-%m-%d %H:%M:%S", unit = 3L)
         )
-        return(datetime_to_time32(as_date_time))
+        return(datetime_to_time32(parsed_datetime))
       }
     },
-    notes = "subsecond times not supported"
+    notes = "subsecond precision not supported for character input"
   )
 }

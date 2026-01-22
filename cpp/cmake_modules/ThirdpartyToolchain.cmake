@@ -598,15 +598,8 @@ endif()
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
-  string(REPLACE "." "_" ARROW_BOOST_BUILD_VERSION_UNDERSCORES
-                 ${ARROW_BOOST_BUILD_VERSION})
   set_urls(BOOST_SOURCE_URL
-           # These are trimmed boost bundles we maintain.
-           # See cpp/build-support/trim-boost.sh
-           # FIXME(ARROW-6407) automate uploading this archive to ensure it reflects
-           # our currently used packages and doesn't fall out of sync with
-           # ${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}
-           "${THIRDPARTY_MIRROR_URL}/boost_${ARROW_BOOST_BUILD_VERSION_UNDERSCORES}.tar.gz"
+           "https://github.com/boostorg/boost/releases/download/boost-${ARROW_BOOST_BUILD_VERSION}/boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz"
   )
 endif()
 
@@ -1023,13 +1016,22 @@ macro(prepare_fetchcontent)
   set(BUILD_TESTING OFF)
   set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "")
   set(CMAKE_COMPILE_WARNING_AS_ERROR OFF)
-  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY OFF)
+  set(CMAKE_EXPORT_NO_PACKAGE_REGISTRY ON)
+  set(CMAKE_EXPORT_PACKAGE_REGISTRY OFF)
   set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "")
   set(CMAKE_MACOSX_RPATH ${ARROW_INSTALL_NAME_RPATH})
   # We set CMAKE_POLICY_VERSION_MINIMUM temporarily due to failures with CMake 4
   # We should remove it once we have updated the dependencies:
   # https://github.com/apache/arrow/issues/45985
   set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+  # Use "NEW" for CMP0077 by default.
+  #
+  # https://cmake.org/cmake/help/latest/policy/CMP0077.html
+  #
+  # option() honors normal variables.
+  set(CMAKE_POLICY_DEFAULT_CMP0077
+      NEW
+      CACHE STRING "")
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "")
 
   if(MSVC)
@@ -1052,119 +1054,132 @@ endif()
 # ----------------------------------------------------------------------
 # Add Boost dependencies (code adapted from Apache Kudu)
 
-macro(build_boost)
-  set(BOOST_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/boost_ep-prefix/src/boost_ep")
+function(build_boost)
+  list(APPEND CMAKE_MESSAGE_INDENT "Boost: ")
+  message(STATUS "Building from source")
 
-  # This is needed by the thrift_ep build
-  set(BOOST_ROOT ${BOOST_PREFIX})
-  set(Boost_INCLUDE_DIR "${BOOST_PREFIX}")
+  fetchcontent_declare(boost
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${BOOST_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
 
-  if(ARROW_BOOST_REQUIRE_LIBRARY)
-    set(BOOST_LIB_DIR "${BOOST_PREFIX}/stage/lib")
-    set(BOOST_BUILD_LINK "static")
-    if("${UPPERCASE_BUILD_TYPE}" STREQUAL "DEBUG")
-      set(BOOST_BUILD_VARIANT "debug")
-    else()
-      set(BOOST_BUILD_VARIANT "release")
-    endif()
-    if(MSVC)
-      set(BOOST_CONFIGURE_COMMAND ".\\\\bootstrap.bat")
-    else()
-      set(BOOST_CONFIGURE_COMMAND "./bootstrap.sh")
-    endif()
-
-    set(BOOST_BUILD_WITH_LIBRARIES "filesystem" "system")
-    string(REPLACE ";" "," BOOST_CONFIGURE_LIBRARIES "${BOOST_BUILD_WITH_LIBRARIES}")
-    list(APPEND BOOST_CONFIGURE_COMMAND "--prefix=${BOOST_PREFIX}"
-         "--with-libraries=${BOOST_CONFIGURE_LIBRARIES}")
-    set(BOOST_BUILD_COMMAND "./b2" "-j${NPROC}" "link=${BOOST_BUILD_LINK}"
-                            "variant=${BOOST_BUILD_VARIANT}")
-    if(MSVC)
-      string(REGEX REPLACE "([0-9])$" ".\\1" BOOST_TOOLSET_MSVC_VERSION
-                           ${MSVC_TOOLSET_VERSION})
-      list(APPEND BOOST_BUILD_COMMAND "toolset=msvc-${BOOST_TOOLSET_MSVC_VERSION}")
-      set(BOOST_BUILD_WITH_LIBRARIES_MSVC)
-      foreach(_BOOST_LIB ${BOOST_BUILD_WITH_LIBRARIES})
-        list(APPEND BOOST_BUILD_WITH_LIBRARIES_MSVC "--with-${_BOOST_LIB}")
-      endforeach()
-      list(APPEND BOOST_BUILD_COMMAND ${BOOST_BUILD_WITH_LIBRARIES_MSVC})
-    else()
-      list(APPEND BOOST_BUILD_COMMAND "cxxflags=-fPIC")
-    endif()
-
-    if(MSVC)
-      string(REGEX
-             REPLACE "^([0-9]+)\\.([0-9]+)\\.[0-9]+$" "\\1_\\2"
-                     ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE
-                     ${ARROW_BOOST_BUILD_VERSION})
-      set(BOOST_LIBRARY_SUFFIX "-vc${MSVC_TOOLSET_VERSION}-mt")
-      if(BOOST_BUILD_VARIANT STREQUAL "debug")
-        set(BOOST_LIBRARY_SUFFIX "${BOOST_LIBRARY_SUFFIX}-gd")
-      endif()
-      set(BOOST_LIBRARY_SUFFIX
-          "${BOOST_LIBRARY_SUFFIX}-x64-${ARROW_BOOST_BUILD_VERSION_NO_MICRO_UNDERSCORE}")
-    else()
-      set(BOOST_LIBRARY_SUFFIX "")
-    endif()
-    set(BOOST_STATIC_SYSTEM_LIBRARY
-        "${BOOST_LIB_DIR}/libboost_system${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(BOOST_STATIC_FILESYSTEM_LIBRARY
-        "${BOOST_LIB_DIR}/libboost_filesystem${BOOST_LIBRARY_SUFFIX}${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
-    set(BOOST_SYSTEM_LIBRARY boost_system_static)
-    set(BOOST_FILESYSTEM_LIBRARY boost_filesystem_static)
-    set(BOOST_BUILD_PRODUCTS ${BOOST_STATIC_SYSTEM_LIBRARY}
-                             ${BOOST_STATIC_FILESYSTEM_LIBRARY})
-
-    add_thirdparty_lib(Boost::system
-                       STATIC
-                       "${BOOST_STATIC_SYSTEM_LIBRARY}"
-                       INCLUDE_DIRECTORIES
-                       "${Boost_INCLUDE_DIR}")
-    add_thirdparty_lib(Boost::filesystem
-                       STATIC
-                       "${BOOST_STATIC_FILESYSTEM_LIBRARY}"
-                       INCLUDE_DIRECTORIES
-                       "${Boost_INCLUDE_DIR}")
-
-    externalproject_add(boost_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${BOOST_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}"
-                        BUILD_BYPRODUCTS ${BOOST_BUILD_PRODUCTS}
-                        BUILD_IN_SOURCE 1
-                        CONFIGURE_COMMAND ${BOOST_CONFIGURE_COMMAND}
-                        BUILD_COMMAND ${BOOST_BUILD_COMMAND}
-                        INSTALL_COMMAND "")
-    add_dependencies(Boost::system boost_ep)
-    add_dependencies(Boost::filesystem boost_ep)
+  prepare_fetchcontent()
+  set(BOOST_ENABLE_COMPATIBILITY_TARGETS ON)
+  set(BOOST_EXCLUDE_LIBRARIES)
+  set(BOOST_INCLUDE_LIBRARIES
+      ${ARROW_BOOST_COMPONENTS}
+      ${ARROW_BOOST_OPTIONAL_COMPONENTS}
+      algorithm
+      crc
+      numeric/conversion
+      scope_exit
+      throw_exception
+      tokenizer)
+  if(ARROW_TESTING
+     OR ARROW_GANDIVA
+     OR (NOT ARROW_USE_NATIVE_INT128))
+    set(ARROW_BOOST_NEED_MULTIPRECISION TRUE)
   else()
-    externalproject_add(boost_ep
-                        ${EP_COMMON_OPTIONS}
-                        BUILD_COMMAND ""
-                        CONFIGURE_COMMAND ""
-                        INSTALL_COMMAND ""
-                        URL ${BOOST_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_BOOST_BUILD_SHA256_CHECKSUM}")
+    set(ARROW_BOOST_NEED_MULTIPRECISION FALSE)
   endif()
-  add_library(Boost::headers INTERFACE IMPORTED)
-  target_include_directories(Boost::headers INTERFACE "${Boost_INCLUDE_DIR}")
-  add_dependencies(Boost::headers boost_ep)
-  # If Boost is found but one of system or filesystem components aren't found,
-  # Boost::disable_autolinking and Boost::dynamic_linking are already defined.
-  if(NOT TARGET Boost::disable_autolinking)
-    add_library(Boost::disable_autolinking INTERFACE IMPORTED)
-    if(WIN32)
-      target_compile_definitions(Boost::disable_autolinking INTERFACE "BOOST_ALL_NO_LIB")
+  if(ARROW_ENABLE_THREADING)
+    if(ARROW_WITH_THRIFT OR (ARROW_FLIGHT_SQL_ODBC AND MSVC))
+      list(APPEND BOOST_INCLUDE_LIBRARIES locale)
+    endif()
+    if(ARROW_BOOST_NEED_MULTIPRECISION)
+      list(APPEND BOOST_INCLUDE_LIBRARIES multiprecision)
+    endif()
+    list(APPEND BOOST_INCLUDE_LIBRARIES thread)
+  else()
+    list(APPEND
+         BOOST_EXCLUDE_LIBRARIES
+         asio
+         container
+         date_time
+         lexical_cast
+         locale
+         lockfree
+         math
+         thread)
+  endif()
+  if(ARROW_WITH_THRIFT)
+    list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
+  else()
+    list(APPEND BOOST_EXCLUDE_LIBRARIES uuid)
+  endif()
+  set(BOOST_SKIP_INSTALL_RULES ON)
+  if(NOT ARROW_ENABLE_THREADING)
+    set(BOOST_UUID_LINK_LIBATOMIC OFF)
+  endif()
+  if(MSVC)
+    string(APPEND CMAKE_C_FLAGS " /EHsc")
+    string(APPEND CMAKE_CXX_FLAGS " /EHsc")
+  else()
+    # This is for https://github.com/boostorg/container/issues/305
+    string(APPEND CMAKE_C_FLAGS " -Wno-strict-prototypes")
+  endif()
+  set(CMAKE_UNITY_BUILD OFF)
+
+  fetchcontent_makeavailable(boost)
+
+  set(boost_include_dirs)
+  foreach(library ${BOOST_INCLUDE_LIBRARIES})
+    # boost_numeric/conversion ->
+    # boost_numeric_conversion
+    string(REPLACE "/" "_" target_name "boost_${library}")
+    target_link_libraries(${target_name} INTERFACE Boost::disable_autolinking)
+    list(APPEND boost_include_dirs
+         $<TARGET_PROPERTY:${target_name},INTERFACE_INCLUDE_DIRECTORIES>)
+  endforeach()
+  target_link_libraries(boost_headers
+                        INTERFACE Boost::algorithm
+                                  Boost::crc
+                                  Boost::numeric_conversion
+                                  Boost::scope_exit
+                                  Boost::throw_exception
+                                  Boost::tokenizer)
+  target_compile_definitions(boost_mpl INTERFACE "BOOST_MPL_CFG_NO_PREPROCESSED_HEADERS")
+
+  if(ARROW_BOOST_NEED_MULTIPRECISION)
+    if(ARROW_ENABLE_THREADING)
+      target_link_libraries(boost_headers INTERFACE Boost::multiprecision)
+    else()
+      # We want to use Boost.multiprecision as standalone mode
+      # without threading because non-standalone mode requires
+      # threading. We can't use BOOST_MP_STANDALONE CMake variable for
+      # this with Boost CMake build. So we create our CMake target for
+      # it.
+      add_library(arrow::Boost::multiprecision INTERFACE IMPORTED)
+      target_include_directories(arrow::Boost::multiprecision
+                                 INTERFACE "${boost_SOURCE_DIR}/libs/multiprecision/include"
+      )
+      target_compile_definitions(arrow::Boost::multiprecision
+                                 INTERFACE BOOST_MP_STANDALONE=1)
+      target_link_libraries(boost_headers INTERFACE arrow::Boost::multiprecision)
     endif()
   endif()
-  if(NOT TARGET Boost::dynamic_linking)
-    # This doesn't add BOOST_ALL_DYN_LINK because bundled Boost is a static library.
-    add_library(Boost::dynamic_linking INTERFACE IMPORTED)
+  if(ARROW_WITH_THRIFT)
+    if(ARROW_ENABLE_THREADING)
+      add_library(arrow::Boost::locale ALIAS boost_locale)
+    else()
+      # Apache Parquet depends on Apache Thrift.
+      # Apache Thrift uses Boost.locale but it only uses header files.
+      # So we can use this for building Apache Thrift.
+      add_library(arrow::Boost::locale INTERFACE IMPORTED)
+      target_include_directories(arrow::Boost::locale
+                                 INTERFACE "${boost_SOURCE_DIR}/libs/locale/include")
+    endif()
   endif()
-  set(BOOST_VENDORED TRUE)
-endmacro()
+
+  set(Boost_INCLUDE_DIRS
+      ${boost_include_dirs}
+      PARENT_SCOPE)
+  set(BOOST_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER
                                               15)
@@ -1181,7 +1196,16 @@ set(Boost_USE_MULTITHREADED ON)
 if(MSVC AND ARROW_USE_STATIC_CRT)
   set(Boost_USE_STATIC_RUNTIME ON)
 endif()
+# CMake 3.25.0 has 1.80 and older versions.
 set(Boost_ADDITIONAL_VERSIONS
+    "1.88.0"
+    "1.88"
+    "1.87.0"
+    "1.87"
+    "1.86.0"
+    "1.86"
+    "1.85.0"
+    "1.85"
     "1.84.0"
     "1.84"
     "1.83.0"
@@ -1189,49 +1213,7 @@ set(Boost_ADDITIONAL_VERSIONS
     "1.82.0"
     "1.82"
     "1.81.0"
-    "1.81"
-    "1.80.0"
-    "1.80"
-    "1.79.0"
-    "1.79"
-    "1.78.0"
-    "1.78"
-    "1.77.0"
-    "1.77"
-    "1.76.0"
-    "1.76"
-    "1.75.0"
-    "1.75"
-    "1.74.0"
-    "1.74"
-    "1.73.0"
-    "1.73"
-    "1.72.0"
-    "1.72"
-    "1.71.0"
-    "1.71"
-    "1.70.0"
-    "1.70"
-    "1.69.0"
-    "1.69"
-    "1.68.0"
-    "1.68"
-    "1.67.0"
-    "1.67"
-    "1.66.0"
-    "1.66"
-    "1.65.0"
-    "1.65"
-    "1.64.0"
-    "1.64"
-    "1.63.0"
-    "1.63"
-    "1.62.0"
-    "1.61"
-    "1.61.0"
-    "1.62"
-    "1.60.0"
-    "1.60")
+    "1.81")
 
 # Compilers that don't support int128_t have a compile-time
 # (header-only) dependency on Boost for int128_t.
@@ -1290,7 +1272,9 @@ if(ARROW_USE_BOOST)
     if(ARROW_FLIGHT_SQL_ODBC AND MSVC)
       list(APPEND ARROW_BOOST_COMPONENTS locale)
     endif()
-    set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
+    if(ARROW_ENABLE_THREADING)
+      set(ARROW_BOOST_OPTIONAL_COMPONENTS process)
+    endif()
   else()
     set(ARROW_BOOST_COMPONENTS)
     set(ARROW_BOOST_OPTIONAL_COMPONENTS)
@@ -1310,62 +1294,71 @@ if(ARROW_USE_BOOST)
     unset(BUILD_SHARED_LIBS_KEEP)
   endif()
 
-  foreach(BOOST_LIBRARY Boost::headers Boost::filesystem Boost::system)
-    if(NOT TARGET ${BOOST_LIBRARY})
-      continue()
-    endif()
-    target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
-    if(ARROW_BOOST_USE_SHARED)
-      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
-    endif()
-  endforeach()
+  if(NOT BOOST_VENDORED)
+    foreach(BOOST_COMPONENT ${ARROW_BOOST_COMPONENTS} ${ARROW_BOOST_OPTIONAL_COMPONENTS})
+      set(BOOST_LIBRARY Boost::${BOOST_COMPONENT})
+      if(NOT TARGET ${BOOST_LIBRARY})
+        continue()
+      endif()
+      target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::disable_autolinking)
+      if(ARROW_BOOST_USE_SHARED)
+        target_link_libraries(${BOOST_LIBRARY} INTERFACE Boost::dynamic_linking)
+      endif()
+    endforeach()
+  endif()
 
-  set(BOOST_PROCESS_HAVE_V2 FALSE)
-  if(TARGET Boost::process)
-    # Boost >= 1.86
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
-    set(BOOST_PROCESS_HAVE_V2 TRUE)
-  else()
-    # Boost < 1.86
-    add_library(Boost::process INTERFACE IMPORTED)
-    if(TARGET Boost::filesystem)
-      target_link_libraries(Boost::process INTERFACE Boost::filesystem)
-    endif()
-    if(TARGET Boost::system)
-      target_link_libraries(Boost::process INTERFACE Boost::system)
-    endif()
-    if(TARGET Boost::headers)
-      target_link_libraries(Boost::process INTERFACE Boost::headers)
-    endif()
-    if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
-      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
+  if(ARROW_ENABLE_THREADING)
+    set(BOOST_PROCESS_HAVE_V2 FALSE)
+    if(TARGET Boost::process)
+      # Boost >= 1.86
+      add_library(arrow::Boost::process INTERFACE IMPORTED)
+      target_link_libraries(arrow::Boost::process INTERFACE Boost::process)
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V1")
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_HAVE_V2")
       set(BOOST_PROCESS_HAVE_V2 TRUE)
-      # Boost < 1.86 has a bug that
-      # boost::process::v2::process_environment::on_setup() isn't
-      # defined. We need to build Boost Process source to define it.
-      #
-      # See also:
-      # https://github.com/boostorg/process/issues/312
-      target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_NEED_SOURCE")
-      if(WIN32)
-        target_link_libraries(Boost::process INTERFACE bcrypt ntdll)
+    else()
+      # Boost < 1.86
+      add_library(arrow::Boost::process INTERFACE IMPORTED)
+      if(TARGET Boost::filesystem)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::filesystem)
+      endif()
+      if(TARGET Boost::system)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::system)
+      endif()
+      if(TARGET Boost::headers)
+        target_link_libraries(arrow::Boost::process INTERFACE Boost::headers)
+      endif()
+      if(Boost_VERSION VERSION_GREATER_EQUAL 1.80)
+        target_compile_definitions(arrow::Boost::process
+                                   INTERFACE "BOOST_PROCESS_HAVE_V2")
+        set(BOOST_PROCESS_HAVE_V2 TRUE)
+        # Boost < 1.86 has a bug that
+        # boost::process::v2::process_environment::on_setup() isn't
+        # defined. We need to build Boost Process source to define it.
+        #
+        # See also:
+        # https://github.com/boostorg/process/issues/312
+        target_compile_definitions(arrow::Boost::process
+                                   INTERFACE "BOOST_PROCESS_NEED_SOURCE")
+        if(WIN32)
+          target_link_libraries(arrow::Boost::process INTERFACE bcrypt ntdll)
+        endif()
       endif()
     endif()
-  endif()
-  if(BOOST_PROCESS_HAVE_V2
-     AND # We can't use v2 API on Windows because v2 API doesn't support
-         # process group[1] and GCS testbench uses multiple processes[2].
-         #
-         # [1] https://github.com/boostorg/process/issues/259
-         # [2] https://github.com/googleapis/storage-testbench/issues/669
-         (NOT WIN32)
-     AND # We can't use v2 API with musl libc with Boost Process < 1.86
-         # because Boost Process < 1.86 doesn't support musl libc[3].
-         #
-         # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
-         (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
-    target_compile_definitions(Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
+    if(BOOST_PROCESS_HAVE_V2
+       AND # We can't use v2 API on Windows because v2 API doesn't support
+           # process group[1] and GCS testbench uses multiple processes[2].
+           #
+           # [1] https://github.com/boostorg/process/issues/259
+           # [2] https://github.com/googleapis/storage-testbench/issues/669
+           (NOT WIN32)
+       AND # We can't use v2 API with musl libc with Boost Process < 1.86
+           # because Boost Process < 1.86 doesn't support musl libc[3].
+           #
+           # [3] https://github.com/boostorg/process/commit/aea22dbf6be1695ceb42367590b6ca34d9433500
+           (NOT (ARROW_WITH_MUSL AND (Boost_VERSION VERSION_LESS 1.86))))
+      target_compile_definitions(arrow::Boost::process INTERFACE "BOOST_PROCESS_USE_V2")
+    endif()
   endif()
 
   message(STATUS "Boost include dir: ${Boost_INCLUDE_DIRS}")
@@ -1418,15 +1411,6 @@ macro(build_snappy)
     )
   endforeach()
 
-  if(APPLE AND CMAKE_HOST_SYSTEM_VERSION VERSION_LESS 20)
-    # On macOS 10.13 we need to explicitly add <functional> to avoid a missing include error
-    # This can be removed once CRAN no longer checks on macOS 10.13
-    find_program(PATCH patch REQUIRED)
-    set(SNAPPY_PATCH_COMMAND ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/snappy.diff)
-  else()
-    set(SNAPPY_PATCH_COMMAND)
-  endif()
-
   if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
     # ignore linker flag errors, as Snappy sets
     # -Werror -Wall, and Emscripten doesn't support -soname
@@ -1441,7 +1425,6 @@ macro(build_snappy)
                       INSTALL_DIR ${SNAPPY_PREFIX}
                       URL ${SNAPPY_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_SNAPPY_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${SNAPPY_PATCH_COMMAND}
                       CMAKE_ARGS ${SNAPPY_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${SNAPPY_STATIC_LIB}")
 
@@ -1740,6 +1723,8 @@ if(ARROW_NEED_GFLAGS)
       set(GFLAGS_LIBRARIES gflags-shared)
     elseif(TARGET gflags_shared)
       set(GFLAGS_LIBRARIES gflags_shared)
+    elseif(TARGET gflags::gflags)
+      set(GFLAGS_LIBRARIES gflags::gflags)
     endif()
   endif()
 endif()
@@ -1747,102 +1732,108 @@ endif()
 # ----------------------------------------------------------------------
 # Thrift
 
-macro(build_thrift)
-  message(STATUS "Building Apache Thrift from source")
-  set(THRIFT_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/thrift_ep-install")
-  set(THRIFT_INCLUDE_DIR "${THRIFT_PREFIX}/include")
-  set(THRIFT_CMAKE_ARGS
-      ${EP_COMMON_CMAKE_ARGS}
-      "-DCMAKE_INSTALL_PREFIX=${THRIFT_PREFIX}"
-      "-DCMAKE_INSTALL_RPATH=${THRIFT_PREFIX}/lib"
-      # Work around https://gitlab.kitware.com/cmake/cmake/issues/18865
-      -DBoost_NO_BOOST_CMAKE=ON
-      -DBUILD_COMPILER=OFF
-      -DBUILD_EXAMPLES=OFF
-      -DBUILD_TUTORIALS=OFF
-      -DCMAKE_DEBUG_POSTFIX=
-      -DWITH_AS3=OFF
-      -DWITH_CPP=ON
-      -DWITH_C_GLIB=OFF
-      -DWITH_JAVA=OFF
-      -DWITH_JAVASCRIPT=OFF
-      -DWITH_LIBEVENT=OFF
-      -DWITH_NODEJS=OFF
-      -DWITH_PYTHON=OFF
-      -DWITH_QT5=OFF
-      -DWITH_ZLIB=OFF)
+function(build_thrift)
+  list(APPEND CMAKE_MESSAGE_INDENT "Thrift: ")
+  message(STATUS "Building from source")
 
-  # Thrift also uses boost. Forward important boost settings if there were ones passed.
-  if(DEFINED BOOST_ROOT)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBOOST_ROOT=${BOOST_ROOT}")
+  if(CMAKE_VERSION VERSION_LESS 3.26)
+    message(FATAL_ERROR "Require CMake 3.26 or later for building bundled Apache Thrift")
   endif()
-  list(APPEND
-       THRIFT_CMAKE_ARGS
-       "-DBoost_INCLUDE_DIR=$<TARGET_PROPERTY:Boost::headers,INTERFACE_INCLUDE_DIRECTORIES>"
-  )
-  if(DEFINED Boost_NAMESPACE)
-    list(APPEND THRIFT_CMAKE_ARGS "-DBoost_NAMESPACE=${Boost_NAMESPACE}")
+  set(THRIFT_PATCH_COMMAND)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    find_program(PATCH patch)
+    if(PATCH)
+      list(APPEND
+           THRIFT_PATCH_COMMAND
+           ${PATCH}
+           -p1
+           -i)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        list(APPEND THRIFT_PATCH_COMMAND ${GIT} apply)
+      endif()
+    endif()
+    if(THRIFT_PATCH_COMMAND)
+      # https://github.com/apache/thrift/pull/3187
+      list(APPEND THRIFT_PATCH_COMMAND ${CMAKE_CURRENT_LIST_DIR}/thrift-3187.patch)
+    endif()
   endif()
+  fetchcontent_declare(thrift
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${THRIFT_PATCH_COMMAND}
+                       URL ${THRIFT_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}")
 
+  prepare_fetchcontent()
+  set(BUILD_COMPILER OFF)
+  set(BUILD_EXAMPLES OFF)
+  set(BUILD_TUTORIALS OFF)
+  set(CMAKE_UNITY_BUILD OFF)
+  set(WITH_AS3 OFF)
+  set(WITH_CPP ON)
+  set(WITH_C_GLIB OFF)
+  set(WITH_JAVA OFF)
+  set(WITH_JAVASCRIPT OFF)
+  set(WITH_LIBEVENT OFF)
   if(MSVC)
     if(ARROW_USE_STATIC_CRT)
-      set(THRIFT_LIB_SUFFIX "mt")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=ON")
+      set(WITH_MT ON)
     else()
-      set(THRIFT_LIB_SUFFIX "md")
-      list(APPEND THRIFT_CMAKE_ARGS "-DWITH_MT=OFF")
+      set(WITH_MT OFF)
     endif()
-    # NOTE(amoeba): When you bump Thrift to >=0.21.0, change bin to lib
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/bin/${CMAKE_IMPORT_LIBRARY_PREFIX}thrift${THRIFT_LIB_SUFFIX}${CMAKE_IMPORT_LIBRARY_SUFFIX}"
-    )
-  else()
-    set(THRIFT_LIB
-        "${THRIFT_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}thrift${CMAKE_STATIC_LIBRARY_SUFFIX}"
-    )
+  endif()
+  set(WITH_NODEJS OFF)
+  set(WITH_PYTHON OFF)
+  set(WITH_QT5 OFF)
+  set(WITH_ZLIB OFF)
+
+  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we'll restore the
+  # original CMAKE_DEBUG_POSTFIX later.
+  set(CMAKE_DEBUG_POSTFIX_KEEP ${CMAKE_DEBUG_POSTFIX})
+
+  # Remove Apache Arrow's CMAKE_MODULE_PATH to ensure using Apache
+  # Thrift's cmake_modules/.
+  #
+  # We can remove this once https://github.com/apache/thrift/pull/3176
+  # is merged.
+  list(POP_FRONT CMAKE_MODULE_PATH)
+  fetchcontent_makeavailable(thrift)
+
+  # Apache Thrift may change CMAKE_DEBUG_POSTFIX. So we restore
+  # CMAKE_DEBUG_POSTFIX.
+  set(CMAKE_DEBUG_POSTFIX
+      ${CMAKE_DEBUG_POSTFIX_KEEP}
+      CACHE BOOL "" FORCE)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${thrift_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
 
+  target_include_directories(thrift
+                             INTERFACE $<BUILD_LOCAL_INTERFACE:${thrift_BINARY_DIR}>
+                                       $<BUILD_LOCAL_INTERFACE:${thrift_SOURCE_DIR}/lib/cpp/src>
+  )
   if(BOOST_VENDORED)
-    set(THRIFT_DEPENDENCIES ${THRIFT_DEPENDENCIES} boost_ep)
+    target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
+    target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
   endif()
 
-  set(THRIFT_PATCH_COMMAND)
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 15.0)
-    # Thrift 0.21.0 doesn't support GCC 15.
-    # https://github.com/apache/arrow/issues/45096
-    # https://github.com/apache/thrift/pull/3078
-    find_program(PATCH patch REQUIRED)
-    list(APPEND
-         THRIFT_PATCH_COMMAND
-         ${PATCH}
-         -p1
-         -i
-         ${CMAKE_CURRENT_LIST_DIR}/thrift-cstdint.patch)
-  endif()
+  add_library(thrift::thrift INTERFACE IMPORTED)
+  target_link_libraries(thrift::thrift INTERFACE thrift)
 
-  externalproject_add(thrift_ep
-                      ${EP_COMMON_OPTIONS}
-                      URL ${THRIFT_SOURCE_URL}
-                      URL_HASH "SHA256=${ARROW_THRIFT_BUILD_SHA256_CHECKSUM}"
-                      BUILD_BYPRODUCTS "${THRIFT_LIB}"
-                      CMAKE_ARGS ${THRIFT_CMAKE_ARGS}
-                      DEPENDS ${THRIFT_DEPENDENCIES}
-                      PATCH_COMMAND ${THRIFT_PATCH_COMMAND})
+  set(Thrift_VERSION
+      ${ARROW_THRIFT_BUILD_VERSION}
+      PARENT_SCOPE)
+  set(THRIFT_VENDORED
+      TRUE
+      PARENT_SCOPE)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} thrift
+      PARENT_SCOPE)
 
-  add_library(thrift::thrift STATIC IMPORTED)
-  # The include directory must exist before it is referenced by a target.
-  file(MAKE_DIRECTORY "${THRIFT_INCLUDE_DIR}")
-  set_target_properties(thrift::thrift PROPERTIES IMPORTED_LOCATION "${THRIFT_LIB}")
-  target_include_directories(thrift::thrift BEFORE INTERFACE "${THRIFT_INCLUDE_DIR}")
-  if(ARROW_USE_BOOST)
-    target_link_libraries(thrift::thrift INTERFACE Boost::headers)
-  endif()
-  add_dependencies(thrift::thrift thrift_ep)
-  set(Thrift_VERSION ${ARROW_THRIFT_BUILD_VERSION})
-  set(THRIFT_VENDORED TRUE)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS thrift::thrift)
-endmacro()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
 
 if(ARROW_WITH_THRIFT)
   # Thrift C++ code generated by 0.13 requires 0.11 or greater
@@ -2439,6 +2430,7 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GMOCK GTest::gmock)
     set(ARROW_GTEST_GTEST GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN GTest::gtest_main)
+    set(ARROW_GTEST_GMOCK_MAIN GTest::gmock_main)
   else()
     string(APPEND ARROW_TESTING_PC_CFLAGS " -I\${includedir}/arrow-gtest")
     string(APPEND ARROW_TESTING_PC_LIBS " -larrow_gtest")
@@ -2446,6 +2438,7 @@ if(ARROW_TESTING)
     set(ARROW_GTEST_GMOCK arrow::GTest::gmock)
     set(ARROW_GTEST_GTEST arrow::GTest::gtest)
     set(ARROW_GTEST_GTEST_MAIN arrow::GTest::gtest_main)
+    set(ARROW_GTEST_GMOCK_MAIN arrow::GTest::gmock_main)
   endif()
 endif()
 
@@ -2589,7 +2582,7 @@ if(ARROW_USE_XSIMD)
                      IS_RUNTIME_DEPENDENCY
                      FALSE
                      REQUIRED_VERSION
-                     "8.1.0")
+                     "13.0.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     set(ARROW_XSIMD arrow::xsimd)
@@ -2697,9 +2690,8 @@ function(build_lz4)
 
   # Add to bundled static libs.
   # We must use lz4_static (not imported target) not LZ4::lz4 (imported target).
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS lz4_static)
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+      ${ARROW_BUNDLED_STATIC_LIBS} lz4_static
       PARENT_SCOPE)
 endfunction()
 
@@ -2882,7 +2874,7 @@ if(ARROW_WITH_BZ2)
     if(BZIP2_TYPE STREQUAL "INTERFACE_LIBRARY")
       # Conan
       string(APPEND ARROW_PC_LIBS_PRIVATE
-             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<CONFIG>>")
+             " $<TARGET_FILE:CONAN_LIB::bzip2_bz2_$<UPPER_CASE:$<CONFIG>>>")
     else()
       string(APPEND ARROW_PC_LIBS_PRIVATE " $<TARGET_FILE:BZip2::BZip2>")
     endif()
@@ -4609,7 +4601,25 @@ target_include_directories(arrow::hadoop INTERFACE "${HADOOP_HOME}/include")
 # Apache ORC
 
 function(build_orc)
+  list(APPEND CMAKE_MESSAGE_INDENT "Apache ORC: ")
+
   message(STATUS "Building Apache ORC from source")
+
+  set(ORC_PATCHES)
+  if(MSVC)
+    # We can remove this once bundled Apache ORC is 2.2.1 or later.
+    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2345.patch)
+  endif()
+  if(Protobuf_VERSION VERSION_GREATER_EQUAL 32.0)
+    # We can remove this once bundled Apache ORC is 2.2.1 or later.
+    list(APPEND ORC_PATCHES ${CMAKE_CURRENT_LIST_DIR}/orc-2357.patch)
+  endif()
+  if(ORC_PATCHES)
+    find_program(PATCH patch REQUIRED)
+    set(ORC_PATCH_COMMAND ${PATCH} -p1 -i ${ORC_PATCHES})
+  else()
+    set(ORC_PATCH_COMMAND)
+  endif()
 
   if(LZ4_VENDORED)
     set(ORC_LZ4_TARGET lz4_static)
@@ -4625,98 +4635,64 @@ function(build_orc)
   if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.29)
     fetchcontent_declare(orc
                          ${FC_DECLARE_COMMON_OPTIONS}
+                         PATCH_COMMAND ${ORC_PATCH_COMMAND}
                          URL ${ORC_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
 
     set(CMAKE_UNITY_BUILD FALSE)
 
-    set(ORC_PREFER_STATIC_LZ4
-        OFF
-        CACHE BOOL "" FORCE)
-    set(LZ4_HOME
-        "${ORC_LZ4_ROOT}"
-        CACHE STRING "" FORCE)
-    set(LZ4_INCLUDE_DIR
-        "${ORC_LZ4_INCLUDE_DIR}"
-        CACHE STRING "" FORCE)
-    set(LZ4_LIBRARY
-        ${ORC_LZ4_TARGET}
-        CACHE STRING "" FORCE)
+    set(ORC_PREFER_STATIC_LZ4 OFF)
+    set(LZ4_HOME "${ORC_LZ4_ROOT}")
+    set(LZ4_INCLUDE_DIR "${ORC_LZ4_INCLUDE_DIR}")
+    set(LZ4_LIBRARY ${ORC_LZ4_TARGET})
 
-    set(ORC_PREFER_STATIC_PROTOBUF
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_PROTOBUF OFF)
     get_target_property(PROTOBUF_INCLUDE_DIR ${ARROW_PROTOBUF_LIBPROTOBUF}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Protobuf_ROOT "${PROTOBUF_INCLUDE_DIR}" DIRECTORY)
-    set(PROTOBUF_HOME
-        ${Protobuf_ROOT}
-        CACHE STRING "" FORCE)
+    set(PROTOBUF_HOME ${Protobuf_ROOT})
     # ORC uses this.
-    target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
-                               INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    if(PROTOBUF_VENDORED)
+      target_include_directories(${ARROW_PROTOBUF_LIBPROTOC}
+                                 INTERFACE "${PROTOBUF_INCLUDE_DIR}")
+    endif()
     set(PROTOBUF_EXECUTABLE ${ARROW_PROTOBUF_PROTOC})
     set(PROTOBUF_LIBRARY ${ARROW_PROTOBUF_LIBPROTOBUF})
     set(PROTOC_LIBRARY ${ARROW_PROTOBUF_LIBPROTOC})
 
-    set(ORC_PREFER_STATIC_SNAPPY
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_SNAPPY OFF)
     get_target_property(SNAPPY_INCLUDE_DIR ${Snappy_TARGET} INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(Snappy_ROOT "${SNAPPY_INCLUDE_DIR}" DIRECTORY)
-    set(SNAPPY_HOME
-        ${Snappy_ROOT}
-        CACHE STRING "" FORCE)
-    set(SNAPPY_LIBRARY
-        ${Snappy_TARGET}
-        CACHE STRING "" FORCE)
+    set(SNAPPY_HOME ${Snappy_ROOT})
+    set(SNAPPY_LIBRARY ${Snappy_TARGET})
 
-    set(ORC_PREFER_STATIC_ZLIB
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZLIB OFF)
     get_target_property(ZLIB_INCLUDE_DIR ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ZLIB_ROOT "${ZLIB_INCLUDE_DIR}" DIRECTORY)
-    set(ZLIB_HOME
-        ${ZLIB_ROOT}
-        CACHE STRING "" FORCE)
-    # From CMake 3.21 onwards the set(CACHE) command does not remove any normal
-    # variable of the same name from the current scope. We have to manually remove
-    # the variable via unset to avoid ORC not finding the ZLIB_LIBRARY.
+    set(ZLIB_HOME ${ZLIB_ROOT})
+    # From CMake 3.21 onwards the set(CACHE) command does not remove
+    # any normal variable of the same name from the current scope. We
+    # have to manually remove the variable via unset to avoid ORC not
+    # finding the ZLIB_LIBRARY.
     unset(ZLIB_LIBRARY)
     set(ZLIB_LIBRARY
         ZLIB::ZLIB
         CACHE STRING "" FORCE)
 
-    set(ORC_PREFER_STATIC_ZSTD
-        OFF
-        CACHE BOOL "" FORCE)
+    set(ORC_PREFER_STATIC_ZSTD OFF)
     get_target_property(ZSTD_INCLUDE_DIR ${ARROW_ZSTD_LIBZSTD}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ZSTD_ROOT "${ZSTD_INCLUDE_DIR}" DIRECTORY)
-    set(ZSTD_HOME
-        ${ZSTD_ROOT}
-        CACHE STRING "" FORCE)
+    set(ZSTD_HOME ${ZSTD_ROOT})
     set(ZSTD_LIBRARY ${ARROW_ZSTD_LIBZSTD})
 
-    set(BUILD_CPP_TESTS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_JAVA
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_LIBHDFSPP
-        OFF
-        CACHE BOOL "" FORCE)
-    set(BUILD_TOOLS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(INSTALL_VENDORED_LIBS
-        OFF
-        CACHE BOOL "" FORCE)
-    set(STOP_BUILD_ON_WARNING
-        OFF
-        CACHE BOOL "" FORCE)
+    set(BUILD_CPP_TESTS OFF)
+    set(BUILD_JAVA OFF)
+    set(BUILD_LIBHDFSPP OFF)
+    set(BUILD_TOOLS OFF)
+    set(INSTALL_VENDORED_LIBS OFF)
+    set(STOP_BUILD_ON_WARNING OFF)
 
     fetchcontent_makeavailable(orc)
 
@@ -4779,8 +4755,6 @@ function(build_orc)
 
     externalproject_add(orc_ep
                         ${EP_COMMON_OPTIONS}
-                        URL ${ORC_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}"
                         BUILD_BYPRODUCTS ${ORC_STATIC_LIB}
                         CMAKE_ARGS ${ORC_CMAKE_ARGS}
                         DEPENDS ${ARROW_PROTOBUF_LIBPROTOBUF}
@@ -4788,7 +4762,10 @@ function(build_orc)
                                 ${ARROW_ZSTD_LIBZSTD}
                                 ${Snappy_TARGET}
                                 ${ORC_LZ4_TARGET}
-                                ZLIB::ZLIB)
+                                ZLIB::ZLIB
+                        PATCH_COMMAND ${ORC_PATCH_COMMAND}
+                        URL ${ORC_SOURCE_URL}
+                        URL_HASH "SHA256=${ARROW_ORC_BUILD_SHA256_CHECKSUM}")
     add_library(orc::orc STATIC IMPORTED)
     set_target_properties(orc::orc PROPERTIES IMPORTED_LOCATION "${ORC_STATIC_LIB}")
     target_include_directories(orc::orc BEFORE INTERFACE "${ORC_INCLUDE_DIR}")
@@ -4816,6 +4793,8 @@ function(build_orc)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_ORC)
@@ -5065,6 +5044,8 @@ endif()
 # AWS SDK for C++
 
 function(build_awssdk)
+  list(APPEND CMAKE_MESSAGE_INDENT "AWS SDK for C++: ")
+
   message(STATUS "Building AWS SDK for C++ from source")
 
   # aws-c-common must be the first product because others depend on
@@ -5098,14 +5079,8 @@ function(build_awssdk)
     # AWS-C-CAL ->
     # AWS_C_CAL
     string(REGEX REPLACE "-" "_" BASE_VARIABLE_NAME "${BASE_VARIABLE_NAME}")
-    if(MINGW AND AWSSDK_PRODUCT STREQUAL "aws-c-common")
-      find_program(PATCH patch REQUIRED)
-      set(${BASE_VARIABLE_NAME}_PATCH_COMMAND
-          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/aws-c-common-1208.patch)
-    endif()
     fetchcontent_declare(${AWSSDK_PRODUCT}
                          ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                         PATCH_COMMAND ${${BASE_VARIABLE_NAME}_PATCH_COMMAND}
                          URL ${${BASE_VARIABLE_NAME}_SOURCE_URL}
                          URL_HASH "SHA256=${ARROW_${BASE_VARIABLE_NAME}_BUILD_SHA256_CHECKSUM}"
     )
@@ -5175,9 +5150,9 @@ function(build_awssdk)
 
   # For aws-sdk-cpp
   #
-  # We need to use CACHE variables because aws-sdk-cpp < 12.0.0 uses
+  # We need to use CACHE variables because aws-sdk-cpp < 1.12.0 uses
   # CMP0077 OLD policy. We can use normal variables when we use
-  # aws-sdk-cpp >= 12.0.0.
+  # aws-sdk-cpp >= 1.12.0.
   set(AWS_SDK_WARNINGS_ARE_ERRORS
       OFF
       CACHE BOOL "" FORCE)
@@ -5202,12 +5177,15 @@ function(build_awssdk)
       OFF
       CACHE BOOL "" FORCE)
   if(NOT WIN32)
-    set(ZLIB_INCLUDE_DIR
-        "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
-        CACHE STRING "" FORCE)
-    set(ZLIB_LIBRARY
-        "$<TARGET_FILE:ZLIB::ZLIB>"
-        CACHE STRING "" FORCE)
+    if(ZLIB_VENDORED)
+      # Use vendored zlib.
+      set(ZLIB_INCLUDE_DIR
+          "$<TARGET_PROPERTY:ZLIB::ZLIB,INTERFACE_INCLUDE_DIRECTORIES>"
+          CACHE STRING "" FORCE)
+      set(ZLIB_LIBRARY
+          "$<TARGET_FILE:ZLIB::ZLIB>"
+          CACHE STRING "" FORCE)
+    endif()
   endif()
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
     # This is for RTools 40. We can remove this after we dropped
@@ -5268,16 +5246,21 @@ function(build_awssdk)
   set(AWSSDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${AWSSDK_LINK_LIBRARIES})
   set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS}
+      ${ARROW_BUNDLED_STATIC_LIBS} ${AWSSDK_LINK_LIBRARIES}
       PARENT_SCOPE)
   set(AWSSDK_LINK_LIBRARIES
       ${AWSSDK_LINK_LIBRARIES}
       PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
 
 if(ARROW_S3)
+  if(NOT WIN32)
+    # This is for adding system curl dependency.
+    find_curl()
+  endif()
   # Keep this in sync with s3fs.cc
   resolve_dependency(AWSSDK
                      HAVE_ALT
@@ -5336,15 +5319,13 @@ function(build_azure_sdk)
   set(AZURE_SDK_VENDORED
       TRUE
       PARENT_SCOPE)
-  list(APPEND
-       ARROW_BUNDLED_STATIC_LIBS
-       Azure::azure-core
-       Azure::azure-identity
-       Azure::azure-storage-blobs
-       Azure::azure-storage-common
-       Azure::azure-storage-files-datalake)
   set(ARROW_BUNDLED_STATIC_LIBS
       ${ARROW_BUNDLED_STATIC_LIBS}
+      Azure::azure-core
+      Azure::azure-identity
+      Azure::azure-storage-blobs
+      Azure::azure-storage-common
+      Azure::azure-storage-files-datalake
       PARENT_SCOPE)
 endfunction()
 

@@ -35,7 +35,7 @@ RUN `
     --installPath "%ProgramFiles(x86)%\Microsoft Visual Studio\2022\BuildTools" `
     --add Microsoft.VisualStudio.Component.VC.CoreBuildTools `
     --add Microsoft.VisualStudio.Component.VC.Tools.x86.x64 `
-    --add Microsoft.VisualStudio.Component.Windows10SDK.20348 `
+    --add Microsoft.VisualStudio.Component.Windows11SDK.26100 `
     --add Microsoft.VisualStudio.Component.VC.CMake.Project `
     || IF "%ERRORLEVEL%"=="3010" EXIT 0) `
     && del /q vs_buildtools.exe

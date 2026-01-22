@@ -43,7 +43,7 @@ Major components of the project include:
    Arrow data with application-defined semantics (for example a storage server or a database)
  - [C++ libraries](https://github.com/apache/arrow/tree/main/cpp)
  - [C bindings using GLib](https://github.com/apache/arrow/tree/main/c_glib)
- - [C# .NET libraries](https://github.com/apache/arrow/tree/main/csharp)
+ - [.NET libraries](https://github.com/apache/arrow-dotnet)
  - [Gandiva](https://github.com/apache/arrow/tree/main/cpp/src/gandiva):
    an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
  - [Go libraries](https://github.com/apache/arrow-go) `↗`

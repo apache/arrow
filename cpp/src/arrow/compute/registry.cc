@@ -287,6 +287,7 @@ static std::unique_ptr<FunctionRegistry> CreateBuiltInRegistry() {
   RegisterDictionaryDecode(registry.get());
   RegisterVectorHash(registry.get());
   RegisterVectorSelection(registry.get());
+  RegisterVectorSwizzle(registry.get());
 
   RegisterScalarOptions(registry.get());
   RegisterVectorOptions(registry.get());

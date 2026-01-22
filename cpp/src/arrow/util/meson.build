@@ -47,13 +47,13 @@ conf_data.set('ARROW_FLIGHT_SQL', false)
 conf_data.set('ARROW_IPC', needs_ipc)
 conf_data.set('ARROW_JEMALLOC', false)
 conf_data.set('ARROW_JEMALLOC_VENDORED', false)
-conf_data.set('ARROW_JSON', false)
+conf_data.set('ARROW_JSON', needs_json)
 conf_data.set('ARROW_MIMALLOC', false)
 conf_data.set('ARROW_ORC', false)
-conf_data.set('ARROW_PARQUET', false)
+conf_data.set('ARROW_PARQUET', needs_parquet)
 conf_data.set('ARROW_SUBSTRAIT', false)
 conf_data.set('ARROW_AZURE', false)
-conf_data.set('ARROW_ENABLE_THREADING', false)
+conf_data.set('ARROW_ENABLE_THREADING', true)
 conf_data.set('ARROW_GCS', false)
 conf_data.set('ARROW_HDFS', false)
 conf_data.set('ARROW_S3', false)
@@ -73,7 +73,7 @@ conf_data.set('ARROW_WITH_UCX', false)
 conf_data.set('ARROW_WITH_UTF8PROC', false)
 conf_data.set('ARROW_WITH_ZLIB', needs_zlib)
 conf_data.set('ARROW_WITH_ZSTD', needs_zstd)
-conf_data.set('PARQUET_REQUIRE_ENCRYPTION', false)
+conf_data.set('PARQUET_REQUIRE_ENCRYPTION', needs_parquet_encryption)
 
 configure_file(
     input: 'config.h.cmake',
@@ -160,7 +160,7 @@ install_headers(
         'simd.h',
         'small_vector.h',
         'span.h',
-        'string_builder.h',
+        'string_util.h',
         'string.h',
         'task_group.h',
         'test_common.h',
@@ -236,8 +236,7 @@ endif
 exc = executable(
     'arrow-utility-test',
     sources: utility_test_srcs,
-    dependencies: [arrow_dep, filesystem_dep, gtest_dep, gmock_dep],
-    link_with: [arrow_test_lib],
+    dependencies: arrow_test_dep_no_main,
     implicit_include_directories: false,
 )
 test('arrow-utility-test', exc)

@@ -206,7 +206,7 @@ CudaHostBuffer::CudaHostBuffer(uint8_t* data, const int64_t size)
 
 CudaHostBuffer::~CudaHostBuffer() {
   auto maybe_manager = CudaDeviceManager::Instance();
-  ARROW_CHECK_OK(maybe_manager.status());
+  ARROW_CHECK_OK(maybe_manager);
   ARROW_CHECK_OK((*maybe_manager)->FreeHost(const_cast<uint8_t*>(data_), size_));
 }
 

@@ -89,7 +89,7 @@ def update_product_generic(product, metadata, latest_version)
     version: latest_version,
     version_underscore: latest_version.gsub(".", "_"),
   }
-  $stderr.puts("Updating #{product}: #{version} -> #{latest_version}")
+  $stderr.puts("Updating #{product}: #{version} -> #{latest_version}: #{url}")
   metadata[:version] = latest_version
   URI.open(url, "rb") do |response|
     metadata[:checksum] = Digest::SHA256.hexdigest(response.read)
@@ -106,7 +106,9 @@ def update_product_github(product, metadata, repository)
     JSON.parse(response.read)
   end
   latest_tag_name = tags[0]["name"]
-  if latest_tag_name.start_with?("v")
+  if latest_tag_name.start_with?("boost-")
+    latest_version = latest_tag_name.delete_prefix("boost-")
+  elsif latest_tag_name.start_with?("v")
     if metadata[:version].start_with?("v")
       latest_version = latest_tag_name
     else

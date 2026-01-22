@@ -1387,11 +1387,6 @@ Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
   return out;
 }
 
-Status OpenFile(std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool,
-                std::unique_ptr<FileReader>* reader) {
-  return OpenFile(std::move(file), pool).Value(reader);
-}
-
 Result<std::unique_ptr<FileReader>> OpenFile(
     std::shared_ptr<::arrow::io::RandomAccessFile> file, MemoryPool* pool) {
   FileReaderBuilder builder;
@@ -1400,6 +1395,8 @@ Result<std::unique_ptr<FileReader>> OpenFile(
 }
 
 namespace internal {
+
+namespace {
 
 Status FuzzReader(std::unique_ptr<FileReader> reader) {
   auto st = Status::OK();
@@ -1413,6 +1410,8 @@ Status FuzzReader(std::unique_ptr<FileReader> reader) {
   }
   return st;
 }
+
+}  // namespace
 
 Status FuzzReader(const uint8_t* data, int64_t size) {
   auto buffer = std::make_shared<::arrow::Buffer>(data, size);

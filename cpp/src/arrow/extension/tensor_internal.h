@@ -25,8 +25,7 @@
 
 namespace arrow::internal {
 
-ARROW_EXPORT
-Status IsPermutationValid(const std::vector<int64_t>& permutation) {
+inline Status IsPermutationValid(const std::vector<int64_t>& permutation) {
   const auto size = static_cast<int64_t>(permutation.size());
   std::vector<uint8_t> dim_seen(size, 0);
 

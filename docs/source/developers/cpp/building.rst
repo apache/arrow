@@ -39,7 +39,7 @@ out-of-source. If you are not familiar with this terminology:
 
 Building requires:
 
-* A C++17-enabled compiler. On Linux, gcc 7.1 and higher should be
+* A C++17-enabled compiler. On Linux, gcc 9 and higher should be
   sufficient. For Windows, at least Visual Studio VS2017 is required.
 * CMake 3.25 or higher
 * On Linux and macOS, either ``make`` or ``ninja`` build utilities

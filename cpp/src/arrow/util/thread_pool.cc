@@ -732,19 +732,23 @@ static int ParseOMPEnvVar(const char* name) {
 }
 
 int ThreadPool::DefaultCapacity() {
-  int capacity, limit;
-  capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
-  if (capacity == 0) {
-    capacity = std::thread::hardware_concurrency();
+  int capacity = ParseOMPEnvVar("OMP_NUM_THREADS");
+  if (capacity <= 0) {
+    capacity = static_cast<int>(GetNumAffinityCores().ValueOr(0));
   }
-  limit = ParseOMPEnvVar("OMP_THREAD_LIMIT");
+  if (capacity <= 0) {
+    capacity = static_cast<int>(std::thread::hardware_concurrency());
+  }
+  if (capacity <= 0) {
+    capacity = 4;
+    ARROW_LOG(WARNING) << "Failed to determine the number of available threads, "
+                          "using a hardcoded arbitrary value of "
+                       << capacity;
+  }
+
+  const int limit = ParseOMPEnvVar("OMP_THREAD_LIMIT");
   if (limit > 0) {
     capacity = std::min(limit, capacity);
-  }
-  if (capacity == 0) {
-    ARROW_LOG(WARNING) << "Failed to determine the number of available threads, "
-                          "using a hardcoded arbitrary value";
-    capacity = 4;
   }
   return capacity;
 }

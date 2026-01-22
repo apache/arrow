@@ -25,8 +25,7 @@ platforms=([windows]=Windows
            [linux]=Linux)
 
 declare -A versions
-versions=([3.9]=3.9.13
-          [3.10]=3.10.11
+versions=([3.10]=3.10.11
           [3.11]=3.11.9
           [3.12]=3.12.9
           [3.13]=3.13.2
@@ -47,12 +46,7 @@ full_version=${versions[$2]}
 if [ "$platform" = "macOS" ]; then
     echo "Downloading Python installer..."
 
-    if [ "$(uname -m)" = "x86_64" ] && [ "$version" = "3.9" ];
-    then
-        fname="python-${full_version}-macosx10.9.pkg"
-    else
-        fname="python-${full_version}-macos11.pkg"
-    fi
+    fname="python-${full_version}-macos11.pkg"
     wget "https://www.python.org/ftp/python/${full_version}/${fname}"
 
     echo "Installing Python..."

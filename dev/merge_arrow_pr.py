@@ -30,7 +30,8 @@
 # variables.
 #
 # Configuration environment variables:
-#   - ARROW_GITHUB_API_TOKEN: a GitHub API token to use for API requests
+#   - GH_TOKEN: a GitHub API token to use for API requests
+#   - ARROW_GITHUB_API_TOKEN: Same as GH_TOKEN. For backward compatibility.
 #   - ARROW_GITHUB_ORG: the GitHub organisation ('apache' by default)
 #   - DEBUG: use for testing to avoid pushing to apache (0 by default)
 
@@ -255,9 +256,15 @@ class GitHubAPI(object):
         if "github" in config.sections():
             token = config["github"]["api_token"]
         if not token:
-            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+            token = os.environ.get('GH_TOKEN')
         if not token:
-            token = cmd.prompt('Env ARROW_GITHUB_API_TOKEN not set, '
+            token = os.environ.get('ARROW_GITHUB_API_TOKEN')
+            if token:
+                print('ARROW_GITHUB_API_TOKEN environment variable is '
+                      'deprecated. Use GH_TOKEN environment variable instead.')
+        if not token:
+            token = cmd.prompt('Env GH_TOKEN nor '
+                               'ARROW_GITHUB_API_TOKEN not set, '
                                'please enter your GitHub API token '
                                '(GitHub personal access token):')
         headers = {

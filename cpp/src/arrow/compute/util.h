@@ -149,7 +149,7 @@ Result<Expression> ModifyExpression(Expression expr, const PreVisit& pre,
     ARROW_ASSIGN_OR_RAISE(auto modified_argument,
                           ModifyExpression(call->arguments[i], pre, post_call));
 
-    if (Identical(modified_argument, call->arguments[i])) {
+    if (Expression::Identical(modified_argument, call->arguments[i])) {
       continue;
     }
 

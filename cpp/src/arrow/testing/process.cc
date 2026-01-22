@@ -17,10 +17,10 @@
 
 #include "arrow/testing/process.h"
 #include "arrow/result.h"
+#include "arrow/util/config.h"
 
-#define BOOST_PROCESS_AVAILABLE
-#ifdef __EMSCRIPTEN__
-#  undef BOOST_PROCESS_AVAILABLE
+#ifdef ARROW_ENABLE_THREADING
+#  define BOOST_PROCESS_AVAILABLE
 #endif
 
 #ifdef BOOST_PROCESS_AVAILABLE

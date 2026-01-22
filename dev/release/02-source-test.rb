@@ -26,6 +26,7 @@ class SourceTest < Test::Unit::TestCase
     @archive_name = "apache-arrow-#{@release_version}.tar.gz"
     @script = File.expand_path("dev/release/02-source.sh")
     @tarball_script = File.expand_path("dev/release/utils-create-release-tarball.sh")
+    @env = File.expand_path("dev/release/.env")
 
     Dir.mktmpdir do |dir|
       Dir.chdir(dir) do
@@ -56,31 +57,6 @@ class SourceTest < Test::Unit::TestCase
     end
   end
 
-  def test_csharp_git_commit_information
-    source
-    Dir.chdir("#{@tag_name_no_rc}/csharp") do
-      FileUtils.mv("dummy.git", "../.git")
-      sh("dotnet", "pack", "-c", "Release")
-      FileUtils.mv("../.git", "dummy.git")
-      Dir.chdir("artifacts/Apache.Arrow/Release") do
-        sh("unzip", "Apache.Arrow.#{@snapshot_version}.nupkg")
-        FileUtils.chmod(0400, "Apache.Arrow.nuspec")
-        nuspec = REXML::Document.new(File.read("Apache.Arrow.nuspec"))
-        nuspec_repository = nuspec.elements["package/metadata/repository"]
-        attributes = {}
-        nuspec_repository.attributes.each do |key, value|
-          attributes[key] = value
-        end
-        assert_equal({
-                       "type" => "git",
-                       "url" => "https://github.com/apache/arrow",
-                       "commit" => @current_commit,
-                     },
-                     attributes)
-      end
-    end
-  end
-
   def test_python_version
     source
     Dir.chdir("#{@tag_name_no_rc}/python") do
@@ -96,7 +72,7 @@ class SourceTest < Test::Unit::TestCase
   end
 
   def test_vote
-    github_token = ENV["ARROW_GITHUB_API_TOKEN"]
+    github_token = File.read(@env)[/^GH_TOKEN=(.*)$/, 1]
     uri = URI.parse("https://api.github.com/graphql")
     n_issues_query = {
       "query" => <<-QUERY,

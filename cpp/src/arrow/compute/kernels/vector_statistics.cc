@@ -27,6 +27,7 @@
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/codegen_internal.h"
 #include "arrow/compute/registry.h"
+#include "arrow/compute/registry_internal.h"
 #include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"

@@ -81,6 +81,9 @@ jobs:
     outputs:
       ci-extra: ${{ steps.check.outputs.ci-extra }}
     steps:
+      - name: Checkout Arrow
+        if: github.event_name == 'pull_request'
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Check
         id: check
         env:
@@ -99,7 +102,15 @@ jobs:
               if [ "${n_ci_extra_labels}" -eq 1 ]; then
                 ci_extra=true
               else
-                ci_extra=false
+                git fetch origin ${GITHUB_BASE_REF}
+                if git diff --stat origin/${GITHUB_BASE_REF}.. | \
+                     grep \
+                       --fixed-strings ".github/workflows/cpp_extra.yml" \
+                       --quiet; then
+                  ci_extra=true
+                else
+                  ci_extra=false
+                fi
               fi
               ;;
           esac
@@ -124,13 +135,22 @@ jobs:
               -e ARROW_USE_MESON=ON
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu Meson
+          # TODO: We should remove this "continue-on-error: true" once GH-47207 is resolved
+          - continue-on-error: true
+            envs:
+              - DEBIAN=13
+            image: debian-cpp
+            run-options: >-
+              -e CMAKE_CXX_STANDARD=23
+            runs-on: ubuntu-latest
+            title: AMD64 Debian C++23
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
           submodules: recursive
@@ -141,19 +161,26 @@ jobs:
           key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
           restore-keys: extra-${{ matrix.image }}-
       - name: Setup Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: 3
       - name: Setup Archery
         run: python3 -m pip install -e dev/archery[docker]
       - name: Execute Docker Build
+        continue-on-error: ${{ matrix.continue-on-error || false }}
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ENVS: ${{ toJSON(matrix.envs) }}
         run: |
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
+          if [ "${ENVS}" != "null" ]; then
+            echo "${ENVS}" | jq -r '.[]' | while read env; do
+              echo "${env}" >> .env
+            done
+          fi
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Docker Push
         if: >-
@@ -166,3 +193,145 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
         run: archery docker push ${{ matrix.image }}
+
+  jni-macos:
+    needs: check-labels
+    name: JNI macOS
+    runs-on: macos-14
+    if: needs.check-labels.outputs.ci-extra == 'true'
+    timeout-minutes: 45
+    env:
+      MACOSX_DEPLOYMENT_TARGET: "14.0"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          brew bundle --file=cpp/Brewfile
+          # We want to link aws-sdk-cpp statically but Homebrew's
+          # aws-sdk-cpp provides only shared library. If we have
+          # Homebrew's aws-sdk-cpp, our build mix Homebrew's
+          # aws-sdk-cpp and bundled aws-sdk-cpp. We uninstall Homebrew's
+          # aws-sdk-cpp to ensure using only bundled aws-sdk-cpp.
+          brew uninstall aws-sdk-cpp
+          # We want to use bundled RE2 for static linking. If
+          # Homebrew's RE2 is installed, its header file may be used.
+          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+          brew uninstall grpc || : # gRPC depends on RE2
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
+          # We want to use bundled Protobuf for static linking. If
+          # Homebrew's Protobuf is installed, its library file may be
+          # used on test  We uninstall Homebrew's Protobuf to ensure using
+          # bundled Protobuf.
+          brew uninstall protobuf
+      - name: Prepare ccache
+        run: |
+          echo "CCACHE_DIR=${PWD}/ccache" >> ${GITHUB_ENV}
+      - name: Cache ccache
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        with:
+          path: ccache
+          key: jni-macos-${{ hashFiles('cpp/**') }}
+          restore-keys: jni-macos-
+      - name: CMake
+        run: |
+          cmake \
+            -S cpp \
+            -B cpp.build \
+            --preset=ninja-release-jni-macos \
+            -DARROW_BUILD_TESTS=ON \
+            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+      - name: Build
+        run: |
+          cmake --build cpp.build
+      - name: Install
+        run: |
+          cmake --install cpp.build
+      - name: Test
+        env:
+          ARROW_TEST_DATA: ${{ github.workspace }}/testing/data
+          PARQUET_TEST_DATA: ${{ github.workspace }}/cpp/submodules/parquet-testing/data
+        run: |
+          # MinIO is required
+          exclude_tests="arrow-s3fs-test"
+          # unstable
+          exclude_tests="${exclude_tests}|arrow-acero-asof-join-node-test"
+          exclude_tests="${exclude_tests}|arrow-acero-hash-join-node-test"
+          ctest \
+            --exclude-regex "${exclude_tests}" \
+            --label-regex unittest \
+            --output-on-failure \
+            --parallel "$(sysctl -n hw.ncpu)" \
+            --test-dir "cpp.build" \
+            --timeout 300
+      - name: Build example
+        run: |
+          cmake \
+            -S cpp/examples/minimal_build/ \
+            -B cpp/examples/minimal_build.build \
+            -GNinja \
+            -DCMAKE_INSTALL_PREFIX=$PWD/cpp.install
+          cmake --build cpp/examples/minimal_build.build
+          cd cpp/examples/minimal_build
+          ../minimal_build.build/arrow-example
+
+  report-extra-cpp:
+    runs-on: ubuntu-latest
+    needs:
+      - docker
+      - jni-macos
+    # We don't have the job id as part of the context neither the job name.
+    # The GitHub API exposes numeric id or job name but not the github.job (report-extra-cpp).
+    # We match github.job to the name so we can pass it via context in order to be ignored on the report.
+    # The job is still running.
+    name: ${{ github.job }}
+    if: github.event_name == 'schedule' && always()
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+      - name: Setup Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[crossbow]
+      - name: Prepare common options
+        run: |
+          if [ "${GITHUB_REPOSITORY}" = "apache/arrow" ]; then
+            echo "COMMON_OPTIONS=--send" >> "${GITHUB_ENV}"
+          else
+            echo "COMMON_OPTIONS=--dry-run" >> "${GITHUB_ENV}"
+          fi
+      - name: Send email
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+        run: |
+          archery ci report-email \
+            --ignore ${{ github.job }} \
+            --recipient-email 'builds@arrow.apache.org' \
+            --repository ${{ github.repository }} \
+            --sender-email 'arrow@commit-email.info' \
+            --sender-name Arrow \
+            --smtp-port 587 \
+            --smtp-server 'commit-email.info' \
+            --smtp-user arrow \
+            ${COMMON_OPTIONS} \
+            ${{ github.run_id }}
+      - name: Send chat message
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHAT_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
+        run: |
+          archery ci report-chat \
+            --ignore ${{ github.job }} \
+            --repository ${{ github.repository }} \
+            ${COMMON_OPTIONS} \
+            ${{ github.run_id }}

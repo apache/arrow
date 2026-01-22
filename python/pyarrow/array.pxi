@@ -777,12 +777,24 @@ cdef class ArrayStatistics(_Weakrefable):
         The number of distinct values.
         """
         distinct_count = self.sp_statistics.get().distinct_count
-        # We'll be able to simplify this after
-        # https://github.com/cython/cython/issues/6692 is solved.
-        if distinct_count.has_value():
-            return distinct_count.value()
-        else:
+        if not distinct_count.has_value():
             return None
+        value = distinct_count.value()
+        if holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        else:
+            return get[double](value)
+
+    @property
+    def is_distinct_count_exact(self):
+        """
+        Whether the number of distinct values is a valid exact value or not.
+        """
+        distinct_count = self.sp_statistics.get().distinct_count
+        if not distinct_count.has_value():
+            return False
+        value = distinct_count.value()
+        return holds_alternative[int64_t](value)
 
     @property
     def min(self):

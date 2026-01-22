@@ -38,7 +38,18 @@ The Apache Arrow Release follows the guidelines defined at the
 Preparing for the release
 =========================
 
-Before creating a source release, the Release Manager must ensure that any
+In advance to the Release date the Release Manager communicates with the community
+usually via Zulip, Mailing List or the bi-weekly community call about the
+upcoming release and proposes a feature freeze date.
+
+The feature freeze date is the date the maintenance branch is created and
+from that point no new features are allowed to be added to the release, unless there
+is community consensus to allow it, and only bug fixes will be accepted.
+
+Once the feature freeze is in place issues labelled as ``blocker`` must be resolved before
+the first release candidate can be created.
+
+Before creating a release candidate, the Release Manager must ensure that any
 resolved GitHub issues have the appropriate milestone set so that the changelog
 is generated properly.
 
@@ -58,7 +69,7 @@ default branch after the release maintenance branch has been created.
 
     - Install the :ref:`Archery <archery>` utility which is required for the release.
     - You must not have any arrow-cpp or parquet-cpp environment variables defined except CC or CXX if you want to build with something other than GCC by default (e.g. clang).
-    - A GPG key in the Apache Web of Trust to sign artifacts. This will have to be cross signed by other Apache committers/PMC members. If you have multiple GPG keys, you must set the correct GPG key ID in ``~/.gnupg/gpg.conf`` by adding:
+    - A GPG key in the Apache Web of Trust to sign binary artifacts. This will have to be cross signed by other Apache committers/PMC members. If you have multiple GPG keys, you must set the correct GPG key ID in ``~/.gnupg/gpg.conf`` by adding:
 
     .. code-block::
 
@@ -66,12 +77,12 @@ default branch after the release maintenance branch has been created.
 
     - The GPG key needs to be added to this `SVN repo <https://dist.apache.org/repos/dist/dev/arrow/>`_ and `this one <https://dist.apache.org/repos/dist/release/arrow/>`_.
     - Have the build requirements for cpp and c_glib installed.
-    - Set the ``CROSSBOW_GITHUB_TOKEN`` environment variable to automatically create the verify release Pull Request.
     - Install ``en_US.UTF-8`` locale. You can confirm available locales by ``locale -a``.
     - Install Python 3 as python
     - Create dev/release/.env from dev/release/.env.example. See the comments in dev/release/.env.example how to set each variable.
     - Setup :ref:`Crossbow<Crossbow>` as defined.
     - Have Docker and Docker Compose installed.
+    - Have GitHub CLI installed.
 
 
 Before creating a Release Candidate
@@ -85,7 +96,7 @@ assigned.
     # Delete the local tag for RC1 or later
     git tag -d apache-arrow-<version>
 
-    # Setup gpg agent for signing artifacts
+    # Setup gpg agent for signing binary artifacts
     source dev/release/setup-gpg-agent.sh
 
     # Curate the release
@@ -131,7 +142,7 @@ Creating a Release Candidate
 These are the different steps that are required to create a Release Candidate.
 
 For the initial Release Candidate on a major release, we will create a maintenance
-branch from main.
+branch from main. This is done on the feature freeze date.
 
 Follow up Release Candidates will update the maintenance branch by cherry-picking
 specific commits.
@@ -142,11 +153,6 @@ for a 15.0.1 patch we will create a maint-15.0.1 branch from maint-15.0.0 and fo
 a maint-15.0.2 we will create it from maint-15.0.1. Once the maintenance branch is
 created we will update the created maintenance branch by cherry-picking specific
 commits.
-
-We have implemented a Feature Freeze policy between Release Candidates.
-This means that, in general, we should only add bug fixes between Release Candidates.
-In rare cases, critical features can be added between Release Candidates, if
-there is community consensus.
 
 Create or update the corresponding maintenance branch
 -----------------------------------------------------
@@ -163,7 +169,7 @@ Create or update the corresponding maintenance branch
             # of the release respectively. As an example 9.0.0
             archery release cherry-pick X.Y.Z --execute
             # Push the maintenance branch to the remote repository
-            git push -u apache maint-X.Y.Z
+            git push -u upstream maint-X.Y.Z
 
    .. tab-item:: Follow up Release Candidates
 
@@ -176,7 +182,7 @@ Create or update the corresponding maintenance branch
             # Update the maintenance branch with the previous commits
             archery release cherry-pick X.Y.Z --continue --execute
             # Push the updated maintenance branch to the remote repository
-            git push -u apache maint-X.Y.Z
+            git push -u upstream maint-X.Y.Z
 
 Optional: Test Before Creating a Release Candidate
 --------------------------------------------------
@@ -211,16 +217,23 @@ Create the Release Candidate branch from the updated maintenance branch
     dev/release/01-prepare.sh <version> <next-version> <rc-number>
 
     # Push the release candidate tag
-    git push -u apache apache-arrow-<version>-rc<rc-number>
+    git push -u upstream apache-arrow-<version>-rc<rc-number>
     # Push the release candidate branch in order to trigger verification jobs later
-    git push -u apache release-<version>-rc<rc-number>
+    git push -u upstream release-<version>-rc<rc-number>
+
+
+Once the tag is created the GitHub Actions workflow on ``verify-rc.yml`` will be triggered to verify
+the release candidate.
+
+The ``release_candidate.yml`` workflow will also be triggered which will sign the source code
+for the release and will create a GitHub pre-release with the corresponding source and signatures.
 
 Build source and binaries and submit them
 -----------------------------------------
 
 .. code-block::
 
-    # Build the source release tarball and create Pull Request with verification tasks
+    # Waits for previous workflows to finish and uploads source and signatures to SVN.
     #
     # NOTE: This must be run by a PMC member
     # NOTE: You need to have GitHub CLI installed to run this script.
@@ -288,7 +301,6 @@ Be sure to go through on the following checklist:
 #. Update Homebrew packages
 #. Update MSYS2 package
 #. Upload RubyGems
-#. Upload C# packages
 #. Update conda recipes
 #. Upload wheels/sdist to pypi
 #. Update R packages
@@ -315,8 +327,8 @@ Be sure to go through on the following checklist:
       git checkout maint-X.Y.Z
       # git merge release-10.0.0-rc0
       git merge release-X.Y.Z-rcN
-      # git push -u apache maint-10.0.0
-      git push -u apache maint-X.Y.Z
+      # git push -u upstream maint-10.0.0
+      git push -u upstream maint-X.Y.Z
 
 .. dropdown:: Add the new release to the Apache Reporter System
    :animate: fade-in-slide-down
@@ -375,8 +387,8 @@ Be sure to go through on the following checklist:
       # git clone git@github.com:kou/arrow-site.git ../
       git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
       cd ../arrow-site
-      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
-      git remote add apache git@github.com:apache/arrow-site.git
+      ## Add git@github.com:apache/arrow-site.git as "upstream" remote.
+      git remote add upstream git@github.com:apache/arrow-site.git
       cd -
 
       ## Generate a release note for the new version, update the
@@ -420,8 +432,8 @@ Be sure to go through on the following checklist:
       git remote add <YOUR_GITHUB_ID> git@github.com:<YOUR_GITHUB_ID>/homebrew-core.git
       cd -
 
-      # dev/release/post-13-homebrew.sh 10.0.0 kou
-      dev/release/post-13-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
+      # dev/release/post-12-homebrew.sh 10.0.0 kou
+      dev/release/post-12-homebrew.sh X.Y.Z <YOUR_GITHUB_ID>
 
    This script pushes a ``apache-arrow-X.Y.Z`` branch to your ``Homebrew/homebrew-core`` fork. You need to create a pull request from the ``apache-arrow-X.Y.Z`` branch with ``apache-arrow, apache-arrow-glib: X.Y.Z`` title on your Web browser.
 
@@ -446,8 +458,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/msys2/MINGW-packages.git
       cd -
 
-      # dev/release/post-12-msys2.sh 10.0.0 ../MINGW-packages
-      dev/release/post-12-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
+      # dev/release/post-11-msys2.sh 10.0.0 ../MINGW-packages
+      dev/release/post-11-msys2.sh X.Y.Z <YOUR_MINGW_PACKAGES_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``msys2/MINGW-packages`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``arrow: Update to X.Y.Z`` title on your Web browser.
 
@@ -474,22 +486,6 @@ Be sure to go through on the following checklist:
       # dev/release/post-06-ruby.sh 10.0.0
       dev/release/post-06-ruby.sh X.Y.Z
 
-.. dropdown:: Update C# packages
-   :animate: fade-in-slide-down
-   :class-title: sd-fs-5
-   :class-container: sd-shadow-md
-
-   You need an account on https://www.nuget.org/. You need to join owners of Apache.Arrow package. Existing owners can invite you to the owners at https://www.nuget.org/packages/Apache.Arrow/Manage .
-
-   You need to create an API key at https://www.nuget.org/account/apikeys to upload from command line.
-
-   Install the latest .NET Core SDK from https://dotnet.microsoft.com/download .
-
-   .. code-block:: Bash
-
-      # NUGET_API_KEY=YOUR_NUGET_API_KEY dev/release/post-07-csharp.sh 10.0.0
-      NUGET_API_KEY=<your NuGet API key> dev/release/post-07-csharp.sh X.Y.Z
-
 .. dropdown:: Upload wheels/sdist to PyPI
    :animate: fade-in-slide-down
    :class-title: sd-fs-5
@@ -501,8 +497,8 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      # dev/release/post-10-python.sh 10.0.0
-      dev/release/post-10-python.sh <version>
+      # dev/release/post-09-python.sh 10.0.0
+      dev/release/post-09-python.sh <version>
 
 .. dropdown:: Update R packages
    :animate: fade-in-slide-down
@@ -565,8 +561,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/microsoft/vcpkg.git
       cd -
 
-      # dev/release/post-14-vcpkg.sh 10.0.0 ../vcpkg
-      dev/release/post-14-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
+      # dev/release/post-13-vcpkg.sh 10.0.0 ../vcpkg
+      dev/release/post-13-vcpkg.sh X.Y.Z <YOUR_VCPKG_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``microsoft/vcpkg`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch with ``[arrow] Update to X.Y.Z`` title on your Web browser.
 
@@ -591,8 +587,8 @@ Be sure to go through on the following checklist:
       git remote add upstream https://github.com/conan-io/conan-center-index.git
       cd -
 
-      # dev/release/post-15-conan.sh 10.0.1 ../conan-center-index
-      dev/release/post-15-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
+      # dev/release/post-14-conan.sh 10.0.1 ../conan-center-index
+      dev/release/post-14-conan.sh X.Y.Z <YOUR_CONAN_CENTER_INDEX_FORK>
 
    This script pushes a ``arrow-X.Y.Z`` branch to your ``conan-io/conan-center-index`` fork. You need to create a pull request from the ``arrow-X.Y.Z`` branch on your Web browser.
 
@@ -606,8 +602,8 @@ Be sure to go through on the following checklist:
       # You can run the script with BUMP_TAG=0 and BUMP_PUSH=0
       # this will avoid default pushing to main and pushing the tag
       # but you will require to push manually after reviewing the commits.
-      # dev/release/post-11-bump-versions.sh 10.0.0 11.0.0
-      dev/release/post-11-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
+      # dev/release/post-10-bump-versions.sh 10.0.0 11.0.0
+      dev/release/post-10-bump-versions.sh X.Y.Z NEXT_X.NEXT_Y.NEXT_Z
 
 .. dropdown:: Update docs
    :animate: fade-in-slide-down
@@ -624,12 +620,12 @@ Be sure to go through on the following checklist:
       # git clone git@github.com:kou/arrow-site.git ../
       git clone git@github.com:<YOUR_GITHUB_ID>/arrow-site.git ../
       cd ../arrow-site
-      ## Add git@github.com:apache/arrow-site.git as "apache" remote.
-      git remote add apache git@github.com:apache/arrow-site.git
+      ## Add git@github.com:apache/arrow-site.git as "upstream" remote.
+      git remote add upstream git@github.com:apache/arrow-site.git
       cd -
 
-      # dev/release/post-09-docs.sh 10.0.0 9.0.0
-      dev/release/post-09-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
+      # dev/release/post-08-docs.sh 10.0.0 9.0.0
+      dev/release/post-08-docs.sh X.Y.Z PREVIOUS_X.PREVIOUS_Y.PREVIOUS_Z
 
    This script pushes a ``release-docs-X.Y.Z`` branch to your ``arrow-site`` fork. You need to create a Pull Request and use the ``asf-site`` branch as base for it.
 
@@ -697,6 +693,6 @@ Be sure to go through on the following checklist:
 
    .. code-block:: Bash
 
-      dev/release/post-08-remove-old-artifacts.sh
+      dev/release/post-07-remove-old-artifacts.sh
 
    Note: This step must be done by a PMC member.

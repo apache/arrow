@@ -23,6 +23,7 @@ jobs:
   as-cran:
     name: "rhub/{{ '${{ matrix.config.r_image }}' }}"
     runs-on: ubuntu-latest
+    timeout-minutes: 45
     strategy:
       fail-fast: false
       matrix:
@@ -32,12 +33,13 @@ jobs:
           - { r_image: "ubuntu-clang" }  # ~ r-devel-linux-x86_64-debian-clang
           - { r_image: "ubuntu-next" }  # ~ r-patched-linux-x86_64
           - { r_image: "ubuntu-release" }  # ~ r-release-linux-x86_64
-          - { r_image: "clang20", skip_vignettes: true }  # ~ r-devel-linux-x86_64-fedora-clang
+          - { r_image: "clang20", skip_vignettes: true, r_update_clang: true }  # ~ r-devel-linux-x86_64-fedora-clang
     env:
       R_ORG: "rhub"
       R_IMAGE: {{ '${{ matrix.config.r_image }}' }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
+      R_UPDATE_CLANG: {{ '${{ matrix.config.r_update_clang }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}

@@ -23,7 +23,7 @@
 #include <utility>
 
 #include "arrow/type_fwd.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "parquet/platform.h"
 
 // PARQUET-1085
@@ -59,18 +59,18 @@
 
 // Arrow Status to Parquet exception
 
-#define PARQUET_IGNORE_NOT_OK(s)                                \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    ARROW_UNUSED(_s);                                           \
+#define PARQUET_IGNORE_NOT_OK(s)               \
+  do {                                         \
+    ::arrow::Status _s = ::arrow::ToStatus(s); \
+    ARROW_UNUSED(_s);                          \
   } while (0)
 
-#define PARQUET_THROW_NOT_OK(s)                                 \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    if (!_s.ok()) {                                             \
-      throw ::parquet::ParquetStatusException(std::move(_s));   \
-    }                                                           \
+#define PARQUET_THROW_NOT_OK(s)                               \
+  do {                                                        \
+    ::arrow::Status _s = ::arrow::ToStatus(s);                \
+    if (!_s.ok()) {                                           \
+      throw ::parquet::ParquetStatusException(std::move(_s)); \
+    }                                                         \
   } while (0)
 
 #define PARQUET_ASSIGN_OR_THROW_IMPL(status_name, lhs, rexpr) \
@@ -100,7 +100,7 @@ class ParquetException : public std::exception {
 
   template <typename... Args>
   explicit ParquetException(Args&&... args)
-      : msg_(::arrow::util::StringBuilder(std::forward<Args>(args)...)) {}
+      : msg_(::arrow::internal::JoinToString(std::forward<Args>(args)...)) {}
 
   explicit ParquetException(std::string msg) : msg_(std::move(msg)) {}
 

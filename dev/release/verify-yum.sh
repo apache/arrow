@@ -87,7 +87,14 @@ case "${distribution}-${distribution_version}" in
   amzn-*)
     distribution_prefix="amazon-linux"
     enablerepo_epel=""
-    install_command="dnf install -y"
+    # gcc-c++ installs kernel6.12-headers as a dependency
+    # automatically. But it conflicts with kernel-headers that is
+    # grpc-devel dependency. If we use "--allowerasing" when we
+    # install grpc-devel (via arrow-flight-devel), kernel6.12-headers
+    # is replaced with kernel-headers automatically. gcc-c++ works
+    # with kernel-headers too. So using kernel-headers is not a
+    # problem.
+    install_command="dnf install -y --allowerasing"
     info_command="dnf info"
     ;;
   centos-7)
@@ -105,14 +112,6 @@ case "${distribution}-${distribution_version}" in
     uninstall_command="yum remove -y"
     clean_command="yum clean"
     info_command="yum info"
-    fix_eol_repositories
-    ;;
-  centos-8)
-    distribution_prefix="centos"
-    repository_version+="-stream"
-    ruby_devel_packages+=(redhat-rpm-config)
-    install_command="dnf install -y --enablerepo=powertools"
-    info_command="dnf info --enablerepo=powertools"
     fix_eol_repositories
     ;;
   centos-*)

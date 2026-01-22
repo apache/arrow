@@ -32,6 +32,7 @@
 #include <unordered_set>
 
 #include "arrow/acero/exec_plan.h"
+#include "arrow/acero/exec_plan_internal.h"
 #include "arrow/acero/options.h"
 #include "arrow/acero/unmaterialized_table_internal.h"
 #ifndef NDEBUG

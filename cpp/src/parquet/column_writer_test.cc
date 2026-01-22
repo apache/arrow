@@ -108,7 +108,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
-      bool enable_checksum = false) {
+      bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -124,6 +124,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       wp_builder.enable_page_checksum();
     }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
+    wp_builder.data_pagesize(page_size);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -938,6 +939,60 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
+// Test for https://github.com/apache/arrow/issues/47027.
+// When writing a repeated column with page indexes enabled
+// and batches that are aligned with list boundaries,
+// pages should be written after reaching the page limit.
+TEST_F(TestValuesWriterInt32Type, PagesSplitWithListAlignedWrites) {
+  this->SetUpSchema(Repetition::REPEATED);
+
+  constexpr int list_length = 10;
+  constexpr int num_rows = 100;
+  constexpr int64_t page_size = sizeof(int32_t) * 100;
+
+  this->GenerateData(num_rows * list_length);
+
+  std::vector<int16_t> repetition_levels(list_length, 1);
+  repetition_levels[0] = 0;
+
+  ColumnProperties column_properties;
+  column_properties.set_dictionary_enabled(false);
+  column_properties.set_encoding(Encoding::PLAIN);
+  column_properties.set_page_index_enabled(true);
+
+  auto writer =
+      this->BuildWriter(list_length, column_properties, ParquetVersion::PARQUET_1_0,
+                        ParquetDataPageVersion::V1, false, page_size);
+
+  int64_t pages_written = 0;
+  int64_t prev_bytes_written = 0;
+
+  for (int row_idx = 0; row_idx < num_rows; ++row_idx) {
+    writer->WriteBatch(list_length, def_levels_.data(), repetition_levels.data(),
+                       values_ptr_ + row_idx * list_length);
+
+    int64_t bytes_written = writer->total_bytes_written();
+    if (bytes_written != prev_bytes_written) {
+      pages_written++;
+      prev_bytes_written = bytes_written;
+    }
+    // Buffered bytes shouldn't grow larger than the specified page size
+    ASSERT_LE(writer->estimated_buffered_value_bytes(), page_size);
+  }
+
+  writer->Close();
+
+  // pages_written doesn't include the last page written when closing the writer:
+  ASSERT_EQ(pages_written, 9);
+
+  this->SetupValuesOut(num_rows * list_length);
+  definition_levels_out_.resize(num_rows * list_length);
+  repetition_levels_out_.resize(num_rows * list_length);
+  this->ReadColumnFully();
+
+  ASSERT_EQ(values_out_, values_);
+}
+
 TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
   NodePtr item = schema::Int32("item");  // optional item
   NodePtr list(GroupNode::Make("b", Repetition::REPEATED, {item}, ConvertedType::LIST));
@@ -1481,7 +1536,7 @@ TEST(TestColumnWriter, WriteDataPagesChangeOnRecordBoundariesWithSmallBatches) {
   auto row_group_reader = file_reader->RowGroup(0);
 
   // Check if pages are changed on record boundaries.
-  const std::array<int64_t, num_cols> expect_num_pages_by_col = {5, 201, 397, 201};
+  const std::array<int64_t, num_cols> expect_num_pages_by_col = {5, 201, 397, 400};
   const std::array<int64_t, num_cols> expect_num_rows_1st_page_by_col = {99, 1, 1, 1};
   const std::array<int64_t, num_cols> expect_num_vals_1st_page_by_col = {99, 50, 99, 150};
   for (int32_t i = 0; i < num_cols; ++i) {

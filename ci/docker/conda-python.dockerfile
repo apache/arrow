@@ -20,7 +20,7 @@ ARG arch
 FROM ${repo}:${arch}-conda-cpp
 
 # install python specific packages
-ARG python=3.9
+ARG python=3.10
 COPY ci/conda_env_python.txt \
      /arrow/ci/
 # If the Python version being tested is the same as the Python used by the system gdb,

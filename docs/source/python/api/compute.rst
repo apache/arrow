@@ -299,6 +299,7 @@ String Padding
    utf8_center
    utf8_lpad
    utf8_rpad
+   utf8_zero_fill
 
 String Trimming
 ---------------
@@ -556,6 +557,7 @@ Compute Options
    ModeOptions
    NullOptions
    PadOptions
+   ZeroFillOptions
    PairwiseOptions
    PartitionNthOptions
    PivotWiderOptions

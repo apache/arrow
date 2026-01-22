@@ -60,6 +60,9 @@ class EqualOptions {
   }
 
   /// Whether the "atol" property is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on ApproxEquals methods.
   bool use_atol() const { return use_atol_; }
 
   /// Return a new EqualOptions object with the "use_atol" property changed.
@@ -77,6 +80,38 @@ class EqualOptions {
   EqualOptions atol(double v) const {
     auto res = EqualOptions(*this);
     res.atol_ = v;
+    return res;
+  }
+
+  /// Whether the \ref arrow::Schema property is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on ApproxEquals methods.
+  bool use_schema() const { return use_schema_; }
+
+  /// Return a new EqualOptions object with the "use_schema_" property changed.
+  ///
+  /// Setting this option is false making the value of \ref EqualOptions::use_metadata
+  /// is ignored.
+  EqualOptions use_schema(bool v) const {
+    auto res = EqualOptions(*this);
+    res.use_schema_ = v;
+    return res;
+  }
+
+  /// Whether the "metadata" in \ref arrow::Schema is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on the ApproxEquals methods.
+  ///
+  /// Note: This option is only considered when \ref arrow::EqualOptions::use_schema is
+  /// set to true.
+  bool use_metadata() const { return use_metadata_; }
+
+  /// Return a new EqualOptions object with the "use_metadata" property changed.
+  EqualOptions use_metadata(bool v) const {
+    auto res = EqualOptions(*this);
+    res.use_metadata_ = v;
     return res;
   }
 
@@ -99,7 +134,9 @@ class EqualOptions {
   double atol_ = kDefaultAbsoluteTolerance;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
-  bool use_atol_ = true;
+  bool use_atol_ = false;
+  bool use_schema_ = true;
+  bool use_metadata_ = false;
 
   std::ostream* diff_sink_ = NULLPTR;
 };

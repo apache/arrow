@@ -387,8 +387,8 @@ class PARQUET_EXPORT RecordReader {
   /// call. No extra values are buffered for the next call. SkipRecords will not
   /// add any value to this buffer.
   std::shared_ptr<::arrow::ResizableBuffer> values_;
-  /// \brief False for BYTE_ARRAY, in which case we don't allocate the values
-  /// buffer and we directly read into builder classes.
+  /// \brief False for FIXED_LEN_BYTE_ARRAY and BYTE_ARRAY, in which case we
+  /// don't allocate the values buffer and we directly read into builder classes.
   bool uses_values_;
 
   /// \brief Values that we have read into 'values_' + 'null_count_'.

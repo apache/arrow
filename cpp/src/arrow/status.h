@@ -18,11 +18,12 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <utility>
 
 #include "arrow/util/compare.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/string_builder.h"
+#include "arrow/util/string_util.h"
 #include "arrow/util/visibility.h"
 
 #ifdef ARROW_EXTRA_ERROR_CONTEXT
@@ -52,10 +53,10 @@
   ARROW_RETURN_IF_(condition, status, ARROW_STRINGIFY(status))
 
 /// \brief Propagate any non-successful Status to the caller
-#define ARROW_RETURN_NOT_OK(status)                                   \
-  do {                                                                \
-    ::arrow::Status __s = ::arrow::internal::GenericToStatus(status); \
-    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status));        \
+#define ARROW_RETURN_NOT_OK(status)                            \
+  do {                                                         \
+    ::arrow::Status __s = ::arrow::ToStatus(status);           \
+    ARROW_RETURN_IF_(!__s.ok(), __s, ARROW_STRINGIFY(status)); \
   } while (false)
 
 /// \brief Given `expr` and `warn_msg`; log `warn_msg` if `expr` is a non-ok status
@@ -67,15 +68,6 @@
     }                                     \
   } while (false)
 
-#define RETURN_NOT_OK_ELSE(s, else_)                            \
-  do {                                                          \
-    ::arrow::Status _s = ::arrow::internal::GenericToStatus(s); \
-    if (!_s.ok()) {                                             \
-      else_;                                                    \
-      return _s;                                                \
-    }                                                           \
-  } while (false)
-
 // This is an internal-use macro and should not be used in public headers.
 #ifndef RETURN_NOT_OK
 #  define RETURN_NOT_OK(s) ARROW_RETURN_NOT_OK(s)
@@ -83,8 +75,10 @@
 
 namespace arrow {
 namespace internal {
+
 class StatusConstant;
-}
+
+}  // namespace internal
 
 enum class StatusCode : char {
   OK = 0,
@@ -123,6 +117,23 @@ class ARROW_EXPORT StatusDetail {
     return std::string(type_id()) == other.type_id() && ToString() == other.ToString();
   }
 };
+
+/// \brief A type trait to declare a given type as Status-compatible.
+///
+/// This trait structure can be implemented if a type (such as Result<T>) embeds
+/// error information that can be converted to the Status class.
+/// It will make the given type usable directly in functions such as
+/// Status::OrElse and error-checking macros such as ARROW_RETURN_NOT_OK.
+template <typename T>
+struct IntoStatus;
+
+/// \brief Convert a Status-compatible object to Status
+///
+/// This generic function delegates to the IntoStatus type trait.
+template <typename T>
+constexpr decltype(auto) ToStatus(T&& t) {
+  return IntoStatus<std::decay_t<T>>::ToStatus(std::forward<T>(t));
+}
 
 /// \brief Status outcome object (success or error)
 ///
@@ -170,13 +181,13 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
 
   template <typename... Args>
   static Status FromArgs(StatusCode code, Args&&... args) {
-    return Status(code, util::StringBuilder(std::forward<Args>(args)...));
+    return Status(code, internal::JoinToString(std::forward<Args>(args)...));
   }
 
   template <typename... Args>
   static Status FromDetailAndArgs(StatusCode code, std::shared_ptr<StatusDetail> detail,
                                   Args&&... args) {
-    return Status(code, util::StringBuilder(std::forward<Args>(args)...),
+    return Status(code, internal::JoinToString(std::forward<Args>(args)...),
                   std::move(detail));
   }
 
@@ -350,6 +361,32 @@ class ARROW_EXPORT [[nodiscard]] Status : public util::EqualityComparable<Status
     return FromArgs(code(), std::forward<Args>(args)...).WithDetail(detail());
   }
 
+  /// \brief Apply a functor if the status indicates an error
+  ///
+  /// This can be used to execute fallback or cleanup actions.
+  ///
+  /// If the status indicates a success, it is returned as-is.
+  ///
+  /// If the status indicates an error, the given functor is called with the status
+  /// as argument.
+  /// If the functor returns a new Status, it is returned.
+  /// If the functor returns a Status-compatible object such as Result<T>, it is
+  /// converted to Status and returned.
+  /// If the functor returns void, the original Status is returned.
+  template <typename OnError>
+  Status OrElse(OnError&& on_error) {
+    using RT = decltype(on_error(Status()));
+    if (ARROW_PREDICT_TRUE(ok())) {
+      return *this;
+    }
+    if constexpr (std::is_void_v<RT>) {
+      on_error(*this);
+      return *this;
+    } else {
+      return ToStatus(on_error(*this));
+    }
+  }
+
   void Warn() const;
   void Warn(const std::string& message) const;
 
@@ -463,13 +500,10 @@ Status& Status::operator&=(Status&& s) noexcept {
 }
 /// \endcond
 
-namespace internal {
-
-// Extract Status from Status or Result<T>
-// Useful for the status check macros such as RETURN_NOT_OK.
-inline const Status& GenericToStatus(const Status& st) { return st; }
-inline Status GenericToStatus(Status&& st) { return std::move(st); }
-
-}  // namespace internal
+template <>
+struct IntoStatus<Status> {
+  static constexpr const Status& ToStatus(const Status& st) { return st; }
+  static constexpr Status&& ToStatus(Status&& st) { return std::move(st); }
+};
 
 }  // namespace arrow

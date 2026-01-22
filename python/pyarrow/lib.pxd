@@ -48,6 +48,9 @@ cdef class IpcReadOptions(_Weakrefable):
         CIpcReadOptions c_options
 
 
+cdef _wrap_read_stats(CIpcReadStats c)
+
+
 cdef class Message(_Weakrefable):
     cdef:
         unique_ptr[CMessage] message
@@ -677,6 +680,8 @@ cdef shared_ptr[const CKeyValueMetadata] pyarrow_unwrap_metadata(
     object meta) except *
 cdef object pyarrow_wrap_metadata(
     const shared_ptr[const CKeyValueMetadata]& meta)
+
+cdef CField.CMergeOptions _parse_field_merge_options(str promote_options) except *
 
 #
 # Public Cython API for 3rd party code

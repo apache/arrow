@@ -1900,6 +1900,61 @@ TEST_F(TestUnaryArithmeticDecimal, TrigTan) {
 
 class TestBinaryArithmeticDecimal : public TestArithmeticDecimal {};
 
+TEST_F(TestBinaryArithmeticDecimal, DispatchExact) {
+  for (std::string name : {"add", "subtract"}) {
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      ARROW_SCOPED_TRACE(name);
+
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(2, 0), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(2, 1), decimal128(2, 0)});
+
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(2, 0), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(2, 1), decimal256(2, 0)});
+    }
+  }
+
+  {
+    std::string name = "multiply";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      ARROW_SCOPED_TRACE(name);
+
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(2, 0), decimal128(2, 1)});
+      CheckDispatchExact(name, {decimal128(2, 1), decimal128(2, 0)});
+
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(2, 0), decimal256(2, 1)});
+      CheckDispatchExact(name, {decimal256(2, 1), decimal256(2, 0)});
+    }
+  }
+
+  {
+    std::string name = "divide";
+    for (std::string suffix : {"", "_checked"}) {
+      name += suffix;
+      ARROW_SCOPED_TRACE(name);
+
+      CheckDispatchExactFails(name, {decimal128(2, 1), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(3, 1), decimal128(2, 1)});
+      CheckDispatchExactFails(name, {decimal128(2, 1), decimal128(2, 0)});
+      CheckDispatchExactFails(name, {decimal128(2, 0), decimal128(2, 1)});
+
+      CheckDispatchExactFails(name, {decimal256(2, 1), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(3, 1), decimal256(2, 1)});
+      CheckDispatchExactFails(name, {decimal256(2, 1), decimal256(2, 0)});
+      CheckDispatchExactFails(name, {decimal256(2, 0), decimal256(2, 1)});
+    }
+  }
+}
+
 TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
   // decimal, floating point
   for (std::string name : {"add", "subtract", "multiply", "divide"}) {
@@ -1970,24 +2025,36 @@ TEST_F(TestBinaryArithmeticDecimal, DispatchBest) {
       name += suffix;
       SCOPED_TRACE(name);
 
-      CheckDispatchBest(name, {int64(), decimal128(1, 0)},
-                        {decimal128(23, 4), decimal128(1, 0)});
-      CheckDispatchBest(name, {decimal128(1, 0), int64()},
-                        {decimal128(21, 20), decimal128(19, 0)});
+      CheckDispatchBestWithCastedTypes(name, {int64(), decimal128(1, 0)},
+                                       {decimal128(23, 4), decimal128(1, 0)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(1, 0), int64()},
+                                       {decimal128(21, 20), decimal128(19, 0)});
 
-      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 1)},
-                        {decimal128(6, 5), decimal128(2, 1)});
-      CheckDispatchBest(name, {decimal256(2, 1), decimal256(2, 1)},
-                        {decimal256(6, 5), decimal256(2, 1)});
-      CheckDispatchBest(name, {decimal128(2, 1), decimal256(2, 1)},
-                        {decimal256(6, 5), decimal256(2, 1)});
-      CheckDispatchBest(name, {decimal256(2, 1), decimal128(2, 1)},
-                        {decimal256(6, 5), decimal256(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 1), decimal128(2, 1)},
+                                       {decimal128(6, 5), decimal128(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal256(2, 1), decimal256(2, 1)},
+                                       {decimal256(6, 5), decimal256(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 1), decimal256(2, 1)},
+                                       {decimal256(6, 5), decimal256(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal256(2, 1), decimal128(2, 1)},
+                                       {decimal256(6, 5), decimal256(2, 1)});
 
-      CheckDispatchBest(name, {decimal128(2, 0), decimal128(2, 1)},
-                        {decimal128(7, 5), decimal128(2, 1)});
-      CheckDispatchBest(name, {decimal128(2, 1), decimal128(2, 0)},
-                        {decimal128(5, 4), decimal128(2, 0)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 0), decimal128(2, 1)},
+                                       {decimal128(7, 5), decimal128(2, 1)});
+      CheckDispatchBestWithCastedTypes(name, {decimal128(2, 1), decimal128(2, 0)},
+                                       {decimal128(5, 4), decimal128(2, 0)});
+
+      // GH-39875: Expression call to decimal(3 ,2) / decimal(15, 2) wrong result type.
+      // decimal128(3, 2) / decimal128(15, 2)
+      // -> decimal128(19, 18) / decimal128(15, 2) = decimal128(19, 16)
+      CheckDispatchBestWithCastedTypes(name, {decimal128(3, 2), decimal128(15, 2)},
+                                       {decimal128(19, 18), decimal128(15, 2)});
+
+      // GH-40911: Expression call to decimal(7 ,2) / decimal(6, 1) wrong result type.
+      // decimal128(7, 2) / decimal128(6, 1)
+      // -> decimal128(14, 9) / decimal128(6, 1) = decimal128(14, 8)
+      CheckDispatchBestWithCastedTypes(name, {decimal128(7, 2), decimal128(6, 1)},
+                                       {decimal128(14, 9), decimal128(6, 1)});
     }
   }
   for (std::string name : {"atan2", "logb", "logb_checked", "power", "power_checked"}) {
@@ -2274,6 +2341,14 @@ TEST_F(TestBinaryArithmeticDecimal, Divide) {
     auto left = ScalarFromJSON(decimal256(6, 5), R"("2.71828")");
     auto right = ScalarFromJSON(decimal256(6, 5), R"("3.14159")");
     auto expected = ScalarFromJSON(decimal256(13, 7), R"("0.8652561")");
+    CheckScalarBinary("divide", left, right, expected);
+  }
+
+  // decimal(p1, s1) decimal(p2, s2) where s1 < s2
+  {
+    auto left = ScalarFromJSON(decimal128(6, 5), R"("2.71828")");
+    auto right = ScalarFromJSON(decimal128(7, 6), R"("3.141592")");
+    auto expected = ScalarFromJSON(decimal128(14, 7), R"("0.8652555")");
     CheckScalarBinary("divide", left, right, expected);
   }
 

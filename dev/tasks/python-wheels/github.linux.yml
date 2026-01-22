@@ -63,10 +63,7 @@ jobs:
         env:
           GITHUB_TOKEN: {{ '${{ secrets.GITHUB_TOKEN }}' }}
         run: |
-          if [ "{{ linux_wheel_version }}" = "2014" ] && [ "{{ arch }}" = "arm64" ]; then
-            # We can't use NuGet on manylinux2014_aarch64 because Mono is old.
-            :
-          elif [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
+          if [ "{{ linux_wheel_kind }}" = "musllinux" ] && [ "{{ arch }}" = "arm64" ]; then
             # We can't use NuGet on musl arm systems because the official NuGet binary for arm doesn't exist.
             :
           else
@@ -92,7 +89,7 @@ jobs:
       - name: Test wheel on AlmaLinux 8
         shell: bash
         if: |
-          '{{ python_version }}' == '3.9' && '{{ linux_wheel_kind }}' == 'manylinux'
+          '{{ python_version }}' == '3.12' && '{{ linux_wheel_kind }}' == 'manylinux'
         env:
           ALMALINUX: "8"
         run: |
@@ -136,7 +133,6 @@ jobs:
             ubuntu-verify-rc
 
       {{ macros.github_upload_releases("arrow/python/repaired_wheels/*.whl")|indent }}
-      {{ macros.github_upload_gemfury("arrow/python/repaired_wheels/*.whl")|indent }}
       {{ macros.github_upload_wheel_scientific_python("arrow/python/repaired_wheels/*.whl")|indent }}
 
       {% if arrow.is_default_branch() %}

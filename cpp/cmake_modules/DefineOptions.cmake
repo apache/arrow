@@ -407,15 +407,6 @@ takes precedence over ccache if a storage backend is configured" ON)
                 DEPENDS
                 ARROW_S3)
 
-  define_option(ARROW_SKYHOOK
-                "Build the Skyhook libraries"
-                OFF
-                DEPENDS
-                ARROW_DATASET
-                ARROW_PARQUET
-                ARROW_WITH_LZ4
-                ARROW_WITH_SNAPPY)
-
   define_option(ARROW_SUBSTRAIT
                 "Build the Arrow Substrait Consumer Module"
                 OFF

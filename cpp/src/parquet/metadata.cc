@@ -41,6 +41,8 @@
 #include "parquet/statistics.h"
 #include "parquet/thrift_internal.h"
 
+using ::arrow::util::SecureString;
+
 namespace parquet {
 
 const ApplicationVersion& ApplicationVersion::PARQUET_251_FIXED_VERSION() {
@@ -90,6 +92,14 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+  std::optional<bool> min_exact =
+      metadata.statistics.__isset.is_min_value_exact
+          ? std::optional<bool>(metadata.statistics.is_min_value_exact)
+          : std::nullopt;
+  std::optional<bool> max_exact =
+      metadata.statistics.__isset.is_max_value_exact
+          ? std::optional<bool>(metadata.statistics.is_max_value_exact)
+          : std::nullopt;
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
     return MakeStatistics<DType>(
@@ -98,7 +108,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -106,10 +116,13 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.num_values - metadata.statistics.null_count,
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
-      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count);
+      metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
+      min_exact, max_exact);
 }
 
-static std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
+namespace {
+
+std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
     const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
   if (metadata.__isset.geospatial_statistics) {
     geospatial::EncodedGeoStatistics encoded_geo_stats =
@@ -183,6 +196,8 @@ void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata
   }
   metadata->__set_key_value_metadata(std::move(key_value_metadata));
 }
+
+}  // namespace
 
 // MetaData Accessor
 
@@ -798,8 +813,8 @@ class FileMetaData::FileMetaDataImpl {
                                              encryption::kNonceLength);
     auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
-    std::string key = file_decryptor_->GetFooterKey();
-    std::string aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
+    const SecureString& key = file_decryptor_->GetFooterKey();
+    const std::string& aad = encryption::CreateFooterAad(file_decryptor_->file_aad());
 
     auto aes_encryptor = encryption::AesEncryptor::Make(file_decryptor_->algorithm(),
                                                         static_cast<int>(key.size()),
@@ -808,7 +823,7 @@ class FileMetaData::FileMetaDataImpl {
     std::shared_ptr<Buffer> encrypted_buffer = AllocateBuffer(
         file_decryptor_->pool(), aes_encryptor->CiphertextLength(serialized_len));
     int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
-        serialized_data_span, str2span(key), str2span(aad), nonce,
+        serialized_data_span, key.as_span(), str2span(aad), nonce,
         encrypted_buffer->mutable_span_as<uint8_t>());
     return 0 ==
            memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,

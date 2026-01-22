@@ -825,14 +825,13 @@ enum ExampleMode {
 };
 
 int main(int argc, char** argv) {
-  if (argc < 3) {
-    // Fake success for CI purposes.
-    return EXIT_SUCCESS;
+  int mode = argc > 1 ? std::atoi(argv[2]) : SOURCE_SINK;
+  std::string base_save_path = argc > 2 ? argv[2] : "";
+  arrow::Status status = arrow::compute::Initialize();
+  if (!status.ok()) {
+    std::cout << "Error occurred: " << status.message() << std::endl;
+    return EXIT_FAILURE;
   }
-
-  std::string base_save_path = argv[1];
-  int mode = std::atoi(argv[2]);
-  arrow::Status status;
   // ensure arrow::dataset node factories are in the registry
   arrow::dataset::internal::Initialize();
   switch (mode) {

@@ -68,7 +68,7 @@ RowStatus DateArrayFlightSqlAccessor<TARGET_TYPE, ARROW_ARRAY>::MoveSingleCell_i
   auto value = convertDate<ARROW_ARRAY>(this->GetArray()->Value(arrow_row));
   tm date{};
 
-  GetTimeForSecondsSinceEpoch(date, value);
+  GetTimeForSecondsSinceEpoch(value, date);
 
   buffer[cell_counter].year = 1900 + (date.tm_year);
   buffer[cell_counter].month = date.tm_mon + 1;

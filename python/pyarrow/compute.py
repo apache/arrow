@@ -83,6 +83,7 @@ from pyarrow._compute import (  # noqa
     VarianceOptions,
     WeekOptions,
     WinsorizeOptions,
+    ZeroFillOptions,
     # Functions
     call_function,
     function_registry,
@@ -338,6 +339,8 @@ def _make_global_functions():
 
 
 _make_global_functions()
+# Alias for consistency; globals() is needed to avoid Python lint errors
+utf8_zfill = utf8_zero_fill = globals()["utf8_zero_fill"]
 
 
 def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):

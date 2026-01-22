@@ -66,7 +66,7 @@ TEST(TEST_TIME32, TIME_WITH_SECONDS) {
 
     tm time{};
 
-    GetTimeForSecondsSinceEpoch(time, t32_values[i]);
+    GetTimeForSecondsSinceEpoch(t32_values[i], time);
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
     ASSERT_EQ(buffer[i].minute, time.tm_min);
     ASSERT_EQ(buffer[i].second, time.tm_sec);
@@ -103,7 +103,7 @@ TEST(TEST_TIME32, TIME_WITH_MILLI) {
     tm time{};
 
     auto convertedValue = t32_values[i] / odbcabstraction::MILLI_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(time, convertedValue);
+    GetTimeForSecondsSinceEpoch(convertedValue, time);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
     ASSERT_EQ(buffer[i].minute, time.tm_min);
@@ -142,7 +142,7 @@ TEST(TEST_TIME64, TIME_WITH_MICRO) {
     tm time{};
 
     const auto convertedValue = t64_values[i] / odbcabstraction::MICRO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(time, convertedValue);
+    GetTimeForSecondsSinceEpoch(convertedValue, time);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
     ASSERT_EQ(buffer[i].minute, time.tm_min);
@@ -179,7 +179,7 @@ TEST(TEST_TIME64, TIME_WITH_NANO) {
     tm time{};
 
     const auto convertedValue = t64_values[i] / odbcabstraction::NANO_TO_SECONDS_DIVISOR;
-    GetTimeForSecondsSinceEpoch(time, convertedValue);
+    GetTimeForSecondsSinceEpoch(convertedValue, time);
 
     ASSERT_EQ(buffer[i].hour, time.tm_hour);
     ASSERT_EQ(buffer[i].minute, time.tm_min);

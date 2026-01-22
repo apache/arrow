@@ -43,10 +43,10 @@ RUN apk add --no-cache --repository=https://dl-cdn.alpinelinux.org/alpine/edge/c
 
 # A system Python is required for ninja and vcpkg in this Dockerfile.
 # On musllinux_1_2 a system python is installed (3.12) but pip is not
-# We therefore override the PATH with Python 3.9 in /opt/python
+# We therefore override the PATH with Python 3.10 in /opt/python
 # so that we have a consistent Python version across base images
 # as well as pip.
-ENV CPYTHON_VERSION=cp39
+ENV CPYTHON_VERSION=cp310
 ENV PATH=/opt/python/${CPYTHON_VERSION}-${CPYTHON_VERSION}/bin:${PATH}
 
 # Install vcpkg
@@ -100,8 +100,8 @@ RUN --mount=type=secret,id=github_repository_owner \
 RUN pipx upgrade auditwheel
 
 # Configure Python for applications running in the bash shell of this Dockerfile
-ARG python=3.9
-ARG python_abi_tag=cp39
+ARG python=3.10
+ARG python_abi_tag=cp310
 ENV PYTHON_VERSION=${python}
 ENV PYTHON_ABI_TAG=${python_abi_tag}
 RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG}) && \

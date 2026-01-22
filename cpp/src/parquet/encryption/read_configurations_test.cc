@@ -98,15 +98,15 @@ class TestDecryptionConfiguration
 
  protected:
   FileDecryptor decryptor_;
-  std::string path_to_double_field_ = kDoubleFieldName;
-  std::string path_to_float_field_ = kFloatFieldName;
+  const std::string path_to_double_field_ = kDoubleFieldName;
+  const std::string path_to_float_field_ = kFloatFieldName;
   // This vector will hold various decryption configurations.
   std::vector<std::shared_ptr<parquet::FileDecryptionProperties>>
       vector_of_decryption_configurations_;
-  std::string kFooterEncryptionKey_ = std::string(kFooterEncryptionKey);
-  std::string kColumnEncryptionKey1_ = std::string(kColumnEncryptionKey1);
-  std::string kColumnEncryptionKey2_ = std::string(kColumnEncryptionKey2);
-  std::string kFileName_ = std::string(kFileName);
+  const SecureString kFooterEncryptionKey_ = kFooterEncryptionKey;
+  const SecureString kColumnEncryptionKey1_ = kColumnEncryptionKey1;
+  const SecureString kColumnEncryptionKey2_ = kColumnEncryptionKey2;
+  const std::string kFileName_ = std::string(kFileName);
 
   void CreateDecryptionConfigurations() {
     /**********************************************************************************

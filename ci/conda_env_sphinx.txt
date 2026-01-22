@@ -26,13 +26,13 @@ linkify-it-py
 # linuxdoc
 myst-parser
 numpydoc
-pydata-sphinx-theme=0.14
+pydata-sphinx-theme=0.16
 sphinx-autobuild
 sphinx-design
 sphinx-copybutton
 sphinx-lint
 sphinxcontrib-jquery
 sphinxcontrib-mermaid
-sphinx==6.2
+sphinx
 pytest-cython
 pandas
