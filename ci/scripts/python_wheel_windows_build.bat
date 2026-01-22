@@ -213,7 +213,8 @@ pushd C:\arrow\python
     -Csetup-args="-Dparquet=%PYARROW_WITH_PARQUET%" ^
     -Csetup-args="-Dparquet_require_encryption=%PYARROW_WITH_PARQUET_ENCRYPTION%" ^
     -Csetup-args="-Dsubstrait=%PYARROW_WITH_SUBSTRAIT%" ^
-    -Csetup-args="-Ds3=%PYARROW_WITH_S3%" || exit /B 1
+    -Csetup-args="-Ds3=%PYARROW_WITH_S3%" ^
+    -Csetup-args="--pkg-config-path=%ARROW_HOME%\lib\pkgconfig"|| exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
