@@ -87,7 +87,7 @@ RUN `
 SHELL ["cmd", "/S", "/C"]
 
 # Install CMake and other tools
-ARG cmake=3.31.2
+ARG cmake=3.31.9
 RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System'
 RUN choco install --no-progress -r -y git gzip ninja wget
 RUN choco install --no-progress -r -y pymanager
