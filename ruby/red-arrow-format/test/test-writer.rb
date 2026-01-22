@@ -26,6 +26,8 @@ module WriterTests
       ArrowFormat::Int8Type.singleton
     when Arrow::UInt8DataType
       ArrowFormat::UInt8Type.singleton
+    when Arrow::BinaryDataType
+      ArrowFormat::BinaryType.singleton
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
@@ -44,6 +46,11 @@ module WriterTests
     when ArrowFormat::PrimitiveType
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
+                       convert_buffer(red_arrow_array.data_buffer))
+    when ArrowFormat::VariableSizeBinaryType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
+                       convert_buffer(red_arrow_array.offsets_buffer),
                        convert_buffer(red_arrow_array.data_buffer))
     else
       raise "Unsupported array #{red_arrow_array.inspect}"
@@ -93,6 +100,17 @@ module WriterTests
 
           def test_write
             assert_equal([0, nil, 255],
+                         @values)
+          end
+        end
+
+        sub_test_case("Binary") do
+          def build_array
+            Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
+          end
+
+          def test_write
+            assert_equal(["Hello".b, nil, "World".b],
                          @values)
           end
         end
