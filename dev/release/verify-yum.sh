@@ -44,7 +44,7 @@ repository_version="${distribution_version}"
 
 cmake_package=cmake
 cmake_command=cmake
-devtoolset=
+gcc_toolset=
 scl_package=
 have_arrow_libs=no
 have_flight=yes
@@ -65,10 +65,16 @@ echo "::group::Prepare repository"
 case "${distribution}-${distribution_version}" in
   almalinux-8)
     distribution_prefix="almalinux"
+    gcc_toolset=14
     have_arrow_libs=yes
     ruby_devel_packages+=(redhat-rpm-config)
     install_command="dnf install -y --enablerepo=powertools"
     info_command="dnf info --enablerepo=powertools"
+    ;;
+  almalinux-9)
+    distribution_prefix="almalinux"
+    gcc_toolset=12
+    ruby_devel_packages+=(redhat-rpm-config)
     ;;
   almalinux-*)
     distribution_prefix="almalinux"
@@ -169,11 +175,11 @@ ${install_command} \
   git \
   libarchive \
   pkg-config
-if [ -n "${devtoolset}" ]; then
+if [ -n "${gcc_toolset}" ]; then
   ${install_command} \
-    devtoolset-${devtoolset}-gcc-c++ \
-    devtoolset-${devtoolset}-make
-  . /opt/rh/devtoolset-${devtoolset}/enable
+    gcc-toolset-${gcc_toolset} \
+    make
+  . /opt/rh/gcc-toolset-${gcc_toolset}/enable
 else
   ${install_command} \
     gcc-c++ \
@@ -191,12 +197,24 @@ if [ "${cmake_version_major}" -gt "3" ] || \
    [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
   cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
   pushd build/minimal_build
-  ${cmake_command} .
-  make -j$(nproc)
-  ./arrow-example
-  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++2a
-  ./arrow-example
+  cmake -S . -B build_shared
+  make -C build_shared -j$(nproc)
+  build_shared/arrow-example
+  cmake -S . -B build_static -DARROW_LINK_SHARED=OFF
+  make -C build_static -j$(nproc)
+  build_static/arrow-example
+  mkdir -p build_pkg_config
+  c++ \
+    example.cc \
+    -o build_pkg_config/arrow-example \
+    $(pkg-config --cflags --libs arrow) \
+    -std=c++2a
+  build_pkg_config/arrow-example
   popd
+fi
+if [ -n "${gcc_toolset}" ]; then
+  dnf remove -y "gcc-toolset-${gcc_toolset}-*"
+  ${install_command} gcc-c++
 fi
 echo "::endgroup::"
 
