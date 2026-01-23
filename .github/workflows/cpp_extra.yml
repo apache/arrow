@@ -474,8 +474,16 @@ jobs:
           mkdir odbc-installer
           mv *.msi odbc-installer/
           tree odbc-installer
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: arrow
+          repository: apache/arrow
+          ref: main
+          submodules: recursive
       - name: Sync to Remote
-        uses: ./.github/actions/sync-nightlies
+        uses: ./arrow/.github/actions/sync-nightlies
         with:
           upload: true
           switches: -avzh --update --delete --progress
