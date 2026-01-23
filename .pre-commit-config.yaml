@@ -196,6 +196,7 @@ repos:
         name: Python (Stubs) Type Check (mypy)
         args:
           - "--config-file=python/pyproject.toml"
+          - "python/pyarrow-stubs"
         files: >-
           ^python/pyarrow-stubs/
         pass_filenames: false
