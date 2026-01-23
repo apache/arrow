@@ -108,7 +108,7 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
   // Due to misalignment, on large bit width, the spread can be larger than the maximum
   // size integer. For instance a 63 bit width misaligned packed integer can spread over 9
   // aligned bytes.
-  constexpr bool kOversized = kBufferSize < kMaxSpreadBytes;
+  constexpr bool kLarge = kBufferSize < kMaxSpreadBytes;
   constexpr buffer_uint kLowMask =
       bit_util::LeastSignificantBitMask<buffer_uint, true>(kPackedBitWidth);
 
@@ -126,7 +126,7 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
     // Reading the bytes for the current value.
     // Must be careful not to read out of input bounds.
     buffer_uint buffer = 0;
-    if constexpr (kOversized) {
+    if constexpr (kLarge) {
       // We read the max possible bytes in the first pass and handle the rest after.
       // Even though the worst spread does not happen on all iterations we can still read
       // all bytes because we will mask them.
@@ -141,7 +141,7 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
     Uint val = static_cast<Uint>(buffer & kLowMask);
 
     // Handle the oversized bytes
-    if constexpr (kOversized) {
+    if constexpr (kLarge) {
       // The oversized bytes do not happen at all iterations
       if (spread_bytes > kBufferSize) {
         std::memcpy(&buffer, in + start_byte + kBufferSize, spread_bytes - kBufferSize);
