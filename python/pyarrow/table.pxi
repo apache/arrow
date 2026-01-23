@@ -1882,7 +1882,7 @@ cdef class _Tabular(_PandasConvertible):
         pyarrow.Table
         year: double
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [[2022,2021]]
         n_legs: [[4,100]]
@@ -1916,7 +1916,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> table.field(0)
         pyarrow.Field<n_legs: int64>
         >>> table.field(1)
-        pyarrow.Field<animals: string>
+        pyarrow.Field<animals: large_string>
         """
         return self.schema.field(i)
 
@@ -2144,7 +2144,7 @@ cdef class _Tabular(_PandasConvertible):
         pyarrow.Table
         year: int64
         n_legs: int64
-        animal: string
+        animal: large_string
         ----
         year: [[2019,2021,2021,2020,2022,2022]]
         n_legs: [[5,100,4,2,4,2]]
@@ -2190,7 +2190,7 @@ cdef class _Tabular(_PandasConvertible):
         pyarrow.Table
         year: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [[2022,2021]]
         n_legs: [[4,100]]
@@ -2484,7 +2484,7 @@ cdef class _Tabular(_PandasConvertible):
         >>> table.append_column('year', [year])
         pyarrow.Table
         n_legs: int64
-        animals: string
+        animals: large_string
         year: int64
         ----
         n_legs: [[2,4,5,100]]
@@ -2545,7 +2545,7 @@ cdef class RecordBatch(_Tabular):
     month: int64
     day: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -2585,7 +2585,7 @@ cdef class RecordBatch(_Tabular):
     month: int64
     day: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -3047,7 +3047,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.rename_columns(new_names)
         pyarrow.RecordBatch
         n: int64
-        name: string
+        name: large_string
         ----
         n: [2,4,5,100]
         name: ["Flamingo","Horse","Brittle stars","Centipede"]
@@ -3272,7 +3272,7 @@ cdef class RecordBatch(_Tabular):
 
         >>> batch.select([1])
         pyarrow.RecordBatch
-        animals: string
+        animals: large_string
         ----
         animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
 
@@ -3324,7 +3324,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch = pa.RecordBatch.from_pandas(df)
         >>> batch.schema
         n_legs: int64
-        animals: string
+        animals: large_string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
@@ -3416,7 +3416,7 @@ cdef class RecordBatch(_Tabular):
         month: int64
         day: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [2020,2022,2021,2022]
         month: [3,5,7,9]
@@ -3520,7 +3520,7 @@ cdef class RecordBatch(_Tabular):
         5     100      Centipede
         >>> pa.RecordBatch.from_arrays([n_legs, animals], schema=my_schema).schema
         n_legs: int64
-        animals: string
+        animals: large_string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
         """
@@ -3583,7 +3583,7 @@ cdef class RecordBatch(_Tabular):
         >>> pa.RecordBatch.from_struct_array(struct).to_pandas()
            n_legs animals    year
         0       2  Parrot     NaN
-        1       4    None  2022.0
+        1       4     NaN  2022.0
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -4130,7 +4130,7 @@ cdef class Table(_Tabular):
     >>> pa.Table.from_arrays([n_legs, animals], names=names)
     pyarrow.Table
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4141,7 +4141,7 @@ cdef class Table(_Tabular):
     >>> pa.Table.from_batches([batch])
     pyarrow.Table
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4156,7 +4156,7 @@ cdef class Table(_Tabular):
     pyarrow.Table
     year: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [[2020,2022,2019,2021]]
     n_legs: [[2,4,5,100]]
@@ -4168,7 +4168,7 @@ cdef class Table(_Tabular):
     >>> pa.Table.from_pydict(pydict)
     pyarrow.Table
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4291,7 +4291,7 @@ cdef class Table(_Tabular):
         pyarrow.Table
         year: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [[2020,2022,2019]]
         n_legs: [[2,4,5]]
@@ -4693,7 +4693,7 @@ cdef class Table(_Tabular):
         >>> table = pa.Table.from_pandas(df)
         >>> table.schema
         n_legs: int64
-        animals: string
+        animals: large_string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
 
@@ -4787,7 +4787,7 @@ cdef class Table(_Tabular):
         >>> pa.Table.from_pandas(df)
         pyarrow.Table
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4938,7 +4938,7 @@ cdef class Table(_Tabular):
         >>> pa.Table.from_struct_array(struct).to_pandas()
            n_legs animals    year
         0       2  Parrot     NaN
-        1       4    None  2022.0
+        1       4     NaN  2022.0
         """
         if isinstance(struct_array, Array):
             return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
@@ -5145,7 +5145,7 @@ cdef class Table(_Tabular):
         >>> reader = table.to_reader()
         >>> reader.schema
         n_legs: int64
-        animals: string
+        animals: large_string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, ...
         >>> reader.read_all()
@@ -5199,7 +5199,7 @@ cdef class Table(_Tabular):
         >>> table = pa.Table.from_pandas(df)
         >>> table.schema
         n_legs: int64
-        animals: string
+        animals: large_string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' ...
         """
@@ -5293,7 +5293,7 @@ cdef class Table(_Tabular):
         ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
         >>> table.nbytes
-        72
+        88
         """
         self._assert_cpu()
         cdef:
@@ -5323,7 +5323,7 @@ cdef class Table(_Tabular):
         ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table = pa.Table.from_pandas(df)
         >>> table.get_total_buffer_size()
-        76
+        96
         """
         self._assert_cpu()
         cdef:
@@ -5372,7 +5372,7 @@ cdef class Table(_Tabular):
         pyarrow.Table
         year: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [[2021,2022,2019,2021]]
         n_legs: [[2,4,5,100]]
@@ -5535,7 +5535,7 @@ cdef class Table(_Tabular):
         >>> table.rename_columns(new_names)
         pyarrow.Table
         n: int64
-        name: string
+        name: large_string
         ----
         n: [[2,4,5,100]]
         name: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -5700,7 +5700,7 @@ cdef class Table(_Tabular):
         id: int64
         year: int64
         n_legs: int64
-        animal: string
+        animal: large_string
         ----
         id: [[3,1,2]]
         year: [[2019,2020,2022]]
@@ -6003,7 +6003,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
     month: int64
     day: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -6164,7 +6164,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     pyarrow.Table
     year: int64
     n_legs: int64
-    animals: string
+    animals: large_string
     ----
     year: [[2020,2022,2019,2021]]
     n_legs: [[2,4,5,100]]

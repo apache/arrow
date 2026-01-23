@@ -3140,7 +3140,7 @@ cdef class Schema(_Weakrefable):
 
         >>> pa.Schema.from_pandas(df)
         int: int64
-        str: string
+        str: large_string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, ...
         """
