@@ -406,16 +406,15 @@ struct MediumKernelPlanSize {
   }
 };
 
-template <int kUnpackedPerKernelLimit_>
 struct MediumKernelOptions {
   /// An indicative limit on the number of values unpacked by the kernel.
   /// This is a heuristic setting: other constraints such as alignment may not always make
   /// small values feasibles. Must be a power of two.
-  static constexpr int kUnpackedPerKernelLimit = kUnpackedPerKernelLimit_;
+  int unpacked_per_kernel_limit_;
 };
 
-template <typename KernelOptions>
-constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
+constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
+                                                   const MediumKernelOptions& options) {
   const int shifts_per_swizzle =
       shape.unpacked_byte_size() / shape.packed_max_spread_bytes();
 
@@ -424,7 +423,7 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape) {
   // Using `unpacked_per_kernel_limit` to influence the number of swizzles per reads.
   const auto packed_per_read_for_offset = [&](int bit_offset) -> int {
     const int best = (shape.simd_bit_size() - bit_offset) / shape.packed_bit_size();
-    const int limit = KernelOptions::kUnpackedPerKernelLimit;
+    const int limit = options.unpacked_per_kernel_limit_;
     return (best > limit) && (limit > 0) ? limit : best;
   };
 
@@ -472,12 +471,12 @@ constexpr int reduced_bytes_per_read(int bits_per_read, int simd_byte_size) {
   return simd_byte_size;
 }
 
-template <typename KernelTraits, typename KernelOptions>
+template <typename KernelTraits, MediumKernelOptions kOptions>
 struct MediumKernelPlan {
   using Traits = KernelTraits;
   using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
-  static constexpr auto kPlanSize = BuildMediumPlanSize<KernelOptions>(kShape);
+  static constexpr auto kPlanSize = BuildMediumPlanSize(kShape, kOptions);
 
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
@@ -523,9 +522,9 @@ constexpr Arr BuildConstantArray(typename Arr::value_type val) {
   return out;
 }
 
-template <typename KernelTraits, typename KernelOptions>
+template <typename KernelTraits, MediumKernelOptions kOptions>
 constexpr auto BuildMediumPlan() {
-  using Plan = MediumKernelPlan<KernelTraits, KernelOptions>;
+  using Plan = MediumKernelPlan<KernelTraits, kOptions>;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_medium());
@@ -584,9 +583,9 @@ xsimd::batch<uint8_t, Arch> load_bytes(const uint8_t* in) {
   return simd_bytes::load_unaligned(in);
 }
 
-template <typename KernelTraits, typename KernelOptions = MediumKernelOptions<32>>
+template <typename KernelTraits, MediumKernelOptions kOptions>
 struct MediumKernel {
-  static constexpr auto kPlan = BuildMediumPlan<KernelTraits, KernelOptions>();
+  static constexpr auto kPlan = BuildMediumPlan<KernelTraits, kOptions>();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
@@ -855,16 +854,19 @@ constexpr bool LargeShouldUseUint16 =
 // A ``std::enable_if`` that works on MSVC
 template <typename Traits>
 constexpr auto KernelDispatchImpl() {
+  constexpr MediumKernelOptions kMedKernelOpts = {.unpacked_per_kernel_limit_ = 32};
   if constexpr (Traits::kShape.is_medium()) {
     if constexpr (MediumShouldUseUint32<Traits>) {
-      using Kernel32 = MediumKernel<KernelTraitsWithUnpack<Traits, uint32_t>>;
+      using Kernel32 =
+          MediumKernel<KernelTraitsWithUnpack<Traits, uint32_t>, kMedKernelOpts>;
       return ForwardToKernel<Traits, Kernel32>{};
     } else {
-      return MediumKernel<Traits>{};
+      return MediumKernel<Traits, kMedKernelOpts>{};
     }
   } else if constexpr (Traits::kShape.is_large()) {
     if constexpr (LargeShouldUseUint16<Traits>) {
-      using Kernel16 = MediumKernel<KernelTraitsWithUnpack<Traits, uint16_t>>;
+      using Kernel16 =
+          MediumKernel<KernelTraitsWithUnpack<Traits, uint16_t>, kMedKernelOpts>;
       return ForwardToKernel<Traits, Kernel16>{};
     } else {
       return LargeKernel<Traits>{};
