@@ -523,7 +523,7 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
  *
  * They are corresponding to `std::optional<arrow::compute::NullPlacement>` values.
  *
- * Since: 12.0.0
+ * Since: 24.0.0
  */
 typedef enum /*<prefix=GARROW_OPTIONAL_NULL_PLACEMENT_>*/ {
   GARROW_OPTIONAL_NULL_PLACEMENT_AT_START,
