@@ -72,7 +72,7 @@ jobs:
             cache: conda-python-3.11
             image: conda-python-docs
             title: AMD64 Conda Python 3.11 Sphinx & Numpydoc
-            python: "3.10"
+            python: "3.11"
           - name: conda-python-3.11-nopandas
             cache: conda-python-3.11
             image: conda-python
