@@ -157,6 +157,16 @@ module RawRecordsBasicArraysTests
     assert_equal(records, actual_records(target))
   end
 
+  def test_large_binary
+    records = [
+      ["\x00".b],
+      [nil],
+      ["\xff".b],
+    ]
+    target = build({column: :large_binary}, records)
+    assert_equal(records, actual_records(target))
+  end
+
   def test_string
     records = [
       ["Ruby"],

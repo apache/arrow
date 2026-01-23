@@ -43,6 +43,10 @@ GPARQUET_AVAILABLE_IN_0_11
 GParquetArrowFileReader *
 gparquet_arrow_file_reader_new_path(const gchar *path, GError **error);
 
+GPARQUET_AVAILABLE_IN_23_0
+void
+gparquet_arrow_file_reader_close(GParquetArrowFileReader *reader);
+
 GPARQUET_AVAILABLE_IN_0_11
 GArrowTable *
 gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader, GError **error);

@@ -4237,4 +4237,82 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
   }
 }
 
+class TestDayTimeIntervalBuilder : public ::testing::Test {
+ public:
+  void VerifyValue(const DayTimeIntervalBuilder& builder, int64_t index,
+                   DayTimeIntervalType::DayMilliseconds expected) {
+    ASSERT_EQ(builder.GetValue(index), expected);
+    ASSERT_EQ(builder[index], expected);
+  }
+};
+
+TEST_F(TestDayTimeIntervalBuilder, TestAppend) {
+  DayTimeIntervalBuilder builder;
+  DayTimeIntervalType::DayMilliseconds value1{1, 100};
+  DayTimeIntervalType::DayMilliseconds value2{3, 200};
+  DayTimeIntervalType::DayMilliseconds value3{5, 300};
+
+  ASSERT_OK(builder.Append(value1));
+  ASSERT_OK(builder.Append(value2));
+  ASSERT_OK(builder.AppendNull());
+  ASSERT_EQ(1, builder.null_count());  // Verify null count in builder
+  ASSERT_OK(builder.Reserve(3));
+  builder.UnsafeAppend(value3);
+
+  VerifyValue(builder, 0, value1);
+  VerifyValue(builder, 1, value2);
+  VerifyValue(builder, 3, value3);
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  const auto& day_time_array = checked_cast<const DayTimeIntervalArray&>(*array);
+
+  // Verify null value
+  ASSERT_TRUE(day_time_array.IsNull(2));
+  ASSERT_EQ(1, day_time_array.null_count());
+
+  // Verify non-null values in the array
+  ASSERT_FALSE(day_time_array.IsNull(0));
+  ASSERT_EQ(day_time_array.GetValue(0), value1);
+  ASSERT_FALSE(day_time_array.IsNull(1));
+  ASSERT_EQ(day_time_array.GetValue(1), value2);
+  ASSERT_FALSE(day_time_array.IsNull(3));
+  ASSERT_EQ(day_time_array.GetValue(3), value3);
+}
+
+TEST_F(TestDayTimeIntervalBuilder, TestBulkAppend) {
+  DayTimeIntervalBuilder builder;
+  std::vector<DayTimeIntervalType::DayMilliseconds> values{{1, 100}, {3, 200}, {5, 300}};
+  std::vector<bool> is_valid{true, false, true};
+  std::vector<uint8_t> is_valid_bytes{1, 0, 1};
+
+  ASSERT_OK(builder.AppendValues(values));
+  ASSERT_OK(builder.AppendValues(values, is_valid));
+  ASSERT_OK(builder.AppendValues(values.data(), values.size(), is_valid_bytes.data()));
+
+  ASSERT_OK_AND_ASSIGN(auto array, builder.Finish());
+  ASSERT_OK(array->ValidateFull());
+  ASSERT_EQ(array->null_count(), 2);
+  ASSERT_EQ(array->length(), 9);
+
+  const auto& day_time_array = checked_cast<const DayTimeIntervalArray&>(*array);
+  ASSERT_EQ(day_time_array.GetValue(0), values[0]);
+  ASSERT_TRUE(day_time_array.IsNull(4));
+  ASSERT_TRUE(day_time_array.IsNull(7));
+  ASSERT_EQ(day_time_array.GetValue(2), values[2]);
+}
+
+TEST_F(TestDayTimeIntervalBuilder, TestConstructors) {
+  DayTimeIntervalBuilder builder1;
+  ASSERT_EQ(builder1.type()->id(), Type::INTERVAL_DAY_TIME);
+
+  auto pool = default_memory_pool();
+  DayTimeIntervalBuilder builder2(pool);
+  ASSERT_EQ(builder2.type()->id(), Type::INTERVAL_DAY_TIME);
+
+  auto type = day_time_interval();
+  DayTimeIntervalBuilder builder3(type, pool);
+  ASSERT_EQ(builder3.type()->id(), Type::INTERVAL_DAY_TIME);
+  ASSERT_TRUE(builder3.type()->Equals(type));
+}
+
 }  // namespace arrow

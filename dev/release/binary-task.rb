@@ -1861,7 +1861,6 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
       ["almalinux", "8"],
       ["amazon-linux", "2023"],
       ["centos", "9-stream"],
-      ["centos", "7"],
     ]
   end
 
@@ -2048,8 +2047,7 @@ APT::FTPArchive::Release::Description "#{apt_repository_description}";
                  "almalinux-9",
                  "almalinux-8",
                  "amazon-linux-2023",
-                 "centos-9-stream",
-                 "centos-7"
+                 "centos-9-stream"
               # Adjust source packages directory for backward
               # compatibility. We don't need this for new supported
               # distribution because we don't need to care about
@@ -2391,8 +2389,6 @@ class LocalBinaryTask < BinaryTask
       # "amazon-linux-2023-aarch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-7",
-      # "centos-7-aarch64",
     ]
   end
 

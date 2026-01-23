@@ -1096,7 +1096,8 @@ EXCLUDE_PATTERNS       = *-test.cc \
                          *_generated.h \
                          *-benchmark.cc \
                          *_codegen.py \
-                         *internal*
+                         *internal* \
+                         *.md
 
 # The EXCLUDE_SYMBOLS tag can be used to specify one or more symbol names
 # (namespaces, classes, functions, etc.) that should be excluded from the

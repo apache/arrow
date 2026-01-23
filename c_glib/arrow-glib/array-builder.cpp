@@ -442,6 +442,9 @@ G_BEGIN_DECLS
  * #GArrowMonthDayNanoArrayBuilder is the class to create a new
  * #GArrowMonthDayNanoArray.
  *
+ * #GArrowDurationArrayBuilder is the class to create a new
+ * #GArrowDurationArray.
+ *
  * #GArrowStringDictionaryArrayBuilder is the class to create a new
  * #GArrowDictionaryArray with a dictionary array of #GArrowStringArray.
  *
@@ -4841,6 +4844,97 @@ garrow_month_day_nano_interval_array_builder_append_values(
     });
 }
 
+G_DEFINE_TYPE(GArrowDurationArrayBuilder,
+              garrow_duration_array_builder,
+              GARROW_TYPE_ARRAY_BUILDER)
+
+static void
+garrow_duration_array_builder_init(GArrowDurationArrayBuilder *builder)
+{
+}
+
+static void
+garrow_duration_array_builder_class_init(GArrowDurationArrayBuilderClass *klass)
+{
+}
+
+/**
+ * garrow_duration_array_builder_new:
+ * @data_type: A #GArrowDurationDataType.
+ *
+ * Returns: A newly created #GArrowDurationArrayBuilder.
+ *
+ * Since: 23.0.0
+ */
+GArrowDurationArrayBuilder *
+garrow_duration_array_builder_new(GArrowDurationDataType *data_type)
+{
+  auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  auto builder =
+    garrow_array_builder_new(arrow_data_type, NULL, "[duration-array-builder][new]");
+  return GARROW_DURATION_ARRAY_BUILDER(builder);
+}
+
+/**
+ * garrow_duration_array_builder_append_value:
+ * @builder: A #GArrowDurationArrayBuilder.
+ * @value: The elapsed time in 64-bit signed integer.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 23.0.0
+ */
+gboolean
+garrow_duration_array_builder_append_value(GArrowDurationArrayBuilder *builder,
+                                           gint64 value,
+                                           GError **error)
+{
+  return garrow_array_builder_append_value<arrow::DurationBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    value,
+    error,
+    "[duration-array-builder][append-value]");
+}
+
+/**
+ * garrow_duration_array_builder_append_values:
+ * @builder: A #GArrowDurationArrayBuilder.
+ * @values: (array length=values_length): The array of the elapsed time in
+ *   64-bit signed integer.
+ * @values_length: The length of `values`.
+ * @is_valids: (nullable) (array length=is_valids_length): The array of
+ *   boolean that shows whether the Nth value is valid or not. If the
+ *   Nth `is_valids` is %TRUE, the Nth `values` is valid value. Otherwise
+ *   the Nth value is null value.
+ * @is_valids_length: The length of `is_valids`.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Append multiple values at once. It's more efficient than multiple
+ * `append` and `append_null` calls.
+ *
+ * Returns: %TRUE on success, %FALSE if there was an error.
+ *
+ * Since: 23.0.0
+ */
+gboolean
+garrow_duration_array_builder_append_values(GArrowDurationArrayBuilder *builder,
+                                            const gint64 *values,
+                                            gint64 values_length,
+                                            const gboolean *is_valids,
+                                            gint64 is_valids_length,
+                                            GError **error)
+{
+  return garrow_array_builder_append_values<arrow::DurationBuilder>(
+    GARROW_ARRAY_BUILDER(builder),
+    reinterpret_cast<const int64_t *>(values),
+    values_length,
+    is_valids,
+    is_valids_length,
+    error,
+    "[duration-array-builder][append-values]");
+}
+
 G_DEFINE_TYPE(GArrowBinaryDictionaryArrayBuilder,
               garrow_binary_dictionary_array_builder,
               GARROW_TYPE_ARRAY_BUILDER)
@@ -6891,6 +6985,9 @@ garrow_array_builder_new_raw(std::shared_ptr<arrow::ArrayBuilder> *arrow_builder
       break;
     case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
       type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY_BUILDER;
+      break;
+    case arrow::Type::type::DURATION:
+      type = GARROW_TYPE_DURATION_ARRAY_BUILDER;
       break;
     case arrow::Type::type::LIST:
       type = GARROW_TYPE_LIST_ARRAY_BUILDER;

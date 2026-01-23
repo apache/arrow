@@ -73,3 +73,9 @@
   - any-glob-to-any-file:
     - docs/**/*
     - "**/*.{md, rst, Rmd, Rd}"
+
+"CI: Extra: C++":
+- changed-files:
+  - any-glob-to-any-file:
+    - .github/workflows/cpp_extra.yml
+    - cpp/src/arrow/flight/sql/odbc/**/*

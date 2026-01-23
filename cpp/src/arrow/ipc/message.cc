@@ -375,6 +375,8 @@ Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_le
                            decoder.next_required_size());
   }
 
+  // TODO(GH-48846): we should take a body_length just like ReadMessageAsync
+  // and read metadata + body in one go.
   ARROW_ASSIGN_OR_RAISE(auto metadata, file->ReadAt(offset, metadata_length));
   if (metadata->size() < metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length,

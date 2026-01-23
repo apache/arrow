@@ -250,18 +250,24 @@ class ArrayLoader {
     }
   }
 
-  Result<size_t> GetVariadicCount(int i) {
+  Result<int64_t> GetVariadicCount(int i) {
     auto* variadic_counts = metadata_->variadicBufferCounts();
     CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicBufferCounts");
     if (i >= static_cast<int>(variadic_counts->size())) {
       return Status::IOError("variadic_count_index out of range.");
     }
     int64_t count = variadic_counts->Get(i);
-    if (count < 0 || count > std::numeric_limits<int32_t>::max()) {
-      return Status::IOError(
-          "variadic_count must be representable as a positive int32_t, got ", count, ".");
+    if (count < 0) {
+      return Status::IOError("variadic buffer count must be positive");
     }
-    return static_cast<size_t>(count);
+    // Detect an excessive variadic buffer count to avoid potential memory blowup
+    // (GH-48900).
+    const auto max_buffer_count =
+        static_cast<int64_t>(metadata_->buffers()->size()) - buffer_index_;
+    if (count > max_buffer_count) {
+      return Status::IOError("variadic buffer count exceeds available number of buffers");
+    }
+    return count;
   }
 
   Status GetFieldMetadata(int field_index, ArrayData* out) {
@@ -398,7 +404,7 @@ class ArrayLoader {
     ARROW_ASSIGN_OR_RAISE(auto data_buffer_count,
                           GetVariadicCount(variadic_count_index_++));
     out_->buffers.resize(data_buffer_count + 2);
-    for (size_t i = 0; i < data_buffer_count; ++i) {
+    for (int64_t i = 0; i < data_buffer_count; ++i) {
       RETURN_NOT_OK(GetBuffer(buffer_index_++, &out_->buffers[i + 2]));
     }
     return Status::OK();
@@ -1180,31 +1186,36 @@ Status CheckAligned(const FileBlock& block) {
   return Status::OK();
 }
 
+template <typename MessagePtr>
+Result<MessagePtr> CheckBodyLength(MessagePtr message, const FileBlock& block) {
+  if (message->body_length() != block.body_length) {
+    return Status::Invalid(
+        "Mismatching body length for IPC message "
+        "(Block.bodyLength: ",
+        block.body_length, " vs. Message.bodyLength: ", message->body_length(), ")");
+  }
+  // NOTE: we cannot check metadata length as easily as we would have to account
+  // for the additional IPC signalisation (such as optional continuation bytes).
+  return message;
+}
+
 Result<std::unique_ptr<Message>> ReadMessageFromBlock(
     const FileBlock& block, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
   RETURN_NOT_OK(CheckAligned(block));
-  // TODO(wesm): this breaks integration tests, see ARROW-3256
-  // DCHECK_EQ((*out)->body_length(), block.body_length);
-
   ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
                                                   file, fields_loader));
-  return message;
+  return CheckBodyLength(std::move(message), block);
 }
 
 Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
     const FileBlock& block, io::RandomAccessFile* file, const io::IOContext& io_context) {
-  if (!bit_util::IsMultipleOf8(block.offset) ||
-      !bit_util::IsMultipleOf8(block.metadata_length) ||
-      !bit_util::IsMultipleOf8(block.body_length)) {
-    return Status::Invalid("Unaligned block in IPC file");
-  }
-
-  // TODO(wesm): this breaks integration tests, see ARROW-3256
-  // DCHECK_EQ((*out)->body_length(), block.body_length);
-
+  RETURN_NOT_OK(CheckAligned(block));
   return ReadMessageAsync(block.offset, block.metadata_length, block.body_length, file,
-                          io_context);
+                          io_context)
+      .Then([block](std::shared_ptr<Message> message) {
+        return CheckBodyLength(std::move(message), block);
+      });
 }
 
 class RecordBatchFileReaderImpl;

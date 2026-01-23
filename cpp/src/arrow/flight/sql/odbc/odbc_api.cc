@@ -41,11 +41,7 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
   ARROW_LOG(DEBUG) << "SQLAllocHandle called with type: " << type
                    << ", parent: " << parent
                    << ", result: " << static_cast<const void*>(result);
-  // GH-47706 TODO: Add tests for SQLAllocStmt, pre-requisite requires
-  // SQLDriverConnect implementation
-
   *result = nullptr;
-
   switch (type) {
     case SQL_HANDLE_ENV: {
       using ODBC::ODBCEnvironment;
@@ -141,9 +137,6 @@ SQLRETURN SQLAllocHandle(SQLSMALLINT type, SQLHANDLE parent, SQLHANDLE* result) 
 SQLRETURN SQLFreeHandle(SQLSMALLINT type, SQLHANDLE handle) {
   ARROW_LOG(DEBUG) << "SQLFreeHandle called with type: " << type
                    << ", handle: " << handle;
-  // GH-47706 TODO: Add tests for SQLFreeStmt, pre-requisite requires
-  // SQLAllocStmt tests
-
   switch (type) {
     case SQL_HANDLE_ENV: {
       using ODBC::ODBCEnvironment;
@@ -234,7 +227,6 @@ SQLRETURN SQLFreeStmt(SQLHSTMT handle, SQLUSMALLINT option) {
     }
 
     case SQL_UNBIND: {
-      // GH-47716 TODO: Add tests for SQLBindCol unbinding
       using ODBC::ODBCDescriptor;
       using ODBC::ODBCStatement;
       return ODBCStatement::ExecuteWithDiagnostics(handle, SQL_ERROR, [=]() {
@@ -280,7 +272,6 @@ SQLRETURN SQLGetDiagField(SQLSMALLINT handle_type, SQLHANDLE handle,
                    << ", diag_info_ptr: " << diag_info_ptr
                    << ", buffer_length: " << buffer_length << ", string_length_ptr: "
                    << static_cast<const void*>(string_length_ptr);
-  // GH-46575 TODO: Add tests for SQLGetDiagField
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCDescriptor;
@@ -545,7 +536,6 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
                    << ", message_text: " << static_cast<const void*>(message_text)
                    << ", buffer_length: " << buffer_length
                    << ", text_length_ptr: " << static_cast<const void*>(text_length_ptr);
-  // GH-46575 TODO: Add tests for SQLGetDiagRec
   using arrow::flight::sql::odbc::Diagnostics;
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
@@ -1076,8 +1066,33 @@ SQLRETURN SQLExtendedFetch(SQLHSTMT stmt, SQLUSMALLINT fetch_orientation,
                    << ", row_count_ptr: " << static_cast<const void*>(row_count_ptr)
                    << ", row_status_array: "
                    << static_cast<const void*>(row_status_array);
-  // GH-47714 TODO: Implement SQLExtendedFetch
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // Only SQL_FETCH_NEXT forward-only fetching orientation is supported,
+    // meaning the behavior of SQLExtendedFetch is same as SQLFetch.
+    if (fetch_orientation != SQL_FETCH_NEXT) {
+      throw DriverException("Optional feature not supported.", "HYC00");
+    }
+    // Ignore fetch_offset as it's not applicable to SQL_FETCH_NEXT
+    ARROW_UNUSED(fetch_offset);
+
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // The SQL_ROWSET_SIZE statement attribute specifies the number of rows in the
+    // rowset. Retrieve it from GetRowsetSize.
+    SQLULEN row_set_size = statement->GetRowsetSize();
+    ARROW_LOG(DEBUG) << "SQL_ROWSET_SIZE value for SQLExtendedFetch: " << row_set_size;
+
+    if (statement->Fetch(static_cast<size_t>(row_set_size), row_count_ptr,
+                         row_status_array)) {
+      return SQL_SUCCESS;
+    } else {
+      // Reached the end of rowset
+      return SQL_NO_DATA;
+    }
+  });
 }
 
 SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT fetch_orientation,
@@ -1085,8 +1100,31 @@ SQLRETURN SQLFetchScroll(SQLHSTMT stmt, SQLSMALLINT fetch_orientation,
   ARROW_LOG(DEBUG) << "SQLFetchScroll called with stmt: " << stmt
                    << ", fetch_orientation: " << fetch_orientation
                    << ", fetch_offset: " << fetch_offset;
-  // GH-47715 TODO: Implement SQLFetchScroll
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    // Only SQL_FETCH_NEXT forward-only fetching orientation is supported,
+    // meaning the behavior of SQLExtendedFetch is same as SQLFetch.
+    if (fetch_orientation != SQL_FETCH_NEXT) {
+      throw DriverException("Optional feature not supported.", "HYC00");
+    }
+    // Ignore fetch_offset as it's not applicable to SQL_FETCH_NEXT
+    ARROW_UNUSED(fetch_offset);
+
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    // The SQL_ATTR_ROW_ARRAY_SIZE statement attribute specifies the number of rows in the
+    // rowset.
+    ODBCDescriptor* ard = statement->GetARD();
+    size_t rows = static_cast<size_t>(ard->GetArraySize());
+    if (statement->Fetch(rows)) {
+      return SQL_SUCCESS;
+    } else {
+      // Reached the end of rowset
+      return SQL_NO_DATA;
+    }
+  });
 }
 
 SQLRETURN SQLBindCol(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_type,
@@ -1142,8 +1180,14 @@ SQLRETURN SQLGetData(SQLHSTMT stmt, SQLUSMALLINT record_number, SQLSMALLINT c_ty
 
 SQLRETURN SQLMoreResults(SQLHSTMT stmt) {
   ARROW_LOG(DEBUG) << "SQLMoreResults called with stmt: " << stmt;
-  // GH-47713 TODO: Implement SQLMoreResults
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  // Multiple result sets are not supported by Arrow protocol. Return SQL_NO_DATA by
+  // default to indicate no data is available.
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    return statement->GetMoreResults();
+  });
 }
 
 SQLRETURN SQLNumResultCols(SQLHSTMT stmt, SQLSMALLINT* column_count_ptr) {
@@ -1221,8 +1265,24 @@ SQLRETURN SQLColumns(SQLHSTMT stmt, SQLWCHAR* catalog_name,
                    << ", table_name_length: " << table_name_length
                    << ", column_name: " << static_cast<const void*>(column_name)
                    << ", column_name_length: " << column_name_length;
-  // GH-47720 TODO: Implement SQLColumns
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  using ODBC::SqlWcharToString;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    std::string catalog = SqlWcharToString(catalog_name, catalog_name_length);
+    std::string schema = SqlWcharToString(schema_name, schema_name_length);
+    std::string table = SqlWcharToString(table_name, table_name_length);
+    std::string column = SqlWcharToString(column_name, column_name_length);
+
+    statement->GetColumns(catalog_name ? &catalog : nullptr,
+                          schema_name ? &schema : nullptr, table_name ? &table : nullptr,
+                          column_name ? &column : nullptr);
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT record_number,
@@ -1237,8 +1297,90 @@ SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT record_number,
                    << ", output_length: " << static_cast<const void*>(output_length)
                    << ", numeric_attribute_ptr: "
                    << static_cast<const void*>(numeric_attribute_ptr);
-  // GH-47721 TODO: Implement SQLColAttribute, pre-requisite requires SQLColumns
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    ODBCDescriptor* ird = statement->GetIRD();
+    SQLINTEGER output_length_int;
+    switch (field_identifier) {
+      // Numeric attributes
+      // internal is SQLLEN, no conversion is needed
+      case SQL_DESC_DISPLAY_SIZE:
+      case SQL_DESC_OCTET_LENGTH: {
+        ird->GetField(record_number, field_identifier, numeric_attribute_ptr,
+                      buffer_length, &output_length_int);
+        break;
+      }
+      // internal is SQLULEN, conversion is needed.
+      case SQL_COLUMN_LENGTH:  // ODBC 2.0
+      case SQL_DESC_LENGTH: {
+        SQLULEN temp;
+        ird->GetField(record_number, field_identifier, &temp, buffer_length,
+                      &output_length_int);
+        if (numeric_attribute_ptr) {
+          *numeric_attribute_ptr = static_cast<SQLLEN>(temp);
+        }
+        break;
+      }
+      // internal is SQLINTEGER, conversion is needed.
+      case SQL_DESC_AUTO_UNIQUE_VALUE:
+      case SQL_DESC_CASE_SENSITIVE:
+      case SQL_DESC_NUM_PREC_RADIX: {
+        SQLINTEGER temp;
+        ird->GetField(record_number, field_identifier, &temp, buffer_length,
+                      &output_length_int);
+        if (numeric_attribute_ptr) {
+          *numeric_attribute_ptr = static_cast<SQLLEN>(temp);
+        }
+        break;
+      }
+      // internal is SQLSMALLINT, conversion is needed.
+      case SQL_DESC_CONCISE_TYPE:
+      case SQL_DESC_COUNT:
+      case SQL_DESC_FIXED_PREC_SCALE:
+      case SQL_DESC_TYPE:
+      case SQL_DESC_NULLABLE:
+      case SQL_COLUMN_PRECISION:  // ODBC 2.0
+      case SQL_DESC_PRECISION:
+      case SQL_COLUMN_SCALE:  // ODBC 2.0
+      case SQL_DESC_SCALE:
+      case SQL_DESC_SEARCHABLE:
+      case SQL_DESC_UNNAMED:
+      case SQL_DESC_UNSIGNED:
+      case SQL_DESC_UPDATABLE: {
+        SQLSMALLINT temp;
+        ird->GetField(record_number, field_identifier, &temp, buffer_length,
+                      &output_length_int);
+        if (numeric_attribute_ptr) {
+          *numeric_attribute_ptr = static_cast<SQLLEN>(temp);
+        }
+        break;
+      }
+      // Character attributes
+      case SQL_DESC_BASE_COLUMN_NAME:
+      case SQL_DESC_BASE_TABLE_NAME:
+      case SQL_DESC_CATALOG_NAME:
+      case SQL_DESC_LABEL:
+      case SQL_DESC_LITERAL_PREFIX:
+      case SQL_DESC_LITERAL_SUFFIX:
+      case SQL_DESC_LOCAL_TYPE_NAME:
+      case SQL_DESC_NAME:
+      case SQL_DESC_SCHEMA_NAME:
+      case SQL_DESC_TABLE_NAME:
+      case SQL_DESC_TYPE_NAME:
+        ird->GetField(record_number, field_identifier, character_attribute_ptr,
+                      buffer_length, &output_length_int);
+        break;
+      default:
+        throw DriverException("Invalid descriptor field", "HY091");
+    }
+    if (output_length) {
+      *output_length = static_cast<SQLSMALLINT>(output_length_int);
+    }
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT data_type) {
@@ -1246,8 +1388,60 @@ SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT data_type) {
   // appropriate data types in `SEARCHABLE` field
   ARROW_LOG(DEBUG) << "SQLGetTypeInfoW called with stmt: " << stmt
                    << " data_type: " << data_type;
-  // GH-47722 TODO: Implement SQLGetTypeInfo
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCStatement;
+  return ODBC::ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+
+    switch (data_type) {
+      case SQL_ALL_TYPES:
+      case SQL_CHAR:
+      case SQL_VARCHAR:
+      case SQL_LONGVARCHAR:
+      case SQL_WCHAR:
+      case SQL_WVARCHAR:
+      case SQL_WLONGVARCHAR:
+      case SQL_BIT:
+      case SQL_BINARY:
+      case SQL_VARBINARY:
+      case SQL_LONGVARBINARY:
+      case SQL_TINYINT:
+      case SQL_SMALLINT:
+      case SQL_INTEGER:
+      case SQL_BIGINT:
+      case SQL_NUMERIC:
+      case SQL_DECIMAL:
+      case SQL_FLOAT:
+      case SQL_REAL:
+      case SQL_DOUBLE:
+      case SQL_GUID:
+      case SQL_DATE:
+      case SQL_TYPE_DATE:
+      case SQL_TIME:
+      case SQL_TYPE_TIME:
+      case SQL_TIMESTAMP:
+      case SQL_TYPE_TIMESTAMP:
+      case SQL_INTERVAL_DAY:
+      case SQL_INTERVAL_DAY_TO_HOUR:
+      case SQL_INTERVAL_DAY_TO_MINUTE:
+      case SQL_INTERVAL_DAY_TO_SECOND:
+      case SQL_INTERVAL_HOUR:
+      case SQL_INTERVAL_HOUR_TO_MINUTE:
+      case SQL_INTERVAL_HOUR_TO_SECOND:
+      case SQL_INTERVAL_MINUTE:
+      case SQL_INTERVAL_MINUTE_TO_SECOND:
+      case SQL_INTERVAL_SECOND:
+      case SQL_INTERVAL_YEAR:
+      case SQL_INTERVAL_YEAR_TO_MONTH:
+      case SQL_INTERVAL_MONTH:
+        statement->GetTypeInfo(data_type);
+        break;
+      default:
+        throw DriverException("Invalid SQL data type", "HY004");
+    }
+
+    return SQL_SUCCESS;
+  });
 }
 
 SQLRETURN SQLNativeSql(SQLHDBC conn, SQLWCHAR* in_statement_text,
@@ -1295,8 +1489,110 @@ SQLRETURN SQLDescribeCol(SQLHSTMT stmt, SQLUSMALLINT column_number, SQLWCHAR* co
                    << ", decimal_digits_ptr: "
                    << static_cast<const void*>(decimal_digits_ptr)
                    << ", nullable_ptr: " << static_cast<const void*>(nullable_ptr);
-  // GH-47724 TODO: Implement SQLDescribeCol
-  return SQL_INVALID_HANDLE;
+
+  using ODBC::ODBCDescriptor;
+  using ODBC::ODBCStatement;
+
+  return ODBCStatement::ExecuteWithDiagnostics(stmt, SQL_ERROR, [=]() {
+    ODBCStatement* statement = reinterpret_cast<ODBCStatement*>(stmt);
+    ODBCDescriptor* ird = statement->GetIRD();
+    SQLINTEGER output_length_int;
+    SQLSMALLINT sql_type;
+
+    // Column SQL Type
+    ird->GetField(column_number, SQL_DESC_CONCISE_TYPE, &sql_type, sizeof(SQLSMALLINT),
+                  nullptr);
+    if (data_type_ptr) {
+      *data_type_ptr = sql_type;
+    }
+
+    // Column Name
+    if (column_name || name_length_ptr) {
+      ird->GetField(column_number, SQL_DESC_NAME, column_name, buffer_length,
+                    &output_length_int);
+      if (name_length_ptr) {
+        // returned length should be in characters
+        *name_length_ptr =
+            static_cast<SQLSMALLINT>(output_length_int / GetSqlWCharSize());
+      }
+    }
+
+    // Column Size
+    if (column_size_ptr) {
+      switch (sql_type) {
+        // All numeric types
+        case SQL_DECIMAL:
+        case SQL_NUMERIC:
+        case SQL_TINYINT:
+        case SQL_SMALLINT:
+        case SQL_INTEGER:
+        case SQL_BIGINT:
+        case SQL_REAL:
+        case SQL_FLOAT:
+        case SQL_DOUBLE: {
+          ird->GetField(column_number, SQL_DESC_PRECISION, column_size_ptr,
+                        sizeof(SQLULEN), nullptr);
+          break;
+        }
+
+        default: {
+          ird->GetField(column_number, SQL_DESC_LENGTH, column_size_ptr, sizeof(SQLULEN),
+                        nullptr);
+        }
+      }
+    }
+
+    // Column Decimal Digits
+    if (decimal_digits_ptr) {
+      switch (sql_type) {
+        // All exact numeric types
+        case SQL_TINYINT:
+        case SQL_SMALLINT:
+        case SQL_INTEGER:
+        case SQL_BIGINT:
+        case SQL_DECIMAL:
+        case SQL_NUMERIC: {
+          ird->GetField(column_number, SQL_DESC_SCALE, decimal_digits_ptr,
+                        sizeof(SQLULEN), nullptr);
+          break;
+        }
+
+        // All datetime types (ODBC 2)
+        case SQL_DATE:
+        case SQL_TIME:
+        case SQL_TIMESTAMP:
+        // All datetime types (ODBC 3)
+        case SQL_TYPE_DATE:
+        case SQL_TYPE_TIME:
+        case SQL_TYPE_TIMESTAMP:
+        // All interval types with a seconds component
+        case SQL_INTERVAL_SECOND:
+        case SQL_INTERVAL_MINUTE_TO_SECOND:
+        case SQL_INTERVAL_HOUR_TO_SECOND:
+        case SQL_INTERVAL_DAY_TO_SECOND: {
+          ird->GetField(column_number, SQL_DESC_PRECISION, decimal_digits_ptr,
+                        sizeof(SQLULEN), nullptr);
+          break;
+        }
+
+        default: {
+          // All character and binary types
+          // SQL_BIT
+          // All approximate numeric types
+          // All interval types with no seconds component
+          *decimal_digits_ptr = static_cast<SQLSMALLINT>(0);
+        }
+      }
+    }
+
+    // Column Nullable
+    if (nullable_ptr) {
+      ird->GetField(column_number, SQL_DESC_NULLABLE, nullable_ptr, sizeof(SQLSMALLINT),
+                    nullptr);
+    }
+
+    return SQL_SUCCESS;
+  });
 }
 
 }  // namespace arrow::flight::sql::odbc

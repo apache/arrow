@@ -70,7 +70,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: matlab-ccache-ubuntu-${{ hashFiles('cpp/**', 'matlab/**') }}
@@ -118,7 +118,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: matlab-ccache-macos-${{ hashFiles('cpp/**', 'matlab/**') }}
@@ -161,7 +161,7 @@ jobs:
         shell: bash
         run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ${{ steps.ccache-info.outputs.cache-dir }}

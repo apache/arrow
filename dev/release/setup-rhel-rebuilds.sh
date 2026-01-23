@@ -16,20 +16,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
-# A script to install dependencies required for release
-# verification Red Hat Enterprise Linux 8 clones in particular
-# on AlmaLinux 8 and Rocky Linux 8
+# A script to install dependencies required for release verification
+# on Red Hat Enterprise Linux 8 or later clones in particular on
+# AlmaLinux 8 or later.
 
 set -exu
 
-dnf -y install 'dnf-command(config-manager)'
-dnf config-manager --set-enabled powertools
+# shellcheck source=/dev/null
+distribution_version=$(. /etc/os-release && echo "${VERSION_ID}" | grep -o "^[0-9]*")
+
+if [ "${distribution_version}" -eq 8 ]; then
+  dnf -y install 'dnf-command(config-manager)'
+  dnf config-manager --set-enabled powertools
+  python_devel=python3.12-devel
+else
+  python_devel=python3-devel
+fi
 dnf -y update
-dnf -y module disable nodejs
-dnf -y module enable nodejs:18
-dnf -y module disable ruby
-dnf -y module enable ruby:2.7
 dnf -y groupinstall "Development Tools"
 dnf -y install \
   cmake \
@@ -40,15 +43,12 @@ dnf -y install \
   llvm-toolset \
   ncurses-devel \
   ninja-build \
-  nodejs \
   openssl-devel \
-  python3.12-devel \
+  ${python_devel} \
   ruby-devel \
   sqlite-devel \
   vala-devel \
   wget \
   which
-
-npm install -g yarn
 
 python3 -m ensurepip --upgrade

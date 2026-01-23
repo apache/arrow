@@ -343,6 +343,22 @@ def latest_prefix(obj, prefix, fetch):
     click.echo(latest.branch)
 
 
+class NightlyEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('nightly_report', **kwargs)
+
+    def subject(self):
+        report = self.report
+        n_errors = len(report.tasks_by_state['error'])
+        n_failures = len(report.tasks_by_state['failure'])
+        n_pendings = len(report.tasks_by_state['pending'])
+        return (
+            f'[NIGHTLY] Arrow Build Report for Job {report.job.branch}: '
+            f'{n_errors + n_failures} failed, '
+            f'{n_pendings} pending'
+        )
+
+
 @crossbow.command()
 @click.argument('job-name', required=True)
 @click.option('--sender-name', '-n',
@@ -382,8 +398,9 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
         queue.fetch()
 
     job = queue.get(job_name)
-    email_report = EmailReport(
-        report=Report(job),
+    report = Report(job)
+    email_report = NightlyEmailReport(
+        report=report,
         sender_name=sender_name,
         sender_email=sender_email,
         recipient_email=recipient_email
@@ -401,11 +418,10 @@ def report(obj, job_name, sender_name, sender_email, recipient_email,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=email_report.render("nightly_report")
+            report=email_report
         )
     else:
-        output.write(email_report.render("nightly_report"))
+        output.write(str(email_report.render()))
 
 
 @crossbow.command()
@@ -601,6 +617,17 @@ def delete_old_branches(obj, dry_run, days, maximum):
             print(batch)
 
 
+class TokenExpirationEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('token_expiration', **kwargs)
+
+    def subject(self):
+        token_expiration_date = self.report.token_expiration_date
+        return (
+            f'[CI] Arrow Crossbow Token Expiration in {token_expiration_date}'
+        )
+
+
 @crossbow.command()
 @click.option('--days', default=30,
               help='Notification will be sent if expiration date is '
@@ -645,23 +672,18 @@ def notify_token_expiration(obj, days, sender_name, sender_email,
             self.token_expiration_date = token_expiration_date
             self.days_left = days_left
 
-    email_report = EmailReport(
-        report=TokenExpirationReport(
-            token_expiration_date or "ALREADY_EXPIRED", days_left),
-        sender_name=sender_name,
-        sender_email=sender_email,
-        recipient_email=recipient_email
-    )
+    if not token_expiration_date:
+        token_expiration_date = 'ALREADY_EXPIRED'
+    report = TokenExpirationReport(token_expiration_date, days_left)
+    email_report = TokenExpirationEmailReport(report)
 
-    message = email_report.render("token_expiration").strip()
     if send:
         ReportUtils.send_email(
             smtp_user=smtp_user,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=message
+            report=email_report
         )
     else:
-        output.write(message)
+        output.write(str(email_report.render()))

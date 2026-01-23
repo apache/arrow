@@ -490,3 +490,11 @@ test_that(".by argument", {
     "Can't supply `\\.by` when `\\.data` is grouped data"
   )
 })
+
+test_that("filter() with aggregation expressions errors", {
+  tab <- arrow_table(tbl)
+  expect_warning(
+    tab |> filter(int < mean(int)),
+    "not supported in filter"
+  )
+})

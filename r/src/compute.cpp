@@ -162,12 +162,13 @@ std::shared_ptr<arrow::compute::FunctionOptions> make_compute_options(
     // false means descending, true means ascending
     // cpp11 does not support bool here so use int
     auto orders = cpp11::as_cpp<std::vector<int>>(options["orders"]);
-    std::vector<Key> keys;
+    // Use resize + assignment to avoid vector growth operations that trigger
+    // false positive -Wmaybe-uninitialized warnings in GCC 14 with std::variant
+    std::vector<Key> keys(names.size(), Key("", Order::Ascending));
     for (size_t i = 0; i < names.size(); i++) {
-      keys.push_back(
-          Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending));
+      keys[i] = Key(names[i], (orders[i] > 0) ? Order::Descending : Order::Ascending);
     }
-    auto out = std::make_shared<Options>(Options(keys));
+    auto out = std::make_shared<Options>(std::move(keys));
     return out;
   }
 

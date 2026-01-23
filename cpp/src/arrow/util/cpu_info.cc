@@ -266,20 +266,20 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
   };
   std::vector<SysCtlCpuFeature> features = {
 #  if defined(CPUINFO_ARCH_X86)
-    {"hw.optional.sse4_2",
-     CpuInfo::SSSE3 | CpuInfo::SSE4_1 | CpuInfo::SSE4_2 | CpuInfo::POPCNT},
-    {"hw.optional.avx1_0", CpuInfo::AVX},
-    {"hw.optional.avx2_0", CpuInfo::AVX2},
-    {"hw.optional.bmi1", CpuInfo::BMI1},
-    {"hw.optional.bmi2", CpuInfo::BMI2},
-    {"hw.optional.avx512f", CpuInfo::AVX512F},
-    {"hw.optional.avx512cd", CpuInfo::AVX512CD},
-    {"hw.optional.avx512dq", CpuInfo::AVX512DQ},
-    {"hw.optional.avx512bw", CpuInfo::AVX512BW},
-    {"hw.optional.avx512vl", CpuInfo::AVX512VL},
+      {"hw.optional.sse4_2",
+       CpuInfo::SSSE3 | CpuInfo::SSE4_1 | CpuInfo::SSE4_2 | CpuInfo::POPCNT},
+      {"hw.optional.avx1_0", CpuInfo::AVX},
+      {"hw.optional.avx2_0", CpuInfo::AVX2},
+      {"hw.optional.bmi1", CpuInfo::BMI1},
+      {"hw.optional.bmi2", CpuInfo::BMI2},
+      {"hw.optional.avx512f", CpuInfo::AVX512F},
+      {"hw.optional.avx512cd", CpuInfo::AVX512CD},
+      {"hw.optional.avx512dq", CpuInfo::AVX512DQ},
+      {"hw.optional.avx512bw", CpuInfo::AVX512BW},
+      {"hw.optional.avx512vl", CpuInfo::AVX512VL},
 #  elif defined(CPUINFO_ARCH_ARM)
-    // ARM64 (note that this is exposed under Rosetta as well)
-    {"hw.optional.neon", CpuInfo::ASIMD},
+      // ARM64 (note that this is exposed under Rosetta as well)
+      {"hw.optional.neon", CpuInfo::ASIMD},
 #  endif
   };
   for (const auto& feature : features) {
@@ -351,21 +351,15 @@ int64_t LinuxParseCpuFlags(const std::string& values) {
     int64_t flag;
   } flag_mappings[] = {
 #    if defined(CPUINFO_ARCH_X86)
-    {"ssse3", CpuInfo::SSSE3},
-    {"sse4_1", CpuInfo::SSE4_1},
-    {"sse4_2", CpuInfo::SSE4_2},
-    {"popcnt", CpuInfo::POPCNT},
-    {"avx", CpuInfo::AVX},
-    {"avx2", CpuInfo::AVX2},
-    {"avx512f", CpuInfo::AVX512F},
-    {"avx512cd", CpuInfo::AVX512CD},
-    {"avx512vl", CpuInfo::AVX512VL},
-    {"avx512dq", CpuInfo::AVX512DQ},
-    {"avx512bw", CpuInfo::AVX512BW},
-    {"bmi1", CpuInfo::BMI1},
-    {"bmi2", CpuInfo::BMI2},
+      {"ssse3", CpuInfo::SSSE3},       {"sse4_1", CpuInfo::SSE4_1},
+      {"sse4_2", CpuInfo::SSE4_2},     {"popcnt", CpuInfo::POPCNT},
+      {"avx", CpuInfo::AVX},           {"avx2", CpuInfo::AVX2},
+      {"avx512f", CpuInfo::AVX512F},   {"avx512cd", CpuInfo::AVX512CD},
+      {"avx512vl", CpuInfo::AVX512VL}, {"avx512dq", CpuInfo::AVX512DQ},
+      {"avx512bw", CpuInfo::AVX512BW}, {"bmi1", CpuInfo::BMI1},
+      {"bmi2", CpuInfo::BMI2},
 #    elif defined(CPUINFO_ARCH_ARM)
-    {"asimd", CpuInfo::ASIMD},
+      {"asimd", CpuInfo::ASIMD},
 #    endif
   };
   const int64_t num_flags = sizeof(flag_mappings) / sizeof(flag_mappings[0]);

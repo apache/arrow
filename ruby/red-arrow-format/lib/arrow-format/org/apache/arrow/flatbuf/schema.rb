@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -17,6 +17,15 @@ module ArrowFormat
           # ----------------------------------------------------------------------
           # A Schema describes the columns in a row batch
           class Schema < ::FlatBuffers::Table
+            FIELDS = {
+              endianness: ::FlatBuffers::Field.new(:endianness, 0, 4, :short, 0),
+              fields: ::FlatBuffers::Field.new(:fields, 1, 6, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::Field"], 0),
+              custom_metadata: ::FlatBuffers::Field.new(:custom_metadata, 2, 8, ["::ArrowFormat::Org::Apache::Arrow::Flatbuf::KeyValue"], 0),
+              features: ::FlatBuffers::Field.new(:features, 3, 10, [:long], 0),
+            }
+
+            Data = define_data_class
+
             def custom_metadata
               field_offset = @view.unpack_virtual_offset(8)
               return nil if field_offset.zero?

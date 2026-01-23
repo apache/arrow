@@ -29,7 +29,7 @@ there may be exceptions.
 Language version
 ----------------
 
-Starting with version 10.0, Arrow C++ is C++17-compatible.
+Starting with version 23.0, Arrow C++ requires C++20 or later.
 
 Namespacing
 -----------

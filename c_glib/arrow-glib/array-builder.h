@@ -1442,6 +1442,37 @@ garrow_month_day_nano_interval_array_builder_append_values(
   gint64 is_valids_length,
   GError **error);
 
+#define GARROW_TYPE_DURATION_ARRAY_BUILDER (garrow_duration_array_builder_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(GArrowDurationArrayBuilder,
+                         garrow_duration_array_builder,
+                         GARROW,
+                         DURATION_ARRAY_BUILDER,
+                         GArrowArrayBuilder)
+struct _GArrowDurationArrayBuilderClass
+{
+  GArrowArrayBuilderClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDurationArrayBuilder *
+garrow_duration_array_builder_new(GArrowDurationDataType *data_type);
+
+GARROW_AVAILABLE_IN_23_0
+gboolean
+garrow_duration_array_builder_append_value(GArrowDurationArrayBuilder *builder,
+                                           gint64 value,
+                                           GError **error);
+
+GARROW_AVAILABLE_IN_23_0
+gboolean
+garrow_duration_array_builder_append_values(GArrowDurationArrayBuilder *builder,
+                                            const gint64 *values,
+                                            gint64 values_length,
+                                            const gboolean *is_valids,
+                                            gint64 is_valids_length,
+                                            GError **error);
+
 #define GARROW_TYPE_BINARY_DICTIONARY_ARRAY_BUILDER                                      \
   (garrow_binary_dictionary_array_builder_get_type())
 GARROW_AVAILABLE_IN_2_0

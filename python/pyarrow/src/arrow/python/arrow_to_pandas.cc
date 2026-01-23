@@ -1127,8 +1127,9 @@ class TypedPandasWriter : public PandasWriter {
 
   Status CheckTypeExact(const DataType& type, Type::type expected) {
     if (type.id() != expected) {
-      // TODO(wesm): stringify NumPy / pandas type
-      return Status::NotImplemented("Cannot write Arrow data of type ", type.ToString());
+      return Status::NotImplemented("Cannot write Arrow data of type ", type.ToString(),
+                                    " to pandas block with NumPy type ",
+                                    GetNumPyTypeName(NPY_TYPE));
     }
     return Status::OK();
   }
@@ -1862,8 +1863,21 @@ class CategoricalWriter
   }
 
   Status WriteIndicesUniform(const ChunkedArray& data) {
-    RETURN_NOT_OK(this->AllocateNDArray(TRAITS::npy_type, 1));
-    T* out_values = reinterpret_cast<T*>(this->block_data_);
+    // For unsigned types, upcast to signed since pandas uses -1 for nulls
+    // uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+    using OutputType = std::conditional_t<
+        std::is_same<T, uint8_t>::value, int16_t,
+        std::conditional_t<
+            std::is_same<T, uint16_t>::value, int32_t,
+            std::conditional_t<std::is_same<T, uint32_t>::value, int64_t, T>>>;
+    const int npy_output_type = std::is_same<OutputType, int16_t>::value   ? NPY_INT16
+                                : std::is_same<OutputType, int32_t>::value ? NPY_INT32
+                                : std::is_same<OutputType, int64_t>::value
+                                    ? NPY_INT64
+                                    : TRAITS::npy_type;
+
+    RETURN_NOT_OK(this->AllocateNDArray(npy_output_type, 1));
+    auto out_values = reinterpret_cast<OutputType*>(this->block_data_);
 
     for (int c = 0; c < data.num_chunks(); c++) {
       const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
@@ -1874,7 +1888,7 @@ class CategoricalWriter
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
-          *out_values++ = values[i];
+          *out_values++ = static_cast<OutputType>(values[i]);
         } else {
           *out_values++ = -1;
         }
@@ -1927,7 +1941,11 @@ class CategoricalWriter
     const auto& arr_first = checked_cast<const DictionaryArray&>(*data.chunk(0));
     const auto indices_first = std::static_pointer_cast<ArrayType>(arr_first.indices());
 
-    if (data.num_chunks() == 1 && indices_first->null_count() == 0) {
+    // For unsigned types, we need to convert to signed for pandas compatibility
+    // even when there are no nulls, so we skip the fast path
+    const bool is_unsigned = std::is_unsigned<T>::value;
+
+    if (data.num_chunks() == 1 && indices_first->null_count() == 0 && !is_unsigned) {
       RETURN_NOT_OK(
           CheckIndexBounds(*indices_first->data(), arr_first.dictionary()->length()));
 
@@ -2023,13 +2041,12 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
         CATEGORICAL_CASE(Int16Type);
         CATEGORICAL_CASE(Int32Type);
         CATEGORICAL_CASE(Int64Type);
-        case Type::UINT8:
-        case Type::UINT16:
-        case Type::UINT32:
+        CATEGORICAL_CASE(UInt8Type);
+        CATEGORICAL_CASE(UInt16Type);
+        CATEGORICAL_CASE(UInt32Type);
         case Type::UINT64:
           return Status::TypeError(
-              "Converting unsigned dictionary indices to pandas",
-              " not yet supported, index type: ", index_type.ToString());
+              "Converting UInt64 dictionary indices to pandas is not supported.");
         default:
           // Unreachable
           ARROW_DCHECK(false);

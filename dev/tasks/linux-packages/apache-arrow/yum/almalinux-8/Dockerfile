@@ -18,12 +18,17 @@
 ARG FROM=almalinux:8
 FROM ${FROM}
 
+ENV SCL=gcc-toolset-14
+
 ARG DEBUG
 
 RUN \
   quiet=$([ "${DEBUG}" = "yes" ] || echo "--quiet") && \
   dnf install -y ${quiet} epel-release && \
   dnf install --enablerepo=powertools -y ${quiet} \
+    ${SCL}-annobin-plugin-gcc \
+    ${SCL}-gcc-c++ \
+    ${SCL}-libatomic-devel \
     bison \
     boost-devel \
     brotli-devel \
@@ -34,7 +39,6 @@ RUN \
     cmake \
     curl-devel \
     flex \
-    gcc-c++ \
     gflags-devel \
     git \
     glog-devel \

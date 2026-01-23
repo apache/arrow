@@ -153,7 +153,15 @@ namespace red_arrow {
                          const int64_t i) {
       int32_t length;
       const auto value = array.GetValue(i, &length);
-      // TODO: encoding support
+      return rb_enc_str_new(reinterpret_cast<const char*>(value),
+                            length,
+                            rb_ascii8bit_encoding());
+    }
+
+    inline VALUE convert(const arrow::LargeBinaryArray& array,
+                         const int64_t i) {
+      int64_t length;
+      const auto value = array.GetValue(i, &length);
       return rb_enc_str_new(reinterpret_cast<const char*>(value),
                             length,
                             rb_ascii8bit_encoding());

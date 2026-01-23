@@ -3581,9 +3581,9 @@ cdef class RecordBatch(_Tabular):
         >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
         ...                    {'year': 2022, 'n_legs': 4}])
         >>> pa.RecordBatch.from_struct_array(struct).to_pandas()
-          animals  n_legs    year
-        0  Parrot       2     NaN
-        1    None       4  2022.0
+           n_legs animals    year
+        0       2  Parrot     NaN
+        1       4    None  2022.0
         """
         cdef:
             shared_ptr[CRecordBatch] c_record_batch
@@ -4468,18 +4468,18 @@ cdef class Table(_Tabular):
         ...                              names = ["a", "month"])
         >>> table
         pyarrow.Table
-        a: struct<animals: string, n_legs: int64, year: int64>
-          child 0, animals: string
-          child 1, n_legs: int64
+        a: struct<n_legs: int64, animals: string, year: int64>
+          child 0, n_legs: int64
+          child 1, animals: string
           child 2, year: int64
         month: int64
         ----
         a: [
           -- is_valid: all not null
-          -- child 0 type: string
-        ["Parrot",null]
-          -- child 1 type: int64
+          -- child 0 type: int64
         [2,4]
+          -- child 1 type: string
+        ["Parrot",null]
           -- child 2 type: int64
         [null,2022]]
         month: [[4,6]]
@@ -4488,13 +4488,13 @@ cdef class Table(_Tabular):
 
         >>> table.flatten()
         pyarrow.Table
-        a.animals: string
         a.n_legs: int64
+        a.animals: string
         a.year: int64
         month: int64
         ----
-        a.animals: [["Parrot",null]]
         a.n_legs: [[2,4]]
+        a.animals: [["Parrot",null]]
         a.year: [[null,2022]]
         month: [[4,6]]
         """
@@ -4936,9 +4936,9 @@ cdef class Table(_Tabular):
         >>> struct = pa.array([{'n_legs': 2, 'animals': 'Parrot'},
         ...                    {'year': 2022, 'n_legs': 4}])
         >>> pa.Table.from_struct_array(struct).to_pandas()
-          animals  n_legs    year
-        0  Parrot       2     NaN
-        1    None       4  2022.0
+           n_legs animals    year
+        0       2  Parrot     NaN
+        1       4    None  2022.0
         """
         if isinstance(struct_array, Array):
             return Table.from_batches([RecordBatch.from_struct_array(struct_array)])

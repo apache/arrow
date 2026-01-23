@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -14,6 +14,15 @@ module ArrowFormat
       module Arrow
         module Flatbuf
           class DictionaryEncoding < ::FlatBuffers::Table
+            FIELDS = {
+              id: ::FlatBuffers::Field.new(:id, 0, 4, :long, 0),
+              index_type: ::FlatBuffers::Field.new(:index_type, 1, 6, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::Int", 0),
+              ordered?: ::FlatBuffers::Field.new(:ordered?, 2, 8, :bool, 0),
+              dictionary_kind: ::FlatBuffers::Field.new(:dictionary_kind, 3, 10, :short, 0),
+            }
+
+            Data = define_data_class
+
             def dictionary_kind
               field_offset = @view.unpack_virtual_offset(10)
               if field_offset.zero?
@@ -47,7 +56,7 @@ module ArrowFormat
             end
 
             # By default, dictionaries are not ordered, or the order does not have
-            # semantic meaning. In some statistical, applications, dictionary-encoding
+            # semantic meaning. In some statistical applications, dictionary-encoding
             # is used to represent ordered categorical data, and we provide a way to
             # preserve that metadata here
             def ordered?

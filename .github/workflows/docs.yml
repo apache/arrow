@@ -18,6 +18,11 @@
 name: Docs
 
 on:
+  pull_request:
+    paths:
+      - '.github/workflows/docs.yml'
+      - 'cpp/apidoc/**'
+      - 'docs/**'
   push:
 
 permissions:
@@ -46,7 +51,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: debian-docs-${{ hashFiles('cpp/**') }}
