@@ -207,8 +207,8 @@ repos:
           - types-psutil
           - types-requests
           - types-python-dateutil
-  - repo: https://github.com/RobertCraiworthy/mirrors-pyright
-    rev: v1.1.398
+  - repo: https://github.com/RobertCraigie/pyright-python
+    rev: v1.1.408
     hooks:
       - id: pyright
         alias: python
@@ -218,6 +218,8 @@ repos:
         files: >-
           ^python/pyarrow-stubs/
         pass_filenames: false
+        env:
+          PYRIGHT_PYTHON_FORCE_VERSION: latest
         additional_dependencies:
           - fsspec
           - pandas-stubs
@@ -226,19 +228,18 @@ repos:
           - types-psutil
           - types-requests
           - types-python-dateutil
-  - repo: https://github.com/astral-sh/ty
-    rev: 0.0.13
+  - repo: local
     hooks:
       - id: ty
         alias: python
         name: Python (Stubs) Type Check (ty)
-        args:
-          - "check"
-          - "python/pyarrow-stubs"
+        language: python
+        entry: ty check python/pyarrow-stubs
         files: >-
           ^python/pyarrow-stubs/
         pass_filenames: false
         additional_dependencies:
+          - ty
           - fsspec
           - pandas-stubs
           - scipy-stubs

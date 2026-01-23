@@ -23,4 +23,7 @@ Complete type annotations will be added in subsequent PRs.
 
 from typing import Any
 
+# TODO(GH-48970): remove __getattr__ before release as this
+# will annotate non-existing attributes as Any.
+# https://github.com/apache/arrow/issues/48970
 def __getattr__(name: str) -> Any: ...
