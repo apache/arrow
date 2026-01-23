@@ -46,7 +46,7 @@ module Arrow
       #   @return [Arrow::SortKey] A new suitable sort key.
       #
       # @since 4.0.0
-      def resolve(target, order=nil, null_placement = nil)
+      def resolve(target, order=nil, null_placement=nil)
         return target if target.is_a?(self)
         new(target, order, null_placement)
       end
