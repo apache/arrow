@@ -8892,8 +8892,8 @@ garrow_rank_quantile_options_set_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT:
-    options->null_placement =
-      static_cast<arrow::compute::NullPlacement>(g_value_get_enum(value));
+    options->null_placement = garrow_optional_null_placement_to_raw(
+      static_cast<GArrowOptionalNullPlacement>(g_value_get_enum(value)));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -8912,7 +8912,8 @@ garrow_rank_quantile_options_get_property(GObject *object,
 
   switch (prop_id) {
   case PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT:
-    g_value_set_enum(value, static_cast<GArrowNullPlacement>(options->null_placement));
+    g_value_set_enum(value,
+                     garrow_optional_null_placement_from_raw(options->null_placement));
     break;
   default:
     G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -8950,8 +8951,8 @@ garrow_rank_quantile_options_class_init(GArrowRankQuantileOptionsClass *klass)
                            "Null placement",
                            "Whether nulls and NaNs are placed "
                            "at the start or at the end.",
-                           GARROW_TYPE_NULL_PLACEMENT,
-                           static_cast<GArrowNullPlacement>(options.null_placement),
+                           GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
+                           garrow_optional_null_placement_from_raw(options.null_placement),
                            static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT,
