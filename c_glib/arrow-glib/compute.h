@@ -517,7 +517,7 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
  * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
  *   Place nulls and NaNs after any non-null values.
  *   NaNs will come before nulls.
- * @GARROW_OPTIONAL_NULL_PLACEMENT_UNSET:
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED:
  *   Do not specify null placement.
  *   Null placement should instead
  *
@@ -528,7 +528,7 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
 typedef enum /*<prefix=GARROW_OPTIONAL_NULL_PLACEMENT_>*/ {
   GARROW_OPTIONAL_NULL_PLACEMENT_AT_START,
   GARROW_OPTIONAL_NULL_PLACEMENT_AT_END,
-  GARROW_OPTIONAL_NULL_PLACEMENT_UNSET,
+  GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED,
 } GArrowOptionalNullPlacement;
 
 #define GARROW_TYPE_ARRAY_SORT_OPTIONS (garrow_array_sort_options_get_type())

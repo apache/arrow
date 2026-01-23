@@ -4535,7 +4535,7 @@ namespace {
     const std::optional<arrow::compute::NullPlacement> &arrow_placement)
   {
     if (!arrow_placement.has_value()) {
-      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
+      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED;
     }
 
     switch (arrow_placement.value()) {
@@ -4544,7 +4544,7 @@ namespace {
     case arrow::compute::NullPlacement::AtEnd:
       return GARROW_OPTIONAL_NULL_PLACEMENT_AT_END;
     default:
-      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSET;
+      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED;
     }
   }
 
@@ -4556,7 +4556,7 @@ namespace {
       return arrow::compute::NullPlacement::AtStart;
     case GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
       return arrow::compute::NullPlacement::AtEnd;
-    case GARROW_OPTIONAL_NULL_PLACEMENT_UNSET:
+    case GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED:
     default:
       return std::nullopt;
     }
