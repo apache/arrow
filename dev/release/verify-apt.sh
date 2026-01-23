@@ -162,11 +162,19 @@ if [ "${cmake_version_major}" -gt "3" ] || \
    [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
   cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
   pushd build/minimal_build
-  cmake .
-  make -j$(nproc)
-  ./arrow-example
-  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++20
-  ./arrow-example
+  cmake -S . -B build_shared
+  make -C build_shared -j$(nproc)
+  build_shared/arrow-example
+  cmake -S . -B build_static -DARROW_LINK_SHARED=OFF
+  make -C build_static -j$(nproc)
+  build_static/arrow-example
+  mkdir -p build_pkg_config
+  c++ \
+    example.cc \
+    -o build_pkg_config/arrow-example \
+    $(pkg-config --cflags --libs arrow) \
+    -std=c++20
+  build_pkg_config/arrow-example
   popd
 fi
 echo "::endgroup::"
