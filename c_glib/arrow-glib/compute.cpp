@@ -86,6 +86,26 @@ garrow_take(arrow::Datum arrow_values,
   }
 }
 
+GArrowOptionalNullPlacement
+garrow_optional_null_placement_from_raw(
+  const std::optional<arrow::compute::NullPlacement> &arrow_null_placement)
+{
+  if (!arrow_null_placement.has_value()) {
+    return GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED;
+  }
+  return static_cast<GArrowOptionalNullPlacement>(arrow_null_placement.value());
+}
+
+std::optional<arrow::compute::NullPlacement>
+garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_null_placement)
+{
+  if (garrow_null_placement == GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED) {
+    return std::nullopt;
+  } else {
+    return static_cast<arrow::compute::NullPlacement>(garrow_null_placement);
+  }
+}
+
 namespace {
   gboolean
   garrow_field_refs_add(std::vector<arrow::FieldRef> &arrow_field_refs,
@@ -4528,28 +4548,6 @@ garrow_index_options_new(void)
 {
   return GARROW_INDEX_OPTIONS(g_object_new(GARROW_TYPE_INDEX_OPTIONS, NULL));
 }
-
-namespace {
-  static GArrowOptionalNullPlacement
-  garrow_optional_null_placement_from_raw(
-    const std::optional<arrow::compute::NullPlacement> &arrow_placement)
-  {
-    if (!arrow_null_placement.has_value()) {
-      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED;
-    }
-    return static_cast<GArrowOptionalNullPlacement>(arrow_null_placement.value());
-  }
-
-  static std::optional<arrow::compute::NullPlacement>
-  garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_placement)
-  {
-    if (garrow_null_placement == GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED) {
-      return std::nullopt;
-    } else {
-      return static_cast<arrow::compute::NullPlacement>(garrow_null_placement);
-    }
-  }
-} // namespace
 
 enum {
   PROP_RANK_OPTIONS_NULL_PLACEMENT = 1,

@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow/compute/api.h>
+#include <arrow/compute/ordering.h>
 #include <arrow/acero/exec_plan.h>
 
 #include <arrow-glib/compute.h>
@@ -142,6 +143,12 @@ GArrowIndexOptions *
 garrow_index_options_new_raw(const arrow::compute::IndexOptions *arrow_options);
 arrow::compute::IndexOptions *
 garrow_index_options_get_raw(GArrowIndexOptions *options);
+
+GArrowOptionalNullPlacement
+garrow_optional_null_placement_from_raw(
+  const std::optional<arrow::compute::NullPlacement> &arrow_null_placement);
+std::optional<arrow::compute::NullPlacement>
+garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_null_placement);
 
 GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options);
