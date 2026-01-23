@@ -8947,13 +8947,14 @@ garrow_rank_quantile_options_class_init(GArrowRankQuantileOptionsClass *klass)
    *
    * Since: 23.0.0
    */
-  spec = g_param_spec_enum("null-placement",
-                           "Null placement",
-                           "Whether nulls and NaNs are placed "
-                           "at the start or at the end.",
-                           GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
-                           garrow_optional_null_placement_from_raw(options.null_placement),
-                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  spec =
+    g_param_spec_enum("null-placement",
+                      "Null placement",
+                      "Whether nulls and NaNs are placed "
+                      "at the start or at the end.",
+                      GARROW_TYPE_OPTIONAL_NULL_PLACEMENT,
+                      garrow_optional_null_placement_from_raw(options.null_placement),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
   g_object_class_install_property(gobject_class,
                                   PROP_RANK_QUANTILE_OPTIONS_NULL_PLACEMENT,
                                   spec);
