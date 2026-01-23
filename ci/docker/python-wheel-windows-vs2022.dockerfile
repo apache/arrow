@@ -24,10 +24,9 @@ FROM ${base}
 # Define the full version number otherwise choco falls back to patch number 0 (3.10 => 3.10.0)
 ARG python=3.10
 
-ARG python_variant=default
-ENV PYTHON_VERSION=${python}
-ENV PYTHON_VARIANT=${python_variant}
-# TODO: Fix pymanager to support freethread variants
+ARG python_variant_suffix=""
+ENV PYTHON_VERSION=${python}${python_variant_suffix}
+
 RUN pymanager install %PYTHON_VERSION%
 
 RUN py -%PYTHON_VERSION% -m pip install -U pip setuptools
