@@ -162,7 +162,9 @@ Human-generated mistakes tend to be easier to spot and reason about, and
 code review is intended to be a collaborative learning experience that
 benefits both submitter and reviewer. When a PR appears to have been
 generated without much engagement from the submitter, reviewers with access
-to AI tools could more efficiently generate the code directly.
+to AI tools could more efficiently generate the code directly, and since
+the submitter is not likely to learn from the review process, their time is
+more productively spent researching and reporting on the issue.
 
 We are not opposed to the use of AI tools in generating PRs, but recommend
 the following:
