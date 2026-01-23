@@ -473,7 +473,7 @@ jobs:
         run: |
           mkdir odbc-installer
           mv *.msi odbc-installer/
-          tree odbc-installer /f
+          tree odbc-installer
       - name: Sync to Remote
         uses: ./.github/actions/sync-nightlies
         with:
