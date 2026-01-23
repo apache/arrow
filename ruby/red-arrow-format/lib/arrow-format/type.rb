@@ -282,6 +282,12 @@ module ArrowFormat
       super()
       @precision = precision
     end
+
+    def to_flatbuffers
+      fb_type = FB::FloatingPoint::Data.new
+      fb_type.precision = FB::Precision.try_convert(@precision.to_s.upcase)
+      fb_type
+    end
   end
 
   class Float32Type < FloatingPointType
