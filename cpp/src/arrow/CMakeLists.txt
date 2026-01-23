@@ -1268,6 +1268,44 @@ add_arrow_test(misc_test
                pretty_print_test.cc
                status_test.cc)
 
+# Mimalloc interposition test for memory profiler integration (e.g., memray).
+# Linux-only: LD_PRELOAD semantics and the test interposer use Linux-specific
+# behaviour (dlsym(RTLD_NEXT), atomic constructors/destructors, ELF visibility).
+if(ARROW_MIMALLOC AND CMAKE_SYSTEM_NAME STREQUAL "Linux")
+  # Ensure the wrapper call sites in memory_pool.cc go through the PLT so an
+  # LD_PRELOAD interposer can intercept them. Arrow's global CXX flags include
+  # -fno-semantic-interposition (see SetupCxxFlags.cmake), which lets GCC
+  # resolve same-DSO calls directly without the PLT. Override that here.
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    set_source_files_properties(memory_pool.cc PROPERTIES
+                                COMPILE_OPTIONS "-fsemantic-interposition")
+  endif()
+
+  # Build the interposition shared library
+  add_library(arrow_mimalloc_interpose SHARED memory_pool_interpose.c)
+  target_link_libraries(arrow_mimalloc_interpose PRIVATE ${CMAKE_DL_LIBS})
+  set_target_properties(arrow_mimalloc_interpose PROPERTIES
+                        LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
+  # Build the test helper executable
+  add_executable(arrow-memory-pool-interpose-test-helper
+                 memory_pool_interpose_test_helper.cc)
+  target_link_libraries(arrow-memory-pool-interpose-test-helper PRIVATE arrow_shared)
+  set_target_properties(arrow-memory-pool-interpose-test-helper PROPERTIES
+                        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}")
+
+  # Add the interposition test
+  add_arrow_test(memory_pool_interpose_test)
+  add_dependencies(arrow-memory-pool-interpose-test
+                   arrow_mimalloc_interpose
+                   arrow-memory-pool-interpose-test-helper)
+
+  # Set environment variables for the test to find the helper and library
+  set_tests_properties(arrow-memory-pool-interpose-test PROPERTIES
+    ENVIRONMENT
+      "ARROW_INTERPOSE_TEST_HELPER=$<TARGET_FILE:arrow-memory-pool-interpose-test-helper>;ARROW_INTERPOSE_TEST_LIB=$<TARGET_FILE:arrow_mimalloc_interpose>")
+endif()
+
 add_arrow_test(public_api_test)
 set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 

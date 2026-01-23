@@ -53,6 +53,35 @@
 #  include <mimalloc.h>
 #endif
 
+// PLT-exposed allocation functions for memory profiler integration (e.g., memray).
+// ARROW_EXPORT gives these default visibility so they appear in the dynamic
+// symbol table and can be overridden at load time via LD_PRELOAD. The weak
+// attribute additionally permits a stronger definition at static-link time.
+// `noinline` prevents the compiler from inlining the wrapper into call sites
+// in the same TU, which would defeat interposition. The CMake build also
+// compiles this TU with -fsemantic-interposition on GCC so the call sites
+// route through the PLT (Arrow's default is -fno-semantic-interposition,
+// which lets GCC bypass the PLT for same-DSO calls).
+#ifdef ARROW_MIMALLOC
+extern "C" {
+
+__attribute__((weak, noinline)) ARROW_EXPORT void* arrow_mimalloc_allocate(
+    size_t size, size_t alignment) {
+  return mi_malloc_aligned(size, alignment);
+}
+
+__attribute__((weak, noinline)) ARROW_EXPORT void* arrow_mimalloc_reallocate(
+    void* ptr, size_t new_size, size_t alignment) {
+  return mi_realloc_aligned(ptr, new_size, alignment);
+}
+
+__attribute__((weak, noinline)) ARROW_EXPORT void arrow_mimalloc_free(void* ptr) {
+  mi_free(ptr);
+}
+
+}  // extern "C"
+#endif  // ARROW_MIMALLOC
+
 namespace arrow {
 
 namespace memory_pool {
@@ -393,6 +422,7 @@ class SystemAllocator {
 #ifdef ARROW_MIMALLOC
 
 // Helper class directing allocations to the mimalloc allocator.
+// Uses PLT-exposed functions (arrow_mimalloc_*) to allow memory profiler interposition.
 class MimallocAllocator {
  public:
   static Status AllocateAligned(int64_t size, int64_t alignment, uint8_t** out) {
@@ -401,7 +431,7 @@ class MimallocAllocator {
       return Status::OK();
     }
     *out = reinterpret_cast<uint8_t*>(
-        mi_malloc_aligned(static_cast<size_t>(size), static_cast<size_t>(alignment)));
+        arrow_mimalloc_allocate(static_cast<size_t>(size), static_cast<size_t>(alignment)));
     if (*out == NULL) {
       return Status::OutOfMemory("malloc of size ", size, " failed");
     }
@@ -422,8 +452,8 @@ class MimallocAllocator {
       *ptr = memory_pool::internal::kZeroSizeArea;
       return Status::OK();
     }
-    *ptr = reinterpret_cast<uint8_t*>(
-        mi_realloc_aligned(previous_ptr, static_cast<size_t>(new_size), alignment));
+    *ptr = reinterpret_cast<uint8_t*>(arrow_mimalloc_reallocate(
+        previous_ptr, static_cast<size_t>(new_size), static_cast<size_t>(alignment)));
     if (*ptr == NULL) {
       *ptr = previous_ptr;
       return Status::OutOfMemory("realloc of size ", new_size, " failed");
@@ -435,7 +465,7 @@ class MimallocAllocator {
     if (ptr == memory_pool::internal::kZeroSizeArea) {
       DCHECK_EQ(size, 0);
     } else {
-      mi_free(ptr);
+      arrow_mimalloc_free(ptr);
     }
   }
 
