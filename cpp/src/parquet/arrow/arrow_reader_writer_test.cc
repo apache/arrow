@@ -439,7 +439,7 @@ void DoRoundtrip(const std::shared_ptr<Table>& table, int64_t row_group_size,
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.properties(arrow_reader_properties)->Build(&reader));
-  ASSERT_OK_NO_THROW(reader->ReadTable(out));
+  ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
 }
 
 void CheckConfiguredRoundtrip(
@@ -486,10 +486,10 @@ void DoSimpleRoundtrip(const std::shared_ptr<Table>& table, bool use_threads,
 
   reader->set_use_threads(use_threads);
   if (column_subset.size() > 0) {
-    ASSERT_OK_NO_THROW(reader->ReadTable(column_subset, out));
+    ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable(column_subset));
   } else {
     // Read everything
-    ASSERT_OK_NO_THROW(reader->ReadTable(out));
+    ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
   }
 }
 
@@ -709,7 +709,7 @@ class ParquetIOTestBase : public ::testing::Test {
 
   void ReadTableFromFile(std::unique_ptr<FileReader> reader, bool expect_metadata,
                          std::shared_ptr<Table>* out) {
-    ASSERT_OK_NO_THROW(reader->ReadTable(out));
+    ASSERT_OK_AND_ASSIGN(*out, reader->ReadTable());
     auto key_value_metadata =
         reader->parquet_reader()->metadata()->key_value_metadata().get();
     if (!expect_metadata) {
@@ -2801,8 +2801,7 @@ TEST(TestArrowReadWrite, ReadCoalescedColumnSubset) {
       {0, 4, 8, 10}, {0, 1, 2, 3}, {5, 17, 18, 19}};
 
   for (std::vector<int>& column_subset : column_subsets) {
-    std::shared_ptr<Table> result;
-    ASSERT_OK(reader->ReadTable(column_subset, &result));
+    ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable(column_subset));
 
     std::vector<std::shared_ptr<::arrow::ChunkedArray>> ex_columns;
     std::vector<std::shared_ptr<::arrow::Field>> ex_fields;
@@ -2839,8 +2838,7 @@ TEST(TestArrowReadWrite, ListLargeRecords) {
                                              ::arrow::default_memory_pool()));
 
   // Read everything
-  std::shared_ptr<Table> result;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 
   // Read 1 record at a time
@@ -3579,8 +3577,7 @@ void DoNestedValidate(const std::shared_ptr<::arrow::DataType>& inner_type,
   ASSERT_OK(reader_builder.Build(&reader));
   ARROW_SCOPED_TRACE("Parquet schema: ",
                      reader->parquet_reader()->metadata()->schema()->ToString());
-  std::shared_ptr<Table> result;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
 
   if (inner_type->id() == ::arrow::Type::DATE64 ||
       inner_type->id() == ::arrow::Type::TIMESTAMP ||
@@ -4036,8 +4033,7 @@ class TestNestedSchemaRead : public ::testing::TestWithParam<Repetition::type> {
 TEST_F(TestNestedSchemaRead, ReadIntoTableFull) {
   ASSERT_NO_FATAL_FAILURE(CreateSimpleNestedParquet(Repetition::OPTIONAL));
 
-  std::shared_ptr<Table> table;
-  ASSERT_OK_NO_THROW(reader_->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, reader_->ReadTable());
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->type()->num_fields(), 2);
@@ -4080,7 +4076,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   std::shared_ptr<Table> table;
 
   // columns: {group1.leaf1, leaf3}
-  ASSERT_OK_NO_THROW(reader_->ReadTable({0, 2}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({0, 2}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
@@ -4098,7 +4094,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, group1.leaf2}
-  ASSERT_OK_NO_THROW(reader_->ReadTable({0, 1}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({0, 1}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");
@@ -4106,7 +4102,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {leaf3}
-  ASSERT_OK_NO_THROW(reader_->ReadTable({2}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({2}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 1);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
@@ -4114,7 +4110,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // Test with different ordering
-  ASSERT_OK_NO_THROW(reader_->ReadTable({2, 0}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadTable({2, 0}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "leaf3");
@@ -4135,8 +4131,7 @@ TEST_P(TestNestedSchemaRead, DeepNestedSchemaRead) {
   int num_rows = SMALL_SIZE * (depth + 2);
   ASSERT_NO_FATAL_FAILURE(CreateMultiLevelNestedParquet(num_trees, depth, num_children,
                                                         num_rows, GetParam()));
-  std::shared_ptr<Table> table;
-  ASSERT_OK_NO_THROW(reader_->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, reader_->ReadTable());
   ASSERT_EQ(table->num_columns(), num_trees);
   ASSERT_EQ(table->num_rows(), num_rows);
 
@@ -4184,8 +4179,8 @@ void TryReadDataFile(const std::string& path,
   Status s;
   auto reader_result = FileReader::Make(pool, ParquetFileReader::OpenFile(path, false));
   if (reader_result.ok()) {
-    std::shared_ptr<::arrow::Table> table;
-    s = (*reader_result)->ReadTable(&table);
+    auto table_result = (*reader_result)->ReadTable();
+    s = table_result.status();
   } else {
     s = reader_result.status();
   }
@@ -4261,7 +4256,7 @@ TEST(TestArrowReaderAdHoc, LARGE_MEMORY_TEST(LargeStringColumn)) {
   auto reader = ParquetFileReader::Open(std::make_shared<BufferReader>(tables_buffer));
   ASSERT_OK_AND_ASSIGN(auto arrow_reader,
                        FileReader::Make(default_memory_pool(), std::move(reader)));
-  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(table, arrow_reader->ReadTable());
   ASSERT_OK(table->ValidateFull());
 
   // ARROW-9297: ensure RecordBatchReader also works
@@ -4365,8 +4360,7 @@ TEST(TestArrowReaderAdHoc, LegacyTwoLevelList) {
     // Verify Arrow schema and data
     ASSERT_OK_AND_ASSIGN(auto reader,
                          FileReader::Make(default_memory_pool(), std::move(file_reader)));
-    std::shared_ptr<Table> table;
-    ASSERT_OK(reader->ReadTable(&table));
+    ASSERT_OK_AND_ASSIGN(auto table, reader->ReadTable());
     ASSERT_OK(table->ValidateFull());
     AssertTablesEqual(*expected_table, *table);
   };
@@ -4429,8 +4423,7 @@ TEST_P(TestArrowReaderAdHocSparkAndHvr, ReadDecimals) {
 
   ASSERT_OK_AND_ASSIGN(auto arrow_reader,
                        FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
-  std::shared_ptr<::arrow::Table> table;
-  ASSERT_OK_NO_THROW(arrow_reader->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, arrow_reader->ReadTable());
 
   std::shared_ptr<::arrow::Schema> schema;
   ASSERT_OK_NO_THROW(arrow_reader->GetSchema(&schema));
@@ -4495,8 +4488,7 @@ TEST(TestArrowReaderAdHoc, ReadFloat16Files) {
 
     ASSERT_OK_AND_ASSIGN(
         auto reader, FileReader::Make(pool, ParquetFileReader::OpenFile(path, false)));
-    std::shared_ptr<::arrow::Table> table;
-    ASSERT_OK_NO_THROW(reader->ReadTable(&table));
+    ASSERT_OK_AND_ASSIGN(auto table, reader->ReadTable());
 
     std::shared_ptr<::arrow::Schema> schema;
     ASSERT_OK_NO_THROW(reader->GetSchema(&schema));
@@ -4907,8 +4899,7 @@ class TestArrowReadDictionary : public ::testing::TestWithParam<double> {
   void CheckReadWholeFile(const Table& expected) {
     ASSERT_OK_AND_ASSIGN(auto reader, GetReader());
 
-    std::shared_ptr<Table> actual;
-    ASSERT_OK_NO_THROW(reader->ReadTable(&actual));
+    ASSERT_OK_AND_ASSIGN(auto actual, reader->ReadTable());
     ::arrow::AssertTablesEqual(expected, *actual, /*same_chunk_layout=*/false);
   }
 
@@ -5005,8 +4996,7 @@ TEST_P(TestArrowReadDictionary, IncrementalReads) {
 
   // Read in one shot
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<FileReader> reader, GetReader());
-  std::shared_ptr<Table> expected;
-  ASSERT_OK_NO_THROW(reader->ReadTable(&expected));
+  ASSERT_OK_AND_ASSIGN(auto expected, reader->ReadTable());
 
   ASSERT_OK_AND_ASSIGN(reader, GetReader());
   std::unique_ptr<ColumnReader> col;
@@ -5138,7 +5128,7 @@ class TestArrowReadDeltaEncoding : public ::testing::Test {
     ASSERT_OK_AND_ASSIGN(
         auto parquet_reader,
         FileReader::Make(pool, ParquetFileReader::OpenFile(file, false)));
-    ASSERT_OK(parquet_reader->ReadTable(out));
+    ASSERT_OK_AND_ASSIGN(*out, parquet_reader->ReadTable());
     ASSERT_OK((*out)->ValidateFull());
   }
 
@@ -5340,8 +5330,7 @@ TEST_P(TestNestedSchemaFilteredReader, ReadWrite) {
   FileReaderBuilder builder;
   ASSERT_OK_NO_THROW(builder.Open(std::make_shared<BufferReader>(buffer)));
   ASSERT_OK(builder.properties(default_arrow_reader_properties())->Build(&reader));
-  std::shared_ptr<::arrow::Table> read_table;
-  ASSERT_OK_NO_THROW(reader->ReadTable(GetParam().indices_to_read, &read_table));
+  ASSERT_OK_AND_ASSIGN(auto read_table, reader->ReadTable(GetParam().indices_to_read));
 
   std::shared_ptr<::arrow::Array> expected =
       ArrayFromJSON(GetParam().expected_schema, GetParam().read_data);
@@ -5817,10 +5806,9 @@ TEST(TestArrowReadWrite, MultithreadedWrite) {
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   // Read to verify the data.
-  std::shared_ptr<Table> result;
   ASSERT_OK_AND_ASSIGN(auto reader,
                        OpenFile(std::make_shared<BufferReader>(buffer), pool));
-  ASSERT_OK_NO_THROW(reader->ReadTable(&result));
+  ASSERT_OK_AND_ASSIGN(auto result, reader->ReadTable());
   ASSERT_NO_FATAL_FAILURE(::arrow::AssertTablesEqual(*table, *result));
 }
 

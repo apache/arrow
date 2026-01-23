@@ -212,10 +212,11 @@ GArrowTable *
 gparquet_arrow_file_reader_read_table(GParquetArrowFileReader *reader, GError **error)
 {
   auto parquet_arrow_file_reader = gparquet_arrow_file_reader_get_raw(reader);
-  std::shared_ptr<arrow::Table> arrow_table;
-  auto status = parquet_arrow_file_reader->ReadTable(&arrow_table);
-  if (garrow_error_check(error, status, "[parquet][arrow][file-reader][read-table]")) {
-    return garrow_table_new_raw(&arrow_table);
+  auto arrow_table_result = parquet_arrow_file_reader->ReadTable();
+  if (garrow::check(error,
+                    arrow_table_result,
+                    "[parquet][arrow][file-reader][read-table]")) {
+    return garrow_table_new_raw(&(*arrow_table_result));
   } else {
     return NULL;
   }
