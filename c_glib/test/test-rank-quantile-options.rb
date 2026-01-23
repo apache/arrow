@@ -42,9 +42,11 @@ class TestRankQuantileOptions < Test::Unit::TestCase
   end
 
   def test_null_placement
-    assert_equal(Arrow::NullPlacement::AT_END, @options.null_placement)
+    assert_equal(Arrow::OptionalNullPlacement::UNSPECIFIED, @options.null_placement)
+    @options.null_placement = :at_end
+    assert_equal(Arrow::OptionalNullPlacement::AT_END, @options.null_placement)
     @options.null_placement = :at_start
-    assert_equal(Arrow::NullPlacement::AT_START, @options.null_placement)
+    assert_equal(Arrow::OptionalNullPlacement::AT_START, @options.null_placement)
   end
 
   def test_rank_quantile_function
