@@ -147,7 +147,17 @@ module ValuesBasicArraysTests
     assert_equal(values, target.values)
   end
 
-  def test_tring
+  def test_large_binary
+    values = [
+      "\x00".b,
+      nil,
+      "\xff".b,
+    ]
+    target = build(Arrow::LargeBinaryArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_string
     values = [
       "Ruby",
       nil,
