@@ -167,7 +167,7 @@ to AI tools could more efficiently generate the code directly.
 We are not opposed to the use of AI tools in generating PRs, but recommend
 the following:
 
-* Only take on a PR if you are able to debug and own the changes yourself -
+* Only submit a PR if you are able to debug and own the changes yourself -
   review all generated code to understand every detail
 * Match the style and conventions used in the rest of the codebase, including
   PR titles and descriptions
