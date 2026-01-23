@@ -94,8 +94,9 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
       { gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_4); },
       std::runtime_error);
 
-  ASSERT_THROW({ gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text); },
-               std::runtime_error);
+  ASSERT_THROW(
+      { gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text); },
+      std::runtime_error);
 
   key = "12345678";
   to_encrypt = "New\ntest\nstring";
@@ -107,6 +108,7 @@ TEST(TestShaEncryptUtils, TestAesEncryptDecrypt) {
   ASSERT_THROW(
       { gandiva::aes_encrypt(to_encrypt, to_encrypt_len, key, key_len, cipher_5); },
       std::runtime_error);
-  ASSERT_THROW({ gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text); },
-               std::runtime_error);
+  ASSERT_THROW(
+      { gandiva::aes_decrypt(cipher, cipher_len, key, key_len, plain_text); },
+      std::runtime_error);
 }

@@ -33,10 +33,7 @@ register_bindings_datetime <- function() {
 register_bindings_datetime_utility <- function() {
   register_binding(
     "base::strptime",
-    function(x,
-             format = "%Y-%m-%d %H:%M:%S",
-             tz = "",
-             unit = "ms") {
+    function(x, format = "%Y-%m-%d %H:%M:%S", tz = "", unit = "ms") {
       # Arrow uses unit for time parsing, strptime() does not.
       # Arrow has no default option for strptime (format, unit),
       # we suggest following format = "%Y-%m-%d %H:%M:%S", unit = MILLI/1L/"ms",
@@ -50,12 +47,11 @@ register_bindings_datetime_utility <- function() {
       output <- Expression$create(
         "strptime",
         x,
-        options =
-          list(
-            format = format,
-            unit = unit,
-            error_is_null = TRUE
-          )
+        options = list(
+          format = format,
+          unit = unit,
+          error_is_null = TRUE
+        )
       )
 
       if (tz == "") {
@@ -73,10 +69,9 @@ register_bindings_datetime_utility <- function() {
         output <- Expression$create(
           "assume_timezone",
           output,
-          options =
-            list(
-              timezone = tz
-            )
+          options = list(
+            timezone = tz
+          )
         )
       }
       output
@@ -87,10 +82,7 @@ register_bindings_datetime_utility <- function() {
     )
   )
 
-  register_binding("base::strftime", function(x,
-                                              format = "",
-                                              tz = "",
-                                              usetz = FALSE) {
+  register_binding("base::strftime", function(x, format = "", tz = "", usetz = FALSE) {
     if (usetz) {
       format <- paste(format, "%Z")
     }
@@ -165,31 +157,33 @@ register_bindings_datetime_components <- function() {
     Expression$create("add", Expression$create("second", x), Expression$create("subsecond", x))
   })
 
-  register_binding("lubridate::wday", function(x,
-                                               label = FALSE,
-                                               abbr = TRUE,
-                                               week_start = getOption("lubridate.week.start", 7),
-                                               locale = Sys.getlocale("LC_TIME")) {
-    if (label) {
-      if (abbr) {
-        format <- "%a"
-      } else {
-        format <- "%A"
+  register_binding(
+    "lubridate::wday",
+    function(
+      x,
+      label = FALSE,
+      abbr = TRUE,
+      week_start = getOption("lubridate.week.start", 7),
+      locale = Sys.getlocale("LC_TIME")
+    ) {
+      if (label) {
+        if (abbr) {
+          format <- "%a"
+        } else {
+          format <- "%A"
+        }
+        return(Expression$create("strftime", x, options = list(format = format, locale = check_time_locale(locale))))
       }
-      return(Expression$create("strftime", x, options = list(format = format, locale = check_time_locale(locale))))
-    }
 
-    Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
-  })
+      Expression$create("day_of_week", x, options = list(count_from_zero = FALSE, week_start = week_start))
+    }
+  )
 
   register_binding("lubridate::week", function(x) {
     (call_binding("yday", x) - 1) %/% 7 + 1
   })
 
-  register_binding("lubridate::month", function(x,
-                                                label = FALSE,
-                                                abbr = TRUE,
-                                                locale = Sys.getlocale("LC_TIME")) {
+  register_binding("lubridate::month", function(x, label = FALSE, abbr = TRUE, locale = Sys.getlocale("LC_TIME")) {
     if (call_binding("is.integer", x)) {
       x <- call_binding(
         "if_else",
@@ -264,13 +258,7 @@ register_bindings_datetime_components <- function() {
 register_bindings_datetime_conversion <- function() {
   register_binding(
     "lubridate::make_datetime",
-    function(year = 1970L,
-             month = 1L,
-             day = 1L,
-             hour = 0L,
-             min = 0L,
-             sec = 0,
-             tz = "UTC") {
+    function(year = 1970L, month = 1L, day = 1L, hour = 0L, min = 0L, sec = 0, tz = "UTC") {
       # ParseTimestampStrptime currently ignores the timezone information (ARROW-12820).
       # Stop if tz other than 'UTC' is provided.
       if (tz != "UTC") {
@@ -283,20 +271,12 @@ register_bindings_datetime_conversion <- function() {
     notes = "only supports UTC (default) timezone"
   )
 
-  register_binding("lubridate::make_date", function(year = 1970L,
-                                                    month = 1L,
-                                                    day = 1L) {
+  register_binding("lubridate::make_date", function(year = 1970L, month = 1L, day = 1L) {
     x <- call_binding("make_datetime", year, month, day)
     cast(x, date32())
   })
 
-  register_binding("base::ISOdatetime", function(year,
-                                                 month,
-                                                 day,
-                                                 hour,
-                                                 min,
-                                                 sec,
-                                                 tz = "UTC") {
+  register_binding("base::ISOdatetime", function(year, month, day, hour, min, sec, tz = "UTC") {
     # NAs for seconds aren't propagated (but treated as 0) in the base version
     sec <- call_binding(
       "if_else",
@@ -308,23 +288,13 @@ register_bindings_datetime_conversion <- function() {
     call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
 
-  register_binding("base::ISOdate", function(year,
-                                             month,
-                                             day,
-                                             hour = 12,
-                                             min = 0,
-                                             sec = 0,
-                                             tz = "UTC") {
+  register_binding("base::ISOdate", function(year, month, day, hour = 12, min = 0, sec = 0, tz = "UTC") {
     call_binding("make_datetime", year, month, day, hour, min, sec, tz)
   })
 
   register_binding(
     "base::as.Date",
-    function(x,
-             format = NULL,
-             tryFormats = "%Y-%m-%d",
-             origin = "1970-01-01",
-             tz = "UTC") {
+    function(x, format = NULL, tryFormats = "%Y-%m-%d", origin = "1970-01-01", tz = "UTC") {
       if (is.null(format) && length(tryFormats) > 1) {
         arrow_not_supported(
           "`as.Date()` with multiple `tryFormats`",
@@ -358,10 +328,7 @@ register_bindings_datetime_conversion <- function() {
     )
   )
 
-  register_binding("lubridate::as_date", function(x,
-                                                  format = NULL,
-                                                  origin = "1970-01-01",
-                                                  tz = NULL) {
+  register_binding("lubridate::as_date", function(x, format = NULL, origin = "1970-01-01", tz = NULL) {
     # base::as.Date() and lubridate::as_date() differ in the way they use the
     # `tz` argument. Both cast to the desired timezone, if present. The
     # difference appears when the `tz` argument is not set: `as.Date()` uses the
@@ -379,41 +346,40 @@ register_bindings_datetime_conversion <- function() {
     )
   })
 
-  register_binding("lubridate::as_datetime", function(x,
-                                                      origin = "1970-01-01",
-                                                      tz = "UTC",
-                                                      format = NULL,
-                                                      unit = "ns") {
-    # Arrow uses unit for time parsing, as_datetime() does not.
-    unit <- make_valid_time_unit(
-      unit,
-      c(valid_time64_units, valid_time32_units)
-    )
-
-    if (call_binding("is.integer", x)) {
-      x <- cast(x, int64())
-    }
-
-    if (call_binding("is.numeric", x)) {
-      multiple <- Expression$create("power_checked", 1000L, unit)
-      delta <- call_binding("difftime", origin, "1970-01-01")
-      delta <- cast(delta, int64())
-      delta <- Expression$create("multiply_checked", delta, multiple)
-      x <- Expression$create("multiply_checked", x, multiple)
-      x <- cast(x, int64())
-      x <- Expression$create("add_checked", x, delta)
-    }
-
-    if (call_binding("is.character", x) && !is.null(format)) {
-      x <- Expression$create(
-        "strptime",
-        x,
-        options = list(format = format, unit = unit, error_is_null = TRUE)
+  register_binding(
+    "lubridate::as_datetime",
+    function(x, origin = "1970-01-01", tz = "UTC", format = NULL, unit = "ns") {
+      # Arrow uses unit for time parsing, as_datetime() does not.
+      unit <- make_valid_time_unit(
+        unit,
+        c(valid_time64_units, valid_time32_units)
       )
+
+      if (call_binding("is.integer", x)) {
+        x <- cast(x, int64())
+      }
+
+      if (call_binding("is.numeric", x)) {
+        multiple <- Expression$create("power_checked", 1000L, unit)
+        delta <- call_binding("difftime", origin, "1970-01-01")
+        delta <- cast(delta, int64())
+        delta <- Expression$create("multiply_checked", delta, multiple)
+        x <- Expression$create("multiply_checked", x, multiple)
+        x <- cast(x, int64())
+        x <- Expression$create("add_checked", x, delta)
+      }
+
+      if (call_binding("is.character", x) && !is.null(format)) {
+        x <- Expression$create(
+          "strptime",
+          x,
+          options = list(format = format, unit = unit, error_is_null = TRUE)
+        )
+      }
+      output <- cast(x, timestamp(unit = unit))
+      Expression$create("assume_timezone", output, options = list(timezone = tz))
     }
-    output <- cast(x, timestamp(unit = unit))
-    Expression$create("assume_timezone", output, options = list(timezone = tz))
-  })
+  )
 
   register_binding("lubridate::decimal_date", function(date) {
     y <- Expression$create("year", date)
@@ -456,13 +422,15 @@ register_bindings_datetime_timezone <- function() {
         arrow_not_supported("`roll_dst` must be 1 or 2 items long; other lengths")
       }
 
-      nonexistent <- switch(roll_dst[1],
+      nonexistent <- switch(
+        roll_dst[1],
         "error" = 0L,
         "boundary" = 2L,
         arrow_not_supported("`roll_dst` value must be 'error' or 'boundary' for nonexistent times; other values")
       )
 
-      ambiguous <- switch(roll_dst[2],
+      ambiguous <- switch(
+        roll_dst[2],
         "error" = 0L,
         "pre" = 1L,
         "post" = 2L,
@@ -540,13 +508,19 @@ register_bindings_duration <- function() {
       # otherwise they cannot be added subtracted with durations
       # TODO delete the casting to "us" once
       # https://issues.apache.org/jira/browse/ARROW-16060 is solved
-      if (inherits(time1, "Expression") &&
-        time1$type_id() %in% Type[c("TIMESTAMP")] && time1$type()$unit() != 2L) {
+      if (
+        inherits(time1, "Expression") &&
+          time1$type_id() %in% Type[c("TIMESTAMP")] &&
+          time1$type()$unit() != 2L
+      ) {
         time1 <- cast(time1, timestamp("us"))
       }
 
-      if (inherits(time2, "Expression") &&
-        time2$type_id() %in% Type[c("TIMESTAMP")] && time2$type()$unit() != 2L) {
+      if (
+        inherits(time2, "Expression") &&
+          time2$type_id() %in% Type[c("TIMESTAMP")] &&
+          time2$type()$unit() != 2L
+      ) {
         time2 <- cast(time2, timestamp("us"))
       }
 
@@ -659,12 +633,7 @@ register_bindings_duration_helpers <- function() {
 register_bindings_datetime_parsers <- function() {
   register_binding(
     "lubridate::parse_date_time",
-    function(x,
-             orders,
-             tz = "UTC",
-             truncated = 0,
-             quiet = TRUE,
-             exact = FALSE) {
+    function(x, orders, tz = "UTC", truncated = 0, quiet = TRUE, exact = FALSE) {
       if (!quiet) {
         arrow_not_supported("`quiet = FALSE`")
       }
@@ -707,9 +676,27 @@ register_bindings_datetime_parsers <- function() {
   )
 
   parser_vec <- c(
-    "ymd", "ydm", "mdy", "myd", "dmy", "dym", "ym", "my", "yq",
-    "ymd_HMS", "ymd_HM", "ymd_H", "dmy_HMS", "dmy_HM", "dmy_H",
-    "mdy_HMS", "mdy_HM", "mdy_H", "ydm_HMS", "ydm_HM", "ydm_H"
+    "ymd",
+    "ydm",
+    "mdy",
+    "myd",
+    "dmy",
+    "dym",
+    "ym",
+    "my",
+    "yq",
+    "ymd_HMS",
+    "ymd_HM",
+    "ymd_H",
+    "dmy_HMS",
+    "dmy_HM",
+    "dmy_H",
+    "mdy_HMS",
+    "mdy_HM",
+    "mdy_H",
+    "ydm_HMS",
+    "ydm_HM",
+    "ydm_H"
   )
 
   parser_map_factory <- function(order) {
@@ -781,11 +768,10 @@ register_bindings_datetime_parsers <- function() {
 register_bindings_datetime_rounding <- function() {
   register_binding(
     "lubridate::round_date",
-    function(x,
-             unit = "second",
-             week_start = getOption("lubridate.week.start", 7)) {
+    function(x, unit = "second", week_start = getOption("lubridate.week.start", 7)) {
       opts <- parse_period_unit(unit)
-      if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      if (opts$unit == 7L) {
+        # weeks (unit = 7L) need to accommodate week_start
         return(shift_temporal_to_week("round_temporal", x, week_start, options = opts))
       }
 
@@ -795,11 +781,10 @@ register_bindings_datetime_rounding <- function() {
 
   register_binding(
     "lubridate::floor_date",
-    function(x,
-             unit = "second",
-             week_start = getOption("lubridate.week.start", 7)) {
+    function(x, unit = "second", week_start = getOption("lubridate.week.start", 7)) {
       opts <- parse_period_unit(unit)
-      if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      if (opts$unit == 7L) {
+        # weeks (unit = 7L) need to accommodate week_start
         return(shift_temporal_to_week("floor_temporal", x, week_start, options = opts))
       }
 
@@ -809,17 +794,15 @@ register_bindings_datetime_rounding <- function() {
 
   register_binding(
     "lubridate::ceiling_date",
-    function(x,
-             unit = "second",
-             change_on_boundary = NULL,
-             week_start = getOption("lubridate.week.start", 7)) {
+    function(x, unit = "second", change_on_boundary = NULL, week_start = getOption("lubridate.week.start", 7)) {
       opts <- parse_period_unit(unit)
       if (is.null(change_on_boundary)) {
         change_on_boundary <- call_binding("is.Date", x)
       }
       opts$ceil_is_strictly_greater <- change_on_boundary
 
-      if (opts$unit == 7L) { # weeks (unit = 7L) need to accommodate week_start
+      if (opts$unit == 7L) {
+        # weeks (unit = 7L) need to accommodate week_start
         return(shift_temporal_to_week("ceil_temporal", x, week_start, options = opts))
       }
 
@@ -845,8 +828,12 @@ register_bindings_hms <- function() {
   register_binding(
     "hms::hms",
     function(seconds = 0, minutes = 0, hours = 0, days = 0) {
-      if (!call_binding("is.numeric", seconds) || !call_binding("is.numeric", minutes) ||
-        !call_binding("is.numeric", hours) || !call_binding("is.numeric", days)) {
+      if (
+        !call_binding("is.numeric", seconds) ||
+          !call_binding("is.numeric", minutes) ||
+          !call_binding("is.numeric", hours) ||
+          !call_binding("is.numeric", days)
+      ) {
         abort("All arguments must be numeric or NA_real_")
       }
 

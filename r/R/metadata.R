@@ -44,15 +44,13 @@
 }
 
 .deserialize_arrow_r_metadata <- function(x) {
-  tryCatch(unserialize_r_metadata(x),
-    error = function(e) {
-      if (getOption("arrow.debug", FALSE)) {
-        print(conditionMessage(e))
-      }
-      warning("Invalid metadata$r", call. = FALSE)
-      NULL
+  tryCatch(unserialize_r_metadata(x), error = function(e) {
+    if (getOption("arrow.debug", FALSE)) {
+      print(conditionMessage(e))
     }
-  )
+    warning("Invalid metadata$r", call. = FALSE)
+    NULL
+  })
 }
 
 unserialize_r_metadata <- function(x) {
@@ -177,7 +175,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
       columns_metadata <- r_metadata$columns
       if (is.data.frame(x)) {
         # if columns metadata exists, apply it here
-        if (length(names(x)) && !is.null(columns_metadata)) {
+        if (length(names(x)) && !is.null(columns_metadata) && !all(map_lgl(columns_metadata, is.null))) {
           for (name in intersect(names(columns_metadata), names(x))) {
             x[[name]] <- apply_arrow_r_metadata(x[[name]], columns_metadata[[name]])
           }
@@ -190,8 +188,7 @@ apply_arrow_r_metadata <- function(x, r_metadata) {
         # we cannot apply this row-level metadata, since the order of the rows is
         # not guaranteed to be the same, so don't even try, but warn what's going on
         trace <- trace_back()
-        # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
-        in_dplyr_collect <- any(map_lgl(trace$calls %||% trace$call, function(x) {
+        in_dplyr_collect <- any(map_lgl(trace$call, function(x) {
           grepl("collect\\.([aA]rrow|Dataset)", x)[[1]]
         }))
         if (in_dplyr_collect) {
@@ -291,14 +288,14 @@ arrow_attributes <- function(x, only_top_level = FALSE) {
 
   columns <- NULL
   attempt_to_save_row_level <- getOption("arrow.preserve_row_level_metadata", FALSE) &&
-    is.list(x) && !inherits(x, "POSIXlt")
+    is.list(x) &&
+    !inherits(x, "POSIXlt")
   if (attempt_to_save_row_level) {
     # However, if we are inside of a dplyr collection (including all datasets),
     # we cannot apply this row-level metadata, since the order of the rows is
     # not guaranteed to be the same, so don't even try, but warn what's going on
     trace <- trace_back()
-    # TODO: remove `trace$calls %||% trace$call` once rlang > 0.4.11 is released
-    in_dataset_write <- any(map_lgl(trace$calls %||% trace$call, function(x) {
+    in_dataset_write <- any(map_lgl(trace$call, function(x) {
       grepl("write_dataset", x, fixed = TRUE)[[1]]
     }))
     if (in_dataset_write) {

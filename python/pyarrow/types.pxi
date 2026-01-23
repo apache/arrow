@@ -2918,7 +2918,8 @@ cdef class Schema(_Weakrefable):
         return schema, (list(self), self.metadata)
 
     def __hash__(self):
-        return hash((tuple(self), self.metadata))
+        metadata = frozenset(self.metadata.items() if self.metadata else {})
+        return hash((tuple(self), metadata))
 
     def __sizeof__(self):
         size = 0
@@ -3115,12 +3116,12 @@ cdef class Schema(_Weakrefable):
         Parameters
         ----------
         df : pandas.DataFrame
-        preserve_index : bool, default True
-            Whether to store the index as an additional column (or columns, for
-            MultiIndex) in the resulting `Table`.
-            The default of None will store the index as a column, except for
-            RangeIndex which is stored as metadata only. Use
-            ``preserve_index=True`` to force it to be stored as a column.
+
+        preserve_index : bool, optional
+            Whether to store the index as an additional field in the resulting
+            ``Schema``. The default of None will store the index as a field,
+            except for RangeIndex which is stored as metadata only. Use
+            ``preserve_index=True`` to force it to be stored as a field.
 
         Returns
         -------

@@ -184,6 +184,11 @@ G_BEGIN_DECLS
  * have Arrow format data, you need to use #GArrowMonthDayNanoIntervalArray
  * to create a new array.
  *
+ * #GArrowDurationArray is a class for the elapsed time in 64-bit
+ * signed integer array. It can store zero or more duration data. If
+ * you don't have Arrow format data, you need to use
+ * #GArrowDurationArrayBuilder to create a new array.
+ *
  * #GArrowDecimal32Array is a class for 32-bit decimal array. It can
  * store zero or more 32-bit decimal data. If you don't have Arrow
  * format data, you need to use #GArrowDecimal32ArrayBuilder to
@@ -457,6 +462,22 @@ garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics)
 }
 
 /**
+ * garrow_array_statistics_is_null_count_exact:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: %TRUE if the null count is available and exact, %FALSE otherwise.
+ *
+ * Since: 23.0.0
+ */
+gboolean
+garrow_array_statistics_is_null_count_exact(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  return priv->statistics.null_count.has_value() &&
+         std::holds_alternative<int64_t>(*priv->statistics.null_count);
+}
+
+/**
  * garrow_array_statistics_get_null_count:
  * @statistics: A #GArrowArrayStatistics.
  *
@@ -464,16 +485,56 @@ garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics)
  *   -1 otherwise.
  *
  * Since: 20.0.0
+ *
+ * Deprecated: 23.0.0. Use garrow_array_statistics_is_null_count_exact(),
+ *   garrow_array_statistics_get_null_count_exact() and
+ *   garrow_array_statistics_get_null_count_approximate() instead.
  */
 gint64
 garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics)
 {
+  return garrow_array_statistics_get_null_count_exact(statistics);
+}
+
+/**
+ * garrow_array_statistics_get_null_count_exact:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: 0 or larger value if @statistics has a valid exact null
+ *   count value, -1 otherwise.
+ *
+ * Since: 23.0.0
+ */
+gint64
+garrow_array_statistics_get_null_count_exact(GArrowArrayStatistics *statistics)
+{
   auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
   const auto &null_count = priv->statistics.null_count;
-  if (null_count) {
-    return null_count.value();
+  if (null_count && std::holds_alternative<int64_t>(*null_count)) {
+    return std::get<int64_t>(*null_count);
   } else {
     return -1;
+  }
+}
+
+/**
+ * garrow_array_statistics_get_null_count_approximate:
+ * @statistics: A #GArrowArrayStatistics.
+ *
+ * Returns: Non `NaN` value if @statistics has a valid approximate
+ *   null count value, `NaN` otherwise.
+ *
+ * Since: 23.0.0
+ */
+gdouble
+garrow_array_statistics_get_null_count_approximate(GArrowArrayStatistics *statistics)
+{
+  auto priv = GARROW_ARRAY_STATISTICS_GET_PRIVATE(statistics);
+  const auto &null_count = priv->statistics.null_count;
+  if (null_count && std::holds_alternative<double>(*null_count)) {
+    return std::get<double>(*null_count);
+  } else {
+    return std::nan("");
   }
 }
 
@@ -3396,6 +3457,83 @@ garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray 
   return g_list_reverse(values);
 }
 
+G_DEFINE_TYPE(GArrowDurationArray, garrow_duration_array, GARROW_TYPE_NUMERIC_ARRAY)
+
+static void
+garrow_duration_array_init(GArrowDurationArray *object)
+{
+}
+
+static void
+garrow_duration_array_class_init(GArrowDurationArrayClass *klass)
+{
+}
+
+/**
+ * garrow_duration_array_new:
+ * @data_type: The #GArrowDurationDataType.
+ * @length: The number of elements.
+ * @data: The binary data in Arrow format of the array.
+ * @null_bitmap: (nullable): The bitmap that shows null elements. The
+ *   N-th element is null when the N-th bit is 0, not null otherwise.
+ *   If the array has no null elements, the bitmap must be %NULL and
+ *   @n_nulls is 0.
+ * @n_nulls: The number of null elements. If -1 is specified, the
+ *   number of nulls are computed from @null_bitmap.
+ *
+ * Returns: A newly created #GArrowDurationArray.
+ *
+ * Since: 23.0.0
+ */
+GArrowDurationArray *
+garrow_duration_array_new(GArrowDurationDataType *data_type,
+                          gint64 length,
+                          GArrowBuffer *data,
+                          GArrowBuffer *null_bitmap,
+                          gint64 n_nulls)
+{
+  auto array =
+    garrow_primitive_array_new<arrow::DurationType>(GARROW_DATA_TYPE(data_type),
+                                                    length,
+                                                    data,
+                                                    null_bitmap,
+                                                    n_nulls);
+  return GARROW_DURATION_ARRAY(array);
+}
+
+/**
+ * garrow_duration_array_get_value:
+ * @array: A #GArrowDurationArray.
+ * @i: The index of the target value.
+ *
+ * Returns: The @i-th value.
+ *
+ * Since: 23.0.0
+ */
+gint64
+garrow_duration_array_get_value(GArrowDurationArray *array, gint64 i)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return static_cast<arrow::DurationArray *>(arrow_array.get())->Value(i);
+}
+
+/**
+ * garrow_duration_array_get_values:
+ * @array: A #GArrowDurationArray.
+ * @length: (out): The number of values.
+ *
+ * Returns: (array length=length): The raw values.
+ *
+ * Since: 23.0.0
+ */
+const gint64 *
+garrow_duration_array_get_values(GArrowDurationArray *array, gint64 *length)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  auto values = garrow_array_get_values_raw<arrow::DurationType>(arrow_array, length);
+  return reinterpret_cast<const gint64 *>(values);
+}
+
 G_DEFINE_TYPE(GArrowFixedSizeBinaryArray,
               garrow_fixed_size_binary_array,
               GARROW_TYPE_PRIMITIVE_ARRAY)
@@ -3943,11 +4081,17 @@ garrow_array_new_raw_valist(std::shared_ptr<arrow::Array> *arrow_array,
   case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
     type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_ARRAY;
     break;
+  case arrow::Type::type::DURATION:
+    type = GARROW_TYPE_DURATION_ARRAY;
+    break;
   case arrow::Type::type::LIST:
     type = GARROW_TYPE_LIST_ARRAY;
     break;
   case arrow::Type::type::LARGE_LIST:
     type = GARROW_TYPE_LARGE_LIST_ARRAY;
+    break;
+  case arrow::Type::type::FIXED_SIZE_LIST:
+    type = GARROW_TYPE_FIXED_SIZE_LIST_ARRAY;
     break;
   case arrow::Type::type::STRUCT:
     type = GARROW_TYPE_STRUCT_ARRAY;

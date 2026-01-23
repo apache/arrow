@@ -214,7 +214,7 @@ When building, set the environment variables ``gRPC_ROOT`` and/or
 ``Protobuf_ROOT`` and/or ``c-ares_ROOT``.
 
 We are developing against recent versions of gRPC, and the versions. The
-``grpc-cpp`` package available from https://conda-forge.org/ is one reliable
+``libgrpc`` package available from https://conda-forge.org/ is one reliable
 way to obtain gRPC in a cross-platform way. You may try using system libraries
 for gRPC and Protobuf, but these are likely to be too old. On macOS, you can
 try `Homebrew <https://brew.sh/>`_:

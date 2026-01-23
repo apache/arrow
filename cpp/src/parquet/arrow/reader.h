@@ -116,15 +116,28 @@ class RowGroupReader;
 class PARQUET_EXPORT FileReader {
  public:
   /// Factory function to create a FileReader from a ParquetFileReader and properties
+  /// \deprecated Deprecated in 23.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 23.0.0. Use arrow::Result version instead.")
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               const ArrowReaderProperties& properties,
                               std::unique_ptr<FileReader>* out);
 
   /// Factory function to create a FileReader from a ParquetFileReader
+  /// \deprecated Deprecated in 23.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 23.0.0. Use arrow::Result version instead.")
   static ::arrow::Status Make(::arrow::MemoryPool* pool,
                               std::unique_ptr<ParquetFileReader> reader,
                               std::unique_ptr<FileReader>* out);
+
+  /// Factory function to create a FileReader from a ParquetFileReader and properties
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader,
+      const ArrowReaderProperties& properties);
+
+  /// Factory function to create a FileReader from a ParquetFileReader
+  static ::arrow::Result<std::unique_ptr<FileReader>> Make(
+      ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> reader);
 
   // Since the distribution of columns amongst a Parquet file's row groups may
   // be uneven (the number of values in each column chunk can be different), we
@@ -375,11 +388,5 @@ PARQUET_EXPORT
                                     std::shared_ptr<::arrow::Scalar>* min,
                                     std::shared_ptr<::arrow::Scalar>* max);
 
-namespace internal {
-
-PARQUET_EXPORT
-::arrow::Status FuzzReader(const uint8_t* data, int64_t size);
-
-}  // namespace internal
 }  // namespace arrow
 }  // namespace parquet

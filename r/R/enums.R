@@ -31,9 +31,7 @@ enum <- function(class, ..., .list = list(...)) {
 #' @name enums
 #' @export
 #' @keywords internal
-TimeUnit <- enum("TimeUnit::type",
-  SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L
-)
+TimeUnit <- enum("TimeUnit::type", SECOND = 0L, MILLI = 1L, MICRO = 2L, NANO = 3L)
 
 #' @rdname enums
 #' @export
@@ -41,7 +39,8 @@ DateUnit <- enum("DateUnit", DAY = 0L, MILLI = 1L)
 
 #' @rdname enums
 #' @export
-Type <- enum("Type::type",
+Type <- enum(
+  "Type::type",
   "NA" = 0L,
   BOOL = 1L,
   UINT8 = 2L,
@@ -92,79 +91,101 @@ Type <- enum("Type::type",
 TYPES_WITH_NAN <- Type[c("HALF_FLOAT", "FLOAT", "DOUBLE")]
 TYPES_NUMERIC <- Type[
   c(
-    "INT8", "UINT8", "INT16", "UINT16", "INT32", "UINT32",
-    "INT64", "UINT64", "HALF_FLOAT", "FLOAT", "DOUBLE",
-    "DECIMAL32", "DECIMAL64", "DECIMAL128", "DECIMAL256"
+    "INT8",
+    "UINT8",
+    "INT16",
+    "UINT16",
+    "INT32",
+    "UINT32",
+    "INT64",
+    "UINT64",
+    "HALF_FLOAT",
+    "FLOAT",
+    "DOUBLE",
+    "DECIMAL32",
+    "DECIMAL64",
+    "DECIMAL128",
+    "DECIMAL256"
   )
 ]
 
 #' @rdname enums
 #' @export
-StatusCode <- enum("StatusCode",
-  OK = 0L, OutOfMemory = 1L, KeyError = 2L, TypeError = 3L,
-  Invalid = 4L, IOError = 5L, CapacityError = 6L, IndexError = 7L,
-  UnknownError = 9L, NotImplemented = 10L, SerializationError = 11L,
-  PythonError = 12L, RError = 13L
+StatusCode <- enum(
+  "StatusCode",
+  OK = 0L,
+  OutOfMemory = 1L,
+  KeyError = 2L,
+  TypeError = 3L,
+  Invalid = 4L,
+  IOError = 5L,
+  CapacityError = 6L,
+  IndexError = 7L,
+  UnknownError = 9L,
+  NotImplemented = 10L,
+  SerializationError = 11L,
+  PythonError = 12L,
+  RError = 13L
 )
 
 #' @rdname enums
 #' @export
-FileMode <- enum("FileMode",
-  READ = 0L, WRITE = 1L, READWRITE = 2L
-)
+FileMode <- enum("FileMode", READ = 0L, WRITE = 1L, READWRITE = 2L)
 
 #' @rdname enums
 #' @export
-MessageType <- enum("MessageType",
-  NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L
-)
+MessageType <- enum("MessageType", NONE = 0L, SCHEMA = 1L, DICTIONARY_BATCH = 2L, RECORD_BATCH = 3L, TENSOR = 4L)
 
 #' @rdname enums
 #' @export
-CompressionType <- enum("Compression::type",
-  UNCOMPRESSED = 0L, SNAPPY = 1L, GZIP = 2L, BROTLI = 3L, ZSTD = 4L, LZ4 = 5L,
-  LZ4_FRAME = 6L, LZO = 7L, BZ2 = 8L
-)
-
-#' @export
-#' @rdname enums
-FileType <- enum("FileType",
-  NotFound = 0L, Unknown = 1L, File = 2L, Directory = 3L
-)
-
-#' @export
-#' @rdname enums
-ParquetVersionType <- enum("ParquetVersionType",
-  PARQUET_1_0 = 0L, PARQUET_2_4 = 2L, PARQUET_2_6 = 3L
+CompressionType <- enum(
+  "Compression::type",
+  UNCOMPRESSED = 0L,
+  SNAPPY = 1L,
+  GZIP = 2L,
+  BROTLI = 3L,
+  ZSTD = 4L,
+  LZ4 = 5L,
+  LZ4_FRAME = 6L,
+  LZO = 7L,
+  BZ2 = 8L
 )
 
 #' @export
 #' @rdname enums
-MetadataVersion <- enum("MetadataVersion",
-  V1 = 0L, V2 = 1L, V3 = 2L, V4 = 3L, V5 = 4L
+FileType <- enum("FileType", NotFound = 0L, Unknown = 1L, File = 2L, Directory = 3L)
+
+#' @export
+#' @rdname enums
+ParquetVersionType <- enum("ParquetVersionType", PARQUET_1_0 = 0L, PARQUET_2_4 = 2L, PARQUET_2_6 = 3L)
+
+#' @export
+#' @rdname enums
+MetadataVersion <- enum("MetadataVersion", V1 = 0L, V2 = 1L, V3 = 2L, V4 = 3L, V5 = 4L)
+
+#' @export
+#' @rdname enums
+QuantileInterpolation <- enum(
+  "QuantileInterpolation",
+  LINEAR = 0L,
+  LOWER = 1L,
+  HIGHER = 2L,
+  NEAREST = 3L,
+  MIDPOINT = 4L
 )
 
 #' @export
 #' @rdname enums
-QuantileInterpolation <- enum("QuantileInterpolation",
-  LINEAR = 0L, LOWER = 1L, HIGHER = 2L, NEAREST = 3L, MIDPOINT = 4L
-)
+NullEncodingBehavior <- enum("NullEncodingBehavior", ENCODE = 0L, MASK = 1L)
 
 #' @export
 #' @rdname enums
-NullEncodingBehavior <- enum("NullEncodingBehavior",
-  ENCODE = 0L, MASK = 1L
-)
+NullHandlingBehavior <- enum("NullHandlingBehavior", EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L)
 
 #' @export
 #' @rdname enums
-NullHandlingBehavior <- enum("NullHandlingBehavior",
-  EMIT_NULL = 0L, SKIP = 1L, REPLACE = 2L
-)
-
-#' @export
-#' @rdname enums
-RoundMode <- enum("RoundMode",
+RoundMode <- enum(
+  "RoundMode",
   DOWN = 0L,
   UP = 1L,
   TOWARDS_ZERO = 2L,
@@ -179,7 +200,8 @@ RoundMode <- enum("RoundMode",
 
 #' @export
 #' @rdname enums
-JoinType <- enum("JoinType",
+JoinType <- enum(
+  "JoinType",
   LEFT_SEMI = 0L,
   RIGHT_SEMI = 1L,
   LEFT_ANTI = 2L,

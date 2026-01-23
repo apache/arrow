@@ -29,14 +29,14 @@ on:
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
   pull_request:
     paths:
       - '.dockerignore'
       - '.github/workflows/archery.yml'
       - 'dev/archery/**'
       - 'dev/tasks/**'
-      - 'docker-compose.yml'
+      - 'compose.yaml'
 
 env:
   ARCHERY_DEBUG: 1
@@ -58,14 +58,14 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v5
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - name: Git Fixup
         shell: bash
         run: git branch $ARCHERY_DEFAULT_BRANCH origin/$ARCHERY_DEFAULT_BRANCH || true
       - name: Setup Python
-        uses: actions/setup-python@v6.0.0
+        uses: actions/setup-python@v6
         with:
           python-version: '3.12'
       - name: Install pygit2 binary wheel

@@ -30,8 +30,10 @@ test_that("RecordBatch", {
   expect_equal(
     batch$schema,
     schema(
-      int = int32(), dbl = float64(),
-      lgl = boolean(), chr = utf8(),
+      int = int32(),
+      dbl = float64(),
+      lgl = boolean(),
+      chr = utf8(),
       fct = dictionary(int8(), utf8())
     )
   )
@@ -659,37 +661,37 @@ test_that("ARROW-11769/ARROW-13860/ARROW-17085 - grouping preserved in record ba
   )
 
   expect_r6_class(
-    tbl %>%
-      group_by(fct, fct2) %>%
+    tbl |>
+      group_by(fct, fct2) |>
       record_batch(),
     "RecordBatch"
   )
   expect_identical(
-    tbl %>%
-      record_batch() %>%
+    tbl |>
+      record_batch() |>
       group_vars(),
     group_vars(tbl)
   )
   expect_identical(
-    tbl %>%
-      group_by(fct, fct2) %>%
-      record_batch() %>%
+    tbl |>
+      group_by(fct, fct2) |>
+      record_batch() |>
       group_vars(),
     c("fct", "fct2")
   )
   expect_identical(
-    tbl %>%
-      group_by(fct, fct2) %>%
-      record_batch() %>%
-      ungroup() %>%
+    tbl |>
+      group_by(fct, fct2) |>
+      record_batch() |>
+      ungroup() |>
       group_vars(),
     character()
   )
   expect_identical(
-    tbl %>%
-      group_by(fct, fct2) %>%
-      record_batch() %>%
-      select(-int) %>%
+    tbl |>
+      group_by(fct, fct2) |>
+      record_batch() |>
+      select(-int) |>
       group_vars(),
     c("fct", "fct2")
   )
@@ -760,7 +762,6 @@ test_that("RecordBatch to C-interface", {
 })
 
 
-
 test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   skip_if_not_available("dataset")
 
@@ -778,7 +779,7 @@ test_that("RecordBatchReader to C-interface to arrow_dplyr_query", {
   # create an arrow_dplyr_query() from the recordbatch reader
   reader_adq <- arrow_dplyr_query(circle)
 
-  tab_from_c_new <- reader_adq %>%
+  tab_from_c_new <- reader_adq |>
     dplyr::compute()
   expect_equal(tab_from_c_new, tab)
 

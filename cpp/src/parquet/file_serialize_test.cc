@@ -76,6 +76,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
       RowGroupWriter* row_group_writer;
       row_group_writer = file_writer->AppendRowGroup();
+      EXPECT_EQ(rows_per_rowgroup_ * rg, file_writer->num_rows());
       for (int col = 0; col < num_columns_; ++col) {
         auto column_writer =
             static_cast<TypedColumnWriter<TestType>*>(row_group_writer->NextColumn());
@@ -97,6 +98,7 @@ class TestSerialize : public PrimitiveTypedTest<TestType> {
     for (int rg = 0; rg < num_rowgroups_ / 2; ++rg) {
       RowGroupWriter* row_group_writer;
       row_group_writer = file_writer->AppendBufferedRowGroup();
+      EXPECT_EQ(rows_per_rowgroup_ * (rg + num_rowgroups_ / 2), file_writer->num_rows());
       for (int batch = 0; batch < (rows_per_rowgroup_ / rows_per_batch_); ++batch) {
         for (int col = 0; col < num_columns_; ++col) {
           auto column_writer =

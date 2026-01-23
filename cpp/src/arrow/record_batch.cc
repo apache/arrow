@@ -18,10 +18,10 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -96,25 +96,21 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   const std::vector<std::shared_ptr<Array>>& columns() const override {
+    std::lock_guard lock(mutex_);
     for (int i = 0; i < num_columns(); ++i) {
-      // Force all columns to be boxed
-      column(i);
+      if (!boxed_columns_[i]) {
+        boxed_columns_[i] = MakeArray(columns_[i]);
+      }
     }
     return boxed_columns_;
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
-    if (!result) {
-      auto new_array = MakeArray(columns_[i]);
-      // Be careful not to overwrite existing entry if another thread has been calling
-      // `column(i)` at the same time, since the `boxed_columns_` contents are exposed
-      // by `columns()` (see GH-45371).
-      if (std::atomic_compare_exchange_strong(&boxed_columns_[i], &result, new_array)) {
-        return new_array;
-      }
+    std::lock_guard lock(mutex_);
+    if (!boxed_columns_[i]) {
+      boxed_columns_[i] = MakeArray(columns_[i]);
     }
-    return result;
+    return boxed_columns_[i];
   }
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
@@ -211,6 +207,7 @@ class SimpleRecordBatch : public RecordBatch {
   std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
+  mutable std::mutex mutex_;
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 
   // the type of device that the buffers for columns are allocated on.
@@ -257,18 +254,13 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
     return Status::TypeError("Cannot construct record batch from array of type ",
                              *array->type());
   }
-  if (array->null_count() != 0 || array->offset() != 0) {
-    // If the struct array has a validity map or offset we need to push those into
-    // the child arrays via Flatten since the RecordBatch doesn't have validity/offset
-    const std::shared_ptr<StructArray>& struct_array =
-        internal::checked_pointer_cast<StructArray>(array);
-    ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
-                          struct_array->Flatten(memory_pool));
-    return Make(arrow::schema(array->type()->fields()), array->length(),
-                std::move(fields));
-  }
-  return Make(arrow::schema(array->type()->fields()), array->length(),
-              array->data()->child_data);
+  // Push the struct array's validity map and slicing (if any) into the child arrays
+  // by calling Flatten
+  const std::shared_ptr<StructArray>& struct_array =
+      internal::checked_pointer_cast<StructArray>(array);
+  ARROW_ASSIGN_OR_RAISE(std::vector<std::shared_ptr<Array>> fields,
+                        struct_array->Flatten(memory_pool));
+  return Make(arrow::schema(array->type()->fields()), array->length(), std::move(fields));
 }
 
 namespace {
@@ -541,10 +533,17 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
     statistics.nth_column = nth_column;
     if (column_statistics->null_count.has_value()) {
       statistics.nth_statistics++;
-      statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
-      statistics.type = int64();
-      statistics.value = column_statistics->null_count.value();
-      RETURN_NOT_OK(on_statistics(statistics));
+      if (std::holds_alternative<int64_t>(column_statistics->null_count.value())) {
+        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_EXACT;
+        statistics.type = int64();
+        statistics.value = std::get<int64_t>(column_statistics->null_count.value());
+        RETURN_NOT_OK(on_statistics(statistics));
+      } else {
+        statistics.key = ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE;
+        statistics.type = float64();
+        statistics.value = std::get<double>(column_statistics->null_count.value());
+        RETURN_NOT_OK(on_statistics(statistics));
+      }
       statistics.start_new_column = false;
     }
 

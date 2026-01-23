@@ -47,7 +47,6 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::EndsWith;
 using internal::ToChars;
 
 namespace compute {
@@ -180,7 +179,7 @@ std::string Expression::ToString() const {
   }
 
   constexpr std::string_view kleene = "_kleene";
-  if (EndsWith(call->function_name, kleene)) {
+  if (call->function_name.ends_with(kleene)) {
     auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
     return binary(std::move(op));
   }
@@ -687,7 +686,8 @@ Result<ExecBatch> MakeExecBatch(const Schema& full_schema, const Datum& partial,
   }
 
   // wasteful but useful for testing:
-  if (partial.type()->id() == Type::STRUCT) {
+  const auto& partial_type = partial.type();
+  if (partial_type && partial_type->id() == Type::STRUCT) {
     if (partial.is_array()) {
       ARROW_ASSIGN_OR_RAISE(auto partial_batch,
                             RecordBatch::FromStructArray(partial.make_array()));

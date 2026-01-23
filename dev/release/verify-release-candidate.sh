@@ -270,8 +270,7 @@ test_yum() {
                     "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "centos:7"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/x86_64 \
                --rm \
@@ -852,7 +851,7 @@ test_linux_wheels() {
     local arch="x86_64"
   fi
 
-  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13}"
+  local python_versions="${TEST_PYTHON_VERSIONS:-3.10 3.11 3.12 3.13 3.14}"
   local platform_tags="${TEST_WHEEL_PLATFORM_TAGS:-manylinux_2_28_${arch}}"
 
   if [ "${SOURCE_KIND}" != "local" ]; then
@@ -891,11 +890,11 @@ test_macos_wheels() {
 
   # apple silicon processor
   if [ "$(uname -m)" = "arm64" ]; then
-    local python_versions="3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_arm64"
     local check_flight=OFF
   else
-    local python_versions="3.10 3.11 3.12 3.13"
+    local python_versions="3.10 3.11 3.12 3.13 3.14"
     local platform_tags="macosx_12_0_x86_64"
   fi
 
@@ -1027,7 +1026,9 @@ TEST_SUCCESS=no
 
 setup_tempdir
 ensure_source_directory
-test_source_distribution
+# Run source tests in a subshell so environment variables
+# set for source testing aren't exposed to the binary tests.
+(test_source_distribution)
 test_binary_distribution
 
 TEST_SUCCESS=yes

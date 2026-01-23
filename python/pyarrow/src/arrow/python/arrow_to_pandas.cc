@@ -75,7 +75,7 @@ PandasOptions MakeInnerOptions(PandasOptions options) {
   // Make sure conversion of inner dictionary arrays always returns an array,
   // not a dict {'indices': array, 'dictionary': array, 'ordered': bool}
   options.decode_dictionaries = true;
-  options.categorical_columns.clear();
+  options.categorical_columns.reset();
   options.strings_to_categorical = false;
 
   // In ARROW-7723, we found as a result of ARROW-3789 that second
@@ -1127,8 +1127,9 @@ class TypedPandasWriter : public PandasWriter {
 
   Status CheckTypeExact(const DataType& type, Type::type expected) {
     if (type.id() != expected) {
-      // TODO(wesm): stringify NumPy / pandas type
-      return Status::NotImplemented("Cannot write Arrow data of type ", type.ToString());
+      return Status::NotImplemented("Cannot write Arrow data of type ", type.ToString(),
+                                    " to pandas block with NumPy type ",
+                                    GetNumPyTypeName(NPY_TYPE));
     }
     return Status::OK();
   }
@@ -1862,8 +1863,21 @@ class CategoricalWriter
   }
 
   Status WriteIndicesUniform(const ChunkedArray& data) {
-    RETURN_NOT_OK(this->AllocateNDArray(TRAITS::npy_type, 1));
-    T* out_values = reinterpret_cast<T*>(this->block_data_);
+    // For unsigned types, upcast to signed since pandas uses -1 for nulls
+    // uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+    using OutputType = std::conditional_t<
+        std::is_same<T, uint8_t>::value, int16_t,
+        std::conditional_t<
+            std::is_same<T, uint16_t>::value, int32_t,
+            std::conditional_t<std::is_same<T, uint32_t>::value, int64_t, T>>>;
+    const int npy_output_type = std::is_same<OutputType, int16_t>::value   ? NPY_INT16
+                                : std::is_same<OutputType, int32_t>::value ? NPY_INT32
+                                : std::is_same<OutputType, int64_t>::value
+                                    ? NPY_INT64
+                                    : TRAITS::npy_type;
+
+    RETURN_NOT_OK(this->AllocateNDArray(npy_output_type, 1));
+    auto out_values = reinterpret_cast<OutputType*>(this->block_data_);
 
     for (int c = 0; c < data.num_chunks(); c++) {
       const auto& arr = checked_cast<const DictionaryArray&>(*data.chunk(c));
@@ -1874,7 +1888,7 @@ class CategoricalWriter
       // Null is -1 in CategoricalBlock
       for (int i = 0; i < arr.length(); ++i) {
         if (indices.IsValid(i)) {
-          *out_values++ = values[i];
+          *out_values++ = static_cast<OutputType>(values[i]);
         } else {
           *out_values++ = -1;
         }
@@ -1927,7 +1941,11 @@ class CategoricalWriter
     const auto& arr_first = checked_cast<const DictionaryArray&>(*data.chunk(0));
     const auto indices_first = std::static_pointer_cast<ArrayType>(arr_first.indices());
 
-    if (data.num_chunks() == 1 && indices_first->null_count() == 0) {
+    // For unsigned types, we need to convert to signed for pandas compatibility
+    // even when there are no nulls, so we skip the fast path
+    const bool is_unsigned = std::is_unsigned<T>::value;
+
+    if (data.num_chunks() == 1 && indices_first->null_count() == 0 && !is_unsigned) {
       RETURN_NOT_OK(
           CheckIndexBounds(*indices_first->data(), arr_first.dictionary()->length()));
 
@@ -2023,13 +2041,12 @@ Status MakeWriter(const PandasOptions& options, PandasWriter::type writer_type,
         CATEGORICAL_CASE(Int16Type);
         CATEGORICAL_CASE(Int32Type);
         CATEGORICAL_CASE(Int64Type);
-        case Type::UINT8:
-        case Type::UINT16:
-        case Type::UINT32:
+        CATEGORICAL_CASE(UInt8Type);
+        CATEGORICAL_CASE(UInt16Type);
+        CATEGORICAL_CASE(UInt32Type);
         case Type::UINT64:
           return Status::TypeError(
-              "Converting unsigned dictionary indices to pandas",
-              " not yet supported, index type: ", index_type.ToString());
+              "Converting UInt64 dictionary indices to pandas is not supported.");
         default:
           // Unreachable
           ARROW_DCHECK(false);
@@ -2337,7 +2354,7 @@ class ConsolidatedBlockCreator : public PandasBlockCreator {
   }
 
   Status GetBlockType(int column_index, PandasWriter::type* out) {
-    if (options_.extension_columns.count(fields_[column_index]->name())) {
+    if (options_.IsExtensionColumn(fields_[column_index]->name())) {
       *out = PandasWriter::EXTENSION;
       return Status::OK();
     } else {
@@ -2458,7 +2475,7 @@ class SplitBlockCreator : public PandasBlockCreator {
   Status GetWriter(int i, std::shared_ptr<PandasWriter>* writer) {
     PandasWriter::type output_type = PandasWriter::OBJECT;
     const DataType& type = *arrays_[i]->type();
-    if (options_.extension_columns.count(fields_[i]->name())) {
+    if (options_.IsExtensionColumn(fields_[i]->name())) {
       output_type = PandasWriter::EXTENSION;
     } else {
       // Null count needed to determine output type
@@ -2516,10 +2533,10 @@ Status ConvertCategoricals(const PandasOptions& options, ChunkedArrayVector* arr
     return Status::OK();
   };
 
-  if (!options.categorical_columns.empty()) {
+  if (options.HasCategoricalColumns()) {
     for (int i = 0; i < static_cast<int>(arrays->size()); i++) {
       if ((*arrays)[i]->type()->id() != Type::DICTIONARY &&
-          options.categorical_columns.count((*fields)[i]->name())) {
+          options.IsCategoricalColumn((*fields)[i]->name())) {
         columns_to_encode.push_back(i);
       }
     }
@@ -2625,7 +2642,7 @@ Status ConvertTableToPandas(const PandasOptions& options, std::shared_ptr<Table>
 
   PandasOptions modified_options = options;
   modified_options.strings_to_categorical = false;
-  modified_options.categorical_columns.clear();
+  modified_options.categorical_columns.reset();
 
   if (options.split_blocks) {
     modified_options.allow_zero_copy_blocks = true;

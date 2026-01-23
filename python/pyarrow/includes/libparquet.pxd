@@ -492,6 +492,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_store_decimal_as_integer()
             Builder* disable_store_decimal_as_integer()
             Builder* data_pagesize(int64_t size)
+            Builder* max_rows_per_page(int64_t max_rows)
             Builder* encoding(ParquetEncoding encoding)
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)
@@ -519,6 +520,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_compliant_nested_types()
             Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
+            Builder* set_time_adjusted_to_utc(c_bool adjusted)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 

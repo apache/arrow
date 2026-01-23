@@ -71,3 +71,4 @@ time archery integration \
     --gold-dirs="$gold_dir/1.0.0-littleendian" \
     --gold-dirs="$gold_dir/2.0.0-compression" \
     --gold-dirs="$gold_dir/4.0.0-shareddict" \
+    --gold-dirs="$gold_dir/cpp-21.0.0" \

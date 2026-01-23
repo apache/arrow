@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # Usage: run testthat::test_dir(".") inside of this directory
 
 # Flag so that we just load the functions and don't evaluate them like we do
@@ -29,8 +28,26 @@ capture.output(source("nixlibs.R", local = nixlibs_env))
 
 test_that("identify_binary() based on LIBARROW_BINARY", {
   expect_null(identify_binary("FALSE"))
-  expect_identical(identify_binary("linux-openssl-1.0"), "linux-openssl-1.0")
+  expect_identical(
+    identify_binary("linux-x86_64"),
+    "linux-x86_64"
+  )
   expect_null(identify_binary("", info = list(id = "debian")))
+
+  expect_output(
+    expect_identical(
+      identify_binary("linux-x86_64-openssl-3.0"),
+      "linux-x86_64"
+    ),
+    "OpenSSL suffix deprecated in LIBARROW_BINARY, using 'linux-x86_64'",
+    fixed = TRUE
+  )
+
+  expect_error(
+    identify_binary("linux-x86_64-openssl-1.0"),
+    "OpenSSL 1.x binaries are no longer provided. Use LIBARROW_BINARY='linux-x86_64'",
+    fixed = TRUE
+  )
 })
 
 test_that("select_binary() based on system", {
@@ -47,42 +64,22 @@ test_that("compile_test_program()", {
   expect_true(header_not_found("wrong/NOTAHEADER", fail))
 })
 
-test_that("determine_binary_from_stderr", {
+test_that("has_binary_sysreqs", {
   expect_output(
-    expect_identical(
-      determine_binary_from_stderr(compile_test_program("int a;")),
-      "openssl-1.1"
+    expect_true(
+      has_binary_sysreqs(compile_test_program("int a;"))
     ),
-    "Found libcurl and OpenSSL >= 1.1"
+    "Found libcurl and OpenSSL >= 3.0",
   )
 
   nixlibs_env$on_macos <- FALSE
   expect_output(
-    expect_identical(
-      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0")),
-      "openssl-1.0"
+    expect_false(
+      has_binary_sysreqs(compile_test_program(
+        "#error OpenSSL version must be 3.0 or greater"
+      ))
     ),
-    "Found libcurl and OpenSSL < 1.1"
-  )
-  nixlibs_env$on_macos <- TRUE
-  expect_output(
-    expect_null(
-      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 1.0"))
-    ),
-    "OpenSSL 1.0 is not supported on macOS"
-  )
-  expect_output(
-    expect_identical(
-      determine_binary_from_stderr(compile_test_program("#error Using OpenSSL version 3")),
-      "openssl-3.0"
-    ),
-    "Found libcurl and OpenSSL >= 3.0.0"
-  )
-  expect_output(
-    expect_null(
-      determine_binary_from_stderr(compile_test_program("#error OpenSSL version too old"))
-    ),
-    "OpenSSL found but version >= 1.0.2 is required for some features"
+    "OpenSSL found but version >= 3.0 is required"
   )
 })
 
@@ -91,58 +88,65 @@ test_that("select_binary() with test program", {
   expect_output(
     expect_identical(
       select_binary("linux", "x86_64", "int a;"),
-      "linux-openssl-1.1"
+      "linux-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 1.1"
+    "Found libcurl and OpenSSL >= 3.0"
+  )
+  expect_output(
+    expect_null(
+      select_binary(
+        "linux",
+        "x86_64",
+        "#error OpenSSL version must be 3.0 or greater"
+      )
+    ),
+    "OpenSSL found but version >= 3.0 is required"
   )
   expect_output(
     expect_identical(
-      select_binary("linux", "x86_64", "#error Using OpenSSL version 1.0"),
-      "linux-openssl-1.0"
+      select_binary("linux", "x86_64", character(0)), # Successful compile = OpenSSL >= 3.0
+      "linux-x86_64"
     ),
-    "Found libcurl and OpenSSL < 1.1"
-  )
-  expect_output(
-    expect_identical(
-      select_binary("linux", "x86_64", "#error Using OpenSSL version 3"),
-      "linux-openssl-3.0"
-    ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   nixlibs_env$on_macos <- TRUE
   expect_output(
     expect_identical(
       select_binary("darwin", "x86_64", "int a;"),
-      "darwin-x86_64-openssl-1.1"
+      "darwin-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 1.1"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_identical(
-      select_binary("darwin", "x86_64", "#error Using OpenSSL version 3"),
-      "darwin-x86_64-openssl-3.0"
+      select_binary("darwin", "x86_64", character(0)), # Successful compile = OpenSSL >= 3.0
+      "darwin-x86_64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_identical(
       select_binary("darwin", "arm64", "int a;"),
-      "darwin-arm64-openssl-1.1"
+      "darwin-arm64"
     ),
-    "Found libcurl and OpenSSL >= 1.1"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_identical(
-      select_binary("darwin", "arm64", "#error Using OpenSSL version 3"),
-      "darwin-arm64-openssl-3.0"
+      select_binary("darwin", "arm64", character(0)), # Successful compile = OpenSSL >= 3.0
+      "darwin-arm64"
     ),
-    "Found libcurl and OpenSSL >= 3.0.0"
+    "Found libcurl and OpenSSL >= 3.0"
   )
   expect_output(
     expect_null(
-      select_binary("darwin", "x86_64", "#error Using OpenSSL version 1.0")
+      select_binary(
+        "darwin",
+        "x86_64",
+        "#error OpenSSL version must be 3.0 or greater"
+      )
     ),
-    "OpenSSL 1.0 is not supported on macOS"
+    "OpenSSL found but version >= 3.0 is required"
   )
 })
 

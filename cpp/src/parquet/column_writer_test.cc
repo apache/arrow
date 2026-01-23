@@ -30,6 +30,8 @@
 #include "arrow/util/config.h"
 #include "arrow/util/key_value_metadata.h"
 
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_writer.h"
 #include "parquet/column_page.h"
 #include "parquet/column_reader.h"
 #include "parquet/column_writer.h"
@@ -37,6 +39,7 @@
 #include "parquet/file_writer.h"
 #include "parquet/geospatial/statistics.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/statistics.h"
@@ -108,7 +111,8 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
       const ColumnProperties& column_properties = ColumnProperties(),
       const ParquetVersion::type version = ParquetVersion::PARQUET_1_0,
       const ParquetDataPageVersion data_page_version = ParquetDataPageVersion::V1,
-      bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize) {
+      bool enable_checksum = false, int64_t page_size = kDefaultDataPageSize,
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage) {
     sink_ = CreateOutputStream();
     WriterProperties::Builder wp_builder;
     wp_builder.version(version)->data_page_version(data_page_version);
@@ -125,6 +129,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     }
     wp_builder.max_statistics_size(column_properties.max_statistics_size());
     wp_builder.data_pagesize(page_size);
+    wp_builder.max_rows_per_page(max_rows_per_page);
     writer_properties_ = wp_builder.build();
 
     metadata_ = ColumnChunkMetaDataBuilder::Make(writer_properties_, this->descr_);
@@ -135,7 +140,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
         /* header_encryptor */ NULLPTR, /* data_encryptor */ NULLPTR, enable_checksum);
     std::shared_ptr<ColumnWriter> writer =
         ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
-    return std::static_pointer_cast<TypedColumnWriter<TestType>>(writer);
+    return std::dynamic_pointer_cast<TypedColumnWriter<TestType>>(writer);
   }
 
   void ReadColumn(Compression::type compression = Compression::UNCOMPRESSED,
@@ -506,6 +511,44 @@ void TestPrimitiveWriter<FLBAType>::ReadColumnFully(Compression::type compressio
   this->SyncValuesOut();
 }
 
+template <>
+void TestPrimitiveWriter<ByteArrayType>::ReadColumnFully(Compression::type compression,
+                                                         bool page_checksum_verify) {
+  int64_t total_values = static_cast<int64_t>(this->values_out_.size());
+  BuildReader(total_values, compression, page_checksum_verify);
+  this->data_buffer_.clear();
+
+  values_read_ = 0;
+  while (values_read_ < total_values) {
+    int64_t values_read_recently = 0;
+    reader_->ReadBatch(
+        static_cast<int>(this->values_out_.size()) - static_cast<int>(values_read_),
+        definition_levels_out_.data() + values_read_,
+        repetition_levels_out_.data() + values_read_,
+        this->values_out_ptr_ + values_read_, &values_read_recently);
+
+    // Compute the total length of the data
+    int64_t total_length = 0;
+    for (int64_t i = 0; i < values_read_recently; i++) {
+      total_length += this->values_out_[i + values_read_].len;
+    }
+
+    // Copy contents of the pointers
+    std::vector<uint8_t> data(total_length);
+    uint8_t* data_ptr = data.data();
+    for (int64_t i = 0; i < values_read_recently; i++) {
+      const ByteArray& value = this->values_out_ptr_[i + values_read_];
+      memcpy(data_ptr, value.ptr, value.len);
+      this->values_out_[i + values_read_].ptr = data_ptr;
+      data_ptr += value.len;
+    }
+    data_buffer_.emplace_back(std::move(data));
+
+    values_read_ += values_read_recently;
+  }
+  this->SyncValuesOut();
+}
+
 typedef ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType, DoubleType,
                          BooleanType, ByteArrayType, FLBAType>
     TestTypes;
@@ -659,6 +702,13 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCompressionAndLevel) {
 TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, true,
                                  LARGE_SIZE);
+}
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCodecOptions) {
+  constexpr int ZSTD_c_windowLog = 101;
+  auto codec_options = std::make_shared<::arrow::util::ZstdCodecOptions>();
+  codec_options->compression_context_params = {{ZSTD_c_windowLog, 23}};
+  this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::ZSTD, false, false,
+                                     LARGE_SIZE, codec_options);
 }
 #endif
 
@@ -991,6 +1041,113 @@ TEST_F(TestValuesWriterInt32Type, PagesSplitWithListAlignedWrites) {
   this->ReadColumnFully();
 
   ASSERT_EQ(values_out_, values_);
+}
+
+// Test writing a dictionary encoded page where the number of
+// bits is greater than max int32.
+// For https://github.com/apache/arrow/issues/47973
+TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {
+                          PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
+                      }));
+  auto properties =
+      WriterProperties::Builder().data_pagesize(1024 * 1024 * 1024)->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int64_t num_batches = 150;
+  constexpr int64_t batch_size = 1'000'000;
+  constexpr int64_t unique_count = 200'000;
+  static_assert(batch_size % unique_count == 0);
+
+  std::vector<int32_t> values(batch_size, 0);
+  for (int64_t i = 0; i < batch_size; i++) {
+    values[i] = static_cast<int32_t>(i % unique_count);
+  }
+
+  auto col_writer = dynamic_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int64_t i = 0; i < num_batches; i++) {
+    col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
+  }
+  file_writer->Close();
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  auto file_reader = ParquetFileReader::Open(
+      std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+  auto metadata = file_reader->metadata();
+  ASSERT_EQ(1, metadata->num_row_groups());
+  auto row_group_reader = file_reader->RowGroup(0);
+
+  // Verify page size property was applied and only 1 data page was written
+  auto page_reader = row_group_reader->GetColumnPageReader(0);
+  int64_t page_count = 0;
+  while (true) {
+    auto page = page_reader->NextPage();
+    if (page == nullptr) {
+      break;
+    }
+    if (page_count == 0) {
+      ASSERT_EQ(page->type(), PageType::DICTIONARY_PAGE);
+    } else {
+      ASSERT_EQ(page->type(), PageType::DATA_PAGE);
+    }
+    page_count++;
+  }
+  ASSERT_EQ(page_count, 2);
+
+  auto col_reader = std::static_pointer_cast<Int32Reader>(row_group_reader->Column(0));
+
+  constexpr int64_t buffer_size = 1024 * 1024;
+  values.resize(buffer_size);
+
+  // Verify values were round-tripped correctly
+  int64_t levels_read = 0;
+  while (levels_read < num_batches * batch_size) {
+    int64_t batch_values;
+    int64_t batch_levels = col_reader->ReadBatch(buffer_size, nullptr, nullptr,
+                                                 values.data(), &batch_values);
+    for (int64_t i = 0; i < batch_levels; i++) {
+      ASSERT_EQ(values[i], (levels_read + i) % unique_count);
+    }
+    levels_read += batch_levels;
+  }
+}
+
+TEST(TestColumnWriter, LARGE_MEMORY_TEST(ThrowsOnDictIndicesTooLarge)) {
+  auto sink = CreateOutputStream();
+  auto schema = std::static_pointer_cast<GroupNode>(
+      GroupNode::Make("schema", Repetition::REQUIRED,
+                      {
+                          PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
+                      }));
+  auto properties =
+      WriterProperties::Builder().data_pagesize(4 * 1024LL * 1024 * 1024)->build();
+  auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
+  auto rg_writer = file_writer->AppendRowGroup();
+
+  constexpr int64_t num_batches = 1'000;
+  constexpr int64_t batch_size = 1'000'000;
+  constexpr int64_t unique_count = 200'000;
+  static_assert(batch_size % unique_count == 0);
+
+  std::vector<int32_t> values(batch_size, 0);
+  for (int64_t i = 0; i < batch_size; i++) {
+    values[i] = static_cast<int32_t>(i % unique_count);
+  }
+
+  auto col_writer = dynamic_cast<parquet::Int32Writer*>(rg_writer->NextColumn());
+  for (int64_t i = 0; i < num_batches; i++) {
+    col_writer->WriteBatch(batch_size, nullptr, nullptr, values.data());
+  }
+
+  EXPECT_THROW_THAT(
+      [&]() { file_writer->Close(); }, ParquetException,
+      ::testing::Property(&ParquetException::what,
+                          ::testing::HasSubstr("exceeds maximum int value")));
 }
 
 TEST(TestPageWriter, ThrowsOnPagesTooLarge) {
@@ -2073,6 +2230,244 @@ TEST_F(TestGeometryValuesWriter, TestWriteAndReadAllNull) {
   EXPECT_THAT(geospatial_statistics->dimension_valid(),
               ::testing::ElementsAre(false, false, false, false));
   EXPECT_EQ(geospatial_statistics->geometry_types(), std::nullopt);
+}
+
+template <typename TestType>
+class TestColumnWriterMaxRowsPerPage : public TestPrimitiveWriter<TestType> {
+ public:
+  TypedColumnWriter<TestType>* BuildWriter(
+      int64_t max_rows_per_page = kDefaultMaxRowsPerPage,
+      int64_t page_size = kDefaultDataPageSize) {
+    this->sink_ = CreateOutputStream();
+    this->writer_properties_ = WriterProperties::Builder()
+                                   .max_rows_per_page(max_rows_per_page)
+                                   ->data_pagesize(page_size)
+                                   ->enable_write_page_index()
+                                   ->build();
+    file_writer_ = ParquetFileWriter::Open(
+        this->sink_, std::static_pointer_cast<GroupNode>(this->schema_.schema_root()),
+        this->writer_properties_);
+    return static_cast<TypedColumnWriter<TestType>*>(
+        file_writer_->AppendRowGroup()->NextColumn());
+  }
+
+  void CloseWriter() const { file_writer_->Close(); }
+
+  void BuildReader() {
+    ASSERT_OK_AND_ASSIGN(auto buffer, this->sink_->Finish());
+    file_reader_ = ParquetFileReader::Open(
+        std::make_shared<::arrow::io::BufferReader>(buffer), default_reader_properties());
+    this->reader_ = std::static_pointer_cast<TypedColumnReader<TestType>>(
+        file_reader_->RowGroup(0)->Column(0));
+  }
+
+  void VerifyMaxRowsPerPage(int64_t max_rows_per_page) const {
+    auto file_meta = file_reader_->metadata();
+    int64_t num_row_groups = file_meta->num_row_groups();
+    ASSERT_EQ(num_row_groups, 1);
+
+    auto page_index_reader = file_reader_->GetPageIndexReader();
+    ASSERT_NE(page_index_reader, nullptr);
+
+    auto row_group_page_index_reader = page_index_reader->RowGroup(0);
+    ASSERT_NE(row_group_page_index_reader, nullptr);
+
+    auto offset_index = row_group_page_index_reader->GetOffsetIndex(0);
+    ASSERT_NE(offset_index, nullptr);
+    size_t num_pages = offset_index->page_locations().size();
+    int64_t num_rows = 0;
+    for (size_t j = 1; j < num_pages; ++j) {
+      int64_t page_rows = offset_index->page_locations()[j].first_row_index -
+                          offset_index->page_locations()[j - 1].first_row_index;
+      EXPECT_LE(page_rows, max_rows_per_page);
+      num_rows += page_rows;
+    }
+    if (num_pages != 0) {
+      int64_t last_page_rows = file_meta->RowGroup(0)->num_rows() -
+                               offset_index->page_locations().back().first_row_index;
+      EXPECT_LE(last_page_rows, max_rows_per_page);
+      num_rows += last_page_rows;
+    }
+
+    EXPECT_EQ(num_rows, file_meta->RowGroup(0)->num_rows());
+  }
+
+ private:
+  std::shared_ptr<ParquetFileWriter> file_writer_;
+  std::shared_ptr<ParquetFileReader> file_reader_;
+};
+
+TYPED_TEST_SUITE(TestColumnWriterMaxRowsPerPage, TestTypes);
+
+TYPED_TEST(TestColumnWriterMaxRowsPerPage, Optional) {
+  for (int64_t max_rows_per_page : {1, 10, 100}) {
+    this->SetUpSchema(Repetition::OPTIONAL);
+    this->GenerateData(SMALL_SIZE);
+    std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
+    definition_levels[1] = 0;
+
+    auto writer = this->BuildWriter(max_rows_per_page);
+    writer->WriteBatch(this->values_.size(), definition_levels.data(), nullptr,
+                       this->values_ptr_);
+    this->CloseWriter();
+
+    this->BuildReader();
+    ASSERT_NO_FATAL_FAILURE(this->VerifyMaxRowsPerPage(max_rows_per_page));
+  }
+}
+
+TYPED_TEST(TestColumnWriterMaxRowsPerPage, OptionalSpaced) {
+  for (int64_t max_rows_per_page : {1, 10, 100}) {
+    this->SetUpSchema(Repetition::OPTIONAL);
+
+    this->GenerateData(SMALL_SIZE);
+    std::vector<int16_t> definition_levels(SMALL_SIZE, 1);
+    std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(SMALL_SIZE), 255);
+
+    definition_levels[SMALL_SIZE - 1] = 0;
+    ::arrow::bit_util::ClearBit(valid_bits.data(), SMALL_SIZE - 1);
+    definition_levels[1] = 0;
+    ::arrow::bit_util::ClearBit(valid_bits.data(), 1);
+
+    auto writer = this->BuildWriter(max_rows_per_page);
+    writer->WriteBatchSpaced(this->values_.size(), definition_levels.data(), nullptr,
+                             valid_bits.data(), 0, this->values_ptr_);
+    this->CloseWriter();
+
+    this->BuildReader();
+    ASSERT_NO_FATAL_FAILURE(this->VerifyMaxRowsPerPage(max_rows_per_page));
+  }
+}
+
+TYPED_TEST(TestColumnWriterMaxRowsPerPage, Repeated) {
+  for (int64_t max_rows_per_page : {1, 10, 100}) {
+    this->SetUpSchema(Repetition::REPEATED);
+
+    this->GenerateData(SMALL_SIZE);
+    std::vector<int16_t> definition_levels(SMALL_SIZE);
+    std::vector<int16_t> repetition_levels(SMALL_SIZE);
+
+    // Generate levels to include variable-sized lists and empty lists
+    for (int i = 0; i < SMALL_SIZE; i++) {
+      int list_length = (i % 5) + 1;
+      if (i % 13 == 0 || i % 17 == 0) {
+        list_length = 0;
+      }
+
+      if (list_length == 0) {
+        definition_levels[i] = 0;
+        repetition_levels[i] = 0;
+      } else {
+        for (int j = 0; j < list_length && i + j < SMALL_SIZE; j++) {
+          definition_levels[i + j] = 1;
+          repetition_levels[i + j] = (j == 0) ? 0 : 1;
+        }
+        i += list_length - 1;
+      }
+    }
+
+    auto writer = this->BuildWriter(max_rows_per_page);
+    writer->WriteBatch(this->values_.size(), definition_levels.data(),
+                       repetition_levels.data(), this->values_ptr_);
+    this->CloseWriter();
+
+    this->BuildReader();
+    ASSERT_NO_FATAL_FAILURE(this->VerifyMaxRowsPerPage(max_rows_per_page));
+  }
+}
+
+TYPED_TEST(TestColumnWriterMaxRowsPerPage, RequiredLargeChunk) {
+  for (int64_t max_rows_per_page : {10, 100, 10000}) {
+    this->GenerateData(LARGE_SIZE);
+
+    auto writer = this->BuildWriter(max_rows_per_page);
+    writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+    this->CloseWriter();
+
+    this->BuildReader();
+    ASSERT_NO_FATAL_FAILURE(this->VerifyMaxRowsPerPage(max_rows_per_page));
+  }
+}
+
+template <typename TestType>
+class TestBloomFilterWriter : public TestPrimitiveWriter<TestType> {
+ public:
+  void SetUp() override {
+    TestPrimitiveWriter<TestType>::SetUp();
+    builder_ = nullptr;
+    bloom_filter_ = nullptr;
+  }
+
+  std::shared_ptr<TypedColumnWriter<TestType>> BuildWriter(
+      int64_t output_size, const ColumnProperties& column_properties) {
+    this->sink_ = CreateOutputStream();
+
+    WriterProperties::Builder properties_builder;
+    if (column_properties.encoding() == Encoding::PLAIN_DICTIONARY ||
+        column_properties.encoding() == Encoding::RLE_DICTIONARY) {
+      properties_builder.enable_dictionary();
+    } else {
+      properties_builder.disable_dictionary();
+      properties_builder.encoding(column_properties.encoding());
+    }
+    auto path = this->schema_.Column(0)->path();
+    if (column_properties.bloom_filter_enabled()) {
+      properties_builder.enable_bloom_filter(path,
+                                             *column_properties.bloom_filter_options());
+    } else {
+      properties_builder.disable_bloom_filter(path);
+    }
+    this->writer_properties_ = properties_builder.build();
+
+    this->metadata_ =
+        ColumnChunkMetaDataBuilder::Make(this->writer_properties_, this->descr_);
+    auto pager = PageWriter::Open(this->sink_, column_properties.compression(),
+                                  this->metadata_.get());
+
+    builder_ = BloomFilterBuilder::Make(&this->schema_, this->writer_properties_.get());
+    builder_->AppendRowGroup();
+    bloom_filter_ = builder_->CreateBloomFilter(/*column_ordinal=*/0);
+
+    return std::dynamic_pointer_cast<TypedColumnWriter<TestType>>(
+        ColumnWriter::Make(this->metadata_.get(), std::move(pager),
+                           this->writer_properties_.get(), bloom_filter_));
+  }
+
+  std::unique_ptr<BloomFilterBuilder> builder_;
+  BloomFilter* bloom_filter_{nullptr};  // Will be created and owned by `builder_`.
+};
+
+// Note: BooleanType is excluded.
+using TestBloomFilterTypes = ::testing::Types<Int32Type, Int64Type, Int96Type, FloatType,
+                                              DoubleType, ByteArrayType, FLBAType>;
+
+TYPED_TEST_SUITE(TestBloomFilterWriter, TestBloomFilterTypes);
+
+TYPED_TEST(TestBloomFilterWriter, Basic) {
+  this->GenerateData(SMALL_SIZE);
+
+  ColumnProperties column_properties;
+  column_properties.set_bloom_filter_options(BloomFilterOptions{SMALL_SIZE, 0.05});
+
+  auto writer = this->BuildWriter(SMALL_SIZE, column_properties);
+  writer->WriteBatch(this->values_.size(), nullptr, nullptr, this->values_ptr_);
+  writer->Close();
+
+  // Make sure that column values are read correctly
+  this->SetupValuesOut(SMALL_SIZE);
+  this->ReadColumnFully();
+  ASSERT_EQ(SMALL_SIZE, this->values_read_);
+  ASSERT_EQ(this->values_, this->values_out_);
+
+  // Verify values are found by bloom filter
+  for (auto& value : this->values_) {
+    if constexpr (std::is_same_v<TypeParam, FLBAType>) {
+      EXPECT_TRUE(this->bloom_filter_->FindHash(
+          this->bloom_filter_->Hash(&value, this->descr_->type_length())));
+    } else {
+      EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(value)));
+    }
+  }
 }
 
 }  // namespace test

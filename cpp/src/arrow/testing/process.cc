@@ -176,7 +176,7 @@ class Process::Impl {
       for (const auto& kv : process::environment::current()) {
         env[kv.key()] = process::environment::value(kv.value());
       }
-      env["PATH"] = process::environment::value(current_exe.parent_path());
+      env["PATH"] = process::environment::value(current_exe.parent_path().string());
       executable_ = process::environment::find_executable(name, env);
 #  else
       executable_ = process::search_path(name, {current_exe.parent_path()});

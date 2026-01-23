@@ -122,7 +122,7 @@ class ARROW_EXPORT RecordBatch {
   ///
   /// \param[in] other the RecordBatch to compare with
   /// \param[in] check_metadata if true, the schema metadata will be compared,
-  ///            regardless of the value set in \ref EqualOptions::use_metadata_
+  ///            regardless of the value set in \ref EqualOptions::use_metadata
   /// \param[in] opts the options for equality comparisons
   /// \return true if batches are equal
   bool Equals(const RecordBatch& other, bool check_metadata = false,

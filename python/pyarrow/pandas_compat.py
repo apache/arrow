@@ -140,7 +140,7 @@ def get_extension_dtype_info(column):
         physical_dtype = str(cats.codes.dtype)
     elif hasattr(dtype, 'tz'):
         metadata = {'timezone': pa.lib.tzinfo_to_string(dtype.tz)}
-        physical_dtype = 'datetime64[ns]'
+        physical_dtype = f'datetime64[{dtype.unit}]'
     else:
         metadata = None
         physical_dtype = str(dtype)
@@ -221,8 +221,14 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
         # see https://github.com/apache/arrow/pull/44963#discussion_r1875771953
         column_field_names = [str(name) for name in column_names]
 
-    num_serialized_index_levels = len([descr for descr in index_descriptors
-                                       if not isinstance(descr, dict)])
+    serialized_index_levels = [
+        (level, descriptor)
+        for level, descriptor in zip(index_levels, index_descriptors)
+        if not isinstance(descriptor, dict)
+    ]
+
+    num_serialized_index_levels = len(serialized_index_levels)
+
     # Use ntypes instead of Python shorthand notation [:-len(x)] as [:-0]
     # behaves differently to what we want.
     ntypes = len(types)
@@ -240,13 +246,9 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
     index_column_metadata = []
     if preserve_index is not False:
         non_str_index_names = []
-        for level, arrow_type, descriptor in zip(index_levels, index_types,
-                                                 index_descriptors):
-            if isinstance(descriptor, dict):
-                # The index is represented in a non-serialized fashion,
-                # e.g. RangeIndex
-                continue
-
+        for (level, descriptor), arrow_type in zip(
+            serialized_index_levels, index_types
+        ):
             if level.name is not None and not isinstance(level.name, str):
                 non_str_index_names.append(level.name)
 
@@ -276,6 +278,15 @@ def construct_metadata(columns_to_convert, df, column_names, index_levels,
         index_descriptors = index_column_metadata = column_indexes = []
 
     attributes = df.attrs if hasattr(df, "attrs") else {}
+
+    try:
+        json.dumps(attributes)
+    except Exception as e:
+        attributes = {}
+        warnings.warn(
+            f"Could not serialize pd.DataFrame.attrs: {e},"
+            f" defaulting to empty attributes.",
+            UserWarning, stacklevel=4)
 
     return {
         b'pandas': json.dumps({
@@ -1177,7 +1188,7 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
             if _pandas_api.is_ge_v3():
                 # with pandas 3+, to_datetime returns a unit depending on the string
                 # data, so we restore it to the original unit from the metadata
-                level = level.as_unit(np.datetime_data(dtype)[0])
+                level = level.as_unit(np.datetime_data(numpy_dtype)[0])
         # GH-41503: if the column index was decimal, restore to decimal
         elif pandas_dtype == "decimal":
             level = _pandas_api.pd.Index([decimal.Decimal(i) for i in level])

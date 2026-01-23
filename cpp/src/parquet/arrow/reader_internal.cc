@@ -86,6 +86,7 @@ using arrow::Table;
 using arrow::TimestampArray;
 
 using ::arrow::bit_util::FromBigEndian;
+using ::arrow::bit_util::ToBigEndian;
 using ::arrow::internal::checked_cast;
 using ::arrow::internal::checked_pointer_cast;
 using ::arrow::internal::SafeLeftShift;
@@ -107,6 +108,62 @@ namespace {
 
 template <typename ArrowType>
 using ArrayType = typename ::arrow::TypeTraits<ArrowType>::ArrayType;
+
+template <typename DecimalType>
+Result<std::shared_ptr<::arrow::Scalar>> DecimalScalarFromBigEndianBytes(
+    std::string_view data, std::shared_ptr<DataType> arrow_type) {
+  ARROW_ASSIGN_OR_RAISE(
+      DecimalType decimal,
+      DecimalType::FromBigEndian(reinterpret_cast<const uint8_t*>(data.data()),
+                                 static_cast<int32_t>(data.size())));
+  return ::arrow::MakeScalar(std::move(arrow_type), decimal);
+}
+
+// Extract Min and Max scalars from big-endian representation of Decimals.
+Status ExtractDecimalMinMaxFromBytes(std::string_view min_bytes,
+                                     std::string_view max_bytes,
+                                     const LogicalType& logical_type,
+                                     std::shared_ptr<::arrow::Scalar>* min,
+                                     std::shared_ptr<::arrow::Scalar>* max) {
+  const DecimalLogicalType& decimal_type =
+      checked_cast<const DecimalLogicalType&>(logical_type);
+
+  Result<std::shared_ptr<DataType>> maybe_type =
+      Decimal128Type::Make(decimal_type.precision(), decimal_type.scale());
+  std::shared_ptr<DataType> arrow_type;
+  if (maybe_type.ok()) {
+    arrow_type = maybe_type.ValueOrDie();
+    ARROW_ASSIGN_OR_RAISE(
+        *min, DecimalScalarFromBigEndianBytes<Decimal128>(min_bytes, arrow_type));
+    ARROW_ASSIGN_OR_RAISE(*max, DecimalScalarFromBigEndianBytes<Decimal128>(
+                                    max_bytes, std::move(arrow_type)));
+    return Status::OK();
+  }
+  // Fallback to see if Decimal256 can represent the type.
+  ARROW_ASSIGN_OR_RAISE(
+      arrow_type, Decimal256Type::Make(decimal_type.precision(), decimal_type.scale()));
+  ARROW_ASSIGN_OR_RAISE(
+      *min, DecimalScalarFromBigEndianBytes<Decimal256>(min_bytes, arrow_type));
+  ARROW_ASSIGN_OR_RAISE(*max, DecimalScalarFromBigEndianBytes<Decimal256>(
+                                  max_bytes, std::move(arrow_type)));
+
+  return Status::OK();
+}
+
+template <typename Int>
+Status ExtractDecimalMinMaxFromInteger(Int min_value, Int max_value,
+                                       const LogicalType& logical_type,
+                                       std::shared_ptr<::arrow::Scalar>* min,
+                                       std::shared_ptr<::arrow::Scalar>* max) {
+  static_assert(std::is_integral_v<Int>);
+  const Int min_be = ToBigEndian(min_value);
+  const Int max_be = ToBigEndian(max_value);
+  const auto min_bytes =
+      std::string_view(reinterpret_cast<const char*>(&min_be), sizeof(min_be));
+  const auto max_bytes =
+      std::string_view(reinterpret_cast<const char*>(&max_be), sizeof(max_be));
+  return ExtractDecimalMinMaxFromBytes(min_bytes, max_bytes, logical_type, min, max);
+}
 
 template <typename CType, typename StatisticsType>
 Status MakeMinMaxScalar(const StatisticsType& statistics,
@@ -165,17 +222,19 @@ static Status FromInt32Statistics(const Int32Statistics& statistics,
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeMinMaxIntegralScalar(statistics, *type, min, max);
-      break;
     case LogicalType::Type::DATE:
     case LogicalType::Type::TIME:
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int32_t>(statistics, type, min, max);
-      break;
+    case LogicalType::Type::DECIMAL:
+      return ExtractDecimalMinMaxFromInteger(statistics.min(), statistics.max(),
+                                             logical_type, min, max);
     default:
       break;
   }
 
-  return Status::NotImplemented("Cannot extract statistics for type ");
+  return Status::NotImplemented("Cannot extract statistics for INT32 with logical type ",
+                                logical_type.ToString());
 }
 
 static Status FromInt64Statistics(const Int64Statistics& statistics,
@@ -188,58 +247,19 @@ static Status FromInt64Statistics(const Int64Statistics& statistics,
   switch (logical_type.type()) {
     case LogicalType::Type::INT:
       return MakeMinMaxIntegralScalar(statistics, *type, min, max);
-      break;
     case LogicalType::Type::TIME:
     case LogicalType::Type::TIMESTAMP:
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int64_t>(statistics, type, min, max);
-      break;
+    case LogicalType::Type::DECIMAL:
+      return ExtractDecimalMinMaxFromInteger(statistics.min(), statistics.max(),
+                                             logical_type, min, max);
     default:
       break;
   }
 
-  return Status::NotImplemented("Cannot extract statistics for type ");
-}
-
-template <typename DecimalType>
-Result<std::shared_ptr<::arrow::Scalar>> FromBigEndianString(
-    const std::string& data, std::shared_ptr<DataType> arrow_type) {
-  ARROW_ASSIGN_OR_RAISE(
-      DecimalType decimal,
-      DecimalType::FromBigEndian(reinterpret_cast<const uint8_t*>(data.data()),
-                                 static_cast<int32_t>(data.size())));
-  return ::arrow::MakeScalar(std::move(arrow_type), decimal);
-}
-
-// Extracts Min and Max scalar from bytes like types (i.e. types where
-// decimal is encoded as little endian.
-Status ExtractDecimalMinMaxFromBytesType(const Statistics& statistics,
-                                         const LogicalType& logical_type,
-                                         std::shared_ptr<::arrow::Scalar>* min,
-                                         std::shared_ptr<::arrow::Scalar>* max) {
-  const DecimalLogicalType& decimal_type =
-      checked_cast<const DecimalLogicalType&>(logical_type);
-
-  Result<std::shared_ptr<DataType>> maybe_type =
-      Decimal128Type::Make(decimal_type.precision(), decimal_type.scale());
-  std::shared_ptr<DataType> arrow_type;
-  if (maybe_type.ok()) {
-    arrow_type = maybe_type.ValueOrDie();
-    ARROW_ASSIGN_OR_RAISE(
-        *min, FromBigEndianString<Decimal128>(statistics.EncodeMin(), arrow_type));
-    ARROW_ASSIGN_OR_RAISE(*max, FromBigEndianString<Decimal128>(statistics.EncodeMax(),
-                                                                std::move(arrow_type)));
-    return Status::OK();
-  }
-  // Fallback to see if Decimal256 can represent the type.
-  ARROW_ASSIGN_OR_RAISE(
-      arrow_type, Decimal256Type::Make(decimal_type.precision(), decimal_type.scale()));
-  ARROW_ASSIGN_OR_RAISE(
-      *min, FromBigEndianString<Decimal256>(statistics.EncodeMin(), arrow_type));
-  ARROW_ASSIGN_OR_RAISE(*max, FromBigEndianString<Decimal256>(statistics.EncodeMax(),
-                                                              std::move(arrow_type)));
-
-  return Status::OK();
+  return Status::NotImplemented("Cannot extract statistics for INT64 with logical type ",
+                                logical_type.ToString());
 }
 
 Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
@@ -247,7 +267,8 @@ Status ByteArrayStatisticsAsScalars(const Statistics& statistics,
                                     std::shared_ptr<::arrow::Scalar>* max) {
   auto logical_type = statistics.descr()->logical_type();
   if (logical_type->type() == LogicalType::Type::DECIMAL) {
-    return ExtractDecimalMinMaxFromBytesType(statistics, *logical_type, min, max);
+    return ExtractDecimalMinMaxFromBytes(statistics.EncodeMin(), statistics.EncodeMax(),
+                                         *logical_type, min, max);
   }
   std::shared_ptr<::arrow::DataType> type;
   if (statistics.descr()->physical_type() == Type::FIXED_LEN_BYTE_ARRAY) {

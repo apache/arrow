@@ -246,7 +246,8 @@ Build source and binaries and submit them
     archery crossbow status <crossbow-build-id>
 
     # Download the produced binaries
-    # This will download packages to a directory called packages/release-<version>-rc<rc-number>
+    # This will download packages generated from the archery tasks
+    # to a directory called packages/release-<version>-rc<rc-number>
     dev/release/04-binary-download.sh <version> <rc-number>
 
     # Sign and upload the binaries
@@ -263,8 +264,14 @@ Build source and binaries and submit them
     # NOTE: You need to have GitHub CLI installed to run this script.
     dev/release/06-matlab-upload.sh <version> <rc-number>
 
+    # Move the Release Candidate GitHub Release from draft to published state
+    # This will update the artifacts download URL which will be available for the
+    # verification step.
+    dev/release/07-publish-gh-release.sh <version> <rc-number>
+
     # Start verifications for binaries and wheels
-    dev/release/07-binary-verify.sh <version> <rc-number>
+    dev/release/08-binary-verify.sh <version> <rc-number>
+
 
 Verify the Release
 ------------------

@@ -28,55 +28,24 @@ groups:
     - wheel-*
     - python-sdist
 
-  linux:
-    - almalinux-*
-    - amazon-linux-*
-    - centos-*
-    - debian-*
-    - ubuntu-*
-
-  linux-amd64:
-    - almalinux-*-amd64
-    - amazon-linux-*-amd64
-    - centos-*-amd64
-    - debian-*-amd64
-    - ubuntu-*-amd64
-
-  linux-arm64:
-    - almalinux-*-arm64
-    - debian-*-arm64
-    - ubuntu-*-arm64
-
   homebrew:
     - homebrew-*
 
   packaging:
-    - almalinux-*
-    - amazon-linux-*
-    - centos-*
     - conan-*
-    - debian-*
     - matlab
     - python-sdist
     - r-binary-packages
-    - ubuntu-*
     - wheel-*
     - test-debian-*-docs
 
 {############################# Testing tasks #################################}
 
-  cuda:
-    - test-cuda-*
-
   test:
     - test-*
-    # Can be removed after we improved C++20 support
-    - ~test-debian-experimental-cpp-gcc-15
 
   cpp:
     - test-*cpp*
-    # Can be removed after we improved C++20 support
-    - ~test-debian-experimental-cpp-gcc-15
     - example-*cpp*
 
   c-glib:
@@ -132,11 +101,6 @@ groups:
 
   nightly:
     - verify-rc-source-*
-    - almalinux-*
-    - amazon-linux-*
-    - debian-*
-    - ubuntu-*
-    - centos-*
     - conan-*
     - homebrew-cpp
     - test-*
@@ -146,16 +110,9 @@ groups:
 
   nightly-tests:
     - test-*
-    # Can be removed after we improved C++20 support
-    - ~test-debian-experimental-cpp-gcc-15
     - example-*
 
   nightly-packaging:
-    - almalinux-*
-    - amazon-linux-*
-    - debian-*
-    - ubuntu-*
-    - centos-*
     - conan-*
     - homebrew-cpp
     - wheel-*
@@ -218,7 +175,9 @@ tasks:
                                                ("3.11", "cp311", "cp311"),
                                                ("3.12", "cp312", "cp312"),
                                                ("3.13", "cp313", "cp313"),
-                                               ("3.13", "cp313", "cp313t")] %}
+                                               ("3.13", "cp313", "cp313t"),
+                                               ("3.14", "cp314", "cp314"),
+                                               ("3.14", "cp314", "cp314t")] %}
 
 {############################## Wheel Linux ##################################}
 
@@ -251,7 +210,7 @@ tasks:
       python_version: "{{ python_version }}"
       python_abi_tag: "{{ abi_tag }}"
       macos_deployment_target: "12.0"
-      runs_on: "macos-13"
+      runs_on: "macos-15-intel"
       vcpkg_arch: "amd64"
     artifacts:
       - pyarrow-{no_rc_version}-{{ python_tag }}-{{ abi_tag }}-macosx_12_0_x86_64.whl
@@ -291,223 +250,6 @@ tasks:
     artifacts:
       - pyarrow-{no_rc_version}.tar.gz
 
-{############################## Linux PKGS ####################################}
-
-{% for target in ["debian-bookworm",
-                  "debian-trixie",
-                  "debian-forky",
-                  "ubuntu-jammy",
-                  "ubuntu-noble"] %}
-  {% for architecture in ["amd64", "arm64"] %}
-  {{ target }}-{{ architecture }}:
-    ci: github
-    template: linux-packages/github.linux.yml
-    params:
-      architecture: "{{ architecture }}"
-    {% if architecture == "amd64" %}
-      target: "{{ target }}"
-    {% else %}
-      target: "{{ target }}-arm64"
-    {% endif %}
-      task_namespace: "apt"
-      upload_extensions:
-        - .ddeb
-        - .deb
-        - .debian.tar.xz
-        - .dsc
-        - .orig.tar.gz
-    artifacts:
-      - arrow-tools_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if architecture == "amd64" %}
-      - apache-arrow-apt-source_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow-apt-source_{no_rc_version}-1.dsc
-      - apache-arrow-apt-source_{no_rc_version}-1_all.deb
-      - apache-arrow-apt-source_{no_rc_version}.orig.tar.gz
-      - apache-arrow_{no_rc_version}-1.debian.tar.xz
-      - apache-arrow_{no_rc_version}-1.dsc
-      - apache-arrow_{no_rc_version}.orig.tar.gz
-    {% endif %}
-      - gir1.2-arrow-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-dataset-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-flight-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-arrow-flight-sql-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-gandiva-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - gir1.2-parquet-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-acero{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-acero{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-compute-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-compute{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-compute{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dataset{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-dataset{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight-sql{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight-sql{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-flight{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-flight{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libgandiva{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libgandiva{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib-doc_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libparquet{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libparquet{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - parquet-tools_{no_rc_version}-1_[a-z0-9]+.deb
-    {% if architecture == "amd64" %}
-      - gir1.2-arrow-cuda-1.0_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib-dev_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda-glib{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda-glib{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-      - libarrow-cuda{so_version}-dbgsym_{no_rc_version}-1_[a-z0-9]+.d?deb
-      - libarrow-cuda{so_version}_{no_rc_version}-1_[a-z0-9]+.deb
-    {% endif %}
-  {% endfor %}
-{% endfor %}
-
-{% for target in ["almalinux-10",
-                  "almalinux-9",
-                  "almalinux-8",
-                  "amazon-linux-2023",
-                  "centos-9-stream",
-                  "centos-7"] %}
-  {% set is_rhel7_based = (target == "centos-7") %}
-  {% for architecture
-       in ["amd64", "arm64"]
-       if not (target == "centos-7" and architecture == "arm64") %}
-  {{ target }}-{{ architecture }}:
-    ci: github
-    template: linux-packages/github.linux.yml
-    params:
-      architecture: "{{ architecture }}"
-    {% if architecture == "amd64" %}
-      target: "{{ target }}"
-    {% else %}
-      target: "{{ target }}-aarch64"
-    {% endif %}
-      task_namespace: "yum"
-      upload_extensions:
-        - .rpm
-    artifacts:
-    {% if architecture == "amd64" %}
-      - apache-arrow-release-{no_rc_version}-1.[a-z0-9]+.noarch.rpm
-      - apache-arrow-release-{no_rc_version}-1.[a-z0-9]+.src.rpm
-    {% endif %}
-      - arrow[0-9]+-acero-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-acero-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow[0-9]+-acero-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow[0-9]+-compute-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-compute-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow[0-9]+-compute-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow[0-9]+-dataset-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-dataset-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-dataset-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-dataset-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow[0-9]+-dataset-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow[0-9]+-dataset-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow[0-9]+-dataset-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow-debugsource-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow-flight-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-flight-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-flight-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-flight-sql-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-flight-sql-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-flight-sql-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-sql-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-sql-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-sql-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow[0-9]+-flight-sql-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - arrow-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - arrow[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if architecture == "amd64" %}
-      - arrow-{no_rc_version}-1.[a-z0-9]+.src.rpm
-    {% endif %}
-      - arrow-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - arrow-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-    {% if not is_rhel7_based %}
-      - gandiva-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - gandiva-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - gandiva-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - gandiva[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - gandiva[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - gandiva[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - gandiva[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - parquet-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - parquet-glib-devel-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - parquet-glib-doc-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - parquet[0-9]+-glib-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - parquet[0-9]+-glib-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - parquet[0-9]+-libs-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-      - parquet[0-9]+-libs-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-      - parquet-tools-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% if not is_rhel7_based %}
-      - parquet-tools-debuginfo-{no_rc_version}-1.[a-z0-9]+.[a-z0-9_]+.rpm
-    {% endif %}
-  {% endfor %}
-{% endfor %}
-
   ############################## Homebrew Tasks ################################
 
   homebrew-cpp:
@@ -531,14 +273,10 @@ tasks:
     params:
       custom_version: Unset
     artifacts:
-      - r-lib__libarrow__bin__windows__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__linux-openssl-1.0__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__linux-openssl-1.1__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__linux-openssl-3.0__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__darwin-arm64-openssl-1.1__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__darwin-arm64-openssl-3.0__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__darwin-x86_64-openssl-1.1__arrow-{no_rc_r_version}\.zip
-      - r-lib__libarrow__bin__darwin-x86_64-openssl-3.0__arrow-{no_rc_r_version}\.zip
+      - r-libarrow-windows-x86_64-{no_rc_r_version}\.zip
+      - r-libarrow-linux-x86_64-{no_rc_r_version}\.zip
+      - r-libarrow-darwin-arm64-{no_rc_r_version}\.zip
+      - r-libarrow-darwin-x86_64-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.5__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
@@ -567,7 +305,7 @@ tasks:
   ######################## Linux verification #################################
 
 {% for distribution, version in [("conda", "latest"),
-                                 ("almalinux", "8"),
+                                 ("almalinux", "10"),
                                  ("ubuntu", "22.04"),
                                  ("ubuntu", "24.04")] %}
   {% for target in ["cpp",
@@ -595,7 +333,7 @@ tasks:
     params:
       target: {{ target }}
       use_conda: True
-      github_runner: "macos-13"
+      github_runner: "macos-15-intel"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -607,7 +345,7 @@ tasks:
     template: verify-rc/github.macos.yml
     params:
       target: {{ target }}
-      github_runner: "macos-13"
+      github_runner: "macos-15-intel"
   {% endfor %}
 
   {% for target in ["cpp",
@@ -698,8 +436,6 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        CLANG_TOOLS: 15
-        LLVM: 15
         UBUNTU: 24.04
       image: ubuntu-cpp
 
@@ -708,9 +444,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        CLANG_TOOLS: 15
         GCC: 14
-        LLVM: 15
         UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
       # https://github.com/Tencent/rapidjson/issues/718
@@ -746,7 +480,7 @@ tasks:
         ARCH: "amd64"
         DEBIAN: "experimental"
         GCC: "15"
-      flags: "-e CMAKE_CXX_STANDARD=20"
+        LLVM: "20"
       image: debian-cpp
 
   test-fedora-42-cpp:
@@ -806,7 +540,7 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-cpp-emscripten
 
-{% for python_version in ["3.10", "3.11", "3.12", "3.13"] %}
+{% for python_version in ["3.10", "3.11", "3.12", "3.13", "3.14"] %}
   test-conda-python-{{ python_version }}:
     ci: github
     template: docker-tests/github.linux.yml
@@ -918,6 +652,12 @@ tasks:
     ci: github
     template: r/github.linux.cran.yml
 
+  test-r-alpine-linux-cran:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: alpine-linux-r
+
   test-r-macos-as-cran:
     ci: github
     template: r/github.macos.cran.yml
@@ -947,30 +687,12 @@ tasks:
     ci: github
     template: r/github.devdocs.yml
 
-  test-r-depsource-bundled:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
-
   test-r-depsource-system:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
-
-  test-r-offline-minimal:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: '-e ARROW_OFFLINE_BUILD=true'
 
   test-r-dev-duckdb:
     ci: github
@@ -983,40 +705,6 @@ tasks:
   test-r-offline-maximal:
     ci: github
     template: r/github.linux.offline.build.yml
-
-  test-r-rhub-debian-gcc-release-custom-ccache:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: debian-gcc-release
-      r_tag: latest
-      r_custom_ccache: true
-
-{% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
-                                 ("rocker", "r-ver", "latest"),
-                                 ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-focal")] %}
-  test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: {{ r_org }}
-      r_image: {{ r_image }}
-      r_tag: {{ r_tag }}
-{% endfor %}
-
-  # This is with R built with --enable-lto
-  # CRAN also does R CMD INSTALL --use-LTO
-  # which overrides the UseLTO field in r/DESCRIPTION
-  test-r-rhub-debian-gcc-devel-lto-latest:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: gcc13
-      r_tag: latest
-      flags: '-e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:
@@ -1048,15 +736,6 @@ tasks:
         GCC: 12
       image: ubuntu-r-only-r
 
-  test-r-minimal-build:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: "-e LIBARROW_MINIMAL=TRUE"
-
   test-r-linux-sanitizers:
     ci: github
     template: r/github.linux.sanitizers.yml
@@ -1080,32 +759,11 @@ tasks:
     artifacts:
       - docs.tar.gz
 
-  ############################## CUDA tests #################################
-
-  test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        CUDA: 11.7.1
-        UBUNTU: 22.04
-      image: ubuntu-cuda-cpp
-
-  test-cuda-python-ubuntu-22.04-cuda-11.7.1:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        CUDA: 11.7.1
-        UBUNTU: 22.04
-      image: ubuntu-cuda-python
-
   ############################## Fuzz tests #################################
 
   test-build-cpp-fuzz:
     ci: github
     template: fuzz-tests/github.oss-fuzz.yml
-
 
   ############################## vcpkg tests ##################################
 

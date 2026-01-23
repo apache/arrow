@@ -980,6 +980,8 @@ class JoinResidualFilter {
 
  private:
   Expression filter_;
+  bool is_trivial_ = false;
+  bool is_literal_true_ = false;
 
   QueryContext* ctx_;
   MemoryPool* pool_;

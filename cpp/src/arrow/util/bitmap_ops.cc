@@ -17,6 +17,7 @@
 
 #include "arrow/util/bitmap_ops.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -55,13 +56,15 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
     constexpr int64_t kCountUnrollFactor = 4;
     const int64_t words_rounded =
         bit_util::RoundDown(p.aligned_words, kCountUnrollFactor);
-    int64_t count_unroll[kCountUnrollFactor] = {0};
+    std::array<int64_t, kCountUnrollFactor> count_unroll{};
 
     // Unroll the loop for better performance
     for (int64_t i = 0; i < words_rounded; i += kCountUnrollFactor) {
-      for (int64_t k = 0; k < kCountUnrollFactor; k++) {
-        count_unroll[k] += bit_util::PopCount(u64_data[k]);
-      }
+      // (hand-unrolled as some gcc versions would unnest a nested `for` loop)
+      count_unroll[0] += bit_util::PopCount(u64_data[0]);
+      count_unroll[1] += bit_util::PopCount(u64_data[1]);
+      count_unroll[2] += bit_util::PopCount(u64_data[2]);
+      count_unroll[3] += bit_util::PopCount(u64_data[3]);
       u64_data += kCountUnrollFactor;
     }
     for (int64_t k = 0; k < kCountUnrollFactor; k++) {
@@ -370,13 +373,25 @@ void UnalignedBitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* 
   }
 }
 
+// XXX: The bits before left/right/out_offset, if unaligned, are untouched. But not for
+// the bits after length. Caller should ensure proper alignment for the tail bits if
+// necessary, or correct the tail bits by subsequent calls.
 template <template <typename> class BitOp>
 void BitmapOp(const uint8_t* left, int64_t left_offset, const uint8_t* right,
               int64_t right_offset, int64_t length, int64_t out_offset, uint8_t* dest) {
-  if ((out_offset % 8 == left_offset % 8) && (out_offset % 8 == right_offset % 8)) {
-    // Fast case: can use bytewise AND
-    AlignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
-                           length);
+  if (out_offset % 8 == left_offset % 8 && out_offset % 8 == right_offset % 8) {
+    // Fast case: can use byte-wise BitOp after handling leading unaligned bits.
+    int64_t leading_unaligned_bits = (8 - left_offset % 8) % 8;
+    if (leading_unaligned_bits > 0) {
+      UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,
+                               leading_unaligned_bits);
+    }
+    if (length > leading_unaligned_bits) {
+      AlignedBitmapOp<BitOp>(left, left_offset + leading_unaligned_bits, right,
+                             right_offset + leading_unaligned_bits, dest,
+                             out_offset + leading_unaligned_bits,
+                             length - leading_unaligned_bits);
+    }
   } else {
     // Unaligned
     UnalignedBitmapOp<BitOp>(left, left_offset, right, right_offset, dest, out_offset,

@@ -1845,6 +1845,11 @@ void JoinResidualFilter::Init(Expression filter, QueryContext* ctx, MemoryPool* 
                               const HashJoinProjectionMaps* build_schemas,
                               SwissTableForJoin* hash_table) {
   filter_ = std::move(filter);
+  if (auto lit = filter_.literal(); lit) {
+    const auto& scalar = lit->scalar_as<BooleanScalar>();
+    is_trivial_ = true;
+    is_literal_true_ = scalar.is_valid && scalar.value;
+  }
   ctx_ = ctx;
   pool_ = pool;
   hardware_flags_ = hardware_flags;
@@ -1918,14 +1923,14 @@ Status JoinResidualFilter::FilterLeftSemi(const ExecBatch& keypayload_batch,
                                           arrow::util::TempVectorStack* temp_stack,
                                           int* num_passing_ids,
                                           uint16_t* passing_batch_row_ids) const {
-  if (filter_ == literal(true)) {
+  if (is_literal_true_) {
     CollectPassingBatchIds(1, hardware_flags_, batch_start_row, num_batch_rows,
                            match_bitvector, num_passing_ids, passing_batch_row_ids);
     return Status::OK();
   }
 
   *num_passing_ids = 0;
-  if (filter_.IsNullLiteral() || filter_ == literal(false)) {
+  if (is_trivial_ && !is_literal_true_) {
     return Status::OK();
   }
 
@@ -1993,7 +1998,7 @@ Status JoinResidualFilter::FilterLeftAnti(const ExecBatch& keypayload_batch,
                                           arrow::util::TempVectorStack* temp_stack,
                                           int* num_passing_ids,
                                           uint16_t* passing_batch_row_ids) const {
-  if (filter_ == literal(true)) {
+  if (is_literal_true_) {
     CollectPassingBatchIds(0, hardware_flags_, batch_start_row, num_batch_rows,
                            match_bitvector, num_passing_ids, passing_batch_row_ids);
     return Status::OK();
@@ -2032,12 +2037,12 @@ Status JoinResidualFilter::FilterRightSemiAnti(
     int64_t thread_id, const ExecBatch& keypayload_batch, int batch_start_row,
     int num_batch_rows, const uint8_t* match_bitvector, const uint32_t* key_ids,
     bool no_duplicate_keys, arrow::util::TempVectorStack* temp_stack) const {
-  if (filter_.IsNullLiteral() || filter_ == literal(false)) {
+  if (is_trivial_ && !is_literal_true_) {
     return Status::OK();
   }
 
   int num_matching_ids = 0;
-  if (filter_ == literal(true)) {
+  if (is_literal_true_) {
     auto match_relative_batch_ids_buf =
         arrow::util::TempVectorHolder<uint16_t>(temp_stack, num_batch_rows);
     auto match_key_ids_buf =
@@ -2091,13 +2096,13 @@ Status JoinResidualFilter::FilterInner(
     const ExecBatch& keypayload_batch, int num_batch_rows, uint16_t* batch_row_ids,
     uint32_t* key_ids, uint32_t* payload_ids_maybe_null, bool output_payload_ids,
     arrow::util::TempVectorStack* temp_stack, int* num_passing_rows) const {
-  if (filter_ == literal(true)) {
+  if (is_literal_true_) {
     *num_passing_rows = num_batch_rows;
     return Status::OK();
   }
 
   *num_passing_rows = 0;
-  if (filter_.IsNullLiteral() || filter_ == literal(false)) {
+  if (is_trivial_ && !is_literal_true_) {
     return Status::OK();
   }
 
@@ -2114,8 +2119,7 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
                                           arrow::util::TempVectorStack* temp_stack,
                                           int* num_passing_rows) const {
   // Caller must do shortcuts for trivial filter.
-  ARROW_DCHECK(!filter_.IsNullLiteral() && filter_ != literal(true) &&
-               filter_ != literal(false));
+  ARROW_DCHECK(!is_trivial_);
   ARROW_DCHECK(!output_key_ids || key_ids_maybe_null);
   ARROW_DCHECK(!output_payload_ids || payload_ids_maybe_null);
 
@@ -2128,6 +2132,7 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
   ARROW_ASSIGN_OR_RAISE(Datum mask,
                         EvalFilter(keypayload_batch, num_batch_rows, batch_row_ids,
                                    key_ids_maybe_null, payload_ids_maybe_null));
+  DCHECK_EQ(mask.type()->id(), Type::BOOL);
   if (mask.is_scalar()) {
     const auto& mask_scalar = mask.scalar_as<BooleanScalar>();
     if (mask_scalar.is_valid && mask_scalar.value) {
@@ -2162,8 +2167,7 @@ Status JoinResidualFilter::FilterOneBatch(const ExecBatch& keypayload_batch,
 Result<Datum> JoinResidualFilter::EvalFilter(
     const ExecBatch& keypayload_batch, int num_batch_rows, const uint16_t* batch_row_ids,
     const uint32_t* key_ids_maybe_null, const uint32_t* payload_ids_maybe_null) const {
-  ARROW_DCHECK(!filter_.IsNullLiteral() && filter_ != literal(true) &&
-               filter_ != literal(false));
+  ARROW_DCHECK(!is_trivial_);
 
   ARROW_ASSIGN_OR_RAISE(
       ExecBatch input,

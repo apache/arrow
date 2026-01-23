@@ -118,7 +118,8 @@ test_that("Garbage R metadata doesn't break things", {
   )
 
   # https://hiddenlayer.com/research/r-bitrary-code-execution/
-  tab$metadata <- list(r = "A
+  tab$metadata <- list(
+    r = "A
 3
 262913
 197888
@@ -138,7 +139,8 @@ message
 32
 arbitrary\040code\040was\040just\040executed
 254
-")
+"
+  )
   expect_message(
     expect_warning(
       as.data.frame(tab),
@@ -295,13 +297,15 @@ test_that("metadata drops readr's problems attribute", {
   )
   attributes(readr_like) <- append(
     attributes(readr_like),
-    list(problems = tibble::tibble(
-      row = 1L,
-      col = NA_character_,
-      expected = "2 columns",
-      actual = "1 columns",
-      file = "'test'"
-    ))
+    list(
+      problems = tibble::tibble(
+        row = 1L,
+        col = NA_character_,
+        expected = "2 columns",
+        actual = "1 columns",
+        file = "'test'"
+      )
+    )
   )
 
   tab <- Table$create(readr_like)
@@ -379,7 +383,7 @@ test_that("Row-level metadata (does not) roundtrip in datasets", {
 
   # however there is *no* warning if we don't select the metadata column
   expect_warning(
-    df_from_ds <- ds %>% dplyr::select(int) %>% dplyr::collect(),
+    df_from_ds <- ds |> dplyr::select(int) |> dplyr::collect(),
     NA
   )
 })
@@ -397,9 +401,9 @@ test_that("Dataset writing does handle other metadata", {
 
   ds <- open_dataset(dst_dir)
   expect_equal(
-    ds %>%
+    ds |>
       # partitioning on b puts it last, so move it back
-      select(a, b, c, d) %>%
+      select(a, b, c, d) |>
       collect(),
     example_with_metadata
   )
@@ -412,45 +416,45 @@ test_that("dplyr with metadata", {
   skip_if_not_available("dataset")
 
   compare_dplyr_binding(
-    .input %>%
+    .input |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      select(a) %>%
+    .input |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = b * 4) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = b * 4) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   compare_dplyr_binding(
-    .input %>%
-      mutate(z = nchar(d)) %>%
-      select(z, a) %>%
+    .input |>
+      mutate(z = nchar(d)) |>
+      select(z, a) |>
       collect(),
     example_with_metadata
   )
   # dplyr drops top-level attributes if you do summarize, though attributes
   # of grouping columns appear to come through
   compare_dplyr_binding(
-    .input %>%
-      group_by(d) %>%
-      summarize(n()) %>%
+    .input |>
+      group_by(d) |>
+      summarize(n()) |>
       collect(),
     example_with_metadata
   )
   # Same name in output but different data, so the column metadata shouldn't
   # carry through
   compare_dplyr_binding(
-    .input %>%
-      mutate(a = b) %>%
-      select(a) %>%
+    .input |>
+      mutate(a = b) |>
+      select(a) |>
       collect(),
     example_with_metadata
   )
@@ -485,4 +489,31 @@ test_that("data.frame class attribute is not saved", {
   attributes(df)$foo <- "bar"
   df_arrow <- arrow_table(df)
   expect_identical(df_arrow$r_metadata, list(attributes = list(foo = "bar"), columns = list(x = NULL)))
+})
+
+test_that("apply_arrow_r_metadata doesn't add in metadata from plain data.frame objects - GH48057", {
+  # with just a plain df the (empty) column metadata is not preserved
+  plain_df <- data.frame(x = 1:5)
+  plain_df_arrow <- arrow_table(plain_df)
+
+  expect_equal(plain_df_arrow$metadata$r$columns, list(x = NULL))
+
+  plain_df_no_metadata <- plain_df_arrow$to_data_frame()
+  plain_df_with_metadata <- apply_arrow_r_metadata(plain_df_no_metadata, plain_df_arrow$metadata$r)
+
+  expect_identical(plain_df_no_metadata, plain_df_with_metadata)
+
+  # with more complex column metadata - it preserves it
+  spicy_df_arrow <- arrow_table(haven_data)
+
+  expect_equal(
+    spicy_df_arrow$metadata$r$columns,
+    list(num = list(attributes = list(format.spss = "F8.2"), columns = NULL), cat_int = NULL, cat_chr = NULL)
+  )
+
+  spicy_df_no_metadata <- spicy_df_arrow$to_data_frame()
+  spicy_df_with_metadata <- apply_arrow_r_metadata(spicy_df_no_metadata, spicy_df_arrow$metadata$r)
+
+  expect_null(attr(spicy_df_no_metadata$num, "format.spss"))
+  expect_equal(attr(spicy_df_with_metadata$num, "format.spss"), "F8.2")
 })

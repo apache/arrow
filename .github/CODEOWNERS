@@ -51,8 +51,6 @@
 /.github/ @assignUser @jonkeane @kou @raulcd
 .asf.yaml @assignUser @kou @raulcd
 .pre-commit-config.yaml @raulcd
-.travis.yml @assignUser @kou @raulcd
-appveyor.yml @assignUser @kou @raulcd
 # .git*
 
 # release scripts, archery etc.
@@ -60,11 +58,11 @@ appveyor.yml @assignUser @kou @raulcd
 /dev/ @assignUser @jonkeane @kou @raulcd
 .dockerignore @raulcd
 .env @assignUser @jonkeane @kou @raulcd
-docker-compose.yml @assignUser @jonkeane @kou @raulcd
+compose.yaml @assignUser @jonkeane @kou @raulcd
 
 # R specific packaging tooling
 /r/configure* @assignUser
 /r/Makefile @assignUser
 /r/PACKAGING.md @assignUser
 /r/tools/ @assignUser
-.Rbuildignore @assignUser
+/r/.Rbuildignore @assignUser

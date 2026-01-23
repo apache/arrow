@@ -149,9 +149,9 @@ test_that("RecordBatchReader to python", {
   library(dplyr, warn.conflicts = FALSE)
 
   tab <- Table$create(example_data)
-  scan <- tab %>%
-    select(int, lgl) %>%
-    filter(int > 6) %>%
+  scan <- tab |>
+    select(int, lgl) |>
+    filter(int > 6) |>
     Scanner$create()
   reader <- scan$ToRecordBatchReader()
   pyreader <- reticulate::r_to_py(reader)
@@ -162,8 +162,8 @@ test_that("RecordBatchReader to python", {
   expect_r6_class(back_to_r, "Table")
   expect_equal_data_frame(
     back_to_r,
-    example_data %>%
-      select(int, lgl) %>%
+    example_data |>
+      select(int, lgl) |>
       filter(int > 6)
   )
 })

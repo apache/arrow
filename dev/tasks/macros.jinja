@@ -141,30 +141,6 @@ env:
   {% endif %}
 {% endmacro %}
 
-{%- macro azure_checkout_arrow() -%}
-  - script: |
-      git clone --no-checkout --branch {{ arrow.branch }} {{ arrow.remote }} arrow
-      git -C arrow checkout {{ arrow.head }}
-      git -C arrow submodule update --init --recursive
-    displayName: Clone arrow
-{% endmacro %}
-
-{%- macro azure_free_space() -%}
-  - script: arrow/ci/scripts/util_free_space.sh
-    displayName: Free up disk space
-{% endmacro %}
-
-{%- macro azure_upload_anaconda(pattern) -%}
-  {%- if arrow.is_default_branch() -%}
-  - bash: |
-      conda create -y -n azure_upload_anaconda -c conda-forge anaconda-client
-      source activate azure_upload_anaconda
-      anaconda -t $(CROSSBOW_ANACONDA_TOKEN) upload --force {{ pattern }}
-    displayName: Upload packages to Anaconda
-
-  {% endif %}
-{% endmacro %}
-
 {%- macro configure_homebrew_arrow(formula) -%}
   - name: Configure Homebrew formula for testing
     env:
@@ -243,27 +219,23 @@ env:
   - name: Get windows binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__windows
-      path: repo/libarrow/bin/windows
+      name: r-libarrow-windows-x86_64
+      path: repo/libarrow
   {% endif %}
   {% if get_nix %}
-    {% for openssl_version in ["1.0", "1.1", "3.0"] %}
-  - name: Get Linux OpenSSL {{ openssl_version }} binary
+  - name: Get Linux binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__linux-openssl-{{ openssl_version }}
-      path: repo/libarrow/bin/linux-openssl-{{ openssl_version }}
-    {% endfor %}
+      name: r-libarrow-linux-x86_64
+      path: repo/libarrow
   {% endif %}
   {% if get_mac %}
-    {% for openssl_version in ["1.1", "3.0"] %}
-      {% for arch in ["x86_64", "arm64"] %}
-  - name: Get macOS {{ arch }} OpenSSL {{ openssl_version }} binary
+    {% for arch in ["x86_64", "arm64"] %}
+  - name: Get macOS {{ arch }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-lib__libarrow__bin__darwin-{{arch}}-openssl-{{ openssl_version }}
-      path: repo/libarrow/bin/darwin-{{ arch }}-openssl-{{ openssl_version }}
-      {% endfor %}
+      name: r-libarrow-darwin-{{ arch }}
+      path: repo/libarrow
     {% endfor %}
   {% endif %}
   - name: Get src pkg
@@ -286,7 +258,7 @@ env:
     run: |
       profile_path <- file.path(getwd(), ".Rprofile")
       repo <- paste0("file://", getwd(), "/repo")
-      str <- paste0("options(arrow.repo = '", repo, "' )")
+      str <- paste0("options(arrow.repo = '", repo, "/libarrow/' )")
       print(str)
       write(str, file = profile_path, append = TRUE)
       str <- paste0("options(arrow.dev_repo = '", repo, "' )")
@@ -294,7 +266,7 @@ env:
       write(str, file = profile_path, append = TRUE)
       # Set envvar for later steps by appending to $GITHUB_ENV
       write(paste0("R_PROFILE_USER=", profile_path), file = Sys.getenv("GITHUB_ENV"), append = TRUE)
-  {% endmacro %}
+{% endmacro %}
 
 {# Detect if we are using a fork or the upstream repo #}
   {% set is_upstream_b = arrow.github_repo == 'apache/arrow' %}
@@ -322,20 +294,6 @@ env:
             "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix
           }
  %}
-  {% for key, value in sccache_vars.items() %}
-  {{ key }}: "{{ value }}"
-  {% endfor %}
-{% endmacro %}
-
-{% macro azure_set_sccache_envvars(sccache_key_prefix = "sccache") %}
-  {% set sccache_vars = {
-            "AWS_ACCESS_KEY_ID": '$(AWS_ACCESS_KEY_ID)',
-            "AWS_SECRET_ACCESS_KEY": '$(AWS_SECRET_ACCESS_KEY)',
-            "SCCACHE_BUCKET": '$(SCCACHE_BUCKET)',
-            "SCCACHE_REGION": '$(SCCACHE_REGION)',
-            "SCCACHE_S3_KEY_PREFIX": sccache_key_prefix
-          }
-  %}
   {% for key, value in sccache_vars.items() %}
   {{ key }}: "{{ value }}"
   {% endfor %}

@@ -16,6 +16,7 @@
 # under the License.
 
 import os
+import sys
 from collections import OrderedDict
 import io
 import warnings
@@ -185,8 +186,7 @@ def test_read_table_without_dataset(tempdir):
             pq.read_table(path, partitioning=['week', 'color'])
         with pytest.raises(ValueError, match="the 'schema' argument"):
             pq.read_table(path, schema=table.schema)
-        # Error message varies depending on OS
-        with pytest.raises(OSError):
+        with pytest.raises(ValueError, match="the 'source' argument"):
             pq.read_table(tempdir)
         result = pq.read_table(path)
         assert result == table
@@ -713,15 +713,12 @@ def test_zlib_compression_bug():
 
 def test_parquet_file_too_small(tempdir):
     path = str(tempdir / "test.parquet")
-    # TODO(dataset) with datasets API it raises OSError instead
-    with pytest.raises((pa.ArrowInvalid, OSError),
-                       match='size is 0 bytes'):
+    with pytest.raises(pa.ArrowInvalid, match='size is 0 bytes'):
         with open(path, 'wb') as f:
             pass
         pq.read_table(path)
 
-    with pytest.raises((pa.ArrowInvalid, OSError),
-                       match='size is 4 bytes'):
+    with pytest.raises(pa.ArrowInvalid, match='size is 4 bytes'):
         with open(path, 'wb') as f:
             f.write(b'ffff')
         pq.read_table(path)
@@ -993,3 +990,13 @@ def test_checksum_write_to_dataset(tempdir):
     # checksum verification enabled raises an exception
     with pytest.raises(OSError, match="CRC checksum verification"):
         _ = pq.read_table(corrupted_file_path, page_checksum_verification=True)
+
+
+@pytest.mark.parametrize(
+    "source", ["/tmp/", ["/tmp/file1.parquet", "/tmp/file2.parquet"]])
+def test_read_table_raises_value_error_when_ds_is_unavailable(monkeypatch, source):
+    # GH-47728
+    monkeypatch.setitem(sys.modules, "pyarrow.dataset", None)
+
+    with pytest.raises(ValueError, match="the 'source' argument"):
+        pq.read_table(source=source)

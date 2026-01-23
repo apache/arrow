@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
-
 # exclude_patterns are regular expressions so use ^ to match top-level
 # directories only. Otherwise 'dir' will match 'src/dir' and 'dir/file'.
 rsync <- function(src_dir, dest_dir, exclude_patterns) {
@@ -49,7 +47,8 @@ rsync <- function(src_dir, dest_dir, exclude_patterns) {
 
 if (dir.exists("../cpp")) {
   unlink("tools/cpp", recursive = TRUE)
-  rsync("../cpp",
+  rsync(
+    "../cpp",
     "tools/cpp",
     exclude_patterns = c(
       "^apidoc",

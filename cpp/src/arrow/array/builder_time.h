@@ -30,8 +30,6 @@ namespace arrow {
 ///
 /// @{
 
-// TODO(ARROW-7938): this class is untested
-
 class ARROW_EXPORT DayTimeIntervalBuilder : public NumericBuilder<DayTimeIntervalType> {
  public:
   using DayMilliseconds = DayTimeIntervalType::DayMilliseconds;

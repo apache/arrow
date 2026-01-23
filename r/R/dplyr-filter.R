@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
 filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
@@ -43,7 +42,6 @@ filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) 
         # dplyr lets you filter on e.g. x < mean(x), but we haven't implemented it.
         # But we could, the same way it works in mutate() via join, if someone asks.
         # Until then, just error.
-        # TODO: add a test for this
         arrow_not_supported(
           .actual_msg = "Expression not supported in filter() in Arrow",
           call = expr

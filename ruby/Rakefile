@@ -24,8 +24,12 @@ base_dir = File.join(__dir__)
 packages = []
 Dir.glob("#{base_dir}/*/*.gemspec") do |gemspec|
   package = File.basename(File.dirname(gemspec))
-  glib_package_name = package.gsub(/\Ared-/, "") + "-glib"
-  next unless PKGConfig.exist?(glib_package_name)
+  if package == "red-arrow-format"
+    next if RUBY_VERSION < "3.2.0"
+  else
+    glib_package_name = package.gsub(/\Ared-/, "") + "-glib"
+    next unless PKGConfig.exist?(glib_package_name)
+  end
   packages << package
 end
 

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cmath>
+#include <limits>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -147,6 +148,12 @@ TEST(StringConversion, ToFloat) {
   AssertConversionFails<FloatType>("");
   AssertConversionFails<FloatType>("e");
   AssertConversionFails<FloatType>("1,5");
+  AssertConversionFails<FloatType>("-");
+  AssertConversionFails<FloatType>("+");
+  AssertConversionFails<FloatType>("-+");
+  AssertConversionFails<FloatType>("+-");
+  AssertConversionFails<FloatType>("--0");
+  AssertConversionFails<FloatType>("++0");
 
   StringConverter<FloatType> converter(/*decimal_point=*/',');
   AssertConversion(&converter, "1,5", 1.5f);
@@ -808,8 +815,22 @@ TEST(StringConversion, ToTimestampDateTime_ISO8601) {
     AssertConversion(type, "1900-02-28 12:34:56.123456789-01:17",
                      -2203932304000000000LL + 123456789LL + 4620000000000LL);
 
+    // The theoretical lower bound is "1677-09-21 00:12:43.145224192",
+    // but supporting it would require a bit more care in the timestamp parsing
+    // code.
+    AssertConversion(type, "1677-09-22", -9223286400000000000);
+    AssertConversion(type, "1677-09-22 00:00:00.000000000", -9223286400000000000);
+    AssertConversion(type, "2262-04-11 23:47:16.854775806",
+                     std::numeric_limits<int64_t>::max() - 1);
+    AssertConversion(type, "2262-04-11 23:47:16.854775807",
+                     std::numeric_limits<int64_t>::max());
+
     // Invalid subseconds
     AssertConversionFails(type, "1900-02-28 12:34:56.1234567890");
+    // Out of bounds
+    AssertConversionFails(type, "3989-07-14T11:22:33.000777Z");
+    AssertConversionFails(type, "1677-09-21 00:12:43.145224191");
+    AssertConversionFails(type, "2262-04-11 23:47:16.854775808");
   }
 }
 
@@ -855,20 +876,18 @@ TEST(TimestampParser, StrptimeZoneOffset) {
   std::string format = "%Y-%d-%m %H:%M:%S%z";
   auto parser = TimestampParser::MakeStrptime(format);
 
-  std::vector<std::string> values = {
-    "2018-01-01 00:00:00+0000",
-    "2018-01-01 00:00:00+0100",
+  std::vector<std::string> values = {"2018-01-01 00:00:00+0000",
+                                     "2018-01-01 00:00:00+0100",
 #if defined(__GLIBC__) && defined(__GLIBC_MINOR__)
 // glibc < 2.28 doesn't support "-0117" timezone offset.
 // See also: https://github.com/apache/arrow/issues/43808
 #  if ((__GLIBC__ == 2) && (__GLIBC_MINOR__ >= 28)) || (__GLIBC__ >= 3)
-    "2018-01-01 00:00:00-0117",
+                                     "2018-01-01 00:00:00-0117",
 #  endif
 #else
-    "2018-01-01 00:00:00-0117",
+                                     "2018-01-01 00:00:00-0117",
 #endif
-    "2018-01-01 00:00:00+0130"
-  };
+                                     "2018-01-01 00:00:00+0130"};
 
   // N.B. GNU %z supports ISO8601 format while BSD %z supports only
   // +HHMM or -HHMM and POSIX doesn't appear to define %z at all
