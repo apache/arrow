@@ -768,7 +768,7 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
 
   // adjust the milliseconds
   ts_fields[TimeFields::kSubSeconds] =
-    normalize_subseconds_to_millis(ts_fields[TimeFields::kSubSeconds], sub_seconds_len);
+      normalize_subseconds_to_millis(ts_fields[TimeFields::kSubSeconds], sub_seconds_len);
   // handle timezone
   if (encountered_zone) {
     int err = 0;
@@ -878,8 +878,9 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
   }
 
   // adjust the milliseconds
-  time_fields[TimeFields::kSubSeconds - TimeFields::kHours] = normalize_subseconds_to_millis(
-    time_fields[TimeFields::kSubSeconds - TimeFields::kHours], sub_seconds_len);
+  time_fields[TimeFields::kSubSeconds - TimeFields::kHours] =
+      normalize_subseconds_to_millis(
+          time_fields[TimeFields::kSubSeconds - TimeFields::kHours], sub_seconds_len);
 
   int32_t input_hours = time_fields[TimeFields::kHours - TimeFields::kHours];
   int32_t input_minutes = time_fields[TimeFields::kMinutes - TimeFields::kHours];
