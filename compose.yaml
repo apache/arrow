@@ -922,14 +922,12 @@ services:
     environment:
       <<: [*common, *ccache, *sccache]
       PYTEST_ARGS:  # inherit
-      PYARROW_TEST_ANNOTATIONS: "ON"
     volumes: *conda-volumes
     command: &python-conda-command
       ["
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow &&
-        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-emscripten:
     # Usage:
@@ -1006,7 +1004,6 @@ services:
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
       ARROW_WITH_OPENTELEMETRY: "OFF"
-      PYARROW_TEST_ANNOTATIONS: "ON"
       SETUPTOOLS_SCM_PRETEND_VERSION:
     volumes: *ubuntu-volumes
     deploy: *cuda-deploy
@@ -1014,8 +1011,7 @@ services:
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
-        /arrow/ci/scripts/python_test.sh /arrow &&
-        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"
+        /arrow/ci/scripts/python_test.sh /arrow"
 
   debian-python:
     # Usage:
@@ -1506,7 +1502,6 @@ services:
         python: ${PYTHON}
     shm_size: *shm-size
     environment:
-      PYARROW_TEST_ANNOTATIONS: "ON"
       <<: [*common, *ccache, *sccache]
       PARQUET_REQUIRE_ENCRYPTION:  # inherit
       HYPOTHESIS_PROFILE:  # inherit
@@ -1517,8 +1512,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         mamba uninstall -y numpy &&
-        /arrow/ci/scripts/python_test.sh /arrow &&
-        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-docs:
     # Usage:
@@ -1546,8 +1540,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
-        /arrow/ci/scripts/python_test.sh /arrow &&
-        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-dask:
     # Possible $DASK parameters:

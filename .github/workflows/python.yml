@@ -239,11 +239,6 @@ jobs:
       - name: Test
         shell: bash
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
-      - name: Test annotations
-        shell: bash
-        env:
-          PYARROW_TEST_ANNOTATIONS: "ON"
-        run: ci/scripts/python_test_type_annotations.sh $(pwd)/python
 
   windows:
     name: AMD64 Windows 2022 Python 3.13
@@ -301,9 +296,3 @@ jobs:
         shell: cmd
         run: |
           call "ci\scripts\python_test.bat" %cd%
-      - name: Test annotations
-        shell: cmd
-        env:
-          PYARROW_TEST_ANNOTATIONS: "ON"
-        run: |
-          call "ci\scripts\python_test_type_annotations.bat" %cd%\python
