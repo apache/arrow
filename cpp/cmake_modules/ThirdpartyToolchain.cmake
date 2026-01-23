@@ -753,7 +753,7 @@ else()
                    ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
   set_urls(PROTOBUF_SOURCE_URL
-           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
+           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -1865,11 +1865,62 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
+# Abseil defined here so it can be called from build_protobuf()
+
+function(build_absl)
+  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
+  message(STATUS "Building Abseil from source using FetchContent")
+  set(ABSL_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
+  endif()
+
+  fetchcontent_declare(absl
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${ABSL_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # We have to enable Abseil install to add Abseil targets to an export set.
+  # But we don't install Abseil by EXCLUDE_FROM_ALL.
+  set(ABSL_ENABLE_INSTALL ON)
+  fetchcontent_makeavailable(absl)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  if(APPLE)
+    # This is due to upstream absl::cctz issue
+    # https://github.com/abseil/abseil-cpp/issues/283
+    find_library(CoreFoundation CoreFoundation)
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
+  endif()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# ----------------------------------------------------------------------
 # Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
 function(build_protobuf)
   list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
   message(STATUS "Building Protocol Buffers from source using FetchContent")
+
+  # Protobuf requires Abseil. Build Abseil first with OVERRIDE_FIND_PACKAGE
+  # so that protobuf doesn't build its own copy and we can reuse it on google-cloud-cpp
+  # if it's also being built.
+  if(NOT TARGET absl::strings)
+    build_absl()
+  endif()
+
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
@@ -1885,8 +1936,7 @@ function(build_protobuf)
   fetchcontent_declare(protobuf
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${PROTOBUF_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
-                       SOURCE_SUBDIR cmake)
+                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
@@ -3037,46 +3087,6 @@ endfunction()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-function(build_absl)
-  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
-  message(STATUS "Building Abseil from source using FetchContent")
-  set(ABSL_VENDORED
-      TRUE
-      PARENT_SCOPE)
-
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
-  endif()
-
-  fetchcontent_declare(absl
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${ABSL_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  # We have to enable Abseil install to add Abseil targets to an export set.
-  # But we don't install Abseil by EXCLUDE_FROM_ALL.
-  set(ABSL_ENABLE_INSTALL ON)
-  fetchcontent_makeavailable(absl)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  if(APPLE)
-    # This is due to upstream absl::cctz issue
-    # https://github.com/abseil/abseil-cpp/issues/283
-    find_library(CoreFoundation CoreFoundation)
-    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
-    # Cannot use set_property on alias targets (absl::time is an alias)
-    set_property(TARGET time
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
-  endif()
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
 function(build_grpc)
   resolve_dependency(c-ares
                      ARROW_CMAKE_PACKAGE_NAME
@@ -3152,8 +3162,7 @@ function(build_grpc)
       gpr
       grpc
       grpc++
-      grpc++_reflection
-      upb)
+      grpc++_reflection)
 
   foreach(target ${GRPC_LIBRARY_TARGETS})
     if(TARGET ${target} AND NOT TARGET gRPC::${target})
@@ -3201,8 +3210,7 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling
-       gRPC::upb)
+       gRPC::grpcpp_for_bundling)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
       PARENT_SCOPE)
