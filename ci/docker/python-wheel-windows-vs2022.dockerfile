@@ -35,4 +35,6 @@ RUN py -%PYTHON_VERSION% -m pip install -U pip setuptools
 COPY python/requirements-wheel-build.txt C:/arrow/python/
 RUN py -%PYTHON_VERSION% -m pip install -r C:/arrow/python/requirements-wheel-build.txt
 
+ENV PYTHON_CMD="py -${python}"
+
 ENV PYTHON=${python}
