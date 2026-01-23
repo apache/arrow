@@ -4534,31 +4534,19 @@ namespace {
   garrow_optional_null_placement_from_raw(
     const std::optional<arrow::compute::NullPlacement> &arrow_placement)
   {
-    if (!arrow_placement.has_value()) {
+    if (!arrow_null_placement.has_value()) {
       return GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED;
     }
-
-    switch (arrow_placement.value()) {
-    case arrow::compute::NullPlacement::AtStart:
-      return GARROW_OPTIONAL_NULL_PLACEMENT_AT_START;
-    case arrow::compute::NullPlacement::AtEnd:
-      return GARROW_OPTIONAL_NULL_PLACEMENT_AT_END;
-    default:
-      return GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED;
-    }
+    return static_cast<GArrowOptionalNullPlacement>(arrow_null_placement.value());
   }
 
   static std::optional<arrow::compute::NullPlacement>
   garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_placement)
   {
-    switch (garrow_placement) {
-    case GARROW_OPTIONAL_NULL_PLACEMENT_AT_START:
-      return arrow::compute::NullPlacement::AtStart;
-    case GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
-      return arrow::compute::NullPlacement::AtEnd;
-    case GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED:
-    default:
+    if (garrow_null_placement == GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED) {
       return std::nullopt;
+    } else {
+      return static_cast<arrow::compute::NullPlacement>(garrow_null_placement);
     }
   }
 } // namespace
