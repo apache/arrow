@@ -2870,7 +2870,7 @@ cdef class RecordBatch(_Tabular):
         pyarrow.RecordBatch
         year: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [2021,2022,2019,2021]
         n_legs: [2,4,5,100]
@@ -2881,7 +2881,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch
         pyarrow.RecordBatch
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         n_legs: [2,4,5,100]
         animals: ["Flamingo","Horse","Brittle stars","Centipede"]
@@ -3055,7 +3055,7 @@ cdef class RecordBatch(_Tabular):
         >>> batch.rename_columns(new_names)
         pyarrow.RecordBatch
         n: int64
-        name: string
+        name: large_string
         ----
         n: [2,4,5,100]
         name: ["Flamingo","Horse","Brittle stars","Centipede"]
@@ -3272,7 +3272,7 @@ cdef class RecordBatch(_Tabular):
 
         >>> batch.select([1])
         pyarrow.RecordBatch
-        animals: large_string
+        animals: string
         ----
         animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
 
@@ -3520,7 +3520,7 @@ cdef class RecordBatch(_Tabular):
         5     100      Centipede
         >>> pa.RecordBatch.from_arrays([n_legs, animals], schema=my_schema).schema
         n_legs: int64
-        animals: large_string
+        animals: string
         -- schema metadata --
         n_legs: 'Number of legs per animal'
         """
@@ -4130,7 +4130,7 @@ cdef class Table(_Tabular):
     >>> pa.Table.from_arrays([n_legs, animals], names=names)
     pyarrow.Table
     n_legs: int64
-    animals: large_string
+    animals: string
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4141,7 +4141,7 @@ cdef class Table(_Tabular):
     >>> pa.Table.from_batches([batch])
     pyarrow.Table
     n_legs: int64
-    animals: large_string
+    animals: string
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4168,7 +4168,7 @@ cdef class Table(_Tabular):
     >>> pa.Table.from_pydict(pydict)
     pyarrow.Table
     n_legs: int64
-    animals: large_string
+    animals: string
     ----
     n_legs: [[2,4,5,100]]
     animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -4300,7 +4300,7 @@ cdef class Table(_Tabular):
         pyarrow.Table
         year: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [[2019,2021]]
         n_legs: [[5,100]]
@@ -4309,7 +4309,7 @@ cdef class Table(_Tabular):
         pyarrow.Table
         year: int64
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         year: [[2019]]
         n_legs: [[5]]
@@ -5151,7 +5151,7 @@ cdef class Table(_Tabular):
         >>> reader.read_all()
         pyarrow.Table
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -5383,7 +5383,7 @@ cdef class Table(_Tabular):
         >>> table
         pyarrow.Table
         n_legs: int64
-        animals: string
+        animals: large_string
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -5543,7 +5543,7 @@ cdef class Table(_Tabular):
         >>> table.rename_columns(new_names)
         pyarrow.Table
         n: int64
-        name: string
+        name: large_string
         ----
         n: [[2,4,5,100]]
         name: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -5714,7 +5714,7 @@ cdef class Table(_Tabular):
         id: int64
         year: int64
         n_legs: int64
-        animal: string
+        animal: large_string
         ----
         id: [[3,1,2,4]]
         year: [[2019,2020,2022,null]]
@@ -5728,7 +5728,7 @@ cdef class Table(_Tabular):
         year: int64
         id: int64
         n_legs: int64
-        animal: string
+        animal: large_string
         ----
         year: [[2019,null]]
         id: [[3,4]]
@@ -5741,7 +5741,7 @@ cdef class Table(_Tabular):
         pyarrow.Table
         id: int64
         n_legs: int64
-        animal: string
+        animal: large_string
         ----
         id: [[4]]
         n_legs: [[100]]
@@ -5754,7 +5754,7 @@ cdef class Table(_Tabular):
         id: int64
         year: int64
         n_legs: int64
-        animal: string
+        animal: large_string
         ----
         id: []
         year: []
