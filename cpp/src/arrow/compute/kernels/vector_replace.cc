@@ -252,12 +252,13 @@ struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
             MakeArrayFromScalar(*replacements.scalar, array.length, ctx->memory_pool()));
         out->value = std::move(replacement_array->data());
       } else {
-        // Set to be a slice of replacements
+        // Set to be a slice of replacements. We manually adjust offset/length instead of
+        // calling ArrayData::Slice() to avoid creating an extra copy.
         std::shared_ptr<ArrayData> result = replacements.array.ToArrayData();
         result->offset += replacements_offset;
         result->length = array.length;
-
-        // TODO(wesm): why is the replacements null count not sufficient?
+        // The null count from the original replacements array is not sufficient because
+        // it applies to the entire array, not this specific slice. Must mark as unknown.
         result->null_count = kUnknownNullCount;
         out->value = result;
       }

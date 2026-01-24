@@ -244,9 +244,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                           row_group_ordinal_);
 
     if (column_index_buffer_ == nullptr) {
-      PARQUET_ASSIGN_OR_THROW(column_index_buffer_,
-                              input_->ReadAt(index_read_range_.column_index->offset,
-                                             index_read_range_.column_index->length));
+      column_index_buffer_ =
+          ReadIndexBuffer(index_read_range_.column_index->offset,
+                          index_read_range_.column_index->length, "ColumnIndex");
     }
 
     int64_t buffer_offset =
@@ -285,9 +285,9 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
                           row_group_ordinal_);
 
     if (offset_index_buffer_ == nullptr) {
-      PARQUET_ASSIGN_OR_THROW(offset_index_buffer_,
-                              input_->ReadAt(index_read_range_.offset_index->offset,
-                                             index_read_range_.offset_index->length));
+      offset_index_buffer_ =
+          ReadIndexBuffer(index_read_range_.offset_index->offset,
+                          index_read_range_.offset_index->length, "OffsetIndex");
     }
 
     int64_t buffer_offset =
@@ -346,7 +346,16 @@ class RowGroupPageIndexReaderImpl : public RowGroupPageIndexReader {
     }
   }
 
- private:
+  std::shared_ptr<Buffer> ReadIndexBuffer(int64_t offset, int64_t length,
+                                          const char* offset_kind) {
+    PARQUET_ASSIGN_OR_THROW(auto buffer, input_->ReadAt(offset, length));
+    if (buffer->size() < length) {
+      throw ParquetException("Invalid or truncated ", offset_kind, ": attempted to read ",
+                             length, " bytes but got only ", buffer->size(), " bytes");
+    }
+    return buffer;
+  }
+
   /// The input stream that can perform random access read.
   ::arrow::io::RandomAccessFile* input_;
 
@@ -786,20 +795,20 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
 
   void Finish() override { finished_ = true; }
 
-  void WriteTo(::arrow::io::OutputStream* sink,
-               PageIndexLocation* location) const override {
+  WriteResult WriteTo(::arrow::io::OutputStream* sink) const override {
     if (!finished_) {
       throw ParquetException("Cannot call WriteTo() to unfinished PageIndexBuilder.");
     }
 
-    location->column_index_location.clear();
-    location->offset_index_location.clear();
+    WriteResult result;
 
-    /// Serialize column index ordered by row group ordinal and then column ordinal.
-    SerializeIndex(column_index_builders_, sink, &location->column_index_location);
+    // Serialize column index ordered by row group ordinal and then column ordinal.
+    result.column_index_locations = SerializeIndex(column_index_builders_, sink);
 
-    /// Serialize offset index ordered by row group ordinal and then column ordinal.
-    SerializeIndex(offset_index_builders_, sink, &location->offset_index_location);
+    // Serialize offset index ordered by row group ordinal and then column ordinal.
+    result.offset_index_locations = SerializeIndex(offset_index_builders_, sink);
+
+    return result;
   }
 
  private:
@@ -833,24 +842,22 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
   }
 
   template <typename Builder>
-  void SerializeIndex(
+  IndexLocations SerializeIndex(
       const std::vector<std::vector<std::unique_ptr<Builder>>>& page_index_builders,
-      ::arrow::io::OutputStream* sink,
-      std::map<size_t, std::vector<std::optional<IndexLocation>>>* location) const {
+      ::arrow::io::OutputStream* sink) const {
+    IndexLocations locations;
+
     const auto num_columns = static_cast<size_t>(schema_->num_columns());
     constexpr int8_t module_type = std::is_same_v<Builder, ColumnIndexBuilder>
                                        ? encryption::kColumnIndex
                                        : encryption::kOffsetIndex;
 
-    /// Serialize the same kind of page index row group by row group.
+    // Serialize the same kind of page index row group by row group.
     for (size_t row_group = 0; row_group < page_index_builders.size(); ++row_group) {
       const auto& row_group_page_index_builders = page_index_builders[row_group];
       DCHECK_EQ(row_group_page_index_builders.size(), num_columns);
 
-      bool has_valid_index = false;
-      std::vector<std::optional<IndexLocation>> locations(num_columns, std::nullopt);
-
-      /// In the same row group, serialize the same kind of page index column by column.
+      // In the same row group, serialize the same kind of page index column by column.
       for (size_t column = 0; column < num_columns; ++column) {
         const auto& column_page_index_builder = row_group_page_index_builders[column];
         if (column_page_index_builder != nullptr) {
@@ -858,13 +865,13 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
           std::shared_ptr<Encryptor> encryptor = GetColumnMetaEncryptor(
               static_cast<int>(row_group), static_cast<int>(column), module_type);
 
-          /// Try serializing the page index.
+          // Try serializing the page index.
           PARQUET_ASSIGN_OR_THROW(int64_t pos_before_write, sink->Tell());
           column_page_index_builder->WriteTo(sink, encryptor.get());
           PARQUET_ASSIGN_OR_THROW(int64_t pos_after_write, sink->Tell());
           int64_t len = pos_after_write - pos_before_write;
 
-          /// The page index is not serialized and skip reporting its location
+          // The page index is not serialized and skip reporting its location
           if (len == 0) {
             continue;
           }
@@ -872,15 +879,16 @@ class PageIndexBuilderImpl final : public PageIndexBuilder {
           if (len > std::numeric_limits<int32_t>::max()) {
             throw ParquetException("Page index size overflows to INT32_MAX");
           }
-          locations[column] = {pos_before_write, static_cast<int32_t>(len)};
-          has_valid_index = true;
+
+          locations.emplace_back(
+              ColumnChunkId{static_cast<int32_t>(row_group),
+                            static_cast<int32_t>(column)},
+              IndexLocation{pos_before_write, static_cast<int32_t>(len)});
         }
       }
-
-      if (has_valid_index) {
-        location->emplace(row_group, std::move(locations));
-      }
     }
+
+    return locations;
   }
 
   const SchemaDescriptor* schema_;
@@ -962,6 +970,11 @@ std::unique_ptr<ColumnIndex> ColumnIndex::Make(const ColumnDescriptor& descr,
   ThriftDeserializer deserializer(properties);
   deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(serialized_index),
                                   &index_len, &column_index, decryptor);
+  if (ARROW_PREDICT_FALSE(LoadEnumSafe(&column_index.boundary_order) ==
+                          BoundaryOrder::UNDEFINED)) {
+    // Guard against UB when moving column_index
+    throw ParquetException("Invalid ColumnIndex boundary_order");
+  }
   switch (descr.physical_type()) {
     case Type::BOOLEAN:
       return std::make_unique<TypedColumnIndexImpl<BooleanType>>(descr,

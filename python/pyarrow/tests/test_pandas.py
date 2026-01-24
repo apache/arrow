@@ -212,13 +212,14 @@ class TestConvertMetadata:
         df.columns.names = ['a']
         _check_pandas_roundtrip(df, preserve_index=True)
 
-    def test_column_index_names_with_tz(self):
+    @pytest.mark.parametrize("tz", [None, "Europe/Brussels"])
+    def test_column_index_names_datetime(self, tz):
         # ARROW-13756
         # Bug if index is timezone aware DataTimeIndex
 
         df = pd.DataFrame(
             np.random.randn(5, 3),
-            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz="CET")
+            columns=pd.date_range("2021-01-01", periods=3, freq="50D", tz=tz)
         )
         _check_pandas_roundtrip(df, preserve_index=True)
 
@@ -345,6 +346,14 @@ class TestConvertMetadata:
             )
             _check_pandas_roundtrip(df, preserve_index=True)
 
+    def test_multiindex_rangeindex(self):
+        # https://github.com/apache/arrow/issues/33473
+        multiindex = pd.MultiIndex.from_arrays(
+            [pd.RangeIndex(0, 2), pd.Index([1, 2])]
+        )
+        df = pd.DataFrame(pd.Series([1, 2], name="a"), index=multiindex)
+        _check_pandas_roundtrip(df, preserve_index=None)
+
     def test_integer_index_column(self):
         df = pd.DataFrame([(1, 'a'), (2, 'b'), (3, 'c')])
         _check_pandas_roundtrip(df, preserve_index=True)
@@ -439,11 +448,16 @@ class TestConvertMetadata:
         assert len(md) == 1
         assert md['encoding'] == 'UTF-8'
 
-    def test_datetimetz_column_index(self):
+    @pytest.mark.parametrize('unit', ['us', 'ns'])
+    def test_datetimetz_column_index(self, unit):
+        ext_kwargs = {}
+        if Version(pd.__version__) >= Version("2.0.0"):
+            # unit argument not supported on date_range for pandas < 2.0.0
+            ext_kwargs = {'unit': unit}
         df = pd.DataFrame(
             [(1, 'a', 2.0), (2, 'b', 3.0), (3, 'c', 4.0)],
             columns=pd.date_range(
-                start='2017-01-01', periods=3, tz='America/New_York'
+                start='2017-01-01', periods=3, tz='America/New_York', **ext_kwargs
             )
         )
         t = pa.Table.from_pandas(df, preserve_index=True)
@@ -452,7 +466,10 @@ class TestConvertMetadata:
         column_indexes, = js['column_indexes']
         assert column_indexes['name'] is None
         assert column_indexes['pandas_type'] == 'datetimetz'
-        assert column_indexes['numpy_type'] == 'datetime64[ns]'
+        if ext_kwargs:
+            assert column_indexes['numpy_type'] == f'datetime64[{unit}]'
+        else:
+            assert column_indexes['numpy_type'] == 'datetime64[ns]'
 
         md = column_indexes['metadata']
         assert md['timezone'] == 'America/New_York'
@@ -517,11 +534,6 @@ class TestConvertMetadata:
                                         preserve_index=True)
 
     def test_binary_column_name(self):
-        if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
-            # TODO: regression in pandas, hopefully fixed in next version
-            # https://issues.apache.org/jira/browse/ARROW-18394
-            # https://github.com/pandas-dev/pandas/issues/50127
-            pytest.skip("Regression in pandas 2.0.0")
         column_data = ['い']
         key = 'あ'.encode()
         data = {key: column_data}
@@ -701,7 +713,12 @@ class TestConvertMetadata:
         # It is possible that the metadata and actual schema is not fully
         # matching (eg no timezone information for tz-aware column)
         # -> to_pandas() conversion should not fail on that
-        df = pd.DataFrame({"datetime": pd.date_range("2020-01-01", periods=3)})
+        ext_kwargs = {}
+        if Version(pd.__version__) >= Version("2.0.0"):
+            # unit argument not supported on date_range for pandas < 2.0.0
+            ext_kwargs = {'unit': 'ns'}
+        df = pd.DataFrame({"datetime": pd.date_range(
+            "2020-01-01", periods=3, **ext_kwargs)})
 
         # OPTION 1: casting after conversion
         table = pa.Table.from_pandas(df)
@@ -3270,8 +3287,6 @@ class TestConvertMisc:
 
 
 def test_safe_cast_from_float_with_nans_to_int():
-    # TODO(kszucs): write tests for creating Date32 and Date64 arrays, see
-    #               ARROW-4258 and https://github.com/apache/arrow/pull/3395
     values = pd.Series([1, 2, None, 4])
     arr = pa.Array.from_pandas(values, type=pa.int32(), safe=True)
     expected = pa.array([1, 2, None, 4], type=pa.int32())
@@ -3303,12 +3318,6 @@ def _fully_loaded_dataframe_example():
 
 @pytest.mark.parametrize('columns', ([b'foo'], ['foo']))
 def test_roundtrip_with_bytes_unicode(columns):
-    if Version("2.0.0") <= Version(pd.__version__) < Version("3.0.0"):
-        # TODO: regression in pandas, hopefully fixed in next version
-        # https://issues.apache.org/jira/browse/ARROW-18394
-        # https://github.com/pandas-dev/pandas/issues/50127
-        pytest.skip("Regression in pandas 2.0.0")
-
     df = pd.DataFrame(columns=columns)
     table1 = pa.Table.from_pandas(df)
     table2 = pa.Table.from_pandas(table1.to_pandas())
@@ -4106,24 +4115,40 @@ def test_dictionary_with_pandas():
         d1 = pa.DictionaryArray.from_arrays(indices, dictionary)
         d2 = pa.DictionaryArray.from_arrays(indices, dictionary, mask=mask)
 
-        if index_type[0] == 'u':
-            # TODO: unsigned dictionary indices to pandas
-            with pytest.raises(TypeError):
+        if index_type == 'uint64':
+            # uint64 is not supported due to overflow risk (values > 2^63-1)
+            with pytest.raises(TypeError,
+                               match="UInt64 dictionary indices"):
                 d1.to_pandas()
             continue
 
         pandas1 = d1.to_pandas()
-        ex_pandas1 = pd.Categorical.from_codes(indices, categories=dictionary)
+        # Pandas Categorical uses signed int codes. Arrow converts:
+        # uint8 to int16, uint16 to int32, uint32 to int64, signed types unchanged
+        if index_type == 'uint8':
+            compare_indices = indices.astype('int16')
+        elif index_type == 'uint16':
+            compare_indices = indices.astype('int32')
+        elif index_type == 'uint32':
+            compare_indices = indices.astype('int64')
+        else:
+            compare_indices = indices
+        ex_pandas1 = pd.Categorical.from_codes(compare_indices, categories=dictionary)
 
         tm.assert_series_equal(pd.Series(pandas1), pd.Series(ex_pandas1))
 
         pandas2 = d2.to_pandas()
         assert pandas2.isnull().sum() == 1
 
-        # Unsigned integers converted to signed
-        signed_indices = indices
-        if index_type[0] == 'u':
-            signed_indices = indices.astype(index_type[1:])
+        # Use same conversion as above for comparison
+        if index_type == 'uint8':
+            signed_indices = indices.astype('int16')
+        elif index_type == 'uint16':
+            signed_indices = indices.astype('int32')
+        elif index_type == 'uint32':
+            signed_indices = indices.astype('int64')
+        else:
+            signed_indices = indices
         ex_pandas2 = pd.Categorical.from_codes(np.where(mask, -1,
                                                         signed_indices),
                                                categories=dictionary)

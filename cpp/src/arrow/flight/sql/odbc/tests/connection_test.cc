@@ -37,9 +37,9 @@ TYPED_TEST_SUITE(ConnectionTest, TestTypes);
 template <typename T>
 class ConnectionHandleTest : public T {};
 
-class ConnectionRemoteTest : public FlightSQLOdbcHandleRemoteTestBase {};
-using TestTypesHandle =
-    ::testing::Types<FlightSQLOdbcHandleMockTestBase, FlightSQLOdbcHandleRemoteTestBase>;
+class ConnectionRemoteTest : public FlightSQLOdbcEnvConnHandleRemoteTestBase {};
+using TestTypesHandle = ::testing::Types<FlightSQLOdbcEnvConnHandleMockTestBase,
+                                         FlightSQLOdbcEnvConnHandleRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionHandleTest, TestTypesHandle);
 
 TEST(ODBCHandles, TestSQLAllocAndFreeEnv) {
@@ -117,7 +117,7 @@ TEST(SQLGetEnvAttr, TestSQLGetEnvAttrODBCVersion) {
   // Allocate an environment handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, &version, 0, 0));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, &version, 0, nullptr));
 
   ASSERT_EQ(SQL_OV_ODBC2, version);
 
@@ -155,7 +155,7 @@ TYPED_TEST(ConnectionTest, TestSQLGetEnvAttrOutputNTS) {
   SQLINTEGER output_nts;
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, 0));
+            SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, nullptr));
 
   ASSERT_EQ(SQL_TRUE, output_nts);
 }
@@ -432,7 +432,7 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
-#endif
+#endif  // _WIN32
 
 TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
   // Invalid connect string
@@ -468,4 +468,111 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDisconnectWithoutConnection) {
 TYPED_TEST(ConnectionTest, TestConnect) {
   // Verifies connect and disconnect works on its own
 }
+
+TYPED_TEST(ConnectionTest, TestSQLAllocFreeStmt) {
+  SQLHSTMT statement;
+
+  // Allocate a statement using alloc statement
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(this->conn, &statement));
+
+  // Close statement handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(statement, SQL_CLOSE));
+
+  // Free statement handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(statement, SQL_DROP));
+}
+
+TYPED_TEST(ConnectionHandleTest, TestCloseConnectionWithOpenStatement) {
+  SQLHSTMT statement;
+
+  // Connect string
+  std::string connect_str = this->GetConnectionString();
+  ASSERT_OK_AND_ASSIGN(std::wstring wconnect_str,
+                       arrow::util::UTF8ToWideString(connect_str));
+  std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
+
+  SQLWCHAR out_str[kOdbcBufferSize] = L"";
+  SQLSMALLINT out_str_len;
+
+  // Connecting to ODBC server.
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+                             static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
+                             kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+
+  // Allocate a statement using alloc statement
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(this->conn, &statement));
+
+  // Disconnect from ODBC without closing the statement first
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+}
+
+TYPED_TEST(ConnectionTest, TestSQLAllocFreeDesc) {
+  SQLHDESC descriptor;
+
+  // Allocate a descriptor using alloc handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &descriptor));
+
+  // Free descriptor handle
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, descriptor));
+}
+
+TYPED_TEST(ConnectionTest, TestSQLSetStmtAttrDescriptor) {
+  SQLHDESC apd_descriptor, ard_descriptor;
+
+  // Allocate an APD descriptor using alloc handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &apd_descriptor));
+
+  // Allocate an ARD descriptor using alloc handle
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &ard_descriptor));
+
+  // Save implicitly allocated internal APD and ARD descriptor pointers
+  SQLPOINTER internal_apd, internal_ard = nullptr;
+
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC,
+                                        &internal_apd, sizeof(internal_apd), 0));
+
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &internal_ard,
+                                        sizeof(internal_ard), 0));
+
+  // Set APD descriptor to explicitly allocated handle
+  EXPECT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC,
+                                        reinterpret_cast<SQLPOINTER>(apd_descriptor), 0));
+
+  // Set ARD descriptor to explicitly allocated handle
+  EXPECT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC,
+                                        reinterpret_cast<SQLPOINTER>(ard_descriptor), 0));
+
+  // Verify APD and ARD descriptors are set to explicitly allocated pointers
+  SQLPOINTER value = nullptr;
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
+                                        sizeof(value), 0));
+
+  EXPECT_EQ(apd_descriptor, value);
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
+
+  EXPECT_EQ(ard_descriptor, value);
+
+  // Free explicitly allocated APD and ARD descriptor handles
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, apd_descriptor));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, ard_descriptor));
+
+  // Verify APD and ARD descriptors has been reverted to implicit descriptors
+  value = nullptr;
+
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
+                                        sizeof(value), 0));
+
+  EXPECT_EQ(internal_apd, value);
+
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
+
+  EXPECT_EQ(internal_ard, value);
+}
+
 }  // namespace arrow::flight::sql::odbc

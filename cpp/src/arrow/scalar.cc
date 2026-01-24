@@ -565,7 +565,7 @@ struct ScalarValidateImpl {
 };
 
 template <typename T, size_t N>
-void FillScalarScratchSpace(void* scratch_space, T const (&arr)[N]) {
+void FillScalarScratchSpace(void* scratch_space, const T (&arr)[N]) {
   static_assert(sizeof(arr) <= internal::kScalarScratchSpaceSize);
   std::memcpy(scratch_space, arr, sizeof(arr));
 }

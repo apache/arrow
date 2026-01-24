@@ -885,6 +885,31 @@ GARROW_AVAILABLE_IN_8_0
 GList *
 garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray *array);
 
+#define GARROW_TYPE_DURATION_ARRAY (garrow_duration_array_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowDurationArray, garrow_duration_array, GARROW, DURATION_ARRAY, GArrowNumericArray)
+struct _GArrowDurationArrayClass
+{
+  GArrowNumericArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDurationArray *
+garrow_duration_array_new(GArrowDurationDataType *data_type,
+                          gint64 length,
+                          GArrowBuffer *data,
+                          GArrowBuffer *null_bitmap,
+                          gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_23_0
+gint64
+garrow_duration_array_get_value(GArrowDurationArray *array, gint64 i);
+
+GARROW_AVAILABLE_IN_23_0
+const gint64 *
+garrow_duration_array_get_values(GArrowDurationArray *array, gint64 *length);
+
 #define GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY (garrow_fixed_size_binary_array_get_type())
 GARROW_AVAILABLE_IN_3_0
 G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeBinaryArray,

@@ -130,24 +130,18 @@ std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFi
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
-  std::shared_ptr<arrow::Table> table;
-  auto result =
-      RunWithCapturedRIfPossibleVoid([&]() { return reader->ReadTable(&table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadTable(); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& column_indices) {
-  std::shared_ptr<arrow::Table> table;
-  auto result = RunWithCapturedRIfPossibleVoid(
-      [&]() { return reader->ReadTable(column_indices, &table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadTable(column_indices); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]

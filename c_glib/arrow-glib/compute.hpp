@@ -175,3 +175,177 @@ garrow_struct_field_options_new_raw(
   const arrow::compute::StructFieldOptions *arrow_options);
 arrow::compute::StructFieldOptions *
 garrow_struct_field_options_get_raw(GArrowStructFieldOptions *options);
+
+GArrowAssumeTimezoneOptions *
+garrow_assume_timezone_options_new_raw(
+  const arrow::compute::AssumeTimezoneOptions *arrow_options);
+arrow::compute::AssumeTimezoneOptions *
+garrow_assume_timezone_options_get_raw(GArrowAssumeTimezoneOptions *options);
+
+GArrowCumulativeOptions *
+garrow_cumulative_options_new_raw(const arrow::compute::CumulativeOptions *arrow_options);
+arrow::compute::CumulativeOptions *
+garrow_cumulative_options_get_raw(GArrowCumulativeOptions *options);
+
+GArrowDictionaryEncodeOptions *
+garrow_dictionary_encode_options_new_raw(
+  const arrow::compute::DictionaryEncodeOptions *arrow_options);
+arrow::compute::DictionaryEncodeOptions *
+garrow_dictionary_encode_options_get_raw(GArrowDictionaryEncodeOptions *options);
+
+GArrowElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_new_raw(
+  const arrow::compute::ElementWiseAggregateOptions *arrow_options);
+arrow::compute::ElementWiseAggregateOptions *
+garrow_element_wise_aggregate_options_get_raw(GArrowElementWiseAggregateOptions *options);
+
+GArrowDayOfWeekOptions *
+garrow_day_of_week_options_new_raw(const arrow::compute::DayOfWeekOptions *arrow_options);
+arrow::compute::DayOfWeekOptions *
+garrow_day_of_week_options_get_raw(GArrowDayOfWeekOptions *options);
+
+GArrowExtractRegexOptions *
+garrow_extract_regex_options_new_raw(
+  const arrow::compute::ExtractRegexOptions *arrow_options);
+arrow::compute::ExtractRegexOptions *
+garrow_extract_regex_options_get_raw(GArrowExtractRegexOptions *options);
+
+GArrowExtractRegexSpanOptions *
+garrow_extract_regex_span_options_new_raw(
+  const arrow::compute::ExtractRegexSpanOptions *arrow_options);
+arrow::compute::ExtractRegexSpanOptions *
+garrow_extract_regex_span_options_get_raw(GArrowExtractRegexSpanOptions *options);
+
+GArrowJoinOptions *
+garrow_join_options_new_raw(const arrow::compute::JoinOptions *arrow_options);
+arrow::compute::JoinOptions *
+garrow_join_options_get_raw(GArrowJoinOptions *options);
+
+GArrowListFlattenOptions *
+garrow_list_flatten_options_new_raw(
+  const arrow::compute::ListFlattenOptions *arrow_options);
+arrow::compute::ListFlattenOptions *
+garrow_list_flatten_options_get_raw(GArrowListFlattenOptions *options);
+
+GArrowMapLookupOptions *
+garrow_map_lookup_options_new_raw(const arrow::compute::MapLookupOptions *arrow_options);
+arrow::compute::MapLookupOptions *
+garrow_map_lookup_options_get_raw(GArrowMapLookupOptions *options);
+
+GArrowListSliceOptions *
+garrow_list_slice_options_new_raw(const arrow::compute::ListSliceOptions *arrow_options);
+arrow::compute::ListSliceOptions *
+garrow_list_slice_options_get_raw(GArrowListSliceOptions *options);
+
+GArrowModeOptions *
+garrow_mode_options_new_raw(const arrow::compute::ModeOptions *arrow_options);
+arrow::compute::ModeOptions *
+garrow_mode_options_get_raw(GArrowModeOptions *options);
+
+GArrowNullOptions *
+garrow_null_options_new_raw(const arrow::compute::NullOptions *arrow_options);
+arrow::compute::NullOptions *
+garrow_null_options_get_raw(GArrowNullOptions *options);
+
+GArrowPadOptions *
+garrow_pad_options_new_raw(const arrow::compute::PadOptions *arrow_options);
+arrow::compute::PadOptions *
+garrow_pad_options_get_raw(GArrowPadOptions *options);
+
+GArrowPairwiseOptions *
+garrow_pairwise_options_new_raw(const arrow::compute::PairwiseOptions *arrow_options);
+arrow::compute::PairwiseOptions *
+garrow_pairwise_options_get_raw(GArrowPairwiseOptions *options);
+
+GArrowReplaceSliceOptions *
+garrow_replace_slice_options_new_raw(
+  const arrow::compute::ReplaceSliceOptions *arrow_options);
+arrow::compute::ReplaceSliceOptions *
+garrow_replace_slice_options_get_raw(GArrowReplaceSliceOptions *options);
+
+GArrowPartitionNthOptions *
+garrow_partition_nth_options_new_raw(
+  const arrow::compute::PartitionNthOptions *arrow_options);
+arrow::compute::PartitionNthOptions *
+garrow_partition_nth_options_get_raw(GArrowPartitionNthOptions *options);
+
+GArrowPivotWiderOptions *
+garrow_pivot_wider_options_new_raw(
+  const arrow::compute::PivotWiderOptions *arrow_options);
+arrow::compute::PivotWiderOptions *
+garrow_pivot_wider_options_get_raw(GArrowPivotWiderOptions *options);
+
+GArrowRankQuantileOptions *
+garrow_rank_quantile_options_new_raw(
+  const arrow::compute::RankQuantileOptions *arrow_options);
+arrow::compute::RankQuantileOptions *
+garrow_rank_quantile_options_get_raw(GArrowRankQuantileOptions *options);
+
+GArrowReplaceSubstringOptions *
+garrow_replace_substring_options_new_raw(
+  const arrow::compute::ReplaceSubstringOptions *arrow_options);
+arrow::compute::ReplaceSubstringOptions *
+garrow_replace_substring_options_get_raw(GArrowReplaceSubstringOptions *options);
+
+GArrowRoundBinaryOptions *
+garrow_round_binary_options_new_raw(
+  const arrow::compute::RoundBinaryOptions *arrow_options);
+arrow::compute::RoundBinaryOptions *
+garrow_round_binary_options_get_raw(GArrowRoundBinaryOptions *options);
+
+GArrowRoundTemporalOptions *
+garrow_round_temporal_options_new_raw(
+  const arrow::compute::RoundTemporalOptions *arrow_options);
+arrow::compute::RoundTemporalOptions *
+garrow_round_temporal_options_get_raw(GArrowRoundTemporalOptions *options);
+
+GArrowSelectKOptions *
+garrow_select_k_options_new_raw(const arrow::compute::SelectKOptions *arrow_options);
+arrow::compute::SelectKOptions *
+garrow_select_k_options_get_raw(GArrowSelectKOptions *options);
+
+GArrowSkewOptions *
+garrow_skew_options_new_raw(const arrow::compute::SkewOptions *arrow_options);
+arrow::compute::SkewOptions *
+garrow_skew_options_get_raw(GArrowSkewOptions *options);
+
+GArrowSliceOptions *
+garrow_slice_options_new_raw(const arrow::compute::SliceOptions *arrow_options);
+arrow::compute::SliceOptions *
+garrow_slice_options_get_raw(GArrowSliceOptions *options);
+
+GArrowTDigestOptions *
+garrow_tdigest_options_new_raw(const arrow::compute::TDigestOptions *arrow_options);
+arrow::compute::TDigestOptions *
+garrow_tdigest_options_get_raw(GArrowTDigestOptions *options);
+
+GArrowTrimOptions *
+garrow_trim_options_new_raw(const arrow::compute::TrimOptions *arrow_options);
+arrow::compute::TrimOptions *
+garrow_trim_options_get_raw(GArrowTrimOptions *options);
+
+GArrowWeekOptions *
+garrow_week_options_new_raw(const arrow::compute::WeekOptions *arrow_options);
+arrow::compute::WeekOptions *
+garrow_week_options_get_raw(GArrowWeekOptions *options);
+
+GArrowWinsorizeOptions *
+garrow_winsorize_options_new_raw(const arrow::compute::WinsorizeOptions *arrow_options);
+arrow::compute::WinsorizeOptions *
+garrow_winsorize_options_get_raw(GArrowWinsorizeOptions *options);
+
+GArrowZeroFillOptions *
+garrow_zero_fill_options_new_raw(const arrow::compute::ZeroFillOptions *arrow_options);
+arrow::compute::ZeroFillOptions *
+garrow_zero_fill_options_get_raw(GArrowZeroFillOptions *options);
+
+GArrowSplitOptions *
+garrow_split_options_new_raw(const arrow::compute::SplitOptions *arrow_options);
+arrow::compute::SplitOptions *
+garrow_split_options_get_raw(GArrowSplitOptions *options);
+
+GArrowMakeStructOptions *
+garrow_make_struct_options_new_raw(
+  const arrow::compute::MakeStructOptions *arrow_options);
+arrow::compute::MakeStructOptions *
+garrow_make_struct_options_get_raw(GArrowMakeStructOptions *options);

@@ -1768,7 +1768,6 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1816,7 +1815,6 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1858,7 +1856,6 @@ struct CaseWhenFunctor<Type, enable_if_list_view<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1900,7 +1897,6 @@ Status ReserveNoData(ArrayBuilder*) { return Status::OK(); }
 template <>
 struct CaseWhenFunctor<MapType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1918,7 +1914,6 @@ struct CaseWhenFunctor<MapType> {
 template <>
 struct CaseWhenFunctor<StructType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1936,7 +1931,6 @@ struct CaseWhenFunctor<StructType> {
 template <>
 struct CaseWhenFunctor<FixedSizeListType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1964,7 +1958,6 @@ struct CaseWhenFunctor<FixedSizeListType> {
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_union<Type>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1978,7 +1971,6 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
 template <>
 struct CaseWhenFunctor<DictionaryType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }

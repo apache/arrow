@@ -338,10 +338,9 @@ SharedExclusiveChecker::SharedExclusiveChecker() : impl_(new Impl) {}
 
 void SharedExclusiveChecker::LockShared() {
   std::lock_guard<std::mutex> lock(impl_->mutex);
-  // XXX The error message doesn't really describe the actual situation
-  // (e.g. ReadAt() called while Read() call in progress)
   ARROW_CHECK_EQ(impl_->n_exclusive, 0)
-      << "Attempted to take shared lock while locked exclusive";
+      << "Cannot perform position-independent I/O (ReadAt/GetSize) while an "
+         "exclusive operation (Read/Seek/Tell/Peek/Close/Abort) is in progress";
   ++impl_->n_shared;
 }
 
@@ -354,9 +353,11 @@ void SharedExclusiveChecker::UnlockShared() {
 void SharedExclusiveChecker::LockExclusive() {
   std::lock_guard<std::mutex> lock(impl_->mutex);
   ARROW_CHECK_EQ(impl_->n_shared, 0)
-      << "Attempted to take exclusive lock while locked shared";
+      << "Cannot perform exclusive I/O operation (Read/Seek/Tell/Peek/Close/Abort) while "
+         "position-independent operations (ReadAt/GetSize) are in progress";
   ARROW_CHECK_EQ(impl_->n_exclusive, 0)
-      << "Attempted to take exclusive lock while already locked exclusive";
+      << "Cannot perform exclusive I/O operation (Read/Seek/Tell/Peek/Close/Abort) while "
+         "another exclusive operation is already in progress";
   ++impl_->n_exclusive;
 }
 
