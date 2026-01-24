@@ -514,14 +514,22 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
  * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_START:
  *   Place nulls and NaNs before any non-null values.
  *   NaNs will come after nulls.
+ *   Ignore null-placement of each individual
+ *   `arrow:compute::SortKey`.
  * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
  *   Place nulls and NaNs after any non-null values.
  *   NaNs will come before nulls.
+ *   Ignore null-placement of each individual
+ *   `arrow:compute::SortKey`.
  * @GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED:
  *   Do not specify null placement.
- *   Null placement should instead
+ *   Instead, the null-placement of each individual
+ *   `arrow:compute::SortKey` will be followed.
  *
- * They are corresponding to `std::optional<arrow::compute::NullPlacement>` values.
+ * They are corresponding to `arrow::compute::NullPlacement` values except
+ * `GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED`.
+ * `GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED` is used to specify
+ * `std::nullopt`.
  *
  * Since: 24.0.0
  */
