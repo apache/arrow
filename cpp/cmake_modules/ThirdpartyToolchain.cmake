@@ -2867,6 +2867,15 @@ function(build_re2)
 
   fetchcontent_makeavailable(re2)
 
+  # Suppress -Wnested-anon-types warnings from RE2's use of anonymous types
+  # in anonymous unions (a compiler extension).
+  # See: https://github.com/apache/arrow/issues/48973
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    if(TARGET re2)
+      target_compile_options(re2 PRIVATE -Wno-nested-anon-types)
+    endif()
+  endif()
+
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
   endif()
