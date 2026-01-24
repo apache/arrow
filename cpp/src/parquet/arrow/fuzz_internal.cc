@@ -98,16 +98,15 @@ namespace {
 Status FuzzReadData(std::unique_ptr<FileReader> reader) {
   auto final_status = Status::OK();
   for (int i = 0; i < reader->num_row_groups(); ++i) {
-    std::shared_ptr<Table> table;
-    auto row_group_status = reader->ReadRowGroup(i, &table);
-    if (row_group_status.ok()) {
+    auto table_result = reader->ReadRowGroup(i);
+    if (table_result.ok()) {
       // When reading returns successfully, the Arrow data should be structurally
       // valid so that it can be read normally. If that is not the case, abort
       // so that the error can be published by OSS-Fuzz.
-      ARROW_CHECK_OK(table->Validate());
-      row_group_status &= table->ValidateFull();
+      ARROW_CHECK_OK((*table_result)->Validate());
+      final_status &= (*table_result)->ValidateFull();
     }
-    final_status &= row_group_status;
+    final_status &= table_result.status();
   }
   return final_status;
 }

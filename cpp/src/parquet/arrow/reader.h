@@ -266,17 +266,40 @@ class PARQUET_EXPORT FileReader {
   ::arrow::Status ReadTable(const std::vector<int>& column_indices,
                             std::shared_ptr<::arrow::Table>* out);
 
-  virtual ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
-                                       std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row group columns into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroup(
+      int i, const std::vector<int>& column_indices) = 0;
 
-  virtual ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row group into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroup(int i) = 0;
 
-  virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
-                                        const std::vector<int>& column_indices,
-                                        std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row groups columns into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroups(
+      const std::vector<int>& row_groups, const std::vector<int>& column_indices) = 0;
 
-  virtual ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
-                                        std::shared_ptr<::arrow::Table>* out) = 0;
+  /// \brief Read the given row groups into a Table
+  virtual ::arrow::Result<std::shared_ptr<::arrow::Table>> ReadRowGroups(
+      const std::vector<int>& row_groups) = 0;
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroup(int i, const std::vector<int>& column_indices,
+                               std::shared_ptr<::arrow::Table>* out);
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroup(int i, std::shared_ptr<::arrow::Table>* out);
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
+                                const std::vector<int>& column_indices,
+                                std::shared_ptr<::arrow::Table>* out);
+
+  /// \deprecated Deprecated in 24.0.0. Use arrow::Result version instead.
+  ARROW_DEPRECATED("Deprecated in 24.0.0. Use arrow::Result version instead.")
+  ::arrow::Status ReadRowGroups(const std::vector<int>& row_groups,
+                                std::shared_ptr<::arrow::Table>* out);
 
   /// \brief Scan file contents with one thread, return number of rows
   virtual ::arrow::Status ScanContents(std::vector<int> columns,
