@@ -61,10 +61,10 @@ build_arrow_r() {
   cat ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
 
   # Ensure CXX20 is configured in R's Makeconf.
-  # conda-forge's R may not have CXX20 set even though the compiler supports it.
+  # conda-forge's R may have empty CXX20 entries even though the compiler supports it.
   # Arrow requires C++20, so we need to add these settings if missing.
   MAKECONF="$(R RHOME)/etc/Makeconf"
-  if ! grep -q "^CXX20 " "$MAKECONF"; then
+  if [ -z "$(R CMD config CXX20)" ]; then
     echo "*** CXX20 not configured in R, adding it to Makeconf"
     cat >> "$MAKECONF" << 'EOF'
 
