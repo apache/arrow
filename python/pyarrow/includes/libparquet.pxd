@@ -534,15 +534,13 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 
         int num_row_groups()
-        CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)
-        CStatus ReadRowGroup(int i, const vector[int]& column_indices,
-                             shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadRowGroup(int i)
+        CResult[shared_ptr[CTable]] ReadRowGroup(int i,
+                                                 const vector[int]& column_indices)
 
-        CStatus ReadRowGroups(const vector[int]& row_groups,
-                              shared_ptr[CTable]* out)
-        CStatus ReadRowGroups(const vector[int]& row_groups,
-                              const vector[int]& column_indices,
-                              shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadRowGroups(const vector[int]& row_groups)
+        CResult[shared_ptr[CTable]] ReadRowGroups(const vector[int]& row_groups,
+                                                  const vector[int]& column_indices)
 
         CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices,
                                                                      const vector[int]& column_indices)
