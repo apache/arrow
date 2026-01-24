@@ -661,6 +661,15 @@ tasks:
     params:
       image: alpine-linux-r
 
+  test-r-fedora-clang:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: fedora-r-clang
+      # R-devel built from source with Clang, simulating CRAN's
+      # r-devel-linux-x86_64-fedora-clang environment
+      timeout: 180 # 3 hours - R-devel build from source takes time
+
   test-r-macos-as-cran:
     ci: github
     template: r/github.macos.cran.yml
