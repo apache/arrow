@@ -474,7 +474,7 @@ llvm::Value* LLVMGenerator::GetPackedValidityBitValue(llvm::Value* bitmap,
   ADD_TRACE("fetch validity bit at position %T", position);
 
   llvm::Value* bitmap8 = ir_builder()->CreateBitCast(
-      bitmap, types()->ptr_type(types()->i8_type()), "bitMapCast"); 
+      bitmap, types()->ptr_type(types()->i8_type()), "bitMapCast");
   return AddFunctionCall("bitMapValidityGetBit", types()->i1_type(), {bitmap8, position});
 }
 
@@ -608,10 +608,11 @@ void LLVMGenerator::Visitor::Visit(const VectorReadFixedLenValueDex& dex) {
     case arrow::Type::DECIMAL: {
       auto slot_offset = builder->CreateGEP(types->i128_type(), slot_ref, slot_index);
       // Arrow decimal128 data is only 8-byte aligned, not 16-byte aligned.
-      // Using CreateLoad with default alignment (16 for i128) causes crashes on misaligned data.
-      // Use CreateAlignedLoad with 8-byte alignment to match Arrow's actual alignment.
-      slot_value = builder->CreateAlignedLoad(types->i128_type(), slot_offset,
-                                              llvm::MaybeAlign(8), false, dex.FieldName());
+      // Using CreateLoad with default alignment (16 for i128) causes crashes on
+      // misaligned data. Use CreateAlignedLoad with 8-byte alignment to match Arrow's
+      // actual alignment.
+      slot_value = builder->CreateAlignedLoad(
+          types->i128_type(), slot_offset, llvm::MaybeAlign(8), false, dex.FieldName());
       lvalue = generator_->BuildDecimalLValue(slot_value, dex.FieldType());
       break;
     }
@@ -1117,7 +1118,7 @@ void LLVMGenerator::Visitor::VisitInExpression<gandiva::DecimalScalar128>(
   const InExprDex<gandiva::DecimalScalar128>& dex_instance =
       dynamic_cast<const InExprDex<gandiva::DecimalScalar128>&>(dex);
   /* add the holder at the beginning */
-  llvm::Constant* ptr_int_cast = 
+  llvm::Constant* ptr_int_cast =
       types->i64_constant((int64_t)(dex_instance.in_holder().get()));
   params.push_back(ptr_int_cast);
 
