@@ -44,7 +44,7 @@ class SortOptionsTest < Test::Unit::TestCase
 
       test("-String, Symbol") do
         @options.add_sort_key("-count", :desc)
-        assert_equal(["--$count"],
+        assert_equal(["-$-count"],
                      @options.sort_keys.collect(&:to_s))
       end
 
