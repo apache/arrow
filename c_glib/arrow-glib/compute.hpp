@@ -100,6 +100,12 @@ garrow_sort_options_new_raw(const arrow::compute::SortOptions *arrow_options);
 arrow::compute::SortOptions *
 garrow_sort_options_get_raw(GArrowSortOptions *options);
 
+GArrowOptionalNullPlacement
+garrow_optional_null_placement_from_raw(
+  const std::optional<arrow::compute::NullPlacement> &arrow_null_placement);
+std::optional<arrow::compute::NullPlacement>
+garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_null_placement);
+
 GArrowSetLookupOptions *
 garrow_set_lookup_options_new_raw(const arrow::compute::SetLookupOptions *arrow_options);
 arrow::compute::SetLookupOptions *
@@ -142,12 +148,6 @@ GArrowIndexOptions *
 garrow_index_options_new_raw(const arrow::compute::IndexOptions *arrow_options);
 arrow::compute::IndexOptions *
 garrow_index_options_get_raw(GArrowIndexOptions *options);
-
-GArrowOptionalNullPlacement
-garrow_optional_null_placement_from_raw(
-  const std::optional<arrow::compute::NullPlacement> &arrow_null_placement);
-std::optional<arrow::compute::NullPlacement>
-garrow_optional_null_placement_to_raw(GArrowOptionalNullPlacement garrow_null_placement);
 
 GArrowRankOptions *
 garrow_rank_options_new_raw(const arrow::compute::RankOptions *arrow_options);
