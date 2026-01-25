@@ -2871,9 +2871,7 @@ function(build_re2)
   # in anonymous unions (a compiler extension).
   # See: https://github.com/apache/arrow/issues/48973
   if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
-    if(TARGET re2)
-      target_compile_options(re2 PRIVATE -Wno-nested-anon-types)
-    endif()
+    target_compile_options(re2 PRIVATE -Wno-nested-anon-types)
   endif()
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
