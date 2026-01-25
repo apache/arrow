@@ -759,17 +759,21 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    tm.assert_frame_equal(df, df_fp)
+    # check_dtype=False: string/categorical dtype handling differs between libraries
+    tm.assert_frame_equal(df, df_fp, check_dtype=False, check_categorical=False)
 
     # Fastparquet -> arrow
     file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
-    fp.write(file_fastparquet, df)
+    # fastparquet can't write pandas 3.0 StringDtype
+    df_for_fp = df.copy()
+    df_for_fp['a'] = df_for_fp['a'].astype(object)
+    df_for_fp['f'] = df_for_fp['f'].astype(object)
+    fp.write(file_fastparquet, df_for_fp)
 
     table_fp = pq.read_pandas(file_fastparquet)
     # for fastparquet written file, categoricals comes back as strings
     # (no arrow schema in parquet metadata)
-    df['f'] = df['f'].astype(object)
-    tm.assert_frame_equal(table_fp.to_pandas(), df)
+    tm.assert_frame_equal(table_fp.to_pandas(), df_for_fp, check_dtype=False)
 
 
 @pytest.mark.parametrize('array_factory', [
