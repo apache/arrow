@@ -2065,3 +2065,149 @@ def test_read_csv_gil_deadlock():
     for i in range(20):
         with pytest.raises(pa.ArrowInvalid):
             read_csv(MyBytesIO(data))
+
+
+def test_max_rows_basic():
+    """Test basic max_rows limiting"""
+    rows = b"a,b,c\n1,2,3\n4,5,6\n7,8,9\n10,11,12\n"
+
+    # Read all rows (default)
+    table = read_csv(io.BytesIO(rows))
+    assert table.num_rows == 4
+
+    # Read 2 rows
+    opts = ReadOptions(max_rows=2)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 2
+    assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
+
+    # Read 1 row
+    opts = ReadOptions(max_rows=1)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 1
+    assert table.to_pydict() == {"a": [1], "b": [2], "c": [3]}
+
+    # Read more than available (should return all)
+    opts = ReadOptions(max_rows=100)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 4
+
+
+def test_max_rows_with_skip_rows():
+    """Test max_rows interaction with skip_rows"""
+    rows = b"# comment\na,b,c\n1,2,3\n4,5,6\n7,8,9\n"
+
+    opts = ReadOptions(skip_rows=1, max_rows=2)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 2
+    assert list(table.column_names) == ["a", "b", "c"]
+    assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
+
+
+def test_max_rows_with_skip_rows_after_names():
+    """Test max_rows interaction with skip_rows_after_names"""
+    rows = b"a,b,c\nSKIP1\nSKIP2\n1,2,3\n4,5,6\n7,8,9\n"
+
+    opts = ReadOptions(skip_rows_after_names=2, max_rows=2)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 2
+    assert table.to_pydict() == {"a": [1, 4], "b": [2, 5], "c": [3, 6]}
+
+
+def test_max_rows_edge_cases():
+    """Test edge cases for max_rows"""
+    rows = b"a,b\n1,2\n3,4\n"
+
+    # max_rows = 0 should raise error
+    opts = ReadOptions(max_rows=0)
+    with pytest.raises(pa.ArrowInvalid, match="max_rows cannot be 0"):
+        read_csv(io.BytesIO(rows), read_options=opts)
+
+    # Negative max_rows (other than -1) should raise error
+    opts = ReadOptions(max_rows=-5)
+    with pytest.raises(pa.ArrowInvalid, match="max_rows cannot be negative except -1"):
+        read_csv(io.BytesIO(rows), read_options=opts)
+
+    # max_rows = -1 should read all
+    opts = ReadOptions(max_rows=-1)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 2
+
+
+def test_max_rows_with_small_blocks():
+    """Test max_rows with block_size smaller than max_rows"""
+    # Create CSV with many rows
+    num_rows = 100
+    csv_data = "a,b,c\n"
+    for i in range(num_rows):
+        csv_data += f"{i},{i+1},{i+2}\n"
+    rows = csv_data.encode()
+
+    # Use small block size to force multiple blocks
+    opts = ReadOptions(block_size=50, max_rows=15)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 15  # Exact count
+
+    # Verify first and last row
+    assert table.column("a")[0].as_py() == "0"
+    assert table.column("a")[14].as_py() == "14"
+
+
+def test_max_rows_multithreaded():
+    """Test max_rows with use_threads=True"""
+    # Create large CSV to ensure parallel processing
+    num_rows = 1000
+    csv_data = "a,b,c\n"
+    for i in range(num_rows):
+        csv_data += f"{i},{i+1},{i+2}\n"
+    rows = csv_data.encode()
+
+    opts = ReadOptions(use_threads=True, max_rows=50)
+    table = read_csv(io.BytesIO(rows), read_options=opts)
+    assert table.num_rows == 50  # Must be exact, not approximate
+
+    # Verify rows are in order (0-49)
+    a_values = table.column("a").to_pylist()
+    expected = [str(i) for i in range(50)]
+    assert a_values == expected
+
+
+def test_max_rows_streaming():
+    """Test max_rows with streaming reader"""
+    rows = b"a,b,c\n1,2,3\n4,5,6\n7,8,9\n10,11,12\n13,14,15\n"
+
+    opts = ReadOptions(max_rows=3)
+    reader = open_csv(io.BytesIO(rows), read_options=opts)
+
+    # Read all batches
+    batches = []
+    while True:
+        try:
+            batch = reader.read_next_batch()
+            batches.append(batch)
+        except StopIteration:
+            break
+
+    # Concatenate all batches
+    table = pa.Table.from_batches(batches)
+
+    # Must have exactly 3 rows
+    assert table.num_rows == 3
+    assert table.to_pydict() == {
+        "a": ["1", "4", "7"],
+        "b": ["2", "5", "8"],
+        "c": ["3", "6", "9"]
+    }
+
+
+def test_max_rows_pickle():
+    """Test that max_rows is preserved through pickle"""
+    import pickle
+
+    opts = ReadOptions(max_rows=42, skip_rows=1)
+    pickled = pickle.dumps(opts)
+    unpickled = pickle.loads(pickled)
+
+    assert unpickled.max_rows == 42
+    assert unpickled.skip_rows == 1
+    assert opts.equals(unpickled)
