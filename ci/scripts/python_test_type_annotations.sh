@@ -35,8 +35,8 @@ if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
   pushd ${pyarrow_dir}
   mypy
   pyright
-  ty check;
+  ty check
   popd
 else
-  echo "Skipping type annotation tests";
+  echo "Skipping type annotation tests"
 fi
