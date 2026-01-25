@@ -41,7 +41,7 @@ elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then
   pip install --upgrade pandas fastparquet
-  pip uninstall pytz
+  pip uninstall -q -y pytz
 else
   pip install pandas=="${pandas}"
 fi
