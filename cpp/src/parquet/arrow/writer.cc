@@ -409,6 +409,8 @@ class FileWriterImpl : public FileWriter {
           chunk_size, static_cast<int64_t>(this->properties().max_row_group_bytes() /
                                            avg_row_size.value()));
     }
+    // Ensure chunk_size is at least 1 to avoid infinite loops.
+    chunk_size = std::max<int64_t>(chunk_size, 1);
 
     auto WriteRowGroup = [&](int64_t offset, int64_t size) {
       RETURN_NOT_OK(NewRowGroup());
@@ -486,6 +488,11 @@ class FileWriterImpl : public FileWriter {
 
     int64_t offset = 0;
     while (offset < batch.num_rows()) {
+      if (row_group_writer_->num_rows() >= max_row_group_length ||
+          row_group_writer_->EstimatedTotalCompressedBytes() >= max_row_group_bytes) {
+        // Current row group is full, start a new one.
+        RETURN_NOT_OK(NewBufferedRowGroup());
+      }
       int64_t batch_size = std::min(max_row_group_length - row_group_writer_->num_rows(),
                                     batch.num_rows() - offset);
       if (auto avg_row_size = EstimateCompressedBytesPerRow()) {
@@ -494,13 +501,10 @@ class FileWriterImpl : public FileWriter {
             batch_size, static_cast<int64_t>((max_row_group_bytes - buffered_bytes) /
                                              avg_row_size.value()));
       }
-      if (batch_size > 0) {
-        RETURN_NOT_OK(WriteBatch(offset, batch_size));
-        offset += batch_size;
-      } else if (offset < batch.num_rows()) {
-        // Current row group is full, write remaining rows in a new group.
-        RETURN_NOT_OK(NewBufferedRowGroup());
-      }
+      // Ensure batch_size is at least 1 to avoid infinite loops.
+      batch_size = std::max<int64_t>(batch_size, 1);
+      RETURN_NOT_OK(WriteBatch(offset, batch_size));
+      offset += batch_size;
     }
 
     return Status::OK();

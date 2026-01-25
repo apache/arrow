@@ -378,19 +378,19 @@ const double test_traits<::arrow::DoubleType>::value(4.2);
 template <>
 struct test_traits<::arrow::StringType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static const std::string value;
+  static std::string const value;
 };
 
 template <>
 struct test_traits<::arrow::BinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::BYTE_ARRAY;
-  static const std::string value;
+  static std::string const value;
 };
 
 template <>
 struct test_traits<::arrow::FixedSizeBinaryType> {
   static constexpr ParquetType::type parquet_enum = ParquetType::FIXED_LEN_BYTE_ARRAY;
-  static const std::string value;
+  static std::string const value;
 };
 
 const std::string test_traits<::arrow::StringType>::value("Test");            // NOLINT
@@ -5825,10 +5825,9 @@ TEST(TestArrowReadWrite, WriteRecordBatchFlushRowGroupByBufferedSize) {
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   auto file_metadata = arrow_writer->metadata();
-  EXPECT_EQ(5, file_metadata->num_row_groups());
-  for (int i = 0; i < 5; ++i) {
-    EXPECT_EQ(1, file_metadata->RowGroup(i)->num_rows());
-  }
+  EXPECT_EQ(2, file_metadata->num_row_groups());
+  EXPECT_EQ(3, file_metadata->RowGroup(0)->num_rows());
+  EXPECT_EQ(2, file_metadata->RowGroup(1)->num_rows());
 }
 
 TEST(TestArrowReadWrite, WriteTableFlushRowGroupByBufferedSize) {

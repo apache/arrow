@@ -58,9 +58,9 @@ class PARQUET_EXPORT RowGroupWriter {
     virtual int64_t total_compressed_bytes() const = 0;
     /// \brief total compressed bytes written by the page writer
     virtual int64_t total_compressed_bytes_written() const = 0;
-    /// \brief estimated bytes of values that are buffered by the page writer
+    /// \brief Estimated bytes of values and levels that are buffered by the page writer
     /// but not written to a page yet
-    virtual int64_t EstimatedBufferedValueBytes() const = 0;
+    virtual int64_t EstimatedBufferedBytes() const = 0;
 
     virtual bool buffered() const = 0;
   };
@@ -155,8 +155,8 @@ class PARQUET_EXPORT ParquetFileWriter {
     virtual RowGroupWriter* AppendRowGroup() = 0;
     virtual RowGroupWriter* AppendBufferedRowGroup() = 0;
 
-    virtual int64_t num_rows() const = 0;
     virtual int64_t written_compressed_bytes() const = 0;
+    virtual int64_t num_rows() const = 0;
     virtual int num_columns() const = 0;
     virtual int num_row_groups() const = 0;
 
