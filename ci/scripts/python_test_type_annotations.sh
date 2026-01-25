@@ -22,6 +22,7 @@ pyarrow_dir=${1}
 
 if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
   if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+    # shellcheck source=/dev/null
     . "${ARROW_PYTHON_VENV}/bin/activate"
   fi
 
@@ -32,7 +33,7 @@ if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
   pip install mypy pyright ty
 
   # Run type checkers
-  pushd ${pyarrow_dir}
+  pushd "${pyarrow_dir}"
   mypy
   pyright
   ty check
