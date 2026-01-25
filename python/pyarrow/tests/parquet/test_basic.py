@@ -736,6 +736,7 @@ def test_parquet_file_too_small(tempdir):
 @pytest.mark.fastparquet
 @pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
 @pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
+@pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 

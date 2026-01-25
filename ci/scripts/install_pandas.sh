@@ -40,8 +40,7 @@ if [ "${pandas}" = "upstream_devel" ]; then
 elif [ "${pandas}" = "nightly" ]; then
   pip install --extra-index-url https://pypi.anaconda.org/scientific-python-nightly-wheels/simple --pre pandas
 elif [ "${pandas}" = "latest" ]; then
-  pip install --upgrade pandas fastparquet
-  pip uninstall -q -y pytz
+  pip install --upgrade pandas
 else
   pip install pandas=="${pandas}"
 fi
