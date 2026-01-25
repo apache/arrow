@@ -99,8 +99,15 @@ if openssl_dep.found()
     parquet_deps += openssl_dep
 
     parquet_srcs += files(
+        'encryption/aes_encryption.cc',
         'encryption/crypto_factory.cc',
-        'encryption/encryption_internal.cc',
+        'encryption/encoding_properties',
+        'encryption/encryption_utils.cc',
+        'encryption/external_dbpa_encryption.cc',
+        'encryption/external/dbpa_library_wrapper',
+        'encryption/external/dbpa_enum_utils',
+        'encryption/external/dbpa_executor',
+        'encryption/external/loadable_encryptor_utils',
         'encryption/file_key_unwrapper.cc',
         'encryption/file_key_wrapper.cc',
         'encryption/file_system_key_material_store.cc',
@@ -113,7 +120,7 @@ if openssl_dep.found()
         'encryption/openssl_internal.cc',
     )
 else
-    parquet_srcs += files('encryption/encryption_internal_nossl.cc')
+    parquet_srcs += files('encryption/aes_encryption_nossl.cc')
 endif
 
 parquet_lib = library(
