@@ -23,28 +23,33 @@ ALP works by converting floating-point values to integers using decimal scaling,
 
 ALP encoding consists of a page-level header followed by one or more encoded vectors. Each vector contains up to 1024 elements.
 
-### 2.1 Page Layout Diagram (Grouped Metadata-at-Start)
+### 2.1 Page Layout Diagram (Offset-Based Interleaved)
 
-The page uses a **grouped metadata-at-start** layout for efficient random access.
-Metadata is split into two sections:
-1. **AlpInfo Section**: ALP-specific metadata (4 bytes per vector, fixed)
-2. **ForInfo Section**: FOR encoding metadata (5/9 bytes per vector, type-dependent)
-
-This separation allows future integer encodings to replace FOR without changing AlpInfo.
+The page uses an **offset-based interleaved** layout for O(1) random access.
 
 ```
 +------------------------------------------------------------------------------+
 |                                 ALP PAGE                                      |
-+--------+----------------------+----------------------+-----------------------+
-| Header |    AlpInfo Array     |    ForInfo Array     |     Data Array        |
-| (8B)   | [AlpInfo₀|AlpInfo₁|…]| [ForInfo₀|ForInfo₁|…]| [Data₀|Data₁|…]       |
-+--------+----------------------+----------------------+-----------------------+
++--------+------------------------+------------------------------------------+
+| Header |     Offset Array       |          Interleaved Vectors             |
+| (8B)   | [Off₀|Off₁|...|Offₙ₋₁] | [Vec₀][Vec₁]...[Vecₙ₋₁]                  |
++--------+------------------------+------------------------------------------+
+         |<-- 4B per vector ----->|
 ```
 
-This layout enables O(1) random access to any vector by:
-1. Reading all AlpInfo and ForInfo first (contiguous, cache-friendly)
-2. Computing data offsets from ForInfo (bit_width) and AlpInfo (num_exceptions)
-3. Seeking directly to the target vector's data
+Each vector is stored contiguously with its metadata:
+```
++-------------------+-------------------+------------------+
+|     AlpInfo       |     ForInfo       |      Data        |
+|    (4 bytes)      | (5B float/9B dbl) |    (variable)    |
++-------------------+-------------------+------------------+
+```
+
+This layout enables:
+1. **O(1) random access**: Jump directly to any vector using its offset
+2. **Better locality**: Metadata + data together for each vector
+3. **Parallel decompression**: No coordination needed between threads
+4. **Storage overhead**: 4 bytes per vector (~0.4% for typical pages)
 
 ### 2.2 Page Header (8 bytes)
 
@@ -72,18 +77,17 @@ Page Header Layout (8 bytes)
 
 ### 2.3 Encoded Vector Structure
 
-Each vector has two metadata structs (AlpInfo and ForInfo) and a Data section.
-In the page layout, all AlpInfo are stored together, then all ForInfo, then all Data.
+Each vector stores its metadata and data contiguously (interleaved layout).
 
-**Per-Vector Metadata:**
+**Per-Vector Structure:**
 ```
-+-------------------+-------------------+
-|     AlpInfo       |     ForInfo       |
-|    (4 bytes)      | (5B float/9B dbl) |
-+-------------------+-------------------+
++-------------------+-------------------+------------------+
+|     AlpInfo       |     ForInfo       |      Data        |
+|    (4 bytes)      | (5B float/9B dbl) |    (variable)    |
++-------------------+-------------------+------------------+
 ```
 
-**Data Section (stored in data array):**
+**Data Section (within each vector):**
 ```
 +-----------------+--------------------+------------------+
 |  Packed Values  | Exception Positions| Exception Values |
@@ -93,11 +97,11 @@ In the page layout, all AlpInfo are stored together, then all ForInfo, then all 
 
 **Complete page layout example (3 vectors, float):**
 ```
-+--------+-----+-----+-----+-------+-------+-------+--------+--------+--------+
-| Header |AlpI₀|AlpI₁|AlpI₂|ForI₀  |ForI₁  |ForI₂  | Data₀  | Data₁  | Data₂  |
-| (8B)   |(4B) |(4B) |(4B) |(5B)   |(5B)   |(5B)   | (var)  | (var)  | (var)  |
-+--------+-----+-----+-----+-------+-------+-------+--------+--------+--------+
-         |<--- AlpInfo --->|<--- ForInfo --->|<--------- Data -------->|
++--------+-----+-----+-----+----------------------+----------------------+----------------------+
+| Header |Off₀ |Off₁ |Off₂ |       Vector₀        |       Vector₁        |       Vector₂        |
+| (8B)   |(4B) |(4B) |(4B) | AlpI₀|ForI₀|Data₀   | AlpI₁|ForI₁|Data₁   | AlpI₂|ForI₂|Data₂   |
++--------+-----+-----+-----+----------------------+----------------------+----------------------+
+         |<-- Offsets -->|<------------------- Interleaved Vectors ----------------------->|
 ```
 
 ### 2.4 AlpInfo Structure (fixed 4 bytes)
