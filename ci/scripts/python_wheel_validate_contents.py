@@ -33,6 +33,18 @@ def validate_wheel(path):
         )
     ]
     assert not outliers, f"Unexpected contents in wheel: {sorted(outliers)}"
+    license = [
+        info.filename for info in f.filelist if re.search(
+            r'LICENSE.txt$', info.filename
+        )
+    ]
+    assert license, "LICENSE.txt is missing from the wheel."
+    notice = [
+        info.filename for info in f.filelist if re.search(
+            r'NOTICE.txt$', info.filename
+        )
+    ]
+    assert notice, "NOTICE.txt is missing from the wheel."
     print(f"The wheel: {wheels[0]} seems valid.")
 
 
