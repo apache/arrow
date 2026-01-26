@@ -59,7 +59,7 @@ namespace red_arrow {
   {
     auto plan = GARROW_EXECUTE_PLAN(object);
     auto nodes = garrow_execute_plan_get_nodes(plan);
-    for (auto node = nodes; nodes; nodes = g_list_next(nodes)) {
+    for (auto node = nodes; node; node = g_list_next(node)) {
       rbgobj_gc_mark_instance(node->data);
     }
   }
