@@ -345,7 +345,8 @@ _make_global_functions()
 utf8_zfill = utf8_zero_fill = globals()["utf8_zero_fill"]
 
 
-def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
+def cast(arr, target_type=None, safe=None, options=None, memory_pool=None, *,
+         errors='raise'):
     """
     Cast array values to another data type. Can also be invoked as an array
     instance method.
@@ -357,10 +358,11 @@ def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
         Type to cast to
     safe : bool, default True
         Check for overflows or other unsafe conversions
-    options : CastOptions, default None
-        Additional checks pass by CastOptions
     memory_pool : MemoryPool, optional
         memory pool to use for allocations during function execution.
+    errors : str, default 'raise'
+        What to do if a value cannot be casted to the target type.
+        'raise' will raise an error, 'coerce' will produce a null.
 
     Examples
     --------
@@ -394,24 +396,94 @@ def cast(arr, target_type=None, safe=None, options=None, memory_pool=None):
     >>> arr.cast('timestamp[ms]').type
     TimestampType(timestamp[ms])
 
+    Use ``errors='coerce'`` to convert invalid values to null instead of
+    raising an error:
+
+    >>> arr = pa.array(["1.2", "3", "10-20", None, "nan", ""])
+    >>> cast(arr, pa.float64(), errors='coerce')
+    <pyarrow.lib.DoubleArray object at ...>
+    [
+      1.2,
+      3.0,
+      null,
+      null,
+      nan,
+      null
+    ]
+
     Returns
     -------
     casted : Array
         The cast result as a new Array
     """
-    safe_vars_passed = (safe is not None) or (target_type is not None)
-
-    if safe_vars_passed and (options is not None):
-        raise ValueError("Must either pass values for 'target_type' and 'safe'"
-                         " or pass a value for 'options'")
-
+    # Validate parameter combinations
+    if target_type is not None and options is not None:
+        raise ValueError("Must either pass 'target_type' (and optionally 'safe') "
+                         "or pass 'options', but not both")
+    
     if options is None:
+        if target_type is None:
+            raise ValueError("Must provide either 'target_type' or 'options'")
         target_type = pa.types.lib.ensure_type(target_type)
         if safe is False:
             options = CastOptions.unsafe(target_type)
         else:
             options = CastOptions.safe(target_type)
+
+    # Apply errors parameter regardless of whether options was provided
+    if errors == 'coerce':
+        options.null_on_error = True
+    elif errors == 'raise':
+        options.null_on_error = False
+    else:
+        raise ValueError("errors must be either 'raise' or 'coerce'")
+    
     return call_function("cast", [arr], options, memory_pool)
+
+
+def is_castable(arr, target_type=None, options=None, memory_pool=None):
+    """
+    Check if values can be casted to another data type.
+
+    Returns true if the value can be successfully casted to the target type.
+
+    Parameters
+    ----------
+    arr : Array-like
+    target_type : DataType or str, optional
+        The PyArrow type to check castability to.
+    options : CastOptions, optional
+        Casting options. If passed, 'target_type' must be None.
+    memory_pool : MemoryPool, optional
+        If not passed, will allocate memory from the default memory pool.
+
+    Returns
+    -------
+    is_castable : Array
+        A boolean array
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr = pa.array(["1.1", "2.2", "abc", "4.4"])
+    >>> pc.is_castable(arr, pa.float64())
+    <pyarrow.lib.BooleanArray object at ...>
+    [
+      true,
+      true,
+      false,
+      true
+    ]
+    """
+    if target_type is not None and options is not None:
+        raise ValueError("Must either pass 'target_type' or 'options'")
+
+    if options is None:
+        target_type = pa.types.lib.ensure_type(target_type)
+        options = CastOptions.safe(target_type)
+
+    return call_function("is_castable", [arr], options, memory_pool)
 
 
 def index(data, value, start=None, end=None, *, memory_pool=None):

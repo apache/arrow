@@ -561,7 +561,7 @@ cdef class ChunkedArray(_PandasConvertible):
             return values
         return values.astype(dtype, copy=False)
 
-    def cast(self, object target_type=None, safe=None, options=None):
+    def cast(self, object target_type=None, safe=None, options=None, *, errors='raise'):
         """
         Cast array values to another data type
 
@@ -575,6 +575,9 @@ cdef class ChunkedArray(_PandasConvertible):
             Whether to check for conversion errors such as overflow.
         options : CastOptions, default None
             Additional checks pass by CastOptions
+        errors : str, default 'raise'
+            What to do if a value cannot be casted to the target type.
+            'raise' will raise an error, 'coerce' will produce a null.
 
         Returns
         -------
@@ -594,7 +597,7 @@ cdef class ChunkedArray(_PandasConvertible):
         DurationType(duration[s])
         """
         self._assert_cpu()
-        return _pc().cast(self, target_type, safe=safe, options=options)
+        return _pc().cast(self, target_type, safe=safe, options=options, errors=errors)
 
     def dictionary_encode(self, null_encoding='mask'):
         """
@@ -1921,7 +1924,7 @@ cdef class _Tabular(_PandasConvertible):
         return self.schema.field(i)
 
     @classmethod
-    def from_pydict(cls, mapping, schema=None, metadata=None):
+    def from_pydict(cls, mapping, schema=None, metadata=None, personal_data=None):
         """
         Construct a Table or RecordBatch from Arrow arrays or columns.
 
@@ -1933,6 +1936,9 @@ cdef class _Tabular(_PandasConvertible):
             If not passed, will be inferred from the Mapping values.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
+        personal_data : bool, default None
+            Whether the table/batch contains personal data. If True, adds
+            b'ARROW:personal_data': b'true' to the metadata.
 
         Returns
         -------
@@ -1985,10 +1991,11 @@ cdef class _Tabular(_PandasConvertible):
         return _from_pydict(cls=cls,
                             mapping=mapping,
                             schema=schema,
-                            metadata=metadata)
+                            metadata=metadata,
+                            personal_data=personal_data)
 
     @classmethod
-    def from_pylist(cls, mapping, schema=None, metadata=None):
+    def from_pylist(cls, mapping, schema=None, metadata=None, personal_data=None):
         """
         Construct a Table or RecordBatch from list of rows / dictionaries.
 
@@ -2001,6 +2008,9 @@ cdef class _Tabular(_PandasConvertible):
             mapping values.
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
+        personal_data : bool, default None
+            Whether the table/batch contains personal data. If True, adds
+            b'ARROW:personal_data': b'true' to the metadata.
 
         Returns
         -------
@@ -2049,7 +2059,8 @@ cdef class _Tabular(_PandasConvertible):
         return _from_pylist(cls=cls,
                             mapping=mapping,
                             schema=schema,
-                            metadata=metadata)
+                            metadata=metadata,
+                            personal_data=personal_data)
 
     def itercolumns(self):
         """
@@ -2104,6 +2115,17 @@ cdef class _Tabular(_PandasConvertible):
         (4, 2)
         """
         return (self.num_rows, self.num_columns)
+
+    @property
+    def personal_data(self):
+        """
+        Whether the object contains personal data.
+
+        Returns
+        -------
+        personal_data : bool
+        """
+        return self.schema.personal_data
 
     @property
     def schema(self):
@@ -2749,6 +2771,17 @@ cdef class RecordBatch(_Tabular):
 
         return self._schema
 
+    @property
+    def personal_data(self):
+        """
+        Whether the record batch contains personal data.
+
+        Returns
+        -------
+        personal_data : bool
+        """
+        return self.schema.personal_data
+
     def _column(self, int i):
         """
         Select single column from record batch by its numeric index.
@@ -3216,7 +3249,7 @@ cdef class RecordBatch(_Tabular):
         >>> n_legs = pa.array([2, 2, 4, 4, 5, 100])
         >>> animals = pa.array(["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"])
         >>> batch = pa.RecordBatch.from_arrays([n_legs, animals],
-        ...                                     names=["n_legs", "animals"])
+        ...                                       names=["n_legs", "animals"])
         >>> batch_0 = pa.record_batch([])
         >>> batch_1 = pa.RecordBatch.from_arrays([n_legs, animals],
         ...                                       names=["n_legs", "animals"],
@@ -3366,7 +3399,7 @@ cdef class RecordBatch(_Tabular):
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, preserve_index=None,
-                    nthreads=None, columns=None):
+                    nthreads=None, columns=None, personal_data=None):
         """
         Convert pandas.DataFrame to an Arrow RecordBatch
 
@@ -3457,10 +3490,11 @@ cdef class RecordBatch(_Tabular):
             return pyarrow_wrap_batch(CRecordBatch.Make((<Schema> schema).sp_schema,
                                                         n_rows, c_arrays))
         else:
-            return cls.from_arrays(arrays, schema=schema)
+            return cls.from_arrays(arrays, schema=schema, personal_data=personal_data)
 
     @staticmethod
-    def from_arrays(list arrays, names=None, schema=None, metadata=None):
+    def from_arrays(list arrays, names=None, schema=None, metadata=None,
+                    personal_data=None):
         """
         Construct a RecordBatch from multiple pyarrow.Arrays
 
@@ -3474,6 +3508,9 @@ cdef class RecordBatch(_Tabular):
             Schema for the created batch. If not passed, names must be passed
         metadata : dict or Mapping, default None
             Optional metadata for the schema (if inferred).
+        personal_data : bool, default None
+            Whether the batch contains personal data. If True, adds
+            b'ARROW:personal_data': b'true' to the metadata.
 
         Returns
         -------
@@ -3535,16 +3572,12 @@ cdef class RecordBatch(_Tabular):
         else:
             num_rows = 0
 
-        if isinstance(names, Schema):
-            import warnings
-            warnings.warn("Schema passed to names= option, please "
-                          "pass schema= explicitly. "
-                          "Will raise exception in future", FutureWarning)
-            schema = names
-            names = None
-
         converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
                                             &c_schema)
+
+        if personal_data is not None:
+            new_schema = pyarrow_wrap_schema(c_schema).with_personal_data(personal_data)
+            c_schema = (<Schema> new_schema).sp_schema
 
         c_arrays.reserve(len(arrays))
         for arr in converted_arrays:
@@ -4728,11 +4761,13 @@ cdef class Table(_Tabular):
             casted = column.cast(field.type, safe=safe, options=options)
             newcols.append(casted)
 
-        return Table.from_arrays(newcols, schema=target_schema)
+        return Table.from_arrays(newcols, schema=target_schema,
+                                 personal_data=personal_data)
 
     @classmethod
     def from_pandas(cls, df, Schema schema=None, preserve_index=None,
-                    nthreads=None, columns=None, bint safe=True):
+                    nthreads=None, columns=None, bint safe=True,
+                    personal_data=None):
         """
         Convert pandas.DataFrame to an Arrow Table.
 
@@ -4773,6 +4808,9 @@ cdef class Table(_Tabular):
            List of column to be converted. If None, use all columns.
         safe : bool, default True
            Check for overflows or other unsafe conversions.
+        personal_data : bool, default None
+            Whether the table contains personal data. If True, adds
+            b'ARROW:personal_data': b'true' to the metadata.
 
         Returns
         -------
@@ -4811,7 +4849,8 @@ cdef class Table(_Tabular):
             return cls.from_arrays(arrays, schema=schema)
 
     @staticmethod
-    def from_arrays(arrays, names=None, schema=None, metadata=None):
+    def from_arrays(arrays, names=None, schema=None, metadata=None,
+                    personal_data=None):
         """
         Construct a Table from Arrow arrays.
 
@@ -4896,6 +4935,10 @@ cdef class Table(_Tabular):
         converted_arrays = _sanitize_arrays(arrays, names, schema, metadata,
                                             &c_schema)
 
+        if personal_data is not None:
+            new_schema = pyarrow_wrap_schema(c_schema).with_personal_data(personal_data)
+            c_schema = (<Schema> new_schema).sp_schema
+
         columns.reserve(K)
         for item in converted_arrays:
             if isinstance(item, Array):
@@ -4970,7 +5013,7 @@ cdef class Table(_Tabular):
         return chunked_array(chunks, type=struct(self.schema))
 
     @staticmethod
-    def from_batches(batches, Schema schema=None):
+    def from_batches(batches, Schema schema=None, personal_data=None):
         """
         Construct a Table from a sequence or iterator of Arrow RecordBatches.
 
@@ -5035,6 +5078,9 @@ cdef class Table(_Tabular):
             c_schema = c_batches[0].get().schema()
         else:
             c_schema = schema.sp_schema
+
+        if personal_data is not None:
+            c_schema = (<Schema> schema.with_personal_data(personal_data)).sp_schema
 
         with nogil:
             c_table = GetResultValue(
@@ -5204,6 +5250,17 @@ cdef class Table(_Tabular):
         pandas: '{"index_columns": [{"kind": "range", "name": null, "start": 0, "' ...
         """
         return pyarrow_wrap_schema(self.table.schema())
+
+    @property
+    def personal_data(self):
+        """
+        Whether the table contains personal data.
+
+        Returns
+        -------
+        personal_data : bool
+        """
+        return self.schema.personal_data
 
     def _column(self, int i):
         """
@@ -5905,7 +5962,8 @@ def _reconstruct_table(arrays, schema):
     return Table.from_arrays(arrays, schema=schema)
 
 
-def record_batch(data, names=None, schema=None, metadata=None):
+def record_batch(data, names=None, schema=None, metadata=None,
+                 personal_data=None):
     """
     Create a pyarrow.RecordBatch from another Python data structure or sequence
     of arrays.
@@ -6044,12 +6102,14 @@ def record_batch(data, names=None, schema=None, metadata=None):
 
     if isinstance(data, (list, tuple)):
         return RecordBatch.from_arrays(data, names=names, schema=schema,
-                                       metadata=metadata)
+                                       metadata=metadata,
+                                       personal_data=personal_data)
     elif isinstance(data, dict):
         if names is not None:
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
-        return RecordBatch.from_pydict(data, schema=schema, metadata=metadata)
+        return RecordBatch.from_pydict(data, schema=schema, metadata=metadata,
+                                       personal_data=personal_data)
     elif hasattr(data, "__arrow_c_device_array__"):
         if schema is not None:
             requested_schema = schema.__arrow_c_schema__()
@@ -6076,13 +6136,15 @@ def record_batch(data, names=None, schema=None, metadata=None):
         return batch
 
     elif _pandas_api.is_data_frame(data):
-        return RecordBatch.from_pandas(data, schema=schema)
+        return RecordBatch.from_pandas(data, schema=schema,
+                                       personal_data=personal_data)
 
     else:
         raise TypeError("Expected pandas DataFrame or list of arrays")
 
 
-def table(data, names=None, schema=None, metadata=None, nthreads=None):
+def table(data, names=None, schema=None, metadata=None, nthreads=None,
+          personal_data=None):
     """
     Create a pyarrow.Table from a Python data structure or sequence of arrays.
 
@@ -6203,18 +6265,21 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
 
     if isinstance(data, (list, tuple)):
         return Table.from_arrays(data, names=names, schema=schema,
-                                 metadata=metadata)
+                                 metadata=metadata,
+                                 personal_data=personal_data)
     elif isinstance(data, dict):
         if names is not None:
             raise ValueError(
                 "The 'names' argument is not valid when passing a dictionary")
-        return Table.from_pydict(data, schema=schema, metadata=metadata)
+        return Table.from_pydict(data, schema=schema, metadata=metadata,
+                                 personal_data=personal_data)
     elif _pandas_api.is_data_frame(data):
         if names is not None or metadata is not None:
             raise ValueError(
                 "The 'names' and 'metadata' arguments are not valid when "
                 "passing a pandas DataFrame")
-        return Table.from_pandas(data, schema=schema, nthreads=nthreads)
+        return Table.from_pandas(data, schema=schema, nthreads=nthreads,
+                                 personal_data=personal_data)
     elif hasattr(data, "__arrow_c_stream__"):
         if names is not None or metadata is not None:
             raise ValueError(
@@ -6375,7 +6440,7 @@ def concat_batches(recordbatches, MemoryPool memory_pool=None):
     return pyarrow_wrap_batch(c_result_recordbatch)
 
 
-def _from_pydict(cls, mapping, schema, metadata):
+def _from_pydict(cls, mapping, schema, metadata, personal_data):
     """
     Construct a Table/RecordBatch from Arrow arrays or columns.
 
@@ -6388,6 +6453,9 @@ def _from_pydict(cls, mapping, schema, metadata):
         If not passed, will be inferred from the Mapping values.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if inferred).
+    personal_data : bool, default None
+        Whether the table/batch contains personal data. If True, adds
+        b'ARROW:personal_data': b'true' to the metadata.
 
     Returns
     -------
@@ -6418,12 +6486,13 @@ def _from_pydict(cls, mapping, schema, metadata):
                     )
             arrays.append(asarray(v, type=field.type))
         # Will raise if metadata is not None
-        return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+        return cls.from_arrays(arrays, schema=schema, metadata=metadata,
+                               personal_data=personal_data)
     else:
         raise TypeError('Schema must be an instance of pyarrow.Schema')
 
 
-def _from_pylist(cls, mapping, schema, metadata):
+def _from_pylist(cls, mapping, schema, metadata, personal_data):
     """
     Construct a Table/RecordBatch from list of rows / dictionaries.
 
@@ -6437,6 +6506,9 @@ def _from_pylist(cls, mapping, schema, metadata):
         mapping values.
     metadata : dict or Mapping, default None
         Optional metadata for the schema (if inferred).
+    personal_data : bool, default None
+        Whether the table/batch contains personal data. If True, adds
+        b'ARROW:personal_data': b'true' to the metadata.
 
     Returns
     -------
@@ -6458,7 +6530,8 @@ def _from_pylist(cls, mapping, schema, metadata):
                 v = [row[n] if n in row else None for row in mapping]
                 arrays.append(v)
             # Will raise if metadata is not None
-            return cls.from_arrays(arrays, schema=schema, metadata=metadata)
+            return cls.from_arrays(arrays, schema=schema, metadata=metadata,
+                                   personal_data=personal_data)
         else:
             raise TypeError('Schema must be an instance of pyarrow.Schema')
 
