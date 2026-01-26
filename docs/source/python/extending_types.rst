@@ -458,8 +458,8 @@ You can find the official list of canonical extension types in the
 :ref:`format_canonical_extensions` section. Here we add examples on how to
 use them in PyArrow.
 
-Fixed size tensor
-"""""""""""""""""
+Fixed shape tensor
+""""""""""""""""""
 
 To create an array of tensors with equal shape (fixed shape tensor array) we
 first need to define a fixed shape tensor extension type with value type
@@ -469,7 +469,7 @@ and shape:
 
    >>> tensor_type = pa.fixed_shape_tensor(pa.int32(), (2, 2))
 
-Then we need the storage array with :func:`pyarrow.list_` type where ``value_type```
+Then we need the storage array with :func:`pyarrow.list_` type where ``value_type``
 is the fixed shape tensor value type and list size is a product of ``tensor_type``
 shape elements. Then we can create an array of tensors with
 ``pa.ExtensionArray.from_storage()`` method:
