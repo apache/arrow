@@ -3111,7 +3111,7 @@ cdef class Schema(_Weakrefable):
     @classmethod
     def from_pandas(cls, df, preserve_index=None):
         """
-        Returns implied schema from dataframe
+        Returns implied schema from DataFrame
 
         Parameters
         ----------
@@ -3136,11 +3136,11 @@ cdef class Schema(_Weakrefable):
         ...     'str': ['a', 'b']
         ... })
 
-        Create an Arrow Schema from the schema of a pandas dataframe:
+        Create an Arrow Schema from the schema of a pandas DataFrame:
 
         >>> pa.Schema.from_pandas(df)
         int: int64
-        str: large_string
+        str: ...string
         -- schema metadata --
         pandas: '{"index_columns": [{"kind": "range", "name": null, ...
         """

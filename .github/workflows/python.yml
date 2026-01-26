@@ -69,10 +69,10 @@ jobs:
           - conda-python-3.12-no-numpy
         include:
           - name: conda-python-docs
-            cache: conda-python-3.11
+            cache: conda-python-3.10
             image: conda-python-docs
-            title: AMD64 Conda Python 3.11 Sphinx & Numpydoc
-            python: "3.11"
+            title: AMD64 Conda Python 3.10 Sphinx & Numpydoc
+            python: "3.10"
           - name: conda-python-3.11-nopandas
             cache: conda-python-3.11
             image: conda-python
