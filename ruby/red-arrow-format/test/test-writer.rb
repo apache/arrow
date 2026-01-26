@@ -48,6 +48,8 @@ module WriterTests
       ArrowFormat::LargeBinaryType.singleton
     when Arrow::StringDataType
       ArrowFormat::UTF8Type.singleton
+    when Arrow::LargeStringDataType
+      ArrowFormat::LargeUTF8Type.singleton
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
@@ -245,6 +247,17 @@ module WriterTests
         sub_test_case("String") do
           def build_array
             Arrow::StringArray.new(["Hello", nil, "World"])
+          end
+
+          def test_write
+            assert_equal(["Hello", nil, "World"],
+                         @values)
+          end
+        end
+
+        sub_test_case("LargeString") do
+          def build_array
+            Arrow::LargeStringArray.new(["Hello", nil, "World"])
           end
 
           def test_write

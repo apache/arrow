@@ -167,6 +167,16 @@ module ValuesBasicArraysTests
     assert_equal(values, target.values)
   end
 
+  def test_large_string
+    values = [
+      "Ruby",
+      nil,
+      "\u3042", # U+3042 HIRAGANA LETTER A
+    ]
+    target = build(Arrow::LargeStringArray.new(values))
+    assert_equal(values, target.values)
+  end
+
   def test_date32
     values = [
       Date.new(1960, 1, 1),
