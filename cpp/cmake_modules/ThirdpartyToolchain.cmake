@@ -4070,6 +4070,7 @@ function(build_azure_sdk)
                          ${FC_DECLARE_COMMON_OPTIONS}
                          URL ${ARROW_WIL_URL}
                          URL_HASH "SHA256=${ARROW_WIL_BUILD_SHA256_CHECKSUM}")
+    prepare_fetchcontent()
     set(WIL_BUILD_PACKAGING OFF)
     set(WIL_BUILD_TESTS OFF)
     fetchcontent_makeavailable(wil)
