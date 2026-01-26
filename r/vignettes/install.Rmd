@@ -8,6 +8,8 @@ output: rmarkdown::html_vignette
 
 In most cases, `install.packages("arrow")` should just work. There are things you can do to make the installation faster, documented in this article. If for some reason installation does not work, set the environment variable `ARROW_R_DEV=true`, retry, and share the logs with us.
 
+Note that CRAN builds of arrow have some optional features disabled, including Google Cloud Storage (GCS) support. If you need these features, see the information below on [building with a libarrow binary](#r-source-package-with-libarrow-binary), or the [cloud storage article](./fs.html#s3-and-gcs-support) for alternative installation options.
+
 ## Background
 
 The Apache Arrow project is implemented in multiple languages, and the R package depends on the Arrow C++ library (referred to from here on as libarrow). This means that when you install arrow, you need both the R and C++ versions.  If you install arrow from CRAN on a machine running Windows or macOS, when you call `install.packages("arrow")`, a precompiled binary containing both the R package and libarrow will be downloaded.  However, CRAN does not host R package binaries for Linux, and so you must choose from one of the alternative approaches.
