@@ -34,11 +34,11 @@ import jinja2
 from ruamel.yaml import YAML
 
 try:
-    import github3
-    _have_github3 = True
+    from github import Github, GithubException
+    from github import Auth as GithubAuth
+    _have_github = True
 except ImportError:
-    github3 = object
-    _have_github3 = False
+    _have_github = False
 
 try:
     import pygit2
@@ -52,7 +52,7 @@ else:
 from ..utils.source import ArrowSources
 
 
-for pkg in ["requests", "urllib3", "github3"]:
+for pkg in ["requests", "urllib3", "github"]:
     logging.getLogger(pkg).setLevel(logging.WARNING)
 
 logger = logging.getLogger("crossbow")
@@ -448,49 +448,48 @@ class Repo:
         blob = self.repo[entry.id]
         return blob.data
 
-    def _github_login(self, github_token):
-        """Returns a logged in github3.GitHub instance"""
-        if not _have_github3:
-            raise ImportError('Must install github3.py')
+    def _github_login(self, github_token=None):
+        """Returns a logged in Github instance using PyGithub"""
+        if not _have_github:
+            raise ImportError('Must install PyGithub')
         github_token = github_token or self.github_token
-        session = github3.session.GitHubSession(
-            default_connect_timeout=10,
-            default_read_timeout=30
-        )
-        github = github3.GitHub(session=session)
-        github.login(token=github_token)
-        return github
+        return Github(auth=GithubAuth.Token(github_token), timeout=30)
 
     def as_github_repo(self, github_token=None):
         """Converts it to a repository object which wraps the GitHub API"""
         if self._github_repo is None:
             github = self._github_login(github_token)
             username, reponame = _parse_github_user_repo(self.remote_url)
-            self._github_repo = github.repository(username, reponame)
+            self._github_repo = github.get_repo(f"{username}/{reponame}")
         return self._github_repo
 
     def token_expiration_date(self, github_token=None):
         """Returns the expiration date for the github_token provided"""
         github = self._github_login(github_token)
-        # github3 hides the headers from us. Use the _get method
-        # to access the response headers.
-        resp = github._get(github.session.base_url)
-        # Response in the form '2023-01-23 10:40:28 UTC'
-        date_string = resp.headers.get(
-            'github-authentication-token-expiration')
+        # NOTE: We access the private _Github__requester to get response
+        # headers, as PyGithub doesn't expose the token expiration header
+        # through its public API. This may break with future PyGithub updates.
+        headers, _ = github._Github__requester.requestJsonAndCheck(
+            "GET", "/user"
+        )
+        # Response header in the form '2023-01-23 10:40:28 UTC'
+        date_string = headers.get('github-authentication-token-expiration')
         if date_string:
             return date.fromisoformat(date_string.split()[0])
+        return None
 
     def github_commit(self, sha):
         repo = self.as_github_repo()
-        return repo.commit(sha)
+        return repo.get_commit(sha)
 
     def github_release(self, tag):
         repo = self.as_github_repo()
         try:
-            return repo.release_from_tag(tag)
-        except github3.exceptions.NotFoundError:
-            return None
+            return repo.get_release(tag)
+        except GithubException as e:
+            if e.status == 404:
+                return None
+            raise
 
     def github_upload_asset_requests(self, release, path, name, mime,
                                      max_retries=None, retry_backoff=None):
@@ -501,32 +500,29 @@ class Repo:
 
         for i in range(max_retries):
             try:
-                with open(path, 'rb') as fp:
-                    result = release.upload_asset(name=name, asset=fp,
-                                                  content_type=mime)
-            except github3.exceptions.ResponseError as e:
+                result = release.upload_asset(path, label=name,
+                                              content_type=mime)
+                logger.info(f"Attempt {i + 1} has finished.")
+                return result
+            except GithubException as e:
                 logger.error(f"Attempt {i + 1} has failed with message: {e}.")
-                logger.error(f"Error message {e.msg}")
-                logger.error("List of errors provided by GitHub:")
-                for err in e.errors:
-                    logger.error(f" - {err}")
+                if hasattr(e, 'data'):
+                    logger.error(f"Error data: {e.data}")
 
-                if e.code == 422:
+                if e.status == 422:
                     # 422 Validation Failed, probably raised because
                     # ReleaseAsset already exists, so try to remove it before
                     # reattempting the asset upload
-                    for asset in release.assets():
+                    for asset in release.get_assets():
                         if asset.name == name:
                             logger.info(f"Release asset {name} already exists, "
                                         "removing it...")
-                            asset.delete()
+                            asset.delete_asset()
                             logger.info(f"Asset {name} removed.")
                             break
-            except github3.exceptions.ConnectionError as e:
+            except IOError as e:
+                # Catch network and file I/O errors (includes requests exceptions)
                 logger.error(f"Attempt {i + 1} has failed with message: {e}.")
-            else:
-                logger.info(f"Attempt {i + 1} has finished.")
-                return result
 
             time.sleep(retry_backoff)
 
@@ -550,8 +546,6 @@ class Repo:
                                         patterns, method='requests'):
         # Since github has changed something the asset uploading via requests
         # got instable, so prefer the cURL alternative.
-        # Potential cause:
-        #    sigmavirus24/github3.py/issues/779#issuecomment-379470626
         repo = self.as_github_repo()
         if not tag_name:
             raise CrossbowError('Empty tag name')
@@ -560,13 +554,14 @@ class Repo:
 
         # remove the whole release if it already exists
         try:
-            release = repo.release_from_tag(tag_name)
-        except github3.exceptions.NotFoundError:
-            pass
-        else:
-            release.delete()
+            release = repo.get_release(tag_name)
+            release.delete_release()
+        except GithubException as e:
+            if e.status != 404:
+                raise
 
-        release = repo.create_release(tag_name, target_commitish)
+        release = repo.create_git_release(tag_name, tag_name, "",
+                                          target_commitish=target_commitish)
         for pattern in patterns:
             for path in glob.glob(pattern, recursive=True):
                 name = os.path.basename(path)
@@ -598,12 +593,11 @@ class Repo:
         repo = self.as_github_repo(github_token=github_token)
         if create:
             return repo.create_pull(title=title, base=base, head=head,
-                                    body=body)
+                                    body=body or "")
         else:
             # Retrieve open PR for base and head.
             # There should be a single open one with that title.
-            for pull in repo.pull_requests(state="open", head=head,
-                                           base=base):
+            for pull in repo.get_pulls(state="open", head=head, base=base):
                 if title in pull.title:
                     return pull
             raise CrossbowError(
@@ -1005,7 +999,7 @@ class TaskStatus:
 
     Parameters
     ----------
-    commit : github3.Commit
+    commit : github.Commit.Commit
         Commit to query the combined status for.
 
     Returns
@@ -1019,8 +1013,8 @@ class TaskStatus:
     """
 
     def __init__(self, commit):
-        status = commit.status()
-        check_runs = list(commit.check_runs())
+        status = commit.get_combined_status()
+        check_runs = list(commit.get_check_runs())
         states = [s.state for s in status.statuses]
 
         for check in check_runs:
@@ -1068,7 +1062,7 @@ class TaskAssets(dict):
         if github_release is None:
             github_assets = {}  # no assets have been uploaded for the task
         else:
-            github_assets = {a.name: a for a in github_release.assets()}
+            github_assets = {a.name: a for a in github_release.get_assets()}
 
         if not validate_patterns:
             # shortcut to avoid pattern validation and just set all artifacts
@@ -1088,9 +1082,10 @@ class TaskAssets(dict):
             elif num_matches == 1:
                 self[pattern] = github_assets[matches[0].group(0)]
             else:
+                matched_names = [m.group(0) for m in matches]
                 raise CrossbowError(
                     f"Only a single asset should match pattern `{pattern}`, "
-                    f"there are multiple ones: {', '.join(matches)}"
+                    f"there are multiple ones: {', '.join(matched_names)}"
                 )
 
     def missing_patterns(self):
