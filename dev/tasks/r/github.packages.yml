@@ -123,7 +123,7 @@ jobs:
             ubuntu: "22.04"
           - arch: arm64
             runs-on: ubuntu-24.04-arm
-            ubuntu: "24.04"
+            ubuntu: "22.04"
     env:
       PKG_ID: r-libarrow-linux-{{ '${{ matrix.arch }}' }}
       PKG_FILE: r-libarrow-linux-{{ '${{ matrix.arch }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
