@@ -2070,5 +2070,171 @@ TEST_F(TestFillNullType, TestFillOnNullType) {
   this->AssertFillNullArray(FillNullBackward, this->array(R"([null, null])"),
                             this->array(R"([null, null])"));
 }
+
+class TestReplaceList : public TestReplaceKernel<Int32Type> {
+ protected:
+  std::shared_ptr<DataType> type() override { return list(int32()); }
+};
+
+TEST_F(TestReplaceList, ReplaceWithMask) {
+  // Basic replacement
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->array(R"([[7, 8]])"),
+               this->array(R"([[1, 2], [7, 8], [5, 6]])"));
+
+  // Replace with scalar
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->scalar(R"([9, 10])"),
+               this->array(R"([[1, 2], [9, 10], [5, 6]])"));
+
+  // Replace with null scalar
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->scalar(R"(null)"),
+               this->array(R"([[1, 2], null, [5, 6]])"));
+
+  // Replace with null mask scalar
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->null_mask_scalar(), this->scalar(R"([7, 8])"),
+               this->array(R"([null, null, null])"));
+
+  // Multiple replacements
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6], [7, 8]])"),
+               this->mask(R"([true, false, true, false])"),
+               this->array(R"([[9, 10], [11, 12]])"),
+               this->array(R"([[9, 10], [3, 4], [11, 12], [7, 8]])"));
+
+  // With nulls in input
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], null, [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->array(R"([[7, 8]])"),
+               this->array(R"([[1, 2], [7, 8], [5, 6]])"));
+
+  // With nulls in mask
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->mask(R"([false, null, true])"), this->array(R"([[7, 8]])"),
+               this->array(R"([[1, 2], null, [7, 8]])"));
+
+  // Empty lists
+  this->Assert(ReplaceWithMask, this->array(R"([[], [1], []])"),
+               this->mask(R"([false, true, false])"), this->array(R"([[2, 3]])"),
+               this->array(R"([[], [2, 3], []])"));
+
+  // Nested lists
+  auto nested_list_type = list(list(int32()));
+  auto nested_array =
+      ArrayFromJSON(nested_list_type, R"([[[1, 2]], [[3, 4]], [[5, 6]]])");
+  auto nested_mask = this->mask(R"([false, true, false])");
+  auto nested_replacements = ArrayFromJSON(nested_list_type, R"([[[7, 8]]])");
+  auto nested_expected =
+      ArrayFromJSON(nested_list_type, R"([[[1, 2]], [[7, 8]], [[5, 6]]])");
+  this->Assert(ReplaceWithMask, nested_array, nested_mask, nested_replacements,
+               nested_expected);
+}
+
+TEST_F(TestReplaceList, FillNullForward) {
+  this->AssertFillNullArray(FillNullForward, this->array(R"([[1, 2], null, [5, 6]])"),
+                            this->array(R"([[1, 2], [1, 2], [5, 6]])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, [3, 4], null])"),
+                            this->array(R"([null, [3, 4], [3, 4]])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"([null, null, [5, 6]])"),
+                            this->array(R"([null, null, [5, 6]])"));
+
+  this->AssertFillNullArray(FillNullForward, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+                            this->array(R"([[1, 2], [3, 4], [5, 6]])"));
+}
+
+TEST_F(TestReplaceList, FillNullBackward) {
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([[1, 2], null, [5, 6]])"),
+                            this->array(R"([[1, 2], [5, 6], [5, 6]])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([null, [3, 4], null])"),
+                            this->array(R"([[3, 4], [3, 4], null])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([[1, 2], null, null])"),
+                            this->array(R"([[1, 2], null, null])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+                            this->array(R"([[1, 2], [3, 4], [5, 6]])"));
+}
+
+// Tests for fixed-size list
+class TestReplaceFixedSizeList : public TestReplaceKernel<Int32Type> {
+ protected:
+  std::shared_ptr<DataType> type() override { return fixed_size_list(int32(), 2); }
+};
+
+TEST_F(TestReplaceFixedSizeList, ReplaceWithMask) {
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->array(R"([[7, 8]])"),
+               this->array(R"([[1, 2], [7, 8], [5, 6]])"));
+
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], null, [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->array(R"([[7, 8]])"),
+               this->array(R"([[1, 2], [7, 8], [5, 6]])"));
+}
+
+TEST_F(TestReplaceFixedSizeList, FillNullForward) {
+  this->AssertFillNullArray(FillNullForward, this->array(R"([[1, 2], null, [5, 6]])"),
+                            this->array(R"([[1, 2], [1, 2], [5, 6]])"));
+}
+
+TEST_F(TestReplaceFixedSizeList, FillNullBackward) {
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([[1, 2], null, [5, 6]])"),
+                            this->array(R"([[1, 2], [5, 6], [5, 6]])"));
+}
+
+// Tests for large list
+class TestReplaceLargeList : public TestReplaceKernel<Int32Type> {
+ protected:
+  std::shared_ptr<DataType> type() override { return large_list(int32()); }
+};
+
+TEST_F(TestReplaceLargeList, ReplaceWithMask) {
+  this->Assert(ReplaceWithMask, this->array(R"([[1, 2], [3, 4], [5, 6]])"),
+               this->mask(R"([false, true, false])"), this->array(R"([[7, 8]])"),
+               this->array(R"([[1, 2], [7, 8], [5, 6]])"));
+}
+
+TEST_F(TestReplaceLargeList, FillNull) {
+  this->AssertFillNullArray(FillNullForward, this->array(R"([[1, 2], null, [5, 6]])"),
+                            this->array(R"([[1, 2], [1, 2], [5, 6]])"));
+
+  this->AssertFillNullArray(FillNullBackward, this->array(R"([[1, 2], null, [5, 6]])"),
+                            this->array(R"([[1, 2], [5, 6], [5, 6]])"));
+}
+
+// Tests for struct
+class TestReplaceStruct : public TestReplaceKernel<Int32Type> {
+ protected:
+  std::shared_ptr<DataType> type() override {
+    return struct_({field("a", int32()), field("b", utf8())});
+  }
+};
+
+TEST_F(TestReplaceStruct, ReplaceWithMask) {
+  this->Assert(
+      ReplaceWithMask,
+      this->array(R"([{"a": 1, "b": "x"}, {"a": 2, "b": "y"}, {"a": 3, "b": "z"}])"),
+      this->mask(R"([false, true, false])"), this->array(R"([{"a": 9, "b": "w"}])"),
+      this->array(R"([{"a": 1, "b": "x"}, {"a": 9, "b": "w"}, {"a": 3, "b": "z"}])"));
+
+  // With nulls
+  this->Assert(
+      ReplaceWithMask, this->array(R"([{"a": 1, "b": "x"}, null, {"a": 3, "b": "z"}])"),
+      this->mask(R"([false, true, false])"), this->array(R"([{"a": 9, "b": "w"}])"),
+      this->array(R"([{"a": 1, "b": "x"}, {"a": 9, "b": "w"}, {"a": 3, "b": "z"}])"));
+}
+
+TEST_F(TestReplaceStruct, FillNull) {
+  this->AssertFillNullArray(
+      FillNullForward, this->array(R"([{"a": 1, "b": "x"}, null, {"a": 3, "b": "z"}])"),
+      this->array(R"([{"a": 1, "b": "x"}, {"a": 1, "b": "x"}, {"a": 3, "b": "z"}])"));
+
+  this->AssertFillNullArray(
+      FillNullBackward, this->array(R"([{"a": 1, "b": "x"}, null, {"a": 3, "b": "z"}])"),
+      this->array(R"([{"a": 1, "b": "x"}, {"a": 3, "b": "z"}, {"a": 3, "b": "z"}])"));
+}
+
 }  // namespace compute
 }  // namespace arrow
