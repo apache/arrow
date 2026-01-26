@@ -851,7 +851,41 @@ Status TransferHalfFloat(RecordReader* reader, MemoryPool* pool,
   std::shared_ptr<ChunkedArray> chunked_array;
   RETURN_NOT_OK(
       TransferBinary(reader, pool, field->WithType(binary_type), &chunked_array));
+#if ARROW_LITTLE_ENDIAN
   ARROW_ASSIGN_OR_RAISE(*out, chunked_array->View(field->type()));
+#else
+  // Convert little-endian bytes from Parquet to native-endian HalfFloat
+  std::vector<std::shared_ptr<::arrow::Array>> out_chunks;
+  out_chunks.reserve(chunked_array->num_chunks());
+
+  for (const auto& chunk : chunked_array->chunks()) {
+    auto fsb = std::static_pointer_cast<::arrow::FixedSizeBinaryArray>(chunk);
+    const int64_t n = fsb->length();
+
+    // Allocate buffer for native-endian uint16 values
+    ARROW_ASSIGN_OR_RAISE(auto data_buf,
+                          ::arrow::AllocateBuffer(n * sizeof(uint16_t), pool));
+    auto* out16 = reinterpret_cast<uint16_t*>(data_buf->mutable_data());
+
+    // Copy and convert from little-endian (Parquet spec) to native-endian
+    for (int64_t i = 0; i < n; ++i) {
+      uint16_t v;
+      std::memcpy(&v, fsb->GetValue(i), sizeof(uint16_t));
+      // Parquet spec: float16 stored as little-endian; convert to native
+      out16[i] = ::arrow::bit_util::FromLittleEndian(v);
+    }
+
+    // Create HalfFloatArray with the converted data
+    auto arr_data = ::arrow::ArrayData::Make(::arrow::float16(), n,
+                                             {fsb->null_bitmap(), std::move(data_buf)},
+                                             fsb->null_count());
+
+    out_chunks.push_back(::arrow::MakeArray(std::move(arr_data)));
+  }
+
+  *out =
+      std::make_shared<::arrow::ChunkedArray>(std::move(out_chunks), ::arrow::float16());
+#endif
   return Status::OK();
 }
 
