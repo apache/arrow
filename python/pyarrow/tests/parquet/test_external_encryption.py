@@ -618,18 +618,15 @@ def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_encrypted_footer(
                                          get_external_decryption_properties())
 
 
-def test_encrypt_external_dbpa_file_raises_error(tmp_path):
-    encryption_properties = get_custom_external_encryption_properties(
-        "EXTERNAL_DBPA_V1",  # encryption_algorithm
-        {
-            "orderId": {
-                "encryption_algorithm": "AES_GCM_CTR_V1",
-                "encryption_key": "orderid_key"
-            },
-        },  # per_column_encryption
-        True  # plaintext_footer
-    )
-    with pytest.raises(
-            ValueError, match="Parquet crypto signature verification failed"):
-        round_trip_encryption_and_decryption(tmp_path, encryption_properties,
-                                             get_external_decryption_properties())
+def test_encrypt_external_dbpa_file_raises_error():
+    with pytest.raises(OSError, match="not supported for file level encryption"):
+        get_custom_external_encryption_properties(
+            "EXTERNAL_DBPA_V1",  # encryption_algorithm
+            {
+                "orderId": {
+                    "encryption_algorithm": "AES_GCM_CTR_V1",
+                    "encryption_key": "orderid_key"
+                },
+            },  # per_column_encryption
+            True  # plaintext_footer
+        )

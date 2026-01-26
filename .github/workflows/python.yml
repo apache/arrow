@@ -125,7 +125,10 @@ jobs:
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ${{ matrix.image }}
+          archery docker run \
+            -e LD_LIBRARY_PATH="/opt/conda/envs/arrow/lib:/usr/local/lib:build/cpp/debug" \
+            -e DBPA_LIBRARY_PATH="libdbpsLocalAgent.so" \
+            ${{ matrix.image }}
       - name: Docker Push
         if: >-
           success() &&
