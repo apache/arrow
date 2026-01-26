@@ -1263,11 +1263,11 @@ TYPED_TEST(AlpSamplerTest, EmptySample) {
 }
 
 // ============================================================================
-// Empty Input Tests
+// Empty Input Tests (via AlpCompression directly)
 // ============================================================================
 
-TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
-  // Test compressing zero elements - edge case that should be handled gracefully
+TYPED_TEST(AlpEdgeCaseTest, EmptyInputViaCompression) {
+  // Test compressing zero elements via AlpCompression directly
   std::vector<TypeParam> empty_input;
   AlpCompression<TypeParam> compressor;
   AlpEncodingPreset preset{};
