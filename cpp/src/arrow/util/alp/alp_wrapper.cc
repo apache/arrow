@@ -110,6 +110,21 @@ struct AlpHeader {
     return v;
   }
 
+  /// \brief Calculate the number of vectors from total elements and vector size
+  ///
+  /// \return number of vectors (full + partial if any)
+  uint32_t GetNumVectors() const {
+    const uint32_t vector_size = GetVectorSize();
+    return (num_elements + vector_size - 1) / vector_size;
+  }
+
+  /// \brief Get the size of the offsets section
+  ///
+  /// \return size in bytes of the offsets array (num_vectors * sizeof(OffsetType))
+  uint64_t GetOffsetsSectionSize() const {
+    return static_cast<uint64_t>(GetNumVectors()) * sizeof(AlpConstants::OffsetType);
+  }
+
   /// \brief Compute the actual vector size from log_vector_size
   ///
   /// \return the vector size (2^log_vector_size)
@@ -251,11 +266,17 @@ uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
   const uint8_t version =
       AlpHeader::IsValidVersion(AlpConstants::kAlpVersion);
   uint64_t max_alp_size = AlpHeader::GetSizeForVersion(version);
-  // Add per-vector metadata sizes: AlpInfo (4 bytes) + ForInfo (6/10 bytes)
+
   const uint64_t vectors_count =
       static_cast<uint64_t>(std::ceil(static_cast<double>(element_count) / AlpConstants::kAlpVectorSize));
+
+  // Version 2: Add offsets section (4 bytes per vector)
+  max_alp_size += vectors_count * sizeof(AlpConstants::OffsetType);
+
+  // Add per-vector metadata sizes: AlpInfo (4 bytes) + ForInfo (5/9 bytes)
   max_alp_size +=
       (AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize) * vectors_count;
+
   // Worst case: everything is an exception, except two values that are chosen
   // with large difference to make FOR encoding for placeholders impossible.
   // Values/placeholders.
@@ -272,10 +293,17 @@ template <typename T>
 auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
                               size_t comp_size, const AlpEncodingPreset& combinations)
     -> CompressionProgress {
-  // GROUPED METADATA LAYOUT:
-  // [AlpInfo₀ | AlpInfo₁ | ... | AlpInfoₙ]     ← All ALP metadata (4B each)
-  // [ForInfo₀ | ForInfo₁ | ... | ForInfoₙ]     ← All FOR metadata (6/10B each)
-  // [Data₀ | Data₁ | ... | Dataₙ]               ← All data sections
+  // VERSION 2: OFFSET-BASED LAYOUT
+  // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
+  // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
+  // [AlpInfo₁ | ForInfo₁ | Data₁]             ← Vector 1
+  // ...
+  // [AlpInfoₙ₋₁ | ForInfoₙ₋₁ | Dataₙ₋₁]       ← Vector n-1
+  //
+  // Benefits:
+  // - O(1) random access to any vector (no cumulative offset computation)
+  // - Better locality for single-vector access (metadata + data together)
+  // - Enables parallel decompression without coordination
 
   // Phase 1: Compress all vectors and collect them
   std::vector<AlpEncodedVector<T>> encoded_vectors;
@@ -293,57 +321,66 @@ auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* com
     input_offset += elements_to_encode;
   }
 
-  // Calculate total size needed based on integer encoding
+  // Phase 2: Calculate sizes and offsets
   const AlpIntegerEncoding integer_encoding = combinations.integer_encoding;
-  const uint64_t total_alp_info_size =
-      encoded_vectors.size() * AlpEncodedVectorInfo::kStoredSize;
-  const uint64_t total_int_encoding_info_size =
-      encoded_vectors.size() * GetIntegerEncodingMetadataSize<T>(integer_encoding);
-  uint64_t total_data_size = 0;
+  const uint64_t per_vector_metadata_size =
+      AlpEncodedVectorInfo::kStoredSize + GetIntegerEncodingMetadataSize<T>(integer_encoding);
+
+  // Offsets section comes first (after header, which is written by Encode())
+  const uint64_t offsets_section_size =
+      num_vectors * sizeof(AlpConstants::OffsetType);
+
+  // Calculate total size and per-vector offsets
+  std::vector<AlpConstants::OffsetType> vector_offsets;
+  vector_offsets.reserve(num_vectors);
+
+  // First vector starts right after the offsets section
+  uint64_t current_offset = offsets_section_size;
   for (const auto& vec : encoded_vectors) {
-    total_data_size += vec.GetDataStoredSize();
+    // Store offset to this vector (relative to start of body, after header)
+    vector_offsets.push_back(static_cast<AlpConstants::OffsetType>(current_offset));
+    // Advance by metadata + data size
+    current_offset += per_vector_metadata_size + vec.GetDataStoredSize();
   }
-  const uint64_t total_size =
-      total_alp_info_size + total_int_encoding_info_size + total_data_size;
+  const uint64_t total_size = current_offset;
 
   if (total_size > comp_size) {
     return CompressionProgress{0, 0};
   }
 
-  // Phase 2: Write all AlpInfo first (ALP metadata section)
-  uint64_t alp_info_offset = 0;
-  for (const auto& vec : encoded_vectors) {
-    vec.alp_info.Store({comp + alp_info_offset, AlpEncodedVectorInfo::kStoredSize});
-    alp_info_offset += AlpEncodedVectorInfo::kStoredSize;
+  // Phase 3: Write offsets section
+  char* offset_ptr = comp;
+  for (const auto& offset : vector_offsets) {
+    std::memcpy(offset_ptr, &offset, sizeof(AlpConstants::OffsetType));
+    offset_ptr += sizeof(AlpConstants::OffsetType);
   }
 
-  // Phase 3: Write integer encoding metadata based on encoding type
-  uint64_t int_encoding_offset = total_alp_info_size;
-  switch (integer_encoding) {
-    case AlpIntegerEncoding::kForBitPack: {
-      for (const auto& vec : encoded_vectors) {
-        vec.for_info.Store(
-            {comp + int_encoding_offset, AlpEncodedForVectorInfo<T>::kStoredSize});
-        int_encoding_offset += AlpEncodedForVectorInfo<T>::kStoredSize;
-      }
-    } break;
+  // Phase 4: Write interleaved vectors [AlpInfo | ForInfo | Data]
+  for (size_t i = 0; i < encoded_vectors.size(); i++) {
+    const auto& vec = encoded_vectors[i];
+    char* vector_start = comp + vector_offsets[i];
 
-    default:
-      ARROW_CHECK(false) << "unsupported_integer_encoding: "
-                         << static_cast<int>(integer_encoding);
-      break;
-  }
+    // Write AlpInfo
+    vec.alp_info.Store({vector_start, AlpEncodedVectorInfo::kStoredSize});
+    char* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
-  // Phase 4: Write all data sections consecutively
-  uint64_t data_offset = total_alp_info_size + total_int_encoding_info_size;
-  for (const auto& vec : encoded_vectors) {
+    // Write ForInfo (or other integer encoding metadata)
+    switch (integer_encoding) {
+      case AlpIntegerEncoding::kForBitPack: {
+        vec.for_info.Store({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
+        ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
+      } break;
+
+      default:
+        ARROW_CHECK(false) << "unsupported_integer_encoding: "
+                           << static_cast<int>(integer_encoding);
+        break;
+    }
+
+    // Write data (packed values + exception positions + exception values)
     const uint64_t data_size = vec.GetDataStoredSize();
-    vec.StoreDataOnly({comp + data_offset, data_size});
-    data_offset += data_size;
+    vec.StoreDataOnly({ptr, data_size});
   }
-
-  ARROW_CHECK(data_offset == total_size)
-      << "alp_encode_size_mismatch: " << data_offset << " vs " << total_size;
 
   return CompressionProgress{total_size, element_count};
 }
@@ -355,10 +392,16 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                               AlpIntegerEncoding integer_encoding,
                               uint32_t vector_size, uint32_t total_elements)
     -> DecompressionProgress {
-  // GROUPED METADATA LAYOUT:
-  // [AlpInfo₀ | AlpInfo₁ | ... | AlpInfoₙ]     ← All ALP metadata (4B each)
-  // [IntEncodingInfo₀ | ... | IntEncodingInfoₙ] ← Integer encoding metadata (varies by type)
-  // [Data₀ | Data₁ | ... | Dataₙ]               ← All data sections
+  // OFFSET-BASED LAYOUT:
+  // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
+  // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
+  // [AlpInfo₁ | ForInfo₁ | Data₁]             ← Vector 1
+  // ...
+  //
+  // Benefits:
+  // - O(1) random access to any vector (no cumulative offset computation)
+  // - Better locality for single-vector access (metadata + data together)
+  // - Enables parallel decompression without coordination
 
   // Calculate number of vectors
   const uint32_t num_vectors =
@@ -368,48 +411,68 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
     return DecompressionProgress{0, 0};
   }
 
-  const uint64_t total_alp_info_size =
-      static_cast<uint64_t>(num_vectors) * AlpEncodedVectorInfo::kStoredSize;
-  const uint64_t total_int_encoding_info_size =
-      static_cast<uint64_t>(num_vectors) * GetIntegerEncodingMetadataSize<T>(integer_encoding);
-  const uint64_t total_metadata_size = total_alp_info_size + total_int_encoding_info_size;
+  const uint64_t offsets_section_size =
+      static_cast<uint64_t>(num_vectors) * sizeof(AlpConstants::OffsetType);
+  ARROW_CHECK(comp_size >= offsets_section_size)
+      << "alp_decode_comp_size_too_small_for_offsets: " << comp_size << " vs "
+      << offsets_section_size;
 
-  ARROW_CHECK(comp_size >= total_metadata_size)
-      << "alp_decode_comp_size_too_small_for_metadata: " << comp_size << " vs "
-      << total_metadata_size;
+  // Read all offsets
+  std::vector<AlpConstants::OffsetType> vector_offsets(num_vectors);
+  std::memcpy(vector_offsets.data(), comp,
+              num_vectors * sizeof(AlpConstants::OffsetType));
 
-  // Load all metadata into cache (precomputes data offsets for O(1) random access)
-  const AlpMetadataCache<T> cache = AlpMetadataCache<T>::Load(
-      num_vectors, vector_size, total_elements, integer_encoding,
-      {comp, total_alp_info_size},
-      {comp + total_alp_info_size, total_int_encoding_info_size});
-
-  // Pointer to start of data section
-  const char* data_section = comp + total_metadata_size;
-  const size_t data_section_size = comp_size - total_metadata_size;
-
-  // Decode each vector using the cache
+  // Decode each vector using its offset for O(1) random access
   uint64_t output_offset = 0;
-  for (uint32_t vector_index = 0; vector_index < cache.GetNumVectors(); vector_index++) {
-    const uint16_t this_vector_elements = cache.GetVectorNumElements(vector_index);
+  uint64_t bytes_consumed = offsets_section_size;
+
+  for (uint32_t vector_index = 0; vector_index < num_vectors; vector_index++) {
+    // Calculate number of elements in this vector
+    const uint64_t num_full_vectors = total_elements / vector_size;
+    const uint64_t remainder = total_elements % vector_size;
+    uint16_t this_vector_elements;
+    if (vector_index < num_full_vectors) {
+      this_vector_elements = static_cast<uint16_t>(vector_size);
+    } else if (vector_index == num_full_vectors && remainder > 0) {
+      this_vector_elements = static_cast<uint16_t>(remainder);
+    } else {
+      this_vector_elements = 0;
+    }
 
     ARROW_CHECK(output_offset + this_vector_elements <= decomp_element_count)
         << "alp_decode_output_too_small: " << output_offset << " vs "
         << this_vector_elements << " vs " << decomp_element_count;
 
+    // Jump directly to this vector using its offset
+    const char* vector_start = comp + vector_offsets[vector_index];
+
+    // Read AlpInfo (interleaved)
+    const AlpEncodedVectorInfo alp_info =
+        AlpEncodedVectorInfo::Load({vector_start, AlpEncodedVectorInfo::kStoredSize});
+    const char* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
+
     // Decode based on integer encoding type
     switch (integer_encoding) {
       case AlpIntegerEncoding::kForBitPack: {
-        // Use LoadViewDataOnly since AlpInfo and ForInfo are stored separately in the cache
-        const uint64_t data_offset = cache.GetVectorDataOffset(vector_index);
+        // Read ForInfo (interleaved)
+        const AlpEncodedForVectorInfo<T> for_info =
+            AlpEncodedForVectorInfo<T>::Load({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
+        ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
+
+        // Load view from data section (packed values + exceptions)
         const AlpEncodedVectorView<T> encoded_view =
             AlpEncodedVectorView<T>::LoadViewDataOnly(
-                {data_section + data_offset, data_section_size - data_offset},
-                cache.GetAlpInfo(vector_index), cache.GetForInfo(vector_index),
-                this_vector_elements);
+                {ptr, comp_size - (ptr - comp)},
+                alp_info, for_info, this_vector_elements);
 
         AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,
                                                 decomp + output_offset);
+
+        // Track bytes consumed for last vector
+        if (vector_index == num_vectors - 1) {
+          bytes_consumed = (ptr - comp) +
+              for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+        }
       } break;
 
       default:
@@ -421,7 +484,7 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
     output_offset += this_vector_elements;
   }
 
-  return DecompressionProgress{output_offset, total_metadata_size + cache.GetTotalDataSize()};
+  return DecompressionProgress{output_offset, bytes_consumed};
 }
 
 // ----------------------------------------------------------------------
