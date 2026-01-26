@@ -121,34 +121,27 @@ class build_ext(_build_ext):
 
     def run(self):
         self._run_cmake()
-        self._copy_stubs()
+        self._update_stubs()
         _build_ext.run(self)
 
-    def _copy_stubs(self):
-        """Copy .pyi stub files from pyarrow-stubs to the build directory."""
+    def _update_stubs(self):
+        """Update stub docstrings and copy to build directory."""
+        stubs_dir = pjoin(setup_dir, 'pyarrow-stubs')
+        if not os.path.exists(stubs_dir):
+            return
+
         build_cmd = self.get_finalized_command('build')
         build_lib = os.path.abspath(build_cmd.build_lib)
 
-        stubs_src = pjoin(setup_dir, 'pyarrow-stubs', 'pyarrow')
-        stubs_dest = pjoin(build_lib, 'pyarrow')
-
-        if os.path.exists(stubs_src):
-            print(f"-- Copying stub files from {stubs_src} to {stubs_dest}")
-            for root, dirs, files in os.walk(stubs_src):
-                # Calculate relative path from stubs_src
-                rel_dir = os.path.relpath(root, stubs_src)
-                dest_dir = pjoin(stubs_dest, rel_dir) if rel_dir != '.' else stubs_dest
-
-                # Create destination directory if needed
-                if not os.path.exists(dest_dir):
-                    os.makedirs(dest_dir)
-
-                # Copy .pyi files
-                for file in files:
-                    if file.endswith('.pyi'):
-                        src_file = pjoin(root, file)
-                        dest_file = pjoin(dest_dir, file)
-                        shutil.copy2(src_file, dest_file)
+        # Import here to avoid hard dependency on the dev script
+        sys.path.insert(0, pjoin(setup_dir, '..', 'dev'))
+        try:
+            from update_stub_docstrings import update_stubs_for_build
+            update_stubs_for_build(stubs_dir, build_lib)
+        except ImportError:
+            print("-- Skipping stubs (update_stub_docstrings.py not found)")
+        finally:
+            sys.path.pop(0)
 
     # adapted from cmake_build_ext in dynd-python
     # github.com/libdynd/dynd-python

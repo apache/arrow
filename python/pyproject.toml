@@ -18,6 +18,8 @@
 [build-system]
 requires = [
     "cython >= 3.1",
+    # Needed for build-time stub docstring extraction
+    "libcst>=1.8.6",
     "numpy>=1.25",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
@@ -88,7 +90,7 @@ include = ["pyarrow", "pyarrow.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyx", "includes/*.pxd", "py.typed"]
+pyarrow = ["*.pxd", "*.pyi", "*.pyx", "includes/*.pxd", "py.typed"]
 
 [tool.setuptools_scm]
 root = '..'

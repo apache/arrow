@@ -15,18 +15,17 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Utility to extract docstrings from pyarrow and update
-# docstrings in stubfiles.
-#
-# Usage
-# =====
-#
-# python ../dev/update_stub_docstrings.py pyarrow-stubs
+"""
+Extract docstrings from pyarrow runtime and insert them into stub files.
 
+Usage (from python/ directory with pyarrow built):
+    python ../dev/update_stub_docstrings.py pyarrow-stubs
+"""
 
 import argparse
 import importlib
 import inspect
+import shutil
 import sys
 from pathlib import Path
 from textwrap import indent
@@ -34,26 +33,9 @@ from textwrap import indent
 import libcst
 from libcst import matchers as m
 
-# Add current directory to path to find locally built pyarrow
-sys.path.insert(0, ".")
-
 
 def _resolve_object(module, path):
-    """
-    Resolve an object by dotted path from a base module.
-
-    Parameters
-    ----------
-    module : module
-        The base module (e.g., pyarrow)
-    path : str
-        Dotted path like "lib.Array" or "lib.concat_arrays"
-
-    Returns
-    -------
-    tuple
-        (obj, parent, obj_name) or (None, None, None) if not found
-    """
+    """Resolve an object by dotted path from a module."""
     if not path:
         return module, None, module.__name__
 
@@ -66,8 +48,6 @@ def _resolve_object(module, path):
         try:
             obj = getattr(obj, part)
         except AttributeError:
-            # Fallback: try vars() for special methods like __init__
-            # that may not be directly accessible via getattr
             try:
                 obj = vars(parent).get(part)
                 if obj is not None:
@@ -76,47 +56,24 @@ def _resolve_object(module, path):
                 pass
             return None, None, None
 
-    # Get the object's simple name
-    obj_name = getattr(obj, "__name__", parts[-1])
-    return obj, parent, obj_name
+    return obj, parent, getattr(obj, "__name__", parts[-1])
 
 
 def _get_docstring(name, module, indentation):
-    """
-    Extract and format docstring for a symbol.
-
-    Parameters
-    ----------
-    name : str
-        Dotted name like "lib.Array" or "lib.concat_arrays"
-    module : module
-        The pyarrow module
-    indentation : int
-        Number of indentation levels (4 spaces each)
-
-    Returns
-    -------
-    str or None
-        Formatted docstring ready for insertion, or None if not found
-    """
+    """Extract and format a docstring for insertion into a stub file."""
     obj, parent, obj_name = _resolve_object(module, name)
-
     if obj is None:
-        print(f"{name} not found in {module.__name__}, it's probably ok.")
+        print(f"{name} not found in {module.__name__}")
         return None
 
-    # Get docstring using inspect.getdoc for cleaner formatting
     docstring = inspect.getdoc(obj)
     if not docstring:
         return None
 
-    # Get parent name for signature detection
+    # Remove signature prefix
     parent_name = getattr(parent, "__name__", None) if parent else None
-
-    # Remove signature if present in docstring
-    # Cython/pybind11 often include signatures like "func_name(...)\n\n..."
     if docstring.startswith(obj_name) or (
-        parent_name is not None and docstring.startswith(f"{parent_name}.{obj_name}")
+        parent_name and docstring.startswith(f"{parent_name}.{obj_name}")
     ):
         docstring = "\n".join(docstring.splitlines()[2:])
 
@@ -124,41 +81,39 @@ def _get_docstring(name, module, indentation):
     if not docstring.strip():
         return None
 
-    # Format as docstring with proper indentation
-    indentation_prefix = indentation * "    "
-    docstring = indent(docstring + '\n"""', indentation_prefix)
-    docstring = '"""\n' + docstring
-
-    return docstring
+    prefix = "    " * indentation
+    return '"""\n' + indent(docstring + '\n"""', prefix)
 
 
 class DocstringInserter(libcst.CSTTransformer):
+    """CST transformer that inserts docstrings into stub file nodes."""
+
     def __init__(self, module, namespace):
         self.module = module
         self.base_namespace = namespace
         self.stack = []
         self.indentation = 0
 
-    # Insert module level docstring if _clone_signature is used
+    def _full_name(self):
+        name = ".".join(self.stack)
+        return f"{self.base_namespace}.{name}" if self.base_namespace else name
+
     def leave_Module(self, original_node, updated_node):
         new_body = []
         clone_matcher = m.SimpleStatementLine(
-            body=[m.Assign(
-                value=m.Call(func=m.Name(value="_clone_signature"))
-            ), m.ZeroOrMore()]
+            body=[m.Assign(value=m.Call(func=m.Name(value="_clone_signature"))),
+                  m.ZeroOrMore()]
         )
-        for statement in updated_node.body:
-            new_body.append(statement)
-            if m.matches(statement, clone_matcher):
-                name = statement.body[0].targets[0].target.value
+        for stmt in updated_node.body:
+            new_body.append(stmt)
+            if m.matches(stmt, clone_matcher):
+                name = stmt.body[0].targets[0].target.value
                 if self.base_namespace:
                     name = f"{self.base_namespace}.{name}"
                 docstring = _get_docstring(name, self.module, 0)
-                if docstring is not None:
-                    new_expr = libcst.Expr(value=libcst.SimpleString(docstring))
-                    new_line = libcst.SimpleStatementLine(body=[new_expr])
-                    new_body.append(new_line)
-
+                if docstring:
+                    new_body.append(libcst.SimpleStatementLine(
+                        body=[libcst.Expr(value=libcst.SimpleString(docstring))]))
         return updated_node.with_changes(body=new_body)
 
     def visit_ClassDef(self, node):
@@ -166,43 +121,25 @@ class DocstringInserter(libcst.CSTTransformer):
         self.indentation += 1
 
     def leave_ClassDef(self, original_node, updated_node):
-        name = ".".join(self.stack)
-        if self.base_namespace:
-            name = self.base_namespace + "." + name
+        name = self._full_name()
+        docstring = _get_docstring(name, self.module, self.indentation)
 
-        class_matcher_1 = m.ClassDef(
-            name=m.Name(),
-            body=m.IndentedBlock(
-                body=[m.SimpleStatementLine(
-                    body=[m.Expr(m.Ellipsis()), m.ZeroOrMore()]
-                ), m.ZeroOrMore()]
-            )
-        )
-        class_matcher_2 = m.ClassDef(
-            name=m.Name(),
-            body=m.IndentedBlock(
-                body=[m.FunctionDef(), m.ZeroOrMore()]
-            )
-        )
+        if docstring:
+            ellipsis_class = m.ClassDef(body=m.IndentedBlock(
+                body=[m.SimpleStatementLine(body=[m.Expr(m.Ellipsis()), m.ZeroOrMore()]),
+                      m.ZeroOrMore()]))
+            func_class = m.ClassDef(body=m.IndentedBlock(body=[m.FunctionDef(), m.ZeroOrMore()]))
 
-        if m.matches(updated_node, class_matcher_1):
-            docstring = _get_docstring(name, self.module, self.indentation)
-            if docstring is not None:
-                new_node = libcst.SimpleString(value=docstring)
+            if m.matches(updated_node, ellipsis_class):
                 updated_node = updated_node.deep_replace(
-                    updated_node.body.body[0].body[0].value, new_node)
-
-        if m.matches(updated_node, class_matcher_2):
-            docstring = _get_docstring(name, self.module, self.indentation)
-            if docstring is not None:
-                new_docstring = libcst.SimpleString(value=docstring)
-                new_docstring_stmt = libcst.SimpleStatementLine(
-                    body=[libcst.Expr(value=new_docstring)]
-                )
-                new_body = [new_docstring_stmt] + list(updated_node.body.body)
+                    updated_node.body.body[0].body[0].value,
+                    libcst.SimpleString(value=docstring))
+            elif m.matches(updated_node, func_class):
+                docstring_stmt = libcst.SimpleStatementLine(
+                    body=[libcst.Expr(value=libcst.SimpleString(value=docstring))])
                 updated_node = updated_node.with_changes(
-                    body=updated_node.body.with_changes(body=new_body)
-                )
+                    body=updated_node.body.with_changes(
+                        body=[docstring_stmt] + list(updated_node.body.body)))
 
         self.stack.pop()
         self.indentation -= 1
@@ -213,80 +150,82 @@ class DocstringInserter(libcst.CSTTransformer):
         self.indentation += 1
 
     def leave_FunctionDef(self, original_node, updated_node):
-        name = ".".join(self.stack)
-        if self.base_namespace:
-            name = self.base_namespace + "." + name
+        name = self._full_name()
+        ellipsis_func = m.FunctionDef(body=m.SimpleStatementSuite(body=[m.Expr(m.Ellipsis())]))
 
-        function_matcher = m.FunctionDef(
-            name=m.Name(),
-            body=m.SimpleStatementSuite(
-                body=[m.Expr(
-                    m.Ellipsis()
-                )]))
-        if m.matches(original_node, function_matcher):
+        if m.matches(original_node, ellipsis_func):
             docstring = _get_docstring(name, self.module, self.indentation)
-            if docstring is not None:
-                new_docstring = libcst.SimpleString(value=docstring)
-                new_docstring_stmt = libcst.SimpleStatementLine(
-                    body=[libcst.Expr(value=new_docstring)]
-                )
-                new_body = libcst.IndentedBlock(body=[new_docstring_stmt])
-                updated_node = updated_node.with_changes(body=new_body)
+            if docstring:
+                docstring_stmt = libcst.SimpleStatementLine(
+                    body=[libcst.Expr(value=libcst.SimpleString(value=docstring))])
+                updated_node = updated_node.with_changes(
+                    body=libcst.IndentedBlock(body=[docstring_stmt]))
 
         self.stack.pop()
         self.indentation -= 1
         return updated_node
 
 
-def add_docs_to_stub_files(pyarrow_folder):
-    """
-    Update stub files with docstrings extracted from pyarrow runtime.
+LIB_MODULES = {"array", "builder", "compat", "config", "device", "error", "io",
+               "_ipc", "memory", "pandas_shim", "scalar", "table", "tensor", "_types"}
 
-    Parameters
-    ----------
-    pyarrow_folder : Path
-        Path to the pyarrow-stubs folder
-    """
-    print("Updating docstrings of stub files in:", pyarrow_folder)
 
-    # Load pyarrow using importlib
-    pyarrow_module = importlib.import_module("pyarrow")
+def add_docstrings_to_stubs(stubs_dir):
+    """Update all stub files in stubs_dir with docstrings from pyarrow runtime."""
+    stubs_dir = Path(stubs_dir)
+    print(f"Updating stub docstrings in: {stubs_dir}")
 
-    lib_modules = ["array", "builder", "compat", "config", "device", "error", "io",
-                   "_ipc", "memory", "pandas_shim", "scalar", "table", "tensor",
-                   "_types"]
+    pyarrow = importlib.import_module("pyarrow")
 
-    for stub_file in pyarrow_folder.rglob('*.pyi'):
+    for stub_file in stubs_dir.rglob('*.pyi'):
         if stub_file.name == "_stubs_typing.pyi":
             continue
-        module = stub_file.with_suffix('').name
-        print(f"[{stub_file} {module}]")
 
-        with open(stub_file, 'r') as f:
-            tree = libcst.parse_module(f.read())
+        module_name = stub_file.stem
+        if module_name in LIB_MODULES:
+            namespace = "lib"
+        elif stub_file.parent.name in ("parquet", "interchange"):
+            namespace = f"{stub_file.parent.name}.{module_name}"
+        elif module_name == "__init__":
+            namespace = ""
+        else:
+            namespace = module_name
 
-        if module in lib_modules:
-            module = "lib"
-        elif stub_file.parent.name in ["parquet", "interchange"]:
-            module = f"{stub_file.parent.name}.{module}"
-        elif module == "__init__":
-            module = ""
+        print(f"  {stub_file.name} -> {namespace or '(root)'}")
+        tree = libcst.parse_module(stub_file.read_text())
+        modified = tree.visit(DocstringInserter(pyarrow, namespace))
+        stub_file.write_text(modified.code)
 
-        modified_tree = tree.visit(DocstringInserter(pyarrow_module, module))
-        with open(stub_file, "w") as f:
-            f.write(modified_tree.code)
-        print("\n")
+
+def copy_stubs(src_dir, dest_dir):
+    """Copy .pyi files from src_dir to dest_dir."""
+    src_dir, dest_dir = Path(src_dir), Path(dest_dir)
+    if not src_dir.exists():
+        return
+
+    print(f"Copying stubs: {src_dir} -> {dest_dir}")
+    for src in src_dir.rglob('*.pyi'):
+        dest = dest_dir / src.relative_to(src_dir)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(src, dest)
+
+
+def update_stubs_for_build(stubs_dir, build_lib):
+    """Entry point for setup.py: update docstrings and copy stubs to build dir."""
+    stubs_dir, build_lib = Path(stubs_dir), Path(build_lib)
+
+    sys.path.insert(0, str(build_lib))
+    try:
+        add_docstrings_to_stubs(stubs_dir)
+        copy_stubs(stubs_dir / "pyarrow", build_lib / "pyarrow")
+    finally:
+        sys.path.pop(0)
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Extract docstrings from pyarrow and update stub files."
-    )
-    parser.add_argument(
-        "pyarrow_folder",
-        type=Path,
-        help="Path to the pyarrow-stubs folder"
-    )
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("stubs_dir", type=Path, help="Path to pyarrow-stubs folder")
     args = parser.parse_args()
 
-    add_docs_to_stub_files(args.pyarrow_folder.resolve())
+    sys.path.insert(0, ".")
+    add_docstrings_to_stubs(args.stubs_dir.resolve())

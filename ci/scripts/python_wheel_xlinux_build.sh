@@ -170,9 +170,8 @@ pushd /arrow/python
 python -m build --sdist --wheel . --no-isolation
 # We first populate stub docstrings and then build the wheel
 python setup.py build_ext --inplace
+# Install libcst for build-time stub docstring extraction
 python -m pip install libcst
-python ../dev/update_stub_docstrings.py pyarrow-stubs
-
 python setup.py bdist_wheel
 
 echo "=== Strip symbols from wheel ==="
