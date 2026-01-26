@@ -4067,20 +4067,13 @@ function(build_azure_sdk)
   if(WIN32)
     message(STATUS "Fetching WIL (Windows Implementation Libraries) for Azure SDK")
     fetchcontent_declare(wil
-                         ${FC_DECLARE_COMMON_OPTIONS}
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                          URL ${ARROW_WIL_URL}
                          URL_HASH "SHA256=${ARROW_WIL_BUILD_SHA256_CHECKSUM}")
     prepare_fetchcontent()
     set(WIL_BUILD_PACKAGING OFF)
     set(WIL_BUILD_TESTS OFF)
     fetchcontent_makeavailable(wil)
-    # Create a minimal config file so Azure SDK's find_package(wil CONFIG) succeeds.
-    # The WIL::WIL target already exists from FetchContent above.
-    file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/wil-config/wilConfig.cmake"
-         "# WIL loaded via FetchContent - target WIL::WIL already exists\n")
-    set(wil_DIR
-        "${CMAKE_CURRENT_BINARY_DIR}/wil-config"
-        CACHE PATH "" FORCE)
   endif()
 
   fetchcontent_declare(azure_sdk
