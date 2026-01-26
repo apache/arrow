@@ -200,7 +200,7 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
-  separate_arguments(AVX2_FLAGS NATIVE_COMMAND "${ARROW_AVX2_FLAG}")
+  set(AVX2_FLAGS ${ARROW_AVX2_FLAGS})
   if(NOT MSVC)
     separate_arguments(RELEASE_FLAGS NATIVE_COMMAND "${CMAKE_CXX_FLAGS_RELEASE}")
     list(APPEND AVX2_FLAGS ${RELEASE_FLAGS})
@@ -219,8 +219,7 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   if(ARROW_HAVE_RUNTIME_BMI2)
     # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
     # the BMI2 path.
-    separate_arguments(BMI2_EXTRA_FLAGS NATIVE_COMMAND "${ARROW_BMI2_FLAG}")
-    set(BMI2_FLAGS ${AVX2_FLAGS} ${BMI2_EXTRA_FLAGS} -DARROW_HAVE_BMI2)
+    set(BMI2_FLAGS ${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2)
     set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS
                                                                     "${BMI2_FLAGS}")
   endif()

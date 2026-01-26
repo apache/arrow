@@ -322,18 +322,16 @@ endfunction()
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
-    separate_arguments(AVX2_FLAG_LIST NATIVE_COMMAND "${ARROW_AVX2_FLAG}")
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${AVX2_FLAG_LIST}")
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_AVX2_FLAGS}")
   endif()
 endmacro()
 
 macro(append_runtime_avx2_bmi2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
     list(APPEND ${SRCS} ${SRC})
-    separate_arguments(AVX2_FLAG_LIST NATIVE_COMMAND "${ARROW_AVX2_FLAG}")
-    separate_arguments(BMI2_FLAG_LIST NATIVE_COMMAND "${ARROW_BMI2_FLAG}")
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS
-                                                  "${AVX2_FLAG_LIST};${BMI2_FLAG_LIST}")
+    set_source_files_properties(${SRC}
+                                PROPERTIES COMPILE_OPTIONS
+                                           "${ARROW_AVX2_FLAGS};${ARROW_BMI2_FLAG}")
   endif()
 endmacro()
 
@@ -917,7 +915,8 @@ if(ARROW_FILESYSTEM)
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
       set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
                                   PROPERTIES COMPILE_OPTIONS
-                                             "-Wno-documentation;-Wno-documentation-deprecated-sync")
+                                             "-Wno-documentation;-Wno-documentation-deprecated-sync"
+      )
     endif()
   endif()
   if(ARROW_HDFS)

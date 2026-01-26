@@ -54,26 +54,27 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     # sets available, but they are not set by MSVC (unlike other compilers).
     # See https://github.com/AcademySoftwareFoundation/OpenImageIO/issues/4265
     add_definitions(-D__SSE2__ -D__SSE4_1__ -D__SSE4_2__)
-    set(ARROW_AVX2_FLAG "/arch:AVX2")
+    set(ARROW_AVX2_FLAGS "/arch:AVX2")
     # MSVC has no specific flag for BMI2, it seems to be enabled with AVX2
-    set(ARROW_BMI2_FLAG "/arch:AVX2")
+    set(ARROW_BMI2_FLAGS "/arch:AVX2")
     set(ARROW_AVX512_FLAG "/arch:AVX512")
     set(CXX_SUPPORTS_SSE4_2 TRUE)
   else()
     set(ARROW_SSE4_2_FLAG "-msse4.2")
-    set(ARROW_AVX2_FLAG "-march=haswell")
+    set(ARROW_AVX2_FLAGS "-march=haswell")
     set(ARROW_BMI2_FLAG "-mbmi2")
     # skylake-avx512 consists of AVX512F,AVX512BW,AVX512VL,AVX512CD,AVX512DQ
     set(ARROW_AVX512_FLAG "-march=skylake-avx512")
     # Append the avx2/avx512 subset option also, fix issue ARROW-9877 for homebrew-cpp
-    set(ARROW_AVX2_FLAG "${ARROW_AVX2_FLAG} -mavx2")
+    list(APPEND ARROW_AVX2_FLAGS "-mavx2")
     set(ARROW_AVX512_FLAG
         "${ARROW_AVX512_FLAG} -mavx512f -mavx512cd -mavx512vl -mavx512dq -mavx512bw")
     check_cxx_compiler_flag(${ARROW_SSE4_2_FLAG} CXX_SUPPORTS_SSE4_2)
   endif()
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
-    check_cxx_compiler_flag(${ARROW_AVX2_FLAG} CXX_SUPPORTS_AVX2)
+    list(JOIN ARROW_AVX2_FLAGS " " ARROW_AVX2_FLAGS_COMMAND_LINE)
+    check_cxx_compiler_flag("${ARROW_AVX2_FLAGS_COMMAND_LINE}" CXX_SUPPORTS_AVX2)
     if(MINGW)
       # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
       message(STATUS "Disable AVX512 support on MINGW for now")
@@ -494,7 +495,8 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
     if(NOT CXX_SUPPORTS_AVX2)
       message(FATAL_ERROR "AVX2 required but compiler doesn't support it.")
     endif()
-    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX2_FLAG}")
+    list(JOIN ARROW_AVX2_FLAGS " " ARROW_AVX2_FLAGS_COMMAND_LINE)
+    set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} ${ARROW_AVX2_FLAGS_COMMAND_LINE}")
     add_definitions(-DARROW_HAVE_AVX2 -DARROW_HAVE_BMI2 -DARROW_HAVE_SSE4_2)
   elseif(ARROW_SIMD_LEVEL STREQUAL "SSE4_2")
     if(NOT CXX_SUPPORTS_SSE4_2)
