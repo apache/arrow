@@ -125,10 +125,11 @@ class DocstringInserter(libcst.CSTTransformer):
         docstring = _get_docstring(name, self.module, self.indentation)
 
         if docstring:
-            ellipsis_class = m.ClassDef(body=m.IndentedBlock(
-                body=[m.SimpleStatementLine(body=[m.Expr(m.Ellipsis()), m.ZeroOrMore()]),
-                      m.ZeroOrMore()]))
-            func_class = m.ClassDef(body=m.IndentedBlock(body=[m.FunctionDef(), m.ZeroOrMore()]))
+            ellipsis_class = m.ClassDef(body=m.IndentedBlock(body=[
+                m.SimpleStatementLine(body=[
+                    m.Expr(m.Ellipsis()), m.ZeroOrMore()]), m.ZeroOrMore()]))
+            func_class = m.ClassDef(body=m.IndentedBlock(
+                body=[m.FunctionDef(), m.ZeroOrMore()]))
 
             if m.matches(updated_node, ellipsis_class):
                 updated_node = updated_node.deep_replace(
@@ -151,7 +152,8 @@ class DocstringInserter(libcst.CSTTransformer):
 
     def leave_FunctionDef(self, original_node, updated_node):
         name = self._full_name()
-        ellipsis_func = m.FunctionDef(body=m.SimpleStatementSuite(body=[m.Expr(m.Ellipsis())]))
+        ellipsis_func = m.FunctionDef(
+            body=m.SimpleStatementSuite(body=[m.Expr(m.Ellipsis())]))
 
         if m.matches(original_node, ellipsis_func):
             docstring = _get_docstring(name, self.module, self.indentation)
