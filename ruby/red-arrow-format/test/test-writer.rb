@@ -42,6 +42,10 @@ module WriterTests
       ArrowFormat::Float32Type.singleton
     when Arrow::DoubleDataType
       ArrowFormat::Float64Type.singleton
+    when Arrow::Date32DataType
+      ArrowFormat::Date32Type.singleton
+    when Arrow::Date64DataType
+      ArrowFormat::Date64Type.singleton
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
     when Arrow::LargeBinaryDataType
@@ -216,6 +220,48 @@ module WriterTests
 
           def test_write
             assert_equal([-0.5, nil, 0.5],
+                         @values)
+          end
+        end
+
+        sub_test_case("Date32") do
+          def setup(&block)
+            @date_2017_08_28 = 17406
+            @date_2025_12_09 = 20431
+            super(&block)
+          end
+
+          def build_array
+            Arrow::Date32Array.new([@date_2017_08_28, nil, @date_2025_12_09])
+          end
+
+          def test_write
+            assert_equal([Date.new(2017, 8, 28), nil, Date.new(2025, 12, 9)],
+                         @values)
+          end
+        end
+
+        sub_test_case("Date64") do
+          def setup(&block)
+            @date_2017_08_28_00_00_00 = 1503878400000
+            @date_2025_12_10_00_00_00 = 1765324800000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::Date64Array.new([
+                                     @date_2017_08_28_00_00_00,
+                                     nil,
+                                     @date_2025_12_10_00_00_00,
+                                   ])
+          end
+
+          def test_write
+            assert_equal([
+                           DateTime.new(2017, 8, 28, 0, 0, 0),
+                           nil,
+                           DateTime.new(2025, 12, 10, 0, 0, 0),
+                         ],
                          @values)
           end
         end

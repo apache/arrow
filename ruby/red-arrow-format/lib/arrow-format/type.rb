@@ -330,10 +330,21 @@ module ArrowFormat
     end
   end
 
-  class TemporalType < Type
+  class TemporalType < PrimitiveType
   end
 
   class DateType < TemporalType
+    attr_reader :unit
+    def initialize(unit)
+      super()
+      @unit = unit
+    end
+
+    def to_flatbuffers
+      fb_type = FB::Date::Data.new
+      fb_type.unit = FB::DateUnit.try_convert(@unit.to_s.upcase)
+      fb_type
+    end
   end
 
   class Date32Type < DateType
@@ -341,6 +352,10 @@ module ArrowFormat
       def singleton
         @singleton ||= new
       end
+    end
+
+    def initialize
+      super(:day)
     end
 
     def name
@@ -357,6 +372,10 @@ module ArrowFormat
       def singleton
         @singleton ||= new
       end
+    end
+
+    def initialize
+      super(:millisecond)
     end
 
     def name
