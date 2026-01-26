@@ -328,19 +328,21 @@ struct AlpEncodedForVectorInfo {
 ///   |     (original floats) |  sizeof(T)           |  double)    |
 ///   +------------------------------------------------------------+
 ///
-/// Page-level layout (grouped metadata-at-start for efficient random access):
+/// Page-level layout (offset-based interleaved for O(1) random access):
 ///
 ///   +------------------------------------------------------------+
 ///   |  Page Layout                                               |
 ///   +------------------------------------------------------------+
 ///   |  [Header (8B)]                                             |
-///   |  [AlpInfo₀ | AlpInfo₁ | ... | AlpInfoₙ]    ← ALP metadata  |
-///   |  [ForInfo₀ | ForInfo₁ | ... | ForInfoₙ]    ← FOR metadata  |
-///   |  [Data₀ | Data₁ | ... | Dataₙ]             ← Compressed    |
+///   |  [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]   ← Vector offsets  |
+///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]        ← Interleaved     |
 ///   +------------------------------------------------------------+
+///   where each Vector = [AlpInfo | ForInfo | Data]
 ///
-/// The grouped metadata layout enables O(1) random access and separates
-/// ALP-specific metadata from integer encoding metadata (FOR).
+/// The offset-based layout enables:
+/// - O(1) random access to any vector via offset lookup
+/// - Better locality for single-vector decompression
+/// - Parallel decompression without coordination
 ///
 /// Example for 1024 floats with 5 exceptions and bit_width=8:
 ///   - AlpInfo:            4 bytes (fixed)
