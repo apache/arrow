@@ -37,8 +37,10 @@ const std::unordered_map<parquet::Type::type, dbps::external::Type::type>
         {parquet::Type::FLOAT, dbps::external::Type::FLOAT},
         {parquet::Type::DOUBLE, dbps::external::Type::DOUBLE},
         {parquet::Type::BYTE_ARRAY, dbps::external::Type::BYTE_ARRAY},
-        {parquet::Type::FIXED_LEN_BYTE_ARRAY, dbps::external::Type::FIXED_LEN_BYTE_ARRAY},
-        {parquet::Type::UNDEFINED, dbps::external::Type::UNDEFINED}};
+        {parquet::Type::FIXED_LEN_BYTE_ARRAY, dbps::external::Type::FIXED_LEN_BYTE_ARRAY}};
+        // parquet::Type::UNDEFINED is excluded as it is not a 
+        // Parquet type per-se, but rather a value used in exception cases.
+
 
 // ------------------------------------------------------------
 // arrow::Compression -> dbps::external::CompressionCodec

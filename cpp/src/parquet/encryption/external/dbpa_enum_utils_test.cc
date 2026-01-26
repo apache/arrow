@@ -97,15 +97,16 @@ TEST_F(DBPAUtilsTest, AllValidTypeMappings) {
       parquet::Type::BOOLEAN,    parquet::Type::INT32,
       parquet::Type::INT64,      parquet::Type::INT96,
       parquet::Type::FLOAT,      parquet::Type::DOUBLE,
-      parquet::Type::BYTE_ARRAY, parquet::Type::FIXED_LEN_BYTE_ARRAY,
-      parquet::Type::UNDEFINED};
+      parquet::Type::BYTE_ARRAY, parquet::Type::FIXED_LEN_BYTE_ARRAY};
 
-  // Ensure that the map is complete.
-  ASSERT_EQ(valid_parquet_types.size(), parquet_type_enum_size_);
+  // Ensure that the map is complete (excluding UNDEFINED)
+  ASSERT_EQ(valid_parquet_types.size(), parquet_type_enum_size_ - 1);
 
   for (auto parquet_type : valid_parquet_types) {
     EXPECT_NO_THROW(DBPAEnumUtils::ParquetTypeToDBPA(parquet_type));
   }
+
+  EXPECT_THROW(DBPAEnumUtils::ParquetTypeToDBPA(parquet::Type::UNDEFINED), std::invalid_argument);
 }
 
 TEST_F(DBPAUtilsTest, AllValidCompressionMappings) {
@@ -131,13 +132,15 @@ TEST_F(DBPAUtilsTest, MapSizeAssertions) {
 
   // Parquet::Type::type assertions
   EXPECT_EQ(parquet_type_enum_size_, 9)
+      << "Expected 9 parquet type mappings";
+
+  // Excluding UNDEFINED
+  EXPECT_EQ(parquet_type_enum_size_ - 1, DBPAEnumUtils::parquet_to_external_type_map.size())
       << "Expected 9 parquet type mappings (excluding UNDEFINED)";
 
-  EXPECT_EQ(parquet_type_enum_size_, DBPAEnumUtils::parquet_to_external_type_map.size())
-      << "Expected 9 parquet type mappings (excluding UNDEFINED)";
-
-  EXPECT_EQ(DBPAEnumUtils::parquet_to_external_type_map.size(), 9)
-      << "Expected 9 parquet type mappings (excluding UNDEFINED)";
+  // Excluding UNDEFINED
+  EXPECT_EQ(DBPAEnumUtils::parquet_to_external_type_map.size(), 8)
+      << "Expected 8 parquet type mappings (excluding UNDEFINED)";
 
   // Arrow::Compression::type assertions
   EXPECT_EQ(DBPAEnumUtils::arrow_to_external_compression_map.size(), 10)

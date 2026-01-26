@@ -281,7 +281,7 @@ if(PARQUET_REQUIRE_ENCRYPTION)
                        GIT_REPOSITORY https://github.com/protegrity/DataBatchProtectionService.git
                        #TODO: Change to a specific tag/commit when we have one.
                        #https://github.com/protegrity/arrow/issues/179
-                       GIT_TAG 4c808b2233ed0bc04529c3b0dbf7c214c4901043
+                       GIT_TAG 6206fb0e27556a0df9160364caa3819e4af3fe0f
                        GIT_SHALLOW FALSE)
 
   fetchcontent_getproperties(dbps_agent)
