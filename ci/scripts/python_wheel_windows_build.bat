@@ -131,6 +131,10 @@ set ARROW_HOME=C:\arrow-dist
 set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
+@REM Setuptools is really opinionated about where Licenses/Notices go in the source tree.
+@REM Copy them to the python/ directory so they end up in the wheel root.
+copy C:\arrow\LICENSE.txt .
+copy C:\arrow\NOTICE.txt .
 
 @REM Build wheel
 %PYTHON_CMD% setup.py bdist_wheel || exit /B 1

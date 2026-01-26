@@ -177,6 +177,10 @@ export CMAKE_PREFIX_PATH=${build_dir}/install
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
+# Setuptools is really opinionated about where Licenses/Notices go in the source tree.
+# Copy them to the python/ directory so they end up in the wheel root.
+cp ${source_dir}/LICENSE.txt .
+cp ${source_dir}/NOTICE.txt .
 python setup.py bdist_wheel
 popd
 
