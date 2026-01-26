@@ -1362,8 +1362,7 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
     // without hierarchical namespace enabled.
     directory_client.GetAccessControlList();
     return HNSSupport::kEnabled;
-  } catch (std::out_of_range& exception) {
-    ARROW_UNUSED(exception);
+} catch (const std::out_of_range&) {
     // Azurite issue detected.
     DCHECK(IsDfsEmulator(options));
     return HNSSupport::kDisabled;
