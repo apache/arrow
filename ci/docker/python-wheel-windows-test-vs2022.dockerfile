@@ -26,16 +26,12 @@ FROM ${base}
 
 # hadolint shell=cmd.exe
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.10 => 3.10.0)
 ARG python=3.10
-RUN (if "%python%"=="3.10" setx PYTHON_VERSION "3.10.11" && setx PYTHON_CMD "py -3.10") & \
-    (if "%python%"=="3.11" setx PYTHON_VERSION "3.11.9" && setx PYTHON_CMD "py -3.11") & \
-    (if "%python%"=="3.12" setx PYTHON_VERSION "3.12.10" && setx PYTHON_CMD "py -3.12") & \
-    (if "%python%"=="3.13" setx PYTHON_VERSION "3.13.9" && setx PYTHON_CMD "py -3.13") & \
-    (if "%python%"=="3.14" setx PYTHON_VERSION "3.14.0" && setx PYTHON_CMD "py -3.14")
 
-# hadolint ignore=DL3059
-RUN choco install -r -y --pre --no-progress --force python --version=%PYTHON_VERSION%
+ARG python_variant_suffix=""
+ENV PYTHON_VERSION=${python}${python_variant_suffix}
+
+RUN pymanager install %PYTHON_VERSION%
 # hadolint ignore=DL3059
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 
