@@ -63,6 +63,36 @@ namespace red_arrow {
       rbgobj_gc_mark_instance(node->data);
     }
   }
+
+  void
+  call_expression_mark(gpointer object)
+  {
+    auto expression = GARROW_CALL_EXPRESSION(object);
+    auto arguments = garrow_call_expression_get_arguments(expression);
+    for (auto argument = arguments; argument; argument = g_list_next(argument)) {
+      rbgobj_gc_mark_instance(argument->data);
+    }
+  }
+
+  void
+  aggregate_node_options_mark(gpointer object)
+  {
+    auto options = GARROW_AGGREGATE_NODE_OPTIONS(object);
+    auto aggregations = garrow_aggregate_node_options_get_aggregations(options);
+    for (auto aggregation = aggregations; aggregation; aggregation = g_list_next(aggregation)) {
+      rbgobj_gc_mark_instance(aggregation->data);
+    }
+  }
+
+  void
+  project_node_options_mark(gpointer object)
+  {
+    auto options = GARROW_PROJECT_NODE_OPTIONS(object);
+    auto expressions = garrow_project_node_options_get_expressions(options);
+    for (auto expression = expressions; expression; expression = g_list_next(expression)) {
+      rbgobj_gc_mark_instance(expression->data);
+    }
+  }
 }
 
 extern "C" void Init_arrow() {
@@ -124,4 +154,10 @@ extern "C" void Init_arrow() {
                             red_arrow::record_batch_reader_mark);
   rbgobj_register_mark_func(GARROW_TYPE_EXECUTE_PLAN,
                             red_arrow::execute_plan_mark);
+  rbgobj_register_mark_func(GARROW_TYPE_CALL_EXPRESSION,
+                            red_arrow::call_expression_mark);
+  rbgobj_register_mark_func(GARROW_TYPE_AGGREGATE_NODE_OPTIONS,
+                            red_arrow::aggregate_node_options_mark);
+  rbgobj_register_mark_func(GARROW_TYPE_PROJECT_NODE_OPTIONS,
+                            red_arrow::project_node_options_mark);
 }
