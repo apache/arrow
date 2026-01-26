@@ -29,9 +29,9 @@ void ThrowOpenSSLRequiredException() {
 
 }  // namespace
 
-AesCryptoContext::AesCryptoContext(
-  ParquetCipher::type alg_id, int32_t key_len, bool metadata, bool include_length) {
-ThrowOpenSSLRequiredException();
+AesCryptoContext::AesCryptoContext(ParquetCipher::type alg_id, int32_t key_len,
+                                   bool metadata, bool include_length) {
+  ThrowOpenSSLRequiredException();
 }
 
 int32_t AesEncryptor::SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,

@@ -308,43 +308,43 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDictionaryPage);
 
       // Creating an EncodingProperties object from the metadata.
-      // We're retrieving the column descriptor and writer properties 
+      // We're retrieving the column descriptor and writer properties
       // from the metadata_ object to simplify the code.
       //
-      // WriterProperties is created using WriterProperties::Builder::build() (in parquet/properties.h ) 
-      // via ParquetFileFormat::MakeWriter (in arrow/dataset/file_parquet.cc), 
-      // and passed down to ColumnChunkMetaDataBuilder::Make().
+      // WriterProperties is created using WriterProperties::Builder::build() (in
+      // parquet/properties.h) via ParquetFileFormat::MakeWriter (in
+      // arrow/dataset/file_parquet.cc), and passed down to
+      // ColumnChunkMetaDataBuilder::Make().
 
-      // A SchemaDescriptor is created in FileWriter::Open() (parquet/file_writer.cc). 
-      // The SchemaDescriptor is passed down to RowGroupMetadataBuilder NextColumnChunk() (parquet/metadata.cc)
-      // where a ColumnDescriptor is extracted from the SchemaDescriptor, and passed into
-      // ColumnChunkMetaDataBuilder::Make() 
+      // A SchemaDescriptor is created in FileWriter::Open()
+      // (parquet/file_writer.cc). The SchemaDescriptor is passed down to
+      // RowGroupMetadataBuilder NextColumnChunk() (parquet/metadata.cc)
+      // where a ColumnDescriptor is extracted from the SchemaDescriptor, and
+      // passed into ColumnChunkMetaDataBuilder::Make()
 
-      std::unique_ptr<EncodingProperties> encoding_properties = 
-        EncodingProperties::MakeFromMetadata(
-          metadata_->descr(), 
-          metadata_->properties(), 
-          static_cast<const DictionaryPage&>(page));
+      std::unique_ptr<EncodingProperties> encoding_properties =
+          EncodingProperties::MakeFromMetadata(metadata_->descr(),
+                                               metadata_->properties(),
+                                               static_cast<const DictionaryPage&>(page));
       data_encryptor_->UpdateEncodingProperties(std::move(encoding_properties));
 
       if (data_encryptor_->CanCalculateCiphertextLength()) {
         PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextLength(output_data_len), false));
-          output_data_len =
-            data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
-                                    encryption_buffer_->mutable_span_as<uint8_t>());
-      } else {
+            data_encryptor_->CiphertextLength(output_data_len), false));
         output_data_len =
-            data_encryptor_->EncryptWithManagedBuffer(compressed_data->span_as<uint8_t>(),
-                                                      encryption_buffer_.get());
+            data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
+                                     encryption_buffer_->mutable_span_as<uint8_t>());
+      } else {
+        output_data_len = data_encryptor_->EncryptWithManagedBuffer(
+            compressed_data->span_as<uint8_t>(), encryption_buffer_.get());
       }
-
 
       output_data_buffer = encryption_buffer_->data();
 
-      // after the call to encrypt(), add the column encryption metadata to the metadata_ object
-      auto data_encryptor_metadata = data_encryptor_->GetKeyValueMetadata(
-        encryption::kDictionaryPage);
+      // after the call to encrypt(), add the column encryption metadata to the
+      // metadata_ object
+      auto data_encryptor_metadata =
+          data_encryptor_->GetKeyValueMetadata(encryption::kDictionaryPage);
       UpdateDataEncryptorMetadata(data_encryptor_metadata);
     }
 
@@ -434,40 +434,41 @@ class SerializedPageWriter : public PageWriter {
       UpdateEncryption(encryption::kDataPage);
 
       // Creating an EncodingProperties object from the metadata.
-      // We're retrieving the column descriptor and writer properties 
+      // We're retrieving the column descriptor and writer properties
       // from the metadata_ object to simplify the code.
       //
-      // WriterProperties is created using WriterProperties::Builder::build() (in parquet/properties.h ) 
-      // via ParquetFileFormat::MakeWriter (in arrow/dataset/file_parquet.cc), 
-      // and passed down to ColumnChunkMetaDataBuilder::Make().
+      // WriterProperties is created using WriterProperties::Builder::build()
+      // (in parquet/properties.h ) via ParquetFileFormat::MakeWriter
+      // (in arrow/dataset/file_parquet.cc), and passed down to
+      // ColumnChunkMetaDataBuilder::Make().
 
-      // A SchemaDescriptor is created in FileWriter::Open() (parquet/file_writer.cc). 
-      // The SchemaDescriptor is passed down to RowGroupMetadataBuilder NextColumnChunk() (parquet/metadata.cc)
-      // where a ColumnDescriptor is extracted from the SchemaDescriptor, and passed into
-      // ColumnChunkMetaDataBuilder::Make() 
-      std::unique_ptr<EncodingProperties> encoding_properties = 
-        EncodingProperties::MakeFromMetadata(
-          metadata_->descr(), 
-          metadata_->properties(), 
-          static_cast<const DataPage&>(page));
+      // A SchemaDescriptor is created in FileWriter::Open()
+      // (parquet/file_writer.cc). The SchemaDescriptor is passed down to
+      // RowGroupMetadataBuilder NextColumnChunk() (parquet/metadata.cc) where a
+      // ColumnDescriptor is extracted from the SchemaDescriptor, and passed into
+      // ColumnChunkMetaDataBuilder::Make()
+      std::unique_ptr<EncodingProperties> encoding_properties =
+          EncodingProperties::MakeFromMetadata(metadata_->descr(),
+                                               metadata_->properties(),
+                                               static_cast<const DataPage&>(page));
       data_encryptor_->UpdateEncodingProperties(std::move(encoding_properties));
 
       if (data_encryptor_->CanCalculateCiphertextLength()) {
         PARQUET_THROW_NOT_OK(encryption_buffer_->Resize(
-          data_encryptor_->CiphertextLength(output_data_len), false));
+            data_encryptor_->CiphertextLength(output_data_len), false));
         output_data_len =
             data_encryptor_->Encrypt(compressed_data->span_as<uint8_t>(),
-                                    encryption_buffer_->mutable_span_as<uint8_t>());
+                                     encryption_buffer_->mutable_span_as<uint8_t>());
       } else {
-        output_data_len =
-            data_encryptor_->EncryptWithManagedBuffer(compressed_data->span_as<uint8_t>(),
-                                                      encryption_buffer_.get());
+        output_data_len = data_encryptor_->EncryptWithManagedBuffer(
+            compressed_data->span_as<uint8_t>(), encryption_buffer_.get());
       }
       output_data_buffer = encryption_buffer_->data();
 
-      // after the call to encrypt(), add the column encryption metadata to the metadata_ object
-      auto data_encryptor_metadata = data_encryptor_->GetKeyValueMetadata(
-        encryption::kDataPage);
+      // after the call to encrypt(), add the column encryption metadata to the
+      // metadata_ object
+      auto data_encryptor_metadata =
+          data_encryptor_->GetKeyValueMetadata(encryption::kDataPage);
       UpdateDataEncryptorMetadata(data_encryptor_metadata);
     }
 
@@ -655,10 +656,11 @@ class SerializedPageWriter : public PageWriter {
     }
   }
 
-  // Updates metadata with encryptor-provided KeyValueMetadata, checking for conflicts.
-  // Throws ParquetException if a key exists with a different value (same value is allowed).
+  // Updates metadata with encryptor-provided KeyValueMetadata, checking for
+  // conflicts. Throws ParquetException if a key exists with a different value
+  // (same value is allowed).
   void UpdateDataEncryptorMetadata(
-    const std::shared_ptr<const KeyValueMetadata>& data_encryptor_metadata) {
+      const std::shared_ptr<const KeyValueMetadata>& data_encryptor_metadata) {
     if (data_encryptor_metadata == nullptr) {
       return;
     }
@@ -672,18 +674,17 @@ class SerializedPageWriter : public PageWriter {
       const auto& value = values[i];
       auto it = encryptor_seen_kvmetadata_.find(key);
       if (it != encryptor_seen_kvmetadata_.end()) {
-
-        //if we're here, the key already exists in the encryptor_seen_kvmetadata_ map
+        // If we're here, the key already exists in the encryptor_seen_kvmetadata_ map
         // we need to check if the value is the same. If it is not, throw an exception.
         if (it->second != value) {
           std::stringstream ss;
           ss << "Encryptor-provided metadata attempts to override key '" << key
-            << "' with a different value (old='" << it->second
-            << "', new='" << value << "')";
+             << "' with a different value (old='" << it->second << "', new='" << value
+             << "')";
           throw ParquetException(ss.str());
         }
       } else {
-        //if we're here, the key does not exist in the encryptor_seen_kvmetadata_ map
+        // If we're here, the key does not exist in the encryptor_seen_kvmetadata_ map
         // add it to the map.
         encryptor_seen_kvmetadata_.emplace(key, value);
       }
@@ -730,7 +731,8 @@ class SerializedPageWriter : public PageWriter {
   OffsetIndexBuilder* offset_index_builder_;
 
   // Tracks keys inserted from the encryptor so we can detect conflicting overrides
-  // across modules (dictionary/data pages). Overriding with an identical value is allowed.
+  // across modules (dictionary/data pages). Overriding with an identical value is
+  // allowed.
   std::unordered_map<std::string, std::string> encryptor_seen_kvmetadata_;
 };
 

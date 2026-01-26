@@ -20,37 +20,45 @@ arrow_install_all_headers("parquet/encryption")
 
 if(ARROW_TESTING)
   # Add library for DBPATestAgent
-  add_library(DBPATestAgent SHARED
-             external/dbpa_test_agent.cc)
+  add_library(DBPATestAgent SHARED external/dbpa_test_agent.cc)
 
   # DBPATestAgent configuration
-  target_link_libraries(DBPATestAgent PUBLIC
-                        arrow_shared
-                        magic_enum_header_only
-                        tcb_span
-                        dbps_interface)
+  target_link_libraries(DBPATestAgent PUBLIC arrow_shared magic_enum_header_only tcb_span
+                                             dbps_interface)
 
   set_target_properties(DBPATestAgent PROPERTIES OUTPUT_NAME "DBPATestAgent")
 
   # Add test for LoadableEncryptorUtils
   # (depends on DBPATestAgent)
   add_parquet_test(loadable-encryptor-utils-test
-                   SOURCES external/loadable_encryptor_utils_test.cc
-                           external/test_utils.cc
-                   LABELS "parquet-tests" "encryption-tests")
+                   SOURCES
+                   external/loadable_encryptor_utils_test.cc
+                   external/test_utils.cc
+                   LABELS
+                   "parquet-tests"
+                   "encryption-tests")
 
   # Add test for DBPALibraryWrapper
   add_parquet_test(dbpa-library-wrapper-test
-                   SOURCES external/dbpa_library_wrapper_test.cc
-                   LABELS "parquet-tests" "encryption-tests")
+                   SOURCES
+                   external/dbpa_library_wrapper_test.cc
+                   LABELS
+                   "parquet-tests"
+                   "encryption-tests")
 
   # Add a test for dbpa_enum_utils
   add_parquet_test(dbpa-utils-test
-                   SOURCES external/dbpa_enum_utils_test.cc
-                   LABELS "parquet-tests" "encryption-tests")
+                   SOURCES
+                   external/dbpa_enum_utils_test.cc
+                   LABELS
+                   "parquet-tests"
+                   "encryption-tests")
 
   # Add a test for dbpa_executor_test
   add_parquet_test(dbpa-executor-test
-                   SOURCES external/dbpa_executor_test.cc
-                   LABELS "parquet-tests" "encryption-tests")
+                   SOURCES
+                   external/dbpa_executor_test.cc
+                   LABELS
+                   "parquet-tests"
+                   "encryption-tests")
 endif()

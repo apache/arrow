@@ -140,14 +140,14 @@ class PARQUET_EXPORT ColumnEncryptionProperties {
     Builder* key_id(std::string key_id);
 
     /// Set ParquetCipher type to use.
-    /// This field is declared as optional, present when per column encryption was used. If the
-    /// value is not set, then the ParquetCipher declared in the FileEncryptionProperties will be
-    /// used.
+    /// This field is declared as optional, present when per column encryption was
+    /// used. If the value is not set, then the ParquetCipher declared in the
+    /// FileEncryptionProperties will be used.
     Builder* parquet_cipher(ParquetCipher::type parquet_cipher);
 
     std::shared_ptr<ColumnEncryptionProperties> build() {
       return std::shared_ptr<ColumnEncryptionProperties>(new ColumnEncryptionProperties(
-        encrypted_, column_path_, key_, key_metadata_, parquet_cipher_));
+          encrypted_, column_path_, key_, key_metadata_, parquet_cipher_));
     }
 
    private:
@@ -198,8 +198,9 @@ class PARQUET_EXPORT ColumnDecryptionProperties {
     Builder* key(::arrow::util::SecureString key);
 
     /// Set ParquetCipher type to use.
-    /// This field is declared as optional, present when per column encryption was used. If the
-    /// value is not set, then the ParquetCipher declared in the InternalFileDecryptor will be used.
+    /// This field is declared as optional, present when per column encryption was
+    /// used. If the value is not set, then the ParquetCipher declared in the
+    /// InternalFileDecryptor will be used.
     Builder* parquet_cipher(ParquetCipher::type parquet_cipher);
 
     std::shared_ptr<ColumnDecryptionProperties> build();
@@ -357,7 +358,7 @@ class PARQUET_EXPORT FileDecryptionProperties {
   bool check_plaintext_footer_integrity_;
   bool plaintext_files_allowed_;
 
-  protected:
+ protected:
   FileDecryptionProperties(
       ::arrow::util::SecureString footer_key,
       std::shared_ptr<DecryptionKeyRetriever> key_retriever,
@@ -371,84 +372,84 @@ class PARQUET_EXPORT FileDecryptionProperties {
 };
 
 class PARQUET_EXPORT ExternalFileDecryptionProperties : public FileDecryptionProperties {
-  public:
-   class PARQUET_EXPORT Builder : public FileDecryptionProperties::Builder {
-    public:
-     explicit Builder() : FileDecryptionProperties::Builder() {}
- 
-     Builder* app_context(std::string context);
- 
-     Builder* configuration_properties(
-       std::map<ParquetCipher::type, std::map<std::string, std::string>> config);
- 
-     /// Forward all base class property methods to the base class Builder so we can return the
-     /// correct Builder type.
-     Builder* footer_key(::arrow::util::SecureString footer_key) {
-       FileDecryptionProperties::Builder::footer_key(footer_key);
-       return this;
-     }
- 
-     Builder* column_keys(
-         ColumnPathToDecryptionPropertiesMap column_decryption_properties) {
-       FileDecryptionProperties::Builder::column_keys(column_decryption_properties);
-       return this;
-     }
- 
-     Builder* key_retriever(std::shared_ptr<DecryptionKeyRetriever> key_retriever) {
-       FileDecryptionProperties::Builder::key_retriever(key_retriever);
-       return this;
-     }
- 
-     Builder* disable_footer_signature_verification() {
-       FileDecryptionProperties::Builder::disable_footer_signature_verification();
-       return this;
-     }
- 
-     Builder* aad_prefix(std::string aad_prefix) {
-       FileDecryptionProperties::Builder::aad_prefix(aad_prefix);
-       return this;
-     }
- 
-     Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier) {
-       FileDecryptionProperties::Builder::aad_prefix_verifier(aad_prefix_verifier);
-       return this;
-     }
- 
-     Builder* plaintext_files_allowed() {
-       FileDecryptionProperties::Builder::plaintext_files_allowed();
-       return this;
-     }
- 
-     std::shared_ptr<ExternalFileDecryptionProperties> build_external();
- 
-    private:
-     std::string app_context_;
-     std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
-   };
- 
-   const std::string& app_context() const {
-     return app_context_;
-   }
- 
-   const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
-       configuration_properties() const {
-     return configuration_properties_;
-   }
- 
-  private:
-   std::string app_context_;
-   std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
- 
-   ExternalFileDecryptionProperties(
-     ::arrow::util::SecureString footer_key,
-     std::shared_ptr<DecryptionKeyRetriever> key_retriever,
-     bool check_plaintext_footer_integrity, std::string aad_prefix,
-     std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
-     ColumnPathToDecryptionPropertiesMap column_decryption_properties,
-     bool plaintext_files_allowed,
-     std::string app_context,
-     std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties);
- };
+ public:
+  class PARQUET_EXPORT Builder : public FileDecryptionProperties::Builder {
+   public:
+    Builder() : FileDecryptionProperties::Builder() {}
+
+    Builder* app_context(std::string context);
+
+    Builder* configuration_properties(
+        std::map<ParquetCipher::type, std::map<std::string, std::string>> config);
+
+    /// Forward all base class property methods to the base class Builder so we can return
+    /// the correct Builder type.
+    Builder* footer_key(::arrow::util::SecureString footer_key) {
+      FileDecryptionProperties::Builder::footer_key(footer_key);
+      return this;
+    }
+
+    Builder* column_keys(
+        ColumnPathToDecryptionPropertiesMap column_decryption_properties) {
+      FileDecryptionProperties::Builder::column_keys(column_decryption_properties);
+      return this;
+    }
+
+    Builder* key_retriever(std::shared_ptr<DecryptionKeyRetriever> key_retriever) {
+      FileDecryptionProperties::Builder::key_retriever(key_retriever);
+      return this;
+    }
+
+    Builder* disable_footer_signature_verification() {
+      FileDecryptionProperties::Builder::disable_footer_signature_verification();
+      return this;
+    }
+
+    Builder* aad_prefix(std::string aad_prefix) {
+      FileDecryptionProperties::Builder::aad_prefix(aad_prefix);
+      return this;
+    }
+
+    Builder* aad_prefix_verifier(std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier) {
+      FileDecryptionProperties::Builder::aad_prefix_verifier(aad_prefix_verifier);
+      return this;
+    }
+
+    Builder* plaintext_files_allowed() {
+      FileDecryptionProperties::Builder::plaintext_files_allowed();
+      return this;
+    }
+
+    std::shared_ptr<ExternalFileDecryptionProperties> build_external();
+
+   private:
+    std::string app_context_;
+    std::map<ParquetCipher::type, std::map<std::string, std::string>>
+        configuration_properties_;
+  };
+
+  const std::string& app_context() const { return app_context_; }
+
+  const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
+  configuration_properties() const {
+    return configuration_properties_;
+  }
+
+ private:
+  std::string app_context_;
+  std::map<ParquetCipher::type, std::map<std::string, std::string>>
+      configuration_properties_;
+
+  ExternalFileDecryptionProperties(
+      ::arrow::util::SecureString footer_key,
+      std::shared_ptr<DecryptionKeyRetriever> key_retriever,
+      bool check_plaintext_footer_integrity, std::string aad_prefix,
+      std::shared_ptr<AADPrefixVerifier> aad_prefix_verifier,
+      ColumnPathToDecryptionPropertiesMap column_decryption_properties,
+      bool plaintext_files_allowed, std::string app_context,
+      std::map<ParquetCipher::type, std::map<std::string, std::string>>
+          configuration_properties);
+};
 
 class PARQUET_EXPORT FileEncryptionProperties {
  public:
@@ -545,93 +546,92 @@ class PARQUET_EXPORT FileEncryptionProperties {
                            std::string footer_key_metadata, bool encrypted_footer,
                            std::string aad_prefix, bool store_aad_prefix_in_file,
                            ColumnPathToEncryptionPropertiesMap encrypted_columns);
+
  public:
   virtual ~FileEncryptionProperties() = default;
 };
 
 class PARQUET_EXPORT ExternalFileEncryptionProperties : public FileEncryptionProperties {
-  public:
- 
-   class PARQUET_EXPORT Builder : public FileEncryptionProperties::Builder {
-    public:
- 
-     explicit Builder(::arrow::util::SecureString footer_key)
-       : FileEncryptionProperties::Builder(footer_key) {}
- 
-     /// Valid JSON string with additional application context needed for security checks. 
-     Builder* app_context(std::string context);
- 
-     /// Map of the encryption algorithms to the key/value map of the location of configuration files
-     /// needed by the external encryptors, including location of a dynamically-linked library,
-     /// or config files where the external encryptors can find urls, certificates, and parameters
-     /// needed to make a remote call. 
-     Builder* configuration_properties(
-       std::map<ParquetCipher::type, std::map<std::string, std::string>> config);
- 
-     /// Forward all base class property methods to the base class Builder so we can return the
-     /// correct Builder type.
-     Builder* set_plaintext_footer() {
-       FileEncryptionProperties::Builder::set_plaintext_footer();
-       return this;
-     }
- 
-     Builder* algorithm(ParquetCipher::type parquet_cipher) {
-       FileEncryptionProperties::Builder::algorithm(parquet_cipher);
-       return this;
-     }
- 
-     Builder* footer_key_id(std::string key_id) {
-       FileEncryptionProperties::Builder::footer_key_id(key_id);
-       return this;
-     }
- 
-     Builder* footer_key_metadata(std::string footer_key_metadata) {
-       FileEncryptionProperties::Builder::footer_key_metadata(footer_key_metadata);
-       return this;
-     }
- 
-     Builder* aad_prefix(std::string aad_prefix) {
-       FileEncryptionProperties::Builder::aad_prefix(aad_prefix);
-       return this;
-     }
- 
-     Builder* disable_aad_prefix_storage() {
-       FileEncryptionProperties::Builder::disable_aad_prefix_storage();
-       return this;
-     }
- 
-     Builder* encrypted_columns(ColumnPathToEncryptionPropertiesMap encrypted_columns) {
-       FileEncryptionProperties::Builder::encrypted_columns(encrypted_columns);
-       return this;
-     }
- 
-     std::shared_ptr<ExternalFileEncryptionProperties> build_external();
- 
-    private:
-     std::string app_context_;
-     std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
-   };
- 
-   const std::string& app_context() const {
-     return app_context_;
-   }
- 
-   const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
-      configuration_properties() const {
+ public:
+  class PARQUET_EXPORT Builder : public FileEncryptionProperties::Builder {
+   public:
+    explicit Builder(::arrow::util::SecureString footer_key)
+        : FileEncryptionProperties::Builder(footer_key) {}
+
+    /// Valid JSON string with additional application context needed for security checks.
+    Builder* app_context(std::string context);
+
+    /// Map of the encryption algorithms to the key/value map of the location of
+    /// configuration files needed by the external encryptors, including location of a
+    /// dynamically-linked library, or config files where the external encryptors can find
+    /// urls, certificates, and parameters needed to make a remote call.
+    Builder* configuration_properties(
+        std::map<ParquetCipher::type, std::map<std::string, std::string>> config);
+
+    /// Forward all base class property methods to the base class Builder so we can return
+    /// the correct Builder type.
+    Builder* set_plaintext_footer() {
+      FileEncryptionProperties::Builder::set_plaintext_footer();
+      return this;
+    }
+
+    Builder* algorithm(ParquetCipher::type parquet_cipher) {
+      FileEncryptionProperties::Builder::algorithm(parquet_cipher);
+      return this;
+    }
+
+    Builder* footer_key_id(std::string key_id) {
+      FileEncryptionProperties::Builder::footer_key_id(key_id);
+      return this;
+    }
+
+    Builder* footer_key_metadata(std::string footer_key_metadata) {
+      FileEncryptionProperties::Builder::footer_key_metadata(footer_key_metadata);
+      return this;
+    }
+
+    Builder* aad_prefix(std::string aad_prefix) {
+      FileEncryptionProperties::Builder::aad_prefix(aad_prefix);
+      return this;
+    }
+
+    Builder* disable_aad_prefix_storage() {
+      FileEncryptionProperties::Builder::disable_aad_prefix_storage();
+      return this;
+    }
+
+    Builder* encrypted_columns(ColumnPathToEncryptionPropertiesMap encrypted_columns) {
+      FileEncryptionProperties::Builder::encrypted_columns(encrypted_columns);
+      return this;
+    }
+
+    std::shared_ptr<ExternalFileEncryptionProperties> build_external();
+
+   private:
+    std::string app_context_;
+    std::map<ParquetCipher::type, std::map<std::string, std::string>>
+        configuration_properties_;
+  };
+
+  const std::string& app_context() const { return app_context_; }
+
+  const std::map<ParquetCipher::type, std::map<std::string, std::string>>&
+  configuration_properties() const {
     return configuration_properties_;
-   }
- 
-  private:
-   std::string app_context_;
-   std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties_;
- 
-   ExternalFileEncryptionProperties(ParquetCipher::type cipher,
-         ::arrow::util::SecureString footer_key,
-         std::string footer_key_metadata, bool encrypted_footer,
-         std::string aad_prefix, bool store_aad_prefix_in_file,
-         ColumnPathToEncryptionPropertiesMap encrypted_columns,
-         std::string app_context,
-         std::map<ParquetCipher::type, std::map<std::string, std::string>> configuration_properties);
- };
+  }
+
+ private:
+  std::string app_context_;
+  std::map<ParquetCipher::type, std::map<std::string, std::string>>
+      configuration_properties_;
+
+  ExternalFileEncryptionProperties(
+      ParquetCipher::type cipher, ::arrow::util::SecureString footer_key,
+      std::string footer_key_metadata, bool encrypted_footer, std::string aad_prefix,
+      bool store_aad_prefix_in_file,
+      ColumnPathToEncryptionPropertiesMap encrypted_columns, std::string app_context,
+      std::map<ParquetCipher::type, std::map<std::string, std::string>>
+          configuration_properties);
+};
 
 }  // namespace parquet

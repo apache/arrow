@@ -453,7 +453,8 @@ ARROW_EXPORT Result<void*> GetSymbol(void* handle, const char* name);
 ///
 /// This wraps dlclose() except on Windows, where FreeLibrary() is called.
 ///
-/// \return Status::OK() if the library was closed successfully, otherwise an error is returned.
+/// \return Status::OK() if the library was closed successfully, otherwise an error
+///         is returned.
 ARROW_EXPORT Status CloseDynamicLibrary(void* handle);
 
 template <typename T>

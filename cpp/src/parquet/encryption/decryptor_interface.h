@@ -17,8 +17,8 @@
 
 #pragma once
 
-#include "parquet/platform.h"
 #include "parquet/encryption/encoding_properties.h"
+#include "parquet/platform.h"
 
 namespace parquet::encryption {
 
@@ -26,10 +26,10 @@ class PARQUET_EXPORT DecryptorInterface {
  public:
   virtual ~DecryptorInterface() = default;
 
-  /// Signal whether the decryptor can calculate a valid plaintext or ciphertext length before
-  /// performing decryption or not. If false, a proper sized buffer cannot be allocated before 
-  /// calling the Decrypt method, and Arrow must use this decryptor's DecryptWithManagedBuffer 
-  /// method instead of Decrypt.
+  /// Signal whether the decryptor can calculate a valid plaintext or ciphertext
+  /// length before performing decryption or not. If false, a proper sized buffer
+  /// cannot be allocated before calling the Decrypt method, and Arrow must use
+  /// this decryptor's DecryptWithManagedBuffer method instead of Decrypt.
   [[nodiscard]] virtual bool CanCalculateLengths() const = 0;
 
   /// Calculate the size of the plaintext for a given ciphertext length.
@@ -47,14 +47,16 @@ class PARQUET_EXPORT DecryptorInterface {
                           ::arrow::util::span<uint8_t> plaintext) = 0;
 
   /// Decrypt the ciphertext and leave the results in the plaintext buffer.
-  /// The buffer will be resized to the correct size during decryption. This method is used
-  /// when the decryptor cannot calculate the plaintext length before decryption.
+  /// The buffer will be resized to the correct size during decryption. This method
+  /// is used when the decryptor cannot calculate the plaintext length before decryption.
   virtual int32_t DecryptWithManagedBuffer(::arrow::util::span<const uint8_t> ciphertext,
-                                  ::arrow::ResizableBuffer* plaintext) = 0;
+                                           ::arrow::ResizableBuffer* plaintext) = 0;
 
-  // Some Encryptors may need to understand the page encoding before the encryption process.
-  // This method will be called from ColumnWriter before invoking the Encrypt method.
-  virtual void UpdateEncodingProperties(std::unique_ptr<EncodingProperties> encoding_properties) {};
+  // Some Encryptors may need to understand the page encoding before the encryption
+  /// process. This method will be called from ColumnWriter before invoking the
+  /// Encrypt method.
+  virtual void UpdateEncodingProperties(
+      std::unique_ptr<EncodingProperties> encoding_properties) {}
 };
 
 }  // namespace parquet::encryption

@@ -139,7 +139,8 @@ bool IsExternalDBPAEncryptionUsedInColumns(std::shared_ptr<FileMetaData> metadat
       if (column_metadata->crypto_metadata()) {
         auto crypto_metadata = column_metadata->crypto_metadata();
         if (crypto_metadata->is_encryption_algorithm_set() &&
-            crypto_metadata->encryption_algorithm().algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
+            crypto_metadata->encryption_algorithm().algorithm ==
+                ParquetCipher::EXTERNAL_DBPA_V1) {
           return true;
         }
       }
@@ -164,12 +165,13 @@ class FileReaderImpl : public FileReader {
         reader_properties_(std::move(properties)) {}
 
   Status Init() {
-    // If the file is encrypted using EXTERNAL_DBPA_V1 on any of its columns, then it is not safe
-    // to use multiple threads to read the file.
+    // If the file is encrypted using EXTERNAL_DBPA_V1 on any of its columns, then it
+    // is not safe to use multiple threads to read the file.
     if (reader_properties_.use_threads()) {
       auto metadata = reader_->metadata();
       if (IsExternalDBPAEncryptionUsedInColumns(metadata)) {
-        return Status::Invalid("EXTERNAL_DBPA_V1 encryption does not support multiple threads");
+        return Status::Invalid(
+            "EXTERNAL_DBPA_V1 encryption does not support multiple threads");
       }
     }
     return SchemaManifest::Make(reader_->metadata()->schema(),

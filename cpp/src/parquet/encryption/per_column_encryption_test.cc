@@ -51,7 +51,8 @@ class PerColumnEncryption : public ::testing::Test {
 TEST_F(PerColumnEncryption, CTR_WriteRead) {
   // Build encryption properties: two columns and the footer with different keys,
   // using AES_GCM_CTR_V1.
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>> encryption_cols;
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
+      encryption_cols;
   parquet::ColumnEncryptionProperties::Builder col_builder_double(kDoubleFieldName);
   parquet::ColumnEncryptionProperties::Builder col_builder_float(kFloatFieldName);
   col_builder_double.key(kColumnEncryptionKey1)->key_id("kc1");
@@ -59,21 +60,21 @@ TEST_F(PerColumnEncryption, CTR_WriteRead) {
   encryption_cols[kDoubleFieldName] = col_builder_double.build();
   encryption_cols[kFloatFieldName] = col_builder_float.build();
 
-  parquet::FileEncryptionProperties::Builder file_encryption_builder(kFooterEncryptionKey);
-  const std::string file_path =
-      temp_dir_->path().ToString() + "rw_encrypt_columns_and_footer_ctr.parquet.encrypted";
+  parquet::FileEncryptionProperties::Builder file_encryption_builder(
+      kFooterEncryptionKey);
+  const std::string file_path = temp_dir_->path().ToString() +
+                                "rw_encrypt_columns_and_footer_ctr.parquet.encrypted";
   // Write the encrypted file to the temporary location .
   // It uses the built-in synthetic dataset from FileEncryptor (not an external file).
   // The test calls FileEncryptor::EncryptFile(...), which writes fixed data with a
   // predefined schema and values.
-  encryptor_.EncryptFile(
-      file_path,
-      file_encryption_builder.footer_key_metadata("kf")
-          ->encrypted_columns(encryption_cols)
-          ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
-          ->build());
+  encryptor_.EncryptFile(file_path,
+                         file_encryption_builder.footer_key_metadata("kf")
+                             ->encrypted_columns(encryption_cols)
+                             ->algorithm(parquet::ParquetCipher::AES_GCM_CTR_V1)
+                             ->build());
 
-  // Decrypt using key retriever 
+  // Decrypt using key retriever
   auto retriever_1 = std::make_shared<parquet::StringKeyIdRetriever>();
   retriever_1->PutKey("kf", kFooterEncryptionKey);
   retriever_1->PutKey("kc1", kColumnEncryptionKey1);
@@ -83,22 +84,27 @@ TEST_F(PerColumnEncryption, CTR_WriteRead) {
   EXPECT_NO_THROW(decryptor_.DecryptFile(file_path, dec_props_1));
   EXPECT_NO_THROW(decryptor_.DecryptPageIndex(file_path, dec_props_1));
 
-  // Decrypt using explicit keys 
-  std::map<std::string, std::shared_ptr<parquet::ColumnDecryptionProperties>> decryption_cols;
+  // Decrypt using explicit keys
+  std::map<std::string, std::shared_ptr<parquet::ColumnDecryptionProperties>>
+      decryption_cols;
   parquet::ColumnDecryptionProperties::Builder decryption_double(kDoubleFieldName);
   parquet::ColumnDecryptionProperties::Builder decryption_float(kFloatFieldName);
-  decryption_cols[kDoubleFieldName] = decryption_double.key(kColumnEncryptionKey1)->build();
+  decryption_cols[kDoubleFieldName] =
+      decryption_double.key(kColumnEncryptionKey1)->build();
   decryption_cols[kFloatFieldName] = decryption_float.key(kColumnEncryptionKey2)->build();
   parquet::FileDecryptionProperties::Builder dec_builder_3;
-  auto dec_props_3 =
-      dec_builder_3.footer_key(kFooterEncryptionKey)->column_keys(decryption_cols)->build();
+  auto dec_props_3 = dec_builder_3.footer_key(kFooterEncryptionKey)
+                         ->column_keys(decryption_cols)
+                         ->build();
   EXPECT_NO_THROW(decryptor_.DecryptFile(file_path, dec_props_3));
   EXPECT_NO_THROW(decryptor_.DecryptPageIndex(file_path, dec_props_3));
 }
 
 TEST_F(PerColumnEncryption, PerColumnExternal_WriteRead) {
-  // Build encryption properties: mix of file-level AES_GCM_V1 and per-column EXTERNAL_DBPA_V1.
-  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>> encryption_cols;
+  // Build encryption properties: mix of file-level AES_GCM_V1 and per-column
+  // EXTERNAL_DBPA_V1.
+  std::map<std::string, std::shared_ptr<parquet::ColumnEncryptionProperties>>
+      encryption_cols;
   parquet::ColumnEncryptionProperties::Builder col_builder_double(kDoubleFieldName);
   parquet::ColumnEncryptionProperties::Builder col_builder_float(kFloatFieldName);
   col_builder_double.key(kColumnEncryptionKey1)->key_id("kc1");
@@ -108,24 +114,25 @@ TEST_F(PerColumnEncryption, PerColumnExternal_WriteRead) {
   encryption_cols[kDoubleFieldName] = col_builder_double.build();
   encryption_cols[kFloatFieldName] = col_builder_float.build();
 
-  std::string library_path = parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
+  std::string library_path =
+      parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
 
-  parquet::ExternalFileEncryptionProperties::Builder file_encryption_builder(kFooterEncryptionKey);
-  const std::string file_path =
-      temp_dir_->path().ToString() + "rw_encrypt_with_per_column_encryption.parquet.encrypted";
+  parquet::ExternalFileEncryptionProperties::Builder file_encryption_builder(
+      kFooterEncryptionKey);
+  const std::string file_path = temp_dir_->path().ToString() +
+                                "rw_encrypt_with_per_column_encryption.parquet.encrypted";
   // It uses the built-in synthetic dataset from FileEncryptor (not an external file).
   // The test calls FileEncryptor::EncryptFile(...), which writes fixed data with a
   // predefined schema and values.
-  encryptor_.EncryptFile(
-      file_path,
-      file_encryption_builder.footer_key_metadata("kf")
-          ->encrypted_columns(encryption_cols)
-          ->algorithm(parquet::ParquetCipher::AES_GCM_V1)
-          ->configuration_properties({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
-                                {{"agent_library_path", library_path},
-                                 {"file_path", "/tmp/test"},
-                                 {"other_config", "value"}}}})
-          ->build_external());
+  encryptor_.EncryptFile(file_path, file_encryption_builder.footer_key_metadata("kf")
+                                        ->encrypted_columns(encryption_cols)
+                                        ->algorithm(parquet::ParquetCipher::AES_GCM_V1)
+                                        ->configuration_properties(
+                                            {{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+                                              {{"agent_library_path", library_path},
+                                               {"file_path", "/tmp/test"},
+                                               {"other_config", "value"}}}})
+                                        ->build_external());
 
   // Decrypt using external configuration (decryption config 5 equivalent).
   auto retriever = std::make_shared<parquet::StringKeyIdRetriever>();
@@ -134,10 +141,11 @@ TEST_F(PerColumnEncryption, PerColumnExternal_WriteRead) {
   retriever->PutKey("kc2", kColumnEncryptionKey2);
   parquet::ExternalFileDecryptionProperties::Builder file_decryption_builder;
   file_decryption_builder.key_retriever(retriever);
-  file_decryption_builder.configuration_properties({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
-                                              {{"agent_library_path", library_path},
-                                               {"file_path", "/tmp/test"},
-                                               {"other_config", "value"}}}});
+  file_decryption_builder.configuration_properties(
+      {{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+        {{"agent_library_path", library_path},
+         {"file_path", "/tmp/test"},
+         {"other_config", "value"}}}});
   auto dec_props = file_decryption_builder.build_external();
 
   EXPECT_NO_THROW(decryptor_.DecryptFile(file_path, dec_props));
@@ -145,5 +153,3 @@ TEST_F(PerColumnEncryption, PerColumnExternal_WriteRead) {
 }
 
 }  // namespace parquet::encryption::test
-
-

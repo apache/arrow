@@ -2248,7 +2248,8 @@ Result<void*> LoadDynamicLibrary(const char* path) {
   return LoadDynamicLibrary(platform_path);
 #else
   constexpr int kFlags =
-      // All undefined symbols in the shared object are resolved before dlopen() returns.
+      // All undefined symbols in the shared object are resolved before dlopen()
+      // returns.
       RTLD_NOW
       // Symbols defined in this shared object are not made available to
       // resolve references in subsequently loaded shared objects.
@@ -2310,7 +2311,8 @@ Status CloseDynamicLibrary(void* handle) {
   if (dlclose(handle) == 0) {
     return Status::OK();
   }
-  // dlclose(3) man page: "On success, dlclose() returns 0; on error, it returns a nonzero value."
+  // dlclose(3) man page: "On success, dlclose() returns 0; on error, it returns a
+  // nonzero value."
   auto* error = dlerror();
   return Status::IOError("dlclose() failed: ", error ? error : "unknown error");
 #endif

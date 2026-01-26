@@ -1883,39 +1883,42 @@ TEST_F(TestValuesWriterInt32Type, AllNullsCompressionInPageV2) {
 }
 
 class TestColumnWriterEncryption : public ::testing::Test {
-  protected:
-    void SetUp() override {
-      sink_ = CreateOutputStream();
-      node_ = std::static_pointer_cast<GroupNode>(
-          GroupNode::Make("schema", Repetition::REQUIRED,
-                          {schema::Int32("encrypted_column", Repetition::REQUIRED)}));
-      schema_descriptor_ = std::make_unique<SchemaDescriptor>();
-      schema_descriptor_->Init(node_);
+ protected:
+  void SetUp() override {
+    sink_ = CreateOutputStream();
+    node_ = std::static_pointer_cast<GroupNode>(
+        GroupNode::Make("schema", Repetition::REQUIRED,
+                        {schema::Int32("encrypted_column", Repetition::REQUIRED)}));
+    schema_descriptor_ = std::make_unique<SchemaDescriptor>();
+    schema_descriptor_->Init(node_);
 
-      kColumnEncryptionKey_ = ::arrow::util::SecureString(std::string("0123456789012345"));
-      kFooterEncryptionKey_ = ::arrow::util::SecureString(std::string("1234567890123456"));
-      values_ = {1, 2, 3, 4, 5};
+    kColumnEncryptionKey_ = ::arrow::util::SecureString(std::string("0123456789012345"));
+    kFooterEncryptionKey_ = ::arrow::util::SecureString(std::string("1234567890123456"));
+    values_ = {1, 2, 3, 4, 5};
 
-      library_path_ = parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
-      app_context_ = "{\"user_id\": \"test_user\", \"location\": {\"lat\": 0.0, \"lon\": 0.0}}";
-      connection_config_ = {{"config_path", "test/path"}, {"agent_library_path", library_path_}};
-    }
+    library_path_ = parquet::encryption::external::test::TestUtils::GetTestLibraryPath();
+    app_context_ =
+        "{\"user_id\": \"test_user\", \"location\": {\"lat\": 0.0, \"lon\": 0.0}}";
+    connection_config_ = {{"config_path", "test/path"},
+                          {"agent_library_path", library_path_}};
+  }
 
-    std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
-    std::shared_ptr<GroupNode> node_;
-    std::unique_ptr<SchemaDescriptor> schema_descriptor_;
+  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
+  std::shared_ptr<GroupNode> node_;
+  std::unique_ptr<SchemaDescriptor> schema_descriptor_;
 
-    ::arrow::util::SecureString kColumnEncryptionKey_;
-    ::arrow::util::SecureString kFooterEncryptionKey_;
-    std::vector<int32_t> values_;
+  ::arrow::util::SecureString kColumnEncryptionKey_;
+  ::arrow::util::SecureString kFooterEncryptionKey_;
+  std::vector<int32_t> values_;
 
-    std::string library_path_;
-    std::string app_context_;
-    std::map<std::string, std::string> connection_config_;
+  std::string library_path_;
+  std::string app_context_;
+  std::map<std::string, std::string> connection_config_;
 };
 
-TEST_F(TestColumnWriterEncryption, AESEncryption) {  
-  auto column_properties_builder = ColumnEncryptionProperties::Builder("encrypted_column");
+TEST_F(TestColumnWriterEncryption, AESEncryption) {
+  auto column_properties_builder =
+      ColumnEncryptionProperties::Builder("encrypted_column");
   column_properties_builder.key(kColumnEncryptionKey_)
       ->parquet_cipher(ParquetCipher::AES_GCM_V1);
   auto column_properties = column_properties_builder.build();
@@ -1944,13 +1947,14 @@ TEST_F(TestColumnWriterEncryption, AESEncryption) {
 
   std::map<std::string, std::shared_ptr<ColumnDecryptionProperties>> decryption_cols;
   auto decryption_col_builder = ColumnDecryptionProperties::Builder("encrypted_column");
-  decryption_cols["encrypted_column"] = decryption_col_builder.key(kColumnEncryptionKey_)->build();
+  decryption_cols["encrypted_column"] =
+      decryption_col_builder.key(kColumnEncryptionKey_)->build();
 
   auto reader_properties = ReaderProperties();
   auto decryption_properties_builder = FileDecryptionProperties::Builder();
   decryption_properties_builder.footer_key(kFooterEncryptionKey_)
-          ->column_keys(decryption_cols)
-          ->build();
+      ->column_keys(decryption_cols)
+      ->build();
   auto decryption_properties = decryption_properties_builder.build();
   reader_properties.file_decryption_properties(decryption_properties);
 
@@ -1959,14 +1963,16 @@ TEST_F(TestColumnWriterEncryption, AESEncryption) {
   ASSERT_NE(file_reader, nullptr);
 
   auto rg_reader = file_reader->RowGroup(0);
-  auto col_reader = std::static_pointer_cast<TypedColumnReader<Int32Type>>(rg_reader->Column(0));
+  auto col_reader =
+      std::static_pointer_cast<TypedColumnReader<Int32Type>>(rg_reader->Column(0));
 
   auto key_value_metadata = rg_reader->metadata()->ColumnChunk(0)->key_value_metadata();
   ASSERT_THAT(key_value_metadata, nullptr);
 
   std::vector<int32_t> read_values(values_.size());
   int64_t values_read;
-  col_reader->ReadBatch(values_.size(), nullptr, nullptr, read_values.data(), &values_read);
+  col_reader->ReadBatch(values_.size(), nullptr, nullptr, read_values.data(),
+                        &values_read);
 
   ASSERT_EQ(values_read, static_cast<int64_t>(values_.size()));
   ASSERT_EQ(values_, read_values);
@@ -1975,8 +1981,10 @@ TEST_F(TestColumnWriterEncryption, AESEncryption) {
 TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption) {
   ::arrow::util::SecureString kColumnKeyId(std::string("test_column_key1"));
 
-  auto column_properties_builder = ColumnEncryptionProperties::Builder("encrypted_column");
-  column_properties_builder.key(kColumnKeyId)->key_id(std::string(kColumnKeyId.as_view()))
+  auto column_properties_builder =
+      ColumnEncryptionProperties::Builder("encrypted_column");
+  column_properties_builder.key(kColumnKeyId)
+      ->key_id(std::string(kColumnKeyId.as_view()))
       ->parquet_cipher(ParquetCipher::EXTERNAL_DBPA_V1);
   auto column_properties = column_properties_builder.build();
 
@@ -2008,24 +2016,28 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption) {
   ASSERT_GT(buffer->size(), 0);
 
   std::map<std::string, std::shared_ptr<ColumnDecryptionProperties>> decryption_columns;
-  auto decryption_column_builder = ColumnDecryptionProperties::Builder("encrypted_column");
+  auto decryption_column_builder =
+      ColumnDecryptionProperties::Builder("encrypted_column");
   decryption_column_builder.parquet_cipher(ParquetCipher::EXTERNAL_DBPA_V1);
-  decryption_columns["encrypted_column"] = decryption_column_builder.key(kColumnKeyId)->build();
+  decryption_columns["encrypted_column"] =
+      decryption_column_builder.key(kColumnKeyId)->build();
 
   auto reader_properties = ReaderProperties();
   auto decryption_properties_builder = ExternalFileDecryptionProperties::Builder();
   decryption_properties_builder.footer_key(kFooterEncryptionKey_)
-          ->column_keys(decryption_columns)
-          ->app_context(app_context_)
-          ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
-  reader_properties.file_decryption_properties(decryption_properties_builder.build_external());
+      ->column_keys(decryption_columns)
+      ->app_context(app_context_)
+      ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, connection_config_}});
+  reader_properties.file_decryption_properties(
+      decryption_properties_builder.build_external());
 
   auto file_reader = ParquetFileReader::Open(
       std::make_shared<::arrow::io::BufferReader>(buffer), reader_properties);
   ASSERT_NE(file_reader, nullptr);
 
   auto rg_reader = file_reader->RowGroup(0);
-  auto col_reader = std::static_pointer_cast<TypedColumnReader<Int32Type>>(rg_reader->Column(0));
+  auto col_reader =
+      std::static_pointer_cast<TypedColumnReader<Int32Type>>(rg_reader->Column(0));
 
   auto key_value_metadata = rg_reader->metadata()->ColumnChunk(0)->key_value_metadata();
   ASSERT_THAT(key_value_metadata, NotNull());
@@ -2037,19 +2049,23 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption) {
 
   std::vector<int32_t> read_values(values_.size());
   int64_t values_read;
-  col_reader->ReadBatch(values_.size(), nullptr, nullptr, read_values.data(), &values_read);
+  col_reader->ReadBatch(values_.size(), nullptr, nullptr, read_values.data(),
+                        &values_read);
 
   ASSERT_EQ(values_read, static_cast<int64_t>(values_.size()));
   ASSERT_EQ(values_, read_values);
 }
 
-TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_MultiplePagesNoConflictingOverrides) {
+TEST_F(TestColumnWriterEncryption,
+       ExternalDBPAEncryption_MultiplePagesNoConflictingOverrides) {
   ::arrow::util::SecureString kColumnKeyId(std::string("test_column_key1"));
 
   // Set up EXTERNAL_DBPA encryption on a single column so that the encryptor
   // returns key/value metadata on dictionary and data pages.
-  auto column_properties_builder = ColumnEncryptionProperties::Builder("encrypted_column");
-  column_properties_builder.key(kColumnKeyId)->key_id(std::string(kColumnKeyId.as_view()))
+  auto column_properties_builder =
+      ColumnEncryptionProperties::Builder("encrypted_column");
+  column_properties_builder.key(kColumnKeyId)
+      ->key_id(std::string(kColumnKeyId.as_view()))
       ->parquet_cipher(ParquetCipher::EXTERNAL_DBPA_V1);
   auto column_properties = column_properties_builder.build();
 
@@ -2070,9 +2086,8 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_MultiplePagesNoConflic
   // Force many very small pages so the writer will obtain encryptor metadata
   // multiple times (dictionary page + several data pages). Disable dictionary
   // so we always produce multiple data pages.
-  writer_properties_builder.disable_dictionary()
-      ->data_pagesize(100)
-      ->encryption(file_encryption_properties);
+  writer_properties_builder.disable_dictionary()->data_pagesize(100)->encryption(
+      file_encryption_properties);
   auto writer_properties = writer_properties_builder.build();
 
   auto file_writer = ParquetFileWriter::Open(sink_, node_, writer_properties);
@@ -2099,8 +2114,10 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_ConflictingMetadataThr
   ::arrow::util::SecureString kColumnKeyId(std::string("test_column_key1"));
 
   // Set up EXTERNAL_DBPA with a test-agent flag that forces a conflicting metadata value
-  auto column_properties_builder = ColumnEncryptionProperties::Builder("encrypted_column");
-  column_properties_builder.key(kColumnKeyId)->key_id(std::string(kColumnKeyId.as_view()))
+  auto column_properties_builder =
+      ColumnEncryptionProperties::Builder("encrypted_column");
+  column_properties_builder.key(kColumnKeyId)
+      ->key_id(std::string(kColumnKeyId.as_view()))
       ->parquet_cipher(ParquetCipher::EXTERNAL_DBPA_V1);
   auto column_properties = column_properties_builder.build();
 
@@ -2113,10 +2130,9 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_ConflictingMetadataThr
       ->set_plaintext_footer()
       ->algorithm(ParquetCipher::AES_GCM_V1)
       ->app_context(app_context_)
-      ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1, {
-        {"dbpa_test_force_conflicting_metadata", "1"},
-        {"agent_library_path", library_path_}
-      }}});
+      ->configuration_properties({{ParquetCipher::EXTERNAL_DBPA_V1,
+                                   {{"dbpa_test_force_conflicting_metadata", "1"},
+                                    {"agent_library_path", library_path_}}}});
 
   auto file_encryption_properties = fep_builder.build_external();
 
@@ -2140,8 +2156,10 @@ TEST_F(TestColumnWriterEncryption, ExternalDBPAEncryption_ConflictingMetadataThr
     many_values.push_back(values_[i % values_.size()]);
   }
 
-  // Expect that a conflicting encryptor metadata value triggers an exception 
-  EXPECT_THROW(col_writer->WriteBatch(many_values.size(), nullptr, nullptr, many_values.data()), ParquetException);
+  // Expect that a conflicting encryptor metadata value triggers an exception
+  EXPECT_THROW(
+      col_writer->WriteBatch(many_values.size(), nullptr, nullptr, many_values.data()),
+      ParquetException);
 }
 
 #ifdef ARROW_WITH_ZSTD

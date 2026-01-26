@@ -17,8 +17,8 @@
 
 #include "parquet/encryption/internal_file_encryptor.h"
 
-#include "parquet/encryption/aes_encryption.h"
 #include "arrow/util/secure_string.h"
+#include "parquet/encryption/aes_encryption.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_utils.h"
 
@@ -45,15 +45,17 @@ bool Encryptor::CanCalculateCiphertextLength() const {
 
 int32_t Encryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
                            ::arrow::util::span<uint8_t> ciphertext) {
-  return encryptor_instance_->Encrypt(plaintext, key_.as_span(), str2span(aad_), ciphertext);
+  return encryptor_instance_->Encrypt(plaintext, key_.as_span(), str2span(aad_),
+                                      ciphertext);
 }
 
 int32_t Encryptor::EncryptWithManagedBuffer(::arrow::util::span<const uint8_t> plaintext,
-                                           ::arrow::ResizableBuffer* ciphertext) {
+                                            ::arrow::ResizableBuffer* ciphertext) {
   return encryptor_instance_->EncryptWithManagedBuffer(plaintext, ciphertext);
 }
 
-void Encryptor::UpdateEncodingProperties(std::unique_ptr<EncodingProperties> encoding_properties) {
+void Encryptor::UpdateEncodingProperties(
+    std::unique_ptr<EncodingProperties> encoding_properties) {
   encryptor_instance_->UpdateEncodingProperties(std::move(encoding_properties));
 }
 
@@ -100,8 +102,9 @@ std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnMetaEncryptor(
 }
 
 std::shared_ptr<Encryptor> InternalFileEncryptor::GetColumnDataEncryptor(
-  const std::string& column_path, const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
-    return GetColumnEncryptor(column_path, false, column_chunk_metadata);
+    const std::string& column_path,
+    const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
+  return GetColumnEncryptor(column_path, false, column_chunk_metadata);
 }
 
 std::shared_ptr<Encryptor>
@@ -134,9 +137,9 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
       algorithm = column_prop->parquet_cipher().value();
     }
   }
-  auto encryptor_instance = metadata ? GetMetaEncryptor(algorithm, key.size())
-                                     : GetDataEncryptor(algorithm, key.size(),
-                                                        column_chunk_metadata);
+  auto encryptor_instance =
+      metadata ? GetMetaEncryptor(algorithm, key.size())
+               : GetDataEncryptor(algorithm, key.size(), column_chunk_metadata);
 
   std::string file_aad = properties_->file_aad();
   std::shared_ptr<Encryptor> encryptor =
@@ -160,7 +163,8 @@ encryption::EncryptorInterface* InternalFileEncryptor::GetDataEncryptor(
     const ColumnChunkMetaDataBuilder* column_chunk_metadata) {
   if (algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
     if (dynamic_cast<ExternalFileEncryptionProperties*>(properties_) == nullptr) {
-      throw ParquetException("External DBPA encryption requires ExternalFileEncryptionProperties.");
+      throw ParquetException(
+          "External DBPA encryption requires ExternalFileEncryptionProperties.");
     }
 
     return external_dbpa_encryptor_factory_.GetEncryptor(

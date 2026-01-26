@@ -22,12 +22,12 @@
 #include <vector>
 
 #ifdef __APPLE__
-#include <mach-o/dyld.h>
+#  include <mach-o/dyld.h>
 #elif defined(__linux__)
-#include <unistd.h>
-#include <linux/limits.h>
+#  include <linux/limits.h>
+#  include <unistd.h>
 #elif defined(_WIN32)
-#include <windows.h>
+#  include <windows.h>
 #endif
 
 namespace parquet::encryption::external::test {
@@ -69,17 +69,10 @@ std::string TestUtils::GetTestLibraryPath() {
   }
 
   std::vector<std::string> possible_filenames = {
-    "libDBPATestAgent.so",
-    "libDBPATestAgent.dylib",
-    "DBPATestAgent.dll"
-  };
+      "libDBPATestAgent.so", "libDBPATestAgent.dylib", "DBPATestAgent.dll"};
 
-  std::vector<std::string> possible_directories = {
-    GetExecutableDirectory() + "/",
-    base_path + "/",
-    "./",
-    ""
-  };
+  std::vector<std::string> possible_directories = {GetExecutableDirectory() + "/",
+                                                   base_path + "/", "./", ""};
 
   for (const auto& filename : possible_filenames) {
     for (const auto& directory : possible_directories) {

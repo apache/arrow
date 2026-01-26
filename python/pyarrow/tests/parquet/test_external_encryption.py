@@ -33,7 +33,8 @@ class FooKmsClient(ppe.KmsClient):
         self.master_keys_map = kms_connection_config.custom_kms_conf
 
     def wrap_key(self, key_bytes, master_key_identifier):
-        master_key_bytes = self.master_keys_map[master_key_identifier].encode('utf-8')
+        master_key_bytes = self.master_keys_map[master_key_identifier].encode(
+            'utf-8')
         joint_key = b"".join([master_key_bytes, key_bytes])
         return base64.b64encode(joint_key)
 
@@ -66,8 +67,9 @@ def get_agent_library_path():
     # TODO: move this code to a common library
     # See https://github.com/protegrity/arrow/issues/191
     return os.environ.get(
-        'DBPA_LIBRARY_PATH', 
-        'libDBPATestAgent.so' if platform.system() == 'Linux' else 'libDBPATestAgent.dylib')
+        'DBPA_LIBRARY_PATH',
+        'libDBPATestAgent.so'
+        if platform.system() == 'Linux' else 'libDBPATestAgent.dylib')
 
 
 def get_kms_connection_config():
@@ -141,7 +143,8 @@ def get_external_encryption_properties():
 
 
 def get_decryption_config():
-    return ppe.DecryptionConfiguration(cache_lifetime=datetime.timedelta(minutes=10.0))
+    return ppe.DecryptionConfiguration(
+        cache_lifetime=datetime.timedelta(minutes=10.0))
 
 
 def get_decryption_properties():
@@ -188,7 +191,8 @@ def read_parquet(location, decryption_properties):
     return reader.read()
 
 
-def round_trip_encryption_and_decryption(tmp_path, encryption_properties, decryption_properties):
+def round_trip_encryption_and_decryption(
+        tmp_path, encryption_properties, decryption_properties):
     data_table = get_data_table()
     parquet_path = tmp_path / "test.parquet"
     write_parquet(data_table, parquet_path, encryption_properties)
@@ -235,7 +239,8 @@ def test_external_encryption_configuration_properties():
     """Test the ExternalEncryptionConfig including external-specific fields."""
 
     external_encryption_config = get_external_encryption_config()
-    assert isinstance(external_encryption_config, ppe.ExternalEncryptionConfiguration)
+    assert isinstance(
+        external_encryption_config, ppe.ExternalEncryptionConfiguration)
 
     assert external_encryption_config.footer_key == "footer_key"
     assert external_encryption_config.column_keys == {
@@ -244,7 +249,8 @@ def test_external_encryption_configuration_properties():
     assert external_encryption_config.encryption_algorithm == "AES_GCM_V1"
     assert external_encryption_config.plaintext_footer is True
     assert external_encryption_config.double_wrapping is True
-    assert external_encryption_config.cache_lifetime == datetime.timedelta(minutes=2.0)
+    assert external_encryption_config.cache_lifetime == datetime.timedelta(
+        minutes=2.0)
     assert external_encryption_config.internal_key_material is True
     assert external_encryption_config.data_key_length_bits == 128
 
@@ -333,7 +339,8 @@ def test_external_encryption_configuration_properties_invalid_types():
         )
         config.configuration_properties = {
             "EXTERNAL_DBPA_V1": {
-                "config_file": ["not", "a", "string"]  # Invalid: value is not a string
+                # Invalid: value is not a string
+                "config_file": ["not", "a", "string"]
             }
         }
 
@@ -351,7 +358,8 @@ def test_external_encryption_rejects_none_values():
         config.app_context = None
 
     # configuration_properties: expect ValueError due to None not being iterable
-    with pytest.raises(ValueError, match="Configuration properties value cannot be None"):
+    with pytest.raises(
+            ValueError, match="Configuration properties value cannot be None"):
         config.configuration_properties = None
 
 
@@ -371,7 +379,8 @@ def test_external_file_encryption_properties_rejects_column_in_two_places():
         OSError,
         match=re.escape("Multiple keys defined for column [a]")
     ):
-        factory.external_file_encryption_properties(get_kms_connection_config(), config)
+        factory.external_file_encryption_properties(
+            get_kms_connection_config(), config)
 
 
 def test_external_file_encryption_properties_valid():
@@ -401,8 +410,10 @@ def test_external_decryption_configuration_properties():
       including external-specific fields."""
 
     external_decryption_config = get_external_decryption_config()
-    assert isinstance(external_decryption_config, ppe.ExternalDecryptionConfiguration)
-    assert external_decryption_config.cache_lifetime == datetime.timedelta(minutes=10.0)
+    assert isinstance(
+        external_decryption_config, ppe.ExternalDecryptionConfiguration)
+    assert external_decryption_config.cache_lifetime == datetime.timedelta(
+        minutes=10.0)
     assert external_decryption_config.app_context == {
         "user_id": "Picard1701",
         "location": "Presidio"
@@ -420,7 +431,7 @@ def test_external_decryption_configuration_properties_invalid_types():
     """Ensure configuration_properties rejects non-string keys or values."""
 
     # Outer key is not a string (int instead of cipher name string)
-    with pytest.raises(AttributeError, match="'int' object has no attribute 'upper'"):
+    with pytest.raises(AttributeError, match="object has no attribute 'upper'"):
         config = ppe.ExternalDecryptionConfiguration()
         config.configuration_properties = {
             123: {  # invalid outer key
@@ -435,7 +446,8 @@ def test_external_decryption_configuration_properties_invalid_types():
     ):
         config = ppe.ExternalDecryptionConfiguration()
         config.configuration_properties = {
-            "AES_GCM_V1": ["not", "a", "dict"]  # invalid outer value (should be dict)
+            # invalid outer value (should be dict)
+            "AES_GCM_V1": ["not", "a", "dict"]
         }
 
     # Inner key is not a string
@@ -478,12 +490,13 @@ def test_read_and_write_standard_encryption(tmp_path):
 
 def test_read_and_write_external_encryption(tmp_path):
     # Test a roundtrip encryption and decryption using external encryption.
-    round_trip_encryption_and_decryption(tmp_path, get_external_encryption_properties(),
-                                         get_external_decryption_properties())
+    round_trip_encryption_and_decryption(
+        tmp_path, get_external_encryption_properties(),
+        get_external_decryption_properties())
 
 
-def get_custom_external_encryption_properties(encryption_algorithm, per_column_encryption,
-                                              plaintext_footer):
+def get_custom_external_encryption_properties(
+        encryption_algorithm, per_column_encryption, plaintext_footer):
     encryption_config = ppe.ExternalEncryptionConfiguration(
         footer_key="footer_key",
         column_keys={
@@ -513,7 +526,7 @@ def get_custom_external_encryption_properties(encryption_algorithm, per_column_e
 
 def test_encrypt_aes_gcm_file_all_algorithms_in_columns_plaintext_footer(tmp_path):
     encryption_properties = get_custom_external_encryption_properties(
-        "AES_GCM_V1", # encryption_algorithm
+        "AES_GCM_V1",  # encryption_algorithm
         {
             "orderId": {
                 "encryption_algorithm": "AES_GCM_CTR_V1",
@@ -527,8 +540,8 @@ def test_encrypt_aes_gcm_file_all_algorithms_in_columns_plaintext_footer(tmp_pat
                 "encryption_algorithm": "AES_GCM_V1",
                 "encryption_key": "vat_key"
             },
-        }, # per_column_encryption
-        True # plaintext_footer
+        },  # per_column_encryption
+        True  # plaintext_footer
     )
     round_trip_encryption_and_decryption(tmp_path, encryption_properties,
                                          get_external_decryption_properties())
@@ -536,7 +549,7 @@ def test_encrypt_aes_gcm_file_all_algorithms_in_columns_plaintext_footer(tmp_pat
 
 def test_encrypt_aes_gcm_file_all_algorithms_in_columns_encrypted_footer(tmp_path):
     encryption_properties = get_custom_external_encryption_properties(
-        "AES_GCM_V1", # encryption_algorithm
+        "AES_GCM_V1",  # encryption_algorithm
         {
             "orderId": {
                 "encryption_algorithm": "AES_GCM_CTR_V1",
@@ -550,16 +563,17 @@ def test_encrypt_aes_gcm_file_all_algorithms_in_columns_encrypted_footer(tmp_pat
                 "encryption_algorithm": "AES_GCM_V1",
                 "encryption_key": "vat_key"
             },
-        }, # per_column_encryption
-        False # plaintext_footer
+        },  # per_column_encryption
+        False  # plaintext_footer
     )
     round_trip_encryption_and_decryption(tmp_path, encryption_properties,
                                          get_external_decryption_properties())
 
 
-def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_plaintext_footer(tmp_path):
+def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_plaintext_footer(
+        tmp_path):
     encryption_properties = get_custom_external_encryption_properties(
-        "AES_GCM_CTR_V1", # encryption_algorithm
+        "AES_GCM_CTR_V1",  # encryption_algorithm
         {
             "orderId": {
                 "encryption_algorithm": "AES_GCM_CTR_V1",
@@ -573,16 +587,17 @@ def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_plaintext_footer(tmp
                 "encryption_algorithm": "AES_GCM_V1",
                 "encryption_key": "vat_key"
             },
-        }, # per_column_encryption
-        True # plaintext_footer
+        },  # per_column_encryption
+        True  # plaintext_footer
     )
     round_trip_encryption_and_decryption(tmp_path, encryption_properties,
                                          get_external_decryption_properties())
 
 
-def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_encrypted_footer(tmp_path):
+def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_encrypted_footer(
+        tmp_path):
     encryption_properties = get_custom_external_encryption_properties(
-        "AES_GCM_CTR_V1", # encryption_algorithm
+        "AES_GCM_CTR_V1",  # encryption_algorithm
         {
             "orderId": {
                 "encryption_algorithm": "AES_GCM_CTR_V1",
@@ -596,8 +611,8 @@ def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_encrypted_footer(tmp
                 "encryption_algorithm": "AES_GCM_V1",
                 "encryption_key": "vat_key"
             },
-        }, # per_column_encryption
-        False # plaintext_footer
+        },  # per_column_encryption
+        False  # plaintext_footer
     )
     round_trip_encryption_and_decryption(tmp_path, encryption_properties,
                                          get_external_decryption_properties())
@@ -605,15 +620,16 @@ def test_encrypt_aes_gcm_ctr_file_all_algorithms_in_columns_encrypted_footer(tmp
 
 def test_encrypt_external_dbpa_file_raises_error(tmp_path):
     encryption_properties = get_custom_external_encryption_properties(
-        "EXTERNAL_DBPA_V1", # encryption_algorithm
+        "EXTERNAL_DBPA_V1",  # encryption_algorithm
         {
             "orderId": {
                 "encryption_algorithm": "AES_GCM_CTR_V1",
                 "encryption_key": "orderid_key"
             },
-        }, # per_column_encryption
-        True # plaintext_footer
+        },  # per_column_encryption
+        True  # plaintext_footer
     )
-    with pytest.raises(ValueError, match="Parquet crypto signature verification failed"):
+    with pytest.raises(
+            ValueError, match="Parquet crypto signature verification failed"):
         round_trip_encryption_and_decryption(tmp_path, encryption_properties,
-                                            get_external_decryption_properties())
+                                             get_external_decryption_properties())

@@ -139,23 +139,23 @@ TEST_F(TestAesEncryption, AesGcmCtrDecryptCiphertextBufferTooSmall) {
 }
 
 TEST_F(TestAesEncryption, AesGcmEncryptWithManagedBuffer) {
-  AesEncryptor encryptor(
-    ParquetCipher::AES_GCM_V1, /*key_length*/ 16, /*metadata*/ false, /*write_length*/ true);
+  AesEncryptor encryptor(ParquetCipher::AES_GCM_V1, /*key_length*/ 16,
+                         /*metadata*/ false, /*write_length*/ true);
   std::unique_ptr<::arrow::ResizableBuffer> ciphertext_buffer;
   ASSERT_TRUE(encryptor.CanCalculateCiphertextLength());
-  EXPECT_THROW(
-    encryptor.EncryptWithManagedBuffer(str2span("plain_text_"), ciphertext_buffer.get()),
-    ParquetException);
+  EXPECT_THROW(encryptor.EncryptWithManagedBuffer(str2span("plain_text_"),
+                                                  ciphertext_buffer.get()),
+               ParquetException);
 }
 
 TEST_F(TestAesEncryption, AesGcmDecryptWithManagedBuffer) {
-  AesDecryptor decryptor(
-    ParquetCipher::AES_GCM_V1, /*key_length*/ 16, /*metadata*/ false, /*write_length*/ true);
+  AesDecryptor decryptor(ParquetCipher::AES_GCM_V1, /*key_length*/ 16,
+                         /*metadata*/ false, /*write_length*/ true);
   std::unique_ptr<::arrow::ResizableBuffer> ciphertext_buffer;
   ASSERT_TRUE(decryptor.CanCalculateLengths());
-  EXPECT_THROW(
-    decryptor.DecryptWithManagedBuffer(str2span("plain_text_"), ciphertext_buffer.get()),
-    ParquetException);
+  EXPECT_THROW(decryptor.DecryptWithManagedBuffer(str2span("plain_text_"),
+                                                  ciphertext_buffer.get()),
+               ParquetException);
 }
 
 }  // namespace parquet::encryption::test

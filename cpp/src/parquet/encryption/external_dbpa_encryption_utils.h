@@ -30,18 +30,21 @@ namespace parquet::encryption {
 
 // Configure Arrow logging threshold from environment (once per procall site).
 //
-// There is currently no mechanism to configure Arrow's logger. 
-// Given that most of the logging changes that we have added are related to external/dbpa encryption, 
-// we decided to keep most of the Arrow base code as-is, and made the config belong to external/dbpa.
+// There is currently no mechanism to configure Arrow's logger.
+// Given that most of the logging changes that we have added are related to
+// external/dbpa encryption, we decided to keep most of the Arrow base code as-is,
+// and made the config belong to external/dbpa.
 //
-// Env var: PARQUET_DBPA_LOG_LEVEL (case-insensitive: TRACE, DEBUG, INFO, WARN[ING], ERROR, FATAL, or -2..3)
+// Env var: PARQUET_DBPA_LOG_LEVEL (case-insensitive: TRACE, DEBUG, INFO, WARN[ING],
+// ERROR, FATAL, or -2..3)
 inline void ConfigureArrowLogLevel() {
   const char* env_val = std::getenv("PARQUET_DBPA_LOG_LEVEL");
   if (env_val == nullptr || *env_val == '\0') {
     return;
   }
   std::string s(env_val);
-  std::transform(s.begin(), s.end(), s.begin(), [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+  std::transform(s.begin(), s.end(), s.begin(),
+                 [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
 
   using ::arrow::util::ArrowLogLevel;
   auto to_level = [&](const std::string& v) -> std::optional<ArrowLogLevel> {
@@ -54,13 +57,20 @@ inline void ConfigureArrowLogLevel() {
     try {
       int n = std::stoi(v);
       switch (n) {
-        case -2: return ArrowLogLevel::ARROW_TRACE;
-        case -1: return ArrowLogLevel::ARROW_DEBUG;
-        case  0: return ArrowLogLevel::ARROW_INFO;
-        case  1: return ArrowLogLevel::ARROW_WARNING;
-        case  2: return ArrowLogLevel::ARROW_ERROR;
-        case  3: return ArrowLogLevel::ARROW_FATAL;
-        default: return std::nullopt;
+        case -2:
+          return ArrowLogLevel::ARROW_TRACE;
+        case -1:
+          return ArrowLogLevel::ARROW_DEBUG;
+        case 0:
+          return ArrowLogLevel::ARROW_INFO;
+        case 1:
+          return ArrowLogLevel::ARROW_WARNING;
+        case 2:
+          return ArrowLogLevel::ARROW_ERROR;
+        case 3:
+          return ArrowLogLevel::ARROW_FATAL;
+        default:
+          return std::nullopt;
       }
     } catch (...) {
       return std::nullopt;

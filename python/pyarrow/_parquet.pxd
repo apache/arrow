@@ -44,7 +44,7 @@ cdef class ExternalFileEncryptionProperties(FileEncryptionProperties):
 
     @staticmethod
     cdef inline ExternalFileEncryptionProperties wrap_external(
-        shared_ptr[CExternalFileEncryptionProperties] properties):
+            shared_ptr[CExternalFileEncryptionProperties] properties):
 
         result = ExternalFileEncryptionProperties()
         result.properties = properties

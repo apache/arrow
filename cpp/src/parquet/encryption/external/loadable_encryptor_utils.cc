@@ -19,34 +19,40 @@
 #include <dbpa_interface.h>
 #include "parquet/encryption/external/dbpa_library_wrapper.h"
 
-#include "arrow/util/io_util.h" //utils for loading shared libraries
 #include "arrow/result.h"
+#include "arrow/util/io_util.h"  // Utils for loading shared libraries
 #include "arrow/util/logging.h"
 
 #include <iostream>
+#include <memory>
 #include <stdexcept>
 #include <string>
-#include <memory>
 
 using ::arrow::Result;
 
 namespace parquet::encryption::external {
 
 // Function pointer type for creating encryptor instances
-// This needs to match the return type of the create_new_instance function in the shared library.
+// This needs to match the return type of the create_new_instance function in the
+// shared library.
 typedef DataBatchProtectionAgentInterface* (*create_encryptor_t)();
 
-std::unique_ptr<DataBatchProtectionAgentInterface> LoadableEncryptorUtils::CreateInstance(void* library_handle) {
+std::unique_ptr<DataBatchProtectionAgentInterface> LoadableEncryptorUtils::CreateInstance(
+    void* library_handle) {
   auto symbol_result = arrow::internal::GetSymbol(library_handle, "create_new_instance");
   if (!symbol_result.ok()) {
-    ARROW_LOG(ERROR) << "Cannot load symbol 'create_new_instance()': " << symbol_result.status().message();
+    ARROW_LOG(ERROR) << "Cannot load symbol 'create_new_instance()': "
+                     << symbol_result.status().message();
     auto status = arrow::internal::CloseDynamicLibrary(library_handle);
 
-    throw std::runtime_error("Failed to load symbol 'create_new_instance()': " + symbol_result.status().message());
+    throw std::runtime_error("Failed to load symbol 'create_new_instance()': " +
+                             symbol_result.status().message());
   }
 
-  //create_instance_fn is a function pointer to the create_new_instance function in the shared library.
-  create_encryptor_t create_instance_fn = reinterpret_cast<create_encryptor_t>(symbol_result.ValueOrDie());
+  // Create_instance_fn is a function pointer to the create_new_instance function in
+  // the shared library.
+  create_encryptor_t create_instance_fn =
+      reinterpret_cast<create_encryptor_t>(symbol_result.ValueOrDie());
 
   // at this point, we have the create_instance function pointer (from the shared library)
   // so we can create a new instance of the DataBatchProtectionAgentInterface
@@ -55,34 +61,36 @@ std::unique_ptr<DataBatchProtectionAgentInterface> LoadableEncryptorUtils::Creat
   if (instance == nullptr) {
     ARROW_LOG(ERROR) << "Cannot create instance of DataBatchProtectionAgentInterface";
     auto status = arrow::internal::CloseDynamicLibrary(library_handle);
-    throw std::runtime_error("Failed to create instance of DataBatchProtectionAgentInterface");
+    throw std::runtime_error(
+        "Failed to create instance of DataBatchProtectionAgentInterface");
   }
 
   auto instance_ptr = std::unique_ptr<DataBatchProtectionAgentInterface>(instance);
 
   return instance_ptr;
-} // CreateInstance()
+}  // CreateInstance()
 
-std::unique_ptr<DataBatchProtectionAgentInterface> LoadableEncryptorUtils::LoadFromLibrary(const std::string& library_path) {
-
+std::unique_ptr<DataBatchProtectionAgentInterface>
+LoadableEncryptorUtils::LoadFromLibrary(const std::string& library_path) {
   if (library_path.empty()) {
-    throw std::invalid_argument("LoadableEncryptorUtils::LoadFromLibrary: No library path provided");
+    throw std::invalid_argument(
+        "LoadableEncryptorUtils::LoadFromLibrary: No library path provided");
   }
 
-  auto library_handle_result = arrow::internal::LoadDynamicLibrary(library_path.c_str());;
+  auto library_handle_result = arrow::internal::LoadDynamicLibrary(library_path.c_str());
   if (!library_handle_result.ok()) {
-    throw std::runtime_error("Failed to load library: " + library_handle_result.status().message());
+    throw std::runtime_error("Failed to load library: " +
+                             library_handle_result.status().message());
   }
 
   void* library_handle = library_handle_result.ValueOrDie();
   auto agent_instance = CreateInstance(library_handle);
 
-  //wrap the agent in a DBPALibraryWrapper
-  auto wrapped_agent = std::make_unique<DBPALibraryWrapper>(
-    std::move(agent_instance), 
-    library_handle);
+  // Wrap the agent in a DBPALibraryWrapper
+  auto wrapped_agent =
+      std::make_unique<DBPALibraryWrapper>(std::move(agent_instance), library_handle);
 
   return wrapped_agent;
 }
 
-} // namespace parquet::encryption::external 
+}  // namespace parquet::encryption::external

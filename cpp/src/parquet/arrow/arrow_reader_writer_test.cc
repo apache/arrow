@@ -77,7 +77,7 @@
 #include "parquet/test_util.h"
 
 #ifdef PARQUET_REQUIRE_ENCRYPTION
-#include "parquet/encryption/external/test_utils.h"
+#  include "parquet/encryption/external/test_utils.h"
 #endif
 
 using arrow::Array;
@@ -1973,7 +1973,7 @@ TEST(ExternalDbpaConcurrencyTest, FailsWhenUseThreadsTrue) {
   ASSERT_OK(b.Finish(&arr));
   auto schema = ::arrow::schema({::arrow::field("f0", ::arrow::int32())});
   auto table = ::arrow::Table::Make(schema, {arr});
-  
+
   ::arrow::util::SecureString column_key(std::string("key1234567890123"));
   ::arrow::util::SecureString footer_key(std::string("footer_key123456"));
 
@@ -1989,19 +1989,20 @@ TEST(ExternalDbpaConcurrencyTest, FailsWhenUseThreadsTrue) {
 
   parquet::ExternalFileEncryptionProperties::Builder fep_builder(footer_key);
   fep_builder.footer_key_metadata("kf")
-            ->encrypted_columns(enc_cols)
-           ->algorithm(parquet::ParquetCipher::AES_GCM_V1)
-           ->configuration_properties({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
-                                   {{"agent_library_path", lib_path},
-                                    {"file_path", "/tmp/test"}}}});
+      ->encrypted_columns(enc_cols)
+      ->algorithm(parquet::ParquetCipher::AES_GCM_V1)
+      ->configuration_properties(
+          {{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+            {{"agent_library_path", lib_path}, {"file_path", "/tmp/test"}}}});
 
-  auto writer_props =
-      parquet::WriterProperties::Builder().encryption(fep_builder.build_external())->build();
+  auto writer_props = parquet::WriterProperties::Builder()
+                          .encryption(fep_builder.build_external())
+                          ->build();
 
   ASSERT_OK_AND_ASSIGN(
-    auto sink, ::arrow::io::BufferOutputStream::Create(1 << 16, default_memory_pool()));
-  ASSERT_OK(parquet::arrow::WriteTable(*table, default_memory_pool(), sink, /*chunk_size=*/1024,
-                                       writer_props));
+      auto sink, ::arrow::io::BufferOutputStream::Create(1 << 16, default_memory_pool()));
+  ASSERT_OK(parquet::arrow::WriteTable(*table, default_memory_pool(), sink,
+                                       /*chunk_size=*/1024, writer_props));
   ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
 
   auto kr = std::make_shared<parquet::StringKeyIdRetriever>();
@@ -2009,11 +2010,9 @@ TEST(ExternalDbpaConcurrencyTest, FailsWhenUseThreadsTrue) {
   kr->PutKey("key1234567890123", column_key);
 
   parquet::ExternalFileDecryptionProperties::Builder dep_builder;
-  dep_builder.key_retriever(kr)
-           ->app_context("{}")
-           ->configuration_properties({{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
-                                  {{"agent_library_path", lib_path},
-                                    {"file_path", "/tmp/test"}}}});
+  dep_builder.key_retriever(kr)->app_context("{}")->configuration_properties(
+      {{parquet::ParquetCipher::EXTERNAL_DBPA_V1,
+        {{"agent_library_path", lib_path}, {"file_path", "/tmp/test"}}}});
   parquet::ReaderProperties rp = parquet::default_reader_properties();
   rp.file_decryption_properties(dep_builder.build_external());
 

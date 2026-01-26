@@ -50,17 +50,18 @@ constexpr int32_t kBufferSizeLength = 4;
     throw ParquetException("Couldn't init ALG decryption");           \
   }
 
-AesCryptoContext::AesCryptoContext(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata, bool include_length) {
+AesCryptoContext::AesCryptoContext(ParquetCipher::type alg_id, int32_t key_len,
+                                   bool metadata, bool include_length) {
   openssl::EnsureInitialized();
-  
+
   length_buffer_length_ = include_length ? kBufferSizeLength : 0;
   ciphertext_size_delta_ = length_buffer_length_ + kNonceLength;
 
-  // Not all encryptors support metadata encryption. When that happens, even if the ParquetCipher
-  // is not AES, the metadata is encrypted using AES. This check should pass.
-  bool is_aes_algorithm = ParquetCipher::AES_GCM_V1 == alg_id 
-                          || ParquetCipher::AES_GCM_CTR_V1 == alg_id;
+  // Not all encryptors support metadata encryption. When that happens, even if the
+  // ParquetCipher is not AES, the metadata is encrypted using AES. This check
+  // should pass.
+  bool is_aes_algorithm =
+      ParquetCipher::AES_GCM_V1 == alg_id || ParquetCipher::AES_GCM_CTR_V1 == alg_id;
   if (!is_aes_algorithm && !metadata) {
     std::stringstream ss;
     ss << "Crypto algorithm " << alg_id << " is not supported";
@@ -82,16 +83,17 @@ AesCryptoContext::AesCryptoContext(
   key_length_ = key_len;
 }
 
-AesEncryptor::AesEncryptor(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata, bool write_length)
+AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                           bool write_length)
     : AesCryptoContext(alg_id, key_len, metadata, write_length) {}
 
-std::unique_ptr<AesEncryptor> AesEncryptor::Make(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata, bool write_length) {
+std::unique_ptr<AesEncryptor> AesEncryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata,
+                                                 bool write_length) {
   return std::make_unique<AesEncryptor>(alg_id, key_len, metadata, write_length);
 }
 
-int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {  
+int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
   if (plaintext_len < 0) {
     std::stringstream ss;
     ss << "Negative plaintext length " << plaintext_len;
@@ -130,9 +132,11 @@ AesCryptoContext::CipherContext AesEncryptor::MakeCipherContext() const {
   return ctx;
 }
 
-int32_t AesEncryptor::SignedFooterEncrypt(
-    span<const uint8_t> footer, span<const uint8_t> key, span<const uint8_t> aad,
-    span<const uint8_t> nonce, span<uint8_t> encrypted_footer) {
+int32_t AesEncryptor::SignedFooterEncrypt(span<const uint8_t> footer,
+                                          span<const uint8_t> key,
+                                          span<const uint8_t> aad,
+                                          span<const uint8_t> nonce,
+                                          span<uint8_t> encrypted_footer) {
   if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
     ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
@@ -153,9 +157,8 @@ int32_t AesEncryptor::SignedFooterEncrypt(
   return GcmEncrypt(footer, key, nonce, aad, encrypted_footer);
 }
 
-int32_t AesEncryptor::Encrypt(
-    span<const uint8_t> plaintext, span<const uint8_t> key, span<const uint8_t> aad,
-    span<uint8_t> ciphertext) {
+int32_t AesEncryptor::Encrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                              span<const uint8_t> aad, span<uint8_t> ciphertext) {
   if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
     ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
@@ -181,9 +184,9 @@ int32_t AesEncryptor::Encrypt(
   return CtrEncrypt(plaintext, key, nonce, ciphertext);
 }
 
-int32_t AesEncryptor::GcmEncrypt(
-    span<const uint8_t> plaintext, span<const uint8_t> key, span<const uint8_t> nonce,
-    span<const uint8_t> aad, span<uint8_t> ciphertext) {
+int32_t AesEncryptor::GcmEncrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                                 span<const uint8_t> nonce, span<const uint8_t> aad,
+                                 span<uint8_t> ciphertext) {
   int len;
   int32_t ciphertext_len;
 
@@ -258,9 +261,8 @@ int32_t AesEncryptor::GcmEncrypt(
   return length_buffer_length_ + buffer_size;
 }
 
-int32_t AesEncryptor::CtrEncrypt(
-    span<const uint8_t> plaintext, span<const uint8_t> key, span<const uint8_t> nonce,
-    span<uint8_t> ciphertext) {
+int32_t AesEncryptor::CtrEncrypt(span<const uint8_t> plaintext, span<const uint8_t> key,
+                                 span<const uint8_t> nonce, span<uint8_t> ciphertext) {
   int len;
   int32_t ciphertext_len;
 
@@ -322,8 +324,8 @@ int32_t AesEncryptor::CtrEncrypt(
   return length_buffer_length_ + buffer_size;
 }
 
-uint64_t AesEncryptorFactory::MakeCacheKey(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata) {
+uint64_t AesEncryptorFactory::MakeCacheKey(ParquetCipher::type alg_id, int32_t key_len,
+                                           bool metadata) {
   uint64_t key = 0;
   // Set the algorithm id in the most significant 32 bits.
   key |= static_cast<uint64_t>(static_cast<uint32_t>(alg_id)) << 32;
@@ -334,8 +336,8 @@ uint64_t AesEncryptorFactory::MakeCacheKey(
   return key;
 }
 
-AesEncryptor* AesEncryptorFactory::GetMetaAesEncryptor(
-    ParquetCipher::type alg_id, size_t key_size) {
+AesEncryptor* AesEncryptorFactory::GetMetaAesEncryptor(ParquetCipher::type alg_id,
+                                                       size_t key_size) {
   if (key_size > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
     throw ParquetException("Invalid key length: exceeds int32_t max");
   }
@@ -346,15 +348,14 @@ AesEncryptor* AesEncryptorFactory::GetMetaAesEncryptor(
 
   // If no encryptor exists for this cache key, create one.
   if (encryptor_cache_.find(cache_key) == encryptor_cache_.end()) {
-    encryptor_cache_[cache_key] = AesEncryptor::Make(
-        alg_id, key_len, /*metadata=*/true);
+    encryptor_cache_[cache_key] = AesEncryptor::Make(alg_id, key_len, /*metadata=*/true);
   }
 
   return encryptor_cache_[cache_key].get();
 }
 
-AesEncryptor* AesEncryptorFactory::GetDataAesEncryptor(
-    ParquetCipher::type alg_id, size_t key_size) {
+AesEncryptor* AesEncryptorFactory::GetDataAesEncryptor(ParquetCipher::type alg_id,
+                                                       size_t key_size) {
   if (key_size > static_cast<size_t>(std::numeric_limits<int32_t>::max())) {
     throw ParquetException("Invalid key length: exceeds int32_t max");
   }
@@ -365,20 +366,19 @@ AesEncryptor* AesEncryptorFactory::GetDataAesEncryptor(
 
   // If no encryptor exists for this cache key, create one.
   if (encryptor_cache_.find(cache_key) == encryptor_cache_.end()) {
-    encryptor_cache_[cache_key] = AesEncryptor::Make(
-        alg_id, key_len, /*metadata=*/false);
+    encryptor_cache_[cache_key] = AesEncryptor::Make(alg_id, key_len, /*metadata=*/false);
   }
   return encryptor_cache_[cache_key].get();
 }
 
-AesDecryptor::AesDecryptor(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata, bool contains_length)
+AesDecryptor::AesDecryptor(ParquetCipher::type alg_id, int32_t key_len, bool metadata,
+                           bool contains_length)
     : AesCryptoContext(alg_id, key_len, metadata, contains_length) {}
 
-std::unique_ptr<AesDecryptor> AesDecryptor::Make(
-    ParquetCipher::type alg_id, int32_t key_len, bool metadata) {
+std::unique_ptr<AesDecryptor> AesDecryptor::Make(ParquetCipher::type alg_id,
+                                                 int32_t key_len, bool metadata) {
   return std::make_unique<AesDecryptor>(alg_id, key_len, metadata);
-}  
+}
 
 int32_t AesDecryptor::PlaintextLength(int32_t ciphertext_len) const {
   if (ciphertext_len < ciphertext_size_delta_) {
@@ -405,9 +405,8 @@ int32_t AesDecryptor::CiphertextLength(int32_t plaintext_len) const {
   return plaintext_len + ciphertext_size_delta_;
 }
 
-int32_t AesDecryptor::Decrypt(
-    span<const uint8_t> ciphertext, span<const uint8_t> key, span<const uint8_t> aad,
-    span<uint8_t> plaintext) {
+int32_t AesDecryptor::Decrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                              span<const uint8_t> aad, span<uint8_t> plaintext) {
   if (static_cast<size_t>(key_length_) != key.size()) {
     std::stringstream ss;
     ss << "Wrong key length " << key.size() << ". Should be " << key_length_;
@@ -421,8 +420,7 @@ int32_t AesDecryptor::Decrypt(
   return CtrDecrypt(ciphertext, key, plaintext);
 }
 
-AesCryptoContext::CipherContext AesDecryptor::MakeCipherContext()
-    const {
+AesCryptoContext::CipherContext AesDecryptor::MakeCipherContext() const {
   auto ctx = NewCipherContext();
   if (kGcmMode == aes_mode_) {
     // Init AES-GCM with specified key length
@@ -491,9 +489,8 @@ int32_t AesDecryptor::GetCiphertextLength(span<const uint8_t> ciphertext) const 
   }
 }
 
-int32_t AesDecryptor::GcmDecrypt(
-    span<const uint8_t> ciphertext, span<const uint8_t> key, span<const uint8_t> aad,
-    span<uint8_t> plaintext) {
+int32_t AesDecryptor::GcmDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                                 span<const uint8_t> aad, span<uint8_t> plaintext) {
   int len;
   int32_t plaintext_len;
 
@@ -565,8 +562,8 @@ int32_t AesDecryptor::GcmDecrypt(
   return plaintext_len;
 }
 
-int32_t AesDecryptor::CtrDecrypt(
-    span<const uint8_t> ciphertext, span<const uint8_t> key, span<uint8_t> plaintext) {
+int32_t AesDecryptor::CtrDecrypt(span<const uint8_t> ciphertext, span<const uint8_t> key,
+                                 span<uint8_t> plaintext) {
   int len;
   int32_t plaintext_len;
 

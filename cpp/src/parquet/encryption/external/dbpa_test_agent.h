@@ -25,11 +25,11 @@
 template <typename T>
 using span = tcb::span<T>;
 
-using dbps::external::DataBatchProtectionAgentInterface;
-using dbps::external::EncryptionResult;
-using dbps::external::DecryptionResult;
-using dbps::external::Type;
 using dbps::external::CompressionCodec;
+using dbps::external::DataBatchProtectionAgentInterface;
+using dbps::external::DecryptionResult;
+using dbps::external::EncryptionResult;
+using dbps::external::Type;
 
 namespace parquet::encryption::external {
 
@@ -38,18 +38,14 @@ namespace parquet::encryption::external {
 // Will never be used in production.
 class DBPATestAgent : public DataBatchProtectionAgentInterface {
  public:
-  explicit DBPATestAgent();
+  DBPATestAgent();
 
-  void init(
-      std::string column_name,
-      std::map<std::string, std::string> configuration_properties,
-      std::string app_context,
-      std::string column_key_id,
-      Type::type data_type,
-      std::optional<int> datatype_length,
-      CompressionCodec::type compression_type,
-      std::optional<std::map<std::string, std::string>> column_encryption_metadata) override {
-
+  void init(std::string column_name,
+            std::map<std::string, std::string> configuration_properties,
+            std::string app_context, std::string column_key_id, Type::type data_type,
+            std::optional<int> datatype_length, CompressionCodec::type compression_type,
+            std::optional<std::map<std::string, std::string>> column_encryption_metadata)
+      override {
     if (column_key_id.empty()) {
       throw std::invalid_argument("column_key_id cannot be empty");
     }
@@ -77,4 +73,4 @@ class DBPATestAgent : public DataBatchProtectionAgentInterface {
   size_t encrypt_calls_ = 0;
 };
 
-}  // namespace parquet::encryption::external 
+}  // namespace parquet::encryption::external

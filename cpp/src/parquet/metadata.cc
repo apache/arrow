@@ -576,7 +576,9 @@ Compression::type ColumnChunkMetaData::compression() const {
 
 const ColumnDescriptor* ColumnChunkMetaData::descr() const { return impl_->descr(); }
 
-const ReaderProperties* ColumnChunkMetaData::properties() const { return impl_->properties(); }
+const ReaderProperties* ColumnChunkMetaData::properties() const {
+  return impl_->properties();
+}
 
 bool ColumnChunkMetaData::can_decompress() const {
   return ::arrow::util::Codec::IsAvailable(compression());
@@ -892,12 +894,13 @@ class FileMetaData::FileMetaDataImpl {
       std::vector<uint8_t> encrypted_data;
       int32_t encrypted_len;
       if (encryptor->CanCalculateCiphertextLength()) {
-        encrypted_data = std::vector<uint8_t>(encryptor->CiphertextLength(serialized_len));
+        encrypted_data =
+            std::vector<uint8_t>(encryptor->CiphertextLength(serialized_len));
         encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
       } else {
         auto resizable_buffer = ::arrow::AllocateResizableBuffer(0);
-        encrypted_len = encryptor->EncryptWithManagedBuffer(
-          serialized_data_span, resizable_buffer->get());
+        encrypted_len = encryptor->EncryptWithManagedBuffer(serialized_data_span,
+                                                            resizable_buffer->get());
         encrypted_data.assign(resizable_buffer->get()->data(),
                               resizable_buffer->get()->data() + encrypted_len);
       }
@@ -1779,12 +1782,13 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         std::vector<uint8_t> encrypted_data;
         int32_t encrypted_len;
         if (encryptor->CanCalculateCiphertextLength()) {
-          encrypted_data = std::vector<uint8_t>(encryptor->CiphertextLength(serialized_len));
+          encrypted_data =
+              std::vector<uint8_t>(encryptor->CiphertextLength(serialized_len));
           encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);
         } else {
           auto resizable_buffer = ::arrow::AllocateResizableBuffer(0);
-          encrypted_len = encryptor->EncryptWithManagedBuffer(
-            serialized_data_span, resizable_buffer->get());
+          encrypted_len = encryptor->EncryptWithManagedBuffer(serialized_data_span,
+                                                              resizable_buffer->get());
           encrypted_data.assign(resizable_buffer->get()->data(),
                                 resizable_buffer->get()->data() + encrypted_len);
         }
@@ -1916,8 +1920,8 @@ void ColumnChunkMetaDataBuilder::SetGeoStatistics(
 }
 
 void ColumnChunkMetaDataBuilder::AddKeyValueMetadata(
-  std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
-impl_->AddKeyValueMetadata(std::move(key_value_metadata));
+    std::shared_ptr<const KeyValueMetadata> key_value_metadata) {
+  impl_->AddKeyValueMetadata(std::move(key_value_metadata));
 }
 
 void ColumnChunkMetaDataBuilder::SetKeyValueMetadata(

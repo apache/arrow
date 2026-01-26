@@ -73,7 +73,8 @@ namespace parquet {
 
 namespace {
 
-static parquet::Encoding::type ToParquetEncoding(::parquet::format::Encoding::type format_encoding) {
+static parquet::Encoding::type ToParquetEncoding(
+    ::parquet::format::Encoding::type format_encoding) {
   switch (format_encoding) {
     case ::parquet::format::Encoding::PLAIN:
       return parquet::Encoding::PLAIN;
@@ -94,7 +95,8 @@ static parquet::Encoding::type ToParquetEncoding(::parquet::format::Encoding::ty
     case ::parquet::format::Encoding::BYTE_STREAM_SPLIT:
       return parquet::Encoding::BYTE_STREAM_SPLIT;
     default:
-      throw ParquetException("ToParquetEncoding: Invalid encoding: " + std::to_string(format_encoding));
+      throw ParquetException("ToParquetEncoding: Invalid encoding: " +
+                             std::to_string(format_encoding));
   }
 }
 
@@ -276,7 +278,8 @@ class SerializedPageReader : public PageReader {
 
   void set_max_page_header_size(uint32_t size) override { max_page_header_size_ = size; }
 
-  std::unique_ptr<EncodingProperties> GetEncodingProperties(format::PageHeader& page_header);
+  std::unique_ptr<EncodingProperties> GetEncodingProperties(
+      format::PageHeader& page_header);
 
  private:
   void UpdateDecryption(Decryptor* decryptor, int8_t module_type, std::string* page_aad);
@@ -420,63 +423,67 @@ bool SerializedPageReader::ShouldSkipPage(EncodedStatistics* data_page_statistic
   return false;
 }
 
-// While ideally we would have written the builder code for PageHeader-based properties within
-// encoding_properties.cc, Arrow frowns upon including thrift headers in the public API, and the
-// types used in this function are not defined in the public API. This is verified via unit tests.
-// Therefore, we have to define this function here (as opposed to **any** .h file).
+// While ideally we would have written the builder code for PageHeader-based
+// properties within encoding_properties.cc, Arrow frowns upon including thrift
+// headers in the public API, and the types used in this function are not defined
+// in the public API. This is verified via unit tests. Therefore, we have to define
+// this function here (as opposed to **any** .h file).
 std::unique_ptr<EncodingProperties> SerializedPageReader::GetEncodingProperties(
-  format::PageHeader& page_header) {
+    format::PageHeader& page_header) {
   EncodingPropertiesBuilder builder;
 
   format::PageType::type page_type_from_header = page_header.type;
 
   if (page_type_from_header == format::PageType::DICTIONARY_PAGE) {
-      format::DictionaryPageHeader dictionary_page_header = page_header.dictionary_page_header;
+    format::DictionaryPageHeader dictionary_page_header =
+        page_header.dictionary_page_header;
 
-      builder.PageType(parquet::PageType::type::DICTIONARY_PAGE);  
-      builder.PageEncoding(ToParquetEncoding(dictionary_page_header.encoding));
-    }
-    else if (page_type_from_header == format::PageType::DATA_PAGE) { // this is DataPageV1
-      format::DataPageHeader data_page_header = page_header.data_page_header;
+    builder.PageType(parquet::PageType::type::DICTIONARY_PAGE);
+    builder.PageEncoding(ToParquetEncoding(dictionary_page_header.encoding));
+  } else if (page_type_from_header ==
+             format::PageType::DATA_PAGE) {  // this is DataPageV1
+    format::DataPageHeader data_page_header = page_header.data_page_header;
 
-      builder.PageType(parquet::PageType::type::DATA_PAGE);
-      builder.PageEncoding(ToParquetEncoding(data_page_header.encoding));
-      builder.DataPageNumValues(data_page_header.num_values);
-      builder.PageV1DefinitionLevelEncoding(
+    builder.PageType(parquet::PageType::type::DATA_PAGE);
+    builder.PageEncoding(ToParquetEncoding(data_page_header.encoding));
+    builder.DataPageNumValues(data_page_header.num_values);
+    builder.PageV1DefinitionLevelEncoding(
         ToParquetEncoding(data_page_header.definition_level_encoding));
-      builder.PageV1RepetitionLevelEncoding(
+    builder.PageV1RepetitionLevelEncoding(
         ToParquetEncoding(data_page_header.repetition_level_encoding));
 
-      if (crypto_ctx_.column_descriptor) {
-        builder.DataPageMaxDefinitionLevel(crypto_ctx_.column_descriptor->max_definition_level());
-        builder.DataPageMaxRepetitionLevel(crypto_ctx_.column_descriptor->max_repetition_level());
-      }
-      else {
-        //TODO (argmarco): handle this case.
-      }
+    if (crypto_ctx_.column_descriptor) {
+      builder.DataPageMaxDefinitionLevel(
+          crypto_ctx_.column_descriptor->max_definition_level());
+      builder.DataPageMaxRepetitionLevel(
+          crypto_ctx_.column_descriptor->max_repetition_level());
+    } else {
+      // TODO (argmarco): handle this case.
     }
-    else if (page_type_from_header == format::PageType::DATA_PAGE_V2) {
-      format::DataPageHeaderV2 data_page_header_v2 = page_header.data_page_header_v2;
+  } else if (page_type_from_header == format::PageType::DATA_PAGE_V2) {
+    format::DataPageHeaderV2 data_page_header_v2 = page_header.data_page_header_v2;
+    builder.PageType(parquet::PageType::type::DATA_PAGE_V2);
+    builder.PageEncoding(ToParquetEncoding(data_page_header_v2.encoding));
+    builder.DataPageNumValues(data_page_header_v2.num_values);
+    builder.PageV2NumNulls(data_page_header_v2.num_nulls);
+    builder.PageV2DefinitionLevelsByteLength(
+        data_page_header_v2.definition_levels_byte_length);
+    builder.PageV2RepetitionLevelsByteLength(
+        data_page_header_v2.repetition_levels_byte_length);
+    builder.PageV2IsCompressed(data_page_header_v2.is_compressed);
 
-      builder.PageType(parquet::PageType::type::DATA_PAGE_V2);
-      builder.PageEncoding(ToParquetEncoding(data_page_header_v2.encoding));
-      builder.DataPageNumValues(data_page_header_v2.num_values);
-      builder.PageV2NumNulls(data_page_header_v2.num_nulls);
-      builder.PageV2DefinitionLevelsByteLength(data_page_header_v2.definition_levels_byte_length);
-      builder.PageV2RepetitionLevelsByteLength(data_page_header_v2.repetition_levels_byte_length);
-      builder.PageV2IsCompressed(data_page_header_v2.is_compressed);
-
-      if (crypto_ctx_.column_descriptor) {
-        builder.DataPageMaxDefinitionLevel(crypto_ctx_.column_descriptor->max_definition_level());
-        builder.DataPageMaxRepetitionLevel(crypto_ctx_.column_descriptor->max_repetition_level());
-      }
-      else {
-        //TODO (argmarco): handle this case.
-      }
+    if (crypto_ctx_.column_descriptor) {
+      builder.DataPageMaxDefinitionLevel(
+          crypto_ctx_.column_descriptor->max_definition_level());
+      builder.DataPageMaxRepetitionLevel(
+          crypto_ctx_.column_descriptor->max_repetition_level());
+    } else {
+      // TODO (argmarco): handle this case.
     }
+  }
 
   return builder.Build();
-} //SerializedPageReader::GetEncodingProperties
+}  // SerializedPageReader::GetEncodingProperties
 
 std::shared_ptr<Page> SerializedPageReader::NextPage() {
   ThriftDeserializer deserializer(properties_);
@@ -564,22 +571,22 @@ std::shared_ptr<Page> SerializedPageReader::NextPage() {
 
     // Decrypt it if we need to
     if (data_decryptor_ != nullptr) {
-      std::unique_ptr<EncodingProperties> encoding_properties = GetEncodingProperties(
-        current_page_header_);
+      std::unique_ptr<EncodingProperties> encoding_properties =
+          GetEncodingProperties(current_page_header_);
 
       data_decryptor_->UpdateEncodingProperties(std::move(encoding_properties));
 
       std::shared_ptr<ResizableBuffer> decryption_buffer;
       if (data_decryptor_->CanCalculateLengths()) {
         decryption_buffer = AllocateBuffer(
-          properties_.memory_pool(), data_decryptor_->PlaintextLength(compressed_len));
-        compressed_len = data_decryptor_->Decrypt(
-          page_buffer->span_as<uint8_t>(), decryption_buffer->mutable_span_as<uint8_t>());
+            properties_.memory_pool(), data_decryptor_->PlaintextLength(compressed_len));
+        compressed_len =
+            data_decryptor_->Decrypt(page_buffer->span_as<uint8_t>(),
+                                     decryption_buffer->mutable_span_as<uint8_t>());
       } else {
         decryption_buffer = AllocateBuffer(properties_.memory_pool(), 0);
-        compressed_len =
-            data_decryptor_->DecryptWithManagedBuffer(page_buffer->span_as<uint8_t>(),
-                                                      decryption_buffer.get());
+        compressed_len = data_decryptor_->DecryptWithManagedBuffer(
+            page_buffer->span_as<uint8_t>(), decryption_buffer.get());
       }
 
       page_buffer = decryption_buffer;

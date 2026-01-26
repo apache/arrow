@@ -278,12 +278,10 @@ class SerializedRowGroup : public RowGroupReader::Contents {
     }
 
     const ColumnDescriptor* descr = file_metadata_->schema()->Column(i);
-    CryptoContext ctx{col->has_dictionary_page(),
-                      static_cast<int16_t>(row_group_ordinal_),
-                      static_cast<int16_t>(i),
-                      descr,
-                      std::move(meta_decryptor_factory),
-                      std::move(data_decryptor_factory)};
+    CryptoContext ctx{
+        col->has_dictionary_page(),        static_cast<int16_t>(row_group_ordinal_),
+        static_cast<int16_t>(i),           descr,
+        std::move(meta_decryptor_factory), std::move(data_decryptor_factory)};
     return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                             always_compressed, &ctx);
   }

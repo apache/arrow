@@ -20,8 +20,8 @@
 #include <memory>
 #include <string>
 
-#include "parquet/platform.h"
 #include <dbpa_interface.h>
+#include "parquet/platform.h"
 
 using dbps::external::DataBatchProtectionAgentInterface;
 
@@ -29,12 +29,15 @@ namespace parquet::encryption::external {
 
 class PARQUET_EXPORT LoadableEncryptorUtils {
  public:
-  //Will load the shared library and instantiate the DataBatchProtectionAgentInterface 
-  // provided by the shared library. The instance will be wrapped in a DBPALibraryWrapper.
-  static std::unique_ptr<DataBatchProtectionAgentInterface> LoadFromLibrary(const std::string& library_path);
+  // Will load the shared library and instantiate the DataBatchProtectionAgentInterface
+  // provided by the shared library. The instance will be wrapped in a
+  // DBPALibraryWrapper.
+  static std::unique_ptr<DataBatchProtectionAgentInterface> LoadFromLibrary(
+      const std::string& library_path);
 
  private:
-  static std::unique_ptr<DataBatchProtectionAgentInterface> CreateInstance(void* library_handle);
+  static std::unique_ptr<DataBatchProtectionAgentInterface> CreateInstance(
+      void* library_handle);
 };
 
 }  // namespace parquet::encryption::external

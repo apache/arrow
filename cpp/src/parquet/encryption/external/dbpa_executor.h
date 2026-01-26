@@ -17,12 +17,12 @@
 
 #pragma once
 
-#include <memory>
-#include <string>
-#include <map>
-#include <optional>
 #include <exception>
+#include <map>
+#include <memory>
+#include <optional>
 #include <stdexcept>
+#include <string>
 
 #include <dbpa_interface.h>
 
@@ -31,11 +31,11 @@ using span = tcb::span<T>;
 
 namespace parquet::encryption::external {
 
-using dbps::external::DataBatchProtectionAgentInterface;
-using dbps::external::EncryptionResult;
-using dbps::external::DecryptionResult;
-using dbps::external::Type;
 using dbps::external::CompressionCodec;
+using dbps::external::DataBatchProtectionAgentInterface;
+using dbps::external::DecryptionResult;
+using dbps::external::EncryptionResult;
+using dbps::external::Type;
 
 class DBPAExecutorTimeoutException;
 
@@ -49,13 +49,14 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
    * Constructor that takes ownership of the wrapped agent with configurable timeouts
    * @param agent The DataBatchProtectionAgentInterface instance to wrap
    * @param init_timeout Timeout for init operations in milliseconds (default: 10000)
-   * @param encrypt_timeout Timeout for encrypt operations in milliseconds (default: 30000)
-   * @param decrypt_timeout Timeout for decrypt operations in milliseconds (default: 30000)
+   * @param encrypt_timeout Timeout for encrypt operations in milliseconds
+   *                        (default: 30000)
+   * @param decrypt_timeout Timeout for decrypt operations in milliseconds
+   * (default: 30000)
    */
   explicit DBPAExecutor(std::unique_ptr<DataBatchProtectionAgentInterface> agent,
-                       int64_t init_timeout = 10000,
-                       int64_t encrypt_timeout = 30000,
-                       int64_t decrypt_timeout = 30000);
+                        int64_t init_timeout = 10000, int64_t encrypt_timeout = 30000,
+                        int64_t decrypt_timeout = 30000);
 
   /**
    * Destructor
@@ -68,15 +69,12 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
    * @throws DBPAExecutorTimeoutException if operation times out
    * @throws Original exceptions from wrapped agent (unchanged!)
    */
-  void init(
-      std::string column_name,
-      std::map<std::string, std::string> configuration_properties,
-      std::string app_context,
-      std::string column_key_id,
-      Type::type data_type,
-      std::optional<int> datatype_length,
-      CompressionCodec::type compression_type,
-      std::optional<std::map<std::string, std::string>> column_encryption_metadata) override;
+  void init(std::string column_name,
+            std::map<std::string, std::string> configuration_properties,
+            std::string app_context, std::string column_key_id, Type::type data_type,
+            std::optional<int> datatype_length, CompressionCodec::type compression_type,
+            std::optional<std::map<std::string, std::string>> column_encryption_metadata)
+      override;
 
   /**
    * Encrypt the provided plaintext
@@ -102,21 +100,22 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
       span<const uint8_t> ciphertext,
       std::map<std::string, std::string> encoding_attributes) override;
 
-  private:
-    std::unique_ptr<DataBatchProtectionAgentInterface> wrapped_agent_;
-    int64_t init_timeout_milliseconds_;
-    int64_t encrypt_timeout_milliseconds_;
-    int64_t decrypt_timeout_milliseconds_;    
-}; // class DBPAExecutor
+ private:
+  std::unique_ptr<DataBatchProtectionAgentInterface> wrapped_agent_;
+  int64_t init_timeout_milliseconds_;
+  int64_t encrypt_timeout_milliseconds_;
+  int64_t decrypt_timeout_milliseconds_;
+};  // class DBPAExecutor
 
 /**
  * Exception thrown when a DBPA operation times out
  */
- class DBPAExecutorTimeoutException : public std::runtime_error {
-  public:
-      explicit DBPAExecutorTimeoutException(const std::string& operation, int64_t timeout_milliseconds)
-          : std::runtime_error("DBPAExecutor: " + operation + " operation timed out after " +
-                             std::to_string(timeout_milliseconds) + " milliseconds") {}
-  };
+class DBPAExecutorTimeoutException : public std::runtime_error {
+ public:
+  explicit DBPAExecutorTimeoutException(const std::string& operation,
+                                        int64_t timeout_milliseconds)
+      : std::runtime_error("DBPAExecutor: " + operation + " operation timed out after " +
+                           std::to_string(timeout_milliseconds) + " milliseconds") {}
+};
 
 }  // namespace parquet::encryption::external

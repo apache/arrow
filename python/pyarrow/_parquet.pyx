@@ -2178,7 +2178,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 static_pointer_cast[CFileEncryptionProperties, CExternalFileEncryptionProperties] (
                     (<ExternalFileEncryptionProperties>encryption_properties).unwrap_external()))
         else:
-            props.encryption((<FileEncryptionProperties>encryption_properties).unwrap())     
+            props.encryption((<FileEncryptionProperties>encryption_properties).unwrap())
 
     # For backwards compatibility reasons we cap the maximum row group size
     # at 64Mi rows.  This could be changed in the future, though it would be

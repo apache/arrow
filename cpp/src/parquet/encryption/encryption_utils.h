@@ -38,8 +38,8 @@ constexpr int8_t kBloomFilterHeader = 8;
 constexpr int8_t kBloomFilterBitset = 9;
 
 std::string CreateModuleAad(const std::string& file_aad, int8_t module_type,
-    int16_t row_group_ordinal, int16_t column_ordinal,
-    int32_t page_ordinal);
+                            int16_t row_group_ordinal, int16_t column_ordinal,
+                            int32_t page_ordinal);
 
 std::string CreateFooterAad(const std::string& aad_prefix_bytes);
 
@@ -57,4 +57,4 @@ void RandBytes(unsigned char* buf, size_t num);
 // a worker thread; calling this function from the main thread prevents this.
 void EnsureBackendInitialized();
 
-} // namespace parquet::encryption
+}  // namespace parquet::encryption

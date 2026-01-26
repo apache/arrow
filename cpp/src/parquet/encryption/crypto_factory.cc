@@ -42,26 +42,26 @@ struct FileKeyUtils {
 };
 
 FileKeyUtils GetFileKeyUtils(
-  const std::shared_ptr<KeyToolkit>& key_toolkit,
-  const KmsConnectionConfig& kms_connection_config,
-  const EncryptionConfiguration& encryption_config,
-  const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
-    std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr;
-    if (!encryption_config.internal_key_material) {
-      try {
-        key_material_store =
-            FileSystemKeyMaterialStore::Make(file_path, file_system, false);
-      } catch (ParquetException& e) {
-        std::stringstream ss;
-        ss << "Failed to get key material store.\n" << e.what() << "\n";
-        throw ParquetException(ss.str());
-      }
+    const std::shared_ptr<KeyToolkit>& key_toolkit,
+    const KmsConnectionConfig& kms_connection_config,
+    const EncryptionConfiguration& encryption_config, const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  std::shared_ptr<FileKeyMaterialStore> key_material_store = nullptr;
+  if (!encryption_config.internal_key_material) {
+    try {
+      key_material_store =
+          FileSystemKeyMaterialStore::Make(file_path, file_system, false);
+    } catch (ParquetException& e) {
+      std::stringstream ss;
+      ss << "Failed to get key material store.\n" << e.what() << "\n";
+      throw ParquetException(ss.str());
     }
+  }
 
-    FileKeyWrapper key_wrapper(key_toolkit.get(), kms_connection_config,
-                               key_material_store, encryption_config.cache_lifetime_seconds,
-                               encryption_config.double_wrapping);
-    return {key_material_store, std::move(key_wrapper)};
+  FileKeyWrapper key_wrapper(key_toolkit.get(), kms_connection_config, key_material_store,
+                             encryption_config.cache_lifetime_seconds,
+                             encryption_config.double_wrapping);
+  return {key_material_store, std::move(key_wrapper)};
 }
 
 int ValidateAndGetKeyLength(int32_t dek_length_bits) {
@@ -73,32 +73,34 @@ int ValidateAndGetKeyLength(int32_t dek_length_bits) {
   return dek_length_bits / 8;
 }
 
-std::map<ParquetCipher::type, std::map<std::string, std::string>> ConvertConfigurationProperties(
-  const std::unordered_map<ParquetCipher::type, 
-                           std::unordered_map<std::string, std::string>>& configuration_properties) {
-
+std::map<ParquetCipher::type, std::map<std::string, std::string>>
+ConvertConfigurationProperties(
+    const std::unordered_map<ParquetCipher::type,
+                             std::unordered_map<std::string, std::string>>&
+        configuration_properties) {
   std::map<ParquetCipher::type, std::map<std::string, std::string>> converted_config;
 
-    for (const auto& [cipher_type, inner_config] : configuration_properties) {
-        if (!IsParquetCipherSupported(cipher_type)) {
-            throw ParquetException("Invalid ParquetCipher type: " + 
-              std::to_string(static_cast<int>(cipher_type)));
-        }
-
-        std::map<std::string, std::string> converted_inner;
-        for (const auto& [key, value] : inner_config) {
-            if (key.empty()) {
-                throw ParquetException("Empty key in configuration properties");
-            }            
-            if (value.empty()) {
-                throw ParquetException("Empty value for key '" + key + "' in configuration properties");
-            }            
-            converted_inner[key] = value;
-        }          
-        converted_config[cipher_type] = converted_inner;
+  for (const auto& [cipher_type, inner_config] : configuration_properties) {
+    if (!IsParquetCipherSupported(cipher_type)) {
+      throw ParquetException("Invalid ParquetCipher type: " +
+                             std::to_string(static_cast<int>(cipher_type)));
     }
 
-    return converted_config;      
+    std::map<std::string, std::string> converted_inner;
+    for (const auto& [key, value] : inner_config) {
+      if (key.empty()) {
+        throw ParquetException("Empty key in configuration properties");
+      }
+      if (value.empty()) {
+        throw ParquetException("Empty value for key '" + key +
+                               "' in configuration properties");
+      }
+      converted_inner[key] = value;
+    }
+    converted_config[cipher_type] = converted_inner;
+  }
+
+  return converted_config;
 }
 
 }  // Anonymous namespace
@@ -113,7 +115,8 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
     const EncryptionConfiguration& encryption_config, const std::string& file_path,
     const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   if (encryption_config.encryption_algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
-    throw ParquetException("EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption");
+    throw ParquetException(
+        "EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption");
   }
   if (!encryption_config.uniform_encryption && encryption_config.column_keys.empty()) {
     throw ParquetException("Either column_keys or uniform_encryption must be set");
@@ -125,7 +128,7 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
   const std::string& column_key_str = encryption_config.column_keys;
 
   auto [key_material_store, key_wrapper] = GetFileKeyUtils(
-    key_toolkit_, kms_connection_config, encryption_config, file_path, file_system);
+      key_toolkit_, kms_connection_config, encryption_config, file_path, file_system);
   int dek_length = ValidateAndGetKeyLength(encryption_config.data_key_length_bits);
 
   SecureString footer_key(dek_length, '\0');
@@ -157,45 +160,50 @@ std::shared_ptr<FileEncryptionProperties> CryptoFactory::GetFileEncryptionProper
 
 std::shared_ptr<ExternalFileEncryptionProperties>
 CryptoFactory::GetExternalFileEncryptionProperties(
-      const KmsConnectionConfig& kms_connection_config,
-      const ExternalEncryptionConfiguration& external_encryption_config,
-      const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
-  // Validate the same rules as FileEncryptionProperties but considering per_column_encryption too.
-  // If uniform_encryption is not set then either column_keys or per_column_encryption must have
-  // values.
-  // If uniform_encryption is set, then both column_keys and per_column_encryption must be empty.
-  if (external_encryption_config.encryption_algorithm == ParquetCipher::EXTERNAL_DBPA_V1) {
-    throw ParquetException("EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption");
+    const KmsConnectionConfig& kms_connection_config,
+    const ExternalEncryptionConfiguration& external_encryption_config,
+    const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
+  // Validate the same rules as FileEncryptionProperties but considering
+  // per_column_encryption too. If uniform_encryption is not set then either
+  // column_keys or per_column_encryption must have values. If uniform_encryption
+  // is set, then both column_keys and per_column_encryption must be empty.
+  if (external_encryption_config.encryption_algorithm ==
+      ParquetCipher::EXTERNAL_DBPA_V1) {
+    throw ParquetException(
+        "EXTERNAL_DBPA_V1 algorithm is not supported for file level encryption");
   }
   bool no_columns_encrypted = external_encryption_config.column_keys.empty() &&
                               external_encryption_config.per_column_encryption.empty();
   if (!external_encryption_config.uniform_encryption && no_columns_encrypted) {
     throw ParquetException(
-      "Either uniform_encryption must be set or column encryption must be specified in either "
-      "column_keys or per_column_encryption");
+        "Either uniform_encryption must be set or column encryption must be specified"
+        " in either column_keys or per_column_encryption");
   } else if (external_encryption_config.uniform_encryption && !no_columns_encrypted) {
     throw ParquetException("Cannot set both column encryption and uniform_encryption");
   }
 
-  auto [key_material_store, key_wrapper] = GetFileKeyUtils(
-      key_toolkit_, kms_connection_config, external_encryption_config, file_path, file_system);
+  auto [key_material_store, key_wrapper] =
+      GetFileKeyUtils(key_toolkit_, kms_connection_config, external_encryption_config,
+                      file_path, file_system);
 
-  int dek_length = ValidateAndGetKeyLength(external_encryption_config.data_key_length_bits);
+  int dek_length =
+      ValidateAndGetKeyLength(external_encryption_config.data_key_length_bits);
 
   SecureString footer_key(dek_length, '\0');
   RandBytes(reinterpret_cast<uint8_t*>(footer_key.as_span().data()), footer_key.size());
 
-  std::string footer_key_metadata =
-      key_wrapper.GetEncryptionKeyMetadata(footer_key, external_encryption_config.footer_key, true);
+  std::string footer_key_metadata = key_wrapper.GetEncryptionKeyMetadata(
+      footer_key, external_encryption_config.footer_key, true);
 
   ExternalFileEncryptionProperties::Builder external_properties_builder =
       ExternalFileEncryptionProperties::Builder(footer_key);
   external_properties_builder.footer_key_metadata(footer_key_metadata);
   external_properties_builder.algorithm(external_encryption_config.encryption_algorithm);
 
-  if (!external_encryption_config.uniform_encryption && 
+  if (!external_encryption_config.uniform_encryption &&
       external_encryption_config.plaintext_footer) {
-        external_properties_builder.set_plaintext_footer();
+    external_properties_builder.set_plaintext_footer();
   }
 
   ColumnPathToEncryptionPropertiesMap encrypted_columns;
@@ -217,7 +225,8 @@ CryptoFactory::GetExternalFileEncryptionProperties(
       }
 
       SecureString column_key(dek_length, '\0');
-      RandBytes(reinterpret_cast<uint8_t*>(column_key.as_span().data()), column_key.size());
+      RandBytes(reinterpret_cast<uint8_t*>(column_key.as_span().data()),
+                column_key.size());
       std::string column_key_metadata =
           key_wrapper.GetEncryptionKeyMetadata(column_key, attributes.key_id, false);
 
@@ -241,7 +250,7 @@ CryptoFactory::GetExternalFileEncryptionProperties(
 
   if (!external_encryption_config.configuration_properties.empty()) {
     external_properties_builder.configuration_properties(ConvertConfigurationProperties(
-      external_encryption_config.configuration_properties));
+        external_encryption_config.configuration_properties));
   }
 
   if (key_material_store != nullptr) {
@@ -338,12 +347,12 @@ std::shared_ptr<ExternalFileDecryptionProperties>
 CryptoFactory::GetExternalFileDecryptionProperties(
     const KmsConnectionConfig& kms_connection_config,
     const ExternalDecryptionConfiguration& external_decryption_config,
-    const std::string& file_path, const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
-
+    const std::string& file_path,
+    const std::shared_ptr<::arrow::fs::FileSystem>& file_system) {
   // Use the same FileKeyUnwrapper as in the FileDecryptionProperties.
   auto key_retriever = std::make_shared<FileKeyUnwrapper>(
-      key_toolkit_, kms_connection_config, external_decryption_config.cache_lifetime_seconds,
-      file_path, file_system);
+      key_toolkit_, kms_connection_config,
+      external_decryption_config.cache_lifetime_seconds, file_path, file_system);
 
   ExternalFileDecryptionProperties::Builder builder;
   builder.key_retriever(key_retriever);
@@ -355,7 +364,7 @@ CryptoFactory::GetExternalFileDecryptionProperties(
 
   if (!external_decryption_config.configuration_properties.empty()) {
     builder.configuration_properties(ConvertConfigurationProperties(
-      external_decryption_config.configuration_properties));
+        external_decryption_config.configuration_properties));
   }
 
   return builder.build_external();

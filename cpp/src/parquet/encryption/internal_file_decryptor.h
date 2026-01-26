@@ -22,9 +22,9 @@
 #include <string>
 
 #include "arrow/util/secure_string.h"
-#include "parquet/metadata.h"
 #include "parquet/encryption/decryptor_interface.h"
 #include "parquet/encryption/external_dbpa_encryption.h"
+#include "parquet/metadata.h"
 
 namespace parquet {
 
@@ -54,7 +54,7 @@ class PARQUET_EXPORT Decryptor {
   int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
                   ::arrow::util::span<uint8_t> plaintext);
   int32_t DecryptWithManagedBuffer(::arrow::util::span<const uint8_t> ciphertext,
-                                  ::arrow::ResizableBuffer* plaintext);
+                                   ::arrow::ResizableBuffer* plaintext);
 
   void UpdateEncodingProperties(std::unique_ptr<EncodingProperties> encoding_properties);
 

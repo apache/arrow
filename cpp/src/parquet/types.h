@@ -571,8 +571,9 @@ struct ParquetCipher {
   enum type { AES_GCM_V1 = 0, AES_GCM_CTR_V1 = 1, EXTERNAL_DBPA_V1 = 2 };
 };
 
-/// Check whether a requested encryption algorithm is supported by the Parquet library.
-/// Used in the crypto factory to validate the requested encryption algorithm is available.
+/// Check whether a requested encryption algorithm is supported by the Parquet
+/// library. Used in the crypto factory to validate the requested encryption
+/// algorithm is available.
 bool IsParquetCipherSupported(ParquetCipher::type cipher);
 
 struct AadMetadata {

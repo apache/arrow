@@ -270,9 +270,9 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     auto meta_encryptor =
         file_encryptor_ ? file_encryptor_->GetColumnMetaEncryptor(path->ToDotString())
                         : nullptr;
-    auto data_encryptor =
-        file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(path->ToDotString(), col_meta)
-                        : nullptr;
+    auto data_encryptor = file_encryptor_ ? file_encryptor_->GetColumnDataEncryptor(
+                                                path->ToDotString(), col_meta)
+                                          : nullptr;
     auto ci_builder = page_index_builder_ && column_properties.page_index_enabled()
                           ? page_index_builder_->GetColumnIndexBuilder(column_ordinal)
                           : nullptr;

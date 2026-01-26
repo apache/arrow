@@ -22,18 +22,18 @@
 #include <gtest/gtest.h>
 
 #include "parquet/column_page.h"
-#include "parquet/types.h"
-#include "parquet/properties.h"
-#include "parquet/platform.h"
 #include "parquet/encryption/encoding_properties.h"
+#include "parquet/platform.h"
+#include "parquet/properties.h"
 #include "parquet/schema.h"
+#include "parquet/types.h"
 
 namespace parquet::encryption::test {
 
+using ::parquet::ColumnDescriptor;
 using ::parquet::Encoding;
 using ::parquet::PageType;
 using ::parquet::Type;
-using ::parquet::ColumnDescriptor;
 
 static std::shared_ptr<::parquet::SchemaDescriptor> MakeSingleInt32Schema(
     const std::string& col_name = "col") {
@@ -43,8 +43,8 @@ static std::shared_ptr<::parquet::SchemaDescriptor> MakeSingleInt32Schema(
   using ::parquet::schema::PrimitiveNode;
 
   NodeVector fields;
-  fields.push_back(PrimitiveNode::Make(col_name, ::parquet::Repetition::REQUIRED,
-                                       Type::INT32));
+  fields.push_back(
+      PrimitiveNode::Make(col_name, ::parquet::Repetition::REQUIRED, Type::INT32));
   NodePtr schema = GroupNode::Make("schema", ::parquet::Repetition::REQUIRED, fields);
 
   auto descr = std::make_shared<::parquet::SchemaDescriptor>();
@@ -189,9 +189,7 @@ TEST(EncodingPropertiesTest, BuilderOptionalFixedLengthBytesAndToMap) {
 }
 
 TEST(EncodingPropertiesTest, MissingPageEncodingThrows) {
-  auto props = EncodingProperties::Builder()
-                   .PageType(PageType::DICTIONARY_PAGE)
-                   .Build();
+  auto props = EncodingProperties::Builder().PageType(PageType::DICTIONARY_PAGE).Build();
   props->set_column_path("schema.col");
 
   EXPECT_THROW(props->validate(), std::invalid_argument);
@@ -296,8 +294,9 @@ TEST(EncodingPropertiesTest, MakeFromMetadataUnknownPageTypeThrows) {
   auto buffer = ::parquet::AllocateBuffer();
   parquet::Page index_page(buffer, PageType::INDEX_PAGE);
 
-  EXPECT_THROW(EncodingProperties::MakeFromMetadata(descr, writer_props.get(), index_page),
-               std::invalid_argument);
+  EXPECT_THROW(
+      EncodingProperties::MakeFromMetadata(descr, writer_props.get(), index_page),
+      std::invalid_argument);
 }
 
 TEST(EncodingPropertiesTest, MakeFromMetadataFixedLenByteArrayPropagatesLength) {
@@ -364,23 +363,23 @@ TEST(EncodingPropertiesTest, SequentialFailuresForDataPageV1RequiredFields) {
                      .PageEncoding(Encoding::PLAIN);
 
   auto props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing num_values
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing num_values
 
   builder.DataPageNumValues(10);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing max def level
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing max def level
 
   builder.DataPageMaxDefinitionLevel(0);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing max rep level
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing max rep level
 
   builder.DataPageMaxRepetitionLevel(0);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing V1 deflvl encoding
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing V1 deflvl encoding
 
   builder.PageV1DefinitionLevelEncoding(Encoding::RLE);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing V1 replvl encoding
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing V1 replvl encoding
 
   builder.PageV1RepetitionLevelEncoding(Encoding::RLE);
   props = builder.Build();
@@ -397,31 +396,31 @@ TEST(EncodingPropertiesTest, SequentialFailuresForDataPageV2RequiredFields) {
                      .PageEncoding(Encoding::DELTA_BINARY_PACKED);
 
   auto props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing num_values
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing num_values
 
   builder.DataPageNumValues(5);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing max def level
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing max def level
 
   builder.DataPageMaxDefinitionLevel(0);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing max rep level
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing max rep level
 
   builder.DataPageMaxRepetitionLevel(0);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing v2 num_nulls
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing v2 num_nulls
 
   builder.PageV2NumNulls(2);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing v2 deflvl bytes
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing v2 deflvl bytes
 
   builder.PageV2DefinitionLevelsByteLength(3);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing v2 replvl bytes
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing v2 replvl bytes
 
   builder.PageV2RepetitionLevelsByteLength(2);
   props = builder.Build();
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing v2 is_compressed
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing v2 is_compressed
 
   builder.PageV2IsCompressed(true);
   props = builder.Build();
@@ -439,12 +438,12 @@ TEST(EncodingPropertiesTest, SequentialFailuresForDictionaryPageRequiredFields) 
   builder.PageType(PageType::DICTIONARY_PAGE);
   auto props = builder.Build();
   // Now validation fails due to missing encoding and column-level properties
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing encoding
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing encoding
 
   builder.PageEncoding(Encoding::RLE_DICTIONARY);
   props = builder.Build();
   // Still missing column/path
-  EXPECT_THROW(props->validate(), std::invalid_argument); // missing column path
+  EXPECT_THROW(props->validate(), std::invalid_argument);  // missing column path
 
   props->set_column_path("schema.col");
   // Dictionary page doesn't require physical type or compression to validate
