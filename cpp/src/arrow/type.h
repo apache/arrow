@@ -2575,6 +2575,16 @@ constexpr bool may_have_validity_bitmap(Type::type id) {
   }
 }
 
+constexpr bool has_variadic_buffers(Type::type id) {
+  switch (id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return true;
+    default:
+      return false;
+  }
+}
+
 ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
 constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
 

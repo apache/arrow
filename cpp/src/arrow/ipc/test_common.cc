@@ -16,6 +16,7 @@
 // under the License.
 
 #include <algorithm>
+#include <concepts>
 #include <cstdint>
 #include <functional>
 #include <memory>
@@ -368,19 +369,27 @@ Status MakeRandomStringArray(int64_t length, bool include_nulls, MemoryPool* poo
   return builder.Finish(out);
 }
 
-template <class BuilderType>
-static Status MakeBinaryArrayWithUniqueValues(int64_t length, bool include_nulls,
-                                              MemoryPool* pool,
-                                              std::shared_ptr<Array>* out) {
-  BuilderType builder(pool);
+template <std::derived_from<ArrayBuilder> BuilderType>
+static Result<std::shared_ptr<Array>> MakeBinaryArrayWithUniqueValues(
+    BuilderType builder, int64_t length, bool include_nulls) {
+  if constexpr (std::is_base_of_v<BinaryViewBuilder, BuilderType>) {
+    // Try to emit several variadic buffers by choosing a small block size.
+    builder.SetBlockSize(512);
+  }
   for (int64_t i = 0; i < length; ++i) {
     if (include_nulls && (i % 7 == 0)) {
       RETURN_NOT_OK(builder.AppendNull());
     } else {
-      RETURN_NOT_OK(builder.Append(std::to_string(i)));
+      // Make sure that some strings are long enough to have non-inline binary views
+      const auto base = std::to_string(i);
+      std::string value;
+      for (int64_t j = 0; j < 3 * (i % 10); ++j) {
+        value += base;
+      }
+      RETURN_NOT_OK(builder.Append(value));
     }
   }
-  return builder.Finish(out);
+  return builder.Finish();
 }
 
 Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_nulls,
@@ -390,22 +399,22 @@ Status MakeStringTypesRecordBatch(std::shared_ptr<RecordBatch>* out, bool with_n
   ArrayVector arrays;
   FieldVector fields;
 
-  auto AppendColumn = [&](auto& MakeArray) {
-    arrays.emplace_back();
-    RETURN_NOT_OK(MakeArray(length, with_nulls, default_memory_pool(), &arrays.back()));
-
-    const auto& type = arrays.back()->type();
-    fields.push_back(field(type->ToString(), type));
+  auto AppendColumn = [&](auto builder) {
+    ARROW_ASSIGN_OR_RAISE(auto array, MakeBinaryArrayWithUniqueValues(
+                                          std::move(builder), length, with_nulls));
+    arrays.push_back(array);
+    fields.push_back(field(array->type()->ToString(), array->type()));
     return Status::OK();
   };
 
-  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<StringBuilder>));
-  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<BinaryBuilder>));
-  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<LargeStringBuilder>));
-  RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<LargeBinaryBuilder>));
+  auto pool = default_memory_pool();
+  RETURN_NOT_OK(AppendColumn(StringBuilder(pool)));
+  RETURN_NOT_OK(AppendColumn(BinaryBuilder(pool)));
+  RETURN_NOT_OK(AppendColumn(LargeStringBuilder(pool)));
+  RETURN_NOT_OK(AppendColumn(LargeBinaryBuilder(pool)));
   if (with_view_types) {
-    RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<StringViewBuilder>));
-    RETURN_NOT_OK(AppendColumn(MakeBinaryArrayWithUniqueValues<BinaryViewBuilder>));
+    RETURN_NOT_OK(AppendColumn(StringViewBuilder(pool)));
+    RETURN_NOT_OK(AppendColumn(BinaryViewBuilder(pool)));
   }
 
   *out = RecordBatch::Make(schema(std::move(fields)), length, std::move(arrays));

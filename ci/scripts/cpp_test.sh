@@ -182,6 +182,15 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Some fuzz regression files may trigger huge memory allocations,
     # let the allocator return null instead of aborting.
     export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
+    export ARROW_FUZZING_VERBOSITY=1
+    # Run golden IPC integration files: these should ideally load without errors,
+    # though some very old ones carry invalid data (such as decimal values
+    # larger than their advertised precision).
+    # shellcheck disable=SC2046
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" $(find "${ARROW_TEST_DATA}"/arrow-ipc-stream/integration -name "*.stream")
+    # shellcheck disable=SC2046
+    "${binary_output_dir}/arrow-ipc-file-fuzz" $(find "${ARROW_TEST_DATA}"/arrow-ipc-stream/integration -name "*.arrow_file")
+    # Run known crash files
     "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
     "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
     "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*
