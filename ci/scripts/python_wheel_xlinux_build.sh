@@ -167,12 +167,7 @@ export ARROW_HOME=/tmp/arrow-dist
 export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
-# Setuptools is really opinionated about where Licenses/Notices go in the source tree.
-# Copy them to the python/ directory so they end up in the wheel root.
-cp /arrow/LICENSE.txt .
-cp /arrow/NOTICE.txt .
-
-python setup.py bdist_wheel
+python -m build --wheel .
 
 echo "=== Strip symbols from wheel ==="
 mkdir -p dist/temp-fix-wheel
