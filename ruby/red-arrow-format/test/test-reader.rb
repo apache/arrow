@@ -225,7 +225,8 @@ module ReaderTests
           end
 
           def build_array
-            Arrow::Time32Array.new(:second, [@time_00_00_10, nil, @time_00_01_10])
+            Arrow::Time32Array.new(:second,
+                                   [@time_00_00_10, nil, @time_00_01_10])
           end
 
           def test_read
