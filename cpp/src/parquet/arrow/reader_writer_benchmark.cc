@@ -778,7 +778,7 @@ static void BM_ReadMultipleRowGroups(::benchmark::State& state) {
     auto arrow_reader = std::move(*arrow_reader_result);
 
     std::shared_ptr<Table> table;
-    PARQUET_ASSIGN_OR_THROW(table, arrow_reader->ReadRowGroups(rgs));
+    PARQUET_ASSIGN_OR_THROW(auto table, arrow_reader->ReadRowGroups(rgs));
   }
   SetBytesProcessed<Int64Type>(state);
 }
