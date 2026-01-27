@@ -15,12 +15,10 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-git]
-url = https://github.com/protegrity/DataBatchProtectionService.git
-# TODO: Change to a specific tag/commit when we have one.
-# https://github.com/protegrity/arrow/issues/179
-revision = 6206fb0e27556a0df9160364caa3819e4af3fe0f
-depth = 1
+project('dbps_agent', 'cpp')
 
-[provide]
-dbps_interface = dbps_interface_dep
+dbps_interface_dep = declare_dependency(
+    include_directories: include_directories('src/common')
+)
+
+meson.override_dependency('dbps_interface', dbps_interface_dep)
