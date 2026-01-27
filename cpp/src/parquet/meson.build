@@ -147,17 +147,18 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
             'CMAKE_BUILD_TYPE': build_type,
             'BUILD_SHARED_LIBS': 'ON',
             'BUILD_TESTING': 'OFF',
+            'BUILD_BENCHMARKS': 'OFF',
             'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
             'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
             'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
-        }
+        },
     )
 
     dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
     dbps_interface_dep = declare_dependency(
         include_directories: include_directories(
             '../../subprojects/DataBatchProtectionService-6206fb0e27556a0df9160364caa3819e4af3fe0f/src/common',
-        )
+        ),
     )
 
     parquet_deps += [dbps_interface_dep, tcb_span_dep, magic_enum_dep]
@@ -172,7 +173,7 @@ parquet_lib = library(
 
 parquet_dep = declare_dependency(
     link_with: parquet_lib,
-    dependencies: parquet_deps
+    dependencies: parquet_deps,
 )
 
 subdir('api')

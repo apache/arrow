@@ -18,7 +18,7 @@
 project('tcb-span', 'cpp')
 
 tcb_span_dep = declare_dependency(
-    include_directories: include_directories('include')
+    include_directories: include_directories('include'),
 )
 
 meson.override_dependency('tcb_span', tcb_span_dep)
