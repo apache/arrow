@@ -101,7 +101,7 @@ if openssl_dep.found()
     parquet_srcs += files(
         'encryption/aes_encryption.cc',
         'encryption/crypto_factory.cc',
-        'encryption/encoding_properties',
+        'encryption/encoding_properties.cc',
         'encryption/encryption_utils.cc',
         'encryption/external_dbpa_encryption.cc',
         'encryption/external/dbpa_library_wrapper',
