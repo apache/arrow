@@ -175,6 +175,14 @@ namespace red_arrow {
                              length);
     }
 
+    inline VALUE convert(const arrow::LargeStringArray& array,
+                         const int64_t i) {
+      int64_t length;
+      const auto value = array.GetValue(i, &length);
+      return rb_utf8_str_new(reinterpret_cast<const char*>(value),
+                             length);
+    }
+
     inline VALUE convert(const arrow::FixedSizeBinaryArray& array,
                          const int64_t i) {
       return rb_enc_str_new(reinterpret_cast<const char*>(array.Value(i)),

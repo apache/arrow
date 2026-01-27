@@ -574,6 +574,10 @@ module ArrowFormat
                          offsets_buffer,
                          values_buffer)
     end
+
+    def to_flatbuffers
+      FB::LargeUtf8::Data.new
+    end
   end
 
   class FixedSizeBinaryType < Type

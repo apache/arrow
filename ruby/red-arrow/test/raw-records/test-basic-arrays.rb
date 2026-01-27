@@ -177,6 +177,16 @@ module RawRecordsBasicArraysTests
     assert_equal(records, actual_records(target))
   end
 
+  def test_large_string
+    records = [
+      ["Ruby"],
+      [nil],
+      ["\u3042"], # U+3042 HIRAGANA LETTER A
+    ]
+    target = build({column: :large_string}, records)
+    assert_equal(records, actual_records(target))
+  end
+
   def test_date32
     records = [
       [Date.new(1960, 1, 1)],
