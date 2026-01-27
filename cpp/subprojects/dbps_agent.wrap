@@ -22,5 +22,3 @@ url = https://github.com/protegrity/DataBatchProtectionService.git
 revision = 6206fb0e27556a0df9160364caa3819e4af3fe0f
 depth = 1
 
-[provide]
-dbps_interface = dbps_interface_dep

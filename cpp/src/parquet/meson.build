@@ -124,9 +124,11 @@ else
 endif
 
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
-    dbps_source_dir = meson.project_source_root() / 'subprojects' / 'dbps_agent'
-    dbps_interface_dep = dependency(
-        'dbps_interface', fallback: ['dbps_agent', 'dbps_interface_dep']
+    subproject('dbps_agent', required: false)
+    dbps_interface_dep = declare_dependency(
+        include_directories: include_directories(
+            '../../subprojects/dbps_agent/src/common'
+        )
     )
 
 
