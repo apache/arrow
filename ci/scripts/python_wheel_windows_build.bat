@@ -29,6 +29,7 @@ call "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliar
 
 echo "=== (%PYTHON%) Clear output directories and leftovers ==="
 del /s /q C:\arrow-build
+del /s /q C:\arrow-dist
 del /s /q C:\arrow\python\dist
 del /s /q C:\arrow\python\build
 del /s /q C:\arrow\python\pyarrow\*.so
@@ -95,6 +96,7 @@ cmake ^
     -DARROW_WITH_ZLIB=%ARROW_WITH_ZLIB% ^
     -DARROW_WITH_ZSTD=%ARROW_WITH_ZSTD% ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE% ^
+    -DCMAKE_INSTALL_PREFIX=C:\arrow-dist ^
     -DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION% ^
     -DCMAKE_UNITY_BUILD=%CMAKE_UNITY_BUILD% ^
     -DMSVC_LINK_VERBOSE=ON ^
@@ -211,7 +213,7 @@ pushd C:\arrow\python
     -Csetup-args="-Dparquet_require_encryption=%PYARROW_WITH_PARQUET_ENCRYPTION%" ^
     -Csetup-args="-Dsubstrait=%PYARROW_WITH_SUBSTRAIT%" ^
     -Csetup-args="-Ds3=%PYARROW_WITH_S3%" ^
-    -Csetup-args="--cmake-prefix-path=C:\Program Files\arrow" || exit /B 1
+    -Csetup-args="--cmake-prefix-path=C:\arrow-dist" || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
@@ -220,13 +222,15 @@ pushd C:\arrow\python
 @REM required by multiple Python libraries in the same process.
 %PYTHON_CMD% -m pip install delvewheel || exit /B 1
 
+@REM Copy .lib files to bin directory for delvewheel to find them
+copy C:\arrow-dist\lib\*.lib C:\arrow-dist\bin\ || exit /B 1
+
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
 %PYTHON_CMD% -m delvewheel repair -vv ^
-    --ignore-existing --with-mangle ^
-    --add-path "C:\Program Files\arrow\bin" ^
-    --include-imports "C:\Program Files\arrow\lib" ^
+    --ignore-existing --with-mangle --include-imports ^
+    --add-path "C:\arrow-dist\bin" ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
 popd
