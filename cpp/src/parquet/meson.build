@@ -123,6 +123,46 @@ else
     parquet_srcs += files('encryption/aes_encryption_nossl.cc')
 endif
 
+if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
+    dbps_source_dir = meson.project_source_root() / 'subprojects' / 'dbps_agent'
+    dbps_interface_dep = declare_dependency(
+        include_directories: include_directories(
+            dbps_source_dir / 'src' / 'common'
+        )
+    )
+
+    parquet_build_dbps_libs = get_option('parquet_build_dbps_libs')
+
+    if parquet_build_dbps_libs.allowed()
+        cmake = import('cmake')
+        dbps_opts = cmake.subproject_options()
+
+        build_type = get_option('build_type')
+        if build_type == 'plain'
+            build_type = 'Release'
+        elif build_type == 'debug'
+            build_type = 'Debug'
+        endif
+
+        build_output_dir = meson.current_build_dir()
+
+        dbps_opts.add_cmake_defines(
+          {
+              'CMAKE_BUILD_TYPE': build_type,
+              'BUILD_SHARED_LIBS': 'ON',
+              'BUILD_TESTING': 'OFF',
+              'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
+              'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
+              'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
+          }
+        )
+
+        dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
+    endif
+
+    parquet_deps += dbps_interface_dep
+endif
+
 parquet_lib = library(
     'arrow-parquet',
     sources: parquet_srcs,
