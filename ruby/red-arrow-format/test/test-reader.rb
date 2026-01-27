@@ -191,7 +191,7 @@ module ReaderTests
         sub_test_case("Date64") do
           def setup(&block)
             @date_2017_08_28_00_00_00 = 1503878400000
-            @date_2025_12_09_00_00_00 = 1765324800000
+            @date_2025_12_10_00_00_00 = 1765324800000
             super(&block)
           end
 
@@ -199,7 +199,7 @@ module ReaderTests
             Arrow::Date64Array.new([
                                      @date_2017_08_28_00_00_00,
                                      nil,
-                                     @date_2025_12_09_00_00_00,
+                                     @date_2025_12_10_00_00_00,
                                    ])
           end
 
@@ -209,7 +209,7 @@ module ReaderTests
                              "value" => [
                                @date_2017_08_28_00_00_00,
                                nil,
-                               @date_2025_12_09_00_00_00,
+                               @date_2025_12_10_00_00_00,
                              ],
                            },
                          ],
