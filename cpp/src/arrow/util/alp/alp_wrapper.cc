@@ -198,16 +198,23 @@ typename AlpWrapper<T>::AlpHeader AlpWrapper<T>::LoadHeader(
 }
 
 template <typename T>
-void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
-                           size_t* comp_size, std::optional<AlpMode> enforce_mode) {
+auto AlpWrapper<T>::CreateSamplingPreset(const T* decomp, size_t decomp_size)
+    -> AlpSamplerResult {
+  ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
+  const uint64_t element_count = decomp_size / sizeof(T);
+
+  AlpSampler<T> sampler;
+  sampler.AddSample({decomp, element_count});
+  return sampler.Finalize();
+}
+
+template <typename T>
+void AlpWrapper<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* comp,
+                                     size_t* comp_size, const AlpSamplerResult& preset) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
   const uint8_t version =
       AlpHeader::IsValidVersion(AlpConstants::kAlpVersion);
-
-  AlpSampler<T> sampler;
-  sampler.AddSample({decomp, element_count});
-  auto sampling_result = sampler.Finalize();
 
   // Make room to store header afterwards.
   char* encoded_header = comp;
@@ -217,7 +224,7 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
   const CompressionProgress compression_progress =
       EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
-                sampling_result.alp_preset);
+                preset.alp_preset);
 
   AlpHeader header{};
   header.version = version;
@@ -228,6 +235,14 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
   std::memcpy(encoded_header, &header, header_size);
   *comp_size = header_size + compression_progress.num_compressed_bytes_produced;
+}
+
+template <typename T>
+void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
+                           size_t* comp_size, std::optional<AlpMode> enforce_mode) {
+  // Sample the data and encode with the preset
+  auto sampling_result = CreateSamplingPreset(decomp, decomp_size);
+  EncodeWithPreset(decomp, decomp_size, comp, comp_size, sampling_result);
 }
 
 template <typename T>
