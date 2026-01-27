@@ -5889,5 +5889,34 @@ TEST(TestArrowReadWrite, OperationsOnClosedWriter) {
   ASSERT_RAISES(Invalid, writer->WriteTable(*table, 1));
 }
 
+TEST(TestArrowReadWrite, AllNulls) {
+  auto schema = ::arrow::schema({::arrow::field("all_nulls", ::arrow::int8())});
+
+  constexpr int64_t length = 3;
+  ASSERT_OK_AND_ASSIGN(auto null_bitmap, ::arrow::AllocateEmptyBitmap(length));
+  auto array_data = ::arrow::ArrayData::Make(
+      ::arrow::int8(), length, {null_bitmap, /*values=*/nullptr}, /*null_count=*/length);
+  auto array = ::arrow::MakeArray(array_data);
+  auto record_batch = ::arrow::RecordBatch::Make(schema, length, {array});
+
+  auto sink = CreateOutputStream();
+  ASSERT_OK_AND_ASSIGN(auto writer, parquet::arrow::FileWriter::Open(
+                                        *schema, ::arrow::default_memory_pool(), sink,
+                                        parquet::default_writer_properties(),
+                                        parquet::default_arrow_writer_properties()));
+  ASSERT_OK(writer->WriteRecordBatch(*record_batch));
+  ASSERT_OK(writer->Close());
+  ASSERT_OK_AND_ASSIGN(auto buffer, sink->Finish());
+
+  std::shared_ptr<::arrow::Table> read_table;
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       parquet::arrow::OpenFile(std::make_shared<BufferReader>(buffer),
+                                                ::arrow::default_memory_pool()));
+  ASSERT_OK(reader->ReadTable(&read_table));
+  auto expected_table = ::arrow::Table::Make(
+      schema, {::arrow::ArrayFromJSON(::arrow::int8(), R"([null, null, null])")});
+  ASSERT_TRUE(expected_table->Equals(*read_table));
+}
+
 }  // namespace arrow
 }  // namespace parquet
