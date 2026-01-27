@@ -124,6 +124,11 @@ else
 endif
 
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
+    tcb_span_dep = dependency('tcb_span', fallback: ['tcb-span', 'tcb_span_dep'])
+    magic_enum_dep = dependency(
+        'magic_enum_header_only', fallback: ['magic-enum', 'magic_enum_dep']
+    )
+
     cmake = import('cmake')
     dbps_opts = cmake.subproject_options()
 
@@ -152,7 +157,7 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
         )
     )
 
-    parquet_deps += dbps_interface_dep
+    parquet_deps += [dbps_interface_dep, tcb_span_dep, magic_enum_dep]
 endif
 
 parquet_lib = library(
