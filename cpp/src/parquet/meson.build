@@ -119,67 +119,43 @@ if openssl_dep.found()
         'encryption/local_wrap_kms_client.cc',
         'encryption/openssl_internal.cc',
     )
+
+    # External DBPA integration and its header-only deps are only relevant when
+    # encryption support is enabled (i.e., OpenSSL is available).
+    if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
+        tcb_span_dep = dependency('tcb_span', fallback: ['tcb-span', 'tcb_span_dep'])
+        magic_enum_dep = dependency(
+            'magic_enum_header_only',
+            fallback: ['magic-enum', 'magic_enum_dep'],
+        )
+
+        # DBPS interface is header-only (dbpa_interface.h and friends).
+        #
+        # IMPORTANT: Do not use Meson's CMake interpreter for DBPS here. DBPS' CMake
+        # target graph (CTest/CDash targets, generator expressions, etc.) has proven
+        # incompatible with Meson's CMake dependency extractor and can fail Meson
+        # configuration with "Cycle in CMake inputs/dependencies detected".
+        #
+        # Instead we use a tiny Meson wrapper (cpp/subprojects/packagefiles/dbps_agent)
+        # to expose the header-only dependency, and (optionally) build DBPS shared
+        # libraries via a build-time custom target that calls the real CMake.
+        dbps_sp = subproject('dbps_agent')
+        dbps_interface_dep = dbps_sp.get_variable('dbps_interface_dep')
+
+        parquet_deps += [dbps_interface_dep, tcb_span_dep, magic_enum_dep]
+
+        if get_option('parquet_build_dbps_libs').enabled()
+            warning(
+                'Meson does not build DBPS shared libraries (parquet_build_dbps_libs is a no-op). ' +
+                'Provide your own agent shared library and set configuration_properties["agent_library_path"], ' +
+                'or build DBPS via its CMake build separately.',
+            )
+        endif
+    endif
 else
     parquet_srcs += files('encryption/aes_encryption_nossl.cc')
 endif
 
-if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
-    tcb_span_dep = dependency('tcb_span', fallback: ['tcb-span', 'tcb_span_dep'])
-    magic_enum_dep = dependency(
-        'magic_enum_header_only',
-        fallback: ['magic-enum', 'magic_enum_dep'],
-    )
-
-    cmake = import('cmake')
-    dbps_opts = cmake.subproject_options()
-
-    build_type = get_option('buildtype')
-    if build_type == 'plain'
-        build_type = 'Release'
-    elif build_type == 'debug'
-        build_type = 'Debug'
-    endif
-
-    build_output_dir = meson.current_build_dir()
-
-    dbps_opts.add_cmake_defines(
-        {
-            'CMAKE_BUILD_TYPE': build_type,
-            'BUILD_SHARED_LIBS': 'ON',
-            'BUILD_TESTS': 'OFF',
-            'BUILD_BENCHMARKS': 'OFF',
-            'GTEST_BUILD_TESTS': 'OFF',
-            'GTEST_BUILD_SAMPLES': 'OFF',
-            'BENCHMARK_ENABLE_TESTING': 'OFF',
-            'BENCHMARK_ENABLE_INSTALL': 'OFF',
-            # 'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
-            #'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
-            #'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
-            #'CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG': build_output_dir,
-            #'CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE': build_output_dir,
-            #'CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG': build_output_dir,
-            #'CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE': build_output_dir,
-            #'CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG': build_output_dir,
-            #'CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE': build_output_dir,
-            #'CMAKE_BUILD_WITH_INSTALL_RPATH': 'ON',
-            #'CMAKE_INSTALL_RPATH': build_output_dir,
-            #'CMAKE_INSTALL_RPATH_USE_LINK_PATH': 'ON',
-            #'CMAKE_BUILD_RPATH_USE_ORIGIN': 'ON',
-            'CMAKE_BUILD_WITH_INSTALL_RPATH': 'ON',
-            'CMAKE_INSTALL_RPATH_USE_LINK_PATH': 'ON',
-            'CMAKE_BUILD_RPATH_USE_ORIGIN': 'ON',
-        },
-    )
-
-    dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
-    dbps_interface_dep = declare_dependency(
-        include_directories: include_directories(
-            '../../subprojects/DataBatchProtectionService-6206fb0e27556a0df9160364caa3819e4af3fe0f/src/common',
-        ),
-    )
-
-    parquet_deps += [dbps_interface_dep, tcb_span_dep, magic_enum_dep]
-endif
 
 parquet_lib = library(
     'arrow-parquet',

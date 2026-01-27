@@ -391,7 +391,9 @@ if needs_filesystem
                 {'ENV{AZURE_SDK_DISABLE_AUTO_VCPKG}': 'TRUE'},
                 {'WARNINGS_AS_ERRORS': 'FALSE'},
             )
-            azure_opt.append_compile_args('cpp', '-fPIC')
+            if host_machine.system() != 'windows'
+                azure_opt.append_compile_args('cpp', '-fPIC')
+            endif
             azure_proj = cmake.subproject('azure', options: azure_opt)
 
             azure_dep = declare_dependency(
@@ -628,13 +630,11 @@ if needs_testing
 
     gtest_dep = dependency('gtest')
     gtest_main_dep = dependency('gtest_main')
-    gtest_dep = dependency('gtest')
     gmock_dep = dependency('gmock')
 else
     filesystem_dep = disabler()
     gtest_dep = disabler()
     gtest_main_dep = disabler()
-    gtest_dep = disabler()
     gmock_dep = disabler()
 endif
 
