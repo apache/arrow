@@ -161,8 +161,6 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
             'CMAKE_INSTALL_RPATH': build_output_dir,
             'CMAKE_INSTALL_RPATH_USE_LINK_PATH': 'ON',
             'CMAKE_BUILD_RPATH': build_output_dir,
-            'CMAKE_INSTALL_RPATH': build_output_dir,
-            'CMAKE_INSTALL_RPATH_USE_LINK_PATH': 'ON',
             'CMAKE_BUILD_RPATH_USE_ORIGIN': 'ON',
         },
     )
