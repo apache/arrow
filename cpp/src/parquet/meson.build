@@ -146,7 +146,11 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
       })
 
     dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
-    dbps_interface_dep = dbps_proj.dependency('dbps_interface')
+    dbps_interface_dep = declare_dependency(
+        include_directories: include_directories(
+            '../../subprojects/DataBatchProtectionService-6206fb0e27556a0df9160364caa3819e4af3fe0f/src'
+        )
+    )
 
     if not dbps_interface_dep.found()
         error('Failed to build DBPS project')
