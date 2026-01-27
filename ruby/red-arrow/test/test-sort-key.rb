@@ -87,14 +87,12 @@ class SortKeyTest < Test::Unit::TestCase
 
     test("+^^String") do
       assert_equal("+^^count",
-                   Arrow::SortKey.new("^count", Arrow::SortOrder::ASCENDING,
-                                      Arrow::NullPlacement::AT_START).to_s)
+                   Arrow::SortKey.new("^count", :ascending, :at_start).to_s)
     end
 
     test("+$$String") do
       assert_equal("+$$count",
-                   Arrow::SortKey.new("$count", Arrow::SortOrder::ASCENDING,
-                                      Arrow::NullPlacement::AT_END).to_s)
+                   Arrow::SortKey.new("$count", :ascending, :at_end).to_s)
     end
   end
 
