@@ -2451,12 +2451,12 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
 
   ASSERT_EQ(2, reader->num_row_groups());
 
-  std::shared_ptr<Table> r1, r2, r3, r4;
+  std::shared_ptr<Table> r2;
   // Read everything
-  ASSERT_OK_AND_ASSIGN(r1, reader->ReadRowGroup(0));
+  ASSERT_OK_AND_ASSIGN(auto r1, reader->ReadRowGroup(0));
   ASSERT_OK_NO_THROW(reader->RowGroup(1)->ReadTable(&r2));
-  ASSERT_OK_AND_ASSIGN(r3, reader->ReadRowGroups({0, 1}));
-  ASSERT_OK_AND_ASSIGN(r4, reader->ReadRowGroups({1}));
+  ASSERT_OK_AND_ASSIGN(auto r3, reader->ReadRowGroups({0, 1}));
+  ASSERT_OK_AND_ASSIGN(auto r4, reader->ReadRowGroups({1}));
 
   std::shared_ptr<Table> concatenated;
 
