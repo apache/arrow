@@ -1432,6 +1432,7 @@ services:
       args:
         base: ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
+        python_variant_suffix: t
       context: .
       dockerfile: ci/docker/python-free-threaded-wheel-windows-test-vs2022.dockerfile
     volumes: *python-wheel-windows-vs2022-volumes
