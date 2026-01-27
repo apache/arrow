@@ -501,10 +501,17 @@ jobs:
         shell: cmd
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
-      # GH-48270 TODO: Resolve segementation fault during Arrow library unload
-      # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
+      # GH-48270 TODO: Resolve segementation fault during Arrow library unload, segementation fault is caught with `ci/scripts/cpp_test.sh`
+      # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI and run tests with `ci/scripts/cpp_test.sh` instead
       # GH-48547 TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
-
+      - name: Run ODBC Unit Tests
+        shell: cmd
+        run: |
+          build\cpp\%ARROW_BUILD_TYPE%\arrow-odbc-spi-impl-test.exe
+      - name: Run ODBC Driver Tests
+        shell: cmd
+        run: |
+          build\cpp\%ARROW_BUILD_TYPE%\arrow-flight-sql-odbc-test.exe
       - name: Install WiX Toolset
         shell: pwsh
         run: |
