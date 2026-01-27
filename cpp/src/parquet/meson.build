@@ -146,16 +146,10 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
       })
 
     dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
-    dbps_interface_dep = dbps_proj.dependency('dbps_interface', required: false)
+    dbps_interface_dep = dbps_proj.dependency('dbps_interface')
 
     if not dbps_interface_dep.found()
-        #dbps_source_dir = dbps_proj.subproject_dir()
-        #dbps_interface_dep = declare_dependency(
-        #    include_directories: include_directories(
-        #        dbps_source_dir / 'src' / 'common'
-        #    )
-        #)
-        error('No idea')
+        error('Failed to build DBPS project')
     endif
 
     parquet_deps += dbps_interface_dep
