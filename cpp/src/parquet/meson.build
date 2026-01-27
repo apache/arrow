@@ -125,10 +125,8 @@ endif
 
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
     subproject('dbps_agent', required: false)
-    dbps_interface_dep = declare_dependency(
-        include_directories: include_directories(
-            '../../subprojects/dbps_agent/src/common'
-        )
+    dbps_interface_dep = dependency(
+        'dbps_interface', fallback: ['dbps_agent', 'dbps_interface_dep']
     )
 
 
@@ -138,7 +136,7 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
         cmake = import('cmake')
         dbps_opts = cmake.subproject_options()
 
-        build_type = get_option('build_type')
+        build_type = get_option('buildtype')
         if build_type == 'plain'
             build_type = 'Release'
         elif build_type == 'debug'

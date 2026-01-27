@@ -15,10 +15,19 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-git]
-url = https://github.com/protegrity/DataBatchProtectionService.git
+#[wrap-git]
+#url = https://github.com/protegrity/DataBatchProtectionService.git
 # TODO: Change to a specific tag/commit when we have one.
 # https://github.com/protegrity/arrow/issues/179
-revision = 6206fb0e27556a0df9160364caa3819e4af3fe0f
-depth = 1
+#revision = 6206fb0e27556a0df9160364caa3819e4af3fe0f
+#depth = 1
 
+[wrap-file]
+directory = dbps_agent-6206fb0e27556a0df9160364caa3819e4af3fe0f
+source_url = https://github.com/protegrity/DataBatchProtectionService/archive/6206fb0e27556a0df9160364caa3819e4af3fe0f.tar.gz
+source_filename = dbps_agent-6206fb0e27556a0df9160364caa3819e4af3fe0f.tar.gz
+source_hash = 9c95a1fec0c9851867a776c3241d3feb59b07bd7a50e653d6214e07a8ad62419
+patch_directory = dbps_agent
+
+[provide]
+dbps_interface = dbps_interface_dep
