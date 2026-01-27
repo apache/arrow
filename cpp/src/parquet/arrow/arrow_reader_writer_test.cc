@@ -2451,12 +2451,12 @@ TEST(TestArrowReadWrite, ReadSingleRowGroup) {
 
   ASSERT_EQ(2, reader->num_row_groups());
 
-  std::shared_ptr<Table> r1, r2, r3, r4;
+  std::shared_ptr<Table> r2;
   // Read everything
-  ASSERT_OK_NO_THROW(reader->ReadRowGroup(0, &r1));
+  ASSERT_OK_AND_ASSIGN(auto r1, reader->ReadRowGroup(0));
   ASSERT_OK_NO_THROW(reader->RowGroup(1)->ReadTable(&r2));
-  ASSERT_OK_NO_THROW(reader->ReadRowGroups({0, 1}, &r3));
-  ASSERT_OK_NO_THROW(reader->ReadRowGroups({1}, &r4));
+  ASSERT_OK_AND_ASSIGN(auto r3, reader->ReadRowGroups({0, 1}));
+  ASSERT_OK_AND_ASSIGN(auto r4, reader->ReadRowGroups({1}));
 
   std::shared_ptr<Table> concatenated;
 
@@ -4085,7 +4085,7 @@ TEST_F(TestNestedSchemaRead, ReadTablePartial) {
   ASSERT_NO_FATAL_FAILURE(ValidateTableArrayTypes(*table));
 
   // columns: {group1.leaf1, leaf3}
-  ASSERT_OK_NO_THROW(reader_->ReadRowGroup(0, {0, 2}, &table));
+  ASSERT_OK_AND_ASSIGN(table, reader_->ReadRowGroup(0, {0, 2}));
   ASSERT_EQ(table->num_rows(), NUM_SIMPLE_TEST_ROWS);
   ASSERT_EQ(table->num_columns(), 2);
   ASSERT_EQ(table->schema()->field(0)->name(), "group1");

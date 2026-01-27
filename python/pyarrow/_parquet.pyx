@@ -1811,7 +1811,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_row_groups
             vector[int] c_column_indices
 
@@ -1825,15 +1825,13 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, c_column_indices,
-                                            &ctable))
+                table_result = self.reader.get().ReadRowGroups(c_row_groups,
+                                                               c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, &ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadRowGroups(c_row_groups)
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def read_all(self, column_indices=None, bint use_threads=True):
         """
