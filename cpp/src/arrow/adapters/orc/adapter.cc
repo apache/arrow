@@ -31,9 +31,11 @@
 
 #include "arrow/adapters/orc/util.h"
 #include "arrow/builder.h"
+#include "arrow/compute/expression.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
+#include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
 #include "arrow/table_builder.h"
@@ -159,6 +161,59 @@ std::optional<MinMaxStats> ExtractStripeStatistics(
   }
 
   return MinMaxStats(min_value, max_value, has_null);
+}
+
+// Build Arrow Expression representing stripe statistics guarantee
+// Returns expression: (field >= min AND field <= max) OR is_null(field)
+//
+// This expression describes what values COULD exist in the stripe.
+// Arrow's SimplifyWithGuarantee() will use this to determine if
+// a predicate could be satisfied by this stripe.
+//
+// Example: If stripe has min=0, max=100, the guarantee is:
+//   (field >= 0 AND field <= 100) OR is_null(field)
+//
+// Then for predicate "field > 200", SimplifyWithGuarantee returns literal(false),
+// indicating the stripe can be skipped.
+compute::Expression BuildMinMaxExpression(
+    const FieldRef& field_ref,
+    const std::shared_ptr<DataType>& field_type,
+    const Scalar& min_value,
+    const Scalar& max_value,
+    bool has_null) {
+
+  // Create field reference expression
+  auto field_expr = compute::field_ref(field_ref);
+
+  // Build range expression: field >= min AND field <= max
+  auto min_expr = compute::greater_equal(field_expr, compute::literal(min_value));
+  auto max_expr = compute::less_equal(field_expr, compute::literal(max_value));
+  auto range_expr = compute::and_(std::move(min_expr), std::move(max_expr));
+
+  // If stripe contains nulls, add null handling
+  // This ensures we don't skip stripes with nulls when predicate
+  // could match null values
+  if (has_null) {
+    auto null_expr = compute::is_null(field_expr);
+    return compute::or_(std::move(range_expr), std::move(null_expr));
+  }
+
+  return range_expr;
+}
+
+// Convenience overload that takes MinMaxStats directly
+compute::Expression BuildMinMaxExpression(
+    const FieldRef& field_ref,
+    const std::shared_ptr<DataType>& field_type,
+    const MinMaxStats& stats) {
+
+  // Convert int64 to Arrow scalar
+  auto min_scalar = std::make_shared<Int64Scalar>(stats.min);
+  auto max_scalar = std::make_shared<Int64Scalar>(stats.max);
+
+  return BuildMinMaxExpression(field_ref, field_type,
+                              *min_scalar, *max_scalar,
+                              stats.has_null);
 }
 
 class ArrowInputFile : public liborc::InputStream {
