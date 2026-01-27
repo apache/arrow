@@ -28,6 +28,7 @@
 #include "arrow/ipc/writer.h"
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
+#include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
 #include "arrow/type.h"
@@ -404,6 +405,37 @@ INSTANTIATE_TEST_SUITE_P(
                          R"("tz","utc")"
                          "\n2016-02-29 10:42:23-0700,2016-02-29 17:42:23Z\n")));
 #endif
+
+TEST(TestWriteCSV, EmptyBatchShouldNotPolluteOutput) {
+  auto schema = arrow::schema({field("col1", utf8())});
+  auto empty_batch = RecordBatchFromJSON(schema, "[]");
+  auto batch_a = RecordBatchFromJSON(schema, R"([{"col1": "a"}])");
+  auto batch_b = RecordBatchFromJSON(schema, R"([{"col1": "b"}])");
+
+  struct TestParam {
+    std::shared_ptr<Table> table;
+    std::string expected_output;
+  };
+
+  std::vector<TestParam> test_params = {
+      // Empty batch in the beginning
+      {Table::FromRecordBatches(schema, {empty_batch, batch_a, batch_b}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+      // Empty batch in the middle
+      {Table::FromRecordBatches(schema, {batch_a, empty_batch, batch_b}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+      // Empty batch in the end
+      {Table::FromRecordBatches(schema, {batch_a, batch_b, empty_batch}).ValueOrDie(),
+       "\"col1\"\n\"a\"\n\"b\"\n"},
+  };
+
+  for (const auto& param : test_params) {
+    ASSERT_OK_AND_ASSIGN(auto out, io::BufferOutputStream::Create());
+    ASSERT_OK(WriteCSV(*param.table, WriteOptions::Defaults(), out.get()));
+    ASSERT_OK_AND_ASSIGN(auto buffer, out->Finish());
+    EXPECT_EQ(buffer->ToString(), param.expected_output);
+  }
+}
 
 }  // namespace csv
 }  // namespace arrow

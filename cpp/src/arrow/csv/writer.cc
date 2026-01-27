@@ -541,7 +541,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     for (auto maybe_slice : iterator) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<RecordBatch> slice, maybe_slice);
       RETURN_NOT_OK(TranslateMinimalBatch(*slice));
-      RETURN_NOT_OK(sink_->Write(data_buffer_));
+      RETURN_NOT_OK(FlushToSink());
       stats_.num_record_batches++;
     }
     return Status::OK();
@@ -554,7 +554,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     RETURN_NOT_OK(reader.ReadNext(&batch));
     while (batch != nullptr) {
       RETURN_NOT_OK(TranslateMinimalBatch(*batch));
-      RETURN_NOT_OK(sink_->Write(data_buffer_));
+      RETURN_NOT_OK(FlushToSink());
       RETURN_NOT_OK(reader.ReadNext(&batch));
       stats_.num_record_batches++;
     }
@@ -588,6 +588,13 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
               options_.io_context.pool()));
     }
     return Status::OK();
+  }
+
+  // GH-36889: Flush buffer to sink and clear it to avoid stale content
+  // being written again if the next batch is empty.
+  Status FlushToSink() {
+    RETURN_NOT_OK(sink_->Write(data_buffer_));
+    return data_buffer_->Resize(0, /*shrink_to_fit=*/false);
   }
 
   int64_t CalculateHeaderSize(QuotingStyle quoting_style) const {
@@ -654,7 +661,7 @@ class CSVWriterImpl : public ipc::RecordBatchWriter {
     next += options_.eol.size();
     DCHECK_EQ(reinterpret_cast<uint8_t*>(next),
               data_buffer_->data() + data_buffer_->size());
-    return sink_->Write(data_buffer_);
+    return FlushToSink();
   }
 
   Status TranslateMinimalBatch(const RecordBatch& batch) {
