@@ -301,6 +301,13 @@ module ArrowFormat
       @values_buffer = values_buffer
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@values_buffer)
+    end
+
     def to_a
       byte_width = @type.byte_width
       values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
