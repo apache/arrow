@@ -1,5 +1,20 @@
 --- a/CMakeLists.txt
 +++ b/CMakeLists.txt
+@@ -10,8 +10,10 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+ # Build options
+ option(BUILD_TESTS "Build test executables" ON)
+ option(BUILD_SHARED_LIBS "Build shared libraries" ON)
+
+ # Enable CTest and GoogleTest integration
+-enable_testing()
+-include(CTest)
++if(BUILD_TESTS)
++  enable_testing()
++  include(CTest)
++endif()
+
+ # =============================================================================
+ # Dependencies
 @@ -520,15 +520,19 @@ endif()
 
  # All target (everything)
