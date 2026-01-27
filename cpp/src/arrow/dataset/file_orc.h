@@ -22,6 +22,7 @@
 #include <memory>
 #include <string>
 
+#include "arrow/adapters/orc/adapter.h"
 #include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -74,6 +75,15 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
 /// \brief A FileFragment implementation for ORC files with predicate pushdown
 class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
  public:
+  /// \brief Filter stripes based on predicate using stripe statistics
+  ///
+  /// Returns indices of stripes where the predicate may be satisfied.
+  /// Currently supports INT64 columns with greater-than operator only.
+  ///
+  /// \param predicate Arrow compute expression to evaluate
+  /// \return Vector of stripe indices to read (0-based)
+  Result<std::vector<int>> FilterStripes(const compute::Expression& predicate);
+
   /// \brief Ensure metadata is cached
   Status EnsureMetadataCached();
 
@@ -82,9 +92,20 @@ class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
                   compute::Expression partition_expression,
                   std::shared_ptr<Schema> physical_schema);
 
+  /// \brief Test each stripe against predicate
+  ///
+  /// Returns simplified expressions (one per stripe) after applying
+  /// stripe statistics as guarantees.
+  ///
+  /// \param predicate Arrow compute expression to test
+  /// \return Vector of simplified expressions
+  Result<std::vector<compute::Expression>> TestStripes(
+      const compute::Expression& predicate);
+
   // Cached metadata to avoid repeated I/O
   mutable util::Mutex metadata_mutex_;
   mutable std::shared_ptr<Schema> cached_schema_;
+  mutable std::vector<int64_t> stripe_num_rows_;
   mutable bool metadata_cached_ = false;
 
   // Lazy evaluation structures for predicate pushdown
@@ -93,6 +114,9 @@ class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
 
   // Track which fields have been processed to avoid duplicate work
   mutable std::vector<bool> statistics_expressions_complete_;
+
+  // Cached ORC reader for accessing stripe statistics
+  mutable std::unique_ptr<adapters::orc::ORCFileReader> cached_reader_;
 
   friend class OrcFileFormat;
 };

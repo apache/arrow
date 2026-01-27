@@ -24,11 +24,14 @@
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
+#include "arrow/io/file.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/future.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging.h"
+#include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
+#include <numeric>
 
 namespace arrow {
 
@@ -247,8 +250,15 @@ Status OrcFileFragment::EnsureMetadataCached() {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(source()));
   ARROW_ASSIGN_OR_RAISE(cached_schema_, reader->ReadSchema());
 
-  // Get number of stripes
+  // Get number of stripes and cache stripe info
   int num_stripes = reader->NumberOfStripes();
+
+  // Cache stripe row counts for later use
+  stripe_num_rows_.resize(num_stripes);
+  for (int i = 0; i < num_stripes; i++) {
+    ARROW_ASSIGN_OR_RAISE(auto stripe_metadata, reader->GetStripeMetadata(i));
+    stripe_num_rows_[i] = stripe_metadata->num_rows;
+  }
 
   // Initialize lazy evaluation structures
   // One expression per stripe, starting as literal(true) (unprocessed)
@@ -263,6 +273,146 @@ Status OrcFileFragment::EnsureMetadataCached() {
 
   metadata_cached_ = true;
   return Status::OK();
+}
+
+Result<std::vector<compute::Expression>> OrcFileFragment::TestStripes(
+    const compute::Expression& predicate) {
+
+  // Ensure metadata is loaded
+  RETURN_NOT_OK(EnsureMetadataCached());
+
+  // Extract fields referenced in predicate
+  std::vector<FieldRef> field_refs = compute::FieldsInExpression(predicate);
+
+  // Open reader if not already cached
+  if (!cached_reader_) {
+    ARROW_ASSIGN_OR_RAISE(auto input,
+        arrow::io::RandomAccessFile::Open(source().path()));
+    ARROW_ASSIGN_OR_RAISE(cached_reader_,
+        adapters::orc::ORCFileReader::Open(input, arrow::default_memory_pool()));
+  }
+
+  // Process each field referenced in predicate (lazy evaluation)
+  for (const FieldRef& field_ref : field_refs) {
+    // Resolve field reference to actual field
+    ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*cached_schema_));
+
+    if (!match.has_value()) {
+      continue;  // Field not in schema
+    }
+
+    const auto& [field_indices, field] = *match;
+
+    // Only support top-level fields for now
+    if (field_indices.size() != 1) {
+      continue;  // Nested field - skip
+    }
+
+    int field_index = field_indices[0];
+
+    // Check if already processed (lazy evaluation)
+    if (statistics_expressions_complete_[field_index]) {
+      continue;  // Already processed
+    }
+    statistics_expressions_complete_[field_index] = true;
+
+    // PR4 limitation: only support INT64
+    if (field->type()->id() != Type::INT64) {
+      continue;  // Unsupported type
+    }
+
+    // ORC column ID: top-level fields are 1-indexed (0 is root struct)
+    uint32_t orc_column_id = static_cast<uint32_t>(field_index + 1);
+
+    // Process all stripes for this field
+    for (size_t stripe_idx = 0; stripe_idx < stripe_num_rows_.size(); stripe_idx++) {
+      // Get stripe statistics
+      ARROW_ASSIGN_OR_RAISE(auto stripe_stats,
+          cached_reader_->GetStripeStatistics(stripe_idx));
+
+      // Extract min/max statistics - this calls the function from PR1
+      // (need to inline it here for now since it's in adapter.cc's anonymous namespace)
+      const auto* col_stats = stripe_stats->getColumnStatistics(orc_column_id);
+      if (!col_stats) {
+        continue;  // No statistics
+      }
+
+      const auto* int_stats =
+          dynamic_cast<const liborc::IntegerColumnStatistics*>(col_stats);
+      if (!int_stats || !int_stats->hasMinimum() || !int_stats->hasMaximum()) {
+        continue;  // Statistics incomplete
+      }
+
+      int64_t min_value = int_stats->getMinimum();
+      int64_t max_value = int_stats->getMaximum();
+      bool has_null = col_stats->hasNull();
+
+      if (min_value > max_value) {
+        continue;  // Invalid statistics
+      }
+
+      // Build guarantee expression (from PR2 logic)
+      auto field_expr = compute::field_ref(field_ref);
+      auto min_scalar = std::make_shared<Int64Scalar>(min_value);
+      auto max_scalar = std::make_shared<Int64Scalar>(max_value);
+
+      auto min_expr = compute::greater_equal(field_expr, compute::literal(*min_scalar));
+      auto max_expr = compute::less_equal(field_expr, compute::literal(*max_scalar));
+      auto range_expr = compute::and_(std::move(min_expr), std::move(max_expr));
+
+      compute::Expression guarantee_expr;
+      if (has_null) {
+        auto null_expr = compute::is_null(field_expr);
+        guarantee_expr = compute::or_(std::move(range_expr), std::move(null_expr));
+      } else {
+        guarantee_expr = std::move(range_expr);
+      }
+
+      // Fold into accumulated expression for this stripe
+      FoldingAnd(&statistics_expressions_[stripe_idx], std::move(guarantee_expr));
+    }
+  }
+
+  // Simplify predicate with each stripe's guarantee
+  std::vector<compute::Expression> simplified_expressions;
+  simplified_expressions.reserve(stripe_num_rows_.size());
+
+  for (size_t i = 0; i < stripe_num_rows_.size(); i++) {
+    ARROW_ASSIGN_OR_RAISE(auto simplified,
+        compute::SimplifyWithGuarantee(predicate, statistics_expressions_[i]));
+    simplified_expressions.push_back(std::move(simplified));
+  }
+
+  return simplified_expressions;
+}
+
+Result<std::vector<int>> OrcFileFragment::FilterStripes(
+    const compute::Expression& predicate) {
+
+  // Feature flag for disabling predicate pushdown
+  if (auto env_var = arrow::internal::GetEnvVar("ARROW_ORC_DISABLE_PREDICATE_PUSHDOWN")) {
+    if (env_var.ok() && *env_var == "1") {
+      // Return all stripe indices
+      std::vector<int> all_stripes(stripe_num_rows_.size());
+      std::iota(all_stripes.begin(), all_stripes.end(), 0);
+      return all_stripes;
+    }
+  }
+
+  // Test each stripe
+  ARROW_ASSIGN_OR_RAISE(auto tested_expressions, TestStripes(predicate));
+
+  // Select stripes where predicate is satisfiable
+  std::vector<int> selected_stripes;
+  selected_stripes.reserve(stripe_num_rows_.size());
+
+  for (size_t i = 0; i < tested_expressions.size(); i++) {
+    if (compute::IsSatisfiable(tested_expressions[i])) {
+      selected_stripes.push_back(static_cast<int>(i));
+    }
+  }
+
+  return selected_stripes;
 }
 
 // //
