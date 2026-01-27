@@ -115,6 +115,7 @@ if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   export ARROW_CPP_DOXYGEN_XML=${build_dir}/cpp/apidoc/xml
   pushd "${build_dir}"
   sphinx-build \
+    -j auto \
     -b html \
     "${python_build_dir}/docs/source" \
     "${build_dir}/docs"
