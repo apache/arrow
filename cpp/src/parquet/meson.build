@@ -124,41 +124,38 @@ else
 endif
 
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
-    dbps_source_dir = meson.project_source_root() / 'subprojects' / 'DataBatchProtectionService-6206fb0e27556a0df9160364caa3819e4af3fe0f'
-    dbps_interface_dep = declare_dependency(
-        include_directories: include_directories(
-            dbps_source_dir / 'src' / 'common'
-        )
-    )
+    cmake = import('cmake')
+    dbps_opts = cmake.subproject_options()
 
+    build_type = get_option('buildtype')
+    if build_type == 'plain'
+        build_type = 'Release'
+    elif build_type == 'debug'
+        build_type = 'Debug'
+    endif
 
-    parquet_build_dbps_libs = get_option('parquet_build_dbps_libs')
+    build_output_dir = meson.current_build_dir()
 
-    if parquet_build_dbps_libs.allowed()
-        cmake = import('cmake')
-        dbps_opts = cmake.subproject_options()
+    dbps_opts.add_cmake_defines({
+          'CMAKE_BUILD_TYPE': build_type,
+          'BUILD_SHARED_LIBS': 'ON',
+          'BUILD_TESTING': 'OFF',
+          'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
+          'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
+          'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
+      })
 
-        build_type = get_option('buildtype')
-        if build_type == 'plain'
-            build_type = 'Release'
-        elif build_type == 'debug'
-            build_type = 'Debug'
-        endif
+    dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
+    dbps_interface_dep = dbps_proj.dependency('dbps_interface', required: false)
 
-        build_output_dir = meson.current_build_dir()
-
-        dbps_opts.add_cmake_defines(
-          {
-              'CMAKE_BUILD_TYPE': build_type,
-              'BUILD_SHARED_LIBS': 'ON',
-              'BUILD_TESTING': 'OFF',
-              'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
-              'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
-              'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
-          }
-        )
-
-        dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
+    if not dbps_interface_dep.found()
+        #dbps_source_dir = dbps_proj.subproject_dir()
+        #dbps_interface_dep = declare_dependency(
+        #    include_directories: include_directories(
+        #        dbps_source_dir / 'src' / 'common'
+        #    )
+        #)
+        error('No idea')
     endif
 
     parquet_deps += dbps_interface_dep
