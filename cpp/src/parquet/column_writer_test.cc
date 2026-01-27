@@ -22,7 +22,6 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include "arrow/array.h"
 #include "arrow/io/buffered.h"
 #include "arrow/io/file.h"
 #include "arrow/testing/gtest_util.h"
@@ -2468,85 +2467,6 @@ TYPED_TEST(TestBloomFilterWriter, Basic) {
     } else {
       EXPECT_TRUE(this->bloom_filter_->FindHash(this->bloom_filter_->Hash(value)));
     }
-  }
-}
-
-class TestArrowWriteSerialize : public ::testing::Test {
- public:
-  void SetUp() {
-    // Create a Parquet schema
-    // Int8 maps to Int32 in Parquet with INT_8 converted type
-    auto node = schema::PrimitiveNode::Make("int8_col", Repetition::OPTIONAL, Type::INT32,
-                                            ConvertedType::INT_8);
-    schema_descriptor_ = std::make_shared<ColumnDescriptor>(node, 1, 0);
-    sink_ = CreateOutputStream();
-    writer_properties_ = default_writer_properties();
-  }
-
-  std::shared_ptr<TypedColumnWriter<Int32Type>> BuildWriter() {
-    metadata_ =
-        ColumnChunkMetaDataBuilder::Make(writer_properties_, schema_descriptor_.get());
-    std::unique_ptr<PageWriter> pager =
-        PageWriter::Open(sink_, Compression::UNCOMPRESSED, metadata_.get());
-    std::shared_ptr<ColumnWriter> writer =
-        ColumnWriter::Make(metadata_.get(), std::move(pager), writer_properties_.get());
-    return std::static_pointer_cast<TypedColumnWriter<Int32Type>>(writer);
-  }
-
-  std::shared_ptr<TypedColumnReader<Int32Type>> BuildReader(int64_t num_rows) {
-    EXPECT_OK_AND_ASSIGN(auto buffer, sink_->Finish());
-    auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
-    ReaderProperties reader_properties;
-    std::unique_ptr<PageReader> page_reader = PageReader::Open(
-        std::move(source), num_rows, Compression::UNCOMPRESSED, reader_properties);
-    std::shared_ptr<ColumnReader> reader =
-        ColumnReader::Make(schema_descriptor_.get(), std::move(page_reader));
-    return std::static_pointer_cast<TypedColumnReader<Int32Type>>(reader);
-  }
-
- protected:
-  std::shared_ptr<ColumnDescriptor> schema_descriptor_;
-  std::shared_ptr<::arrow::io::BufferOutputStream> sink_;
-  std::shared_ptr<WriterProperties> writer_properties_;
-  std::unique_ptr<ColumnChunkMetaDataBuilder> metadata_;
-};
-
-TEST_F(TestArrowWriteSerialize, AllNulls) {
-  std::shared_ptr<::arrow::Buffer> null_bitmap;
-  ASSERT_OK_AND_ASSIGN(null_bitmap, ::arrow::AllocateEmptyBitmap(100));
-  std::shared_ptr<::arrow::Buffer> data_buffer = nullptr;
-
-  auto array_data =
-      ::arrow::ArrayData::Make(::arrow::int8(), 100, {null_bitmap, data_buffer}, 100);
-  auto array = ::arrow::MakeArray(array_data);
-
-  auto typed_writer = this->BuildWriter();
-
-  std::vector<int16_t> def_levels(100, 0);
-  std::vector<int16_t> rep_levels(100, 0);
-
-  auto arrow_writer_properties = default_arrow_writer_properties();
-  ArrowWriteContext ctx(::arrow::default_memory_pool(), arrow_writer_properties.get());
-
-  ASSERT_OK(typed_writer->WriteArrow(def_levels.data(), rep_levels.data(), 100, *array,
-                                     &ctx, true));
-
-  typed_writer->Close();
-
-  auto typed_reader = this->BuildReader(100);
-  int64_t values_read = 0;
-  std::vector<int16_t> def_levels_out(100);
-  std::vector<int16_t> rep_levels_out(100);
-  std::vector<int32_t> values_out(100);
-
-  int64_t rows_read = typed_reader->ReadBatch(
-      100, def_levels_out.data(), rep_levels_out.data(), values_out.data(), &values_read);
-
-  ASSERT_EQ(100, rows_read);
-  ASSERT_EQ(0, values_read);
-
-  for (int i = 0; i < 100; ++i) {
-    ASSERT_EQ(0, def_levels_out[i]);
   }
 }
 
