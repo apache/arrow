@@ -31,6 +31,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
+#include <limits>
 #include <numeric>
 
 namespace arrow {
@@ -349,8 +350,8 @@ Result<std::vector<compute::Expression>> OrcFileFragment::TestStripes(
     }
     statistics_expressions_complete_[field_index] = true;
 
-    // PR4 limitation: only support INT64
-    if (field->type()->id() != Type::INT64) {
+    // Support INT32 and INT64 types
+    if (field->type()->id() != Type::INT32 && field->type()->id() != Type::INT64) {
       continue;  // Unsupported type
     }
 
@@ -384,10 +385,24 @@ Result<std::vector<compute::Expression>> OrcFileFragment::TestStripes(
         continue;  // Invalid statistics
       }
 
-      // Build guarantee expression (from PR2 logic)
+      // Build guarantee expression
       auto field_expr = compute::field_ref(field_ref);
-      auto min_scalar = std::make_shared<Int64Scalar>(min_value);
-      auto max_scalar = std::make_shared<Int64Scalar>(max_value);
+      std::shared_ptr<Scalar> min_scalar, max_scalar;
+
+      // Handle INT32 with overflow protection
+      if (field->type()->id() == Type::INT32) {
+        // Check for INT32 overflow
+        if (min_value < std::numeric_limits<int32_t>::min() ||
+            max_value > std::numeric_limits<int32_t>::max()) {
+          // Statistics overflow - skip predicate pushdown for safety
+          continue;
+        }
+        min_scalar = std::make_shared<Int32Scalar>(static_cast<int32_t>(min_value));
+        max_scalar = std::make_shared<Int32Scalar>(static_cast<int32_t>(max_value));
+      } else {
+        min_scalar = std::make_shared<Int64Scalar>(min_value);
+        max_scalar = std::make_shared<Int64Scalar>(max_value);
+      }
 
       auto min_expr = compute::greater_equal(field_expr, compute::literal(*min_scalar));
       auto max_expr = compute::less_equal(field_expr, compute::literal(*max_scalar));
