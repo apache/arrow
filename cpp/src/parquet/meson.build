@@ -151,6 +151,15 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
             'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
             'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
             'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
+            'CMAKE_LIBRARY_OUTPUT_DIRECTORY_DEBUG': build_output_dir,
+            'CMAKE_LIBRARY_OUTPUT_DIRECTORY_RELEASE': build_output_dir,
+            'CMAKE_RUNTIME_OUTPUT_DIRECTORY_DEBUG': build_output_dir,
+            'CMAKE_RUNTIME_OUTPUT_DIRECTORY_RELEASE': build_output_dir,
+            'CMAKE_ARCHIVE_OUTPUT_DIRECTORY_DEBUG': build_output_dir,
+            'CMAKE_ARCHIVE_OUTPUT_DIRECTORY_RELEASE': build_output_dir,
+            'CMAKE_BUILD_WITH_INSTALL_RPATH': 'ON',
+            'CMAKE_INSTALL_RPATH': build_output_dir,
+            'CMAKE_INSTALL_RPATH_USE_LINK_PATH': 'ON',
         },
     )
 
