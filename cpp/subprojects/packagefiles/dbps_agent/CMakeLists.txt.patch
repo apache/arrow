@@ -1,0 +1,30 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -520,15 +520,19 @@ endif()
+
+ # All target (everything)
+ add_custom_target(all_targets
+   DEPENDS
+     libraries
+     executables
+   COMMENT "Building all targets"
+ )
+
+ # Add tests to all_targets if enabled
+ if(BUILD_TESTS)
+-  add_dependencies(all_targets tests)
++  # Only add test dependencies when tests target actually exists
++  # This prevents Meson from detecting cycles when BUILD_TESTS is OFF
++  if(TARGET tests)
++    add_dependencies(all_targets tests)
++  endif()
+ endif()
+
+ # Add client shared library to all_targets if enabled
+ if(BUILD_SHARED_LIBS)
+-  add_dependencies(all_targets shared_libraries)
++  # Only add shared library dependencies when shared_libraries target exists
++  if(TARGET shared_libraries)
++    add_dependencies(all_targets shared_libraries)
++  endif()
+ endif()

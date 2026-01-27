@@ -146,7 +146,7 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
         {
             'CMAKE_BUILD_TYPE': build_type,
             'BUILD_SHARED_LIBS': 'ON',
-            'BUILD_TESTING': 'OFF',
+            'BUILD_TESTS': 'OFF',
             'BUILD_BENCHMARKS': 'OFF',
             'GTEST_BUILD_TESTS': 'OFF',
             'GTEST_BUILD_SAMPLES': 'OFF',
