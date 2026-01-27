@@ -1,0 +1,223 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: R Extra
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/r_extra.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'ci/docker/**'
+      - 'ci/etc/rprofile'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/r_*.sh'
+      - 'cpp/**'
+      - 'compose.yaml'
+      - 'dev/archery/archery/**'
+      - 'r/**'
+    tags:
+      - '**'
+  pull_request:
+    paths:
+      - '.dockerignore'
+      - '.github/workflows/check_labels.yml'
+      - '.github/workflows/r_extra.yml'
+      - '.github/workflows/report_ci.yml'
+      - 'ci/docker/**'
+      - 'ci/etc/rprofile'
+      - 'ci/scripts/PKGBUILD'
+      - 'ci/scripts/cpp_*.sh'
+      - 'ci/scripts/install_minio.sh'
+      - 'ci/scripts/r_*.sh'
+      - 'cpp/**'
+      - 'compose.yaml'
+      - 'dev/archery/archery/**'
+      - 'r/**'
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: |
+        0 4 * * *
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-labels:
+    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
+    uses: ./.github/workflows/check_labels.yml
+    secrets: inherit
+    with:
+      parent-workflow: r_extra
+
+  docker:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: ${{ matrix.runs-on }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: R')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
+            title: Rocker R-ver
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e ARROW_DEPENDENCY_SOURCE=BUNDLED
+            title: Rocker R-ver - Bundled Dependencies
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e LIBARROW_MINIMAL=TRUE
+            title: Rocker R-ver - Minimal
+          - envs:
+              - R_IMAGE=r-ver
+              - R_ORG=rocker
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e ARROW_OFFLINE_BUILD=true
+            title: Rocker R-ver - Offline build
+          - envs:
+              - R_IMAGE=ubuntu-release
+              - R_ORG=rhub
+            image: r
+            runs-on: ubuntu-latest
+            title: Rhub
+          - envs:
+              - R_CUSTOM_CCACHE=true
+              - R_IMAGE=ubuntu-gcc12
+              - R_ORG=rhub
+            image: r
+            runs-on: ubuntu-latest
+            title: Rhub GCC 12
+          - envs:
+              - R_IMAGE=gcc13
+              - R_ORG=rhub
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e INSTALL_ARGS=--use-LTO
+            title: Rhub GCC 13 with LTO
+          - envs:
+              - R_IMAGE=r-base
+              - R_ORG=rstudio
+              - R_TAG=4.2-jammy
+            image: r
+            runs-on: ubuntu-latest
+            title: RStudio R-Base 4.2
+    env:
+      ARCHERY_DEBUG: 1
+      ARROW_ENABLE_TIMING_TESTS: OFF
+      DOCKER_VOLUME_PREFIX: ".docker/"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@v5
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: extra-${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        continue-on-error: ${{ matrix.continue-on-error || false }}
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          ENVS: ${{ toJSON(matrix.envs) }}
+        run: |
+          source ci/scripts/util_enable_core_dumps.sh
+          if [ "${ENVS}" != "null" ]; then
+            echo "${ENVS}" | jq -r '.[]' | while read env; do
+              echo "${env}" >> .env
+            done
+          fi
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+      - name: Dump install logs
+        run: cat r/check/arrow.Rcheck/00install.out
+        if: always()
+        continue-on-error: true
+      - name: Dump test logs
+        run: cat r/check/arrow.Rcheck/tests/testthat.Rout*
+        if: always()
+        continue-on-error: true
+      - name: Save the test output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: test-output-{{ "${{ matrix.config.r_image }}" }}
+          path: r/check/arrow.Rcheck/tests/testthat.Rout*
+        continue-on-error: true
+
+  report-extra-cpp:
+    if: github.event_name == 'schedule' && always()
+    needs:
+      - docker
+    uses: ./.github/workflows/report_ci.yml
+    secrets: inherit

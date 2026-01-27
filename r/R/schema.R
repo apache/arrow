@@ -366,7 +366,7 @@ length.Schema <- function(x) x$num_fields
   if (is.numeric(i)) {
     if (all(i < 0)) {
       # in R, negative i means "everything but i"
-      i <- setdiff(seq_len(length(x)), -1 * i)
+      i <- setdiff(seq_along(x), -1 * i)
     }
   }
   fields <- map(i, ~ x[[.]])

@@ -169,6 +169,40 @@ static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
 
+struct PARQUET_EXPORT BloomFilterOptions {
+  /// Expected number of distinct values (NDV) in the bloom filter.
+  ///
+  /// Bloom filters are most effective for high-cardinality columns. A good default
+  /// is to set ndv equal to the number of rows. Lower values reduce disk usage but
+  /// may not be worthwhile for very small NDVs.
+  ///
+  /// Increasing ndv (without increasing fpp) increases disk and memory usage.
+  int32_t ndv = 1 << 20;
+
+  /// False-positive probability (FPP) of the bloom filter.
+  ///
+  /// Lower FPP values require more disk and memory space. For a fixed ndv, the
+  /// space requirement grows roughly proportional to log(1/fpp). Recommended
+  /// values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+  /// the bitset may exceed the size of the actual data. Set ndv appropriately
+  /// to minimize space usage.
+  ///
+  /// Below is a table to demonstrate estimated size using common values.
+  ///
+  /// | ndv        | fpp   | bits/key | size      |
+  /// |:-----------|:------|:---------|:----------|
+  /// | 100,000    | 0.10  | 10.5     | 128 KiB   |
+  /// | 100,000    | 0.05  | 10.5     | 128 KiB   |
+  /// | 100,000    | 0.01  | 10.5     | 128 KiB   |
+  /// | 1,000,000  | 0.10  | 8.4      | 1024 KiB  |
+  /// | 1,000,000  | 0.05  | 8.4      | 1024 KiB  |
+  /// | 1,000,000  | 0.01  | 16.8     | 2048 KiB  |
+  /// | 10,000,000 | 0.10  | 6.7      | 8192 KiB  |
+  /// | 10,000,000 | 0.05  | 13.4     | 16384 KiB |
+  /// | 10,000,000 | 0.01  | 13.4     | 16384 KiB |
+  double fpp = 0.05;
+};
+
 class PARQUET_EXPORT ColumnProperties {
  public:
   ColumnProperties(Encoding::type encoding = DEFAULT_ENCODING,
@@ -215,6 +249,15 @@ class PARQUET_EXPORT ColumnProperties {
     page_index_enabled_ = page_index_enabled;
   }
 
+  void set_bloom_filter_options(const BloomFilterOptions& bloom_filter_options) {
+    if (bloom_filter_options.fpp >= 1.0 || bloom_filter_options.fpp <= 0.0) {
+      throw ParquetException(
+          "Bloom filter false positive probability must be in (0.0, 1.0), got " +
+          std::to_string(bloom_filter_options.fpp));
+    }
+    bloom_filter_options_ = bloom_filter_options;
+  }
+
   Encoding::type encoding() const { return encoding_; }
 
   Compression::type compression() const { return codec_; }
@@ -236,6 +279,12 @@ class PARQUET_EXPORT ColumnProperties {
 
   bool page_index_enabled() const { return page_index_enabled_; }
 
+  std::optional<BloomFilterOptions> bloom_filter_options() const {
+    return bloom_filter_options_;
+  }
+
+  bool bloom_filter_enabled() const { return bloom_filter_options_.has_value(); }
+
  private:
   Encoding::type encoding_;
   Compression::type codec_;
@@ -244,6 +293,7 @@ class PARQUET_EXPORT ColumnProperties {
   size_t max_stats_size_;
   std::shared_ptr<CodecOptions> codec_options_;
   bool page_index_enabled_;
+  std::optional<BloomFilterOptions> bloom_filter_options_;
 };
 
 // EXPERIMENTAL: Options for content-defined chunking.
@@ -286,7 +336,7 @@ struct PARQUET_EXPORT CdcOptions {
 
 class PARQUET_EXPORT WriterProperties {
  public:
-  class Builder {
+  class PARQUET_EXPORT Builder {
    public:
     Builder()
         : pool_(::arrow::default_memory_pool()),
@@ -322,7 +372,9 @@ class PARQUET_EXPORT WriterProperties {
           content_defined_chunking_enabled_(
               properties.content_defined_chunking_enabled()),
           content_defined_chunking_options_(
-              properties.content_defined_chunking_options()) {}
+              properties.content_defined_chunking_options()) {
+      CopyColumnSpecificProperties(properties);
+    }
 
     /// \brief EXPERIMENTAL: Use content-defined page chunking for all columns.
     ///
@@ -666,6 +718,42 @@ class PARQUET_EXPORT WriterProperties {
       return this->disable_statistics(path->ToDotString());
     }
 
+    /// Disable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* disable_bloom_filter(const std::string& path) {
+      bloom_filter_options_.erase(path);
+      return this;
+    }
+
+    /// Disable bloom filter for the column specified by `path`.
+    /// Default disabled.
+    Builder* disable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path) {
+      return this->disable_bloom_filter(path->ToDotString());
+    }
+
+    /// Enable bloom filter for the column specified by `path`.
+    ///
+    /// Default disabled.
+    ///
+    /// \note Bloom filter is not supported for boolean columns. ParquetException will
+    /// be thrown during write if the column is of boolean type.
+    Builder* enable_bloom_filter(const std::string& path,
+                                 const BloomFilterOptions& bloom_filter_options) {
+      bloom_filter_options_[path] = bloom_filter_options;
+      return this;
+    }
+
+    /// Enable bloom filter for the column specified by `path`.
+    ///
+    /// Default disabled.
+    ///
+    /// \note Bloom filter is not supported for boolean columns. ParquetException will
+    /// be thrown during write if the column is of boolean type.
+    Builder* enable_bloom_filter(const std::shared_ptr<schema::ColumnPath>& path,
+                                 const BloomFilterOptions& bloom_filter_options) {
+      return this->enable_bloom_filter(path->ToDotString(), bloom_filter_options);
+    }
+
     /// Allow decimals with 1 <= precision <= 18 to be stored as integers.
     ///
     /// In Parquet, DECIMAL can be stored in any of the following physical types:
@@ -698,7 +786,7 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Enable writing page index in general for all columns. Default disabled.
+    /// Enable writing page index in general for all columns. Default enabled.
     ///
     /// Writing statistics to the page index disables the old method of writing
     /// statistics to each data page header.
@@ -713,35 +801,36 @@ class PARQUET_EXPORT WriterProperties {
       return this;
     }
 
-    /// Disable writing page index in general for all columns. Default disabled.
+    /// Disable writing page index in general for all columns. Default enabled.
     Builder* disable_write_page_index() {
       default_column_properties_.set_page_index_enabled(false);
       return this;
     }
 
-    /// Enable writing page index for column specified by `path`. Default disabled.
+    /// Enable writing page index for column specified by `path`. Default enabled.
     Builder* enable_write_page_index(const std::string& path) {
       page_index_enabled_[path] = true;
       return this;
     }
 
-    /// Enable writing page index for column specified by `path`. Default disabled.
+    /// Enable writing page index for column specified by `path`. Default enabled.
     Builder* enable_write_page_index(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->enable_write_page_index(path->ToDotString());
     }
 
-    /// Disable writing page index for column specified by `path`. Default disabled.
+    /// Disable writing page index for column specified by `path`. Default enabled.
     Builder* disable_write_page_index(const std::string& path) {
       page_index_enabled_[path] = false;
       return this;
     }
 
-    /// Disable writing page index for column specified by `path`. Default disabled.
+    /// Disable writing page index for column specified by `path`. Default enabled.
     Builder* disable_write_page_index(const std::shared_ptr<schema::ColumnPath>& path) {
       return this->disable_write_page_index(path->ToDotString());
     }
 
-    /// \brief Set the level to write size statistics for all columns. Default is None.
+    /// \brief Set the level to write size statistics for all columns. Default is
+    /// PageAndColumnChunk.
     ///
     /// \param level The level to write size statistics. Note that if page index is not
     /// enabled, page level size statistics will not be written even if the level
@@ -773,6 +862,8 @@ class PARQUET_EXPORT WriterProperties {
         get(item.first).set_statistics_enabled(item.second);
       for (const auto& item : page_index_enabled_)
         get(item.first).set_page_index_enabled(item.second);
+      for (const auto& item : bloom_filter_options_)
+        get(item.first).set_bloom_filter_options(item.second);
 
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
@@ -784,6 +875,8 @@ class PARQUET_EXPORT WriterProperties {
     }
 
    private:
+    void CopyColumnSpecificProperties(const WriterProperties& properties);
+
     MemoryPool* pool_;
     int64_t dictionary_pagesize_limit_;
     int64_t write_batch_size_;
@@ -810,6 +903,7 @@ class PARQUET_EXPORT WriterProperties {
     std::unordered_map<std::string, bool> dictionary_enabled_;
     std::unordered_map<std::string, bool> statistics_enabled_;
     std::unordered_map<std::string, bool> page_index_enabled_;
+    std::unordered_map<std::string, BloomFilterOptions> bloom_filter_options_;
 
     bool content_defined_chunking_enabled_;
     CdcOptions content_defined_chunking_options_;
@@ -918,6 +1012,17 @@ class PARQUET_EXPORT WriterProperties {
       }
     }
     return false;
+  }
+
+  // Return whether bloom filter is enabled for any column.
+  bool bloom_filter_enabled() const {
+    return std::any_of(column_properties_.cbegin(), column_properties_.cend(),
+                       [](const auto& p) { return p.second.bloom_filter_enabled(); });
+  }
+
+  std::optional<BloomFilterOptions> bloom_filter_options(
+      const std::shared_ptr<schema::ColumnPath>& path) const {
+    return column_properties(path).bloom_filter_options();
   }
 
   inline FileEncryptionProperties* file_encryption_properties() const {

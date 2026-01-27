@@ -78,7 +78,7 @@ _This step must be done by the current package maintainer._
 ## Wait for CRAN to Accept the Submission
 
 - [ ] CRAN has accepted the submission.
-- [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`.
+- [ ] Tag the tip of the CRAN-specific release branch with `r-universe-release`; e.g. `git tag -f r-universe-release maint-X.Y.Z-r && git push upstream r-universe-release --force`
 - [ ] Add a new line to the matrix in the [backwards compatability job](https://github.com/apache/arrow/blob/main/dev/tasks/r/github.linux.arrow.version.back.compat.yml).
 - [ ] (patch releases only) Update the package version in `ci/scripts/PKGBUILD`, `r/DESCRIPTION`, and `r/NEWS.md`.
 - [ ] (CRAN-only releases) Rebuild news page with `pkgdown::build_news()` and submit a PR to the asf-site branch of the docs site with the contents of `arrow/r/docs/news/index.html` replacing the current contents of `arrow-site/docs/r/news/index.html`.
@@ -87,3 +87,4 @@ _This step must be done by the current package maintainer._
 - [ ] Wait for CRAN-hosted binaries on the [CRAN package page](https://cran.r-project.org/package=arrow) to reflect the new version.
 - [ ] Post already-prepared content to social media.
   - Use Bryce's [script](https://gist.githubusercontent.com/amoeba/4e26c064d1a0d0227cd8c2260cf0072a/raw/bc0d983152bdde4820de9074d4caee9986624bc5/new_contributors.R) for contributor calculation.
+- [ ] Check C++ updates for this release and create issues for any items which need bindings in R

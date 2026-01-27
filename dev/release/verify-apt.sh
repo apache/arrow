@@ -162,11 +162,19 @@ if [ "${cmake_version_major}" -gt "3" ] || \
    [ "${cmake_version_major}" -eq "3" -a "${cmake_version_minor}" -ge "25" ]; then
   cp -a "${TOP_SOURCE_DIR}/cpp/examples/minimal_build" build/
   pushd build/minimal_build
-  cmake .
-  make -j$(nproc)
-  ./arrow-example
-  c++ -o arrow-example example.cc $(pkg-config --cflags --libs arrow) -std=c++17
-  ./arrow-example
+  cmake -S . -B build_shared
+  make -C build_shared -j$(nproc)
+  build_shared/arrow-example
+  cmake -S . -B build_static -DARROW_LINK_SHARED=OFF
+  make -C build_static -j$(nproc)
+  build_static/arrow-example
+  mkdir -p build_pkg_config
+  c++ \
+    example.cc \
+    -o build_pkg_config/arrow-example \
+    $(pkg-config --cflags --libs arrow) \
+    -std=c++20
+  build_pkg_config/arrow-example
   popd
 fi
 echo "::endgroup::"
@@ -227,7 +235,11 @@ echo "::endgroup::"
 
 echo "::group::Prepare downgrade test"
 can_downgrade=false
-if [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
+if [ "${distribution}" = 'debian' ] && [[ "$(cat /etc/debian_version)" =~ /sid$ ]]; then
+  # Skip downgrade test on Debian testing.
+  # Debian testing and unstable use "${testing_code_name}/"sid" as /etc/debian_version content.
+  :
+elif [ -f /etc/apt/sources.list.d/apache-arrow.sources.bak ]; then
   mv /etc/apt/sources.list.d/apache-arrow.sources \
      /etc/apt/sources.list.d/apache-arrow-current.sources
   mv /etc/apt/sources.list.d/apache-arrow.sources{.bak,}
@@ -261,65 +273,36 @@ fi
 
 echo "::group::Downgrade Gandiva"
 ${APT_INSTALL} --allow-downgrades \
-  gir1.2-arrow-1.0=${previous_package_version} \
-  gir1.2-gandiva-1.0=${previous_package_version} \
-  libarrow${previous_major_version}00=${previous_package_version} \
-  libarrow-acero${previous_major_version}00=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
-  libarrow-compute${previous_major_version}00=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
-  libarrow-glib${previous_major_version}00=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
-  libgandiva${previous_major_version}00=${previous_package_version} \
   libgandiva-dev=${previous_package_version} \
-  libgandiva-glib${previous_major_version}00=${previous_package_version} \
   libgandiva-glib-dev=${previous_package_version} \
-  libparquet${previous_major_version}00=${previous_package_version} \
   libparquet-dev=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Flight SQL"
 ${APT_INSTALL} --allow-downgrades \
-  gir1.2-arrow-1.0=${previous_package_version} \
-  gir1.2-arrow-flight-1.0=${previous_package_version} \
-  gir1.2-arrow-flight-sql-1.0=${previous_package_version} \
-  libarrow${previous_major_version}00=${previous_package_version} \
-  libarrow-acero${previous_major_version}00=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
-  libarrow-compute${previous_major_version}00=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
-  libarrow-flight${previous_major_version}00=${previous_package_version} \
   libarrow-flight-dev=${previous_package_version} \
-  libarrow-flight-glib${previous_major_version}00=${previous_package_version} \
   libarrow-flight-glib-dev=${previous_package_version} \
   libarrow-flight-sql-dev=${previous_package_version} \
   libarrow-flight-sql-glib-dev=${previous_package_version} \
-  libarrow-glib${previous_major_version}00=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Dataset"
 ${APT_INSTALL} --allow-downgrades \
-  gir1.2-arrow-1.0=${previous_package_version} \
-  gir1.2-arrow-dataset-1.0=${previous_package_version} \
-  gir1.2-parquet-1.0=${previous_package_version} \
-  libarrow${previous_major_version}00=${previous_package_version} \
-  libarrow-acero${previous_major_version}00=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
-  libarrow-compute${previous_major_version}00=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
-  libarrow-dataset${previous_major_version}00=${previous_package_version} \
   libarrow-dataset-dev=${previous_package_version} \
-  libarrow-dataset-glib${previous_major_version}00=${previous_package_version} \
   libarrow-dataset-glib-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
-  libarrow-glib${previous_major_version}00=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
-  libparquet${previous_major_version}00=${previous_package_version} \
   libparquet-dev=${previous_package_version} \
-  libparquet-glib${previous_major_version}00=${previous_package_version} \
   libparquet-glib-dev=${previous_package_version}
 echo "::endgroup::"
 

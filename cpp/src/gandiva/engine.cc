@@ -185,7 +185,7 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
   // the `atexit` symbol cannot be found for ASAN
-#ifdef ADDRESS_SANITIZER
+#if defined(ADDRESS_SANITIZER) && LLVM_VERSION_MAJOR < 18
   if (!lljit.lookup("atexit")) {
     AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
   }
@@ -344,7 +344,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
   // LLVM 10 doesn't like the expr function name to be the same as the module name
   auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
-  module_->setDataLayout(data_layout);
+  module_->setDataLayout(target_machine_->createDataLayout());
 }
 
 Engine::~Engine() {}

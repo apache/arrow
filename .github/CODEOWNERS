@@ -51,8 +51,6 @@
 /.github/ @assignUser @jonkeane @kou @raulcd
 .asf.yaml @assignUser @kou @raulcd
 .pre-commit-config.yaml @raulcd
-.travis.yml @assignUser @kou @raulcd
-appveyor.yml @assignUser @kou @raulcd
 # .git*
 
 # release scripts, archery etc.
@@ -67,4 +65,4 @@ compose.yaml @assignUser @jonkeane @kou @raulcd
 /r/Makefile @assignUser
 /r/PACKAGING.md @assignUser
 /r/tools/ @assignUser
-.Rbuildignore @assignUser
+/r/.Rbuildignore @assignUser

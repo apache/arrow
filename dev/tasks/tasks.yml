@@ -41,18 +41,11 @@ groups:
 
 {############################# Testing tasks #################################}
 
-  cuda:
-    - test-cuda-*
-
   test:
     - test-*
-    # Can be removed after we improved C++20 support
-    - ~test-debian-experimental-cpp-gcc-15
 
   cpp:
     - test-*cpp*
-    # Can be removed after we improved C++20 support
-    - ~test-debian-experimental-cpp-gcc-15
     - example-*cpp*
 
   c-glib:
@@ -117,8 +110,6 @@ groups:
 
   nightly-tests:
     - test-*
-    # Can be removed after we improved C++20 support
-    - ~test-debian-experimental-cpp-gcc-15
     - example-*
 
   nightly-packaging:
@@ -283,13 +274,9 @@ tasks:
       custom_version: Unset
     artifacts:
       - r-libarrow-windows-x86_64-{no_rc_r_version}\.zip
-      - r-libarrow-linux-x86_64-openssl-1.0-{no_rc_r_version}\.zip
-      - r-libarrow-linux-x86_64-openssl-1.1-{no_rc_r_version}\.zip
-      - r-libarrow-linux-x86_64-openssl-3.0-{no_rc_r_version}\.zip
-      - r-libarrow-darwin-arm64-openssl-1.1-{no_rc_r_version}\.zip
-      - r-libarrow-darwin-arm64-openssl-3.0-{no_rc_r_version}\.zip
-      - r-libarrow-darwin-x86_64-openssl-1.1-{no_rc_r_version}\.zip
-      - r-libarrow-darwin-x86_64-openssl-3.0-{no_rc_r_version}\.zip
+      - r-libarrow-linux-x86_64-{no_rc_r_version}\.zip
+      - r-libarrow-darwin-arm64-{no_rc_r_version}\.zip
+      - r-libarrow-darwin-x86_64-{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.5__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__windows__contrib__4.4__arrow_{no_rc_r_version}\.zip
       - r-pkg__bin__macosx__big-sur-x86_64__contrib__4.5__arrow_{no_rc_r_version}\.tgz
@@ -318,7 +305,7 @@ tasks:
   ######################## Linux verification #################################
 
 {% for distribution, version in [("conda", "latest"),
-                                 ("almalinux", "8"),
+                                 ("almalinux", "10"),
                                  ("ubuntu", "22.04"),
                                  ("ubuntu", "24.04")] %}
   {% for target in ["cpp",
@@ -449,8 +436,6 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        CLANG_TOOLS: 15
-        LLVM: 15
         UBUNTU: 24.04
       image: ubuntu-cpp
 
@@ -459,9 +444,7 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       env:
-        CLANG_TOOLS: 15
         GCC: 14
-        LLVM: 15
         UBUNTU: 24.04
       # rapidjson 1.1.0 has an error caught by gcc 14.
       # https://github.com/Tencent/rapidjson/issues/718
@@ -497,7 +480,7 @@ tasks:
         ARCH: "amd64"
         DEBIAN: "experimental"
         GCC: "15"
-      flags: "-e CMAKE_CXX_STANDARD=20"
+        LLVM: "20"
       image: debian-cpp
 
   test-fedora-42-cpp:
@@ -669,6 +652,21 @@ tasks:
     ci: github
     template: r/github.linux.cran.yml
 
+  test-r-alpine-linux-cran:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: alpine-linux-r
+
+  test-r-fedora-clang:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: fedora-r-clang
+      # R-devel built from source with Clang, simulating CRAN's
+      # r-devel-linux-x86_64-fedora-clang environment
+      timeout: 180 # 3 hours - R-devel build from source takes time
+
   test-r-macos-as-cran:
     ci: github
     template: r/github.macos.cran.yml
@@ -698,30 +696,12 @@ tasks:
     ci: github
     template: r/github.devdocs.yml
 
-  test-r-depsource-bundled:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: '-e ARROW_DEPENDENCY_SOURCE=BUNDLED'
-
   test-r-depsource-system:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       flags: '-e ARROW_DEPENDENCY_SOURCE=SYSTEM -e ARROW_GCS=OFF -e xsimd_SOURCE=BUNDLED'
       image: ubuntu-r-only-r
-
-  test-r-offline-minimal:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: '-e ARROW_OFFLINE_BUILD=true'
 
   test-r-dev-duckdb:
     ci: github
@@ -734,40 +714,6 @@ tasks:
   test-r-offline-maximal:
     ci: github
     template: r/github.linux.offline.build.yml
-
-  test-r-rhub-ubuntu-gcc12-custom-ccache:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: ubuntu-gcc12
-      r_tag: latest
-      r_custom_ccache: true
-
-{% for r_org, r_image, r_tag in [("rhub", "ubuntu-release", "latest"),
-                                 ("rocker", "r-ver", "latest"),
-                                 ("rstudio", "r-base", "4.2-focal"),
-                                 ("rstudio", "r-base", "4.1-focal")] %}
-  test-r-{{ r_org }}-{{ r_image }}-{{ r_tag }}:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: {{ r_org }}
-      r_image: {{ r_image }}
-      r_tag: {{ r_tag }}
-{% endfor %}
-
-  # This is with R built with --enable-lto
-  # CRAN also does R CMD INSTALL --use-LTO
-  # which overrides the UseLTO field in r/DESCRIPTION
-  test-r-rhub-debian-gcc-devel-lto-latest:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rhub
-      r_image: gcc13
-      r_tag: latest
-      flags: '-e INSTALL_ARGS=--use-LTO'
 
   # This one has -flto=auto
   test-r-ubuntu-22.04:
@@ -799,15 +745,6 @@ tasks:
         GCC: 12
       image: ubuntu-r-only-r
 
-  test-r-minimal-build:
-    ci: azure
-    template: r/azure.linux.yml
-    params:
-      r_org: rocker
-      r_image: r-ver
-      r_tag: latest
-      flags: "-e LIBARROW_MINIMAL=TRUE"
-
   test-r-linux-sanitizers:
     ci: github
     template: r/github.linux.sanitizers.yml
@@ -831,32 +768,11 @@ tasks:
     artifacts:
       - docs.tar.gz
 
-  ############################## CUDA tests #################################
-
-  test-cuda-cpp-ubuntu-22.04-cuda-11.7.1:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        CUDA: 11.7.1
-        UBUNTU: 22.04
-      image: ubuntu-cuda-cpp
-
-  test-cuda-python-ubuntu-22.04-cuda-11.7.1:
-    ci: github
-    template: docker-tests/github.cuda.yml
-    params:
-      env:
-        CUDA: 11.7.1
-        UBUNTU: 22.04
-      image: ubuntu-cuda-python
-
   ############################## Fuzz tests #################################
 
   test-build-cpp-fuzz:
     ci: github
     template: fuzz-tests/github.oss-fuzz.yml
-
 
   ############################## vcpkg tests ##################################
 

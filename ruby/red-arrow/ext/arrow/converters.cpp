@@ -25,6 +25,11 @@ namespace red_arrow {
     return list_array_value_converter_->convert(array, i);
   }
 
+  VALUE ArrayValueConverter::convert(const arrow::LargeListArray& array,
+                                     const int64_t i) {
+    return large_list_array_value_converter_->convert(array, i);
+  }
+
   VALUE ArrayValueConverter::convert(const arrow::StructArray& array,
                                      const int64_t i) {
     return struct_array_value_converter_->convert(array, i);

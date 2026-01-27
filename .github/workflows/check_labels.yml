@@ -32,6 +32,10 @@ on:
         description: "Whether to force running the jobs"
         value: ${{ jobs.check-labels.outputs.force }}
 
+permissions:
+  contents: read
+  pull-requests: read
+
 jobs:
   check-labels:
     name: Check labels
@@ -43,7 +47,7 @@ jobs:
     steps:
       - name: Checkout Arrow
         if: github.event_name == 'pull_request'
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        uses: actions/checkout@v6
       - name: Check
         id: check
         env:

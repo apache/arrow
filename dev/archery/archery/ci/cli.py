@@ -73,6 +73,22 @@ def report_chat(obj, workflow_id, send, repository, ignore, webhook,
         output.write(report_chat.render("workflow_report"))
 
 
+class WorkflowEmailReport(EmailReport):
+    def __init__(self, **kwargs):
+        super().__init__('workflow_report', **kwargs)
+
+    def date(self):
+        return self.report.datetime
+
+    def subject(self):
+        workflow = self.report
+        date = self.date().strftime('%Y-%m-%d')
+        return (
+            f'[{date}] Arrow Build Report for Job {workflow.name}: '
+            f'{len(workflow.failed_jobs())} failed'
+        )
+
+
 @ci.command()
 @click.argument('workflow_id', required=True)
 @click.option('--sender-name', '-n',
@@ -105,9 +121,10 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
     """
     output = obj['output']
 
-    email_report = EmailReport(
-        report=Workflow(workflow_id, repository,
-                        ignore_job=ignore, gh_token=obj['github_token']),
+    workflow = Workflow(workflow_id, repository,
+                        ignore_job=ignore, gh_token=obj['github_token'])
+    email_report = WorkflowEmailReport(
+        report=workflow,
         sender_name=sender_name,
         sender_email=sender_email,
         recipient_email=recipient_email
@@ -119,8 +136,7 @@ def report_email(obj, workflow_id, sender_name, sender_email, recipient_email,
             smtp_password=smtp_password,
             smtp_server=smtp_server,
             smtp_port=smtp_port,
-            recipient_email=recipient_email,
-            message=email_report.render("workflow_report")
+            report=email_report
         )
     else:
-        output.write(email_report.render("workflow_report"))
+        output.write(str(email_report.render()))

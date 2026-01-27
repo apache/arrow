@@ -129,7 +129,8 @@ class PARQUET_EXPORT ColumnWriter {
 
   static std::shared_ptr<ColumnWriter> Make(ColumnChunkMetaDataBuilder*,
                                             std::unique_ptr<PageWriter>,
-                                            const WriterProperties* properties);
+                                            const WriterProperties* properties,
+                                            BloomFilter* bloom_filter = NULLPTR);
 
   /// \brief Closes the ColumnWriter, commits any buffered values to pages.
   /// \return Total size of the column in bytes
@@ -259,14 +260,17 @@ constexpr int64_t kJulianEpochOffsetDays = INT64_C(2440588);
 
 template <int64_t UnitPerDay, int64_t NanosecondsPerUnit>
 inline void ArrowTimestampToImpalaTimestamp(const int64_t time, Int96* impala_timestamp) {
-  int64_t julian_days = (time / UnitPerDay) + kJulianEpochOffsetDays;
-  (*impala_timestamp).value[2] = (uint32_t)julian_days;
-
+  auto julian_days = static_cast<int32_t>(time / UnitPerDay + kJulianEpochOffsetDays);
   int64_t last_day_units = time % UnitPerDay;
-  auto last_day_nanos = last_day_units * NanosecondsPerUnit;
+  if (last_day_units < 0) {
+    --julian_days;
+    last_day_units += UnitPerDay;
+  }
+  impala_timestamp->value[2] = static_cast<uint32_t>(julian_days);
+  uint64_t last_day_nanos = static_cast<uint64_t>(last_day_units) * NanosecondsPerUnit;
   // impala_timestamp will be unaligned every other entry so do memcpy instead
   // of assign and reinterpret cast to avoid undefined behavior.
-  std::memcpy(impala_timestamp, &last_day_nanos, sizeof(int64_t));
+  std::memcpy(impala_timestamp, &last_day_nanos, sizeof(uint64_t));
 }
 
 constexpr int64_t kSecondsInNanos = INT64_C(1000000000);
