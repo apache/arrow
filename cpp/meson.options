@@ -91,6 +91,12 @@ option(
 )
 option('parquet', type: 'feature', description: 'Build the Parquet libraries')
 option(
+    'parquet_build_dbps_libs',
+    type: 'feature',
+    value: 'enabled',
+    description: 'Build DBPS external libraries'
+)
+option(
     'parquet_build_executables',
     type: 'feature',
     description: 'Build the Parquet executable CLI tools.',
