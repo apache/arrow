@@ -63,18 +63,18 @@ namespace {
 ///   |    4    |  num_elements       |  4 bytes (uint32) |
 ///   +---------------------------------------------------+
 ///
-/// Page-level layout (metadata-at-start for efficient random access):
+/// Page-level layout (offset-based interleaved for O(1) random access):
 ///
 ///   +-------------------------------------------------------------------+
 ///   |  [AlpHeader (8B)]                                                 |
-///   |  [VectorInfo₀ | VectorInfo₁ | ... | VectorInfoₙ]  ← Metadata      |
-///   |  [Data₀ | Data₁ | ... | Dataₙ]                    ← Data sections |
+///   |  [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]       ← Vector offsets     |
+///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]            ← Interleaved data   |
 ///   +-------------------------------------------------------------------+
+///   where each Vector = [AlpInfo | ForInfo | Data]
 ///
 /// This layout enables O(1) random access to any vector by:
-/// 1. Reading all VectorInfo first (contiguous, cache-friendly)
-/// 2. Computing data offsets from VectorInfo
-/// 3. Seeking directly to the target vector's data
+/// 1. Reading the offset for target vector (direct lookup)
+/// 2. Jumping to that offset to read metadata + data together
 ///
 /// \note version must remain the first field to allow reading the rest
 ///       of the header based on version number.

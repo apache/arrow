@@ -4,15 +4,15 @@
 
 ---
 
-## 1. Layout (Grouped Metadata-at-Start)
+## 1. Layout (Offset-Based Interleaved)
 
 ```
-[Header(8B)] [AlpInfo₀|AlpInfo₁|...] [ForInfo₀|ForInfo₁|...] [Data₀|Data₁|...]
-             |<--- AlpInfo Array -->|<--- ForInfo Array -->|<-- Data Array -->|
+[Header(8B)] [Offset₀|Offset₁|...|Offₙ₋₁] [Vector₀][Vector₁]...[Vectorₙ₋₁]
+             |<-- 4B per vector -------->|<-- Interleaved Vectors ------->|
 ```
 
-AlpInfo (ALP-specific) and ForInfo (FOR-specific) stored separately, then data.
-Total metadata: 9B per vector (float), 13B per vector (double).
+Each vector = `[AlpInfo(4B)|ForInfo(5/9B)|Data]` stored contiguously.
+Offsets enable O(1) random access to any vector.
 
 ### Page Header (8 bytes)
 
@@ -27,6 +27,16 @@ Total metadata: 9B per vector (float), 13B per vector (double).
 **Notes:**
 - `log_vector_size` = log2(vector_size). Actual size = `2^log_vector_size`.
 - `num_elements` is uint32 because Parquet page headers use i32 for num_values.
+- `num_vectors` = ceil(num_elements / vector_size)
+
+### Offset Array (4B × num_vectors)
+
+Each offset is a uint32 pointing to start of corresponding vector (from start of offsets section).
+
+```
+Offset₀ = num_vectors × 4           // First vector after all offsets
+Offsetᵢ = Offsetᵢ₋₁ + sizeof(Vecᵢ₋₁)  // Subsequent vectors
+```
 
 ### AlpInfo (4 bytes, fixed)
 
@@ -52,25 +62,21 @@ Total metadata: 9B per vector (float), 13B per vector (double).
 | 0 | frame_of_reference | 8B | uint64 |
 | 8 | bit_width | 1B | uint8, 0..64 |
 
-### Data Section
+### Data Section (per vector)
 
 ```
 [PackedValues] [ExceptionPos] [ExceptionVals]
 ```
-
-Note: `num_elements` per vector is derived from page header:
-- Vectors 1..N-1: `num_elements = vector_size` (1024)
-- Last vector: `num_elements = total % vector_size` (or vector_size if evenly divisible)
-
-Note: `bit_packed_size` is computed: `ceil(num_elements * bit_width / 8)`
-
-### Data Sections
 
 | Section | Size |
 |---------|------|
 | PackedValues | `ceil(num_elements * bit_width / 8)` |
 | ExceptionPos | `num_exceptions * 2` |
 | ExceptionVals | `num_exceptions * sizeof(T)` |
+
+Note: `num_elements` per vector derived from page header:
+- Vectors 0..N-2: `vector_size` (1024)
+- Last vector: `total % vector_size` (or vector_size if evenly divisible)
 
 ---
 
@@ -116,6 +122,14 @@ If `max(delta) == 0`: `bit_width = 0`, no packed data.
 ## 3. Decoding
 
 ```
+// Read offset for vector K (O(1) random access)
+offset_k = offsets[k]
+
+// Jump to vector, read metadata inline
+alp_info = read(offset_k)
+for_info = read(offset_k + 4)
+
+// Decode
 delta[i]   = unpack(packed, bit_width)
 encoded[i] = delta[i] + FOR
 value[i]   = encoded[i] * 10^-f * 10^-e
@@ -137,7 +151,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | bit_width | `ceil(log2(778))` | 10 |
 | packed_size | `ceil(4*10/8)` | 5B |
 
-**Output:** 9B (info, float) + 5B (packed) = **14B**
+**Output:** 8B(hdr) + 4B(off) + 4B(alp) + 5B(for) + 5B(pack) = **26B**
 
 ### Example 2: With Exceptions
 
@@ -151,16 +165,17 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | FOR=15 | `delta = [0, 0, 10, 0]` |
 | bit_width=4 | packed_size = 2B |
 
-**Output:** 9B (info, float) + 2B (packed) + 4B (pos) + 8B (vals) = **23B**
+**Output:** 8B(hdr) + 4B(off) + 4B(alp) + 5B(for) + 2B(pack) + 4B(pos) + 8B(val) = **35B**
 
-### Example 3: 1024 Monetary Values ($0.01-$999.99)
+### Example 3: 3 Vectors (3072 float elements)
 
-| Metric | Value |
-|--------|-------|
-| e=2, f=0 | range: 1..99999 |
-| bit_width | ceil(log2(99999)) = 17 |
-| packed_size | ceil(1024*17/8) = 2176B |
-| **Total (float)** | 9B + 2176B = ~2185B vs 4096B PLAIN (**47% smaller**) |
+| Component | Size |
+|-----------|------|
+| Header | 8B |
+| Offset Array | 3 × 4B = 12B |
+| Per-Vector Metadata | 3 × 9B = 27B |
+| Packed Values (bw=12) | 3 × ceil(1024×12/8) = 4608B |
+| **Total** | ~4655B vs 12288B PLAIN (**62% smaller**) |
 
 ---
 
@@ -168,27 +183,36 @@ value[exception_pos[j]] = exception_val[j]  // patch
 
 | Constant | Value |
 |----------|-------|
-| Vector size | 1024 |
+| Default vector size | 1024 (configurable via log_vector_size) |
 | Version | 1 |
 | Max combinations | 5 |
 | Samples/vector | 256 |
 | Float max_e | 10 |
 | Double max_e | 18 |
+| OffsetType | uint32 (4 bytes) |
 
 ---
 
 ## 6. Size Formulas
 
+**Offset array overhead:**
+```
+offset_overhead = num_vectors × 4 bytes
+               ≈ 0.1% of input (4B per 1024 elements × sizeof(T))
+```
+
 **Per vector:**
 ```
-# H = VectorInfo header size (10 for float, 14 for double)
-size = H + ceil(n * bw / 8) + exc * (2 + sizeof(T))
+size = AlpInfo(4B) + ForInfo(5/9B) + ceil(n × bw / 8) + exc × (2 + sizeof(T))
 ```
 
 **Max compressed size:**
 ```
-# H = VectorInfo header size (10 for float, 14 for double)
-max = 8 + ceil(n/1024) * H + n * sizeof(T) * 2 + n * 2
+max = 8                              // header
+    + num_vectors × 4                // offsets
+    + num_vectors × (4 + ForInfo)    // metadata per vector
+    + n × sizeof(T) × 2              // worst case: all packed + all exceptions
+    + n × 2                          // exception positions
 ```
 
 ---
@@ -205,45 +229,47 @@ max = 8 + ceil(n/1024) * H + n * sizeof(T) * 2 + n * 2
 
 ## Appendix: Byte Layout
 
-**Page Header (8 bytes):**
+**Complete Page Example (3 float vectors, 3000 elements):**
 ```
-Offset  Field
-------  -----
-0       version
-1       compression_mode
-2       integer_encoding
-3       log_vector_size (actual = 2^log_vector_size)
-4-7     num_elements (uint32, total count)
-```
-
-**VectorInfo (Float, 9 bytes):**
-```
-Offset  Field
-------  -----
-0-3     frame_of_reference (uint32)
-4       exponent
-5       factor
-6       bit_width
-7       reserved
-8-9     num_exceptions
-10      packed_values[P] (P = ceil(n * bw / 8))
-10+P    exception_pos[num_exceptions]
-10+P+2E exception_vals[num_exceptions]
+Offset  Content
+------  -------
+0-7     Header (version=1, mode=0, log_vs=10, n=3000)
+8-11    Offset₀ = 12 (first vector at byte 12 from offset array start)
+12-15   Offset₁ (computed after Vector₀)
+16-19   Offset₂ (computed after Vector₁)
+20-23   Vector₀ AlpInfo (e, f, num_exc)
+24-28   Vector₀ ForInfo (FOR, bw)
+29-...  Vector₀ Data (packed, exc_pos, exc_val)
+...     Vector₁ [AlpInfo|ForInfo|Data]
+...     Vector₂ [AlpInfo|ForInfo|Data]
 ```
 
-**VectorInfo (Double, 13 bytes):**
+**Vector Layout (Float):**
 ```
 Offset  Field
 ------  -----
-0-7     frame_of_reference (uint64)
-8       exponent
-9       factor
-10      bit_width
-11      reserved
-12-13   num_exceptions
-14      packed_values[P] (P = ceil(n * bw / 8))
-14+P    exception_pos[num_exceptions]
-14+P+2E exception_vals[num_exceptions]
+0       exponent (uint8)
+1       factor (uint8)
+2-3     num_exceptions (uint16)
+4-7     frame_of_reference (uint32)
+8       bit_width (uint8)
+9       packed_values[P] (P = ceil(n × bw / 8))
+9+P     exception_pos[num_exceptions × 2B]
+9+P+2E  exception_vals[num_exceptions × 4B]
+```
+
+**Vector Layout (Double):**
+```
+Offset  Field
+------  -----
+0       exponent (uint8)
+1       factor (uint8)
+2-3     num_exceptions (uint16)
+4-11    frame_of_reference (uint64)
+12      bit_width (uint8)
+13      packed_values[P] (P = ceil(n × bw / 8))
+13+P    exception_pos[num_exceptions × 2B]
+13+P+2E exception_vals[num_exceptions × 8B]
 ```
 
 Where `n = num_elements for this vector`, `P = bit_packed_size`, `E = num_exceptions`
