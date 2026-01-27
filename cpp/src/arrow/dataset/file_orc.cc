@@ -20,6 +20,7 @@
 #include <memory>
 
 #include "arrow/adapters/orc/adapter.h"
+#include "arrow/compute/expression.h"
 #include "arrow/dataset/dataset_internal.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/scanner.h"
@@ -56,6 +57,18 @@ Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenORCReader(
                               "': ", status.message());
   }
   return reader;
+}
+
+// Fold expression into accumulator using AND logic
+// Special handling for literal(true) to avoid building large expression trees
+void FoldingAnd(compute::Expression* left, compute::Expression right) {
+  if (left->Equals(compute::literal(true))) {
+    // First expression - replace true with actual expression
+    *left = std::move(right);
+  } else {
+    // Combine with existing expression using AND
+    *left = compute::and_(std::move(*left), std::move(right));
+  }
 }
 
 /// \brief A ScanTask backed by an ORC file.
@@ -210,6 +223,46 @@ Future<std::optional<int64_t>> OrcFileFormat::CountRows(
         ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(file->source()));
         return reader->NumberOfRows();
       }));
+}
+
+// //
+// // OrcFileFragment
+// //
+
+OrcFileFragment::OrcFileFragment(FileSource source,
+                                 std::shared_ptr<FileFormat> format,
+                                 compute::Expression partition_expression,
+                                 std::shared_ptr<Schema> physical_schema)
+    : FileFragment(std::move(source), std::move(format),
+                   std::move(partition_expression), std::move(physical_schema)) {}
+
+Status OrcFileFragment::EnsureMetadataCached() {
+  auto lock = metadata_mutex_.Lock();
+
+  if (metadata_cached_) {
+    return Status::OK();
+  }
+
+  // Open reader to get schema and stripe information
+  ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(source()));
+  ARROW_ASSIGN_OR_RAISE(cached_schema_, reader->ReadSchema());
+
+  // Get number of stripes
+  int num_stripes = reader->NumberOfStripes();
+
+  // Initialize lazy evaluation structures
+  // One expression per stripe, starting as literal(true) (unprocessed)
+  statistics_expressions_.resize(num_stripes);
+  for (int i = 0; i < num_stripes; i++) {
+    statistics_expressions_[i] = compute::literal(true);
+  }
+
+  // One flag per field, starting as false (not processed)
+  int num_fields = cached_schema_->num_fields();
+  statistics_expressions_complete_.resize(num_fields, false);
+
+  metadata_cached_ = true;
+  return Status::OK();
 }
 
 // //

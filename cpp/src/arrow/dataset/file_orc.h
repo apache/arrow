@@ -22,11 +22,13 @@
 #include <memory>
 #include <string>
 
+#include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/util/mutex.h"
 
 namespace arrow {
 namespace dataset {
@@ -67,6 +69,32 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
       fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
+};
+
+/// \brief A FileFragment implementation for ORC files with predicate pushdown
+class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
+ public:
+  /// \brief Ensure metadata is cached
+  Status EnsureMetadataCached();
+
+ private:
+  OrcFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                  compute::Expression partition_expression,
+                  std::shared_ptr<Schema> physical_schema);
+
+  // Cached metadata to avoid repeated I/O
+  mutable util::Mutex metadata_mutex_;
+  mutable std::shared_ptr<Schema> cached_schema_;
+  mutable bool metadata_cached_ = false;
+
+  // Lazy evaluation structures for predicate pushdown
+  // Each stripe starts with literal(true) and gets refined as fields are processed
+  mutable std::vector<compute::Expression> statistics_expressions_;
+
+  // Track which fields have been processed to avoid duplicate work
+  mutable std::vector<bool> statistics_expressions_complete_;
+
+  friend class OrcFileFormat;
 };
 
 /// @}
