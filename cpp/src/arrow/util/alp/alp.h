@@ -86,9 +86,9 @@ namespace alp {
 //                                        | packed bytes
 //                                        v
 //   +------------------------------------------------------------------+
-//   | 5. SERIALIZATION (metadata-at-start layout for random access)   |
-//   |    [Header][VectorInfo₀|VectorInfo₁|...][Data₀|Data₁|...]       |
-//   |    All VectorInfo first, then all data sections consecutively.  |
+//   | 5. SERIALIZATION (offset-based interleaved layout)              |
+//   |    [Header][Offsets...][Vector₀][Vector₁]...                    |
+//   |    where each Vector = [AlpInfo|ForInfo|Data]                   |
 //   +------------------------------------------------------------------+
 //
 //
@@ -402,7 +402,7 @@ class AlpEncodedVector {
   /// \brief Store only the data section (without metadata) into an output buffer
   ///
   /// Stores [PackedValues][ExceptionPositions][ExceptionValues]
-  /// Use this for the grouped layout where metadata is stored separately.
+  /// Used when metadata (AlpInfo, ForInfo) is written separately.
   ///
   /// \param[out] output_buffer the buffer to store the data section into
   void StoreDataOnly(arrow::util::span<char> output_buffer) const;
@@ -472,12 +472,13 @@ struct AlpEncodedVectorView {
 
   /// \brief Create a zero-copy view from data-only buffer (metadata provided separately)
   ///
-  /// Use this for the grouped layout where AlpInfo and ForInfo are stored separately.
+  /// Used with the offset-based interleaved layout where AlpInfo and ForInfo are
+  /// read first, then this is called to load the data section.
   /// Expects format: [PackedValues][ExceptionPositions][ExceptionValues] (no metadata)
   ///
   /// \param[in] input_buffer the buffer containing only the data section
-  /// \param[in] alp_info the ALP metadata (loaded separately)
-  /// \param[in] for_info the FOR metadata (loaded separately)
+  /// \param[in] alp_info the ALP metadata (already read)
+  /// \param[in] for_info the FOR metadata (already read)
   /// \param[in] num_elements the number of elements (from page header)
   /// \return the view into the compressed data
   static AlpEncodedVectorView LoadViewDataOnly(arrow::util::span<const char> input_buffer,
@@ -524,35 +525,19 @@ inline uint64_t GetIntegerEncodingMetadataSize(AlpIntegerEncoding encoding) {
 }
 
 // ----------------------------------------------------------------------
-// AlpMetadataCache
+// AlpMetadataCache (LEGACY - not used with offset-based layout)
 
 /// \class AlpMetadataCache
-/// \brief Cache for vector metadata to enable O(1) random access to any vector
+/// \brief [LEGACY] Cache for vector metadata to enable O(1) random access
 ///
-/// With the grouped metadata layout, ALP metadata and FOR metadata are stored
-/// in separate contiguous sections after the header. This class loads both
-/// metadata types into memory and precomputes cumulative data offsets,
-/// enabling O(1) access to any vector's data.
+/// \note This class is NOT used with the current offset-based interleaved layout.
+/// With the new layout [Header][Offsets...][Vector0][Vector1]..., the offset
+/// array provides O(1) random access directly, making this cache unnecessary.
+/// The AlpWrapper::DecodeAlp function reads offsets and metadata inline.
 ///
-/// Page layout:
+/// This class was designed for the old grouped metadata layout:
 ///   [Header][AlpInfos...][ForInfos...][Data...]
-///
-/// Usage:
-/// \code
-///   // Load metadata from compressed buffer
-///   AlpMetadataCache<T> cache = AlpMetadataCache<T>::Load(
-///       num_vectors, vector_size, total_elements, alp_metadata, for_metadata);
-///
-///   // Access metadata for any vector in O(1)
-///   const auto& alp_info = cache.GetAlpInfo(vector_idx);
-///   const auto& for_info = cache.GetForInfo(vector_idx);
-///
-///   // Get offset to any vector's data in O(1)
-///   uint64_t data_offset = cache.GetVectorDataOffset(vector_idx);
-///
-///   // Get number of elements in a specific vector
-///   uint16_t num_elements = cache.GetVectorNumElements(vector_idx);
-/// \endcode
+/// where cumulative offset computation was needed.
 ///
 /// \tparam T the floating point type (float or double)
 template <typename T>
