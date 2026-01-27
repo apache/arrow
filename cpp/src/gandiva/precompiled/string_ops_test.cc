@@ -1909,7 +1909,8 @@ TEST(TestStringOps, TestBinaryString) {
 }
 
 TEST(TestStringOps, TestBinaryStringNull) {
-  //This test is only valid if it is the first to trigger a memory allocation in the context.
+  // This test is only valid if it is the first to trigger a memory allocation in the
+  // context.
   gandiva::ExecutionContext ctx;
   uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
   gdv_int32 out_len = 0;
