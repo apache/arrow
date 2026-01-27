@@ -226,6 +226,7 @@ echo "Wheel name: %WHEEL_NAME%"
 %PYTHON_CMD% -m delvewheel repair -vv ^
     --ignore-existing --with-mangle ^
     --add-path "C:\Program Files\arrow\bin" ^
+    --include-imports "C:\Program Files\arrow\lib" ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
 popd
