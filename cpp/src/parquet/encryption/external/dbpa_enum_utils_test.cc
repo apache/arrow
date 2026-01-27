@@ -106,7 +106,8 @@ TEST_F(DBPAUtilsTest, AllValidTypeMappings) {
     EXPECT_NO_THROW(DBPAEnumUtils::ParquetTypeToDBPA(parquet_type));
   }
 
-  EXPECT_THROW(DBPAEnumUtils::ParquetTypeToDBPA(parquet::Type::UNDEFINED), std::invalid_argument);
+  EXPECT_THROW(DBPAEnumUtils::ParquetTypeToDBPA(parquet::Type::UNDEFINED),
+               std::invalid_argument);
 }
 
 TEST_F(DBPAUtilsTest, AllValidCompressionMappings) {
@@ -131,11 +132,11 @@ TEST_F(DBPAUtilsTest, MapSizeAssertions) {
   // This provides a direct way to verify map completeness
 
   // Parquet::Type::type assertions
-  EXPECT_EQ(parquet_type_enum_size_, 9)
-      << "Expected 9 parquet type mappings";
+  EXPECT_EQ(parquet_type_enum_size_, 9) << "Expected 9 parquet type mappings";
 
   // Excluding UNDEFINED
-  EXPECT_EQ(parquet_type_enum_size_ - 1, DBPAEnumUtils::parquet_to_external_type_map.size())
+  EXPECT_EQ(parquet_type_enum_size_ - 1,
+            DBPAEnumUtils::parquet_to_external_type_map.size())
       << "Expected 9 parquet type mappings (excluding UNDEFINED)";
 
   // Excluding UNDEFINED

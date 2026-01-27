@@ -28,6 +28,8 @@ namespace parquet::encryption::external {
 // parquet::Type -> dbps::external::Type
 // Parquet types are coming from parquet/types.h
 // ------------------------------------------------------------
+// parquet::Type::UNDEFINED is excluded as it is not a
+// Parquet type per-se, but rather a value used in exception cases.
 const std::unordered_map<parquet::Type::type, dbps::external::Type::type>
     DBPAEnumUtils::parquet_to_external_type_map = {
         {parquet::Type::BOOLEAN, dbps::external::Type::BOOLEAN},
@@ -37,10 +39,8 @@ const std::unordered_map<parquet::Type::type, dbps::external::Type::type>
         {parquet::Type::FLOAT, dbps::external::Type::FLOAT},
         {parquet::Type::DOUBLE, dbps::external::Type::DOUBLE},
         {parquet::Type::BYTE_ARRAY, dbps::external::Type::BYTE_ARRAY},
-        {parquet::Type::FIXED_LEN_BYTE_ARRAY, dbps::external::Type::FIXED_LEN_BYTE_ARRAY}};
-        // parquet::Type::UNDEFINED is excluded as it is not a 
-        // Parquet type per-se, but rather a value used in exception cases.
-
+        {parquet::Type::FIXED_LEN_BYTE_ARRAY,
+         dbps::external::Type::FIXED_LEN_BYTE_ARRAY}};
 
 // ------------------------------------------------------------
 // arrow::Compression -> dbps::external::CompressionCodec
