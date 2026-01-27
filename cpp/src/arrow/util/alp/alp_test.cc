@@ -1192,6 +1192,91 @@ TYPED_TEST(AlpWrapperTest, MultiplePages) {
   this->TestEncodeDecodeWrapper(input);
 }
 
+TYPED_TEST(AlpWrapperTest, EncodeWithPreset) {
+  // Test that encoding with a pre-computed preset produces identical results
+  constexpr size_t kTestSize = 4096;  // 4 vectors worth
+  std::vector<TypeParam> input(kTestSize);
+
+  for (size_t i = 0; i < input.size(); ++i) {
+    input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.123);
+  }
+
+  // First, encode normally
+  uint64_t max_comp_size =
+      AlpWrapper<TypeParam>::GetMaxCompressedSize(input.size() * sizeof(TypeParam));
+  std::vector<char> comp_buffer1(max_comp_size);
+  size_t comp_size1 = comp_buffer1.size();
+
+  AlpWrapper<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
+                                comp_buffer1.data(), &comp_size1);
+
+  // Now, use the preset-based API
+  auto preset = AlpWrapper<TypeParam>::CreateSamplingPreset(
+      input.data(), input.size() * sizeof(TypeParam));
+
+  std::vector<char> comp_buffer2(max_comp_size);
+  size_t comp_size2 = comp_buffer2.size();
+
+  AlpWrapper<TypeParam>::EncodeWithPreset(input.data(), input.size() * sizeof(TypeParam),
+                                          comp_buffer2.data(), &comp_size2, preset);
+
+  // Both should produce identical output
+  EXPECT_EQ(comp_size1, comp_size2);
+  EXPECT_EQ(std::memcmp(comp_buffer1.data(), comp_buffer2.data(), comp_size1), 0);
+
+  // Verify the preset-based encoding can be decoded correctly
+  std::vector<TypeParam> output(input.size());
+  AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), input.size(),
+                                                    comp_buffer2.data(), comp_size2);
+
+  EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)), 0);
+}
+
+TYPED_TEST(AlpWrapperTest, PresetReuseAcrossBatches) {
+  // Test that a preset can be reused for multiple encode calls
+  constexpr size_t kBatchSize = 1024;
+  std::vector<TypeParam> batch1(kBatchSize), batch2(kBatchSize);
+
+  // Two batches with similar data characteristics
+  for (size_t i = 0; i < kBatchSize; ++i) {
+    batch1[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.01);
+    batch2[i] = static_cast<TypeParam>(i + 1000) * static_cast<TypeParam>(0.01);
+  }
+
+  // Create preset from first batch
+  auto preset = AlpWrapper<TypeParam>::CreateSamplingPreset(
+      batch1.data(), batch1.size() * sizeof(TypeParam));
+
+  uint64_t max_comp_size =
+      AlpWrapper<TypeParam>::GetMaxCompressedSize(kBatchSize * sizeof(TypeParam));
+
+  // Encode batch1 with preset
+  std::vector<char> comp1(max_comp_size);
+  size_t comp_size1 = comp1.size();
+  AlpWrapper<TypeParam>::EncodeWithPreset(batch1.data(), batch1.size() * sizeof(TypeParam),
+                                          comp1.data(), &comp_size1, preset);
+
+  // Encode batch2 with same preset (reuse)
+  std::vector<char> comp2(max_comp_size);
+  size_t comp_size2 = comp2.size();
+  AlpWrapper<TypeParam>::EncodeWithPreset(batch2.data(), batch2.size() * sizeof(TypeParam),
+                                          comp2.data(), &comp_size2, preset);
+
+  // Both should encode successfully
+  EXPECT_GT(comp_size1, 0);
+  EXPECT_GT(comp_size2, 0);
+
+  // Decode and verify both batches
+  std::vector<TypeParam> output1(kBatchSize), output2(kBatchSize);
+  AlpWrapper<TypeParam>::template Decode<TypeParam>(output1.data(), kBatchSize,
+                                                    comp1.data(), comp_size1);
+  AlpWrapper<TypeParam>::template Decode<TypeParam>(output2.data(), kBatchSize,
+                                                    comp2.data(), comp_size2);
+
+  EXPECT_EQ(std::memcmp(output1.data(), batch1.data(), kBatchSize * sizeof(TypeParam)), 0);
+  EXPECT_EQ(std::memcmp(output2.data(), batch2.data(), kBatchSize * sizeof(TypeParam)), 0);
+}
+
 // ============================================================================
 // Preset/Sampling Tests
 // ============================================================================

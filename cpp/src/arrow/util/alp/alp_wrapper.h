@@ -23,6 +23,7 @@
 #include <optional>
 
 #include "arrow/util/alp/alp.h"
+#include "arrow/util/alp/alp_sampler.h"
 
 namespace arrow {
 namespace util {
@@ -44,6 +45,38 @@ namespace alp {
 template <typename T>
 class AlpWrapper {
  public:
+  /// Type alias for the sampler result containing encoding presets
+  using AlpSamplerResult = typename AlpSampler<T>::AlpSamplerResult;
+
+  /// \brief Create a sampling preset from input data
+  ///
+  /// This samples the input data and generates an encoding preset that can be
+  /// reused for encoding. This is useful when you want to pre-compute the preset
+  /// outside of the benchmark loop or encode multiple batches with the same preset.
+  ///
+  /// \param[in] decomp pointer to the input data to sample
+  /// \param[in] decomp_size size of decomp in bytes.
+  ///            This needs to be a multiple of sizeof(T).
+  /// \return the sampling result containing the encoding preset
+  static AlpSamplerResult CreateSamplingPreset(const T* decomp, size_t decomp_size);
+
+  /// \brief Encode floating point values using a pre-computed preset
+  ///
+  /// This encodes the data using a preset that was previously computed via
+  /// CreateSamplingPreset(). This avoids the sampling overhead during encoding.
+  ///
+  /// \param[in] decomp pointer to the input that is to be encoded
+  /// \param[in] decomp_size size of decomp in bytes.
+  ///            This needs to be a multiple of sizeof(T).
+  /// \param[out] comp pointer to the memory region we will encode into.
+  ///             The caller is responsible for ensuring this is big enough.
+  /// \param[in,out] comp_size the actual size of the encoded data in bytes,
+  ///                expects the size of comp as input. If this is too small,
+  ///                this is set to 0 and we bail out.
+  /// \param[in] preset the pre-computed sampling result from CreateSamplingPreset()
+  static void EncodeWithPreset(const T* decomp, size_t decomp_size, char* comp,
+                               size_t* comp_size, const AlpSamplerResult& preset);
+
   /// \brief Encode floating point values using ALP decimal compression
   ///
   /// \param[in] decomp pointer to the input that is to be encoded
