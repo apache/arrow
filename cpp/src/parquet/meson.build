@@ -103,11 +103,11 @@ if openssl_dep.found()
         'encryption/crypto_factory.cc',
         'encryption/encoding_properties.cc',
         'encryption/encryption_utils.cc',
-        'encryption/external_dbpa_encryption.cc',
-        'encryption/external/dbpa_library_wrapper.cc',
         'encryption/external/dbpa_enum_utils.cc',
         'encryption/external/dbpa_executor.cc',
+        'encryption/external/dbpa_library_wrapper.cc',
         'encryption/external/loadable_encryptor_utils.cc',
+        'encryption/external_dbpa_encryption.cc',
         'encryption/file_key_unwrapper.cc',
         'encryption/file_key_wrapper.cc',
         'encryption/file_system_key_material_store.cc',
@@ -126,7 +126,8 @@ endif
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
     tcb_span_dep = dependency('tcb_span', fallback: ['tcb-span', 'tcb_span_dep'])
     magic_enum_dep = dependency(
-        'magic_enum_header_only', fallback: ['magic-enum', 'magic_enum_dep']
+        'magic_enum_header_only',
+        fallback: ['magic-enum', 'magic_enum_dep'],
     )
 
     cmake = import('cmake')
@@ -141,19 +142,21 @@ if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
 
     build_output_dir = meson.current_build_dir()
 
-    dbps_opts.add_cmake_defines({
-          'CMAKE_BUILD_TYPE': build_type,
-          'BUILD_SHARED_LIBS': 'ON',
-          'BUILD_TESTING': 'OFF',
-          'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
-          'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
-          'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
-      })
+    dbps_opts.add_cmake_defines(
+        {
+            'CMAKE_BUILD_TYPE': build_type,
+            'BUILD_SHARED_LIBS': 'ON',
+            'BUILD_TESTING': 'OFF',
+            'CMAKE_LIBRARY_OUTPUT_DIRECTORY': build_output_dir,
+            'CMAKE_RUNTIME_OUTPUT_DIRECTORY': build_output_dir,
+            'CMAKE_ARCHIVE_OUTPUT_DIRECTORY': build_output_dir,
+        }
+    )
 
     dbps_proj = cmake.subproject('dbps_agent', options: dbps_opts)
     dbps_interface_dep = declare_dependency(
         include_directories: include_directories(
-            '../../subprojects/DataBatchProtectionService-6206fb0e27556a0df9160364caa3819e4af3fe0f/src/common'
+            '../../subprojects/DataBatchProtectionService-6206fb0e27556a0df9160364caa3819e4af3fe0f/src/common',
         )
     )
 
@@ -167,7 +170,10 @@ parquet_lib = library(
     gnu_symbol_visibility: 'inlineshidden',
 )
 
-parquet_dep = declare_dependency(link_with: parquet_lib)
+parquet_dep = declare_dependency(
+    link_with: parquet_lib,
+    dependencies: parquet_deps
+)
 
 subdir('api')
 subdir('arrow')
@@ -296,8 +302,8 @@ if needs_parquet_encryption
                 'encryption/aes_encryption_test.cc',
                 'encryption/crypto_factory_test.cc',
                 'encryption/encoding_properties_test.cc',
-                'encryption/external_dbpa_encryption_test.cc',
                 'encryption/external/test_utils.cc',
+                'encryption/external_dbpa_encryption_test.cc',
                 'encryption/per_column_encryption_test.cc',
                 'encryption/properties_test.cc',
                 'encryption/read_configurations_test.cc',

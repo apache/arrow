@@ -17,6 +17,8 @@
 
 project('magic-enum', 'cpp')
 
-magic_enum_dep = declare_dependency(include_directories: include_directories('include'))
+magic_enum_dep = declare_dependency(
+    include_directories: include_directories('include'
+)
 
 meson.override_dependency('magic_enum_header_only', magic_enum_dep)

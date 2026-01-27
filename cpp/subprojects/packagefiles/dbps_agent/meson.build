@@ -18,7 +18,7 @@
 project('dbps_agent', 'cpp')
 
 dbps_interface_dep = declare_dependency(
-    include_directories: include_directories('src/common')
+    include_directories: include_directories('src/common'),
 )
 
 meson.override_dependency('dbps_interface', dbps_interface_dep)
