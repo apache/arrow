@@ -28,6 +28,7 @@
 #include "arrow/compute/exec.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/status.h"
+#include "arrow/util/functional.h"
 #include "arrow/util/visibility.h"
 
 namespace arrow {
@@ -57,21 +58,22 @@ class ARROW_EXPORT ExecSpanIterator {
   Status Init(const ExecBatch& batch, int64_t max_chunksize = kDefaultMaxChunksize,
               bool promote_if_all_scalars = true);
 
-  /// \brief Compute the next span by updating the state of the
-  /// previous span object. You must keep passing in the previous
-  /// value for the results to be consistent. If you need to process
-  /// in parallel, make a copy of the in-use ExecSpan while it's being
-  /// used by another thread and pass it into Next. This function
-  /// always populates at least one span. If you call this function
-  /// with a blank ExecSpan after the first iteration, it will not
-  /// work correctly (maybe we will change this later). Return false
-  /// if the iteration is exhausted
-  bool Next(ExecSpan* span);
+  /// \brief Compute the next span of the data and optionally the selection by updating
+  /// the state of the previous span objects. You must keep passing in the previous value
+  /// for the results to be consistent. If you need to process in parallel, make a copy of
+  /// the in-use ExecSpan while it's being used by another thread and pass it into Next.
+  /// This function always populates at least one span. If you call this function with a
+  /// blank ExecSpan after the first iteration, it will not work correctly (maybe we will
+  /// change this later). Return false if the iteration is exhausted
+  bool Next(ExecSpan* span, SelectionVectorSpan* selection_span = NULLPTR);
 
   int64_t length() const { return length_; }
+  int64_t selection_length() const { return selection_length_; }
   int64_t position() const { return position_; }
+  int64_t selection_position() const { return selection_position_; }
 
   bool have_all_scalars() const { return have_all_scalars_; }
+  bool have_selection_vector() const { return selection_vector_ != NULLPTR; }
 
  private:
   ExecSpanIterator(const std::vector<Datum>& args, int64_t length, int64_t max_chunksize);
@@ -83,6 +85,7 @@ class ARROW_EXPORT ExecSpanIterator {
   bool have_all_scalars_ = false;
   bool promote_if_all_scalars_ = true;
   const std::vector<Datum>* args_;
+  SelectionVector* selection_vector_ = NULLPTR;
   std::vector<int> chunk_indexes_;
   std::vector<int64_t> value_positions_;
 
@@ -93,6 +96,8 @@ class ARROW_EXPORT ExecSpanIterator {
   std::vector<int64_t> value_offsets_;
   int64_t position_ = 0;
   int64_t length_ = 0;
+  int64_t selection_length_ = 0;
+  int64_t selection_position_ = 0;
   int64_t max_chunksize_;
 };
 
@@ -148,6 +153,7 @@ class ARROW_EXPORT KernelExecutor {
   static std::unique_ptr<KernelExecutor> MakeScalarAggregate();
 };
 
+ARROW_EXPORT
 int64_t InferBatchLength(const std::vector<Datum>& values, bool* all_same);
 
 /// \brief Populate validity bitmap with the intersection of the nullity of the
@@ -164,6 +170,25 @@ Status PropagateNulls(KernelContext* ctx, const ExecSpan& batch, ArrayData* out)
 
 ARROW_EXPORT
 void PropagateNullsSpans(const ExecSpan& batch, ArraySpan* out);
+
+template <typename OnSelectionFn>
+typename ::arrow::internal::call_traits::enable_if_return<OnSelectionFn, Status>::type
+VisitSelectionVectorSpanInline(const SelectionVectorSpan& selection,
+                               OnSelectionFn&& on_selection) {
+  for (int64_t i = 0; i < selection.length(); ++i) {
+    RETURN_NOT_OK(on_selection(selection[i]));
+  }
+  return Status::OK();
+}
+
+template <typename OnSelectionFn>
+typename ::arrow::internal::call_traits::enable_if_return<OnSelectionFn, void>::type
+VisitSelectionVectorSpanInline(const SelectionVectorSpan& selection,
+                               OnSelectionFn&& on_selection) {
+  for (int64_t i = 0; i < selection.length(); ++i) {
+    on_selection(selection[i]);
+  }
+}
 
 }  // namespace detail
 }  // namespace compute
