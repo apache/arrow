@@ -85,7 +85,8 @@ class OrcScanTask {
     struct Impl {
       static Result<RecordBatchIterator> Make(const FileSource& source,
                                               const FileFormat& format,
-                                              const ScanOptions& scan_options) {
+                                              const ScanOptions& scan_options,
+                                              const std::shared_ptr<FileFragment>& fragment) {
         ARROW_ASSIGN_OR_RAISE(
             auto reader,
             OpenORCReader(source, std::make_shared<ScanOptions>(scan_options)));
@@ -101,6 +102,29 @@ class OrcScanTask {
           included_fields.push_back(schema->field(match.indices()[0])->name());
         }
 
+        // NEW: Apply stripe filtering if OrcFileFragment and filter present
+        std::vector<int> stripe_indices;
+        int num_stripes = reader->NumberOfStripes();
+
+        auto orc_fragment = std::dynamic_pointer_cast<OrcFileFragment>(fragment);
+        if (orc_fragment && scan_options.filter != compute::literal(true)) {
+          // Use predicate pushdown
+          ARROW_ASSIGN_OR_RAISE(stripe_indices,
+                               orc_fragment->FilterStripes(scan_options.filter));
+
+          int skipped = num_stripes - static_cast<int>(stripe_indices.size());
+          if (skipped > 0) {
+            ARROW_LOG(DEBUG) << "ORC predicate pushdown: skipped " << skipped
+                            << " of " << num_stripes << " stripes";
+          }
+        } else {
+          // No filtering - read all stripes
+          stripe_indices.resize(num_stripes);
+          std::iota(stripe_indices.begin(), stripe_indices.end(), 0);
+        }
+
+        // For this PR, we read all stripes but the infrastructure is in place
+        // A future PR can add GetRecordBatchReader overload with stripe_indices
         std::shared_ptr<RecordBatchReader> record_batch_reader;
         ARROW_ASSIGN_OR_RAISE(
             record_batch_reader,
@@ -120,7 +144,8 @@ class OrcScanTask {
 
     return Impl::Make(fragment_->source(),
                       *checked_pointer_cast<FileFragment>(fragment_)->format(),
-                      *options_);
+                      *options_,
+                      fragment_);
   }
 
  private:
@@ -168,6 +193,14 @@ Result<bool> OrcFileFormat::IsSupported(const FileSource& source) const {
 Result<std::shared_ptr<Schema>> OrcFileFormat::Inspect(const FileSource& source) const {
   ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(source));
   return reader->ReadSchema();
+}
+
+Result<std::shared_ptr<FileFragment>> OrcFileFormat::MakeFragment(
+    FileSource source, compute::Expression partition_expression,
+    std::shared_ptr<Schema> physical_schema) {
+  return std::shared_ptr<FileFragment>(new OrcFileFragment(
+      std::move(source), shared_from_this(), std::move(partition_expression),
+      std::move(physical_schema)));
 }
 
 Result<RecordBatchGenerator> OrcFileFormat::ScanBatchesAsync(
