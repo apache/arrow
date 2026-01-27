@@ -28,7 +28,6 @@ extern "C" {
 #include "./time_constants.h"
 #include "./time_fields.h"
 #include "./types.h"
-#include "arrow/util/macros.h"
 
 #define MINS_IN_HOUR 60
 #define SECONDS_IN_MINUTE 60
@@ -569,7 +568,6 @@ bool is_valid_time(const int hours, const int minutes, const int seconds) {
 
 // Normalize sub-seconds value to milliseconds precision (3 digits).
 // Truncates if more than 3 digits are provided, pads with zeros if fewer than 3 digits
-ARROW_FORCE_INLINE
 static inline int32_t normalize_subseconds_to_millis(int32_t subseconds,
                                                      int32_t num_digits) {
   if (num_digits <= 0 || num_digits == 3) {
