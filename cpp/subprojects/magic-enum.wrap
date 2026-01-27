@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-git]
-url = https://github.com/Neargye/magic_enum.git
-revision = v0.9.7
-depth = 1
+[wrap-file]
+directory = magic_enum-0.9.7
+source_url = https://github.com/Neargye/magic_enum/archive/refs/tags/v0.9.7.tar.gz
+source_filename = magic_enum-0.9.7.tar.gz
+source_hash = b403d3dad4ef542fdc3024fa37d3a6cedb4ad33c72e31b6d9bab89dcaf69edf7
+patch_directory = magic-enum
 
 [provide]
 magic_enum_header_only = magic_enum_dep

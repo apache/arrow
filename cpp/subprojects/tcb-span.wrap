@@ -15,10 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-[wrap-git]
-url = https://github.com/tcbrindle/span.git
-revision = master
-depth = 1
+[wrap-file]
+directory = span-master
+source_url = https://github.com/tcbrindle/span/archive/refs/heads/master.tar.gz
+source_filename = span-master.tar.gz
+source_hash = e57658bd9c5984cebd8bd0758f242cbf4fa7ed1bd5251a883f68420c3b17f818
+patch_directory = tcb-span
 
 [provide]
 tcb_span = tcb_span_dep
