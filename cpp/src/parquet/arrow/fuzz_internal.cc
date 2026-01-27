@@ -103,8 +103,9 @@ Status FuzzReadData(std::unique_ptr<FileReader> reader) {
       // When reading returns successfully, the Arrow data should be structurally
       // valid so that it can be read normally. If that is not the case, abort
       // so that the error can be published by OSS-Fuzz.
-      ARROW_CHECK_OK((*table_result)->Validate());
-      final_status &= (*table_result)->ValidateFull();
+      auto table = *table_result;
+      ARROW_CHECK_OK(table->Validate());
+      final_status &= table->ValidateFull();
     }
     final_status &= table_result.status();
   }
