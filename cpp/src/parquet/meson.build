@@ -223,6 +223,7 @@ parquet_tests = {
     'writer-test': {
         'sources': files(
             'column_writer_test.cc',
+            'encryption/external/test_utils.cc',
             'file_serialize_test.cc',
             'stream_writer_test.cc',
         ),
@@ -255,7 +256,12 @@ if needs_parquet_encryption
     parquet_tests += {
         'encryption-test': {
             'sources': files(
-                'encryption/encryption_internal_test.cc',
+                'encryption/aes_encryption_test.cc',
+                'encryption/crypto_factory_test.cc',
+                'encryption/encoding_properties_test.cc',
+                'encryption/external_dbpa_encryption_test.cc',
+                'encryption/external/test_utils.cc',
+                'encryption/per_column_encryption_test.cc',
                 'encryption/properties_test.cc',
                 'encryption/read_configurations_test.cc',
                 'encryption/test_encryption_util.cc',
