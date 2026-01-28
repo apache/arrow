@@ -280,6 +280,7 @@ else
     -DProtobuf_SOURCE=${Protobuf_SOURCE:-} \
     -DRapidJSON_SOURCE=${RapidJSON_SOURCE:-} \
     -Dre2_SOURCE=${re2_SOURCE:-} \
+    -DSIMDJSON_SOURCE=${SIMDJSON_SOURCE:-} \
     -DSnappy_SOURCE=${Snappy_SOURCE:-} \
     -DThrift_SOURCE=${Thrift_SOURCE:-} \
     -Dutf8proc_SOURCE=${utf8proc_SOURCE:-} \

@@ -99,6 +99,8 @@ ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM=2f723218f6cb709ae4cdc4fb5ed56a5951fc5d466f0
 # warnings.
 ARROW_RAPIDJSON_BUILD_VERSION=232389d4f1012dddec4ef84861face2d2ba85709
 ARROW_RAPIDJSON_BUILD_SHA256_CHECKSUM=b9290a9a6d444c8e049bd589ab804e0ccf2b05dc5984a19ed5ae75d090064806
+ARROW_SIMDJSON_BUILD_VERSION=v4.2.4
+ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM=6f942d018561a6c30838651a386a17e6e4abbfc396afd0f62740dea1810dedea
 # RE2 2023-03-01 is pinned to avoid Abseil dependency. Versions after 2023-06-01
 # require Abseil, which would add significant build time and complexity, particularly
 # for CRAN builds. This version includes musl libc support (GH-48010).
@@ -162,6 +164,7 @@ DEPENDENCIES=(
   "ARROW_ORC_URL orc-${ARROW_ORC_BUILD_VERSION}.tar.gz https://www.apache.org/dyn/closer.lua/orc/orc-${ARROW_ORC_BUILD_VERSION}/orc-${ARROW_ORC_BUILD_VERSION}.tar.gz?action=download"
   "ARROW_PROTOBUF_URL protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz https://github.com/google/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_BUILD_VERSION:1}.tar.gz"
   "ARROW_RAPIDJSON_URL rapidjson-${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz https://github.com/miloyip/rapidjson/archive/${ARROW_RAPIDJSON_BUILD_VERSION}.tar.gz"
+  "ARROW_SIMDJSON_URL simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz https://github.com/simdjson/simdjson/archive/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
   "ARROW_RE2_URL re2-${ARROW_RE2_BUILD_VERSION}.tar.gz https://github.com/google/re2/archive/${ARROW_RE2_BUILD_VERSION}.tar.gz"
   "ARROW_S2N_TLS_URL s2n-${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz"
   "ARROW_SNAPPY_URL snappy-${ARROW_SNAPPY_BUILD_VERSION}.tar.gz https://github.com/google/snappy/archive/${ARROW_SNAPPY_BUILD_VERSION}.tar.gz"

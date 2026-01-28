@@ -171,7 +171,7 @@ TEST_F(TestChunkedArrayEqualsSameAddress, NestedTypeWithoutFloat) {
 }
 
 TEST_F(TestChunkedArrayEqualsSameAddress, FloatType) {
-  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, NaN]");
+  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, 2.0, \"NaN\"]");
   ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({float64_array}));
 
   ASSERT_FALSE(chunked_array->Equals(chunked_array));
@@ -182,7 +182,7 @@ TEST_F(TestChunkedArrayEqualsSameAddress, FloatType) {
 }
 
 TEST_F(TestChunkedArrayEqualsSameAddress, NestedTypeWithFloat) {
-  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, NaN]");
+  auto float64_array = ArrayFromJSON(float64(), "[0.0, 1.0, \"NaN\"]");
   ASSERT_OK_AND_ASSIGN(auto struct_array,
                        StructArray::Make({float64_array}, {"Float64Type"}));
   ASSERT_OK_AND_ASSIGN(auto chunked_array, ChunkedArray::Make({struct_array}));

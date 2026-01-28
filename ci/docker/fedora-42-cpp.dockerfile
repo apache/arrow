@@ -60,6 +60,7 @@ RUN dnf update -y && \
         python-pip \
         rapidjson-devel \
         re2-devel \
+        simdjson-dev \
         snappy-devel \
         thrift-devel \
         utf8proc-devel \

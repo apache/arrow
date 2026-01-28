@@ -65,6 +65,7 @@ RUN if [ -n "${gcc}" ]; then \
         libpsl-dev \
         libre2-dev \
         librtmp-dev \
+        libsimdjson-dev \
         libsnappy-dev \
         libsqlite3-dev \
         libssh-dev \

@@ -265,7 +265,7 @@ TEST_F(TestRecordBatchEqualsSameAddress, FloatType) {
   auto schema = ::arrow::schema({f0, f1});
 
   auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
-  auto a1 = ArrayFromJSON(f1->type(), "[0.0, 1.0, 2.0, NaN]");
+  auto a1 = ArrayFromJSON(f1->type(), "[0.0, 1.0, 2.0, \"NaN\"]");
 
   auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
   auto b1 = b0;
@@ -287,7 +287,7 @@ TEST_F(TestRecordBatchEqualsSameAddress, NestedTypesWithFloatType) {
 
   auto a0 = ArrayFromJSON(f0->type(), "[0, 1, 2]");
   auto a1 = ArrayFromJSON(
-      f1->type(), R"([{"f2": 1, "f3": 4.0}, {"f2": 2, "f3": 4.0}, {"f2":3, "f3": NaN}])");
+      f1->type(), R"([{"f2": 1, "f3": 4.0}, {"f2": 2, "f3": 4.0}, {"f2":3, "f3": "NaN"}])");
 
   auto b0 = RecordBatch::Make(schema, 3, {a0, a1});
   auto b1 = b0;
@@ -966,8 +966,8 @@ TEST_F(TestRecordBatch, ToTensorSupportedNaN) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema(fields);
 
-  auto a0 = ArrayFromJSON(float32(), "[NaN, 2, 3, 4, 5, 6, 7, 8, 9]");
-  auto a1 = ArrayFromJSON(float32(), "[10, 20, 30, 40, NaN, 60, 70, 80, 90]");
+  auto a0 = ArrayFromJSON(float32(), "[\"NaN\", 2, 3, 4, 5, 6, 7, 8, 9]");
+  auto a1 = ArrayFromJSON(float32(), "[10, 20, 30, 40, \"NaN\", 60, 70, 80, 90]");
 
   auto batch = RecordBatch::Make(schema, length, {a0, a1});
 
@@ -979,7 +979,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedNaN) {
   const int64_t f32_size = sizeof(float);
   std::vector<int64_t> f_strides = {f32_size, f32_size * shape[0]};
   std::shared_ptr<Tensor> tensor_expected = TensorFromJSON(
-      float32(), "[NaN, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, NaN, 60, 70, 80, 90]",
+      float32(), R"(["NaN", 2, 3, 4, 5, 6, 7, 8, 9, 10, 20, 30, 40, "NaN", 60, 70, 80, 90])",
       shape, f_strides);
 
   EXPECT_FALSE(tensor_expected->Equals(*tensor));
@@ -1010,7 +1010,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   const int64_t f64_size = sizeof(double);
   std::vector<int64_t> f_strides = {f64_size, f64_size * shape[0]};
   std::shared_ptr<Tensor> tensor_expected = TensorFromJSON(
-      float64(), "[NaN, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, NaN, 60, 70, 80, 90]",
+      float64(), "[\"NaN\", 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, \"NaN\", 60, 70, 80, 90]",
       shape, f_strides);
 
   EXPECT_FALSE(tensor_expected->Equals(*tensor));
@@ -1023,7 +1023,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
 
   std::vector<int64_t> strides = {f64_size * shape[1], f64_size};
   std::shared_ptr<Tensor> tensor_expected_row = TensorFromJSON(
-      float64(), "[NaN, 10, 2,  20, 3, 30,  4, 40, 5, NaN, 6, 60, 7, 70, 8, 80, 9, 90]",
+      float64(), "[\"NaN\", 10, 2,  20, 3, 30,  4, 40, 5, \"NaN\", 6, 60, 7, 70, 8, 80, 9, 90]",
       shape, strides);
 
   EXPECT_FALSE(tensor_expected_row->Equals(*tensor_row));
@@ -1075,7 +1075,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
   const int64_t f32_size = sizeof(float);
   std::vector<int64_t> f_strides_2 = {f32_size, f32_size * shape[0]};
   std::shared_ptr<Tensor> tensor_expected_2 = TensorFromJSON(
-      float32(), "[NaN, 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, NaN, 60, 70, 80, 90]",
+      float32(), R"(["NaN", 2,  3,  4,  5, 6, 7, 8, 9, 10, 20, 30, 40, "NaN", 60, 70, 80, 90])",
       shape, f_strides_2);
 
   EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));
@@ -1088,7 +1088,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedNullToNan) {
 
   std::vector<int64_t> strides_2 = {f32_size * shape[1], f32_size};
   std::shared_ptr<Tensor> tensor2_expected_row = TensorFromJSON(
-      float32(), "[NaN, 10, 2,  20, 3, 30,  4, 40, 5, NaN, 6, 60, 7, 70, 8, 80, 9, 90]",
+      float32(), "[\"NaN\", 10, 2,  20, 3, 30,  4, 40, 5, \"NaN\", 6, 60, 7, 70, 8, 80, 9, 90]",
       shape, strides_2);
 
   EXPECT_FALSE(tensor2_expected_row->Equals(*tensor2_row));
@@ -1107,7 +1107,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
 
   auto a0 = ArrayFromJSON(uint16(), "[1, 2, 3, 4, 5, 6, 7, 8, 9]");
   auto a1 = ArrayFromJSON(int16(), "[10, 20, 30, 40, 50, 60, 70, 80, 90]");
-  auto a2 = ArrayFromJSON(float32(), "[100, 200, 300, NaN, 500, 600, 700, 800, 900]");
+  auto a2 = ArrayFromJSON(float32(), "[100, 200, 300, \"NaN\", 500, 600, 700, 800, 900]");
 
   // Single column
   std::vector<std::shared_ptr<Field>> fields = {f0};
@@ -1168,7 +1168,7 @@ TEST_F(TestRecordBatch, ToTensorSupportedTypesMixed) {
   std::shared_ptr<Tensor> tensor_expected_2 =
       TensorFromJSON(float64(),
                      "[1,   2,   3,   4,   5,  6,  7,  8,   9,   10,  20, 30,  40,  50,  "
-                     "60,  70, 80, 90, 100, 200, 300, NaN, 500, 600, 700, 800, 900]",
+                     "60,  70, 80, 90, 100, 200, 300, \"NaN\", 500, 600, 700, 800, 900]",
                      shape2, f_strides_2);
 
   EXPECT_FALSE(tensor_expected_2->Equals(*tensor2));

@@ -930,24 +930,24 @@ TEST(TestCumulativeMean, ConvenienceFunction) {
 
 TEST(TestCumulative, NaN) {
   // addition with NaN is always NaN
-  CheckVectorUnary("cumulative_sum", ArrayFromJSON(float64(), "[1, 2, NaN, 4, 5]"),
-                   ArrayFromJSON(float64(), "[1, 3, NaN, NaN, NaN]"));
+  CheckVectorUnary("cumulative_sum", ArrayFromJSON(float64(), "[1, 2, \"NaN\", 4, 5]"),
+                   ArrayFromJSON(float64(), R"([1, 3, "NaN", "NaN", "NaN"])"));
 
   // multiply with Nan is always NaN
-  CheckVectorUnary("cumulative_prod", ArrayFromJSON(float64(), "[1, 2, NaN, 4, 5]"),
-                   ArrayFromJSON(float64(), "[1, 2, NaN, NaN, NaN]"));
+  CheckVectorUnary("cumulative_prod", ArrayFromJSON(float64(), "[1, 2, \"NaN\", 4, 5]"),
+                   ArrayFromJSON(float64(), R"([1, 2, "NaN", "NaN", "NaN"])"));
 
   // max with NaN is always ignored because Nan > a always returns false
-  CheckVectorUnary("cumulative_max", ArrayFromJSON(float64(), "[1, 2, NaN, 4, 5]"),
+  CheckVectorUnary("cumulative_max", ArrayFromJSON(float64(), "[1, 2, \"NaN\", 4, 5]"),
                    ArrayFromJSON(float64(), "[1, 2, 2, 4, 5]"));
 
   // min with NaN is always ignored because Nan < a always returns false
-  CheckVectorUnary("cumulative_min", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
+  CheckVectorUnary("cumulative_min", ArrayFromJSON(float64(), "[5, 4, \"NaN\", 2, 1]"),
                    ArrayFromJSON(float64(), "[5, 4, 4, 2, 1]"));
 
   // mean with NaN is always Nan
-  CheckVectorUnary("cumulative_mean", ArrayFromJSON(float64(), "[5, 4, NaN, 2, 1]"),
-                   ArrayFromJSON(float64(), "[5, 4.5, NaN, NaN, NaN]"));
+  CheckVectorUnary("cumulative_mean", ArrayFromJSON(float64(), "[5, 4, \"NaN\", 2, 1]"),
+                   ArrayFromJSON(float64(), R"([5, 4.5, "NaN", "NaN", "NaN"])"));
 }
 }  // namespace compute
 }  // namespace arrow
