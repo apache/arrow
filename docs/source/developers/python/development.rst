@@ -168,4 +168,4 @@ Similarly, use lldb when debugging on macOS.
 Benchmarking
 ============
 
-For running the benchmarks, see :ref:`python-benchmarks`.
+For running the benchmarks, see :ref:`benchmarks`.
