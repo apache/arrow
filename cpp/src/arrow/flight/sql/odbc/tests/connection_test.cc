@@ -248,7 +248,6 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
-#if defined _WIN32
 TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
   // Connect string
   std::string connect_str = this->GetConnectionString();
@@ -432,8 +431,6 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
-#endif  // _WIN32
-
 TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
   // Invalid connect string
   std::string connect_str = GetInvalidConnectionString();
@@ -442,7 +439,7 @@ TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize];
+  SQLWCHAR out_str[kOdbcBufferSize] = {0};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.

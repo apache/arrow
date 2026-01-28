@@ -40,6 +40,8 @@ using TestTypesOdbcV2 =
     ::testing::Types<FlightSQLOdbcV2MockTestBase, FlightSQLOdbcV2RemoteTestBase>;
 TYPED_TEST_SUITE(GetFunctionsOdbcV2Test, TestTypesOdbcV2);
 
+// MacOS driver manager iODBC does not support SQLGetFunctions for ODBC 3.x or 2.x driver
+#ifndef __APPLE__
 TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsAllFunctions) {
   // Verify driver manager return values for SQLGetFunctions
 
@@ -87,7 +89,7 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsAllFunctions) {
   }
 }
 
-TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsAllFunctionsODBCVer2) {
+TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsAllFunctions) {
   // Verify driver manager return values for SQLGetFunctions
 
   // ODBC 2.0 SQLGetFunctions returns 100 elements according to spec
@@ -175,7 +177,7 @@ TYPED_TEST(GetFunctionsTest, TestSQLGetFunctionsUnsupportedSingleAPI) {
   }
 }
 
-TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPIODBCVer2) {
+TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPI) {
   const std::vector<SQLUSMALLINT> supported_functions = {
       SQL_API_SQLCONNECT, SQL_API_SQLGETINFO, SQL_API_SQLDESCRIBECOL,
       SQL_API_SQLGETTYPEINFO, SQL_API_SQLDISCONNECT, SQL_API_SQLNUMRESULTCOLS,
@@ -199,7 +201,7 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsSupportedSingleAPIODBCVer2
   }
 }
 
-TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPIODBCVer2) {
+TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPI) {
   const std::vector<SQLUSMALLINT> unsupported_functions = {
       SQL_API_SQLPUTDATA,        SQL_API_SQLPARAMDATA,        SQL_API_SQLSETCURSORNAME,
       SQL_API_SQLGETCURSORNAME,  SQL_API_SQLSTATISTICS,       SQL_API_SQLSPECIALCOLUMNS,
@@ -216,5 +218,6 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPIODBCVe
     api_exists = -1;
   }
 }
+#endif  // __APPLE__
 
 }  // namespace arrow::flight::sql::odbc

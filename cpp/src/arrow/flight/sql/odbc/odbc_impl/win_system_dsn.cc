@@ -144,7 +144,7 @@ BOOL INSTAPI ConfigDSNW(HWND hwnd_parent, WORD req, LPCWSTR wdriver,
         std::wstring werror_msg =
             arrow::util::UTF8ToWideString(error_msg).ValueOr(L"Error during DSN load");
 
-        PostError(err.GetNativeError(), werror_msg.c_str());
+        PostError(err.GetNativeError(), (LPWSTR)werror_msg.c_str());
         return FALSE;
       }
 

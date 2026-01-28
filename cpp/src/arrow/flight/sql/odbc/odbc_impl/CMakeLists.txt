@@ -45,10 +45,10 @@ add_library(arrow_odbc_spi_impl
             config/connection_string_parser.h
             diagnostics.cc
             diagnostics.h
-            error_codes.h
             encoding.cc
             encoding.h
             encoding_utils.h
+            error_codes.h
             exceptions.cc
             exceptions.h
             flight_sql_auth_method.cc
@@ -109,6 +109,8 @@ add_library(arrow_odbc_spi_impl
             types.h
             type_fwd.h
             type_utilities.h
+            system_dsn.cc
+            system_dsn.h
             util.cc
             util.h)
 target_compile_definitions(arrow_odbc_spi_impl PUBLIC UNICODE)
@@ -125,14 +127,21 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         win_system_dsn.cc
-                         system_dsn.cc
-                         system_dsn.h)
+                         win_system_dsn.cc)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl
-                      PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
-                             ${ODBCINST})
+if(APPLE)
+  target_include_directories(arrow_odbc_spi_impl SYSTEM BEFORE PUBLIC ${ODBC_INCLUDE_DIR})
+  target_link_libraries(arrow_odbc_spi_impl
+                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
+                               iodbc)
+else()
+  find_package(ODBC REQUIRED)
+  target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
+  target_link_libraries(arrow_odbc_spi_impl
+                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
+                               ${ODBCINST})
+endif()
 
 set_target_properties(arrow_odbc_spi_impl
                       PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
