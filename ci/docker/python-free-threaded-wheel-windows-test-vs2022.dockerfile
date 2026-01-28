@@ -24,7 +24,7 @@ ARG base
 # hadolint ignore=DL3006
 FROM ${base}
 
-ARG python=3.10
+ARG python=3.13
 
 ARG python_variant_suffix=""
 ENV PYTHON_VERSION=${python}${python_variant_suffix}
