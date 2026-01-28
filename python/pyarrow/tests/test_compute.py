@@ -2362,15 +2362,21 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
-def _check_all_end_with_offset(arr):
+def _compare_strftime_strings_on_windows(result, expected):
     # TODO(GH-48767): On Windows, std::chrono returns GMT offset
     # instead of timezone abbreviations (e.g. "CET")
     # https://github.com/apache/arrow/issues/48767
 
-    ends_with_offset = pc.match_substring_regex(arr, "(UTC|GMT[+-][0-9]+)$")
+    p = "(UTC|GMT[+-][0-9]+)$"
+
+    ends_with_offset = pc.match_substring_regex(result, p)
     all_end_with_offset = pc.all(ends_with_offset, skip_nulls=True).as_py()
     assert all_end_with_offset, "All timezone values should be GMT offset format or UTC" \
-        f"\nActual: {arr}"
+        f"\nActual: {result}"
+
+    result_substring = pc.replace_substring_regex(result, pattern=p, replacement="")
+    assert expected.starts_with(
+        result_substring), f"Expected: {expected}, \nActual: {result} \n Note: tz suffix is not being compared"
 
 
 @pytest.mark.pandas
@@ -2395,11 +2401,7 @@ def test_strftime():
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
                 if sys.platform == "win32" and fmt == "%Z":
-                    _check_all_end_with_offset(result)
-                    pattern = "(UTC|GMT[+-][0-9]+)$"
-                    result = pc.replace_substring_regex(
-                        result, pattern=pattern, replacement="")
-                    assert expected.starts_with(result)
+                    _compare_strftime_strings_on_windows(result, expected)
                 else:
                     assert result.equals(expected)
 
@@ -2416,10 +2418,7 @@ def test_strftime():
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
         if sys.platform == "win32":
-            _check_all_end_with_offset(result)
-            pattern = "(UTC|GMT[+-][0-9]+)$"
-            result = pc.replace_substring_regex(result, pattern=pattern, replacement="")
-            assert expected.starts_with(result)
+            _compare_strftime_strings_on_windows(result, expected)
         else:
             assert result.equals(expected)
 
