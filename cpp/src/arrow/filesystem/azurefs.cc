@@ -1701,6 +1701,27 @@ class AzureFileSystem::Impl {
     return GetBlobContainerClient(container_name).GetBlobClient(blob_name);
   }
 
+  Blobs::ListBlobsPagedResponse ListBlobs(
+      const Blobs::BlobContainerClient& container_client,
+      const Blobs::ListBlobsOptions& options = {}) {
+    auto list_result = container_client.ListBlobs(options);
+    while (list_result.Blobs.empty() && list_result.HasPage()) {
+      list_result.MoveToNextPage();
+    }
+    return list_result;
+  }
+
+  Blobs::ListBlobsByHierarchyPagedResponse ListBlobsByHierarchy(
+      const Blobs::BlobContainerClient& container_client, const std::string& delimiter,
+      const Blobs::ListBlobsOptions& options = {}) {
+    auto list_result = container_client.ListBlobsByHierarchy(delimiter, options);
+    while (list_result.Blobs.empty() && list_result.BlobPrefixes.empty() &&
+           list_result.HasPage()) {
+      list_result.MoveToNextPage();
+    }
+    return list_result;
+  }
+
   /// \param container_name Also known as "filesystem" in the ADLS Gen2 API.
   DataLake::DataLakeFileSystemClient GetFileSystemClient(
       const std::string& container_name) {
@@ -1804,20 +1825,13 @@ class AzureFileSystem::Impl {
 
     try {
       FileInfo info{location.all};
-      auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+      auto list_response = ListBlobsByHierarchy(container_client, kDelimiter, options);
       // Since PageSizeHint=1, we expect at most one entry in either Blobs or
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
       // This strategy allows us to implement GetFileInfo with just 1 blob storage
       // operation in almost every case.
-
-      // Its unusual but possible that the first page contains no results, while
-      // subsequent pages do. We need to find the first result or lack of results.
-      while (list_response.BlobPrefixes.empty() && list_response.Blobs.empty() &&
-             list_response.HasPage()) {
-        list_response.MoveToNextPage();
-      }
 
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
@@ -1854,7 +1868,7 @@ class AzureFileSystem::Impl {
           // Therefore we make an extra list operation with the trailing slash to confirm
           // whether the path is a directory.
           options.Prefix = internal::EnsureTrailingSlash(location.path);
-          auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          auto list_with_trailing_slash_response = ListBlobs(container_client, options);
           if (!list_with_trailing_slash_response.Blobs.empty()) {
             info.set_type(FileType::Directory);
             return info;
@@ -2449,7 +2463,7 @@ class AzureFileSystem::Impl {
     // trusted only if preserve_dir_marker_blob is true.
     bool found_dir_marker_blob = false;
     try {
-      auto list_response = container_client.ListBlobs(options);
+      auto list_response = ListBlobs(container_client, options);
       if (list_response.Blobs.empty()) {
         if (require_dir_to_exist) {
           return PathNotFound(location);
@@ -2906,7 +2920,7 @@ class AzureFileSystem::Impl {
       Blobs::ListBlobsOptions list_blobs_options;
       list_blobs_options.PageSizeHint = 1;
       try {
-        auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
+        auto dest_list_response = ListBlobs(dest_container_client, list_blobs_options);
         dest_is_empty = dest_list_response.Blobs.empty();
         if (!dest_is_empty) {
           return NotEmpty(dest);
@@ -2959,7 +2973,7 @@ class AzureFileSystem::Impl {
       Blobs::ListBlobsOptions list_blobs_options;
       list_blobs_options.PageSizeHint = 1;
       try {
-        auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
+        auto src_list_response = ListBlobs(src_container_client, list_blobs_options);
         if (!src_list_response.Blobs.empty()) {
           // Reminder: dest is used here because we're semantically replacing dest
           // with src. By deleting src if it's empty just like dest.
