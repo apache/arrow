@@ -532,6 +532,25 @@ jobs:
           name: flight-sql-odbc-msi-installer
           path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
           if-no-files-found: error
+      - name: Install ODBC MSI
+        shell: cmd
+        run: |
+          cd build/cpp
+          for %%f in ("Apache Arrow Flight SQL ODBC-*-win64.msi") do (
+              echo Installing %%f silently with logs
+              msiexec /i "%%f" /qn /l*v "odbc-install.log" & type "odbc-install.log"
+          )
+      - name: Check ODBC DLL installation
+        shell: cmd
+        run: |
+          for /d %%D in ("C:\Program Files\Apache Arrow Flight SQL ODBC *") do (
+              if exist "%%D\bin" (
+                  tree "%%D\bin" /f
+                  if exist "%%D\bin\arrow_flight_sql_odbc.dll" exit 0
+              )
+          )
+          echo ODBC DLL not found
+          exit 1
 
   odbc-nightly:
     needs: odbc-msvc
