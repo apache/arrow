@@ -1811,6 +1811,15 @@ class AzureFileSystem::Impl {
       // prefix or a blob.
       // This strategy allows us to implement GetFileInfo with just 1 blob storage
       // operation in almost every case.
+
+      // Its unusual but possible that the first page contains no results, while
+      // subsequent pages do. Keep fetching pages until we find something or run out of
+      // pages.
+      while (list_response.BlobPrefixes.empty() && list_response.Blobs.empty() &&
+             list_response.HasPage()) {
+        list_response.MoveToNextPage();
+      }
+
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
