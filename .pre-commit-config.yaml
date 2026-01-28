@@ -360,8 +360,6 @@ repos:
           ?^dev/release/post-09-python\.sh$|
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
-          ?^python/asv-install\.sh$|
-          ?^python/asv-uninstall\.sh$|
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt

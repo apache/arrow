@@ -37,8 +37,6 @@ htmlcov
 # Cache
 .cache
 
-# benchmark working dir
-.asv
 pyarrow/_table_api.h
 
 # manylinux temporary files
