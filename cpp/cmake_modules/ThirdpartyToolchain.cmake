@@ -595,13 +595,6 @@ else()
   )
 endif()
 
-if(DEFINED ENV{ARROW_WIL_URL})
-  set(ARROW_WIL_URL "$ENV{ARROW_WIL_URL}")
-else()
-  set_urls(ARROW_WIL_URL
-           "https://github.com/microsoft/wil/archive/${ARROW_WIL_BUILD_VERSION}.tar.gz")
-endif()
-
 if(DEFINED ENV{ARROW_BOOST_URL})
   set(BOOST_SOURCE_URL "$ENV{ARROW_BOOST_URL}")
 else()
@@ -818,6 +811,13 @@ else()
   set_urls(ARROW_UTF8PROC_SOURCE_URL
            "https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
   )
+endif()
+
+if(DEFINED ENV{ARROW_WIL_URL})
+  set(ARROW_WIL_URL "$ENV{ARROW_WIL_URL}")
+else()
+  set_urls(ARROW_WIL_URL
+           "https://github.com/microsoft/wil/archive/${ARROW_WIL_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_XSIMD_URL})
