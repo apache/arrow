@@ -230,6 +230,7 @@ echo "Wheel name: %WHEEL_NAME%"
 
 %PYTHON_CMD% -m delvewheel repair -vv ^
     --ignore-existing --with-mangle --include-imports ^
+    --no-mangle "arrow.dll;arrow_python.dll;arrow_acero.dll;arrow_dataset.dll;arrow_flight.dll;arrow_substrait.dll;parquet.dll" ^
     --add-path "C:\arrow-dist\bin" ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
