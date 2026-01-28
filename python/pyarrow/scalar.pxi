@@ -70,7 +70,7 @@ cdef class Scalar(_Weakrefable):
         """
         return self.wrapped.get().is_valid
 
-    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None):
+    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None, *, errors='raise'):
         """
         Cast scalar value to another data type.
 
@@ -86,13 +86,16 @@ cdef class Scalar(_Weakrefable):
             Additional checks pass by CastOptions
         memory_pool : MemoryPool, optional
             memory pool to use for allocations during function execution.
+        errors : str, default 'raise'
+            What to do if a value cannot be casted to the target type.
+            'raise' will raise an error, 'coerce' will produce a null.
 
         Returns
         -------
         scalar : A Scalar of the given target data type.
         """
         return _pc().cast(self, target_type, safe=safe,
-                          options=options, memory_pool=memory_pool)
+                          options=options, memory_pool=memory_pool, errors=errors)
 
     def validate(self, *, full=False):
         """

@@ -1136,7 +1136,7 @@ cdef class Array(_PandasConvertible):
             result = self.ap.Diff(deref(other.ap))
         return frombytes(result, safe=True)
 
-    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None):
+    def cast(self, object target_type=None, safe=None, options=None, memory_pool=None, *, errors='raise'):
         """
         Cast array values to another data type
 
@@ -1152,6 +1152,9 @@ cdef class Array(_PandasConvertible):
             Additional checks pass by CastOptions
         memory_pool : MemoryPool, optional
             memory pool to use for allocations during function execution.
+        errors : str, default 'raise'
+            What to do if a value cannot be casted to the target type.
+            'raise' will raise an error, 'coerce' will produce a null.
 
         Returns
         -------
@@ -1159,7 +1162,7 @@ cdef class Array(_PandasConvertible):
         """
         self._assert_cpu()
         return _pc().cast(self, target_type, safe=safe,
-                          options=options, memory_pool=memory_pool)
+                          options=options, memory_pool=memory_pool, errors=errors)
 
     def view(self, object target_type):
         """
