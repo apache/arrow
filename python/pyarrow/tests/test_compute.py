@@ -2395,6 +2395,11 @@ def test_strftime():
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
                 if sys.platform == "win32" and fmt == "%Z":
+                    _check_all_end_with_offset(result)
+                    pattern = "(UTC|GMT[+-][0-9]+)$"
+                    result = pc.replace_substring_regex(
+                        result, pattern=pattern, replacement="")
+                    assert expected.starts_with(result)
                 else:
                     assert result.equals(expected)
 
@@ -2412,6 +2417,9 @@ def test_strftime():
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
         if sys.platform == "win32":
             _check_all_end_with_offset(result)
+            pattern = "(UTC|GMT[+-][0-9]+)$"
+            result = pc.replace_substring_regex(result, pattern=pattern, replacement="")
+            assert expected.starts_with(result)
         else:
             assert result.equals(expected)
 
