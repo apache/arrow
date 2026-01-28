@@ -611,6 +611,12 @@ module ArrowFormat
     def build_array(size, validity_buffer, values_buffer)
       FixedSizeBinaryArray.new(self, size, validity_buffer, values_buffer)
     end
+
+    def to_flatbuffers
+      fb_type = FB::FixedSizeBinary::Data.new
+      fb_type.byte_width = @byte_width
+      fb_type
+    end
   end
 
   class DecimalType < FixedSizeBinaryType

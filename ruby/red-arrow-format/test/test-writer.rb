@@ -68,6 +68,8 @@ module WriterTests
       ArrowFormat::UTF8Type.singleton
     when Arrow::LargeStringDataType
       ArrowFormat::LargeUTF8Type.singleton
+    when Arrow::FixedSizeBinaryDataType
+      ArrowFormat::FixedSizeBinaryType.new(red_arrow_type.byte_width)
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
@@ -91,6 +93,10 @@ module WriterTests
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.offsets_buffer),
+                       convert_buffer(red_arrow_array.data_buffer))
+    when ArrowFormat::FixedSizeBinaryType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.data_buffer))
     else
       raise "Unsupported array #{red_arrow_array.inspect}"
@@ -422,6 +428,19 @@ module WriterTests
 
           def test_write
             assert_equal(["Hello", nil, "World"],
+                         @values)
+          end
+        end
+
+        sub_test_case("FixedSizeBinary") do
+          def build_array
+            data_type = Arrow::FixedSizeBinaryDataType.new(4)
+            Arrow::FixedSizeBinaryArray.new(data_type,
+                                            ["0124".b, nil, "abcd".b])
+          end
+
+          def test_write
+            assert_equal(["0124".b, nil, "abcd".b],
                          @values)
           end
         end
