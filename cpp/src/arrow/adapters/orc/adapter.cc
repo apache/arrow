@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <list>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -99,6 +100,66 @@ namespace {
 constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
 using internal::checked_cast;
+
+// Statistics container for min/max values from ORC stripe statistics
+struct MinMaxStats {
+  int64_t min;
+  int64_t max;
+  bool has_null;
+
+  MinMaxStats(int64_t min_val, int64_t max_val, bool null_flag)
+      : min(min_val), max(max_val), has_null(null_flag) {}
+};
+
+// Extract stripe-level statistics for a specific column
+// Returns nullopt if statistics are missing or invalid
+std::optional<MinMaxStats> ExtractStripeStatistics(
+    const std::unique_ptr<liborc::StripeStatistics>& stripe_stats,
+    uint32_t orc_column_id,
+    const std::shared_ptr<DataType>& field_type) {
+
+  if (!stripe_stats) {
+    return std::nullopt;  // No statistics available
+  }
+
+  // Get column statistics
+  const liborc::ColumnStatistics* col_stats =
+      stripe_stats->getColumnStatistics(orc_column_id);
+
+  if (!col_stats) {
+    return std::nullopt;  // Column statistics missing
+  }
+
+  // Only INT64 support in this initial implementation
+  if (field_type->id() != Type::INT64) {
+    return std::nullopt;  // Unsupported type
+  }
+
+  // Dynamic cast to get integer-specific statistics
+  const auto* int_stats =
+      dynamic_cast<const liborc::IntegerColumnStatistics*>(col_stats);
+
+  if (!int_stats) {
+    return std::nullopt;  // Wrong statistics type
+  }
+
+  // Check if min/max are available
+  if (!int_stats->hasMinimum() || !int_stats->hasMaximum()) {
+    return std::nullopt;  // Statistics incomplete
+  }
+
+  // Extract raw values
+  int64_t min_value = int_stats->getMinimum();
+  int64_t max_value = int_stats->getMaximum();
+  bool has_null = col_stats->hasNull();
+
+  // Sanity check: min should be <= max
+  if (min_value > max_value) {
+    return std::nullopt;  // Invalid statistics
+  }
+
+  return MinMaxStats(min_value, max_value, has_null);
+}
 
 class ArrowInputFile : public liborc::InputStream {
  public:
