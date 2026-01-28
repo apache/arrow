@@ -106,6 +106,7 @@ struct BoundsChecker {
 struct ValidateArrayImpl {
   const ArrayData& data;
   const bool full_validation;
+  const bool nullable;
 
   Status Validate() {
     if (data.type == nullptr) {
@@ -296,7 +297,7 @@ struct ValidateArrayImpl {
                              ") multiplied by the value size (", list_size, ")");
     }
 
-    const Status child_valid = RecurseInto(values);
+    const Status child_valid = RecurseInto(values, type.value_field()->nullable());
     if (!child_valid.ok()) {
       return Status::Invalid("Fixed size list child array invalid: ",
                              child_valid.ToString());
@@ -310,7 +311,7 @@ struct ValidateArrayImpl {
       const auto& field_data = *data.child_data[i];
 
       // Validate child first, to catch nonsensical length / offset etc.
-      const Status field_valid = RecurseInto(field_data);
+      const Status field_valid = RecurseInto(field_data, type.field(i)->nullable());
       if (!field_valid.ok()) {
         return Status::Invalid("Struct child array #", i,
                                " invalid: ", field_valid.ToString());
@@ -337,7 +338,7 @@ struct ValidateArrayImpl {
       const auto& field_data = *data.child_data[i];
 
       // Validate children first, to catch nonsensical length / offset etc.
-      const Status field_valid = RecurseInto(field_data);
+      const Status field_valid = RecurseInto(field_data, type.field(i)->nullable());
       if (!field_valid.ok()) {
         return Status::Invalid("Union child array #", i,
                                " invalid: ", field_valid.ToString());
@@ -420,7 +421,7 @@ struct ValidateArrayImpl {
       return Status::Invalid("Dictionary values must be non-null");
     }
     // Validate dictionary
-    const Status dict_valid = RecurseInto(*data.dictionary);
+    const Status dict_valid = RecurseInto(*data.dictionary, false);
     if (!dict_valid.ok()) {
       return Status::Invalid("Dictionary array invalid: ", dict_valid.ToString());
     }
@@ -464,8 +465,8 @@ struct ValidateArrayImpl {
     return data.buffers[index] != nullptr && data.buffers[index]->address() != 0;
   }
 
-  Status RecurseInto(const ArrayData& related_data) {
-    ValidateArrayImpl impl{related_data, full_validation};
+  Status RecurseInto(const ArrayData& related_data, bool nullable) {
+    ValidateArrayImpl impl{related_data, full_validation, nullable};
     return impl.Validate();
   }
 
@@ -558,7 +559,7 @@ struct ValidateArrayImpl {
     }
 
     if (full_validation) {
-      if (data.null_count != kUnknownNullCount) {
+      if (data.null_count != kUnknownNullCount || !nullable) {
         int64_t actual_null_count;
         if (may_have_validity_bitmap(data.type->id()) && data.buffers[0]) {
           // Do not call GetNullCount() as it would also set the `null_count` member
@@ -569,7 +570,12 @@ struct ValidateArrayImpl {
         } else {
           actual_null_count = 0;
         }
-        if (actual_null_count != data.null_count) {
+        if (!nullable && actual_null_count > 0) {
+          return Status::Invalid("Field is not nullable but contains ", actual_null_count,
+                                 " nulls");
+        }
+        if (data.null_count != kUnknownNullCount &&
+            actual_null_count != data.null_count) {
           return Status::Invalid("null_count value (", data.null_count,
                                  ") doesn't match actual number of nulls in array (",
                                  actual_null_count, ")");
@@ -708,7 +714,11 @@ struct ValidateArrayImpl {
   template <typename ListType>
   Status ValidateListLike(const ListType& type) {
     const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values);
+
+    if (!type.value_field()->nullable() && values.null_count > 0) {
+      return Status::Invalid("List child array contains nulls but field is not nullable");
+    }
+    const Status child_valid = RecurseInto(values, type.value_field()->nullable());
     if (!child_valid.ok()) {
       return Status::Invalid("List child array invalid: ", child_valid.ToString());
     }
@@ -750,7 +760,7 @@ struct ValidateArrayImpl {
   template <typename ListViewType>
   Status ValidateListView(const ListViewType& type) {
     const ArrayData& values = *data.child_data[0];
-    const Status child_valid = RecurseInto(values);
+    const Status child_valid = RecurseInto(values, type.value_field()->nullable());
     if (!child_valid.ok()) {
       return Status::Invalid("List-view child array is invalid: ",
                              child_valid.ToString());
@@ -781,11 +791,11 @@ struct ValidateArrayImpl {
       return Status::Invalid("Values array is null pointer");
     }
     // We must validate child array buffers are valid before making additional checks.
-    const Status run_ends_valid = RecurseInto(*run_ends_data);
+    const Status run_ends_valid = RecurseInto(*run_ends_data, type.field(0)->nullable());
     if (!run_ends_valid.ok()) {
       return Status::Invalid("Run ends array invalid: ", run_ends_valid.message());
     }
-    const Status values_valid = RecurseInto(*values_data);
+    const Status values_valid = RecurseInto(*values_data, type.field(1)->nullable());
     if (!values_valid.ok()) {
       return Status::Invalid("Values array invalid: ", values_valid.message());
     }
@@ -978,7 +988,7 @@ struct ValidateArrayImpl {
 
 ARROW_EXPORT
 Status ValidateArray(const ArrayData& data) {
-  ValidateArrayImpl validator{data, /*full_validation=*/false};
+  ValidateArrayImpl validator{data, /*full_validation=*/false, /*nullable=*/true};
   return validator.Validate();
 }
 
@@ -987,7 +997,7 @@ Status ValidateArray(const Array& array) { return ValidateArray(*array.data()); 
 
 ARROW_EXPORT
 Status ValidateArrayFull(const ArrayData& data) {
-  return ValidateArrayImpl{data, /*full_validation=*/true}.Validate();
+  return ValidateArrayImpl{data, /*full_validation=*/true, /*nullable=*/true}.Validate();
 }
 
 ARROW_EXPORT

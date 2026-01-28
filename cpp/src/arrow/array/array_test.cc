@@ -100,6 +100,28 @@ void CheckDictionaryNullCount(const std::shared_ptr<DataType>& dict_type,
   ASSERT_EQ(arr->data()->MayHaveLogicalNulls(), expected_may_have_logical_nulls);
 }
 
+TEST_F(TestArray, TestValidateFullNullableList) {
+  auto f1 = field("f1", int32(), /*nullable=*/false);
+  auto type = list(f1);
+  auto array = ArrayFromJSON(type, "[[0, 1], null, [2, 5]]");
+  auto array_nested_null = ArrayFromJSON(type, "[[0, 1], [3, 4], [2, null]]");
+
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+  ASSERT_RAISES(Invalid, array_nested_null->ValidateFull());
+}
+
+TEST_F(TestArray, TestValidateFullNullableFixedSizeList) {
+  auto f0 = field("f0", int32(), /*nullable=*/false);
+  auto list_type = fixed_size_list(f0, 2);
+  auto array_nonull = ArrayFromJSON(list_type, "[[0, 1], [2, 3], [4, 5]]");
+  auto array = ArrayFromJSON(list_type, "[[0, 1], null, [2, 5]]");
+  auto array_nested_null = ArrayFromJSON(list_type, "[[0, 1], [3, 4], [2, null]]");
+
+  ASSERT_OK(array_nonull->ValidateFull());
+  ASSERT_RAISES(Invalid, array->ValidateFull());
+  ASSERT_RAISES(Invalid, array_nested_null->ValidateFull());
+}
+
 TEST_F(TestArray, TestNullCount) {
   // These are placeholders
   auto data = std::make_shared<Buffer>(nullptr, 0);
