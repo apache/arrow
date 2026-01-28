@@ -456,14 +456,11 @@ tests can be made with there individual make targets).
    SET BOOST_LIBRARYDIR=C:\Boost\lib
    SET BOOST_ROOT=C:\Boost
 
-7. Run appveyor scripts:
+7. Install dependencies and build:
 
 .. code-block:: shell
 
    conda install -c conda-forge --file .\ci\conda_env_cpp.txt
-   .\ci\appveyor-cpp-setup.bat
-   @rem this might fail but at this point most unit tests should be buildable by there individual targets
-   @rem see next line for example.
-   .\ci\appveyor-cpp-build.bat
+   git submodule update --init
    @rem you can also just invoke cmake directly with the desired options
    cmake --build . --config Release --target arrow-compute-hash-test
