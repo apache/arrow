@@ -130,6 +130,7 @@ cdef extern from "parquet/api/schema.h" namespace "parquet" nogil:
         ParquetEncoding_RLE_DICTIONARY" parquet::Encoding::RLE_DICTIONARY"
         ParquetEncoding_BYTE_STREAM_SPLIT \
             " parquet::Encoding::BYTE_STREAM_SPLIT"
+        ParquetEncoding_FSST" parquet::Encoding::FSST"
 
     enum ParquetCompression" parquet::Compression::type":
         ParquetCompression_UNCOMPRESSED" parquet::Compression::UNCOMPRESSED"

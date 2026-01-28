@@ -1487,6 +1487,7 @@ cdef encoding_name_from_enum(ParquetEncoding encoding_):
         ParquetEncoding_DELTA_BYTE_ARRAY: 'DELTA_BYTE_ARRAY',
         ParquetEncoding_RLE_DICTIONARY: 'RLE_DICTIONARY',
         ParquetEncoding_BYTE_STREAM_SPLIT: 'BYTE_STREAM_SPLIT',
+        ParquetEncoding_FSST: 'FSST',
     }.get(encoding_, 'UNKNOWN')
 
 
@@ -1499,6 +1500,7 @@ cdef encoding_enum_from_name(str encoding_name):
         'DELTA_BINARY_PACKED': ParquetEncoding_DELTA_BINARY_PACKED,
         'DELTA_LENGTH_BYTE_ARRAY': ParquetEncoding_DELTA_LENGTH_BYTE_ARRAY,
         'DELTA_BYTE_ARRAY': ParquetEncoding_DELTA_BYTE_ARRAY,
+        'FSST': ParquetEncoding_FSST,
         'RLE_DICTIONARY': 'dict',
         'PLAIN_DICTIONARY': 'dict',
     }.get(encoding_name, None)
