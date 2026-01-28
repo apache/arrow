@@ -32,6 +32,9 @@ ARG python_variant_suffix=""
 ENV PYTHON_VERSION=${python}${python_variant_suffix}
 
 RUN pymanager install %PYTHON_VERSION%
+
+ENV PYTHON_CMD="py -${python}${python_variant_suffix}"
+
 # hadolint ignore=DL3059
 RUN %PYTHON_CMD% -m pip install -U pip setuptools
 

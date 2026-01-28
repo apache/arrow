@@ -31,6 +31,8 @@ ENV PYTHON_VERSION=${python}${python_variant_suffix}
 
 RUN pymanager install %PYTHON_VERSION%
 
+ENV PYTHON_CMD="py -${python}${python_variant_suffix}"
+
 SHELL ["cmd", "/S", "/C"]
 RUN %PYTHON_CMD% -m pip install -U pip setuptools & \
     if "%python%"=="3.13" ( \
