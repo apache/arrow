@@ -1813,8 +1813,7 @@ class AzureFileSystem::Impl {
       // operation in almost every case.
 
       // Its unusual but possible that the first page contains no results, while
-      // subsequent pages do. Keep fetching pages until we find something or run out of
-      // pages.
+      // subsequent pages do. We need to find the first result or lack of results.
       while (list_response.BlobPrefixes.empty() && list_response.Blobs.empty() &&
              list_response.HasPage()) {
         list_response.MoveToNextPage();
