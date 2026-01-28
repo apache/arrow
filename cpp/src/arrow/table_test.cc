@@ -273,11 +273,11 @@ TEST(TestTableEqualityFloatType, SingedZero) {
 TEST(TestTableEqualityFloatType, Infinity) {
   auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto table = TableFromJSON(
-      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": "Inf"}])"});
   auto table_different_inf = TableFromJSON(
-      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": -Inf}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": "-Inf"}])"});
   auto table_same_inf = TableFromJSON(
-      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": Inf}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": 5.0}, {"f0": 3, "f1": "Inf"}])"});
 
   ASSERT_FALSE(table->Equals(*table_different_inf));
   ASSERT_TRUE(table->Equals(*table_same_inf));
@@ -286,9 +286,9 @@ TEST(TestTableEqualityFloatType, Infinity) {
 TEST(TestTableEqualityFloatType, NaN) {
   auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto table = TableFromJSON(
-      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": "NaN"}, {"f0": 3, "f1": 6.0}])"});
   auto other_table = TableFromJSON(
-      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": "NaN"}, {"f0": 3, "f1": 6.0}])"});
   auto options = EqualOptions::Defaults();
 
   ASSERT_FALSE(table->Equals(*other_table, options));
@@ -338,7 +338,7 @@ TEST(TestTableEqualitySameAddress, NestedTypesWithoutFloatType) {
 TEST(TestTableEqualitySameAddress, FloatType) {
   auto schema = ::arrow::schema({field("f0", int32()), field("f1", float64())});
   auto table = TableFromJSON(
-      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": NaN}, {"f0": 3, "f1": 6.0}])"});
+      schema, {R"([{"f0": 1, "f1": 4.0}, {"f0": 2, "f1": "NaN"}, {"f0": 3, "f1": 6.0}])"});
   auto other_table = table;
   auto options = EqualOptions::Defaults();
 
@@ -351,7 +351,7 @@ TEST(TestTableEqualitySameAddress, NestedTypesWithFloatType) {
       {field("f0", int32()), field("f1", struct_({{"f2", utf8()}, {"f3", float64()}}))});
   auto table = TableFromJSON(
       schema,
-      {R"([{"f0": 1, "f1": {"f2": "4", "f3":  7.0}}, {"f0": 2, "f1": {"f2": "5", "f3": NaN}}, {"f0": 3,"f1": {"f2" : "6", "f3": 9.0}}])"});
+      {R"([{"f0": 1, "f1": {"f2": "4", "f3":  7.0}}, {"f0": 2, "f1": {"f2": "5", "f3": "NaN"}}, {"f0": 3,"f1": {"f2" : "6", "f3": 9.0}}])"});
   auto other_table = table;
   auto options = EqualOptions::Defaults();
 
