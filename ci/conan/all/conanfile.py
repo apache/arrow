@@ -163,7 +163,7 @@ class ArrowConan(ConanFile):
     def layout(self):
         cmake_layout(self, src_folder="src")
 
-    def _requires_rapidjson(self):
+    def _requires_json_library(self):
         return self.options.with_json or self.options.encryption
 
     def requirements(self):
@@ -185,8 +185,9 @@ class ArrowConan(ConanFile):
             self.requires("google-cloud-cpp/1.40.1")
         if self.options.with_grpc:
             self.requires("grpc/1.50.0")
-        if self._requires_rapidjson():
+        if self._requires_json_library():
             self.requires("rapidjson/1.1.0")
+            self.requires("simdjson/4.2.2")
         if self.options.with_llvm:
             self.requires("llvm-core/13.0.0")
         if self.options.with_openssl:
@@ -371,6 +372,7 @@ class ArrowConan(ConanFile):
             tc.variables["ARROW_LZ4_USE_SHARED"] = bool(self.dependencies["lz4"].options.shared)
         tc.variables["ARROW_WITH_SNAPPY"] = bool(self.options.with_snappy)
         tc.variables["RapidJSON_SOURCE"] = "SYSTEM"
+        tc.variables["SIMDJSON_SOURCE"] = "SYSTEM"
         tc.variables["Snappy_SOURCE"] = "SYSTEM"
         if self.options.with_snappy:
             tc.variables["ARROW_SNAPPY_USE_SHARED"] = bool(self.dependencies["snappy"].options.shared)
@@ -559,8 +561,9 @@ class ArrowConan(ConanFile):
             self.cpp_info.components["libarrow"].requires.append("libbacktrace::libbacktrace")
         if self.options.with_cuda:
             self.cpp_info.components["libarrow"].requires.append("cuda::cuda")
-        if self._requires_rapidjson():
+        if self._requires_json_library():
             self.cpp_info.components["libarrow"].requires.append("rapidjson::rapidjson")
+            self.cpp_info.components["libarrow"].requires.append("simdjson::simdjson")
         if self.options.with_s3:
             # https://github.com/apache/arrow/blob/6b268f62a8a172249ef35f093009c740c32e1f36/cpp/src/arrow/CMakeLists.txt#L98
             self.cpp_info.components["libarrow"].requires.extend([f"aws-sdk-cpp::{x}" for x in ["cognito-identity", "core", "identity-management", "s3", "sts"]])

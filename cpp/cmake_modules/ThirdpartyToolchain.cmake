@@ -64,6 +64,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     re2
     Protobuf
     RapidJSON
+    simdjson
     Snappy
     Substrait
     Thrift
@@ -381,6 +382,7 @@ endif()
 
 if(ARROW_PARQUET)
   set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_SIMDJSON ON)
   set(ARROW_WITH_THRIFT ON)
 endif()
 
@@ -409,6 +411,7 @@ endif()
 
 if(ARROW_JSON OR ARROW_FLIGHT_SQL_ODBC)
   set(ARROW_WITH_RAPIDJSON ON)
+  set(ARROW_WITH_SIMDJSON ON)
 endif()
 
 if(ARROW_ORC OR ARROW_FLIGHT)
@@ -2609,6 +2612,12 @@ if(ARROW_WITH_RAPIDJSON)
                      TRUE
                      REQUIRED_VERSION
                      ${ARROW_RAPIDJSON_REQUIRED_VERSION}
+                     IS_RUNTIME_DEPENDENCY
+                     FALSE)
+endif()
+
+if(ARROW_WITH_SIMDJSON)
+  resolve_dependency(simdjson
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
 endif()
