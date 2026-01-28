@@ -252,15 +252,15 @@ enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj,
     *out = Float16(f64).bits();
     return Status::OK();
   }
-  uint32_t u32t;
-  if (json_obj.get(u32t)) {
-    double f64 = static_cast<double>(u32t);
+  uint64_t u64t;
+  if (json_obj.get(u64t)) {
+    auto f64 = static_cast<double>(u64t);
     *out = Float16(f64).bits();
     return Status::OK();
   }
-  int32_t i32t;
-  if (json_obj.get(i32t)) {
-    double f64 = static_cast<double>(i32t);
+  int64_t i64t;
+  if (json_obj.get(i64t)) {
+    auto f64 = static_cast<double>(i64t);
     *out = Float16(f64).bits();
     return Status::OK();
   } 
