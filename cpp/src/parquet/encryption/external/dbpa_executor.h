@@ -80,6 +80,7 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
    * Encrypt the provided plaintext
    * Executes with timeout - original exceptions preserved
    * @param plaintext The data to encrypt
+   * @param encoding_attributes The encoding attributes to use for encryption
    * @return Unique pointer to EncryptionResult
    * @throws DBPAExecutorTimeoutException if operation times out
    * @throws Original exceptions from wrapped agent (unchanged!)
@@ -92,6 +93,7 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
    * Decrypt the provided ciphertext
    * Executes with timeout - original exceptions preserved
    * @param ciphertext The data to decrypt
+   * @param encoding_attributes The encoding attributes to use for decryption
    * @return Unique pointer to DecryptionResult
    * @throws DBPAExecutorTimeoutException if operation times out
    * @throws Original exceptions from wrapped agent (unchanged!)
