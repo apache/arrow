@@ -36,6 +36,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/scalar.h"
 #include "arrow/status.h"
+#include "arrow/testing/builder.h"
 #include "arrow/testing/extension_type.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
@@ -1395,8 +1396,10 @@ class TestListLikeScalar : public ::testing::Test {
     }
 
     {
-      // Invalid UTF8 in child data
-      ScalarType scalar(ArrayFromJSON(utf8(), "[null, null, \"\xff\"]"));
+      std::shared_ptr<Array> invalid_utf8;
+      ArrayFromVector<StringType, std::string>({false, false, true}, {"", "", "\xff"},
+                                               &invalid_utf8);
+      ScalarType scalar(invalid_utf8);
       ASSERT_OK(scalar.Validate());
       ASSERT_RAISES(Invalid, scalar.ValidateFull());
     }
