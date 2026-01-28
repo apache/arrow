@@ -2362,6 +2362,17 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
+def _check_all_end_with_offset(arr):
+    # TODO(GH-48767): On Windows, std::chrono returns GMT offset
+    # instead of timezone abbreviations (e.g. "CET")
+    # https://github.com/apache/arrow/issues/48767
+
+    ends_with_offset = pc.match_substring_regex(arr, "(UTC|GMT[+-][0-9]+)$")
+    all_end_with_offset = pc.all(ends_with_offset, skip_nulls=True).as_py()
+    assert all_end_with_offset, "All timezone values should be GMT offset format or UTC" \
+        f"\nActual: {arr}"
+
+
 @pytest.mark.pandas
 @pytest.mark.timezone_data
 def test_strftime():
@@ -2384,14 +2395,6 @@ def test_strftime():
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
                 if sys.platform == "win32" and fmt == "%Z":
-                    # TODO(GH-48767): On Windows, std::chrono returns GMT offset
-                    # instead of timezone abbreviations (e.g. "CET")
-                    # https://github.com/apache/arrow/issues/48767
-                    is_valid = pc.or_kleene(pc.match_substring_regex(
-                        result, "^(UTC|GMT[+-][0-9]+)$"), pc.is_null(result))
-                    assert not pc.any(pc.invert(is_valid)).as_py(), \
-                        "All timezone values should be GMT offset format or UTC" \
-                        f"\nActual: {result}"
                 else:
                     assert result.equals(expected)
 
@@ -2408,14 +2411,7 @@ def test_strftime():
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
         if sys.platform == "win32":
-            # TODO(GH-48767): On Windows, std::chrono returns GMT offset
-            # instead of timezone abbreviations (e.g. "CET")
-            # https://github.com/apache/arrow/issues/48767
-            is_valid = pc.or_kleene(pc.match_substring_regex(
-                result, "(UTC|GMT[+-][0-9]+)$"), pc.is_null(result))
-            assert not pc.any(pc.invert(is_valid)).as_py(), \
-                "All timezone values should be GMT offset format or UTC" \
-                f"\nActual: {result}"
+            _check_all_end_with_offset(result)
         else:
             assert result.equals(expected)
 
