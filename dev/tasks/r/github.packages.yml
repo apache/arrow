@@ -317,13 +317,14 @@ jobs:
           - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE", runner: "ubuntu-latest"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
           # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE", runner: "ubuntu-latest"}
-          - {image: "rhub/ubuntu-release", runner: "ubuntu-latest"} # currently ubuntu-22.04
-          - {image: "posit/r-base:4.1-jammy", runner: "ubuntu-latest"}
-          - {image: "posit/r-base:4.2-jammy", runner: "ubuntu-latest"}
+          - {image: "rhub/ubuntu-release", runner: "ubuntu-latest"} # currently ubuntu-24.04
           - {image: "posit/r-base:4.3-noble", runner: "ubuntu-latest"}
+          - {image: "posit/r-base:4.4-noble", runner: "ubuntu-latest"}
+          - {image: "posit/r-base:4.5-noble", runner: "ubuntu-latest"}
           # ARM64 tests
-          - {image: "posit/r-base:4.2-jammy", runner: "ubuntu-24.04-arm"}
           - {image: "posit/r-base:4.3-noble", runner: "ubuntu-24.04-arm"}
+          - {image: "posit/r-base:4.4-noble", runner: "ubuntu-24.04-arm"}
+          - {image: "posit/r-base:4.5-noble", runner: "ubuntu-24.04-arm"}
     steps:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
