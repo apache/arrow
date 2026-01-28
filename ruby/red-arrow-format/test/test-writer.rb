@@ -46,6 +46,20 @@ module WriterTests
       ArrowFormat::Date32Type.singleton
     when Arrow::Date64DataType
       ArrowFormat::Date64Type.singleton
+    when Arrow::Time32DataType
+      case red_arrow_type.unit.nick
+      when "second"
+        ArrowFormat::Time32Type.new(:second)
+      when "milli"
+        ArrowFormat::Time32Type.new(:millisecond)
+      end
+    when Arrow::Time64DataType
+      case red_arrow_type.unit.nick
+      when "micro"
+        ArrowFormat::Time64Type.new(:microsecond)
+      when "nano"
+        ArrowFormat::Time64Type.new(:nanosecond)
+      end
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
     when Arrow::LargeBinaryDataType
@@ -263,6 +277,106 @@ module WriterTests
                            DateTime.new(2017, 8, 28, 0, 0, 0),
                            nil,
                            DateTime.new(2025, 12, 10, 0, 0, 0),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Time32(:second)") do
+          def setup(&block)
+            @time_00_00_10 = 10
+            @time_00_01_10 = 60 + 10
+            super(&block)
+          end
+
+          def build_array
+            Arrow::Time32Array.new(:second,
+                                   [@time_00_00_10, nil, @time_00_01_10])
+          end
+
+          def test_write
+            assert_equal([
+                           Arrow::Time.new(:second, @time_00_00_10),
+                           nil,
+                           Arrow::Time.new(:second, @time_00_01_10),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Time32(:millisecond)") do
+          def setup(&block)
+            @time_00_00_10_000 = 10 * 1000
+            @time_00_01_10_000 = (60 + 10) * 1000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::Time32Array.new(:milli,
+                                   [
+                                     @time_00_00_10_000,
+                                     nil,
+                                     @time_00_01_10_000,
+                                   ])
+          end
+
+          def test_write
+            assert_equal([
+                           Arrow::Time.new(:milli, @time_00_00_10_000),
+                           nil,
+                           Arrow::Time.new(:milli, @time_00_01_10_000),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Time64(:microsecond)") do
+          def setup(&block)
+            @time_00_00_10_000_000 = 10 * 1_000_000
+            @time_00_01_10_000_000 = (60 + 10) * 1_000_000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::Time64Array.new(:micro,
+                                   [
+                                     @time_00_00_10_000_000,
+                                     nil,
+                                     @time_00_01_10_000_000,
+                                   ])
+          end
+
+          def test_write
+            assert_equal([
+                           Arrow::Time.new(:micro, @time_00_00_10_000_000),
+                           nil,
+                           Arrow::Time.new(:micro, @time_00_01_10_000_000),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Time64(:nanosecond)") do
+          def setup(&block)
+            @time_00_00_10_000_000_000 = 10 * 1_000_000_000
+            @time_00_01_10_000_000_000 = (60 + 10) * 1_000_000_000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::Time64Array.new(:nano,
+                                   [
+                                     @time_00_00_10_000_000_000,
+                                     nil,
+                                     @time_00_01_10_000_000_000,
+                                   ])
+          end
+
+          def test_write
+            assert_equal([
+                           Arrow::Time.new(:nano, @time_00_00_10_000_000_000),
+                           nil,
+                           Arrow::Time.new(:nano, @time_00_01_10_000_000_000),
                          ],
                          @values)
           end

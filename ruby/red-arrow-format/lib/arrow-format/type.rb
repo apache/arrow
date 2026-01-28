@@ -388,14 +388,27 @@ module ArrowFormat
   end
 
   class TimeType < TemporalType
+    attr_reader :bit_width
     attr_reader :unit
-    def initialize(unit)
+    def initialize(bit_width, unit)
       super()
+      @bit_width = bit_width
       @unit = unit
+    end
+
+    def to_flatbuffers
+      fb_type = FB::Time::Data.new
+      fb_type.bit_width = @bit_width
+      fb_type.unit = FB::TimeUnit.try_convert(@unit.to_s.upcase)
+      fb_type
     end
   end
 
   class Time32Type < TimeType
+    def initialize(unit)
+      super(32, unit)
+    end
+
     def name
       "Time32"
     end
@@ -406,6 +419,10 @@ module ArrowFormat
   end
 
   class Time64Type < TimeType
+    def initialize(unit)
+      super(64, unit)
+    end
+
     def name
       "Time64"
     end
