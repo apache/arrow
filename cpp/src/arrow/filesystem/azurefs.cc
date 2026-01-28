@@ -967,6 +967,10 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
   return Status::OK();
 }
 
+// Usually if the first page is empty it means there are no results. This was assumed in
+// several places in AzureFilesystem. The Azure docs do not guarantee this and we have
+// evidence (GH-49043) that there can be subsequent non-empty pages.
+// Applying `SkipStartingEmptyPages` on a paged response corrects this assumption.
 void SkipStartingEmptyPages(Blobs::ListBlobContainersPagedResponse& paged_response) {
   while (paged_response.HasPage() && paged_response.BlobContainers.empty()) {
     paged_response.MoveToNextPage();
