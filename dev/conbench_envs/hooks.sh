@@ -57,6 +57,7 @@ build_arrow_python() {
 }
 
 install_r() {
+  # install R using rig not conda so we can use RSPM binaries for faster dependency installs
   if ! command -v R &> /dev/null; then
     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-latest.tar.gz | sudo tar xz -C /usr/local
     sudo rig add release
