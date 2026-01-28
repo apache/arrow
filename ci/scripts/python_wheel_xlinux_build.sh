@@ -167,8 +167,7 @@ export ARROW_HOME=/tmp/arrow-dist
 export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
-python -m build --sdist . --no-isolation
-python -m build --wheel . --no-isolation
+python -m build --sdist --wheel . --no-isolation
 
 echo "=== Strip symbols from wheel ==="
 mkdir -p dist/temp-fix-wheel
