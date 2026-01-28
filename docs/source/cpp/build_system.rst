@@ -243,10 +243,15 @@ To download the timezone database for libc++ builds, you must download and
 extract the text version of the IANA timezone database and add the Windows
 timezone mapping XML. To download, you can use the following batch script:
 
-.. literalinclude:: ../../../ci/appveyor-cpp-setup.bat
-   :language: batch
-   :start-after: @rem (Doc section: Download timezone database)
-   :end-before: @rem (Doc section: Download timezone database)
+.. code-block:: batch
+
+   curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+   mkdir tzdata
+   tar --extract --file tzdata.tar.gz --directory tzdata
+   move tzdata %USERPROFILE%\Downloads\tzdata
+   @rem Also need Windows timezone mapping
+   curl https://raw.githubusercontent.com/unicode-org/cldr/master/common/supplemental/windowsZones.xml ^
+     --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
 
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
 but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
