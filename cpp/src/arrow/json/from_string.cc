@@ -656,44 +656,23 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     if (json_obj.get(array) != simdjson::SUCCESS) {
       return JSONTypeError("array", json_obj.type());
     }
-    
+
     for (auto json_pair : array) {
-        sj::array json_pair_array;
-        if(json_pair.get(json_pair_array) != simdjson::SUCCESS){
-            return JSONTypeError("array", json_pair.type());
-        }
-
-        auto json_pair_end = json_pair_array.end();
-        auto json_pair_iterator = json_pair_array.begin();
-        if (json_pair_iterator == json_pair_end) {
-          return Status::Invalid("key item pair must have exactly two elements, had 0");
-        }
-
-        sj::value first_value;
-        if((*json_pair_iterator).get(first_value) != simdjson::SUCCESS){
-          return Status::Invalid("some error");
-        }
-        if (first_value.is_null()) {
-          return Status::Invalid("null key is invalid");
-        }
-        RETURN_NOT_OK(key_converter_->AppendValue(first_value));
-
-        ++json_pair_iterator;
-        if (json_pair_iterator == json_pair_end) {
-          return Status::Invalid("key item pair must have exactly two elements, had 1");
-        }
-
-        sj::value second_value;
-        if((*json_pair_iterator).get(second_value) != simdjson::SUCCESS){
-          return Status::Invalid("some error");
-        }
-        RETURN_NOT_OK(item_converter_->AppendValue(second_value));
-        
-        ++json_pair_iterator;
-        if (json_pair_iterator == json_pair_end) {
-          return Status::Invalid("key item pair must have exactly two elements, have more ??"); // <- improve this message
-        }
+      sj::array json_pair_array;
+      if (json_pair.get(json_pair_array) != simdjson::SUCCESS) {
+        return JSONTypeError("array", json_pair.type());
       }
+
+      RETURN_NOT_OK(ProcessJsonArrayElements(
+          json_pair_array, "key-item pair",
+          [this](sj::value& key) {
+            if (key.is_null()) {
+              return Status::Invalid("null key is invalid");
+            }
+            return key_converter_->AppendValue(key);
+          },
+          [this](sj::value& item) { return item_converter_->AppendValue(item); }));
+    }
     return Status::OK();
   }
 
