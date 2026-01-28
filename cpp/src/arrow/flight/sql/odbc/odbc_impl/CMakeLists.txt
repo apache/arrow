@@ -104,6 +104,8 @@ add_library(arrow_odbc_spi_impl STATIC
             spi/result_set.h
             spi/result_set_metadata.h
             spi/statement.h
+            system_dsn.cc
+            system_dsn.h
             system_trust_store.cc
             system_trust_store.h
             types.h
@@ -125,9 +127,7 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         win_system_dsn.cc
-                         system_dsn.cc
-                         system_dsn.h)
+                         win_system_dsn.cc)
 endif()
 
 if(APPLE)
