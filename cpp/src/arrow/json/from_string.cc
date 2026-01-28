@@ -265,7 +265,7 @@ enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj,
     return Status::OK();
   }
   std::string_view str;
-  if (json_obj.get(str)) {
+  if (json_obj.get(str) == simdjson::SUCCESS) {
     if(str == "NaN") {
       *out = Float16(std::numeric_limits<double>::quiet_NaN()).bits();
       return Status::OK();
@@ -294,7 +294,7 @@ enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
     return Status::OK();
   }
   std::string_view str;
-  if (json_obj.get(str)) {
+  if (json_obj.get(str) == simdjson::SUCCESS) {
     if(str == "NaN") {
       *out = static_cast<typename T::c_type>(std::numeric_limits<double>::quiet_NaN());
       return Status::OK();
