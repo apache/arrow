@@ -34,7 +34,7 @@ def validate_wheel(path):
     ]
     assert not outliers, f"Unexpected contents in wheel: {sorted(outliers)}"
     print(f"The wheel: {wheels[0]} seems valid.")
-
+    # TODO(GH-32609): Validate some docstrings were generated and added.
 
 def main():
     parser = argparse.ArgumentParser()

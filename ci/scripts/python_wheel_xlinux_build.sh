@@ -167,6 +167,8 @@ export ARROW_HOME=/tmp/arrow-dist
 export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
+# Install libcst for build-time stub docstring extraction
+python -m pip install libcst
 python setup.py bdist_wheel
 
 echo "=== Strip symbols from wheel ==="
