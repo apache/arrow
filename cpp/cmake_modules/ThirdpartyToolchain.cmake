@@ -629,14 +629,6 @@ else()
            "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
-if(DEFINED ENV{ARROW_CRC32C_URL})
-  set(CRC32C_SOURCE_URL "$ENV{ARROW_CRC32C_URL}")
-else()
-  set_urls(CRC32C_SOURCE_URL
-           "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
@@ -3300,44 +3292,6 @@ endif()
 # ----------------------------------------------------------------------
 # GCS and dependencies
 
-function(build_crc32c_once)
-  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
-  message(STATUS "Building CRC32C from source using FetchContent")
-  set(CRC32C_VENDORED
-      TRUE
-      PARENT_SCOPE)
-  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
-  set(CRC32C_PREFIX
-      "${CRC32C_PREFIX}"
-      PARENT_SCOPE)
-
-  fetchcontent_declare(crc32c
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${CRC32C_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  set(CRC32C_BUILD_TESTS OFF)
-  set(CRC32C_BUILD_BENCHMARKS OFF)
-  set(CRC32C_USE_GLOG OFF)
-  fetchcontent_makeavailable(crc32c)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
-  if(NOT TARGET Crc32c::crc32c)
-    add_library(Crc32c::crc32c ALIAS crc32c)
-  endif()
-
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
-      PARENT_SCOPE)
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
 function(build_nlohmann_json)
   list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
   message(STATUS "Building nlohmann-json from source using FetchContent")
@@ -3378,18 +3332,19 @@ function(build_google_cloud_cpp_storage)
       TRUE
       PARENT_SCOPE)
 
-  # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
-  build_crc32c_once()
-
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${google_cloud_cpp_storage_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
+                       GIT_REPOSITORY https://github.com/googleapis/google-cloud-cpp.git
+                       GIT_TAG 2b9130f6b28457d9f92eb2e1a98d6aa5d730303f # prepare-for-v3.0.0 branch
+  )
 
   prepare_fetchcontent()
 
   message(STATUS "Only building the google-cloud-cpp::storage component")
-  set(GOOGLE_CLOUD_CPP_ENABLE storage)
+  # Disable auto-added features (monitoring, trace, opentelemetry, universe_domain)
+  # that require gRPC - storage only needs REST/curl
+  set(GOOGLE_CLOUD_CPP_ENABLE
+      "storage;-monitoring;-trace;-opentelemetry;-universe_domain")
   # We need this to build with OpenSSL 3.0.
   # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
   set(GOOGLE_CLOUD_CPP_ENABLE_WERROR OFF)
