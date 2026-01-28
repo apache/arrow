@@ -263,7 +263,22 @@ enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj,
     auto f64 = static_cast<double>(i64t);
     *out = Float16(f64).bits();
     return Status::OK();
-  } 
+  }
+  std::string_view str;
+  if (json_obj.get(str)) {
+    if(str == "NaN") {
+      *out = Float16(std::numeric_limits<double>::quiet_NaN()).bits();
+      return Status::OK();
+    }
+    else if (str == "Inf" || str == "Infinity") {
+      *out = Float16(std::numeric_limits<double>::infinity()).bits();
+      return Status::OK();
+    }
+    else if (str == "-Inf" || str == "-Infinity") {
+      *out = Float16(-std::numeric_limits<double>::infinity()).bits();
+      return Status::OK();
+    }
+  }
   *out = static_cast<uint16_t>(0);
   return JSONTypeError("number", json_obj.type());
 }
@@ -277,10 +292,24 @@ enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
   if (json_obj.get(number) == simdjson::SUCCESS) {
     *out = static_cast<typename T::c_type>(number.as_double());
     return Status::OK();
-  } else {
-    *out = static_cast<typename T::c_type>(0);
-    return JSONTypeError("number", json_obj.type());
   }
+  std::string_view str;
+  if (json_obj.get(str)) {
+    if(str == "NaN") {
+      *out = static_cast<typename T::c_type>(std::numeric_limits<double>::quiet_NaN());
+      return Status::OK();
+    }
+    else if (str == "Inf" || str == "Infinity") {
+      *out = static_cast<typename T::c_type>(std::numeric_limits<double>::infinity());
+      return Status::OK();
+    }
+    else if (str == "-Inf" || str == "-Infinity") {
+      *out = static_cast<typename T::c_type>(-std::numeric_limits<double>::infinity());
+      return Status::OK();
+    }
+  }
+  *out = static_cast<typename T::c_type>(0);
+  return JSONTypeError("number", json_obj.type());
 }
 
 
