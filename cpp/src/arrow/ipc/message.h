@@ -469,6 +469,26 @@ Result<std::unique_ptr<Message>> ReadMessage(
     const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader = {});
 
+/// \brief Read encapsulated RPC message from position in file
+///
+/// Read a length-prefixed message flatbuffer starting at the indicated file
+/// offset.
+///
+/// The metadata_length includes at least the length prefix and the flatbuffer
+///
+/// \param[in] offset the position in the file where the message starts. The
+/// first 4 bytes after the offset are the message length
+/// \param[in] metadata_length the total number of bytes to read from file
+/// \param[in] body_length the number of bytes for the message body
+/// \param[in] file the seekable file interface to read from
+/// \return the message read
+
+ARROW_EXPORT
+Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
+                                             const int32_t metadata_length,
+                                             const int64_t body_length,
+                                             io::RandomAccessFile* file);
+
 /// \brief Read encapsulated RPC message from cached buffers
 ///
 /// The buffers should contain an entire message.  Partial reads are not handled.
