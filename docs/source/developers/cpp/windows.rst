@@ -346,10 +346,6 @@ linking some dependencies, we provide some options
 * ``-LZ4_MSVC_STATIC_LIB_SUFFIX=%LZ4_SUFFIX%``
 * ``-ZSTD_MSVC_STATIC_LIB_SUFFIX=%ZSTD_SUFFIX%``
 
-To get the latest build instructions, you can reference `ci/appveyor-built.bat
-<https://github.com/apache/arrow/blob/main/ci/appveyor-cpp-build.bat>`_,
-which is used by automated Appveyor builds.
-
 Statically linking to Arrow on Windows
 ======================================
 
@@ -395,13 +391,12 @@ download instructions. To set a non-default path for the timezone database
 while running the unit tests, set the ``ARROW_TIMEZONE_DATABASE`` environment
 variable.
 
-Replicating Appveyor Builds
-===========================
+Replicating Windows CI Builds
+=============================
 
-For people more familiar with linux development but need to replicate a failing
-appveyor build, here are some rough notes from replicating the
-``Static_Crt_Build`` (make unittest will probably still fail but many unit
-tests can be made with there individual make targets).
+For people more familiar with Linux development but need to replicate a failing
+Windows CI build, here are some rough notes (make unittest will probably still
+fail but many unit tests can be made with their individual make targets).
 
 1. Microsoft offers trial VMs for `Windows with Microsoft Visual Studio
    <https://developer.microsoft.com/en-us/windows/downloads/virtual-machines>`_.
@@ -426,7 +421,7 @@ tests can be made with there individual make targets).
 
    cd $EXTRACT_BOOST_DIRECTORY
    .\bootstrap.bat
-   @rem This is for static libraries needed for static_crt_build in appveyor
+   @rem This is for static libraries needed for static_crt_build
    .\b2 link=static --with-filesystem --with-regex --with-system install
    @rem this should put libraries and headers in c:\Boost
 
@@ -443,10 +438,8 @@ tests can be made with there individual make targets).
 
 .. code-block:: shell
 
-   @rem Change the build type based on which appveyor job you want.
    SET JOB=Static_Crt_Build
    SET GENERATOR=Ninja
-   SET APPVEYOR_BUILD_WORKER_IMAGE=Visual Studio 2017
    SET USE_CLCACHE=false
    SET ARROW_BUILD_GANDIVA=OFF
    SET ARROW_LLVM_VERSION=8.0.*
