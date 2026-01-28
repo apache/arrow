@@ -1430,7 +1430,7 @@ services:
     image: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-test-vs2022-${PYTHON_WHEEL_WINDOWS_TEST_IMAGE_REVISION}
     build:
       args:
-        base: ${REPO}:python-${PYTHON}-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
+        base: ${REPO}:python-${PYTHON}-free-threaded-wheel-windows-vs2022-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
         python_variant_suffix: t
       context: .
