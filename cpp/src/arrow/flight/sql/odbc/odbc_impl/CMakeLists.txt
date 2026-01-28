@@ -109,6 +109,8 @@ add_library(arrow_odbc_spi_impl
             types.h
             type_fwd.h
             type_utilities.h
+            system_dsn.cc
+            system_dsn.h
             util.cc
             util.h)
 target_compile_definitions(arrow_odbc_spi_impl PUBLIC UNICODE)
@@ -125,9 +127,7 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         win_system_dsn.cc
-                         system_dsn.cc
-                         system_dsn.h)
+                         win_system_dsn.cc)
 endif()
 
 if(APPLE)

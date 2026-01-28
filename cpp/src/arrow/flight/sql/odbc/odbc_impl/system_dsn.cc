@@ -17,23 +17,19 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
 
-#include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
-#include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
-#include "arrow/flight/sql/odbc/odbc_impl/ui/dsn_configuration_window.h"
-#include "arrow/flight/sql/odbc/odbc_impl/ui/window.h"
-#include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
 
-#include <odbcinst.h>
 #include <sstream>
 
 namespace arrow::flight::sql::odbc {
 
 using config::Configuration;
 
-void PostError(DWORD error_code, LPCWSTR error_msg) {
+void PostError(DWORD error_code, LPWSTR error_msg) {
+#if defined _WIN32
   MessageBox(NULL, error_msg, L"Error!", MB_ICONEXCLAMATION | MB_OK);
+#endif // _WIN32
   SQLPostInstallerError(error_code, error_msg);
 }
 
@@ -42,7 +38,7 @@ void PostArrowUtilError(arrow::Status error_status) {
   std::wstring werror_msg = arrow::util::UTF8ToWideString(error_msg).ValueOr(
       L"Error during utf8 to wide string conversion");
 
-  PostError(ODBC_ERROR_GENERAL_ERR, werror_msg.c_str());
+  PostError(ODBC_ERROR_GENERAL_ERR, (LPWSTR)werror_msg.c_str());
 }
 
 void PostLastInstallerError() {
@@ -55,7 +51,7 @@ void PostLastInstallerError() {
   buf << L"Message: \"" << msg << L"\", Code: " << code;
   std::wstring error_msg = buf.str();
 
-  PostError(code, error_msg.c_str());
+  PostError(code, (LPWSTR)error_msg.c_str());
 }
 
 /**
