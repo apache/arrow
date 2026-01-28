@@ -251,7 +251,7 @@ class ARROW_EXPORT AzureFileSystem : public FileSystem {
   void ForceCachedHierarchicalNamespaceSupport(int hns_support);
 
  public:
-  ~AzureFileSystem() override = default;
+  ~AzureFileSystem() override;
 
   static Result<std::shared_ptr<AzureFileSystem>> Make(
       const AzureOptions& options, const io::IOContext& = io::default_io_context());

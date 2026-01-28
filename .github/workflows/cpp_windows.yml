@@ -41,12 +41,14 @@ jobs:
     runs-on: ${{ inputs.os }}
     timeout-minutes: 60
     env:
+      ARROW_AZURE: ON
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
+      ARROW_FILESYSTEM: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
       ARROW_HOME: /usr
