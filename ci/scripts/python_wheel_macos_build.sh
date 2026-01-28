@@ -177,6 +177,8 @@ export CMAKE_PREFIX_PATH=${build_dir}/install
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
+# Install libcst for build-time stub docstring extraction
+python -m pip install libcst
 python setup.py bdist_wheel
 popd
 

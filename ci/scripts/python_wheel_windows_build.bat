@@ -132,6 +132,9 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 
 pushd C:\arrow\python
 
+@REM Install libcst for build-time stub docstring extraction
+%PYTHON_CMD% -m pip install libcst
+
 @REM Build wheel
 %PYTHON_CMD% setup.py bdist_wheel || exit /B 1
 

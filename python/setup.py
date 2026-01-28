@@ -121,7 +121,27 @@ class build_ext(_build_ext):
 
     def run(self):
         self._run_cmake()
+        self._update_stubs()
         _build_ext.run(self)
+
+    def _update_stubs(self):
+        """Update stub docstrings and copy to build directory."""
+        stubs_dir = pjoin(setup_dir, 'pyarrow-stubs')
+        if not os.path.exists(stubs_dir):
+            return
+
+        build_cmd = self.get_finalized_command('build')
+        build_lib = os.path.abspath(build_cmd.build_lib)
+
+        # Import here to avoid hard dependency on the dev script
+        sys.path.insert(0, pjoin(setup_dir, '..', 'dev'))
+        try:
+            from update_stub_docstrings import update_stubs_for_build
+            update_stubs_for_build(stubs_dir, build_lib)
+        except ImportError:
+            print("-- Skipping stubs (update_stub_docstrings.py not found)")
+        finally:
+            sys.path.pop(0)
 
     # adapted from cmake_build_ext in dynd-python
     # github.com/libdynd/dynd-python

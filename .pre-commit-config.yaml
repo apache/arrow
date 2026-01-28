@@ -337,6 +337,7 @@ repos:
           ?^ci/scripts/python_sdist_build\.sh$|
           ?^ci/scripts/python_sdist_test\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
+          ?^ci/scripts/python_test_type_annotations\.sh$|
           ?^ci/scripts/r_build\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
           ?^ci/scripts/release_test\.sh$|
@@ -379,6 +380,7 @@ repos:
         # TODO: Remove this when we fix all lint failures
         files: >-
           (
+          ?^ci/scripts/python_test_type_annotations\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
