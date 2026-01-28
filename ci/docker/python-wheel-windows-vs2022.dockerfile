@@ -21,7 +21,6 @@
 ARG base
 FROM ${base}
 
-# Define the full version number otherwise choco falls back to patch number 0 (3.10 => 3.10.0)
 ARG python=3.10
 
 ARG python_variant_suffix=""
