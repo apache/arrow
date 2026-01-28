@@ -729,6 +729,20 @@ ARROW_TESTING_EXPORT
 void rand_month_day_nanos(int64_t N,
                           std::vector<MonthDayNanoIntervalType::MonthDayNanos>* out);
 
+/// \brief Generate a random UTF-8 encoded string
+///
+/// Generates a string with valid UTF-8 encoding from random Unicode scalar values.
+/// The generated string contains num_chars code points sampled uniformly
+/// across the Basic Multilingual Plane (BMP), Supplementary Multilingual Plane (SMP),
+/// Supplementary Ideographic Plane (SIP), and higher planes (up to U+10FFFF).
+/// Surrogate code points (U+D800-U+DFFF) are excluded as they are not valid
+/// Unicode scalar values.
+///
+/// \param[in] num_chars Number of Unicode code points to generate
+/// \return a generated UTF-8 encoded string
+ARROW_TESTING_EXPORT
+std::string RandomUtf8String(int num_chars);
+
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
   const int random_seed = 0;
