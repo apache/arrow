@@ -444,7 +444,7 @@ TEST(ArraySortIndicesFunction, NullTypeDictionaryArray) {
   for (const auto& index_type : all_dictionary_index_types()) {
     ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
     auto dict_type = dictionary(index_type, null());
-    auto dict_arr = DictArrayFromJSON(dict_type, "[null, null, null, null]", "[]");
+    auto dict_arr = DictArrayFromJSON(dict_type, "[null, 0, 0, null]", "[null]");
 
     for (auto null_placement : AllNullPlacements()) {
       ArraySortOptions options{SortOrder::Ascending, null_placement};
