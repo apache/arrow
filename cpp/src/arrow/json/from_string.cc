@@ -65,13 +65,13 @@ namespace {
 
 const char* JsonTypeName(sj::json_type type) {
     switch (type) {
-        case sj::json_type::array: return "array"; break;
-        case sj::json_type::object: return "object"; break;
-        case sj::json_type::number: return "number"; break;
-        case sj::json_type::string: return "string"; break;
-        case sj::json_type::boolean: return "boolean"; break;
-        case sj::json_type::null: return "null"; break;
-        default: Unreachable();
+        case sj::json_type::array: return "array";
+        case sj::json_type::object: return "object";
+        case sj::json_type::number: return "number";
+        case sj::json_type::string: return "string";
+        case sj::json_type::boolean: return "boolean";
+        case sj::json_type::null: return "null";
+        default: return "unknown";
     }
 }
 
@@ -117,7 +117,7 @@ class ConcreteConverter : public JSONConverter {
  public:
   Result<int32_t> AppendValues(sj::array& json_array) final {
     auto self = static_cast<Derived*>(this);
-    size_t num_elements = 0;
+    int32_t num_elements = 0;
     for (auto element : json_array) {
       sj::value value;
       if(element.get(value) != simdjson::SUCCESS){
