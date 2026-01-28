@@ -54,5 +54,6 @@ gh release download "${tag}" \
   --pattern "centos-*.tar.gz" \
   --pattern "debian-*.tar.gz" \
   --pattern "ubuntu-*.tar.gz" \
+  --pattern "Apache Arrow Flight SQL ODBC-*-win64.msi" \
   --repo "${REPOSITORY:-apache/arrow}" \
   --skip-existing

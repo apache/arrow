@@ -67,6 +67,7 @@ cd "${SOURCE_DIR}"
 : "${UPLOAD_CENTOS:=${UPLOAD_DEFAULT}}"
 : "${UPLOAD_DEBIAN:=${UPLOAD_DEFAULT}}"
 : "${UPLOAD_DOCS:=${UPLOAD_DEFAULT}}"
+: "${UPLOAD_ODBC:=${UPLOAD_DEFAULT}}"
 : "${UPLOAD_PYTHON:=${UPLOAD_DEFAULT}}"
 : "${UPLOAD_R:=${UPLOAD_DEFAULT}}"
 : "${UPLOAD_UBUNTU:=${UPLOAD_DEFAULT}}"
@@ -107,6 +108,10 @@ upload_to_github_release() {
 
 if [ "${UPLOAD_DOCS}" -gt 0 ]; then
   upload_to_github_release docs "${ARROW_ARTIFACTS_DIR}"/*-docs/*
+fi
+if [ "${UPLOAD_ODBC}" -gt 0 ]; then
+  upload_to_github_release odbc \
+    "${ARROW_ARTIFACTS_DIR}"/"Apache Arrow Flight SQL ODBC"-*-win64.msi
 fi
 if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
   upload_to_github_release python \
