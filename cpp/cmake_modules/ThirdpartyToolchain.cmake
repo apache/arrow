@@ -212,6 +212,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_rapidjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "re2")
     build_re2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "simdjson")
+    build_simdjson()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Snappy")
     build_snappy()
   elseif("${DEPENDENCY_NAME}" STREQUAL "Substrait")
@@ -781,6 +783,14 @@ if(DEFINED ENV{ARROW_S2N_TLS_URL})
 else()
   set_urls(S2N_TLS_SOURCE_URL
            "https://github.com/aws/s2n-tls/archive/${ARROW_S2N_TLS_BUILD_VERSION}.tar.gz")
+endif()
+
+if(DEFINED ENV{ARROW_SIMDJSON_URL})
+  set(SIMDJSON_SOURCE_URL "$ENV{ARROW_SIMDJSON_URL}")
+else()
+  set_urls(SIMDJSON_SOURCE_URL
+          "https://github.com/simdjson/simdjson/archive/${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz"
+          "${THIRDPARTY_MIRROR_URL}/simdjson-${ARROW_SIMDJSON_BUILD_VERSION}.tar.gz")
 endif()
 
 if(DEFINED ENV{ARROW_SNAPPY_URL})
@@ -2616,8 +2626,41 @@ if(ARROW_WITH_RAPIDJSON)
                      FALSE)
 endif()
 
+macro(build_simdjson)
+  message(STATUS "Building simdjson from source")
+  set(SIMDJSON_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/simdjson_ep/src/simdjson_ep-install")
+  set(SIMDJSON_CMAKE_ARGS
+      ${EP_COMMON_CMAKE_ARGS}
+      -DSIMDJSON_JUST_LIBRARY=ON
+      -DSIMDJSON_BUILD_STATIC_LIB=ON
+      "-DCMAKE_INSTALL_PREFIX=${SIMDJSON_PREFIX}")
+
+  externalproject_add(simdjson_ep
+                      ${EP_COMMON_OPTIONS}
+                      PREFIX "${CMAKE_BINARY_DIR}"
+                      URL ${SIMDJSON_SOURCE_URL}
+                      URL_HASH "SHA256=${ARROW_SIMDJSON_BUILD_SHA256_CHECKSUM}"
+                      CMAKE_ARGS ${SIMDJSON_CMAKE_ARGS})
+
+  set(SIMDJSON_INCLUDE_DIR "${SIMDJSON_PREFIX}/include")
+  set(SIMDJSON_STATIC_LIB
+      "${SIMDJSON_PREFIX}/lib/${CMAKE_STATIC_LIBRARY_PREFIX}simdjson${CMAKE_STATIC_LIBRARY_SUFFIX}")
+
+  # The include directory must exist before it is referenced by a target.
+  file(MAKE_DIRECTORY "${SIMDJSON_INCLUDE_DIR}")
+
+  add_library(simdjson::simdjson STATIC IMPORTED)
+  set_target_properties(simdjson::simdjson
+                        PROPERTIES IMPORTED_LOCATION "${SIMDJSON_STATIC_LIB}"
+                                   INTERFACE_INCLUDE_DIRECTORIES "${SIMDJSON_INCLUDE_DIR}")
+  add_dependencies(simdjson::simdjson simdjson_ep)
+
+  set(SIMDJSON_VENDORED TRUE)
+endmacro()
+
 if(ARROW_WITH_SIMDJSON)
   resolve_dependency(simdjson
+                     USE_CONFIG
                      IS_RUNTIME_DEPENDENCY
                      FALSE)
 endif()
