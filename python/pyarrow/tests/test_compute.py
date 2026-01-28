@@ -2371,12 +2371,13 @@ def _compare_strftime_strings_on_windows(result, expected):
 
     ends_with_offset = pc.match_substring_regex(result, p)
     all_end_with_offset = pc.all(ends_with_offset, skip_nulls=True).as_py()
-    assert all_end_with_offset, "All timezone values should be GMT offset format or UTC" \
-        f"\nActual: {result}"
+    assert all_end_with_offset, "All timezone values should be GMT offset format "\
+                                f"or UTC \nActual: {result}"
 
     result_substring = pc.replace_substring_regex(result, pattern=p, replacement="")
-    assert expected.starts_with(
-        result_substring), f"Expected: {expected}, \nActual: {result} \n Note: tz suffix is not being compared"
+    assert expected.starts_with(result_substring), \
+        f"Expected: {expected}, \nActual: {result} " \
+        "\nNote: tz suffix is not being compared"
 
 
 @pytest.mark.pandas
@@ -2794,10 +2795,10 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# TODO(GH-48743): Re-enable when Windows timezone issues are resolved
-# https://github.com/apache/arrow/issues/48743
-@pytest.mark.skipif(sys.platform == "win32",
-                    reason="Skipping temporal rounding tests on Windows")
+# # TODO(GH-48743): Re-enable once GCC/Windows timezone issues are resolved
+# # https://github.com/apache/arrow/issues/48743
+# @pytest.mark.skipif(sys.platform == "win32",
+#                     reason="Skipping temporal rounding tests on GCC/Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
