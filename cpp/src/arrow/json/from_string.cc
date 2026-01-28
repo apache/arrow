@@ -32,23 +32,19 @@
 #include "arrow/array/builder_union.h"
 #include "arrow/chunked_array.h"
 #include "arrow/json/from_string.h"
+#include "arrow/result.h"
 #include "arrow/scalar.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/unreachable.h"
 #include "arrow/util/value_parsing.h"
 
-#include "arrow/json/rapidjson_defs.h"
+#include <simdjson.h>
 
-#include <rapidjson/document.h>
-#include <rapidjson/error/en.h>
-#include <rapidjson/rapidjson.h>
-#include <rapidjson/reader.h>
-#include <rapidjson/writer.h>
-
-namespace rj = arrow::rapidjson;
+namespace sj = simdjson::ondemand;
 
 namespace arrow {
 
@@ -62,30 +58,21 @@ using ::arrow::internal::checked_pointer_cast;
 
 namespace {
 
-constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
+// TODO.TAE constexpr auto kParseFlags = rj::kParseFullPrecisionFlag | rj::kParseNanAndInfFlag;
 
-const char* JsonTypeName(rj::Type json_type) {
-  switch (json_type) {
-    case rapidjson::kNullType:
-      return "null";
-    case rapidjson::kFalseType:
-      return "false";
-    case rapidjson::kTrueType:
-      return "true";
-    case rapidjson::kObjectType:
-      return "object";
-    case rapidjson::kArrayType:
-      return "array";
-    case rapidjson::kStringType:
-      return "string";
-    case rapidjson::kNumberType:
-      return "number";
-    default:
-      return "unknown";
-  }
+const char* JsonTypeName(sj::json_type type) {
+    switch (type) {
+        case sj::json_type::array: return "array"; break;
+        case sj::json_type::object: return "object"; break;
+        case sj::json_type::number: return "number"; break;
+        case sj::json_type::string: return "string"; break;
+        case sj::json_type::boolean: return "boolean"; break;
+        case sj::json_type::null: return "null"; break;
+        default: Unreachable();
+    }
 }
 
-Status JSONTypeError(const char* expected_type, rj::Type json_type) {
+Status JSONTypeError(const char* expected_type, sj::json_type json_type) {
   return Status::Invalid("Expected ", expected_type, " or null, got JSON type ",
                          JsonTypeName(json_type));
 }
@@ -96,11 +83,12 @@ class JSONConverter {
 
   virtual Status Init() { return Status::OK(); }
 
-  virtual Status AppendValue(const rj::Value& json_obj) = 0;
+  virtual Status AppendValue(sj::value& json_obj) = 0;
 
   Status AppendNull() { return this->builder()->AppendNull(); }
 
-  virtual Status AppendValues(const rj::Value& json_array) = 0;
+  // TODO.TAE returns the number of elements that were appended
+  virtual Result<size_t> AppendValues(sj::value& json_array) = 0;
 
   virtual std::shared_ptr<ArrayBuilder> builder() = 0;
 
@@ -124,20 +112,14 @@ Status GetConverter(const std::shared_ptr<DataType>&,
 template <class Derived>
 class ConcreteConverter : public JSONConverter {
  public:
-  Result<int64_t> SizeOfJSONArray(const rj::Value& json_obj) {
-    if (!json_obj.IsArray()) {
-      return JSONTypeError("array", json_obj.GetType());
-    }
-    return json_obj.Size();
-  }
-
-  Status AppendValues(const rj::Value& json_array) final {
+  Result<size_t> AppendValues(sj::value& json_array) final {
     auto self = static_cast<Derived*>(this);
-    ARROW_ASSIGN_OR_RAISE(auto size, SizeOfJSONArray(json_array));
-    for (uint32_t i = 0; i < size; ++i) {
-      RETURN_NOT_OK(self->AppendValue(json_array[i]));
+    size_t num_elements = 0;
+    for (auto value : json_array) {
+      RETURN_NOT_OK(self->AppendValue(value));
+      num_elements++;
     }
-    return Status::OK();
+    return num_elements;
   }
 
   const std::shared_ptr<DataType>& value_type() {
@@ -167,11 +149,11 @@ class NullConverter final : public ConcreteConverter<NullConverter> {
     builder_ = std::make_shared<NullBuilder>();
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return AppendNull();
     }
-    return JSONTypeError("null", json_obj.GetType());
+    return JSONTypeError("null", json_obj.type());
   }
 
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
@@ -190,17 +172,19 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
     builder_ = std::make_shared<BooleanBuilder>();
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return AppendNull();
     }
-    if (json_obj.IsBool()) {
-      return builder_->Append(json_obj.GetBool());
+    bool bool_value;
+    if (json_obj.get<bool>(bool_value) == simdjson::SUCCESS) {
+      return builder_->Append(bool_value);
     }
-    if (json_obj.IsInt()) {
-      return builder_->Append(json_obj.GetInt() != 0);
+    int int_value;
+    if (json_obj.get<int>(int_value) == simdjson::SUCCESS) {
+      return builder_->Append(int_value != 0);
     }
-    return JSONTypeError("boolean", json_obj.GetType());
+    return JSONTypeError("boolean", json_obj.type());
   }
 
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
@@ -212,32 +196,14 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
 // ------------------------------------------------------------------------
 // Helpers for numeric converters
 
-// Convert single signed integer value (also {Date,Time}{32,64} and Timestamp)
-template <typename T>
-enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                           const DataType& type,
-                                                           typename T::c_type* out) {
-  if (json_obj.IsInt64()) {
-    int64_t v64 = json_obj.GetInt64();
-    *out = static_cast<typename T::c_type>(v64);
-    if (*out == v64) {
-      return Status::OK();
-    } else {
-      return Status::Invalid("Value ", v64, " out of bounds for ", type);
-    }
-  } else {
-    *out = static_cast<typename T::c_type>(0);
-    return JSONTypeError("signed int", json_obj.GetType());
-  }
-}
-
 // Convert single unsigned integer value
 template <typename T>
-enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
+enable_if_unsigned_integer<T, Status> ConvertNumber(sj::value& json_obj,
                                                     const DataType& type,
                                                     typename T::c_type* out) {
-  if (json_obj.IsUint64()) {
-    uint64_t v64 = json_obj.GetUint64();
+  
+  uint64_t v64;
+  if (json_obj.get(v64) == simdjson::SUCCESS) {
     *out = static_cast<typename T::c_type>(v64);
     if (*out == v64) {
       return Status::OK();
@@ -246,45 +212,47 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
     }
   } else {
     *out = static_cast<typename T::c_type>(0);
-    return JSONTypeError("unsigned int", json_obj.GetType());
+    return JSONTypeError("unsigned int", json_obj.type());
   }
 }
 
 // Convert float16/HalfFloatType
 template <typename T>
-enable_if_half_float<T, Status> ConvertNumber(const rj::Value& json_obj,
+enable_if_half_float<T, Status> ConvertNumber(sj::value& json_obj,
                                               const DataType& type, uint16_t* out) {
-  if (json_obj.IsDouble()) {
-    double f64 = json_obj.GetDouble();
+  double f64;
+  if (json_obj.get(f64) == simdjson::SUCCESS) {
     *out = Float16(f64).bits();
     return Status::OK();
-  } else if (json_obj.IsUint()) {
-    uint32_t u32t = json_obj.GetUint();
+  }
+  uint32_t u32t;
+  if (json_obj.get(u32t)) {
     double f64 = static_cast<double>(u32t);
     *out = Float16(f64).bits();
     return Status::OK();
-  } else if (json_obj.IsInt()) {
-    int32_t i32t = json_obj.GetInt();
+  }
+  int32_t i32t;
+  if (json_obj.get(i32t)) {
     double f64 = static_cast<double>(i32t);
     *out = Float16(f64).bits();
     return Status::OK();
-  } else {
-    *out = static_cast<uint16_t>(0);
-    return JSONTypeError("unsigned int", json_obj.GetType());
-  }
+  } 
+  *out = static_cast<uint16_t>(0);
+  return JSONTypeError("number", json_obj.type());
 }
 
 // Convert single floating point value
 template <typename T>
-enable_if_physical_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj,
+enable_if_physical_floating_point<T, Status> ConvertNumber(sj::value& json_obj,
                                                            const DataType& type,
                                                            typename T::c_type* out) {
-  if (json_obj.IsNumber()) {
-    *out = static_cast<typename T::c_type>(json_obj.GetDouble());
+  sj::number number;
+  if (json_obj.get(number) == simdjson::SUCCESS) {
+    *out = static_cast<typename T::c_type>(number.as_double());
     return Status::OK();
   } else {
     *out = static_cast<typename T::c_type>(0);
-    return JSONTypeError("number", json_obj.GetType());
+    return JSONTypeError("number", json_obj.type());
   }
 }
 
@@ -303,8 +271,8 @@ class IntegerConverter final
 
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     c_type value;
@@ -330,8 +298,8 @@ class FloatConverter final : public ConcreteConverter<FloatConverter<Type, Build
 
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     c_type value;
@@ -360,22 +328,22 @@ class DecimalConverter final
 
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    if (json_obj.IsString()) {
+    std::string_view string_value;
+    if (json_obj.get<std::string_view>(string_value) == simdjson::SUCCESS) {
       int32_t precision, scale;
       DecimalValue d;
-      auto view = std::string_view(json_obj.GetString(), json_obj.GetStringLength());
-      RETURN_NOT_OK(DecimalValue::FromString(view, &d, &precision, &scale));
+      RETURN_NOT_OK(DecimalValue::FromString(string_value, &d, &precision, &scale));
       if (scale != decimal_type_->scale()) {
         return Status::Invalid("Invalid scale for decimal: expected ",
                                decimal_type_->scale(), ", got ", scale);
       }
       return builder_->Append(d);
     }
-    return JSONTypeError("decimal string", json_obj.GetType());
+    return JSONTypeError("decimal string", json_obj.type());
   }
 
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
@@ -405,20 +373,20 @@ class TimestampConverter final : public ConcreteConverter<TimestampConverter> {
     builder_ = std::make_shared<TimestampBuilder>(type, default_memory_pool());
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     int64_t value;
-    if (json_obj.IsNumber()) {
-      RETURN_NOT_OK(ConvertNumber<Int64Type>(json_obj, *this->type_, &value));
-    } else if (json_obj.IsString()) {
-      std::string_view view(json_obj.GetString(), json_obj.GetStringLength());
+    if (json_obj.get(value) != simdjson::SUCCESS) {
+      // Fallback to string-parsing
+      std::string_view view;
+      if (json_obj.get(view) != simdjson::SUCCESS) {
+        return JSONTypeError("timestamp", json_obj.type());
+      } 
       if (!ParseValue(*timestamp_type_, view.data(), view.size(), &value)) {
         return Status::Invalid("couldn't parse timestamp from ", view);
       }
-    } else {
-      return JSONTypeError("timestamp", json_obj.GetType());
     }
     return builder_->Append(value);
   }
@@ -441,15 +409,19 @@ class DayTimeIntervalConverter final
     builder_ = std::make_shared<DayTimeIntervalBuilder>(default_memory_pool());
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    DayTimeIntervalType::DayMilliseconds value;
-    if (!json_obj.IsArray()) {
-      return JSONTypeError("array", json_obj.GetType());
+
+    sj::array array;
+    if (json_obj.get(array) != simdjson::SUCCESS) {
+      return JSONTypeError("array", json_obj.type());
     }
-    if (json_obj.Size() != 2) {
+
+    DayTimeIntervalType::DayMilliseconds value;
+    // TODO.TAE weird. let's see how to do it
+    if (array().Size() != 2) {
       return Status::Invalid(
           "day time interval pair must have exactly two elements, had ", json_obj.Size());
     }
@@ -473,15 +445,19 @@ class MonthDayNanoIntervalConverter final
     builder_ = std::make_shared<MonthDayNanoIntervalBuilder>(default_memory_pool());
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     MonthDayNanoIntervalType::MonthDayNanos value;
-    if (!json_obj.IsArray()) {
-      return JSONTypeError("array", json_obj.GetType());
+    sj::array_iterator array;
+    auto error = json_obj.get_array().begin().get(array);
+    if (error) {
+      return JSONTypeError("array", json_obj.type());
     }
-    if (json_obj.Size() != 3) {
+    sj::value current_element;
+    error = (*array).get(current_element);
+    if (error) {
       return Status::Invalid(
           "month_day_nano_interval  must have exactly 3 elements, had ", json_obj.Size());
     }
@@ -510,15 +486,15 @@ class StringConverter final
 
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    if (json_obj.IsString()) {
-      auto view = std::string_view(json_obj.GetString(), json_obj.GetStringLength());
+    std::string_view view;
+    if (json_obj.get(view) == simdjson::SUCCESS) {
       return builder_->Append(view);
     } else {
-      return JSONTypeError("string", json_obj.GetType());
+      return JSONTypeError("string", json_obj.type());
     }
   }
 
@@ -541,12 +517,12 @@ class FixedSizeBinaryConverter final
 
   Status Init() override { return this->MakeConcreteBuilder(&builder_); }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    if (json_obj.IsString()) {
-      auto view = std::string_view(json_obj.GetString(), json_obj.GetStringLength());
+    std::string_view view;
+    if (json_obj.get(view) == simdjson::SUCCESS) {
       if (view.length() != static_cast<size_t>(builder_->byte_width())) {
         std::stringstream ss;
         ss << "Invalid string length " << view.length() << " in JSON input for "
@@ -555,7 +531,7 @@ class FixedSizeBinaryConverter final
       }
       return builder_->Append(view);
     } else {
-      return JSONTypeError("string", json_obj.GetType());
+      return JSONTypeError("string", json_obj.type());
     }
   }
 
@@ -564,6 +540,55 @@ class FixedSizeBinaryConverter final
  private:
   std::shared_ptr<BuilderType> builder_;
 };
+
+
+// Helper to process a JSON array with exactly N elements, calling a handler for each.
+// Each handler is a callable taking sj::value& and returning Status.
+template <typename... Handlers>
+Status ProcessJsonArrayElements(sj::array& json_array, const char* error_context,
+                                Handlers&&... handlers) {
+  constexpr size_t expected_size = sizeof...(Handlers);
+  auto it = json_array.begin();
+  auto end = json_array.end();
+
+  size_t index = 0;
+  Status result = Status::OK();
+
+  auto process_one = [&](auto&& handler) -> bool {
+    if (!result.ok()) return false;
+
+    if (it == end) {
+      result = Status::Invalid(error_context, " must have exactly ", expected_size,
+                               " elements, had ", index);
+      return false;
+    }
+
+    sj::value element;
+    auto error = (*it).get(element);
+    if (error) {
+      result = Status::Invalid("Failed to get element ", index, " from ", error_context);
+      return false;
+    }
+
+    result = handler(element);
+    ++it;
+    ++index;
+    return result.ok();
+  };
+
+  // Use fold expression to process all handlers in order
+  (process_one(std::forward<Handlers>(handlers)) && ...);
+
+  if (!result.ok()) return result;
+
+  // Check for extra elements
+  if (it != end) {
+    return Status::Invalid(error_context, " must have exactly ", expected_size,
+                           " elements, had more");
+  }
+
+  return Status::OK();
+}
 
 // ------------------------------------------------------------------------
 // Converter for list arrays
@@ -588,14 +613,13 @@ class VarLengthListLikeConverter final
     return Status::OK();
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     // Extend the child converter with this JSON array
-    ARROW_ASSIGN_OR_RAISE(auto size, this->SizeOfJSONArray(json_obj));
-    RETURN_NOT_OK(builder_->Append(true, size));
-    return child_converter_->AppendValues(json_obj);
+    ARROW_ASSIGN_OR_RAISE(auto size, child_converter_->AppendValues(json_obj));
+    return builder_->Append(true, size);
   }
 
   std::shared_ptr<ArrayBuilder> builder() override { return builder_; }
@@ -623,30 +647,53 @@ class MapConverter final : public ConcreteConverter<MapConverter> {
     return Status::OK();
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
-    if (!json_obj.IsArray()) {
-      return JSONTypeError("array", json_obj.GetType());
+    sj::array array;
+    if (json_obj.get(array) != simdjson::SUCCESS) {
+      return JSONTypeError("array", json_obj.type());
     }
-    auto size = json_obj.Size();
-    for (uint32_t i = 0; i < size; ++i) {
-      const auto& json_pair = json_obj[i];
-      if (!json_pair.IsArray()) {
-        return JSONTypeError("array", json_pair.GetType());
+    
+    for (auto json_pair : array) {
+        sj::array json_pair_array;
+        if(json_pair.get(json_pair_array) != simdjson::SUCCESS){
+            return JSONTypeError("array", json_pair.type());
+        }
+
+        auto json_pair_end = json_pair_array.end();
+        auto json_pair_iterator = json_pair_array.begin();
+        if (json_pair_iterator == json_pair_end) {
+          return Status::Invalid("key item pair must have exactly two elements, had 0");
+        }
+
+        sj::value first_value;
+        if((*json_pair_iterator).get(first_value) != simdjson::SUCCESS){
+          return Status::Invalid("some error");
+        }
+        if (first_value.is_null()) {
+          return Status::Invalid("null key is invalid");
+        }
+        RETURN_NOT_OK(key_converter_->AppendValue(first_value));
+
+        ++json_pair_iterator;
+        if (json_pair_iterator == json_pair_end) {
+          return Status::Invalid("key item pair must have exactly two elements, had 1");
+        }
+
+        sj::value second_value;
+        if((*json_pair_iterator).get(second_value) != simdjson::SUCCESS){
+          return Status::Invalid("some error");
+        }
+        RETURN_NOT_OK(item_converter_->AppendValue(second_value));
+        
+        ++json_pair_iterator;
+        if (json_pair_iterator == json_pair_end) {
+          return Status::Invalid("key item pair must have exactly two elements, have more ??"); // <- improve this message
+        }
       }
-      if (json_pair.Size() != 2) {
-        return Status::Invalid("key item pair must have exactly two elements, had ",
-                               json_pair.Size());
-      }
-      if (json_pair[0].IsNull()) {
-        return Status::Invalid("null key is invalid");
-      }
-      RETURN_NOT_OK(key_converter_->AppendValue(json_pair[0]));
-      RETURN_NOT_OK(item_converter_->AppendValue(json_pair[1]));
-    }
     return Status::OK();
   }
 
@@ -674,15 +721,15 @@ class FixedSizeListConverter final : public ConcreteConverter<FixedSizeListConve
     return Status::OK();
   }
 
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     RETURN_NOT_OK(builder_->Append());
     // Extend the child converter with this JSON array
-    RETURN_NOT_OK(child_converter_->AppendValues(json_obj));
-    if (json_obj.GetArray().Size() != static_cast<rj::SizeType>(list_size_)) {
-      return Status::Invalid("incorrect list size ", json_obj.GetArray().Size());
+    ARROW_ASSIGN_OR_RAISE(auto size, child_converter_->AppendValues(json_obj));
+    if (size != list_size_) {
+      return Status::Invalid("incorrect list size ", size);
     }
     return Status::OK();
   }
@@ -718,11 +765,11 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
   // Append a JSON value that is either an array of N elements in order
   // or an object mapping struct names to values (omitted struct members
   // are mapped to null).
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
-    if (json_obj.IsArray()) {
+    if (json_obj.IsArray()) { // TODO.TAE
       auto size = json_obj.Size();
       auto expected_size = static_cast<uint32_t>(type_->num_fields());
       if (size != expected_size) {
@@ -748,11 +795,9 @@ class StructConverter final : public ConcreteConverter<StructConverter> {
         }
       }
       if (remaining > 0) {
-        rj::StringBuffer sb;
-        rj::Writer<rj::StringBuffer> writer(sb);
-        json_obj.Accept(writer);
+        std::string_vie raw_json = json_obj.raw_json();
         return Status::Invalid("Unexpected members in JSON object for type ",
-                               type_->ToString(), " Object: ", sb.GetString());
+                               type_->ToString(), " Object: ", raw_json);
       }
       return builder_->Append();
     }
@@ -801,8 +846,8 @@ class UnionConverter final : public ConcreteConverter<UnionConverter> {
 
   // Append a JSON value that must be a 2-long array, containing the type_id
   // and value of the UnionArray's slot.
-  Status AppendValue(const rj::Value& json_obj) override {
-    if (json_obj.IsNull()) {
+  Status AppendValue(sj::value& json_obj) override {
+    if (json_obj.is_null()) {
       return this->AppendNull();
     }
     if (!json_obj.IsArray()) {
@@ -976,15 +1021,16 @@ Status GetConverter(const std::shared_ptr<DataType>& type,
 }  // namespace
 
 Result<std::shared_ptr<Array>> ArrayFromJSONString(const std::shared_ptr<DataType>& type,
-                                                   std::string_view json_string) {
+                                                   simdjson::padded_string_view json_string) {
   std::shared_ptr<JSONConverter> converter;
   RETURN_NOT_OK(GetConverter(type, &converter));
 
-  rj::Document json_doc;
-  json_doc.Parse<kParseFlags>(json_string.data(), json_string.length());
-  if (json_doc.HasParseError()) {
-    return Status::Invalid("JSON parse error at offset ", json_doc.GetErrorOffset(), ": ",
-                           GetParseError_En(json_doc.GetParseError()));
+  // TODO.TAE
+  sj::parser parser;
+  sj::document json_doc;
+  auto error = parser.iterate(json_string).get(json_doc);
+  if (error) {
+    return Status::Invalid("JSON parse error: ", simdjson::error_message(error));
   }
 
   // The JSON document should be an array, append it
