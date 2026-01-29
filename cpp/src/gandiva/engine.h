@@ -37,7 +37,6 @@
 
 namespace llvm::orc {
 class LLJIT;
-class JITTargetMachineBuilder;
 }  // namespace llvm::orc
 
 namespace gandiva {
