@@ -1475,15 +1475,21 @@ void rand_month_day_nanos(int64_t N,
   });
 }
 
-std::string RandomUtf8String(int num_chars) {
-  std::random_device rd;
-  std::default_random_engine gen(rd());
+std::string RandomUtf8String(random::SeedType seed, int num_chars) {
+  arrow::random::pcg32 gen(seed);
   std::string s;
   s.reserve(num_chars * 3);  // Reserve for average 3 bytes per codepoint
 
+  std::uniform_int_distribution<uint32_t> plane_dist(0, 3);
+  std::bernoulli_distribution bmp_range_dist(0.5);
+  std::uniform_int_distribution<uint32_t> bmp_lower_dist(0x0020, 0xD7FF);
+  std::uniform_int_distribution<uint32_t> bmp_upper_dist(0xE000, 0xFFFD);
+  std::uniform_int_distribution<uint32_t> smp_dist(0x10000, 0x1FFFF);
+  std::uniform_int_distribution<uint32_t> sip_dist(0x20000, 0x2FFFF);
+  std::uniform_int_distribution<uint32_t> high_plane_dist(0x30000, 0x10FFFF);
+
   for (int i = 0; i < num_chars; ++i) {
     uint32_t codepoint;
-    std::uniform_int_distribution<uint32_t> plane_dist(0, 3);
     uint32_t plane = plane_dist(gen);
 
     if (plane == 0) {
@@ -1495,30 +1501,30 @@ std::string RandomUtf8String(int num_chars) {
       // upper range):
       // - Lower: U+0020 to U+D7FF (55,776 values, 50% selection probability)
       // - Upper: U+E000 to U+FFFD (8,190 values, 50% selection probability)
-      if (std::bernoulli_distribution(0.5)(gen)) {
+      if (bmp_range_dist(gen)) {
         // Lower range: U+0020 to U+D7FF (before surrogate range)
-        codepoint = std::uniform_int_distribution<uint32_t>(0x0020, 0xD7FF)(gen);
+        codepoint = bmp_lower_dist(gen);
       } else {
         // Upper range: U+E000 to U+FFFD (after surrogate range)
         // Note: Stops at U+FFFD to exclude noncharacters U+FFFE and U+FFFF
         // Other noncharacters (U+FDD0-U+FDEF, plane-ending pairs) are included
         // as they are valid Unicode scalar values per the Unicode Standard
-        codepoint = std::uniform_int_distribution<uint32_t>(0xE000, 0xFFFD)(gen);
+        codepoint = bmp_upper_dist(gen);
       }
     } else if (plane == 1) {
       // Supplementary Multilingual Plane (SMP): U+10000 to U+1FFFF
       // https://www.unicode.org/roadmaps/smp/
-      codepoint = std::uniform_int_distribution<uint32_t>(0x10000, 0x1FFFF)(gen);
+      codepoint = smp_dist(gen);
     } else if (plane == 2) {
       // Supplementary Ideographic Plane (SIP): U+20000 to U+2FFFF
       // https://www.unicode.org/roadmaps/sip/
-      codepoint = std::uniform_int_distribution<uint32_t>(0x20000, 0x2FFFF)(gen);
+      codepoint = sip_dist(gen);
     } else {
       // Planes 3–16: U+30000–U+10FFFF
       // Includes TIP, SSP, PUA-A, PUA-B, and unassigned planes: U+30000 to U+10FFFF
       // Max valid Unicode codepoint is U+10FFFF per the Standard
       // https://www.unicode.org/versions/Unicode15.1.0/ch03.pdf (Section 3.4, D9)
-      codepoint = std::uniform_int_distribution<uint32_t>(0x30000, 0x10FFFF)(gen);
+      codepoint = high_plane_dist(gen);
     }
 
     // Encode as UTF-8 per RFC 3629 (Section 3: UTF-8 definition)

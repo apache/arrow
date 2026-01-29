@@ -738,10 +738,11 @@ void rand_month_day_nanos(int64_t N,
 /// Surrogate code points (U+D800-U+DFFF) are excluded as they are not valid
 /// Unicode scalar values.
 ///
+/// \param[in] seed Random seed for reproducibility
 /// \param[in] num_chars Number of Unicode code points to generate
 /// \return a generated UTF-8 encoded string
 ARROW_TESTING_EXPORT
-std::string RandomUtf8String(int num_chars);
+std::string RandomUtf8String(random::SeedType seed, int num_chars);
 
 template <typename T, typename U>
 void randint(int64_t N, T lower, T upper, std::vector<U>* out) {
