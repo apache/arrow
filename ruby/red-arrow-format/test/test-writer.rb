@@ -68,6 +68,12 @@ module WriterTests
       ArrowFormat::UTF8Type.singleton
     when Arrow::LargeStringDataType
       ArrowFormat::LargeUTF8Type.singleton
+    when Arrow::Decimal128DataType
+      ArrowFormat::Decimal128Type.new(red_arrow_type.precision,
+                                      red_arrow_type.scale)
+    when Arrow::Decimal256DataType
+      ArrowFormat::Decimal256Type.new(red_arrow_type.precision,
+                                      red_arrow_type.scale)
     when Arrow::FixedSizeBinaryDataType
       ArrowFormat::FixedSizeBinaryType.new(red_arrow_type.byte_width)
     else
@@ -441,6 +447,62 @@ module WriterTests
 
           def test_write
             assert_equal(["0124".b, nil, "abcd".b],
+                         @values)
+          end
+        end
+
+        sub_test_case("Decimal128") do
+          def build_array
+            @positive_small = "1.200"
+            @positive_large = ("1234567890" * 3) + "12345.678"
+            @negative_small = "-1.200"
+            @negative_large = "-" + ("1234567890" * 3) + "12345.678"
+            Arrow::Decimal128Array.new({precision: 38, scale: 3},
+                                       [
+                                         @positive_large,
+                                         @positive_small,
+                                         nil,
+                                         @negative_small,
+                                         @negative_large,
+                                       ])
+          end
+
+          def test_write
+            assert_equal([
+                           BigDecimal(@positive_large),
+                           BigDecimal(@positive_small),
+                           nil,
+                           BigDecimal(@negative_small),
+                           BigDecimal(@negative_large),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Decimal256") do
+          def build_array
+            @positive_small = "1.200"
+            @positive_large = ("1234567890" * 7) + "123.456"
+            @negative_small = "-1.200"
+            @negative_large = "-" + ("1234567890" * 7) + "123.456"
+            Arrow::Decimal256Array.new({precision: 76, scale: 3},
+                                       [
+                                         @positive_large,
+                                         @positive_small,
+                                         nil,
+                                         @negative_small,
+                                         @negative_large,
+                                       ])
+          end
+
+          def test_write
+            assert_equal([
+                           BigDecimal(@positive_large),
+                           BigDecimal(@positive_small),
+                           nil,
+                           BigDecimal(@negative_small),
+                           BigDecimal(@negative_large),
+                         ],
                          @values)
           end
         end
