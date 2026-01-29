@@ -41,12 +41,7 @@
       ]
     },
     "grpc",
-    {
-      "name": "gtest",
-      "features": [
-        "cxx17"
-      ]
-    },
+    "gtest",
     "lz4",
     "openssl",
     "orc",
