@@ -245,7 +245,7 @@ class ArrayLoader {
   }
 
   Status GetBuffer(int buffer_index, std::shared_ptr<Buffer>* out) {
-    auto buffers = metadata_->buffers();
+    auto* buffers = metadata_->buffers();
     CHECK_FLATBUFFERS_NOT_NULL(buffers, "RecordBatch.buffers");
     if (buffer_index >= static_cast<int>(buffers->size())) {
       return Status::IOError("buffer_index out of range.");
@@ -262,7 +262,9 @@ class ArrayLoader {
 
   Result<int64_t> GetVariadicCount(int i) {
     auto* variadic_counts = metadata_->variadicBufferCounts();
+    auto* buffers = metadata_->buffers();
     CHECK_FLATBUFFERS_NOT_NULL(variadic_counts, "RecordBatch.variadicBufferCounts");
+    CHECK_FLATBUFFERS_NOT_NULL(buffers, "RecordBatch.buffers");
     if (i >= static_cast<int>(variadic_counts->size())) {
       return Status::IOError("variadic_count_index out of range.");
     }
@@ -272,8 +274,7 @@ class ArrayLoader {
     }
     // Detect an excessive variadic buffer count to avoid potential memory blowup
     // (GH-48900).
-    const auto max_buffer_count =
-        static_cast<int64_t>(metadata_->buffers()->size()) - buffer_index_;
+    const auto max_buffer_count = static_cast<int64_t>(buffers->size()) - buffer_index_;
     if (count > max_buffer_count) {
       return Status::IOError("variadic buffer count exceeds available number of buffers");
     }
