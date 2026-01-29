@@ -284,63 +284,18 @@ void Engine::InitOnce() {
 }
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
-    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
+               std::unique_ptr<llvm::orc::LLJIT> lljit,
+               std::shared_ptr<llvm::TargetMachine> target_machine,
                bool cached)
     : context_(std::make_unique<llvm::LLVMContext>()),
-      //lljit_(std::move(lljit)),
+      lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
       types_(*context_),
       optimize_(conf->optimize()),
       cached_(cached),
       function_registry_(conf->function_registry()),
+      target_machine_(std::move(target_machine)),
       conf_(conf) {
-               
-  auto jtmb = std::move(MakeTargetMachineBuilder(*conf)).ValueUnsafe();
-  auto maybe_tm = jtmb.createTargetMachine();
-  auto target_machine =
-		  AsArrowResult(maybe_tm, "Could not create target machine: ");
-  target_machine_ = std::move(target_machine).ValueUnsafe();
-  llvm::TargetMachine& target_machine_ptr = *target_machine_;
-  auto data_layout = target_machine_->createDataLayout();
-  //BuildJIT(jtmb, object_cache, data_layout, *target_machine_);
-  
-
-
-  llvm::orc::LLJITBuilder jit_builder;
-
-//#ifdef JIT_LINK_SUPPORTED
-//  ARROW_RETURN_NOT_OK(UseJITLinkIfEnabled(jit_builder));
-//#endif
-
-  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-  jit_builder.setDataLayout(std::make_optional(data_layout));
-
-  if (object_cache.has_value()) {
-    jit_builder.setCompileFunctionCreator(
-        [&target_machine_ptr, &object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
-            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-
-          // after compilation, the object code will be stored into the given object
-          // cache
-          return std::make_unique<llvm::orc::SimpleCompiler>(
-              target_machine_ptr, &object_cache.value().get());
-        });
-  }
-  auto maybe_jit = jit_builder.create();
-  auto jit = AsArrowResult(maybe_jit, "Could not create LLJIT instance: ").ValueUnsafe();
-
-  AddProcessSymbol(*jit);
-  lljit_ = std::move(jit);
-
-
-
-
-
-
-
-
-
-
   // LLVM 10 doesn't like the expr function name to be the same as the module name
   auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
@@ -381,9 +336,46 @@ Result<std::unique_ptr<Engine>> Engine::Make(
     std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
-  
+  // Create the target machine
+  ARROW_ASSIGN_OR_RAISE(auto jtmb, MakeTargetMachineBuilder(*conf));
+  auto maybe_tm = jtmb.createTargetMachine();
+  ARROW_ASSIGN_OR_RAISE(auto target_machine,
+                        AsArrowResult(maybe_tm, "Could not create target machine: "));
+
+  auto shared_target_machine =
+      std::shared_ptr<llvm::TargetMachine>(std::move(target_machine));
+  auto data_layout = shared_target_machine->createDataLayout();
+
+  // Build the LLJIT instance
+  llvm::orc::LLJITBuilder jit_builder;
+
+#ifdef JIT_LINK_SUPPORTED
+  ARROW_RETURN_NOT_OK(UseJITLinkIfEnabled(jit_builder));
+#endif
+
+  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
+  jit_builder.setDataLayout(std::make_optional(data_layout));
+
+  if (object_cache.has_value()) {
+    jit_builder.setCompileFunctionCreator(
+        [tm = shared_target_machine,
+         &object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
+            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+          // after compilation, the object code will be stored into the given object
+          // cache
+          return std::make_unique<llvm::orc::SimpleCompiler>(
+              *tm, &object_cache.value().get());
+        });
+  }
+
+  auto maybe_jit = jit_builder.create();
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
+
+  AddProcessSymbol(*jit);
+
   std::unique_ptr<Engine> engine{
-      new Engine(conf, object_cache, cached)};
+      new Engine(conf, std::move(jit), std::move(shared_target_machine), cached)};
 
   ARROW_RETURN_NOT_OK(engine->Init());
   return engine;

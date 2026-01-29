@@ -96,8 +96,9 @@ class GANDIVA_EXPORT Engine {
 
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
-    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache,
-		  bool cached);
+         std::unique_ptr<llvm::orc::LLJIT> lljit,
+         std::shared_ptr<llvm::TargetMachine> target_machine,
+         bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
   Status Init();
@@ -117,14 +118,6 @@ class GANDIVA_EXPORT Engine {
   // Remove unused functions to reduce compile time.
   Status RemoveUnusedFunctions();
 
-  /*
-  Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
-    llvm::orc::JITTargetMachineBuilder jtmb,
-    std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache,
-    llvm::DataLayout& data_layout,
-    llvm::TargetMachine* target_machine);
-*/
-
   std::unique_ptr<llvm::LLVMContext> context_;
   std::unique_ptr<llvm::orc::LLJIT> lljit_;
   std::unique_ptr<llvm::IRBuilder<>> ir_builder_;
@@ -139,7 +132,7 @@ class GANDIVA_EXPORT Engine {
   bool functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
   std::string module_ir_;
-  std::unique_ptr<llvm::TargetMachine> target_machine_;
+  std::shared_ptr<llvm::TargetMachine> target_machine_;
   const std::shared_ptr<Configuration> conf_;
 };
 
