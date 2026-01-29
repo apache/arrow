@@ -217,6 +217,41 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
 }
 #endif
 
+Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
+    llvm::orc::JITTargetMachineBuilder jtmb,
+    std::shared_ptr<llvm::TargetMachine> target_machine,
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
+  auto data_layout = target_machine->createDataLayout();
+
+  llvm::orc::LLJITBuilder jit_builder;
+
+#ifdef JIT_LINK_SUPPORTED
+  ARROW_RETURN_NOT_OK(UseJITLinkIfEnabled(jit_builder));
+#endif
+
+  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
+  jit_builder.setDataLayout(std::make_optional(data_layout));
+
+  if (object_cache.has_value()) {
+    jit_builder.setCompileFunctionCreator(
+        [tm = std::move(target_machine),
+         &object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
+            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
+          // after compilation, the object code will be stored into the given object
+          // cache
+          return std::make_unique<llvm::orc::SimpleCompiler>(*tm,
+                                                             &object_cache.value().get());
+        });
+  }
+
+  auto maybe_jit = jit_builder.create();
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
+
+  AddProcessSymbol(*jit);
+  return jit;
+}
+
 arrow::Status VerifyAndLinkModule(
     llvm::Module& dest_module,
     llvm::Expected<std::unique_ptr<llvm::Module>> src_module_or_error) {
@@ -343,35 +378,10 @@ Result<std::unique_ptr<Engine>> Engine::Make(
 
   auto shared_target_machine =
       std::shared_ptr<llvm::TargetMachine>(std::move(target_machine));
-  auto data_layout = shared_target_machine->createDataLayout();
 
   // Build the LLJIT instance
-  llvm::orc::LLJITBuilder jit_builder;
-
-#ifdef JIT_LINK_SUPPORTED
-  ARROW_RETURN_NOT_OK(UseJITLinkIfEnabled(jit_builder));
-#endif
-
-  jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
-  jit_builder.setDataLayout(std::make_optional(data_layout));
-
-  if (object_cache.has_value()) {
-    jit_builder.setCompileFunctionCreator(
-        [tm = shared_target_machine,
-         &object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
-            -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-          // after compilation, the object code will be stored into the given object
-          // cache
-          return std::make_unique<llvm::orc::SimpleCompiler>(*tm,
-                                                             &object_cache.value().get());
-        });
-  }
-
-  auto maybe_jit = jit_builder.create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
-                        AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
-
-  AddProcessSymbol(*jit);
+                        BuildJIT(std::move(jtmb), shared_target_machine, object_cache));
 
   std::unique_ptr<Engine> engine{
       new Engine(conf, std::move(jit), std::move(shared_target_machine), cached)};
