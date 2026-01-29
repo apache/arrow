@@ -351,7 +351,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:second)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351
+            @timestamp_2019_11_17_15_09_11 = 1574003351
             @timestamp_2025_12_16_05_33_58 = 1765863238
             super(&block)
           end
@@ -359,7 +359,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:second,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -369,7 +369,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -381,7 +381,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:millisecond)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000
             @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000
             super(&block)
           end
@@ -389,7 +389,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:milli,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -399,7 +399,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -411,7 +411,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:microsecond)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000_000
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000
             @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000
             super(&block)
           end
@@ -419,7 +419,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:micro,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -429,7 +429,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -441,7 +441,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:nanosecond)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000_000_000
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000_000
             @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000_000
             super(&block)
           end
@@ -449,7 +449,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:nano,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -459,7 +459,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -469,27 +469,27 @@ module ReaderTests
           end
         end
 
-        sub_test_case("Timestamp(timezone)") do
+        sub_test_case("Timestamp(time_zone)") do
           def setup(&block)
-            @timezone = "UTC"
-            @timestamp_2019_11_18_00_09_11 = 1574003351
+            @time_zone = "UTC"
+            @timestamp_2019_11_17_15_09_11 = 1574003351
             @timestamp_2025_12_16_05_33_58 = 1765863238
             super(&block)
           end
 
           def build_array
-            data_type = Arrow::TimestampDataType.new(:second, @timezone)
+            data_type = Arrow::TimestampDataType.new(:second, @time_zone)
             Arrow::TimestampArray.new(data_type,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
           end
 
           def test_type
-            assert_equal([:second, @timezone],
-                         [type.unit, type.timezone])
+            assert_equal([:second, @time_zone],
+                         [type.unit, type.time_zone])
           end
         end
 
