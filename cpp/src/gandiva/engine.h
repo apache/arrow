@@ -96,8 +96,7 @@ class GANDIVA_EXPORT Engine {
  private:
   Engine(const std::shared_ptr<Configuration>& conf,
          std::unique_ptr<llvm::orc::LLJIT> lljit,
-         std::shared_ptr<llvm::TargetMachine> target_machine,
-         bool cached);
+         std::shared_ptr<llvm::TargetMachine> target_machine, bool cached);
 
   // Post construction init. This _must_ be called after the constructor.
   Status Init();

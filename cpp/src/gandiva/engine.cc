@@ -285,8 +285,7 @@ void Engine::InitOnce() {
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::orc::LLJIT> lljit,
-               std::shared_ptr<llvm::TargetMachine> target_machine,
-               bool cached)
+               std::shared_ptr<llvm::TargetMachine> target_machine, bool cached)
     : context_(std::make_unique<llvm::LLVMContext>()),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
@@ -363,8 +362,8 @@ Result<std::unique_ptr<Engine>> Engine::Make(
             -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
           // after compilation, the object code will be stored into the given object
           // cache
-          return std::make_unique<llvm::orc::SimpleCompiler>(
-              *tm, &object_cache.value().get());
+          return std::make_unique<llvm::orc::SimpleCompiler>(*tm,
+                                                             &object_cache.value().get());
         });
   }
 
