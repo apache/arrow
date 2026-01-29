@@ -130,6 +130,8 @@ class GANDIVA_EXPORT Engine {
   bool functions_loaded_ = false;
   std::shared_ptr<FunctionRegistry> function_registry_;
   std::string module_ir_;
+  // The lifetime of the TargetMachine is shared with LLJIT. This prevents unnecessary
+  // duplication of this expensive object.
   std::shared_ptr<llvm::TargetMachine> target_machine_;
   const std::shared_ptr<Configuration> conf_;
 };
