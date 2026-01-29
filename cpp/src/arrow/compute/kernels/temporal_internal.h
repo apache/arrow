@@ -26,19 +26,22 @@
 #include "arrow/util/value_parsing.h"
 
 namespace arrow::compute::internal {
+
+namespace chrono = arrow::internal::chrono;
+
 using arrow::internal::checked_cast;
 using arrow::internal::OffsetZone;
-using arrow_vendored::date::choose;
-using arrow_vendored::date::days;
-using arrow_vendored::date::floor;
-using arrow_vendored::date::local_days;
-using arrow_vendored::date::local_time;
-using arrow_vendored::date::locate_zone;
-using arrow_vendored::date::sys_days;
-using arrow_vendored::date::sys_time;
-using arrow_vendored::date::time_zone;
-using arrow_vendored::date::year_month_day;
-using arrow_vendored::date::zoned_time;
+using chrono::choose;
+using chrono::days;
+using chrono::floor;
+using chrono::local_days;
+using chrono::local_time;
+using chrono::locate_zone;
+using chrono::sys_days;
+using chrono::sys_time;
+using chrono::time_zone;
+using chrono::year_month_day;
+using chrono::zoned_time;
 using std::chrono::duration_cast;
 
 // https://howardhinnant.github.io/date/tz.html#Examples
@@ -148,10 +151,10 @@ struct ZonedLocalizer {
 
     try {
       return ApplyTimeZone(tz_, lt, std::nullopt, local_to_sys_time);
-    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
+    } catch (const chrono::nonexistent_local_time& e) {
       *st = Status::Invalid("Local time does not exist: ", e.what());
       return Duration{0};
-    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
+    } catch (const chrono::ambiguous_local_time& e) {
       *st = Status::Invalid("Local time is ambiguous: ", e.what());
       return Duration{0};
     }
@@ -179,7 +182,7 @@ struct TimestampFormatter {
     const auto timepoint = sys_time<Duration>(Duration{arg});
     auto format_zoned_time = [&](auto&& zt) {
       try {
-        arrow_vendored::date::to_stream(bufstream, format, zt);
+        chrono::to_stream(bufstream, format, zt);
         return Status::OK();
       } catch (const std::runtime_error& ex) {
         bufstream.clear();
