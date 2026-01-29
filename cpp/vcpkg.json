@@ -62,5 +62,5 @@
     "zstd"
   ],
   "$comment": "We can update builtin-baseline by 'vcpkg x-update-baseline'",
-  "builtin-baseline": "09f6a4ef2f08252f7f4d924fd9c2d42165fb21c9"
+  "builtin-baseline": "40c89449f0ccce12d21f8a906639f6c2c649b9e7"
 }
