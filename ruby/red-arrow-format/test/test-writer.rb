@@ -16,6 +16,14 @@
 # under the License.
 
 module WriterTests
+  def convert_time_unit(red_arrow_time_unit)
+    if red_arrow_time_unit.nick == "second"
+      red_arrow_time_unit.nick.to_sym
+    else
+      :"#{red_arrow_time_unit.nick}second"
+    end
+  end
+
   def convert_type(red_arrow_type)
     case red_arrow_type
     when Arrow::NullDataType
@@ -47,19 +55,12 @@ module WriterTests
     when Arrow::Date64DataType
       ArrowFormat::Date64Type.singleton
     when Arrow::Time32DataType
-      case red_arrow_type.unit.nick
-      when "second"
-        ArrowFormat::Time32Type.new(:second)
-      when "milli"
-        ArrowFormat::Time32Type.new(:millisecond)
-      end
+      ArrowFormat::Time32Type.new(convert_time_unit(red_arrow_type.unit))
     when Arrow::Time64DataType
-      case red_arrow_type.unit.nick
-      when "micro"
-        ArrowFormat::Time64Type.new(:microsecond)
-      when "nano"
-        ArrowFormat::Time64Type.new(:nanosecond)
-      end
+      ArrowFormat::Time64Type.new(convert_time_unit(red_arrow_type.unit))
+    when Arrow::TimestampDataType
+      ArrowFormat::TimestampType.new(convert_time_unit(red_arrow_type.unit),
+                                     red_arrow_type.time_zone&.identifier)
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
     when Arrow::LargeBinaryDataType
@@ -388,6 +389,134 @@ module WriterTests
           end
         end
 
+        sub_test_case("Timestamp(:second)") do
+          def setup(&block)
+            @timestamp_2019_11_17_15_09_11 = 1574003351
+            @timestamp_2025_12_16_05_33_58 = 1765863238
+            super(&block)
+          end
+
+          def build_array
+            Arrow::TimestampArray.new(:second,
+                                      [
+                                        @timestamp_2019_11_17_15_09_11,
+                                        nil,
+                                        @timestamp_2025_12_16_05_33_58,
+                                      ])
+          end
+
+          def test_write
+            assert_equal([
+                           Time.at(@timestamp_2019_11_17_15_09_11),
+                           nil,
+                           Time.at(@timestamp_2025_12_16_05_33_58),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Timestamp(:millisecond)") do
+          def setup(&block)
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000
+            @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::TimestampArray.new(:milli,
+                                      [
+                                        @timestamp_2019_11_17_15_09_11,
+                                        nil,
+                                        @timestamp_2025_12_16_05_33_58,
+                                      ])
+          end
+
+          def test_write
+            assert_equal([
+                           Time.at(@timestamp_2019_11_17_15_09_11 / 1_000),
+                           nil,
+                           Time.at(@timestamp_2025_12_16_05_33_58 / 1_000),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Timestamp(:microsecond)") do
+          def setup(&block)
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000
+            @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::TimestampArray.new(:micro,
+                                      [
+                                        @timestamp_2019_11_17_15_09_11,
+                                        nil,
+                                        @timestamp_2025_12_16_05_33_58,
+                                      ])
+          end
+
+          def test_write
+            assert_equal([
+                           Time.at(@timestamp_2019_11_17_15_09_11 / 1_000_000),
+                           nil,
+                           Time.at(@timestamp_2025_12_16_05_33_58 / 1_000_000),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Timestamp(:nanosecond)") do
+          def setup(&block)
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000_000
+            @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000_000
+            super(&block)
+          end
+
+          def build_array
+            Arrow::TimestampArray.new(:nano,
+                                      [
+                                        @timestamp_2019_11_17_15_09_11,
+                                        nil,
+                                        @timestamp_2025_12_16_05_33_58,
+                                      ])
+          end
+
+          def test_write
+            assert_equal([
+                           Time.at(@timestamp_2019_11_17_15_09_11 / 1_000_000_000),
+                           nil,
+                           Time.at(@timestamp_2025_12_16_05_33_58 / 1_000_000_000),
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("Timestamp(time_zone)") do
+          def setup(&block)
+            @time_zone = "UTC"
+            @timestamp_2019_11_17_15_09_11 = 1574003351
+            @timestamp_2025_12_16_05_33_58 = 1765863238
+            super(&block)
+          end
+
+          def build_array
+            data_type = Arrow::TimestampDataType.new(:second, @time_zone)
+            Arrow::TimestampArray.new(data_type,
+                                      [
+                                        @timestamp_2019_11_17_15_09_11,
+                                        nil,
+                                        @timestamp_2025_12_16_05_33_58,
+                                      ])
+          end
+
+          def test_type
+            assert_equal([Arrow::TimeUnit::SECOND, @time_zone],
+                         [@type.unit, @type.time_zone&.identifier])
+          end
+        end
+
         sub_test_case("Binary") do
           def build_array
             Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
@@ -473,6 +602,7 @@ class TestFileWriter < Test::Unit::TestCase
       end
       data = File.open(path, "rb", &:read).freeze
       table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrow)
+      @type = table.value.data_type
       @values = table.value.values
     end
   end
@@ -502,6 +632,7 @@ class TestStreamingWriter < Test::Unit::TestCase
       end
       data = File.open(path, "rb", &:read).freeze
       table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrows)
+      @type = table.value.data_type
       @values = table.value.values
     end
   end
