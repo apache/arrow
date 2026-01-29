@@ -113,7 +113,8 @@ struct GenerateImpl {
 
   Status GenerateUtf8(const DataType&) {
     auto num_codepoints = std::poisson_distribution<>{4}(e);
-    std::string s = RandomUtf8String(num_codepoints);
+    auto seed = std::uniform_int_distribution<uint32_t>{}(e);
+    std::string s = RandomUtf8String(seed, num_codepoints);
     return OK(writer.String(s));
   }
 
