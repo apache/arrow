@@ -2367,7 +2367,7 @@ def _compare_strftime_strings_on_windows(result, expected):
     # instead of timezone abbreviations (e.g. "CET")
     # https://github.com/apache/arrow/issues/48767
 
-    # Match timezone suffixes: UTC, GMT offsets (GMT+1, GMT-5), or abbreviations (CET, CEST)
+    # Match timezone suffixes (UTC), offsets (GMT+1), or abbreviations (CET)
     p = "(UTC|GMT[+-]?[0-9]*|[A-Z]{2,5})$"
 
     ends_with_tz = pc.match_substring_regex(result, p)
