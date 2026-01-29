@@ -111,7 +111,7 @@ if [ "${UPLOAD_DOCS}" -gt 0 ]; then
 fi
 if [ "${UPLOAD_ODBC}" -gt 0 ]; then
   upload_to_github_release odbc \
-    "${ARROW_ARTIFACTS_DIR}"/"Apache Arrow Flight SQL ODBC"-*-win64.msi
+    "${ARROW_ARTIFACTS_DIR}"/"Apache.Arrow.Flight.SQL.ODBC"-*-win64.msi
 fi
 if [ "${UPLOAD_PYTHON}" -gt 0 ]; then
   upload_to_github_release python \
