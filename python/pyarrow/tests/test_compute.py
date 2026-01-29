@@ -2367,15 +2367,17 @@ def _compare_strftime_strings_on_windows(result, expected):
     # instead of timezone abbreviations (e.g. "CET")
     # https://github.com/apache/arrow/issues/48767
 
-    p = "(UTC|GMT[+-][0-9]+)$"
+    # Match timezone suffixes: UTC, GMT offsets (GMT+1, GMT-5), or abbreviations (CET, CEST)
+    p = "(UTC|GMT[+-]?[0-9]*|[A-Z]{2,5})$"
 
-    ends_with_offset = pc.match_substring_regex(result, p)
-    all_end_with_offset = pc.all(ends_with_offset, skip_nulls=True).as_py()
-    assert all_end_with_offset, "All timezone values should be GMT offset format "\
-                                f"or UTC \nActual: {result}"
+    ends_with_tz = pc.match_substring_regex(result, p)
+    all_end_with_tz = pc.all(ends_with_tz, skip_nulls=True).as_py()
+    assert all_end_with_tz, "All timezone values should be GMT offset format, "\
+                            f"UTC, or timezone abbreviation\nActual: {result}"
 
     result_substring = pc.replace_substring_regex(result, pattern=p, replacement="")
-    assert expected.starts_with(result_substring), \
+    expected_substring = pc.replace_substring_regex(expected, pattern=p, replacement="")
+    assert result_substring.equals(expected_substring), \
         f"Expected: {expected}, \nActual: {result} " \
         "\nNote: tz suffix is not being compared"
 
