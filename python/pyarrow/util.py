@@ -265,7 +265,7 @@ def download_tzdata_on_windows():
     # Try to download the files with requests and then fall back to urllib. This
     # works around possible issues in certain older environment (GH-45295)
     try:
-        import requests
+        import requests  # noqa: F401
         download_fn = _download_requests
     except ImportError:
         download_fn = _download_urllib
