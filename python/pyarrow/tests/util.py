@@ -178,6 +178,7 @@ def get_modified_env_with_pythonpath():
     else:
         new_pythonpath = module_path
     env['PYTHONPATH'] = new_pythonpath
+    env['MACOSX_DEPLOYMENT_TARGET'] = "14.0"
     return env
 
 
