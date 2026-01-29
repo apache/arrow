@@ -2797,10 +2797,10 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# # TODO(GH-48743): Re-enable once GCC/Windows timezone issues are resolved
-# # https://github.com/apache/arrow/issues/48743
-# @pytest.mark.skipif(sys.platform == "win32",
-#                     reason="Skipping temporal rounding tests on GCC/Windows")
+# TODO(GH-48743): Re-enable once GCC/Windows timezone issues are resolved
+# https://github.com/apache/arrow/issues/48743
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Skipping temporal rounding tests on GCC/Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
