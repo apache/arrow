@@ -198,10 +198,6 @@ git config --global --add safe.directory C:\arrow
 
 pushd C:\arrow\python
 
-@REM TODO: Remove once docker rebuild works correctly
-@REM See: https://github.com/apache/arrow/issues/48947
-%PYTHON_CMD% -m pip install -U build  || exit /B 1
-
 @REM Build wheel
 %PYTHON_CMD% -m build --sdist --wheel . --no-isolation ^
     -Csetup-args="-Dbuildtype=%CMAKE_BUILD_TYPE%" ^
