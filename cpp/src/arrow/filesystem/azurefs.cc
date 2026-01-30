@@ -967,6 +967,32 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
   return Status::OK();
 }
 
+// Usually if the first page is empty it means there are no results. This was assumed in
+// several places in AzureFilesystem. The Azure docs do not guarantee this and we have
+// evidence (GH-49043) that there can be subsequent non-empty pages.
+// Applying `SkipStartingEmptyPages` on a paged response corrects this assumption.
+void SkipStartingEmptyPages(Blobs::ListBlobContainersPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.BlobContainers.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(Blobs::ListBlobsPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Blobs.size() == 0) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(Blobs::ListBlobsByHierarchyPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Blobs.empty() &&
+         paged_response.BlobPrefixes.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(DataLake::ListPathsPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Paths.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+
 /// Writes will be buffered up to this size (in bytes) before actually uploading them.
 static constexpr int64_t kBlockUploadSizeBytes = 10 * 1024 * 1024;
 /// The maximum size of a block in Azure Blob (as per docs).
@@ -1805,12 +1831,14 @@ class AzureFileSystem::Impl {
     try {
       FileInfo info{location.all};
       auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+      SkipStartingEmptyPages(list_response);
       // Since PageSizeHint=1, we expect at most one entry in either Blobs or
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
       // This strategy allows us to implement GetFileInfo with just 1 blob storage
       // operation in almost every case.
+
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
@@ -1847,6 +1875,7 @@ class AzureFileSystem::Impl {
           // whether the path is a directory.
           options.Prefix = internal::EnsureTrailingSlash(location.path);
           auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          SkipStartingEmptyPages(list_with_trailing_slash_response);
           if (!list_with_trailing_slash_response.Blobs.empty()) {
             info.set_type(FileType::Directory);
             return info;
@@ -1909,6 +1938,7 @@ class AzureFileSystem::Impl {
     try {
       auto container_list_response =
           blob_service_client_->ListBlobContainers(options, context);
+      SkipStartingEmptyPages(container_list_response);
       for (; container_list_response.HasPage();
            container_list_response.MoveToNextPage(context)) {
         for (const auto& container : container_list_response.BlobContainers) {
@@ -1950,6 +1980,7 @@ class AzureFileSystem::Impl {
     auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
         if (list_response.Paths.empty()) {
           continue;
@@ -2040,6 +2071,7 @@ class AzureFileSystem::Impl {
     try {
       auto list_response =
           container_client.ListBlobsByHierarchy(/*delimiter=*/"/", options, context);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
         if (list_response.Blobs.empty() && list_response.BlobPrefixes.empty()) {
           continue;
@@ -2442,6 +2474,7 @@ class AzureFileSystem::Impl {
     bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
+      SkipStartingEmptyPages(list_response);
       if (list_response.Blobs.empty()) {
         if (require_dir_to_exist) {
           return PathNotFound(location);
@@ -2575,6 +2608,7 @@ class AzureFileSystem::Impl {
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
     try {
       auto list_response = directory_client.ListPaths(false);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         for (const auto& path : list_response.Paths) {
           if (path.IsDirectory) {
@@ -2899,6 +2933,7 @@ class AzureFileSystem::Impl {
       list_blobs_options.PageSizeHint = 1;
       try {
         auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
+        SkipStartingEmptyPages(dest_list_response);
         dest_is_empty = dest_list_response.Blobs.empty();
         if (!dest_is_empty) {
           return NotEmpty(dest);
@@ -2952,6 +2987,7 @@ class AzureFileSystem::Impl {
       list_blobs_options.PageSizeHint = 1;
       try {
         auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
+        SkipStartingEmptyPages(src_list_response);
         if (!src_list_response.Blobs.empty()) {
           // Reminder: dest is used here because we're semantically replacing dest
           // with src. By deleting src if it's empty just like dest.
