@@ -57,6 +57,7 @@ class ARROW_EXPORT Converter {
   const ConvertOptions& options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
+  std::shared_ptr<void> trie_cache_;  // Opaque pointer to TrieCache
 };
 
 class ARROW_EXPORT DictionaryConverter : public Converter {
