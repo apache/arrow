@@ -627,6 +627,14 @@ module ArrowFormat
       @precision = precision
       @scale = scale
     end
+
+    def to_flatbuffers
+      fb_type = FB::Decimal::Data.new
+      fb_type.bit_width = @byte_width * 8
+      fb_type.precision = @precision
+      fb_type.scale = @scale
+      fb_type
+    end
   end
 
   class Decimal128Type < DecimalType
