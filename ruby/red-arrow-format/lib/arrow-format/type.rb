@@ -434,11 +434,11 @@ module ArrowFormat
 
   class TimestampType < TemporalType
     attr_reader :unit
-    attr_reader :timezone
-    def initialize(unit, timezone)
+    attr_reader :time_zone
+    def initialize(unit, time_zone)
       super()
       @unit = unit
-      @timezone = timezone
+      @time_zone = time_zone
     end
 
     def name
@@ -447,6 +447,13 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, values_buffer)
       TimestampArray.new(self, size, validity_buffer, values_buffer)
+    end
+
+    def to_flatbuffers
+      fb_type = FB::Timestamp::Data.new
+      fb_type.unit = FB::TimeUnit.try_convert(@unit.to_s.upcase)
+      fb_type.timezone = @time_zone
+      fb_type
     end
   end
 
