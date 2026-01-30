@@ -66,7 +66,7 @@ std::string VariantExtensionType::Serialize() const { return ""; }
 std::shared_ptr<Array> VariantExtensionType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
-  DCHECK_EQ("parquet.variant",
+  DCHECK_EQ("arrow.parquet.variant",
             ::arrow::internal::checked_cast<const ExtensionType&>(*data->type)
                 .extension_name());
   return std::make_shared<VariantArray>(data);

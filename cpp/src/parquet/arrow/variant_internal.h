@@ -50,7 +50,7 @@ class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
  public:
   explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type);
 
-  std::string extension_name() const override { return "parquet.variant"; }
+  std::string extension_name() const override { return "arrow.parquet.variant"; }
 
   bool ExtensionEquals(const ::arrow::ExtensionType& other) const override;
 

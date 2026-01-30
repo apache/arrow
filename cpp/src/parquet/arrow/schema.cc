@@ -485,7 +485,7 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         ARROW_ASSIGN_OR_RAISE(logical_type,
                               LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
         break;
-      } else if (ext_type->extension_name() == std::string("parquet.variant")) {
+      } else if (ext_type->extension_name() == std::string("arrow.parquet.variant")) {
         auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
 
         return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
@@ -597,7 +597,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   auto struct_type = ::arrow::struct_(arrow_fields);
   if (ctx->properties.get_arrow_extensions_enabled() &&
       node.logical_type()->is_variant()) {
-    auto extension_type = ::arrow::GetExtensionType("parquet.variant");
+    auto extension_type = ::arrow::GetExtensionType("arrow.parquet.variant");
     if (extension_type) {
       ARROW_ASSIGN_OR_RAISE(
           struct_type,
@@ -1147,7 +1147,7 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
           ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
-    } else if (origin_extension_name == "parquet.variant") {
+    } else if (origin_extension_name == "arrow.parquet.variant") {
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
           VariantExtensionType::IsSupportedStorageType(inferred_type);
