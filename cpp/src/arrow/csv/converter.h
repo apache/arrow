@@ -57,7 +57,9 @@ class ARROW_EXPORT Converter {
   const ConvertOptions& options_;
   MemoryPool* pool_;
   std::shared_ptr<DataType> type_;
-  std::shared_ptr<void> trie_cache_;  // Opaque pointer to TrieCache
+  // Opaque TrieCache pointer. TrieCache destructor is called via control block.
+  // https://en.cppreference.com/w/cpp/memory/shared_ptr
+  std::shared_ptr<void> trie_cache_;
 };
 
 class ARROW_EXPORT DictionaryConverter : public Converter {

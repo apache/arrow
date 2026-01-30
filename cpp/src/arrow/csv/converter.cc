@@ -128,7 +128,7 @@ struct TrieCache {
 struct ValueDecoder {
   explicit ValueDecoder(const std::shared_ptr<DataType>& type,
                         const ConvertOptions& options, const TrieCache* trie_cache)
-      : type_(type), options_(options), trie_cache_(*trie_cache) {}
+      : type_(type), options_(options), trie_cache_(trie_cache) {}
 
   Status Initialize() { return Status::OK(); }
 
@@ -136,14 +136,14 @@ struct ValueDecoder {
     if (quoted && !options_.quoted_strings_can_be_null) {
       return false;
     }
-    return trie_cache_.null_trie.Find(
+    return trie_cache_->null_trie.Find(
                std::string_view(reinterpret_cast<const char*>(data), size)) >= 0;
   }
 
  protected:
   const std::shared_ptr<DataType> type_;
   const ConvertOptions& options_;
-  const TrieCache& trie_cache_;
+  const TrieCache* trie_cache_;
 };
 
 //
@@ -253,12 +253,12 @@ struct BooleanValueDecoder : public ValueDecoder {
 
   Status Decode(const uint8_t* data, uint32_t size, bool quoted, value_type* out) {
     // XXX should quoted values be allowed at all?
-    if (trie_cache_.false_trie.Find(
+    if (trie_cache_->false_trie.Find(
             std::string_view(reinterpret_cast<const char*>(data), size)) >= 0) {
       *out = false;
       return Status::OK();
     }
-    if (ARROW_PREDICT_TRUE(trie_cache_.true_trie.Find(std::string_view(
+    if (ARROW_PREDICT_TRUE(trie_cache_->true_trie.Find(std::string_view(
                                reinterpret_cast<const char*>(data), size)) >= 0)) {
       *out = true;
       return Status::OK();
