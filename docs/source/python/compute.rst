@@ -26,7 +26,9 @@ Arrow supports logical compute operations over inputs of possibly
 varying types.
 
 The standard compute operations are provided by the :mod:`pyarrow.compute`
-module and can be used directly::
+module and can be used directly:
+
+.. code-block:: python
 
    >>> import pyarrow as pa
    >>> import pyarrow.compute as pc
@@ -45,14 +47,14 @@ Many compute functions support both array (chunked or not)
 and scalar inputs, but some will mandate either.  For example,
 ``sort_indices`` requires its first and only input to be an array.
 
-Below are a few simple examples::
+Below are a few simple examples:
 
-   >>> import pyarrow as pa
-   >>> import pyarrow.compute as pc
+.. code-block:: python
+
    >>> a = pa.array([1, 1, 2, 3])
    >>> b = pa.array([4, 1, 2, 8])
    >>> pc.equal(a, b)
-   <pyarrow.lib.BooleanArray object at 0x7f686e4eef30>
+   <pyarrow.lib.BooleanArray object at ...>
    [
      false,
      true,
@@ -65,10 +67,10 @@ Below are a few simple examples::
 
 If you are using a compute function which returns more than one value, results
 will be returned as a ``StructScalar``.  You can extract the individual values by
-calling the :meth:`pyarrow.StructScalar.values` method::
+calling the :meth:`pyarrow.StructScalar.values` method:
 
-   >>> import pyarrow as pa
-   >>> import pyarrow.compute as pc
+.. code-block:: python
+
    >>> a = pa.array([1, 1, 2, 3])
    >>> pc.min_max(a)
    <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
@@ -79,14 +81,14 @@ calling the :meth:`pyarrow.StructScalar.values` method::
    <pyarrow.Int64Scalar: 3>
 
 These functions can do more than just element-by-element operations.
-Here is an example of sorting a table::
+Here is an example of sorting a table:
 
-    >>> import pyarrow as pa
-    >>> import pyarrow.compute as pc
+.. code-block:: python
+
     >>> t = pa.table({'x':[1,2,3],'y':[3,2,1]})
     >>> i = pc.sort_indices(t, sort_keys=[('y', 'ascending')])
     >>> i
-    <pyarrow.lib.UInt64Array object at 0x7fcee5df75e8>
+    <pyarrow.lib.UInt64Array object at ...>
     [
       2,
       1,
@@ -108,28 +110,30 @@ Grouped Aggregations
 PyArrow supports grouped aggregations over :class:`pyarrow.Table` through the
 :meth:`pyarrow.Table.group_by` method.
 The method will return a grouping declaration
-to which the hash aggregation functions can be applied::
+to which the hash aggregation functions can be applied:
 
-   >>> import pyarrow as pa
+.. code-block:: python
+
    >>> t = pa.table([
    ...       pa.array(["a", "a", "b", "b", "c"]),
    ...       pa.array([1, 2, 3, 4, 5]),
    ... ], names=["keys", "values"])
    >>> t.group_by("keys").aggregate([("values", "sum")])
    pyarrow.Table
-   values_sum: int64
    keys: string
+   values_sum: int64
    ----
-   values_sum: [[3,7,5]]
    keys: [["a","b","c"]]
+   values_sum: [[3,7,5]]
 
 The ``"sum"`` aggregation passed to the ``aggregate`` method in the previous
 example is the ``hash_sum`` compute function.
 
 Multiple aggregations can be performed at the same time by providing them
-to the ``aggregate`` method::
+to the ``aggregate`` method:
 
-   >>> import pyarrow as pa
+.. code-block:: python
+
    >>> t = pa.table([
    ...       pa.array(["a", "a", "b", "b", "c"]),
    ...       pa.array([1, 2, 3, 4, 5]),
@@ -139,20 +143,20 @@ to the ``aggregate`` method::
    ...    ("keys", "count")
    ... ])
    pyarrow.Table
+   keys: string
    values_sum: int64
    keys_count: int64
-   keys: string
    ----
+   keys: [["a","b","c"]]
    values_sum: [[3,7,5]]
    keys_count: [[2,2,1]]
-   keys: [["a","b","c"]]
 
 Aggregation options can also be provided for each aggregation function,
 for example we can use :class:`CountOptions` to change how we count
-null values::
+null values:
 
-   >>> import pyarrow as pa
-   >>> import pyarrow.compute as pc
+.. code-block:: python
+
    >>> table_with_nulls = pa.table([
    ...    pa.array(["a", "a", "a"]),
    ...    pa.array([1, None, None])
@@ -161,20 +165,20 @@ null values::
    ...    ("values", "count", pc.CountOptions(mode="all"))
    ... ])
    pyarrow.Table
-   values_count: int64
    keys: string
+   values_count: int64
    ----
-   values_count: [[3]]
    keys: [["a"]]
+   values_count: [[3]]
    >>> table_with_nulls.group_by(["keys"]).aggregate([
    ...    ("values", "count", pc.CountOptions(mode="only_valid"))
    ... ])
    pyarrow.Table
-   values_count: int64
    keys: string
+   values_count: int64
    ----
-   values_count: [[1]]
    keys: [["a"]]
+   values_count: [[1]]
 
 Following is a list of all supported grouped aggregation functions.
 You can use them with or without the ``"hash_"`` prefix.
@@ -212,20 +216,19 @@ on which the join should be performed:
 
 .. code-block:: python
 
-   import pyarrow as pa
-
-   table1 = pa.table({'id': [1, 2, 3],
-                      'year': [2020, 2022, 2019]})
-
-   table2 = pa.table({'id': [3, 4],
-                      'n_legs': [5, 100],
-                      'animal': ["Brittle stars", "Centipede"]})
-
-   joined_table = table1.join(table2, keys="id")
+   >>> table1 = pa.table({'id': [1, 2, 3],
+   ...                    'year': [2020, 2022, 2019]})
+   >>> table2 = pa.table({'id': [3, 4],
+   ...                    'n_legs': [5, 100],
+   ...                    'animal': ["Brittle stars", "Centipede"]})
+   >>> joined_table = table1.join(table2, keys="id")
 
 The result will be a new table created by joining ``table1`` with
-``table2`` on the ``id`` key with a ``left outer join``::
+``table2`` on the ``id`` key with a ``left outer join``:
 
+.. code-block:: python
+
+   >>> joined_table
    pyarrow.Table
    id: int64
    year: int64
@@ -242,70 +245,57 @@ passing them to the ``join_type`` argument:
 
 .. code-block:: python
 
-   table1.join(table2, keys='id', join_type="full outer")
-
-In that case the result would be::
-
+   >>> table1.join(table2, keys='id', join_type="full outer").combine_chunks().sort_by('id')
    pyarrow.Table
    id: int64
    year: int64
    n_legs: int64
    animal: string
    ----
-   id: [[3,1,2,4]]
-   year: [[2019,2020,2022,null]]
-   n_legs: [[5,null,null,100]]
-   animal: [["Brittle stars",null,null,"Centipede"]]
+   id: [[1,2,3,4]]
+   year: [[2020,2022,2019,null]]
+   n_legs: [[null,null,5,100]]
+   animal: [[null,null,"Brittle stars","Centipede"]]
 
 It's also possible to provide additional join keys, so that the
 join happens on two keys instead of one. For example we can add
 an ``year`` column to ``table2`` so that we can join on ``('id', 'year')``:
 
-.. code-block::
+.. code-block:: python
 
-   table2_withyear = table2.append_column("year", pa.array([2019, 2022]))
-   table1.join(table2_withyear, keys=["id", "year"])
-
-The result will be a table where only entries with ``id=3`` and ``year=2019``
-have data, the rest will be ``null``::
-
+   >>> table2_withyear = table2.append_column("year", pa.array([2019, 2022]))
+   >>> table1.join(table2_withyear, keys=["id", "year"])
    pyarrow.Table
    id: int64
    year: int64
-   animal: string
    n_legs: int64
+   animal: string
    ----
    id: [[3,1,2]]
    year: [[2019,2020,2022]]
-   animal: [["Brittle stars",null,null]]
    n_legs: [[5,null,null]]
+   animal: [["Brittle stars",null,null]]
 
 The same capabilities are available for :meth:`.Dataset.join` too, so you can
 take two datasets and join them:
 
-.. code-block::
+.. code-block:: python
 
-   import pyarrow.dataset as ds
-
-   ds1 = ds.dataset(table1)
-   ds2 = ds.dataset(table2)
-
-   joined_ds = ds1.join(ds2, keys="id")
-
-The resulting dataset will be an :class:`.InMemoryDataset` containing the joined data::
-
+   >>> import pyarrow.dataset as ds
+   >>> ds1 = ds.dataset(table1)
+   >>> ds2 = ds.dataset(table2)
+   >>> joined_ds = ds1.join(ds2, keys="id")
    >>> joined_ds.head(5)
-
    pyarrow.Table
    id: int64
    year: int64
-   animal: string
    n_legs: int64
+   animal: string
    ----
    id: [[3,1,2]]
    year: [[2019,2020,2022]]
-   animal: [["Brittle stars",null,null]]
    n_legs: [[5,null,null]]
+   animal: [["Brittle stars",null,null]]
 
 .. _py-filter-expr:
 
@@ -328,8 +318,7 @@ in column ``"nums"``
 
 .. code-block:: python
 
-   import pyarrow.compute as pc
-   even_filter = (pc.bit_wise_and(pc.field("nums"), pc.scalar(1)) == pc.scalar(0))
+   >>> even_filter = (pc.bit_wise_and(pc.field("nums"), pc.scalar(1)) == pc.scalar(0))
 
 .. note::
 
@@ -387,6 +376,8 @@ our ``even_filter`` with a ``pc.field("nums") > 5`` filter:
 The method will return an instance of :class:`.Dataset` which will lazily
 apply the filter as soon as actual data of the dataset is accessed:
 
+.. code-block:: python
+
    >>> dataset = ds.dataset(table)
    >>> filtered = dataset.filter(pc.field("nums") < 5).filter(pc.field("nums") > 2)
    >>> filtered.to_table()
@@ -420,42 +411,36 @@ output type need to be defined. Using :func:`pyarrow.compute.register_scalar_fun
 
 .. code-block:: python
 
-   import numpy as np
-
-   import pyarrow as pa
-   import pyarrow.compute as pc
-
-   function_name = "numpy_gcd"
-   function_docs = {
-         "summary": "Calculates the greatest common divisor",
-         "description":
-            "Given 'x' and 'y' find the greatest number that divides\n"
-            "evenly into both x and y."
-   }
-
-   input_types = {
-      "x" : pa.int64(),
-      "y" : pa.int64()
-   }
-
-   output_type = pa.int64()
-
-   def to_np(val):
-       if isinstance(val, pa.Scalar):
-          return val.as_py()
-       else:
-          return np.array(val)
-
-   def gcd_numpy(ctx, x, y):
-       np_x = to_np(x)
-       np_y = to_np(y)
-       return pa.array(np.gcd(np_x, np_y))
-
-   pc.register_scalar_function(gcd_numpy,
-                              function_name,
-                              function_docs,
-                              input_types,
-                              output_type)
+   >>> import numpy as np
+   >>> function_name = "numpy_gcd"
+   >>> function_docs = {
+   ...       "summary": "Calculates the greatest common divisor",
+   ...       "description":
+   ...          "Given 'x' and 'y' find the greatest number that divides\n"
+   ...          "evenly into both x and y."
+   ... }
+   >>> input_types = {
+   ...    "x" : pa.int64(),
+   ...    "y" : pa.int64()
+   ... }
+   >>> output_type = pa.int64()
+   >>>
+   >>> def to_np(val):
+   ...     if isinstance(val, pa.Scalar):
+   ...        return val.as_py()
+   ...     else:
+   ...        return np.array(val)
+   >>>
+   >>> def gcd_numpy(ctx, x, y):
+   ...     np_x = to_np(x)
+   ...     np_y = to_np(y)
+   ...     return pa.array(np.gcd(np_x, np_y))
+   >>>
+   >>> pc.register_scalar_function(gcd_numpy,
+   ...                            function_name,
+   ...                            function_docs,
+   ...                            input_types,
+   ...                            output_type)
 
 
 The implementation of a user-defined function always takes a first *context*
@@ -472,7 +457,7 @@ You can call a user-defined function directly using :func:`pyarrow.compute.call_
    >>> pc.call_function("numpy_gcd", [pa.scalar(27), pa.scalar(63)])
    <pyarrow.Int64Scalar: 9>
    >>> pc.call_function("numpy_gcd", [pa.scalar(27), pa.array([81, 12, 5])])
-   <pyarrow.lib.Int64Array object at 0x7fcfa0e7b100>
+   <pyarrow.lib.Int64Array object at ...>
    [
      27,
      3,
@@ -492,7 +477,6 @@ the GCD of one column with the scalar value 30.  We will be re-using the
 
 .. code-block:: python
 
-   >>> import pyarrow.dataset as ds
    >>> data_table = pa.table({'category': ['A', 'B', 'C', 'D'], 'value': [90, 630, 1827, 2709]})
    >>> dataset = ds.dataset(data_table)
    >>> func_args = [pc.scalar(30), ds.field("value")]
