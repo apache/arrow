@@ -458,9 +458,30 @@ module ArrowFormat
   end
 
   class IntervalType < TemporalType
+    class << self
+      def singleton
+        @singleton ||= new
+      end
+    end
+
+    attr_reader :unit
+    def initialize(unit)
+      super()
+      @unit = unit
+    end
+
+    def to_flatbuffers
+      fb_type = FB::Interval::Data.new
+      fb_type.unit = FB::IntervalUnit.try_convert(@unit.to_s.upcase)
+      fb_type
+    end
   end
 
   class YearMonthIntervalType < IntervalType
+    def initialize
+      super(:year_month)
+    end
+
     def name
       "YearMonthInterval"
     end
@@ -471,6 +492,10 @@ module ArrowFormat
   end
 
   class DayTimeIntervalType < IntervalType
+    def initialize
+      super(:day_time)
+    end
+
     def name
       "DayTimeInterval"
     end
@@ -481,6 +506,10 @@ module ArrowFormat
   end
 
   class MonthDayNanoIntervalType < IntervalType
+    def initialize
+      super(:month_day_nano)
+    end
+
     def name
       "MonthDayNanoInterval"
     end

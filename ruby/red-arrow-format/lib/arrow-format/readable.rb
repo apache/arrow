@@ -78,11 +78,11 @@ module ArrowFormat
       when FB::Interval
         case fb_type.unit
         when FB::IntervalUnit::YEAR_MONTH
-          type = YearMonthIntervalType.new
+          type = YearMonthIntervalType.singleton
         when FB::IntervalUnit::DAY_TIME
-          type = DayTimeIntervalType.new
+          type = DayTimeIntervalType.singleton
         when FB::IntervalUnit::MONTH_DAY_NANO
-          type = MonthDayNanoIntervalType.new
+          type = MonthDayNanoIntervalType.singleton
         end
       when FB::Duration
         unit = fb_type.unit.name.downcase.to_sym
