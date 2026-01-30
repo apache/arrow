@@ -70,7 +70,9 @@ module ArrowFormat
       Enumerator.new do |yielder|
         traverse = lambda do |array|
           yielder << array
-          if array.respond_to?(:children)
+          if array.respond_to?(:child)
+            traverse.call(array.child)
+          elsif array.respond_to?(:children)
             array.children.each do |child_array|
               traverse.call(child_array)
             end

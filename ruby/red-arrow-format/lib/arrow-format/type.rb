@@ -678,7 +678,6 @@ module ArrowFormat
       super()
       @child = child
     end
-
   end
 
   class ListType < VariableSizeListType
@@ -689,6 +688,10 @@ module ArrowFormat
     def build_array(size, validity_buffer, offsets_buffer, child)
       ListArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
+
+    def to_flatbuffers
+      FB::List::Data.new
+    end
   end
 
   class LargeListType < VariableSizeListType
@@ -698,6 +701,10 @@ module ArrowFormat
 
     def build_array(size, validity_buffer, offsets_buffer, child)
       LargeListArray.new(self, size, validity_buffer, offsets_buffer, child)
+    end
+
+    def to_flatbuffers
+      FB::LargeList::Data.new
     end
   end
 

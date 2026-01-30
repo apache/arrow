@@ -77,9 +77,20 @@ module WriterTests
                                       red_arrow_type.scale)
     when Arrow::FixedSizeBinaryDataType
       ArrowFormat::FixedSizeBinaryType.new(red_arrow_type.byte_width)
+    when Arrow::ListDataType
+      ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
+    when Arrow::LargeListDataType
+      ArrowFormat::LargeListType.new(convert_field(red_arrow_type.field))
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
+  end
+
+  def convert_field(red_arrow_field)
+    ArrowFormat::Field.new(red_arrow_field.name,
+                           convert_type(red_arrow_field.data_type),
+                           red_arrow_field.nullable?,
+                           nil)
   end
 
   def convert_buffer(buffer)
@@ -105,6 +116,11 @@ module WriterTests
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.data_buffer))
+    when ArrowFormat::VariableSizeListType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
+                       convert_buffer(red_arrow_array.value_offsets_buffer),
+                       convert_array(red_arrow_array.values_raw))
     else
       raise "Unsupported array #{red_arrow_array.inspect}"
     end
@@ -632,6 +648,32 @@ module WriterTests
                            BigDecimal(@negative_small),
                            BigDecimal(@negative_large),
                          ],
+                         @values)
+          end
+        end
+
+        sub_test_case("List") do
+          def build_array
+            data_type = Arrow::ListDataType.new(name: "count", type: :int8)
+            Arrow::ListArray.new(data_type, [[-128, 127], nil, [-1, 0, 1]])
+          end
+
+          def test_write
+            assert_equal([[-128, 127], nil, [-1, 0, 1]],
+                         @values)
+          end
+        end
+
+        sub_test_case("LargeList") do
+          def build_array
+            data_type = Arrow::LargeListDataType.new(name: "count",
+                                                     type: :int8)
+            Arrow::LargeListArray.new(data_type,
+                                      [[-128, 127], nil, [-1, 0, 1]])
+          end
+
+          def test_write
+            assert_equal([[-128, 127], nil, [-1, 0, 1]],
                          @values)
           end
         end

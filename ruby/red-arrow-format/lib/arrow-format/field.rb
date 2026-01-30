@@ -49,7 +49,9 @@ module ArrowFormat
       else
         fb_field.type = @type.to_flatbuffers
       end
-      if @type.respond_to?(:children)
+      if @type.respond_to?(:child)
+        fb_field.children = [@type.child.to_flatbuffers]
+      elsif @type.respond_to?(:children)
         fb_field.children = @type.children.collect(&:to_flatbuffers)
       end
       # fb_field.custom_metadata = @custom_metadata
