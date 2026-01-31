@@ -536,6 +536,12 @@ module ArrowFormat
     def build_array(size, validity_buffer, values_buffer)
       DurationArray.new(self, size, validity_buffer, values_buffer)
     end
+
+    def to_flatbuffers
+      fb_type = FB::Duration::Data.new
+      fb_type.unit = FB::TimeUnit.try_convert(@unit.to_s.upcase)
+      fb_type
+    end
   end
 
   class VariableSizeBinaryType < Type
