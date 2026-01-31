@@ -36,8 +36,16 @@ class ApacheArrowAptSourcePackageTask < PackageTask
     file @archive_name do
       rm_rf(@archive_base_name)
       mkdir(@archive_base_name)
-      download("https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS",
-               "#{@archive_base_name}/KEYS")
+
+      faketime = ENV["FAKETIME"]
+      begin
+        # Disable faketime to avoid TLS verification error.
+        ENV["FAKETIME"] = nil
+        download("https://www.apache.org/dyn/closer.lua?action=download&filename=arrow/KEYS",
+                 "#{@archive_base_name}/KEYS")
+      ensure
+        ENV["FAKETIME"] = faketime
+      end
       sh("tar", "czf", @archive_name, @archive_base_name)
       rm_rf(@archive_base_name)
     end

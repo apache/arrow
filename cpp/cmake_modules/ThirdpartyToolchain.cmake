@@ -3365,8 +3365,20 @@ function(build_google_cloud_cpp_storage)
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
   build_crc32c_once()
 
+  set(PATCH_COMMAND)
+  find_program(PATCH patch)
+  if(PATCH)
+    list(APPEND
+         PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
+  endif()
+
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${PATCH_COMMAND}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
@@ -3843,6 +3855,11 @@ function(build_awssdk)
   prepare_fetchcontent()
   set(BUILD_DEPS OFF)
   set(BUILD_TOOL OFF)
+  message("XXX: ${CMAKE_ASM_FLAGS}")
+  if(CMAKE_CXX_FLAGS MATCHES "-ffile-prefix-map=" AND NOT CMAKE_ASM_FLAGS MATCHES "-ffile-prefix-map=")
+    string(REGEX MATCH " -ffile-prefix-map=[^ ]+ " FFILE_PREFIX_MAP "${CMAKE_CXX_FLAGS}")
+    string(APPEND CMAKE_ASM_FLAGS "${FFILE_PREFIX_MAP}")
+  endif()
   set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
   set(ENABLE_TESTING OFF)
   set(IN_SOURCE_BUILD ON)
