@@ -3855,8 +3855,12 @@ function(build_awssdk)
   prepare_fetchcontent()
   set(BUILD_DEPS OFF)
   set(BUILD_TOOL OFF)
-  message("XXX: ${CMAKE_ASM_FLAGS}")
-  if(CMAKE_CXX_FLAGS MATCHES "-ffile-prefix-map=" AND NOT CMAKE_ASM_FLAGS MATCHES "-ffile-prefix-map=")
+  # This is for aws-lc. -ffile-prefix-map is needed for reproducible
+  # builds. If ASM flags doesn't have --file-prefix-map, it may
+  # produce different binaries. Only aws-lc uses assembler. So this is
+  # for aws-lc.
+  if(CMAKE_CXX_FLAGS MATCHES "-ffile-prefix-map=" AND NOT CMAKE_ASM_FLAGS MATCHES
+                                                      "-ffile-prefix-map=")
     string(REGEX MATCH " -ffile-prefix-map=[^ ]+ " FFILE_PREFIX_MAP "${CMAKE_CXX_FLAGS}")
     string(APPEND CMAKE_ASM_FLAGS "${FFILE_PREFIX_MAP}")
   endif()
