@@ -3582,9 +3582,9 @@ function(build_google_cloud_cpp_storage)
   # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
   # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+  find_program(PATCH patch)
   if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11")
     # This is for RTools 40.
-    find_program(PATCH patch)
     if(PATCH)
       set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
           ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
@@ -3595,6 +3595,15 @@ function(build_google_cloud_cpp_storage)
             ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
       endif()
     endif()
+  endif()
+
+  if(PATCH)
+    list(APPEND
+         GOOGLE_CLOUD_CPP_PATCH_COMMAND
+         ${PATCH}
+         -p1
+         -i
+         ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-reproducible-builds.patch)
   endif()
 
   fetchcontent_declare(google_cloud_cpp
@@ -4027,6 +4036,11 @@ function(build_awssdk)
   prepare_fetchcontent()
   set(BUILD_DEPS OFF)
   set(BUILD_TOOL OFF)
+  message("XXX: ${CMAKE_ASM_FLAGS}")
+  if(CMAKE_CXX_FLAGS MATCHES "-ffile-prefix-map=" AND NOT CMAKE_ASM_FLAGS MATCHES "-ffile-prefix-map=")
+    string(REGEX MATCH " -ffile-prefix-map=[^ ]+ " FFILE_PREFIX_MAP "${CMAKE_CXX_FLAGS}")
+    string(APPEND CMAKE_ASM_FLAGS "${FFILE_PREFIX_MAP}")
+  endif()
   set(CMAKE_UNITY_BUILD OFF) # Unity build causes some build errors.
   set(ENABLE_TESTING OFF)
   set(IN_SOURCE_BUILD ON)

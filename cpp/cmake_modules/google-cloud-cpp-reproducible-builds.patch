@@ -1,0 +1,25 @@
+From 252064718ccbeec5e4dee45d017036a84ab0c61c Mon Sep 17 00:00:00 2001
+From: Sutou Kouhei <kou@clear-code.com>
+Date: Sat, 31 Jan 2026 21:18:30 +0900
+Subject: [PATCH] Don't embed compiler flags for reproducible builds
+
+---
+ google/cloud/internal/build_info.cc.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/google/cloud/internal/build_info.cc.in b/google/cloud/internal/build_info.cc.in
+index 3251870130..d120f580de 100644
+--- a/google/cloud/internal/build_info.cc.in
++++ b/google/cloud/internal/build_info.cc.in
+@@ -30,7 +30,7 @@ std::string compiler() {
+ // NOLINTNEXTLINE(readability-identifier-naming)
+ std::string compiler_flags() {
+   static char const kCompilerFlags[] =
+-      R"""(@CMAKE_CXX_FLAGS@ ${CMAKE_CXX_FLAGS_${GOOGLE_CLOUD_CPP_BUILD_TYPE_UPPER}})""";
++      R"""(REDACTED FOR REPRODUCIBLE BUILDS)""";
+   return kCompilerFlags;
+ }
+ 
+-- 
+2.51.0
+
