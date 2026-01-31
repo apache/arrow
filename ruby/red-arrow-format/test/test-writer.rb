@@ -61,6 +61,12 @@ module WriterTests
     when Arrow::TimestampDataType
       ArrowFormat::TimestampType.new(convert_time_unit(red_arrow_type.unit),
                                      red_arrow_type.time_zone&.identifier)
+    when Arrow::MonthIntervalDataType
+      ArrowFormat::YearMonthIntervalType.singleton
+    when Arrow::DayTimeIntervalDataType
+      ArrowFormat::DayTimeIntervalType.singleton
+    when Arrow::MonthDayNanoIntervalDataType
+      ArrowFormat::MonthDayNanoIntervalType.singleton
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
     when Arrow::LargeBinaryDataType
@@ -520,6 +526,71 @@ module WriterTests
           def test_type
             assert_equal([Arrow::TimeUnit::SECOND, @time_zone],
                          [@type.unit, @type.time_zone&.identifier])
+          end
+        end
+
+        sub_test_case("YearMonthInterval") do
+          def build_array
+            Arrow::MonthIntervalArray.new([0, nil, 100])
+          end
+
+          def test_write
+            assert_equal([0, nil, 100],
+                         @values)
+          end
+        end
+
+        sub_test_case("DayTimeInterval") do
+          def build_array
+            Arrow::DayTimeIntervalArray.new([
+                                              {day: 1, millisecond: 100},
+                                              nil,
+                                              {day: 3, millisecond: 300},
+                                            ])
+          end
+
+          def test_write
+            assert_equal([
+                           {day: 1, millisecond: 100},
+                           nil,
+                           {day: 3, millisecond: 300},
+                         ],
+                         @values)
+          end
+        end
+
+        sub_test_case("MonthDayNanoInterval") do
+          def build_array
+            Arrow::MonthDayNanoIntervalArray.new([
+                                                   {
+                                                     month: 1,
+                                                     day: 1,
+                                                     nanosecond: 100,
+                                                   },
+                                                   nil,
+                                                   {
+                                                     month: 3,
+                                                     day: 3,
+                                                     nanosecond: 300,
+                                                   },
+                                                 ])
+          end
+
+          def test_write
+            assert_equal([
+                           {
+                             month: 1,
+                             day: 1,
+                             nanosecond: 100,
+                           },
+                           nil,
+                           {
+                             month: 3,
+                             day: 3,
+                             nanosecond: 300,
+                           },
+                         ],
+                         @values)
           end
         end
 
