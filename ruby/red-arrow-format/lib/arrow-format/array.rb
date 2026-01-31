@@ -370,10 +370,18 @@ module ArrowFormat
   end
 
   class VariableSizeListArray < Array
+    attr_reader :child
     def initialize(type, size, validity_buffer, offsets_buffer, child)
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
       @child = child
+    end
+
+    def each_buffer(&block)
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@offsets_buffer)
     end
 
     def to_a

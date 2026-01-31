@@ -188,6 +188,22 @@ garrow_base_list_array_get_value_offsets(GArrowArray *array, gint64 *n_offsets)
   return arrow_list_array->raw_value_offsets();
 };
 
+template <typename LIST_ARRAY_CLASS>
+GArrowBuffer *
+garrow_base_list_array_get_value_offsets_buffer(GArrowArray *array)
+{
+  GArrowBuffer *buffer = nullptr;
+  g_object_get(array, "buffer1", &buffer, nullptr);
+  if (buffer) {
+    return buffer;
+  }
+
+  auto arrow_array = garrow_array_get_raw(array);
+  auto arrow_list_array = std::static_pointer_cast<LIST_ARRAY_CLASS>(arrow_array);
+  auto arrow_buffer = arrow_list_array->value_offsets();
+  return garrow_buffer_new_raw(&arrow_buffer);
+};
+
 G_BEGIN_DECLS
 
 static void
@@ -383,6 +399,21 @@ garrow_list_array_get_value_offsets(GArrowListArray *array, gint64 *n_offsets)
 {
   return garrow_base_list_array_get_value_offsets<arrow::ListArray>(GARROW_ARRAY(array),
                                                                     n_offsets);
+}
+
+/**
+ * garrow_list_array_get_value_offsets_buffer:
+ * @array: A #GArrowListArray.
+ *
+ * Returns: (transfer full) (nullable): The value offsets buffer.
+ *
+ * Since: 24.0.0
+ */
+GArrowBuffer *
+garrow_list_array_get_value_offsets_buffer(GArrowListArray *array)
+{
+  return garrow_base_list_array_get_value_offsets_buffer<arrow::ListArray>(
+    GARROW_ARRAY(array));
 }
 
 typedef struct GArrowLargeListArrayPrivate_
@@ -600,6 +631,21 @@ garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array, gint64 *n
     garrow_base_list_array_get_value_offsets<arrow::LargeListArray>(GARROW_ARRAY(array),
                                                                     n_offsets);
   return reinterpret_cast<const gint64 *>(value_offsets);
+}
+
+/**
+ * garrow_large_list_array_get_value_offsets_buffer:
+ * @array: A #GArrowLargeListArray.
+ *
+ * Returns: (transfer full) (nullable): The value offsets buffer.
+ *
+ * Since: 24.0.0
+ */
+GArrowBuffer *
+garrow_large_list_array_get_value_offsets_buffer(GArrowLargeListArray *array)
+{
+  return garrow_base_list_array_get_value_offsets_buffer<arrow::LargeListArray>(
+    GARROW_ARRAY(array));
 }
 
 typedef struct GArrowFixedSizeListArrayPrivate_
