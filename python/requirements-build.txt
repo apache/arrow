@@ -1,4 +1,4 @@
 cython>=3.1
 numpy>=1.25
+meson-python
 setuptools_scm>=8
-setuptools>=77

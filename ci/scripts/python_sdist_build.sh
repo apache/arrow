@@ -23,5 +23,8 @@ source_dir=${1}/python
 
 pushd "${source_dir}"
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION:-}
-${PYTHON:-python} setup.py sdist
+# The mounted source directory is already a git repository, so mark it as safe
+git config --global --add safe.directory "${1}"
+${PYTHON:-python} -m pip install build
+${PYTHON:-python} -m build --sdist . -Csetup-args="-Dsdist=true"
 popd

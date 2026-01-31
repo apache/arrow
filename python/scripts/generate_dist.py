@@ -15,5 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
-arrow_install_all_headers("arrow/python")
-add_subdirectory(vendored)
+import os
+import pathlib
+import shutil
+
+
+def main():
+    src_dir = pathlib.Path(os.environ["MESON_SOURCE_ROOT"])
+    parent_dir = src_dir.parent.resolve()
+    dest_dir = pathlib.Path(os.environ["MESON_DIST_ROOT"]).resolve()
+
+    license_file = parent_dir / 'LICENSE.txt'
+    dest_license = dest_dir / 'LICENSE.txt'
+    dest_license.unlink(missing_ok=True)
+    shutil.copy(license_file, dest_license)
+
+    notice_file = parent_dir / 'NOTICE.txt'
+    dest_notice = dest_dir / 'NOTICE.txt'
+    dest_notice.unlink(missing_ok=True)
+    shutil.copy(notice_file, dest_notice)
+
+
+if __name__ == "__main__":
+    main()

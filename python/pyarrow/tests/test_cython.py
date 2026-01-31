@@ -116,6 +116,9 @@ def test_cython_api(tmpdir):
         orig_path = sys.path[:]
         sys.path.insert(0, str(tmpdir))
         try:
+            if sys.platform == 'win32':
+                for dir in pa.get_library_dirs():
+                    os.add_dll_directory(dir)
             mod = __import__('pyarrow_cython_example')
             check_cython_example_module(mod)
         finally:
@@ -187,6 +190,9 @@ def test_visit_strings(tmpdir):
                               env=subprocess_env)
 
     sys.path.insert(0, str(tmpdir))
+    if sys.platform == 'win32':
+        for dir in pa.get_library_dirs():
+            os.add_dll_directory(dir)
     mod = __import__('bound_function_visit_strings')
 
     strings = ['a', 'b', 'c']

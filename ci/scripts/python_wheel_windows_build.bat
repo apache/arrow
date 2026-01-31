@@ -114,26 +114,105 @@ echo "=== (%PYTHON%) Building wheel ==="
 set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
-set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
-set PYARROW_CMAKE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%"
-set PYARROW_WITH_ACERO=%ARROW_ACERO%
-set PYARROW_WITH_DATASET=%ARROW_DATASET%
-set PYARROW_WITH_FLIGHT=%ARROW_FLIGHT%
-set PYARROW_WITH_GANDIVA=%ARROW_GANDIVA%
-set PYARROW_WITH_GCS=%ARROW_GCS%
-set PYARROW_WITH_HDFS=%ARROW_HDFS%
-set PYARROW_WITH_ORC=%ARROW_ORC%
-set PYARROW_WITH_PARQUET=%ARROW_PARQUET%
-set PYARROW_WITH_PARQUET_ENCRYPTION=%PARQUET_REQUIRE_ENCRYPTION%
-set PYARROW_WITH_SUBSTRAIT=%ARROW_SUBSTRAIT%
-set PYARROW_WITH_S3=%ARROW_S3%
-set ARROW_HOME=C:\arrow-dist
-set CMAKE_PREFIX_PATH=C:\arrow-dist
+
+if %ARROW_ACERO% == ON (
+    set PYARROW_WITH_ACERO=enabled
+) else if %ARROW_ACERO% == OFF (
+    set PYARROW_WITH_ACERO=disabled
+) else (
+    set PYARROW_WITH_ACERO=auto
+)
+if %ARROW_DATASET% == ON (
+    set PYARROW_WITH_DATASET=enabled
+) else if %ARROW_DATASET% == OFF (
+    set PYARROW_WITH_DATASET=disabled
+) else (
+    set PYARROW_WITH_DATASET=auto
+)
+if %ARROW_FLIGHT% == ON (
+    set PYARROW_WITH_FLIGHT=enabled
+) else if %ARROW_FLIGHT% == OFF (
+    set PYARROW_WITH_FLIGHT=disabled
+) else (
+    set PYARROW_WITH_FLIGHT=auto
+)
+if %ARROW_GANDIVA% == ON (
+    set PYARROW_WITH_GANDIVA=enabled
+) else if %ARROW_GANDIVA% == OFF (
+    set PYARROW_WITH_GANDIVA=disabled
+) else (
+    set PYARROW_WITH_GANDIVA=auto
+)
+if %ARROW_GCS% == ON (
+    set PYARROW_WITH_GCS=enabled
+) else if %ARROW_GCS% == OFF (
+    set PYARROW_WITH_GCS=disabled
+) else (
+    set PYARROW_WITH_GCS=auto
+)
+if %ARROW_HDFS% == ON (
+    set PYARROW_WITH_HDFS=enabled
+) else if %ARROW_HDFS% == OFF (
+    set PYARROW_WITH_HDFS=disabled
+) else (
+    set PYARROW_WITH_HDFS=auto
+)
+if %ARROW_ORC% == ON (
+    set PYARROW_WITH_ORC=enabled
+) else if %ARROW_ORC% == OFF (
+    set PYARROW_WITH_ORC=disabled
+) else (
+    set PYARROW_WITH_ORC=auto
+)
+if %ARROW_PARQUET% == ON (
+    set PYARROW_WITH_PARQUET=enabled
+) else if %ARROW_PARQUET% == OFF (
+    set PYARROW_WITH_PARQUET=disabled
+) else (
+    set PYARROW_WITH_PARQUET=auto
+)
+if %PARQUET_REQUIRE_ENCRYPTION% == ON (
+    set PYARROW_WITH_PARQUET_ENCRYPTION=enabled
+) else if %PARQUET_REQUIRE_ENCRYPTION% == OFF (
+    set PYARROW_WITH_PARQUET_ENCRYPTION=disabled
+) else (
+    set PYARROW_WITH_PARQUET_ENCRYPTION=auto
+)
+if %ARROW_SUBSTRAIT% == ON (
+    set PYARROW_WITH_SUBSTRAIT=enabled
+) else if %ARROW_SUBSTRAIT% == OFF (
+    set PYARROW_WITH_SUBSTRAIT=disabled
+) else (
+    set PYARROW_WITH_SUBSTRAIT=auto
+)
+if %ARROW_S3% == ON (
+    set PYARROW_WITH_S3=enabled
+) else if %ARROW_S3% == OFF (
+    set PYARROW_WITH_S3=disabled
+) else (
+    set PYARROW_WITH_S3=auto
+)
+
+@REM Meson sdist requires setuptools_scm to be able to get the version from git
+git config --global --add safe.directory C:\arrow
 
 pushd C:\arrow\python
 
 @REM Build wheel
-%PYTHON_CMD% -m build --sdist --wheel . --no-isolation || exit /B 1
+%PYTHON_CMD% -m build --sdist --wheel . --no-isolation ^
+    -Csetup-args="-Dbuildtype=%CMAKE_BUILD_TYPE%" ^
+    -Csetup-args="-Dacero=%PYARROW_WITH_ACERO%" ^
+    -Csetup-args="-Ddataset=%PYARROW_WITH_DATASET%" ^
+    -Csetup-args="-Dflight=%PYARROW_WITH_FLIGHT%" ^
+    -Csetup-args="-Dgandiva=%PYARROW_WITH_GANDIVA%" ^
+    -Csetup-args="-Dgcs=%PYARROW_WITH_GCS%" ^
+    -Csetup-args="-Dhdfs=%PYARROW_WITH_HDFS%" ^
+    -Csetup-args="-Dorc=%PYARROW_WITH_ORC%" ^
+    -Csetup-args="-Dparquet=%PYARROW_WITH_PARQUET%" ^
+    -Csetup-args="-Dparquet_require_encryption=%PYARROW_WITH_PARQUET_ENCRYPTION%" ^
+    -Csetup-args="-Dsubstrait=%PYARROW_WITH_SUBSTRAIT%" ^
+    -Csetup-args="-Ds3=%PYARROW_WITH_S3%" ^
+    -Csetup-args="--cmake-prefix-path=C:\arrow-dist" || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
@@ -142,11 +221,16 @@ pushd C:\arrow\python
 @REM required by multiple Python libraries in the same process.
 %PYTHON_CMD% -m pip install delvewheel || exit /B 1
 
+@REM Copy .lib files to bin directory for delvewheel to find them
+copy C:\arrow-dist\lib\*.lib C:\arrow-dist\bin\ || exit /B 1
+
 for /f %%i in ('dir dist\pyarrow-*.whl /B') do (set WHEEL_NAME=%cd%\dist\%%i) || exit /B 1
 echo "Wheel name: %WHEEL_NAME%"
 
 %PYTHON_CMD% -m delvewheel repair -vv ^
-    --ignore-existing --with-mangle ^
+    --ignore-existing --with-mangle --include-imports ^
+    --no-mangle "arrow.dll;arrow_python.dll;arrow_acero.dll;arrow_dataset.dll;arrow_flight.dll;arrow_substrait.dll;parquet.dll" ^
+    --add-path "C:\arrow-dist\bin" ^
     -w repaired_wheels %WHEEL_NAME% || exit /B 1
 
 popd
