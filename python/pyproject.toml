@@ -113,6 +113,7 @@ exclude = [
 # TODO: Enable type checking once stubs are merged
 [tool.pyright]
 pythonPlatform = "All"
+pythonVersion = "3.10"
 include = ["pyarrow-stubs"]
 exclude = [
     "pyarrow",
