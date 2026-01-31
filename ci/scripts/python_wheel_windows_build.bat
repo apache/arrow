@@ -135,14 +135,6 @@ pushd C:\arrow\python
 @REM Build wheel
 %PYTHON_CMD% -m build --sdist --wheel . --no-isolation || exit /B 1
 
-@REM We first populate stub docstrings and then build the wheel
-%PYTHON_CMD% setup.py build_ext --inplace
-@REM Install libcst for build-time stub docstring extraction
-%PYTHON_CMD% -m pip install libcst
-
-@REM Build wheel
-%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
-
 @REM Repair the wheel with delvewheel
 @REM
 @REM Since we bundled the Arrow C++ libraries ourselves, we only need to

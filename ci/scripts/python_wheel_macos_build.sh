@@ -168,11 +168,6 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
 python -m build --sdist --wheel . --no-isolation
-# We first populate stub docstrings and then build the wheel
-python setup.py build_ext --inplace
-# Install libcst for build-time stub docstring extraction
-python -m pip install libcst
-python setup.py bdist_wheel
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="

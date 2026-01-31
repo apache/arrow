@@ -168,11 +168,6 @@ export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
 python -m build --sdist --wheel . --no-isolation
-# We first populate stub docstrings and then build the wheel
-python setup.py build_ext --inplace
-# Install libcst for build-time stub docstring extraction
-python -m pip install libcst
-python setup.py bdist_wheel
 
 echo "=== Strip symbols from wheel ==="
 mkdir -p dist/temp-fix-wheel
