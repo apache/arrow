@@ -33,6 +33,22 @@ run()
 
 . /host/env.sh
 
+umask "${UMASK}"
+
+if [ -n "${CPU_LIST:-}" ]; then
+  taskset -a -c "${CPU_LIST}"
+fi
+
+if [ -n "${FAKETIME:-}" ]; then
+  lib_dir="/usr/lib/$(dpkg-architecture -q DEB_BUILD_MULTIARCH)"
+  libfaketime="${lib_dir}/faketime/libfaketime.so.1"
+  if [ ! -f "${libfaketime}" ]; then
+    echo "You must install libfaktime: ${libfaketime} doesn't exist"
+    exit 1
+  fi
+  export LD_PRELOAD="${libfaketime}"
+fi
+
 distribution=$(lsb_release --id --short | tr 'A-Z' 'a-z')
 code_name=$(lsb_release --codename --short)
 case "${distribution}" in
@@ -48,8 +64,9 @@ architecture=$(dpkg-architecture -q DEB_BUILD_ARCH)
 debuild_options=()
 dpkg_buildpackage_options=(-us -uc)
 
-run mkdir -p /build
-run cd /build
+build_root_dir="/build"
+run mkdir -p "${build_root_dir}"
+run pushd "${build_root_dir}"
 find . -not -path ./ccache -a -not -path "./ccache/*" -delete
 if which ccache > /dev/null 2>&1; then
   export CCACHE_COMPILERCHECK=content
@@ -67,6 +84,8 @@ if which ccache > /dev/null 2>&1; then
     debuild_options+=(--prepend-path=/usr/lib/ccache)
   fi
 fi
+build_dir=$(mktemp --directory --tmpdir="${build_root_dir}" package.XXXXX)
+run pushd "${build_dir}"
 run cp /host/tmp/${PACKAGE}-${VERSION}.tar.gz \
   ${PACKAGE}_${VERSION}.orig.tar.gz
 run tar xfz ${PACKAGE}_${VERSION}.orig.tar.gz
@@ -80,7 +99,7 @@ case "${VERSION}" in
         ${PACKAGE}-${VERSION}
     ;;
 esac
-run cd ${PACKAGE}-${VERSION}/
+run pushd ${PACKAGE}-${VERSION}/
 platform="${distribution}-${code_name}"
 if [ -d "/host/tmp/debian.${platform}-${architecture}" ]; then
   run cp -rp "/host/tmp/debian.${platform}-${architecture}" debian
@@ -102,7 +121,7 @@ df -h
 if which ccache > /dev/null 2>&1; then
   ccache --show-stats --verbose || :
 fi
-run cd -
+run popd
 
 repositories="/host/repositories"
 package_initial=$(echo "${PACKAGE}" | sed -e 's/\(.\).*/\1/')
@@ -116,3 +135,6 @@ run \
   -exec cp '{}' "${pool_dir}/" ';'
 
 run chown -R "$(stat --format "%u:%g" "${repositories}")" "${repositories}"
+
+run popd
+rm -rf "${build_dir}"

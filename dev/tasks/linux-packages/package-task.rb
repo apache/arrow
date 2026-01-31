@@ -149,14 +149,23 @@ class PackageTask
       run_command_line.concat(["--env", "DEBUG=yes"])
     end
     pass_through_env_names = [
+      "CPU_LIST",
       "DEB_BUILD_OPTIONS",
+      "FAKETIME",
+      "HOME",
+      "LANG",
+      "LANGUAGE",
+      "LC_ALL",
+      "NO_FAKE_STAT",
       "RPM_BUILD_NCPUS",
+      "TZ",
     ]
     pass_through_env_names.each do |name|
       value = ENV[name]
       next unless value
       run_command_line.concat(["--env", "#{name}=#{value}"])
     end
+    run_command_line.concat(["--env", "UMASK=%04o" % File.umask])
     if File.exist?(File.join(id, "Dockerfile"))
       docker_context = id
     else
@@ -188,7 +197,7 @@ class PackageTask
     run_command_line << image
     run_command_line << "/host/build.sh" unless console
 
-    sh(*build_command_line)
+    sh(*build_command_line) if Dir.exist?(ENV["HOME"])
     sh(*run_command_line)
   end
 

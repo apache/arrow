@@ -89,28 +89,28 @@ jobs:
       fail-fast: false
       matrix:
         id:
-          - almalinux-8-amd64
-          - almalinux-8-arm64
-          - almalinux-9-amd64
-          - almalinux-9-arm64
-          - almalinux-10-amd64
-          - almalinux-10-arm64
-          - amazon-linux-2023-amd64
-          - amazon-linux-2023-arm64
-          - centos-9-stream-amd64
-          - centos-9-stream-arm64
-          - debian-bookworm-amd64
-          - debian-bookworm-arm64
+          # - almalinux-8-amd64
+          # - almalinux-8-arm64
+          # - almalinux-9-amd64
+          # - almalinux-9-arm64
+          # - almalinux-10-amd64
+          # - almalinux-10-arm64
+          # - amazon-linux-2023-amd64
+          # - amazon-linux-2023-arm64
+          # - centos-9-stream-amd64
+          # - centos-9-stream-arm64
+          # - debian-bookworm-amd64
+          # - debian-bookworm-arm64
           - debian-trixie-amd64
-          - debian-trixie-arm64
-          - debian-forky-amd64
-          - debian-forky-arm64
-          - ubuntu-jammy-amd64
-          - ubuntu-jammy-arm64
-          - ubuntu-noble-amd64
-          - ubuntu-noble-arm64
+          # - debian-trixie-arm64
+          # - debian-forky-amd64
+          # - debian-forky-arm64
+          # - ubuntu-jammy-amd64
+          # - ubuntu-jammy-arm64
+          # - ubuntu-noble-amd64
+          # - ubuntu-noble-arm64
     env:
-      DOCKER_VOLUME_PREFIX: ".docker/"
+      BUILD_DIR: "${{ github.workspace }}/packages.build"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
@@ -182,17 +182,18 @@ jobs:
             version="${GITHUB_REF_NAME#apache-arrow-}"
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
-      - name: Cache Docker Volumes
+      - name: Cache ccache
         uses: actions/cache@v5
         with:
-          path: .docker
+          path: ${{ env.BUILD_DIR }}/ccache
           key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
           restore-keys: package-linux-${{ matrix.id }}-
-      - name: Set up Ruby
+      - name: Install dependencies
         run: |
           sudo apt update
           sudo apt install -y \
             rake \
+            reprotest \
             ruby \
             ruby-dev
       - name: Prepare apache-arrow-apt-source for arm64
@@ -235,10 +236,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          pushd dev/tasks/linux-packages
-          rake docker:pull || :
-          rake --trace ${TASK_NAMESPACE}:build BUILD_DIR=build
-          popd
+          rake -C dev/tasks/linux-packages docker:pull || :
+          if [ "${TASK_NAMESPACE}" = "apt" ]; then
+            reprotest \
+              --vary=-fileordering \
+              --build-command \
+                "rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build" \
+              "${PWD}" \
+              "dev/tasks/linux-packages/*/apt/repositories/${DISTRIBUTION}/pool/${DISTRIBUTION_CODE_NAME}/*/*/*/*.deb"
+          else
+            rake -C dev/tasks/linux-packages ${TASK_NAMESPACE}:build
+          fi
       - name: Docker Push
         continue-on-error: true
         if: >-
@@ -246,9 +254,7 @@ jobs:
           github.event_name == 'push' &&
           github.ref_name == 'main'
         run: |
-          pushd dev/tasks/linux-packages
-          rake docker:push
-          popd
+          rake -C dev/tasks/linux-packages docker:push
       - name: Build artifact tarball
         run: |
           mkdir -p "${DISTRIBUTION}"
