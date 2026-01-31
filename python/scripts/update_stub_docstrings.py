@@ -19,13 +19,12 @@
 Extract docstrings from pyarrow runtime and insert them into stub files.
 
 Usage (from python/ directory with pyarrow built):
-    python ../dev/update_stub_docstrings.py pyarrow-stubs
+    python scripts/update_stub_docstrings.py pyarrow-stubs
 """
 
 import argparse
 import importlib
 import inspect
-import shutil
 import sys
 from pathlib import Path
 from textwrap import indent
@@ -199,27 +198,19 @@ def add_docstrings_to_stubs(stubs_dir):
         stub_file.write_text(modified.code)
 
 
-def copy_stubs(src_dir, dest_dir):
-    """Copy .pyi files from src_dir to dest_dir."""
-    src_dir, dest_dir = Path(src_dir), Path(dest_dir)
-    if not src_dir.exists():
-        return
+def add_docstrings_from_build(stubs_dir, build_lib):
+    """
+    Entry point for setup.py: update docstrings using pyarrow from build directory.
 
-    print(f"Copying stubs: {src_dir} -> {dest_dir}")
-    for src in src_dir.rglob('*.pyi'):
-        dest = dest_dir / src.relative_to(src_dir)
-        dest.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(src, dest)
-
-
-def update_stubs_for_build(stubs_dir, build_lib):
-    """Entry point for setup.py: update docstrings and copy stubs to build dir."""
+    During the build process, pyarrow is not installed in the system Python.
+    We need to temporarily add the build directory to sys.path so we can
+    import pyarrow and extract docstrings from it.
+    """
     stubs_dir, build_lib = Path(stubs_dir), Path(build_lib)
 
     sys.path.insert(0, str(build_lib))
     try:
         add_docstrings_to_stubs(stubs_dir)
-        copy_stubs(stubs_dir / "pyarrow", build_lib / "pyarrow")
     finally:
         sys.path.pop(0)
 
@@ -229,5 +220,9 @@ if __name__ == "__main__":
     parser.add_argument("stubs_dir", type=Path, help="Path to pyarrow-stubs folder")
     args = parser.parse_args()
 
-    sys.path.insert(0, ".")
+    # Add the directory containing this script's parent (python/) to sys.path
+    # so pyarrow can be imported when running from the python/ directory
+    script_dir = Path(__file__).resolve().parent
+    python_dir = script_dir.parent
+    sys.path.insert(0, str(python_dir))
     add_docstrings_to_stubs(args.stubs_dir.resolve())

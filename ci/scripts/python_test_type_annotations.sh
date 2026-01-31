@@ -20,24 +20,20 @@
 set -ex
 pyarrow_dir=${1}
 
-if [ "${PYARROW_TEST_ANNOTATIONS}" == "ON" ]; then
-  if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
-    # shellcheck source=/dev/null
-    . "${ARROW_PYTHON_VENV}/bin/activate"
-  fi
-
-  # Install library stubs. Note some libraries contain their own type hints so they need to be installed.
-  pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
-
-  # Install type checkers
-  pip install mypy pyright ty
-
-  # Run type checkers
-  pushd "${pyarrow_dir}"
-  mypy
-  pyright
-  ty check
-  popd
-else
-  echo "Skipping type annotation tests"
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # shellcheck source=/dev/null
+  . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
+
+# Install library stubs. Note some libraries contain their own type hints so they need to be installed.
+pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
+
+# Install type checkers
+pip install mypy pyright ty
+
+# Run type checkers
+pushd "${pyarrow_dir}"
+mypy
+pyright
+ty check
+popd

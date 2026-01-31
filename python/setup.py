@@ -133,15 +133,34 @@ class build_ext(_build_ext):
         build_cmd = self.get_finalized_command('build')
         build_lib = os.path.abspath(build_cmd.build_lib)
 
-        # Import here to avoid hard dependency on the dev script
-        sys.path.insert(0, pjoin(setup_dir, '..', 'dev'))
+        # Import the stub docstring updater from python/scripts
+        sys.path.insert(0, pjoin(setup_dir, 'scripts'))
         try:
-            from update_stub_docstrings import update_stubs_for_build
-            update_stubs_for_build(stubs_dir, build_lib)
-        except ImportError:
-            print("-- Skipping stubs (update_stub_docstrings.py not found)")
+            from update_stub_docstrings import add_docstrings_from_build
+            add_docstrings_from_build(stubs_dir, build_lib)
         finally:
             sys.path.pop(0)
+
+        # Copy stub files to build directory
+        self._copy_stubs(stubs_dir, build_lib)
+
+    def _copy_stubs(self, stubs_dir, build_lib):
+        """Copy .pyi stub files to the build directory."""
+        src_dir = pjoin(stubs_dir, 'pyarrow')
+        dest_dir = pjoin(build_lib, 'pyarrow')
+
+        if not os.path.exists(src_dir):
+            return
+
+        print(f"-- Copying stubs: {src_dir} -> {dest_dir}")
+        for root, dirs, files in os.walk(src_dir):
+            for fname in files:
+                if fname.endswith('.pyi'):
+                    src = pjoin(root, fname)
+                    rel_path = os.path.relpath(src, src_dir)
+                    dest = pjoin(dest_dir, rel_path)
+                    os.makedirs(os.path.dirname(dest), exist_ok=True)
+                    shutil.copy2(src, dest)
 
     # adapted from cmake_build_ext in dynd-python
     # github.com/libdynd/dynd-python
