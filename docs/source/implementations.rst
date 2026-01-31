@@ -121,6 +121,6 @@ The source files for the Cookbook are maintained in the
    R <https://arrow.apache.org/docs/r>
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
-   Swift <https://swiftpackageindex.com/apache/arrow-swift/main/documentation/arrow>
+   Swift <https://arrow.apache.org/swift/>
    nanoarrow <https://arrow.apache.org/nanoarrow/>
    Implementation Status <status>
