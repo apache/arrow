@@ -33,14 +33,14 @@ module ArrowFormat
       n_bytes = @n_values / 8
       @buffer.each(:U8, 0, n_bytes) do |offset, value|
         7.times do |i|
-          yield(value & (1 << (i % 8)))
+          yield((value & (1 << (i % 8))) > 0)
         end
       end
       remained_bits = @n_values % 8
       unless remained_bits.zero?
         value = @buffer.get_value(:U8, n_bytes)
         remained_bits.times do |i|
-          yield(value & (1 << (i % 8)))
+          yield((value & (1 << (i % 8))) > 0)
         end
       end
     end
