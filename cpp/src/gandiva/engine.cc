@@ -185,7 +185,7 @@ void AddProcessSymbol(llvm::orc::LLJIT& lljit) {
       llvm::cantFail(llvm::orc::DynamicLibrarySearchGenerator::GetForCurrentProcess(
           lljit.getDataLayout().getGlobalPrefix())));
   // the `atexit` symbol cannot be found for ASAN
-#ifdef ADDRESS_SANITIZER
+#if defined(ADDRESS_SANITIZER) && LLVM_VERSION_MAJOR < 18
   if (!lljit.lookup("atexit")) {
     AddAbsoluteSymbol(lljit, "atexit", reinterpret_cast<void*>(atexit));
   }
@@ -219,7 +219,10 @@ Status UseJITLinkIfEnabled(llvm::orc::LLJITBuilder& jit_builder) {
 
 Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
     llvm::orc::JITTargetMachineBuilder jtmb,
-    std::optional<std::reference_wrapper<GandivaObjectCache>>& object_cache) {
+    std::shared_ptr<llvm::TargetMachine> target_machine,
+    std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
+  auto data_layout = target_machine->createDataLayout();
+
   llvm::orc::LLJITBuilder jit_builder;
 
 #ifdef JIT_LINK_SUPPORTED
@@ -227,20 +230,24 @@ Result<std::unique_ptr<llvm::orc::LLJIT>> BuildJIT(
 #endif
 
   jit_builder.setJITTargetMachineBuilder(std::move(jtmb));
+#if LLVM_VERSION_MAJOR >= 16
+  jit_builder.setDataLayout(std::make_optional(data_layout));
+#else
+  jit_builder.setDataLayout(llvm::Optional<llvm::DataLayout>(data_layout));
+#endif
+
   if (object_cache.has_value()) {
     jit_builder.setCompileFunctionCreator(
-        [&object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
+        [tm = std::move(target_machine),
+         &object_cache](llvm::orc::JITTargetMachineBuilder JTMB)
             -> llvm::Expected<std::unique_ptr<llvm::orc::IRCompileLayer::IRCompiler>> {
-          auto target_machine = JTMB.createTargetMachine();
-          if (!target_machine) {
-            return target_machine.takeError();
-          }
           // after compilation, the object code will be stored into the given object
           // cache
-          return std::make_unique<llvm::orc::TMOwningSimpleCompiler>(
-              std::move(*target_machine), &object_cache.value().get());
+          return std::make_unique<llvm::orc::SimpleCompiler>(*tm,
+                                                             &object_cache.value().get());
         });
   }
+
   auto maybe_jit = jit_builder.create();
   ARROW_ASSIGN_OR_RAISE(auto jit,
                         AsArrowResult(maybe_jit, "Could not create LLJIT instance: "));
@@ -317,7 +324,7 @@ void Engine::InitOnce() {
 
 Engine::Engine(const std::shared_ptr<Configuration>& conf,
                std::unique_ptr<llvm::orc::LLJIT> lljit,
-               std::unique_ptr<llvm::TargetMachine> target_machine, bool cached)
+               std::shared_ptr<llvm::TargetMachine> target_machine, bool cached)
     : context_(std::make_unique<llvm::LLVMContext>()),
       lljit_(std::move(lljit)),
       ir_builder_(std::make_unique<llvm::IRBuilder<>>(*context_)),
@@ -330,6 +337,7 @@ Engine::Engine(const std::shared_ptr<Configuration>& conf,
   // LLVM 10 doesn't like the expr function name to be the same as the module name
   auto module_id = "gdv_module_" + std::to_string(reinterpret_cast<uintptr_t>(this));
   module_ = std::make_unique<llvm::Module>(module_id, *context_);
+  module_->setDataLayout(target_machine_->createDataLayout());
 }
 
 Engine::~Engine() {}
@@ -366,14 +374,21 @@ Result<std::unique_ptr<Engine>> Engine::Make(
     std::optional<std::reference_wrapper<GandivaObjectCache>> object_cache) {
   std::call_once(llvm_init_once_flag, InitOnce);
 
+  // Create the target machine
   ARROW_ASSIGN_OR_RAISE(auto jtmb, MakeTargetMachineBuilder(*conf));
-  ARROW_ASSIGN_OR_RAISE(auto jit, BuildJIT(jtmb, object_cache));
   auto maybe_tm = jtmb.createTargetMachine();
   ARROW_ASSIGN_OR_RAISE(auto target_machine,
                         AsArrowResult(maybe_tm, "Could not create target machine: "));
 
+  auto shared_target_machine =
+      std::shared_ptr<llvm::TargetMachine>(std::move(target_machine));
+
+  // Build the LLJIT instance
+  ARROW_ASSIGN_OR_RAISE(auto jit,
+                        BuildJIT(std::move(jtmb), shared_target_machine, object_cache));
+
   std::unique_ptr<Engine> engine{
-      new Engine(conf, std::move(jit), std::move(target_machine), cached)};
+      new Engine(conf, std::move(jit), std::move(shared_target_machine), cached)};
 
   ARROW_RETURN_NOT_OK(engine->Init());
   return engine;

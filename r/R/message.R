@@ -19,13 +19,25 @@
 
 #' @title Message class
 #'
+#' @description
+#' `Message` holds an Arrow IPC message, which includes metadata and
+#' an optional message body.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
-#' @section Methods:
+#' @section R6 Methods:
 #'
-#' TODO
+#' - `$Equals(other)`: Check if this `Message` is equal to another `Message`
+#' - `$body_length()`: Return the length of the message body in bytes
+#' - `$Verify()`: Check if the `Message` metadata is valid Flatbuffer format
+#'
+#' @section Active bindings:
+#'
+#' - `$type`: The message type
+#' - `$metadata`: The message metadata
+#' - `$body`: The message body as a [Buffer]
 #'
 #' @rdname Message
 #' @name Message
@@ -48,13 +60,23 @@ Message <- R6Class(
 
 #' @title MessageReader class
 #'
+#' @description
+#' `MessageReader` reads `Message` objects from an input stream.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
-#' @section Methods:
+#' @section R6 Methods:
 #'
-#' TODO
+#' - `$ReadNextMessage()`: Read the next `Message` from the stream. Returns `NULL` if
+#'   there are no more messages.
+#'
+#' @section Factory:
+#'
+#' `MessageReader$create()` takes the following argument:
+#'
+#' - `stream`: An [InputStream] or object coercible to one (e.g., a raw vector)
 #'
 #' @rdname MessageReader
 #' @name MessageReader

@@ -202,7 +202,7 @@ function(arrow_add_object_library PREFIX)
       add_library(${prefix}_shared OBJECT ${SOURCES})
       set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
       target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
-      target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
+      target_compile_features(${prefix}_shared PRIVATE cxx_std_20)
       set(${PREFIX}_TARGET_SHARED
           ${prefix}_shared
           PARENT_SCOPE)
@@ -212,7 +212,7 @@ function(arrow_add_object_library PREFIX)
       add_library(${prefix}_static OBJECT ${SOURCES})
       set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
       target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
-      target_compile_features(${prefix}_static PRIVATE cxx_std_17)
+      target_compile_features(${prefix}_static PRIVATE cxx_std_20)
       set(${PREFIX}_TARGET_STATIC
           ${prefix}_static
           PARENT_SCOPE)
@@ -224,7 +224,7 @@ function(arrow_add_object_library PREFIX)
   else()
     add_library(${prefix} OBJECT ${SOURCES})
     set_target_properties(${prefix} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_features(${prefix} PRIVATE cxx_std_17)
+    target_compile_features(${prefix} PRIVATE cxx_std_20)
     set(${PREFIX}_TARGET_SHARED
         ${prefix}
         PARENT_SCOPE)
@@ -322,22 +322,24 @@ endfunction()
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_AVX2_FLAGS}")
   endif()
 endmacro()
 
 macro(append_runtime_avx2_bmi2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
-                                                  "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
+    set_source_files_properties(${SRC}
+                                PROPERTIES COMPILE_OPTIONS
+                                           "${ARROW_AVX2_FLAGS};${ARROW_BMI2_FLAG}")
   endif()
 endmacro()
 
 macro(append_runtime_avx512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
+    separate_arguments(AVX512_FLAG_LIST NATIVE_COMMAND "${ARROW_AVX512_FLAG}")
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${AVX512_FLAG_LIST}")
   endif()
 endmacro()
 
@@ -909,6 +911,13 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    # Suppress documentation warnings from google-cloud-cpp headers
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+      set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "-Wno-documentation;-Wno-documentation-deprecated-sync"
+      )
+    endif()
   endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
@@ -1173,8 +1182,8 @@ endif()
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-  # C++17 is required to compile against Arrow C++ headers and libraries
-  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_17)
+  # C++20 is required to compile against Arrow C++ headers and libraries
+  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_20)
 endforeach()
 
 if(ARROW_WITH_BACKTRACE)

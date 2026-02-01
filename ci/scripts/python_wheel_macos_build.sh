@@ -56,8 +56,10 @@ if [[ $FREE_THREADED_BUILD == "True"  ]]; then
 fi
 
 pip install \
+  --force-reinstall \
   --only-binary=:all: \
   --target $PIP_SITE_PACKAGES \
+  --upgrade \
   -r ${source_dir}/python/requirements-wheel-build.txt
 pip install "delocate>=0.10.3"
 
@@ -175,7 +177,7 @@ export CMAKE_PREFIX_PATH=${build_dir}/install
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
-python setup.py bdist_wheel
+python -m build --sdist --wheel . --no-isolation
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="

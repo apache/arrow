@@ -18,20 +18,14 @@
 #pragma once
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 
 #include <arrow/flight/sql/odbc/odbc_impl/platform.h>
 #include <sql.h>
 #include <memory>
 #include <string>
 
-namespace arrow::flight::sql::odbc {
-class Statement;
-class ResultSet;
-}  // namespace arrow::flight::sql::odbc
-
 namespace ODBC {
-class ODBCConnection;
-class ODBCDescriptor;
 
 /**
  * @brief An abstraction over an ODBC connection handle. This also wraps an SPI
@@ -59,7 +53,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void ExecuteDirect(const std::string& query);
 
   /// \brief Return true if the number of rows fetch was greater than zero.
-  bool Fetch(size_t rows);
+  ///
+  /// row_count_ptr and row_status_array are optional arguments, they are only needed for
+  /// SQLExtendedFetch
+  bool Fetch(size_t rows, SQLULEN* row_count_ptr = 0, SQLUSMALLINT* row_status_array = 0);
+
   bool IsPrepared() const;
 
   void GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
@@ -67,6 +65,9 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value,
                    SQLINTEGER buffer_size, bool is_unicode);
 
+  /// \brief Revert back to implicitly allocated internal descriptors.
+  /// isApd as True indicates APD descritor is to be reverted.
+  /// isApd as False indicates ARD descritor is to be reverted.
   void RevertAppDescriptor(bool is_apd);
 
   inline ODBCDescriptor* GetIRD() { return ird_.get(); }
@@ -77,6 +78,11 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   SQLRETURN GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
                     SQLLEN buffer_length, SQLLEN* indicator_ptr);
+
+  SQLRETURN GetMoreResults();
+
+  /// \brief Return number of columns from data set
+  void GetColumnCount(SQLSMALLINT* column_count_ptr);
 
   /// \brief Return number of rows affected by an UPDATE, INSERT, or DELETE statement\
   ///

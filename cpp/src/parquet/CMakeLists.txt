@@ -144,7 +144,7 @@ set_source_files_properties("${PARQUET_THRIFT_SOURCE_DIR}/parquet_types.cpp"
 
 if(NOT MSVC)
   set_source_files_properties(src/parquet/parquet_types.cpp
-                              PROPERTIES COMPILE_FLAGS -Wno-unused-variable)
+                              PROPERTIES COMPILE_OPTIONS -Wno-unused-variable)
 endif()
 
 #
@@ -161,6 +161,7 @@ set(PARQUET_SRCS
     arrow/writer.cc
     bloom_filter.cc
     bloom_filter_reader.cc
+    bloom_filter_writer.cc
     chunker_internal.cc
     column_reader.cc
     column_scanner.cc
@@ -199,14 +200,12 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
-  #
-  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
-  # CMake 3.11 or later.
-  set(AVX2_FLAGS "${ARROW_AVX2_FLAG}")
+  set(AVX2_FLAGS ${ARROW_AVX2_FLAGS})
   if(NOT MSVC)
-    string(APPEND AVX2_FLAGS " ${CMAKE_CXX_FLAGS_RELEASE}")
+    separate_arguments(RELEASE_FLAGS NATIVE_COMMAND "${CMAKE_CXX_FLAGS_RELEASE}")
+    list(APPEND AVX2_FLAGS ${RELEASE_FLAGS})
   endif()
-  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_FLAGS
+  set_source_files_properties(level_comparison_avx2.cc PROPERTIES COMPILE_OPTIONS
                                                                   "${AVX2_FLAGS}")
   # WARNING: DO NOT BLINDLY COPY THIS CODE FOR OTHER BMI2 USE CASES.
   # This code is always guarded by runtime dispatch which verifies
@@ -217,14 +216,11 @@ if(ARROW_HAVE_RUNTIME_AVX2)
   # violation with -DCMAKE_BUILD_TYPE=MinSizeRel. CMAKE_CXX_FLAGS_RELEASE
   # will force inlining as much as possible.
   # See also: ARROW-15664 and ARROW-15678
-  #
-  # TODO: Use COMPILE_OPTIONS instead of COMPILE_FLAGS when we require
-  # CMake 3.11 or later.
   if(ARROW_HAVE_RUNTIME_BMI2)
     # Need to pass ARROW_HAVE_BMI2 for level_conversion_inc.h to compile
     # the BMI2 path.
-    set(BMI2_FLAGS "${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2")
-    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_FLAGS
+    set(BMI2_FLAGS ${AVX2_FLAGS} ${ARROW_BMI2_FLAG} -DARROW_HAVE_BMI2)
+    set_source_files_properties(level_conversion_bmi2.cc PROPERTIES COMPILE_OPTIONS
                                                                     "${BMI2_FLAGS}")
   endif()
 endif()
@@ -373,7 +369,7 @@ set_source_files_properties(public_api_test.cc PROPERTIES SKIP_UNITY_BUILD_INCLU
 
 add_parquet_test(internals-test
                  SOURCES
-                 bloom_filter_reader_test.cc
+                 bloom_filter_reader_writer_test.cc
                  bloom_filter_test.cc
                  geospatial/statistics_test.cc
                  geospatial/util_internal_test.cc
@@ -408,6 +404,8 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/arrow_reader_writer_test.cc
                  arrow/arrow_statistics_test.cc
                  arrow/variant_test.cc)
+
+add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)

@@ -71,8 +71,6 @@ using util::Float16;
 
 namespace {
 
-// TODO also handle HALF_FLOAT NaNs
-
 template <bool Approximate, bool NansEqual, bool SignedZerosEqual>
 struct FloatingEqualityFlags {
   static constexpr bool approximate = Approximate;

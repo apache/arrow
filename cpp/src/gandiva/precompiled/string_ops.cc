@@ -2252,16 +2252,16 @@ const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text
 FORCE_INLINE
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len) {
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
   gdv_binary ret =
       reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
-  if (text_len == 0) {
     *out_len = 0;
     return "";
   }

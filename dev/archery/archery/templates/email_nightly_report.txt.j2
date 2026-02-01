@@ -15,13 +15,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-#}
-{%- if True -%}
-{%- endif -%}
-From: {{ sender_name }} <{{ sender_email }}>
-To: {{ recipient_email }}
-Subject: [NIGHTLY] Arrow Build Report for Job {{report.job.branch}}: {{ (report.tasks_by_state["error"] | length) +  (report.tasks_by_state["failure"] | length) }} failed, {{ report.tasks_by_state["pending"] | length }} pending
-
+-#}
 Arrow Build Report for Job {{ report.job.branch }}
 
 See https://s3.amazonaws.com/arrow-data/index.html for more information.

@@ -127,6 +127,24 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+Testing Documentation Examples
+-------------------------------
+
+Documentation examples in ``.rst`` files under ``docs/source/python/`` use
+doctest syntax and can be tested locally using:
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ pytest --doctest-glob="*.rst" docs/source/python/file.rst # checking single file
+   $ pytest --doctest-glob="*.rst" docs/source/python # checking entire directory
+   $ popd
+
+The examples use standard doctest syntax with ``>>>`` for Python prompts and
+``...`` for continuation lines. The ``conftest.py`` fixture automatically
+handles temporary directory setup for examples that create files.
+
+
 Debugging
 =========
 

@@ -68,6 +68,10 @@ GARROW_AVAILABLE_IN_2_0
 const gint32 *
 garrow_list_array_get_value_offsets(GArrowListArray *array, gint64 *n_offsets);
 
+GARROW_AVAILABLE_IN_24_0
+GArrowBuffer *
+garrow_list_array_get_value_offsets_buffer(GArrowListArray *array);
+
 #define GARROW_TYPE_LARGE_LIST_ARRAY (garrow_large_list_array_get_type())
 GARROW_AVAILABLE_IN_0_16
 G_DECLARE_DERIVABLE_TYPE(
@@ -109,6 +113,54 @@ garrow_large_list_array_get_value_length(GArrowLargeListArray *array, gint64 i);
 GARROW_AVAILABLE_IN_2_0
 const gint64 *
 garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array, gint64 *n_offsets);
+
+GARROW_AVAILABLE_IN_24_0
+GArrowBuffer *
+garrow_large_list_array_get_value_offsets_buffer(GArrowLargeListArray *array);
+
+#define GARROW_TYPE_FIXED_SIZE_LIST_ARRAY (garrow_fixed_size_list_array_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(GArrowFixedSizeListArray,
+                         garrow_fixed_size_list_array,
+                         GARROW,
+                         FIXED_SIZE_LIST_ARRAY,
+                         GArrowArray)
+struct _GArrowFixedSizeListArrayClass
+{
+  GArrowArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowFixedSizeListArray *
+garrow_fixed_size_list_array_new(GArrowDataType *data_type,
+                                 gint64 length,
+                                 GArrowArray *values,
+                                 GArrowBuffer *null_bitmap,
+                                 gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDataType *
+garrow_fixed_size_list_array_get_value_type(GArrowFixedSizeListArray *array);
+
+GARROW_AVAILABLE_IN_23_0
+GArrowArray *
+garrow_fixed_size_list_array_get_value(GArrowFixedSizeListArray *array, gint64 i);
+
+GARROW_AVAILABLE_IN_23_0
+GArrowArray *
+garrow_fixed_size_list_array_get_values(GArrowFixedSizeListArray *array);
+
+GARROW_AVAILABLE_IN_23_0
+gint64
+garrow_fixed_size_list_array_get_value_offset(GArrowFixedSizeListArray *array, gint64 i);
+
+GARROW_AVAILABLE_IN_23_0
+gint32
+garrow_fixed_size_list_array_get_value_length(GArrowFixedSizeListArray *array, gint64 i);
+
+GARROW_AVAILABLE_IN_23_0
+gint32
+garrow_fixed_size_list_array_get_list_size(GArrowFixedSizeListArray *array);
 
 #define GARROW_TYPE_STRUCT_ARRAY (garrow_struct_array_get_type())
 GARROW_AVAILABLE_IN_ALL

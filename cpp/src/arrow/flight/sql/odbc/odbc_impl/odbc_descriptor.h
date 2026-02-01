@@ -18,6 +18,7 @@
 #pragma once
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 
 #include <sql.h>
 #include <sqlext.h>
@@ -26,13 +27,7 @@
 #include <string>
 #include <vector>
 
-namespace arrow::flight::sql::odbc {
-class ResultSetMetadata;
-}  // namespace arrow::flight::sql::odbc
-
 namespace ODBC {
-class ODBCConnection;
-class ODBCStatement;
 
 struct DescriptorRecord {
   std::string base_column_name;

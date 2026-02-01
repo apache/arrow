@@ -70,10 +70,10 @@ void AzureOptions::ExtractFromUriSchemeAndHierPart(const Uri& uri,
                                                    std::string* out_path) {
   const auto host = uri.host();
   std::string path;
-  if (arrow::internal::EndsWith(host, blob_storage_authority)) {
+  if (host.ends_with(blob_storage_authority)) {
     account_name = host.substr(0, host.size() - blob_storage_authority.size());
     path = internal::RemoveLeadingSlash(uri.path());
-  } else if (arrow::internal::EndsWith(host, dfs_storage_authority)) {
+  } else if (host.ends_with(dfs_storage_authority)) {
     account_name = host.substr(0, host.size() - dfs_storage_authority.size());
     path = internal::ConcatAbstractPath(uri.username(), uri.path());
   } else {
@@ -558,7 +558,7 @@ Status CrossContainerMoveNotImplemented(const AzureLocation& src,
       "' requires moving data between containers, which is not implemented.");
 }
 
-bool IsContainerNotFound(const Storage::StorageException& e) {
+bool IsContainerNotFound(const Core::RequestFailedException& e) {
   // In some situations, only the ReasonPhrase is set and the
   // ErrorCode is empty, so we check both.
   if (e.ErrorCode == "ContainerNotFound" ||
@@ -782,7 +782,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       content_length_ = properties.Value.BlobSize;
       metadata_ = PropertiesToMetadata(properties.Value);
       return Status::OK();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         return PathNotFound(location_);
       }
@@ -864,7 +864,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
       return blob_client_
           ->DownloadTo(reinterpret_cast<uint8_t*>(out), nbytes, download_options)
           .Value.ContentRange.Length.Value();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       return ExceptionToStatus(
           exception, "DownloadTo from '", blob_client_->GetUrl(), "' at position ",
           position, " for ", nbytes,
@@ -916,7 +916,7 @@ class ObjectInputFile final : public io::RandomAccessFile {
 Status CreateEmptyBlockBlob(const Blobs::BlockBlobClient& block_blob_client) {
   try {
     block_blob_client.UploadFrom(nullptr, 0);
-  } catch (const Storage::StorageException& exception) {
+  } catch (const Core::RequestFailedException& exception) {
     return ExceptionToStatus(
         exception, "UploadFrom failed for '", block_blob_client.GetUrl(),
         "'. There is no existing blob at this location or the existing blob must be "
@@ -929,7 +929,7 @@ Result<Blobs::Models::GetBlockListResult> GetBlockList(
     std::shared_ptr<Blobs::BlockBlobClient> block_blob_client) {
   try {
     return block_blob_client->GetBlockList().Value;
-  } catch (Storage::StorageException& exception) {
+  } catch (Core::RequestFailedException& exception) {
     return ExceptionToStatus(
         exception, "GetBlockList failed for '", block_blob_client->GetUrl(),
         "'. Cannot write to a file without first fetching the existing block list.");
@@ -945,7 +945,7 @@ Status CommitBlockList(std::shared_ptr<Storage::Blobs::BlockBlobClient> block_bl
     // previously committed blocks.
     // https://learn.microsoft.com/en-us/rest/api/storageservices/put-block-list?tabs=microsoft-entra-id#request-body
     block_blob_client->CommitBlockList(block_ids, options);
-  } catch (const Storage::StorageException& exception) {
+  } catch (const Core::RequestFailedException& exception) {
     return ExceptionToStatus(
         exception, "CommitBlockList failed for '", block_blob_client->GetUrl(),
         "'. Committing is required to flush an output/append stream.");
@@ -957,7 +957,7 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
                   Core::IO::MemoryBodyStream& content) {
   try {
     block_blob_client->StageBlock(id, content);
-  } catch (const Storage::StorageException& exception) {
+  } catch (const Core::RequestFailedException& exception) {
     return ExceptionToStatus(
         exception, "StageBlock failed for '", block_blob_client->GetUrl(),
         "' new_block_id: '", id,
@@ -965,6 +965,32 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
   }
 
   return Status::OK();
+}
+
+// Usually if the first page is empty it means there are no results. This was assumed in
+// several places in AzureFilesystem. The Azure docs do not guarantee this and we have
+// evidence (GH-49043) that there can be subsequent non-empty pages.
+// Applying `SkipStartingEmptyPages` on a paged response corrects this assumption.
+void SkipStartingEmptyPages(Blobs::ListBlobContainersPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.BlobContainers.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(Blobs::ListBlobsPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Blobs.size() == 0) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(Blobs::ListBlobsByHierarchyPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Blobs.empty() &&
+         paged_response.BlobPrefixes.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(DataLake::ListPathsPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Paths.empty()) {
+    paged_response.MoveToNextPage();
+  }
 }
 
 /// Writes will be buffered up to this size (in bytes) before actually uploading them.
@@ -1023,7 +1049,7 @@ class ObjectAppendStream final : public io::OutputStream {
         }
         content_length_ = properties.Value.BlobSize;
         pos_ = content_length_;
-      } catch (const Storage::StorageException& exception) {
+      } catch (const Core::RequestFailedException& exception) {
         if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
           // No file exists but on flat namespace its possible there is a directory
           // marker or an implied directory. Ensure there is no directory before starting
@@ -1366,7 +1392,7 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
     // Azurite issue detected.
     DCHECK(IsDfsEmulator(options));
     return HNSSupport::kDisabled;
-  } catch (const Storage::StorageException& exception) {
+  } catch (const Core::RequestFailedException& exception) {
     // Flat namespace storage accounts with "soft delete" enabled return
     //
     //   "Conflict - This endpoint does not support BlobStorageEvents
@@ -1400,9 +1426,6 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
                                  "Check for Hierarchical Namespace support on '",
                                  adlfs_client.GetUrl(), "' failed.");
     }
-  } catch (const Azure::Core::Http::TransportException& exception) {
-    return ExceptionToStatus(exception, "Check for Hierarchical Namespace support on '",
-                             adlfs_client.GetUrl(), "' failed.");
   } catch (const std::exception& exception) {
     return Status::UnknownError(
         "Check for Hierarchical Namespace support on '", adlfs_client.GetUrl(),
@@ -1436,7 +1459,7 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
     info.set_type(FileType::Directory);
     info.set_mtime(std::chrono::system_clock::time_point{properties.Value.LastModified});
     return info;
-  } catch (const Storage::StorageException& exception) {
+  } catch (const Core::RequestFailedException& exception) {
     if (IsContainerNotFound(exception)) {
       info.set_type(FileType::NotFound);
       return info;
@@ -1452,7 +1475,7 @@ Status CreateContainerIfNotExists(const std::string& container_name,
   try {
     container_client.CreateIfNotExists();
     return Status::OK();
-  } catch (const Storage::StorageException& exception) {
+  } catch (const Core::RequestFailedException& exception) {
     return ExceptionToStatus(exception, "Failed to create a container: ", container_name,
                              ": ", container_client.GetUrl());
   }
@@ -1545,7 +1568,7 @@ class LeaseGuard {
     DCHECK(release_attempt_pending_);
     try {
       lease_client_->Release();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       return ExceptionToStatus(exception, "Failed to release the ",
                                lease_client_->GetLeaseId(), " lease");
     }
@@ -1588,7 +1611,7 @@ class LeaseGuard {
       break_or_expires_at_ =
           std::min(break_or_expires_at_,
                    SteadyClock::now() + break_period.ValueOr(std::chrono::seconds{0}));
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       return ExceptionToStatus(exception, "Failed to break the ",
                                lease_client_->GetLeaseId(), " lease expiring in ",
                                remaining_time_ms().count(), "ms");
@@ -1783,7 +1806,7 @@ class AzureFileSystem::Impl {
       info.set_mtime(
           std::chrono::system_clock::time_point{properties.Value.LastModified});
       return info;
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         return FileInfo{location.all, FileType::NotFound};
       }
@@ -1808,12 +1831,14 @@ class AzureFileSystem::Impl {
     try {
       FileInfo info{location.all};
       auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+      SkipStartingEmptyPages(list_response);
       // Since PageSizeHint=1, we expect at most one entry in either Blobs or
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
       // This strategy allows us to implement GetFileInfo with just 1 blob storage
       // operation in almost every case.
+
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
@@ -1850,6 +1875,7 @@ class AzureFileSystem::Impl {
           // whether the path is a directory.
           options.Prefix = internal::EnsureTrailingSlash(location.path);
           auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          SkipStartingEmptyPages(list_with_trailing_slash_response);
           if (!list_with_trailing_slash_response.Blobs.empty()) {
             info.set_type(FileType::Directory);
             return info;
@@ -1858,7 +1884,7 @@ class AzureFileSystem::Impl {
       }
       info.set_type(FileType::NotFound);
       return info;
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (IsContainerNotFound(exception)) {
         return FileInfo{location.all, FileType::NotFound};
       }
@@ -1912,13 +1938,14 @@ class AzureFileSystem::Impl {
     try {
       auto container_list_response =
           blob_service_client_->ListBlobContainers(options, context);
+      SkipStartingEmptyPages(container_list_response);
       for (; container_list_response.HasPage();
            container_list_response.MoveToNextPage(context)) {
         for (const auto& container : container_list_response.BlobContainers) {
           RETURN_NOT_OK(on_container(container));
         }
       }
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       return ExceptionToStatus(exception, "Failed to list account containers.");
     }
     return Status::OK();
@@ -1953,6 +1980,7 @@ class AzureFileSystem::Impl {
     auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
         if (list_response.Paths.empty()) {
           continue;
@@ -1973,7 +2001,7 @@ class AzureFileSystem::Impl {
           }
         }
       }
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (IsContainerNotFound(exception) || exception.ErrorCode == "PathNotFound") {
         found = false;
       } else {
@@ -2043,6 +2071,7 @@ class AzureFileSystem::Impl {
     try {
       auto list_response =
           container_client.ListBlobsByHierarchy(/*delimiter=*/"/", options, context);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
         if (list_response.Blobs.empty() && list_response.BlobPrefixes.empty()) {
           continue;
@@ -2086,7 +2115,7 @@ class AzureFileSystem::Impl {
           RETURN_NOT_OK(process_prefix(list_response.BlobPrefixes[blob_prefix_index]));
         }
       }
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (IsContainerNotFound(exception)) {
         found = false;
       } else {
@@ -2225,7 +2254,7 @@ class AzureFileSystem::Impl {
       if (container_info.type() == FileType::NotFound) {
         try {
           container_client.CreateIfNotExists();
-        } catch (const Storage::StorageException& exception) {
+        } catch (const Core::RequestFailedException& exception) {
           return ExceptionToStatus(exception, "Failed to create directory '",
                                    location.all, "': ", container_client.GetUrl());
         }
@@ -2252,7 +2281,7 @@ class AzureFileSystem::Impl {
         const auto& nonexistent_location = nonexistent_locations[i - 1];
         try {
           create_if_not_exists(container_client, nonexistent_location);
-        } catch (const Storage::StorageException& exception) {
+        } catch (const Core::RequestFailedException& exception) {
           return ExceptionToStatus(exception, "Failed to create directory '",
                                    location.all, "': ", container_client.GetUrl());
         }
@@ -2270,7 +2299,7 @@ class AzureFileSystem::Impl {
       try {
         create_if_not_exists(container_client, location);
         return Status::OK();
-      } catch (const Storage::StorageException& exception) {
+      } catch (const Core::RequestFailedException& exception) {
         if (IsContainerNotFound(exception)) {
           auto parent = location.parent();
           return PathNotFound(parent);
@@ -2378,7 +2407,7 @@ class AzureFileSystem::Impl {
     try {
       EnsureEmptyDirExistsImplThatThrows(container_client, location.path);
       return Status::OK();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       return ExceptionToStatus(
           exception, operation_name, " failed to ensure empty directory marker '",
           location.path, "' exists in container: ", container_client.GetUrl());
@@ -2396,7 +2425,7 @@ class AzureFileSystem::Impl {
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (IsContainerNotFound(exception)) {
         return PathNotFound(location);
       }
@@ -2445,6 +2474,7 @@ class AzureFileSystem::Impl {
     bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
+      SkipStartingEmptyPages(list_response);
       if (list_response.Blobs.empty()) {
         if (require_dir_to_exist) {
           return PathNotFound(location);
@@ -2492,7 +2522,7 @@ class AzureFileSystem::Impl {
           if (!deferred_responses.empty()) {
             container_client.SubmitBatch(batch);
           }
-        } catch (const Storage::StorageException& exception) {
+        } catch (const Core::RequestFailedException& exception) {
           return ExceptionToStatus(exception, "Failed to delete blobs in a directory: ",
                                    location.path, ": ", container_client.GetUrl());
         }
@@ -2502,7 +2532,7 @@ class AzureFileSystem::Impl {
           try {
             auto delete_result = deferred_response.GetResponse();
             success = delete_result.Value.Deleted;
-          } catch (const Storage::StorageException& exception) {
+          } catch (const Core::RequestFailedException& exception) {
             success = false;
           }
           if (!success) {
@@ -2521,7 +2551,7 @@ class AzureFileSystem::Impl {
         }
       }
       return Status::OK();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       return ExceptionToStatus(exception,
                                "Failed to list blobs in a directory: ", location.path,
                                ": ", container_client.GetUrl());
@@ -2557,7 +2587,7 @@ class AzureFileSystem::Impl {
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (exception.ErrorCode == "FilesystemNotFound" ||
           exception.ErrorCode == "PathNotFound") {
         if (require_dir_to_exist) {
@@ -2578,13 +2608,14 @@ class AzureFileSystem::Impl {
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
     try {
       auto list_response = directory_client.ListPaths(false);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         for (const auto& path : list_response.Paths) {
           if (path.IsDirectory) {
             auto sub_directory_client = adlfs_client.GetDirectoryClient(path.Name);
             try {
               sub_directory_client.DeleteRecursive();
-            } catch (const Storage::StorageException& exception) {
+            } catch (const Core::RequestFailedException& exception) {
               return ExceptionToStatus(
                   exception, "Failed to delete a sub directory: ", location.container,
                   kDelimiter, path.Name, ": ", sub_directory_client.GetUrl());
@@ -2596,7 +2627,7 @@ class AzureFileSystem::Impl {
             auto sub_file_client = adlfs_client.GetFileClient(path.Name);
             try {
               sub_file_client.Delete();
-            } catch (const Storage::StorageException& exception) {
+            } catch (const Core::RequestFailedException& exception) {
               return ExceptionToStatus(
                   exception, "Failed to delete a sub file: ", location.container,
                   kDelimiter, path.Name, ": ", sub_file_client.GetUrl());
@@ -2605,7 +2636,7 @@ class AzureFileSystem::Impl {
         }
       }
       return Status::OK();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (missing_dir_ok && exception.StatusCode == Http::HttpStatusCode::NotFound) {
         return Status::OK();
       }
@@ -2634,7 +2665,7 @@ class AzureFileSystem::Impl {
     try {
       [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
       DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (IsContainerNotFound(exception)) {
         if (allow_missing_container) {
           return nullptr;
@@ -2674,7 +2705,7 @@ class AzureFileSystem::Impl {
     try {
       [[maybe_unused]] auto result = lease_client->Acquire(lease_duration);
       DCHECK_EQ(result.Value.LeaseId, lease_client->GetLeaseId());
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         if (allow_missing) {
           return nullptr;
@@ -2749,7 +2780,7 @@ class AzureFileSystem::Impl {
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         // ErrorCode can be "FilesystemNotFound", "PathNotFound"...
         if (require_file_to_exist) {
@@ -2841,7 +2872,7 @@ class AzureFileSystem::Impl {
       // Only the "*IfExists" functions ever set Deleted to false.
       // All the others either succeed or throw an exception.
       DCHECK(response.Value.Deleted);
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         return check_if_location_exists_as_dir();
       }
@@ -2902,11 +2933,12 @@ class AzureFileSystem::Impl {
       list_blobs_options.PageSizeHint = 1;
       try {
         auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
+        SkipStartingEmptyPages(dest_list_response);
         dest_is_empty = dest_list_response.Blobs.empty();
         if (!dest_is_empty) {
           return NotEmpty(dest);
         }
-      } catch (const Storage::StorageException& exception) {
+      } catch (const Core::RequestFailedException& exception) {
         return ExceptionToStatus(exception, "Failed to check that '", dest.container,
                                  "' is empty: ", dest_container_client.GetUrl());
       }
@@ -2936,6 +2968,10 @@ class AzureFileSystem::Impl {
         return ExceptionToStatus(exception, "Failed to rename container '", src.container,
                                  "' to '", dest.container,
                                  "': ", blob_service_client_->GetUrl());
+      } catch (const Core::RequestFailedException& exception) {
+        return ExceptionToStatus(exception, "Failed to rename container '", src.container,
+                                 "' to '", dest.container,
+                                 "': ", blob_service_client_->GetUrl());
       }
     } else if (dest_is_empty) {
       // Even if we deleted the empty dest.container, RenameBlobContainer() would still
@@ -2951,6 +2987,7 @@ class AzureFileSystem::Impl {
       list_blobs_options.PageSizeHint = 1;
       try {
         auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
+        SkipStartingEmptyPages(src_list_response);
         if (!src_list_response.Blobs.empty()) {
           // Reminder: dest is used here because we're semantically replacing dest
           // with src. By deleting src if it's empty just like dest.
@@ -2972,11 +3009,11 @@ class AzureFileSystem::Impl {
           src_lease_guard.BreakBeforeDeletion(kTimeNeededForContainerDeletion);
           src_container_client.Delete(options);
           src_lease_guard.Forget();
-        } catch (const Storage::StorageException& exception) {
+        } catch (const Core::RequestFailedException& exception) {
           return ExceptionToStatus(exception, "Failed to delete empty container: '",
                                    src.container, "': ", src_container_client.GetUrl());
         }
-      } catch (const Storage::StorageException& exception) {
+      } catch (const Core::RequestFailedException& exception) {
         return ExceptionToStatus(exception, "Unable to replace empty container: '",
                                  dest.all, "': ", dest_container_client.GetUrl());
       }
@@ -3117,7 +3154,7 @@ class AzureFileSystem::Impl {
       src_lease_guard.BreakBeforeDeletion(kTimeNeededForFileOrDirectoryRename);
       src_adlfs_client.RenameFile(src_path, dest_path, options);
       src_lease_guard.Forget();
-    } catch (const Storage::StorageException& exception) {
+    } catch (const Core::RequestFailedException& exception) {
       // https://learn.microsoft.com/en-gb/rest/api/storageservices/datalakestoragegen2/path/create
       if (exception.StatusCode == Http::HttpStatusCode::NotFound) {
         if (exception.ErrorCode == "PathNotFound") {

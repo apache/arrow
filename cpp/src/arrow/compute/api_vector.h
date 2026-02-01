@@ -298,8 +298,9 @@ class ARROW_EXPORT ListFlattenOptions : public FunctionOptions {
 /// \brief Options for inverse_permutation function
 class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
  public:
-  explicit InversePermutationOptions(int64_t max_index = -1,
-                                     std::shared_ptr<DataType> output_type = NULLPTR);
+  explicit InversePermutationOptions(
+      int64_t max_index = -1,
+      std::optional<std::shared_ptr<DataType>> output_type = std::nullopt);
   static constexpr const char kTypeName[] = "InversePermutationOptions";
   static InversePermutationOptions Defaults() { return InversePermutationOptions(); }
 
@@ -308,11 +309,11 @@ class ARROW_EXPORT InversePermutationOptions : public FunctionOptions {
   /// of the input indices minus 1 and the length of the function's output will be the
   /// length of the input indices.
   int64_t max_index = -1;
-  /// \brief The type of the output inverse permutation. If null, the output will be of
-  /// the same type as the input indices, otherwise must be signed integer type. An
+  /// \brief The data type for the output array of inverse permutation. Defaults to the
+  /// type of the input indices when `nullopt`. Must be a signed integer type. An
   /// invalid error will be reported if this type is not able to store the length of the
   /// input indices.
-  std::shared_ptr<DataType> output_type = NULLPTR;
+  std::optional<std::shared_ptr<DataType>> output_type;
 };
 
 /// \brief Options for scatter function

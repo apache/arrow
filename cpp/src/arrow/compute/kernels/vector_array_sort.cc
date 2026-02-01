@@ -183,10 +183,8 @@ class ArrayCompareSorter<DictionaryType> {
                                          const ArraySortOptions& options,
                                          ExecContext* ctx) {
     const auto& dict_array = checked_cast<const DictionaryArray&>(array);
-    // TODO: These methods should probably return a const&? They seem capable.
-    // https://github.com/apache/arrow/issues/35437
-    auto dict_values = dict_array.dictionary();
-    auto dict_indices = dict_array.indices();
+    const auto& dict_values = dict_array.dictionary();
+    const auto& dict_indices = dict_array.indices();
 
     // Algorithm:
     // 1) Use the Rank function to get an exactly-equivalent-order array

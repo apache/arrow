@@ -29,9 +29,10 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/archery/archery/**'
       - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.rb'
-      - 'dev/release/verify-yum.rb'
+      - 'dev/release/verify-apt.sh'
+      - 'dev/release/verify-yum.sh'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     tags:
@@ -43,9 +44,10 @@ on:
       - '.github/workflows/report_ci.yml'
       - 'cpp/**'
       - 'c_glib/**'
+      - 'dev/archery/archery/**'
       - 'dev/release/binary-task.rb'
-      - 'dev/release/verify-apt.rb'
-      - 'dev/release/verify-yum.rb'
+      - 'dev/release/verify-apt.sh'
+      - 'dev/release/verify-yum.sh'
       - 'dev/tasks/linux-packages/**'
       - 'format/Flight.proto'
     types:
@@ -61,8 +63,10 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
+  actions: read
   # Upload to GitHub Release
   contents: write
+  pull-requests: read
 
 jobs:
   check-labels:
@@ -95,7 +99,6 @@ jobs:
           - amazon-linux-2023-arm64
           - centos-9-stream-amd64
           - centos-9-stream-arm64
-          - centos-7-amd64
           - debian-bookworm-amd64
           - debian-bookworm-arm64
           - debian-trixie-amd64
@@ -180,7 +183,7 @@ jobs:
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
@@ -229,6 +232,8 @@ jobs:
             ${GITHUB_REF_NAME} \
             release_candidate.yml
       - name: Build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           pushd dev/tasks/linux-packages
           rake docker:pull || :
@@ -274,7 +279,7 @@ jobs:
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
           dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
       - name: Upload the artifacts to the job
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v6
         with:
           name: ${{ matrix.id }}
           path: ${{ matrix.id }}.tar.gz*

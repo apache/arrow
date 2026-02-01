@@ -580,8 +580,7 @@ class TestTransformInputStream : public ::testing::Test {
     auto stream = std::make_shared<TransformInputStream>(
         std::make_shared<BufferReader>(src), this->transform());
     std::shared_ptr<Buffer> actual;
-    AccumulateReads(
-        stream, [&]() -> int64_t { return chunk_sizes(gen); }, &actual);
+    AccumulateReads(stream, [&]() -> int64_t { return chunk_sizes(gen); }, &actual);
     AssertBufferEqual(*actual, *expected);
   }
 
@@ -613,8 +612,7 @@ class TestTransformInputStream : public ::testing::Test {
 
   void AccumulateReads(const std::shared_ptr<InputStream>& stream, int64_t chunk_size,
                        std::shared_ptr<Buffer>* out) {
-    return AccumulateReads(
-        stream, [=]() { return chunk_size; }, out);
+    return AccumulateReads(stream, [=]() { return chunk_size; }, out);
   }
 
  protected:

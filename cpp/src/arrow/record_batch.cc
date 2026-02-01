@@ -18,10 +18,10 @@
 #include "arrow/record_batch.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 #include <utility>
@@ -96,25 +96,21 @@ class SimpleRecordBatch : public RecordBatch {
   }
 
   const std::vector<std::shared_ptr<Array>>& columns() const override {
+    std::lock_guard lock(mutex_);
     for (int i = 0; i < num_columns(); ++i) {
-      // Force all columns to be boxed
-      column(i);
+      if (!boxed_columns_[i]) {
+        boxed_columns_[i] = MakeArray(columns_[i]);
+      }
     }
     return boxed_columns_;
   }
 
   std::shared_ptr<Array> column(int i) const override {
-    std::shared_ptr<Array> result = std::atomic_load(&boxed_columns_[i]);
-    if (!result) {
-      auto new_array = MakeArray(columns_[i]);
-      // Be careful not to overwrite existing entry if another thread has been calling
-      // `column(i)` at the same time, since the `boxed_columns_` contents are exposed
-      // by `columns()` (see GH-45371).
-      if (std::atomic_compare_exchange_strong(&boxed_columns_[i], &result, new_array)) {
-        return new_array;
-      }
+    std::lock_guard lock(mutex_);
+    if (!boxed_columns_[i]) {
+      boxed_columns_[i] = MakeArray(columns_[i]);
     }
-    return result;
+    return boxed_columns_[i];
   }
 
   std::shared_ptr<ArrayData> column_data(int i) const override { return columns_[i]; }
@@ -211,6 +207,7 @@ class SimpleRecordBatch : public RecordBatch {
   std::vector<std::shared_ptr<ArrayData>> columns_;
 
   // Caching boxed array data
+  mutable std::mutex mutex_;
   mutable std::vector<std::shared_ptr<Array>> boxed_columns_;
 
   // the type of device that the buffers for columns are allocated on.
@@ -269,10 +266,13 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
 namespace {
 
 Status ValidateColumnLength(const RecordBatch& batch, int i) {
-  const auto& array = *batch.column(i);
-  if (ARROW_PREDICT_FALSE(array.length() != batch.num_rows())) {
+  // This function is part of the validation code path and should
+  // be robust against invalid data, but `column()` would call MakeArray()
+  // that can abort on invalid data.
+  const auto& array = *batch.column_data(i);
+  if (ARROW_PREDICT_FALSE(array.length != batch.num_rows())) {
     return Status::Invalid("Number of rows in column ", i,
-                           " did not match batch: ", array.length(), " vs ",
+                           " did not match batch: ", array.length, " vs ",
                            batch.num_rows());
   }
   return Status::OK();
@@ -458,11 +458,12 @@ namespace {
 Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     RETURN_NOT_OK(ValidateColumnLength(batch, i));
-    const auto& array = *batch.column(i);
+    // See ValidateColumnLength about avoiding a ArrayData -> Array conversion
+    const auto& array = *batch.column_data(i);
     const auto& schema_type = batch.schema()->field(i)->type();
-    if (!array.type()->Equals(schema_type)) {
+    if (!array.type->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
-                             " type not match schema: ", array.type()->ToString(), " vs ",
+                             " type not match schema: ", array.type->ToString(), " vs ",
                              schema_type->ToString());
     }
     const auto st = full_validation ? internal::ValidateArrayFull(array)

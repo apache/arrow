@@ -114,6 +114,10 @@ G_BEGIN_DECLS
  * #GArrowMonthDayNanoIntervalDataType is a class for the month day
  * nano intarval data type.
  *
+ * #GArrowDurationDataType is a class for the elapsed time in the
+ * 64-bit signed integer data type. It can use one of
+ * seconds/milliseconds/microseconds/nanoseconds as unit.
+ *
  * #GArrowDecimalDataType is a base class for the decimal data types.
  *
  * #GArrowDecimal32DataType is a class for the 32-bit decimal data type.
@@ -1161,13 +1165,13 @@ GArrowTimestampDataType *
 garrow_timestamp_data_type_new(GArrowTimeUnit unit, GTimeZone *time_zone)
 {
   auto arrow_unit = garrow_time_unit_to_raw(unit);
-  std::string arrow_timezone;
+  std::string arrow_time_zone;
 #if GLIB_CHECK_VERSION(2, 58, 0)
   if (time_zone) {
-    arrow_timezone = g_time_zone_get_identifier(time_zone);
+    arrow_time_zone = g_time_zone_get_identifier(time_zone);
   }
 #endif
-  auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_timezone);
+  auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_time_zone);
   auto data_type =
     GARROW_TIMESTAMP_DATA_TYPE(g_object_new(GARROW_TYPE_TIMESTAMP_DATA_TYPE,
                                             "data-type",
@@ -1480,6 +1484,56 @@ garrow_month_day_nano_interval_data_type_new(void)
                                 &arrow_data_type,
                                 NULL);
   return GARROW_MONTH_DAY_NANO_INTERVAL_DATA_TYPE(data_type);
+}
+
+G_DEFINE_TYPE(GArrowDurationDataType,
+              garrow_duration_data_type,
+              GARROW_TYPE_TEMPORAL_DATA_TYPE)
+
+static void
+garrow_duration_data_type_init(GArrowDurationDataType *object)
+{
+}
+
+static void
+garrow_duration_data_type_class_init(GArrowDurationDataTypeClass *klass)
+{
+}
+
+/**
+ * garrow_duration_data_type_new:
+ * @unit: The unit of the duration data.
+ *
+ * Returns: A newly created the elapsed time in 64-bit signed integer
+ *   data type.
+ *
+ * Since: 23.0.0
+ */
+GArrowDurationDataType *
+garrow_duration_data_type_new(GArrowTimeUnit unit)
+{
+  auto arrow_unit = garrow_time_unit_to_raw(unit);
+  auto arrow_data_type = arrow::duration(arrow_unit);
+  auto data_type = GARROW_DURATION_DATA_TYPE(
+    g_object_new(GARROW_TYPE_DURATION_DATA_TYPE, "data-type", &arrow_data_type, nullptr));
+  return data_type;
+}
+
+/**
+ * garrow_duration_data_type_get_unit:
+ * @data_type: The #GArrowDurationDataType.
+ *
+ * Returns: The unit of the duration data type.
+ *
+ * Since: 23.0.0
+ */
+GArrowTimeUnit
+garrow_duration_data_type_get_unit(GArrowDurationDataType *data_type)
+{
+  const auto arrow_data_type = garrow_data_type_get_raw(GARROW_DATA_TYPE(data_type));
+  const auto arrow_duration_data_type =
+    std::static_pointer_cast<arrow::DurationType>(arrow_data_type);
+  return garrow_time_unit_from_raw(arrow_duration_data_type->unit());
 }
 
 G_DEFINE_ABSTRACT_TYPE(GArrowDecimalDataType,
@@ -2591,6 +2645,28 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::TIMESTAMP:
     type = GARROW_TYPE_TIMESTAMP_DATA_TYPE;
+    {
+      auto arrow_timestamp_data_type =
+        std::static_pointer_cast<arrow::TimestampType>(*arrow_data_type);
+      const auto &arrow_time_zone = arrow_timestamp_data_type->timezone();
+      if (!arrow_time_zone.empty()) {
+#if GLIB_CHECK_VERSION(2, 68, 0)
+        auto time_zone = g_time_zone_new_identifier(arrow_time_zone.c_str());
+#else
+        auto time_zone = g_time_zone_new(arrow_time_zone.c_str());
+#endif
+        data_type = GARROW_DATA_TYPE(g_object_new(type,
+                                                  "data-type",
+                                                  arrow_data_type,
+                                                  "time-zone",
+                                                  time_zone,
+                                                  nullptr));
+        if (time_zone) {
+          g_time_zone_unref(time_zone);
+        }
+        return data_type;
+      }
+    }
     break;
   case arrow::Type::type::TIME32:
     type = GARROW_TYPE_TIME32_DATA_TYPE;
@@ -2639,6 +2715,9 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::INTERVAL_MONTH_DAY_NANO:
     type = GARROW_TYPE_MONTH_DAY_NANO_INTERVAL_DATA_TYPE;
+    break;
+  case arrow::Type::type::DURATION:
+    type = GARROW_TYPE_DURATION_DATA_TYPE;
     break;
   case arrow::Type::type::EXTENSION:
     {

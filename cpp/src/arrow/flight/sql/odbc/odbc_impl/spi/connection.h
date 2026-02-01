@@ -26,6 +26,7 @@
 #include <vector>
 
 #include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
 
 namespace arrow::flight::sql::odbc {
@@ -41,8 +42,6 @@ struct CaseInsensitiveComparator {
 
 // PropertyMap is case-insensitive for keys.
 typedef std::map<std::string, std::string, CaseInsensitiveComparator> PropertyMap;
-
-class Statement;
 
 /// \brief High-level representation of an ODBC connection.
 class Connection {

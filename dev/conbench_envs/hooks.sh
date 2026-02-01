@@ -28,8 +28,7 @@ create_conda_env_for_benchmark_build() {
     --file ci/conda_env_unix.txt \
     compilers \
     python="${PYTHON_VERSION}" \
-    pandas \
-    r
+    pandas
 }
 
 activate_conda_env_for_benchmark_build() {
@@ -57,8 +56,17 @@ build_arrow_python() {
   ci/scripts/python_build.sh $(pwd) /tmp/arrow
 }
 
+install_r() {
+  if ! command -v R &> /dev/null; then
+    curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-latest.tar.gz | sudo tar xz -C /usr/local
+    sudo rig add release
+    sudo rig default release
+  fi
+}
+
 build_arrow_r() {
-  cat ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
+  install_r
+  cat ci/etc/rprofile | sudo tee -a $(R RHOME)/etc/Rprofile.site > /dev/null
   ci/scripts/r_deps.sh $(pwd) $(pwd)
   (cd r; R CMD INSTALL .;)
 }

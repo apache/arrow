@@ -33,6 +33,10 @@ def validate_wheel(path):
         )
     ]
     assert not outliers, f"Unexpected contents in wheel: {sorted(outliers)}"
+    for filename in ('LICENSE.txt', 'NOTICE.txt'):
+        assert any(info.filename.split("/")[-1] == filename
+                   for info in f.filelist), \
+            f"{filename} is missing from the wheel."
     print(f"The wheel: {wheels[0]} seems valid.")
 
 
