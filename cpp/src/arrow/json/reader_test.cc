@@ -86,7 +86,7 @@ TEST_P(ReaderTest, Empty) {
   SetUpReader("{}\n{}\n");
   ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
-  auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
+  auto expected_table = Table::Make(schema({}), ArrayVector(), 2).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -94,7 +94,7 @@ TEST_P(ReaderTest, EmptyNoNewlineAtEnd) {
   SetUpReader("{}\n{}");
   ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
-  auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
+  auto expected_table = Table::Make(schema({}), ArrayVector(), 2).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -102,7 +102,7 @@ TEST_P(ReaderTest, EmptyManyNewlines) {
   SetUpReader("{}\n\r\n{}\n\r\n");
   ASSERT_OK_AND_ASSIGN(table_, reader_->Read());
 
-  auto expected_table = Table::Make(schema({}), ArrayVector(), 2);
+  auto expected_table = Table::Make(schema({}), ArrayVector(), 2).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -121,7 +121,7 @@ TEST_P(ReaderTest, Basics) {
                   ArrayFromJSON(schema->field(1)->type(), "[false, null, null, true]"),
                   ArrayFromJSON(schema->field(2)->type(),
                                 "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
-              });
+              }).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -142,7 +142,7 @@ TEST_P(ReaderTest, Nested) {
   auto a3 = ArrayFromJSON(schema->field(3)->type(), "[[1, 2, 3], [2], [], null]");
   auto a4 = ArrayFromJSON(schema->field(4)->type(),
                           R"([{"ps":null}, null, {"ps":78}, {"ps":90}])");
-  auto expected_table = Table::Make(schema, {a0, a1, a2, a3, a4});
+  auto expected_table = Table::Make(schema, {a0, a1, a2, a3, a4}).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -173,7 +173,7 @@ TEST_P(ReaderTest, PartialSchema) {
           ArrayFromJSON(schema->field(3)->type(), "[false, null, null, true]"),
           ArrayFromJSON(schema->field(4)->type(),
                         "[\"thing\", null, \"\xe5\xbf\x8d\", null]"),
-      });
+      }).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -191,7 +191,7 @@ TEST_P(ReaderTest, TypeInference) {
   auto expected_table = Table::Make(
       schema, {ArrayFromJSON(schema->field(0)->type(),
                              R"([null, "1970-01-01", "2018-11-13 17:11:10"])"),
-               ArrayFromJSON(schema->field(1)->type(), R"([null, 3, 3.125])")});
+               ArrayFromJSON(schema->field(1)->type(), R"([null, 3, 3.125])")}).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 
@@ -215,7 +215,7 @@ TEST_P(ReaderTest, MultipleChunks) {
           ChunkedFromJSON(schema->field(1), {"[false]", "[null]", "[null, true]", "[]"}),
           ChunkedFromJSON(schema->field(2),
                           {"[\"thing\"]", "[null]", "[\"\xe5\xbf\x8d\", null]", "[]"}),
-      });
+      }).ValueOrDie();
   AssertTablesEqual(*expected_table, *table_);
 }
 

@@ -222,7 +222,7 @@ TEST(TestTableFromTupleVector, PrimitiveTypes) {
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
-                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array}).ValueOrDie();
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -234,7 +234,7 @@ TEST(TestTableFromTupleVector, ListType) {
       std::make_shared<Schema>(FieldVector{field("column1", list(int64()), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(list(int64()), "[[1, 1, 2, 34], [2, -4]]");
-  std::shared_ptr<Table> expected_table = Table::Make(expected_schema, {expected_array});
+  std::shared_ptr<Table> expected_table = Table::Make(expected_schema, {expected_array}).ValueOrDie();
 
   std::vector<tuple_type> rows{tuple_type(std::vector<int64_t>{1, 1, 2, 34}),
                                tuple_type(std::vector<int64_t>{2, -4})};
@@ -252,7 +252,7 @@ TEST(TestTableFromTupleVector, FixedSizeListType) {
       FieldVector{field("column1", fixed_size_list(int64(), 4), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(fixed_size_list(int64(), 4), "[[1, 1, 2, 34], [2, -4, 1, 1]]");
-  std::shared_ptr<Table> expected_table = Table::Make(expected_schema, {expected_array});
+  std::shared_ptr<Table> expected_table = Table::Make(expected_schema, {expected_array}).ValueOrDie();
 
   std::vector<tuple_type> rows{tuple_type(std::array<int64_t, 4>{1, 1, 2, 34}),
                                tuple_type(std::array<int64_t, 4>{2, -4, 1, 1})};
@@ -299,7 +299,7 @@ TEST(TestTableFromTupleVector, ReferenceTuple) {
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
-                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array}).ValueOrDie();
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -339,7 +339,7 @@ TEST(TestTableFromTupleVector, NullableTypesWithBoostOptional) {
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
-                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array}).ValueOrDie();
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -388,7 +388,7 @@ TEST(TestTableFromTupleVector, NullableTypesWithRawPointer) {
   auto expected_table =
       Table::Make(expected_schema,
                   {int8_array, int16_array, int32_array, int64_array, uint8_array,
-                   uint16_array, uint32_array, uint64_array, bool_array, string_array});
+                   uint16_array, uint32_array, uint64_array, bool_array, string_array}).ValueOrDie();
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -402,7 +402,7 @@ TEST(TestTableFromTupleVector, NullableTypesDoNotBreakUserSpecialization) {
   std::shared_ptr<Schema> expected_schema = schema({field("column1", utf8(), true)});
   std::shared_ptr<Array> string_array =
       ArrayFromJSON(utf8(), R"([null, "mock yes", "mock no"])");
-  auto expected_table = Table::Make(expected_schema, {string_array});
+  auto expected_table = Table::Make(expected_schema, {string_array}).ValueOrDie();
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -421,7 +421,7 @@ TEST(TestTableFromTupleVector, AppendingMultipleRows) {
       schema({field("column1", list(int32()), false)});
   std::shared_ptr<Array> int_array =
       ArrayFromJSON(list(int32()), "[[1, 2, 3], [10, 20, 30]]");
-  auto expected_table = Table::Make(expected_schema, {int_array});
+  auto expected_table = Table::Make(expected_schema, {int_array}).ValueOrDie();
 
   ASSERT_TRUE(expected_table->Equals(*table));
 }
@@ -454,7 +454,7 @@ TEST(TestTupleVectorFromTable, PrimitiveTypes) {
   auto string_array = ArrayFromJSON(utf8(), R"(["Tests", "Other"])");
   auto table = Table::Make(
       schema, {int8_array, int16_array, int32_array, int64_array, uint8_array,
-               uint16_array, uint32_array, uint64_array, bool_array, string_array});
+               uint16_array, uint32_array, uint64_array, bool_array, string_array}).ValueOrDie();
 
   std::vector<primitive_types_tuple> rows(2);
   ASSERT_OK(TupleRangeFromTable(*table, cast_options, &ctx, &rows));
@@ -478,7 +478,7 @@ TEST(TestTupleVectorFromTable, ListType) {
       std::make_shared<Schema>(FieldVector{field("column1", list(int64()), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(list(int64()), "[[1, 1, 2, 34], [2, -4]]");
-  std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array});
+  std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array}).ValueOrDie();
 
   std::vector<tuple_type> expected_rows{tuple_type(std::vector<int64_t>{1, 1, 2, 34}),
                                         tuple_type(std::vector<int64_t>{2, -4})};
@@ -497,7 +497,7 @@ TEST(TestTupleVectorFromTable, FixedSizeListType) {
       FieldVector{field("column1", fixed_size_list(int64(), 4), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(fixed_size_list(int64(), 4), "[[1, 1, 2, 34], [2, -4, 1, 1]]");
-  std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array});
+  std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array}).ValueOrDie();
   ASSERT_OK(table->ValidateFull());
 
   std::vector<tuple_type> expected_rows{tuple_type(std::array<int64_t, 4>{1, 1, 2, 34}),
@@ -517,7 +517,7 @@ TEST(TestTupleVectorFromTable, CastingNeeded) {
       std::make_shared<Schema>(FieldVector{field("column1", list(int16()), false)});
   std::shared_ptr<Array> expected_array =
       ArrayFromJSON(list(int16()), "[[1, 1, 2, 34], [2, -4]]");
-  std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array});
+  std::shared_ptr<Table> table = Table::Make(expected_schema, {expected_array}).ValueOrDie();
 
   std::vector<tuple_type> expected_rows{tuple_type(std::vector<int64_t>{1, 1, 2, 34}),
                                         tuple_type(std::vector<int64_t>{2, -4})};

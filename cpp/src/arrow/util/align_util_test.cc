@@ -331,7 +331,7 @@ TEST(EnsureAlignment, Table) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   auto schema = ::arrow::schema({f0, f1});
 
-  auto table = Table::Make(schema, {chunked_array_1, chunked_array_2});
+  auto table = Table::Make(schema, {chunked_array_1, chunked_array_2}).ValueOrDie();
 
   std::vector<bool> needs_alignment;
   ASSERT_EQ(util::CheckAlignment(*table, 2048, &needs_alignment), false);

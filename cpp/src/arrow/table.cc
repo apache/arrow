@@ -105,7 +105,7 @@ class SimpleTable : public Table {
       column = column->Slice(offset, length);
       num_rows = column->length();
     }
-    return Table::Make(schema_, std::move(sliced), num_rows);
+    return Table::Make(schema_, std::move(sliced), num_rows).ValueOrDie();
   }
 
   Result<std::shared_ptr<Table>> RemoveColumn(int i) const override {
@@ -118,7 +118,9 @@ class SimpleTable : public Table {
   Result<std::shared_ptr<Table>> AddColumn(
       int i, std::shared_ptr<Field> field_arg,
       std::shared_ptr<ChunkedArray> col) const override {
-    DCHECK(col != nullptr);
+    if (col == nullptr) {
+      return Status::Invalid("Column should not be null");
+    }
 
     if (col->length() != num_rows_) {
       return Status::Invalid(
@@ -138,7 +140,9 @@ class SimpleTable : public Table {
   Result<std::shared_ptr<Table>> SetColumn(
       int i, std::shared_ptr<Field> field_arg,
       std::shared_ptr<ChunkedArray> col) const override {
-    DCHECK(col != nullptr);
+    if (col == nullptr) {
+      return Status::Invalid("Column should not be null");
+    }
 
     if (col->length() != num_rows_) {
       return Status::Invalid(
@@ -158,7 +162,7 @@ class SimpleTable : public Table {
   std::shared_ptr<Table> ReplaceSchemaMetadata(
       const std::shared_ptr<const KeyValueMetadata>& metadata) const override {
     auto new_schema = schema_->WithMetadata(metadata);
-    return Table::Make(std::move(new_schema), columns_);
+    return Table::Make(std::move(new_schema), columns_).ValueOrDie();
   }
 
   Result<std::shared_ptr<Table>> Flatten(MemoryPool* pool) const override {
@@ -257,15 +261,33 @@ std::vector<std::shared_ptr<Field>> Table::fields() const {
   return result;
 }
 
-std::shared_ptr<Table> Table::Make(std::shared_ptr<Schema> schema,
-                                   std::vector<std::shared_ptr<ChunkedArray>> columns,
-                                   int64_t num_rows) {
+Result<std::shared_ptr<Table>> Table::Make(std::shared_ptr<Schema> schema,
+                                           std::vector<std::shared_ptr<ChunkedArray>> columns,
+                                           int64_t num_rows) {
+  if (schema->num_fields() != static_cast<int>(columns.size())) {
+    return Status::Invalid("Schema and columns have different number of fields: ",
+                           schema->num_fields(), " vs ", columns.size());
+  }
+  for (const auto& column : columns) {
+    if (column == nullptr) {
+      return Status::Invalid("Column should not be null");
+    }
+  }
   return std::make_shared<SimpleTable>(std::move(schema), std::move(columns), num_rows);
 }
 
-std::shared_ptr<Table> Table::Make(std::shared_ptr<Schema> schema,
-                                   const std::vector<std::shared_ptr<Array>>& arrays,
-                                   int64_t num_rows) {
+Result<std::shared_ptr<Table>> Table::Make(std::shared_ptr<Schema> schema,
+                                           const std::vector<std::shared_ptr<Array>>& arrays,
+                                           int64_t num_rows) {
+  if (schema->num_fields() != static_cast<int>(arrays.size())) {
+    return Status::Invalid("Schema and arrays have different number of fields: ",
+                           schema->num_fields(), " vs ", arrays.size());
+  }
+  for (const auto& array : arrays) {
+    if (array == nullptr) {
+      return Status::Invalid("Array should not be null");
+    }
+  }
   return std::make_shared<SimpleTable>(std::move(schema), arrays, num_rows);
 }
 

@@ -219,7 +219,7 @@ std::shared_ptr<Table> GenerateRandomTable(const std::shared_ptr<Schema>& schema
                                             min_num_chunks, max_num_chunks,
                                             null_probability));
   }
-  return Table::Make(schema, cv);
+  return Table::Make(schema, cv).ValueOrDie();
 }
 
 void AssertTableWriteReadEqual(const std::vector<std::shared_ptr<Table>>& input_tables,
@@ -310,9 +310,9 @@ void AssertArrayWriteReadEqual(const std::shared_ptr<Array>& input_array,
   auto input_chunked_array = std::make_shared<ChunkedArray>(input_array),
        expected_output_chunked_array =
            std::make_shared<ChunkedArray>(expected_output_array);
-  std::shared_ptr<Table> input_table = Table::Make(input_schema, {input_chunked_array}),
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, {input_chunked_array}).ValueOrDie(),
                          expected_output_table =
-                             Table::Make(output_schema, {expected_output_chunked_array});
+                             Table::Make(output_schema, {expected_output_chunked_array}).ValueOrDie();
   AssertTableWriteReadEqual(input_table, expected_output_table, max_size);
 }
 
@@ -731,7 +731,7 @@ TEST_F(TestORCWriterTrivialNoConversion, writeFilledChunkAndSelectField) {
       field("binary", binary()),
   });
   auto batch = rand.BatchOf(local_schema->fields(), 100);
-  std::shared_ptr<Table> table = Table::Make(local_schema, batch->columns());
+  std::shared_ptr<Table> table = Table::Make(local_schema, batch->columns()).ValueOrDie();
   EXPECT_OK_AND_ASSIGN(auto table_selected, table->SelectColumns(selected_indices));
   AssertTableWriteReadEqual(table, table_selected, kDefaultSmallMemStreamSize,
                             &selected_indices);
@@ -857,7 +857,7 @@ class TestORCWriterWithConversion : public ::testing::Test {
     for (int i = static_cast<int>(num_cols - 2); i < static_cast<int>(num_cols); i++) {
       av[i] = CastFixedSizeBinaryArrayToBinaryArray(input_table->column(i)->chunk(0));
     }
-    std::shared_ptr<Table> expected_output_table = Table::Make(output_schema, av);
+    std::shared_ptr<Table> expected_output_table = Table::Make(output_schema, av).ValueOrDie();
     AssertTableWriteReadEqual(input_table, expected_output_table, max_size);
   }
 
@@ -1132,11 +1132,11 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntField) {
     auto array_int = rand.ArrayOf(int32(), num_rows, 0);
     vect.push_back(array_int);
     auto input_chunked_array = std::make_shared<ChunkedArray>(array_int);
-    input_tables.emplace_back(Table::Make(input_schema, {input_chunked_array}));
+    input_tables.emplace_back(Table::Make(input_schema, {input_chunked_array}).ValueOrDie());
   }
   auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
   std::shared_ptr<Table> expected_output_table =
-      Table::Make(input_schema, {expected_output_chunked_array});
+      Table::Make(input_schema, {expected_output_chunked_array}).ValueOrDie();
   AssertTableWriteReadEqual(input_tables, expected_output_table,
                             kDefaultSmallMemStreamSize * 100);
 }
@@ -1148,8 +1148,8 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIncoherentSchema) {
   auto array_int2 = rand.ArrayOf(int64(), num_rows, 0);
   std::shared_ptr<Schema> input_schema2 = schema({field("col0", array_int2->type())});
 
-  std::shared_ptr<Table> input_table = Table::Make(input_schema, {array_int});
-  std::shared_ptr<Table> input_table2 = Table::Make(input_schema2, {array_int2});
+  std::shared_ptr<Table> input_table = Table::Make(input_schema, {array_int}).ValueOrDie();
+  std::shared_ptr<Table> input_table2 = Table::Make(input_schema2, {array_int2}).ValueOrDie();
   EXPECT_OK_AND_ASSIGN(auto buffer_output_stream,
                        io::BufferOutputStream::Create(kDefaultSmallMemStreamSize));
   auto write_options = adapters::orc::WriteOptions();
@@ -1175,7 +1175,7 @@ TEST_F(TestORCWriterMultipleWrite, MultipleWritesIntFieldRecordBatch) {
   }
   auto expected_output_chunked_array = std::make_shared<ChunkedArray>(vect);
   std::shared_ptr<Table> expected_output_table =
-      Table::Make(input_schema, {expected_output_chunked_array});
+      Table::Make(input_schema, {expected_output_chunked_array}).ValueOrDie();
   AssertBatchWriteReadEqual(input_batches, expected_output_table,
                             kDefaultSmallMemStreamSize * 100);
 }

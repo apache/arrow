@@ -843,7 +843,7 @@ Result<std::unique_ptr<ORCFileWriter>> ORCFileWriter::Open(
 Status ORCFileWriter::Write(const Table& table) { return impl_->Write(table); }
 
 Status ORCFileWriter::Write(const RecordBatch& record_batch) {
-  auto table = Table::Make(record_batch.schema(), record_batch.columns());
+  auto table = Table::Make(record_batch.schema(), record_batch.columns()).ValueOrDie();
   return impl_->Write(*table);
 }
 

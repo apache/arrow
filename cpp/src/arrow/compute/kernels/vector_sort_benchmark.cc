@@ -419,7 +419,7 @@ static void TableSortIndicesInt64(benchmark::State& state, int64_t min, int64_t 
   TableSortIndicesArgs args(state);
 
   auto data = MakeBatchOrTableBenchmarkDataInt64(args, args.num_chunks, min, max);
-  auto table = Table::Make(data.schema, data.columns, args.num_records);
+  auto table = Table::Make(data.schema, data.columns, args.num_records).ValueOrDie();
   SortOptions options(data.sort_keys);
   DatumSortIndicesBenchmark(state, Datum(*table), options);
 }
