@@ -67,14 +67,19 @@ class TestTable : public ::testing::Test {
   std::vector<std::shared_ptr<ChunkedArray>> columns_;
 };
 
-TEST_F(TestTable, MakeWithNullColumn) {
+TEST_F(TestTable, MakeInvalidInputs) {
   auto schema = ::arrow::schema({field("f0", int8())});
-  std::vector<std::shared_ptr<Array>> arrays = {nullptr};
 
+  // Null column
+  std::vector<std::shared_ptr<Array>> arrays = {nullptr};
   ASSERT_RAISES(Invalid, Table::Make(schema, arrays));
 
   std::vector<std::shared_ptr<ChunkedArray>> chunked_arrays = {nullptr};
   ASSERT_RAISES(Invalid, Table::Make(schema, chunked_arrays));
+
+  // Mismatched field count
+  ASSERT_RAISES(Invalid, Table::Make(schema, std::vector<std::shared_ptr<Array>>{}));
+  ASSERT_RAISES(Invalid, Table::Make(schema, std::vector<std::shared_ptr<ChunkedArray>>{}));
 }
 
 TEST_F(TestTable, EmptySchema) {
@@ -796,6 +801,9 @@ TEST_F(TestTable, SetColumn) {
   auto expected =
       Table::Make(ex_schema, {table.column(1), table.column(1), table.column(2)}).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
+
+  // Set null column
+  ASSERT_RAISES(Invalid, table.SetColumn(0, schema_->field(1), nullptr));
 }
 
 TEST_F(TestTable, RenameColumns) {
@@ -861,6 +869,9 @@ TEST_F(TestTable, AddColumn) {
   // Add column with wrong length
   auto longer_col = std::make_shared<ChunkedArray>(gen_.ArrayOf(int32(), length + 1));
   ASSERT_RAISES(Invalid, table.AddColumn(0, f0, longer_col));
+
+  // Add null column
+  ASSERT_RAISES(Invalid, table.AddColumn(0, f0, nullptr));
 
   // Add column 0 in different places
   ASSERT_OK_AND_ASSIGN(auto result, table.AddColumn(0, f0, columns_[0]).ValueOrDie());
