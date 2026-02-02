@@ -67,6 +67,8 @@ module WriterTests
       ArrowFormat::DayTimeIntervalType.singleton
     when Arrow::MonthDayNanoIntervalDataType
       ArrowFormat::MonthDayNanoIntervalType.singleton
+    when Arrow::DurationDataType
+      ArrowFormat::DurationType.new(convert_time_unit(red_arrow_type.unit))
     when Arrow::BinaryDataType
       ArrowFormat::BinaryType.singleton
     when Arrow::LargeBinaryDataType
@@ -619,6 +621,66 @@ module WriterTests
                            },
                          ],
                          @values)
+          end
+        end
+
+        sub_test_case("Duration(:second)") do
+          def build_array
+            Arrow::DurationArray.new(:second, [0, nil, 100])
+          end
+
+          def test_write
+            assert_equal([0, nil, 100],
+                         @values)
+          end
+
+          def test_type
+            assert_equal(Arrow::TimeUnit::SECOND, @type.unit)
+          end
+        end
+
+        sub_test_case("Duration(:millisecond)") do
+          def build_array
+            Arrow::DurationArray.new(:milli, [0, nil, 100])
+          end
+
+          def test_write
+            assert_equal([0, nil, 100],
+                         @values)
+          end
+
+          def test_type
+            assert_equal(Arrow::TimeUnit::MILLI, @type.unit)
+          end
+        end
+
+        sub_test_case("Duration(:microsecond)") do
+          def build_array
+            Arrow::DurationArray.new(:micro, [0, nil, 100])
+          end
+
+          def test_write
+            assert_equal([0, nil, 100],
+                         @values)
+          end
+
+          def test_type
+            assert_equal(Arrow::TimeUnit::MICRO, @type.unit)
+          end
+        end
+
+        sub_test_case("Duration(:nanosecond)") do
+          def build_array
+            Arrow::DurationArray.new(:nano, [0, nil, 100])
+          end
+
+          def test_write
+            assert_equal([0, nil, 100],
+                         @values)
+          end
+
+          def test_type
+            assert_equal(Arrow::TimeUnit::NANO, @type.unit)
           end
         end
 

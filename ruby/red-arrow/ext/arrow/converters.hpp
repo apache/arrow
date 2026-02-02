@@ -241,11 +241,6 @@ namespace red_arrow {
       return rb_time_num_new(sec, Qnil);
     }
 
-    // TODO
-    // inline VALUE convert(const arrow::IntervalArray& array,
-    //                      const int64_t i) {
-    // };
-
     inline VALUE convert(const arrow::MonthIntervalArray& array,
                          const int64_t i) {
       return INT2NUM(array.Value(i));
@@ -278,6 +273,11 @@ namespace red_arrow {
                    red_arrow::symbols::nanosecond,
                    INT2NUM(arrow_value.nanoseconds));
       return value;
+    }
+
+    inline VALUE convert(const arrow::DurationArray& array,
+                         const int64_t i) {
+      return LL2NUM(array.Value(i));
     }
 
     VALUE convert(const arrow::ListArray& array,
@@ -382,6 +382,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -481,6 +482,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -588,6 +590,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -691,6 +694,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -795,6 +799,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -907,6 +912,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
