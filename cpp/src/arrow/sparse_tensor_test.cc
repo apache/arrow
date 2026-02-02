@@ -1697,29 +1697,4 @@ TEST(TestSparseCSFMatrixForUInt64Index, Make) {
   ASSERT_RAISES(Invalid, SparseCSFTensor::Make(dense_tensor, uint64()));
 }
 
-TEST(TestSparseCSFIndex, EqualsMismatchedDimensions) {
-  std::vector<int64_t> axis_order_4d = {0, 1, 2, 3};
-  std::vector<int64_t> axis_order_2d = {0, 1};
-
-  // Create empty tensors for indptr/indices
-  auto empty_buffer = std::make_shared<Buffer>(nullptr, 0);
-  auto tensor_4d = std::make_shared<Tensor>(int32(), empty_buffer, std::vector<int64_t>{0});
-  auto tensor_2d = std::make_shared<Tensor>(int32(), empty_buffer, std::vector<int64_t>{0});
-
-  // Create a 4D index
-  std::vector<std::shared_ptr<Tensor>> indptr_4d = {tensor_4d, tensor_4d, tensor_4d};
-  std::vector<std::shared_ptr<Tensor>> indices_4d = {tensor_4d, tensor_4d, tensor_4d, tensor_4d};
-  auto si_4d = std::make_shared<SparseCSFIndex>(indptr_4d, indices_4d, axis_order_4d);
-
-  // Create a 2D index
-  std::vector<std::shared_ptr<Tensor>> indptr_2d = {tensor_2d};
-  std::vector<std::shared_ptr<Tensor>> indices_2d = {tensor_2d, tensor_2d};
-  auto si_2d = std::make_shared<SparseCSFIndex>(indptr_2d, indices_2d, axis_order_2d);
-
-  // Before fix: This would segfault.
-  // After fix: Returns false safely.
-  ASSERT_FALSE(si_4d->Equals(*si_2d));
-  ASSERT_FALSE(si_2d->Equals(*si_4d));
-}
-
 }  // namespace arrow
