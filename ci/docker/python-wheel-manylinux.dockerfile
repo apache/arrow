@@ -26,7 +26,7 @@ ENV LINUX_WHEEL_KIND='manylinux'
 ENV LINUX_WHEEL_VERSION=${manylinux}
 
 # Install basic dependencies
-RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
+RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd perl-Time-Piece wget
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
