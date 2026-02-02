@@ -751,6 +751,10 @@ module ArrowFormat
     def build_array(size, validity_buffer, children)
       StructArray.new(self, size, validity_buffer, children)
     end
+
+    def to_flatbuffers
+      FB::Struct::Data.new
+    end
   end
 
   class MapType < VariableSizeListType

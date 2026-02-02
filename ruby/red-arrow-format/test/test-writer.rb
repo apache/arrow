@@ -87,6 +87,11 @@ module WriterTests
       ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
     when Arrow::LargeListDataType
       ArrowFormat::LargeListType.new(convert_field(red_arrow_type.field))
+    when Arrow::StructDataType
+      fields = red_arrow_type.fields.collect do |field|
+        convert_field(field)
+      end
+      ArrowFormat::StructType.new(fields)
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
@@ -127,6 +132,13 @@ module WriterTests
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.value_offsets_buffer),
                        convert_array(red_arrow_array.values_raw))
+    when ArrowFormat::StructType
+      children = red_arrow_array.fields.collect do |red_arrow_field|
+        convert_array(red_arrow_field)
+      end
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
+                       children)
     else
       raise "Unsupported array #{red_arrow_array.inspect}"
     end
@@ -745,6 +757,24 @@ module WriterTests
 
           def test_write
             assert_equal([[-128, 127], nil, [-1, 0, 1]],
+                         @values)
+          end
+        end
+
+        sub_test_case("Struct") do
+          def build_array
+            data_type = Arrow::StructDataType.new(count: :int8,
+                                                  visible: :boolean)
+            Arrow::StructArray.new(data_type,
+                                   [[-128, nil], nil, [nil, true]])
+          end
+
+          def test_write
+            assert_equal([
+                           {"count" => -128, "visible" => nil},
+                           nil,
+                           {"count" => nil, "visible" => true},
+                         ],
                          @values)
           end
         end
