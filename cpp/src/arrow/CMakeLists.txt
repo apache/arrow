@@ -505,6 +505,7 @@ set(ARROW_UTIL_SRCS
     util/counting_semaphore.cc
     util/cpu_info.cc
     util/crc32.cc
+    util/crc32c.cc
     util/debug.cc
     util/decimal.cc
     util/delimiting.cc
