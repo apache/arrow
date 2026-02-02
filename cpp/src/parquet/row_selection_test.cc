@@ -106,21 +106,19 @@ TEST(RowSelection, EmptyRanges) {
   EXPECT_TRUE(batch.empty());
 }
 
-// Test validation
+// Test validation on construction
 TEST(RowSelection, ValidateValidRanges) {
   std::vector<RowSelection::IntervalRange> intervals = {
     {0, 11},
     {15, 6},
     {25, 6}
   };
-  
-  auto ranges = RowSelection::FromIntervals(intervals);
-  EXPECT_NO_THROW(ranges.Validate());
+
+  EXPECT_NO_THROW(RowSelection::FromIntervals(intervals));
 }
 
 TEST(RowSelection, ValidateSingleRange) {
-  auto ranges = RowSelection::MakeSingle(0, 99);
-  EXPECT_NO_THROW(ranges.Validate());
+  EXPECT_NO_THROW(RowSelection::MakeSingle(0, 99));
 }
 
 TEST(RowSelection, ValidateOverlappingRanges) {
@@ -128,9 +126,8 @@ TEST(RowSelection, ValidateOverlappingRanges) {
     {0, 11},
     {5, 11}  // Overlaps with previous
   };
-  
-  auto ranges = RowSelection::FromIntervals(intervals);
-  EXPECT_THROW(ranges.Validate(), ParquetException);
+
+  EXPECT_THROW(RowSelection::FromIntervals(intervals), ParquetException);
 }
 
 TEST(RowSelection, ValidateAdjacentRanges) {
@@ -138,9 +135,8 @@ TEST(RowSelection, ValidateAdjacentRanges) {
     {0, 11},
     {11, 10}  // Adjacent but not overlapping
   };
-  
-  auto ranges = RowSelection::FromIntervals(intervals);
-  EXPECT_NO_THROW(ranges.Validate());
+
+  EXPECT_NO_THROW(RowSelection::FromIntervals(intervals));
 }
 
 TEST(RowSelection, ValidateInvalidRangeTouching) {
@@ -148,9 +144,8 @@ TEST(RowSelection, ValidateInvalidRangeTouching) {
     {0, 11},
     {10, 11}  // Touches at end/start (overlaps at 10)
   };
-  
-  auto ranges = RowSelection::FromIntervals(intervals);
-  EXPECT_THROW(ranges.Validate(), ParquetException);
+
+  EXPECT_THROW(RowSelection::FromIntervals(intervals), ParquetException);
 }
 
 TEST(RowSelection, ValidateNotAscendingOrder) {
@@ -158,18 +153,20 @@ TEST(RowSelection, ValidateNotAscendingOrder) {
     {20, 11},
     {0, 11}  // Not in ascending order
   };
-  
-  auto ranges = RowSelection::FromIntervals(intervals);
-  EXPECT_THROW(ranges.Validate(), ParquetException);
+
+  EXPECT_THROW(RowSelection::FromIntervals(intervals), ParquetException);
 }
 
 TEST(RowSelection, ValidateInvalidInterval) {
   std::vector<RowSelection::IntervalRange> intervals = {
     {10, -4}  // end < start
   };
-  
-  auto ranges = RowSelection::FromIntervals(intervals);
-  EXPECT_THROW(ranges.Validate(), ParquetException);
+
+  EXPECT_THROW(RowSelection::FromIntervals(intervals), ParquetException);
+}
+
+TEST(RowSelection, ValidateInvalidMakeSingle) {
+  EXPECT_THROW(RowSelection::MakeSingle(10, 5), ParquetException);
 }
 
 // Test row_count
@@ -482,7 +479,6 @@ TEST(RowSelection, IteratorExhaustion) {
 TEST(RowSelection, LargeRanges) {
   auto ranges = RowSelection::MakeSingle(0, 1000000);
   EXPECT_EQ(ranges.row_count(), 1000001);
-  EXPECT_NO_THROW(ranges.Validate());
 }
 
 TEST(RowSelection, ZeroStartRange) {

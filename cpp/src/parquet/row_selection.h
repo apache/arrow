@@ -48,11 +48,6 @@ class PARQUET_EXPORT RowSelection {
   /// \brief EXPERIMENTAL: Create a new iterator for accessing row ranges in order.
   std::unique_ptr<Iterator> NewIterator() const;
 
-  /// \brief EXPERIMENTAL: Validate the row ranges.
-  /// \throws ParquetException if the row ranges are not in ascending order or
-  /// overlapped.
-  void Validate() const;
-
   /// \brief EXPERIMENTAL: Get the total number of rows in the row ranges.
   int64_t row_count() const;
 
@@ -73,6 +68,10 @@ class PARQUET_EXPORT RowSelection {
 
  private:
   friend class IteratorImpl;
+    /// \brief EXPERIMENTAL: Validate the row ranges.
+    /// 	hrows ParquetException if the row ranges are not in ascending order or
+    /// overlapped.
+    void Validate() const;
   std::vector<IntervalRange> ranges_;
 };
 

@@ -118,7 +118,7 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
       }
     }
   }
-
+  result.Validate();
   return result;
 }
 
@@ -210,12 +210,14 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
   }
 
   result.ranges_.push_back(current);
+  result.Validate();
   return result;
 }
 
 RowSelection RowSelection::MakeSingle(int64_t start, int64_t end) {
   RowSelection rowSelection;
   rowSelection.ranges_.push_back(IntervalRange{start, end - start + 1});
+  rowSelection.Validate();
   return rowSelection;
 }
 
@@ -223,6 +225,7 @@ RowSelection RowSelection::FromIntervals(::arrow::util::span<const IntervalRange
   RowSelection rowSelection;
   rowSelection.ranges_.reserve(intervals.size());
   rowSelection.ranges_.insert(rowSelection.ranges_.end(), intervals.begin(), intervals.end());
+  rowSelection.Validate();
   return rowSelection;
 }
 
