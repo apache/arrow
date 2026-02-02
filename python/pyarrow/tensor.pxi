@@ -359,7 +359,7 @@ cdef class SparseCOOTensor(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCOOTensor>
+        return f"""<pyarrow.SparseCOOTensor>
 type: {self.type}
 shape: {self.shape}"""
 
