@@ -42,7 +42,7 @@ class PARQUET_EXPORT RowSelection {
     virtual ~Iterator() = default;
     /// \brief Get the next batch of ranges.
     /// Returns an empty span when exhausted.
-    virtual ::arrow::util::span<const IntervalRange> NextRanges() = 0;
+    virtual ::arrow::util::span<const IntervalRange> NextRange() = 0;
   };
 
   /// \brief EXPERIMENTAL: Create a new iterator for accessing row ranges in order.
