@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -14,6 +14,13 @@ module ArrowFormat
           # ----------------------------------------------------------------------
           # A Buffer represents a single contiguous memory segment
           class Buffer < ::FlatBuffers::Struct
+            FIELDS = {
+              offset: ::FlatBuffers::Field.new(:offset, 0, 0, :long, 0),
+              length: ::FlatBuffers::Field.new(:length, 1, 8, :long, 0),
+            }
+
+            Data = define_data_class
+
             # The absolute length (in bytes) of the memory buffer. The memory is found
             # from offset (inclusive) to offset + length (non-inclusive). When building
             # messages using the encapsulated IPC message, padding bytes may be written

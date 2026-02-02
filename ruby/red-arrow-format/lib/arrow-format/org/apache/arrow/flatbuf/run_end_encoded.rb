@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -17,6 +17,10 @@ module ArrowFormat
           # each corresponding index in the values child array ends.
           # Like list/struct types, the value array can be of any type.
           class RunEndEncoded < ::FlatBuffers::Table
+            FIELDS = {
+            }
+
+            Data = define_data_class
           end
         end
       end

@@ -3,7 +3,7 @@
 <!-- badges: start -->
 
 [![cran](https://www.r-pkg.org/badges/version-last-release/arrow)](https://cran.r-project.org/package=arrow)
-[![CI](https://github.com/apache/arrow/workflows/R/badge.svg?event=push)](https://github.com/apache/arrow/actions?query=workflow%3AR+branch%3Amain+event%3Apush)
+[![CI](https://github.com/apache/arrow/actions/workflows/r.yml/badge.svg?branch=main&event=push)](https://github.com/apache/arrow/actions/workflows/r.yml?query=branch%3Amain+event%3Apush)
 [![R-universe status badge](https://apache.r-universe.dev/badges/arrow)](https://apache.r-universe.dev)
 [![conda-forge](https://img.shields.io/conda/vn/conda-forge/r-arrow.svg)](https://anaconda.org/conda-forge/r-arrow)
 
@@ -44,16 +44,16 @@ There are some special cases to note:
 
 - On Linux the installation process can sometimes be more involved because CRAN does not host binaries for Linux. For more information please see the [installation guide](https://arrow.apache.org/docs/r/articles/install.html).
 
-- If you are compiling arrow from source, please note that as of version 10.0.0, arrow requires C++17 to build. This has implications on Windows and CentOS 7. For Windows users it means you need to be running an R version of 4.0 or later. On CentOS 7, it means you need to install a newer compiler than the default system compiler gcc. See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance.
+- If you are compiling arrow from source, please note that as of version 23.0.0, arrow requires C++20 to build. This has implications on Windows and CentOS 7. For Windows users it means you need to be running an R version of 4.3 or later (though R 4.2 has incomplete support and might work with special configuration). See the [installation details article](https://arrow.apache.org/docs/r/articles/developers/install_details.html) for guidance.
 
 - Development versions of arrow are released nightly. For information on how to install nightly builds please see the [installing nightly builds](https://arrow.apache.org/docs/r/articles/install_nightly.html) article.
 
 ## What can the arrow package do?
 
-The Arrow C++ library is comprised of different parts, each of which serves a specific purpose. The arrow package provides binding to the C++ functionality for a wide range of data analysis
+The Arrow C++ library is comprised of different parts, each of which serves a specific purpose. The arrow package provides bindings to the C++ functionality for a wide range of data analysis
 tasks.
 
-It allows users to read and write data in a variety formats:
+It allows users to read and write data in a variety of formats:
 
 - Read and write Parquet files, an efficient and widely used columnar format
 - Read and write Arrow (formerly known as Feather) files, a format optimized for speed and

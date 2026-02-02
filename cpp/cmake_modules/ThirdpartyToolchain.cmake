@@ -1974,7 +1974,9 @@ function(build_protobuf)
 
   # Make protobuf_fc depend on the install completion marker
   add_custom_target(protobuf_fc DEPENDS "${PROTOBUF_PREFIX}/.protobuf_installed")
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS protobuf::libprotobuf)
+  set(ARROW_BUNDLED_STATIC_LIBS
+      ${ARROW_BUNDLED_STATIC_LIBS} protobuf::libprotobuf
+      PARENT_SCOPE)
 
   if(CMAKE_CROSSCOMPILING)
     # If we are cross compiling, we need to build protoc for the host
@@ -2341,13 +2343,6 @@ if(ARROW_MIMALLOC)
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
-  set(MIMALLOC_PATCH_COMMAND "")
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    find_program(PATCH patch REQUIRED)
-    set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
-                               ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
-  endif()
-
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
@@ -2365,7 +2360,6 @@ if(ARROW_MIMALLOC)
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${MIMALLOC_PATCH_COMMAND}
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
@@ -2648,7 +2642,7 @@ if(ARROW_USE_XSIMD)
                      IS_RUNTIME_DEPENDENCY
                      FALSE
                      REQUIRED_VERSION
-                     "13.0.0")
+                     "14.0.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     set(ARROW_XSIMD arrow::xsimd)
@@ -2864,6 +2858,13 @@ function(build_re2)
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(re2)
+
+  # Suppress -Wnested-anon-types warnings from RE2's use of anonymous types
+  # in anonymous unions (a compiler extension).
+  # See: https://github.com/apache/arrow/issues/48973
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(re2 PRIVATE -Wno-nested-anon-types)
+  endif()
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
@@ -3364,10 +3365,6 @@ function(build_google_cloud_cpp_storage)
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
   build_crc32c_once()
 
-  # Curl is required on all platforms, but building it internally might also trip over S3's copy.
-  # For now, force its inclusion from the underlying system or fail.
-  find_curl()
-
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
@@ -3451,6 +3448,9 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
     )
   endif()
 
+  # curl is required on all platforms. We always use system curl to
+  # avoid conflict.
+  find_curl()
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -3724,6 +3724,8 @@ function(build_opentelemetry)
 
   prepare_fetchcontent()
 
+  # Unity build causes symbol redefinition errors in protobuf-generated code
+  set(CMAKE_UNITY_BUILD FALSE)
   set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
   set(WITH_EXAMPLES OFF)
   set(WITH_OTLP_HTTP ON)
@@ -3980,6 +3982,11 @@ function(build_awssdk)
         # We don't need to link aws-lc. It's used only by s2n-tls.
       elseif("${AWSSDK_PRODUCT}" STREQUAL "s2n-tls")
         list(PREPEND AWSSDK_LINK_LIBRARIES s2n)
+        # Disable -Werror for s2n-tls: it has Clang 18 warnings that it intentionally allows.
+        # See: https://github.com/aws/s2n-tls/issues/5696
+        if(TARGET s2n)
+          target_compile_options(s2n PRIVATE -Wno-error)
+        endif()
       else()
         list(PREPEND AWSSDK_LINK_LIBRARIES ${AWSSDK_PRODUCT})
         # This is for find_package(aws-*) in aws-crt-cpp and aws-sdk-cpp.

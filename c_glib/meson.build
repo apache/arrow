@@ -1,5 +1,3 @@
-# -*- indent-tabs-mode: nil -*-
-#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -34,7 +32,7 @@ project(
     #   * 22.04: 0.61.2
     #   * 24.04: 1.3.2
     meson_version: '>=0.61.2',
-    version: '23.0.0-SNAPSHOT',
+    version: '24.0.0-SNAPSHOT',
 )
 
 version = meson.project_version()
@@ -50,7 +48,7 @@ version_minor = version_numbers[1].to_int()
 version_micro = version_numbers[2].to_int()
 version_no_snapshot = '.'.join(version_numbers)
 
-api_version = '1.0'
+gi_api_version = '@0@.@1@'.format(version_major, version_minor)
 so_version = version_major * 100 + version_minor
 so_version_patch = version_micro
 library_version = '@0@.@1@.@2@'.format(so_version, so_version_patch, 0)
@@ -71,7 +69,7 @@ pkgconfig_variables = []
 
 base_include_directories = [include_directories('.')]
 
-generate_gi_common_args = {'install': true, 'nsversion': api_version}
+generate_gi_common_args = {'install': true, 'nsversion': gi_api_version}
 if get_option('werror')
     generate_gi_common_args += {'fatal_warnings': true}
 endif
@@ -193,6 +191,7 @@ if arrow_cpp_build_lib_dir == ''
         'Parquet',
         kwargs: common_args,
         modules: ['Parquet::parquet_shared'],
+        required: false,
     )
 else
     base_include_directories += [

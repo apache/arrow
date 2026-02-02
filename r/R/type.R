@@ -146,16 +146,27 @@ infer_type.Expression <- function(x, ...) x$type()
 
 #' @title FixedWidthType class
 #'
+#' @description
+#' `FixedWidthType` is a base class for data types with a fixed width in bits.
+#' This includes all integer types, floating-point types, `Boolean`,
+#' `FixedSizeBinary`, temporal types (dates, times, timestamps, durations),
+#' and decimal types.
+#'
 #' @usage NULL
 #' @format NULL
 #' @docType class
 #'
-#' @section Methods:
+#' @section R6 Methods:
 #'
-#' TODO
+#' `FixedWidthType` inherits from [DataType], so it has the same methods.
+#'
+#' @section Active bindings:
+#'
+#' - `$bit_width`: The width of the type in bits
 #'
 #' @rdname FixedWidthType
 #' @name FixedWidthType
+#' @keywords internal
 FixedWidthType <- R6Class(
   "FixedWidthType",
   inherit = DataType,

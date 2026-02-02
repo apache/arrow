@@ -33,48 +33,55 @@ CUDA Contexts
 -------------
 
 A CUDA context represents access to a particular CUDA-capable device.
-For example, this is creating a CUDA context accessing CUDA device number 0::
+For example, this is creating a CUDA context accessing CUDA device number 0:
 
-   >>> from pyarrow import cuda
-   >>> ctx = cuda.Context(0)
-   >>>
+.. code-block:: python
+
+   >>> from pyarrow import cuda  # doctest: +SKIP
+   >>> ctx = cuda.Context(0)  # doctest: +SKIP
 
 CUDA Buffers
 ------------
 
 A CUDA buffer can be created by copying data from host memory to the memory
 of a CUDA device, using the :meth:`Context.buffer_from_data` method.
-The source data can be any Python buffer-like object, including Arrow buffers::
+The source data can be any Python buffer-like object, including Arrow buffers:
+
+.. code-block:: python
 
    >>> import numpy as np
    >>> arr = np.arange(4, dtype=np.int32)
    >>> arr.nbytes
    16
-   >>> cuda_buf = ctx.buffer_from_data(arr)
-   >>> type(cuda_buf)
+   >>> cuda_buf = ctx.buffer_from_data(arr)  # doctest: +SKIP
+   >>> type(cuda_buf)  # doctest: +SKIP
    pyarrow._cuda.CudaBuffer
-   >>> cuda_buf.size     # The buffer's size in bytes
+   >>> cuda_buf.size  # doctest: +SKIP
    16
-   >>> cuda_buf.address  # The buffer's address in device memory
+   >>> cuda_buf.address  # doctest: +SKIP
    30088364544
-   >>> cuda_buf.context.device_number
+   >>> cuda_buf.context.device_number  # doctest: +SKIP
    0
 
 Conversely, you can copy back a CUDA buffer to device memory, getting a regular
-CPU buffer::
+CPU buffer:
 
-   >>> buf = cuda_buf.copy_to_host()
-   >>> type(buf)
+.. code-block:: python
+
+   >>> buf = cuda_buf.copy_to_host()  # doctest: +SKIP
+   >>> type(buf)  # doctest: +SKIP
    pyarrow.lib.Buffer
-   >>> np.frombuffer(buf, dtype=np.int32)
+   >>> np.frombuffer(buf, dtype=np.int32)  # doctest: +SKIP
    array([0, 1, 2, 3], dtype=int32)
 
 .. warning::
    Many Arrow functions expect a CPU buffer but will not check the buffer's
    actual type.  You will get a crash if you pass a CUDA buffer to such a
-   function::
+   function:
 
-      >>> pa.py_buffer(b"x" * 16).equals(cuda_buf)
+   .. code-block:: python
+
+      >>> pa.py_buffer(b"x" * 16).equals(cuda_buf)  # doctest: +SKIP
       Segmentation fault
 
 Numba Integration
@@ -88,15 +95,16 @@ Arrow to Numba
 ~~~~~~~~~~~~~~
 
 First let's define a Numba CUDA kernel operating on an ``int32`` array.  Here,
-we will simply increment each array element (assuming the array is writable)::
+we will simply increment each array element (assuming the array is writable):
 
-   import numba.cuda
+.. code-block:: python
 
-   @numba.cuda.jit
-   def increment_by_one(an_array):
-       pos = numba.cuda.grid(1)
-       if pos < an_array.size:
-           an_array[pos] += 1
+   >>> import numba.cuda  # doctest: +SKIP
+   >>> @numba.cuda.jit  # doctest: +SKIP
+   ... def increment_by_one(an_array):
+   ...     pos = numba.cuda.grid(1)
+   ...     if pos < an_array.size:
+   ...         an_array[pos] += 1
 
 Then we need to wrap our CUDA buffer into a Numba "device array" with the right
 array metadata (shape, strides and datatype).  This is necessary so that Numba
@@ -104,23 +112,29 @@ can identify the array's characteristics and compile the kernel with the
 appropriate type declarations.
 
 In this case the metadata can simply be got from the original Numpy array.
-Note the GPU data isn't copied, just pointed to::
+Note the GPU data isn't copied, just pointed to:
 
-   >>> from numba.cuda.cudadrv.devicearray import DeviceNDArray
-   >>> device_arr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=cuda_buf.to_numba())
+.. code-block:: python
+
+   >>> from numba.cuda.cudadrv.devicearray import DeviceNDArray  # doctest: +SKIP
+   >>> device_arr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=cuda_buf.to_numba())  # doctest: +SKIP
 
 (ideally we could have defined an Arrow array in CPU memory, copied it to CUDA
 memory without losing type information, and then invoked the Numba kernel on it
 without constructing the DeviceNDArray by hand; this is not yet possible)
 
 Finally we can run the Numba CUDA kernel on the Numba device array (here
-with a 16x16 grid size)::
+with a 16x16 grid size):
 
-   >>> increment_by_one[16, 16](device_arr)
+.. code-block:: python
 
-And the results can be checked by copying back the CUDA buffer to CPU memory::
+   >>> increment_by_one[16, 16](device_arr)  # doctest: +SKIP
 
-   >>> np.frombuffer(cuda_buf.copy_to_host(), dtype=np.int32)
+And the results can be checked by copying back the CUDA buffer to CPU memory:
+
+.. code-block:: python
+
+   >>> np.frombuffer(cuda_buf.copy_to_host(), dtype=np.int32)  # doctest: +SKIP
    array([1, 2, 3, 4], dtype=int32)
 
 Numba to Arrow
@@ -129,30 +143,34 @@ Numba to Arrow
 Conversely, a Numba-created device array can be viewed as an Arrow CUDA buffer,
 using the :meth:`CudaBuffer.from_numba` factory method.
 
-For the sake of example, let's first create a Numba device array::
+For the sake of example, let's first create a Numba device array:
+
+.. code-block:: python
 
    >>> arr = np.arange(10, 14, dtype=np.int32)
    >>> arr
    array([10, 11, 12, 13], dtype=int32)
-   >>> device_arr = numba.cuda.to_device(arr)
+   >>> device_arr = numba.cuda.to_device(arr)  # doctest: +SKIP
 
 Then we can create a CUDA buffer pointing the device array's memory.
 We don't need to pass a CUDA context explicitly this time: the appropriate
 CUDA context is automatically retrieved and adapted from the Numba object.
 
-::
+.. code-block:: python
 
-   >>> cuda_buf = cuda.CudaBuffer.from_numba(device_arr.gpu_data)
-   >>> cuda_buf.size
+   >>> cuda_buf = cuda.CudaBuffer.from_numba(device_arr.gpu_data)  # doctest: +SKIP
+   >>> cuda_buf.size  # doctest: +SKIP
    16
-   >>> cuda_buf.address
+   >>> cuda_buf.address  # doctest: +SKIP
    30088364032
-   >>> cuda_buf.context.device_number
+   >>> cuda_buf.context.device_number  # doctest: +SKIP
    0
 
-Of course, we can copy the CUDA buffer back to host memory::
+Of course, we can copy the CUDA buffer back to host memory:
 
-   >>> np.frombuffer(cuda_buf.copy_to_host(), dtype=np.int32)
+.. code-block:: python
+
+   >>> np.frombuffer(cuda_buf.copy_to_host(), dtype=np.int32)  # doctest: +SKIP
    array([10, 11, 12, 13], dtype=int32)
 
 .. seealso::

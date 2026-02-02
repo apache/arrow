@@ -651,13 +651,10 @@ Miscellaneous
 +--------------------------+----------+----------+---------+
 | Offset Index             | ✓        | ✓        | \(1)    |
 +--------------------------+----------+----------+---------+
-| Bloom Filter             | ✓        | ✓        | \(2)    |
+| Bloom Filter             | ✓        | ✓        | \(1)    |
 +--------------------------+----------+----------+---------+
 | CRC checksums            | ✓        | ✓        |         |
 +--------------------------+----------+----------+---------+
 
-* \(1) Access to the Column and Offset Index structures is provided, but
-  data read APIs do not currently make any use of them.
-
-* \(2) APIs are provided for creating, serializing and deserializing Bloom
-  Filters, but they are not integrated into data read APIs.
+* \(1) Access to the Column Index, Offset Index and Bloom Filter structures
+  is provided, but data read APIs do not currently make any use of them.

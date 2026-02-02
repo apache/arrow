@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -17,6 +17,13 @@ module ArrowFormat
           # optionally typeIds provides an indirection between the child offset and the type id
           # for each child `typeIds[offset]` is the id used in the type vector
           class Union < ::FlatBuffers::Table
+            FIELDS = {
+              mode: ::FlatBuffers::Field.new(:mode, 0, 4, :short, 0),
+              type_ids: ::FlatBuffers::Field.new(:type_ids, 1, 6, [:int], 0),
+            }
+
+            Data = define_data_class
+
             def mode
               field_offset = @view.unpack_virtual_offset(4)
               if field_offset.zero?

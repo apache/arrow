@@ -2588,6 +2588,17 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CTakeOptions(c_bool boundscheck)
         c_bool boundscheck
 
+    cdef cppclass CInversePermutationOptions \
+            "arrow::compute::InversePermutationOptions"(CFunctionOptions):
+        CInversePermutationOptions(int64_t max_index, optional[shared_ptr[CDataType]] output_type)
+        int64_t max_index
+        optional[shared_ptr[CDataType]] output_type
+
+    cdef cppclass CScatterOptions \
+            "arrow::compute::ScatterOptions"(CFunctionOptions):
+        CScatterOptions(int64_t max_index)
+        int64_t max_index
+
     cdef cppclass CStrptimeOptions \
             "arrow::compute::StrptimeOptions"(CFunctionOptions):
         CStrptimeOptions(c_string format, TimeUnit unit, c_bool raise_error)

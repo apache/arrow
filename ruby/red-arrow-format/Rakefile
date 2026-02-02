@@ -39,7 +39,7 @@ task :test do
   end
 end
 
-namespace :flatbuffers do
+namespace :flat_buffers do
   desc "Generate FlatBuffers code"
   task :generate do
     Dir.mktmpdir do |tmp_dir|

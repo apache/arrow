@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -19,6 +19,14 @@ module ArrowFormat
           # may be spread across multiple dictionary batches by using the isDelta
           # flag
           class DictionaryBatch < ::FlatBuffers::Table
+            FIELDS = {
+              id: ::FlatBuffers::Field.new(:id, 0, 4, :long, 0),
+              data: ::FlatBuffers::Field.new(:data, 1, 6, "::ArrowFormat::Org::Apache::Arrow::Flatbuf::RecordBatch", 0),
+              delta?: ::FlatBuffers::Field.new(:delta?, 2, 8, :bool, 0),
+            }
+
+            Data = define_data_class
+
             def data
               field_offset = @view.unpack_virtual_offset(6)
               return nil if field_offset.zero?

@@ -71,7 +71,7 @@ void read_whole_file() {
   PARQUET_ASSIGN_OR_THROW(reader,
                           parquet::arrow::OpenFile(infile, arrow::default_memory_pool()));
   std::shared_ptr<arrow::Table> table;
-  PARQUET_THROW_NOT_OK(reader->ReadTable(&table));
+  PARQUET_ASSIGN_OR_THROW(table, reader->ReadTable());
   std::cout << "Loaded " << table->num_rows() << " rows in " << table->num_columns()
             << " columns." << std::endl;
 }

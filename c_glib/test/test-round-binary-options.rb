@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,5 +15,28 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Deliberately empty, but exists so that we don't have to change
-# asv.conf.json if we need specific commands here.
+class TestRoundBinaryOptions < Test::Unit::TestCase
+  include Helper::Buildable
+
+  def setup
+    @options = Arrow::RoundBinaryOptions.new
+  end
+
+  def test_mode
+    assert_equal(Arrow::RoundMode::HALF_TO_EVEN, @options.mode)
+    @options.mode = :down
+    assert_equal(Arrow::RoundMode::DOWN, @options.mode)
+  end
+
+  def test_round_binary_function
+    args = [
+      Arrow::ArrayDatum.new(build_double_array([5.0])),
+      Arrow::ArrayDatum.new(build_int32_array([-1])),
+    ]
+    @options.mode = :half_towards_zero
+    round_binary_function = Arrow::Function.find("round_binary")
+    result = round_binary_function.execute(args, @options).value
+    expected = build_double_array([0.0])
+    assert_equal(expected, result)
+  end
+end

@@ -157,9 +157,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     client_options_ =
         BuildFlightClientOptions(properties, missing_attr, flight_ssl_configs);
 
-    const std::shared_ptr<ClientMiddlewareFactory>& cookie_factory = GetCookieFactory();
-    client_options_.middleware.push_back(cookie_factory);
-
     std::unique_ptr<FlightClient> flight_client;
     ThrowIfNotOK(FlightClient::Connect(location, client_options_).Value(&flight_client));
     PopulateMetadataSettings(properties);

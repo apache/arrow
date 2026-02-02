@@ -14,6 +14,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require "bigdecimal"
+
 require_relative "bitmap"
 
 module ArrowFormat
@@ -21,6 +23,7 @@ module ArrowFormat
     attr_reader :type
     attr_reader :size
     alias_method :length, :size
+    attr_reader :validity_buffer
     def initialize(type, size, validity_buffer)
       @type = type
       @size = size
@@ -29,19 +32,33 @@ module ArrowFormat
 
     def valid?(i)
       return true if @validity_buffer.nil?
-      (@validity_buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
+      validity_bitmap[i]
     end
 
     def null?(i)
       not valid?(i)
     end
 
+    def n_nulls
+      if @validity_buffer.nil?
+        0
+      else
+        # TODO: popcount
+        validity_bitmap.count do |is_valid|
+          not is_valid
+        end
+      end
+    end
+
     private
+    def validity_bitmap
+      @validity_bitmap ||= Bitmap.new(@validity_buffer, @size)
+    end
+
     def apply_validity(array)
       return array if @validity_buffer.nil?
-      @validity_bitmap ||= Bitmap.new(@validity_buffer, @size)
-      @validity_bitmap.each_with_index do |bit, i|
-        array[i] = nil if bit.zero?
+      validity_bitmap.each_with_index do |is_valid, i|
+        array[i] = nil unless is_valid
       end
       array
     end
@@ -52,86 +69,68 @@ module ArrowFormat
       super(type, size, nil)
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+    end
+
     def to_a
       [nil] * @size
     end
   end
 
-  class BooleanArray < Array
+  class PrimitiveArray < Array
     def initialize(type, size, validity_buffer, values_buffer)
       super(type, size, validity_buffer)
       @values_buffer = values_buffer
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@values_buffer)
+    end
+  end
+
+  class BooleanArray < PrimitiveArray
     def to_a
       @values_bitmap ||= Bitmap.new(@values_buffer, @size)
-      values = @values_bitmap.each.collect do |bit|
-        not bit.zero?
-      end
+      values = @values_bitmap.to_a
       apply_validity(values)
     end
   end
 
-  class IntArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
-      super(type, size, validity_buffer)
-      @values_buffer = values_buffer
+  class IntArray < PrimitiveArray
+    def to_a
+      apply_validity(@values_buffer.values(@type.buffer_type, 0, @size))
     end
   end
 
   class Int8Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:S8, 0, @size))
-    end
   end
 
   class UInt8Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:U8, 0, @size))
-    end
   end
 
   class Int16Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:s16, 0, @size))
-    end
   end
 
   class UInt16Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:u16, 0, @size))
-    end
   end
 
   class Int32Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:s32, 0, @size))
-    end
   end
 
   class UInt32Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:u32, 0, @size))
-    end
   end
 
   class Int64Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:s64, 0, @size))
-    end
   end
 
   class UInt64Array < IntArray
-    def to_a
-      apply_validity(@values_buffer.values(:u64, 0, @size))
-    end
   end
 
-  class FloatingPointArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
-      super(type, size, validity_buffer)
-      @values_buffer = values_buffer
-    end
+  class FloatingPointArray < PrimitiveArray
   end
 
   class Float32Array < FloatingPointArray
@@ -146,11 +145,7 @@ module ArrowFormat
     end
   end
 
-  class TemporalArray < Array
-    def initialize(type, size, validity_buffer, values_buffer)
-      super(type, size, validity_buffer)
-      @values_buffer = values_buffer
-    end
+  class TemporalArray < PrimitiveArray
   end
 
   class DateArray < TemporalArray
@@ -235,6 +230,14 @@ module ArrowFormat
       @values_buffer = values_buffer
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@offsets_buffer)
+      yield(@values_buffer)
+    end
+
     def to_a
       values = @offsets_buffer.
         each(buffer_type, 0, @size + 1).
@@ -297,6 +300,13 @@ module ArrowFormat
       @values_buffer = values_buffer
     end
 
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@values_buffer)
+    end
+
     def to_a
       byte_width = @type.byte_width
       values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
@@ -306,11 +316,71 @@ module ArrowFormat
     end
   end
 
+  class DecimalArray < FixedSizeBinaryArray
+    def to_a
+      byte_width = @type.byte_width
+      buffer_types = [:u64] * (byte_width / 8 - 1) + [:s64]
+      values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
+        @values_buffer.get_values(buffer_types, offset)
+      end
+      apply_validity(values).collect do |value|
+        if value.nil?
+          nil
+        else
+          BigDecimal(format_value(value))
+        end
+      end
+    end
+
+    private
+    def format_value(components)
+      highest = components.last
+      width = @type.precision
+      width += 1 if highest < 0
+      value = 0
+      components.reverse_each do |component|
+        value = (value << 64) + component
+      end
+      string = value.to_s
+      if @type.scale < 0
+        string << ("0" * -@type.scale)
+      elsif @type.scale > 0
+        n_digits = string.bytesize
+        n_digits -= 1 if value < 0
+        if n_digits < @type.scale
+          prefix = "0." + ("0" * (@type.scale - n_digits - 1))
+          if value < 0
+            string[1, 0] = prefix
+          else
+            string[0, 0] = prefix
+          end
+        else
+          string[-@type.scale, 0] = "."
+        end
+      end
+      string
+    end
+  end
+
+  class Decimal128Array < DecimalArray
+  end
+
+  class Decimal256Array < DecimalArray
+  end
+
   class VariableSizeListArray < Array
+    attr_reader :child
     def initialize(type, size, validity_buffer, offsets_buffer, child)
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
       @child = child
+    end
+
+    def each_buffer(&block)
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@offsets_buffer)
     end
 
     def to_a
@@ -340,9 +410,16 @@ module ArrowFormat
   end
 
   class StructArray < Array
+    attr_reader :children
     def initialize(type, size, validity_buffer, children)
       super(type, size, validity_buffer)
       @children = children
+    end
+
+    def each_buffer(&block)
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
     end
 
     def to_a
@@ -353,6 +430,27 @@ module ArrowFormat
         values = children_values[0].zip(*children_values[1..-1])
       end
       apply_validity(values)
+    end
+  end
+
+  class MapArray < VariableSizeListArray
+    def to_a
+      super.collect do |entries|
+        if entries.nil?
+          entries
+        else
+          hash = {}
+          entries.each do |key, value|
+            hash[key] = value
+          end
+          hash
+        end
+      end
+    end
+
+    private
+    def offset_type
+      :s32 # TODO: big endian support
     end
   end
 
@@ -395,24 +493,27 @@ module ArrowFormat
     end
   end
 
-  class MapArray < VariableSizeListArray
-    def to_a
-      super.collect do |entries|
-        if entries.nil?
-          entries
-        else
-          hash = {}
-          entries.each do |key, value|
-            hash[key] = value
-          end
-          hash
-        end
-      end
+  class DictionaryArray < Array
+    def initialize(type, size, validity_buffer, indices_buffer, dictionary)
+      super(type, size, validity_buffer)
+      @indices_buffer = indices_buffer
+      @dictionary = dictionary
     end
 
-    private
-    def offset_type
-      :s32 # TODO: big endian support
+    def to_a
+      values = []
+      @dictionary.each do |dictionary_chunk|
+        values.concat(dictionary_chunk.to_a)
+      end
+      buffer_type = @type.index_type.buffer_type
+      indices = apply_validity(@indices_buffer.values(buffer_type, 0, @size))
+      indices.collect do |index|
+        if index.nil?
+          nil
+        else
+          values[index]
+        end
+      end
     end
   end
 end
