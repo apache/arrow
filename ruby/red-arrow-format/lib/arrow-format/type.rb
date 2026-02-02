@@ -791,6 +791,10 @@ module ArrowFormat
     def build_array(size, validity_buffer, offsets_buffer, child)
       MapArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
+
+    def to_flatbuffers
+      FB::Map::Data.new
+    end
   end
 
   class UnionType < Type

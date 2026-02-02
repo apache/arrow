@@ -85,6 +85,8 @@ module WriterTests
                                       red_arrow_type.scale)
     when Arrow::FixedSizeBinaryDataType
       ArrowFormat::FixedSizeBinaryType.new(red_arrow_type.byte_width)
+    when Arrow::MapDataType
+      ArrowFormat::MapType.new(convert_field(red_arrow_type.field))
     when Arrow::ListDataType
       ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
     when Arrow::LargeListDataType
@@ -819,6 +821,27 @@ module WriterTests
 
           def test_write
             assert_equal([[-128, 127], nil, [-1, 0, 1]],
+                         @values)
+          end
+        end
+
+        sub_test_case("Map") do
+          def build_array
+            data_type = Arrow::MapDataType.new(:string, :int8)
+            Arrow::MapArray.new(data_type,
+                                [
+                                  {"a" => -128, "b" => 127},
+                                  nil,
+                                  {"c" => nil},
+                                ])
+          end
+
+          def test_write
+            assert_equal([
+                           {"a" => -128, "b" => 127},
+                           nil,
+                           {"c" => nil},
+                         ],
                          @values)
           end
         end
