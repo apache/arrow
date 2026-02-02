@@ -30,7 +30,7 @@ class IteratorImpl : public RowSelection::Iterator {
 
   ~IteratorImpl() override = default;
 
-  ::arrow::util::span<const RowSelection::IntervalRange> NextRanges() override {
+  ::arrow::util::span<const RowSelection::IntervalRange> NextRange() override {
     if (index_ >= ranges_.size()) {
       return {};
     }
@@ -81,8 +81,8 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
   auto lhs_iter = lhs.NewIterator();
   auto rhs_iter = rhs.NewIterator();
   
-  auto lhs_batch = lhs_iter->NextRanges();
-  auto rhs_batch = rhs_iter->NextRanges();
+  auto lhs_batch = lhs_iter->NextRange();
+  auto rhs_batch = rhs_iter->NextRange();
   size_t lhs_idx = 0;
   size_t rhs_idx = 0;
 
@@ -107,13 +107,13 @@ RowSelection RowSelection::Intersect(const RowSelection& lhs, const RowSelection
     if (left_end < right_end) {
       lhs_idx++;
       if (lhs_idx >= lhs_batch.size()) {
-        lhs_batch = lhs_iter->NextRanges();
+        lhs_batch = lhs_iter->NextRange();
         lhs_idx = 0;
       }
     } else {
       rhs_idx++;
       if (rhs_idx >= rhs_batch.size()) {
-        rhs_batch = rhs_iter->NextRanges();
+        rhs_batch = rhs_iter->NextRange();
         rhs_idx = 0;
       }
     }
@@ -136,8 +136,8 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
   auto lhs_iter = lhs.NewIterator();
   auto rhs_iter = rhs.NewIterator();
   
-  auto lhs_batch = lhs_iter->NextRanges();
-  auto rhs_batch = rhs_iter->NextRanges();
+  auto lhs_batch = lhs_iter->NextRange();
+  auto rhs_batch = rhs_iter->NextRange();
   size_t lhs_idx = 0;
   size_t rhs_idx = 0;
   
@@ -146,13 +146,13 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
   if (lhs_batch[0].start <= rhs_batch[0].start) {
     current = lhs_batch[lhs_idx++];
     if (lhs_idx >= lhs_batch.size()) {
-      lhs_batch = lhs_iter->NextRanges();
+      lhs_batch = lhs_iter->NextRange();
       lhs_idx = 0;
     }
   } else {
     current = rhs_batch[rhs_idx++];
     if (rhs_idx >= rhs_batch.size()) {
-      rhs_batch = rhs_iter->NextRanges();
+      rhs_batch = rhs_iter->NextRange();
       rhs_idx = 0;
     }
   }
@@ -164,14 +164,14 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
       // Only lhs ranges remain
       next = lhs_batch[lhs_idx++];
       if (lhs_idx >= lhs_batch.size()) {
-        lhs_batch = lhs_iter->NextRanges();
+        lhs_batch = lhs_iter->NextRange();
         lhs_idx = 0;
       }
     } else if (lhs_batch.empty()) {
       // Only rhs ranges remain
       next = rhs_batch[rhs_idx++];
       if (rhs_idx >= rhs_batch.size()) {
-        rhs_batch = rhs_iter->NextRanges();
+        rhs_batch = rhs_iter->NextRange();
         rhs_idx = 0;
       }
     } else {
@@ -183,14 +183,14 @@ RowSelection RowSelection::Union(const RowSelection& lhs, const RowSelection& rh
         next = left;
         lhs_idx++;
         if (lhs_idx >= lhs_batch.size()) {
-          lhs_batch = lhs_iter->NextRanges();
+          lhs_batch = lhs_iter->NextRange();
           lhs_idx = 0;
         }
       } else {
         next = right;
         rhs_idx++;
         if (rhs_idx >= rhs_batch.size()) {
-          rhs_batch = rhs_iter->NextRanges();
+          rhs_batch = rhs_iter->NextRange();
           rhs_idx = 0;
         }
       }
