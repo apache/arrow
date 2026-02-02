@@ -71,7 +71,6 @@ RUN apt-get update -y -q && \
         libthrift-dev \
         libutf8proc-dev \
         libxml2-dev \
-        libxsimd-dev \
         libzstd-dev \
         llvm-${llvm}-dev \
         make \
@@ -135,4 +134,5 @@ ENV ARROW_ACERO=ON \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED
