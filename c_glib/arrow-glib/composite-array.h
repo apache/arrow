@@ -236,6 +236,10 @@ GARROW_AVAILABLE_IN_ALL
 GArrowArray *
 garrow_union_array_get_field(GArrowUnionArray *array, gint i);
 
+GARROW_AVAILABLE_IN_24_0
+gint
+garrow_union_array_get_n_fields(GArrowUnionArray *array);
+
 #define GARROW_TYPE_SPARSE_UNION_ARRAY (garrow_sparse_union_array_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowSparseUnionArray,

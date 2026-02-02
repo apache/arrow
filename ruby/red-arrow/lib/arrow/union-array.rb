@@ -16,11 +16,11 @@
 # under the License.
 
 module Arrow
-  class SparseUnionArray
-    def get_value(i)
-      child_id = get_child_id(i)
-      field = fields[child_id]
-      field[i]
+  class UnionArray
+    def fields
+      @fields ||= n_fields.times.collect do |i|
+        get_field(i)
+      end
     end
   end
 end

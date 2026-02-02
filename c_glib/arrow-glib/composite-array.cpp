@@ -1461,6 +1461,21 @@ garrow_union_array_get_field(GArrowUnionArray *array, gint i)
   return field;
 }
 
+/**
+ * garrow_union_array_get_n_fields
+ * @array: A #GArrowUnionArray.
+ *
+ * Returns: The number of fields.
+ *
+ * Since: 24.0.0
+ */
+gint
+garrow_union_array_get_n_fields(GArrowUnionArray *array)
+{
+  auto arrow_array = garrow_array_get_raw(GARROW_ARRAY(array));
+  return arrow_array->num_fields();
+}
+
 G_DEFINE_TYPE(GArrowSparseUnionArray, garrow_sparse_union_array, GARROW_TYPE_UNION_ARRAY)
 
 static void
