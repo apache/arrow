@@ -518,7 +518,7 @@ Standard Python Operators
 =========================
 
 PyArrow supports standard Python operators for element-wise operations for arrays and scalars.
-Currently, the support is limited to some of the standard arithmetic compute functions, i.e.
+Currently, the support is limited to some of the standard compute functions, i.e.
 arithmetic (``+``, ``-``, ``/``, ``%``, ``**``),
 bitwise (``&``, ``|``, ``^``, ``>>``, ``<<``) and others.
 
@@ -529,7 +529,6 @@ You can use the operators as following:
 
 .. code-block:: python
 
-   >>> import math
    >>> import pyarrow as pa
    >>> arr = pa.array([-1, 2, -3])
    >>> val = pa.scalar(42.7)
@@ -548,12 +547,6 @@ You can use the operators as following:
      1823.2900000000002,
      0.000012844475506953143
    ]
-
-   >>> round(val)
-   <pyarrow.DoubleScalar: 43.0>
-
-   >>> math.trunc(val)
-   <pyarrow.DoubleScalar: 42.0>
 
    >>> arr << 2
    <pyarrow.lib.Int64Array object at ...>
