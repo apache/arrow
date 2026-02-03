@@ -455,7 +455,8 @@ Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
                              " invalid. File offset: ", offset,
                              ", metadata length: ", metadata_length);
     case MessageDecoder::State::BODY: {
-      auto body = SliceBuffer(metadata, metadata_length, body_length);
+      auto body = SliceBuffer(metadata, metadata_length,
+                              std::min(body_length, metadata->size() - metadata_length));
       if (body->size() < decoder.next_required_size()) {
         return Status::IOError("Expected to be able to read ",
                                decoder.next_required_size(),
