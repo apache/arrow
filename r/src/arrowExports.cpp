@@ -1836,6 +1836,7 @@ extern "C" SEXP _arrow_dataset___FileFormat__DefaultWriteOptions(SEXP fmt_sexp){
 #endif
 
 // dataset.cpp
+#if defined(ARROW_R_WITH_PARQUET)
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(const std::shared_ptr<ds::ParquetFragmentScanOptions>& options, cpp11::strings dict_columns);
 extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP options_sexp, SEXP dict_columns_sexp){
@@ -1849,6 +1850,7 @@ END_CPP11
 extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP options_sexp, SEXP dict_columns_sexp){
 	Rf_error("Cannot call dataset___ParquetFileFormat__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
+#endif
 #endif
 
 // dataset.cpp
@@ -2033,6 +2035,7 @@ extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_option
 #endif
 
 // dataset.cpp
+#if defined(ARROW_R_WITH_PARQUET)
 #if defined(ARROW_R_WITH_DATASET)
 std::shared_ptr<ds::ParquetFragmentScanOptions> dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size, bool pre_buffer, int32_t thrift_string_size_limit, int32_t thrift_container_size_limit);
 extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp, SEXP thrift_string_size_limit_sexp, SEXP thrift_container_size_limit_sexp){
@@ -2049,6 +2052,7 @@ END_CPP11
 extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp, SEXP thrift_string_size_limit_sexp, SEXP thrift_container_size_limit_sexp){
 	Rf_error("Cannot call dataset___ParquetFragmentScanOptions__Make(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
+#endif
 #endif
 
 // dataset.cpp
