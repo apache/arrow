@@ -455,6 +455,7 @@ module ArrowFormat
   end
 
   class UnionArray < Array
+    attr_reader :children
     def initialize(type, size, types_buffer, children)
       super(type, size, nil)
       @types_buffer = types_buffer
@@ -472,6 +473,13 @@ module ArrowFormat
       @offsets_buffer = offsets_buffer
     end
 
+    def each_buffer(&block)
+      return to_enum(__method__) unless block_given?
+
+      yield(@types_buffer)
+      yield(@offsets_buffer)
+    end
+
     def to_a
       children_values = @children.collect(&:to_a)
       types = @types_buffer.each(:S8, 0, @size)
@@ -484,6 +492,12 @@ module ArrowFormat
   end
 
   class SparseUnionArray < UnionArray
+    def each_buffer(&block)
+      return to_enum(__method__) unless block_given?
+
+      yield(@types_buffer)
+    end
+
     def to_a
       children_values = @children.collect(&:to_a)
       @types_buffer.each(:S8, 0, @size).with_index.collect do |(_, type), i|

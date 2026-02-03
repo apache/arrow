@@ -796,8 +796,9 @@ module ArrowFormat
   class UnionType < Type
     attr_reader :children
     attr_reader :type_ids
-    def initialize(children, type_ids)
+    def initialize(mode, children, type_ids)
       super()
+      @mode = mode
       @children = children
       @type_ids = type_ids
       @type_indexes = {}
@@ -806,9 +807,20 @@ module ArrowFormat
     def resolve_type_index(type)
       @type_indexes[type] ||= @type_ids.index(type)
     end
+
+    def to_flatbuffers
+      fb_type = FB::Union::Data.new
+      fb_type.mode = FB::UnionMode.try_convert(@mode.to_s.capitalize)
+      fb_type.type_ids = @type_ids
+      fb_type
+    end
   end
 
   class DenseUnionType < UnionType
+    def initialize(children, type_ids)
+      super(:dense, children, type_ids)
+    end
+
     def name
       "DenseUnion"
     end
@@ -819,6 +831,10 @@ module ArrowFormat
   end
 
   class SparseUnionType < UnionType
+    def initialize(children, type_ids)
+      super(:sparse, children, type_ids)
+    end
+
     def name
       "SparseUnion"
     end

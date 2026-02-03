@@ -94,6 +94,16 @@ module WriterTests
         convert_field(field)
       end
       ArrowFormat::StructType.new(fields)
+    when Arrow::DenseUnionDataType
+      fields = red_arrow_type.fields.collect do |field|
+        convert_field(field)
+      end
+      ArrowFormat::DenseUnionType.new(fields, red_arrow_type.type_codes)
+    when Arrow::SparseUnionDataType
+      fields = red_arrow_type.fields.collect do |field|
+        convert_field(field)
+      end
+      ArrowFormat::SparseUnionType.new(fields, red_arrow_type.type_codes)
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
@@ -140,6 +150,24 @@ module WriterTests
       end
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
+                       children)
+    when ArrowFormat::DenseUnionType
+      types_buffer = convert_buffer(red_arrow_array.type_ids.data_buffer)
+      offsets_buffer = convert_buffer(red_arrow_array.value_offsets.data_buffer)
+      children = red_arrow_array.fields.collect do |red_arrow_field|
+        convert_array(red_arrow_field)
+      end
+      type.build_array(red_arrow_array.size,
+                       types_buffer,
+                       offsets_buffer,
+                       children)
+    when ArrowFormat::SparseUnionType
+      types_buffer = convert_buffer(red_arrow_array.type_ids.data_buffer)
+      children = red_arrow_array.fields.collect do |red_arrow_field|
+        convert_array(red_arrow_field)
+      end
+      type.build_array(red_arrow_array.size,
+                       types_buffer,
                        children)
     else
       raise "Unsupported array #{red_arrow_array.inspect}"
@@ -837,6 +865,54 @@ module WriterTests
                            nil,
                            {"count" => nil, "visible" => true},
                          ],
+                         @values)
+          end
+        end
+
+        sub_test_case("DenseUnion") do
+          def build_array
+            fields = [
+              Arrow::Field.new("number", :int8),
+              Arrow::Field.new("text", :string),
+            ]
+            type_ids = [11, 13]
+            data_type = Arrow::DenseUnionDataType.new(fields, type_ids)
+            types = Arrow::Int8Array.new([11, 13, 11, 13, 13])
+            value_offsets = Arrow::Int32Array.new([0, 0, 1, 1, 2])
+            children = [
+              Arrow::Int8Array.new([1, nil]),
+              Arrow::StringArray.new(["a", "b", "c"])
+            ]
+            Arrow::DenseUnionArray.new(data_type,
+                                       types,
+                                       value_offsets,
+                                       children)
+          end
+
+          def test_write
+            assert_equal([1, "a", nil, "b", "c"],
+                         @values)
+          end
+        end
+
+        sub_test_case("SparseUnion") do
+          def build_array
+            fields = [
+              Arrow::Field.new("number", :int8),
+              Arrow::Field.new("text", :string),
+            ]
+            type_ids = [11, 13]
+            data_type = Arrow::SparseUnionDataType.new(fields, type_ids)
+            types = Arrow::Int8Array.new([11, 13, 11, 13, 11])
+            children = [
+              Arrow::Int8Array.new([1, nil, nil, nil, 5]),
+              Arrow::StringArray.new([nil, "b", nil, "d", nil])
+            ]
+            Arrow::SparseUnionArray.new(data_type, types, children)
+          end
+
+          def test_write
+            assert_equal([1, "b", nil, "d", 5],
                          @values)
           end
         end
