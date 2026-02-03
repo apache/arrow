@@ -782,5 +782,51 @@ TEST(SmallVector, Traits) {
   ASSERT_FALSE((std::is_trivially_destructible<SmallVector<int, 4>>::value));
 }
 
+TEST(SmallVector, MoveAssignDynamicToStatic) {
+  SmallVector<std::string, 8> src;
+  SmallVector<std::string, 8> dst;
+
+  // src: 3 elements (static storage)
+  src.push_back("a");
+  src.push_back("b");
+  src.push_back("c");
+
+  // dst: 12 elements (dynamic storage, uses heap)
+  for (int i = 0; i < 12; ++i) {
+    dst.push_back("item" + std::to_string(i));
+  }
+
+  // Move from dynamic to static storage
+  dst = std::move(src);
+
+  ASSERT_EQ(dst.size(), 3);
+  EXPECT_EQ(dst[0], "a");
+  EXPECT_EQ(dst[1], "b");
+  EXPECT_EQ(dst[2], "c");
+}
+
+TEST(SmallVector, MoveAssignStaticToDynamic) {
+  SmallVector<std::string, 8> src;
+  SmallVector<std::string, 8> dst;
+
+  // src: 12 elements (dynamic storage, uses heap)
+  for (int i = 0; i < 12; ++i) {
+    src.push_back("item" + std::to_string(i));
+  }
+
+  // dst: 3 elements (static storage)
+  dst.push_back("x");
+  dst.push_back("y");
+  dst.push_back("z");
+
+  // Move from static to dynamic storage
+  dst = std::move(src);
+
+  ASSERT_EQ(dst.size(), 12);
+  for (int i = 0; i < 12; ++i) {
+    EXPECT_EQ(dst[i], "item" + std::to_string(i));
+  }
+}
+
 }  // namespace internal
 }  // namespace arrow

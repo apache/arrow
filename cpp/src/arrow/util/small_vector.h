@@ -64,6 +64,8 @@ struct StaticVectorStorage : public StaticVectorStorageBase<T, N, D> {
   using Base::size_;
   using Base::static_data_;
 
+  static constexpr bool can_overflow = false;
+
   StaticVectorStorage() noexcept = default;
 
   constexpr storage_type* storage_ptr() { return static_data_; }
@@ -117,6 +119,8 @@ struct SmallVectorStorage {
   storage_type* data_ = static_data_;
   size_t dynamic_capacity_ = 0;
 
+  static constexpr bool can_overflow = true;
+
   SmallVectorStorage() noexcept = default;
 
   ~SmallVectorStorage() { destroy(); }
@@ -163,9 +167,13 @@ struct SmallVectorStorage {
       other.data_ = other.static_data_;
       other.dynamic_capacity_ = 0;
       other.size_ = 0;
-    } else if (size_ != 0) {
-      // Use a compile-time memcpy size (N) for trivial types
-      storage_type::move_construct_several(other.static_data_, static_data_, size_, N);
+    } else {
+      // Reset to static storage (in case we had dynamic storage before destroy())
+      data_ = static_data_;
+      if (size_ != 0) {
+        // Use a compile-time memcpy size (N) for trivial types
+        storage_type::move_construct_several(other.static_data_, static_data_, size_, N);
+      }
     }
   }
 
@@ -238,9 +246,23 @@ class StaticVectorImpl {
 
   StaticVectorImpl& operator=(StaticVectorImpl&& other) noexcept {
     if (ARROW_PREDICT_TRUE(&other != this)) {
-      // TODO move_assign?
-      storage_.destroy();
-      storage_.move_construct(std::move(other.storage_));
+      // Determine whether to use fast path (destroy + move_construct):
+      // - For trivial types: always use fast path (memcpy is fast)
+      // - For dynamic storage: always use fast path (pointer swap is O(1))
+      // - For static storage + non-trivial types: use assign_by_moving (may reuse
+      // objects)
+      bool use_fast_path = std::is_trivial<T>::value;
+      if constexpr (Storage::can_overflow) {
+        use_fast_path = use_fast_path || storage_.dynamic_capacity_ ||
+                        other.storage_.dynamic_capacity_;
+      }
+
+      if (use_fast_path) {
+        storage_.destroy();
+        storage_.move_construct(std::move(other.storage_));
+      } else {
+        assign_by_moving(other.storage_.size_, other.data());
+      }
     }
     return *this;
   }
