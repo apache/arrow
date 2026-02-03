@@ -22,68 +22,6 @@
 #include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
 
-namespace arrow {
-
-Result<std::shared_ptr<DataType>> type_singleton(Type::type id) {
-  switch (id) {
-    case Type::NA:
-      return null();
-    case Type::BOOL:
-      return boolean();
-    case Type::INT8:
-      return int8();
-    case Type::INT16:
-      return int16();
-    case Type::INT32:
-      return int32();
-    case Type::INT64:
-      return int64();
-    case Type::UINT8:
-      return uint8();
-    case Type::UINT16:
-      return uint16();
-    case Type::UINT32:
-      return uint32();
-    case Type::UINT64:
-      return uint64();
-    case Type::HALF_FLOAT:
-      return float16();
-    case Type::FLOAT:
-      return float32();
-    case Type::DOUBLE:
-      return float64();
-    case Type::STRING:
-      return utf8();
-    case Type::BINARY:
-      return binary();
-    case Type::LARGE_STRING:
-      return large_utf8();
-    case Type::LARGE_BINARY:
-      return large_binary();
-    case Type::DATE32:
-      return date32();
-
-    // Explicitly handle known parameterized types
-    case Type::TIMESTAMP:
-    case Type::TIME32:
-    case Type::TIME64:
-    case Type::DURATION:
-    case Type::FIXED_SIZE_BINARY:
-    case Type::DECIMAL128:
-    case Type::LIST:
-    case Type::LARGE_LIST:
-    case Type::FIXED_SIZE_LIST:
-    case Type::STRUCT:
-    case Type::DICTIONARY:
-    case Type::MAP:
-    case Type::EXTENSION:
-      return Status::Invalid("Type ", id, " is not a parameter-free singleton type.");
-
-    default:
-      return Status::Invalid("Type ", id, " requires parameters or is not supported");
-  }
-}
-
 int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
   if (buffer_index == 2 && type_id == Type::DENSE_UNION) {
     // A dense union array is the only array (so far) that requires alignment

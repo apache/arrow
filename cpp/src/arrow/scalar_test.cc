@@ -180,7 +180,8 @@ TEST(TestScalar, IdentityCast) {
     test_identity_cast_for_type(type);
   }
   for (auto& type : {
-           arrow::fixed_size_list(arrow::int32(), 20), arrow::list(arrow::int32()),
+           arrow::fixed_size_list(arrow::int32(), 20),
+           arrow::list(arrow::int32()),
            arrow::large_list(arrow::int32()),
            // TODO(GH-45430): CastTo for ListView is not implemented yet.
            // arrow::list_view(arrow::int32()), arrow::large_list_view(arrow::int32())

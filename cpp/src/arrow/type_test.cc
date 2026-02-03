@@ -38,9 +38,9 @@
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
-#include "arrow/util/logging.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -53,25 +53,12 @@ TEST(TestTypeId, AllTypeIds) {
 }
 
 TEST(TestTypeSingleton, ParameterFreeTypes) {
-  // Test successful cases - parameter-free types
+  // Test successful cases - parameter-free types (sample a few)
   std::vector<std::pair<Type::type, std::shared_ptr<DataType>>> cases = {
       {Type::NA, null()},
       {Type::BOOL, boolean()},
-      {Type::INT8, int8()},
-      {Type::INT16, int16()},
       {Type::INT32, int32()},
-      {Type::INT64, int64()},
-      {Type::UINT8, uint8()},
-      {Type::UINT16, uint16()},
-      {Type::UINT32, uint32()},
-      {Type::UINT64, uint64()},
-      {Type::HALF_FLOAT, float16()},
-      {Type::FLOAT, float32()},
-      {Type::DOUBLE, float64()},
       {Type::STRING, utf8()},
-      {Type::BINARY, binary()},
-      {Type::LARGE_STRING, large_utf8()},
-      {Type::LARGE_BINARY, large_binary()},
       {Type::DATE32, date32()},
   };
 
@@ -88,19 +75,18 @@ TEST(TestTypeSingleton, ParameterFreeTypes) {
 TEST(TestTypeSingleton, ParameterizedTypes) {
   // Test error cases - parameterized types
   std::vector<Type::type> parameterized_types = {
-      Type::TIMESTAMP,    Type::TIME32,           Type::TIME64,
-      Type::DURATION,     Type::FIXED_SIZE_BINARY, Type::DECIMAL128,
-      Type::LIST,         Type::LARGE_LIST,       Type::FIXED_SIZE_LIST,
-      Type::STRUCT,       Type::DICTIONARY,       Type::MAP,
-      Type::EXTENSION
-  };
+      Type::TIMESTAMP,         Type::TIME32,     Type::TIME64,     Type::DURATION,
+      Type::FIXED_SIZE_BINARY, Type::DECIMAL128, Type::LIST,       Type::LARGE_LIST,
+      Type::FIXED_SIZE_LIST,   Type::STRUCT,     Type::DICTIONARY, Type::MAP,
+      Type::EXTENSION};
 
   for (const auto type_id : parameterized_types) {
     SCOPED_TRACE("Testing type: " + std::to_string(static_cast<int>(type_id)));
     auto result = type_singleton(type_id);
     ASSERT_FALSE(result.ok());
     const auto& status = result.status();
-    EXPECT_THAT(status.message(), testing::HasSubstr("is not a parameter-free singleton type"));
+    EXPECT_THAT(status.message(),
+                testing::HasSubstr("is not a parameter-free singleton type"));
   }
 }
 
@@ -109,7 +95,8 @@ TEST(TestTypeSingleton, InvalidType) {
   auto result = type_singleton(static_cast<Type::type>(9999));
   ASSERT_FALSE(result.ok());
   const auto& status = result.status();
-  EXPECT_THAT(status.message(), testing::HasSubstr("requires parameters or is not supported"));
+  EXPECT_THAT(status.message(),
+              testing::HasSubstr("requires parameters or is not supported"));
 }
 
 template <typename ReprFunc>

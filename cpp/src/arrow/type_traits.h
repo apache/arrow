@@ -608,8 +608,6 @@ struct TypeTraits<ExtensionType> {
 /// \param[in] id The type ID to create a type instance for
 /// \return Result with a shared pointer to the created DataType instance,
 ///         or an error if the type requires parameters
-ARROW_EXPORT
-Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
 
 namespace internal {
 
