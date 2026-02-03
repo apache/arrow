@@ -598,17 +598,6 @@ struct TypeTraits<ExtensionType> {
 };
 /// @}
 
-/// \brief Create a data type instance from a type ID for parameter-free types
-///
-/// This function creates a data type instance for types that don't require
-/// additional parameters (where TypeTraits<T>::is_parameter_free is true).
-/// For types that require parameters (like TimestampType or ListType),
-/// this function will return an error.
-///
-/// \param[in] id The type ID to create a type instance for
-/// \return Result with a shared pointer to the created DataType instance,
-///         or an error if the type requires parameters
-
 namespace internal {
 
 template <typename... Ts>

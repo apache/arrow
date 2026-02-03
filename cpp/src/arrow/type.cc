@@ -3563,15 +3563,12 @@ Result<std::shared_ptr<DataType>> type_singleton(Type::type id) {
         result = TypeTraits<T>::type_singleton();
         return Status::OK();
       }
-      return Status::Invalid("Type ", T::type_id, " is not a parameter-free singleton type.");
+      return Status::TypeError("Type ", T::type_id, " is not a parameter-free singleton type.");
     }
   };
 
   Visitor visitor;
-  auto status = VisitTypeIdInline(id, &visitor);
-  if (!status.ok()) {
-    return Status::Invalid("Type ", id, " requires parameters or is not supported");
-  }
+  RETURN_NOT_OK(VisitTypeIdInline(id, &visitor));
   return visitor.result;
 }
 

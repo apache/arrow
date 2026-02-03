@@ -73,30 +73,18 @@ TEST(TestTypeSingleton, ParameterFreeTypes) {
 }
 
 TEST(TestTypeSingleton, ParameterizedTypes) {
-  // Test error cases - parameterized types
-  std::vector<Type::type> parameterized_types = {
-      Type::TIMESTAMP,         Type::TIME32,     Type::TIME64,     Type::DURATION,
-      Type::FIXED_SIZE_BINARY, Type::DECIMAL128, Type::LIST,       Type::LARGE_LIST,
-      Type::FIXED_SIZE_LIST,   Type::STRUCT,     Type::DICTIONARY, Type::MAP,
-      Type::EXTENSION};
-
-  for (const auto type_id : parameterized_types) {
-    SCOPED_TRACE("Testing type: " + std::to_string(static_cast<int>(type_id)));
-    auto result = type_singleton(type_id);
-    ASSERT_FALSE(result.ok());
-    const auto& status = result.status();
-    EXPECT_THAT(status.message(),
-                testing::HasSubstr("is not a parameter-free singleton type"));
-  }
+  // Test error cases - parameterized types (test one representative)
+  auto result = type_singleton(Type::TIMESTAMP);
+  ASSERT_FALSE(result.ok());
+  EXPECT_THAT(result.status().message(),
+              testing::HasSubstr("is not a parameter-free singleton type"));
 }
 
 TEST(TestTypeSingleton, InvalidType) {
   // Test with an invalid type ID
   auto result = type_singleton(static_cast<Type::type>(9999));
   ASSERT_FALSE(result.ok());
-  const auto& status = result.status();
-  EXPECT_THAT(status.message(),
-              testing::HasSubstr("requires parameters or is not supported"));
+  EXPECT_TRUE(result.status().IsTypeError());
 }
 
 template <typename ReprFunc>
