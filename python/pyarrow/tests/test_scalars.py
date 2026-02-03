@@ -1036,19 +1036,6 @@ def test_bitwise_dunders(int_scalars):
     assert (scl2 >> scl1).equals(pc.shift_right_checked(scl2, scl1))
 
 
-def test_math_dunders(float_scalars):
-    # GH-32007
-    import math
-
-    scl1, _ = float_scalars
-
-    assert abs(scl1).equals(pc.abs_checked(scl1))
-    assert round(scl1).equals(pc.round(scl1))
-    assert math.trunc(scl1).equals(pc.trunc(scl1))
-    assert math.floor(scl1).equals(pc.floor(scl1))
-    assert math.ceil(scl1).equals(pc.ceil(scl1))
-
-
 def test_dunders_unmatching_types():
     # GH-32007
     error_match = r"Function '\w+' has no kernel matching input types"

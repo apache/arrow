@@ -2332,22 +2332,6 @@ cdef class Array(_PandasConvertible):
         self._assert_cpu()
         return _pc().call_function('shift_right_checked', [self, other])
 
-    def __round__(self):
-        self._assert_cpu()
-        return _pc().call_function('round', [self])
-
-    def __trunc__(self):
-        self._assert_cpu()
-        return _pc().call_function('trunc', [self])
-
-    def __floor__(self):
-        self._assert_cpu()
-        return _pc().call_function('floor', [self])
-
-    def __ceil__(self):
-        self._assert_cpu()
-        return _pc().call_function('ceil', [self])
-
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
     cdef:
