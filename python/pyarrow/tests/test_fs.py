@@ -636,9 +636,13 @@ def test_subtree_filesystem():
                                   ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
-def test_filesystem_pickling(fs, pickle_module):
+@pytest.mark.parametrize("wrap_with_in_subtree_fs", [False, True])
+def test_filesystem_pickling(wrap_with_in_subtree_fs, fs, pickle_module):
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
+
+    if wrap_with_in_subtree_fs:
+        fs = SubTreeFileSystem('/', fs)
 
     serialized = pickle_module.dumps(fs)
     restored = pickle_module.loads(serialized)
