@@ -717,9 +717,7 @@ tasks:
     ci: github
     template: docker-tests/github.linux.yml
     params:
-      env:
-        ARROW_DATASET: ON
-        ARROW_PARQUET: OFF
+      flags: '-e ARROW_DATASET=ON -e ARROW_PARQUET=OFF'
       image: ubuntu-r-only-r
 
   test-r-offline-maximal:
