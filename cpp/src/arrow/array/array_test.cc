@@ -35,6 +35,7 @@
 #include "arrow/array/array_binary.h"
 #include "arrow/array/array_decimal.h"
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_decimal.h"
 #include "arrow/array/builder_dict.h"
@@ -995,6 +996,139 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_EQ(8, result->length());
     ASSERT_EQ(8, result->null_count());
   }
+}
+ 
+class TestBuilderAppendArraySlice : public TestArray {
+ public:
+  virtual void AssertResult(const Array& expected, const Array& actual) {
+    AssertArraysEqual(expected, actual, true);
+  }
+ 
+  void CheckAppendArraySlice(const std::shared_ptr<DataType>& type) {
+    auto rag = random::RandomArrayGenerator(0xdeadbeef);
+    const int64_t total_length = 100;
+ 
+    for (auto null_probability : {0.0, 0.1, 0.5, 1.0}) {
+      auto array = rag.ArrayOf(type, total_length, null_probability);
+ 
+      std::unique_ptr<ArrayBuilder> builder;
+      ASSERT_OK(MakeBuilder(pool_, type, &builder));
+ 
+      // Slice the array into multiple pieces
+      ArrayVector slices;
+      std::vector<int64_t> offsets = {0, 10, 10, 25, 60, 100};
+      for (size_t i = 0; i < offsets.size() - 1; ++i) {
+        int64_t start = offsets[i];
+        int64_t length = offsets[i + 1] - offsets[i];
+        auto slice = array->Slice(start, length);
+        slices.push_back(slice);
+ 
+        ArraySpan span(*slice->data());
+        ASSERT_OK(builder->AppendArraySlice(span, 0, slice->length()));
+      }
+ 
+      std::shared_ptr<Array> actual;
+      ASSERT_OK(builder->Finish(&actual));
+      ASSERT_OK(actual->ValidateFull());
+ 
+      ASSERT_OK_AND_ASSIGN(auto expected, Concatenate(slices, pool_));
+      AssertResult(*expected, *actual);
+    }
+  }
+};
+ 
+template <typename Type>
+class TestBuilderAppendArraySliceTyped : public TestBuilderAppendArraySlice {};
+ 
+TYPED_TEST_SUITE(TestBuilderAppendArraySliceTyped, PrimitiveArrowTypes);
+TYPED_TEST(TestBuilderAppendArraySliceTyped, Primitives) {
+  this->CheckAppendArraySlice(TypeTraits<TypeParam>::type_singleton());
+}
+ 
+template <typename Type>
+class TestBuilderAppendArraySliceBinary : public TestBuilderAppendArraySlice {};
+ 
+using BinaryAppendArraySliceTypes =
+    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
+TYPED_TEST_SUITE(TestBuilderAppendArraySliceBinary, BinaryAppendArraySliceTypes);
+TYPED_TEST(TestBuilderAppendArraySliceBinary, Binary) {
+  this->CheckAppendArraySlice(TypeTraits<TypeParam>::type_singleton());
+}
+ 
+TEST_F(TestBuilderAppendArraySlice, List) { 
+  CheckAppendArraySlice(list(int32())); 
+}
+
+TEST_F(TestBuilderAppendArraySlice, LargeList) { 
+  CheckAppendArraySlice(large_list(int32())); 
+}
+
+TEST_F(TestBuilderAppendArraySlice, ListView) {
+  CheckAppendArraySlice(list_view(int32()));
+}
+
+TEST_F(TestBuilderAppendArraySlice, LargeListView) {
+  CheckAppendArraySlice(large_list_view(int32()));
+}
+ 
+TEST_F(TestBuilderAppendArraySlice, FixedSizeBinary) {
+  CheckAppendArraySlice(fixed_size_binary(10));
+}
+
+TEST_F(TestBuilderAppendArraySlice, Decimal128) { 
+  CheckAppendArraySlice(decimal128(10, 2)); 
+}
+
+TEST_F(TestBuilderAppendArraySlice, Decimal256) { 
+  CheckAppendArraySlice(decimal256(10, 2)); 
+}
+
+TEST_F(TestBuilderAppendArraySlice, FixedSizeList) {
+  CheckAppendArraySlice(fixed_size_list(int32(), 3));
+}
+
+TEST_F(TestBuilderAppendArraySlice, Struct) {
+  CheckAppendArraySlice(struct_({field("a", int32()), field("b", utf8())}));
+}
+
+TEST_F(TestBuilderAppendArraySlice, SparseUnion) {
+  CheckAppendArraySlice(sparse_union({field("a", int32()), field("b", utf8())}));
+}
+
+TEST_F(TestBuilderAppendArraySlice, DenseUnion) {
+  CheckAppendArraySlice(dense_union({field("a", int32()), field("b", utf8())}));
+}
+
+TEST_F(TestBuilderAppendArraySlice, RunEndEncoded) {
+  CheckAppendArraySlice(run_end_encoded(int32(), int32()));
+}
+
+ 
+class TestBuilderAppendArraySliceDictionary : public TestBuilderAppendArraySlice {
+ public:
+  void AssertResult(const Array& expected, const Array& actual) override {
+    const auto& expected_dict = internal::checked_cast<const DictionaryArray&>(expected);
+    const auto& actual_dict = internal::checked_cast<const DictionaryArray&>(actual);
+    const auto& expected_values = *expected_dict.dictionary();
+    const auto& actual_values = *actual_dict.dictionary();
+ 
+    ASSERT_EQ(expected.length(), actual.length());
+    for (int64_t i = 0; i < expected.length(); ++i) {
+      if (expected.IsNull(i)) {
+        ASSERT_TRUE(actual.IsNull(i));
+      } else {
+        ASSERT_FALSE(actual.IsNull(i));
+        ASSERT_OK_AND_ASSIGN(auto expected_val, expected_values.GetScalar(expected_dict.GetValueIndex(i)));
+        ASSERT_OK_AND_ASSIGN(auto actual_val, actual_values.GetScalar(actual_dict.GetValueIndex(i)));
+        AssertScalarsEqual(*expected_val, *actual_val);
+      }
+    }
+  }
+};
+ 
+TEST_F(TestBuilderAppendArraySliceDictionary, Dictionary) {
+  CheckAppendArraySlice(dictionary(int8(), utf8()));
+  CheckAppendArraySlice(dictionary(int32(), utf8()));
 }
 
 // GH-39976: Test out-of-line data size calculation in
