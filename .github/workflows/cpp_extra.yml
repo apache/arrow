@@ -533,23 +533,39 @@ jobs:
           path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
           if-no-files-found: error
       - name: Install ODBC MSI
-        shell: cmd
         run: |
           cd build/cpp
-          for %%f in ("Apache Arrow Flight SQL ODBC-*-win64.msi") do (
-              echo Installing %%f silently with logs
-              msiexec /i "%%f" /qn /l*v "odbc-install.log" & type "odbc-install.log"
-          )
+          $odbc_msi = Get-ChildItem -Filter "Apache Arrow Flight SQL ODBC-*-win64.msi"
+          if (-not $odbc_msi) {
+            Write-Error "ODBC MSI not found"
+            exit 1
+          }
+
+          foreach ($msi in $odbc_msi) {
+            Write-Host "Installing $($msi.Name) with logs"
+            $log = "odbc-install.log"
+            Start-Process msiexec.exe -Wait -ArgumentList "/i `"$msi`"", "/qn", "/L*V `"$log`""
+            Get-Content $log
+          }
       - name: Check ODBC DLL installation
-        shell: cmd
         run: |
-          for /d %%D in ("C:\Program Files\Apache Arrow Flight SQL ODBC *") do (
-              if exist "%%D\bin" (
-                  tree "%%D\bin" /f
-                  if exist "%%D\bin\arrow_flight_sql_odbc.dll" exit 0
-              )
-          )
-          echo ODBC DLL not found
+          $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache Arrow Flight SQL ODBC*"
+
+          foreach ($dir in $dirs) {
+            $bin = Join-Path $dir.FullName "bin"
+
+            if (Test-Path $bin) {
+              tree $bin /f
+
+              $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
+              if (Test-Path $dll) {
+                Write-Host "Found ODBC DLL: $dll"
+                exit 0
+              }
+            }
+          }
+
+          Write-Error "ODBC DLL not found"
           exit 1
 
   odbc-nightly:
