@@ -649,6 +649,32 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
       arrow_fields.push_back(::arrow::field("my_list", arrow_list, true));
     }
 
+    // Deep nested two-level encoding List<List<List<Integer>>>:
+    // optional group my_list (LIST) {
+    //   repeated group array (LIST) {
+    //     repeated group array (LIST) {
+    //       repeated int32 array;
+    //     }
+    //   }
+    // }
+    {
+      auto inner_array =
+          PrimitiveNode::Make("array", Repetition::REPEATED, ParquetType::INT32);
+      auto middle_array = GroupNode::Make("array", Repetition::REPEATED, {inner_array},
+                                          ConvertedType::LIST);
+      auto outer_array = GroupNode::Make("array", Repetition::REPEATED, {middle_array},
+                                         ConvertedType::LIST);
+      parquet_fields.push_back(GroupNode::Make("my_list", Repetition::OPTIONAL,
+                                               {outer_array}, ConvertedType::LIST));
+      auto arrow_inner_array = ::arrow::field("array", INT32, /*nullable=*/false);
+      auto arrow_middle_array = ::arrow::field(
+          "array", list_case.type_factory(arrow_inner_array), /*nullable=*/false);
+      auto arrow_outer_array = ::arrow::field(
+          "array", list_case.type_factory(arrow_middle_array), /*nullable=*/false);
+      auto arrow_list = list_case.type_factory(arrow_outer_array);
+      arrow_fields.push_back(::arrow::field("my_list", arrow_list, true));
+    }
+
     // List<Map<String, String>> in three-level list encoding:
     // optional group my_list (LIST) {
     //   repeated group list {
@@ -676,6 +702,36 @@ TEST_F(TestConvertParquetSchema, ParquetLists) {
       auto arrow_value = ::arrow::field("value", UTF8, /*nullable=*/true);
       auto arrow_element = ::arrow::field(
           "element", std::make_shared<::arrow::MapType>(arrow_key, arrow_value),
+          /*nullable=*/false);
+      auto arrow_list = list_case.type_factory(arrow_element);
+      arrow_fields.push_back(::arrow::field("my_list", arrow_list, /*nullable=*/true));
+    }
+
+    // List<Map<String, String>> in two-level list encoding:
+    //
+    // optional group my_list (LIST) {
+    //   repeated group array (MAP) {
+    //     repeated group key_value {
+    //       required binary key (STRING);
+    //       optional binary value (STRING);
+    //     }
+    //   }
+    // }
+    {
+      auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
+                                     ConvertedType::UTF8);
+      auto value = PrimitiveNode::Make("value", Repetition::OPTIONAL,
+                                       ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
+      auto key_value = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
+      auto array =
+          GroupNode::Make("array", Repetition::REPEATED, {key_value}, ConvertedType::MAP);
+      parquet_fields.push_back(
+          GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
+
+      auto arrow_key = ::arrow::field("key", UTF8, /*nullable=*/false);
+      auto arrow_value = ::arrow::field("value", UTF8, /*nullable=*/true);
+      auto arrow_element = ::arrow::field(
+          "array", std::make_shared<::arrow::MapType>(arrow_key, arrow_value),
           /*nullable=*/false);
       auto arrow_list = list_case.type_factory(arrow_element);
       arrow_fields.push_back(::arrow::field("my_list", arrow_list, /*nullable=*/true));
@@ -844,34 +900,39 @@ TEST_F(TestConvertParquetSchema, ParquetRepeatedNestedSchema) {
 }
 
 TEST_F(TestConvertParquetSchema, IllegalParquetNestedSchema) {
-  // List<Map<String, String>> in two-level list encoding:
+  // Two-level list-annotated group cannot be repeated
   //
-  // optional group my_list (LIST) {
-  //   repeated group array (MAP) {
-  //     repeated group key_value {
-  //       required binary key (STRING);
-  //       optional binary value (STRING);
-  //     }
+  // repeated group my_list (LIST) {
+  //   repeated int32 array;
+  // }
+  {
+    auto array = PrimitiveNode::Make("array", Repetition::REPEATED, ParquetType::INT32);
+    std::vector<NodePtr> parquet_fields;
+    parquet_fields.push_back(
+        GroupNode::Make("my_list", Repetition::REPEATED, {array}, ConvertedType::LIST));
+
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        Invalid, testing::HasSubstr("LIST-annotated groups must not be repeated."),
+        ConvertSchema(parquet_fields));
+  }
+  // Two-level list-annotated group cannot be repeated
+  //
+  // required group my_struct {
+  //   repeated group my_list (LIST) {
+  //     repeated int32 array;
   //   }
   // }
   {
-    auto key = PrimitiveNode::Make("key", Repetition::REQUIRED, ParquetType::BYTE_ARRAY,
-                                   ConvertedType::UTF8);
-    auto value = PrimitiveNode::Make("value", Repetition::OPTIONAL,
-                                     ParquetType::BYTE_ARRAY, ConvertedType::UTF8);
-    auto key_value = GroupNode::Make("key_value", Repetition::REPEATED, {key, value});
-    auto array =
-        GroupNode::Make("array", Repetition::REPEATED, {key_value}, ConvertedType::MAP);
+    auto array = PrimitiveNode::Make("array", Repetition::REPEATED, ParquetType::INT32);
+    auto list =
+        GroupNode::Make("my_list", Repetition::REPEATED, {array}, ConvertedType::LIST);
     std::vector<NodePtr> parquet_fields;
-    parquet_fields.push_back(
-        GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
+    parquet_fields.push_back(GroupNode::Make("my_struct", Repetition::REQUIRED, {list}));
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid,
-        testing::HasSubstr("Group with one repeated child must be LIST-annotated."),
+        Invalid, testing::HasSubstr("LIST-annotated groups must not be repeated."),
         ConvertSchema(parquet_fields));
   }
-
   // List<List<String>>: outer list is two-level encoding, inner list is three-level
   //
   // optional group my_list (LIST) {
@@ -912,8 +973,7 @@ TEST_F(TestConvertParquetSchema, IllegalParquetNestedSchema) {
         GroupNode::Make("my_list", Repetition::OPTIONAL, {array}, ConvertedType::LIST));
 
     EXPECT_RAISES_WITH_MESSAGE_THAT(
-        Invalid,
-        testing::HasSubstr("LIST-annotated groups must have at least one child."),
+        Invalid, testing::HasSubstr("Group must have at least one child."),
         ConvertSchema(parquet_fields));
   }
 }
