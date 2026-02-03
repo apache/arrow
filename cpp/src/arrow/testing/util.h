@@ -142,4 +142,10 @@ ARROW_TESTING_EXPORT
 std::vector<int64_t> GetSupportedHardwareFlags(
     const std::vector<int64_t>& candidate_flags);
 
+// Creates a RecordBatch containing both sparse and dense union arrays with the same
+// union type definition. The union type has two fields: "u0" (int32) and "u1" (uint8)
+// with type codes 5 and 10 respectively. Both arrays have length 7.
+ARROW_TESTING_EXPORT
+Status MakeUnion(std::shared_ptr<RecordBatch>* out);
+
 }  // namespace arrow
