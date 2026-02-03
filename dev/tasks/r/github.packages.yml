@@ -81,7 +81,6 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           MACOSX_DEPLOYMENT_TARGET: "11.6"
-          ARROW_S3: ON
           ARROW_GCS: ON
           ARROW_DEPENDENCY_SOURCE: BUNDLED
           CMAKE_GENERATOR: Ninja
