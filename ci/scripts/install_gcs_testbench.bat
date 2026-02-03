@@ -24,8 +24,8 @@ set PIPX_FLAGS=--verbose
 python -m pip install -U pipx|| exit /B 1
 
 @REM Install GCS testbench %GCS_TESTBENCH_VERSION%
-python -m pipx install --fetch-missing-python --python 3.11 %PIPX_FLAGS% ^
+pipx install %PIPX_FLAGS% ^
         "https://github.com/googleapis/storage-testbench/archive/%GCS_TESTBENCH_VERSION%.tar.gz" ^
         || exit /B 1
 
-python -m pipx list --verbose
+pipx list --verbose
