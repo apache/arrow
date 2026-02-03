@@ -99,10 +99,6 @@ struct ARROW_EXPORT AzureOptions {
   /// Default: "https"
   std::string dfs_storage_scheme = "https";
 
-  // TODO(GH-38598): Add support for more auth methods.
-  // std::string connection_string;
-  // std::string sas_token;
-
   /// \brief Default metadata for OpenOutputStream.
   ///
   /// This will be ignored if non-empty metadata is passed to OpenOutputStream.
@@ -124,9 +120,14 @@ struct ARROW_EXPORT AzureOptions {
     kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
 
+  //   TODO(tomnewton): Make sure these are all populated accurately
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
   std::string sas_token_;
+  std::string account_key_;
+  std::string tenant_id_;
+  std::string client_id_;
+  std::string client_secret_;
   mutable std::shared_ptr<Azure::Core::Credentials::TokenCredential> token_credential_;
 
  public:
@@ -203,6 +204,12 @@ struct ARROW_EXPORT AzureOptions {
 
   std::string AccountBlobUrl(const std::string& account_name) const;
   std::string AccountDfsUrl(const std::string& account_name) const;
+
+  std::string SasToken() const { return sas_token_; }
+  std::string AccountKey() const { return storage_shared_key_credential_.GetAccountKey(); }
+  std::string TenantId() const { return tenant_id_; }
+  std::string ClientId() const { return client_id_; }
+  std::string ClientSecret() const { return client_secret_; }
 
   Result<std::unique_ptr<Azure::Storage::Blobs::BlobServiceClient>>
   MakeBlobServiceClient() const;
