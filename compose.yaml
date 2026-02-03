@@ -441,7 +441,7 @@ services:
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
-      # explicilty enable GCS when we build libarrow so that binary libarrow
+      # explicitly enable GCS when we build libarrow so that binary libarrow
       # users get more fully-featured builds
       ARROW_GCS: "ON"
     volumes: *ubuntu-volumes
