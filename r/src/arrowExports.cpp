@@ -1867,7 +1867,7 @@ extern "C" SEXP _arrow_dataset___FileWriteOptions__type_name(SEXP options_sexp){
 #endif
 
 // dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
+#if defined(ARROW_R_WITH_DATASET) && defined(ARROW_R_WITH_PARQUET)
 void dataset___ParquetFileWriteOptions__update(const std::shared_ptr<ds::ParquetFileWriteOptions>& options, const std::shared_ptr<parquet::WriterProperties>& writer_props, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_writer_props);
 extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_sexp, SEXP writer_props_sexp, SEXP arrow_writer_props_sexp){
 BEGIN_CPP11

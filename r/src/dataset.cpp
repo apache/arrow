@@ -27,7 +27,10 @@
 #include <arrow/table.h>
 #include <arrow/util/checked_cast.h>
 #include <arrow/util/iterator.h>
+
+#if defined(ARROW_R_WITH_PARQUET)
 #include <parquet/properties.h>
+#endif
 
 namespace ds = ::arrow::dataset;
 namespace fs = ::arrow::fs;
@@ -223,6 +226,7 @@ std::shared_ptr<ds::FileWriteOptions> dataset___FileFormat__DefaultWriteOptions(
   return fmt->DefaultWriteOptions();
 }
 
+#if defined(ARROW_R_WITH_PARQUET)
 // [[dataset::export]]
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
     const std::shared_ptr<ds::ParquetFragmentScanOptions>& options,
@@ -237,6 +241,7 @@ std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(
 
   return fmt;
 }
+#endif
 
 // [[dataset::export]]
 std::string dataset___FileWriteOptions__type_name(
@@ -339,6 +344,7 @@ std::shared_ptr<ds::JsonFragmentScanOptions> dataset___JsonFragmentScanOptions__
   return options;
 }
 
+#if defined(ARROW_R_WITH_PARQUET)
 // [[dataset::export]]
 std::shared_ptr<ds::ParquetFragmentScanOptions>
 dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size,
@@ -362,6 +368,7 @@ dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buf
       thrift_container_size_limit);
   return options;
 }
+#endif
 
 // DirectoryPartitioning, HivePartitioning
 
