@@ -110,9 +110,11 @@ RUN curl https://dl.min.io/server/minio/release/windows-amd64/archive/minio.RELE
     --output "C:\Windows\Minio.exe"
 
 # Install the GCS testbench using a well-known Python version.
+# NOTE: cannot use pipx's `--fetch-missing-python` because of
+# https://github.com/pypa/pipx/issues/1521, therefore download Python ourselves.
+RUN choco install -r -y --pre --no-progress python --version=3.11.9
 ENV PIPX_BIN_DIR=C:\\Windows\\
-ENV PIPX_PYTHON_VERSION=3.11
-RUN pymanager install %PIPX_PYTHON_VERSION%
+ENV PIPX_PYTHON="C:\Python311\python.exe"
 COPY ci/scripts/install_gcs_testbench.bat C:/arrow/ci/scripts/
 RUN call "C:\arrow\ci\scripts\install_gcs_testbench.bat" && `
     storage-testbench -h

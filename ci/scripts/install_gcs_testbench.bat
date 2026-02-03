@@ -20,12 +20,15 @@
 set GCS_TESTBENCH_VERSION="v0.55.0"
 
 set PIPX_FLAGS=--verbose
+if NOT "%PIPX_PYTHON%"=="" (
+  set PIPX_FLAGS=--python %PIPX_PYTHON% %PIPX_FLAGS%
+)
 
-py -%PIPX_PYTHON_VERSION% -m pip install -U pipx|| exit /B 1
+python -m pip install -U pipx || exit /B 1
 
 @REM Install GCS testbench %GCS_TESTBENCH_VERSION%
-py -%PIPX_PYTHON_VERSION% -m pipx install --python py %PIPX_FLAGS% ^
+pipx install %PIPX_FLAGS% ^
         "https://github.com/googleapis/storage-testbench/archive/%GCS_TESTBENCH_VERSION%.tar.gz" ^
         || exit /B 1
 
-py -%PIPX_PYTHON_VERSION% -m pipx list --verbose
+pipx list --verbose
