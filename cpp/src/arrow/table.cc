@@ -268,10 +268,9 @@ Result<std::shared_ptr<Table>> Table::Make(std::shared_ptr<Schema> schema,
     return Status::Invalid("Schema and columns have different number of fields: ",
                            schema->num_fields(), " vs ", columns.size());
   }
-  for (const auto& column : columns) {
-    if (column == nullptr) {
-      return Status::Invalid("Column should not be null");
-    }
+  if (std::any_of(columns.begin(), columns.end(),
+                  [](const auto& column) { return !column; })) {
+    return Status::Invalid("Column should not be null");
   }
   return std::make_shared<SimpleTable>(std::move(schema), std::move(columns), num_rows);
 }
@@ -283,10 +282,9 @@ Result<std::shared_ptr<Table>> Table::Make(std::shared_ptr<Schema> schema,
     return Status::Invalid("Schema and arrays have different number of fields: ",
                            schema->num_fields(), " vs ", arrays.size());
   }
-  for (const auto& array : arrays) {
-    if (array == nullptr) {
-      return Status::Invalid("Array should not be null");
-    }
+  if (std::any_of(arrays.begin(), arrays.end(),
+                  [](const auto& array) { return !array; })) {
+    return Status::Invalid("Array should not be null");
   }
   return std::make_shared<SimpleTable>(std::move(schema), arrays, num_rows);
 }
