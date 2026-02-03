@@ -141,6 +141,10 @@ TEST(StringConversion, ToFloat) {
   AssertConversion<FloatType>("0", 0.0f);
   AssertConversion<FloatType>("-0.0", -0.0f);
   AssertConversion<FloatType>("-1e20", -1e20f);
+  AssertConversion<FloatType>("4e38", std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("-4e38", -std::numeric_limits<float>::infinity());
+  AssertConversion<FloatType>("1e-46", 0.0f);
+  AssertConversion<FloatType>("-1e-46", -0.0f);
   AssertConversion<FloatType>("+Infinity", std::numeric_limits<float>::infinity());
   AssertConversion<FloatType>("-Infinity", -std::numeric_limits<float>::infinity());
   AssertConversion<FloatType>("Infinity", std::numeric_limits<float>::infinity());
@@ -166,6 +170,10 @@ TEST(StringConversion, ToDouble) {
   AssertConversion<DoubleType>("0", 0);
   AssertConversion<DoubleType>("-0.0", -0.0);
   AssertConversion<DoubleType>("-1e100", -1e100);
+  AssertConversion<DoubleType>("2e308", std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("-2e308", -std::numeric_limits<double>::infinity());
+  AssertConversion<DoubleType>("1e-325", 0.0);
+  AssertConversion<DoubleType>("-1e-325", -0.0);
   AssertConversion<DoubleType>("+Infinity", std::numeric_limits<double>::infinity());
   AssertConversion<DoubleType>("-Infinity", -std::numeric_limits<double>::infinity());
   AssertConversion<DoubleType>("Infinity", std::numeric_limits<double>::infinity());
@@ -185,6 +193,10 @@ TEST(StringConversion, ToHalfFloat) {
   AssertConversion<HalfFloatType>("0", Float16(0.0f));
   AssertConversion<HalfFloatType>("-0.0", Float16(-0.0f));
   AssertConversion<HalfFloatType>("-1e15", Float16(-1e15));
+  AssertConversion<HalfFloatType>("7e4", Float16::FromBits(0x7c00));
+  AssertConversion<HalfFloatType>("-7e4", Float16::FromBits(0xfc00));
+  AssertConversion<HalfFloatType>("1e-9", Float16(0.0f));
+  AssertConversion<HalfFloatType>("-1e-9", Float16(-0.0f));
   AssertConversion<HalfFloatType>("+Infinity", Float16::FromBits(0x7c00));
   AssertConversion<HalfFloatType>("-Infinity", Float16::FromBits(0xfc00));
   AssertConversion<HalfFloatType>("Infinity", Float16::FromBits(0x7c00));
