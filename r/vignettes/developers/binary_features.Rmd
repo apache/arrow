@@ -7,7 +7,10 @@ output: rmarkdown::html_vignette
 
 This document explains which C++ features are enabled in different Arrow R
 package build configurations, and documents the decisions behind our default
-feature set.
+feature set. This is intended as internal developer documentation for understanding
+which features are enabled in which builds. It is not intended to be a guide for
+installing the Arrow R package; for that, see the
+[installation guide](../../install.html).
 
 ## Overview
 
@@ -20,13 +23,40 @@ When the Arrow R package is installed, it needs a copy of the Arrow C++ library
 The features available in libarrow depend on how it was built. This document
 covers the feature configuration for both scenarios.
 
-## Feature configuration in source builds
+## Prebuilt libarrow binary configuration
+
+We produce prebuilt libarrow binaries for macOS, Windows, and Linux. These
+binaries include **more features** than the default source build to provide
+users with a fully-featured experience out of the box.
+
+### Current binary feature set
+
+| Platform | S3 | GCS | Configured in |
+|----------|----|----|---------------|
+| macOS (ARM64, x86_64) | ON | ON | `dev/tasks/r/github.packages.yml` |
+| Windows | ON | ON | `ci/scripts/PKGBUILD` |
+| Linux (x86_64) | ON | ON | `compose.yaml` (`ubuntu-cpp-static`) |
+
+### Exceptions to our build defaults
+
+Even though GCS defaults to OFF for source builds, we explicitly enable it in
+our prebuilt binaries because:
+
+1. **Binary users expect features to "just work"** - they shouldn't need to
+   rebuild from source to access cloud storage
+2. **Build time is not a concern** - we build binaries once in CI, not on
+   user machines
+3. **Parity across platforms** - users get the same features regardless of OS
+
+
+## Feature configuration in source builds of libarrow
 
 Source builds are controlled by `r/inst/build_arrow_static.sh`. The key
 environment variable is `LIBARROW_MINIMAL`:
 
-- `LIBARROW_MINIMAL=true` (or unset): Minimal feature set
-- `LIBARROW_MINIMAL=false`: Full feature set
+- `LIBARROW_MINIMAL` unset: Default feature set (Parquet, Dataset, JSON, common compression ON; S3/GCS/jemalloc OFF)
+- `LIBARROW_MINIMAL=false`: Full feature set (adds S3, jemalloc, additional compression)
+- `LIBARROW_MINIMAL=true`: Truly minimal (disables Parquet, Dataset, JSON, most compression, SIMD)
 
 ### Features always enabled
 
@@ -79,60 +109,19 @@ GCS was turned off by default in [#48343](https://github.com/apache/arrow/pull/4
 
 1. Building google-cloud-cpp is fragile and adds significant build time
 2. The dependency on abseil (ABSL) has caused compatibility issues
-3. Usage telemetry suggested low adoption compared to S3
-4. Users who need GCS can still enable it explicitly
-
-## Prebuilt binary configuration
-
-We produce prebuilt libarrow binaries for macOS, Windows, and Linux. These
-binaries include **more features** than the default source build to provide
-users with a fully-featured experience out of the box.
-
-### Current binary feature set
-
-| Platform | S3 | GCS | Configured in |
-|----------|----|----|---------------|
-| macOS (ARM64, x86_64) | ON | ON | `dev/tasks/r/github.packages.yml` |
-| Windows | ON | ON | `ci/scripts/PKGBUILD` |
-| Linux (x86_64) | ON | ON | `compose.yaml` (`ubuntu-cpp-static`) |
-
-### Why binaries have GCS enabled
-
-Even though GCS defaults to OFF for source builds, we explicitly enable it in
-our prebuilt binaries because:
-
-1. **Binary users expect features to "just work"** - they shouldn't need to
-   rebuild from source to access cloud storage
-2. **Build time is not a concern** - we build binaries once in CI, not on
-   user machines
-3. **Parity across platforms** - users get the same features regardless of OS
+3. Users who need GCS can still enable it explicitly
 
 ## Configuration file locations
 
-### Source build configuration
+### libarrow source build configuration
 
 The main build script that controls source builds:
 
-- **`r/inst/build_arrow_static.sh`** - CMake flags and defaults
-  ([view source](https://github.com/apache/arrow/blob/main/r/inst/build_arrow_static.sh))
+**`r/inst/build_arrow_static.sh`** - CMake flags and defaults 
+([view source](https://github.com/apache/arrow/blob/main/r/inst/build_arrow_static.sh))
+the environment variables to look for are `LIBARROW_MINIMAL`, `ARROW_*`, and, `ARROW_DEFAULT_PARAM`
 
-Key lines:
-```bash
-# Line 52-56: LIBARROW_MINIMAL controls ARROW_DEFAULT_PARAM
-if [ "$LIBARROW_MINIMAL" = "false" ]; then
-  ARROW_DEFAULT_PARAM="ON"
-else
-  ARROW_DEFAULT_PARAM="OFF"
-fi
-
-# Line 81: GCS is always OFF by default (not tied to LIBARROW_MINIMAL)
--DARROW_GCS=${ARROW_GCS:-OFF}
-
-# Line 86: S3 follows LIBARROW_MINIMAL
--DARROW_S3=${ARROW_S3:-$ARROW_DEFAULT_PARAM}
-```
-
-### Binary build configuration
+### libarrow binary build configuration
 
 Each platform has its own configuration file:
 
@@ -153,6 +142,7 @@ platform and architecture:
 | macOS | ARM64 | Downloads prebuilt binary | Full (S3 + GCS) |
 | macOS | x86_64 | Downloads prebuilt binary | Full (S3 + GCS) |
 | Windows | x86_64 | Downloads prebuilt binary | Full (S3 + GCS) |
+| Windows | ARM64 | Not supported | NA |
 | Linux | x86_64 | Downloads prebuilt binary | Full (S3 + GCS) |
 | Linux | ARM64 | Builds from source | S3 only (no GCS) |
 
