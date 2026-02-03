@@ -416,14 +416,10 @@ bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
   }
 
   for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i) {
-    if (!indices()[i]->Equals(*other.indices()[i])) {
-      return false;
-    }
+    if (!indices()[i]->Equals(*other.indices()[i])) return false;
   }
   for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i) {
-    if (!indptr()[i]->Equals(*other.indptr()[i])) {
-      return false;
-    }
+    if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
   }
   return axis_order() == other.axis_order();
 }
