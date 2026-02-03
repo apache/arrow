@@ -4,6 +4,7 @@ If this is your first pull request you can find detailed information on how to c
 
   * [New Contributor's Guide](https://arrow.apache.org/docs/dev/developers/guide/step_by_step/pr_lifecycle.html#reviews-and-merge-of-the-pull-request)
   * [Contributing Overview](https://arrow.apache.org/docs/dev/developers/overview.html)
+  * [AI-generated Code Guidance](https://arrow.apache.org/docs/dev/developers/overview.html#AI-generated-code)
 
 Please remove this line and the above text before creating your pull request.
 
