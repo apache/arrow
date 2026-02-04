@@ -407,8 +407,8 @@ std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFInde
 bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
   auto eq = [](const auto& a, const auto& b) { return a->Equals(*b); };
   return axis_order() == other.axis_order() &&
-      std::ranges::equal(indices(), other.indices(), eq) &&
-      std::ranges::equal(indptr(), other.indptr(), eq);
+         std::ranges::equal(indices(), other.indices(), eq) &&
+         std::ranges::equal(indptr(), other.indptr(), eq);
 }
 
 // ----------------------------------------------------------------------
