@@ -612,6 +612,14 @@ def test_compression_level():
                          compression_level=level)
 
 
+def test_lz4_raw_compression_alias():
+    # GH-41863: lz4_raw should be accepted as a compression name alias
+    arr = pa.array(list(map(int, range(1000))))
+    table = pa.Table.from_arrays([arr, arr], names=['a', 'b'])
+    _check_roundtrip(table, expected=table, compression="lz4_raw")
+    _check_roundtrip(table, expected=table, compression="LZ4_RAW")
+
+
 def test_sanitized_spark_field_names():
     a0 = pa.array([0, 1, 2, 3, 4])
     name = 'prohib; ,\t{}'
