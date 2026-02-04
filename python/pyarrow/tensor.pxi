@@ -1181,16 +1181,14 @@ shape: {self.shape}"""
 
 cdef class SparseCSFTensor(_Weakrefable):
     """
-    A sparse CSF (Compressed Sparse Fiber) tensor.
+    A sparse CSF tensor.
 
-    CSF is a generalization of compressed sparse row (CSR) index for
-    multi-dimensional tensors. CSF index recursively compresses each
-    dimension of a tensor into a set of prefix trees. Each path from
-    a root to leaf forms one tensor non-zero index. CSF is implemented
-    with two arrays of buffers and one arrays of integers.
+    CSF is a generalization of compressed sparse row (CSR) index.
 
-    This format is particularly efficient for high-dimensional sparse tensors
-    where multiple dimensions have sparsity.
+    CSF index recursively compresses each dimension of a tensor into a set
+    of prefix trees. Each path from a root to leaf forms one tensor
+    non-zero index. CSF is implemented with two arrays of buffers and one
+    arrays of integers.
 
     Examples
     --------
