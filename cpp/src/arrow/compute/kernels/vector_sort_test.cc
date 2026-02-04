@@ -437,6 +437,27 @@ TEST(ArraySortIndicesFunction, AllNullDictionaryArray) {
   }
 }
 
+TEST(ArraySortIndicesFunction, NullTypeDictionaryArray) {
+  // Test that dictionaries with Type::NA (null type) values can be sorted.
+  // All values in a null-type dictionary are logically null, so sorting
+  // should just arrange indices based on null placement, preserving order.
+  for (const auto& index_type : all_dictionary_index_types()) {
+    ARROW_SCOPED_TRACE("index_type = ", index_type->ToString());
+    auto dict_type = dictionary(index_type, null());
+    auto dict_arr = DictArrayFromJSON(dict_type, "[null, 0, 0, null]", "[null]");
+
+    for (auto null_placement : AllNullPlacements()) {
+      ArraySortOptions options{SortOrder::Ascending, null_placement};
+      // All nulls, so output should be identity permutation
+      auto expected = ArrayFromJSON(uint64(), "[0, 1, 2, 3]");
+      ASSERT_OK_AND_ASSIGN(auto actual,
+                           CallFunction("array_sort_indices", {dict_arr}, &options));
+      ValidateOutput(actual);
+      AssertDatumsEqual(expected, actual, /*verbose=*/true);
+    }
+  }
+}
+
 Result<std::shared_ptr<Array>> DecodeDictionary(const Array& array) {
   const auto& dict_array = checked_cast<const DictionaryArray&>(array);
   ARROW_ASSIGN_OR_RAISE(auto decoded_datum,

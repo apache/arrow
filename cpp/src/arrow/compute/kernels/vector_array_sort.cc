@@ -235,7 +235,6 @@ class ArrayCompareSorter<DictionaryType> {
     RankOptions rank_options(SortOrder::Ascending, NullPlacement::AtEnd,
                              RankOptions::Dense);
 
-    // XXX Should this support Type::NA?
     auto data = array->data();
     std::shared_ptr<Buffer> null_bitmap;
     if (array->null_count() > 0) {
