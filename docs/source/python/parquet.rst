@@ -437,6 +437,9 @@ also supported:
 Snappy generally results in better performance, while Gzip may yield smaller
 files.
 
+``'lz4_raw'`` is also accepted as an alias for ``'lz4'``. Both use the
+LZ4_RAW codec as defined in the Parquet specification.
+
 These settings can also be set on a per-column basis:
 
 .. code-block:: python
