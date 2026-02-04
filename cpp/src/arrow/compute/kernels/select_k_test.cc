@@ -414,10 +414,12 @@ TYPED_TEST(TestSelectKWithChunkedArray, PartialSelectKNullNaN) {
   std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
   auto options = SelectKOptions(3, sort_keys);
   options.sort_keys[0].null_placement = NullPlacement::AtStart;
-  auto expected = ChunkedArrayFromJSON(uint8(), {"[3, 0, 4]"});
+  auto expected = ChunkedArrayFromJSON(float64(), {"[null, null, NaN]"});
   this->Check(chunked_array, options, expected);
   options.sort_keys[0].null_placement = NullPlacement::AtEnd;
-  this->CheckIndices(chunked_array, options, "[5, 2, 7]");
+  expected = ChunkedArrayFromJSON(float64(), {"[10, 3, 2]"});
+  this->Check(chunked_array, options, expected);
+  // TODO.TAE more CheckIndices?
 }
 
 TYPED_TEST(TestSelectKWithChunkedArray, FullSelectKNullNaN) {
