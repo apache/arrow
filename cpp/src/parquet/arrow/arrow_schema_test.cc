@@ -25,7 +25,6 @@
 #include "parquet/arrow/reader.h"
 #include "parquet/arrow/reader_internal.h"
 #include "parquet/arrow/schema.h"
-#include "parquet/arrow/variant_internal.h"
 #include "parquet/file_reader.h"
 #include "parquet/schema.h"
 #include "parquet/schema_internal.h"
@@ -34,6 +33,7 @@
 
 #include "arrow/array.h"
 #include "arrow/extension/json.h"
+#include "arrow/extension/parquet_variant.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/testing/extension_type.h"
@@ -950,7 +950,7 @@ TEST_F(TestConvertParquetSchema, ParquetVariant) {
   auto arrow_metadata = ::arrow::field("metadata", ::arrow::binary(), /*nullable=*/false);
   auto arrow_value = ::arrow::field("value", ::arrow::binary(), /*nullable=*/false);
   auto arrow_variant = ::arrow::struct_({arrow_metadata, arrow_value});
-  auto variant_extension = std::make_shared<VariantExtensionType>(arrow_variant);
+  auto variant_extension = ::arrow::extension::variant(arrow_variant);
 
   {
     // Parquet file does not contain Arrow schema.

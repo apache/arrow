@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/arrow/variant_internal.h"
+#include "arrow/extension/parquet_variant.h"
 
 #include <string>
 
@@ -25,7 +25,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/logging_internal.h"
 
-namespace parquet::arrow {
+namespace arrow::extension {
 
 using ::arrow::Array;
 using ::arrow::ArrayData;
@@ -130,4 +130,4 @@ std::shared_ptr<DataType> variant(std::shared_ptr<DataType> storage_type) {
   return VariantExtensionType::Make(std::move(storage_type)).ValueOrDie();
 }
 
-}  // namespace parquet::arrow
+}  // namespace arrow::extension

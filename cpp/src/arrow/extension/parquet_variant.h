@@ -17,13 +17,12 @@
 
 #pragma once
 
-#include <stdexcept>
 #include <string>
 
 #include "arrow/extension_type.h"
 #include "parquet/platform.h"
 
-namespace parquet::arrow {
+namespace arrow::extension {
 
 class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
  public:
@@ -83,4 +82,4 @@ class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
 PARQUET_EXPORT std::shared_ptr<::arrow::DataType> variant(
     std::shared_ptr<::arrow::DataType> storage_type);
 
-}  // namespace parquet::arrow
+}  // namespace arrow::extension
