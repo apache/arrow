@@ -157,6 +157,7 @@ jobs:
     env:
       ARROW_HOME: /tmp/local
       ARROW_AZURE: ON
+      ARROW_CMAKE_ARGS: -DPARQUET_BUILD_DBPS_LIBS=OFF
       ARROW_DATASET: ON
       ARROW_FLIGHT: ON
       ARROW_GANDIVA: ON
@@ -241,6 +242,9 @@ jobs:
           ci/scripts/python_build.sh $(pwd) $(pwd)/build
       - name: Test
         shell: bash
+        env:
+            # Boost problems in this env prevent the DBPS library from being built.
+            PYTEST_ARGS: -k not(test_external_encryption)
         run: ci/scripts/python_test.sh $(pwd) $(pwd)/build
 
   windows:
