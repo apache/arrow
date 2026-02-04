@@ -643,14 +643,11 @@ def test_filesystem_pickling(wrap_with_in_subtree_fs, fs, pickle_module):
 
     if wrap_with_in_subtree_fs:
         fs = SubTreeFileSystem('/', fs)
-        print(fs.base_fs.__reduce__())
 
     serialized = pickle_module.dumps(fs)
     restored = pickle_module.loads(serialized)
     assert isinstance(restored, FileSystem)
     assert restored.equals(fs)
-    print(fs.base_fs.__reduce__())
-    assert False
 
 
 def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_module):
