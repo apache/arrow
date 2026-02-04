@@ -462,7 +462,7 @@ jobs:
     needs: odbc
     name: ODBC nightly
     runs-on: ubuntu-latest
-    if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
+    # if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
     steps:
       - name: Download the artifacts
         uses: actions/download-artifact@v7
