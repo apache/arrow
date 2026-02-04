@@ -957,6 +957,8 @@ class SortIndicesMetaFunction : public MetaFunction {
                        chunked_array->length());
   }
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
@@ -965,13 +967,17 @@ class SortIndicesMetaFunction : public MetaFunction {
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
+    // TODO.TAE this member is deprecated. Is there a way to implement it without it?
     if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
     ArraySortOptions array_options(order, null_placement);
     return CallFunction("array_sort_indices", {values}, &array_options, ctx);
   }
+#pragma clang diagnostic pop
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   Result<Datum> SortIndices(const ChunkedArray& chunked_array, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
@@ -980,6 +986,8 @@ class SortIndicesMetaFunction : public MetaFunction {
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
+    // TODO.TAE this member is deprecated. Is there a way to implement it without it?
+    //          Ah the method is only private??
     if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
@@ -1000,6 +1008,7 @@ class SortIndicesMetaFunction : public MetaFunction {
         SortChunkedArray(ctx, out_begin, out_end, chunked_array, order, null_placement));
     return Datum(out);
   }
+#pragma clang diagnostic pop
 
   Result<Datum> SortIndices(const RecordBatch& batch, const SortOptions& options,
                             ExecContext* ctx) const {

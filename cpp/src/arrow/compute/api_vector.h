@@ -114,12 +114,14 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Note: Both classes contain the exact same information.  However,
   /// sort_options should only be used in a "function options" context while Ordering
   /// is used more generally.
-  Ordering AsOrdering() && { return Ordering(std::move(sort_keys), null_placement); }
-  Ordering AsOrdering() const& { return Ordering(sort_keys, null_placement); }
+  Ordering AsOrdering() && { return {std::move(sort_keys)}; }
+  Ordering AsOrdering() const& { return {sort_keys}; }
 
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
@@ -132,11 +134,12 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
     }
     return overwritten_sort_keys;
   }
+#pragma clang diagnostic pop
 
-  // DEPRECATED(set null_placement in sort_keys instead)
+  // DEPRECATED(Deprecated in arrow 24.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  std::optional<NullPlacement> null_placement;
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead") std::optional<NullPlacement> null_placement;
 };
 
 /// \brief SelectK options

@@ -242,11 +242,9 @@ class TestSelectKWithArray : public ::testing::Test {
                     const SelectKOptions& options, const std::string& expected_json) {
     auto array = ArrayFromJSON(type, array_json);
     auto expected = ArrayFromJSON(uint64(), expected_json);
-    auto indices = SelectKUnstable(Datum(*array), options);
-    ASSERT_OK(indices);
-    auto actual = indices.MoveValueUnsafe();
-    ValidateOutput(*actual);
-    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+    ASSERT_OK_AND_ASSIGN(auto indices,  SelectKUnstable(Datum(*array), options));
+    ValidateOutput(*indices);
+    AssertArraysEqual(*expected, *indices, /*verbose=*/true);
   }
 
   Status DoSelectK(const std::shared_ptr<DataType>& type, const std::string& array_json,
@@ -416,7 +414,8 @@ TYPED_TEST(TestSelectKWithChunkedArray, PartialSelectKNullNaN) {
   std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
   auto options = SelectKOptions(3, sort_keys);
   options.sort_keys[0].null_placement = NullPlacement::AtStart;
-  this->CheckIndices(chunked_array, options, "[3, 0, 4]");
+  auto expected = ChunkedArrayFromJSON(uint8(), {"[3, 0, 4]"});
+  this->Check(chunked_array, options, expected);
   options.sort_keys[0].null_placement = NullPlacement::AtEnd;
   this->CheckIndices(chunked_array, options, "[5, 2, 7]");
 }
