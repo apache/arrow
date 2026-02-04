@@ -334,23 +334,27 @@ Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_ke
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
+  account_key_ = account_key;
   storage_shared_key_credential_ =
       std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureSASCredential(const std::string& sas_token) {
-  credential_kind_ = CredentialKind::kSASToken;
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   sas_token_ = sas_token;
+  credential_kind_ = CredentialKind::kSASToken;
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_id,
                                                      const std::string& client_id,
                                                      const std::string& client_secret) {
+  tenant_id_ = tenant_id;
+  client_id_ = client_id;
+  client_secret_ = client_secret;
   credential_kind_ = CredentialKind::kClientSecret;
   token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
       tenant_id, client_id, client_secret);
@@ -358,6 +362,7 @@ Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_i
 }
 
 Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& client_id) {
+  client_id_ = client_id;
   credential_kind_ = CredentialKind::kManagedIdentity;
   token_credential_ =
       std::make_shared<Azure::Identity::ManagedIdentityCredential>(client_id);
