@@ -21,12 +21,12 @@
 
 jobs:
   r-versions:
-    name: "rstudio/r-base:{{ MATRIX }}-jammy"
+    name: "posit/r-base:{{ MATRIX }}-jammy"
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        # See https://hub.docker.com/r/rstudio/r-base
+        # See https://hub.docker.com/r/posit/r-base
         r_version:
           # We test devel, release, and oldrel in regular CI.
           # This is for older versions
