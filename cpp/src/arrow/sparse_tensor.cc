@@ -405,13 +405,10 @@ SparseCSFIndex::SparseCSFIndex(const std::vector<std::shared_ptr<Tensor>>& indpt
 std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFIndex"); }
 
 bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
-  for (int64_t i = 0; i < static_cast<int64_t>(indices().size()); ++i) {
-    if (!indices()[i]->Equals(*other.indices()[i])) return false;
-  }
-  for (int64_t i = 0; i < static_cast<int64_t>(indptr().size()); ++i) {
-    if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
-  }
-  return axis_order() == other.axis_order();
+  auto eq = [](const auto& a, const auto& b) { return a->Equals(*b); };
+  return axis_order() == other.axis_order() &&
+         std::ranges::equal(indices(), other.indices(), eq) &&
+         std::ranges::equal(indptr(), other.indptr(), eq);
 }
 
 // ----------------------------------------------------------------------
