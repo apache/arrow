@@ -20,13 +20,13 @@
 #include <string>
 
 #include "arrow/extension_type.h"
-#include "parquet/platform.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow::extension {
 
-class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
+class ARROW_EXPORT VariantArray : public ExtensionArray {
  public:
-  using ::arrow::ExtensionArray::ExtensionArray;
+  using ExtensionArray::ExtensionArray;
 };
 
 /// EXPERIMENTAL: Variant is not yet fully supported.
@@ -45,41 +45,37 @@ class PARQUET_EXPORT VariantArray : public ::arrow::ExtensionArray {
 ///
 /// To read more about variant shredding, see the variant shredding spec at
 /// https://github.com/apache/parquet-format/blob/master/VariantShredding.md
-class PARQUET_EXPORT VariantExtensionType : public ::arrow::ExtensionType {
+class ARROW_EXPORT VariantExtensionType : public ExtensionType {
  public:
-  explicit VariantExtensionType(const std::shared_ptr<::arrow::DataType>& storage_type);
+  explicit VariantExtensionType(const std::shared_ptr<DataType>& storage_type);
 
   std::string extension_name() const override { return "arrow.parquet.variant"; }
 
-  bool ExtensionEquals(const ::arrow::ExtensionType& other) const override;
+  bool ExtensionEquals(const ExtensionType& other) const override;
 
-  ::arrow::Result<std::shared_ptr<::arrow::DataType>> Deserialize(
-      std::shared_ptr<::arrow::DataType> storage_type,
+  Result<std::shared_ptr<DataType>> Deserialize(
+      std::shared_ptr<DataType> storage_type,
       const std::string& serialized_data) const override;
 
   std::string Serialize() const override;
 
-  std::shared_ptr<::arrow::Array> MakeArray(
-      std::shared_ptr<::arrow::ArrayData> data) const override;
+  std::shared_ptr<Array> MakeArray(std::shared_ptr<ArrayData> data) const override;
 
-  static ::arrow::Result<std::shared_ptr<::arrow::DataType>> Make(
-      std::shared_ptr<::arrow::DataType> storage_type);
+  static Result<std::shared_ptr<DataType>> Make(std::shared_ptr<DataType> storage_type);
 
-  static bool IsSupportedStorageType(
-      const std::shared_ptr<::arrow::DataType>& storage_type);
+  static bool IsSupportedStorageType(const std::shared_ptr<DataType>& storage_type);
 
-  std::shared_ptr<::arrow::Field> metadata() const { return metadata_; }
+  std::shared_ptr<Field> metadata() const { return metadata_; }
 
-  std::shared_ptr<::arrow::Field> value() const { return value_; }
+  std::shared_ptr<Field> value() const { return value_; }
 
  private:
   // TODO GH-45948 added shredded_value
-  std::shared_ptr<::arrow::Field> metadata_;
-  std::shared_ptr<::arrow::Field> value_;
+  std::shared_ptr<Field> metadata_;
+  std::shared_ptr<Field> value_;
 };
 
 /// \brief Return a VariantExtensionType instance.
-PARQUET_EXPORT std::shared_ptr<::arrow::DataType> variant(
-    std::shared_ptr<::arrow::DataType> storage_type);
+ARROW_EXPORT std::shared_ptr<DataType> variant(std::shared_ptr<DataType> storage_type);
 
 }  // namespace arrow::extension

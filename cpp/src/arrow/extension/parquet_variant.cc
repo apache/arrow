@@ -22,21 +22,12 @@
 #include "arrow/extension_type.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
-#include "arrow/type_fwd.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow::extension {
 
-using ::arrow::Array;
-using ::arrow::ArrayData;
-using ::arrow::DataType;
-using ::arrow::ExtensionType;
-using ::arrow::Result;
-using ::arrow::Type;
-
-VariantExtensionType::VariantExtensionType(
-    const std::shared_ptr<::arrow::DataType>& storage_type)
-    : ::arrow::ExtensionType(storage_type) {
+VariantExtensionType::VariantExtensionType(const std::shared_ptr<DataType>& storage_type)
+    : ExtensionType(storage_type) {
   // GH-45948: Shredded variants will need to handle an optional shredded_value as
   // well as value_ becoming optional.
 
@@ -67,13 +58,12 @@ std::shared_ptr<Array> VariantExtensionType::MakeArray(
     std::shared_ptr<ArrayData> data) const {
   DCHECK_EQ(data->type->id(), Type::EXTENSION);
   DCHECK_EQ("arrow.parquet.variant",
-            ::arrow::internal::checked_cast<const ExtensionType&>(*data->type)
-                .extension_name());
+            internal::checked_cast<const ExtensionType&>(*data->type).extension_name());
   return std::make_shared<VariantArray>(data);
 }
 
 namespace {
-bool IsBinaryField(const std::shared_ptr<::arrow::Field> field) {
+bool IsBinaryField(const std::shared_ptr<Field> field) {
   return field->type()->storage_id() == Type::BINARY ||
          field->type()->storage_id() == Type::LARGE_BINARY;
 }
@@ -116,8 +106,8 @@ bool VariantExtensionType::IsSupportedStorageType(
 Result<std::shared_ptr<DataType>> VariantExtensionType::Make(
     std::shared_ptr<DataType> storage_type) {
   if (!IsSupportedStorageType(storage_type)) {
-    return ::arrow::Status::Invalid("Invalid storage type for VariantExtensionType: ",
-                                    storage_type->ToString());
+    return Status::Invalid("Invalid storage type for VariantExtensionType: ",
+                           storage_type->ToString());
   }
 
   return std::make_shared<VariantExtensionType>(std::move(storage_type));
