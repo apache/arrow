@@ -123,8 +123,8 @@ struct ARROW_EXPORT AzureOptions {
   //   TODO(tomnewton): Make sure these are all populated accurately
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
-  std::string sas_token_;
   std::string account_key_;
+  std::string sas_token_;
   std::string tenant_id_;
   std::string client_id_;
   std::string client_secret_;
@@ -205,8 +205,8 @@ struct ARROW_EXPORT AzureOptions {
   std::string AccountBlobUrl(const std::string& account_name) const;
   std::string AccountDfsUrl(const std::string& account_name) const;
 
+  std::string AccountKey() const { return account_key_; }
   std::string SasToken() const { return sas_token_; }
-  std::string AccountKey() const { return storage_shared_key_credential_.GetAccountKey(); }
   std::string TenantId() const { return tenant_id_; }
   std::string ClientId() const { return client_id_; }
   std::string ClientSecret() const { return client_secret_; }
