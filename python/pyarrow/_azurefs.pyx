@@ -128,14 +128,10 @@ cdef class AzureFileSystem(FileSystem):
                 raise ValueError("client_id must be specified")
             if not tenant_id and not client_secret:
                 options.ConfigureManagedIdentityCredential(tobytes(client_id))
-                self.client_id = tobytes(client_id)
             elif tenant_id and client_secret:
                 options.ConfigureClientSecretCredential(
                     tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
                 )
-                self.tenant_id = tobytes(tenant_id)
-                self.client_id = tobytes(client_id)
-                self.client_secret = tobytes(client_secret)
             else:
                 raise ValueError(
                     "Invalid Azure credential configuration: "
@@ -144,7 +140,6 @@ cdef class AzureFileSystem(FileSystem):
                 )
         elif account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
-            self.account_key = tobytes(account_key)
         elif sas_token:
             options.ConfigureSASCredential(tobytes(sas_token))
         else:
