@@ -104,8 +104,12 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
 
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
-  explicit SortOptions(std::vector<SortKey> sort_keys = {},
-                       std::optional<NullPlacement> null_placement = std::nullopt);
+  explicit SortOptions(std::vector<SortKey> sort_keys = {});
+
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  explicit SortOptions(std::vector<SortKey> sort_keys,
+                       std::optional<NullPlacement> null_placement);
+
   explicit SortOptions(const Ordering& ordering);
   static constexpr const char kTypeName[] = "SortOptions";
   static SortOptions Defaults() { return SortOptions(); }
@@ -120,8 +124,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
   std::vector<SortKey> GetSortKeys() const {
@@ -134,7 +137,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
     }
     return overwritten_sort_keys;
   }
-#pragma clang diagnostic pop
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
   // DEPRECATED(Deprecated in arrow 24.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end

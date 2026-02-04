@@ -195,6 +195,11 @@ ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement
       null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
+SortOptions::SortOptions(std::vector<SortKey> sort_keys)
+    : FunctionOptions(internal::kSortOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(std::nullopt) {}
+
 SortOptions::SortOptions(std::vector<SortKey> sort_keys,
                          std::optional<NullPlacement> null_placement)
     : FunctionOptions(internal::kSortOptionsType),
