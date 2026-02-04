@@ -462,7 +462,7 @@ jobs:
     needs: odbc
     name: ODBC nightly
     runs-on: ubuntu-latest
-    # if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
+    if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
     steps:
       - name: Download the artifacts
         uses: actions/download-artifact@v7
@@ -473,7 +473,7 @@ jobs:
           mkdir odbc-installer
           mv *.msi odbc-installer/
 
-          # Add date to ODBC MSI
+          # Add `dev-yyyy-mm-dd` to ODBC MSI before `win64.msi`
           cd odbc-installer
           msi_name=$(ls *.msi)
           echo $msi_name
