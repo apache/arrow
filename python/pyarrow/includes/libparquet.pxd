@@ -422,6 +422,9 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         void set_buffer_size(int64_t buf_size)
         int64_t buffer_size() const
 
+        void set_max_page_header_size(uint32_t size)
+        uint32_t max_page_header_size() const
+
         void set_thrift_string_size_limit(int32_t size)
         int32_t thrift_string_size_limit() const
 
