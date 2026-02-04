@@ -104,7 +104,7 @@ class HeapSorter {
     int64_t null_count = p.null_count();
     // non-null nan null
     if (null_placement_ == NullPlacement::AtEnd) {
-      extract_non_null_count = non_null_count <= k_ ? non_null_count : k_;
+      extract_non_null_count = std::min(non_null_count, k_);
       extract_nan_count = extract_non_null_count >= k_
                               ? 0
                               : std::min(nan_count, k_ - extract_non_null_count);
@@ -129,7 +129,7 @@ class HeapSorter {
     int64_t out_size = counter.extract_non_null_count + counter.extract_nan_count +
                        counter.extract_null_count;
     ARROW_ASSIGN_OR_RAISE(auto take_indices, MakeMutableUInt64Array(out_size, pool_));
-    // [extrat_count....extract_nan_count...extract_null_count]
+    // [extract_count....extract_nan_count...extract_null_count]
     if (null_placement_ == NullPlacement::AtEnd) {
       if (counter.extract_non_null_count) {
         auto* out_cbegin = take_indices->template GetMutableValues<uint64_t>(1) +
@@ -183,8 +183,8 @@ class HeapSorter {
   }
 
  private:
-  int64_t k_;
-  NullPlacement null_placement_;
+  const int64_t k_;
+  const NullPlacement null_placement_;
   MemoryPool* pool_;
 };
 
@@ -292,20 +292,20 @@ class ChunkedHeapSorter {
       : k_(k), null_placement_(null_placement), pool_(pool) {}
 
   Result<std::shared_ptr<ArrayData>> HeapSort(const ArrayVector physical_chunks) {
-    std::vector<std::pair<NullPartitionResult, NullPartitionResult>> chunks_null_partions;
+    std::vector<std::pair<NullPartitionResult, NullPartitionResult>> chunks_null_partitions;
     std::vector<std::shared_ptr<ArrayType>> chunks_holder;
     std::vector<std::vector<uint64_t>> chunks_indices_holder;
-    chunks_null_partions.reserve(physical_chunks.size());
-    ExtractCounter counter = ComputeExtractCounter(physical_chunks, chunks_null_partions,
+    chunks_null_partitions.reserve(physical_chunks.size());
+    ExtractCounter counter = ComputeExtractCounter(physical_chunks, chunks_null_partitions,
                                                    chunks_holder, chunks_indices_holder);
-    return HeapSortInternal(chunks_holder, counter, chunks_null_partions);
+    return HeapSortInternal(chunks_holder, counter, chunks_null_partitions);
   }
 
   // Extract the total count of non-nulls, nans, and nulls for all chunks
   ExtractCounter ComputeExtractCounter(
       const ArrayVector physical_chunks,
       std::vector<std::pair<NullPartitionResult, NullPartitionResult>>&
-          chunks_null_partions,
+          chunks_null_partitions,
       std::vector<std::shared_ptr<ArrayType>>& chunks_holder,
       std::vector<std::vector<uint64_t>>& chunks_indices_holder) {
     int64_t all_non_null_count = 0;
@@ -335,7 +335,7 @@ class ChunkedHeapSorter {
       all_non_null_count += non_null_count;
       all_nan_count += nan_count;
       all_null_count += null_count;
-      chunks_null_partions.emplace_back(p, q);
+      chunks_null_partitions.emplace_back(p, q);
     }
     // non-null nan null
     if (null_placement_ == NullPlacement::AtEnd) {
@@ -361,7 +361,7 @@ class ChunkedHeapSorter {
       const std::vector<std::shared_ptr<ArrayType>>& chunks_holder,
       ExtractCounter counter,
       const std::vector<std::pair<NullPartitionResult, NullPartitionResult>>&
-          chunks_null_partions) {
+          chunks_null_partitions) {
     std::function<bool(const HeapItem&, const HeapItem&)> cmp;
     SelectKComparator<sort_order> comparator;
     cmp = [&comparator](const HeapItem& left, const HeapItem& right) -> bool {
@@ -376,8 +376,8 @@ class ChunkedHeapSorter {
     HeapContainer null_heap(cmp);
 
     uint64_t offset = 0;
-    for (size_t i = 0; i < chunks_null_partions.size(); i++) {
-      const auto& null_part_pair = chunks_null_partions[i];
+    for (size_t i = 0; i < chunks_null_partitions.size(); i++) {
+      const auto& null_part_pair = chunks_null_partitions[i];
       const auto& p = null_part_pair.first;
       const auto& q = null_part_pair.second;
       ArrayType& arr = *chunks_holder[i];
