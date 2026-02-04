@@ -1731,11 +1731,11 @@ class TestAzureFileSystem : public ::testing::Test {
                                  env->account_name(), env->account_key())));
     // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
     // make sure these don't cause problems.
-    ARROW_EXPECT_OK(options.ConfigureSASCredential(
-        "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
-        "&credential_kind=dummy-value1"));
+    auto polluted_sas_token = "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
+        "&credential_kind=dummy-value1";
+    ARROW_EXPECT_OK(options.ConfigureSASCredential(polluted_sas_token));
     ASSERT_EQ(options.AccountKey(), "");
-    ASSERT_EQ(options.SasToken(), sas_token.substr(1));
+    ASSERT_EQ(options.SasToken(), polluted_sas_token);
     ASSERT_EQ(options.TenantId(), "");
     ASSERT_EQ(options.ClientId(), "");
     ASSERT_EQ(options.ClientSecret(), "");

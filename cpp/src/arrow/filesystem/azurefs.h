@@ -120,7 +120,6 @@ struct ARROW_EXPORT AzureOptions {
     kEnvironment,
   } credential_kind_ = CredentialKind::kDefault;
 
-  //   TODO(tomnewton): Make sure these are all populated accurately
   std::shared_ptr<Azure::Storage::StorageSharedKeyCredential>
       storage_shared_key_credential_;
   std::string account_key_;
@@ -188,6 +187,7 @@ struct ARROW_EXPORT AzureOptions {
   static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
+  void ClearCredentials();
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);
