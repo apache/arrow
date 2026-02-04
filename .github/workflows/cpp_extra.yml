@@ -530,12 +530,12 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: flight-sql-odbc-msi-installer
-          path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
+          path: build/cpp/Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
           if-no-files-found: error
       - name: Install ODBC MSI
         run: |
           cd build/cpp
-          $odbc_msi = Get-ChildItem -Filter "Apache Arrow Flight SQL ODBC-*-win64.msi"
+          $odbc_msi = Get-ChildItem -Filter "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi"
           if (-not $odbc_msi) {
             Write-Error "ODBC MSI not found"
             exit 1
@@ -549,7 +549,7 @@ jobs:
           }
       - name: Check ODBC DLL installation
         run: |
-          $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache Arrow Flight SQL ODBC*"
+          $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache-Arrow-Flight-SQL-ODBC*"
 
           foreach ($dir in $dirs) {
             $bin = Join-Path $dir.FullName "bin"
@@ -665,7 +665,7 @@ jobs:
         run: |
           gh release upload ${GITHUB_REF_NAME} \
             --clobber \
-            "Apache Arrow Flight SQL ODBC"-*-win64.msi
+            "Apache-Arrow-Flight-SQL-ODBC"-*-win64.msi
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
