@@ -419,6 +419,11 @@ bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
     if (!indptr()[i]->Equals(*other.indptr()[i])) return false;
   }
   return axis_order() == other.axis_order();
+bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
+  auto eq = [](const auto& a, const auto& b) { return a->Equals(*b); };
+  return axis_order() == other.axis_order()
+      && std::ranges::equal(indices(), other.indices(), eq)
+      && std::ranges::equal(indptr(), other.indptr(), eq);
 }
 
 // ----------------------------------------------------------------------
