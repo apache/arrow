@@ -28,6 +28,7 @@ from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
+import warnings
 from pyarrow._compute cimport (
     Expression, FunctionOptions, _ensure_field_ref, _true,
     unwrap_null_placement, unwrap_sort_keys
@@ -274,6 +275,11 @@ class OrderByNodeOptions(_OrderByNodeOptions):
     """
 
     def __init__(self, sort_keys=(), *, null_placement=None):
+        if null_placement is not None:
+            warnings.warn(
+                "Specifying null_placement in OrderByNodeOptions is deprecated "
+                "as of 24.0.0. Specify null_placement per sort_key instead."
+            )
         self._set_options(sort_keys, null_placement)
 
 

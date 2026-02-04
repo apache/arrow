@@ -2118,7 +2118,7 @@ cdef class _Tabular(_PandasConvertible):
 
         Parameters
         ----------
-        sorting : str or list[tuple(name, order, null_placement)]
+        sorting : str or list[tuple(name, order, null_placement="at_end")]
             Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name

@@ -63,8 +63,12 @@ class ARROW_EXPORT SortKey : public util::EqualityComparable<SortKey> {
 
 class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
  public:
+  Ordering(std::vector<SortKey> sort_keys)
+      : sort_keys_(std::move(sort_keys)) {}
+
+  // DEPRECATED(will be removed after removing null_placement from Ordering)
   Ordering(std::vector<SortKey> sort_keys,
-           std::optional<NullPlacement> null_placement = std::nullopt)
+           std::optional<NullPlacement> null_placement)
       : sort_keys_(std::move(sort_keys)), null_placement_(null_placement) {}
   /// true if data ordered by other is also ordered by this
   ///
@@ -117,7 +121,7 @@ class ARROW_EXPORT Ordering : public util::EqualityComparable<Ordering> {
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys_;
 
-  // DEPRECATED(set null_placement in  instead)
+  // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
   std::optional<NullPlacement> null_placement_;

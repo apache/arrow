@@ -63,12 +63,26 @@ std::vector<NullPlacement> AllNullPlacements() {
   return {NullPlacement::AtEnd, NullPlacement::AtStart};
 }
 
+std::vector<std::optional<NullPlacement>> AllOptionalNullPlacements() {
+  return {std::nullopt, NullPlacement::AtEnd, NullPlacement::AtStart};
+}
+
 std::vector<RankOptions::Tiebreaker> AllTiebreakers() {
   return {RankOptions::Min, RankOptions::Max, RankOptions::First, RankOptions::Dense};
 }
 
 std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
   os << (null_placement == NullPlacement::AtEnd ? "AtEnd" : "AtStart");
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os, std::optional<NullPlacement> null_placement) {
+  if(null_placement.has_value()){
+    os << null_placement.value();
+  }
+  else {
+    os << "None";
+  }
   return os;
 }
 
@@ -1205,12 +1219,14 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
                                        {"a": 1,    "b": 3}
                                        ])");
 
-  for (auto null_placement : AllNullPlacements()) {
-    SortOptions options({SortKey("a", SortOrder::Ascending, null_placement),
-                         SortKey("b", SortOrder::Descending, null_placement)},
-                        null_placement);
+  for (auto overwrite_null_placement : AllOptionalNullPlacements()){
+    for (auto null_placement : AllNullPlacements()) {
+      SortOptions options({SortKey("a", SortOrder::Ascending, null_placement),
+                           SortKey("b", SortOrder::Descending, null_placement)},
+                          overwrite_null_placement);
 
-    AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+      AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
+    }
   }
 }
 
@@ -2082,15 +2098,19 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     return (distribution(engine) & 1) ? SortOrder::Ascending : SortOrder::Descending;
   };
 
+  auto generate_null_placement = [&]() {
+    return (distribution(engine) % 3) ? NullPlacement::AtEnd : NullPlacement::AtStart;
+  };
+
   std::vector<SortKey> sort_keys;
   sort_keys.reserve(fields.size());
   for (const auto& field : fields) {
     if (field->name() != first_sort_key_name) {
-      sort_keys.emplace_back(field->name(), generate_order());
+      sort_keys.emplace_back(field->name(), generate_order(), generate_null_placement());
     }
   }
   std::shuffle(sort_keys.begin(), sort_keys.end(), engine);
-  sort_keys.emplace(sort_keys.begin(), first_sort_key_name, generate_order());
+  sort_keys.emplace(sort_keys.begin(), first_sort_key_name, generate_order(), generate_null_placement());
   sort_keys.erase(sort_keys.begin() + n_sort_keys, sort_keys.end());
   ASSERT_EQ(sort_keys.size(), n_sort_keys);
 
@@ -2128,11 +2148,9 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     }
 
     auto table = Table::Make(schema, std::move(columns));
-    for (auto null_placement : AllNullPlacements()) {
-      ARROW_SCOPED_TRACE("null_placement = ", null_placement);
-      for (auto& sort_key : sort_keys) {
-        sort_key.null_placement = null_placement;
-      }
+    for (auto overwrite_null_placement : AllOptionalNullPlacements()) {
+      ARROW_SCOPED_TRACE("overwrite_null_placement = ", overwrite_null_placement);
+      options.null_placement = overwrite_null_placement;
       ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*table), options));
       Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
     }

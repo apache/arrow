@@ -62,8 +62,7 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& values, int64_t k) {
   }
 }
 
-void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder order,
-                     bool stable_sort = false) {
+void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder order) {
   ASSERT_TRUE(datum.is_arraylike());
   ASSERT_OK_AND_ASSIGN(auto sorted_indices,
                        SortIndices(datum, SortOptions({SortKey("unused", order)})));
@@ -71,15 +70,11 @@ void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder orde
   int64_t k = select_k_indices.length();
   // head(k)
   auto head_k_indices = sorted_indices->Slice(0, k);
-  if (stable_sort) {
-    AssertDatumsEqual(*head_k_indices, select_k_indices);
-  } else {
-    ASSERT_OK_AND_ASSIGN(auto expected,
-                         Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
-    ASSERT_OK_AND_ASSIGN(auto actual,
-                         Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
-    AssertDatumsEqual(Datum(expected), Datum(actual));
-  }
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
+  AssertDatumsEqual(Datum(expected), Datum(actual));
 }
 
 template <typename ArrowType>
@@ -88,27 +83,24 @@ class TestSelectKBase : public ::testing::Test {
 
  protected:
   template <SortOrder order>
-  void AssertSelectKArray(const std::shared_ptr<Array> values, int k,
-                          bool check_indices = false) {
+  void AssertSelectKArray(const std::shared_ptr<Array> values, int k) {
     std::shared_ptr<Array> select_k;
     ASSERT_OK_AND_ASSIGN(select_k, SelectK<order>(Datum(*values), k));
     ASSERT_EQ(select_k->data()->null_count, 0);
     ValidateOutput(*select_k);
-    ValidateSelectK(Datum(*values), *select_k, order, check_indices);
+    ValidateSelectK(Datum(*values), *select_k, order);
   }
 
-  void AssertTopKArray(const std::shared_ptr<Array> values, int n,
-                       bool check_indices = false) {
-    AssertSelectKArray<SortOrder::Descending>(values, n, check_indices);
+  void AssertTopKArray(const std::shared_ptr<Array> values, int n) {
+    AssertSelectKArray<SortOrder::Descending>(values, n);
   }
-  void AssertBottomKArray(const std::shared_ptr<Array> values, int n,
-                          bool check_indices = false) {
-    AssertSelectKArray<SortOrder::Ascending>(values, n, check_indices);
+  void AssertBottomKArray(const std::shared_ptr<Array> values, int n) {
+    AssertSelectKArray<SortOrder::Ascending>(values, n);
   }
 
-  void AssertSelectKJson(const std::string& values, int n, bool check_indices = false) {
-    AssertTopKArray(ArrayFromJSON(type_singleton(), values), n, check_indices);
-    AssertBottomKArray(ArrayFromJSON(type_singleton(), values), n, check_indices);
+  void AssertSelectKJson(const std::string& values, int n) {
+    AssertTopKArray(ArrayFromJSON(type_singleton(), values), n);
+    AssertBottomKArray(ArrayFromJSON(type_singleton(), values), n);
   }
 
   virtual std::shared_ptr<DataType> type_singleton() = 0;
@@ -165,11 +157,9 @@ TYPED_TEST(TestSelectKForReal, Real) {
   this->AssertSelectKJson("[null, 2, NaN, 3, 1]", 1);
   this->AssertSelectKJson("[null, 2, NaN, 3, 1]", 2);
   this->AssertSelectKJson("[null, 2, NaN, 3, 1]", 3);
-  // The result will contain nan. By default, the comparison of NaN is not equal, so
-  // indices are used for comparison.
-  this->AssertSelectKJson("[null, 2, NaN, 3, 1]", 4, true);
+  this->AssertSelectKJson("[null, 2, NaN, 3, 1]", 4);
   this->AssertSelectKJson("[NaN, 2, null, 3, 1]", 3);
-  this->AssertSelectKJson("[NaN, 2, null, 3, 1]", 4, true);
+  this->AssertSelectKJson("[NaN, 2, null, 3, 1]", 4);
   this->AssertSelectKJson("[100, 4, 2, 7, 8, 3, NaN, 3, 1]", 4);
 }
 

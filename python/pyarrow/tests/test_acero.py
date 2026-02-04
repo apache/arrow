@@ -273,7 +273,19 @@ def test_order_by():
     expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
     assert result.equals(expected)
 
+    ord_opts = OrderByNodeOptions([("b", "ascending")])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
+    result = decl.to_table()
+    expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
+    assert result.equals(expected)
+
     ord_opts = OrderByNodeOptions([(field("b"), "descending", "at_end")])
+    decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
+    result = decl.to_table()
+    expected = pa.table({"a": [2, 4, 1, 3], "b": [3, 2, 1, None]})
+    assert result.equals(expected)
+
+    ord_opts = OrderByNodeOptions([(field("b"), "descending")])
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [2, 4, 1, 3], "b": [3, 2, 1, None]})
