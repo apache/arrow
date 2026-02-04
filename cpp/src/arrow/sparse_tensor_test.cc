@@ -1660,6 +1660,7 @@ TYPED_TEST_P(TestSparseCSFTensorForIndexValueType, TestEqualityMismatchedDimensi
 
   ASSERT_FALSE(si_2D->Equals(*si_3D));
   ASSERT_FALSE(si_3D->Equals(*si_2D));
+  ASSERT_TRUE(si_2D->Equals(*si_2D));
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TestSparseCSFTensorForIndexValueType, TestCreateSparseTensor,
