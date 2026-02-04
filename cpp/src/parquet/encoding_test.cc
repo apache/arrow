@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -28,7 +29,9 @@
 #include "arrow/array/builder_binary.h"
 #include "arrow/array/builder_dict.h"
 #include "arrow/array/concatenate.h"
+#include "arrow/buffer.h"
 #include "arrow/compute/cast.h"
+#include "arrow/io/memory.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
@@ -41,7 +44,13 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/span.h"
 #include "arrow/util/string.h"
+#include "fsst.h"  // NOLINT(build/include_subdir)
+#include "parquet/column_page.h"
+#include "parquet/column_reader.h"
 #include "parquet/encoding.h"
+#include "parquet/exception.h"
+#include "parquet/file_reader.h"
+#include "parquet/file_writer.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/test_util.h"
@@ -2590,6 +2599,307 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
     auto suffix_lengths = ::arrow::ArrayFromJSON(::arrow::int32(), R"([16, 13, 0, 11])");
     const std::string suffix_data = "καλημέρα\xbcηλιέρη\xbbημέρα";
     CheckEncodeDecode(values, prefix_lengths, suffix_lengths, suffix_data);
+  }
+}
+
+// ----------------------------------------------------------------------
+
+TEST(TestFsstEncoding, BasicRoundTrip) {
+  ::arrow::random::RandomArrayGenerator rag(0);
+  constexpr int64_t kNumValues = 2048;
+  constexpr int64_t kNumUnique = 128;
+  constexpr int32_t kMinLength = 4;
+  constexpr int32_t kMaxLength = 48;
+
+  auto values =
+      rag.BinaryWithRepeats(kNumValues, kNumUnique, kMinLength, kMaxLength, 0.0);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto encoded = encoder->FlushValues();
+  ASSERT_NE(nullptr, encoded);
+  ASSERT_GT(encoded->size(), 0);
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::FSST);
+  decoder->SetData(static_cast<int>(values->length()), encoded->data(),
+                   static_cast<int>(encoded->size()));
+
+  std::vector<ByteArray> decoded(values->length());
+  ASSERT_EQ(static_cast<int>(values->length()),
+            decoder->Decode(decoded.data(), static_cast<int>(decoded.size())));
+
+  const auto& binary = checked_cast<const ::arrow::BinaryArray&>(*values);
+  for (int64_t i = 0; i < values->length(); ++i) {
+    auto view = binary.GetView(i);
+    ASSERT_EQ(view.size(), static_cast<size_t>(decoded[i].len)) << i;
+    ASSERT_EQ(0, memcmp(decoded[i].ptr, view.data(), view.size())) << i;
+  }
+}
+
+TEST(TestFsstEncoding, FlushEmptyReturnsEmptyBuffer) {
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
+  auto buffer = encoder->FlushValues();
+  ASSERT_NE(nullptr, buffer);
+  ASSERT_EQ(0, buffer->size());
+}
+
+TEST(TestFsstEncoding, ReportUnencodedBytesResetsCounter) {
+  ::arrow::random::RandomArrayGenerator rag(42);
+  auto values = rag.String(256, 1, 24, 0.0);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
+  ASSERT_NO_THROW(encoder->Put(*values));
+
+  const auto& binary = checked_cast<const ::arrow::BinaryArray&>(*values);
+  const int64_t expected = binary.total_values_length();
+  EXPECT_EQ(expected, encoder->ReportUnencodedDataBytes());
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+
+  auto encoded = encoder->FlushValues();
+  ASSERT_NE(nullptr, encoded);
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::FSST);
+  decoder->SetData(static_cast<int>(values->length()), encoded->data(),
+                   static_cast<int>(encoded->size()));
+
+  std::vector<ByteArray> decoded(values->length());
+  ASSERT_EQ(static_cast<int>(values->length()),
+            decoder->Decode(decoded.data(), static_cast<int>(decoded.size())));
+
+  for (int64_t i = 0; i < values->length(); ++i) {
+    auto view = binary.GetView(i);
+    ASSERT_EQ(view.size(), static_cast<size_t>(decoded[i].len)) << i;
+    ASSERT_EQ(0, memcmp(decoded[i].ptr, view.data(), view.size())) << i;
+  }
+
+  EXPECT_EQ(0, encoder->ReportUnencodedDataBytes());
+}
+
+TEST(TestFsstEncoding, MultiPageRoundTrip) {
+  constexpr int64_t kStringsPerPage = 10000;
+  constexpr int64_t kNumPages = 2;
+  constexpr int64_t kTotalValues = kStringsPerPage * kNumPages;
+  constexpr int64_t kPageSizeBytes = 512 * 1024;
+
+  std::vector<std::string> page1;
+  std::vector<std::string> page2;
+  page1.reserve(kStringsPerPage);
+  page2.reserve(kStringsPerPage);
+
+  for (int64_t i = 0; i < kStringsPerPage; ++i) {
+    page1.push_back("https://www.example.com/user/profile/page" + std::to_string(i) +
+                    "/settings/preferences/advanced/options");
+    page2.push_back("ftp://ftp.downloads.org/pub/software/release" + std::to_string(i) +
+                    "/package/installer/binaries/archive");
+  }
+
+  std::vector<std::string> expected;
+  expected.reserve(kTotalValues);
+  expected.insert(expected.end(), page1.begin(), page1.end());
+  expected.insert(expected.end(), page2.begin(), page2.end());
+
+  ASSERT_OK_AND_ASSIGN(auto output_stream, ::arrow::io::BufferOutputStream::Create());
+
+  schema::NodeVector fields;
+  fields.push_back(schema::PrimitiveNode::Make("url", Repetition::REQUIRED,
+                                               Type::BYTE_ARRAY, ConvertedType::UTF8));
+  auto parquet_schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, fields));
+
+  auto writer_props = WriterProperties::Builder()
+                          .encoding(Encoding::FSST)
+                          ->data_pagesize(kPageSizeBytes)
+                          ->build();
+
+  std::unique_ptr<ParquetFileWriter> writer;
+  ASSERT_NO_THROW(
+      writer = ParquetFileWriter::Open(output_stream, parquet_schema, writer_props));
+  ASSERT_NE(nullptr, writer);
+  auto* row_group_writer = writer->AppendRowGroup();
+  ASSERT_NE(nullptr, row_group_writer);
+  auto* column_writer =
+      static_cast<TypedColumnWriter<ByteArrayType>*>(row_group_writer->NextColumn());
+  ASSERT_NE(nullptr, column_writer);
+
+  auto write_page = [&](const std::vector<std::string>& source) {
+    std::vector<ByteArray> batch;
+    batch.reserve(source.size());
+    for (const auto& value : source) {
+      batch.emplace_back(value);
+    }
+    column_writer->WriteBatch(static_cast<int64_t>(batch.size()), nullptr, nullptr,
+                              batch.data());
+  };
+
+  write_page(page1);
+  write_page(page2);
+
+  column_writer->Close();
+  row_group_writer->Close();
+  ASSERT_NO_THROW(writer->Close());
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, output_stream->Finish());
+
+  auto make_reader = [&buffer]() -> std::unique_ptr<ParquetFileReader> {
+    auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+    return ParquetFileReader::Open(buffer_reader);
+  };
+
+  std::unique_ptr<ParquetFileReader> page_reader_file;
+  ASSERT_NO_THROW(page_reader_file = make_reader());
+  ASSERT_NE(nullptr, page_reader_file);
+  auto page_row_group = page_reader_file->RowGroup(0);
+  auto page_reader = page_row_group->GetColumnPageReader(0);
+
+  int data_page_count = 0;
+  while (page_reader->NextPage() != nullptr) {
+    ++data_page_count;
+  }
+  EXPECT_GT(data_page_count, 1);
+
+  std::unique_ptr<ParquetFileReader> reader;
+  ASSERT_NO_THROW(reader = make_reader());
+  ASSERT_NE(nullptr, reader);
+  auto row_group_reader = reader->RowGroup(0);
+  auto column_reader = std::static_pointer_cast<TypedColumnReader<ByteArrayType>>(
+      row_group_reader->Column(0));
+
+  std::vector<ByteArray> decoded(kTotalValues);
+  int64_t values_read = 0;
+  while (values_read < kTotalValues) {
+    int64_t batch_length = std::min<int64_t>(1024, kTotalValues - values_read);
+    int64_t batch_read = 0;
+    column_reader->ReadBatch(batch_length, nullptr, nullptr, decoded.data() + values_read,
+                             &batch_read);
+    ASSERT_GT(batch_read, 0);
+    values_read += batch_read;
+  }
+  ASSERT_EQ(values_read, kTotalValues);
+
+  for (int64_t i = 0; i < kTotalValues; ++i) {
+    ASSERT_EQ(expected[i].size(), static_cast<size_t>(decoded[i].len)) << i;
+    ASSERT_EQ(0, memcmp(expected[i].data(), decoded[i].ptr, expected[i].size())) << i;
+  }
+}
+
+TEST(TestFsstEncoding, MultipleFlushesProduceIndependentPages) {
+  ::arrow::random::RandomArrayGenerator rag(99);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
+
+  const std::vector<std::tuple<int64_t, int32_t, int32_t>> batches = {
+      {64, 3, 12}, {512, 2, 24}, {17, 1, 8}};
+
+  for (const auto& [size, min_len, max_len] : batches) {
+    auto batch = rag.String(size, min_len, max_len, 0.0);
+
+    ASSERT_NO_THROW(encoder->Put(*batch));
+    auto buffer = encoder->FlushValues();
+    ASSERT_NE(nullptr, buffer);
+    ASSERT_GT(buffer->size(), 0);
+
+    auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::FSST);
+    decoder->SetData(static_cast<int>(batch->length()), buffer->data(),
+                     static_cast<int>(buffer->size()));
+
+    std::vector<ByteArray> decoded(batch->length());
+    ASSERT_EQ(static_cast<int>(batch->length()),
+              decoder->Decode(decoded.data(), static_cast<int>(decoded.size())));
+
+    const auto& binary = checked_cast<const ::arrow::BinaryArray&>(*batch);
+    for (int64_t i = 0; i < batch->length(); ++i) {
+      auto view = binary.GetView(i);
+      ASSERT_EQ(view.size(), static_cast<size_t>(decoded[i].len)) << i;
+      ASSERT_EQ(0, memcmp(decoded[i].ptr, view.data(), view.size())) << i;
+    }
+
+    encoder->ReportUnencodedDataBytes();
+  }
+}
+
+TEST(TestFsstEncoding, DecodeRejectsOverstatedLength) {
+  ::arrow::random::RandomArrayGenerator rag(123);
+  auto values = rag.String(64, 3, 32, 0.0);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto encoded = encoder->FlushValues();
+  ASSERT_NE(nullptr, encoded);
+  ASSERT_GT(encoded->size(),
+            static_cast<int64_t>(sizeof(fsst_decoder_t) + sizeof(uint32_t)));
+
+  ASSERT_OK_AND_ASSIGN(auto corrupted,
+                       ::arrow::AllocateBuffer(encoded->size(), default_memory_pool()));
+  std::memcpy(corrupted->mutable_data(), encoded->data(), encoded->size());
+
+  auto* length_ptr =
+      reinterpret_cast<uint32_t*>(corrupted->mutable_data() + sizeof(fsst_decoder_t));
+  *length_ptr = static_cast<uint32_t>(encoded->size());
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::FSST);
+  decoder->SetData(static_cast<int>(values->length()), corrupted->data(),
+                   static_cast<int>(corrupted->size()));
+
+  std::vector<ByteArray> decoded(values->length());
+  EXPECT_THROW(decoder->Decode(decoded.data(), static_cast<int>(decoded.size())),
+               ParquetException);
+}
+
+TEST(TestFsstEncoding, SetDataRejectsShortHeader) {
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::FSST);
+
+  const int num_values = 1;
+  const int header_bytes = static_cast<int>(sizeof(fsst_decoder_t));
+  std::vector<uint8_t> truncated(static_cast<size_t>(header_bytes - 1), 0);
+
+  EXPECT_THROW(
+      decoder->SetData(num_values, truncated.data(), static_cast<int>(truncated.size())),
+      ParquetException);
+}
+
+TEST(TestFsstEncoding, HeavyNullsDecodeSpaced) {
+  ::arrow::random::RandomArrayGenerator rag(321);
+  constexpr int64_t kNumValues = 4096;
+  constexpr double kNullProb = 0.85;
+
+  auto values = rag.String(kNumValues, 1, 24, kNullProb);
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::FSST);
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto encoded = encoder->FlushValues();
+  ASSERT_NE(nullptr, encoded);
+
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::FSST);
+  decoder->SetData(static_cast<int>(values->length()), encoded->data(),
+                   static_cast<int>(encoded->size()));
+
+  const auto& binary = checked_cast<const ::arrow::BinaryArray&>(*values);
+  std::vector<ByteArray> decoded(values->length());
+  std::vector<uint8_t> valid_bits(::arrow::bit_util::BytesForBits(values->length()), 0);
+
+  ::arrow::internal::BitmapWriter writer(valid_bits.data(), 0, values->length());
+  for (int64_t i = 0; i < values->length(); ++i) {
+    if (!binary.IsNull(i)) {
+      writer.Set();
+    } else {
+      writer.Clear();
+    }
+    writer.Next();
+  }
+  writer.Finish();
+
+  const int null_count = static_cast<int>(binary.null_count());
+  ASSERT_EQ(static_cast<int>(values->length() - null_count),
+            decoder->DecodeSpaced(decoded.data(), static_cast<int>(values->length()),
+                                  null_count, valid_bits.data(), 0));
+
+  for (int64_t i = 0; i < values->length(); ++i) {
+    if (binary.IsNull(i)) {
+      EXPECT_EQ(nullptr, decoded[i].ptr);
+      EXPECT_EQ(0u, decoded[i].len);
+      continue;
+    }
+    auto view = binary.GetView(i);
+    ASSERT_EQ(view.size(), static_cast<size_t>(decoded[i].len)) << i;
+    ASSERT_EQ(0, memcmp(decoded[i].ptr, view.data(), view.size())) << i;
   }
 }
 

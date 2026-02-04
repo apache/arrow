@@ -49,6 +49,7 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     Boost
     Brotli
     BZip2
+    fsst
     c-ares
     gflags
     glog
@@ -71,6 +72,10 @@ set(ARROW_THIRDPARTY_DEPENDENCIES
     xsimd
     ZLIB
     zstd)
+
+set(fsst_SOURCE
+    "BUNDLED"
+    CACHE STRING "Source of fsst dependency")
 
 # For backward compatibility. We use "BOOST_SOURCE" if "Boost_SOURCE"
 # isn't specified and "BOOST_SOURCE" is specified.
@@ -183,6 +188,8 @@ macro(build_dependency DEPENDENCY_NAME)
     build_brotli()
   elseif("${DEPENDENCY_NAME}" STREQUAL "BZip2")
     build_bzip2()
+  elseif("${DEPENDENCY_NAME}" STREQUAL "fsst")
+    build_fsst()
   elseif("${DEPENDENCY_NAME}" STREQUAL "c-ares")
     build_cares()
   elseif("${DEPENDENCY_NAME}" STREQUAL "gflags")
@@ -382,6 +389,7 @@ endif()
 if(ARROW_PARQUET)
   set(ARROW_WITH_RAPIDJSON ON)
   set(ARROW_WITH_THRIFT ON)
+  set(ARROW_WITH_FSST ON)
 endif()
 
 if(ARROW_WITH_THRIFT)
@@ -2650,6 +2658,28 @@ if(ARROW_USE_XSIMD)
     message(STATUS "xsimd found. Headers: ${xsimd_INCLUDE_DIRS}")
     set(ARROW_XSIMD xsimd)
   endif()
+endif()
+
+function(build_fsst)
+  message(STATUS "Configuring vendored FSST sources")
+
+  set(ARROW_FSST_INCLUDE_DIR
+      "${ARROW_SOURCE_DIR}/thirdparty/fsst"
+      PARENT_SCOPE)
+  set(ARROW_FSST_SOURCES
+      "${ARROW_SOURCE_DIR}/thirdparty/fsst/libfsst.cpp;${ARROW_SOURCE_DIR}/thirdparty/fsst/fsst_avx512.cpp"
+      PARENT_SCOPE)
+  set(FSST_VENDORED
+      TRUE
+      PARENT_SCOPE)
+endfunction()
+
+if(ARROW_WITH_FSST)
+  if(NOT fsst_SOURCE STREQUAL "BUNDLED")
+    message(FATAL_ERROR "FSST must currently be built from source. Set fsst_SOURCE=BUNDLED."
+    )
+  endif()
+  resolve_dependency(fsst IS_RUNTIME_DEPENDENCY FALSE)
 endif()
 
 macro(build_zlib)

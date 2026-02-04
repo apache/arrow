@@ -629,6 +629,13 @@ enum Encoding {
       Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
    */
   BYTE_STREAM_SPLIT = 9;
+
+  /** Fast Static Symbol Table (FSST) encoding for BYTE_ARRAY data.
+      FSST compresses strings using a symbol table that maps 1-8 byte sequences
+      to single-byte codes. It allows random access to compressed data and works
+      well with dictionary encoding by compressing dictionary values.
+   */
+  FSST = 10;
 }
 
 /**
