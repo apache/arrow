@@ -34,7 +34,7 @@ class BitmapWriter {
   BitmapWriter(uint8_t* bitmap, int64_t start_offset, int64_t length)
       : bitmap_(bitmap), position_(0), length_(length) {
     byte_offset_ = start_offset / 8;
-    bit_mask_ = bit_util::kBitmask[start_offset % 8];
+    bit_mask_ = bit_util::GetBitMask(start_offset % 8);
     if (length > 0) {
       current_byte_ = bitmap[byte_offset_];
     } else {
@@ -88,7 +88,7 @@ class FirstTimeBitmapWriter {
       : bitmap_(bitmap), position_(0), length_(length) {
     current_byte_ = 0;
     byte_offset_ = start_offset / 8;
-    bit_mask_ = bit_util::kBitmask[start_offset % 8];
+    bit_mask_ = bit_util::GetBitMask(start_offset % 8);
     if (length > 0) {
       current_byte_ =
           bitmap[byte_offset_] & bit_util::kPrecedingBitmask[start_offset % 8];
@@ -113,7 +113,7 @@ class FirstTimeBitmapWriter {
     // Update state variables except for current_byte_ here.
     position_ += number_of_bits;
     int64_t bit_offset = bit_util::CountTrailingZeros(static_cast<uint32_t>(bit_mask_));
-    bit_mask_ = bit_util::kBitmask[(bit_offset + number_of_bits) % 8];
+    bit_mask_ = bit_util::GetBitMask((bit_offset + number_of_bits) % 8);
     byte_offset_ += (bit_offset + number_of_bits) / 8;
 
     if (bit_offset != 0) {

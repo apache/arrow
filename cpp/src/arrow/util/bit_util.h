@@ -287,10 +287,22 @@ static inline int Log2(uint64_t x) {
 //
 
 // Bitmask selecting the k-th bit in a byte
-static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
+// static constexpr uint8_t kBitmask[] = {1, 2, 4, 8, 16, 32, 64, 128};
+template <typename T>
+static constexpr uint8_t GetBitMask(T index) {
+  // DCHECK(index >= 0 && index <= 7);
+  ARROW_COMPILER_ASSUME(index >= 0);
+  return static_cast<uint8_t>(1) << index;
+}
 
 // the bitwise complement version of kBitmask
-static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
+// static constexpr uint8_t kFlippedBitmask[] = {254, 253, 251, 247, 239, 223, 191, 127};
+template <typename T>
+static constexpr uint8_t GetFlippedBitMask(T index) {
+  // DCHECK(index >= 0 && index <= 7);
+  ARROW_COMPILER_ASSUME(index >= 0);
+  return ~(static_cast<uint8_t>(1) << index);
+}
 
 // Bitmask selecting the (k - 1) preceding bits in a byte
 static constexpr uint8_t kPrecedingBitmask[] = {0, 1, 3, 7, 15, 31, 63, 127};
@@ -305,22 +317,27 @@ static constexpr bool GetBit(const uint8_t* bits, uint64_t i) {
 
 // Gets the i-th bit from a byte. Should only be used with i <= 7.
 static constexpr bool GetBitFromByte(uint8_t byte, uint8_t i) {
-  return byte & kBitmask[i];
+  return byte & GetBitMask(i);
 }
 
 static inline void ClearBit(uint8_t* bits, int64_t i) {
-  bits[i / 8] &= kFlippedBitmask[i % 8];
+  ARROW_COMPILER_ASSUME(i >= 0);
+  bits[i / 8] &= GetFlippedBitMask(i % 8);
 }
 
-static inline void SetBit(uint8_t* bits, int64_t i) { bits[i / 8] |= kBitmask[i % 8]; }
+static inline void SetBit(uint8_t* bits, int64_t i) {
+  ARROW_COMPILER_ASSUME(i >= 0);
+  bits[i / 8] |= GetBitMask(i % 8);
+}
 
 static inline void SetBitTo(uint8_t* bits, int64_t i, bool bit_is_set) {
+  ARROW_COMPILER_ASSUME(i >= 0);
   // https://graphics.stanford.edu/~seander/bithacks.html
   // "Conditionally set or clear bits without branching"
   // NOTE: this seems to confuse Valgrind as it reads from potentially
   // uninitialized memory
   bits[i / 8] ^= static_cast<uint8_t>(-static_cast<uint8_t>(bit_is_set) ^ bits[i / 8]) &
-                 kBitmask[i % 8];
+                 GetBitMask(i % 8);
 }
 
 /// \brief set or clear a range of bits quickly
