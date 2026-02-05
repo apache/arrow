@@ -435,7 +435,7 @@ ExternalDBPAEncryptorAdapter* ExternalDBPAEncryptorAdapterFactory::GetEncryptor(
       auto key_metadata =
           KeyMetadata::Parse(column_encryption_properties->key_metadata());
       key_id = key_metadata.key_material().master_key_id();
-    } catch (const ParquetException& e) {
+    } catch (const ParquetException&) {
       // It is possible for the key metadata to only contain the key id itself, so if
       // it cannot be parsed as valid JSON, send the key id as string for the ExternalDBPA
       // to process.
@@ -663,7 +663,7 @@ std::unique_ptr<DecryptorInterface> ExternalDBPADecryptorAdapterFactory::GetDecr
   try {
     auto key_metadata = KeyMetadata::Parse(crypto_metadata->key_metadata());
     key_id = key_metadata.key_material().master_key_id();
-  } catch (const ParquetException& e) {
+  } catch (const ParquetException&) {
     // It is possible for the key metadata to only contain the key id itself, so if
     // it cannot be parsed as valid JSON, send the key id as string for the ExternalDBPA
     // to process.

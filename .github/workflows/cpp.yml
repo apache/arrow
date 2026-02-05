@@ -300,6 +300,7 @@ jobs:
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
+      ARROW_CMAKE_ARGS: -DPARQUET_BUILD_DBPS_LIBS=OFF
       ARROW_DATASET: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
@@ -418,7 +419,9 @@ jobs:
       ARROW_WITH_ZSTD: ON
       ARROW_CMAKE_ARGS: >-
         -DARROW_PACKAGE_PREFIX=/${{ matrix.msystem_lower}}
+        -DARROW_BUILD_SHARED=ON
         -DCMAKE_FIND_PACKAGE_PREFER_CONFIG=ON
+        -DPARQUET_BUILD_DBPS_LIBS=OFF
       # We can't use unity build because we don't have enough memory on
       # GitHub Actions.
       # CMAKE_UNITY_BUILD: ON

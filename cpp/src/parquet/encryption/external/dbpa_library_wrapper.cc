@@ -30,7 +30,7 @@ namespace parquet::encryption::external {
 
 // Default implementation for handle closing function
 void DefaultSharedLibraryClosingFn(void* library_handle) {
-  auto status = arrow::internal::CloseDynamicLibrary(library_handle);
+  auto status = ::arrow::internal::CloseDynamicLibrary(library_handle);
   if (!status.ok()) {
     ARROW_LOG(WARNING) << "Error closing library: " << status.message();
   }

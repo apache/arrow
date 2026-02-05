@@ -23,6 +23,7 @@
 #include <dbpa_interface.h>
 
 #include "arrow/type_fwd.h"  // For arrow::Compression
+#include "parquet/platform.h"
 #include "parquet/types.h"
 
 namespace parquet::encryption::external {
@@ -34,7 +35,7 @@ namespace parquet::encryption::external {
  * - parquet::Type and dbps::external::Type
  * - arrow::Compression and dbps::external::CompressionCodec
  */
-class DBPAEnumUtils {
+class PARQUET_EXPORT DBPAEnumUtils {
  public:
   // Static maps for type conversions
   static const std::unordered_map<parquet::Type::type, dbps::external::Type::type>

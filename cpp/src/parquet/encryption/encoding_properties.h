@@ -26,13 +26,14 @@
 #include "parquet/column_page.h"
 #include "parquet/encoding.h"
 #include "parquet/metadata.h"
+#include "parquet/platform.h"
 #include "parquet/types.h"
 
 namespace parquet::encryption {
 
-class EncodingPropertiesBuilder;
+class PARQUET_EXPORT EncodingPropertiesBuilder;
 
-class EncodingProperties {
+class PARQUET_EXPORT EncodingProperties {
  public:
   static std::unique_ptr<EncodingProperties> MakeFromMetadata(
       const ColumnDescriptor* column_descriptor,
@@ -121,7 +122,7 @@ class EncodingProperties {
   //--------------------------------
 };  // class EncodingProperties
 
-class EncodingPropertiesBuilder {
+class PARQUET_EXPORT EncodingPropertiesBuilder {
  public:
   EncodingPropertiesBuilder() = default;
 

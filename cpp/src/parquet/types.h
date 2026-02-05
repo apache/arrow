@@ -574,6 +574,7 @@ struct ParquetCipher {
 /// Check whether a requested encryption algorithm is supported by the Parquet
 /// library. Used in the crypto factory to validate the requested encryption
 /// algorithm is available.
+PARQUET_EXPORT
 bool IsParquetCipherSupported(ParquetCipher::type cipher);
 
 struct AadMetadata {

@@ -25,6 +25,7 @@
 #include <string>
 
 #include <dbpa_interface.h>
+#include "parquet/platform.h"
 
 template <typename T>
 using span = tcb::span<T>;
@@ -43,7 +44,7 @@ class DBPAExecutorTimeoutException;
  * DBPAExecutor - A decorator for DataBatchProtectionAgentInterface with timeout support
  * Original exceptions from wrapped agents are preserved and re-thrown unchanged.
  */
-class DBPAExecutor : public DataBatchProtectionAgentInterface {
+class PARQUET_EXPORT DBPAExecutor : public DataBatchProtectionAgentInterface {
  public:
   /**
    * Constructor that takes ownership of the wrapped agent with configurable timeouts
@@ -112,7 +113,7 @@ class DBPAExecutor : public DataBatchProtectionAgentInterface {
 /**
  * Exception thrown when a DBPA operation times out
  */
-class DBPAExecutorTimeoutException : public std::runtime_error {
+class PARQUET_EXPORT DBPAExecutorTimeoutException : public std::runtime_error {
  public:
   explicit DBPAExecutorTimeoutException(const std::string& operation,
                                         int64_t timeout_milliseconds)
