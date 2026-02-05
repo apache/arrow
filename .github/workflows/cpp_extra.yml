@@ -352,10 +352,10 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      ARROW_DEPENDENCY_SOURCE: VCPKG
       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
+      ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
