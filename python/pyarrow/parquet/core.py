@@ -768,7 +768,9 @@ use_dictionary : bool or list, default True
     doesn't support dictionary encoding.
 compression : str or dict, default 'snappy'
     Specify the compression codec, either on a general basis or per-column.
-    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'LZ4_RAW', 'ZSTD'}.
+    'LZ4_RAW' is accepted as an alias for 'LZ4' (both use the LZ4_RAW
+    codec as defined in the Parquet specification).
 write_statistics : bool or list, default True
     Specify if we should write statistics in general (default is True) or only
     for some columns.
