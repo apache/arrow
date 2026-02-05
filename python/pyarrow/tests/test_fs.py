@@ -641,7 +641,7 @@ class _PickleModuleSubTreeFileSystemWrapper:
         self.pickle_module = pickle_module
 
     def dumps(self, obj):
-        return self.pickle_module.dumps(SubTreeFileSystem(obj, "/"))
+        return self.pickle_module.dumps(SubTreeFileSystem("/", obj))
 
     def loads(self, data):
         return self.pickle_module.loads(data).base_fs
@@ -651,7 +651,7 @@ class _PickleModuleSubTreeFileSystemWrapper:
 def pickle_with_and_without_subtree_filesystem(pickle_module, request):
     # When creating a SubTreeFileSystem, the python side object
     # for the base filesystem is lost. This makes pickling worth testing.
-    wrap_with_subtree_filesystem = request.getfixturevalue(request.param)
+    wrap_with_subtree_filesystem = request.param
     if wrap_with_subtree_filesystem:
         return _PickleModuleSubTreeFileSystemWrapper(pickle_module)
     return pickle_module
