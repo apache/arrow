@@ -37,9 +37,8 @@ Who should read this
 You should read this document if you belong to either of these two categories:
 
 1. *users* of Arrow: that is, developers of third-party libraries or applications
-   that don't implement directly implement the Arrow formats or protocols, but
-   instead call language-specific APIs provided by an Arrow library
-   (as defined below);
+   that don't directly implement the Arrow formats or protocols, but instead
+   call language-specific APIs provided by an Arrow library (as defined below);
 
 2. *implementors* of Arrow libraries: that is, libraries that provide APIs
    abstracting away from the details of the Arrow formats and protocols; such
