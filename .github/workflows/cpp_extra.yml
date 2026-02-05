@@ -476,13 +476,7 @@ jobs:
           # Add `dev-yyyy-mm-dd` to ODBC MSI before `win64.msi`
           cd odbc-installer
           msi_name=$(ls *.msi)
-          echo $msi_name
-          SUFFIX=dev-$(date +%Y-%m-%d)-
-          echo $SUFFIX
-          INDEX=${#msi_name}-9
-          dev_msi_name="${msi_name:0:$INDEX}${SUFFIX}${msi_name:$INDEX}"
-          echo $msi_name
-          echo $dev_msi_name
+          dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
           mv "${msi_name}" "${dev_msi_name}"
           cd ..
           
