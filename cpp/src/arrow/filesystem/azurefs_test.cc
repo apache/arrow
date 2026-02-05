@@ -604,8 +604,32 @@ TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
-  AzureOptions options;
-  EXPECT_TRUE(options.Equals(options));
+  AzureOptions options0;
+  EXPECT_TRUE(options0.Equals(options0));
+
+  AzureOptions options1;
+  options1.account_name = "account_name";
+  EXPECT_FALSE(options1.Equals(options0));
+
+  AzureOptions options2;
+  options2.account_name = "account_name";
+  ASSERT_OK(options2.ConfigureAccountKeyCredential("fake_account_key"));
+  EXPECT_FALSE(options2.Equals(options1));
+
+  AzureOptions options3;
+  options3.account_name = "account_name";
+  ASSERT_OK(options3.ConfigureAccountKeyCredential("different_fake_account_key"));
+  EXPECT_FALSE(options3.Equals(options2));
+
+  AzureOptions options4;
+  options4.account_name = "account_name";
+  ASSERT_OK(options4.ConfigureSASCredential("fake_sas_token"));
+  EXPECT_FALSE(options4.Equals(options3));
+
+  AzureOptions options5;
+  options5.account_name = "account_name";
+  ASSERT_OK(options5.ConfigureClientSecretCredential("fake_tenant_id", "fake_client_id", "fake_client_secret"));
+  EXPECT_FALSE(options5.Equals(options4));
 }
 
 class TestAzureOptions : public ::testing::Test {
@@ -1731,8 +1755,8 @@ class TestAzureFileSystem : public ::testing::Test {
                                  env->account_name(), env->account_key())));
     // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
     // make sure these don't cause problems.
-    auto polluted_sas_token = "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
-        "&credential_kind=dummy-value1";
+    auto polluted_sas_token = "?blob_storage_authority=dummy_value0&" +
+                              sas_token.substr(1) + "&credential_kind=dummy-value1";
     ARROW_EXPECT_OK(options.ConfigureSASCredential(polluted_sas_token));
     ASSERT_EQ(options.AccountKey(), "");
     ASSERT_EQ(options.SasToken(), polluted_sas_token);
