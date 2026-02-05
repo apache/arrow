@@ -17,6 +17,7 @@
 
 add_executable(parquet-low-level-example low_level_api/reader_writer.cc)
 add_executable(parquet-low-level-example2 low_level_api/reader_writer2.cc)
+add_executable(parquet-write-parquet low_level_api/write_parquet.cc)
 add_executable(parquet-arrow-example parquet_arrow/reader_writer.cc)
 add_executable(parquet-stream-api-example parquet_stream_api/stream_reader_writer.cc)
 target_include_directories(parquet-low-level-example PRIVATE low_level_api/)
@@ -58,6 +59,7 @@ endif()
 target_link_libraries(parquet-arrow-example ${PARQUET_EXAMPLE_LINK_LIBS})
 target_link_libraries(parquet-low-level-example ${PARQUET_EXAMPLE_LINK_LIBS})
 target_link_libraries(parquet-low-level-example2 ${PARQUET_EXAMPLE_LINK_LIBS})
+target_link_libraries(parquet-write-parquet ${PARQUET_EXAMPLE_LINK_LIBS})
 target_link_libraries(parquet-stream-api-example ${PARQUET_EXAMPLE_LINK_LIBS})
 
 if(PARQUET_REQUIRE_ENCRYPTION)
@@ -69,6 +71,7 @@ endif()
 add_dependencies(parquet
                  parquet-low-level-example
                  parquet-low-level-example2
+                 parquet-write-parquet
                  parquet-arrow-example
                  parquet-stream-api-example)
 

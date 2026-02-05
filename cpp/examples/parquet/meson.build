@@ -24,6 +24,9 @@ example_execs = {
         'sources': files('low_level_api/reader_writer2.cc'),
         'include_dir': include_directories('low_level_api'),
     },
+    'parquet-write-parquet': {
+        'sources': files('low_level_api/write_parquet.cc'),
+    },
     'parquet-arrow-example': {
         'sources': files('parquet_arrow/reader_writer.cc'),
     },
