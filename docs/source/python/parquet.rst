@@ -238,9 +238,9 @@ concatenate them into a single table. You can read individual row groups with
    >>> parquet_file.read_row_group(0)
    pyarrow.Table
    one: double
-   two: string
+   two: large_string
    three: bool
-   __index_level_0__: string
+   __index_level_0__: large_string
    ----
    one: [[-1,null,2.5]]
    two: [["foo","bar","baz"]]
@@ -352,7 +352,7 @@ and improved performance for columns with many repeated string values.
    one: double
    two: dictionary<values=string, indices=int32, ordered=0>
    three: bool
-   __index_level_0__: string
+   __index_level_0__: large_string
    ----
    one: [[-1,null,2.5]]
    two: [  -- dictionary:
