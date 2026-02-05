@@ -665,7 +665,7 @@ jobs:
         run: |
           gh release upload ${GITHUB_REF_NAME} \
             --clobber \
-            "Apache-Arrow-Flight-SQL-ODBC"-*-win64.msi
+            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
 
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
