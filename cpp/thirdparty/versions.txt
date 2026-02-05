@@ -114,6 +114,9 @@ ARROW_THRIFT_BUILD_VERSION=0.22.0
 ARROW_THRIFT_BUILD_SHA256_CHECKSUM=794a0e455787960d9f27ab92c38e34da27e8deeda7a5db0e59dc64a00df8a1e5
 ARROW_UTF8PROC_BUILD_VERSION=v2.10.0
 ARROW_UTF8PROC_BUILD_SHA256_CHECKSUM=6f4f1b639daa6dca9f80bc5db1233e9cbaa31a67790887106160b33ef743f136
+# WIL (Windows Implementation Libraries) is required by Azure SDK on Windows for WinHTTP transport
+ARROW_WIL_BUILD_VERSION=v1.0.250325.1
+ARROW_WIL_BUILD_SHA256_CHECKSUM=c9e667d5f86ded43d17b5669d243e95ca7b437e3a167c170805ffd4aa8a9a786
 ARROW_XSIMD_BUILD_VERSION=14.0.0
 ARROW_XSIMD_BUILD_SHA256_CHECKSUM=17de0236954955c10c09d6938d4c5f3a3b92d31be5dadd1d5d09fc1b15490dce
 ARROW_ZLIB_BUILD_VERSION=1.3.1
@@ -142,6 +145,7 @@ DEPENDENCIES=(
   "ARROW_AWS_CRT_CPP_URL aws-crt-cpp-${ARROW_AWS_CRT_CPP_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-crt-cpp/archive/${ARROW_AWS_CRT_CPP_BUILD_VERSION}.tar.gz"
   "ARROW_AWS_LC_URL aws-lc-${ARROW_AWS_LC_BUILD_VERSION}.tar.gz https://github.com/awslabs/aws-lc/archive/${ARROW_AWS_LC_BUILD_VERSION}.tar.gz"
   "ARROW_AWSSDK_URL aws-sdk-cpp-${ARROW_AWSSDK_BUILD_VERSION}.tar.gz https://github.com/aws/aws-sdk-cpp/archive/${ARROW_AWSSDK_BUILD_VERSION}.tar.gz"
+  "ARROW_AZURE_SDK_URL azure-sdk-for-cpp-${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz https://github.com/Azure/azure-sdk-for-cpp/archive/${ARROW_AZURE_SDK_BUILD_VERSION}.tar.gz"
   "ARROW_BOOST_URL boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz https://github.com/boostorg/boost/releases/download/boost-${ARROW_BOOST_BUILD_VERSION}/boost-${ARROW_BOOST_BUILD_VERSION}-cmake.tar.gz"
   "ARROW_BROTLI_URL brotli-${ARROW_BROTLI_BUILD_VERSION}.tar.gz https://github.com/google/brotli/archive/${ARROW_BROTLI_BUILD_VERSION}.tar.gz"
   "ARROW_BZIP2_URL bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz https://sourceware.org/pub/bzip2/bzip2-${ARROW_BZIP2_BUILD_VERSION}.tar.gz"
@@ -168,6 +172,7 @@ DEPENDENCIES=(
   "ARROW_SUBSTRAIT_URL substrait-${ARROW_SUBSTRAIT_BUILD_VERSION}.tar.gz https://github.com/substrait-io/substrait/archive/${ARROW_SUBSTRAIT_BUILD_VERSION}.tar.gz"
   "ARROW_THRIFT_URL thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz https://www.apache.org/dyn/closer.lua/thrift/${ARROW_THRIFT_BUILD_VERSION}/thrift-${ARROW_THRIFT_BUILD_VERSION}.tar.gz?action=download"
   "ARROW_UTF8PROC_URL utf8proc-${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz https://github.com/JuliaStrings/utf8proc/archive/${ARROW_UTF8PROC_BUILD_VERSION}.tar.gz"
+  "ARROW_WIL_URL wil-${ARROW_WIL_BUILD_VERSION}.tar.gz https://github.com/microsoft/wil/archive/refs/tags/${ARROW_WIL_BUILD_VERSION}.tar.gz"
   "ARROW_XSIMD_URL xsimd-${ARROW_XSIMD_BUILD_VERSION}.tar.gz https://github.com/xtensor-stack/xsimd/archive/${ARROW_XSIMD_BUILD_VERSION}.tar.gz"
   "ARROW_ZLIB_URL zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz https://zlib.net/fossils/zlib-${ARROW_ZLIB_BUILD_VERSION}.tar.gz"
   "ARROW_ZSTD_URL zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz https://github.com/facebook/zstd/releases/download/v${ARROW_ZSTD_BUILD_VERSION}/zstd-${ARROW_ZSTD_BUILD_VERSION}.tar.gz"

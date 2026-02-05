@@ -813,6 +813,13 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_WIL_URL})
+  set(ARROW_WIL_URL "$ENV{ARROW_WIL_URL}")
+else()
+  set_urls(ARROW_WIL_URL
+           "https://github.com/microsoft/wil/archive/${ARROW_WIL_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
@@ -4052,6 +4059,21 @@ endif()
 
 function(build_azure_sdk)
   message(STATUS "Building Azure SDK for C++ from source")
+
+  # On Windows, Azure SDK's WinHTTP transport requires WIL (Windows Implementation Libraries).
+  # Fetch WIL before Azure SDK so the WIL::WIL target is available.
+  if(WIN32)
+    message(STATUS "Fetching WIL (Windows Implementation Libraries) for Azure SDK")
+    fetchcontent_declare(wil
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                         URL ${ARROW_WIL_URL}
+                         URL_HASH "SHA256=${ARROW_WIL_BUILD_SHA256_CHECKSUM}")
+    prepare_fetchcontent()
+    set(WIL_BUILD_PACKAGING OFF)
+    set(WIL_BUILD_TESTS OFF)
+    fetchcontent_makeavailable(wil)
+  endif()
+
   fetchcontent_declare(azure_sdk
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${ARROW_AZURE_SDK_URL}
