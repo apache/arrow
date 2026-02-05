@@ -851,7 +851,9 @@ class FieldToFlatbufferVisitor {
 };
 
 Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
-                           DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* out) {
+                           DictionaryMemo* dictionary_memo,
+                           const IpcReadOptions* options,
+                           std::shared_ptr<Field>* out) {
   std::shared_ptr<DataType> type;
 
   std::shared_ptr<KeyValueMetadata> metadata;
@@ -866,7 +868,7 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
     child_fields.resize(children->size());
     for (int i = 0; i < static_cast<int>(children->size()); ++i) {
       RETURN_NOT_OK(FieldFromFlatbuffer(children->Get(i), field_pos.child(i),
-                                        dictionary_memo, &child_fields[i]));
+                                        dictionary_memo, options, &child_fields[i]));
     }
   }
 
@@ -899,21 +901,26 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
     // Look for extension metadata in custom_metadata field
     int name_index = metadata->FindKey(kExtensionTypeKeyName);
     if (name_index != -1) {
-      std::shared_ptr<ExtensionType> ext_type =
-          GetExtensionType(metadata->value(name_index));
-      if (ext_type != nullptr) {
-        int data_index = metadata->FindKey(kExtensionMetadataKeyName);
-        std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
+      // Check if extension types are blocked
+      bool should_deserialize = (options == nullptr || !options->extension_types_blocked);
+      
+      if (should_deserialize) {
+        std::shared_ptr<ExtensionType> ext_type =
+            GetExtensionType(metadata->value(name_index));
+        if (ext_type != nullptr) {
+          int data_index = metadata->FindKey(kExtensionMetadataKeyName);
+          std::string type_data = data_index == -1 ? "" : metadata->value(data_index);
 
-        ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
-        // Remove the metadata, for faithful roundtripping
-        if (data_index != -1) {
-          RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
-        } else {
-          RETURN_NOT_OK(metadata->Delete(name_index));
+          ARROW_ASSIGN_OR_RAISE(type, ext_type->Deserialize(type, type_data));
+          // Remove the metadata, for faithful roundtripping
+          if (data_index != -1) {
+            RETURN_NOT_OK(metadata->DeleteMany({name_index, data_index}));
+          } else {
+            RETURN_NOT_OK(metadata->Delete(name_index));
+          }
         }
       }
-      // NOTE: if extension type is unknown, we do not raise here and
+      // NOTE: if extension type is unknown or blocked, we do not raise here and
       // simply return the storage type.
     }
   }
@@ -932,6 +939,13 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   }
   return Status::OK();
 }
+
+// Backward-compatible overload without options
+Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
+                           DictionaryMemo* dictionary_memo, std::shared_ptr<Field>* out) {
+  return FieldFromFlatbuffer(field, field_pos, dictionary_memo, nullptr, out);
+}
+
 
 flatbuffers::Offset<KVVector> SerializeCustomMetadata(
     FBB& fbb, const std::shared_ptr<const KeyValueMetadata>& metadata) {
@@ -1433,7 +1447,7 @@ Status WriteFileFooter(const Schema& schema, const std::vector<FileBlock>& dicti
 // ----------------------------------------------------------------------
 
 Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
-                 std::shared_ptr<Schema>* out) {
+                 const IpcReadOptions* options, std::shared_ptr<Schema>* out) {
   auto schema = static_cast<const flatbuf::Schema*>(opaque_schema);
   CHECK_FLATBUFFERS_NOT_NULL(schema, "schema");
   CHECK_FLATBUFFERS_NOT_NULL(schema->fields(), "Schema.fields");
@@ -1447,7 +1461,7 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
     // XXX I don't think this check is necessary (AP)
     CHECK_FLATBUFFERS_NOT_NULL(field, "DictionaryEncoding.indexType");
     RETURN_NOT_OK(
-        FieldFromFlatbuffer(field, field_pos.child(i), dictionary_memo, &fields[i]));
+        FieldFromFlatbuffer(field, field_pos.child(i), dictionary_memo, options, &fields[i]));
   }
 
   std::shared_ptr<KeyValueMetadata> metadata;
@@ -1458,6 +1472,12 @@ Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
                         : Endianness::Big;
   *out = ::arrow::schema(std::move(fields), endianness, metadata);
   return Status::OK();
+}
+
+// Backward-compatible overload
+Status GetSchema(const void* opaque_schema, DictionaryMemo* dictionary_memo,
+                 std::shared_ptr<Schema>* out) {
+  return GetSchema(opaque_schema, dictionary_memo, nullptr, out);
 }
 
 Status GetTensorMetadata(const Buffer& metadata, std::shared_ptr<DataType>* type,

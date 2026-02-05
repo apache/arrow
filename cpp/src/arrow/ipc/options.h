@@ -189,6 +189,16 @@ struct ARROW_EXPORT IpcReadOptions {
   /// The lazy property will always be reset to true to deliver the expected behavior
   io::CacheOptions pre_buffer_cache_options = io::CacheOptions::LazyDefaults();
 
+  /// \brief Whether to disable deserialization of extension types
+  ///
+  /// If true, extension types will be deserialized as their storage types instead
+  /// of calling custom deserialization code. This can be useful for security-sensitive
+  /// applications that want to avoid potentially buggy third-party extension type
+  /// deserialization code.
+  ///
+  /// Default is false (extension types are deserialized normally).
+  bool extension_types_blocked = false;
+
   static IpcReadOptions Defaults();
 };
 

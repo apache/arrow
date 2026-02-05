@@ -810,7 +810,7 @@ Status UnpackSchemaMessage(const void* opaque_schema, const IpcReadOptions& opti
                            std::shared_ptr<Schema>* schema,
                            std::shared_ptr<Schema>* out_schema,
                            std::vector<bool>* field_inclusion_mask, bool* swap_endian) {
-  RETURN_NOT_OK(internal::GetSchema(opaque_schema, dictionary_memo, schema));
+  RETURN_NOT_OK(internal::GetSchema(opaque_schema, dictionary_memo, &options, schema));
 
   // If we are selecting only certain fields, populate the inclusion mask now
   // for fast lookups
