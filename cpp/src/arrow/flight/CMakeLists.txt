@@ -207,6 +207,21 @@ if(CMAKE_UNITY_BUILD AND WIN32)
                               PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
 endif()
 
+# Suppress warnings from Abseil headers using deprecated <ciso646> in C++20.
+# GCC 15+ with C++20 emits #warning which -Werror turns into an error.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_STANDARD GREATER_EQUAL 20)
+  set(ARROW_FLIGHT_CXX20_WARNING_FLAGS "-Wno-cpp")
+  set_source_files_properties(server_tracing_middleware.cc
+                              client_tracing_middleware.cc
+                              transport/grpc/grpc_client.cc
+                              transport/grpc/grpc_server.cc
+                              transport/grpc/serialization_internal.cc
+                              transport/grpc/protocol_grpc_internal.cc
+                              transport/grpc/util_internal.cc
+                              PROPERTIES COMPILE_OPTIONS
+                                         "${ARROW_FLIGHT_CXX20_WARNING_FLAGS}")
+endif()
+
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
 endif()
@@ -320,6 +335,13 @@ if(ARROW_TESTING)
   foreach(LIB_TARGET ${ARROW_FLIGHT_TESTING_LIBRARIES})
     target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
   endforeach()
+
+  # Suppress Abseil <ciso646> warnings in testing library (GCC 15+ with C++20)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_STANDARD GREATER_EQUAL 20)
+    set_source_files_properties(test_auth_handlers.cc test_definitions.cc
+                                test_flight_server.cc test_util.cc
+                                PROPERTIES COMPILE_OPTIONS "-Wno-cpp")
+  endif()
 endif()
 
 add_arrow_test(flight_internals_test
@@ -334,11 +356,39 @@ add_arrow_test(flight_test
                LABELS
                "arrow_flight")
 
+# PoC: Async Flight server using gRPC generic callback API
+if(ARROW_BUILD_TESTS)
+  add_arrow_test(async_grpc_poc_test
+                 SOURCES
+                 transport/grpc/async_grpc_poc_test.cc
+                 STATIC_LINK_LIBS
+                 ${ARROW_FLIGHT_TEST_LINK_LIBS}
+                 LABELS
+                 "arrow_flight")
+endif()
+
+# Suppress Abseil <ciso646> warnings in test files (GCC 15+ with C++20)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_STANDARD GREATER_EQUAL 20)
+  if(TARGET arrow-flight-internals-test)
+    target_compile_options(arrow-flight-internals-test PRIVATE "-Wno-cpp")
+  endif()
+  if(TARGET arrow-flight-test)
+    target_compile_options(arrow-flight-test PRIVATE "-Wno-cpp")
+  endif()
+  if(TARGET arrow-async-grpc-poc-test)
+    target_compile_options(arrow-async-grpc-poc-test PRIVATE "-Wno-cpp")
+  endif()
+endif()
+
 # Build test server for unit tests or benchmarks
 if(ARROW_BUILD_TESTS OR ARROW_BUILD_BENCHMARKS)
   add_executable(flight-test-server test_server.cc)
   target_link_libraries(flight-test-server ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES})
+  # Suppress Abseil <ciso646> warnings (GCC 15+ with C++20)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_STANDARD GREATER_EQUAL 20)
+    target_compile_options(flight-test-server PRIVATE "-Wno-cpp")
+  endif()
 
   if(ARROW_BUILD_TESTS)
     add_dependencies(arrow-flight-test flight-test-server)
@@ -364,6 +414,12 @@ if(ARROW_BUILD_BENCHMARKS)
   add_executable(arrow-flight-benchmark flight_benchmark.cc perf.pb.cc)
   target_link_libraries(arrow-flight-benchmark ${ARROW_FLIGHT_TEST_LINK_LIBS}
                         ${GFLAGS_LIBRARIES})
+
+  # Suppress Abseil <ciso646> warnings (GCC 15+ with C++20)
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU" AND CMAKE_CXX_STANDARD GREATER_EQUAL 20)
+    target_compile_options(arrow-flight-perf-server PRIVATE "-Wno-cpp")
+    target_compile_options(arrow-flight-benchmark PRIVATE "-Wno-cpp")
+  endif()
 
   add_dependencies(arrow-flight-benchmark arrow-flight-perf-server)
 
