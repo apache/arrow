@@ -635,7 +635,8 @@ AlpEncodingPreset AlpCompression<T>::CreateEncodingPreset(
   // Note that this vector should mostly be small (< 10 combinations).
   std::vector<AlpCombination> best_k_combinations;
   best_k_combinations.reserve(
-      std::min(best_k_combinations_hash.size(), kMaxCombinationCount));
+      std::min(best_k_combinations_hash.size(),
+               static_cast<size_t>(kMaxCombinationCount)));
   for (const auto& combination : best_k_combinations_hash) {
     best_k_combinations.emplace_back(AlpCombination{
         combination.first,   // Encoding Indices
