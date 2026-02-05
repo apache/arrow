@@ -636,13 +636,31 @@ def test_subtree_filesystem():
                                   ' base_fs=<pyarrow._fs.LocalFileSystem')
 
 
-@pytest.mark.parametrize("wrap_with_in_subtree_fs", [False, True])
-def test_filesystem_pickling(wrap_with_in_subtree_fs, fs, pickle_module):
+class _PickleModuleSubTreeFileSystemWrapper:
+    def __init__(self, pickle_module):
+        self.pickle_module = pickle_module
+
+    def dumps(self, obj):
+        return self.pickle_module.dumps(SubTreeFileSystem(obj, "/"))
+
+    def loads(self, data):
+        return self.pickle_module.loads(data).base_fs
+
+
+@pytest.fixture(params=[True, False])
+def pickle_with_and_without_subtree_filesystem(pickle_module, request):
+    # When creating a SubTreeFileSystem, the python side object
+    # for the base filesystem is lost. This makes pickling worth testing.
+    wrap_with_subtree_filesystem = request.getfixturevalue(request.param)
+    if wrap_with_subtree_filesystem:
+        return _PickleModuleSubTreeFileSystemWrapper(pickle_module)
+    return pickle_module
+
+
+def test_filesystem_pickling(fs, pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
-
-    if wrap_with_in_subtree_fs:
-        fs = SubTreeFileSystem('/', fs)
 
     serialized = pickle_module.dumps(fs)
     restored = pickle_module.loads(serialized)
@@ -1482,7 +1500,8 @@ def test_s3fs_wrong_region():
 
 
 @pytest.mark.azure
-def test_azurefs_options(pickle_module):
+def test_azurefs_options(pickle_with_and_without_subtree_filesystem):
+    pickle_module = pickle_with_and_without_subtree_filesystem
     from pyarrow.fs import AzureFileSystem
 
     fs1 = AzureFileSystem(account_name='fake-account-name')
