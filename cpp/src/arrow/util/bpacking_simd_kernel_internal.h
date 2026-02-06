@@ -208,9 +208,12 @@ constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size
   };
 
   int packed_start_bit = 0;
+  // Try all possible bit offsets for this packed size
   do {
     int packed_per_read = packed_per_read_for_offset(packed_start_bit % 8);
     if (packed_per_read < unpacked_per_simd) {
+      // A single SIMD batch isn't enough to unpack from this bit offset,
+      // so the "medium" model cannot work.
       return true;
     }
     packed_start_bit += unpacked_per_simd * packed_bit_size;
@@ -221,8 +224,8 @@ constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size
 
 /// Different sizes of a given kernel.
 ///
-/// When integers are bit-packed, they spread over multiple bytes.
-/// For instance, integers packed voer three bits quickly spread over two bytes (on the
+/// When integers are bit-packed, they can spread over multiple bytes.
+/// For instance, integers packed over three bits quickly spread over two bytes (on the
 /// value `C` below) despite three bits being much smaller than a single byte.
 ///
 /// ```
@@ -629,7 +632,7 @@ constexpr LargeKernelPlan<KernelTraits> BuildLargePlan() {
         plan.high_swizzles.at(r).at(idx) = packed_byte_in_read + b + kOverBytes;
       }
 
-      // low and high swizzles need to be rshifted but the oversized bytes created a
+      // low and high swizzles need to be rshifted but the oversized bytes create a
       // larger lshift for high values.
       plan.low_rshifts.at(r).at(u) = packed_start_bit % 8;
       plan.high_lshifts.at(r).at(u) = 8 * kOverBytes - (packed_start_bit % 8);
