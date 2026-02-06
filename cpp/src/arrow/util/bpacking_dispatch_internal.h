@@ -217,7 +217,7 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
           batch_size -= kValuesUnpacked;
         }
 
-        // Performance check aking sure we ran the kernel loop as much as possible:
+        // Performance check making sure we ran the kernel loop as much as possible:
         // Either we ran out because we could not pack enough values, or because we would
         // overread.
         ARROW_DCHECK((batch_size < kValuesUnpacked) || (in_end - in) < kBytesRead);

@@ -103,7 +103,7 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
   state.SetItemsProcessed(num_values * state.iterations());
 }
 
-/// Currently, the minimum unpack SIMD kernel size is 32 and the bit packing encoder will
+/// Currently, the minimum unpack SIMD kernel size is 32 and the RLE-bit-packing encoder will
 /// not emit runs larger than 512 (though other implementation might), so we biased the
 /// benchmarks towards a rather small scale.
 static const auto kNumValuesRange = benchmark::CreateRange(32, 512, 2);
