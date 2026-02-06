@@ -6286,8 +6286,8 @@ def concat_tables(tables, MemoryPool memory_pool=None, str promote_options="none
         "default" if promote_options == "none" else promote_options
     )
 
+    options.unify_schemas = promote_options != "none"
     with nogil:
-        options.unify_schemas = promote_options != "none"
         c_result_table = GetResultValue(
             ConcatenateTables(c_tables, options, pool))
 
