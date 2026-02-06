@@ -3563,7 +3563,7 @@ Result<std::shared_ptr<DataType>> type_singleton(Type::type id) {
         result = TypeTraits<T>::type_singleton();
         return Status::OK();
       }
-      return Status::TypeError("Type ", T::type_id, " is not a parameter-free singleton type.");
+      return Status::TypeError("Type ", ToString(T::type_id), " is not a parameter-free type");
     }
   };
 
