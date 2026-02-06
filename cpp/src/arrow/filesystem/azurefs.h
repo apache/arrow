@@ -136,6 +136,7 @@ struct ARROW_EXPORT AzureOptions {
  private:
   void ExtractFromUriSchemeAndHierPart(const Uri& uri, std::string* out_path);
   Status ExtractFromUriQuery(const Uri& uri);
+  void ClearCredentials();
 
  public:
   /// \brief Construct a new AzureOptions from an URI.
@@ -187,7 +188,6 @@ struct ARROW_EXPORT AzureOptions {
   static Result<AzureOptions> FromUri(const Uri& uri, std::string* out_path);
   static Result<AzureOptions> FromUri(const std::string& uri, std::string* out_path);
 
-  void ClearCredentials();
   Status ConfigureDefaultCredential();
   Status ConfigureAnonymousCredential();
   Status ConfigureAccountKeyCredential(const std::string& account_key);

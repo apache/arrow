@@ -650,7 +650,7 @@ class _PickleModuleSubTreeFileSystemWrapper:
 @pytest.fixture(params=[True, False])
 def pickle_with_and_without_subtree_filesystem(pickle_module, request):
     # When creating a SubTreeFileSystem, the python side object for the base
-    # filesystem is lost. This makes it pickling a scenario worth testing.
+    # filesystem is lost. This makes it a pickling scenario worth testing.
     wrap_with_subtree_filesystem = request.param
     if wrap_with_subtree_filesystem:
         return _PickleModuleSubTreeFileSystemWrapper(pickle_module)
