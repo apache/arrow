@@ -352,6 +352,9 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
+      ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
@@ -434,10 +437,15 @@ jobs:
         shell: cmd
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
-      # GH-48270 TODO: Resolve segementation fault during Arrow library unload
-      # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
-      # GH-48547 TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
-
+      - name: Test
+        shell: cmd
+        run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
+          # Convert VCPKG Windows path to MSYS path
+          for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
+          bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
       - name: Install WiX Toolset
         shell: pwsh
         run: |
