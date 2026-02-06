@@ -38,6 +38,7 @@
 #include <azure/storage/files/datalake.hpp>
 
 #include "arrow/buffer.h"
+#include "arrow/config.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/util_internal.h"
@@ -386,9 +387,13 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     return Status::Invalid("AzureOptions::blob_storage_scheme must be http or https: ",
                            blob_storage_scheme);
   }
+  Blobs::BlobClientOptions client_options;
+  client_options.Telemetry.ApplicationId =
+      "azpartner-arrow/" + GetBuildInfo().version_string;
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name));
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
+                                                        client_options);
     case CredentialKind::kDefault:
       if (!token_credential_) {
         token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
@@ -399,14 +404,14 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
     case CredentialKind::kEnvironment:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
-                                                        token_credential_);
+      return std::make_unique<Blobs::BlobServiceClient>(
+          AccountBlobUrl(account_name), token_credential_, client_options);
     case CredentialKind::kStorageSharedKey:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
-                                                        storage_shared_key_credential_);
+      return std::make_unique<Blobs::BlobServiceClient>(
+          AccountBlobUrl(account_name), storage_shared_key_credential_, client_options);
     case CredentialKind::kSASToken:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name) +
-                                                        sas_token_);
+      return std::make_unique<Blobs::BlobServiceClient>(
+          AccountBlobUrl(account_name) + sas_token_, client_options);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -420,10 +425,13 @@ AzureOptions::MakeDataLakeServiceClient() const {
     return Status::Invalid("AzureOptions::dfs_storage_scheme must be http or https: ",
                            dfs_storage_scheme);
   }
+  DataLake::DataLakeClientOptions client_options;
+  client_options.Telemetry.ApplicationId =
+      "azpartner-arrow/" + GetBuildInfo().version_string;
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name));
+          AccountDfsUrl(account_name), client_options);
     case CredentialKind::kDefault:
       if (!token_credential_) {
         token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
@@ -435,13 +443,13 @@ AzureOptions::MakeDataLakeServiceClient() const {
     case CredentialKind::kWorkloadIdentity:
     case CredentialKind::kEnvironment:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name), token_credential_);
+          AccountDfsUrl(account_name), token_credential_, client_options);
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name), storage_shared_key_credential_);
+          AccountDfsUrl(account_name), storage_shared_key_credential_, client_options);
     case CredentialKind::kSASToken:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountBlobUrl(account_name) + sas_token_);
+          AccountBlobUrl(account_name) + sas_token_, client_options);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
