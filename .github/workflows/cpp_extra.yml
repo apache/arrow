@@ -480,6 +480,16 @@ jobs:
         run: |
           mkdir odbc-installer
           mv *.msi odbc-installer/
+
+          # Add `dev-yyyy-mm-dd` to ODBC MSI before `win64.msi`:
+          #   Apache Arrow Flight SQL ODBC-24.0.0-win64.msi ->
+          #   Apache Arrow Flight SQL ODBC-24.0.0-dev-2026-02-06-win64.msi
+          cd odbc-installer
+          msi_name=$(ls *.msi)
+          dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
+          mv "${msi_name}" "${dev_msi_name}"
+          cd ..
+          
           tree odbc-installer
       - name: Checkout Arrow
         uses: actions/checkout@v6
