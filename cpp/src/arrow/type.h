@@ -2653,8 +2653,8 @@ const std::vector<Type::type>& DecimalTypeIds();
 /// this function will return an error.
 ///
 /// \param[in] id The type ID to create a type instance for
-/// \return Result with a shared pointer to the created DataType instance,
-///         or an error if the type requires parameters
+/// \return The type instance for the given type ID,
+///         or a TypeError if the type requires parameters
 ARROW_EXPORT
 Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
 
