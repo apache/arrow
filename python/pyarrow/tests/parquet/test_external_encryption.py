@@ -26,6 +26,22 @@ import pytest
 import re
 
 
+def get_agent_library_path():
+    # TODO: move this code to a common library
+    # See https://github.com/protegrity/arrow/issues/191
+    return os.environ.get(
+        'DBPA_LIBRARY_PATH',
+        'libDBPATestAgent.so'
+        if platform.system() == 'Linux' else 'libDBPATestAgent.dylib')
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _skip_if_external_dbpa_agent_missing():
+    path = get_agent_library_path()
+    if not os.path.exists(path):
+        pytest.skip(f"External DBPA agent library not found in path [{path}]")
+
+
 class FooKmsClient(ppe.KmsClient):
 
     def __init__(self, kms_connection_config):
@@ -61,15 +77,6 @@ def get_data_table():
 
 def kms_client_factory(kms_connection_config):
     return FooKmsClient(kms_connection_config)
-
-
-def get_agent_library_path():
-    # TODO: move this code to a common library
-    # See https://github.com/protegrity/arrow/issues/191
-    return os.environ.get(
-        'DBPA_LIBRARY_PATH',
-        'libDBPATestAgent.so'
-        if platform.system() == 'Linux' else 'libDBPATestAgent.dylib')
 
 
 def get_kms_connection_config():
