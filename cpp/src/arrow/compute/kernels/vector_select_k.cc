@@ -44,9 +44,9 @@ const FunctionDoc select_k_unstable_doc(
     ("This function selects an array of indices of the first `k` ordered elements\n"
      "from the `input` array, record batch or table specified in the column keys\n"
      "(`options.sort_keys`). Output is not guaranteed to be stable.\n"
-     "Null values are considered greater than any other value and are\n"
-     "therefore ordered at the end. For floating-point types, NaNs are considered\n"
-     "greater than any other non-null value, but smaller than null values."),
+     "Null values will be ordered according to the null_placement as specified per\n"
+     "sort-key. For floating-point types, NaNs are always ordered between\n"
+     "null values and non-null values."),
     {"input"}, "SelectKOptions", /*options_required=*/true);
 
 template <SortOrder order>
