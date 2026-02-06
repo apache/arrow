@@ -628,7 +628,8 @@ TEST(AzureFileSystem, OptionsCompare) {
 
   AzureOptions options5;
   options5.account_name = "account_name";
-  ASSERT_OK(options5.ConfigureClientSecretCredential("fake_tenant_id", "fake_client_id", "fake_client_secret"));
+  ASSERT_OK(options5.ConfigureClientSecretCredential("fake_tenant_id", "fake_client_id",
+                                                     "fake_client_secret"));
   EXPECT_FALSE(options5.Equals(options4));
 }
 

@@ -248,19 +248,17 @@ Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
 }
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  const bool equals = account_name == other.account_name &&
-                      blob_storage_authority == other.blob_storage_authority &&
-                      dfs_storage_authority == other.dfs_storage_authority &&
-                      blob_storage_scheme == other.blob_storage_scheme &&
-                      dfs_storage_scheme == other.dfs_storage_scheme &&
-                      default_metadata == other.default_metadata &&
-                      background_writes == other.background_writes &&
-                      credential_kind_ == other.credential_kind_ &&
-                      account_key_ == other.account_key_ &&
-                      sas_token_ == other.sas_token_ &&
-                      tenant_id_ == other.tenant_id_ &&
-                      client_id_ == other.client_id_ &&
-                      client_secret_ == other.client_secret_;
+  const bool equals =
+      account_name == other.account_name &&
+      blob_storage_authority == other.blob_storage_authority &&
+      dfs_storage_authority == other.dfs_storage_authority &&
+      blob_storage_scheme == other.blob_storage_scheme &&
+      dfs_storage_scheme == other.dfs_storage_scheme &&
+      default_metadata == other.default_metadata &&
+      background_writes == other.background_writes &&
+      credential_kind_ == other.credential_kind_ && account_key_ == other.account_key_ &&
+      sas_token_ == other.sas_token_ && tenant_id_ == other.tenant_id_ &&
+      client_id_ == other.client_id_ && client_secret_ == other.client_secret_;
   if (!equals) {
     return false;
   }
