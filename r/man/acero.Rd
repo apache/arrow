@@ -341,7 +341,7 @@ Pattern modifiers \code{coll()} and \code{boundary()} are not supported in any f
 \item \code{\link[stringr:str_detect]{str_detect()}}
 \item \code{\link[stringr:str_dup]{str_dup()}}
 \item \code{\link[stringr:str_starts]{str_ends()}}
-\item \code{\link[stringr:str_like]{str_ilike()}}
+\item \code{\link[stringr:str_ilike]{str_ilike()}}
 \item \code{\link[stringr:str_length]{str_length()}}
 \item \code{\link[stringr:str_like]{str_like()}}
 \item \code{\link[stringr:str_pad]{str_pad()}}
