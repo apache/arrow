@@ -75,7 +75,7 @@ TEST(TestTypeSingleton, ParameterFreeTypes) {
 TEST(TestTypeSingleton, ParameterizedTypes) {
   // Test error cases - parameterized types (test one representative)
   auto result = type_singleton(Type::TIMESTAMP);
-  ASSERT_FALSE(result.ok());
+  ASSERT_RAISES(TypeError, result);
   EXPECT_THAT(result.status().message(),
               testing::HasSubstr("is not a parameter-free singleton type"));
 }
