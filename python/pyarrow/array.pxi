@@ -1304,7 +1304,7 @@ cdef class Array(_PandasConvertible):
             The value type of the array.
         length : int
             The number of values in the array.
-        buffers : List[Buffer]
+        buffers : List[Buffer | None]
             The buffers backing this array.
         null_count : int, default -1
             The number of null entries in the array. Negative value means that
