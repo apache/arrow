@@ -168,6 +168,7 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
 ///                  byte alignment).
 /// @tparam UnpackedUInt The type in which we unpack the values.
 /// @param batch_size The number of values to unpack.
+/// @param bit_offset The bit offset of the first value in the first input byte.
 /// @param max_read_bytes The maximum size of the input byte array that can be read.
 ///                       This is used to safely overread.
 ///                       Negative value to deduce from batch_size.
@@ -179,7 +180,7 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
     // Easy case to handle, simply setting memory to zero.
     return unpack_null(in, out, batch_size);
   } else {
-    // Number of size to read according to batch_size.
+    // Number of bytes to read according to batch_size.
     const int bytes_batch = static_cast<int>(
         bit_util::BytesForBits(batch_size * kPackedBitWidth + bit_offset));
     // If specified, max_read_bytes must be greater that the bytes needed to extract the

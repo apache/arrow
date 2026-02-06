@@ -27,6 +27,7 @@
 #pragma once
 
 #include <array>
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <numeric>
@@ -39,6 +40,20 @@
 #include "arrow/util/type_traits.h"
 
 namespace arrow::internal {
+
+template <typename T, std::size_t N>
+constexpr std::array<T, N> BuildConstantArray(T val) {
+  std::array<T, N> out = {};
+  for (auto& v : out) {
+    v = val;
+  }
+  return out;
+}
+
+template <typename Arr>
+constexpr Arr BuildConstantArrayLike(typename Arr::value_type val) {
+  return BuildConstantArray<typename Arr::value_type, std::tuple_size_v<Arr>>(val);
+}
 
 /*********************
  *  xsimd utilities  *
@@ -72,7 +87,7 @@ constexpr auto array_to_batch_constant() {
       std::make_index_sequence<kArr.size()>());
 }
 
-template <typename Int, int kOffset, int kLength, typename Arr>
+template <std::integral Int, int kOffset, int kLength, typename Arr>
 constexpr auto select_stride_impl(Arr shifts) {
   std::array<Int, shifts.size() / kLength> out{};
   for (std::size_t i = 0; i < out.size(); ++i) {
@@ -81,6 +96,24 @@ constexpr auto select_stride_impl(Arr shifts) {
   return out;
 }
 
+/// Select indices in a batch constant according to a given stride.
+///
+/// Given a ``xsimd::batch_constant`` over a given integer type ``Int``, return a new
+/// batch constant over a larger integer type ``ToInt`` that select one of every "stride"
+/// element from the input.
+/// Because batch constants can only contain a predetermined number of values, the
+/// "stride" is determined as the ratio of the sizes of the output and input integer
+/// types.
+/// The ``kOffset`` is used to determine which sequence of values picked by the stride.
+/// Equivalently, it is the index of the first value selected.
+///
+/// For instance given an input with the following values
+///         |0|1|2|3|4|5|6|7|
+/// and a stride of 2 (e.g. sizeof(uint16_t)/sizeof(uint8_t)), an offset of 0 would
+/// return the values:
+///         |0|2|4|6|
+/// while an offset of 1 would return the values:
+///         |1|3|5|7|
 template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
 constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
   constexpr auto kStridesArr =
@@ -110,7 +143,11 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
     -> xsimd::batch<Int, Arch> {
   constexpr bool kHasSse2 = HasSse2<Arch>;
   constexpr bool kHasAvx2 = HasAvx2<Arch>;
-  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
+  static_assert(
+      !(kHasSse2 && kHasAvx2),
+      "In xsimd, an x86 arch is either part of the the SSE family or of the AVX family, "
+      "not both. If this check fails, it means the assumptions made here to detect SSE "
+      "and AVX are out of date.");
 
   constexpr auto kMults = xsimd::make_batch_constant<Int, 1, Arch>() << shifts;
 
@@ -198,7 +235,16 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
  *  Properties of a kernel  *
  ****************************/
 
-/// \see KernelShape
+/// Compute whether packed values may overflow SIMD register.
+///
+/// Due to packing misalignment, we may not be able to fit in a SIMD register as many
+/// packed values as unpacked values.
+/// This happens because of the packing bit alignment creates spare bits we are force to
+/// read when reading whole bytes. This is mostly know to be the case with 63 bits values
+/// in a 128 bit SIMD register.
+///
+/// @see KernelShape
+/// @see PackedMaxSpreadBytes
 constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size,
                                         int packed_bit_size) {
   const int unpacked_per_simd = simd_bit_size / unpacked_bit_size;
@@ -233,10 +279,28 @@ constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size
 /// ```
 ///
 /// When the spread is smaller or equal to the unsigned integer to unpack to, we classify
-/// if as "medium". When it is strictly larger it classifies as "large".
+/// if as "medium".
+///
+/// When it is strictly larger, it classifies as "large".
+///
 /// On rare occasions, due to offsets in reading a subsequent batch, we may not even be
-/// able to read as many packed values as we should extract in a batch (mainly unpack 63
-/// bits to uint64_t on 128 bit SIMD). We classify this as "oversized".
+/// able to read as many packed values as we should extract in a batch. We classify this
+/// as "oversized". For instance unpacking 63 bits values to uint64_t on 128 bits SIMD
+/// register (possibly the only such case), we need to write 2 uint64_t on each output
+/// register that we flush to memory. The first two value spread over bits [0, 126[,
+/// fitting in 16 bytes (the full SIMD register). However, the next two values on input
+/// bits [126, 252[, are not byte aligned and would require reading the whole [120, 256[
+/// range, or 17 bytes. We would need to read more than one SIMD register to create
+/// a single output register with two values. Such pathological cases are not handled with
+/// SIMD but rather fully alling back to the exact scalar loop.
+///
+/// There is currently no "small" classification, as medium kernels can handle even 1-bit
+/// packed values. Future work may investigate a dedicated kernel for when a single byte
+/// can fit more values than is being unpack in a single register. For instance, unpacking
+/// 1 bit values to uint32_t on 128 bits SIMD register, we can fit 8 values in a byte, or
+/// twice the number of uint32_t that fit in an SIMD register. This can be use to further
+/// reduce the number of swizzles done in a kernel run. Other optimizations of interest
+/// for small input sizes on BMI2 is to use ``_pdep_u64`` directly to perform unpacking.
 struct KernelShape {
   const int simd_bit_size_;
   const int unpacked_bit_size_;
@@ -266,13 +330,17 @@ struct KernelShape {
 };
 
 /// Packing all useful and derived information about a kernel in a single type.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <std::unsigned_integral UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct KernelTraits {
   static constexpr KernelShape kShape = {
       .simd_bit_size_ = kSimdBitSize,
       .unpacked_bit_size_ = 8 * sizeof(UnpackedUint),
       .packed_bit_size_ = kPackedBitSize,
   };
+
+  static_assert(kShape.simd_bit_size() % kShape.unpacked_bit_size() == 0);
+  static_assert(0 < kShape.packed_bit_size());
+  static_assert(kShape.packed_bit_size() < kShape.simd_bit_size());
 
   using unpacked_type = UnpackedUint;
   // The integer type to work with, `unpacked_type` or an appropriate type for bool.
@@ -283,9 +351,10 @@ struct KernelTraits {
   using arch_type = typename simd_batch::arch_type;
 };
 
-template <typename Traits, typename Uint>
-using KernelTraitsWithUnpack =
-    KernelTraits<Uint, Traits::kShape.packed_bit_size(), Traits::kShape.simd_bit_size()>;
+/// Return similar kernel traits but with a different integer unpacking type.
+template <typename KerTraits, std::unsigned_integral Uint>
+using KernelTraitsWithUnpackUint = KernelTraits<Uint, KerTraits::kShape.packed_bit_size(),
+                                                KerTraits::kShape.simd_bit_size()>;
 
 /******************
  *  MediumKernel  *
@@ -337,9 +406,9 @@ constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
     return packed_per_read_for_offset(bit_offset) / vals_per_swizzle;
   };
 
-  // If after a whole swizzle reading iteration we fall unaligned, the remaining
-  // iterations will start with an unaligned first value, reducing the effective capacity
-  // of the SIMD batch.
+  // If after a whole swizzle reading iteration we fall byte-unaligned, the remaining
+  // iterations will start with an byte-unaligned first value, reducing the effective
+  // capacity of the SIMD batch.
   // We must check that our read iteration size still works with subsequent misalignment
   // by looping until aligned.
   // One may think that using such large reading iterations risks overshooting an aligned
@@ -395,9 +464,9 @@ struct MediumKernelPlan {
   using ShiftsPerRead = std::array<ShiftsPerSwizzle, kPlanSize.swizzles_per_read()>;
   using ShitsPerKernel = std::array<ShiftsPerRead, kPlanSize.reads_per_kernel()>;
 
-  static constexpr int unpacked_per_shifts() { return kShape.unpacked_per_simd(); }
+  static constexpr int unpacked_per_shift() { return kShape.unpacked_per_simd(); }
   static constexpr int unpacked_per_swizzle() {
-    return unpacked_per_shifts() * kPlanSize.shifts_per_swizzle();
+    return unpacked_per_shift() * kPlanSize.shifts_per_swizzle();
   }
   static constexpr int unpacked_per_read() {
     return unpacked_per_swizzle() * kPlanSize.swizzles_per_read();
@@ -419,15 +488,6 @@ struct MediumKernelPlan {
   uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 };
 
-template <typename Arr>
-constexpr Arr BuildConstantArray(typename Arr::value_type val) {
-  Arr out = {};
-  for (auto& v : out) {
-    v = val;
-  }
-  return out;
-}
-
 template <typename KernelTraits, MediumKernelOptions kOptions>
 constexpr auto BuildMediumPlan() {
   using Plan = MediumKernelPlan<KernelTraits, kOptions>;
@@ -444,7 +504,8 @@ constexpr auto BuildMediumPlan() {
 
     for (int sw = 0; sw < kPlanSize.swizzles_per_read(); ++sw) {
       constexpr int kUndefined = -1;
-      plan.swizzles.at(r).at(sw) = BuildConstantArray<typename Plan::Swizzle>(kUndefined);
+      plan.swizzles.at(r).at(sw) =
+          BuildConstantArrayLike<typename Plan::Swizzle>(kUndefined);
       for (int sh = 0; sh < kPlanSize.shifts_per_swizzle(); ++sh) {
         const int sh_offset_bytes = sh * kShape.packed_max_spread_bytes();
         const int sh_offset_bits = 8 * sh_offset_bytes;
@@ -473,7 +534,7 @@ constexpr auto BuildMediumPlan() {
   return plan;
 }
 
-template <typename Uint, typename Arch>
+template <std::unsigned_integral Uint, typename Arch>
 xsimd::batch<uint8_t, Arch> load_bytes_as(const uint8_t* in) {
   const Uint val = util::SafeLoadAs<Uint>(in);
   const auto batch = xsimd::batch<Uint, Arch>(val);
@@ -512,7 +573,7 @@ struct MediumKernel {
     constexpr auto kMask = kPlan.mask;
     constexpr auto kOutOffset = (kReadIdx * kPlan.unpacked_per_read() +
                                  kSwizzleIdx * kPlan.unpacked_per_swizzle() +
-                                 kShiftIdx * kPlan.unpacked_per_shifts());
+                                 kShiftIdx * kPlan.unpacked_per_shift());
 
     // Intel x86-64 does not have variable right shifts before AVX2.
     // We know the packed value can safely be left shifted up to the largest offset so we
@@ -616,8 +677,8 @@ constexpr LargeKernelPlan<KernelTraits> BuildLargePlan() {
     plan.reads.at(r) = read_start_byte;
 
     constexpr int kUndefined = -1;
-    plan.low_swizzles.at(r) = BuildConstantArray<typename Plan::Swizzle>(kUndefined);
-    plan.high_swizzles.at(r) = BuildConstantArray<typename Plan::Swizzle>(kUndefined);
+    plan.low_swizzles.at(r) = BuildConstantArrayLike<typename Plan::Swizzle>(kUndefined);
+    plan.high_swizzles.at(r) = BuildConstantArrayLike<typename Plan::Swizzle>(kUndefined);
 
     for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
       const int packed_start_byte = packed_start_bit / 8;
@@ -745,40 +806,40 @@ struct ForwardToKernel : WorkingKernel {
  *******************************/
 
 // Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
-template <typename Traits, typename Arch = typename Traits::arch_type>
-constexpr bool MediumShouldUseUint32 =
+template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
+constexpr bool kMediumShouldUseUint32 =
     (HasSse2<Arch> || HasSse2<Arch>) &&  //
-    (Traits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
-    (Traits::kShape.packed_bit_size() < 32) &&
-    KernelTraitsWithUnpack<Traits, uint32_t>::kShape.is_medium();
+    (KerTraits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
+    (KerTraits::kShape.packed_bit_size() < 32) &&
+    KernelTraitsWithUnpackUint<KerTraits, uint32_t>::kShape.is_medium();
 
 // Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
-template <typename Traits, typename Arch = typename Traits::arch_type>
-constexpr bool LargeShouldUseUint16 =
-    HasSse2<Arch> && (Traits::kShape.unpacked_byte_size() == sizeof(uint8_t));
+template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
+constexpr bool kLargeShouldUseUint16 =
+    HasSse2<Arch> && (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
 
 // A ``std::enable_if`` that works on MSVC
-template <typename Traits>
+template <typename KerTraits>
 constexpr auto KernelDispatchImpl() {
   constexpr MediumKernelOptions kMedKernelOpts = {.unpacked_per_kernel_limit_ = 32};
-  if constexpr (Traits::kShape.is_medium()) {
-    if constexpr (MediumShouldUseUint32<Traits>) {
+  if constexpr (KerTraits::kShape.is_medium()) {
+    if constexpr (kMediumShouldUseUint32<KerTraits>) {
       using Kernel32 =
-          MediumKernel<KernelTraitsWithUnpack<Traits, uint32_t>, kMedKernelOpts>;
-      return ForwardToKernel<Traits, Kernel32>{};
+          MediumKernel<KernelTraitsWithUnpackUint<KerTraits, uint32_t>, kMedKernelOpts>;
+      return ForwardToKernel<KerTraits, Kernel32>{};
     } else {
-      return MediumKernel<Traits, kMedKernelOpts>{};
+      return MediumKernel<KerTraits, kMedKernelOpts>{};
     }
-  } else if constexpr (Traits::kShape.is_large()) {
-    if constexpr (LargeShouldUseUint16<Traits>) {
+  } else if constexpr (KerTraits::kShape.is_large()) {
+    if constexpr (kLargeShouldUseUint16<KerTraits>) {
       using Kernel16 =
-          MediumKernel<KernelTraitsWithUnpack<Traits, uint16_t>, kMedKernelOpts>;
-      return ForwardToKernel<Traits, Kernel16>{};
+          MediumKernel<KernelTraitsWithUnpackUint<KerTraits, uint16_t>, kMedKernelOpts>;
+      return ForwardToKernel<KerTraits, Kernel16>{};
     } else {
-      return LargeKernel<Traits>{};
+      return LargeKernel<KerTraits>{};
     }
-  } else if constexpr (Traits::kShape.is_oversized()) {
-    return NoOpKernel<Traits>{};
+  } else if constexpr (KerTraits::kShape.is_oversized()) {
+    return NoOpKernel<KerTraits>{};
   }
 }
 
@@ -786,7 +847,7 @@ template <typename Traits>
 using KernelDispatch = decltype(KernelDispatchImpl<Traits>());
 
 /// The public kernel exposed for any size.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <std::unsigned_integral UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>> {
 };
 
