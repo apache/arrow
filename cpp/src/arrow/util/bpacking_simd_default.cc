@@ -45,4 +45,5 @@ template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackO
 
 }  // namespace arrow::internal
 
-#endif
+#  undef UNPACK_PLATFORM
+#endif  // UNPACK_PLATFORM
