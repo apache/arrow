@@ -668,7 +668,9 @@ def test_filesystem_pickling(fs, pickle_with_and_without_subtree_filesystem):
     assert restored.equals(fs)
 
 
-def test_filesystem_is_functional_after_pickling(fs, pathfn, pickle_with_and_without_subtree_filesystem):
+def test_filesystem_is_functional_after_pickling(
+    fs, pathfn, pickle_with_and_without_subtree_filesystem
+):
     pickle_module = pickle_with_and_without_subtree_filesystem
     if fs.type_name.split('::')[-1] == 'mock':
         pytest.xfail(reason='MockFileSystem is not serializable')
