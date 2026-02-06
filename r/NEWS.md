@@ -17,6 +17,14 @@
   under the License.
 -->
 
+# arrow 23.0.0.1
+
+## Installation
+
+- As of version 23.0.0.1 GCS is no longer offered in CRAN builds. Please use R-Universe for more fully-featured builds.
+- Fixed an issue with C++20 and libc++ on Fedora.
+
+
 # arrow 23.0.0
 
 ## New features
