@@ -392,21 +392,21 @@ TEST_F(DBPAExecutorTest, TimeoutExceptionThrownOnSlowOperation) {
     void init(std::string, std::map<std::string, std::string>, std::string, std::string,
               Type::type, std::optional<int>, CompressionCodec::type,
               std::optional<std::map<std::string, std::string>>) override {
-      // Simulate slow operation that takes 200ms
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // Simulate slow operation that takes 2s
+      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
     }
 
     std::unique_ptr<EncryptionResult> Encrypt(
         span<const uint8_t>, std::map<std::string, std::string>) override {
-      // Simulate slow operation that takes 150ms
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // Simulate slow operation that takes 2s
+      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
       return nullptr;
     }
 
     std::unique_ptr<DecryptionResult> Decrypt(
         span<const uint8_t>, std::map<std::string, std::string>) override {
-      // Simulate slow operation that takes 120ms
-      std::this_thread::sleep_for(std::chrono::milliseconds(100));
+      // Simulate slow operation that takes 2s
+      std::this_thread::sleep_for(std::chrono::milliseconds(2000));
       return nullptr;
     }
   };
@@ -415,9 +415,9 @@ TEST_F(DBPAExecutorTest, TimeoutExceptionThrownOnSlowOperation) {
   auto slow_agent = std::make_unique<SlowMockAgent>();
   auto timeout_executor =
       std::make_unique<DBPAExecutor>(std::move(slow_agent),
-                                     50,   // init timeout: 50ms (will timeout)
-                                     55,   // encrypt timeout: 50ms (will timeout)
-                                     60);  // decrypt timeout: 50ms (will timeout)
+                                     5,   // init timeout: 5ms (will timeout)
+                                     5,   // encrypt timeout: 5ms (will timeout)
+                                     5);  // decrypt timeout: 5ms (will timeout)
 
   // Test init timeout - should throw DBPAExecutorTimeoutException
   try {
@@ -429,7 +429,7 @@ TEST_F(DBPAExecutorTest, TimeoutExceptionThrownOnSlowOperation) {
     // Verify the timeout exception contains expected information
     std::string error_msg = e.what();
     EXPECT_TRUE(error_msg.find("init") != std::string::npos);
-    EXPECT_TRUE(error_msg.find("50") != std::string::npos);
+    EXPECT_TRUE(error_msg.find("5") != std::string::npos);
     EXPECT_TRUE(error_msg.find("milliseconds") != std::string::npos);
   } catch (...) {
     FAIL() << "Expected DBPAExecutorTimeoutException, but got different exception type";
@@ -446,7 +446,7 @@ TEST_F(DBPAExecutorTest, TimeoutExceptionThrownOnSlowOperation) {
     // Verify the timeout exception contains expected information
     std::string error_msg = e.what();
     EXPECT_TRUE(error_msg.find("encrypt") != std::string::npos);
-    EXPECT_TRUE(error_msg.find("55") != std::string::npos);
+    EXPECT_TRUE(error_msg.find("5") != std::string::npos);
     EXPECT_TRUE(error_msg.find("milliseconds") != std::string::npos);
   } catch (...) {
     FAIL() << "Expected DBPAExecutorTimeoutException, but got different exception type";
@@ -460,7 +460,7 @@ TEST_F(DBPAExecutorTest, TimeoutExceptionThrownOnSlowOperation) {
     // Verify the timeout exception contains expected information
     std::string error_msg = e.what();
     EXPECT_TRUE(error_msg.find("decrypt") != std::string::npos);
-    EXPECT_TRUE(error_msg.find("60") != std::string::npos);
+    EXPECT_TRUE(error_msg.find("5") != std::string::npos);
     EXPECT_TRUE(error_msg.find("milliseconds") != std::string::npos);
   } catch (...) {
     FAIL() << "Expected DBPAExecutorTimeoutException, but got different exception type";
