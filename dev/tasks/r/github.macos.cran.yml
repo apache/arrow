@@ -31,7 +31,7 @@ jobs:
 
       - name: Configure dependencies (macos)
         run: |
-          brew install openssl
+          brew install openssl llvm@14
           # disable sccache on macos as it times out for unknown reasons
           # see GH-33721
           # brew install sccache
@@ -61,7 +61,7 @@ jobs:
       - name: Install
         env:
           _R_CHECK_CRAN_INCOMING_: false
-          CXX: "clang++ -mmacos-version-min=14.6"
+          CXX: "clang++-14 -mmacos-version-min=14.6"
           CFLAGS: "-falign-functions=8 -g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion -Wstrict-prototypes"
           CXXFLAGS: "-g -O2 -Wall -pedantic -Wconversion -Wno-sign-conversion"
           NOT_CRAN: false
