@@ -22,7 +22,7 @@
 jobs:
   macos-cran:
     name: "macOS similar to CRAN"
-    runs-on: macOS-latest
+    runs-on: macOS-14
     strategy:
       fail-fast: false
 
