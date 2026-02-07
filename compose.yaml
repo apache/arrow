@@ -1667,6 +1667,7 @@ services:
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
         r_update_clang: ${R_UPDATE_CLANG}
+        r_old_clang: ${R_OLD_CLANG}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]

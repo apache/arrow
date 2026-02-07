@@ -97,5 +97,33 @@ if [ "$R_UPDATE_CLANG" = true ]; then
   apt install -y clang-20 lld-20
 fi
 
+# Use an old clang version to simulate CRAN's macos clang-14 environment.
+# This is only for rhub/clang20. If we change the base image from rhub/clang20,
+# we need to update this part too.
+if [ "$R_OLD_CLANG" = true ]; then
+  apt update -y --allow-releaseinfo-change # flag needed for when debian version changes
+  apt install -y clang-14 lld-14 g++-12 libstdc++-12-dev
+
+  update-alternatives --install /usr/bin/clang clang /usr/bin/clang-14 100
+  update-alternatives --install /usr/bin/clang++ clang++ /usr/bin/clang++-14 100
+  update-alternatives --install /usr/bin/lld lld /usr/bin/lld-14 100
+
+  clang --version
+  clang++ --version
+
+  mkdir -p ~/.R
+  cat <<'EOF' > ~/.R/Makevars
+CC=clang-14
+CXX=clang++-14
+
+CXX11=clang++-14
+CXX14=clang++-14
+CXX17=clang++-14
+CXX20=clang++-14
+
+LDFLAGS=-fuse-ld=lld
+EOF
+fi
+
 # Workaround for html help install failure; see https://github.com/r-lib/devtools/issues/2084#issuecomment-530912786
 Rscript -e 'x <- file.path(R.home("doc"), "html"); if (!file.exists(x)) {dir.create(x, recursive=TRUE); file.copy(system.file("html/R.css", package="stats"), x)}'
