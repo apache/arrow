@@ -15,11 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_custom_target(tests)
-
-find_package(ODBC REQUIRED)
-include_directories(${ODBC_INCLUDE_DIRS})
-
 find_package(SQLite3Alt REQUIRED)
 
 set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS
@@ -53,6 +48,9 @@ add_arrow_test(flight_sql_odbc_test
                ${ODBCINST}
                ${SQLite3_LIBRARIES}
                arrow_odbc_spi_impl)
+
+find_package(ODBC REQUIRED)
+target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)
 
 # Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
 set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)

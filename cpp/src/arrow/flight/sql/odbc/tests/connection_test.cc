@@ -442,7 +442,7 @@ TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
                        arrow::util::UTF8ToWideString(connect_str));
   std::vector<SQLWCHAR> connect_str0(wconnect_str.begin(), wconnect_str.end());
 
-  SQLWCHAR out_str[kOdbcBufferSize];
+  SQLWCHAR out_str[kOdbcBufferSize] = {0};
   SQLSMALLINT out_str_len;
 
   // Connecting to ODBC server.
