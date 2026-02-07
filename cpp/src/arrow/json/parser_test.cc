@@ -176,6 +176,28 @@ TEST_P(BlockParserTypeError, FailOnInconvertible) {
           "JSON parse error: Column(/a) changed from number to boolean in row 1"));
 }
 
+TEST_P(BlockParserTypeError, AllowNumberToStringConversion) {
+  // Test that number can be converted to string when explicit schema is provided
+  auto options = Options(schema({field("a", utf8())}));
+  std::shared_ptr<Array> parsed;
+  ASSERT_OK(ParseFromString(options, "{\"a\":\"123\"}\n{\"a\":456}", &parsed));
+  auto struct_array = std::static_pointer_cast<StructArray>(parsed);
+  auto field_array = struct_array->GetFieldByName("a");
+  ASSERT_NE(field_array, nullptr);
+  ASSERT_EQ(field_array->length(), 2);
+}
+
+TEST_P(BlockParserTypeError, AllowStringToNumberConversion) {
+  // Test that numeric string can be converted to number when explicit schema is provided
+  auto options = Options(schema({field("a", int64())}));
+  std::shared_ptr<Array> parsed;
+  ASSERT_OK(ParseFromString(options, "{\"a\":123}\n{\"a\":\"456\"}", &parsed));
+  auto struct_array = std::static_pointer_cast<StructArray>(parsed);
+  auto field_array = struct_array->GetFieldByName("a");
+  ASSERT_NE(field_array, nullptr);
+  ASSERT_EQ(field_array->length(), 2);
+}
+
 TEST_P(BlockParserTypeError, FailOnNestedInconvertible) {
   auto options = Options(schema({field("a", list(struct_({field("b", int32())})))}));
   std::shared_ptr<Array> parsed;

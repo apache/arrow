@@ -17,6 +17,7 @@
 
 #include "arrow/json/parser.h"
 
+#include <cctype>
 #include <functional>
 #include <limits>
 #include <memory>
@@ -654,7 +655,8 @@ class HandlerBase : public BlockParser,
       : BlockParser(pool),
         builder_set_(pool),
         field_index_(-1),
-        scalar_values_builder_(pool) {}
+        scalar_values_builder_(pool),
+        explicit_schema_(nullptr) {}
 
   /// Retrieve a pointer to a builder from a BuilderPtr
   template <Kind::type kind>
@@ -679,6 +681,15 @@ class HandlerBase : public BlockParser,
   bool Bool(bool value) {
     constexpr auto kind = Kind::kBoolean;
     if (ARROW_PREDICT_FALSE(builder_.kind != kind)) {
+      // When explicit schema is provided, try to convert the value
+      if (explicit_schema_ != nullptr) {
+        std::string bool_str = value ? "true" : "false";
+        status_ = TryConvertAndAppend(kind, builder_, bool_str);
+        if (status_.ok()) {
+          return true;
+        }
+        // If conversion failed, fall through to error
+      }
       status_ = IllegallyChangedTo(kind);
       return status_.ok();
     }
@@ -729,6 +740,7 @@ class HandlerBase : public BlockParser,
 
   /// \brief Set up builders using an expected Schema
   Status Initialize(const std::shared_ptr<Schema>& s) {
+    explicit_schema_ = s;
     auto type = struct_({});
     if (s) {
       type = struct_(s->fields());
@@ -808,6 +820,14 @@ class HandlerBase : public BlockParser,
   template <Kind::type kind>
   Status AppendScalar(BuilderPtr builder, std::string_view scalar) {
     if (ARROW_PREDICT_FALSE(builder.kind != kind)) {
+      // When explicit schema is provided, try to convert the value
+      if (explicit_schema_ != nullptr) {
+        Status convert_status = TryConvertAndAppend(kind, builder, scalar);
+        if (convert_status.ok()) {
+          return Status::OK();
+        }
+        // If conversion failed, fall through to error
+      }
       return IllegallyChangedTo(kind);
     }
     auto index = static_cast<int32_t>(scalar_values_builder_.length());
@@ -918,6 +938,69 @@ class HandlerBase : public BlockParser,
                       " to ", Kind::Name(illegally_changed_to), " in row ", num_rows_);
   }
 
+  /// Try to convert a JSON value to match the builder's expected kind
+  /// Returns OK if conversion succeeded and value was appended, error otherwise
+  Status TryConvertAndAppend(Kind::type json_kind, BuilderPtr builder,
+                              std::string_view scalar) {
+    // Convert based on target builder kind
+    switch (builder.kind) {
+      case Kind::kString: {
+        // Target is string - can convert from number or boolean
+        if (json_kind == Kind::kNumber) {
+          // Number to string: the scalar already contains the number as string
+          // (due to kParseNumbersAsStringsFlag), so we can append directly
+          return AppendScalar<Kind::kString>(builder, scalar);
+        } else if (json_kind == Kind::kBoolean) {
+          // Boolean to string: convert true/false to "true"/"false"
+          std::string bool_str = (scalar == "true" || scalar == "1") ? "true" : "false";
+          return AppendScalar<Kind::kString>(builder, bool_str);
+        }
+        break;
+      }
+      case Kind::kNumber: {
+        // Target is number - can convert from numeric string
+        if (json_kind == Kind::kString) {
+          // Try to parse string as number
+          // The string should already be in scalar, we just need to verify it's numeric
+          // and append it (the parser flag kParseNumbersAsStringsFlag means numbers
+          // come as strings, so we can treat numeric strings as numbers)
+          return AppendScalar<Kind::kNumber>(builder, scalar);
+        } else if (json_kind == Kind::kBoolean) {
+          // Boolean to number: true -> 1, false -> 0
+          std::string num_str = (scalar == "true" || scalar == "1") ? "1" : "0";
+          return AppendScalar<Kind::kNumber>(builder, num_str);
+        }
+        break;
+      }
+      case Kind::kBoolean: {
+        // Target is boolean - can convert from number (0/1) or string ("true"/"false")
+        if (json_kind == Kind::kNumber) {
+          // Number to boolean: 0 -> false, non-zero -> true
+          std::string bool_str = (scalar == "0" || scalar == "0.0") ? "false" : "true";
+          return AppendScalar<Kind::kBoolean>(builder, bool_str);
+        } else if (json_kind == Kind::kString) {
+          // String to boolean: check if it's a boolean-like string
+          std::string lower_scalar;
+          lower_scalar.reserve(scalar.size());
+          for (char c : scalar) {
+            lower_scalar += std::tolower(static_cast<unsigned char>(c));
+          }
+          if (lower_scalar == "true" || lower_scalar == "1" || lower_scalar == "yes") {
+            return AppendScalar<Kind::kBoolean>(builder, "true");
+          } else if (lower_scalar == "false" || lower_scalar == "0" || lower_scalar == "no") {
+            return AppendScalar<Kind::kBoolean>(builder, "false");
+          }
+        }
+        break;
+      }
+      default:
+        break;
+    }
+    // Conversion not supported
+    return Status::Invalid("Cannot convert ", Kind::Name(json_kind), " to ",
+                          Kind::Name(builder.kind));
+  }
+
   /// Reserve storage for scalars, these can occupy almost all of the JSON buffer
   Status ReserveScalarStorage(int64_t size) override {
     auto available_storage = scalar_values_builder_.value_data_capacity() -
@@ -941,6 +1024,8 @@ class HandlerBase : public BlockParser,
   // top of this stack == field_index_
   std::vector<int> field_index_stack_;
   StringBuilder scalar_values_builder_;
+  // Store explicit schema for type conversion
+  std::shared_ptr<Schema> explicit_schema_;
 };
 
 template <UnexpectedFieldBehavior>
