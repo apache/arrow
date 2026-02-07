@@ -997,25 +997,10 @@ def test_map_scalar_with_empty_values():
     assert s.as_py(maps_as_pydicts="strict") == v
 
 
-@pytest.fixture
-def int_scalars():
+def test_arithmetic_dunders():
+    # GH-32007
     scl1 = pa.scalar(42)
     scl2 = pa.scalar(-17)
-
-    return scl1, scl2
-
-
-@pytest.fixture
-def float_scalars():
-    scl1 = pa.scalar(42.7)
-    scl2 = pa.scalar(-17.9)
-
-    return scl1, scl2
-
-
-def test_arithmetic_dunders(int_scalars):
-    # GH-32007
-    scl1, scl2 = int_scalars
 
     assert (scl1 + scl2).equals(pc.add_checked(scl1, scl2))
     assert (scl2 / scl1).equals(pc.divide_checked(scl2, scl1))
@@ -1025,9 +1010,10 @@ def test_arithmetic_dunders(int_scalars):
     assert (scl1 - scl2).equals(pc.subtract_checked(scl1, scl2))
 
 
-def test_bitwise_dunders(int_scalars):
+def test_bitwise_dunders():
     # GH-32007
-    scl1, scl2 = int_scalars
+    scl1 = pa.scalar(42)
+    scl2 = pa.scalar(-17)
 
     assert (scl1 & scl2).equals(pc.bit_wise_and(scl1, scl2))
     assert (scl1 | scl2).equals(pc.bit_wise_or(scl1, scl2))
@@ -1044,6 +1030,24 @@ def test_dunders_unmatching_types():
 
     with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         string_scl + double_scl
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         string_scl - double_scl
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         string_scl / double_scl
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         string_scl * double_scl
+
+
+def test_dunders_checked_overflow():
+    # GH-32007
+    error_match = "overflow"
+    scl = pa.scalar(127, type=pa.int8())
+
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl + scl
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl - (-scl)
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl ** scl
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        scl * scl

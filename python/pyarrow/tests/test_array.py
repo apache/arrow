@@ -4401,25 +4401,10 @@ def test_non_cpu_array():
         arr.validate(full=True)
 
 
-@pytest.fixture
-def int_arrays():
-    arr1 = pa.array([-1, 2, -3])
-    arr2 = pa.array([2, 4, 5])
-
-    return arr1, arr2
-
-
-@pytest.fixture
-def float_arrays():
+def test_arithmetic_dunders():
+    # GH-32007
     arr1 = pa.array([-1.1, 2.2, -3.3])
     arr2 = pa.array([2.2, 4.4, 5.5])
-
-    return arr1, arr2
-
-
-def test_arithmetic_dunders(float_arrays):
-    # GH-32007
-    arr1, arr2 = float_arrays
 
     assert (arr1 + arr2).equals(pc.add_checked(arr1, arr2))
     assert (arr2 / arr1).equals(pc.divide_checked(arr2, arr1))
@@ -4429,9 +4414,10 @@ def test_arithmetic_dunders(float_arrays):
     assert (arr1 - arr2).equals(pc.subtract_checked(arr1, arr2))
 
 
-def test_bitwise_dunders(int_arrays):
+def test_bitwise_dunders():
     # GH-32007
-    arr1, arr2 = int_arrays
+    arr1 = pa.array([-1, 2, -3])
+    arr2 = pa.array([2, 4, 5])
 
     assert (arr1 & arr2).equals(pc.bit_wise_and(arr1, arr2))
     assert (arr1 | arr2).equals(pc.bit_wise_or(arr1, arr2))
@@ -4449,7 +4435,9 @@ def test_dunders_unmatching_types():
 
     with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         string_arr + nested_arr
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         string_arr - double_arr
+    with pytest.raises(pa.ArrowNotImplementedError, match=error_match):
         double_arr * nested_arr
 
 
@@ -4463,3 +4451,20 @@ def test_dunders_mixed_types():
     assert (arr / val).equals(pc.divide_checked(arr, val))
     assert (arr * val).equals(pc.multiply_checked(arr, val))
     assert (arr ** val).equals(pc.power_checked(arr, val))
+
+
+def test_dunders_checked_overflow():
+    # GH-32007
+    arr = pa.array([127, -128], type=pa.int8())
+    error_match = "overflow"
+
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr + arr
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr * arr
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr - (-arr)
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr ** pa.scalar(2, type=pa.int8())
+    with pytest.raises(pa.ArrowInvalid, match=error_match):
+        arr / (-arr)
