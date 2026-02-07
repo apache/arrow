@@ -24,7 +24,7 @@ module ArrowFormat
     end
 
     def [](i)
-      (@validity_buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
+      (@buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
     end
 
     def each

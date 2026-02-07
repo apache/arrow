@@ -41,7 +41,7 @@ module ArrowFormat
       fb_footer = FB::Footer::Data.new
       fb_footer.version = FB::MetadataVersion::V5
       fb_footer.schema = @fb_schema
-      # fb_footer.dictionaries = ... # TODO
+      fb_footer.dictionaries = @fb_dictionary_blocks
       fb_footer.record_batches = @fb_record_batch_blocks
       # fb_footer.custom_metadata = ... # TODO
       FB::Footer.serialize(fb_footer)
