@@ -90,18 +90,9 @@ std::pair<int64_t, int64_t> calculateNumberNonNullAndNullToTake(
   }
 }
 
-template <typename InType, SortOrder sort_order>
-void HeapSortNonNullsToOutput(const typename TypeTraits<InType>::ArrayType& arr,
-                              uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
-                              uint64_t* output) {
-  using GetView = GetViewType<InType>;
-
-  SelectKComparator<sort_order> comparator;
-  auto cmp = [&arr, &comparator](uint64_t left, uint64_t right) {
-    const auto lval = GetView::LogicalValue(arr.GetView(left));
-    const auto rval = GetView::LogicalValue(arr.GetView(right));
-    return comparator(lval, rval);
-  };
+template <typename Comparator>
+void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+                              Comparator cmp, uint64_t* output) {
   std::span<uint64_t> heap{non_null_begin, non_null_begin + l};
   std::make_heap(heap.begin(), heap.end(), cmp);
   for (auto iter = non_null_begin + l; iter != non_null_end; ++iter) {
@@ -125,16 +116,30 @@ void HeapSortNonNullsToOutput(const typename TypeTraits<InType>::ArrayType& arr,
   }
 }
 
+template <typename InType, SortOrder sort_order>
+void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+                              const typename TypeTraits<InType>::ArrayType& arr,
+                              uint64_t* output) {
+  using GetView = GetViewType<InType>;
+  SelectKComparator<sort_order> comparator;
+  auto cmp = [&arr, &comparator](uint64_t left, uint64_t right) {
+    const auto lval = GetView::LogicalValue(arr.GetView(left));
+    const auto rval = GetView::LogicalValue(arr.GetView(right));
+    return comparator(lval, rval);
+  };
+  HeapSortNonNullsToOutput(non_null_begin, non_null_end, l, cmp, output);
+}
+
 template <typename InType>
-void HeapSortNonNullsToOutput(const typename TypeTraits<InType>::ArrayType& arr,
-                              uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+                              const typename TypeTraits<InType>::ArrayType& arr,
                               SortOrder order, uint64_t* output) {
   if (order == SortOrder::Ascending) {
-    HeapSortNonNullsToOutput<InType, SortOrder::Ascending>(arr, non_null_begin,
-                                                           non_null_end, l, output);
+    HeapSortNonNullsToOutput<InType, SortOrder::Ascending>(non_null_begin, non_null_end,
+                                                           l, arr, output);
   } else {
-    HeapSortNonNullsToOutput<InType, SortOrder::Descending>(arr, non_null_begin,
-                                                            non_null_end, l, output);
+    HeapSortNonNullsToOutput<InType, SortOrder::Descending>(non_null_begin, non_null_end,
+                                                            l, arr, output);
   }
 }
 
@@ -190,13 +195,13 @@ class ArraySelector : public TypeVisitor {
     auto* output = take_indices->template GetMutableValues<uint64_t>(1);
 
     if (null_placement_ == NullPlacement::AtEnd) {
-      HeapSortNonNullsToOutput<InType, sort_order>(arr, p.non_nulls_begin,
-                                                   p.non_nulls_end, l, output);
+      HeapSortNonNullsToOutput<InType, sort_order>(p.non_nulls_begin, p.non_nulls_end, l,
+                                                   arr, output);
       std::copy(p.nulls_begin, p.nulls_begin + m, output + l);
     } else {
       std::copy(p.nulls_begin, p.nulls_begin + m, output);
-      HeapSortNonNullsToOutput<InType, sort_order>(arr, p.non_nulls_begin,
-                                                   p.non_nulls_end, l, output + m);
+      HeapSortNonNullsToOutput<InType, sort_order>(p.non_nulls_begin, p.non_nulls_end, l,
+                                                   arr, output + m);
     }
 
     *output_ = Datum(take_indices);
@@ -397,31 +402,42 @@ class RecordBatchSelector {
       auto [l, m] = calculateNumberNonNullAndNullToTake(
           p, k_remaining_, first_remaining_sort_key.null_placement);
 
+      uint64_t* non_null_output_indices_begin;
+      uint64_t* null_output_indices_begin;
       if (first_remaining_sort_key.null_placement == NullPlacement::AtEnd) {
-        HeapSortNonNullsToOutput<InType>(arr, p.non_nulls_begin, p.non_nulls_end, l,
-                                         first_remaining_sort_key.order, output_indices_);
+        non_null_output_indices_begin = output_indices_;
+        null_output_indices_begin = output_indices_ + l;
+      } else {
+        non_null_output_indices_begin = output_indices_ + m;
+        null_output_indices_begin = output_indices_;
+      }
+
+      bool last_sort_key = start_sort_key_index_ + 1 == selector_->sort_keys_.size();
+
+      if (last_sort_key) {
+        if (l > 0) {
+          HeapSortNonNullsToOutput<InType>(p.non_nulls_begin, p.non_nulls_end, l, arr,
+                                           first_remaining_sort_key.order,
+                                           non_null_output_indices_begin);
+        }
         if (m > 0) {
-          if (start_sort_key_index_ + 1 == selector_->sort_keys_.size()) {
-            // We have the last sort_key, can just copy over the null values
-            std::copy(p.nulls_begin, p.nulls_begin + m, output_indices_ + l);
-          } else {
-            ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(
-                start_sort_key_index_ + 1,
-                std::span<uint64_t>{p.nulls_begin, p.nulls_end}, l, output_indices_ + l));
-          }
+          // We have the last sort_key, can just copy over the null values
+          std::copy(p.nulls_begin, p.nulls_begin + m, null_output_indices_begin);
         }
       } else {
-        if (start_sort_key_index_ + 1 == selector_->sort_keys_.size()) {
+        if (l > 0) {
+          auto cmp = [&](uint64_t left, uint64_t right) {
+            return selector_->comparator_.Compare(left, right, 1);
+          };
+          HeapSortNonNullsToOutput(p.non_nulls_begin, p.non_nulls_end, l, cmp,
+                                   non_null_output_indices_begin);
+        }
+        if (m > 0) {
           // We have the last sort_key, can just copy over the null values
-          std::copy(p.nulls_begin, p.nulls_begin + m, output_indices_);
-        } else {
           ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(
               start_sort_key_index_ + 1, std::span<uint64_t>{p.nulls_begin, p.nulls_end},
-              l, output_indices_));
+              l, null_output_indices_begin));
         }
-        HeapSortNonNullsToOutput<InType>(arr, p.non_nulls_begin, p.non_nulls_end, l,
-                                         first_remaining_sort_key.order,
-                                         output_indices_ + m);
       }
 
       return Status::OK();
