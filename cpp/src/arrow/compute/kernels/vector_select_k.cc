@@ -76,15 +76,14 @@ class SelectKComparator<SortOrder::Descending> {
 };
 
 std::pair<int64_t, int64_t> calculateNumberNonNullAndNullLikesToTake(
-    const std::span<uint64_t>& non_null_like_range,
-    const std::span<uint64_t>& null_like_range, int64_t k, NullPlacement null_placement) {
+    int64_t non_null_like_count, int64_t null_like_count, int64_t k, NullPlacement null_placement) {
   if (null_placement == NullPlacement::AtEnd) {
-    int64_t l = std::min(k, static_cast<int64_t>(non_null_like_range.size()));
-    int64_t m = std::min(k - l, static_cast<int64_t>(null_like_range.size()));
+    int64_t l = std::min(k, non_null_like_count);
+    int64_t m = std::min(k - l, null_like_count);
     return {l, m};
   } else {
-    int64_t m = std::min(k, static_cast<int64_t>(null_like_range.size()));
-    int64_t l = std::min(k - m, static_cast<int64_t>(non_null_like_range.size()));
+    int64_t m = std::min(k, null_like_count);
+    int64_t l = std::min(k - m, non_null_like_count);
     return {l, m};
   }
 }
@@ -188,7 +187,8 @@ class ArraySelector : public TypeVisitor {
     //   m = null-like elements to take from PartitionResult
     // k = l + m if enough elements in input
     auto [l, m] = calculateNumberNonNullAndNullLikesToTake(
-        {p.non_nulls_begin, p.non_nulls_end}, {p.nulls_begin, p.nulls_end}, k_,
+        static_cast<int64_t>(p.non_nulls_end - p.non_nulls_begin),
+        static_cast<int64_t>(p.nulls_end - p.nulls_begin), k_,
         null_placement_);
 
     ARROW_ASSIGN_OR_RAISE(auto take_indices,
@@ -430,7 +430,8 @@ class RecordBatchSelector {
       // TODO.TAE change this function to directly return TARGET/OUTPUT ranges
       //          -> no need for counts and begins (begins are below)
       auto [l, m] = calculateNumberNonNullAndNullLikesToTake(
-          p.non_null_like_range, p.null_like_range, k_remaining_,
+          static_cast<int64_t>(p.non_null_like_range.size()),
+          static_cast<int64_t>(p.null_like_range.size()), k_remaining_,
           first_remaining_sort_key.null_placement);
 
       uint64_t* non_null_output_indices_begin;
@@ -468,7 +469,7 @@ class RecordBatchSelector {
           // Need to subdivide into null and nan, we use non-nulllike / nulllike stratey
           // again for nan / null division
           auto [nan_count, null_count] = calculateNumberNonNullAndNullLikesToTake(
-              p.nan_range, p.null_range, m, first_remaining_sort_key.null_placement);
+              static_cast<int64_t>(p.nan_range.size()), static_cast<int64_t>(p.null_range.size()), m, first_remaining_sort_key.null_placement);
           uint64_t* nan_output_indices_begin;
           uint64_t* null_output_indices_begin;
           if (first_remaining_sort_key.null_placement == NullPlacement::AtEnd) {
