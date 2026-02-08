@@ -16,6 +16,7 @@
 // under the License.
 
 #include <ostream>
+#include <cstring>
 #include <type_traits>
 
 #include "arrow/util/float16.h"
@@ -24,6 +25,17 @@
 namespace arrow {
 namespace util {
 
+#if ARROW_HAVE_NATIVE_FLOAT16
+using NativeFloat16 = _Float16;
+
+static inline NativeFloat16 ToNativeFloat16(float v) {
+  return static_cast<NativeFloat16>(v);
+}
+
+static inline float FromNativeFloat16(NativeFloat16 v) {
+  return static_cast<float>(v);
+}
+#endif
 namespace {
 
 // --------------------------------------------------------
@@ -201,14 +213,29 @@ T BinaryConverter<T>::FromBinary16(uint16_t h_bits) {
 }  // namespace
 
 float Float16::ToFloat() const {
+#if ARROW_HAVE_NATIVE_FLOAT16
+  NativeFloat16 nv;
+  std::memcpy(&nv, &bits_, sizeof(uint16_t));
+  return FromNativeFloat16(nv);
+#else
   const uint32_t f_bits = BinaryConverter<uint32_t>::FromBinary16(bits_);
   return SafeCopy<float>(f_bits);
+#endif
 }
 
+
 Float16 Float16::FromFloat(float f) {
+#if ARROW_HAVE_NATIVE_FLOAT16
+  NativeFloat16 nv = ToNativeFloat16(f);
+  uint16_t bits;
+  std::memcpy(&bits, &nv, sizeof(bits));
+  return FromBits(bits);
+#else
   const uint32_t f_bits = SafeCopy<uint32_t>(f);
   return FromBits(BinaryConverter<uint32_t>::ToBinary16(f_bits));
+#endif
 }
+
 
 double Float16::ToDouble() const {
   const uint64_t d_bits = BinaryConverter<uint64_t>::FromBinary16(bits_);
