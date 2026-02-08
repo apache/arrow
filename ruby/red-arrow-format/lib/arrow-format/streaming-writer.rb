@@ -29,38 +29,26 @@ module ArrowFormat
     def initialize(output)
       @output = output
       @offset = 0
+      @fb_dictionary_blocks = []
       @fb_record_batch_blocks = []
+      @written_dictionary_offsets = {}
     end
 
     def start(schema)
       write_message(build_metadata(schema.to_flatbuffers))
-      # TODO: Write dictionaries
     end
 
     def write_record_batch(record_batch)
-      body_length = 0
-      record_batch.all_buffers_enumerator.each do |buffer|
-        body_length += aligned_buffer_size(buffer) if buffer
+      record_batch.schema.fields.each_with_index do |field, i|
+        next if field.dictionary_id.nil?
+        dictionary_array = record_batch.columns[i]
+        write_dictionary(field.dictionary_id, dictionary_array)
       end
-      metadata = build_metadata(record_batch.to_flatbuffers, body_length)
-      fb_block = FB::Block::Data.new
-      fb_block.offset = @offset
-      fb_block.meta_data_length =
-        CONTINUATION.bytesize +
-        MessagePullReader::METADATA_LENGTH_SIZE +
-        metadata.bytesize
-      fb_block.body_length = body_length
-      @fb_record_batch_blocks << fb_block
-      write_message(metadata) do
-        record_batch.all_buffers_enumerator.each do |buffer|
-          write_buffer(buffer) if buffer
-        end
-      end
-    end
 
-    # TODO
-    # def write_dictionary_delta(id, dictionary)
-    # end
+      write_record_batch_based_message(record_batch,
+                                       record_batch.to_flatbuffers,
+                                       @fb_record_batch_blocks)
+    end
 
     def finish
       write_data(EOS)
@@ -98,6 +86,53 @@ module ArrowFormat
       metadata_size += padding_size
       align!(metadata, ALIGNMENT_SIZE)
       metadata
+    end
+
+    def write_record_batch_based_message(record_batch, fb_header, fb_blocks)
+      body_length = 0
+      record_batch.all_buffers_enumerator.each do |buffer|
+        body_length += aligned_buffer_size(buffer) if buffer
+      end
+      metadata = build_metadata(fb_header, body_length)
+      fb_block = FB::Block::Data.new
+      fb_block.offset = @offset
+      fb_block.meta_data_length =
+        CONTINUATION.bytesize +
+        MessagePullReader::METADATA_LENGTH_SIZE +
+        metadata.bytesize
+      fb_block.body_length = body_length
+      fb_blocks << fb_block
+      write_message(metadata) do
+        record_batch.all_buffers_enumerator.each do |buffer|
+          write_buffer(buffer) if buffer
+        end
+      end
+    end
+
+    def write_dictionary(id, dictionary_array)
+      value_type = dictionary_array.type.value_type
+      dictionary = dictionary_array.dictionary
+
+      offset = @written_dictionary_offsets[id]
+      if offset.nil?
+        is_delta = false
+      else
+        is_delta = true
+        raise NotImplementedError,
+              "Delta dictionary message isn't implemented yet"
+      end
+
+      schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+      size = dictionary.size
+      record_batch = RecordBatch.new(schema, size, [dictionary])
+      fb_dictionary_batch = FB::DictionaryBatch::Data.new
+      fb_dictionary_batch.id = id
+      fb_dictionary_batch.data = record_batch.to_flatbuffers
+      fb_dictionary_batch.delta = is_delta
+      write_record_batch_based_message(record_batch,
+                                       fb_dictionary_batch,
+                                       @fb_dictionary_blocks)
+      @written_dictionary_offsets[id] = dictionary_array.dictionary.size
     end
 
     def write_message(metadata)

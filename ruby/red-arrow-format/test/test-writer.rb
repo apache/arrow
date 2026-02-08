@@ -106,16 +106,30 @@ module WriterTests
         convert_field(field)
       end
       ArrowFormat::SparseUnionType.new(fields, red_arrow_type.type_codes)
+    when Arrow::DictionaryDataType
+      index_type = convert_type(red_arrow_type.index_data_type)
+      type = convert_type(red_arrow_type.value_data_type)
+      ArrowFormat::DictionaryType.new(index_type,
+                                      type,
+                                      red_arrow_type.ordered?)
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
     end
   end
 
   def convert_field(red_arrow_field)
+    type = convert_type(red_arrow_field.data_type)
+    if type.is_a?(ArrowFormat::DictionaryType)
+      @dictionary_id ||= 0
+      dictionary_id = @dictionary_id
+      @dictionary_id += 1
+    else
+      dictionary_id = nil
+    end
     ArrowFormat::Field.new(red_arrow_field.name,
-                           convert_type(red_arrow_field.data_type),
+                           type,
                            red_arrow_field.nullable?,
-                           nil)
+                           dictionary_id)
   end
 
   def convert_buffer(buffer)
@@ -171,9 +185,31 @@ module WriterTests
       type.build_array(red_arrow_array.size,
                        types_buffer,
                        children)
+    when ArrowFormat::DictionaryType
+      validity_buffer = convert_buffer(red_arrow_array.null_bitmap)
+      indices_buffer = convert_buffer(red_arrow_array.indices.data_buffer)
+      dictionary = convert_array(red_arrow_array.dictionary)
+      type.build_array(red_arrow_array.size,
+                       validity_buffer,
+                       indices_buffer,
+                       dictionary)
     else
       raise "Unsupported array #{red_arrow_array.inspect}"
     end
+  end
+
+  def write(writer)
+    red_arrow_array = build_array
+    array = convert_array(red_arrow_array)
+    red_arrow_field = Arrow::Field.new("value",
+                                       red_arrow_array.value_data_type,
+                                       true)
+    fields = [convert_field(red_arrow_field)]
+    schema = ArrowFormat::Schema.new(fields)
+    record_batch = ArrowFormat::RecordBatch.new(schema, array.size, [array])
+    writer.start(schema)
+    writer.write_record_batch(record_batch)
+    writer.finish
   end
 
   class << self
@@ -939,6 +975,19 @@ module WriterTests
                          @values)
           end
         end
+
+        sub_test_case("Dictionary") do
+          def build_array
+            values = ["a", "b", "c", nil, "a"]
+            string_array = Arrow::StringArray.new(values)
+            string_array.dictionary_encode
+          end
+
+          def test_write
+            assert_equal(["a", "b", "c", nil, "a"],
+                         @values)
+          end
+        end
       end
     end
   end
@@ -952,19 +1001,7 @@ class TestFileWriter < Test::Unit::TestCase
       path = File.join(tmp_dir, "data.arrow")
       File.open(path, "wb") do |output|
         writer = ArrowFormat::FileWriter.new(output)
-        red_arrow_array = build_array
-        array = convert_array(red_arrow_array)
-        fields = [
-          ArrowFormat::Field.new("value",
-                                 array.type,
-                                 true,
-                                 nil),
-        ]
-        schema = ArrowFormat::Schema.new(fields)
-        record_batch = ArrowFormat::RecordBatch.new(schema, array.size, [array])
-        writer.start(schema)
-        writer.write_record_batch(record_batch)
-        writer.finish
+        write(writer)
       end
       data = File.open(path, "rb", &:read).freeze
       table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrow)
@@ -982,19 +1019,7 @@ class TestStreamingWriter < Test::Unit::TestCase
       path = File.join(tmp_dir, "data.arrows")
       File.open(path, "wb") do |output|
         writer = ArrowFormat::StreamingWriter.new(output)
-        red_arrow_array = build_array
-        array = convert_array(red_arrow_array)
-        fields = [
-          ArrowFormat::Field.new("value",
-                                 array.type,
-                                 true,
-                                 nil),
-        ]
-        schema = ArrowFormat::Schema.new(fields)
-        record_batch = ArrowFormat::RecordBatch.new(schema, array.size, [array])
-        writer.start(schema)
-        writer.write_record_batch(record_batch)
-        writer.finish
+        write(writer)
       end
       data = File.open(path, "rb", &:read).freeze
       table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrows)

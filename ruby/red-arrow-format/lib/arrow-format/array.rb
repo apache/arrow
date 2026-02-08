@@ -508,10 +508,19 @@ module ArrowFormat
   end
 
   class DictionaryArray < Array
+    attr_reader :indices_buffer
+    attr_reader :dictionary
     def initialize(type, size, validity_buffer, indices_buffer, dictionary)
       super(type, size, validity_buffer)
       @indices_buffer = indices_buffer
       @dictionary = dictionary
+    end
+
+    def each_buffer
+      return to_enum(__method__) unless block_given?
+
+      yield(@validity_buffer)
+      yield(@indices_buffer)
     end
 
     def to_a
