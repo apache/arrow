@@ -242,7 +242,7 @@ class TestSelectKWithArray : public ::testing::Test {
                     const SelectKOptions& options, const std::string& expected_json) {
     auto array = ArrayFromJSON(type, array_json);
     auto expected = ArrayFromJSON(uint64(), expected_json);
-    ASSERT_OK_AND_ASSIGN(auto indices,  SelectKUnstable(Datum(*array), options));
+    ASSERT_OK_AND_ASSIGN(auto indices, SelectKUnstable(Datum(*array), options));
     ValidateOutput(*indices);
     AssertArraysEqual(*expected, *indices, /*verbose=*/true);
   }
@@ -263,8 +263,11 @@ class TestSelectKWithArray : public ::testing::Test {
 TEST_F(TestSelectKWithArray, PartialSelectKNull) {
   auto array_input = R"([null, 30, 20, 10, null])";
   std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending)};
-  auto options = SelectKOptions(3, sort_keys);
-  auto expected = R"([10, 20, 30])";
+  auto options = SelectKOptions(4, sort_keys);
+  auto expected = R"([10, 20, 30, null])";
+  Check(uint8(), array_input, options, expected);
+  options.k = 3;
+  expected = R"([10, 20, 30])";
   Check(uint8(), array_input, options, expected);
   options.sort_keys[0].null_placement = NullPlacement::AtStart;
   expected = R"([null, null, 10])";
@@ -589,6 +592,17 @@ TEST_F(TestSelectKWithRecordBatch, TopKNull) {
   ])";
 
   Check(schema, batch_input, options, expected_batch);
+
+  auto options_with_null = SelectKOptions::TopKDefault(4, {"a", "b"});
+
+  auto expected_batch_with_null = R"([
+    {"a": 30,    "b": 3},
+    {"a": 20,    "b": 5},
+    {"a": 10,    "b": 3},
+    {"a": null,   "b": 6}
+  ])";
+
+  Check(schema, batch_input, options_with_null, expected_batch_with_null);
 }
 
 TEST_F(TestSelectKWithRecordBatch, TopKOneColumnKey) {
