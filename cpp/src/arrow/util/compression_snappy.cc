@@ -41,7 +41,6 @@ namespace {
 
 // ----------------------------------------------------------------------
 // Snappy framing constants
-
 constexpr uint8_t kChunkTypeCompressedData = 0x00;
 constexpr uint8_t kChunkTypeUncompressedData = 0x01;
 constexpr uint8_t kChunkTypePadding = 0xFEu;
