@@ -20,6 +20,7 @@
 #include <functional>
 #include <memory>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "arrow/array/builder_nested.h"
@@ -277,8 +278,10 @@ template <typename T>
 concept CBooleanConcept = std::same_as<T, bool>;
 
 // XXX: Ideally we want to have std::floating_point<Float16> = true.
+// Note: Using std::is_floating_point_v instead of std::floating_point concept
+// for compatibility with older compilers (e.g., Apple Clang 14.0.0)
 template <typename T>
-concept CFloatingPointConcept = std::floating_point<T> || std::same_as<T, util::Float16>;
+concept CFloatingPointConcept = std::is_floating_point_v<T> || std::same_as<T, util::Float16>;
 
 template <typename T>
 concept CDecimalConcept = std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||
