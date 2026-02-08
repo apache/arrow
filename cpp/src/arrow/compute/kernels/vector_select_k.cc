@@ -426,6 +426,9 @@ class RecordBatchSelector {
       //   l = non_null elements to take from PartitionResult
       //   m = null elements to take from PartitionResult
       // k = l + m because k was clipped to num_rows()
+
+      // TODO.TAE change this function to directly return TARGET/OUTPUT ranges
+      //          -> no need for counts and begins (begins are below)
       auto [l, m] = calculateNumberNonNullAndNullLikesToTake(
           p.non_null_like_range, p.null_like_range, k_remaining_,
           first_remaining_sort_key.null_placement);
