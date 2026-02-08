@@ -73,6 +73,11 @@ inline void StoreLittleEndian32(uint32_t value, uint8_t* out) {
   out[3] = static_cast<uint8_t>((value >> 24) & 0xFF);
 }
 
+inline uint32_t LoadLittleEndian24(const uint8_t* p) {
+  return static_cast<uint32_t>(p[0]) | (static_cast<uint32_t>(p[1]) << 8) |
+         (static_cast<uint32_t>(p[2]) << 16);
+}
+
 // ----------------------------------------------------------------------
 // Snappy framed compressor implementation
 
@@ -194,6 +199,7 @@ class SnappyFramedDecompressor : public Decompressor {
   Status Init() {
     finished_ = false;
     input_offset_ = 0;
+    saw_eof_ = false;
     saw_stream_identifier_ = false;
     return Status::OK();
   }
@@ -206,6 +212,11 @@ class SnappyFramedDecompressor : public Decompressor {
       const auto old_size = static_cast<int64_t>(input_buffer_.size());
       input_buffer_.resize(static_cast<std::size_t>(old_size + input_len));
       std::memcpy(input_buffer_.data() + old_size, input, static_cast<size_t>(input_len));
+    } else if (input == nullptr) {
+      // The Snappy framed format has no explicit end-of-stream marker.
+      // Treat a call with zero input and a null pointer as an explicit
+      // end-of-input signal.
+      saw_eof_ = true;
     }
 
     int64_t bytes_read = input_len;
@@ -232,31 +243,51 @@ class SnappyFramedDecompressor : public Decompressor {
       uncompressed_offset_ = 0;
     }
 
-    // Now parse as many chunks as possible from the input buffer while we have
-    // output space available.
-    while (bytes_written < output_len) {
+    if (!uncompressed_buffer_.empty()) {
+      // Output buffer is full but we still have pending decoded data.
+      return DecompressResult{bytes_read, bytes_written, true};
+    }
+
+    if (saw_eof_ && input_buffer_.empty()) {
+      if (!saw_stream_identifier_) {
+        return Status::IOError(
+            "Invalid Snappy framed stream: missing stream identifier");
+      }
+      finished_ = true;
+      return DecompressResult{bytes_read, bytes_written, false};
+    }
+
+    // Now parse as many chunks as possible from the input buffer.
+    bool need_more_input = false;
+    while (true) {
       const int64_t available =
           static_cast<int64_t>(input_buffer_.size()) - static_cast<int64_t>(input_offset_);
+      if (available == 0) {
+        break;
+      }
       if (available < static_cast<int64_t>(kChunkHeaderSize)) {
+        need_more_input = true;
         break;  // Need more input for a complete header.
       }
 
       const uint8_t* header = input_buffer_.data() + input_offset_;
       const uint8_t chunk_type = header[0];
-      const uint32_t chunk_length = LoadLittleEndian32(header + 1) & 0x00FFFFFFu;
-
-      if (chunk_length > (1u << 24) - 1u) {
-        return Status::IOError("Invalid Snappy framed chunk length");
-      }
+      // Length is stored as a 24-bit little-endian value.
+      const uint32_t chunk_length = LoadLittleEndian24(header + 1);
 
       if (available < static_cast<int64_t>(kChunkHeaderSize + chunk_length)) {
         // Wait for more input.
+        need_more_input = true;
         break;
       }
 
       const uint8_t* chunk_data = header + kChunkHeaderSize;
 
       if (chunk_type == kChunkTypeStreamIdentifier) {
+        if (saw_stream_identifier_) {
+          return Status::IOError(
+              "Invalid Snappy framed stream: duplicate stream identifier");
+        }
         if (chunk_length != kStreamIdentifierPayloadSize ||
             std::memcmp(chunk_data, kStreamIdentifierPayload,
                         kStreamIdentifierPayloadSize) != 0) {
@@ -271,6 +302,11 @@ class SnappyFramedDecompressor : public Decompressor {
         // Skippable chunk types.
         ConsumeFromInputBuffer(kChunkHeaderSize + chunk_length);
         continue;
+      }
+
+      if (!saw_stream_identifier_) {
+        return Status::IOError(
+            "Invalid Snappy framed stream: missing stream identifier");
       }
 
       if (chunk_type >= 0x02u && chunk_type <= 0x7Fu) {
@@ -351,8 +387,11 @@ class SnappyFramedDecompressor : public Decompressor {
       uncompressed_offset_ = 0;
     }
 
-    // Heuristic: if we have no buffered input or output, consider the stream finished.
-    finished_ = input_buffer_.empty() && uncompressed_buffer_.empty();
+    if (saw_eof_ && need_more_input) {
+      return Status::IOError("Truncated Snappy framed stream");
+    }
+
+    finished_ = saw_eof_ && input_buffer_.empty() && uncompressed_buffer_.empty();
 
     const bool need_more_output =
         (!uncompressed_buffer_.empty() && bytes_written == output_len);
@@ -368,6 +407,7 @@ class SnappyFramedDecompressor : public Decompressor {
     uncompressed_buffer_.clear();
     uncompressed_offset_ = 0;
     finished_ = false;
+    saw_eof_ = false;
     saw_stream_identifier_ = false;
     return Status::OK();
   }
@@ -392,6 +432,7 @@ class SnappyFramedDecompressor : public Decompressor {
   std::vector<uint8_t> uncompressed_buffer_;
   int64_t uncompressed_offset_ = 0;
   bool finished_ = false;
+  bool saw_eof_ = false;
   bool saw_stream_identifier_ = false;
 };
 

@@ -174,15 +174,18 @@ void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
   int64_t comp_remaining = compressed_size;
 
   while (!decompressor->IsFinished()) {
-    int64_t input_len = std::min(comp_remaining, static_cast<int64_t>(23));
+    const bool at_eof = (comp_remaining == 0);
+    const int64_t input_len =
+        at_eof ? 0 : std::min(comp_remaining, static_cast<int64_t>(23));
+    const uint8_t* input = at_eof ? nullptr : comp_input;
     int64_t output_len = decompressed.size() - decompressed_size;
     uint8_t* output = decompressed.data() + decompressed_size;
     ASSERT_OK_AND_ASSIGN(auto result,
-                         decompressor->Decompress(input_len, comp_input, output_len, output));
+                         decompressor->Decompress(input_len, input, output_len, output));
     ASSERT_LE(result.bytes_read, input_len);
     ASSERT_LE(result.bytes_written, output_len);
-    ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                result.bytes_read > 0)
+    ASSERT_TRUE(decompressor->IsFinished() || result.need_more_output ||
+                result.bytes_written > 0 || result.bytes_read > 0)
         << "Decompression not progressing anymore";
     if (result.need_more_output) {
       decompressed.resize(decompressed.capacity() * 2);
@@ -252,16 +255,18 @@ void CheckStreamingDecompressor(Codec* codec, const std::vector<uint8_t>& data) 
   int64_t comp_remaining = compressed.size();
 
   while (!decompressor->IsFinished()) {
-    // Feed a small amount each time
-    int64_t input_len = std::min(comp_remaining, static_cast<int64_t>(23));
+    const bool at_eof = (comp_remaining == 0);
+    const int64_t input_len =
+        at_eof ? 0 : std::min(comp_remaining, static_cast<int64_t>(23));
+    const uint8_t* input = at_eof ? nullptr : comp_input;
     int64_t output_len = decompressed.size() - decompressed_size;
     uint8_t* output = decompressed.data() + decompressed_size;
     ASSERT_OK_AND_ASSIGN(auto result,
-                         decompressor->Decompress(input_len, comp_input, output_len, output));
+                         decompressor->Decompress(input_len, input, output_len, output));
     ASSERT_LE(result.bytes_read, input_len);
     ASSERT_LE(result.bytes_written, output_len);
-    ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                result.bytes_read > 0)
+    ASSERT_TRUE(decompressor->IsFinished() || result.need_more_output ||
+                result.bytes_written > 0 || result.bytes_read > 0)
         << "Decompression not progressing anymore";
     if (result.need_more_output) {
       decompressed.resize(decompressed.capacity() * 2);
@@ -338,16 +343,18 @@ void CheckStreamingRoundtrip(std::shared_ptr<Compressor> compressor,
     int64_t remaining = compressed.size();
 
     while (!decompressor->IsFinished()) {
+      const bool at_eof = (remaining == 0);
       // Feed a varying amount each time
-      int64_t input_len = std::min(remaining, make_buf_size());
+      int64_t input_len = at_eof ? 0 : std::min(remaining, make_buf_size());
+      const uint8_t* in_ptr = at_eof ? nullptr : input;
       int64_t output_len = decompressed.size() - decompressed_size;
       uint8_t* output = decompressed.data() + decompressed_size;
       ASSERT_OK_AND_ASSIGN(
-          auto result, decompressor->Decompress(input_len, input, output_len, output));
+          auto result, decompressor->Decompress(input_len, in_ptr, output_len, output));
       ASSERT_LE(result.bytes_read, input_len);
       ASSERT_LE(result.bytes_written, output_len);
-      ASSERT_TRUE(result.need_more_output || result.bytes_written > 0 ||
-                  result.bytes_read > 0)
+      ASSERT_TRUE(decompressor->IsFinished() || result.need_more_output ||
+                  result.bytes_written > 0 || result.bytes_read > 0)
           << "Decompression not progressing anymore";
       if (result.need_more_output) {
         decompressed.resize(decompressed.capacity() * 2);
