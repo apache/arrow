@@ -75,27 +75,26 @@ class SelectKComparator<SortOrder::Descending> {
   }
 };
 
-template <typename ArrayType>
-std::pair<int64_t, int64_t> calculateNumberNonNullAndNullToTake(
-    const GenericNullPartitionResult<ArrayType>& partition_result, int64_t k,
-    NullPlacement null_placement) {
+std::pair<int64_t, int64_t> calculateNumberNonNullAndNullLikesToTake(
+    const std::span<uint64_t>& non_null_like_range,
+    const std::span<uint64_t>& null_like_range, int64_t k, NullPlacement null_placement) {
   if (null_placement == NullPlacement::AtEnd) {
-    int64_t l = std::min(k, partition_result.non_null_count());
-    int64_t m = std::min(k - l, partition_result.null_count());
+    int64_t l = std::min(k, static_cast<int64_t>(non_null_like_range.size()));
+    int64_t m = std::min(k - l, static_cast<int64_t>(null_like_range.size()));
     return {l, m};
   } else {
-    int64_t m = std::min(k, partition_result.null_count());
-    int64_t l = std::min(k - m, partition_result.non_null_count());
+    int64_t m = std::min(k, static_cast<int64_t>(null_like_range.size()));
+    int64_t l = std::min(k - m, static_cast<int64_t>(non_null_like_range.size()));
     return {l, m};
   }
 }
 
 template <typename Comparator>
-void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
                               Comparator cmp, uint64_t* output) {
-  std::span<uint64_t> heap{non_null_begin, non_null_begin + l};
+  std::span<uint64_t> heap{non_null_range.begin(), non_null_range.begin() + l};
   std::make_heap(heap.begin(), heap.end(), cmp);
-  for (auto iter = non_null_begin + l; iter != non_null_end; ++iter) {
+  for (auto iter = non_null_range.begin() + l; iter != non_null_range.end(); ++iter) {
     uint64_t x_index = *iter;
     if (cmp(x_index, heap.front())) {
       std::pop_heap(heap.begin(), heap.end(), cmp);
@@ -106,8 +105,8 @@ void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, 
 
   // fill output in reverse when destructing,
   // as the "worst" (next-to-would-have-been-replaced) element is at heap-top
-  uint64_t* heap_begin = non_null_begin;
-  uint64_t* heap_end = non_null_begin + l;
+  uint64_t* heap_begin = &*heap.begin();
+  uint64_t* heap_end = &*heap.begin() + l;
   for (auto reverse_out_iter = output + l - 1; reverse_out_iter >= output;
        --reverse_out_iter) {
     *reverse_out_iter = *heap_begin;  // heap-top has the next element
@@ -117,7 +116,7 @@ void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, 
 }
 
 template <typename InType, SortOrder sort_order>
-void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
                               const typename TypeTraits<InType>::ArrayType& arr,
                               uint64_t* output) {
   using GetView = GetViewType<InType>;
@@ -127,19 +126,19 @@ void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, 
     const auto rval = GetView::LogicalValue(arr.GetView(right));
     return comparator(lval, rval);
   };
-  HeapSortNonNullsToOutput(non_null_begin, non_null_end, l, cmp, output);
+  HeapSortNonNullsToOutput(non_null_range, l, cmp, output);
 }
 
 template <typename InType>
-void HeapSortNonNullsToOutput(uint64_t* non_null_begin, uint64_t* non_null_end, int64_t l,
+void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
                               const typename TypeTraits<InType>::ArrayType& arr,
                               SortOrder order, uint64_t* output) {
   if (order == SortOrder::Ascending) {
-    HeapSortNonNullsToOutput<InType, SortOrder::Ascending>(non_null_begin, non_null_end,
-                                                           l, arr, output);
+    HeapSortNonNullsToOutput<InType, SortOrder::Ascending>(non_null_range, l, arr,
+                                                           output);
   } else {
-    HeapSortNonNullsToOutput<InType, SortOrder::Descending>(non_null_begin, non_null_end,
-                                                            l, arr, output);
+    HeapSortNonNullsToOutput<InType, SortOrder::Descending>(non_null_range, l, arr,
+                                                            output);
   }
 }
 
@@ -185,23 +184,25 @@ class ArraySelector : public TypeVisitor {
         indices_begin, indices_end, arr, 0, null_placement_);
 
     // From k, calculate
-    //   l = non_null elements to take from PartitionResult
-    //   m = null elements to take from PartitionResult
+    //   l = non-null elements to take from PartitionResult
+    //   m = null-like elements to take from PartitionResult
     // k = l + m if enough elements in input
-    auto [l, m] = calculateNumberNonNullAndNullToTake(p, k_, null_placement_);
+    auto [l, m] = calculateNumberNonNullAndNullLikesToTake(
+        {p.non_nulls_begin, p.non_nulls_end}, {p.nulls_begin, p.nulls_end}, k_,
+        null_placement_);
 
     ARROW_ASSIGN_OR_RAISE(auto take_indices,
                           MakeMutableUInt64Array(l + m, ctx_->memory_pool()));
     auto* output = take_indices->template GetMutableValues<uint64_t>(1);
 
     if (null_placement_ == NullPlacement::AtEnd) {
-      HeapSortNonNullsToOutput<InType, sort_order>(p.non_nulls_begin, p.non_nulls_end, l,
-                                                   arr, output);
+      HeapSortNonNullsToOutput<InType, sort_order>({p.non_nulls_begin, p.non_nulls_end},
+                                                   l, arr, output);
       std::copy(p.nulls_begin, p.nulls_begin + m, output + l);
     } else {
       std::copy(p.nulls_begin, p.nulls_begin + m, output);
-      HeapSortNonNullsToOutput<InType, sort_order>(p.non_nulls_begin, p.non_nulls_end, l,
-                                                   arr, output + m);
+      HeapSortNonNullsToOutput<InType, sort_order>({p.non_nulls_begin, p.non_nulls_end},
+                                                   l, arr, output + m);
     }
 
     *output_ = Datum(take_indices);
@@ -333,6 +334,32 @@ class ChunkedArraySelector : public TypeVisitor {
   Datum* output_;
 };
 
+struct NullNanPartitionResult {
+  std::span<uint64_t> non_null_like_range;
+  std::span<uint64_t> null_like_range;
+  // Also store the null/nan distribution within null_like_range
+  std::span<uint64_t> null_range;
+  std::span<uint64_t> nan_range;
+};
+
+template <typename ArrayType, typename Partitioner>
+NullNanPartitionResult PartitionNullsAndNans(uint64_t* indices_begin,
+                                             uint64_t* indices_end,
+                                             const ArrayType& values, int64_t offset,
+                                             NullPlacement null_placement) {
+  // Partition nulls at start (resp. end), and null-like values just before (resp. after)
+  NullPartitionResult p = PartitionNullsOnly<Partitioner>(indices_begin, indices_end,
+                                                          values, offset, null_placement);
+  NullPartitionResult q = PartitionNullLikes<ArrayType, Partitioner>(
+      p.non_nulls_begin, p.non_nulls_end, values, offset, null_placement);
+  return NullNanPartitionResult{
+      .non_null_like_range = {q.non_nulls_begin, q.non_nulls_end},
+      .null_like_range = {std::min(q.nulls_begin, p.nulls_begin),
+                          std::max(q.nulls_end, p.nulls_end)},
+      .null_range = {p.nulls_begin, p.nulls_end},
+      .nan_range = {q.nulls_begin, q.nulls_end}};
+}
+
 class RecordBatchSelector {
  private:
   using ResolvedSortKey = ResolvedRecordBatchSortKey;
@@ -387,56 +414,78 @@ class RecordBatchSelector {
       const auto& first_remaining_sort_key = selector_->sort_keys_[start_sort_key_index_];
       const auto& arr = checked_cast<const ArrayType&>(first_remaining_sort_key.array);
 
-      // TODO.TAE uhh this might be prettier
+      // TODO.TAE uhh this could be prettier
       uint64_t* input_indices_begin = &*input_indices_.begin();
       uint64_t* input_indices_end = input_indices_begin + input_indices_.size();
 
-      const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
+      const auto p = PartitionNullsAndNans<ArrayType, NonStablePartitioner>(
           input_indices_begin, input_indices_end, arr, 0,
           first_remaining_sort_key.null_placement);
 
       // From k, calculate
       //   l = non_null elements to take from PartitionResult
       //   m = null elements to take from PartitionResult
-      // k = l + m if enough elements in input
-      auto [l, m] = calculateNumberNonNullAndNullToTake(
-          p, k_remaining_, first_remaining_sort_key.null_placement);
+      // k = l + m because k was clipped to num_rows()
+      auto [l, m] = calculateNumberNonNullAndNullLikesToTake(
+          p.non_null_like_range, p.null_like_range, k_remaining_,
+          first_remaining_sort_key.null_placement);
 
       uint64_t* non_null_output_indices_begin;
-      uint64_t* null_output_indices_begin;
+      uint64_t* nulllike_output_indices_begin;
       if (first_remaining_sort_key.null_placement == NullPlacement::AtEnd) {
         non_null_output_indices_begin = output_indices_;
-        null_output_indices_begin = output_indices_ + l;
+        nulllike_output_indices_begin = output_indices_ + l;
       } else {
+        nulllike_output_indices_begin = output_indices_;
         non_null_output_indices_begin = output_indices_ + m;
-        null_output_indices_begin = output_indices_;
       }
 
       bool last_sort_key = start_sort_key_index_ + 1 == selector_->sort_keys_.size();
 
       if (last_sort_key) {
         if (l > 0) {
-          HeapSortNonNullsToOutput<InType>(p.non_nulls_begin, p.non_nulls_end, l, arr,
+          HeapSortNonNullsToOutput<InType>(p.non_null_like_range, l, arr,
                                            first_remaining_sort_key.order,
                                            non_null_output_indices_begin);
         }
         if (m > 0) {
           // We have the last sort_key, can just copy over the null values
-          std::copy(p.nulls_begin, p.nulls_begin + m, null_output_indices_begin);
+          std::copy(p.null_like_range.begin(), p.null_like_range.begin() + m,
+                    nulllike_output_indices_begin);
         }
       } else {
         if (l > 0) {
           auto cmp = [&](uint64_t left, uint64_t right) {
-            return selector_->comparator_.Compare(left, right, 1);
+            return selector_->comparator_.Compare(left, right, start_sort_key_index_);
           };
-          HeapSortNonNullsToOutput(p.non_nulls_begin, p.non_nulls_end, l, cmp,
+          HeapSortNonNullsToOutput(p.non_null_like_range, l, cmp,
                                    non_null_output_indices_begin);
         }
         if (m > 0) {
-          // We have the last sort_key, can just copy over the null values
-          ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(
-              start_sort_key_index_ + 1, std::span<uint64_t>{p.nulls_begin, p.nulls_end},
-              l, null_output_indices_begin));
+          // Need to subdivide into null and nan, we use non-nulllike / nulllike stratey
+          // again for nan / null division
+          auto [nan_count, null_count] = calculateNumberNonNullAndNullLikesToTake(
+              p.nan_range, p.null_range, m, first_remaining_sort_key.null_placement);
+          uint64_t* nan_output_indices_begin;
+          uint64_t* null_output_indices_begin;
+          if (first_remaining_sort_key.null_placement == NullPlacement::AtEnd) {
+            nan_output_indices_begin = nulllike_output_indices_begin;
+            null_output_indices_begin = nulllike_output_indices_begin + nan_count;
+          } else {
+            null_output_indices_begin = nulllike_output_indices_begin;
+            nan_output_indices_begin = nulllike_output_indices_begin + null_count;
+          }
+
+          if (nan_count > 0) {
+            ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(start_sort_key_index_ + 1,
+                                                           p.nan_range, nan_count,
+                                                           nan_output_indices_begin));
+          }
+          if (null_count > 0) {
+            ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(start_sort_key_index_ + 1,
+                                                           p.null_range, null_count,
+                                                           null_output_indices_begin));
+          }
         }
       }
 
