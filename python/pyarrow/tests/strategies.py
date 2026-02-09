@@ -17,31 +17,32 @@
 
 import datetime
 import sys
+from typing import Any
 
-import pytest
-import hypothesis as h
-import hypothesis.strategies as st
+import pytest  # type: ignore[import-not-found]
+import hypothesis as h  # type: ignore[import-not-found]
+import hypothesis.strategies as st  # type: ignore[import-not-found]
 try:
-    import hypothesis.extra.numpy as npst
+    import hypothesis.extra.numpy as npst  # type: ignore[import-not-found]
 except ImportError:
-    npst = None
+    npst = None  # type: ignore[assignment]
 try:
-    import hypothesis.extra.pytz as tzst
+    import hypothesis.extra.pytz as tzst  # type: ignore[import-not-found]
 except ImportError:
-    tzst = None
+    tzst = None  # type: ignore[assignment]
 try:
     import zoneinfo
 except ImportError:
-    zoneinfo = None
+    zoneinfo = None  # type: ignore[assignment]
 if sys.platform == 'win32':
     try:
-        import tzdata  # noqa:F401
+        import tzdata  # type: ignore[import-not-found, import-untyped]  # noqa:F401
     except ImportError:
-        zoneinfo = None
+        zoneinfo = None  # type: ignore[assignment]
 try:
     import numpy as np
 except ImportError:
-    np = None
+    np = None  # type: ignore[assignment]
 
 import pyarrow as pa
 
@@ -151,12 +152,12 @@ elif zoneinfo:
     timezones = st.one_of(st.none(), st.timezones())
 else:
     timezones = st.none()
-timestamp_types = st.builds(
+timestamp_types: Any = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
     tz=timezones
 )
-duration_types = st.builds(
+duration_types: Any = st.builds(
     pa.duration,
     st.sampled_from(['s', 'ms', 'us', 'ns'])
 )
@@ -253,13 +254,13 @@ def schemas(type_strategy=primitive_types, max_fields=None):
 
 all_types = st.deferred(
     lambda: (
-        primitive_types |
-        list_types() |
-        struct_types() |
-        dictionary_types() |
-        map_types() |
-        list_types(all_types) |
-        struct_types(all_types)
+        primitive_types
+        | list_types()
+        | struct_types()
+        | dictionary_types()
+        | map_types()
+        | list_types(all_types)  # type: ignore[has-type]
+        | struct_types(all_types)  # type: ignore[has-type]
     )
 )
 all_fields = st.one_of(
@@ -303,6 +304,7 @@ def arrays(draw, type, size=None, nullable=True):
     elif not isinstance(size, int):
         raise TypeError('Size must be an integer')
 
+    assert npst is not None
     if pa.types.is_null(ty):
         h.assume(nullable)
         value = st.none()
@@ -315,6 +317,7 @@ def arrays(draw, type, size=None, nullable=True):
         values = draw(npst.arrays(ty.to_pandas_dtype(), shape=(size,)))
         # Workaround ARROW-4952: no easy way to assert array equality
         # in a NaN-tolerant way.
+        assert np is not None
         values[np.isnan(values)] = -42.0
         return pa.array(values, type=ty)
     elif pa.types.is_decimal(ty):
@@ -340,9 +343,11 @@ def arrays(draw, type, size=None, nullable=True):
             offset = ty.tz.split(":")
             offset_hours = int(offset[0])
             offset_min = int(offset[1])
-            tz = datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            tz = datetime.timezone(
+                datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            )
         except ValueError:
-            tz = zoneinfo.ZoneInfo(ty.tz)
+            tz = zoneinfo.ZoneInfo(str(ty.tz))
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
                              max_value=max_datetime)
     elif pa.types.is_duration(ty):
@@ -501,7 +506,9 @@ pandas_compatible_types = st.deferred(
         dictionary_types(
             value_strategy=pandas_compatible_dictionary_value_types
         ),
-        pandas_compatible_list_types(pandas_compatible_types),
-        struct_types(pandas_compatible_types)
+        pandas_compatible_list_types(
+            pandas_compatible_types  # type: ignore[has-type]
+        ),
+        struct_types(pandas_compatible_types)  # type: ignore[has-type]
     )
 )
