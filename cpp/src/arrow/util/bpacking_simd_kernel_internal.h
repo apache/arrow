@@ -359,7 +359,7 @@ struct KernelTraits {
   static_assert(kShape.packed_bit_size() < kShape.simd_bit_size());
 
   using unpacked_type = UnpackedUint;
-  // The integer type to work with, `unpacked_type` or an appropriate type for bool.
+  /// The integer type to work with, `unpacked_type` or an appropriate type for bool.
   using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
                                        SizedUint<sizeof(bool)>, unpacked_type>;
   using simd_batch = xsimd::make_sized_batch_t<uint_type, kShape.unpacked_per_simd()>;
@@ -460,7 +460,16 @@ constexpr MediumKernelPlanSize MediumKernelPlanSize::Build(
   };
 }
 
-constexpr int reduced_bytes_per_read(int bits_per_read, int simd_byte_size) {
+/// Utility to map a desired number of bits to the smallest feasible size.
+///
+/// When needing to read @p bits_per_read, find the next possible size that can be read in
+/// one operation. This is used  to adjust the number of input bytes to kernel reads.
+/// For instance if a kernel plan needs to read 47 bits, instead of reading a whole SIMD
+/// register of data (which would restrict it to larger input memory buffers), this
+/// function advise kernel plans to read only read 64 bits.
+/// This limits restrictions set by the plan on the input memory reads built to avoid
+/// reading overflow.
+constexpr int adjust_bytes_per_read(int bits_per_read, int simd_byte_size) {
   if (bits_per_read <= static_cast<int>(8 * sizeof(uint32_t))) {
     return sizeof(uint32_t);
   } else if (bits_per_read <= static_cast<int>(8 * sizeof(uint64_t))) {
@@ -508,7 +517,7 @@ struct MediumKernelPlan {
 
   static constexpr int bytes_per_read() {
     const auto bits_per_read = unpacked_per_read() * kShape.packed_bit_size();
-    return reduced_bytes_per_read(bits_per_read, kShape.simd_byte_size());
+    return adjust_bytes_per_read(bits_per_read, kShape.simd_byte_size());
   }
 
   constexpr int total_bytes_read() const { return reads.back() + bytes_per_read(); }
@@ -758,7 +767,7 @@ struct LargeKernelPlan {
 
   static constexpr int bytes_per_read() {
     const auto bits_per_read = kPlanSize.unpacked_per_read() * kShape.packed_bit_size();
-    return reduced_bytes_per_read(bits_per_read, kShape.simd_byte_size());
+    return adjust_bytes_per_read(bits_per_read, kShape.simd_byte_size());
   }
 
   constexpr int total_bytes_read() const { return reads.back() + bytes_per_read(); }
