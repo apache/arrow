@@ -110,9 +110,8 @@ a custom path to the database from Python using the (deprecated)
 
    .. code-block:: python
 
-      >>> import tzdata
-      >>> print(tzdata.__file__)
-      path\to\.venv\Lib\site-packages\tzdata\__init__.py
+      import tzdata
+      print(tzdata.__file__)  # path\to\.venv\Lib\site-packages\tzdata\__init__.py
 
 
 .. _python-conda-differences:
