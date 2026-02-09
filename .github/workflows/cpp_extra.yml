@@ -534,7 +534,7 @@ jobs:
           if-no-files-found: error
 
   odbc-nightly:
-    needs: odbc
+    needs: odbc-msvc
     name: ODBC nightly
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
