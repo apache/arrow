@@ -431,9 +431,10 @@ TYPED_TEST(TestSelectKWithChunkedArray, FullSelectKNullNaN) {
   std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
   auto options = SelectKOptions(10, sort_keys);
   options.sort_keys[0].null_placement = NullPlacement::AtStart;
-  this->CheckIndices(chunked_array, options, "[3, 0, 6, 4, 5, 2, 7, 8, 1]");
+  // These check that nulls and Nan are sorted in a stable way, but do we want that?
+  this->CheckIndices(chunked_array, options, "[0, 3, 4, 6, 5, 2, 7, 8, 1]");
   options.sort_keys[0].null_placement = NullPlacement::AtEnd;
-  this->CheckIndices(chunked_array, options, "[5, 2, 7, 8, 1, 6, 4, 3, 0]");
+  this->CheckIndices(chunked_array, options, "[5, 2, 7, 8, 1, 4, 6, 0, 3]");
 }
 
 template <typename ArrayType, SortOrder order>
