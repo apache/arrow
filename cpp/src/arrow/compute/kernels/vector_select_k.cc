@@ -91,15 +91,21 @@ OutputRangesByNullLikeness calculateNumberNonNullAndNullLikesToTake(
     non_null_like_to_take = std::min(k, non_null_like_count);
     nan_to_take = std::min(k - non_null_like_to_take, nan_count);
     null_to_take = std::min(k - non_null_like_to_take - nan_to_take, null_count);
+    // TODO.TAE make this prettier
+    return OutputRangesByNullLikeness{
+        .non_null_like_output = {output_begin, output_begin + non_null_like_to_take},
+        .nan_output = {output_begin + non_null_like_to_take, output_begin + non_null_like_to_take + nan_to_take},
+        .null_output = {output_begin + non_null_like_to_take + nan_to_take, output_begin + non_null_like_to_take + nan_to_take + null_to_take}};
   } else {
     null_to_take = std::min(k, null_count);
     nan_to_take = std::min(k - null_to_take, nan_count);
     non_null_like_to_take = std::min(k - null_to_take - nan_to_take, non_null_like_count);
+    // TODO.TAE make this prettier
+    return OutputRangesByNullLikeness{
+        .non_null_like_output = {output_begin + null_to_take + nan_to_take, output_begin + null_to_take + nan_to_take + non_null_like_to_take},
+        .nan_output = {output_begin + null_to_take, output_begin + null_to_take + nan_to_take},
+        .null_output = {output_begin, output_begin + null_to_take}};
   }
-  return OutputRangesByNullLikeness{
-      .non_null_like_output = {output_begin, output_begin + non_null_like_to_take},
-      .nan_output = {output_begin, output_begin + nan_to_take},
-      .null_output = {output_begin, output_begin + null_to_take}};
 }
 
 template <typename Comparator>
@@ -479,36 +485,6 @@ class RecordBatchSelector {
           auto cmp = [&](uint64_t left, uint64_t right) {
             return selector_->comparator_.Compare(left, right, start_sort_key_index_);
           };
-          HeapSortNonNullsToOutput(p.non_null_like_range, l, cmp,
-                                   non_null_output_indices_begin);
-        }
-        if (m > 0) {
-          // Need to subdivide into null and nan, we use non-nulllike / nulllike stratey
-          // again for nan / null division
-          auto [nan_count, null_count] = calculateNumberNonNullAndNullLikesToTake(
-              static_cast<int64_t>(p.nan_range.size()),
-              static_cast<int64_t>(p.null_range.size()), m,
-              first_remaining_sort_key.null_placement);
-          uint64_t* nan_output_indices_begin;
-          uint64_t* null_output_indices_begin;
-          if (first_remaining_sort_key.null_placement == NullPlacement::AtEnd) {
-            nan_output_indices_begin = nulllike_output_indices_begin;
-            null_output_indices_begin = nulllike_output_indices_begin + nan_count;
-          } else {
-            null_output_indices_begin = nulllike_output_indices_begin;
-            nan_output_indices_begin = nulllike_output_indices_begin + null_count;
-          }
-
-          if (nan_count > 0) {
-            ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(start_sort_key_index_ + 1,
-                                                           p.nan_range, nan_count,
-                                                           nan_output_indices_begin));
-          }
-          if (null_count > 0) {
-            ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(start_sort_key_index_ + 1,
-                                                           p.null_range, null_count,
-                                                           null_output_indices_begin));
-          }
           HeapSortNonNullsToOutput(p.non_null_like_range,
                                    output_ranges.non_null_like_output.size(), cmp,
                                    // TODO.TAE remove this &*
