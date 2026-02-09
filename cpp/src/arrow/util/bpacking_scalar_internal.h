@@ -22,7 +22,7 @@
 
 #include <cstdint>
 
-namespace arrow::internal {
+namespace arrow::internal::bpacking {
 
 template <typename Uint>
 ARROW_EXPORT void unpack_scalar(const uint8_t* in, Uint* out, const UnpackOptions& opts);
@@ -42,4 +42,4 @@ extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint32_t>(
 extern template ARROW_TEMPLATE_EXPORT void unpack_scalar<uint64_t>(
     const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
 
-}  // namespace arrow::internal
+}  // namespace arrow::internal::bpacking

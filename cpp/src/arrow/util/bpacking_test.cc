@@ -208,10 +208,10 @@ class TestUnpack : public ::testing::TestWithParam<int> {
         SCOPED_TRACE(::testing::Message() << "Testing bit_offset=" << bit_offset);
 
         const UnpackOptions opts{
-            /* .batch_size= */ num_values_base,
-            /* .bit_width= */ bit_width,
-            /* .bit_offset= */ bit_offset,
-            /* .max_read_bytes= */ -1,  // No over-reading in testing (strict ASAN)
+            .batch_size = num_values_base,
+            .bit_width = bit_width,
+            .bit_offset = bit_offset,
+            .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
         };
 
         // Known values
@@ -233,10 +233,10 @@ class TestUnpack : public ::testing::TestWithParam<int> {
         const int num_values = num_values_base + epilogue_size;
 
         const UnpackOptions opts{
-            /* .batch_size= */ num_values,
-            /* .bit_width= */ bit_width,
-            /* .bit_offset= */ 0,
-            /* .max_read_bytes= */ -1,  // No over-reading in testing (strict ASAN)
+            .batch_size = num_values,
+            .bit_width = bit_width,
+            .bit_offset = 0,
+            .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
         };
 
         // Known values
@@ -261,18 +261,18 @@ INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
                            return "Length" + std::to_string(info.param);
                          });
 
-TEST_P(TestUnpack, UnpackBoolScalar) { this->TestAll(&unpack_scalar<bool>); }
-TEST_P(TestUnpack, Unpack8Scalar) { this->TestAll(&unpack_scalar<uint8_t>); }
-TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&unpack_scalar<uint16_t>); }
-TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&unpack_scalar<uint32_t>); }
-TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&unpack_scalar<uint64_t>); }
+TEST_P(TestUnpack, UnpackBoolScalar) { this->TestAll(&bpacking::unpack_scalar<bool>); }
+TEST_P(TestUnpack, Unpack8Scalar) { this->TestAll(&bpacking::unpack_scalar<uint8_t>); }
+TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&bpacking::unpack_scalar<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&bpacking::unpack_scalar<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&bpacking::unpack_scalar<uint64_t>); }
 
 #if defined(ARROW_HAVE_SSE4_2)
-TEST_P(TestUnpack, UnpackBoolSse4_2) { this->TestAll(&unpack_sse4_2<bool>); }
-TEST_P(TestUnpack, Unpack8Sse4_2) { this->TestAll(&unpack_sse4_2<uint8_t>); }
-TEST_P(TestUnpack, Unpack16Sse4_2) { this->TestAll(&unpack_sse4_2<uint16_t>); }
-TEST_P(TestUnpack, Unpack32Sse4_2) { this->TestAll(&unpack_sse4_2<uint32_t>); }
-TEST_P(TestUnpack, Unpack64Sse4_2) { this->TestAll(&unpack_sse4_2<uint64_t>); }
+TEST_P(TestUnpack, UnpackBoolSse4_2) { this->TestAll(&bpacking::unpack_sse4_2<bool>); }
+TEST_P(TestUnpack, Unpack8Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint8_t>); }
+TEST_P(TestUnpack, Unpack16Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint64_t>); }
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -280,31 +280,31 @@ TEST_P(TestUnpack, UnpackBoolAvx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack_avx2<bool>);
+  this->TestAll(&bpacking::unpack_avx2<bool>);
 }
 TEST_P(TestUnpack, Unpack8Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack_avx2<uint8_t>);
+  this->TestAll(&bpacking::unpack_avx2<uint8_t>);
 }
 TEST_P(TestUnpack, Unpack16Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack_avx2<uint16_t>);
+  this->TestAll(&bpacking::unpack_avx2<uint16_t>);
 }
 TEST_P(TestUnpack, Unpack32Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack_avx2<uint32_t>);
+  this->TestAll(&bpacking::unpack_avx2<uint32_t>);
 }
 TEST_P(TestUnpack, Unpack64Avx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&unpack_avx2<uint64_t>);
+  this->TestAll(&bpacking::unpack_avx2<uint64_t>);
 }
 #endif
 
@@ -313,40 +313,40 @@ TEST_P(TestUnpack, UnpackBoolAvx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack_avx512<bool>);
+  this->TestAll(&bpacking::unpack_avx512<bool>);
 }
 TEST_P(TestUnpack, Unpack8Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack_avx512<uint8_t>);
+  this->TestAll(&bpacking::unpack_avx512<uint8_t>);
 }
 TEST_P(TestUnpack, Unpack16Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack_avx512<uint16_t>);
+  this->TestAll(&bpacking::unpack_avx512<uint16_t>);
 }
 TEST_P(TestUnpack, Unpack32Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack_avx512<uint32_t>);
+  this->TestAll(&bpacking::unpack_avx512<uint32_t>);
 }
 TEST_P(TestUnpack, Unpack64Avx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&unpack_avx512<uint64_t>);
+  this->TestAll(&bpacking::unpack_avx512<uint64_t>);
 }
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(TestUnpack, UnpackBoolNeon) { this->TestAll(&unpack_neon<bool>); }
-TEST_P(TestUnpack, Unpack8Neon) { this->TestAll(&unpack_neon<uint8_t>); }
-TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&unpack_neon<uint16_t>); }
-TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&unpack_neon<uint32_t>); }
-TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&unpack_neon<uint64_t>); }
+TEST_P(TestUnpack, UnpackBoolNeon) { this->TestAll(&bpacking::unpack_neon<bool>); }
+TEST_P(TestUnpack, Unpack8Neon) { this->TestAll(&bpacking::unpack_neon<uint8_t>); }
+TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&bpacking::unpack_neon<uint16_t>); }
+TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&bpacking::unpack_neon<uint32_t>); }
+TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&bpacking::unpack_neon<uint64_t>); }
 #endif
 
 TEST_P(TestUnpack, UnpackBool) { this->TestAll(&unpack<bool>); }
