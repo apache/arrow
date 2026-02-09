@@ -15,7 +15,24 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
+from pyarrow._substrait import (
+    BoundExpressions,
+    SubstraitSchema,
+    deserialize_expressions,
+    deserialize_schema,
+    get_supported_functions,
+    run_query,
+    serialize_expressions,
+    serialize_schema,
+)
 
-
-from pyarrow.lib import benchmark_PandasObjectIsNull  # type: ignore[attr-defined]
+__all__ = [
+    "BoundExpressions",
+    "get_supported_functions",
+    "run_query",
+    "deserialize_expressions",
+    "serialize_expressions",
+    "deserialize_schema",
+    "serialize_schema",
+    "SubstraitSchema",
+]

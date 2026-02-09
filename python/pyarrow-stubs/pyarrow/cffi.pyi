@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
+import cffi
 
-
-from pyarrow.lib import benchmark_PandasObjectIsNull  # type: ignore[attr-defined]
+c_source: str
+ffi: cffi.FFI
