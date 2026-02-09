@@ -632,7 +632,6 @@ jobs:
         uses: actions/download-artifact@v7
         with:
           name: flight-sql-odbc-msi-installer
-      # Upload ODBC as GitHub release if release candidate tag is used
       - name: Wait for creating GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
