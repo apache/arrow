@@ -39,7 +39,7 @@ jobs:
         shell: cmd
         run: |
           %PYTHON_CMD% -m pip install --upgrade pip
-          %PYTHON_CMD% -m pip install cython numpy setuptools_scm setuptools wheel
+          %PYTHON_CMD% -m pip install cython numpy setuptools_scm setuptools wheel build
           %PYTHON_CMD% -m pip install pandas pytest hypothesis pytz
           
       - name: Cache vcpkg dependencies
