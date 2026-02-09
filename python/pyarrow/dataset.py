@@ -54,6 +54,9 @@ try:
         get_partition_keys as _get_partition_keys,  # keep for backwards compatibility
         _filesystemdataset_write,
     )
+    from pyarrow.fs import FileInfo
+
+
 except ImportError as exc:
     raise ImportError(
         f"The pyarrow installation is not built with support for 'dataset' ({str(exc)})"
@@ -70,7 +73,8 @@ _orc_msg = (
 )
 
 try:
-    from pyarrow._dataset_orc import OrcFileFormat
+    from pyarrow._dataset_orc import (  # type: ignore[import-not-found]
+        OrcFileFormat)
     _orc_available = True
 except ImportError:
     pass
@@ -371,6 +375,7 @@ def _ensure_multiple_sources(paths, filesystem=None):
     # possible improvement is to group the file_infos by type and raise for
     # multiple paths per error category
     if is_local:
+        # type: ignore[reportGeneralTypeIssues]
         for info in filesystem.get_file_info(paths):
             file_type = info.type
             if file_type == FileType.File:
@@ -422,16 +427,18 @@ def _ensure_single_source(path, filesystem=None):
     filesystem, path = _resolve_filesystem_and_path(path, filesystem)
 
     # ensure that the path is normalized before passing to dataset discovery
+    assert isinstance(path, str)
     path = filesystem.normalize_path(path)
 
     # retrieve the file descriptor
     file_info = filesystem.get_file_info(path)
+    assert isinstance(file_info, FileInfo)
 
     # depending on the path type either return with a recursive
     # directory selector or as a list containing a single file
-    if file_info.type == FileType.Directory:
+    if file_info.type == FileType.Directory:  # type: ignore[reportAttributeAccessIssue]
         paths_or_selector = FileSelector(path, recursive=True)
-    elif file_info.type == FileType.File:
+    elif file_info.type == FileType.File:  # type: ignore[reportAttributeAccessIssue]
         paths_or_selector = [path]
     else:
         raise FileNotFoundError(path)
@@ -1035,6 +1042,7 @@ Table/RecordBatch, or iterable of RecordBatch
     _filesystemdataset_write(
         scanner, base_dir, basename_template, filesystem, partitioning,
         preserve_order, file_options, max_partitions, file_visitor,
-        existing_data_behavior, max_open_files, max_rows_per_file,
-        min_rows_per_group, max_rows_per_group, create_dir
+        existing_data_behavior,  # type: ignore[reportArgumentType]
+        max_open_files, max_rows_per_file, min_rows_per_group,
+        max_rows_per_group, create_dir
     )
