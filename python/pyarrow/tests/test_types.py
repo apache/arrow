@@ -24,16 +24,22 @@ import sys
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
-try:
-    import hypothesis.extra.pytz as tzst
-except ImportError:
-    tzst = None
+from typing import Any, TYPE_CHECKING
 import weakref
 
-try:
+if TYPE_CHECKING:
     import numpy as np
-except ImportError:
-    np = None
+    import hypothesis.extra.pytz as tzst
+else:
+    try:
+        import numpy as np
+    except ImportError:
+        np = None
+    try:
+        import hypothesis.extra.pytz as tzst
+    except ImportError:
+        tzst = None
+
 import pyarrow as pa
 import pyarrow.types as types
 import pyarrow.tests.strategies as past
@@ -411,7 +417,7 @@ def test_tzinfo_to_string_errors():
 if tzst:
     timezones = tzst.timezones()
 else:
-    timezones = st.none()
+    timezones = st.none()  # type: ignore[assignment]
 
 
 @h.given(timezones)
@@ -465,7 +471,7 @@ def test_convert_custom_tzinfo_objects_to_string():
         def tzname(self, dt):
             return None
 
-        def utcoffset(self, dt):
+        def utcoffset(self, dt):  # type: ignore[override]
             return "one hour"
 
     class BuggyTimezone3(datetime.tzinfo):
@@ -473,7 +479,7 @@ def test_convert_custom_tzinfo_objects_to_string():
         Wrong timezone name type
         """
 
-        def tzname(self, dt):
+        def tzname(self, dt):  # type: ignore[override]
             return 240
 
         def utcoffset(self, dt):
@@ -732,13 +738,13 @@ def test_struct_type():
 
     # Neither integer nor string
     with pytest.raises(TypeError):
-        ty[None]
+        ty[None]  # type: ignore[reportArgumentType]
 
     with pytest.raises(TypeError):
-        ty.field(None)
+        ty.field(None)  # type: ignore[reportArgumentType]
 
     for a, b in zip(ty, fields):
-        a == b
+        assert a == b
 
     # Construct from list of tuples
     ty = pa.struct([('a', pa.int64()),
@@ -746,7 +752,7 @@ def test_struct_type():
                     ('b', pa.int32())])
     assert list(ty) == fields
     for a, b in zip(ty, fields):
-        a == b
+        assert a == b
 
     # Construct from mapping
     fields = [pa.field('a', pa.int64()),
@@ -755,7 +761,7 @@ def test_struct_type():
                                 ('b', pa.int32())]))
     assert list(ty) == fields
     for a, b in zip(ty, fields):
-        a == b
+        assert a == b
 
     # Invalid args
     with pytest.raises(TypeError):
@@ -862,7 +868,7 @@ def test_dictionary_type():
 
     # invalid index type raises
     with pytest.raises(TypeError):
-        pa.dictionary(pa.string(), pa.int64())
+        pa.dictionary(pa.string(), pa.int64())  # type: ignore[reportArgumentType]
 
 
 def test_dictionary_ordered_equals():
@@ -951,7 +957,7 @@ def test_run_end_encoded_type():
         pa.run_end_encoded(None, pa.utf8())
 
     with pytest.raises(ValueError):
-        pa.run_end_encoded(pa.int8(), pa.utf8())
+        pa.run_end_encoded(pa.int8(), pa.utf8())  # type: ignore[reportArgumentType]
 
 
 @pytest.mark.parametrize('t,check_func', [
@@ -1084,12 +1090,12 @@ def test_timedelta_overflow():
         pa.scalar(d, type=pa.duration('ns'))
 
     # microsecond resolution, not overflow
-    pa.scalar(d, type=pa.duration('us')).as_py() == d
+    assert pa.scalar(d, type=pa.duration('us')).as_py() == d
 
     # second/millisecond resolution, not overflow
     for d in [datetime.timedelta.min, datetime.timedelta.max]:
-        pa.scalar(d, type=pa.duration('ms')).as_py() == d
-        pa.scalar(d, type=pa.duration('s')).as_py() == d
+        _ = pa.scalar(d, type=pa.duration('ms')).as_py() == d
+        _ = pa.scalar(d, type=pa.duration('s')).as_py() == d
 
 
 def test_type_equality_operators():
@@ -1127,11 +1133,11 @@ def test_key_value_metadata():
     assert m1 != {'a': 'A', 'b': 'C'}
 
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({'a': 1})
+        pa.KeyValueMetadata({'a': 1})  # type: ignore[reportArgumentType]
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata({1: 'a'})
+        pa.KeyValueMetadata({1: 'a'})  # type: ignore[reportArgumentType]
     with pytest.raises(TypeError):
-        pa.KeyValueMetadata(a=1)
+        pa.KeyValueMetadata(a=1)  # type: ignore[reportArgumentType]
 
     expected = [(b'a', b'A'), (b'b', b'B')]
     result = [(k, v) for k, v in m3.items()]
@@ -1258,6 +1264,7 @@ def test_field_metadata():
 
     assert f1.metadata is None
     assert f2.metadata == {}
+    assert f3.metadata is not None
     assert f3.metadata[b'bizz'] == b'bazz'
 
 
@@ -1394,7 +1401,7 @@ class SchemaWrapper:
         return self.schema.__arrow_c_schema__()
 
 
-class SchemaMapping(Mapping):
+class SchemaMapping(Mapping[Any, Any]):
     def __init__(self, schema):
         self.schema = schema
 
