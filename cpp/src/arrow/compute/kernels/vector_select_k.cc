@@ -115,11 +115,13 @@ OutputRangesByNullLikeness calculateNumberNonNullAndNullLikesToTake(
 }
 
 template <typename Comparator>
-void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
-                              Comparator cmp, uint64_t* output) {
-  std::span<uint64_t> heap{non_null_range.begin(), non_null_range.begin() + l};
+void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range, Comparator cmp,
+                              std::span<uint64_t> output_range) {
+  std::span<uint64_t> heap{non_null_input_range.begin(),
+                           non_null_input_range.begin() + output_range.size()};
   std::make_heap(heap.begin(), heap.end(), cmp);
-  for (auto iter = non_null_range.begin() + l; iter != non_null_range.end(); ++iter) {
+  for (auto iter = non_null_input_range.begin() + output_range.size();
+       iter != non_null_input_range.end(); ++iter) {
     uint64_t x_index = *iter;
     if (cmp(x_index, heap.front())) {
       std::pop_heap(heap.begin(), heap.end(), cmp);
@@ -130,10 +132,11 @@ void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
 
   // fill output in reverse when destructing,
   // as the "worst" (next-to-would-have-been-replaced) element is at heap-top
+  // TODO.TAE remove these &*
   uint64_t* heap_begin = &*heap.begin();
-  uint64_t* heap_end = &*heap.begin() + l;
-  for (auto reverse_out_iter = output + l - 1; reverse_out_iter >= output;
-       --reverse_out_iter) {
+  uint64_t* heap_end = &*heap.begin() + output_range.size();
+  for (auto reverse_out_iter = output_range.rbegin();
+       reverse_out_iter != output_range.rend(); reverse_out_iter++) {
     *reverse_out_iter = *heap_begin;  // heap-top has the next element
     std::pop_heap(heap_begin, heap_end, cmp);
     --heap_end;
@@ -141,9 +144,9 @@ void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
 }
 
 template <typename InType, SortOrder sort_order>
-void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
+void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range,
                               const typename TypeTraits<InType>::ArrayType& arr,
-                              uint64_t* output) {
+                              std::span<uint64_t> output_range) {
   using GetView = GetViewType<InType>;
   SelectKComparator<sort_order> comparator;
   auto cmp = [&arr, &comparator](uint64_t left, uint64_t right) {
@@ -151,20 +154,20 @@ void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
     const auto rval = GetView::LogicalValue(arr.GetView(right));
     return comparator(lval, rval);
   };
-  HeapSortNonNullsToOutput(non_null_range, l, cmp, output);
+  HeapSortNonNullsToOutput(non_null_input_range, cmp, output_range);
 }
 
 template <typename InType>
 // TODO.TAE Could merge l and output into one span now
-void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_range, int64_t l,
+void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range,
                               const typename TypeTraits<InType>::ArrayType& arr,
-                              SortOrder order, uint64_t* output) {
+                              SortOrder order, std::span<uint64_t> output_range) {
   if (order == SortOrder::Ascending) {
-    HeapSortNonNullsToOutput<InType, SortOrder::Ascending>(non_null_range, l, arr,
-                                                           output);
+    HeapSortNonNullsToOutput<InType, SortOrder::Ascending>(non_null_input_range, arr,
+                                                           output_range);
   } else {
-    HeapSortNonNullsToOutput<InType, SortOrder::Descending>(non_null_range, l, arr,
-                                                            output);
+    HeapSortNonNullsToOutput<InType, SortOrder::Descending>(non_null_input_range, arr,
+                                                            output_range);
   }
 }
 
@@ -227,18 +230,14 @@ class ArraySelector : public TypeVisitor {
 
     if (null_placement_ == NullPlacement::AtEnd) {
       HeapSortNonNullsToOutput<InType, sort_order>(
-          {p.non_nulls_begin, p.non_nulls_end}, output_ranges.non_null_like_output.size(),
-          arr, output);
+          {p.non_nulls_begin, p.non_nulls_end}, arr, output_ranges.non_null_like_output);
       std::copy(p.nulls_begin, p.nulls_begin + output_ranges.null_output.size(),
                 output_ranges.null_output.begin());
     } else {
       std::copy(p.nulls_begin, p.nulls_begin + output_ranges.null_output.size(),
                 output_ranges.null_output.begin());
       HeapSortNonNullsToOutput<InType, sort_order>(
-          {p.non_nulls_begin, p.non_nulls_end}, output_ranges.non_null_like_output.size(),
-          arr,
-          // TODO.TAE remove this &*
-          &*output_ranges.non_null_like_output.begin());
+          {p.non_nulls_begin, p.non_nulls_end}, arr, output_ranges.non_null_like_output);
     }
 
     *output_ = Datum(take_indices);
@@ -262,6 +261,9 @@ struct TypedHeapItem {
 };
 
 class ChunkedArraySelector : public TypeVisitor {
+  using ResolvedSortKey = ResolvedTableSortKey;
+  using Comparator = MultipleKeyComparator<ResolvedSortKey>;
+
  public:
   ChunkedArraySelector(ExecContext* ctx, const ChunkedArray& chunked_array,
                        const SelectKOptions& options, Datum* output)
@@ -288,6 +290,26 @@ class ChunkedArraySelector : public TypeVisitor {
   VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
 #undef VISIT
 
+  //  template<typename InType>
+  //  int64_t ComputeNanCount(){
+  //    using GetView = GetViewType<InType>;
+  //    using ArrayType = typename TypeTraits<InType>::ArrayType;
+  //    if constexpr (has_null_like_values<typename ArrayType::TypeClass>()) {
+  //      int64_t nan_count = 0;
+  //      for (const auto& chunk : physical_chunks_) {
+  //        auto values = std::make_shared<ArrayType>(chunk->data());
+  //        int64_t length = values->length();
+  //        for(int64_t index = 0; index < length; ++index){
+  //          if(std::isnan(values->GetView(index))){
+  //            nan_count++;
+  //          }
+  //        }
+  //      }
+  //      return nan_count;
+  //    }
+  //    return 0;
+  //  }
+
   template <typename InType, SortOrder sort_order>
   Status SelectKthInternal() {
     using GetView = GetViewType<InType>;
@@ -301,6 +323,11 @@ class ChunkedArraySelector : public TypeVisitor {
     if (k_ > chunked_array_.length()) {
       k_ = chunked_array_.length();
     }
+    //    int64_t null_count = chunked_array_.null_count();
+    //    int64_t nan_count = ComputeNanCount<InType>();
+    // TODO.TAE    int64_t non_null_like_count = chunked_array_.length() - null_count -
+    // nan_count;
+
     std::function<bool(const HeapItem&, const HeapItem&)> cmp;
     SelectKComparator<sort_order> comparator;
 
@@ -325,17 +352,12 @@ class ChunkedArraySelector : public TypeVisitor {
       uint64_t* indices_end = indices_begin + indices.size();
       std::iota(indices_begin, indices_end, 0);
 
-      // TODO.TAE maybe just remove this partitioning?
-      const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
-          indices_begin, indices_end, arr, 0, NullPlacement::AtEnd);
-      const auto end_iter = p.non_nulls_end;
-
-      auto kth_begin = std::min(indices_begin + k_, end_iter);
+      auto kth_begin = std::min(indices_begin + k_, indices_end);
       uint64_t* iter = indices_begin;
       for (; iter != kth_begin && heap.size() < static_cast<size_t>(k_); ++iter) {
         heap.push(HeapItem{*iter, offset, &arr});
       }
-      for (; iter != end_iter && !heap.empty(); ++iter) {
+      for (; iter != indices_end && !heap.empty(); ++iter) {
         uint64_t x_index = *iter;
         const auto& xval = GetView::LogicalValue(arr.GetView(x_index));
         auto top_item = heap.top();
@@ -472,11 +494,10 @@ class RecordBatchSelector {
 
       if (last_sort_key) {
         if (!output_ranges.non_null_like_output.empty()) {
-          HeapSortNonNullsToOutput<InType>(p.non_null_like_range,
-                                           output_ranges.non_null_like_output.size(), arr,
+          HeapSortNonNullsToOutput<InType>(p.non_null_like_range, arr,
                                            first_remaining_sort_key.order,
                                            // TODO.TAE remove this &*
-                                           &*output_ranges.non_null_like_output.begin());
+                                           output_ranges.non_null_like_output);
         }
         if (output_ranges.nan_output.size() > 0) {
           // We have the last sort_key, can just copy over the null values
@@ -495,10 +516,8 @@ class RecordBatchSelector {
           auto cmp = [&](uint64_t left, uint64_t right) {
             return selector_->comparator_.Compare(left, right, start_sort_key_index_);
           };
-          HeapSortNonNullsToOutput(p.non_null_like_range,
-                                   output_ranges.non_null_like_output.size(), cmp,
-                                   // TODO.TAE remove this &*
-                                   &*output_ranges.non_null_like_output.begin());
+          HeapSortNonNullsToOutput(p.non_null_like_range, cmp,
+                                   output_ranges.non_null_like_output);
         }
         if (output_ranges.nan_output.size() > 0) {
           ARROW_RETURN_NOT_OK(selector_->DoSelectKForKey(
