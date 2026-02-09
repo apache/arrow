@@ -75,7 +75,7 @@ constexpr T max_value(const std::array<T, N>& arr) {
 template <std::array kArr, typename Arch, std::size_t... Is>
 constexpr auto array_to_batch_constant_impl(std::index_sequence<Is...>) {
   using Array = std::decay_t<decltype(kArr)>;
-  using value_type = typename Array::value_type;
+  using value_type = Array::value_type;
 
   return xsimd::batch_constant<value_type, Arch, kArr[Is]...>{};
 }
@@ -364,7 +364,7 @@ struct KernelTraits {
                                        SizedUint<sizeof(bool)>, unpacked_type>;
   using simd_batch = xsimd::make_sized_batch_t<uint_type, kShape.unpacked_per_simd()>;
   using simd_bytes = xsimd::make_sized_batch_t<uint8_t, kShape.simd_byte_size()>;
-  using arch_type = typename simd_batch::arch_type;
+  using arch_type = simd_batch::arch_type;
 };
 
 /// Return similar kernel traits but with a different integer unpacking type.
@@ -487,7 +487,7 @@ constexpr int adjust_bytes_per_read(int bits_per_read, int simd_byte_size) {
 template <typename KerTraits, MediumKernelOptions kOptions>
 struct MediumKernelPlan {
   using Traits = KerTraits;
-  using uint_type = typename Traits::uint_type;
+  using uint_type = Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = MediumKernelPlanSize::Build(kShape, kOptions);
 
@@ -497,8 +497,8 @@ struct MediumKernelPlan {
   using SwizzlesPerRead = std::array<Swizzle, kPlanSize.swizzles_per_read()>;
   using SwizzlesPerKernel = std::array<SwizzlesPerRead, kPlanSize.reads_per_kernel()>;
 
-  using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
-  using ShiftsPerSwizzle = std::array<Shift, kPlanSize.shifts_per_swizzle()>;
+  using Shifts = std::array<uint_type, kShape.unpacked_per_simd()>;
+  using ShiftsPerSwizzle = std::array<Shifts, kPlanSize.shifts_per_swizzle()>;
   using ShiftsPerRead = std::array<ShiftsPerSwizzle, kPlanSize.swizzles_per_read()>;
   using ShiftsPerKernel = std::array<ShiftsPerRead, kPlanSize.reads_per_kernel()>;
 
@@ -545,8 +545,7 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
 
     for (int sw = 0; sw < kPlanSize.swizzles_per_read(); ++sw) {
       constexpr int kUndefined = -1;
-      plan.swizzles.at(r).at(sw) =
-          BuildConstantArrayLike<typename Plan::Swizzle>(kUndefined);
+      plan.swizzles.at(r).at(sw) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
       for (int sh = 0; sh < kPlanSize.shifts_per_swizzle(); ++sh) {
         const int sh_offset_bytes = sh * kShape.packed_max_spread_bytes();
         const int sh_offset_bits = 8 * sh_offset_bytes;
@@ -644,12 +643,12 @@ struct MediumKernel {
   static constexpr auto kPlan = MediumKernelPlan<KerTraits, kOptions>::Build();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
-  using Traits = typename decltype(kPlan)::Traits;
-  using unpacked_type = typename Traits::unpacked_type;
-  using uint_type = typename Traits::uint_type;
-  using simd_batch = typename Traits::simd_batch;
-  using simd_bytes = typename Traits::simd_bytes;
-  using arch_type = typename Traits::arch_type;
+  using Traits = decltype(kPlan)::Traits;
+  using unpacked_type = Traits::unpacked_type;
+  using uint_type = Traits::uint_type;
+  using simd_batch = Traits::simd_batch;
+  using simd_bytes = Traits::simd_bytes;
+  using arch_type = Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlan.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
@@ -751,7 +750,7 @@ struct LargeKernelPlanSize {
 template <typename KerTraits>
 struct LargeKernelPlan {
   using Traits = KerTraits;
-  using uint_type = typename Traits::uint_type;
+  using uint_type = Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = LargeKernelPlanSize::Build(kShape);
 
@@ -760,8 +759,8 @@ struct LargeKernelPlan {
   using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
   using SwizzlesPerKernel = std::array<Swizzle, kPlanSize.reads_per_kernel()>;
 
-  using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
-  using ShitsPerKernel = std::array<Shift, kPlanSize.reads_per_kernel()>;
+  using Shifts = std::array<uint_type, kShape.unpacked_per_simd()>;
+  using ShitsPerKernel = std::array<Shifts, kPlanSize.reads_per_kernel()>;
 
   static constexpr LargeKernelPlan Build();
 
@@ -783,7 +782,7 @@ struct LargeKernelPlan {
 template <typename KerTraits>
 constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits> {
   using Plan = LargeKernelPlan<KerTraits>;
-  using uint_type = typename Plan::Traits::uint_type;
+  using uint_type = Plan::Traits::uint_type;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_large());
@@ -798,8 +797,8 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
     plan.reads.at(r) = read_start_byte;
 
     constexpr int kUndefined = -1;
-    plan.low_swizzles.at(r) = BuildConstantArrayLike<typename Plan::Swizzle>(kUndefined);
-    plan.high_swizzles.at(r) = BuildConstantArrayLike<typename Plan::Swizzle>(kUndefined);
+    plan.low_swizzles.at(r) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
+    plan.high_swizzles.at(r) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
 
     for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
       const int packed_start_byte = packed_start_bit / 8;
@@ -903,10 +902,10 @@ struct LargeKernel {
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
-  using unpacked_type = typename Traits::unpacked_type;
-  using simd_batch = typename Traits::simd_batch;
-  using simd_bytes = typename Traits::simd_bytes;
-  using arch_type = typename Traits::arch_type;
+  using unpacked_type = Traits::unpacked_type;
+  using simd_batch = Traits::simd_batch;
+  using simd_bytes = Traits::simd_bytes;
+  using arch_type = Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlanSize.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
@@ -966,7 +965,7 @@ struct LargeKernel {
 /// A Kernel that does not extract anything, leaving all work to the naive implementation.
 template <typename KernelTraits>
 struct NoOpKernel {
-  using unpacked_type = typename KernelTraits::unpacked_type;
+  using unpacked_type = KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = 0;
   static constexpr int kBytesRead = 0;
@@ -976,12 +975,12 @@ struct NoOpKernel {
 
 template <typename KernelTraits, typename WorkingKernel>
 struct ForwardToKernel : WorkingKernel {
-  using unpacked_type = typename KernelTraits::unpacked_type;
+  using unpacked_type = KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = WorkingKernel::kValuesUnpacked;
 
   static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
-    using working_type = typename WorkingKernel::unpacked_type;
+    using working_type = WorkingKernel::unpacked_type;
 
     working_type buffer[kValuesUnpacked] = {};
     in = WorkingKernel::unpack(in, buffer);
@@ -997,7 +996,7 @@ struct ForwardToKernel : WorkingKernel {
  *******************************/
 
 // Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
-template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
+template <typename KerTraits, typename Arch = KerTraits::arch_type>
 constexpr bool kMediumShouldUseUint32 =
     (HasSse2<Arch> || HasSse2<Arch>) &&  //
     (KerTraits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
@@ -1005,7 +1004,7 @@ constexpr bool kMediumShouldUseUint32 =
     KernelTraitsWithUnpackUint<KerTraits, uint32_t>::kShape.is_medium();
 
 // Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
-template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
+template <typename KerTraits, typename Arch = KerTraits::arch_type>
 constexpr bool kLargeShouldUseUint16 =
     HasSse2<Arch> && (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
 
