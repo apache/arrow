@@ -235,6 +235,7 @@ class ChunkedArraySelector : public TypeVisitor {
         physical_chunks_(GetPhysicalChunks(chunked_array_, physical_type_)),
         k_(options.k),
         order_(options.sort_keys[0].order),
+        null_placement_(options.sort_keys[0].null_placement),
         ctx_(ctx),
         output_(output) {}
 
@@ -288,6 +289,7 @@ class ChunkedArraySelector : public TypeVisitor {
       uint64_t* indices_end = indices_begin + indices.size();
       std::iota(indices_begin, indices_end, 0);
 
+      // TODO.TAE maybe just remove this partitioning?
       const auto p = PartitionNulls<ArrayType, NonStablePartitioner>(
           indices_begin, indices_end, arr, 0, NullPlacement::AtEnd);
       const auto end_iter = p.non_nulls_end;
@@ -330,6 +332,7 @@ class ChunkedArraySelector : public TypeVisitor {
   const ArrayVector physical_chunks_;
   int64_t k_;
   SortOrder order_;
+  NullPlacement null_placement_;
   ExecContext* ctx_;
   Datum* output_;
 };
