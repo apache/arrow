@@ -94,16 +94,22 @@ OutputRangesByNullLikeness calculateNumberNonNullAndNullLikesToTake(
     // TODO.TAE make this prettier
     return OutputRangesByNullLikeness{
         .non_null_like_output = {output_begin, output_begin + non_null_like_to_take},
-        .nan_output = {output_begin + non_null_like_to_take, output_begin + non_null_like_to_take + nan_to_take},
-        .null_output = {output_begin + non_null_like_to_take + nan_to_take, output_begin + non_null_like_to_take + nan_to_take + null_to_take}};
+        .nan_output = {output_begin + non_null_like_to_take,
+                       output_begin + non_null_like_to_take + nan_to_take},
+        .null_output = {
+            output_begin + non_null_like_to_take + nan_to_take,
+            output_begin + non_null_like_to_take + nan_to_take + null_to_take}};
   } else {
     null_to_take = std::min(k, null_count);
     nan_to_take = std::min(k - null_to_take, nan_count);
     non_null_like_to_take = std::min(k - null_to_take - nan_to_take, non_null_like_count);
     // TODO.TAE make this prettier
     return OutputRangesByNullLikeness{
-        .non_null_like_output = {output_begin + null_to_take + nan_to_take, output_begin + null_to_take + nan_to_take + non_null_like_to_take},
-        .nan_output = {output_begin + null_to_take, output_begin + null_to_take + nan_to_take},
+        .non_null_like_output = {output_begin + null_to_take + nan_to_take,
+                                 output_begin + null_to_take + nan_to_take +
+                                     non_null_like_to_take},
+        .nan_output = {output_begin + null_to_take,
+                       output_begin + null_to_take + nan_to_take},
         .null_output = {output_begin, output_begin + null_to_take}};
   }
 }
@@ -194,6 +200,9 @@ class ArraySelector : public TypeVisitor {
     using ArrayType = typename TypeTraits<InType>::ArrayType;
 
     ArrayType arr(array_.data());
+
+    k_ = std::min(k_, arr.length());
+
     std::vector<uint64_t> indices(arr.length());
 
     uint64_t* indices_begin = indices.data();
@@ -223,12 +232,13 @@ class ArraySelector : public TypeVisitor {
       std::copy(p.nulls_begin, p.nulls_begin + output_ranges.null_output.size(),
                 output_ranges.null_output.begin());
     } else {
-      std::copy(p.nulls_begin, p.nulls_begin + output_ranges.null_output.size(), output);
+      std::copy(p.nulls_begin, p.nulls_begin + output_ranges.null_output.size(),
+                output_ranges.null_output.begin());
       HeapSortNonNullsToOutput<InType, sort_order>(
           {p.non_nulls_begin, p.non_nulls_end}, output_ranges.non_null_like_output.size(),
           arr,
           // TODO.TAE remove this &*
-          &*output_ranges.null_output.begin());
+          &*output_ranges.non_null_like_output.begin());
     }
 
     *output_ = Datum(take_indices);
