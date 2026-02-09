@@ -20,7 +20,7 @@
 #include "arrow/util/bpacking_simd_internal.h"
 #include "arrow/util/bpacking_simd_kernel_internal.h"
 
-namespace arrow::internal {
+namespace arrow::internal::bpacking {
 
 template <typename UnpackedUint, int kPackedBitSize>
 using Simd256Kernel = Kernel<UnpackedUint, kPackedBitSize, 256>;
@@ -36,4 +36,4 @@ template void unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptio
 template void unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
 template void unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
-}  // namespace arrow::internal
+}  // namespace arrow::internal::bpacking
