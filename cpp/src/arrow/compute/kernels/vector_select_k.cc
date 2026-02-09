@@ -617,44 +617,15 @@ class TableSelector : public TypeVisitor {
     return resolved;
   }
 
-  // TODO.TAE remove, it sorts ALL non-null inputs
-  // Behaves like PartitionNulls() but this supports multiple sort keys.
-  template <typename Type>
-  NullPartitionResult PartitionNullsInternal(uint64_t* indices_begin,
-                                             uint64_t* indices_end,
-                                             const ResolvedSortKey& first_sort_key) {
-    using ArrayType = typename TypeTraits<Type>::ArrayType;
-
-    const auto p = PartitionNullsOnly<StablePartitioner>(
-        indices_begin, indices_end, first_sort_key.resolver, first_sort_key.null_count,
-        NullPlacement::AtEnd);
-    DCHECK_EQ(p.nulls_end - p.nulls_begin, first_sort_key.null_count);
-
-    const auto q = PartitionNullLikes<ArrayType, StablePartitioner>(
-        p.non_nulls_begin, p.non_nulls_end, first_sort_key.resolver,
-        NullPlacement::AtEnd);
-
-    auto& comparator = comparator_;
-    // Sort all NaNs by the second and following sort keys.
-    std::stable_sort(q.nulls_begin, q.nulls_end, [&](uint64_t left, uint64_t right) {
-      return comparator.Compare(left, right, 1);
-    });
-    // Sort all nulls by the second and following sort keys.
-    std::stable_sort(p.nulls_begin, p.nulls_end, [&](uint64_t left, uint64_t right) {
-      return comparator.Compare(left, right, 1);
-    });
-
-    return q;
-  }
-
   // XXX this implementation is rather inefficient as it computes chunk indices
   // at every comparison.  Instead we should iterate over individual batches
   // and remember ChunkLocation entries in the max-heap.
-
+// TODO.TAE remove sort_order?
   template <typename InType, SortOrder sort_order>
   Status SelectKthInternal() {
-    auto& comparator = comparator_;
-    const auto& first_sort_key = sort_keys_[0];
+        auto& comparator = comparator_;
+//     TODO.TAE
+//    const auto& first_sort_key = sort_keys_[0];
 
     const auto num_rows = table_.num_rows();
     if (num_rows == 0) {
@@ -663,17 +634,9 @@ class TableSelector : public TypeVisitor {
     if (k_ > table_.num_rows()) {
       k_ = table_.num_rows();
     }
-    std::function<bool(const uint64_t&, const uint64_t&)> cmp;
-    SelectKComparator<sort_order> select_k_comparator;
-    cmp = [&](const uint64_t& left, const uint64_t& right) -> bool {
-      auto chunk_left = first_sort_key.GetChunk(left);
-      auto chunk_right = first_sort_key.GetChunk(right);
-      auto value_left = chunk_left.Value<InType>();
-      auto value_right = chunk_right.Value<InType>();
-      if (value_left == value_right) {
-        return comparator.Compare(left, right, 1);
-      }
-      return select_k_comparator(value_left, value_right);
+    std::function<bool(const uint64_t&, const uint64_t&)> cmp =
+        [&](const uint64_t& left, const uint64_t& right) -> bool {
+      return comparator.Compare(left, right, 0);
     };
     using HeapContainer =
         std::priority_queue<uint64_t, std::vector<uint64_t>, decltype(cmp)>;
@@ -683,13 +646,10 @@ class TableSelector : public TypeVisitor {
     uint64_t* indices_end = indices_begin + indices.size();
     std::iota(indices_begin, indices_end, 0);
 
-    const auto p =
-        this->PartitionNullsInternal<InType>(indices_begin, indices_end, first_sort_key);
-    const auto end_iter = p.non_nulls_end;
-    auto kth_begin = std::min(indices_begin + k_, end_iter);
+    auto kth_begin = std::min(indices_begin + k_, indices_end);
 
     HeapContainer heap(indices_begin, kth_begin, cmp);
-    for (auto iter = kth_begin; iter != end_iter && !heap.empty(); ++iter) {
+    for (auto iter = kth_begin; iter != indices_end && !heap.empty(); ++iter) {
       uint64_t x_index = *iter;
       uint64_t top_item = heap.top();
       if (cmp(x_index, top_item)) {
