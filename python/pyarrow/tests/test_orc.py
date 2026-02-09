@@ -77,7 +77,7 @@ def fix_example_values(actual_cols, expected_cols):
                 if not pd.isnull(v):
                     exp = d.as_tuple().exponent
                     factor = 10 ** -exp
-                    converted_decimals[i] = (
+                    converted_decimals[i] = (  # type: ignore[call-overload,assignment]
                         decimal.Decimal(round(v * factor)).scaleb(exp))
             expected = pd.Series(converted_decimals)
 
@@ -314,7 +314,7 @@ def test_buffer_readwrite():
     # deprecated keyword order
     buffer_output_stream = pa.BufferOutputStream()
     with pytest.warns(FutureWarning):
-        orc.write_table(buffer_output_stream, table)
+        orc.write_table(buffer_output_stream, table)  # type: ignore[arg-type]
     buffer_reader = pa.BufferReader(buffer_output_stream.getvalue())
     orc_file = orc.ORCFile(buffer_reader)
     output_table = orc_file.read()
@@ -356,8 +356,8 @@ def test_buffer_readwrite_with_writeoptions():
     buffer_output_stream = pa.BufferOutputStream()
     with pytest.warns(FutureWarning):
         orc.write_table(
-            buffer_output_stream,
-            table,
+            buffer_output_stream,  # type: ignore[reportArgumentType]
+            table,  # type: ignore[reportArgumentType]
             compression='uncompressed',
             file_version='0.11',
             row_index_stride=20000,
@@ -444,20 +444,20 @@ def test_buffer_readwrite_with_bad_writeoptions():
         orc.write_table(
             table,
             buffer_output_stream,
-            compression=0,
+            compression=0,  # type: ignore[reportArgumentType]
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression='none',
+            compression='none',  # type: ignore[reportArgumentType]
         )
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression='zlid',
+            compression='zlid',  # type: ignore[reportArgumentType]
         )
 
     # compression_block_size must be a positive integer
@@ -487,20 +487,20 @@ def test_buffer_readwrite_with_bad_writeoptions():
         orc.write_table(
             table,
             buffer_output_stream,
-            compression_strategy=0,
+            compression_strategy=0,  # type: ignore[reportArgumentType]
         )
 
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression_strategy='no',
+            compression_strategy='no',  # type: ignore[reportArgumentType]
         )
     with pytest.raises(ValueError):
         orc.write_table(
             table,
             buffer_output_stream,
-            compression_strategy='large',
+            compression_strategy='large',  # type: ignore[reportArgumentType]
         )
 
     # row_index_stride must be a positive integer
