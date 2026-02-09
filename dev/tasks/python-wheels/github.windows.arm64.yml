@@ -25,14 +25,14 @@ jobs:
     runs-on: "{{ runs_on }}"
     timeout-minutes: 240
     env:
-      PYTHON_CMD: "py -{{ python_version }}-arm64"
+      PYTHON_CMD: "py -{{ python_version }}-arm64{% if python_abi_tag.endswith('t') %}t{% endif %}"
       CMAKE_BUILD_TYPE: release
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "{{ python_version }}"
+          python-version: "{{ python_version }}{% if python_abi_tag.endswith('t') %}t{% endif %}"
           architecture: "arm64"
 
       - name: Install Python build dependencies
@@ -40,7 +40,7 @@ jobs:
         run: |
           %PYTHON_CMD% -m pip install --upgrade pip
           %PYTHON_CMD% -m pip install cython numpy setuptools_scm setuptools wheel
-          %PYTHON_CMD% -m pip install pandas pytest hypothesis cffi pytz
+          %PYTHON_CMD% -m pip install pandas pytest hypothesis pytz
           
       - name: Cache vcpkg dependencies
         uses: actions/cache@v4
@@ -78,6 +78,7 @@ jobs:
           ARCH: "ARM64"
         run: |
           call "arrow\ci\scripts\python_wheel_windows_test.bat"
+          
       - uses: actions/upload-artifact@v4
         with:
           name: wheel
