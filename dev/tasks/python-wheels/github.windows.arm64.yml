@@ -25,7 +25,7 @@ jobs:
     runs-on: "{{ runs_on }}"
     timeout-minutes: 240
     env:
-      PYTHON_CMD: "py -{{ python_version }}-arm64{% if python_abi_tag.endswith('t') %}t{% endif %}"
+      PYTHON_CMD: "py -{{ python_version }}{% if python_abi_tag.endswith('t') %}t{% endif %}-arm64"
       CMAKE_BUILD_TYPE: release
     steps:
       {{ macros.github_checkout_arrow()|indent }}
