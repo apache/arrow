@@ -57,7 +57,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
