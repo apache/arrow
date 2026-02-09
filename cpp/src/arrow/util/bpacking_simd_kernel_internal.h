@@ -39,7 +39,7 @@
 #include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/type_traits.h"
 
-namespace arrow::internal {
+namespace arrow::internal::bpacking {
 
 template <typename T, std::size_t N>
 constexpr std::array<T, N> BuildConstantArray(T val) {
@@ -851,4 +851,4 @@ template <std::unsigned_integral UnpackedUint, int kPackedBitSize, int kSimdBitS
 struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>> {
 };
 
-}  // namespace arrow::internal
+}  // namespace arrow::internal::bpacking

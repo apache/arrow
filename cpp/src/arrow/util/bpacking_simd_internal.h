@@ -22,7 +22,7 @@
 
 #include <cstdint>
 
-namespace arrow::internal {
+namespace arrow::internal::bpacking {
 
 #if defined(ARROW_HAVE_NEON)
 
@@ -110,4 +110,4 @@ extern template ARROW_TEMPLATE_EXPORT void unpack_avx512<uint64_t>(
 
 #endif
 
-}  // namespace arrow::internal
+}  // namespace arrow::internal::bpacking

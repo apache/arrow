@@ -28,7 +28,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/ubsan.h"
 
-namespace arrow::internal {
+namespace arrow::internal::bpacking {
 
 /// Unpack a zero bit packed array.
 template <typename Uint>
@@ -630,4 +630,4 @@ static void unpack_jump(const uint8_t* in, UnpackedUint* out, const UnpackOption
   }
   ARROW_DCHECK(false) << "Unsupported num_bits " << opt.bit_width;
 }
-}  // namespace arrow::internal
+}  // namespace arrow::internal::bpacking
