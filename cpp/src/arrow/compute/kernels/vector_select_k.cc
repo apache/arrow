@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <queue>
+#include <ranges>
 #include <span>
 
 #include "arrow/compute/function.h"
@@ -114,22 +115,21 @@ template <typename Comparator>
 void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range, Comparator cmp,
                               std::span<uint64_t> output_range) {
   std::span<uint64_t> heap = non_null_input_range.subspan(0, output_range.size());
-  std::make_heap(heap.begin(), heap.end(), cmp);
+  std::ranges::make_heap(heap, cmp);
 
   std::span<uint64_t> remaining_input = non_null_input_range.subspan(output_range.size());
   for (uint64_t x_index : remaining_input) {
     if (cmp(x_index, heap.front())) {
-      std::pop_heap(heap.begin(), heap.end(), cmp);
+      std::ranges::pop_heap(heap, cmp);
       heap.back() = x_index;
-      std::push_heap(heap.begin(), heap.end(), cmp);
+      std::ranges::push_heap(heap, cmp);
     }
   }
 
   // fill output in reverse when destructing,
   // as the "worst" (next-to-would-have-been-replaced) element is at heap-top
-  for (auto reverse_out_iter = output_range.rbegin();
-       reverse_out_iter != output_range.rend(); reverse_out_iter++) {
-    *reverse_out_iter = heap.front();  // heap-top has the next element
+  for (auto& reverse_out_iter : std::ranges::reverse_view(output_range)) {
+    reverse_out_iter = heap.front();  // heap-top has the next element
     std::ranges::pop_heap(heap, cmp);
     // Decrease heap-size by one
     heap = heap.first(heap.size() - 1);
