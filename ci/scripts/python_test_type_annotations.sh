@@ -32,8 +32,7 @@ pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-reques
 pip install mypy pyright ty
 
 # Run type checkers
-pushd "${pyarrow_dir}"
+cd "${pyarrow_dir}"
 mypy
 pyright
 ty check
-popd
