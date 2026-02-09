@@ -491,12 +491,15 @@ struct MediumKernelPlan {
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = MediumKernelPlanSize::Build(kShape, kOptions);
 
+  /// Array of byte offsets relative to the Kernel input memory address.
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
+  /// Array of indices used for byte swizzle/shuffle in an SIMD register.
   using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
   using SwizzlesPerRead = std::array<Swizzle, kPlanSize.swizzles_per_read()>;
   using SwizzlesPerKernel = std::array<SwizzlesPerRead, kPlanSize.reads_per_kernel()>;
 
+  /// Array of integer shifts for each unpacked integer in an SIMD register.
   using Shifts = std::array<uint_type, kShape.unpacked_per_simd()>;
   using ShiftsPerSwizzle = std::array<Shifts, kPlanSize.shifts_per_swizzle()>;
   using ShiftsPerRead = std::array<ShiftsPerSwizzle, kPlanSize.swizzles_per_read()>;
@@ -544,6 +547,8 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
     plan.reads.at(r) = read_start_byte;
 
     for (int sw = 0; sw < kPlanSize.swizzles_per_read(); ++sw) {
+      // Not all swizzle values are defined. This is not an issue as these bits do not
+      // influence the input (they will be masked away).
       constexpr int kUndefined = -1;
       plan.swizzles.at(r).at(sw) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
       for (int sh = 0; sh < kPlanSize.shifts_per_swizzle(); ++sh) {
@@ -754,11 +759,14 @@ struct LargeKernelPlan {
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = LargeKernelPlanSize::Build(kShape);
 
+  /// Array of byte offsets relative to the Kernel input memory address.
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
+  /// Array of indices used for byte swizzle/shuffle in an SIMD register.
   using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
   using SwizzlesPerKernel = std::array<Swizzle, kPlanSize.reads_per_kernel()>;
 
+  /// Array of integer shifts for each unpacked integer in an SIMD register.
   using Shifts = std::array<uint_type, kShape.unpacked_per_simd()>;
   using ShitsPerKernel = std::array<Shifts, kPlanSize.reads_per_kernel()>;
 
@@ -796,6 +804,8 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
     const int read_start_byte = packed_start_bit / 8;
     plan.reads.at(r) = read_start_byte;
 
+    // Not all swizzle values are defined. This is not an issue as these bits do not
+    // influence the input (they will be masked away).
     constexpr int kUndefined = -1;
     plan.low_swizzles.at(r) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
     plan.high_swizzles.at(r) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
