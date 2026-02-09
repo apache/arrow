@@ -22,6 +22,7 @@
 #include <vector>
 
 #include "arrow/extension/json.h"
+#include "arrow/extension/parquet_variant.h"
 #include "arrow/extension/uuid.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
@@ -36,7 +37,6 @@
 #include "arrow/util/value_parsing.h"
 
 #include "parquet/arrow/schema_internal.h"
-#include "parquet/arrow/variant_internal.h"
 #include "parquet/exception.h"
 #include "parquet/geospatial/util_json_internal.h"
 #include "parquet/metadata.h"
@@ -129,10 +129,11 @@ Status MapToNode(const std::shared_ptr<::arrow::MapType>& type, const std::strin
   return Status::OK();
 }
 
-Status VariantToNode(const std::shared_ptr<VariantExtensionType>& type,
-                     const std::string& name, bool nullable, int field_id,
-                     const WriterProperties& properties,
-                     const ArrowWriterProperties& arrow_properties, NodePtr* out) {
+Status VariantToNode(
+    const std::shared_ptr<::arrow::extension::VariantExtensionType>& type,
+    const std::string& name, bool nullable, int field_id,
+    const WriterProperties& properties, const ArrowWriterProperties& arrow_properties,
+    NodePtr* out) {
   NodePtr metadata_node;
   RETURN_NOT_OK(FieldToNode("metadata", type->metadata(), properties, arrow_properties,
                             &metadata_node));
@@ -485,8 +486,10 @@ Status FieldToNode(const std::string& name, const std::shared_ptr<Field>& field,
         ARROW_ASSIGN_OR_RAISE(logical_type,
                               LogicalTypeFromGeoArrowMetadata(ext_type->Serialize()));
         break;
-      } else if (ext_type->extension_name() == std::string("parquet.variant")) {
-        auto variant_type = std::static_pointer_cast<VariantExtensionType>(field->type());
+      } else if (ext_type->extension_name() == std::string("arrow.parquet.variant")) {
+        auto variant_type =
+            std::static_pointer_cast<::arrow::extension::VariantExtensionType>(
+                field->type());
 
         return VariantToNode(variant_type, name, field->nullable(), field_id, properties,
                              arrow_properties, out);
@@ -597,7 +600,7 @@ Status GroupToStruct(const GroupNode& node, LevelInfo current_levels,
   auto struct_type = ::arrow::struct_(arrow_fields);
   if (ctx->properties.get_arrow_extensions_enabled() &&
       node.logical_type()->is_variant()) {
-    auto extension_type = ::arrow::GetExtensionType("parquet.variant");
+    auto extension_type = ::arrow::GetExtensionType("arrow.parquet.variant");
     if (extension_type) {
       ARROW_ASSIGN_OR_RAISE(
           struct_type,
@@ -1147,10 +1150,10 @@ Result<bool> ApplyOriginalMetadata(const Field& origin_field, SchemaField* infer
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
           ::arrow::extension::UuidType::IsSupportedStorageType(inferred_type);
-    } else if (origin_extension_name == "parquet.variant") {
+    } else if (origin_extension_name == "arrow.parquet.variant") {
       extension_supports_inferred_storage =
           arrow_extension_inferred ||
-          VariantExtensionType::IsSupportedStorageType(inferred_type);
+          ::arrow::extension::VariantExtensionType::IsSupportedStorageType(inferred_type);
     } else {
       extension_supports_inferred_storage =
           origin_extension_type.storage_type()->Equals(*inferred_type);
