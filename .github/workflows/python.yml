@@ -57,7 +57,7 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 75
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
@@ -142,7 +142,7 @@ jobs:
     name: ${{ matrix.architecture }} macOS ${{ matrix.macos-version }} Python 3
     runs-on: macos-${{ matrix.macos-version }}
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
-    timeout-minutes: 60
+    timeout-minutes: 75
     strategy:
       fail-fast: false
       matrix:
