@@ -360,10 +360,20 @@ using KernelTraitsWithUnpackUint = KernelTraits<Uint, KerTraits::kShape.packed_b
  *  MediumKernel  *
  ******************/
 
+struct MediumKernelOptions {
+  /// An indicative limit on the number of values unpacked by the kernel.
+  /// This is a heuristic setting: other constraints such as alignment may not always make
+  /// small values feasibles. Must be a power of two.
+  int unpacked_per_kernel_limit_;
+};
+
 struct MediumKernelPlanSize {
   int reads_per_kernel_;
   int swizzles_per_read_;
   int shifts_per_swizzle_;
+
+  constexpr static MediumKernelPlanSize Build(const KernelShape& shape,
+                                              const MediumKernelOptions& options);
 
   constexpr int reads_per_kernel() const { return reads_per_kernel_; }
 
@@ -381,15 +391,8 @@ struct MediumKernelPlanSize {
   }
 };
 
-struct MediumKernelOptions {
-  /// An indicative limit on the number of values unpacked by the kernel.
-  /// This is a heuristic setting: other constraints such as alignment may not always make
-  /// small values feasibles. Must be a power of two.
-  int unpacked_per_kernel_limit_;
-};
-
-constexpr MediumKernelPlanSize BuildMediumPlanSize(const KernelShape& shape,
-                                                   const MediumKernelOptions& options) {
+constexpr MediumKernelPlanSize MediumKernelPlanSize::Build(
+    const KernelShape& shape, const MediumKernelOptions& options) {
   const int shifts_per_swizzle =
       shape.unpacked_byte_size() / shape.packed_max_spread_bytes();
 
@@ -446,12 +449,12 @@ constexpr int reduced_bytes_per_read(int bits_per_read, int simd_byte_size) {
   return simd_byte_size;
 }
 
-template <typename KernelTraits, MediumKernelOptions kOptions>
+template <typename KerTraits, MediumKernelOptions kOptions>
 struct MediumKernelPlan {
-  using Traits = KernelTraits;
+  using Traits = KerTraits;
   using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
-  static constexpr auto kPlanSize = BuildMediumPlanSize(kShape, kOptions);
+  static constexpr auto kPlanSize = MediumKernelPlanSize::Build(kShape, kOptions);
 
   using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
@@ -463,6 +466,8 @@ struct MediumKernelPlan {
   using ShiftsPerSwizzle = std::array<Shift, kPlanSize.shifts_per_swizzle()>;
   using ShiftsPerRead = std::array<ShiftsPerSwizzle, kPlanSize.swizzles_per_read()>;
   using ShitsPerKernel = std::array<ShiftsPerRead, kPlanSize.reads_per_kernel()>;
+
+  constexpr static MediumKernelPlan Build();
 
   static constexpr int unpacked_per_shift() { return kShape.unpacked_per_simd(); }
   static constexpr int unpacked_per_swizzle() {
@@ -488,9 +493,10 @@ struct MediumKernelPlan {
   uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 };
 
-template <typename KernelTraits, MediumKernelOptions kOptions>
-constexpr auto BuildMediumPlan() {
-  using Plan = MediumKernelPlan<KernelTraits, kOptions>;
+template <typename KerTraits, MediumKernelOptions kOptions>
+constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
+    -> MediumKernelPlan<KerTraits, kOptions> {
+  using Plan = MediumKernelPlan<KerTraits, kOptions>;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_medium());
@@ -550,9 +556,9 @@ xsimd::batch<uint8_t, Arch> load_bytes(const uint8_t* in) {
   return simd_bytes::load_unaligned(in);
 }
 
-template <typename KernelTraits, MediumKernelOptions kOptions>
+template <typename KerTraits, MediumKernelOptions kOptions>
 struct MediumKernel {
-  static constexpr auto kPlan = BuildMediumPlan<KernelTraits, kOptions>();
+  static constexpr auto kPlan = MediumKernelPlan<KerTraits, kOptions>::Build();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
@@ -626,27 +632,49 @@ struct MediumKernel {
  *  LargeKernel  *
  *****************/
 
-template <typename KernelTraits>
+struct LargeKernelPlanSize {
+  int reads_per_kernel_;
+  int unpacked_per_kernel_;
+
+  constexpr static LargeKernelPlanSize Build(const KernelShape& shape) {
+    const auto unpacked_per_kernel = std::lcm(shape.unpacked_per_simd(), 8);
+    const auto packed_bits_per_kernel = unpacked_per_kernel * shape.packed_bit_size();
+    const auto reads_per_kernel =
+        bit_util::CeilDiv(packed_bits_per_kernel, shape.simd_bit_size());
+
+    return {
+        .reads_per_kernel_ = static_cast<int>(reads_per_kernel),
+        .unpacked_per_kernel_ = unpacked_per_kernel,
+    };
+  }
+
+  constexpr int reads_per_kernel() const { return reads_per_kernel_; }
+
+  constexpr int unpacked_per_read() const {
+    return unpacked_per_kernel_ / reads_per_kernel_;
+  }
+  constexpr int unpacked_per_kernel() const { return unpacked_per_kernel_; }
+};
+
+template <typename KerTraits>
 struct LargeKernelPlan {
-  using Traits = KernelTraits;
+  using Traits = KerTraits;
   using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
+  static constexpr auto kPlanSize = LargeKernelPlanSize::Build(kShape);
 
-  static constexpr int kUnpackedPerkernel = std::lcm(kShape.unpacked_per_simd(), 8);
-  static constexpr int kReadsPerKernel = static_cast<int>(bit_util::CeilDiv(
-      kUnpackedPerkernel * kShape.packed_bit_size(), kShape.simd_bit_size()));
-  static constexpr int kUnpackedPerRead = kUnpackedPerkernel / kReadsPerKernel;
-
-  using ReadsPerKernel = std::array<int, kReadsPerKernel>;
+  using ReadsPerKernel = std::array<int, kPlanSize.reads_per_kernel()>;
 
   using Swizzle = std::array<uint8_t, kShape.simd_byte_size()>;
-  using SwizzlesPerKernel = std::array<Swizzle, kReadsPerKernel>;
+  using SwizzlesPerKernel = std::array<Swizzle, kPlanSize.reads_per_kernel()>;
 
   using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
-  using ShitsPerKernel = std::array<Shift, kReadsPerKernel>;
+  using ShitsPerKernel = std::array<Shift, kPlanSize.reads_per_kernel()>;
+
+  static constexpr LargeKernelPlan Build();
 
   static constexpr int bytes_per_read() {
-    const auto bits_per_read = kUnpackedPerRead * kShape.packed_bit_size();
+    const auto bits_per_read = kPlanSize.unpacked_per_read() * kShape.packed_bit_size();
     return reduced_bytes_per_read(bits_per_read, kShape.simd_byte_size());
   }
 
@@ -660,11 +688,12 @@ struct LargeKernelPlan {
   uint_type mask;
 };
 
-template <typename KernelTraits>
-constexpr LargeKernelPlan<KernelTraits> BuildLargePlan() {
-  using Plan = LargeKernelPlan<KernelTraits>;
+template <typename KerTraits>
+constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits> {
+  using Plan = LargeKernelPlan<KerTraits>;
   using uint_type = typename Plan::Traits::uint_type;
   constexpr auto kShape = Plan::kShape;
+  constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_large());
   constexpr int kOverBytes =
       kShape.packed_max_spread_bytes() - kShape.unpacked_byte_size();
@@ -672,7 +701,7 @@ constexpr LargeKernelPlan<KernelTraits> BuildLargePlan() {
   Plan plan = {};
 
   int packed_start_bit = 0;
-  for (int r = 0; r < Plan::kReadsPerKernel; ++r) {
+  for (int r = 0; r < kPlanSize.reads_per_kernel(); ++r) {
     const int read_start_byte = packed_start_bit / 8;
     plan.reads.at(r) = read_start_byte;
 
@@ -707,9 +736,10 @@ constexpr LargeKernelPlan<KernelTraits> BuildLargePlan() {
   return plan;
 }
 
-template <typename KernelTraits>
+template <typename KerTraits>
 struct LargeKernel {
-  static constexpr auto kPlan = BuildLargePlan<KernelTraits>();
+  static constexpr auto kPlan = LargeKernelPlan<KerTraits>::Build();
+  static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
   using unpacked_type = typename Traits::unpacked_type;
@@ -717,7 +747,7 @@ struct LargeKernel {
   using simd_bytes = typename Traits::simd_bytes;
   using arch_type = typename Traits::arch_type;
 
-  static constexpr int kValuesUnpacked = kPlan.kUnpackedPerkernel;
+  static constexpr int kValuesUnpacked = kPlanSize.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
 
   template <int kReadIdx>
@@ -762,9 +792,9 @@ struct LargeKernel {
   }
 
   static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
-    using ReadSeq = std::make_integer_sequence<int, kPlan.kReadsPerKernel>;
+    using ReadSeq = std::make_integer_sequence<int, kPlanSize.reads_per_kernel()>;
     unpack_all_impl(in, out, ReadSeq{});
-    return in + (kPlan.kUnpackedPerkernel * kShape.packed_bit_size()) / 8;
+    return in + (kPlan.kPlanSize.unpacked_per_kernel() * kShape.packed_bit_size()) / 8;
   }
 };
 
