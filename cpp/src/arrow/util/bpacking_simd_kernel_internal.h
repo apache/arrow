@@ -18,7 +18,7 @@
 /// Simd integer unpacking kernels, that is small functions that efficiently operate over
 /// a fixed input size.
 ///
-/// This a generalization of the algorithm from Daniel Lemire and Leonid Boytsov,
+/// This is a generalization of the algorithm from Daniel Lemire and Leonid Boytsov,
 /// Decoding billions of integers per second through vectorization, Software Practice &
 /// Experience 45 (1), 2015.
 /// http://arxiv.org/abs/1209.2137
@@ -161,7 +161,7 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
   constexpr bool kHasAvx2 = HasAvx2<Arch>;
   static_assert(
       !(kHasSse2 && kHasAvx2),
-      "In xsimd, an x86 arch is either part of the the SSE family or of the AVX family, "
+      "In xsimd, an x86 arch is either part of the SSE family or of the AVX family,"
       "not both. If this check fails, it means the assumptions made here to detect SSE "
       "and AVX are out of date.");
 
@@ -255,8 +255,8 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
 ///
 /// Due to packing misalignment, we may not be able to fit in a SIMD register as many
 /// packed values as unpacked values.
-/// This happens because of the packing bit alignment creates spare bits we are force to
-/// read when reading whole bytes. This is mostly know to be the case with 63 bits values
+/// This happens because of the packing bit alignment creates spare bits we are forced to
+/// read when reading whole bytes. This is mostly known to be the case with 63 bits values
 /// in a 128 bit SIMD register.
 ///
 /// @see KernelShape
@@ -308,7 +308,7 @@ constexpr bool PackedIsOversizedForSimd(int simd_bit_size, int unpacked_bit_size
 /// bits [126, 252[, are not byte aligned and would require reading the whole [120, 256[
 /// range, or 17 bytes. We would need to read more than one SIMD register to create
 /// a single output register with two values. Such pathological cases are not handled with
-/// SIMD but rather fully alling back to the exact scalar loop.
+/// SIMD but rather fully falling back to the exact scalar loop.
 ///
 /// There is currently no "small" classification, as medium kernels can handle even 1-bit
 /// packed values. Future work may investigate a dedicated kernel for when a single byte
@@ -376,6 +376,7 @@ using KernelTraitsWithUnpackUint = KernelTraits<Uint, KerTraits::kShape.packed_b
  *  MediumKernel  *
  ******************/
 
+/// Compile time options of a Medium kernel.
 struct MediumKernelOptions {
   /// An indicative limit on the number of values unpacked by the kernel.
   /// This is a heuristic setting: other constraints such as alignment may not always make
@@ -383,6 +384,9 @@ struct MediumKernelOptions {
   int unpacked_per_kernel_limit_;
 };
 
+/// Compile time dimensions of a Medium kernel.
+///
+/// @see MediumKernel for explanation of the algorithm.
 struct MediumKernelPlanSize {
   int reads_per_kernel_;
   int swizzles_per_read_;
@@ -465,6 +469,12 @@ constexpr int reduced_bytes_per_read(int bits_per_read, int simd_byte_size) {
   return simd_byte_size;
 }
 
+/// Compile time constants of a Medium kernel.
+///
+/// This contains most of the information about the medium kernel algorithm stored
+/// as index offsets and other constants (shift amounts...).
+///
+/// @see MediumKernel for an explanation of the algorithm.
 template <typename KerTraits, MediumKernelOptions kOptions>
 struct MediumKernelPlan {
   using Traits = KerTraits;
@@ -481,7 +491,7 @@ struct MediumKernelPlan {
   using Shift = std::array<uint_type, kShape.unpacked_per_simd()>;
   using ShiftsPerSwizzle = std::array<Shift, kPlanSize.shifts_per_swizzle()>;
   using ShiftsPerRead = std::array<ShiftsPerSwizzle, kPlanSize.swizzles_per_read()>;
-  using ShitsPerKernel = std::array<ShiftsPerRead, kPlanSize.reads_per_kernel()>;
+  using ShiftsPerKernel = std::array<ShiftsPerRead, kPlanSize.reads_per_kernel()>;
 
   constexpr static MediumKernelPlan Build();
 
@@ -505,7 +515,7 @@ struct MediumKernelPlan {
 
   ReadsPerKernel reads;
   SwizzlesPerKernel swizzles;
-  ShitsPerKernel shifts;
+  ShiftsPerKernel shifts;
   uint_type mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 };
 
@@ -556,6 +566,70 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
   return plan;
 }
 
+/// Unpack a fixed number of packed integer using SIMD operations.
+///
+/// This is only valid for medium sized inputs where packed values spread over fewer bytes
+/// than the unpacked integer size.
+/// All dimensions and constants are computed at compile time to reduce run-time
+/// computations and improve xsimd fallback possibilities (with
+/// ``xsimd::batch_constant``).
+///
+/// Let us give an example of the algorithm for values packed over 3 bits, extracted to
+/// uint32_t, using a fictive 64 bits SIMD size.
+/// The input register is as follow, where 3 consecutive letter represents the 3 bits of a
+/// packed value in little endian representation.
+///
+///     |AAABBBCC|CDDDEEEF|FFGGGHHH|IIIJJJKK||KLLLMMMN|NNOOOPPP|QQQRRRSS|STTTUUUV|
+///
+/// The algorithm generates SIMD registers of unpacked values ready to be written to
+/// memory. Here we can fit 64/32 = 2 unpacked values per output register.
+/// The first step is to put the values in the 32 bit slots corresponding to the unpacked
+/// values using a swizzle (shuffle/indexing) operation. The spread for 3 bit value is of
+/// 2 bytes (at worst bit alignment) so we move 2 bytes at the time.
+/// We care about creating a register as follows:
+///
+///     |   ~ Val AAA anywhere here         ||   ~ Val BBB anywhere here         |
+///
+/// Since we have unused bytes in this register, we will also use them to fit the next
+/// values:
+///
+///     | ~ Val AAA       | ~ Val CCC       || ~ Val BBB       | ~ Val DDD       |
+///
+/// Resulting in the following swizzled register.
+///
+///     |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||AAABBBCC|CDDDEEEF|CDDDEEEF|FFGGGHHH|
+///
+/// Now we will apply shift and mask operations to properly align the values.
+/// Shifting has a different value for each uint32_t in the SIMD register.
+/// Note that because of the figure is little endian, right shift operator >> actually
+/// shifts the bits representation, to the left.
+///
+///     | Align AAA with >> 0               || Align BBB with >> 3               |
+///     |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||BBBCCCDD|DEEEFCDD|DEEEFFFG|GGHHH000|
+///
+/// Masking (bitewise AND) uses the same mask for all uint32_t
+///
+///     |11100000000000000000000000000000000||11100000000000000000000000000000000|
+///   & |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||BBBCCCDD|DEEEFCDD|DEEEFFFG|GGHHH000|
+///   = |AAA00000|00000000|00000000|00000000||BBB00000|00000000|00000000|00000000|
+///
+/// We have created a SIMD register with the first two unpacked values A and B that we can
+/// write to memory.
+/// Now we can do the same with C and D without having to go to another swizzle (doing
+/// multiple shifts per swizzle).
+/// The next value to unpack is E, which starts on bit 12 (not byte aligned).
+/// We therefore cannot end here and reapply the same kernel on the same input.
+/// Instead, we run another similar iteration to unpack E, F, G, H, this time taking into
+/// account that we have an extra offset of 12 bits (this will change all the constants
+/// used for swizzle and shift).
+///
+/// Note that in this example, we could have swizzled more than two values in each slot.
+/// In practice, there may be situations where a more complex algorithm could fit more
+/// shifts per swizzles, but that tend to not be the case when the SIMD register size
+/// increases.
+///
+/// @see KernelShape
+/// @see MediumKernelPlan
 template <typename KerTraits, MediumKernelOptions kOptions>
 struct MediumKernel {
   static constexpr auto kPlan = MediumKernelPlan<KerTraits, kOptions>::Build();
@@ -632,6 +706,9 @@ struct MediumKernel {
  *  LargeKernel  *
  *****************/
 
+/// Compile time dimensions of a Large kernel.
+///
+/// @see LargeKernel for explanation of the algorithm.
 struct LargeKernelPlanSize {
   int reads_per_kernel_;
   int unpacked_per_kernel_;
@@ -656,6 +733,12 @@ struct LargeKernelPlanSize {
   constexpr int unpacked_per_kernel() const { return unpacked_per_kernel_; }
 };
 
+/// Compile time constants of a Large kernel.
+///
+/// This contains most of the information about the large kernel algorithm stored
+/// as index offsets and other constants (shift amounts...).
+///
+/// @see LargeKernel for an explanation of the algorithm.
 template <typename KerTraits>
 struct LargeKernelPlan {
   using Traits = KerTraits;
@@ -736,6 +819,75 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
   return plan;
 }
 
+/// Unpack a fixed number of packed integer using SIMD operations.
+///
+/// This is only valid for large sized inputs, where packed values spread over more bytes
+/// than the unpacked integer size.
+/// All dimensions and constants are computed at compile time to reduce run-time
+/// computations and improve xsimd fallback possibilities (with
+/// ``xsimd::batch_constant``).
+///
+/// Let us give an example of the algorithm for values packed over 13 bits, extracted to
+/// uint16_t, using a fictive 32 bits SIMD size.
+/// The input register is as follow, where 13 consecutive letters represent the 13 bits of
+/// a packed value in little endian representation.
+///
+///         |AAAAAAAA|AAAAABBB||BBBBBBBB|BBCCCCCC|
+///
+/// The algorithm generates SIMD registers of unpacked values ready to be written to
+/// memory. Here we can fit 32/16 = 2 unpacked values per output register.
+/// Since 13-bit values can spread over 3 bytes (at worst bit alignment) but we're
+/// unpacking to uint16_t (2 bytes).
+///
+/// The core idea is to perform two separate swizzles: one for the "low" bits and one
+/// for the "high" bits of each value, then combine them with shifts and OR operations.
+///
+///         | Low bits from A || Low bits from B |
+///   low:  |AAAAAAAA|AAAAABBB||AAAAABBB|BBBBBBBB|
+///
+///         | High bits frm A || High bits frm B |
+///   high: |AAAAABBB|BBBBBBBB||BBBBBBBB|BBCCCCCC|
+///
+/// We then apply different shifts to align the values bits. The low values are
+/// right-shifted by the bit offset, and the high values are left-shifted to fill the gap.
+/// Note that because of the figure is little endian, right (>>) and left (<<) shift
+/// operators actually shifts the bits representation in the oppostite directions.
+///
+///         | Align A w. >> 0 || Align B w. >> 5 |
+///   low:  |AAAAAAAA|AAAAABBB||BBBBBBBBB|BB00000|
+///
+///         | Align A w. << 8 || Align B w. << 3 |
+///   high: |00000000|AAAAABBB||000BBBBB|BBBBBCCC|
+///
+/// We then proceed to merge both inputs. The idea is to mask out irrelevant bits from the
+/// high and low parts and merge with bitwise OR. However, in practice we can merge first
+/// and apply the mask only once afterwards (because we shifted zeros in). Below is the
+/// bitwise OR of both parts:
+///
+///         |AAAAAAAA|AAAAABBB||BBBBBBBBB|BB00000|
+///       & |00000000|AAAAABBB||000BBBBB|BBBBBCCC|
+///       = |AAAAAAAA|AAAAABBB||BBBBBBBB|BBBBBCCC|
+///
+/// Followed by a bitwise AND mask using the same values on both uint16_t:
+///
+///         |AAAAAAAA|AAAAABBB||BBBBBBBB|BBBBBCCC|
+///       & |11111111|11111000||11111111|11111000|
+///       = |AAAAAAAA|AAAAA000||BBBBBBBB|BBBBB000|
+///
+/// We have created a SIMD register with the two unpacked values A and B that we can
+/// write to memory.
+/// The next value to unpack is C, which starts on bit 26 (not byte aligned).
+/// We therefore cannot end here and reapply the same kernel on the same input.
+/// Instead, we run further similar iterations to unpack the next batch of values, this
+/// time taking into account that we have an extra bit offset (this will change all the
+/// constants used for swizzle and shift).
+///
+/// Note that in this example, the value A did not require the low/high merge operations.
+/// However, because this is an SIMD algorithm we must apply the same operations to all
+/// values, but we are also not paying an extra cost for doing so.
+///
+/// @see KernelShape
+/// @see LargeKernelPlan
 template <typename KerTraits>
 struct LargeKernel {
   static constexpr auto kPlan = LargeKernelPlan<KerTraits>::Build();
