@@ -219,7 +219,9 @@ class ArraySelector : public TypeVisitor {
 
     ArrayType arr(array_.data());
 
-    k_ = std::min(k_, arr.length());
+    if (k_ > arr.length()) {
+      k_ = arr.length();
+    }
 
     std::vector<uint64_t> indices(arr.length());
 
