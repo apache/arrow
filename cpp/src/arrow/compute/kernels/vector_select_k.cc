@@ -76,7 +76,8 @@ class SelectKComparator<SortOrder::Descending> {
 };
 
 std::pair<int64_t, int64_t> calculateNumberNonNullAndNullLikesToTake(
-    int64_t non_null_like_count, int64_t null_like_count, int64_t k, NullPlacement null_placement) {
+    int64_t non_null_like_count, int64_t null_like_count, int64_t k,
+    NullPlacement null_placement) {
   if (null_placement == NullPlacement::AtEnd) {
     int64_t l = std::min(k, non_null_like_count);
     int64_t m = std::min(k - l, null_like_count);
@@ -188,8 +189,7 @@ class ArraySelector : public TypeVisitor {
     // k = l + m if enough elements in input
     auto [l, m] = calculateNumberNonNullAndNullLikesToTake(
         static_cast<int64_t>(p.non_nulls_end - p.non_nulls_begin),
-        static_cast<int64_t>(p.nulls_end - p.nulls_begin), k_,
-        null_placement_);
+        static_cast<int64_t>(p.nulls_end - p.nulls_begin), k_, null_placement_);
 
     ARROW_ASSIGN_OR_RAISE(auto take_indices,
                           MakeMutableUInt64Array(l + m, ctx_->memory_pool()));
@@ -472,7 +472,9 @@ class RecordBatchSelector {
           // Need to subdivide into null and nan, we use non-nulllike / nulllike stratey
           // again for nan / null division
           auto [nan_count, null_count] = calculateNumberNonNullAndNullLikesToTake(
-              static_cast<int64_t>(p.nan_range.size()), static_cast<int64_t>(p.null_range.size()), m, first_remaining_sort_key.null_placement);
+              static_cast<int64_t>(p.nan_range.size()),
+              static_cast<int64_t>(p.null_range.size()), m,
+              first_remaining_sort_key.null_placement);
           uint64_t* nan_output_indices_begin;
           uint64_t* null_output_indices_begin;
           if (first_remaining_sort_key.null_placement == NullPlacement::AtEnd) {
@@ -588,20 +590,10 @@ class TableSelector : public TypeVisitor {
 
   Status Run() {
     RETURN_NOT_OK(status_);
-    return sort_keys_[0].type->Accept(this);
+    return SelectKthInternal();
   }
 
  protected:
-#define VISIT(TYPE)                                            \
-  Status Visit(const TYPE& type) {                             \
-    if (sort_keys_[0].order == SortOrder::Descending)          \
-      return SelectKthInternal<TYPE, SortOrder::Descending>(); \
-    return SelectKthInternal<TYPE, SortOrder::Ascending>();    \
-  }
-  VISIT_SORTABLE_PHYSICAL_TYPES(VISIT)
-
-#undef VISIT
-
   static std::vector<ResolvedSortKey> ResolveSortKeys(
       const Table& table, const std::vector<SortKey>& sort_keys, Status* status) {
     std::vector<ResolvedSortKey> resolved;
@@ -620,12 +612,8 @@ class TableSelector : public TypeVisitor {
   // XXX this implementation is rather inefficient as it computes chunk indices
   // at every comparison.  Instead we should iterate over individual batches
   // and remember ChunkLocation entries in the max-heap.
-// TODO.TAE remove sort_order?
-  template <typename InType, SortOrder sort_order>
   Status SelectKthInternal() {
-        auto& comparator = comparator_;
-//     TODO.TAE
-//    const auto& first_sort_key = sort_keys_[0];
+    auto& comparator = comparator_;
 
     const auto num_rows = table_.num_rows();
     if (num_rows == 0) {
