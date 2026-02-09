@@ -615,7 +615,7 @@ jobs:
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
   odbc-release:
-    needs: odbc
+    needs: odbc-msvc
     name: ODBC release
     runs-on: ubuntu-latest
     if: ${{ startsWith(github.ref_name, 'apache-arrow-') && contains(github.ref_name, '-rc') }}
