@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <sstream>
 #include <utility>
 #include <vector>
@@ -240,6 +241,7 @@ CumulativeOptions::CumulativeOptions(std::shared_ptr<Scalar> start, bool skip_nu
       skip_nulls(skip_nulls) {}
 constexpr char CumulativeOptions::kTypeName[];
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
 RankOptions::RankOptions(std::vector<SortKey> sort_keys,
                          std::optional<NullPlacement> null_placement,
                          RankOptions::Tiebreaker tiebreaker)
@@ -247,7 +249,14 @@ RankOptions::RankOptions(std::vector<SortKey> sort_keys,
       sort_keys(std::move(sort_keys)),
       null_placement(null_placement),
       tiebreaker(tiebreaker) {}
+RankOptions::RankOptions(std::vector<SortKey> sort_keys,
+                         RankOptions::Tiebreaker tiebreaker)
+    : FunctionOptions(internal::kRankOptionsType),
+      sort_keys(std::move(sort_keys)),
+      null_placement(std::nullopt),
+      tiebreaker(tiebreaker) {}
 constexpr char RankOptions::kTypeName[];
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 RankQuantileOptions::RankQuantileOptions(std::vector<SortKey> sort_keys,
                                          std::optional<NullPlacement> null_placement)

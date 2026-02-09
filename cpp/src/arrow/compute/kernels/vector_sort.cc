@@ -22,6 +22,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 
@@ -957,8 +958,6 @@ class SortIndicesMetaFunction : public MetaFunction {
                        chunked_array->length());
   }
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   Result<Datum> SortIndices(const Array& values, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
@@ -967,17 +966,15 @@ class SortIndicesMetaFunction : public MetaFunction {
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
-    // TODO.TAE this member is deprecated. Is there a way to implement it without it?
+ARROW_SUPPRESS_DEPRECATION_WARNING
     if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ArraySortOptions array_options(order, null_placement);
     return CallFunction("array_sort_indices", {values}, &array_options, ctx);
   }
-#pragma clang diagnostic pop
 
-#pragma clang diagnostic push
-#pragma clang diagnostic ignored "-Wdeprecated-declarations"
   Result<Datum> SortIndices(const ChunkedArray& chunked_array, const SortOptions& options,
                             ExecContext* ctx) const {
     SortOrder order = SortOrder::Ascending;
@@ -986,11 +983,11 @@ class SortIndicesMetaFunction : public MetaFunction {
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
-    // TODO.TAE this member is deprecated. Is there a way to implement it without it?
-    //          Ah the method is only private??
+ARROW_SUPPRESS_DEPRECATION_WARNING
     if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     auto out_type = uint64();
     auto length = chunked_array.length();
@@ -1008,7 +1005,6 @@ class SortIndicesMetaFunction : public MetaFunction {
         SortChunkedArray(ctx, out_begin, out_end, chunked_array, order, null_placement));
     return Datum(out);
   }
-#pragma clang diagnostic pop
 
   Result<Datum> SortIndices(const RecordBatch& batch, const SortOptions& options,
                             ExecContext* ctx) const {

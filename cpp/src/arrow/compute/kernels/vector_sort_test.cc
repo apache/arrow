@@ -1221,9 +1221,11 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
 
   for (auto overwrite_null_placement : AllOptionalNullPlacements()){
     for (auto null_placement : AllNullPlacements()) {
+      ARROW_SUPPRESS_DEPRECATION_WARNING
       SortOptions options({SortKey("a", SortOrder::Ascending, null_placement),
                            SortKey("b", SortOrder::Descending, null_placement)},
                           overwrite_null_placement);
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
       AssertSortIndices(batch, options, "[3, 5, 1, 6, 4, 0, 2]");
     }
@@ -1273,7 +1275,7 @@ TEST_F(TestRecordBatchSortIndices, MixedNullOrdering) {
       SortKey("a", SortOrder::Ascending, NullPlacement::AtEnd),
       SortKey("b", SortOrder::Descending, NullPlacement::AtEnd)};
 
-  SortOptions options(sort_keys, std::nullopt);
+  SortOptions options(sort_keys);
   AssertSortIndices(batch, options, "[5, 1, 4, 6, 2, 0, 3]");
 
   options.sort_keys.at(0).null_placement = NullPlacement::AtStart;
@@ -2150,7 +2152,9 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     auto table = Table::Make(schema, std::move(columns));
     for (auto overwrite_null_placement : AllOptionalNullPlacements()) {
       ARROW_SCOPED_TRACE("overwrite_null_placement = ", overwrite_null_placement);
+      ARROW_SUPPRESS_DEPRECATION_WARNING
       options.null_placement = overwrite_null_placement;
+      ARROW_UNSUPPRESS_DEPRECATION_WARNING
       ASSERT_OK_AND_ASSIGN(auto offsets, SortIndices(Datum(*table), options));
       Validate(*table, options, *checked_pointer_cast<UInt64Array>(offsets));
     }

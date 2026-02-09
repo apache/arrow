@@ -24,6 +24,7 @@
 #include "arrow/compute/ordering.h"
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/macros.h"
 
 namespace arrow {
 namespace compute {
@@ -102,6 +103,8 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
+
+ARROW_SUPPRESS_DEPRECATION_WARNING
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {});
@@ -121,12 +124,8 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   Ordering AsOrdering() && { return {std::move(sort_keys)}; }
   Ordering AsOrdering() const& { return {sort_keys}; }
 
-  /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
-
-  ARROW_SUPPRESS_DEPRECATION_WARNING
-  // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
   std::vector<SortKey> GetSortKeys() const {
     if (!null_placement.has_value()) {
       return sort_keys;
@@ -137,13 +136,17 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
     }
     return overwritten_sort_keys;
   }
-  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
 
   // DEPRECATED(Deprecated in arrow 24.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead") std::optional<NullPlacement> null_placement;
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead") 
+  std::optional<NullPlacement> null_placement;
 };
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 /// \brief SelectK options
 class ARROW_EXPORT SelectKOptions : public FunctionOptions {
@@ -174,15 +177,15 @@ class ARROW_EXPORT SelectKOptions : public FunctionOptions {
     return SelectKOptions{k, keys};
   }
 
+  /// Get sort_keys
+  /// will be removed after null_placement has been removed from other
+  /// SortOptions-like structs
+  std::vector<SortKey> GetSortKeys() const { return sort_keys; }
+
   /// The number of `k` elements to keep.
   int64_t k;
   /// Column key(s) to order by and how to order by these sort keys.
   std::vector<SortKey> sort_keys;
-
-  // DEPRECATED(will be removed after null_placement has been removed from other
-  // SortOptions-like structs)
-  /// Get sort_keys
-  std::vector<SortKey> GetSortKeys() const { return sort_keys; }
 };
 
 /// \brief Rank options
@@ -202,31 +205,29 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
-  explicit RankOptions(std::vector<SortKey> sort_keys = {},
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")  
+  explicit RankOptions(std::vector<SortKey> sort_keys,
                        std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
   explicit RankOptions(SortOrder order,
-                       std::optional<NullPlacement> null_placement = std::nullopt,
+                       NullPlacement null_placement,
                        Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions({SortKey("", order)}, null_placement, tiebreaker) {}
+      : RankOptions({SortKey("", order, null_placement)}, tiebreaker) {}
 
-  explicit RankOptions(std::vector<SortKey> sort_keys,
-                       Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions(std::move(sort_keys), std::nullopt, tiebreaker) {}
+  explicit RankOptions(std::vector<SortKey> sort_keys = {},
+                       Tiebreaker tiebreaker = RankOptions::First);
 
   /// Convenience constructor for array inputs
   explicit RankOptions(SortOrder order, Tiebreaker tiebreaker = RankOptions::First)
-      : RankOptions({SortKey("", order)}, std::nullopt, tiebreaker) {}
+      : RankOptions({SortKey("", order)}, tiebreaker) {}
 
   static constexpr const char kTypeName[] = "RankOptions";
   static RankOptions Defaults() { return RankOptions(); }
 
-  /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
-
-  // DEPRECATED(will be removed after null_placement has been removed)
+  ARROW_SUPPRESS_DEPRECATION_WARNING
   /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
   std::vector<SortKey> GetSortKeys() const {
     if (!null_placement.has_value()) {
       return sort_keys;
@@ -237,11 +238,15 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     }
     return overwritten_sort_keys;
   }
+  ARROW_UNSUPPRESS_DEPRECATION_WARNING
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
 
   // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  std::optional<NullPlacement> null_placement;
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead") std::optional<NullPlacement> null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
 };
@@ -261,11 +266,8 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
   static constexpr const char kTypeName[] = "RankQuantileOptions";
   static RankQuantileOptions Defaults() { return RankQuantileOptions(); }
 
-  /// Column key(s) to order by and how to order by these sort keys.
-  std::vector<SortKey> sort_keys;
-
-  // DEPRECATED(will be removed after null_placement has been removed)
   /// Get sort_keys with overwritten null_placement
+  /// Will be removed after deprecated null_placement has been removed
   std::vector<SortKey> GetSortKeys() const {
     if (!null_placement.has_value()) {
       return sort_keys;
@@ -276,6 +278,9 @@ class ARROW_EXPORT RankQuantileOptions : public FunctionOptions {
     }
     return overwritten_sort_keys;
   }
+
+  /// Column key(s) to order by and how to order by these sort keys.
+  std::vector<SortKey> sort_keys;
 
   // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
