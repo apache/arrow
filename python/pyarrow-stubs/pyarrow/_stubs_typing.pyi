@@ -46,16 +46,29 @@ Compression: TypeAlias = Literal[
 NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
+from pyarrow import lib
+
+IntegerType: TypeAlias = (
+    lib.Int8Type
+    | lib.Int16Type
+    | lib.Int32Type
+    | lib.Int64Type
+    | lib.UInt8Type
+    | lib.UInt16Type
+    | lib.UInt32Type
+    | lib.UInt64Type
+)
+
 Mask: TypeAlias = (
     Sequence[bool | None]
     | NDArray[np.bool_]
-    | BooleanArray
+    | lib.Array[lib.Scalar[lib.BoolType]]
     | ChunkedArray[Any]
 )
 Indices: TypeAlias = (
     Sequence[int | None]
     | NDArray[np.integer[Any]]
-    | IntegerArray
+    | lib.Array[lib.Scalar[IntegerType]]
     | ChunkedArray[Any]
 )
 
