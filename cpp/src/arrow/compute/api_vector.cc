@@ -195,6 +195,7 @@ ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement
       null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
 
+ARROW_SUPPRESS_DEPRECATION_WARNING
 SortOptions::SortOptions(std::vector<SortKey> sort_keys)
     : FunctionOptions(internal::kSortOptionsType),
       sort_keys(std::move(sort_keys)),
@@ -210,6 +211,7 @@ SortOptions::SortOptions(const Ordering& ordering)
       sort_keys(ordering.sort_keys()),
       null_placement(ordering.null_placement()) {}
 constexpr char SortOptions::kTypeName[];
+ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
 PartitionNthOptions::PartitionNthOptions(int64_t pivot, NullPlacement null_placement)
     : FunctionOptions(internal::kPartitionNthOptionsType),
