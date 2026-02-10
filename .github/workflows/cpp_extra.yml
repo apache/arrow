@@ -434,8 +434,7 @@ jobs:
     if: >-
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++') ||
-      contains(join(github.event.pull_request.changed_files, ' '), 'cpp/src/arrow/flight/sql/odbc/')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
     timeout-minutes: 240
     permissions:
       packages: write

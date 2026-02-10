@@ -551,8 +551,9 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
   SQLINTEGER native_error = 0;
   SQLSMALLINT message_length = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
-  ASSERT_EQ(SQL_SUCCESS, SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
-                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
+                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
   EXPECT_GT(message_length, 70);
 
   EXPECT_EQ(100, native_error);
