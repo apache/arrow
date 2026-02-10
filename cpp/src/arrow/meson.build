@@ -141,6 +141,7 @@ arrow_components = {
             'extension_type.cc',
             'extension/bool8.cc',
             'extension/json.cc',
+            'extension/parquet_variant.cc',
             'extension/uuid.cc',
             'pretty_print.cc',
             'record_batch.cc',
