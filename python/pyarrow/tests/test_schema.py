@@ -58,6 +58,7 @@ def test_type_to_pandas_dtype():
     M8s = np.dtype('datetime64[s]')
     if Version(pd.__version__) < Version("2.0.0"):
         M8 = np.dtype('datetime64[ns]')
+        M8s = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
         (pa.bool_(), np.bool_),
