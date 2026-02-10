@@ -30,6 +30,7 @@
 #include <concepts>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <numeric>
 #include <utility>
 
@@ -433,11 +434,12 @@ constexpr MediumKernelPlanSize MediumKernelPlanSize::Build(
   // iterations will start with an byte-unaligned first value, reducing the effective
   // capacity of the SIMD batch.
   // We must check that our read iteration size still works with subsequent misalignment
-  // by looping until aligned.
-  // One may think that using such large reading iterations risks overshooting an aligned
-  // byte and increasing the total number of values extracted, but in practice reading
-  // iterations increase by factors of 2 and are quickly multiple of 8 (and aligned after
-  // the first one).
+  // by looping until aligned. This implies that we do the same number of swizzle for each
+  // read offset. This may be improved a bit for some bit width, but in practice there are
+  // very few such cases.
+  // One may think that this algorithm will drive the kernel minimum reading size to
+  // unreasonably large sizes, but in practice reading iterations increase by factors of 2
+  // and are quickly multiple of 8 (and aligned after the first one).
   int swizzles_per_read = swizzles_per_read_for_offset(0);
   int reads_per_kernel = 0;
   int packed_start_bit = 0;
@@ -547,27 +549,44 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
     plan.reads.at(r) = read_start_byte;
 
     for (int sw = 0; sw < kPlanSize.swizzles_per_read(); ++sw) {
+      auto& swizzles = plan.swizzles.at(r).at(sw);
       // Not all swizzle values are defined. This is not an issue as these bits do not
       // influence the input (they will be masked away).
-      constexpr int kUndefined = -1;
-      plan.swizzles.at(r).at(sw) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
+      constexpr uint8_t kUndefined = std::numeric_limits<uint8_t>::max();
+      swizzles = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
+
       for (int sh = 0; sh < kPlanSize.shifts_per_swizzle(); ++sh) {
         const int sh_offset_bytes = sh * kShape.packed_max_spread_bytes();
+        assert(sh_offset_bytes < kShape.simd_byte_size());
         const int sh_offset_bits = 8 * sh_offset_bytes;
 
+        // Looping over unpacked values in the output registers
         for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
-          const int packed_start_byte = packed_start_bit / 8;
-          const int packed_byte_in_read = packed_start_byte - read_start_byte;
           const int u_offset_byte = u * kShape.unpacked_byte_size();
+          assert(u_offset_byte < kShape.simd_byte_size());
           const int sw_offset_byte = sh_offset_bytes + u_offset_byte;
+          assert(sw_offset_byte < kShape.simd_byte_size());
+          // We compute where the corresponding packed value will be in the input
+          const int packed_start_byte = packed_start_bit / 8;
+          const int packed_start_byte_in_read = packed_start_byte - read_start_byte;
+          assert(0 <= packed_start_byte_in_read);
+          assert(packed_start_byte_in_read < kShape.simd_byte_size());
+          const int packed_end_bit = packed_start_bit + kShape.packed_bit_size();
+          const int packed_end_byte = (packed_end_bit - 1) / 8 + 1;
 
           // Looping over the multiple bytes needed for current values
-          for (int b = 0; b < kShape.packed_max_spread_bytes(); ++b) {
-            plan.swizzles.at(r).at(sw).at(sw_offset_byte + b) =
-                static_cast<uint8_t>(packed_byte_in_read + b);
+          const int spread = packed_end_byte - packed_start_byte;
+          for (int b = 0; b < spread; ++b) {
+            const auto swizzle_val = static_cast<uint8_t>(packed_start_byte_in_read + b);
+            // Ensure we do not override previously defined value
+            assert(swizzles.at(sw_offset_byte + b) == kUndefined);
+            // Ensure value is within permutation bounds
+            assert(swizzle_val < kShape.simd_byte_size());
+            swizzles.at(sw_offset_byte + b) = swizzle_val;
           }
-          // Shift is a single value but many packed values may be swizzles to a sing
-          // unpacked value
+
+          // A given swizzle may contain data for multiple shifts. They are stored in
+          // different shift arrays (indexed by ``sh``).
           plan.shifts.at(r).at(sw).at(sh).at(u) = sh_offset_bits + packed_start_bit % 8;
 
           packed_start_bit += kShape.packed_bit_size();
@@ -575,6 +594,8 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
       }
     }
   }
+
+  assert(packed_start_bit % 8 == 0);
 
   return plan;
 }
@@ -806,21 +827,45 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
 
     // Not all swizzle values are defined. This is not an issue as these bits do not
     // influence the input (they will be masked away).
-    constexpr int kUndefined = -1;
+    constexpr uint8_t kUndefined = std::numeric_limits<uint8_t>::max();
     plan.low_swizzles.at(r) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
     plan.high_swizzles.at(r) = BuildConstantArrayLike<Plan::Swizzle>(kUndefined);
 
+    // Looping over unpacked values in the output registers
     for (int u = 0; u < kShape.unpacked_per_simd(); ++u) {
+      // We compute where the corresponding packed value will be in the input
       const int packed_start_byte = packed_start_bit / 8;
-      const int packed_byte_in_read = packed_start_byte - read_start_byte;
+      const int packed_start_byte_in_read = packed_start_byte - read_start_byte;
+      assert(0 <= packed_start_byte_in_read);
+      assert(packed_start_byte_in_read < kShape.simd_byte_size());
+      // const int packed_end_bit = packed_start_bit + kShape.packed_bit_size();
+      // const int packed_end_byte = (packed_end_bit - 1) / 8 + 1;
 
       // Looping over maximum number of bytes that can fit a value
       // We fill more than necessary in the high swizzle because in the absence of
       // variable right shifts, we will erase some bits from the low sizzled values.
       for (int b = 0; b < kShape.unpacked_byte_size(); ++b) {
         const auto idx = u * kShape.unpacked_byte_size() + b;
-        plan.low_swizzles.at(r).at(idx) = packed_byte_in_read + b;
-        plan.high_swizzles.at(r).at(idx) = packed_byte_in_read + b + kOverBytes;
+        const auto low_swizzle_val = packed_start_byte_in_read + b;
+        // Ensure we do not override previously defined values
+        assert(plan.low_swizzles.at(r).at(idx) == kUndefined);
+        assert(low_swizzle_val < kShape.simd_byte_size());
+
+        // Since kOverBytes is overly pessimistic, we may read an extra unneeded byte.
+        // On the last unpacked integer in the SIMD register, it may produce an out of
+        // bound swizzle. It would act the same as ``kUndefined`` but we make this
+        // explicit here.
+        // We need to stay pessimistic with ``kOverBytes`` to avoid having a mix of right
+        // and left shifts in the high swizzle.
+        auto high_swizzle_val = low_swizzle_val + kOverBytes;
+        if (high_swizzle_val >= kShape.simd_byte_size()) {
+          high_swizzle_val = kUndefined;
+        }
+        // Ensure we do not override previously defined values
+        assert(plan.high_swizzles.at(r).at(idx) == kUndefined);
+
+        plan.low_swizzles.at(r).at(idx) = static_cast<uint8_t>(low_swizzle_val);
+        plan.high_swizzles.at(r).at(idx) = static_cast<uint8_t>(high_swizzle_val);
       }
 
       // low and high swizzles need to be rshifted but the oversized bytes create a
@@ -831,6 +876,7 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
       packed_start_bit += kShape.packed_bit_size();
     }
   }
+  assert(packed_start_bit % 8 == 0);
 
   plan.mask = bit_util::LeastSignificantBitMask<uint_type>(kShape.packed_bit_size());
 
