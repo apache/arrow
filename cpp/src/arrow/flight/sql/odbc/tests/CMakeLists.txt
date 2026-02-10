@@ -15,12 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-if(WIN32)
-  include_directories(${ODBC_INCLUDE_DIRS})
-else()
-  include_directories(${ODBC_INCLUDE_DIR})
-endif()
-
 find_package(SQLite3Alt REQUIRED)
 
 set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS
