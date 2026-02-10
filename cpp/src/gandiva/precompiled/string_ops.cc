@@ -843,7 +843,7 @@ const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_le
   }
   if (ARROW_PREDICT_FALSE(
           arrow::internal::MultiplyWithOverflow(repeat_number, in_len, out_len))) {
-    gdv_fn_context_set_error_msg(context, "Too large output size");
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
     *out_len = 0;
     return "";
   }
