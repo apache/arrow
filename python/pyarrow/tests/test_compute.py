@@ -2821,7 +2821,7 @@ def test_round_temporal(unit):
     # Windows timezone database appears to disagree with IANA timezone database on
     # some historical timestamps. We exclude those timestamps from testing on Windows
     if sys.platform == "win32":
-        timestamps = timestamps[:3] + timestamps[4:]
+        timestamps = timestamps[:3] + timestamps[5:]
 
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
