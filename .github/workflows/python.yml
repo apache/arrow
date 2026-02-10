@@ -206,8 +206,19 @@ jobs:
         run: |
           $(brew --prefix bash)/bin/bash \
             ci/scripts/install_minio.sh latest /usr/local
-      - name: Setup sccache
-        uses: mozilla-actions/sccache-action@v0.0.9
+      - name: Setup ccache
+        shell: bash
+        run: ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        shell: bash
+        run: echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v5
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: python-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**', 'python/**') }}
+          restore-keys: python-ccache-macos-${{ matrix.macos-version }}-
       - name: Build
         shell: bash
         run: |
