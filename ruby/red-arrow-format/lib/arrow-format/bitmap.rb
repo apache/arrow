@@ -18,15 +18,18 @@ module ArrowFormat
   class Bitmap
     include Enumerable
 
-    def initialize(buffer, n_values)
+    def initialize(buffer, offset, n_values)
       @buffer = buffer
+      @offset = offset
       @n_values = n_values
     end
 
     def [](i)
+      i += @offset
       (@buffer.get_value(:U8, i / 8) & (1 << (i % 8))) > 0
     end
 
+    # TODO: offset support
     def each
       return to_enum(__method__) unless block_given?
 
@@ -42,6 +45,13 @@ module ArrowFormat
         remained_bits.times do |i|
           yield((value & (1 << (i % 8))) > 0)
         end
+      end
+    end
+
+    def popcount
+      # TODO: Optimize
+      count do |flaged|
+        flaged
       end
     end
   end

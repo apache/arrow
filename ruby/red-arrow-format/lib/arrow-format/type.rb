@@ -305,6 +305,10 @@ module ArrowFormat
       "Float32"
     end
 
+    def buffer_type
+      :f32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Float32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -323,6 +327,10 @@ module ArrowFormat
 
     def name
       "Float64"
+    end
+
+    def buffer_type
+      :f64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -362,6 +370,10 @@ module ArrowFormat
       "Date32"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Date32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -380,6 +392,10 @@ module ArrowFormat
 
     def name
       "Date64"
+    end
+
+    def buffer_type
+      :s64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -413,6 +429,10 @@ module ArrowFormat
       "Time32"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Time32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -425,6 +445,10 @@ module ArrowFormat
 
     def name
       "Time64"
+    end
+
+    def buffer_type
+      :s64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -443,6 +467,10 @@ module ArrowFormat
 
     def name
       "Timestamp"
+    end
+
+    def buffer_type
+      :s64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -486,6 +514,10 @@ module ArrowFormat
       "YearMonthInterval"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       YearMonthIntervalArray.new(self, size, validity_buffer, values_buffer)
     end
@@ -500,6 +532,10 @@ module ArrowFormat
       "DayTimeInterval"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       DayTimeIntervalArray.new(self, size, validity_buffer, values_buffer)
     end
@@ -512,6 +548,10 @@ module ArrowFormat
 
     def name
       "MonthDayNanoInterval"
+    end
+
+    def buffer_types
+      @buffer_types ||= [:s32, :s32, :s64]
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -531,6 +571,10 @@ module ArrowFormat
 
     def name
       "Duration"
+    end
+
+    def buffer_type
+      :s64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -558,6 +602,14 @@ module ArrowFormat
       "Binary"
     end
 
+    def offset_buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       BinaryArray.new(self,
                       size,
@@ -580,6 +632,14 @@ module ArrowFormat
 
     def name
       "LargeBinary"
+    end
+
+    def offset_buffer_type
+      :s64 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -606,6 +666,14 @@ module ArrowFormat
       "UTF8"
     end
 
+    def offset_buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::UTF_8
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
     end
@@ -624,6 +692,14 @@ module ArrowFormat
 
     def name
       "LargeUTF8"
+    end
+
+    def offset_buffer_type
+      :s64 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::UTF_8
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -720,6 +796,10 @@ module ArrowFormat
       "List"
     end
 
+    def offset_buffer_type
+      :s32 # TODO: big endian support
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, child)
       ListArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
@@ -732,6 +812,10 @@ module ArrowFormat
   class LargeListType < VariableSizeListType
     def name
       "LargeList"
+    end
+
+    def offset_buffer_type
+      :s64 # TODO: big endian support
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
@@ -786,6 +870,10 @@ module ArrowFormat
 
     def name
       "Map"
+    end
+
+    def offset_buffer_type
+      :s32 # TODO: big endian support
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
