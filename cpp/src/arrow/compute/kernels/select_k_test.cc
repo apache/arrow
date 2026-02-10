@@ -422,7 +422,6 @@ TYPED_TEST(TestSelectKWithChunkedArray, PartialSelectKNullNaN) {
   options.sort_keys[0].null_placement = NullPlacement::AtEnd;
   expected = ChunkedArrayFromJSON(float64(), {"[10, 3, 2]"});
   this->Check(chunked_array, options, expected);
-  // TODO.TAE more CheckIndices?
 }
 
 TYPED_TEST(TestSelectKWithChunkedArray, FullSelectKNullNaN) {
