@@ -64,13 +64,13 @@ namespace std::chrono {
 namespace arrow_vendored::date {
 #endif
 
-using arrow::internal::OffsetZone;
-
 template <>
-struct zoned_traits<OffsetZone> {
-  static OffsetZone default_zone() { return OffsetZone{std::chrono::minutes{0}}; }
+struct zoned_traits<arrow::internal::OffsetZone> {
+  static arrow::internal::OffsetZone default_zone() {
+    return arrow::internal::OffsetZone{std::chrono::minutes{0}};
+  }
 
-  static OffsetZone locate_zone(const std::string& name) {
+  static arrow::internal::OffsetZone locate_zone(const std::string& name) {
     throw std::runtime_error{"OffsetZone can't parse " + name};
   }
 };

@@ -280,7 +280,7 @@ jobs:
       - name: Download Timezone Database
         shell: bash
         run: |
-          # RTools 40's MinGW GCC may not support C++20 chrono timezones,
+          # RTools 40 uses GCC 8.x which does not support C++20 chrono timezones,
           # so Arrow uses the vendored date library which requires tzdata
           ci/scripts/download_tz_database.sh
       - run: mkdir r/windows

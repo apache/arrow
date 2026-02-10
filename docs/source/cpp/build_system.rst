@@ -245,7 +245,7 @@ timezone mapping XML. To download, you can use the following batch script:
 
 .. code-block:: batch
 
-   curl https://data.iana.org/time-zones/releases/tzdata2021e.tar.gz --output tzdata.tar.gz
+   curl https://data.iana.org/time-zones/releases/tzdata.tar.gz --output tzdata.tar.gz
    mkdir tzdata
    tar --extract --file tzdata.tar.gz --directory tzdata
    move tzdata %USERPROFILE%\Downloads\tzdata
@@ -254,7 +254,7 @@ timezone mapping XML. To download, you can use the following batch script:
      --output %USERPROFILE%\Downloads\tzdata\windowsZones.xml
 
 By default, the timezone database will be detected at ``%USERPROFILE%\Downloads\tzdata``,
-but you can set a custom path at runtime in :struct:`arrow::ArrowGlobalOptions`::
+but you can set a custom path at runtime in :struct:`arrow::GlobalOptions`::
 
    arrow::GlobalOptions options;
    options.timezone_db_path = "path/to/tzdata";
