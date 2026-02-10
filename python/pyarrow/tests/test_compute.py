@@ -2797,10 +2797,6 @@ def _check_temporal_rounding(ts, values, unit):
         np.testing.assert_array_equal(result, expected)
 
 
-# # TODO(GH-48743): Re-enable once GCC/Windows timezone issues are resolved
-# # https://github.com/apache/arrow/issues/48743
-# @pytest.mark.skipif(sys.platform == "win32",
-#                     reason="Skipping temporal rounding tests on GCC/Windows")
 @pytest.mark.timezone_data
 @pytest.mark.parametrize('unit', ("nanosecond", "microsecond", "millisecond",
                                   "second", "minute", "hour", "day"))
@@ -2811,8 +2807,8 @@ def test_round_temporal(unit):
         "1923-07-07 08:52:35.203790336",
         "1931-03-17 10:45:00.641559040",
         "1932-06-16 01:16:42.911994368",
-        # "1941-05-27 11:46:43.822831872",
-        # "1943-12-14 07:32:05.424766464",
+        "1941-05-27 11:46:43.822831872",
+        "1943-12-14 07:32:05.424766464",
         "1954-04-12 04:31:50.699881472",
         "1966-02-12 17:41:28.693282560",
         "1967-02-26 05:56:46.922376960",
@@ -2821,6 +2817,12 @@ def test_round_temporal(unit):
         "1992-01-01 00:00:00.100000000",
         "1999-12-04 05:55:34.794991104",
         "2026-10-26 08:39:00.316686848"]
+
+    # Windows timezone database appears to disagree with IANA timezone database on
+    # some historical timestamps. We exclude those timestamps from testing on Windows
+    if sys.platform == "win32":
+        timestamps = timestamps[:3] + timestamps[4:]
+
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
