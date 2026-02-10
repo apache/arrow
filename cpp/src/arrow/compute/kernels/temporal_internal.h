@@ -165,13 +165,13 @@ struct ZonedLocalizer {
 
 template <typename Duration>
 struct TimestampFormatter {
-  const char* format;
+  const std::string format;
   const ArrowTimeZone tz;
   std::ostringstream bufstream;
 
   explicit TimestampFormatter(const std::string& format, const ArrowTimeZone time_zone,
                               const std::locale& locale)
-      : format(format.c_str()), tz(time_zone) {
+      : format(format), tz(time_zone) {
     bufstream.imbue(locale);
     // Propagate errors as C++ exceptions (to get an actual error message)
     bufstream.exceptions(std::ios::failbit | std::ios::badbit);
@@ -182,7 +182,7 @@ struct TimestampFormatter {
     const auto timepoint = sys_time<Duration>(Duration{arg});
     auto format_zoned_time = [&](auto&& zt) {
       try {
-        chrono::to_stream(bufstream, format, zt);
+        chrono::to_stream(bufstream, format.c_str(), zt);
         return Status::OK();
       } catch (const std::runtime_error& ex) {
         bufstream.clear();

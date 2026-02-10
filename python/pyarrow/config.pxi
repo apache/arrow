@@ -117,7 +117,7 @@ def set_timezone_db_path(path):
     warnings.warn(
         "pyarrow.set_timezone_db_path is deprecated as of 24.0.0 "
         "and will be removed in a future version. PyArrow now uses the "
-        "operating system's timezone database on Windows.",
+        "operating system's timezone database on most Windows builds.",
         FutureWarning,
         stacklevel=2
     )
