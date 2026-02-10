@@ -168,7 +168,8 @@ void CheckStreamingCompressor(Codec* codec, const std::vector<uint8_t>& data) {
   std::shared_ptr<Decompressor> decompressor;
   ASSERT_OK_AND_ASSIGN(decompressor, codec->MakeDecompressor());
 
-  std::vector<uint8_t> decompressed(data.size());
+  // Ensure a non-zero output buffer even when the uncompressed size is 0.
+  std::vector<uint8_t> decompressed(std::max<size_t>(1, data.size()));
   int64_t decompressed_size = 0;
   const uint8_t* comp_input = compressed.data();
   int64_t comp_remaining = compressed_size;
