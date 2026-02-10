@@ -32,5 +32,12 @@ exc = executable(
 test('arrow-canonical-extensions-test', exc)
 
 install_headers(
-    ['bool8.h', 'fixed_shape_tensor.h', 'json.h', 'opaque.h', 'uuid.h'],
+    [
+        'bool8.h',
+        'fixed_shape_tensor.h',
+        'json.h',
+        'opaque.h',
+        'parquet_variant.h',
+        'uuid.h',
+    ],
 )
