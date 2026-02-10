@@ -245,7 +245,7 @@ timezone mapping XML. To download, you can use the following batch script:
 
 .. code-block:: batch
 
-   curl https://data.iana.org/time-zones/releases/tzdata.tar.gz --output tzdata.tar.gz
+   curl https://data.iana.org/time-zones/tzdata-latest.tar.gz --output tzdata.tar.gz
    mkdir tzdata
    tar --extract --file tzdata.tar.gz --directory tzdata
    move tzdata %USERPROFILE%\Downloads\tzdata
