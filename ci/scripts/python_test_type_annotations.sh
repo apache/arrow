@@ -1,3 +1,5 @@
+#!/usr/bin/env bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,19 +17,22 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Don't add pandas here, because it is not a mandatory test dependency
+set -ex
+pyarrow_dir=${1}
 
-# Not a direct dependency of s3fs, but needed for our s3fs fixture
-boto3
-cffi
-cython>=3.1
-cloudpickle
-fsspec
-hypothesis
-libcst>=1.8.6
-numpy>=1.16.6
-pytest
-pytest-faulthandler
-s3fs>=2023.10.0
-setuptools>=77
-setuptools_scm>=8
+if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
+  # shellcheck source=/dev/null
+  . "${ARROW_PYTHON_VENV}/bin/activate"
+fi
+
+# Install library stubs. Note some libraries contain their own type hints so they need to be installed.
+pip install fsspec pandas-stubs scipy-stubs types-cffi types-psutil types-requests types-python-dateutil
+
+# Install type checkers
+pip install mypy pyright ty
+
+# Run type checkers
+cd "${pyarrow_dir}"
+mypy
+pyright
+ty check

@@ -996,7 +996,7 @@ void SkipStartingEmptyPages(DataLake::ListPathsPagedResponse& paged_response) {
 /// Writes will be buffered up to this size (in bytes) before actually uploading them.
 static constexpr int64_t kBlockUploadSizeBytes = 10 * 1024 * 1024;
 /// The maximum size of a block in Azure Blob (as per docs).
-static constexpr int64_t kMaxBlockSizeBytes = 4UL * 1024 * 1024 * 1024;
+static constexpr int64_t kMaxBlockSizeBytes = 4LL * 1024 * 1024 * 1024;
 
 /// This output stream, similar to other arrow OutputStreams, is not thread-safe.
 class ObjectAppendStream final : public io::OutputStream {
@@ -1388,7 +1388,7 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
     // without hierarchical namespace enabled.
     directory_client.GetAccessControlList();
     return HNSSupport::kEnabled;
-  } catch (std::out_of_range& exception) {
+  } catch (const std::out_of_range&) {
     // Azurite issue detected.
     DCHECK(IsDfsEmulator(options));
     return HNSSupport::kDisabled;
@@ -2532,7 +2532,7 @@ class AzureFileSystem::Impl {
           try {
             auto delete_result = deferred_response.GetResponse();
             success = delete_result.Value.Deleted;
-          } catch (const Core::RequestFailedException& exception) {
+          } catch (const Core::RequestFailedException&) {
             success = false;
           }
           if (!success) {
@@ -3253,6 +3253,8 @@ class AzureFileSystem::Impl {
 
 std::atomic<LeaseGuard::SteadyClock::time_point> LeaseGuard::latest_known_expiry_time_ =
     SteadyClock::time_point{SteadyClock::duration::zero()};
+
+AzureFileSystem::~AzureFileSystem() = default;
 
 AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
     : FileSystem(impl->io_context()), impl_(std::move(impl)) {

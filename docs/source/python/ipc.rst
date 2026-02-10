@@ -160,12 +160,12 @@ DataFrame output:
    >>> with pa.ipc.open_file(buf) as reader:
    ...     df = reader.read_pandas()
    >>> df[:5]
-      f0    f1     f2
-   0   1   foo   True
-   1   2   bar   None
-   2   3   baz  False
-   3   4  None   True
-   4   1   foo   True
+      f0   f1     f2
+   0   1  foo   True
+   1   2  bar   None
+   2   3  baz  False
+   3   4  NaN   True
+   4   1  foo   True
 
 Efficiently Writing and Reading Arrow Data
 ------------------------------------------

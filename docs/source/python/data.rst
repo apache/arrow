@@ -684,7 +684,7 @@ When using :class:`~.DictionaryArray` with pandas, the analogue is
    6    NaN
    7    baz
    dtype: category
-   Categories (3, object): ['foo', 'bar', 'baz']
+   Categories (3, str): ['foo', 'bar', 'baz']
 
 .. _data.record_batch:
 

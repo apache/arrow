@@ -14,20 +14,3 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-# Don't add pandas here, because it is not a mandatory test dependency
-
-# Not a direct dependency of s3fs, but needed for our s3fs fixture
-boto3
-cffi
-cython>=3.1
-cloudpickle
-fsspec
-hypothesis
-libcst>=1.8.6
-numpy>=1.16.6
-pytest
-pytest-faulthandler
-s3fs>=2023.10.0
-setuptools>=77
-setuptools_scm>=8

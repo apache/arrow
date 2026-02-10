@@ -873,5 +873,19 @@ module ArrowFormat
                           indices_buffer,
                           dictionary)
     end
+
+    def build_fb_field(fb_field, field)
+      fb_dictionary_encoding = FB::DictionaryEncoding::Data.new
+      fb_dictionary_encoding.id = field.dictionary_id
+      fb_int = FB::Int::Data.new
+      fb_int.bit_width = @index_type.bit_width
+      fb_int.signed = @index_type.signed?
+      fb_dictionary_encoding.index_type = fb_int
+      fb_dictionary_encoding.ordered = @ordered
+      fb_dictionary_encoding.dictionary_kind =
+        FB::DictionaryKind::DENSE_ARRAY
+      fb_field.type = @value_type.to_flatbuffers
+      fb_field.dictionary = fb_dictionary_encoding
+    end
   end
 end

@@ -38,7 +38,7 @@ def validate_wheel(path):
                    for info in f.filelist), \
             f"{filename} is missing from the wheel."
     print(f"The wheel: {wheels[0]} seems valid.")
-
+    # TODO(GH-32609): Validate some docstrings were generated and added.
 
 def main():
     parser = argparse.ArgumentParser()
