@@ -139,11 +139,13 @@ constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
   return array_to_batch_constant<kStridesArr, Arch>();
 }
 
+/// Whether we are compiling for the SSE2 or above in the SSE family.
 template <typename Arch>
-constexpr bool HasSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
+constexpr bool IsSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
 
+/// Whether we are compiling for the AVX2 or above in the SSE family.
 template <typename Arch>
-constexpr bool HasAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
+constexpr bool IsAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
 /// Wrapper around ``xsimd::bitwise_lshift`` with optimizations for non implemented sizes.
 //
@@ -158,10 +160,10 @@ template <typename Arch, typename Int, Int... kShifts>
 auto left_shift(const xsimd::batch<Int, Arch>& batch,
                 xsimd::batch_constant<Int, Arch, kShifts...> shifts)
     -> xsimd::batch<Int, Arch> {
-  constexpr bool kHasSse2 = HasSse2<Arch>;
-  constexpr bool kHasAvx2 = HasAvx2<Arch>;
+  constexpr bool kIsSse2 = IsSse2<Arch>;
+  constexpr bool kIsAvx2 = IsAvx2<Arch>;
   static_assert(
-      !(kHasSse2 && kHasAvx2),
+      !(kIsSse2 && kIsAvx2),
       "In xsimd, an x86 arch is either part of the SSE family or of the AVX family,"
       "not both. If this check fails, it means the assumptions made here to detect SSE "
       "and AVX are out of date.");
@@ -172,16 +174,16 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
 
   // Sizes and architecture for which there is no variable left shift and there is a
   // multiplication
-  if constexpr (                                                                  //
-      (kHasSse2 && (IntSize == sizeof(uint16_t) || IntSize == sizeof(uint32_t)))  //
-      || (kHasAvx2 && (IntSize == sizeof(uint16_t)))                              //
+  if constexpr (                                                                 //
+      (kIsSse2 && (IntSize == sizeof(uint16_t) || IntSize == sizeof(uint32_t)))  //
+      || (kIsAvx2 && (IntSize == sizeof(uint16_t)))                              //
   ) {
     return batch * kMults;
   }
 
   // Architecture for which there is no variable left shift on uint8_t but a fallback
   // exists for uint16_t.
-  if constexpr ((kHasSse2 || kHasAvx2) && (IntSize == sizeof(uint8_t))) {
+  if constexpr ((kIsSse2 || kIsAvx2) && (IntSize == sizeof(uint8_t))) {
     const auto batch16 = xsimd::bitwise_cast<uint16_t>(batch);
 
     constexpr auto kShifts0 = select_stride<uint16_t, 0>(shifts);
@@ -210,15 +212,19 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
 template <typename Arch, typename Int, Int... kShifts>
 auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
                            xsimd::batch_constant<Int, Arch, kShifts...> shifts) {
-  constexpr bool kHasSse2 = HasSse2<Arch>;
-  constexpr bool kHasAvx2 = HasAvx2<Arch>;
-  static_assert(!(kHasSse2 && kHasAvx2), "The hierarchy are different in xsimd");
+  constexpr bool kIsSse2 = IsSse2<Arch>;
+  constexpr bool kIsAvx2 = IsAvx2<Arch>;
+  static_assert(
+      !(kIsSse2 && kIsAvx2),
+      "In xsimd, an x86 arch is either part of the SSE family or of the AVX family,"
+      "not both. If this check fails, it means the assumptions made here to detect SSE "
+      "and AVX are out of date.");
 
   constexpr auto IntSize = sizeof(Int);
 
   // Architecture for which there is no variable right shift but a larger fallback exists.
   /// TODO(xsimd) Tracking for Avx2 in https://github.com/xtensor-stack/xsimd/pull/1220
-  if constexpr (kHasAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
+  if constexpr (kIsAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
     using twice_uint = SizedUint<2 * IntSize>;
 
     const auto batch2 = xsimd::bitwise_cast<twice_uint>(batch);
@@ -236,7 +242,7 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
 
   // These conditions are the ones matched in `left_shift`, i.e. the ones where variable
   // shift right will not be available but a left shift (fallback) exists.
-  if constexpr (kHasSse2 && (IntSize != sizeof(uint64_t))) {
+  if constexpr (kIsSse2 && (IntSize != sizeof(uint64_t))) {
     constexpr Int kMaxRShift = max_value(std::array{kShifts...});
 
     constexpr auto kLShifts =
@@ -983,7 +989,7 @@ struct LargeKernel {
     const auto low_swizzled = xsimd::swizzle(bytes, kLowSwizzles);
     const auto low_words = xsimd::bitwise_cast<unpacked_type>(low_swizzled);
     simd_batch low_shifted;
-    if constexpr (kShape.unpacked_byte_size() == 1 && HasSse2<arch_type>) {
+    if constexpr (kShape.unpacked_byte_size() == 1 && IsSse2<arch_type>) {
       // The logic of the fallback in right_shift_by_excess does not work for this single
       // byte case case, so we use directly xsimd and its scalar fallback.
       low_shifted = low_words >> kLowRShifts;
@@ -1030,7 +1036,7 @@ struct NoOpKernel {
 };
 
 template <typename KernelTraits, typename WorkingKernel>
-struct ForwardToKernel : WorkingKernel {
+struct CastingKernel : WorkingKernel {
   using unpacked_type = KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = WorkingKernel::kValuesUnpacked;
@@ -1054,7 +1060,7 @@ struct ForwardToKernel : WorkingKernel {
 // Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
 template <typename KerTraits, typename Arch = KerTraits::arch_type>
 constexpr bool kMediumShouldUseUint32 =
-    (HasSse2<Arch> || HasSse2<Arch>) &&  //
+    IsSse2<Arch> &&  //
     (KerTraits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
     (KerTraits::kShape.packed_bit_size() < 32) &&
     KernelTraitsWithUnpackUint<KerTraits, uint32_t>::kShape.is_medium();
@@ -1062,7 +1068,7 @@ constexpr bool kMediumShouldUseUint32 =
 // Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
 template <typename KerTraits, typename Arch = KerTraits::arch_type>
 constexpr bool kLargeShouldUseUint16 =
-    HasSse2<Arch> && (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
+    IsSse2<Arch> && (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
 
 // A ``std::enable_if`` that works on MSVC
 template <typename KerTraits>
@@ -1072,7 +1078,7 @@ constexpr auto KernelDispatchImpl() {
     if constexpr (kMediumShouldUseUint32<KerTraits>) {
       using Kernel32 =
           MediumKernel<KernelTraitsWithUnpackUint<KerTraits, uint32_t>, kMedKernelOpts>;
-      return ForwardToKernel<KerTraits, Kernel32>{};
+      return CastingKernel<KerTraits, Kernel32>{};
     } else {
       return MediumKernel<KerTraits, kMedKernelOpts>{};
     }
@@ -1080,7 +1086,7 @@ constexpr auto KernelDispatchImpl() {
     if constexpr (kLargeShouldUseUint16<KerTraits>) {
       using Kernel16 =
           MediumKernel<KernelTraitsWithUnpackUint<KerTraits, uint16_t>, kMedKernelOpts>;
-      return ForwardToKernel<KerTraits, Kernel16>{};
+      return CastingKernel<KerTraits, Kernel16>{};
     } else {
       return LargeKernel<KerTraits>{};
     }
