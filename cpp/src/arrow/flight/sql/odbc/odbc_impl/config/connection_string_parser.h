@@ -19,7 +19,7 @@
 
 #include <string>
 
-#include "config/configuration.h"
+#include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
 
 namespace arrow::flight::sql::odbc {
 namespace config {

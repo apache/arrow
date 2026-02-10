@@ -30,7 +30,6 @@
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
-#include <boost/variant.hpp>
 #include <optional>
 #include <utility>
 

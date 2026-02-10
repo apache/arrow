@@ -357,6 +357,10 @@ jobs:
       ARROW_BUILD_TESTS: ON
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_HOME: /tmp/local
+      ARROW_DEPENDENCY_USE_SHARED: OFF
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_MIMALLOC: OFF
+      CMAKE_CXX_STANDARD: "20"
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6.0.1
@@ -366,6 +370,22 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
+          
+          # We want to use bundled RE2 for static linking. If
+          # Homebrew's RE2 is installed, its header file may be used.
+          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+          brew uninstall grpc || : # gRPC depends on RE2
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
+
+          # We want to use bundled Protobuf for static linking. If
+          # Homebrew's Protobuf is installed, its library file may be
+          # used on test  We uninstall Homebrew's Protobuf to ensure using
+          # bundled Protobuf.
+          brew uninstall protobuf
+
+          # We want to use bundled Boost for static linking.
+          brew uninstall boost
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -397,6 +417,7 @@ jobs:
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Register Flight SQL ODBC Driver
         run: |
+          chmod +x cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh
           sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
       - name: Test
         shell: bash
@@ -434,6 +455,7 @@ jobs:
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       VCPKG_DEFAULT_TRIPLET: x64-windows
+      CMAKE_CXX_STANDARD: "20"
     steps:
       - name: Disable Crash Dialogs
         run: |

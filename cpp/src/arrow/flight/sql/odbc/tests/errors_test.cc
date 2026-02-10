@@ -541,7 +541,7 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
   // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
   // DM passes 512 as buffer length to SQLError.
 
-  std::wstring wsql = L"1";
+  std::wstring wsql = L"SELECT * from non_existent_table;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
   ASSERT_EQ(SQL_ERROR,
@@ -549,11 +549,10 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
-  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, nullptr, this->stmt, sql_state, &native_error,
+  SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
+  ASSERT_EQ(SQL_SUCCESS, SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
                                   message, SQL_MAX_MESSAGE_LENGTH, &message_length));
-
   EXPECT_GT(message_length, 70);
 
   EXPECT_EQ(100, native_error);

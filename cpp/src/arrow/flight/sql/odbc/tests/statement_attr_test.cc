@@ -480,26 +480,25 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrFetchBookmarkPointer) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPParamDesc) {
   // Invalid use of an automatically allocated descriptor handle
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_PARAM_DESC,
-                               static_cast<SQLULEN>(0),
+                               static_cast<SQLULEN>(0), SQL_ERROR,
 #ifdef __APPLE__
-                               // iODBC on MacOS returns SQL_INVALID_HANDLE for this case
-                               SQL_INVALID_HANDLE,
+                               // static iODBC on MacOS returns IM001 for this case
+                               kErrorStateIM001);
 #else
-                               SQL_ERROR,
-#endif
                                kErrorStateHY017);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPRowDesc) {
   // Invalid use of an automatically allocated descriptor handle
   ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_ROW_DESC, static_cast<SQLULEN>(0),
-#ifdef __APPLE__
-                               // iODBC on MacOS returns SQL_INVALID_HANDLE for this case
-                               SQL_INVALID_HANDLE,
-#else
                                SQL_ERROR,
-#endif
+#ifdef __APPLE__
+                               // static iODBC on MacOS returns IM001 for this case
+                               kErrorStateIM001);
+#else
                                kErrorStateHY017);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrKeysetSizeUnsupported) {

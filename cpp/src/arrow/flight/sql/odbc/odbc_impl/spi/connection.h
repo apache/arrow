@@ -18,7 +18,6 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <boost/variant.hpp>
 #include <functional>
 #include <map>
 #include <optional>
