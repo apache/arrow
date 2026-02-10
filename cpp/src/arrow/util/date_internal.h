@@ -78,5 +78,5 @@ struct zoned_traits<arrow::internal::OffsetZone> {
 #if ARROW_USE_STD_CHRONO
 }  // namespace std::chrono
 #else
-}  // namespace arrow_vendored::date  // NOLINT(readability/namespace)
+}  // namespace arrow_vendored::date
 #endif
