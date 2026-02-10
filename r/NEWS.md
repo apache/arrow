@@ -17,7 +17,7 @@
   under the License.
 -->
 
-# arrow 23.0.0
+# arrow 23.0.1
 # arrow 22.0.0.1
 
 ## Minor improvements and fixes

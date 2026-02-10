@@ -1,4 +1,42 @@
 
+# Apache Arrow 23.0.1 (2026-02-08 00:00:00+00:00)
+
+## Bug Fixes
+
+* [GH-48160](https://github.com/apache/arrow/issues/48160) - [C++][Gandiva] Pass CPU attributes to LLVM (#48161)
+* [GH-48311](https://github.com/apache/arrow/issues/48311) - [C++] Fix OOB memory access in buffered IO (#48322)
+* [GH-48637](https://github.com/apache/arrow/issues/48637) - [C++][FlightRPC] ODBC: Disable `absl` deadlock detection (#48747)
+* [GH-48856](https://github.com/apache/arrow/issues/48856) - [Release] Update copyright NOTICE year to 2026 (#48857)
+* [GH-48858](https://github.com/apache/arrow/issues/48858) - [C++][Parquet] Avoid re-serializing footer for signature verification (#48859)
+* [GH-48861](https://github.com/apache/arrow/issues/48861) - [CI] Fix wrong `smtplib.SMTP.send_message` usage (#48876)
+* [GH-48880](https://github.com/apache/arrow/issues/48880) - [Ruby] Fix a bug that Arrow::ExecutePlan nodes may be GC-ed (#48919)
+* [GH-48885](https://github.com/apache/arrow/issues/48885) - [C++] Add missing curl dependency of `Arrow::arrow_static` CMake target (#48891)
+* [GH-48894](https://github.com/apache/arrow/issues/48894) - [Python][C++] Use base Azure::Core::RequestFailedException instead of final Azure::Storage::StorageException and set minimum nodejs on conda env to 16 for Azurite to work (#48895)
+* [GH-48900](https://github.com/apache/arrow/issues/48900) - [C++] Avoid memory blowup with excessive variadic buffer count in IPC (#48901)
+* [GH-48961](https://github.com/apache/arrow/issues/48961) - [Docs][Python] Doctest fails on pandas 3.0
+* [GH-48965](https://github.com/apache/arrow/issues/48965) - [Python][C++] Compare unique_ptr for CFlightResult or CFlightInfo to nullptr instead of NULL (#48968)
+* [GH-48966](https://github.com/apache/arrow/issues/48966) - [C++] Fix cookie duplication in the Flight SQL ODBC driver and the Flight Client (#48967)
+* [GH-48983](https://github.com/apache/arrow/issues/48983) - [Packaging][Python] Build wheel from sdist using build and add check to validate LICENSE.txt and NOTICE.txt are part of the wheel contents (#48988)
+* [GH-49003](https://github.com/apache/arrow/issues/49003) - [C++] Don't consider `out_of_range` an error in float parsing (#49095)
+* [GH-49044](https://github.com/apache/arrow/issues/49044) - [CI][Python] Fix test_download_tzdata_on_windows by adding required user-agent on urllib request (#49052)
+* [GH-49059](https://github.com/apache/arrow/issues/49059) - [C++] Fix issues found by OSS-Fuzz in IPC reader (#49060)
+* [GH-49137](https://github.com/apache/arrow/issues/49137) - [CI][Release] macOS conda source verification jobs fail to build Arrow C++
+* [GH-49138](https://github.com/apache/arrow/issues/49138) - [Packaging][Python] Remove nightly cython install from manylinux wheel dockerfile (#49139)
+* [GH-49156](https://github.com/apache/arrow/issues/49156) - [Python] Require GIL for string comparison (#49161)
+* [GH-49159](https://github.com/apache/arrow/issues/49159) - [C++][Gandiva] Detect overflow in repeat() (#49160)
+
+
+## New Features and Improvements
+
+* [GH-48623](https://github.com/apache/arrow/issues/48623) - [CI][Archery][Dev] Add missing headers to email reports (#48624)
+* [GH-48817](https://github.com/apache/arrow/issues/48817) - [R][C++] Bump C++20 in R build infrastructure (#48819)
+* [GH-48844](https://github.com/apache/arrow/issues/48844) - [C++] Check IPC Message body length consistency in IPC file (#48845)
+* [GH-48924](https://github.com/apache/arrow/issues/48924) - [C++][CI] Fix pre-buffering issues in IPC file reader (#48925)
+* [GH-48973](https://github.com/apache/arrow/issues/48973) - [R][C++] Fix RE2 compilation errors under C++20 (#48976)
+* [GH-49024](https://github.com/apache/arrow/issues/49024) - [CI] Update Debian version in `.env` (#49032)
+
+
+
 # Apache Arrow 23.0.0 (2026-01-12 00:00:00+00:00)
 
 ## Bug Fixes
