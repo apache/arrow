@@ -118,8 +118,7 @@ module ArrowFormat
         is_delta = false
       else
         is_delta = true
-        raise NotImplementedError,
-              "Delta dictionary message isn't implemented yet"
+        dictionary = dictionary.slice(offset)
       end
 
       schema = Schema.new([Field.new("dummy", value_type, true, nil)])

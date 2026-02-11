@@ -198,465 +198,391 @@ module WriterTests
     end
   end
 
-  def write(writer)
-    red_arrow_array = build_array
-    array = convert_array(red_arrow_array)
-    red_arrow_field = Arrow::Field.new("value",
-                                       red_arrow_array.value_data_type,
-                                       true)
-    fields = [convert_field(red_arrow_field)]
-    schema = ArrowFormat::Schema.new(fields)
-    record_batch = ArrowFormat::RecordBatch.new(schema, array.size, [array])
-    writer.start(schema)
-    writer.write_record_batch(record_batch)
+  def write(writer, *inputs)
+    inputs.each_with_index do |input, i|
+      case input
+      when ArrowFormat::RecordBatch
+        record_batch = input
+      else
+        red_arrow_array = input
+        array = convert_array(red_arrow_array)
+        red_arrow_field = Arrow::Field.new("value",
+                                           red_arrow_array.value_data_type,
+                                           true)
+        fields = [convert_field(red_arrow_field)]
+        schema = ArrowFormat::Schema.new(fields)
+        record_batch = ArrowFormat::RecordBatch.new(schema,
+                                                    array.size,
+                                                    [array])
+      end
+      writer.start(record_batch.schema) if i.zero?
+      writer.write_record_batch(record_batch)
+    end
     writer.finish
+  end
+
+  def roundtrip(*inputs)
+    Dir.mktmpdir do |tmp_dir|
+      path = File.join(tmp_dir, "data.#{file_extension}")
+      File.open(path, "wb") do |output|
+        writer = writer_class.new(output)
+        write(writer, *inputs)
+      end
+      data = File.open(path, "rb", &:read).freeze
+      table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrow)
+      [table.value.data_type, table.value.values]
+    end
   end
 
   class << self
     def included(base)
       base.class_eval do
-        sub_test_case("Null") do
-          def build_array
-            Arrow::NullArray.new(3)
-          end
-
-          def test_write
-            assert_equal([nil, nil, nil],
-                         @values)
-          end
+        def test_null
+          array = Arrow::NullArray.new(3)
+          type, values = roundtrip(array)
+          assert_equal(["null", [nil, nil, nil]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Boolean") do
-          def build_array
-            Arrow::BooleanArray.new([true, nil, false])
-          end
-
-          def test_write
-            assert_equal([true, nil, false],
-                         @values)
-          end
+        def test_boolean
+          array = Arrow::BooleanArray.new([true, nil, false])
+          type, values = roundtrip(array)
+          assert_equal(["bool", [true, nil, false]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Int8") do
-          def build_array
-            Arrow::Int8Array.new([-128, nil, 127])
-          end
-
-          def test_write
-            assert_equal([-128, nil, 127],
-                         @values)
-          end
+        def test_int8
+          array = Arrow::Int8Array.new([-128, nil, 127])
+          type, values = roundtrip(array)
+          assert_equal(["int8", [-128, nil, 127]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("UInt8") do
-          def build_array
-            Arrow::UInt8Array.new([0, nil, 255])
-          end
-
-          def test_write
-            assert_equal([0, nil, 255],
-                         @values)
-          end
+        def test_uint8
+          array = Arrow::UInt8Array.new([0, nil, 255])
+          type, values = roundtrip(array)
+          assert_equal(["uint8", [0, nil, 255]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Int16") do
-          def build_array
-            Arrow::Int16Array.new([-32768, nil, 32767])
-          end
-
-          def test_write
-            assert_equal([-32768, nil, 32767],
-                         @values)
-          end
+        def test_int16
+          array = Arrow::Int16Array.new([-32768, nil, 32767])
+          type, values = roundtrip(array)
+          assert_equal(["int16", [-32768, nil, 32767]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("UInt16") do
-          def build_array
-            Arrow::UInt16Array.new([0, nil, 65535])
-          end
-
-          def test_write
-            assert_equal([0, nil, 65535],
-                         @values)
-          end
+        def test_uint16
+          array = Arrow::UInt16Array.new([0, nil, 65535])
+          type, values = roundtrip(array)
+          assert_equal(["uint16", [0, nil, 65535]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Int32") do
-          def build_array
-            Arrow::Int32Array.new([-2147483648, nil, 2147483647])
-          end
-
-          def test_write
-            assert_equal([-2147483648, nil, 2147483647],
-                         @values)
-          end
+        def test_int32
+          array = Arrow::Int32Array.new([-2147483648, nil, 2147483647])
+          type, values = roundtrip(array)
+          assert_equal(["int32", [-2147483648, nil, 2147483647]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("UInt32") do
-          def build_array
-            Arrow::UInt32Array.new([0, nil, 4294967295])
-          end
-
-          def test_write
-            assert_equal([0, nil, 4294967295],
-                         @values)
-          end
+        def test_uint32
+          array = Arrow::UInt32Array.new([0, nil, 4294967295])
+          type, values = roundtrip(array)
+          assert_equal(["uint32", [0, nil, 4294967295]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Int64") do
-          def build_array
-            Arrow::Int64Array.new([
-                                    -9223372036854775808,
-                                    nil,
-                                    9223372036854775807
-                                  ])
-          end
-
-          def test_write
-            assert_equal([
+        def test_int64
+          array = Arrow::Int64Array.new([
+                                          -9223372036854775808,
+                                          nil,
+                                          9223372036854775807
+                                        ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "int64",
+                         [
                            -9223372036854775808,
                            nil,
                            9223372036854775807
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("UInt64") do
-          def build_array
-            Arrow::UInt64Array.new([0, nil, 18446744073709551615])
-          end
-
-          def test_write
-            assert_equal([0, nil, 18446744073709551615],
-                         @values)
-          end
+        def test_uint64
+          array = Arrow::UInt64Array.new([0, nil, 18446744073709551615])
+          type, values = roundtrip(array)
+          assert_equal(["uint64", [0, nil, 18446744073709551615]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Float32") do
-          def build_array
-            Arrow::FloatArray.new([-0.5, nil, 0.5])
-          end
-
-          def test_write
-            assert_equal([-0.5, nil, 0.5],
-                         @values)
-          end
+        def test_float32
+          array = Arrow::FloatArray.new([-0.5, nil, 0.5])
+          type, values = roundtrip(array)
+          assert_equal(["float", [-0.5, nil, 0.5]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Float64") do
-          def build_array
-            Arrow::DoubleArray.new([-0.5, nil, 0.5])
-          end
-
-          def test_write
-            assert_equal([-0.5, nil, 0.5],
-                         @values)
-          end
+        def test_float64
+          array = Arrow::DoubleArray.new([-0.5, nil, 0.5])
+          type, values = roundtrip(array)
+          assert_equal(["double", [-0.5, nil, 0.5]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Date32") do
-          def setup(&block)
-            @date_2017_08_28 = 17406
-            @date_2025_12_09 = 20431
-            super(&block)
-          end
-
-          def build_array
-            Arrow::Date32Array.new([@date_2017_08_28, nil, @date_2025_12_09])
-          end
-
-          def test_write
-            assert_equal([Date.new(2017, 8, 28), nil, Date.new(2025, 12, 9)],
-                         @values)
-          end
+        def test_date32
+          date_2017_08_28 = 17406
+          date_2025_12_09 = 20431
+          array = Arrow::Date32Array.new([
+                                           date_2017_08_28,
+                                           nil,
+                                           date_2025_12_09,
+                                         ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "date32[day]",
+                         [Date.new(2017, 8, 28), nil, Date.new(2025, 12, 9)],
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Date64") do
-          def setup(&block)
-            @date_2017_08_28_00_00_00 = 1503878400000
-            @date_2025_12_10_00_00_00 = 1765324800000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::Date64Array.new([
-                                     @date_2017_08_28_00_00_00,
-                                     nil,
-                                     @date_2025_12_10_00_00_00,
-                                   ])
-          end
-
-          def test_write
-            assert_equal([
+        def test_date64
+          date_2017_08_28_00_00_00 = 1503878400000
+          date_2025_12_10_00_00_00 = 1765324800000
+          array = Arrow::Date64Array.new([
+                                           date_2017_08_28_00_00_00,
+                                           nil,
+                                           date_2025_12_10_00_00_00,
+                                         ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "date64[ms]",
+                         [
                            DateTime.new(2017, 8, 28, 0, 0, 0),
                            nil,
                            DateTime.new(2025, 12, 10, 0, 0, 0),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Time32(:second)") do
-          def setup(&block)
-            @time_00_00_10 = 10
-            @time_00_01_10 = 60 + 10
-            super(&block)
-          end
-
-          def build_array
-            Arrow::Time32Array.new(:second,
-                                   [@time_00_00_10, nil, @time_00_01_10])
-          end
-
-          def test_write
-            assert_equal([
-                           Arrow::Time.new(:second, @time_00_00_10),
+        def test_time32_second
+          time_00_00_10 = 10
+          time_00_01_10 = 60 + 10
+          array = Arrow::Time32Array.new(:second,
+                                         [time_00_00_10, nil, time_00_01_10])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "time32[s]",
+                         [
+                           Arrow::Time.new(:second, time_00_00_10),
                            nil,
-                           Arrow::Time.new(:second, @time_00_01_10),
+                           Arrow::Time.new(:second, time_00_01_10),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Time32(:millisecond)") do
-          def setup(&block)
-            @time_00_00_10_000 = 10 * 1000
-            @time_00_01_10_000 = (60 + 10) * 1000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::Time32Array.new(:milli,
-                                   [
-                                     @time_00_00_10_000,
-                                     nil,
-                                     @time_00_01_10_000,
-                                   ])
-          end
-
-          def test_write
-            assert_equal([
-                           Arrow::Time.new(:milli, @time_00_00_10_000),
+        def test_time32_millisecond
+          time_00_00_10_000 = 10 * 1000
+          time_00_01_10_000 = (60 + 10) * 1000
+          array = Arrow::Time32Array.new(:milli,
+                                         [
+                                           time_00_00_10_000,
+                                           nil,
+                                           time_00_01_10_000,
+                                         ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "time32[ms]",
+                         [
+                           Arrow::Time.new(:milli, time_00_00_10_000),
                            nil,
-                           Arrow::Time.new(:milli, @time_00_01_10_000),
+                           Arrow::Time.new(:milli, time_00_01_10_000),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Time64(:microsecond)") do
-          def setup(&block)
-            @time_00_00_10_000_000 = 10 * 1_000_000
-            @time_00_01_10_000_000 = (60 + 10) * 1_000_000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::Time64Array.new(:micro,
-                                   [
-                                     @time_00_00_10_000_000,
-                                     nil,
-                                     @time_00_01_10_000_000,
-                                   ])
-          end
-
-          def test_write
-            assert_equal([
-                           Arrow::Time.new(:micro, @time_00_00_10_000_000),
+        def test_time64_microsecond
+          time_00_00_10_000_000 = 10 * 1_000_000
+          time_00_01_10_000_000 = (60 + 10) * 1_000_000
+          array = Arrow::Time64Array.new(:micro,
+                                         [
+                                           time_00_00_10_000_000,
+                                           nil,
+                                           time_00_01_10_000_000,
+                                         ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "time64[us]",
+                         [
+                           Arrow::Time.new(:micro, time_00_00_10_000_000),
                            nil,
-                           Arrow::Time.new(:micro, @time_00_01_10_000_000),
+                           Arrow::Time.new(:micro, time_00_01_10_000_000),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Time64(:nanosecond)") do
-          def setup(&block)
-            @time_00_00_10_000_000_000 = 10 * 1_000_000_000
-            @time_00_01_10_000_000_000 = (60 + 10) * 1_000_000_000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::Time64Array.new(:nano,
-                                   [
-                                     @time_00_00_10_000_000_000,
-                                     nil,
-                                     @time_00_01_10_000_000_000,
-                                   ])
-          end
-
-          def test_write
-            assert_equal([
-                           Arrow::Time.new(:nano, @time_00_00_10_000_000_000),
+        def test_time64_nanosecond
+          time_00_00_10_000_000_000 = 10 * 1_000_000_000
+          time_00_01_10_000_000_000 = (60 + 10) * 1_000_000_000
+          array = Arrow::Time64Array.new(:nano,
+                                         [
+                                           time_00_00_10_000_000_000,
+                                           nil,
+                                           time_00_01_10_000_000_000,
+                                         ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "time64[ns]",
+                         [
+                           Arrow::Time.new(:nano, time_00_00_10_000_000_000),
                            nil,
-                           Arrow::Time.new(:nano, @time_00_01_10_000_000_000),
+                           Arrow::Time.new(:nano, time_00_01_10_000_000_000),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Timestamp(:second)") do
-          def setup(&block)
-            @timestamp_2019_11_17_15_09_11 = 1574003351
-            @timestamp_2025_12_16_05_33_58 = 1765863238
-            super(&block)
-          end
-
-          def build_array
-            Arrow::TimestampArray.new(:second,
-                                      [
-                                        @timestamp_2019_11_17_15_09_11,
-                                        nil,
-                                        @timestamp_2025_12_16_05_33_58,
-                                      ])
-          end
-
-          def test_write
-            assert_equal([
-                           Time.at(@timestamp_2019_11_17_15_09_11),
+        def test_timestamp_second
+          timestamp_2019_11_17_15_09_11 = 1574003351
+          timestamp_2025_12_16_05_33_58 = 1765863238
+          array = Arrow::TimestampArray.new(:second,
+                                            [
+                                              timestamp_2019_11_17_15_09_11,
+                                              nil,
+                                              timestamp_2025_12_16_05_33_58,
+                                            ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "timestamp[s]",
+                         [
+                           Time.at(timestamp_2019_11_17_15_09_11),
                            nil,
-                           Time.at(@timestamp_2025_12_16_05_33_58),
+                           Time.at(timestamp_2025_12_16_05_33_58),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Timestamp(:millisecond)") do
-          def setup(&block)
-            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000
-            @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::TimestampArray.new(:milli,
-                                      [
-                                        @timestamp_2019_11_17_15_09_11,
-                                        nil,
-                                        @timestamp_2025_12_16_05_33_58,
-                                      ])
-          end
-
-          def test_write
-            assert_equal([
-                           Time.at(@timestamp_2019_11_17_15_09_11 / 1_000),
+        def test_timestamp_millisecond
+          timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000
+          timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000
+          array = Arrow::TimestampArray.new(:milli,
+                                            [
+                                              timestamp_2019_11_17_15_09_11,
+                                              nil,
+                                              timestamp_2025_12_16_05_33_58,
+                                            ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "timestamp[ms]",
+                         [
+                           Time.at(timestamp_2019_11_17_15_09_11 / 1_000),
                            nil,
-                           Time.at(@timestamp_2025_12_16_05_33_58 / 1_000),
+                           Time.at(timestamp_2025_12_16_05_33_58 / 1_000),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Timestamp(:microsecond)") do
-          def setup(&block)
-            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000
-            @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::TimestampArray.new(:micro,
-                                      [
-                                        @timestamp_2019_11_17_15_09_11,
-                                        nil,
-                                        @timestamp_2025_12_16_05_33_58,
-                                      ])
-          end
-
-          def test_write
-            assert_equal([
-                           Time.at(@timestamp_2019_11_17_15_09_11 / 1_000_000),
+        def test_timestamp_microsecond
+          timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000
+          timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000
+          array = Arrow::TimestampArray.new(:micro,
+                                            [
+                                              timestamp_2019_11_17_15_09_11,
+                                              nil,
+                                              timestamp_2025_12_16_05_33_58,
+                                            ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "timestamp[us]",
+                         [
+                           Time.at(timestamp_2019_11_17_15_09_11 / 1_000_000),
                            nil,
-                           Time.at(@timestamp_2025_12_16_05_33_58 / 1_000_000),
+                           Time.at(timestamp_2025_12_16_05_33_58 / 1_000_000),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Timestamp(:nanosecond)") do
-          def setup(&block)
-            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000_000
-            @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000_000
-            super(&block)
-          end
-
-          def build_array
-            Arrow::TimestampArray.new(:nano,
-                                      [
-                                        @timestamp_2019_11_17_15_09_11,
-                                        nil,
-                                        @timestamp_2025_12_16_05_33_58,
-                                      ])
-          end
-
-          def test_write
-            assert_equal([
-                           Time.at(@timestamp_2019_11_17_15_09_11 / 1_000_000_000),
+        def test_timestamp_nanosecond
+          timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000_000
+          timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000_000
+          array = Arrow::TimestampArray.new(:nano,
+                                            [
+                                              timestamp_2019_11_17_15_09_11,
+                                              nil,
+                                              timestamp_2025_12_16_05_33_58,
+                                            ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "timestamp[ns]",
+                         [
+                           Time.at(timestamp_2019_11_17_15_09_11 / 1_000_000_000),
                            nil,
-                           Time.at(@timestamp_2025_12_16_05_33_58 / 1_000_000_000),
+                           Time.at(timestamp_2025_12_16_05_33_58 / 1_000_000_000),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Timestamp(time_zone)") do
-          def setup(&block)
-            @time_zone = "UTC"
-            @timestamp_2019_11_17_15_09_11 = 1574003351
-            @timestamp_2025_12_16_05_33_58 = 1765863238
-            super(&block)
-          end
-
-          def build_array
-            data_type = Arrow::TimestampDataType.new(:second, @time_zone)
-            Arrow::TimestampArray.new(data_type,
-                                      [
-                                        @timestamp_2019_11_17_15_09_11,
-                                        nil,
-                                        @timestamp_2025_12_16_05_33_58,
-                                      ])
-          end
-
-          def test_type
-            assert_equal([Arrow::TimeUnit::SECOND, @time_zone],
-                         [@type.unit, @type.time_zone&.identifier])
-          end
+        def test_timestamp_time_zone
+          time_zone = "UTC"
+          timestamp_2019_11_17_15_09_11 = 1574003351
+          timestamp_2025_12_16_05_33_58 = 1765863238
+          data_type = Arrow::TimestampDataType.new(:second, time_zone)
+          array = Arrow::TimestampArray.new(data_type,
+                                            [
+                                              timestamp_2019_11_17_15_09_11,
+                                              nil,
+                                              timestamp_2025_12_16_05_33_58,
+                                            ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "timestamp[s, tz=#{time_zone}]",
+                         [
+                           Time.at(timestamp_2019_11_17_15_09_11),
+                           nil,
+                           Time.at(timestamp_2025_12_16_05_33_58),
+                         ],
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("YearMonthInterval") do
-          def build_array
-            Arrow::MonthIntervalArray.new([0, nil, 100])
-          end
-
-          def test_write
-            assert_equal([0, nil, 100],
-                         @values)
-          end
+        def test_year_month_interval
+          array = Arrow::MonthIntervalArray.new([0, nil, 100])
+          type, values = roundtrip(array)
+          assert_equal(["month_interval", [0, nil, 100]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("DayTimeInterval") do
-          def build_array
+        def test_day_time_interval
+          array =
             Arrow::DayTimeIntervalArray.new([
                                               {day: 1, millisecond: 100},
                                               nil,
                                               {day: 3, millisecond: 300},
                                             ])
-          end
-
-          def test_write
-            assert_equal([
+          type, values = roundtrip(array)
+          assert_equal([
+                         "day_time_interval",
+                         [
                            {day: 1, millisecond: 100},
                            nil,
                            {day: 3, millisecond: 300},
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("MonthDayNanoInterval") do
-          def build_array
+        def test_month_day_nano_interval
+          array =
             Arrow::MonthDayNanoIntervalArray.new([
                                                    {
                                                      month: 1,
@@ -670,10 +596,10 @@ module WriterTests
                                                      nanosecond: 300,
                                                    },
                                                  ])
-          end
-
-          def test_write
-            assert_equal([
+          type, values = roundtrip(array)
+          assert_equal([
+                         "month_day_nano_interval",
+                         [
                            {
                              month: 1,
                              day: 1,
@@ -686,307 +612,304 @@ module WriterTests
                              nanosecond: 300,
                            },
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Duration(:second)") do
-          def build_array
-            Arrow::DurationArray.new(:second, [0, nil, 100])
-          end
-
-          def test_write
-            assert_equal([0, nil, 100],
-                         @values)
-          end
-
-          def test_type
-            assert_equal(Arrow::TimeUnit::SECOND, @type.unit)
-          end
+        def test_duration_second
+          array = Arrow::DurationArray.new(:second, [0, nil, 100])
+          type, values = roundtrip(array)
+          assert_equal(["duration[s]", [0, nil, 100]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Duration(:millisecond)") do
-          def build_array
-            Arrow::DurationArray.new(:milli, [0, nil, 100])
-          end
-
-          def test_write
-            assert_equal([0, nil, 100],
-                         @values)
-          end
-
-          def test_type
-            assert_equal(Arrow::TimeUnit::MILLI, @type.unit)
-          end
+        def test_duration_millisecond
+          array = Arrow::DurationArray.new(:milli, [0, nil, 100])
+          type, values = roundtrip(array)
+          assert_equal(["duration[ms]", [0, nil, 100]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Duration(:microsecond)") do
-          def build_array
-            Arrow::DurationArray.new(:micro, [0, nil, 100])
-          end
-
-          def test_write
-            assert_equal([0, nil, 100],
-                         @values)
-          end
-
-          def test_type
-            assert_equal(Arrow::TimeUnit::MICRO, @type.unit)
-          end
+        def test_duration_microsecond
+          array = Arrow::DurationArray.new(:micro, [0, nil, 100])
+          type, values = roundtrip(array)
+          assert_equal(["duration[us]", [0, nil, 100]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Duration(:nanosecond)") do
-          def build_array
-            Arrow::DurationArray.new(:nano, [0, nil, 100])
-          end
-
-          def test_write
-            assert_equal([0, nil, 100],
-                         @values)
-          end
-
-          def test_type
-            assert_equal(Arrow::TimeUnit::NANO, @type.unit)
-          end
+        def test_duration_nanosecond
+          array = Arrow::DurationArray.new(:nano, [0, nil, 100])
+          type, values = roundtrip(array)
+          assert_equal(["duration[ns]", [0, nil, 100]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Binary") do
-          def build_array
-            Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
-          end
-
-          def test_write
-            assert_equal(["Hello".b, nil, "World".b],
-                         @values)
-          end
+        def test_binary
+          array = Arrow::BinaryArray.new(["Hello".b, nil, "World".b])
+          type, values = roundtrip(array)
+          assert_equal(["binary", ["Hello".b, nil, "World".b]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("LargeBinary") do
-          def build_array
-            Arrow::LargeBinaryArray.new(["Hello".b, nil, "World".b])
-          end
-
-          def test_write
-            assert_equal(["Hello".b, nil, "World".b],
-                         @values)
-          end
+        def test_large_binary
+          array = Arrow::LargeBinaryArray.new(["Hello".b, nil, "World".b])
+          type, values = roundtrip(array)
+          assert_equal(["large_binary", ["Hello".b, nil, "World".b]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("String") do
-          def build_array
-            Arrow::StringArray.new(["Hello", nil, "World"])
-          end
-
-          def test_write
-            assert_equal(["Hello", nil, "World"],
-                         @values)
-          end
+        def test_utf8
+          array = Arrow::StringArray.new(["Hello", nil, "World"])
+          type, values = roundtrip(array)
+          assert_equal(["string", ["Hello", nil, "World"]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("LargeString") do
-          def build_array
-            Arrow::LargeStringArray.new(["Hello", nil, "World"])
-          end
-
-          def test_write
-            assert_equal(["Hello", nil, "World"],
-                         @values)
-          end
+        def test_large_utf8
+          array = Arrow::LargeStringArray.new(["Hello", nil, "World"])
+          type, values = roundtrip(array)
+          assert_equal(["large_string", ["Hello", nil, "World"]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("FixedSizeBinary") do
-          def build_array
-            data_type = Arrow::FixedSizeBinaryDataType.new(4)
-            Arrow::FixedSizeBinaryArray.new(data_type,
-                                            ["0124".b, nil, "abcd".b])
-          end
-
-          def test_write
-            assert_equal(["0124".b, nil, "abcd".b],
-                         @values)
-          end
+        def test_fixed_size_binary
+          data_type = Arrow::FixedSizeBinaryDataType.new(4)
+          array = Arrow::FixedSizeBinaryArray.new(data_type,
+                                                  ["0124".b, nil, "abcd".b])
+          type, values = roundtrip(array)
+          assert_equal(["fixed_size_binary[4]", ["0124".b, nil, "abcd".b]],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Decimal128") do
-          def build_array
-            @positive_small = "1.200"
-            @positive_large = ("1234567890" * 3) + "12345.678"
-            @negative_small = "-1.200"
-            @negative_large = "-" + ("1234567890" * 3) + "12345.678"
-            Arrow::Decimal128Array.new({precision: 38, scale: 3},
-                                       [
-                                         @positive_large,
-                                         @positive_small,
-                                         nil,
-                                         @negative_small,
-                                         @negative_large,
-                                       ])
-          end
-
-          def test_write
-            assert_equal([
-                           BigDecimal(@positive_large),
-                           BigDecimal(@positive_small),
+        def test_decimal128
+          positive_small = "1.200"
+          positive_large = ("1234567890" * 3) + "12345.678"
+          negative_small = "-1.200"
+          negative_large = "-" + ("1234567890" * 3) + "12345.678"
+          array = Arrow::Decimal128Array.new({precision: 38, scale: 3},
+                                             [
+                                               positive_large,
+                                               positive_small,
+                                               nil,
+                                               negative_small,
+                                               negative_large,
+                                             ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "decimal128(38, 3)",
+                         [
+                           BigDecimal(positive_large),
+                           BigDecimal(positive_small),
                            nil,
-                           BigDecimal(@negative_small),
-                           BigDecimal(@negative_large),
+                           BigDecimal(negative_small),
+                           BigDecimal(negative_large),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Decimal256") do
-          def build_array
-            @positive_small = "1.200"
-            @positive_large = ("1234567890" * 7) + "123.456"
-            @negative_small = "-1.200"
-            @negative_large = "-" + ("1234567890" * 7) + "123.456"
-            Arrow::Decimal256Array.new({precision: 76, scale: 3},
-                                       [
-                                         @positive_large,
-                                         @positive_small,
-                                         nil,
-                                         @negative_small,
-                                         @negative_large,
-                                       ])
-          end
-
-          def test_write
-            assert_equal([
-                           BigDecimal(@positive_large),
-                           BigDecimal(@positive_small),
+        def test_decimal256
+          positive_small = "1.200"
+          positive_large = ("1234567890" * 7) + "123.456"
+          negative_small = "-1.200"
+          negative_large = "-" + ("1234567890" * 7) + "123.456"
+          array = Arrow::Decimal256Array.new({precision: 76, scale: 3},
+                                             [
+                                               positive_large,
+                                               positive_small,
+                                               nil,
+                                               negative_small,
+                                               negative_large,
+                                             ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "decimal256(76, 3)",
+                         [
+                           BigDecimal(positive_large),
+                           BigDecimal(positive_small),
                            nil,
-                           BigDecimal(@negative_small),
-                           BigDecimal(@negative_large),
+                           BigDecimal(negative_small),
+                           BigDecimal(negative_large),
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("List") do
-          def build_array
-            data_type = Arrow::ListDataType.new(name: "count", type: :int8)
-            Arrow::ListArray.new(data_type, [[-128, 127], nil, [-1, 0, 1]])
-          end
-
-          def test_write
-            assert_equal([[-128, 127], nil, [-1, 0, 1]],
-                         @values)
-          end
+        def test_list
+          data_type = Arrow::ListDataType.new(name: "count", type: :int8)
+          array = Arrow::ListArray.new(data_type,
+                                       [[-128, 127], nil, [-1, 0, 1]])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "list<count: int8>",
+                         [[-128, 127], nil, [-1, 0, 1]],
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("LargeList") do
-          def build_array
-            data_type = Arrow::LargeListDataType.new(name: "count",
-                                                     type: :int8)
-            Arrow::LargeListArray.new(data_type,
-                                      [[-128, 127], nil, [-1, 0, 1]])
-          end
-
-          def test_write
-            assert_equal([[-128, 127], nil, [-1, 0, 1]],
-                         @values)
-          end
+        def test_large_lsit
+          data_type = Arrow::LargeListDataType.new(name: "count",
+                                                   type: :int8)
+          array = Arrow::LargeListArray.new(data_type,
+                                            [[-128, 127], nil, [-1, 0, 1]])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "large_list<count: int8>",
+                         [[-128, 127], nil, [-1, 0, 1]],
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Map") do
-          def build_array
-            data_type = Arrow::MapDataType.new(:string, :int8)
-            Arrow::MapArray.new(data_type,
-                                [
-                                  {"a" => -128, "b" => 127},
-                                  nil,
-                                  {"c" => nil},
-                                ])
-          end
-
-          def test_write
-            assert_equal([
+        def test_map
+          data_type = Arrow::MapDataType.new(:string, :int8)
+          array = Arrow::MapArray.new(data_type,
+                                      [
+                                        {"a" => -128, "b" => 127},
+                                        nil,
+                                        {"c" => nil},
+                                      ])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "map<string, int8>",
+                         [
                            {"a" => -128, "b" => 127},
                            nil,
                            {"c" => nil},
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Struct") do
-          def build_array
-            data_type = Arrow::StructDataType.new(count: :int8,
-                                                  visible: :boolean)
-            Arrow::StructArray.new(data_type,
-                                   [[-128, nil], nil, [nil, true]])
-          end
-
-          def test_write
-            assert_equal([
+        def test_struct
+          data_type = Arrow::StructDataType.new(count: :int8,
+                                                visible: :boolean)
+          array = Arrow::StructArray.new(data_type,
+                                         [[-128, nil], nil, [nil, true]])
+          type, values = roundtrip(array)
+          assert_equal([
+                         "struct<count: int8, visible: bool>",
+                         [
                            {"count" => -128, "visible" => nil},
                            nil,
                            {"count" => nil, "visible" => true},
                          ],
-                         @values)
-          end
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("DenseUnion") do
-          def build_array
-            fields = [
-              Arrow::Field.new("number", :int8),
-              Arrow::Field.new("text", :string),
-            ]
-            type_ids = [11, 13]
-            data_type = Arrow::DenseUnionDataType.new(fields, type_ids)
-            types = Arrow::Int8Array.new([11, 13, 11, 13, 13])
-            value_offsets = Arrow::Int32Array.new([0, 0, 1, 1, 2])
-            children = [
-              Arrow::Int8Array.new([1, nil]),
-              Arrow::StringArray.new(["a", "b", "c"])
-            ]
-            Arrow::DenseUnionArray.new(data_type,
-                                       types,
-                                       value_offsets,
-                                       children)
-          end
-
-          def test_write
-            assert_equal([1, "a", nil, "b", "c"],
-                         @values)
-          end
+        def test_dense_union
+          fields = [
+            Arrow::Field.new("number", :int8),
+            Arrow::Field.new("text", :string),
+          ]
+          type_ids = [11, 13]
+          data_type = Arrow::DenseUnionDataType.new(fields, type_ids)
+          types = Arrow::Int8Array.new([11, 13, 11, 13, 13])
+          value_offsets = Arrow::Int32Array.new([0, 0, 1, 1, 2])
+          children = [
+            Arrow::Int8Array.new([1, nil]),
+            Arrow::StringArray.new(["a", "b", "c"])
+          ]
+          array = Arrow::DenseUnionArray.new(data_type,
+                                             types,
+                                             value_offsets,
+                                             children)
+          type, values = roundtrip(array)
+          assert_equal([
+                         "dense_union<number: int8=11, text: string=13>",
+                         [1, "a", nil, "b", "c"],
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("SparseUnion") do
-          def build_array
-            fields = [
-              Arrow::Field.new("number", :int8),
-              Arrow::Field.new("text", :string),
-            ]
-            type_ids = [11, 13]
-            data_type = Arrow::SparseUnionDataType.new(fields, type_ids)
-            types = Arrow::Int8Array.new([11, 13, 11, 13, 11])
-            children = [
-              Arrow::Int8Array.new([1, nil, nil, nil, 5]),
-              Arrow::StringArray.new([nil, "b", nil, "d", nil])
-            ]
-            Arrow::SparseUnionArray.new(data_type, types, children)
-          end
-
-          def test_write
-            assert_equal([1, "b", nil, "d", 5],
-                         @values)
-          end
+        def test_sparse_union
+          fields = [
+            Arrow::Field.new("number", :int8),
+            Arrow::Field.new("text", :string),
+          ]
+          type_ids = [11, 13]
+          data_type = Arrow::SparseUnionDataType.new(fields, type_ids)
+          types = Arrow::Int8Array.new([11, 13, 11, 13, 11])
+          children = [
+            Arrow::Int8Array.new([1, nil, nil, nil, 5]),
+            Arrow::StringArray.new([nil, "b", nil, "d", nil])
+          ]
+          array = Arrow::SparseUnionArray.new(data_type, types, children)
+          type, values = roundtrip(array)
+          assert_equal([
+                         "sparse_union<number: int8=11, text: string=13>",
+                         [1, "b", nil, "d", 5],
+                       ],
+                       [type.to_s, values])
         end
 
-        sub_test_case("Dictionary") do
-          def build_array
-            values = ["a", "b", "c", nil, "a"]
-            string_array = Arrow::StringArray.new(values)
-            string_array.dictionary_encode
-          end
+        def test_dictionary
+          values = ["a", "b", "c", nil, "a"]
+          string_array = Arrow::StringArray.new(values)
+          array = string_array.dictionary_encode
+          type, values = roundtrip(array)
+          assert_equal([
+                         "dictionary<values=string, " +
+                         "indices=int32, " +
+                         "ordered=0>",
+                         ["a", "b", "c", nil, "a"],
+                       ],
+                       [type.to_s, values])
+        end
 
-          def test_write
-            assert_equal(["a", "b", "c", nil, "a"],
-                         @values)
-          end
+        def build_dictionary_delta_schema(value_type)
+          index_type = ArrowFormat::Int32Type.singleton
+          ordered = false
+          type = ArrowFormat::DictionaryType.new(index_type,
+                                                 value_type,
+                                                 ordered)
+          nullable = true
+          dictionary_id = 1
+          field = ArrowFormat::Field.new("value",
+                                         type,
+                                         nullable,
+                                         dictionary_id)
+          ArrowFormat::Schema.new([field])
+        end
+
+        def build_dictionary_array(type, indices, dictionary)
+          indices_buffer = IO::Buffer.for(indices.pack("l<*"))
+          ArrowFormat::DictionaryArray.new(type,
+                                           indices.size,
+                                           nil,
+                                           indices_buffer,
+                                           dictionary)
+        end
+
+        def test_dictionary_delta_utf8
+          value_type = ArrowFormat::UTF8Type.singleton
+          schema = build_dictionary_delta_schema(value_type)
+          type = schema.fields[0].type
+
+          dictionary = convert_array(Arrow::StringArray.new(["a", "b", "c"]))
+          # ["c", "a", "b", "a", "a"]
+          indices = [2, 0, 1, 0, 0]
+          array = build_dictionary_array(type, indices, dictionary)
+          record_batch =
+            ArrowFormat::RecordBatch.new(schema, array.size, [array])
+
+          dictionary_more =
+            convert_array(Arrow::StringArray.new(["a", "b", "c", "d", "e"]))
+          # ["e", "a", "c", "d", "b", "d"]
+          indices = [4, 0, 2, 3, 1, 3]
+          array = build_dictionary_array(type, indices, dictionary_more)
+          record_batch_delta =
+            ArrowFormat::RecordBatch.new(schema, array.size, [array])
+
+          type, values = roundtrip(record_batch, record_batch_delta)
+          assert_equal([
+                         "dictionary<values=string, " +
+                         "indices=int32, " +
+                         "ordered=0>",
+                         ["c", "a", "b", "a", "a"] +
+                         ["e", "a", "c", "d", "b", "d"],
+                       ],
+                       [type.to_s, values])
         end
       end
     end
@@ -996,35 +919,23 @@ end
 class TestFileWriter < Test::Unit::TestCase
   include WriterTests
 
-  def setup
-    Dir.mktmpdir do |tmp_dir|
-      path = File.join(tmp_dir, "data.arrow")
-      File.open(path, "wb") do |output|
-        writer = ArrowFormat::FileWriter.new(output)
-        write(writer)
-      end
-      data = File.open(path, "rb", &:read).freeze
-      table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrow)
-      @type = table.value.data_type
-      @values = table.value.values
-    end
+  def file_extension
+    "arrow"
+  end
+
+  def writer_class
+    ArrowFormat::FileWriter
   end
 end
 
 class TestStreamingWriter < Test::Unit::TestCase
   include WriterTests
 
-  def setup
-    Dir.mktmpdir do |tmp_dir|
-      path = File.join(tmp_dir, "data.arrows")
-      File.open(path, "wb") do |output|
-        writer = ArrowFormat::StreamingWriter.new(output)
-        write(writer)
-      end
-      data = File.open(path, "rb", &:read).freeze
-      table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrows)
-      @type = table.value.data_type
-      @values = table.value.values
-    end
+  def file_extension
+    "arrows"
+  end
+
+  def writer_class
+    ArrowFormat::StreamingWriter
   end
 end
