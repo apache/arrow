@@ -4013,7 +4013,7 @@ cdef class DictionaryArray(Array):
         type : pyarrow.DataType
         length : int
             The number of values in the array.
-        buffers : List[Buffer]
+        buffers : List[Buffer | None]
             The buffers backing the indices array.
         dictionary : pyarrow.Array, ndarray or pandas.Series
             The array of values referenced by the indices.
