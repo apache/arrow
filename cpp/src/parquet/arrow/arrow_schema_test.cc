@@ -2049,6 +2049,9 @@ TEST_F(TestConvertRoundTrip, MapNestedFieldMetadataPreserved) {
       restored_schema->field(0)->type());
   ASSERT_EQ(GetFieldId(*restored_schema->field(0)), 99);
 
+  // It's a pity that we cannot directly use AssertTypeEqual on restored_map and
+  // sorted_map because ::arrow::MapType uses "entries" as the inner field name
+  // but Parquet uses "key_value" (see MapToNode in parquet/arrow/schema.cc).
   ASSERT_TRUE(restored_map->keys_sorted());
   ASSERT_NE(restored_map->key_field()->metadata(), nullptr);
   ASSERT_EQ(restored_map->key_field()->metadata()->Get("k").ValueOrDie(), "v");
