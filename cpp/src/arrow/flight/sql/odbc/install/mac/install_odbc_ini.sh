@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
@@ -19,24 +19,27 @@
 
 # GH-47876 TODO: create macOS ODBC Installer.
 # Script for installing macOS ODBC driver, to be used for macOS installer.
+# This script assumes ODBC driver is at 
+# /Library/ODBC/arrow-odbc/libarrow_flight_sql_odbc.dylib
+
+set -euo pipefail
+
+if [ $EUID -ne 0 ]; then 
+    echo "Please run this script with sudo"
+    exit 1
+fi
 
 source_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 odbc_install_script="${source_dir}/install_odbc.sh"
 
-chmod +x "$odbc_install_script"
-. "$odbc_install_script" /Library/Apache/ArrowFlightSQLODBC/lib/libarrow_flight_sql_odbc.dylib
+"$odbc_install_script" /Library/ODBC/arrow-odbc/libarrow_flight_sql_odbc.dylib
 
 USER_ODBC_FILE="$HOME/Library/ODBC/odbc.ini"
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
 DSN_NAME="Apache Arrow Flight SQL ODBC DSN"
 
 touch "$USER_ODBC_FILE"
-
-if [ $EUID -ne 0 ]; then 
-    echo "Please run this script with sudo"
-    exit 1
-fi
 
 if grep -q "^\[$DSN_NAME\]" "$USER_ODBC_FILE"; then
   echo "DSN [$DSN_NAME] already exists in $USER_ODBC_FILE"
