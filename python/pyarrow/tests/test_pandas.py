@@ -4956,7 +4956,7 @@ def test_timestamp_as_object_non_nanosecond(resolution, tz, dt):
         assert isinstance(result[0], datetime)
         if tz:
             assert result[0].tzinfo is not None
-            expected = dt.replace(tzinfo=timezone.utc).astimezone(result[0].tzinfo)
+            expected = dt.replace(tzinfo=timezone.utc).astimezone(ZoneInfo(tz))
         else:
             assert result[0].tzinfo is None
             expected = dt
