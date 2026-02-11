@@ -137,6 +137,16 @@ module ValuesDictionaryArrayTests
     assert_equal(values, target.values)
   end
 
+  def test_large_binary
+    values = [
+      "\x00".b,
+      nil,
+      "\xff".b,
+    ]
+    target = build(Arrow::LargeBinaryArray.new(values))
+    assert_equal(values, target.values)
+  end
+
   def test_string
     values = [
       "Ruby",
@@ -144,6 +154,16 @@ module ValuesDictionaryArrayTests
       "\u3042", # U+3042 HIRAGANA LETTER A
     ]
     target = build(Arrow::StringArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_large_string
+    values = [
+      "Ruby",
+      nil,
+      "\u3042", # U+3042 HIRAGANA LETTER A
+    ]
+    target = build(Arrow::LargeStringArray.new(values))
     assert_equal(values, target.values)
   end
 

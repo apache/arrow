@@ -16,6 +16,20 @@
 # under the License.
 
 module ReaderTests
+  def read
+    @reader.collect do |record_batch|
+      record_batch.to_h.tap do |hash|
+        hash.each do |key, value|
+          hash[key] = value.to_a
+        end
+      end
+    end
+  end
+
+  def type
+    @type ||= @reader.first.schema.fields[0].type
+  end
+
   class << self
     def included(base)
       base.class_eval do
@@ -901,20 +915,6 @@ class TestFileReader < Test::Unit::TestCase
       GC.start
     end
   end
-
-  def read
-    @reader.to_a.collect do |record_batch|
-      record_batch.to_h.tap do |hash|
-        hash.each do |key, value|
-          hash[key] = value.to_a
-        end
-      end
-    end
-  end
-
-  def type
-    @type ||= @reader.first.schema.fields[0].type
-  end
 end
 
 class TestStreamingReader < Test::Unit::TestCase
@@ -932,19 +932,5 @@ class TestStreamingReader < Test::Unit::TestCase
       end
       GC.start
     end
-  end
-
-  def read
-    @reader.collect do |record_batch|
-      record_batch.to_h.tap do |hash|
-        hash.each do |key, value|
-          hash[key] = value.to_a
-        end
-      end
-    end
-  end
-
-  def type
-    @type ||= @reader.first.schema.fields[0].type
   end
 end

@@ -117,13 +117,14 @@ module ArrowFormat
     def slice_offsets_buffer(id, buffer, buffer_type)
       slice_buffer(id, buffer) do
         offset_size = IO::Buffer.size_of(buffer_type)
-        buffer_offset = offset_size * (@offset - 1)
-        first_offset = buffer.get_value(buffer_type, buffer_offset)
+        buffer_offset = offset_size * @offset
+        first_offset = nil
         # TODO: Optimize
         sliced_buffer = IO::Buffer.new(offset_size * (@size + 1))
         buffer.each(buffer_type,
                     buffer_offset,
                     @size + 1).with_index do |(_, offset), i|
+          first_offset ||= offset
           new_offset = offset - first_offset
           sliced_buffer.set_value(buffer_type,
                                   offset_size * i,
@@ -271,6 +272,11 @@ module ArrowFormat
         [day, time]
       end
       apply_validity(values)
+    end
+
+    private
+    def element_size
+      super * 2
     end
   end
 
@@ -612,11 +618,15 @@ module ArrowFormat
 
   class DictionaryArray < Array
     attr_reader :indices_buffer
-    attr_reader :dictionary
-    def initialize(type, size, validity_buffer, indices_buffer, dictionary)
+    attr_reader :dictionaries
+    def initialize(type,
+                   size,
+                   validity_buffer,
+                   indices_buffer,
+                   dictionaries)
       super(type, size, validity_buffer)
       @indices_buffer = indices_buffer
-      @dictionary = dictionary
+      @dictionaries = dictionaries
     end
 
     # TODO: Slice support
@@ -629,8 +639,8 @@ module ArrowFormat
 
     def to_a
       values = []
-      @dictionary.each do |dictionary_chunk|
-        values.concat(dictionary_chunk.to_a)
+      @dictionaries.each do |dictionary|
+        values.concat(dictionary.to_a)
       end
       buffer_type = @type.index_type.buffer_type
       offset = IO::Buffer.size_of(buffer_type) * @offset

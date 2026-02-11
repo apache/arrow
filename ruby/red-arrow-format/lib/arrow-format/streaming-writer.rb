@@ -111,27 +111,32 @@ module ArrowFormat
 
     def write_dictionary(id, dictionary_array)
       value_type = dictionary_array.type.value_type
-      dictionary = dictionary_array.dictionary
+      base_offset = 0
+      dictionary_array.dictionaries.each do |dictionary|
+        written_offset = @written_dictionary_offsets[id] || 0
+        current_base_offset = base_offset
+        next_base_offset = base_offset + dictionary.size
+        base_offset = next_base_offset
 
-      offset = @written_dictionary_offsets[id]
-      if offset.nil?
-        is_delta = false
-      else
-        is_delta = true
-        dictionary = dictionary.slice(offset)
+        next if next_base_offset <= written_offset
+
+        is_delta = (not written_offset.zero?)
+        if current_base_offset < written_offset
+          dictionary = dictionary.slice(written_offset - current_base_offset)
+        end
+
+        schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+        size = dictionary.size
+        record_batch = RecordBatch.new(schema, size, [dictionary])
+        fb_dictionary_batch = FB::DictionaryBatch::Data.new
+        fb_dictionary_batch.id = id
+        fb_dictionary_batch.data = record_batch.to_flatbuffers
+        fb_dictionary_batch.delta = is_delta
+        write_record_batch_based_message(record_batch,
+                                         fb_dictionary_batch,
+                                         @fb_dictionary_blocks)
+        @written_dictionary_offsets[id] = written_offset + dictionary.size
       end
-
-      schema = Schema.new([Field.new("dummy", value_type, true, nil)])
-      size = dictionary.size
-      record_batch = RecordBatch.new(schema, size, [dictionary])
-      fb_dictionary_batch = FB::DictionaryBatch::Data.new
-      fb_dictionary_batch.id = id
-      fb_dictionary_batch.data = record_batch.to_flatbuffers
-      fb_dictionary_batch.delta = is_delta
-      write_record_batch_based_message(record_batch,
-                                       fb_dictionary_batch,
-                                       @fb_dictionary_blocks)
-      @written_dictionary_offsets[id] = dictionary_array.dictionary.size
     end
 
     def write_message(metadata)
