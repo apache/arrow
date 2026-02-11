@@ -40,6 +40,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
 #include "arrow/util/base64.h"
+#include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
 
 using arrow::Field;
@@ -2016,6 +2017,53 @@ TEST_F(TestConvertRoundTrip, FieldIdPreserveAllColumnTypes) {
       std::vector<int>{0, 2, 4, 6, 8, 10, 12, 14, 16, 18, 0, 20, 22, 0, 24, 26};
   auto thrift_field_ids = GetThriftFieldIds(parquet_format_schema_);
   ASSERT_EQ(thrift_field_ids, expected_field_ids);
+}
+
+TEST_F(TestConvertRoundTrip, MapNestedFieldMetadataPreserved) {
+  auto key_meta = ::arrow::key_value_metadata({"k"}, {"v"});
+  auto inner_meta = ::arrow::key_value_metadata({"inner_k"}, {"inner_v"});
+
+  auto map_key = ::arrow::field("key", UTF8, /*nullable=*/false, key_meta);
+  auto map_value = ::arrow::field(
+      "value",
+      ::arrow::struct_({::arrow::field("inner", INT64, /*nullable=*/true, inner_meta)}),
+      /*nullable=*/true, inner_meta);
+  auto sorted_map =
+      std::make_shared<::arrow::MapType>(map_key, map_value, /*keys_sorted=*/true);
+  auto arrow_schema = ::arrow::schema(
+      {::arrow::field("m", sorted_map, /*nullable=*/true, FieldIdMetadata(99))});
+
+  std::shared_ptr<SchemaDescriptor> parquet_schema;
+  ASSERT_OK(ToParquetSchema(arrow_schema.get(), *::parquet::default_writer_properties(),
+                            &parquet_schema));
+
+  std::shared_ptr<KeyValueMetadata> kv_metadata;
+  ASSERT_OK(ArrowSchemaToParquetMetadata(arrow_schema, kv_metadata));
+
+  std::shared_ptr<::arrow::Schema> restored_schema;
+  ASSERT_OK(FromParquetSchema(parquet_schema.get(), ArrowReaderProperties(), kv_metadata,
+                              &restored_schema));
+  ASSERT_EQ(restored_schema->num_fields(), 1);
+
+  auto restored_map = ::arrow::internal::checked_pointer_cast<::arrow::MapType>(
+      restored_schema->field(0)->type());
+  ASSERT_EQ(GetFieldId(*restored_schema->field(0)), 99);
+
+  // It's a pity that we cannot directly use AssertTypeEqual on restored_map and
+  // sorted_map because ::arrow::MapType uses "entries" as the inner field name
+  // but Parquet uses "key_value" (see MapToNode in parquet/arrow/schema.cc).
+  ASSERT_TRUE(restored_map->keys_sorted());
+  ASSERT_NE(restored_map->key_field()->metadata(), nullptr);
+  ASSERT_EQ(restored_map->key_field()->metadata()->Get("k").ValueOrDie(), "v");
+
+  ASSERT_NE(restored_map->item_field()->metadata(), nullptr);
+  ASSERT_EQ(restored_map->item_field()->metadata()->Get("inner_k").ValueOrDie(),
+            "inner_v");
+
+  auto restored_struct = restored_map->item_type();
+  ASSERT_NE(restored_struct->field(0)->metadata(), nullptr);
+  ASSERT_EQ(restored_struct->field(0)->metadata()->Get("inner_k").ValueOrDie(),
+            "inner_v");
 }
 
 TEST(InvalidSchema, ParquetNegativeDecimalScale) {

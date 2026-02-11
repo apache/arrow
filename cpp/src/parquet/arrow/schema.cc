@@ -991,6 +991,16 @@ std::function<std::shared_ptr<::arrow::DataType>(FieldVector)> GetNestedFactory(
         };
       }
       break;
+    case ::arrow::Type::MAP:
+      if (origin_type.id() == ::arrow::Type::MAP) {
+        const bool keys_sorted =
+            checked_cast<const ::arrow::MapType&>(origin_type).keys_sorted();
+        return [keys_sorted](FieldVector fields) {
+          DCHECK_EQ(fields.size(), 1);
+          return std::make_shared<::arrow::MapType>(std::move(fields[0]), keys_sorted);
+        };
+      }
+      break;
     default:
       break;
   }
