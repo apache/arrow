@@ -149,7 +149,7 @@ jobs:
         include:
           - architecture: AMD64
             macos-version: "15-intel"
-            large-memory-tests: "ON"
+            large-memory-tests: "OFF"
           - architecture: ARM64
             macos-version: "14"
             large-memory-tests: "ON"
