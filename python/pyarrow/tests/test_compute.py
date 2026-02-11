@@ -2819,7 +2819,9 @@ def test_round_temporal(unit):
         "2026-10-26 08:39:00.316686848"]
 
     # Windows timezone database appears to disagree with IANA timezone database on
-    # some historical timestamps. We exclude those timestamps from testing on Windows
+    # some historical timestamps. We exclude those timestamps from testing on Windows.
+    # Specifically removing:
+    # "1941-05-27 11:46:43.822831872" and "1943-12-14 07:32:05.424766464"
     if sys.platform == "win32":
         timestamps = timestamps[:3] + timestamps[5:]
 
