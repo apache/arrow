@@ -24,6 +24,7 @@ import warnings
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import hypothesis as h
 import hypothesis.strategies as st
