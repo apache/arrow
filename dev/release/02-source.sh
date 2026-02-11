@@ -60,6 +60,7 @@ fi
 echo "Using commit $release_hash"
 
 tarball=apache-arrow-${version}.tar.gz
+tarball_hash=""
 
 if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
   # Wait for the release candidate workflow to finish before attempting
@@ -88,6 +89,9 @@ if [ ${SOURCE_UPLOAD} -gt 0 ]; then
   # commit to svn
   svn add tmp/${tag}
   svn ci -m "Apache Arrow ${version} RC${rc}" tmp/${tag}
+
+  # save hash for SOURCE_VOTE step
+  tarball_hash=$(awk '{print $1}' "artifacts/${tarball}.sha512")
 
   # clean up
   rm -rf artifacts
@@ -130,8 +134,12 @@ if [ ${SOURCE_VOTE} -gt 0 ]; then
   curl_options+=(--data "head=apache:${rc_branch}")
   curl_options+=(https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls)
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
-  # read the checksum so we can include it in the vote thread email
-  tarball_hash=$(curl -s "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-${version}-rc${rc}/${tarball}.sha512" | awk '{print $1}')
+
+  # get the hash if it wasn't already set (like when this is run with
+  # SOURCE_DEFAULT=0 SOURCE_VOTE=1).
+  if [ -z "${tarball_hash}" ]; then
+    tarball_hash=$(curl -s "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-${version}-rc${rc}/${tarball}.sha512" | awk '{print $1}')
+  fi
 
   echo "The following draft email has been created to send to the"
   echo "dev@arrow.apache.org mailing list"
