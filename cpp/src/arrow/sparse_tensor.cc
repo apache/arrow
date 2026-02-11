@@ -406,9 +406,19 @@ std::string SparseCSFIndex::ToString() const { return std::string("SparseCSFInde
 
 bool SparseCSFIndex::Equals(const SparseCSFIndex& other) const {
   auto eq = [](const auto& a, const auto& b) { return a->Equals(*b); };
+// TODO: remove the use of std::equal when we no longer have partial C++20 support with
+// CRAN.
+#if defined(__cpp_lib_ranges) && __cpp_lib_ranges >= 201911L
   return axis_order() == other.axis_order() &&
          std::ranges::equal(indices(), other.indices(), eq) &&
          std::ranges::equal(indptr(), other.indptr(), eq);
+#else
+  return axis_order() == other.axis_order() &&
+         std::equal(indices().begin(), indices().end(), other.indices().begin(),
+                    other.indices().end(), eq) &&
+         std::equal(indptr().begin(), indptr().end(), other.indptr().begin(),
+                    other.indptr().end(), eq);
+#endif
 }
 
 // ----------------------------------------------------------------------
