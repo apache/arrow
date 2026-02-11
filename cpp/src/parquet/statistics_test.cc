@@ -523,7 +523,7 @@ std::vector<ByteArray> TestStatistics<ByteArrayType>::GetDeepCopy(
   for (const ByteArray& ba : values) {
     uint8_t* ptr;
     PARQUET_THROW_NOT_OK(pool->Allocate(ba.len, &ptr));
-    memcpy(ptr, ba.ptr, ba.len);
+    SafeMemcpy(ptr, ba.ptr, ba.len);
     copy.emplace_back(ba.len, ptr);
   }
   return copy;
