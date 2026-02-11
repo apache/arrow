@@ -133,17 +133,19 @@ constexpr auto select_stride_impl(Arr shifts) {
 ///         |1|3|5|7|
 template <typename ToInt, int kOffset, typename Int, typename Arch, Int... kShifts>
 constexpr auto select_stride(xsimd::batch_constant<Int, Arch, kShifts...>) {
+  static_assert(kOffset < sizeof(ToInt) / sizeof(Int));
   constexpr auto kStridesArr =
       select_stride_impl<ToInt, kOffset, sizeof(ToInt) / sizeof(Int)>(
           std::array{kShifts...});
   return array_to_batch_constant<kStridesArr, Arch>();
 }
 
-/// Whether we are compiling for the SSE2 or above in the SSE family.
+/// Whether we are compiling for the SSE2 or above in the SSE family (not AVX).
 template <typename Arch>
 constexpr bool IsSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
 
-/// Whether we are compiling for the AVX2 or above in the SSE family.
+/// Whether we are compiling for the AVX2 or above in the AVX family (e.g. AVX2+FMA3 as
+/// implemented in xsimd but not AVX512).
 template <typename Arch>
 constexpr bool IsAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
@@ -635,8 +637,10 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
 ///
 ///     | ~ Val AAA       | ~ Val CCC       || ~ Val BBB       | ~ Val DDD       |
 ///
-/// Resulting in the following swizzled register.
+/// Resulting in the following swizzled uint8_t permutation indices on the first line and
+/// resulting swizzled register on the second.
 ///
+///     | Idx 0  | Idx 1  | Idx 0  | Idx 1  || Idx 0  | Idx 1  | Idx 1  | Idx 2  |
 ///     |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||AAABBBCC|CDDDEEEF|CDDDEEEF|FFGGGHHH|
 ///
 /// Now we will apply shift and mask operations to properly align the values.
@@ -921,7 +925,7 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
 /// We then apply different shifts to align the values bits. The low values are
 /// right-shifted by the bit offset, and the high values are left-shifted to fill the gap.
 /// Note that because of the figure is little endian, right (>>) and left (<<) shift
-/// operators actually shifts the bits representation in the oppostite directions.
+/// operators actually shift the bits representation in the opposite directions.
 ///
 ///         | Align A w. >> 0 || Align B w. >> 5 |
 ///   low:  |AAAAAAAA|AAAAABBB||BBBBBBBBB|BB00000|
@@ -935,7 +939,7 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
 /// bitwise OR of both parts:
 ///
 ///         |AAAAAAAA|AAAAABBB||BBBBBBBBB|BB00000|
-///       & |00000000|AAAAABBB||000BBBBB|BBBBBCCC|
+///       | |00000000|AAAAABBB||000BBBBB|BBBBBCCC|
 ///       = |AAAAAAAA|AAAAABBB||BBBBBBBB|BBBBBCCC|
 ///
 /// Followed by a bitwise AND mask using the same values on both uint16_t:
