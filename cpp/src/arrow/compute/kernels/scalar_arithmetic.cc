@@ -663,7 +663,7 @@ void AddDecimalBinaryKernels(const std::string& name, ScalarFunction* func) {
   OutputType out_type(null());
   std::shared_ptr<MatchConstraint> constraint = nullptr;
   const std::string op = name.substr(0, name.find("_"));
-  if (op == "add" || op == "subtract") {
+  if (op == "add" || op == "subtract" || op == "remainder" || op == "mod") {
     out_type = OutputType(ResolveDecimalAdditionOrSubtractionOutput);
     constraint = DecimalsHaveSameScale();
   } else if (op == "multiply") {
@@ -776,7 +776,7 @@ struct ArithmeticFunction : ScalarFunction {
       // "add_checked" -> "add"
       const auto func_name = name();
       const std::string op = func_name.substr(0, func_name.find("_"));
-      if (op == "add" || op == "subtract") {
+      if (op == "add" || op == "subtract" || op == "remainder" || op == "mod") {
         return CastBinaryDecimalArgs(DecimalPromotion::kAdd, types);
       } else if (op == "multiply") {
         return CastBinaryDecimalArgs(DecimalPromotion::kMultiply, types);
@@ -1162,6 +1162,40 @@ const FunctionDoc div_doc{
 const FunctionDoc div_checked_doc{
     "Divide the arguments element-wise",
     ("An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc remainder_doc{
+    "Compute the remainder after integer division (truncated)",
+    ("Returns the remainder after dividing the dividend by the divisor.\n"
+     "The result has the same sign as the dividend (truncated division).\n"
+     "This is equivalent to the C/C++ '%' operator.\n"
+     "Integer division by zero returns an error."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc remainder_checked_doc{
+    "Compute the remainder after integer division (truncated)",
+    ("Returns the remainder after dividing the dividend by the divisor.\n"
+     "The result has the same sign as the dividend (truncated division).\n"
+     "This is equivalent to the C/C++ '%' operator.\n"
+     "An error is returned when trying to divide by zero, or when\n"
+     "integer overflow is encountered."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc mod_doc{
+    "Compute the modulo (floored)",
+    ("Returns the modulo after floored division.\n"
+     "The result has the same sign as the divisor (floored division).\n"
+     "This is equivalent to Python's '%' operator.\n"
+     "Integer division by zero returns an error."),
+    {"dividend", "divisor"}};
+
+const FunctionDoc mod_checked_doc{
+    "Compute the modulo (floored)",
+    ("Returns the modulo after floored division.\n"
+     "The result has the same sign as the divisor (floored division).\n"
+     "This is equivalent to Python's '%' operator.\n"
+     "An error is returned when trying to divide by zero, or when\n"
      "integer overflow is encountered."),
     {"dividend", "divisor"}};
 
@@ -1707,6 +1741,28 @@ void RegisterScalarArithmetic(FunctionRegistry* registry) {
   }
 
   DCHECK_OK(registry->AddFunction(std::move(divide_checked)));
+
+  // ----------------------------------------------------------------------
+  auto remainder = MakeArithmeticFunctionNotNull<Remainder>("remainder", remainder_doc);
+  AddDecimalBinaryKernels<Remainder>("remainder", remainder.get());
+  DCHECK_OK(registry->AddFunction(std::move(remainder)));
+
+  // ----------------------------------------------------------------------
+  auto remainder_checked = MakeArithmeticFunctionNotNull<RemainderChecked>(
+      "remainder_checked", remainder_checked_doc);
+  AddDecimalBinaryKernels<RemainderChecked>("remainder_checked", remainder_checked.get());
+  DCHECK_OK(registry->AddFunction(std::move(remainder_checked)));
+
+  // ----------------------------------------------------------------------
+  auto mod = MakeArithmeticFunctionNotNull<Mod>("mod", mod_doc);
+  AddDecimalBinaryKernels<Mod>("mod", mod.get());
+  DCHECK_OK(registry->AddFunction(std::move(mod)));
+
+  // ----------------------------------------------------------------------
+  auto mod_checked =
+      MakeArithmeticFunctionNotNull<ModChecked>("mod_checked", mod_checked_doc);
+  AddDecimalBinaryKernels<ModChecked>("mod_checked", mod_checked.get());
+  DCHECK_OK(registry->AddFunction(std::move(mod_checked)));
 
   // ----------------------------------------------------------------------
   auto negate = MakeUnaryArithmeticFunction<Negate>("negate", negate_doc);
