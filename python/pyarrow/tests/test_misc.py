@@ -80,8 +80,7 @@ def test_env_var_io_thread_count():
     for v in ('-1', 'z'):
         out, err = run_with_env_var(v)
         assert out.strip() == '8'  # default value
-        assert ("ARROW_IO_THREADS does not contain a valid number of threads"
-                in err.strip())
+        assert "Invalid value for ARROW_IO_THREADS" in err.strip()
 
 
 def test_build_info():
