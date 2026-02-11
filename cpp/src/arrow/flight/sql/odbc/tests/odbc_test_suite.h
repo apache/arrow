@@ -206,7 +206,13 @@ class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase 
 };
 
 /** ODBC read buffer size. */
+#ifdef __APPLE__
+// iODBC driver manager may crash with smaller buffer sizes
+// so we use a larger buffer on MacOS
+static constexpr int kOdbcBufferSize = 2048;
+#else
 static constexpr int kOdbcBufferSize = 1024;
+#endif  // __APPLE__
 
 /// Compare ConnPropertyMap, key value is case-insensitive
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,

@@ -554,7 +554,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
   switch (statement_attribute) {
     case SQL_ATTR_APP_PARAM_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (current_apd_ != desc) {
+      if (desc && current_apd_ != desc) {
         if (current_apd_ != built_in_apd_.get()) {
           current_apd_->DetachFromStatement(this, true);
         }
@@ -567,7 +567,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
     }
     case SQL_ATTR_APP_ROW_DESC: {
       ODBCDescriptor* desc = static_cast<ODBCDescriptor*>(value);
-      if (current_ard_ != desc) {
+      if (desc && current_ard_ != desc) {
         if (current_ard_ != built_in_ard_.get()) {
           current_ard_->DetachFromStatement(this, false);
         }
