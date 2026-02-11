@@ -2299,6 +2299,24 @@ def test_roundtrip_nanosecond_resolution_pandas_temporal_objects():
     ]
 
 
+@pytest.mark.pandas
+def test_from_pydict_pandas_timedelta_from_replace():
+    import pandas as pd
+
+    now = pd.Timestamp("2022-03-03 10:00:00", tz="America/New_York")
+    start_of_day = now.replace(
+        hour=0, minute=0, second=0, microsecond=0, nanosecond=0
+    )
+    delta = now - start_of_day
+
+    data = {"delta": [delta]}
+    table = pa.Table.from_pydict(data)
+
+    result = table["delta"][0].as_py()
+    assert isinstance(result, pd.Timedelta)
+    assert result == delta
+
+
 @pytest.mark.numpy
 @h.given(past.all_arrays)
 def test_array_to_pylist_roundtrip(arr):

@@ -6440,6 +6440,40 @@ def concat_batches(recordbatches, MemoryPool memory_pool=None):
     return pyarrow_wrap_batch(c_result_recordbatch)
 
 
+def _maybe_box_pandas_temporals(values):
+    """
+    If `values` is a plain Python sequence containing pandas temporal scalars
+    (e.g. Timedelta), wrap it in a pandas Series so that `pa.array` will use
+    the pandas-aware conversion path (from_pandas=True).
+    """
+    try:
+        # Local import to avoid importing pandas machinery when not needed.
+        from pyarrow.pandas_compat import _pandas_api  # type: ignore
+    except Exception:
+        return values
+
+    if not _pandas_api.have_pandas:
+        return values
+
+    pd = _pandas_api.pd
+
+    # If it's already a Series / Index, let the normal path handle it.
+    if isinstance(values, (pd.Series, pd.Index)):
+        return values
+
+    # Only consider simple sequences; leave Arrow arrays and other types alone.
+    if not isinstance(values, (list, tuple)):
+        return values
+
+    # Cheap scan: if any element is a pandas Timedelta (or Timestamp),
+    # box the whole sequence into a Series so Arrow can convert it properly.
+    for x in values:
+        if isinstance(x, (pd.Timedelta, pd.Timestamp)):
+            return pd.Series(values)
+
+    return values
+
+
 def _from_pydict(cls, mapping, schema, metadata, personal_data):
     """
     Construct a Table/RecordBatch from Arrow arrays or columns.
@@ -6467,6 +6501,7 @@ def _from_pydict(cls, mapping, schema, metadata, personal_data):
         names = []
         for k, v in mapping.items():
             names.append(k)
+            v = _maybe_box_pandas_temporals(v)
             arrays.append(asarray(v))
         return cls.from_arrays(arrays, names, metadata=metadata)
     elif isinstance(schema, Schema):
@@ -6484,6 +6519,7 @@ def _from_pydict(cls, mapping, schema, metadata, personal_data):
                         "following field(s) of the schema: {}".
                         format(', '.join(missing))
                     )
+            v = _maybe_box_pandas_temporals(v)
             arrays.append(asarray(v, type=field.type))
         # Will raise if metadata is not None
         return cls.from_arrays(arrays, schema=schema, metadata=metadata,
