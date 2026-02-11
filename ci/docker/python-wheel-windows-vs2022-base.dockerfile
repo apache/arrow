@@ -142,5 +142,10 @@ RUN vcpkg install `
   --x-feature=gcs`
   --x-feature=json`
   --x-feature=orc`
-  --x-feature=parquet`
+  --x-feature=azure `
+--x-feature=flight `
+--x-feature=gcs `
+--x-feature=json `
+--x-feature=orc `
+--x-feature=parquet `
   --x-feature=s3
