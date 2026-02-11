@@ -60,6 +60,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         name:
           - conda-python-docs
@@ -145,6 +146,7 @@ jobs:
     timeout-minutes: 60
     strategy:
       fail-fast: false
+      max-parallel: 20
       matrix:
         include:
           - architecture: AMD64
