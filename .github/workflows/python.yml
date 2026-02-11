@@ -176,9 +176,9 @@ jobs:
       ARROW_WITH_BROTLI: ON
       ARROW_BUILD_TESTS: OFF
       PYARROW_TEST_LARGE_MEMORY: ${{ matrix.large-memory-tests }}
-      PYTEST_ARGS: "--durations=40 -v"
+      PYTEST_ARGS: "--durations=40"
       # Current oldest supported version according to https://endoflife.date/macos
-      MACOSX_DEPLOYMENT_TARGET: 12.0
+      MACOSX_DEPLOYMENT_TARGET: 14.0
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
