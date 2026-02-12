@@ -228,6 +228,44 @@ allowing to more easily read arrays bigger than the total memory.
       print("LEN:", len(loaded_array))
       print("RSS: {}MB".format(pa.total_allocated_bytes() >> 20))
 
+Security considerations for untrusted IPC data
+----------------------------------------------
+
+When you read Arrow IPC streams or files from untrusted or semi-trusted sources,
+you should not assume that all array buffers and metadata are fully validated.
+After deserializing record batches or tables, it is recommended to explicitly
+validate the data structures in memory.
+
+PyArrow provides validation helpers on the core tabular types:
+
+* :meth:`~pyarrow.RecordBatch.validate`
+* :meth:`~pyarrow.Table.validate`
+
+For example, when consuming an IPC stream from an untrusted source:
+
+.. code-block:: python
+
+   import pyarrow as pa
+
+   with pa.ipc.open_stream(source) as reader:
+       for batch in reader:
+           # Perform inexpensive structural and value validation
+           batch.validate()
+           # Or, for more thorough checks:
+           # batch.validate(full=True)
+
+Similarly, when reading an IPC file:
+
+.. code-block:: python
+
+   with pa.ipc.open_file(source) as reader:
+       table = reader.read_all()
+       table.validate()
+
+These APIs complement the structural checks performed while parsing the IPC
+stream or file, and are especially useful when handling data that originates
+outside of your own trust boundary.
+
 .. note::
 
    Other high level APIs like :meth:`~pyarrow.parquet.read_table` also provide a
