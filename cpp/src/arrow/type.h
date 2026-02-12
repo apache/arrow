@@ -2645,4 +2645,17 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 ARROW_EXPORT
 const std::vector<Type::type>& DecimalTypeIds();
 
+/// \brief Create a data type instance from a type ID for parameter-free types
+///
+/// This function creates a data type instance for types that don't require
+/// additional parameters (where TypeTraits<T>::is_parameter_free is true).
+/// For types that require parameters (like TimestampType or ListType),
+/// this function will return an error.
+///
+/// \param[in] id The type ID to create a type instance for
+/// \return The type instance for the given type ID,
+///         or a TypeError if the type requires parameters
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
+
 }  // namespace arrow

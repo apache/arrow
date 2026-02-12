@@ -33,12 +33,14 @@
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 
 namespace arrow {
 
@@ -48,6 +50,41 @@ using internal::checked_pointer_cast;
 TEST(TestTypeId, AllTypeIds) {
   const auto all_ids = AllTypeIds();
   ASSERT_EQ(static_cast<int>(all_ids.size()), Type::MAX_ID);
+}
+
+TEST(TestTypeSingleton, ParameterFreeTypes) {
+  // Test successful cases - parameter-free types (sample a few)
+  std::vector<std::pair<Type::type, std::shared_ptr<DataType>>> cases = {
+      {Type::NA, null()},
+      {Type::BOOL, boolean()},
+      {Type::INT32, int32()},
+      {Type::STRING, utf8()},
+      {Type::DATE32, date32()},
+  };
+
+  for (const auto& test_case : cases) {
+    SCOPED_TRACE("Testing type: " + std::to_string(static_cast<int>(test_case.first)));
+    auto result = type_singleton(test_case.first);
+    ASSERT_OK_AND_ASSIGN(auto type, result);
+    ASSERT_TRUE(type->Equals(*test_case.second))
+        << "Failed on type " << test_case.first << ". Expected "
+        << test_case.second->ToString() << " but got " << type->ToString();
+  }
+}
+
+TEST(TestTypeSingleton, ParameterizedTypes) {
+  // Test error cases - parameterized types (test one representative)
+  auto result = type_singleton(Type::TIMESTAMP);
+  ASSERT_RAISES(TypeError, result);
+  EXPECT_THAT(result.status().message(),
+              testing::HasSubstr("is not a parameter-free singleton type"));
+}
+
+TEST(TestTypeSingleton, InvalidType) {
+  // Test with an invalid type ID
+  auto result = type_singleton(static_cast<Type::type>(9999));
+  ASSERT_FALSE(result.ok());
+  EXPECT_TRUE(result.status().IsTypeError());
 }
 
 template <typename ReprFunc>

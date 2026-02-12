@@ -16,10 +16,8 @@
 // under the License.
 
 #include "arrow/type_traits.h"
-
+#include "arrow/type.h"
 #include "arrow/util/logging_internal.h"
-
-namespace arrow {
 
 int RequiredValueAlignmentForBuffer(Type::type type_id, int buffer_index) {
   if (buffer_index == 2 && type_id == Type::DENSE_UNION) {
