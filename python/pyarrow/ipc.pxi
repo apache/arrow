@@ -1102,6 +1102,15 @@ cdef class _RecordBatchStreamReader(RecordBatchReader):
             raise ValueError("Operation on closed reader")
         return _wrap_read_stats(self.stream_reader.stats())
 
+    @property
+    def dictionary_memo(self):
+        """
+        The DictionaryMemo associated with this reader.
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return DictionaryMemo.wrap(self.stream_reader.dictionary_memo(), self)
+
 
 cdef class _RecordBatchFileWriter(_RecordBatchStreamWriter):
 
@@ -1292,6 +1301,15 @@ cdef class _RecordBatchFileReader(_Weakrefable):
         """
         wrapped = pyarrow_wrap_metadata(self.reader.get().metadata())
         return wrapped.to_dict() if wrapped is not None else None
+
+    @property
+    def dictionary_memo(self):
+        """
+        The DictionaryMemo associated with this reader.
+        """
+        if not self.reader:
+            raise ValueError("Operation on closed reader")
+        return DictionaryMemo.wrap(self.reader.get().dictionary_memo(), self)
 
 
 def get_tensor_size(Tensor tensor):
@@ -1502,3 +1520,31 @@ def read_record_batch(obj, Schema schema,
                             CIpcReadOptions.Defaults()))
 
     return pyarrow_wrap_batch(result)
+
+
+def read_dictionary_message(obj, DictionaryMemo dictionary_memo):
+    """
+    Read a dictionary message into a DictionaryMemo.
+
+    If the memo already contains a dictionary with the same id, it is
+    replaced. The memo must already have dictionary types registered,
+    typically from a prior read_schema call with the same memo.
+
+    Parameters
+    ----------
+    obj : Message or Buffer-like
+        A message of type DICTIONARY_BATCH.
+    dictionary_memo : DictionaryMemo
+        Memo to populate with the dictionary data.
+    """
+    cdef Message message
+
+    if isinstance(obj, Message):
+        message = obj
+    else:
+        message = read_message(obj)
+
+    with nogil:
+        check_status(ReadDictionary(deref(message.message.get()),
+                                    dictionary_memo.memo,
+                                    CIpcReadOptions.Defaults()))

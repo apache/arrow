@@ -3131,6 +3131,43 @@ cdef class RecordBatch(_Tabular):
                 SerializeRecordBatch(deref(self.batch), options))
         return pyarrow_wrap_buffer(buffer)
 
+    def serialize_dictionaries(self, DictionaryMemo dictionary_memo,
+                               memory_pool=None):
+        """
+        Serialize IPC dictionary messages needed for this RecordBatch.
+
+        For each dictionary-encoded column, checks the memo to determine
+        whether serialization is needed. Dictionaries are deduplicated by
+        pointer identity: if the memo already contains the same dictionary
+        object, it is skipped. If a different dictionary object exists for
+        the same field, a replacement message is emitted and the memo is
+        updated.
+
+        Parameters
+        ----------
+        dictionary_memo : DictionaryMemo
+            Tracks which dictionaries have already been serialized.
+            Updated in place with newly serialized dictionaries.
+        memory_pool : MemoryPool, default None
+            Uses default memory pool if not specified.
+
+        Returns
+        -------
+        list of Buffer
+            Serialized dictionary IPC messages, in dependency order.
+        """
+        self._assert_cpu()
+        cdef:
+            vector[shared_ptr[CBuffer]] c_buffers
+            CIpcWriteOptions options = CIpcWriteOptions.Defaults()
+        options.memory_pool = maybe_unbox_memory_pool(memory_pool)
+
+        with nogil:
+            c_buffers = GetResultValue(
+                CollectAndSerializeDictionaries(
+                    deref(self.batch), dictionary_memo.memo, options))
+        return [pyarrow_wrap_buffer(buf) for buf in c_buffers]
+
     def slice(self, offset=0, length=None):
         """
         Compute zero-copy slice of this RecordBatch
