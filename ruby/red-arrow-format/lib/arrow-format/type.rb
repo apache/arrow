@@ -954,12 +954,12 @@ module ArrowFormat
       "Dictionary"
     end
 
-    def build_array(size, validity_buffer, indices_buffer, dictionary)
+    def build_array(size, validity_buffer, indices_buffer, dictionaries)
       DictionaryArray.new(self,
                           size,
                           validity_buffer,
                           indices_buffer,
-                          dictionary)
+                          dictionaries)
     end
 
     def build_fb_field(fb_field, field)

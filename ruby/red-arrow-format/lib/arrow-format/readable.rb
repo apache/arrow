@@ -233,8 +233,8 @@ module ArrowFormat
       when DictionaryType
         indices_buffer = buffers.shift
         indices = body.slice(indices_buffer.offset, indices_buffer.length)
-        dictionary = find_dictionary(field.dictionary_id)
-        field.type.build_array(length, validity, indices, dictionary)
+        dictionaries = find_dictionaries(field.dictionary_id)
+        field.type.build_array(length, validity, indices, dictionaries)
       end
     end
   end
