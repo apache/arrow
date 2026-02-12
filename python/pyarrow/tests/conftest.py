@@ -47,6 +47,19 @@ h.settings.load_profile(os.environ.get('HYPOTHESIS_PROFILE', 'dev'))
 os.environ['AWS_CONFIG_FILE'] = "/dev/null"
 
 
+# GH-45295: For ORC, try to populate TZDIR env var from tzdata package resource
+# path.
+if sys.platform == 'win32':
+    if os.environ.get('TZDIR', None) is None:
+        from importlib import resources
+        try:
+            os.environ['TZDIR'] = os.path.join(resources.files('tzdata'), 'zoneinfo')
+        except ModuleNotFoundError:
+            print(
+                'Package "tzdata" not found. Not setting TZDIR environment variable.'
+            )
+
+
 def pytest_addoption(parser):
     # Create options to selectively enable test groups
     def bool_env(name, default=None):
