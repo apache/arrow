@@ -656,5 +656,6 @@ jobs:
       - msvc-arm64
       - odbc-macos
       - odbc-msvc
+      - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit
