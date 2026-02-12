@@ -90,7 +90,7 @@ RUN apt-get update -y -q && \
         tzdata-legacy \
         zlib1g-dev && \
     if [ ${arch} = "i386" ]; then \
-        apt-get install -y -q --no-install-recommends rustc cargo \
+        apt-get install -y -q --no-install-recommends rustc cargo; \
     fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
