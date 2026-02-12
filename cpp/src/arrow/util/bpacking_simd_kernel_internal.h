@@ -236,7 +236,7 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
     const auto shifted0 = right_shift_by_excess(batch2 & kMask0, kShifts0);
 
     constexpr auto kShifts1 = select_stride<twice_uint, 1>(shifts);
-    constexpr auto kMask1 = kMask0 << (8 * IntSize);
+    constexpr auto kMask1 = static_cast<twice_uint>(kMask0 << (8 * IntSize));
     const auto shifted1 = right_shift_by_excess(batch2, kShifts1) & kMask1;
 
     return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
@@ -638,7 +638,8 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
 ///     | ~ Val AAA       | ~ Val CCC       || ~ Val BBB       | ~ Val DDD       |
 ///
 /// Resulting in the following swizzled uint8_t permutation indices on the first line and
-/// resulting swizzled register on the second.
+/// resulting swizzled register on the second. With this algorithm we swizzle values
+/// independently of each other and do not reuse bytes from previous values.
 ///
 ///     | Idx 0  | Idx 1  | Idx 0  | Idx 1  || Idx 0  | Idx 1  | Idx 1  | Idx 2  |
 ///     |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||AAABBBCC|CDDDEEEF|CDDDEEEF|FFGGGHHH|
@@ -651,7 +652,7 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
 ///     | Align AAA with >> 0               || Align BBB with >> 3               |
 ///     |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||BBBCCCDD|DEEEFCDD|DEEEFFFG|GGHHH000|
 ///
-/// Masking (bitewise AND) uses the same mask for all uint32_t
+/// Masking (bitwise AND) uses the same mask for all uint32_t
 ///
 ///     |11100000000000000000000000000000000||11100000000000000000000000000000000|
 ///   & |AAABBBCC|CDDDEEEF|AAABBBCC|CDDDEEEF||BBBCCCDD|DEEEFCDD|DEEEFFFG|GGHHH000|
@@ -661,16 +662,16 @@ constexpr auto MediumKernelPlan<KerTraits, kOptions>::Build()
 /// write to memory.
 /// Now we can do the same with C and D without having to go to another swizzle (doing
 /// multiple shifts per swizzle).
-/// The next value to unpack is E, which starts on bit 12 (not byte aligned).
-/// We therefore cannot end here and reapply the same kernel on the same input.
+/// The unpacking iteration would start with the value E, which is on bit 12 (not byte
+/// aligned). We therefore cannot end here and reapply the same kernel on the same input.
 /// Instead, we run another similar iteration to unpack E, F, G, H, this time taking into
 /// account that we have an extra offset of 12 bits (this will change all the constants
-/// used for swizzle and shift).
+/// used for swizzle and shifts).
 ///
-/// Note that in this example, we could have swizzled more than two values in each slot.
-/// In practice, there may be situations where a more complex algorithm could fit more
-/// shifts per swizzles, but that tend to not be the case when the SIMD register size
-/// increases.
+/// Note that in this example, we could have swizzled more than two values in each slot if
+/// we reused bytes from previous values. In practice, there may be situations where a
+/// more complex algorithm could fit more shifts per swizzles, but that tend to not be the
+/// case when the SIMD register size increases.
 ///
 /// @see KernelShape
 /// @see MediumKernelPlan
@@ -928,7 +929,7 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
 /// operators actually shift the bits representation in the opposite directions.
 ///
 ///         | Align A w. >> 0 || Align B w. >> 5 |
-///   low:  |AAAAAAAA|AAAAABBB||BBBBBBBBB|BB00000|
+///   low:  |AAAAAAAA|AAAAABBB||BBBBBBBB|BBB00000|
 ///
 ///         | Align A w. << 8 || Align B w. << 3 |
 ///   high: |00000000|AAAAABBB||000BBBBB|BBBBBCCC|
@@ -938,7 +939,7 @@ constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits>
 /// and apply the mask only once afterwards (because we shifted zeros in). Below is the
 /// bitwise OR of both parts:
 ///
-///         |AAAAAAAA|AAAAABBB||BBBBBBBBB|BB00000|
+///         |AAAAAAAA|AAAAABBB||BBBBBBBB|BBB00000|
 ///       | |00000000|AAAAABBB||000BBBBB|BBBBBCCC|
 ///       = |AAAAAAAA|AAAAABBB||BBBBBBBB|BBBBBCCC|
 ///
