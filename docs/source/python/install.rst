@@ -126,7 +126,7 @@ produce errors such as:
 
 .. code-block:: text
 
-   ArrowInvalid: Cannot locate or parse timezone 'CET'
+   ArrowInvalid: Cannot locate or parse timezone '<timezone>'
    discover_tz_dir failed to find zoneinfo
 
 Arrow expects tzdata to be available in standard system locations (
