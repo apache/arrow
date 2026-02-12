@@ -24,8 +24,7 @@ requires = [
     "numpy>=1.25",
     "setuptools_scm[toml]>=8",
 ]
-build-backend = "_build_backend"
-backend-path = ["."]
+build-backend = "scikit_build_core.build"
 
 [project]
 name = "pyarrow"
@@ -83,7 +82,7 @@ exclude = [
 [tool.scikit-build]
 cmake.build-type = "Release"
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
-sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/", "LICENSE.txt", "NOTICE.txt"]
+sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/"]
 wheel.packages = ["pyarrow"]
 # CMakeLists.txt installs to DESTINATION ".". This maps that into pyarrow/
 # (matches old setup.py behavior: install_prefix = build_lib/pyarrow/)
