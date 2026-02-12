@@ -109,8 +109,7 @@ class SourceTest < Test::Unit::TestCase
       verify_pr_url = (JSON.parse(response.read)[0] || {})["html_url"]
     end
     output = source("VOTE")
-    # Extract the tarball hash from the output
-    tarball_hash = output[/\[11\]: ([a-f0-9]+)/, 1]
+    tarball_hash = Digest::SHA512.file(@archive_name).to_s
     assert_equal(<<-VOTE.strip, output[/^-+$(.+?)^-+$/m, 1].strip)
 To: dev@arrow.apache.org
 Subject: [VOTE] Release Apache Arrow #{@release_version} - RC0
