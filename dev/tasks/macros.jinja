@@ -134,7 +134,7 @@ env:
           echo "No wheel files found!"
           exit 1
       fi
-      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
+      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.14.1
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
     env:
       CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
