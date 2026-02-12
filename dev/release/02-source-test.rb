@@ -15,6 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
+require 'digest'
+
 class SourceTest < Test::Unit::TestCase
   include GitRunnable
   include VersionDetectable
