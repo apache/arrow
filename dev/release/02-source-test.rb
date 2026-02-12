@@ -44,6 +44,9 @@ class SourceTest < Test::Unit::TestCase
       env["SOURCE_#{target}"] = "1"
     end
     sh(env, @tarball_script, @release_version, "0")
+    File.open("#{@archive_name}.sha512", "w") do |sha512|
+      sha512.puts(sh(env, "shasum", "-a", "512", @archive_name))
+    end
     output = sh(env, @script, @release_version, "0")
     sh("tar", "xf", @archive_name)
     output
