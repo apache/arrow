@@ -338,7 +338,7 @@ jobs:
 
   odbc-macos:
     needs: check-labels
-    name: ODBC ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+    name: ODBC ${{ matrix.build_type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -349,12 +349,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - architecture: AMD64
-            macos-version: "15-intel"
-          - architecture: ARM64
-            macos-version: "14"
+          - { architecture: AMD64, macos-version: "15-intel", build_type: debug }
+          - { architecture: AMD64, macos-version: "15-intel", build_type: release }
+          - { architecture: ARM64, macos-version: "14", build_type: debug }
+          - { architecture: ARM64, macos-version: "14", build_type: release }
     env:
       ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: ${{ matrix.build_type }}
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_HOME: /tmp/local
       ARROW_DEPENDENCY_USE_SHARED: OFF
@@ -397,8 +398,8 @@ jobs:
         uses: actions/cache@v5.0.2
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build_type }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build_type }}-
       - name: Build
         run: |
           # Homebrew uses /usr/local as prefix. So packages
@@ -418,7 +419,7 @@ jobs:
       - name: Register Flight SQL ODBC Driver
         run: |
           chmod +x cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh
-          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
+          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build_type }}/libarrow_flight_sql_odbc.dylib
       - name: Test
         shell: bash
         run: |
