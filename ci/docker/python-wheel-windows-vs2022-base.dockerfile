@@ -137,9 +137,10 @@ RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=flight`
-  --x-feature=gcs`
-  --x-feature=json`
-  --x-feature=orc`
-  --x-feature=parquet`
+  --x-feature=azure `
+  --x-feature=flight `
+  --x-feature=gcs `
+  --x-feature=json `
+  --x-feature=orc `
+  --x-feature=parquet `
   --x-feature=s3
