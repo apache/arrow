@@ -22,9 +22,9 @@
 set -euo pipefail
 
 # Admin privilege is needed to add ODBC driver registration
-if [ $EUID -ne 0 ]; then 
-    echo "Please run this script with sudo"
-    exit 1
+if [ $EUID -ne 0 ]; then
+  echo "Please run this script with sudo"
+  exit 1
 fi
 
 ODBC_64BIT="$1"
@@ -34,17 +34,16 @@ if [[ -z "$ODBC_64BIT" ]]; then
   exit 1
 fi
 
-if [ ! -f $ODBC_64BIT ]; then
-    echo "64-bit driver can not be found: $ODBC_64BIT"
-	  echo "Call format: install_odbc abs_path_to_64_bit_driver"
-    exit 1
+if [ ! -f "$ODBC_64BIT" ]; then
+  echo "64-bit driver can not be found: $ODBC_64BIT"
+  echo "Call format: install_odbc abs_path_to_64_bit_driver"
+  exit 1
 fi
 
 USER_ODBCINST_FILE="$HOME/Library/ODBC/odbcinst.ini"
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
-DSN_NAME="Apache Arrow Flight SQL ODBC DSN"
 
-mkdir -p $HOME/Library/ODBC
+mkdir -p "$HOME"/Library/ODBC
 
 touch "$USER_ODBCINST_FILE"
 
@@ -56,7 +55,7 @@ else
 [$DRIVER_NAME]
 Description=An ODBC Driver for Apache Arrow Flight SQL
 Driver=$ODBC_64BIT
-" >> "$USER_ODBCINST_FILE"
+" >>"$USER_ODBCINST_FILE"
 fi
 
 # Check if [ODBC Drivers] section exists
@@ -74,5 +73,5 @@ else
     echo ""
     echo "[ODBC Drivers]"
     echo "${DRIVER_NAME}=Installed"
-  } >> "$USER_ODBCINST_FILE"
+  } >>"$USER_ODBCINST_FILE"
 fi
