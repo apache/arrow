@@ -116,6 +116,27 @@ command:
 
 .. _python-conda-differences:
 
+tzdata on non-FHS-compliant systems
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+On environments without standard filesystem layouts (for example,
+non-FHS-compliant systems such as NixOS, minimal containers, or hermetic
+build environments), Arrow may fail to locate the timezone database and
+produce errors such as:
+
+.. code-block:: text
+
+   ArrowInvalid: Cannot locate or parse timezone 'CET'
+   discover_tz_dir failed to find zoneinfo
+
+Arrow expects tzdata to be available in standard system locations (
+``/usr/share/zoneinfo`` on typical Linux distributions). If tzdata
+is installed in a non-standard path, it may not be discovered automatically.
+
+If you encounter this issue, ensure that a timezone database is installed
+and accessible in a standard system location, or configure your environment
+appropriately.
+
 Differences between conda-forge packages
 ----------------------------------------
 
