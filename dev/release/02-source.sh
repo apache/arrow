@@ -130,15 +130,8 @@ if [ ${SOURCE_VOTE} -gt 0 ]; then
   curl_options+=(--data "head=apache:${rc_branch}")
   curl_options+=(https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls)
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
-  # Read the checksum so we can include it in the vote thread email
-  # We check if $tarball exists to detect when this script is being run by
-  # 02-source-test.rb and we fill in the hash from the test tarball in that
-  # case.
-  if [ -f "${tarball}" ]; then
-    tarball_hash=$(shasum -a 512 "${tarball}" | awk '{print $1}')
-  else
-    tarball_hash=$(curl -s "https://dist.apache.org/repos/dist/dev/arrow/apache-arrow-${version}-rc${rc}/${tarball}.sha512" | awk '{print $1}')
-  fi
+  # Read the checksum so we can include it in the vote thread email.
+  tarball_hash=$(cat "artifacts/${tarball}.sha512" | awk '{print $1}')
 
   echo "The following draft email has been created to send to the"
   echo "dev@arrow.apache.org mailing list"
