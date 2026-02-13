@@ -649,7 +649,7 @@ so you can pass them directly to :func:`pyarrow.scalar` and :func:`pyarrow.array
    >>> import pyarrow as pa
 
    >>> pa.scalar(uuid.uuid4())
-   <pyarrow.UuidScalar: UUID('59c67eec-f171-4f6f-898b-7b4cdbd2821d')>
+   <pyarrow.UuidScalar: UUID('...')>
 
    >>> uuids = [uuid.uuid4() for _ in range(3)]
    >>> arr = pa.array(uuids)
