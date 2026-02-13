@@ -4064,3 +4064,22 @@ def test_table_non_cpu(cuda_context, cpu_table, cuda_table,
     # __reduce__() test
     with pytest.raises(NotImplementedError):
         cuda_table.__reduce__()
+
+
+def test_recordbatch_from_struct_array_with_list_offsets():
+    import pyarrow as pa
+
+    struct_type = pa.struct([("x", pa.int64()), ("y", pa.int64())])
+
+    list0 = [{"x": 1, "y": 2}, {"x": 3, "y": 4}]
+    list1 = [{"x": 5, "y": 6}]
+    list2 = [{"x": 7, "y": 8}, {"x": 9, "y": 10}]
+
+    arr = pa.array([list0, list1, list2], type=pa.list_(struct_type))
+
+    elem0 = arr[0]
+    batch = pa.RecordBatch.from_struct_array(elem0.values)
+
+    assert len(batch) == 2
+    assert batch.column("x").to_pylist() == [1, 3]
+    assert batch.column("y").to_pylist() == [2, 4]
