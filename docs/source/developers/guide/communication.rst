@@ -120,10 +120,9 @@ It is announced on the development mailing list together with the link to join.
   More information and links for subscribing to the mailing lists `can be found here <https://arrow.apache.org/community/>`_.
 
 .. note::
-   Using AI tools to help with phrasing or grammar is fine and doesn't need to be
-   disclosed. However, if AI is more involved in your workflow (e.g. generating
-   questions or diagnosing errors), please let us know so we can tailor our
-   responses appropriately.
+   Using AI tools to help with phrasing or grammar is fine. However, please don't
+   use AI to generate questions on your behalf - we want to help you, not your
+   AI assistant.
 
 Recommended learning resources
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
