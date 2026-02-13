@@ -21,14 +21,13 @@
 
 #include <cstdint>
 #include <limits>
-
 #include <memory>
+#include <span>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
-
 // TCompactProtocol requires some #defines to work right.
 #define SIGNED_RIGHT_SHIFT_IS 1
 #define ARITHMETIC_RIGHT_SHIFT 1
@@ -580,7 +579,7 @@ class ThriftDeserializer {
       // decrypt
       auto decrypted_buffer = AllocateBuffer(
           decryptor->pool(), decryptor->PlaintextLength(static_cast<int32_t>(clen)));
-      ::arrow::util::span<const uint8_t> cipher_buf(buf, clen);
+      std::span<const uint8_t> cipher_buf(buf, clen);
       uint32_t decrypted_buffer_len =
           decryptor->Decrypt(cipher_buf, decrypted_buffer->mutable_span_as<uint8_t>());
       if (decrypted_buffer_len <= 0) {
@@ -690,7 +689,7 @@ class ThriftSerializer {
                                 uint32_t out_length, Encryptor* encryptor) {
     auto cipher_buffer =
         AllocateBuffer(encryptor->pool(), encryptor->CiphertextLength(out_length));
-    ::arrow::util::span<const uint8_t> out_span(out_buffer, out_length);
+    std::span<const uint8_t> out_span(out_buffer, out_length);
     int32_t cipher_buffer_len =
         encryptor->Encrypt(out_span, cipher_buffer->mutable_span_as<uint8_t>());
 
