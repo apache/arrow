@@ -736,6 +736,7 @@ def test_parquet_file_too_small(tempdir):
 @pytest.mark.fastparquet
 @pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
 @pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
+@pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 
@@ -746,7 +747,7 @@ def test_fastparquet_cross_compatibility(tempdir):
             "c": np.arange(4.0, 7.0, dtype="float64"),
             "d": [True, False, True],
             "e": pd.date_range("20130101", periods=3),
-            "f": pd.Categorical(["a", "b", "a"]),
+            "f": pd.Categorical([5, 6, 7]),
             # fastparquet writes list as BYTE_ARRAY JSON, so no roundtrip
             # "g": [[1, 2], None, [1, 2, 3]],
         }
@@ -759,17 +760,23 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    tm.assert_frame_equal(df, df_fp)
+    # TODO: once fastparquet supports pandas 3 dtypes revert string and categorical
+    # tests by removing `check_dtype=False` and `check_categorical=False` so type
+    # equality is asserted again
+    tm.assert_frame_equal(df, df_fp, check_dtype=False, check_categorical=False)
 
     # Fastparquet -> arrow
     file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
-    fp.write(file_fastparquet, df)
+    # fastparquet can't write pandas 3.0 StringDtype
+    df_for_fp = df.copy()
+    df_for_fp['a'] = df_for_fp['a'].astype(object)
+    fp.write(file_fastparquet, df_for_fp)
 
     table_fp = pq.read_pandas(file_fastparquet)
     # for fastparquet written file, categoricals comes back as strings
     # (no arrow schema in parquet metadata)
-    df['f'] = df['f'].astype(object)
-    tm.assert_frame_equal(table_fp.to_pandas(), df)
+    tm.assert_frame_equal(table_fp.to_pandas(), df_for_fp, check_dtype=False,
+                          check_categorical=False)
 
 
 @pytest.mark.parametrize('array_factory', [
