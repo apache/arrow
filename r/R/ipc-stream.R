@@ -95,6 +95,10 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' Arrow [Table] otherwise
 #' @seealso [write_feather()] for writing IPC files. [RecordBatchReader] for a
 #' lower-level interface.
+#' @section Untrusted data:
+#' If reading from an untrusted source, you can validate the data by reading
+#' with `as_data_frame = FALSE` and calling `$ValidateFull()` on the Table
+#' before processing.
 #' @export
 read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
   if (!inherits(file, "InputStream")) {
