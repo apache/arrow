@@ -92,6 +92,10 @@ PyObject* BorrowPandasDataOffsetType();
 ARROW_PYTHON_EXPORT
 bool PyFloat_IsNaN(PyObject* obj);
 
+// \brief Check whether obj is a uuid.UUID instance
+ARROW_PYTHON_EXPORT
+bool IsPyUuid(PyObject* obj);
+
 inline bool IsPyBinary(PyObject* obj) {
   return PyBytes_Check(obj) || PyByteArray_Check(obj) || PyMemoryView_Check(obj);
 }

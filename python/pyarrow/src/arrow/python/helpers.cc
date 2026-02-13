@@ -296,6 +296,71 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 namespace {
 
+// UUID module static data - lazily initialized on first use
+// Uses a conditional initialization strategy: std::once_flag when the GIL is
+// disabled, or a simple boolean flag when the GIL is enabled.
+// See the Pandas static data section below and ARROW-10519 for more details.
+#ifdef Py_GIL_DISABLED
+static std::once_flag uuid_static_initialized;
+#else
+static bool uuid_static_initialized = false;
+#endif
+static PyObject* uuid_UUID = nullptr;
+
+void GetUuidStaticSymbols() {
+  OwnedRef uuid_module;
+
+  // Import uuid module
+  Status s = ImportModule("uuid", &uuid_module);
+  if (!s.ok()) {
+    return;
+  }
+
+#ifndef Py_GIL_DISABLED
+  // Since ImportModule can release the GIL, another thread could have
+  // already initialized the static data.
+  if (uuid_static_initialized) {
+    return;
+  }
+#endif
+
+  OwnedRef ref;
+  if (ImportFromModule(uuid_module.obj(), "UUID", &ref).ok()) {
+    uuid_UUID = ref.obj();
+  }
+}
+
+#ifdef Py_GIL_DISABLED
+void InitUuidStaticData() {
+  std::call_once(uuid_static_initialized, GetUuidStaticSymbols);
+}
+#else
+void InitUuidStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
+  if (uuid_static_initialized) {
+    return;
+  }
+  GetUuidStaticSymbols();
+  uuid_static_initialized = true;
+}
+#endif
+
+}  // namespace
+
+bool IsPyUuid(PyObject* obj) {
+  InitUuidStaticData();
+  if (!uuid_UUID) return false;
+  int result = PyObject_IsInstance(obj, uuid_UUID);
+  if (result < 0) {
+    PyErr_Clear();
+    return false;
+  }
+  return result == 1;
+}
+
+namespace {
+
 // This needs a conditional, because using std::once_flag could introduce
 // a deadlock when the GIL is enabled. See
 // https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272 for
