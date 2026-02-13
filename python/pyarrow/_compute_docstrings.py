@@ -183,6 +183,11 @@ function_doc_additions["first"] = """
     <pyarrow.DoubleScalar: 1.0>
     >>> pc.first(arr3, options=pc.ScalarAggregateOptions(min_count=4))
     <pyarrow.DoubleScalar: None>
+
+    See Also
+    --------
+    pyarrow.compute.first_last
+    pyarrow.compute.last
     """
 
 function_doc_additions["last"] = """
@@ -211,6 +216,11 @@ function_doc_additions["last"] = """
     <pyarrow.DoubleScalar: 3.0>
     >>> pc.last(arr3, options=pc.ScalarAggregateOptions(min_count=4))
     <pyarrow.DoubleScalar: None>
+
+    See Also
+    --------
+    pyarrow.compute.first
+    pyarrow.compute.first_last
     """
 
 function_doc_additions["first_last"] = """
@@ -239,4 +249,9 @@ function_doc_additions["first_last"] = """
     <pyarrow.StructScalar: [('first', 1.0), ('last', 3.0)]>
     >>> pc.first_last(arr3, options=pc.ScalarAggregateOptions(min_count=4))
     <pyarrow.StructScalar: [('first', None), ('last', None)]>
+
+    See Also
+    --------
+    pyarrow.compute.first
+    pyarrow.compute.last
     """
