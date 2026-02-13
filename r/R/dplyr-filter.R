@@ -17,68 +17,30 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
-  try_arrow_dplyr({
-    # TODO something with the .preserve argument
-    out <- as_adq(.data)
+apply_filter_impl <- function(.data, ..., .by = NULL, .preserve = FALSE,
+                              exclude = FALSE, verb = c("filter", "filter_out")) {
+  verb <- match.arg(verb)
 
-    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+  # TODO something with the .preserve argument
+  out <- as_adq(.data)
 
-    if (by$from_by) {
-      out$group_by_vars <- by$names
-    }
+  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
 
-    expanded_filters <- expand_across(out, quos(...))
-    if (length(expanded_filters) == 0) {
-      # Nothing to do
-      return(as_adq(.data))
-    }
+  if (by$from_by) {
+    out$group_by_vars <- by$names
+  }
 
-    # tidy-eval the filter expressions inside an Arrow data_mask
-    mask <- arrow_mask(out)
-    for (expr in expanded_filters) {
-      filt <- arrow_eval(expr, mask)
-      if (length(mask$.aggregations)) {
-        # dplyr lets you filter on e.g. x < mean(x), but we haven't implemented it.
-        # But we could, the same way it works in mutate() via join, if someone asks.
-        # Until then, just error.
-        arrow_not_supported(
-          .actual_msg = "Expression not supported in filter() in Arrow",
-          call = expr
-        )
-      }
-      out <- set_filters(out, filt, exclude = FALSE)
-    }
+  expanded_filters <- expand_across(out, quos(...))
+  if (length(expanded_filters) == 0) {
+    # Nothing to do
+    return(as_adq(.data))
+  }
 
-    if (by$from_by) {
-      out$group_by_vars <- character()
-    }
+  # tidy-eval the filter expressions inside an Arrow data_mask
+  mask <- arrow_mask(out)
 
-    out
-  })
-}
-filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
-
-filter_out.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
-  try_arrow_dplyr({
-    # TODO something with the .preserve argument
-    out <- as_adq(.data)
-
-    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
-
-    if (by$from_by) {
-      out$group_by_vars <- by$names
-    }
-
-    expanded_filters <- expand_across(out, quos(...))
-    if (length(expanded_filters) == 0) {
-      # Nothing to do
-      return(as_adq(.data))
-    }
-
-    # tidy-eval the filter expressions inside an Arrow data_mask
-    mask <- arrow_mask(out)
-
+  if (isTRUE(exclude)) {
+    # filter_out(): combine all predicates with &, then exclude
     combined <- NULL
 
     for (expr in expanded_filters) {
@@ -86,12 +48,11 @@ filter_out.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FAL
 
       if (length(mask$.aggregations)) {
         arrow_not_supported(
-          .actual_msg = "Expression not supported in filter_out() in Arrow",
+          .actual_msg = sprintf("Expression not supported in %s() in Arrow", verb),
           call = expr
         )
       }
 
-      # arrow_eval() may return either an Expression or a list_of<Expression>
       if (is_list_of(filt, "Expression")) {
         filt <- Reduce("&", filt)
       }
@@ -100,12 +61,53 @@ filter_out.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FAL
     }
 
     out <- set_filters(out, combined, exclude = TRUE)
+  } else {
+    # filter(): apply each predicate sequentially
+    for (expr in expanded_filters) {
+      filt <- arrow_eval(expr, mask)
 
-    if (by$from_by) {
-      out$group_by_vars <- character()
+      if (length(mask$.aggregations)) {
+        arrow_not_supported(
+          .actual_msg = sprintf("Expression not supported in %s() in Arrow", verb),
+          call = expr
+        )
+      }
+
+      out <- set_filters(out, filt, exclude = FALSE)
     }
+  }
 
-    out
+  if (by$from_by) {
+    out$group_by_vars <- character()
+  }
+
+  out
+}
+
+filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
+  try_arrow_dplyr({
+    apply_filter_impl(
+      .data,
+      ...,
+      .by = {{ .by }},
+      .preserve = .preserve,
+      exclude = FALSE,
+      verb = "filter"
+    )
+  })
+}
+filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
+
+filter_out.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
+  try_arrow_dplyr({
+    apply_filter_impl(
+      .data,
+      ...,
+      .by = {{ .by }},
+      .preserve = .preserve,
+      exclude = TRUE,
+      verb = "filter_out"
+    )
   })
 }
 filter_out.Dataset <- filter_out.ArrowTabular <- filter_out.RecordBatchReader <- filter_out.arrow_dplyr_query
