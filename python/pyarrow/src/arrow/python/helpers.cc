@@ -317,6 +317,8 @@ void GetUuidStaticSymbols() {
   }
 
 #ifndef Py_GIL_DISABLED
+  // Since ImportModule can release the GIL, another thread could have
+  // already initialized the static data.
   if (uuid_static_initialized) {
     return;
   }
@@ -334,6 +336,8 @@ void InitUuidStaticData() {
 }
 #else
 void InitUuidStaticData() {
+  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
+  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
   if (uuid_static_initialized) {
     return;
   }
