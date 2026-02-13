@@ -1001,8 +1001,14 @@ TYPED_TEST(TypedTestBuffer, ResizeOOM) {
   TypeParam buf;
   ASSERT_OK_AND_ASSIGN(buf, AllocateResizableBuffer(0));
   ASSERT_OK(buf->Resize(100));
+  if (default_memory_pool()->backend_name() == "mimalloc") {
+    GTEST_SKIP() << "Skip synthetic OOM for mimalloc to avoid allocator fatal path";
+  }
   int64_t to_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
                                         std::numeric_limits<size_t>::max());
+  // Clamp to a still-impossible size so the allocator raises OutOfMemory
+  constexpr int64_t kHugeAlloc = static_cast<int64_t>(1) << 48;  // 256 TB
+  to_alloc = std::min(to_alloc, kHugeAlloc);
   // subtract 63 to prevent overflow after the size is aligned
   to_alloc -= 63;
   ASSERT_RAISES(OutOfMemory, buf->Resize(to_alloc));
