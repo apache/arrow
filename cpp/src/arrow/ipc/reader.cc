@@ -296,7 +296,7 @@ class ArrayLoader {
     return Status::OK();
   }
 
-  Status LoadCommon(Type::type type_id) {
+  Status LoadCommon(Type::type type_id, bool allow_validity_bitmap = true) {
     DCHECK_NE(out_, nullptr);
     // This only contains the length and null count, which we need to figure
     // out what to do with the buffers. For example, if null_count == 0, then
@@ -314,10 +314,16 @@ class ArrayLoader {
     }
 
     if (internal::HasValidityBitmap(type_id, metadata_version_)) {
-      // Extract null_bitmap which is common to all arrays except for unions
+      // Extract null bitmap which is common to all arrays except for unions
       // and nulls.
       if (out_->null_count != 0) {
-        RETURN_NOT_OK(GetBuffer(buffer_index_, &out_->buffers[0]));
+        if (allow_validity_bitmap) {
+          RETURN_NOT_OK(GetBuffer(buffer_index_, &out_->buffers[0]));
+        } else {
+          // Caller did not allow this
+          return Status::Invalid("Cannot read ", ::arrow::internal::ToTypeName(type_id),
+                                 " array with top-level validity bitmap");
+        }
       }
       buffer_index_++;
     }
@@ -471,9 +477,10 @@ class ArrayLoader {
     int n_buffers = type.mode() == UnionMode::SPARSE ? 2 : 3;
     out_->buffers.resize(n_buffers);
 
-    RETURN_NOT_OK(LoadCommon(type.id()));
-
-    // With metadata V4, we can get a validity bitmap.
+    // With metadata V4, we can get a validity bitmap. The bitmap may be there
+    // if we're loading eagerly, or it might be scheduled for loading if we're
+    // using a BatchDataReadRequest.
+    //
     // Trying to fix up union data to do without the top-level validity bitmap
     // is hairy:
     // - type ids must be rewritten to all have valid values (even for former
@@ -482,12 +489,9 @@ class ArrayLoader {
     //   by ANDing the top-level validity bitmap
     // - dense union children must be rewritten (at least one of them)
     //   to insert the required null slots that were formerly omitted
-    // So instead we bail out.
-    if (out_->null_count != 0 && out_->buffers[0] != nullptr) {
-      return Status::Invalid(
-          "Cannot read pre-1.0.0 Union array with top-level validity bitmap");
-    }
-    out_->buffers[0] = nullptr;
+    //
+    // So instead we disallow validity bitmaps.
+    RETURN_NOT_OK(LoadCommon(type.id(), /*allow_validity_bitmap=*/false));
     out_->null_count = 0;
 
     if (out_->length > 0) {
