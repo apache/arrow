@@ -2308,6 +2308,13 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
         dtype = "object"
     elif types_mapper:
         dtype = types_mapper(original_type)
+    elif _pandas_api.uses_string_dtype() and (
+        original_type.id == _Type_STRING or
+        original_type.id == _Type_LARGE_STRING or
+        original_type.id == _Type_STRING_VIEW
+    ):
+        # for pandas 3.0+, use pandas' new default string dtype
+        dtype = _pandas_api.pd.StringDtype(na_value=np.nan)
     else:
         dtype = None
 
