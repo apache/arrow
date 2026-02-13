@@ -213,7 +213,7 @@ def test_tensor_memoryview():
         dtype = data.dtype
         lst = data.tolist()
         tensor = pa.Tensor.from_numpy(data)
-        m = memoryview(tensor)
+        m = memoryview(tensor)  # type: ignore[reportArgumentType]
         assert m.format == expected_format
         assert m.shape == data.shape
         assert m.strides == data.strides

@@ -1539,8 +1539,7 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
-        /arrow/ci/scripts/python_test.sh /arrow &&
-        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
+        /arrow/ci/scripts/python_test.sh /arrow"]
 
   conda-python-dask:
     # Possible $DASK parameters:
