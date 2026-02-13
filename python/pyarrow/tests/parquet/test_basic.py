@@ -760,8 +760,9 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    # TODO: once fastparquet supports pandas 3.0 dtypes revert string/categorical test
-    # check_dtype=False: string/categorical dtype handling differs between libraries
+    # TODO: once fastparquet supports pandas 3 dtypes revert string and categorical
+    # tests by removing `check_dtype=False` and `check_categorical=False` so type
+    # equality is asserted again
     tm.assert_frame_equal(df, df_fp, check_dtype=False, check_categorical=False)
 
     # Fastparquet -> arrow
