@@ -166,7 +166,7 @@ TEST(Datum, TotalBufferSize) {
   Datum chunked_datum(chunked_arr);
   std::shared_ptr<Schema> schm = schema({field("a", int8())});
   Datum rb_datum(RecordBatch::Make(schm, 4, {arr}));
-  Datum tab_datum(Table::Make(std::move(schm), {std::move(arr)}, 4));
+  Datum tab_datum(Table::Make(std::move(schm), {std::move(arr)}, 4).ValueOrDie());
 
   ASSERT_EQ(4, arr_datum.TotalBufferSize());
   ASSERT_EQ(4, chunked_datum.TotalBufferSize());

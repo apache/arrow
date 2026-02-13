@@ -63,7 +63,7 @@ Datum::Datum(const ChunkedArray& value)
     : value(std::make_shared<ChunkedArray>(value.chunks(), value.type())) {}
 
 Datum::Datum(const Table& value)
-    : value(Table::Make(value.schema(), value.columns(), value.num_rows())) {}
+    : value(Table::Make(value.schema(), value.columns(), value.num_rows()).ValueOrDie()) {}
 
 Datum::Datum(const RecordBatch& value)
     : value(RecordBatch::Make(value.schema(), value.num_rows(), value.columns())) {}
