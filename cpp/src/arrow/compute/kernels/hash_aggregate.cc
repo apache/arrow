@@ -284,7 +284,8 @@ template <typename T>
 concept CFloatingPointConcept = std::floating_point<T> || std::same_as<T, util::Float16>;
 #else
 template <typename T>
-concept CFloatingPointConcept = std::is_floating_point_v<T> || std::same_as<T, util::Float16>;
+concept CFloatingPointConcept =
+    std::is_floating_point_v<T> || std::same_as<T, util::Float16>;
 #endif
 
 template <typename T>
