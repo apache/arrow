@@ -920,6 +920,10 @@ if needs_acero
     subdir('acero')
 endif
 
+if needs_cuda
+    subdir('gpu')
+endif
+
 if needs_filesystem
     subdir('filesystem')
 endif
