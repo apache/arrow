@@ -23,6 +23,7 @@
 #include "parquet/type_fwd.h"
 #include "parquet/types.h"
 
+#include <memory>
 #include <optional>
 #include <vector>
 
@@ -369,6 +370,12 @@ class PARQUET_EXPORT PageIndexBuilder {
   /// \return OffsetIndexBuilder for the column and its memory ownership belongs to
   /// the PageIndexBuilder.
   virtual OffsetIndexBuilder* GetOffsetIndexBuilder(int32_t i) = 0;
+
+  virtual void SetColumnIndex(int32_t i,
+                              const std::shared_ptr<ColumnIndex>& column_index) = 0;
+
+  virtual void SetOffsetIndex(int32_t i, const std::shared_ptr<OffsetIndex>& offset_index,
+                              int64_t shift) = 0;
 
   /// \brief Complete the page index builder and no more write is allowed.
   virtual void Finish() = 0;
