@@ -136,6 +136,10 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 pushd C:\arrow\python
 
 @REM Build wheel
+%PYTHON_CMD% -c "import scikit_build_core; print(scikit_build_core.__version__)"
+%PYTHON_CMD% -c "import sys; print(sys.executable); print(sys.path)"
+%PYTHON_CMD% -m pip list
+%PYTHON_CMD% -m pip show scikit-build-core
 %PYTHON_CMD% -m build --sdist --wheel . --no-isolation || exit /B 1
 
 @REM Repair the wheel with delvewheel
