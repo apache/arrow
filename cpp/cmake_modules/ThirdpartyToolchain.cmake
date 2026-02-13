@@ -1114,6 +1114,11 @@ function(build_boost)
   else()
     list(APPEND BOOST_EXCLUDE_LIBRARIES uuid)
   endif()
+  if(ARROW_FLIGHT_SQL_ODBC)
+    list(APPEND BOOST_INCLUDE_LIBRARIES beast xpressive)
+  else()
+    list(APPEND BOOST_EXCLUDE_LIBRARIES beast xpressive)
+  endif()
   set(BOOST_SKIP_INSTALL_RULES ON)
   if(NOT ARROW_ENABLE_THREADING)
     set(BOOST_UUID_LINK_LIBATOMIC OFF)
@@ -3023,8 +3028,8 @@ function(build_cares)
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
     find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv REQUIRED)
-    set_target_properties(c-ares::cares PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                   "${LIBRESOLV_LIBRARY}")
+    set_target_properties(c-ares PROPERTIES INTERFACE_LINK_LIBRARIES
+                                            "${LIBRESOLV_LIBRARY}")
   endif()
 
   set(ARROW_BUNDLED_STATIC_LIBS
