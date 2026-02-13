@@ -84,8 +84,6 @@ cmake.build-type = "Release"
 metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
 sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/"]
 wheel.packages = ["pyarrow"]
-# CMakeLists.txt installs to DESTINATION ".". This maps that into pyarrow/
-# (matches old setup.py behavior: install_prefix = build_lib/pyarrow/)
 wheel.install-dir = "pyarrow"
 
 [tool.scikit-build.cmake.define]
