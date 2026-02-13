@@ -54,9 +54,15 @@ TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectInvalidQuery) {
@@ -89,9 +95,15 @@ TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLPrepareInvalidQuery) {
@@ -805,10 +817,15 @@ TYPED_TEST(StatementTest, TestSQLExecDirectRowFetching) {
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(3, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
-
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
@@ -864,9 +881,15 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(3, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
@@ -900,9 +923,12 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
 
   ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_BOOKMARK, fetch_offset));
-
-  // DM returns state HY106 for SQL_FETCH_BOOKMARK
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+#else
+  // Windows DM returns state HY106 for SQL_FETCH_BOOKMARK
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY106);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectVarcharTruncation) {
@@ -1170,6 +1196,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
 }
 
+// MacOS Driver Manager iODBC returns SQL_ERROR when invalid buffer length is provided to
+// SQLGetData
+#ifndef __APPLE__
 TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   // Verify the driver ignores invalid buffer length for fixed data types
 
@@ -1367,6 +1396,7 @@ TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   EXPECT_EQ(59, timestamp_var.second);
   EXPECT_EQ(0, timestamp_var.fraction);
 }
+#endif  // __APPLE__
 
 TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
   // Numeric Types
@@ -2149,7 +2179,11 @@ TYPED_TEST(StatementTest, SQLNumResultColsFunctionSequenceErrorOnNoQuery) {
   SQLSMALLINT expected_value = 0;
 
   ASSERT_EQ(SQL_ERROR, SQLNumResultCols(this->stmt, &column_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 
   EXPECT_EQ(expected_value, column_count);
 }

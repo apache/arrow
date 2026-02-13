@@ -104,12 +104,15 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrQuietModeReadOnly) {
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY092);
 }
 
+// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACE
+#ifndef __APPLE__
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTraceDMOnly) {
   // Verify DM-only attribute is settable via Driver Manager
   ASSERT_EQ(SQL_SUCCESS,
             SQLSetConnectAttr(this->conn, SQL_ATTR_TRACE,
                               reinterpret_cast<SQLPOINTER>(SQL_OPT_TRACE_OFF), 0));
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTracefileDMOnly) {
   // Verify DM-only attribute is handled by Driver Manager
@@ -120,14 +123,22 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTracefileDMOnly) {
   std::vector<SQLWCHAR> trace_file0(trace_file.begin(), trace_file.end());
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(this->conn, SQL_ATTR_TRACEFILE, &trace_file0[0],
                                          static_cast<SQLINTEGER>(trace_file0.size())));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHYC00);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY000);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTranslateLabDMOnly) {
   // Verify DM-only attribute is handled by Driver Manager
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(this->conn, SQL_ATTR_TRANSLATE_LIB, 0, 0));
   // Checks for invalid argument return error
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHYC00);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY024);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTranslateOptionUnsupported) {
@@ -152,6 +163,8 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrDbcInfoTokenSetOnly) {
 }
 #endif
 
+// iODBC does not treat SQL_ATTR_ODBC_CURSORS as DM-only
+#ifndef __APPLE__
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrOdbcCursorsDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLULEN cursor_attr;
@@ -160,6 +173,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrOdbcCursorsDMOnly) {
   EXPECT_EQ(SQL_CUR_USE_DRIVER, cursor_attr);
 }
 
+// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACE
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLUINTEGER trace;
@@ -168,6 +182,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceDMOnly) {
   EXPECT_EQ(SQL_OPT_TRACE_OFF, trace);
 }
 
+// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACEFILE
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLWCHAR out_str[kOdbcBufferSize];
@@ -181,6 +196,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
       ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
   EXPECT_FALSE(out_connection_string.empty());
 }
+#endif  // __APPLE__
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTranslateLibUnsupported) {
   SQLWCHAR out_str[kOdbcBufferSize];
