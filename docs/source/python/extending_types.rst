@@ -663,7 +663,7 @@ You can also explicitly specify the UUID type using :func:`pyarrow.uuid`:
    >>> pa.array([uuid.uuid4(), uuid.uuid4()], type=pa.uuid())
    <pyarrow.lib.UuidArray object at ...>
    [
-     77C17B9296554636A54C6A7EF37A70E4,
-     B71D2BF764374A60A1DEECB102A77B16
+     ...,
+     ...
    ]
 
