@@ -3069,15 +3069,19 @@ class TestConvertMisc:
         v2 = [4, 5, 6, 7, 8]
         v3 = [b'foo', None, b'bar', b'qux', np.nan]
 
+        cat_strings = pd.Categorical(v1 * repeats)
+        cat_strings_with_na = cat_strings.set_categories(['foo', 'bar'])
+
+        cat_strings_ordered = pd.Categorical(
+            v1 * repeats, categories=['bar', 'qux', 'foo'], ordered=True
+        )
+
         arrays = {
-            'cat_strings': pd.Categorical(v1 * repeats),
-            'cat_strings_with_na': pd.Categorical(v1 * repeats,
-                                                  categories=['foo', 'bar']),
+            'cat_strings': cat_strings,
+            'cat_strings_with_na': cat_strings_with_na,
             'cat_ints': pd.Categorical(v2 * repeats),
             'cat_binary': pd.Categorical(v3 * repeats),
-            'cat_strings_ordered': pd.Categorical(
-                v1 * repeats, categories=['bar', 'qux', 'foo'],
-                ordered=True),
+            'cat_strings_ordered': cat_strings_ordered,
             'ints': v2 * repeats,
             'ints2': v2 * repeats,
             'strings': v1 * repeats,
@@ -3096,10 +3100,10 @@ class TestConvertMisc:
             result = arr.to_pandas()
             tm.assert_series_equal(pd.Series(result), pd.Series(v))
 
+        base = pd.Categorical(['a', 'b', 'c'])
         arrays = [
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b']),
-            pd.Categorical(['a', 'b', 'c'], categories=['a', 'b'],
-                           ordered=True)
+            base.set_categories(['a', 'b']),
+            base.set_categories(['a', 'b']).as_ordered(),
         ]
         for arr in arrays:
             _check(arr)
