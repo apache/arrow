@@ -1548,3 +1548,44 @@ def read_dictionary_message(obj, DictionaryMemo dictionary_memo):
         check_status(ReadDictionary(deref(message.message.get()),
                                     dictionary_memo.memo,
                                     CIpcReadOptions.Defaults()))
+
+
+def serialize_dictionaries(RecordBatch batch,
+                           DictionaryMemo dictionary_memo,
+                           memory_pool=None):
+    """
+    Serialize IPC dictionary messages needed for a RecordBatch.
+
+    For each dictionary-encoded column, checks the memo to determine
+    whether serialization is needed. Dictionaries are deduplicated by
+    pointer identity: if the memo already contains the same dictionary
+    object, it is skipped. If a different dictionary object exists for
+    the same field, a replacement message is emitted and the memo is
+    updated.
+
+    Parameters
+    ----------
+    batch : RecordBatch
+        The record batch whose dictionaries should be serialized.
+    dictionary_memo : DictionaryMemo
+        Tracks which dictionaries have already been serialized.
+        Updated in place with newly serialized dictionaries.
+    memory_pool : MemoryPool, default None
+        Uses default memory pool if not specified.
+
+    Returns
+    -------
+    list of Buffer
+        Serialized dictionary IPC messages, in dependency order.
+    """
+    batch._assert_cpu()
+    cdef:
+        vector[shared_ptr[CBuffer]] c_buffers
+        CIpcWriteOptions options = CIpcWriteOptions.Defaults()
+    options.memory_pool = maybe_unbox_memory_pool(memory_pool)
+
+    with nogil:
+        c_buffers = GetResultValue(
+            CollectAndSerializeDictionaries(
+                deref(batch.batch), dictionary_memo.memo, options))
+    return [pyarrow_wrap_buffer(buf) for buf in c_buffers]

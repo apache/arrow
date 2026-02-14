@@ -1502,13 +1502,13 @@ def test_serialize_dictionaries_basic():
     memo = pa.DictionaryMemo()
 
     # First call should return dictionary buffers
-    buffers = batch.serialize_dictionaries(memo)
+    buffers = pa.ipc.serialize_dictionaries(batch, memo)
     assert len(buffers) == 1
     assert isinstance(buffers[0], pa.Buffer)
     assert len(buffers[0]) > 0
 
     # Second call with the same memo should return nothing (already tracked)
-    buffers2 = batch.serialize_dictionaries(memo)
+    buffers2 = pa.ipc.serialize_dictionaries(batch, memo)
     assert len(buffers2) == 0
 
 
@@ -1518,7 +1518,7 @@ def test_serialize_dictionaries_roundtrip():
 
     # Serialize
     write_memo = pa.DictionaryMemo()
-    dict_bufs = batch.serialize_dictionaries(write_memo)
+    dict_bufs = pa.ipc.serialize_dictionaries(batch, write_memo)
     batch_buf = batch.serialize()
 
     # Read back
@@ -1535,7 +1535,7 @@ def test_serialize_dictionaries_no_dict_columns():
     batch = pa.record_batch([arr], names=["col"])
     memo = pa.DictionaryMemo()
 
-    buffers = batch.serialize_dictionaries(memo)
+    buffers = pa.ipc.serialize_dictionaries(batch, memo)
     assert len(buffers) == 0
 
 
@@ -1545,7 +1545,7 @@ def test_serialize_dictionaries_multiple_dict_columns():
     batch = pa.record_batch([arr1, arr2], names=["col1", "col2"])
     memo = pa.DictionaryMemo()
 
-    buffers = batch.serialize_dictionaries(memo)
+    buffers = pa.ipc.serialize_dictionaries(batch, memo)
     assert len(buffers) == 2
 
     # Full roundtrip with multiple dict columns
@@ -1573,11 +1573,11 @@ def test_serialize_dictionaries_multi_batch_memo_dedup():
     memo = pa.DictionaryMemo()
 
     # First batch emits the dictionary
-    bufs1 = batch1.serialize_dictionaries(memo)
+    bufs1 = pa.ipc.serialize_dictionaries(batch1, memo)
     assert len(bufs1) == 1
 
     # Second batch shares the same dictionary object — skipped
-    bufs2 = batch2.serialize_dictionaries(memo)
+    bufs2 = pa.ipc.serialize_dictionaries(batch2, memo)
     assert len(bufs2) == 0
 
     # Roundtrip both batches using only batch1's dictionary messages
@@ -1602,11 +1602,11 @@ def test_serialize_dictionaries_nested_in_struct():
     batch = pa.record_batch([struct_arr], names=["s"])
 
     memo = pa.DictionaryMemo()
-    bufs = batch.serialize_dictionaries(memo)
+    bufs = pa.ipc.serialize_dictionaries(batch, memo)
     assert len(bufs) == 1
 
     # Second call: already tracked
-    assert len(batch.serialize_dictionaries(memo)) == 0
+    assert len(pa.ipc.serialize_dictionaries(batch, memo)) == 0
 
     # Roundtrip
     batch_buf = batch.serialize()
@@ -1629,11 +1629,11 @@ def test_serialize_dictionaries_changed_values_across_batches():
     batch2 = pa.record_batch([arr2], names=["col"])
 
     memo = pa.DictionaryMemo()
-    bufs1 = batch1.serialize_dictionaries(memo)
+    bufs1 = pa.ipc.serialize_dictionaries(batch1, memo)
     assert len(bufs1) == 1
 
     # batch2 has a different dictionary object — new message emitted
-    bufs2 = batch2.serialize_dictionaries(memo)
+    bufs2 = pa.ipc.serialize_dictionaries(batch2, memo)
     assert len(bufs2) == 1
 
     # Sequential roundtrip with a single read memo: batch2's dictionary
@@ -1663,11 +1663,11 @@ def test_serialize_dictionaries_same_values_different_objects():
     batch2 = pa.record_batch([arr2], names=["col"])
 
     memo = pa.DictionaryMemo()
-    bufs1 = batch1.serialize_dictionaries(memo)
+    bufs1 = pa.ipc.serialize_dictionaries(batch1, memo)
     assert len(bufs1) == 1
 
     # Same values, but different Python/C++ objects — not deduplicated
-    bufs2 = batch2.serialize_dictionaries(memo)
+    bufs2 = pa.ipc.serialize_dictionaries(batch2, memo)
     assert len(bufs2) == 1
 
     # Both round-trip correctly

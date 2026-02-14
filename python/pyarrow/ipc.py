@@ -27,6 +27,7 @@ from pyarrow.lib import (IpcReadOptions, IpcWriteOptions, ReadStats, WriteStats,
                          MetadataVersion, Alignment,
                          read_message, read_record_batch, read_schema,
                          read_dictionary_message,
+                         serialize_dictionaries,
                          read_tensor, write_tensor,
                          get_record_batch_size, get_tensor_size)
 import pyarrow.lib as lib
