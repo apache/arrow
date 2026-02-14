@@ -314,6 +314,25 @@ The unit tests are not built by default. After building, one can also invoke
 the unit tests using the ``ctest`` tool provided by CMake (note that ``test``
 depends on ``python`` being available).
 
+.. note::
+   If you are building with tests (``-DARROW_BUILD_TESTS=ON``), you must ensure
+   the test data submodules are initialized and the environment variables
+   ``ARROW_TEST_DATA`` and ``PARQUET_TEST_DATA`` are set. Without these, several
+   tests (especially IPC and Parquet tests) will fail with an ``IOError``.
+
+   To initialize submodules, run:
+
+   .. code-block:: shell
+
+      $ git submodule update --init --recursive
+
+   Then set the variables to the absolute paths of your testing data folders:
+
+   .. code-block:: shell
+
+      $ export ARROW_TEST_DATA="<absolute_path_to_arrow>/testing/data"
+      $ export PARQUET_TEST_DATA="<absolute_path_to_arrow>/cpp/submodules/parquet-testing/data"
+
 On some Linux distributions, running the test suite might require setting an
 explicit locale. If you see any locale-related errors, try setting the
 environment variable (which requires the ``locales`` package or equivalent):
