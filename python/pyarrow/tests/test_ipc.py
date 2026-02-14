@@ -1121,6 +1121,47 @@ def test_schema_batch_serialize_methods():
     assert recons_batch.equals(batch)
 
 
+def test_serialize_record_batch_to_buffer():
+    batch = pa.RecordBatch.from_pydict({
+        'ints': [1, 2, 3],
+        'strs': ['a', 'b', 'c'],
+    })
+    schema = batch.schema
+
+    # Round-trip with externally allocated buffer
+    size = pa.ipc.get_record_batch_size(batch)
+    buf = pa.allocate_buffer(size * 2)
+    result = batch.serialize(buffer=buf)
+    assert result.size == size
+    recons = pa.ipc.read_record_batch(result, schema)
+    assert recons.equals(batch)
+
+    # Round-trip with oversized buffer
+    big_buf = pa.allocate_buffer(size * 10)
+    result = batch.serialize(buffer=big_buf)
+    assert result.size == size
+    recons = pa.ipc.read_record_batch(result, schema)
+    assert recons.equals(batch)
+
+    # Exact size buffer
+    exact_buf = pa.allocate_buffer(size)
+    result = batch.serialize(buffer=exact_buf)
+    assert result.size == size
+    recons = pa.ipc.read_record_batch(result, schema)
+    assert recons.equals(batch)
+
+    # Buffer too small
+    small_buf = pa.allocate_buffer(8)
+    with pytest.raises(ValueError, match="buffer is too small"):
+        batch.serialize(buffer=small_buf)
+
+    # Immutable buffer
+    immutable_buf = pa.py_buffer(b'\x00' * size)
+    assert not immutable_buf.is_mutable
+    with pytest.raises(ValueError, match="buffer is not mutable"):
+        batch.serialize(buffer=immutable_buf)
+
+
 def test_schema_serialization_with_metadata():
     field_metadata = {b'foo': b'bar', b'kind': b'field'}
     schema_metadata = {b'foo': b'bar', b'kind': b'schema'}
