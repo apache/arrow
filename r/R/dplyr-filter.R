@@ -17,8 +17,14 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-apply_filter_impl <- function(.data, ..., .by = NULL, .preserve = FALSE,
-                              exclude = FALSE, verb = c("filter", "filter_out")) {
+apply_filter_impl <- function(
+  .data,
+  ...,
+  .by = NULL,
+  .preserve = FALSE,
+  exclude = FALSE,
+  verb = c("filter", "filter_out")
+) {
   verb <- match.arg(verb)
 
   # TODO something with the .preserve argument
