@@ -840,6 +840,21 @@ def test_read_table_filters_buffer_reader_fallback_empty_projection():
     assert result.num_columns == 0
 
 
+def test_read_table_filters_projection_without_filter_column(tempdir):
+    """Path-like reads should filter using hidden columns and project output."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'projection_filter.orc')
+    table = pa.table({'id': range(10), 'value': range(10, 20)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, columns=['value'], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.column_names == ['value']
+    assert result['value'].to_pylist() == [16, 17, 18, 19]
+
+
 def test_parquet_orc_predicate_pushdown_parity(tempdir):
     """Equivalent ORC and Parquet predicates should produce equal results."""
     from pyarrow import orc
