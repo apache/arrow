@@ -772,3 +772,23 @@ def test_read_table_filters_none(tempdir):
 
     result = orc.read_table(path, filters=None)
     assert result.num_rows == 100
+
+
+def test_read_table_filters_all_null_semantics(tempdir):
+    """IS NULL/IS NOT NULL semantics with all-null stripes."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'all_null.orc')
+    n = 2048
+    with orc.ORCWriter(path, stripe_size=4096) as writer:
+        writer.write(pa.table({'id': pa.array([None] * n, type=pa.int64())}))
+        writer.write(pa.table({'id': pa.array(range(n), type=pa.int64())}))
+
+    is_null = orc.read_table(path, filters=ds.field('id').is_null())
+    assert is_null.num_rows == n
+    assert is_null['id'].null_count == n
+
+    is_not_null = orc.read_table(path, filters=ds.field('id').is_valid())
+    assert is_not_null.num_rows == n
+    assert is_not_null['id'].null_count == 0
