@@ -809,6 +809,37 @@ def test_read_table_filters_buffer_reader_fallback():
     assert result['id'].to_pylist() == [6, 7, 8, 9]
 
 
+def test_read_table_filters_buffer_reader_fallback_with_projection():
+    """Fallback should allow filtering on columns not present in output."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    table = pa.table({'id': range(10), 'value': range(10, 20)})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    source = pa.BufferReader(sink.getvalue())
+
+    result = orc.read_table(source, columns=['value'], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.column_names == ['value']
+    assert result['value'].to_pylist() == [16, 17, 18, 19]
+
+
+def test_read_table_filters_buffer_reader_fallback_empty_projection():
+    """Fallback should preserve filtered row count with columns=[]."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    table = pa.table({'id': range(10), 'value': range(10)})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    source = pa.BufferReader(sink.getvalue())
+
+    result = orc.read_table(source, columns=[], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.num_columns == 0
+
+
 def test_parquet_orc_predicate_pushdown_parity(tempdir):
     """Equivalent ORC and Parquet predicates should produce equal results."""
     from pyarrow import orc
