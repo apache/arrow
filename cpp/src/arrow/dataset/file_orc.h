@@ -20,7 +20,9 @@
 #pragma once
 
 #include <memory>
+#include <optional>
 #include <string>
+#include <vector>
 
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
@@ -67,6 +69,45 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
       fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
+
+  using FileFormat::MakeFragment;
+
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression,
+      std::shared_ptr<Schema> physical_schema) override;
+
+  Result<std::shared_ptr<OrcFileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression,
+      std::shared_ptr<Schema> physical_schema, std::vector<int> stripe_ids);
+};
+
+/// \brief A FileFragment with ORC-specific logic for stripe-level subsetting.
+///
+/// OrcFileFragment provides the ability to scan ORC files at stripe granularity,
+/// enabling parallel processing of sub-file splits. The caller can provide an
+/// optional list of selected stripe IDs to limit the scan to specific stripes.
+class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
+ public:
+  /// \brief Return the stripe IDs selected by this fragment.
+  /// Empty vector means all stripes.
+  const std::vector<int>& stripe_ids() const {
+    if (stripe_ids_) return *stripe_ids_;
+    static std::vector<int> empty;
+    return empty;
+  }
+
+  /// \brief Return fragment which selects a subset of this fragment's stripes.
+  Result<std::shared_ptr<Fragment>> Subset(std::vector<int> stripe_ids);
+
+ private:
+  OrcFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                  compute::Expression partition_expression,
+                  std::shared_ptr<Schema> physical_schema,
+                  std::optional<std::vector<int>> stripe_ids);
+
+  std::optional<std::vector<int>> stripe_ids_;
+
+  friend class OrcFileFormat;
 };
 
 /// @}
