@@ -807,3 +807,27 @@ def test_read_table_filters_buffer_reader_fallback():
     result = orc.read_table(source, filters=ds.field('id') > 5)
     assert result.num_rows == 4
     assert result['id'].to_pylist() == [6, 7, 8, 9]
+
+
+def test_parquet_orc_predicate_pushdown_parity(tempdir):
+    """Equivalent ORC and Parquet predicates should produce equal results."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+    import pyarrow.parquet as pq
+
+    data = pa.table({
+        'id': range(1000),
+        'group': [i % 7 for i in range(1000)],
+        'value': [i * 3 for i in range(1000)],
+    })
+
+    orc_path = str(tempdir / 'parity.orc')
+    parquet_path = str(tempdir / 'parity.parquet')
+    orc.write_table(data, orc_path, stripe_size=4096)
+    pq.write_table(data, parquet_path, row_group_size=128)
+
+    filt = (ds.field('id') >= 123) & (ds.field('id') < 876) & (ds.field('group') == 3)
+    orc_result = orc.read_table(orc_path, filters=filt)
+    parquet_result = pq.read_table(parquet_path, filters=filt)
+
+    assert orc_result.equals(parquet_result)
