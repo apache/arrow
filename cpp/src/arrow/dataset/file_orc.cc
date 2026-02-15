@@ -284,7 +284,9 @@ Future<std::optional<int64_t>> OrcFileFormat::CountRows(
       }));
 }
 
-// OrcFileWriter, OrcFileWriteOptions
+// //
+// // OrcFileWriter, OrcFileWriteOptions
+// //
 
 std::shared_ptr<FileWriteOptions> OrcFileFormat::DefaultWriteOptions() {
   // TODO (https://issues.apache.org/jira/browse/ARROW-13796)
