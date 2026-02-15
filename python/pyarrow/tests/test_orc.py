@@ -792,3 +792,18 @@ def test_read_table_filters_all_null_semantics(tempdir):
     is_not_null = orc.read_table(path, filters=ds.field('id').is_valid())
     assert is_not_null.num_rows == n
     assert is_not_null['id'].null_count == 0
+
+
+def test_read_table_filters_buffer_reader_fallback():
+    """filters=... works with BufferReader via in-memory filter fallback."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    table = pa.table({'id': range(10), 'value': range(10)})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    source = pa.BufferReader(sink.getvalue())
+
+    result = orc.read_table(source, filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result['id'].to_pylist() == [6, 7, 8, 9]
