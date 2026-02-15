@@ -165,6 +165,9 @@ class PARQUET_EXPORT ColumnWriter {
   /// \brief Estimated size of the values that are not written to a page yet.
   virtual int64_t estimated_buffered_value_bytes() const = 0;
 
+  /// \brief Estimated size of the levels that are not written to a page yet.
+  virtual int64_t EstimatedBufferedLevelsBytes() const = 0;
+
   /// \brief The file-level writer properties
   virtual const WriterProperties* properties() = 0;
 

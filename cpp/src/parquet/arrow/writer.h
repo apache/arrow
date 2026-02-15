@@ -111,9 +111,9 @@ class PARQUET_EXPORT FileWriter {
   /// Multiple RecordBatches can be written into the same row group
   /// through this method.
   ///
-  /// WriterProperties.max_row_group_length() is respected and a new
-  /// row group will be created if the current row group exceeds the
-  /// limit.
+  /// WriterProperties.max_row_group_length() and WriterProperties.max_row_group_bytes()
+  /// are respected and a new row group will be created if the current row group exceeds
+  /// the limits.
   ///
   /// Batches get flushed to the output stream once NewBufferedRowGroup()
   /// or Close() is called.
@@ -139,6 +139,9 @@ class PARQUET_EXPORT FileWriter {
   /// `store_schema` being unusable during read.
   virtual ::arrow::Status AddKeyValueMetadata(
       const std::shared_ptr<const ::arrow::KeyValueMetadata>& key_value_metadata) = 0;
+  /// \brief Estimate compressed bytes per row from data written so far.
+  /// \note std::nullopt will be returned if there is no row written.
+  virtual std::optional<double> EstimateCompressedBytesPerRow() const = 0;
   /// \brief Return the file metadata, only available after calling Close().
   virtual const std::shared_ptr<FileMetaData> metadata() const = 0;
 };
