@@ -327,12 +327,14 @@ def read_table(source, columns=None, filesystem=None, filters=None):
 
         # Dataset API requires path-like inputs. For file-like/NativeFile inputs
         # fall back to direct ORC read + in-memory filtering for compatibility.
+        # Read all columns first so filters can reference columns not requested
+        # in the output projection.
         if filesystem is None and not isinstance(path, (str, bytes, os.PathLike)):
-            if columns is not None and len(columns) == 0:
-                result = ORCFile(source).read().select(columns)
-            else:
-                result = ORCFile(source).read(columns=columns)
-            return result.filter(filter_expr)
+            result = ORCFile(source).read()
+            result = result.filter(filter_expr)
+            if columns is not None:
+                result = result.select(columns)
+            return result
 
         dataset_source = path if filesystem is not None else source
         dataset = ds.dataset(dataset_source, format='orc', filesystem=filesystem)
