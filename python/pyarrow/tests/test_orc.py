@@ -697,3 +697,78 @@ def test_orc_writer_with_null_arrays(tempdir):
     table = pa.table({"int64": a, "utf8": b})
     with pytest.raises(pa.ArrowNotImplementedError):
         orc.write_table(table, path)
+
+
+def test_read_table_with_filters_expression(tempdir):
+    """Smoke test: filters parameter with Expression format."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, filters=ds.field('id') > 500)
+    assert result.num_rows == 499
+    assert result['id'].to_pylist()[0] == 501
+
+
+def test_read_table_with_filters_dnf(tempdir):
+    """Smoke test: filters parameter with DNF tuple format."""
+    from pyarrow import orc
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000)})
+    orc.write_table(table, path)
+
+    # Single condition
+    result = orc.read_table(path, filters=[('id', '>', 500)])
+    assert result.num_rows == 499
+
+    # Multiple conditions (AND)
+    result = orc.read_table(path, filters=[('id', '>', 100), ('id', '<', 200)])
+    assert result.num_rows == 99
+
+
+def test_read_table_filters_with_columns(tempdir):
+    """Integration: filters with column projection."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000), 'extra': ['x'] * 1000})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, columns=['id', 'value'], filters=ds.field('id') < 100)
+    assert result.num_rows == 100
+    assert result.num_columns == 2
+    assert set(result.column_names) == {'id', 'value'}
+
+
+def test_read_table_filters_correctness(tempdir):
+    """Correctness: filtered results match unfiltered + post-filter."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000)})
+    orc.write_table(table, path)
+
+    filter_expr = ds.field('id') > 500
+    filtered = orc.read_table(path, filters=filter_expr)
+    unfiltered = orc.read_table(path)
+    expected = unfiltered.filter(filter_expr)
+
+    assert filtered.equals(expected)
+
+
+def test_read_table_filters_none(tempdir):
+    """Edge case: filters=None behaves as no filter."""
+    from pyarrow import orc
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(100)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, filters=None)
+    assert result.num_rows == 100
