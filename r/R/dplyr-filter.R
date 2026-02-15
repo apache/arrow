@@ -17,49 +17,108 @@
 
 # The following S3 methods are registered on load if dplyr is present
 
-filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
-  try_arrow_dplyr({
-    # TODO something with the .preserve argument
-    out <- as_adq(.data)
+apply_filter_impl <- function(
+  .data,
+  ...,
+  .by = NULL,
+  .preserve = FALSE,
+  exclude = FALSE,
+  verb = c("filter", "filter_out")
+) {
+  verb <- match.arg(verb)
 
-    by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
+  # TODO something with the .preserve argument
+  out <- as_adq(.data)
 
-    if (by$from_by) {
-      out$group_by_vars <- by$names
-    }
+  by <- compute_by({{ .by }}, out, by_arg = ".by", data_arg = ".data")
 
-    expanded_filters <- expand_across(out, quos(...))
-    if (length(expanded_filters) == 0) {
-      # Nothing to do
-      return(as_adq(.data))
-    }
+  if (by$from_by) {
+    out$group_by_vars <- by$names
+  }
 
-    # tidy-eval the filter expressions inside an Arrow data_mask
-    mask <- arrow_mask(out)
+  expanded_filters <- expand_across(out, quos(...))
+  if (length(expanded_filters) == 0) {
+    # Nothing to do
+    return(as_adq(.data))
+  }
+
+  # tidy-eval the filter expressions inside an Arrow data_mask
+  mask <- arrow_mask(out)
+
+  if (isTRUE(exclude)) {
+    # filter_out(): combine all predicates with &, then exclude
+    combined <- NULL
+
     for (expr in expanded_filters) {
       filt <- arrow_eval(expr, mask)
+
       if (length(mask$.aggregations)) {
-        # dplyr lets you filter on e.g. x < mean(x), but we haven't implemented it.
-        # But we could, the same way it works in mutate() via join, if someone asks.
-        # Until then, just error.
         arrow_not_supported(
-          .actual_msg = "Expression not supported in filter() in Arrow",
+          .actual_msg = sprintf("Expression not supported in %s() in Arrow", verb),
           call = expr
         )
       }
-      out <- set_filters(out, filt)
+
+      if (is_list_of(filt, "Expression")) {
+        filt <- Reduce("&", filt)
+      }
+
+      combined <- if (is.null(combined)) filt else (combined & filt)
     }
 
-    if (by$from_by) {
-      out$group_by_vars <- character()
-    }
+    out <- set_filters(out, combined, exclude = TRUE)
+  } else {
+    # filter(): apply each predicate sequentially
+    for (expr in expanded_filters) {
+      filt <- arrow_eval(expr, mask)
 
-    out
+      if (length(mask$.aggregations)) {
+        arrow_not_supported(
+          .actual_msg = sprintf("Expression not supported in %s() in Arrow", verb),
+          call = expr
+        )
+      }
+
+      out <- set_filters(out, filt, exclude = FALSE)
+    }
+  }
+
+  if (by$from_by) {
+    out$group_by_vars <- character()
+  }
+
+  out
+}
+
+filter.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
+  try_arrow_dplyr({
+    apply_filter_impl(
+      .data,
+      ...,
+      .by = {{ .by }},
+      .preserve = .preserve,
+      exclude = FALSE,
+      verb = "filter"
+    )
   })
 }
 filter.Dataset <- filter.ArrowTabular <- filter.RecordBatchReader <- filter.arrow_dplyr_query
 
-set_filters <- function(.data, expressions) {
+filter_out.arrow_dplyr_query <- function(.data, ..., .by = NULL, .preserve = FALSE) {
+  try_arrow_dplyr({
+    apply_filter_impl(
+      .data,
+      ...,
+      .by = {{ .by }},
+      .preserve = .preserve,
+      exclude = TRUE,
+      verb = "filter_out"
+    )
+  })
+}
+filter_out.Dataset <- filter_out.ArrowTabular <- filter_out.RecordBatchReader <- filter_out.arrow_dplyr_query
+
+set_filters <- function(.data, expressions, exclude = FALSE) {
   if (length(expressions)) {
     if (is_list_of(expressions, "Expression")) {
       # expressions is a list of Expressions. AND them together and set them on .data
@@ -68,6 +127,12 @@ set_filters <- function(.data, expressions) {
       new_filter <- expressions
     } else {
       stop("filter expressions must be either an expression or a list of expressions", call. = FALSE)
+    }
+
+    if (isTRUE(exclude)) {
+      # dplyr::filter_out() semantics: drop rows where predicate is TRUE;
+      # keep rows where predicate is FALSE or NA.
+      new_filter <- (!new_filter) | is.na(new_filter)
     }
 
     if (isTRUE(.data$filtered_rows)) {

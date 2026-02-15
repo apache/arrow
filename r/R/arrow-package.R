@@ -38,6 +38,7 @@
 supported_dplyr_methods <- list(
   select = NULL,
   filter = NULL,
+  filter_out = NULL,
   collect = NULL,
   summarise = c(
     "window functions not currently supported;",
