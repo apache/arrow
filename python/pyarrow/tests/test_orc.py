@@ -697,3 +697,197 @@ def test_orc_writer_with_null_arrays(tempdir):
     table = pa.table({"int64": a, "utf8": b})
     with pytest.raises(pa.ArrowNotImplementedError):
         orc.write_table(table, path)
+
+
+def test_read_table_with_filters_expression(tempdir):
+    """Smoke test: filters parameter with Expression format."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, filters=ds.field('id') > 500)
+    assert result.num_rows == 499
+    assert result['id'].to_pylist()[0] == 501
+
+
+def test_read_table_with_filters_dnf(tempdir):
+    """Smoke test: filters parameter with DNF tuple format."""
+    from pyarrow import orc
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000)})
+    orc.write_table(table, path)
+
+    # Single condition
+    result = orc.read_table(path, filters=[('id', '>', 500)])
+    assert result.num_rows == 499
+
+    # Multiple conditions (AND)
+    result = orc.read_table(path, filters=[('id', '>', 100), ('id', '<', 200)])
+    assert result.num_rows == 99
+
+
+def test_read_table_filters_with_columns(tempdir):
+    """Integration: filters with column projection."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000), 'extra': ['x'] * 1000})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, columns=['id', 'value'], filters=ds.field('id') < 100)
+    assert result.num_rows == 100
+    assert result.num_columns == 2
+    assert set(result.column_names) == {'id', 'value'}
+
+
+def test_read_table_filters_correctness(tempdir):
+    """Correctness: filtered results match unfiltered + post-filter."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(1000), 'value': range(1000)})
+    orc.write_table(table, path)
+
+    filter_expr = ds.field('id') > 500
+    filtered = orc.read_table(path, filters=filter_expr)
+    unfiltered = orc.read_table(path)
+    expected = unfiltered.filter(filter_expr)
+
+    assert filtered.equals(expected)
+
+
+def test_read_table_filters_none(tempdir):
+    """Edge case: filters=None behaves as no filter."""
+    from pyarrow import orc
+
+    path = str(tempdir / 'test.orc')
+    table = pa.table({'id': range(100)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, filters=None)
+    assert result.num_rows == 100
+
+
+def test_read_table_filters_all_null_semantics(tempdir):
+    """IS NULL/IS NOT NULL semantics with all-null stripes."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'all_null.orc')
+    n = 2048
+    with orc.ORCWriter(path, stripe_size=4096) as writer:
+        writer.write(pa.table({'id': pa.array([None] * n, type=pa.int64())}))
+        writer.write(pa.table({'id': pa.array(range(n), type=pa.int64())}))
+
+    is_null = orc.read_table(path, filters=ds.field('id').is_null())
+    assert is_null.num_rows == n
+    assert is_null['id'].null_count == n
+
+    is_not_null = orc.read_table(path, filters=ds.field('id').is_valid())
+    assert is_not_null.num_rows == n
+    assert is_not_null['id'].null_count == 0
+
+
+def test_read_table_filters_buffer_reader_fallback():
+    """filters=... works with BufferReader via in-memory filter fallback."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    table = pa.table({'id': range(10), 'value': range(10)})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    source = pa.BufferReader(sink.getvalue())
+
+    result = orc.read_table(source, filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result['id'].to_pylist() == [6, 7, 8, 9]
+
+
+def test_read_table_filters_buffer_reader_fallback_with_projection():
+    """Fallback should allow filtering on columns not present in output."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    table = pa.table({'id': range(10), 'value': range(10, 20)})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    source = pa.BufferReader(sink.getvalue())
+
+    result = orc.read_table(source, columns=['value'], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.column_names == ['value']
+    assert result['value'].to_pylist() == [16, 17, 18, 19]
+
+
+def test_read_table_filters_buffer_reader_fallback_empty_projection():
+    """Fallback should preserve filtered row count with columns=[]."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    table = pa.table({'id': range(10), 'value': range(10)})
+    sink = pa.BufferOutputStream()
+    orc.write_table(table, sink)
+    source = pa.BufferReader(sink.getvalue())
+
+    result = orc.read_table(source, columns=[], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.num_columns == 0
+
+
+def test_read_table_filters_projection_without_filter_column(tempdir):
+    """Path-like reads should filter using hidden columns and project output."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'projection_filter.orc')
+    table = pa.table({'id': range(10), 'value': range(10, 20)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, columns=['value'], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.column_names == ['value']
+    assert result['value'].to_pylist() == [16, 17, 18, 19]
+
+
+def test_read_table_filters_empty_projection_path(tempdir):
+    """Path-like reads should preserve filtered row count with columns=[]."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+
+    path = str(tempdir / 'projection_empty.orc')
+    table = pa.table({'id': range(10), 'value': range(10)})
+    orc.write_table(table, path)
+
+    result = orc.read_table(path, columns=[], filters=ds.field('id') > 5)
+    assert result.num_rows == 4
+    assert result.num_columns == 0
+
+
+def test_parquet_orc_predicate_pushdown_parity(tempdir):
+    """Equivalent ORC and Parquet predicates should produce equal results."""
+    from pyarrow import orc
+    import pyarrow.dataset as ds
+    import pyarrow.parquet as pq
+
+    data = pa.table({
+        'id': range(1000),
+        'group': [i % 7 for i in range(1000)],
+        'value': [i * 3 for i in range(1000)],
+    })
+
+    orc_path = str(tempdir / 'parity.orc')
+    parquet_path = str(tempdir / 'parity.parquet')
+    orc.write_table(data, orc_path, stripe_size=4096)
+    pq.write_table(data, parquet_path, row_group_size=128)
+
+    filt = (ds.field('id') >= 123) & (ds.field('id') < 876) & (ds.field('group') == 3)
+    orc_result = orc.read_table(orc_path, filters=filt)
+    parquet_result = pq.read_table(parquet_path, filters=filt)
+
+    assert orc_result.equals(parquet_result)
