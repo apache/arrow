@@ -21,10 +21,12 @@
 
 jobs:
   macos-cran:
-    name: "macOS similar to CRAN"
+    name: "macOS {{ '${{ matrix.config }}' }}"
     runs-on: macOS-latest
     strategy:
       fail-fast: false
+      matrix:
+        config: ["cran-m1", "cran-release"]
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
@@ -58,7 +60,35 @@ jobs:
           extra-packages: |
             any::rcmdcheck
             any::sys
-      - name: Install
+      - name: Install MacOSX 11.3 SDK
+        if: matrix.config == 'cran-release'
+        env:
+          SDK_TOKEN: {{ '${{ secrets.JONKEANE_MACOS_11_SDK_DOWNLOAD_TOKEN }}' }}
+        run: |
+          # Download, Confirm integrity, expand. This will fail if the hash does not match.
+          curl -fsSL -H "Authorization: Bearer $SDK_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/jonkeane/crossbow_11_sdk/tarball/v0.0.1 \
+            -o /tmp/MacOSX11.3.sdk.tar.gz
+          echo "493570e56d6c6af26128e9096de738822589cc3cdb1b29aa5854f3f4c99756ac  /tmp/MacOSX11.3.sdk.tar.gz" | shasum -a 256 -c -
+          sudo tar -xzf /tmp/MacOSX11.3.sdk.tar.gz -C /Library/Developer/CommandLineTools/SDKs/
+          # Move SDK from extracted folder (GitHub archives as {owner}-{repo}-{sha}/)
+          sudo mv /Library/Developer/CommandLineTools/SDKs/jonkeane-crossbow_11_sdk-*/MacOSX11.3.sdk \
+            /Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk
+          sudo rm -rf /Library/Developer/CommandLineTools/SDKs/jonkeane-crossbow_11_sdk-*
+          ls -la /Library/Developer/CommandLineTools/SDKs/
+      - name: Install (cran-release)
+        if: matrix.config == 'cran-release'
+        env:
+          _R_CHECK_CRAN_INCOMING_: false
+          SDKROOT: '/Library/Developer/CommandLineTools/SDKs/MacOSX11.3.sdk'
+          NOT_CRAN: false
+        run: |
+          sccache --start-server || echo 'sccache not found'
+          cd arrow/r
+          R CMD INSTALL . --install-tests
+      - name: Install (cran-m1)
+        if: matrix.config == 'cran-m1'
         env:
           _R_CHECK_CRAN_INCOMING_: false
           CXX: "clang++ -mmacos-version-min=14.6"
