@@ -76,7 +76,6 @@ class OrcScanTask {
             OpenORCReader(source, std::make_shared<ScanOptions>(scan_options)));
 
         auto materialized_fields = scan_options.MaterializedFields();
-        // filter out virtual columns
         std::vector<std::string> included_fields;
         ARROW_ASSIGN_OR_RAISE(auto schema, reader->ReadSchema());
         for (const auto& ref : materialized_fields) {
@@ -86,7 +85,6 @@ class OrcScanTask {
           included_fields.push_back(schema->field(match.indices()[0])->name());
         }
 
-        // If stripe_ids is empty, read all stripes (backward compatible)
         if (stripe_ids.empty()) {
           std::shared_ptr<RecordBatchReader> record_batch_reader;
           ARROW_ASSIGN_OR_RAISE(
@@ -96,7 +94,6 @@ class OrcScanTask {
           return RecordBatchIterator(Impl{std::move(record_batch_reader)});
         }
 
-        // Convert field names to indices using Schema::GetFieldIndex
         std::vector<int> included_indices;
         for (const auto& field_name : included_fields) {
           int idx = schema->GetFieldIndex(field_name);
@@ -105,17 +102,14 @@ class OrcScanTask {
           }
         }
 
-        // Read only selected stripes
         return RecordBatchIterator(
             Impl{std::move(reader), stripe_ids, std::move(included_indices),
                  scan_options.batch_size});
       }
 
-      // Constructor for full file read
       explicit Impl(std::shared_ptr<RecordBatchReader> reader)
           : record_batch_reader_(std::move(reader)), stripe_mode_(false) {}
 
-      // Constructor for stripe-filtered read
       Impl(std::unique_ptr<arrow::adapters::orc::ORCFileReader> reader,
            std::vector<int> stripe_ids, std::vector<int> included_indices,
            int64_t batch_size)
@@ -133,7 +127,6 @@ class OrcScanTask {
           return batch;
         }
 
-        // Stripe-filtered mode
         while (true) {
           if (record_batch_reader_) {
             std::shared_ptr<RecordBatch> batch;
@@ -149,9 +142,7 @@ class OrcScanTask {
             return nullptr;
           }
 
-          // Seek to the next stripe and get a reader for it
           int64_t stripe_id = stripe_ids_[current_stripe_idx_];
-          // Get stripe information to find the first row of this stripe
           auto stripe_info = orc_reader_->GetStripeInformation(stripe_id);
           RETURN_NOT_OK(orc_reader_->Seek(stripe_info.first_row_id));
           ARROW_ASSIGN_OR_RAISE(
@@ -328,7 +319,6 @@ Result<std::shared_ptr<Fragment>> OrcFileFragment::Subset(std::vector<int> strip
 Result<std::shared_ptr<FileFragment>> OrcFileFormat::MakeFragment(
     FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema) {
-  // Return OrcFileFragment with no stripe filter (reads all stripes)
   return std::shared_ptr<FileFragment>(
       new OrcFileFragment(std::move(source), shared_from_this(),
                           std::move(partition_expression),
@@ -338,7 +328,6 @@ Result<std::shared_ptr<FileFragment>> OrcFileFormat::MakeFragment(
 Result<std::shared_ptr<OrcFileFragment>> OrcFileFormat::MakeFragment(
     FileSource source, compute::Expression partition_expression,
     std::shared_ptr<Schema> physical_schema, std::vector<int> stripe_ids) {
-  // Validate stripe IDs
   if (!stripe_ids.empty()) {
     ARROW_ASSIGN_OR_RAISE(auto reader, OpenORCReader(source));
     int64_t num_stripes = reader->NumberOfStripes();
