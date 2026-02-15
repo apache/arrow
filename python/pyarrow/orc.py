@@ -15,8 +15,26 @@
 # specific language governing permissions and limitations
 # under the License.
 
+"""
+Apache ORC file format with predicate pushdown support.
+
+ORC supports stripe-level filtering using column statistics for INT32/INT64 columns.
+
+**Dataset API** (recommended for multiple files)::
+
+    >>> import pyarrow.dataset as ds
+    >>> dataset = ds.dataset('data.orc', format='orc')
+    >>> table = dataset.to_table(filter=ds.field('value') > 100)
+
+**Convenience API** (single file)::
+
+    >>> import pyarrow.orc as orc
+    >>> table = orc.read_table('data.orc', filters=ds.field('value') > 100)
+    >>> table = orc.read_table('data.orc', filters=[('value', '>', 100)])  # DNF tuples
+"""
 
 from numbers import Integral
+import os
 import warnings
 
 from pyarrow.lib import Table
@@ -297,17 +315,35 @@ where : str or pyarrow.io.NativeFile
             self.is_open = False
 
 
-def read_table(source, columns=None, filesystem=None):
+def read_table(source, columns=None, filesystem=None, filters=None):
     filesystem, path = _resolve_filesystem_and_path(source, filesystem)
+
+    if filters is not None:
+        import pyarrow.dataset as ds
+        from pyarrow.parquet.core import filters_to_expression
+
+        # filters_to_expression handles both Expression and DNF tuple formats
+        filter_expr = filters_to_expression(filters)
+
+        # Dataset API requires path-like inputs. For file-like/NativeFile inputs
+        # fall back to direct ORC read + in-memory filtering for compatibility.
+        if filesystem is None and not isinstance(path, (str, bytes, os.PathLike)):
+            if columns is not None and len(columns) == 0:
+                result = ORCFile(source).read().select(columns)
+            else:
+                result = ORCFile(source).read(columns=columns)
+            return result.filter(filter_expr)
+
+        dataset_source = path if filesystem is not None else source
+        dataset = ds.dataset(dataset_source, format='orc', filesystem=filesystem)
+        return dataset.to_table(columns=columns, filter=filter_expr)
+
     if filesystem is not None:
         source = filesystem.open_input_file(path)
 
     if columns is not None and len(columns) == 0:
-        result = ORCFile(source).read().select(columns)
-    else:
-        result = ORCFile(source).read(columns=columns)
-
-    return result
+        return ORCFile(source).read().select(columns)
+    return ORCFile(source).read(columns=columns)
 
 
 read_table.__doc__ = """
@@ -330,6 +366,45 @@ filesystem : FileSystem, default None
     If nothing passed, will be inferred based on path.
     Path will try to be found in the local on-disk filesystem otherwise
     it will be parsed as an URI to determine the filesystem.
+filters : pyarrow.compute.Expression or List[Tuple] or List[List[Tuple]], default None
+    Predicate expression to filter rows. Uses ORC stripe-level statistics for
+    optimization when possible.
+
+    Accepts Expression objects or DNF (Disjunctive Normal Form) tuples::
+
+        # Expression format
+        filters=ds.field('id') > 100
+
+        # DNF tuples: list of conditions (AND), or list of lists (OR of ANDs)
+        filters=[('id', '>', 100)]                      # single condition
+        filters=[('id', '>', 100), ('id', '<', 200)]    # AND
+        filters=[[('x', '==', 1)], [('x', '==', 2)]]    # OR
+
+    Supported operators: ==, !=, <, >, <=, >=, in, not in
+
+    Note: For path-like inputs, filters are evaluated through the dataset API.
+    For file-like inputs, read_table falls back to in-memory filtering.
+
+Returns
+-------
+pyarrow.Table
+    Content of the file as a Table.
+
+Examples
+--------
+Read entire file:
+
+>>> import pyarrow.orc as orc
+>>> table = orc.read_table('data.orc')
+
+Read with predicate pushdown:
+
+>>> import pyarrow.dataset as ds
+>>> table = orc.read_table('data.orc', filters=ds.field('id') > 1000)
+
+Read with column selection and filtering:
+
+>>> table = orc.read_table('data.orc', columns=['id', 'value'], filters=[('id', '>', 1000)])
 """
 
 
