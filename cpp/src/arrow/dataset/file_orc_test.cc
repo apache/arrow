@@ -25,6 +25,7 @@
 #include "arrow/dataset/discovery.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/partition.h"
+#include "arrow/dataset/scanner.h"
 #include "arrow/dataset/test_util_internal.h"
 #include "arrow/io/memory.h"
 #include "arrow/record_batch.h"
@@ -103,21 +104,24 @@ class TestOrcFileFragment : public ::testing::Test {
 
   void SetSchema(std::vector<std::shared_ptr<Field>> fields) {
     opts_->dataset_schema = schema(std::move(fields));
-    ASSERT_OK_AND_ASSIGN(input_, GetBufferFromNumBatches(4, /*batch_size=*/512));
+    // Write batches individually with a tiny stripe size to force multiple stripes.
+    ASSERT_OK_AND_ASSIGN(input_, WriteMultiStripeBuffer(4, /*batch_size=*/512));
   }
 
-  Result<std::shared_ptr<Buffer>> GetBufferFromNumBatches(int num_batches,
-                                                           int batch_size) {
-    std::vector<std::shared_ptr<RecordBatch>> batches;
-    for (int i = 0; i < num_batches; i++) {
-      batches.push_back(
-          ConstantArrayGenerator::Zeroes(batch_size, opts_->dataset_schema));
-    }
-    ARROW_ASSIGN_OR_RAISE(auto table,
-                          Table::FromRecordBatches(opts_->dataset_schema, batches));
+  /// Write an ORC buffer with a small stripe size so each batch becomes its own stripe.
+  Result<std::shared_ptr<Buffer>> WriteMultiStripeBuffer(int num_batches,
+                                                         int batch_size) {
+    adapters::orc::WriteOptions write_opts;
+    write_opts.stripe_size = 1024;  // 1 KiB -- forces a new stripe per batch
+
     ARROW_ASSIGN_OR_RAISE(auto sink, io::BufferOutputStream::Create());
-    ARROW_ASSIGN_OR_RAISE(auto writer, adapters::orc::ORCFileWriter::Open(sink.get()));
-    RETURN_NOT_OK(writer->Write(*table));
+    ARROW_ASSIGN_OR_RAISE(auto writer,
+                          adapters::orc::ORCFileWriter::Open(sink.get(), write_opts));
+    for (int i = 0; i < num_batches; i++) {
+      auto batch =
+          ConstantArrayGenerator::Zeroes(batch_size, opts_->dataset_schema);
+      RETURN_NOT_OK(writer->Write(*batch));
+    }
     RETURN_NOT_OK(writer->Close());
     return sink->Finish();
   }
@@ -136,17 +140,12 @@ class TestOrcFileFragment : public ::testing::Test {
   }
 
   void AssertScanEquals(std::shared_ptr<Fragment> fragment, int64_t expected_rows) {
-    int64_t total_rows = 0;
-    ASSERT_OK_AND_ASSIGN(auto scan_task_it, fragment->Scan(opts_));
-    for (auto maybe_scan_task : scan_task_it) {
-      ASSERT_OK_AND_ASSIGN(auto scan_task, maybe_scan_task);
-      ASSERT_OK_AND_ASSIGN(auto rb_it, scan_task->Execute());
-      for (auto maybe_batch : rb_it) {
-        ASSERT_OK_AND_ASSIGN(auto batch, maybe_batch);
-        total_rows += batch->num_rows();
-      }
-    }
-    ASSERT_EQ(total_rows, expected_rows);
+    auto dataset = std::make_shared<FragmentDataset>(
+        opts_->dataset_schema, FragmentVector{std::move(fragment)});
+    ScannerBuilder builder(dataset, opts_);
+    ASSERT_OK_AND_ASSIGN(auto scanner, builder.Finish());
+    ASSERT_OK_AND_ASSIGN(auto table, scanner->ToTable());
+    ASSERT_EQ(table->num_rows(), expected_rows);
   }
 
  protected:
@@ -187,37 +186,33 @@ TEST_F(TestOrcFileFragment, Subset) {
 }
 
 TEST_F(TestOrcFileFragment, ScanSubset) {
-  // Test that scanning a subset reads fewer rows than full scan
-  // Create a file with multiple stripes (4 batches of 512 rows each = 2048 rows)
+  // The fixture writes 4 batches of 512 rows with a tiny stripe size,
+  // producing multiple stripes.
   auto source = FileSource(input_);
 
-  // Full scan
-  ASSERT_OK_AND_ASSIGN(auto full_fragment, MakeFragment(source));
-  AssertScanEquals(full_fragment, 2048);
-
-  // Scan single stripe - should read fewer rows
-  // ORC may combine batches into stripes, so subset might still read all if it's 1 stripe
-  // For a more robust test, create larger file or check stripe count first
-  ASSERT_OK_AND_ASSIGN(auto reader_for_info,
+  ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(
                            std::make_shared<io::BufferReader>(input_),
                            default_memory_pool()));
-  int64_t num_stripes = reader_for_info->NumberOfStripes();
+  int64_t num_stripes = reader->NumberOfStripes();
+  ASSERT_GT(num_stripes, 1) << "Test file should have multiple stripes";
 
-  if (num_stripes > 1) {
-    // Test reading just first stripe
-    std::vector<int> first_stripe = {0};
-    ASSERT_OK_AND_ASSIGN(auto subset_fragment, MakeFragment(source, first_stripe));
+  // Full scan should read all 2048 rows
+  ASSERT_OK_AND_ASSIGN(auto full_fragment, MakeFragment(source));
+  AssertScanEquals(full_fragment, 2048);
 
-    // Count rows in first stripe
-    auto stripe_info = reader_for_info->GetStripeInformation(0);
-    int64_t expected_rows = stripe_info.num_rows;
+  // Read just the first stripe via MakeFragment (validated path)
+  std::vector<int> first_stripe = {0};
+  ASSERT_OK_AND_ASSIGN(auto subset_fragment, MakeFragment(source, first_stripe));
 
-    AssertScanEquals(subset_fragment, expected_rows);
+  auto stripe_info = reader->GetStripeInformation(0);
+  int64_t expected_rows = stripe_info.num_rows;
+  ASSERT_LT(expected_rows, 2048);
+  AssertScanEquals(subset_fragment, expected_rows);
 
-    // Verify it's less than full file
-    ASSERT_LT(expected_rows, 2048);
-  }
+  // Also test Subset() (the unvalidated fast path)
+  ASSERT_OK_AND_ASSIGN(auto subset_via_subset, full_fragment->Subset(first_stripe));
+  AssertScanEquals(subset_via_subset, expected_rows);
 }
 
 TEST_F(TestOrcFileFragment, InvalidStripeIdOutOfRange) {
@@ -251,33 +246,30 @@ TEST_F(TestOrcFileFragment, CountRowsWithStripeSubset) {
                            std::make_shared<io::BufferReader>(input_),
                            default_memory_pool()));
   int64_t num_stripes = reader->NumberOfStripes();
+  ASSERT_GT(num_stripes, 1) << "Test file should have multiple stripes";
 
-  if (num_stripes > 1) {
-    // Create fragment with first stripe only
-    std::vector<int> first_stripe = {0};
-    ASSERT_OK_AND_ASSIGN(auto fragment, MakeFragment(source, first_stripe));
+  // Create fragment with first stripe only
+  std::vector<int> first_stripe = {0};
+  ASSERT_OK_AND_ASSIGN(auto fragment, MakeFragment(source, first_stripe));
 
-    auto stripe_info = reader->GetStripeInformation(0);
-    int64_t expected_rows = stripe_info.num_rows;
+  auto stripe_info = reader->GetStripeInformation(0);
+  int64_t expected_rows = stripe_info.num_rows;
 
-    // CountRows should return the stripe's row count, not the full file
-    auto count_result = format_->CountRows(
-        fragment, literal(true), opts_);
-    ASSERT_OK_AND_ASSIGN(auto count, count_result.result());
-    ASSERT_TRUE(count.has_value());
-    ASSERT_EQ(count.value(), expected_rows);
+  // CountRows should return the stripe's row count, not the full file
+  auto count_result = format_->CountRows(fragment, literal(true), opts_);
+  ASSERT_OK_AND_ASSIGN(auto count, count_result.result());
+  ASSERT_TRUE(count.has_value());
+  ASSERT_EQ(count.value(), expected_rows);
 
-    // Full fragment should return total rows
-    ASSERT_OK_AND_ASSIGN(auto full_fragment, MakeFragment(source));
-    auto full_count_result = format_->CountRows(
-        full_fragment, literal(true), opts_);
-    ASSERT_OK_AND_ASSIGN(auto full_count, full_count_result.result());
-    ASSERT_TRUE(full_count.has_value());
-    ASSERT_EQ(full_count.value(), 2048);
+  // Full fragment should return total rows
+  ASSERT_OK_AND_ASSIGN(auto full_fragment, MakeFragment(source));
+  auto full_count_result = format_->CountRows(full_fragment, literal(true), opts_);
+  ASSERT_OK_AND_ASSIGN(auto full_count, full_count_result.result());
+  ASSERT_TRUE(full_count.has_value());
+  ASSERT_EQ(full_count.value(), 2048);
 
-    // Verify subset count is less than full count
-    ASSERT_LT(count.value(), full_count.value());
-  }
+  // Verify subset count is less than full count
+  ASSERT_LT(count.value(), full_count.value());
 }
 
 }  // namespace dataset

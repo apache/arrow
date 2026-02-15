@@ -39,6 +39,8 @@ namespace dataset {
 
 constexpr char kOrcTypeName[] = "orc";
 
+class OrcFileFragment;
+
 /// \brief A FileFormat implementation that reads from and writes to ORC files
 class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
  public:
