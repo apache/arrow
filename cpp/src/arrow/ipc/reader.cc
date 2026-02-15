@@ -900,15 +900,6 @@ Status ReadDictionary(const Buffer& metadata, const IpcReadContext& context,
   return Status::OK();
 }
 
-Status ReadDictionary(const Message& message, const IpcReadContext& context,
-                      DictionaryKind* kind) {
-  // Only invoke this method if we already know we have a dictionary message
-  DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
-  CHECK_HAS_BODY(message);
-  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
-  return ReadDictionary(*message.metadata(), context, kind, reader.get());
-}
-
 }  // namespace
 
 Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
@@ -948,6 +939,15 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
                          reader.get());
 }
 
+Status ReadDictionary(const Message& message, DictionaryMemo* dictionary_memo,
+                      const IpcReadOptions& options) {
+  CHECK_MESSAGE_TYPE(MessageType::DICTIONARY_BATCH, message.type());
+  CHECK_HAS_BODY(message);
+  IpcReadContext context(dictionary_memo, options, /*swap=*/false);
+  ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+  return ReadDictionary(*message.metadata(), context, /*kind=*/nullptr, reader.get());
+}
+
 // Streaming format decoder
 class StreamDecoderInternal : public MessageDecoderListener {
  public:
@@ -966,11 +966,11 @@ class StreamDecoderInternal : public MessageDecoderListener {
         field_inclusion_mask_(),
         num_required_initial_dictionaries_(0),
         num_read_initial_dictionaries_(0),
-        dictionary_memo_(),
         schema_(nullptr),
         filtered_schema_(nullptr),
         stats_(),
-        swap_endian_(false) {}
+        swap_endian_(false),
+        dictionary_memo_() {}
 
   Status OnMessageDecoded(std::unique_ptr<Message> message) override {
     ++stats_.num_messages;
@@ -1036,7 +1036,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
                              num_required_initial_dictionaries_,
                              ") of dictionaries at the start of the stream");
     }
-    RETURN_NOT_OK(ReadDictionary(*message));
+    RETURN_NOT_OK(ReadDictionaryMessage(*message));
     num_read_initial_dictionaries_++;
     if (num_read_initial_dictionaries_ == num_required_initial_dictionaries_) {
       state_ = State::RECORD_BATCHES;
@@ -1047,7 +1047,7 @@ class StreamDecoderInternal : public MessageDecoderListener {
 
   Status OnRecordBatchMessageDecoded(std::unique_ptr<Message> message) {
     if (message->type() == MessageType::DICTIONARY_BATCH) {
-      return ReadDictionary(*message);
+      return ReadDictionaryMessage(*message);
     } else {
       CHECK_HAS_BODY(*message);
       ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message->body()));
@@ -1062,10 +1062,13 @@ class StreamDecoderInternal : public MessageDecoderListener {
   }
 
   // Read dictionary from dictionary batch
-  Status ReadDictionary(const Message& message) {
+  Status ReadDictionaryMessage(const Message& message) {
     DictionaryKind kind;
     IpcReadContext context(&dictionary_memo_, options_, swap_endian_);
-    RETURN_NOT_OK(::arrow::ipc::ReadDictionary(message, context, &kind));
+    DCHECK_EQ(message.type(), MessageType::DICTIONARY_BATCH);
+    CHECK_HAS_BODY(message);
+    ARROW_ASSIGN_OR_RAISE(auto reader, Buffer::GetReader(message.body()));
+    RETURN_NOT_OK(ReadDictionary(*message.metadata(), context, &kind, reader.get()));
     ++stats_.num_dictionary_batches;
     switch (kind) {
       case DictionaryKind::New:
@@ -1086,11 +1089,13 @@ class StreamDecoderInternal : public MessageDecoderListener {
   std::vector<bool> field_inclusion_mask_;
   int num_required_initial_dictionaries_;
   int num_read_initial_dictionaries_;
-  DictionaryMemo dictionary_memo_;
   std::shared_ptr<Schema> schema_;
   std::shared_ptr<Schema> filtered_schema_;
   ReadStats stats_;
   bool swap_endian_;
+
+ protected:
+  DictionaryMemo dictionary_memo_;
 };
 
 // ----------------------------------------------------------------------
@@ -1157,6 +1162,8 @@ class RecordBatchStreamReaderImpl : public RecordBatchStreamReader,
   }
 
   ReadStats stats() const override { return StreamDecoderInternal::stats(); }
+
+  DictionaryMemo* dictionary_memo() override { return &dictionary_memo_; }
 
  private:
   std::unique_ptr<MessageReader> message_reader_;
@@ -1489,6 +1496,8 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   std::shared_ptr<const KeyValueMetadata> metadata() const override { return metadata_; }
 
   ReadStats stats() const override { return stats_.poll(); }
+
+  DictionaryMemo* dictionary_memo() override { return &dictionary_memo_; }
 
   Result<AsyncGenerator<std::shared_ptr<RecordBatch>>> GetRecordBatchGenerator(
       const bool coalesce, const io::IOContext& io_context,
