@@ -147,9 +147,6 @@ jobs:
         uses: matlab-actions/setup-matlab@v2
         with:
           release: R2025b
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
       - name: Install ccache
         shell: bash
         run: ci/scripts/install_ccache.sh 4.6.3 /usr
