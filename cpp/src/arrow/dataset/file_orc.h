@@ -22,11 +22,14 @@
 #include <memory>
 #include <string>
 
+#include "arrow/adapters/orc/adapter.h"
+#include "arrow/compute/type_fwd.h"
 #include "arrow/dataset/file_base.h"
 #include "arrow/dataset/type_fwd.h"
 #include "arrow/dataset/visibility.h"
 #include "arrow/io/type_fwd.h"
 #include "arrow/result.h"
+#include "arrow/util/mutex.h"
 
 namespace arrow {
 namespace dataset {
@@ -53,6 +56,10 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
   /// \brief Return the schema of the file if possible.
   Result<std::shared_ptr<Schema>> Inspect(const FileSource& source) const override;
 
+  Result<std::shared_ptr<FileFragment>> MakeFragment(
+      FileSource source, compute::Expression partition_expression,
+      std::shared_ptr<Schema> physical_schema) override;
+
   Result<RecordBatchGenerator> ScanBatchesAsync(
       const std::shared_ptr<ScanOptions>& options,
       const std::shared_ptr<FileFragment>& file) const override;
@@ -67,6 +74,49 @@ class ARROW_DS_EXPORT OrcFileFormat : public FileFormat {
       fs::FileLocator destination_locator) const override;
 
   std::shared_ptr<FileWriteOptions> DefaultWriteOptions() override;
+};
+
+/// \brief A FileFragment implementation for ORC files with predicate pushdown
+class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
+ public:
+  /// \brief Filter stripes based on predicate using stripe statistics
+  ///
+  /// Returns indices of stripes where the predicate may be satisfied.
+  /// Supports INT32/INT64 columns and conservative handling of missing or
+  /// unsupported statistics.
+  ///
+  /// \param predicate Arrow compute expression to evaluate
+  /// \return Vector of stripe indices to read (0-based)
+  Result<std::vector<int>> FilterStripes(const compute::Expression& predicate);
+
+  /// \brief Ensure metadata is cached
+  Status EnsureMetadataCached();
+
+ private:
+  OrcFileFragment(FileSource source, std::shared_ptr<FileFormat> format,
+                  compute::Expression partition_expression,
+                  std::shared_ptr<Schema> physical_schema);
+
+  /// \brief Test each stripe against predicate
+  ///
+  /// Returns simplified expressions (one per stripe) after applying
+  /// stripe statistics as guarantees.
+  ///
+  /// \param predicate Arrow compute expression to test
+  /// \return Vector of simplified expressions
+  Result<std::vector<compute::Expression>> TestStripes(
+      const compute::Expression& predicate);
+
+  // Cached metadata to avoid repeated I/O
+  mutable util::Mutex metadata_mutex_;
+  mutable std::shared_ptr<Schema> cached_schema_;
+  mutable std::vector<int64_t> stripe_num_rows_;
+  mutable bool metadata_cached_ = false;
+
+  // Cached ORC reader for stripe statistics.
+  mutable std::unique_ptr<adapters::orc::ORCFileReader> cached_reader_;
+
+  friend class OrcFileFormat;
 };
 
 /// @}
