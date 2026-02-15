@@ -642,6 +642,31 @@ class ORCFileReader::Impl {
                                              pool_);
   }
 
+  Result<std::shared_ptr<RecordBatchReader>> NextStripeReader(
+      int64_t batch_size, const std::vector<std::string>& include_names) {
+    if (current_row_ >= NumberOfRows()) {
+      return nullptr;
+    }
+
+    liborc::RowReaderOptions opts = DefaultRowReaderOptions();
+    if (!include_names.empty()) {
+      RETURN_NOT_OK(SelectNames(&opts, include_names));
+    }
+    StripeInformation stripe_info{0, 0, 0, 0};
+    RETURN_NOT_OK(SelectStripeWithRowNumber(&opts, current_row_, &stripe_info));
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    std::unique_ptr<liborc::RowReader> row_reader;
+
+    ORC_BEGIN_CATCH_NOT_OK
+    row_reader = reader_->createRowReader(opts);
+    row_reader->seekToRow(current_row_);
+    current_row_ = stripe_info.first_row_id + stripe_info.num_rows;
+    ORC_END_CATCH_NOT_OK
+
+    return std::make_shared<OrcStripeReader>(std::move(row_reader), schema, batch_size,
+                                             pool_);
+  }
+
   Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
       int64_t batch_size, const std::vector<std::string>& include_names) {
     liborc::RowReaderOptions opts = DefaultRowReaderOptions();
@@ -744,6 +769,11 @@ Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReader(
 Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
     int64_t batch_size, const std::vector<int>& include_indices) {
   return impl_->NextStripeReader(batch_size, include_indices);
+}
+
+Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
+    int64_t batch_size, const std::vector<std::string>& include_names) {
+  return impl_->NextStripeReader(batch_size, include_names);
 }
 
 int64_t ORCFileReader::NumberOfStripes() { return impl_->NumberOfStripes(); }

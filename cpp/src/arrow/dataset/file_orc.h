@@ -82,7 +82,8 @@ class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
   /// \brief Filter stripes based on predicate using stripe statistics
   ///
   /// Returns indices of stripes where the predicate may be satisfied.
-  /// Currently supports INT64 columns with greater-than operator only.
+  /// Supports INT32/INT64 columns and conservative handling of missing or
+  /// unsupported statistics.
   ///
   /// \param predicate Arrow compute expression to evaluate
   /// \return Vector of stripe indices to read (0-based)
@@ -112,14 +113,7 @@ class ARROW_DS_EXPORT OrcFileFragment : public FileFragment {
   mutable std::vector<int64_t> stripe_num_rows_;
   mutable bool metadata_cached_ = false;
 
-  // Lazy evaluation structures for predicate pushdown
-  // Each stripe starts with literal(true) and gets refined as fields are processed
-  mutable std::vector<compute::Expression> statistics_expressions_;
-
-  // Track which fields have been processed to avoid duplicate work
-  mutable std::vector<bool> statistics_expressions_complete_;
-
-  // Cached ORC reader for accessing stripe statistics
+  // Cached ORC reader for stripe statistics.
   mutable std::unique_ptr<adapters::orc::ORCFileReader> cached_reader_;
 
   friend class OrcFileFormat;

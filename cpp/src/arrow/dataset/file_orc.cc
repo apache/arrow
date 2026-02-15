@@ -31,6 +31,7 @@
 #include "arrow/util/logging.h"
 #include "arrow/util/string.h"
 #include "arrow/util/thread_pool.h"
+#include <limits>
 #include <numeric>
 
 namespace arrow {
@@ -62,16 +63,60 @@ Result<std::unique_ptr<arrow::adapters::orc::ORCFileReader>> OpenORCReader(
   return reader;
 }
 
-// Fold expression into accumulator using AND logic
-// Special handling for literal(true) to avoid building large expression trees
-void FoldingAnd(compute::Expression* left, compute::Expression right) {
-  if (left->Equals(compute::literal(true))) {
-    // First expression - replace true with actual expression
-    *left = std::move(right);
-  } else {
-    // Combine with existing expression using AND
-    *left = compute::and_(std::move(*left), std::move(right));
+struct ResolvedFieldRef {
+  FieldRef field_ref;
+  std::shared_ptr<Field> field;
+  uint32_t orc_column_id;
+};
+
+compute::Expression DeriveFieldGuarantee(
+    const ResolvedFieldRef& resolved_field,
+    const ::orc::ColumnStatistics* col_stats) {
+  if (!col_stats) {
+    return compute::literal(true);
   }
+
+  auto field_expr = compute::field_ref(resolved_field.field_ref);
+  const bool has_null = col_stats->hasNull();
+  const bool is_all_null = has_null && col_stats->getNumberOfValues() == 0;
+  if (is_all_null) {
+    return compute::is_null(field_expr);
+  }
+
+  const auto* int_stats = dynamic_cast<const ::orc::IntegerColumnStatistics*>(col_stats);
+  if (!int_stats || !int_stats->hasMinimum() || !int_stats->hasMaximum()) {
+    return compute::literal(true);
+  }
+
+  int64_t min_value = int_stats->getMinimum();
+  int64_t max_value = int_stats->getMaximum();
+  if (min_value > max_value) {
+    return compute::literal(true);
+  }
+
+  std::shared_ptr<Scalar> min_scalar;
+  std::shared_ptr<Scalar> max_scalar;
+  if (resolved_field.field->type()->id() == Type::INT32) {
+    if (min_value < std::numeric_limits<int32_t>::min() ||
+        max_value > std::numeric_limits<int32_t>::max()) {
+      // Keep evaluation conservative when ORC integer stats exceed INT32 bounds.
+      return compute::literal(true);
+    }
+    min_scalar = std::make_shared<Int32Scalar>(static_cast<int32_t>(min_value));
+    max_scalar = std::make_shared<Int32Scalar>(static_cast<int32_t>(max_value));
+  } else {
+    min_scalar = std::make_shared<Int64Scalar>(min_value);
+    max_scalar = std::make_shared<Int64Scalar>(max_value);
+  }
+
+  auto min_expr = compute::greater_equal(field_expr, compute::literal(*min_scalar));
+  auto max_expr = compute::less_equal(field_expr, compute::literal(*max_scalar));
+  auto range_expr = compute::and_(std::move(min_expr), std::move(max_expr));
+
+  if (has_null) {
+    return compute::or_(std::move(range_expr), compute::is_null(field_expr));
+  }
+  return range_expr;
 }
 
 /// \brief A ScanTask backed by an ORC file.
@@ -87,6 +132,7 @@ class OrcScanTask {
                                               const FileFormat& format,
                                               const ScanOptions& scan_options,
                                               const std::shared_ptr<FileFragment>& fragment) {
+        ARROW_UNUSED(format);
         ARROW_ASSIGN_OR_RAISE(
             auto reader,
             OpenORCReader(source, std::make_shared<ScanOptions>(scan_options)));
@@ -123,23 +169,47 @@ class OrcScanTask {
           std::iota(stripe_indices.begin(), stripe_indices.end(), 0);
         }
 
-        // For this PR, we read all stripes but the infrastructure is in place
-        // A future PR can add GetRecordBatchReader overload with stripe_indices
-        std::shared_ptr<RecordBatchReader> record_batch_reader;
-        ARROW_ASSIGN_OR_RAISE(
-            record_batch_reader,
-            reader->GetRecordBatchReader(scan_options.batch_size, included_fields));
+        if (stripe_indices.empty()) {
+          return MakeEmptyIterator<std::shared_ptr<RecordBatch>>();
+        }
 
-        return RecordBatchIterator(Impl{std::move(record_batch_reader)});
+        return RecordBatchIterator(Impl{std::move(reader), std::move(included_fields),
+                                        std::move(stripe_indices), scan_options.batch_size,
+                                        0, nullptr});
       }
 
       Result<std::shared_ptr<RecordBatch>> Next() {
-        std::shared_ptr<RecordBatch> batch;
-        RETURN_NOT_OK(record_batch_reader_->ReadNext(&batch));
-        return batch;
+        while (true) {
+          if (current_stripe_reader_) {
+            std::shared_ptr<RecordBatch> batch;
+            RETURN_NOT_OK(current_stripe_reader_->ReadNext(&batch));
+            if (batch) {
+              return batch;
+            }
+            current_stripe_reader_.reset();
+            ++next_stripe_index_;
+            continue;
+          }
+
+          if (next_stripe_index_ >= stripe_indices_.size()) {
+            return IterationEnd<std::shared_ptr<RecordBatch>>();
+          }
+
+          const auto stripe = stripe_indices_[next_stripe_index_];
+          const auto stripe_info = reader_->GetStripeInformation(stripe);
+          RETURN_NOT_OK(reader_->Seek(stripe_info.first_row_id));
+          ARROW_ASSIGN_OR_RAISE(
+              current_stripe_reader_,
+              reader_->NextStripeReader(batch_size_, included_fields_));
+        }
       }
 
-      std::shared_ptr<RecordBatchReader> record_batch_reader_;
+      std::unique_ptr<adapters::orc::ORCFileReader> reader_;
+      std::vector<std::string> included_fields_;
+      std::vector<int> stripe_indices_;
+      int64_t batch_size_;
+      size_t next_stripe_index_;
+      std::shared_ptr<RecordBatchReader> current_stripe_reader_;
     };
 
     return Impl::Make(fragment_->source(),
@@ -293,17 +363,6 @@ Status OrcFileFragment::EnsureMetadataCached() {
     stripe_num_rows_[i] = stripe_metadata->num_rows;
   }
 
-  // Initialize lazy evaluation structures
-  // One expression per stripe, starting as literal(true) (unprocessed)
-  statistics_expressions_.resize(num_stripes);
-  for (int i = 0; i < num_stripes; i++) {
-    statistics_expressions_[i] = compute::literal(true);
-  }
-
-  // One flag per field, starting as false (not processed)
-  int num_fields = cached_schema_->num_fields();
-  statistics_expressions_complete_.resize(num_fields, false);
-
   metadata_cached_ = true;
   return Status::OK();
 }
@@ -314,105 +373,63 @@ Result<std::vector<compute::Expression>> OrcFileFragment::TestStripes(
   // Ensure metadata is loaded
   RETURN_NOT_OK(EnsureMetadataCached());
 
-  // Extract fields referenced in predicate
-  std::vector<FieldRef> field_refs = compute::FieldsInExpression(predicate);
+  // Resolve and de-duplicate top-level INT32/INT64 fields referenced in predicate.
+  std::vector<ResolvedFieldRef> resolved_fields;
+  std::vector<bool> field_seen(cached_schema_->num_fields(), false);
+  for (const FieldRef& field_ref : compute::FieldsInExpression(predicate)) {
+    ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*cached_schema_));
+    if (!match.has_value()) {
+      continue;
+    }
+    const auto& [field_indices, field] = *match;
+    if (field_indices.size() != 1) {
+      continue;
+    }
+    int field_index = field_indices[0];
+    if (field_seen[field_index]) {
+      continue;
+    }
+    if (field->type()->id() != Type::INT32 && field->type()->id() != Type::INT64) {
+      continue;
+    }
+    field_seen[field_index] = true;
+    resolved_fields.push_back(
+        ResolvedFieldRef{field_ref, field, static_cast<uint32_t>(field_index + 1)});
+  }
 
   // Open reader if not already cached
   if (!cached_reader_) {
-    ARROW_ASSIGN_OR_RAISE(auto input,
-        arrow::io::RandomAccessFile::Open(source().path()));
-    ARROW_ASSIGN_OR_RAISE(cached_reader_,
-        adapters::orc::ORCFileReader::Open(input, arrow::default_memory_pool()));
-  }
-
-  // Process each field referenced in predicate (lazy evaluation)
-  for (const FieldRef& field_ref : field_refs) {
-    // Resolve field reference to actual field
-    ARROW_ASSIGN_OR_RAISE(auto match, field_ref.FindOne(*cached_schema_));
-
-    if (!match.has_value()) {
-      continue;  // Field not in schema
-    }
-
-    const auto& [field_indices, field] = *match;
-
-    // Only support top-level fields for now
-    if (field_indices.size() != 1) {
-      continue;  // Nested field - skip
-    }
-
-    int field_index = field_indices[0];
-
-    // Check if already processed (lazy evaluation)
-    if (statistics_expressions_complete_[field_index]) {
-      continue;  // Already processed
-    }
-    statistics_expressions_complete_[field_index] = true;
-
-    // PR4 limitation: only support INT64
-    if (field->type()->id() != Type::INT64) {
-      continue;  // Unsupported type
-    }
-
-    // ORC column ID: top-level fields are 1-indexed (0 is root struct)
-    uint32_t orc_column_id = static_cast<uint32_t>(field_index + 1);
-
-    // Process all stripes for this field
-    for (size_t stripe_idx = 0; stripe_idx < stripe_num_rows_.size(); stripe_idx++) {
-      // Get stripe statistics
-      ARROW_ASSIGN_OR_RAISE(auto stripe_stats,
-          cached_reader_->GetStripeStatistics(stripe_idx));
-
-      // Extract min/max statistics - this calls the function from PR1
-      // (need to inline it here for now since it's in adapter.cc's anonymous namespace)
-      const auto* col_stats = stripe_stats->getColumnStatistics(orc_column_id);
-      if (!col_stats) {
-        continue;  // No statistics
-      }
-
-      const auto* int_stats =
-          dynamic_cast<const liborc::IntegerColumnStatistics*>(col_stats);
-      if (!int_stats || !int_stats->hasMinimum() || !int_stats->hasMaximum()) {
-        continue;  // Statistics incomplete
-      }
-
-      int64_t min_value = int_stats->getMinimum();
-      int64_t max_value = int_stats->getMaximum();
-      bool has_null = col_stats->hasNull();
-
-      if (min_value > max_value) {
-        continue;  // Invalid statistics
-      }
-
-      // Build guarantee expression (from PR2 logic)
-      auto field_expr = compute::field_ref(field_ref);
-      auto min_scalar = std::make_shared<Int64Scalar>(min_value);
-      auto max_scalar = std::make_shared<Int64Scalar>(max_value);
-
-      auto min_expr = compute::greater_equal(field_expr, compute::literal(*min_scalar));
-      auto max_expr = compute::less_equal(field_expr, compute::literal(*max_scalar));
-      auto range_expr = compute::and_(std::move(min_expr), std::move(max_expr));
-
-      compute::Expression guarantee_expr;
-      if (has_null) {
-        auto null_expr = compute::is_null(field_expr);
-        guarantee_expr = compute::or_(std::move(range_expr), std::move(null_expr));
-      } else {
-        guarantee_expr = std::move(range_expr);
-      }
-
-      // Fold into accumulated expression for this stripe
-      FoldingAnd(&statistics_expressions_[stripe_idx], std::move(guarantee_expr));
+    auto lock = metadata_mutex_.Lock();
+    if (!cached_reader_) {
+      ARROW_ASSIGN_OR_RAISE(auto input, source().Open());
+      ARROW_ASSIGN_OR_RAISE(
+          cached_reader_,
+          adapters::orc::ORCFileReader::Open(std::move(input), arrow::default_memory_pool()));
     }
   }
 
-  // Simplify predicate with each stripe's guarantee
+  // Build a stripe-level guarantee expression and simplify predicate for each stripe.
   std::vector<compute::Expression> simplified_expressions;
   simplified_expressions.reserve(stripe_num_rows_.size());
-
-  for (size_t i = 0; i < stripe_num_rows_.size(); i++) {
+  for (size_t stripe_idx = 0; stripe_idx < stripe_num_rows_.size(); stripe_idx++) {
+    ARROW_ASSIGN_OR_RAISE(auto stripe_stats, cached_reader_->GetStripeStatistics(stripe_idx));
+    compute::Expression stripe_guarantee = compute::literal(true);
+    for (const auto& resolved_field : resolved_fields) {
+      const auto* col_stats =
+          stripe_stats->getColumnStatistics(resolved_field.orc_column_id);
+      auto field_guarantee = DeriveFieldGuarantee(resolved_field, col_stats);
+      if (field_guarantee.Equals(compute::literal(true))) {
+        continue;
+      }
+      if (stripe_guarantee.Equals(compute::literal(true))) {
+        stripe_guarantee = std::move(field_guarantee);
+      } else {
+        stripe_guarantee =
+            compute::and_(std::move(stripe_guarantee), std::move(field_guarantee));
+      }
+    }
     ARROW_ASSIGN_OR_RAISE(auto simplified,
-        compute::SimplifyWithGuarantee(predicate, statistics_expressions_[i]));
+                          compute::SimplifyWithGuarantee(predicate, stripe_guarantee));
     simplified_expressions.push_back(std::move(simplified));
   }
 
@@ -421,6 +438,7 @@ Result<std::vector<compute::Expression>> OrcFileFragment::TestStripes(
 
 Result<std::vector<int>> OrcFileFragment::FilterStripes(
     const compute::Expression& predicate) {
+  RETURN_NOT_OK(EnsureMetadataCached());
 
   // Feature flag for disabling predicate pushdown
   if (auto env_var = arrow::internal::GetEnvVar("ARROW_ORC_DISABLE_PREDICATE_PUSHDOWN")) {
