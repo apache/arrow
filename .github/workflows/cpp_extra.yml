@@ -395,6 +395,9 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Register Flight SQL ODBC Driver
+        run: |
+          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
       - name: Test
         shell: bash
         run: |
