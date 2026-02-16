@@ -324,8 +324,16 @@ test_that("Error is created when feather reads a parquet file", {
   )
 })
 
-test_that("The read_ipc_file function is an alias of read_feather", {
-  expect_identical(read_ipc_file, read_feather)
+test_that("read_feather calls read_ipc_file", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+  write_ipc_file(example_data, tf)
+  expect_warning(
+    result_feather <- read_feather(tf),
+    "deprecated"
+  )
+  result_ipc <- read_ipc_file(tf)
+  expect_identical(result_feather, result_ipc)
 })
 
 test_that("Can read Feather files from a URL", {
