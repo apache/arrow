@@ -449,7 +449,7 @@ class ARROW_EXPORT MessageReader {
 // org::apache::arrow::flatbuf::RecordBatch*)
 using FieldsLoaderFunction = std::function<Status(const void*, io::RandomAccessFile*)>;
 
-/// \brief Read encapsulated RPC message from position in file
+/// \brief Read encapsulated IPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset. If the message has a body with non-zero length, it will also be
@@ -469,7 +469,7 @@ Result<std::unique_ptr<Message>> ReadMessage(
     const int64_t offset, const int32_t metadata_length, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader = {});
 
-/// \brief Read encapsulated RPC message from position in file
+/// \brief Read encapsulated IPC message from position in file
 ///
 /// Read a length-prefixed message flatbuffer starting at the indicated file
 /// offset.
@@ -489,7 +489,7 @@ Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
                                              const int64_t body_length,
                                              io::RandomAccessFile* file);
 
-/// \brief Read encapsulated RPC message from cached buffers
+/// \brief Read encapsulated IPC message from cached buffers
 ///
 /// The buffers should contain an entire message.  Partial reads are not handled.
 ///

@@ -3052,23 +3052,41 @@ void GetReadRecordBatchReadRanges(
   auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
 
+  // there are at least 2 read IOs before reading body:
+  // 1) read magic and footer length IO
+  // 2) footer IO
+  EXPECT_GE(read_ranges.size(), 2);
+
   // read magic and footer length IO
   EXPECT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
   EXPECT_EQ(read_ranges[1].length, footer_length);
 
-  // there are 3 read IOs before reading body:
-  // 1) read magic and footer length IO
-  // 2) read footer IO
-  // 3) read record batch metadata IO
   if (included_fields.empty()) {
+    // When no fields are explicitly included, the reader optimizes by
+    // reading metadata and the entire body in a single IO.
+    // Thus, there are exactly 3 read IOs in total:
+    // 1) magic and footer length
+    // 2) footer
+    // 3) record batch metadata + body
     EXPECT_EQ(read_ranges.size(), 3);
 
     int64_t total_body = 0;
     for (auto len : expected_body_read_lengths) total_body += len;
 
+    // In the optimized path (included_fields is empty), the 3rd read operation
+    // fetches both the message metadata (flatbuffer) and the entire message body
+    // in one contiguous block. Therefore, its length must at least exceed the
+    // total body length by the size of the metadata.
     EXPECT_GT(read_ranges[2].length, total_body);
+    EXPECT_LE(read_ranges[2].length, total_body + footer_length);
   } else {
+    // When fields are filtered, we see 3 initial reads followed by N body reads
+    // (one for each field/buffer range):
+    // 1) magic and footer length
+    // 2) footer
+    // 3) record batch metadata
+    // 4) individual body buffer reads
     EXPECT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
 
     // read record batch metadata.  The exact size is tricky to determine but it doesn't
