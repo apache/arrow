@@ -580,15 +580,10 @@ std::shared_ptr<ScalarType> CreateScalar(CType value) {
 
 template <typename CType>
 bool IsScalarEqual(CType left, CType right, const EqualOptions& options) {
-  std::shared_ptr<Scalar> scalar_left;
-  std::shared_ptr<Scalar> scalar_right;
-  if constexpr (std::is_floating_point_v<CType>) {
-    scalar_left = CreateScalar<typename CTypeTraits<CType>::ScalarType>(left);
-    scalar_right = CreateScalar<typename CTypeTraits<CType>::ScalarType>(right);
-  } else {
-    scalar_left = CreateScalar<HalfFloatScalar>(left);
-    scalar_right = CreateScalar<HalfFloatScalar>(right);
-  }
+  std::shared_ptr<Scalar> scalar_left =
+      CreateScalar<typename CTypeTraits<CType>::ScalarType>(left);
+  std::shared_ptr<Scalar> scalar_right =
+      CreateScalar<typename CTypeTraits<CType>::ScalarType>(right);
   return scalar_left->Equals(*scalar_right, options);
 }
 
