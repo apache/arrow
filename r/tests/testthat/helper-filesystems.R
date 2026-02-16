@@ -27,15 +27,15 @@
 test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
   # NOTE: it's important that we label these tests with name of filesystem so
   # that we can differentiate the different calls to these test in the output.
-  test_that(sprintf("read/write Feather on %s using URIs", name), {
-    write_feather(example_data, uri_formatter("test.feather"))
-    expect_identical(read_feather(uri_formatter("test.feather")), example_data)
+  test_that(sprintf("read/write IPC on %s using URIs", name), {
+    write_ipc_file(example_data, uri_formatter("test.arrow"))
+    expect_identical(read_ipc_file(uri_formatter("test.arrow")), example_data)
   })
 
-  test_that(sprintf("read/write Feather on %s using Filesystem", name), {
-    write_feather(example_data, fs$path(path_formatter("test2.feather")))
+  test_that(sprintf("read/write IPC on %s using Filesystem", name), {
+    write_ipc_file(example_data, fs$path(path_formatter("test2.arrow")))
     expect_identical(
-      read_feather(fs$path(path_formatter("test2.feather"))),
+      read_ipc_file(fs$path(path_formatter("test2.arrow"))),
       example_data
     )
   })
