@@ -17,23 +17,17 @@
 
 #pragma once
 
-#include "arrow/testing/visibility.h"
 #include "arrow/type_fwd.h"
+#include "arrow/util/visibility.h"
 
 namespace arrow {
 
-ARROW_TESTING_EXPORT
-bool WithinUlp(util::Float16 left, util::Float16 right, uint16_t n_ulps);
-ARROW_TESTING_EXPORT
-bool WithinUlp(float left, float right, uint16_t n_ulps);
-ARROW_TESTING_EXPORT
-bool WithinUlp(double left, double right, uint16_t n_ulps);
+ARROW_EXPORT
+bool UlpDistance(util::Float16 left, util::Float16 right, uint16_t n_ulps);
 
-ARROW_TESTING_EXPORT
-void AssertWithinUlp(util::Float16 left, util::Float16 right, uint16_t n_ulps);
-ARROW_TESTING_EXPORT
-void AssertWithinUlp(float left, float right, uint16_t n_ulps);
-ARROW_TESTING_EXPORT
-void AssertWithinUlp(double left, double right, uint16_t n_ulps);
+ARROW_EXPORT
+bool UlpDistance(float left, float right, uint16_t n_ulps);
 
+ARROW_EXPORT
+bool UlpDistance(double left, double right, uint16_t n_ulps);
 }  // namespace arrow
