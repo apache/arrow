@@ -69,7 +69,7 @@ test_that("can read remaining bytes of a RandomAccessFile", {
   tab <- Table$create(!!!tbl)
 
   tf <- tempfile()
-  all_bytes <- write_feather(tab, tf)
+  all_bytes <- write_ipc_file(tab, tf)
 
   file <- ReadableFile$create(tf)
   expect_equal(file$tell(), 0)
