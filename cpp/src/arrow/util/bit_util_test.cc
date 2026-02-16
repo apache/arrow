@@ -743,7 +743,6 @@ TEST(BitUtil, Log2) {
 #define U64(x) static_cast<uint64_t>(x)
 #define S64(x) static_cast<int64_t>(x)
 
-
 TEST(BitUtil, RoundUpToPowerOf2) {
   EXPECT_EQ(bit_util::RoundUpToPowerOf2(S64(7), 8), 8);
   EXPECT_EQ(bit_util::RoundUpToPowerOf2(S64(8), 8), 8);

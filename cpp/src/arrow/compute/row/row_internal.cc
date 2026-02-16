@@ -91,8 +91,8 @@ void RowTableMetadata::FromColumnMetadataVector(
       column_order.begin(), column_order.end(), [&cols](uint32_t left, uint32_t right) {
         bool is_left_pow2 =
             !cols[left].is_fixed_length || std::popcount(cols[left].fixed_length) <= 1;
-        bool is_right_pow2 = !cols[right].is_fixed_length ||
-                             std::popcount(cols[right].fixed_length) <= 1;
+        bool is_right_pow2 =
+            !cols[right].is_fixed_length || std::popcount(cols[right].fixed_length) <= 1;
         bool is_left_fixedlen = cols[left].is_fixed_length;
         bool is_right_fixedlen = cols[right].is_fixed_length;
         uint32_t width_left =

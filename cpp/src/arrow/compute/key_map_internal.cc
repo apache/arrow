@@ -18,8 +18,8 @@
 #include "arrow/compute/key_map_internal.h"
 
 #include <algorithm>
-#include <cstdint>
 #include <bit>
+#include <cstdint>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -204,8 +204,8 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
   int num_block_bytes = num_block_bytes_from_num_groupid_bits(num_groupid_bits);
   if (log_blocks_ == 0) {
     uint64_t block = *reinterpret_cast<const uint64_t*>(blocks_->mutable_data());
-    uint32_t empty_slot = static_cast<uint32_t>(
-        kSlotsPerBlock - std::popcount(block & kHighBitOfEachByte));
+    uint32_t empty_slot =
+        static_cast<uint32_t>(kSlotsPerBlock - std::popcount(block & kHighBitOfEachByte));
     for (uint32_t i = 0; i < num_ids; ++i) {
       int id = ids[i];
       slot_ids[id] = empty_slot;

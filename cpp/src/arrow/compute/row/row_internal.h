@@ -16,9 +16,9 @@
 // under the License.
 #pragma once
 
+#include <bit>
 #include <cstdint>
 #include <vector>
-#include <bit>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/light_array_internal.h"
@@ -95,8 +95,7 @@ struct ARROW_COMPUTE_EXPORT RowTableMetadata {
   /// choosing required alignment based on the data type of that column.
   static inline uint32_t padding_for_alignment_within_row(
       uint32_t offset, int string_alignment, const KeyColumnMetadata& col_metadata) {
-    if (!col_metadata.is_fixed_length ||
-        std::popcount(col_metadata.fixed_length) <= 1) {
+    if (!col_metadata.is_fixed_length || std::popcount(col_metadata.fixed_length) <= 1) {
       return 0;
     } else {
       return padding_for_alignment_within_row(offset, string_alignment);

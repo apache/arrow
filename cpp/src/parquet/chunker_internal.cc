@@ -17,11 +17,11 @@
 
 #include "parquet/chunker_internal.h"
 
+#include <bit>
 #include <cstdint>
 #include <iterator>
 #include <string>
 #include <vector>
-#include <bit>
 
 #include "arrow/array.h"
 #include "arrow/util/bit_util.h"

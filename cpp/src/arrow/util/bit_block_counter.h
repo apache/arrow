@@ -18,10 +18,10 @@
 #pragma once
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <limits>
 #include <memory>
-#include <bit>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -183,8 +183,8 @@ class ARROW_EXPORT BitBlockCounter {
       if (bits_remaining_ < 2 * kWordBits - offset_) {
         return GetBlockSlow(kWordBits);
       }
-      popcount = std::popcount(
-          ShiftWord(LoadWord(bitmap_), LoadWord(bitmap_ + 8), offset_));
+      popcount =
+          std::popcount(ShiftWord(LoadWord(bitmap_), LoadWord(bitmap_ + 8), offset_));
     }
     bitmap_ += kWordBits / 8;
     bits_remaining_ -= kWordBits;
@@ -319,8 +319,7 @@ class ARROW_EXPORT BinaryBitBlockCounter {
 
     int64_t popcount = 0;
     if (left_offset_ == 0 && right_offset_ == 0) {
-      popcount =
-          std::popcount(Op::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
+      popcount = std::popcount(Op::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
     } else {
       auto left_word =
           ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);

@@ -15,13 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <bit>
 #include <bitset>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
 #include <memory>
 #include <utility>
-#include <bit>
 
 #include "arrow/buffer.h"
 #include "arrow/testing/gtest_util.h"

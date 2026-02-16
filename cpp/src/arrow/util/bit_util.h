@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <bit>
 #include <cstdint>
 #include <type_traits>
-#include <bit>
 
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -134,7 +134,6 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
   int n = 64 - num_bits;
   return (v << n) >> n;
 }
-
 
 // Returns ceil(log2(x)).
 static inline int Log2(uint64_t x) {

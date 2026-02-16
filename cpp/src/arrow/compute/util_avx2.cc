@@ -15,8 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <cstring>
 #include <bit>
+#include <cstring>
 
 #include "arrow/compute/util.h"
 #include "arrow/util/bit_util.h"

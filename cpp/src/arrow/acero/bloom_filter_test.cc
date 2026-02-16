@@ -18,11 +18,11 @@
 #include <gmock/gmock-matchers.h>
 
 #include <algorithm>
+#include <bit>
 #include <chrono>
 #include <condition_variable>
 #include <thread>
 #include <unordered_set>
-#include <bit>
 
 #include "arrow/acero/bloom_filter.h"
 #include "arrow/acero/task_util.h"

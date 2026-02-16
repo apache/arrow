@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <array>
+#include <bit>
 #include <climits>
 #include <cstdint>
 #include <cstdlib>
@@ -26,7 +27,6 @@
 #include <iomanip>
 #include <limits>
 #include <string>
-#include <bit>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/config.h"  // for ARROW_USE_NATIVE_INT128

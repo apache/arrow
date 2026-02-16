@@ -20,8 +20,8 @@
 #include <memory.h>
 
 #include <algorithm>
-#include <cstdint>
 #include <bit>
+#include <cstdint>
 
 #include "arrow/compute/light_array_internal.h"
 #include "arrow/util/bit_util.h"

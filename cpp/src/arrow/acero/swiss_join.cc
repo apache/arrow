@@ -16,8 +16,8 @@
 // under the License.
 
 #include <sys/stat.h>
-#include <bit>
 #include <algorithm>  // std::upper_bound
+#include <bit>
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>

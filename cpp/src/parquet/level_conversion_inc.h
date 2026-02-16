@@ -19,9 +19,9 @@
 #include "parquet/level_conversion.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <limits>
-#include <bit>
 
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_util.h"

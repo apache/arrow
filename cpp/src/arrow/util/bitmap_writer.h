@@ -17,9 +17,9 @@
 
 #pragma once
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
-#include <bit>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"

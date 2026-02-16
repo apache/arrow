@@ -17,11 +17,11 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <random>
 #include <vector>
-#include <bit>
 
 #include <gtest/gtest.h>
 
