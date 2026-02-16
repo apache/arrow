@@ -34,6 +34,25 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/vector.h"
 
+// On MinGW, install a crash handler to log the exception address for debugging
+// intermittent segfaults. See https://github.com/apache/arrow/issues/49272
+#if defined(__MINGW32__) || defined(__MINGW64__)
+#  include <cstdio>
+#  include <windows.h>
+namespace {
+LONG WINAPI ArrowCrashHandler(EXCEPTION_POINTERS* ep) {
+  fprintf(stderr, "CRASH: code=0x%lx addr=%p\n",
+          ep->ExceptionRecord->ExceptionCode,
+          ep->ExceptionRecord->ExceptionAddress);
+  fflush(stderr);
+  return EXCEPTION_CONTINUE_SEARCH;
+}
+struct CrashHandlerInstaller {
+  CrashHandlerInstaller() { SetUnhandledExceptionFilter(ArrowCrashHandler); }
+} g_crash_handler;
+}  // namespace
+#endif
+
 namespace arrow {
 namespace json {
 
@@ -288,6 +307,32 @@ TEST(ReaderTest, MultipleChunksParallel) {
   }
 
   AssertTablesEqual(*serial, *threaded);
+}
+
+// Stress test for intermittent threading crashes on MinGW.
+// See https://github.com/apache/arrow/issues/49272
+TEST(ReaderTest, MultipleChunksParallelStress) {
+  constexpr int kTrials = 20;
+  for (int trial = 0; trial < kTrials; ++trial) {
+    int64_t count = 1 << 10;
+    ParseOptions parse_options;
+    parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
+    ReadOptions read_options;
+    read_options.block_size = static_cast<int>(count / 2);
+    read_options.use_threads = true;
+
+    std::string json;
+    for (int i = 0; i < count; ++i) {
+      json += "{\"a\":" + std::to_string(i) + "}\n";
+    }
+
+    std::shared_ptr<io::InputStream> input;
+    ASSERT_OK(MakeStream(json, &input));
+    ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(default_memory_pool(), input,
+                                                        read_options, parse_options));
+    ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+    ASSERT_EQ(table->num_rows(), count);
+  }
 }
 
 TEST(ReaderTest, ListArrayWithFewValues) {
