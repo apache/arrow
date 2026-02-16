@@ -538,4 +538,11 @@ test_that("More complex select/filter_out", {
       collect(),
     tbl
   )
+
+  compare_dplyr_binding(
+    .input |>
+      filter_out(!is.na(int)) |>
+      collect(),
+    tbl
+  )
 })
