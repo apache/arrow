@@ -22,6 +22,7 @@
 #include <condition_variable>
 #include <thread>
 #include <unordered_set>
+#include <bit>
 
 #include "arrow/acero/bloom_filter.h"
 #include "arrow/acero/task_util.h"
@@ -407,14 +408,14 @@ void TestBloomLarge(BloomFilterBuildStrategy strategy, int64_t num_build,
     uint64_t num_negatives = 0ULL;
     for (int iword = 0; iword < next_batch_size / 64; ++iword) {
       uint64_t word = reinterpret_cast<const uint64_t*>(result_bit_vector.data())[iword];
-      num_negatives += ARROW_POPCOUNT64(~word);
+      num_negatives += std::popcount(~word);
     }
     if (next_batch_size % 64 > 0) {
       uint64_t word = reinterpret_cast<const uint64_t*>(
           result_bit_vector.data())[next_batch_size / 64];
       uint64_t mask = (1ULL << (next_batch_size % 64)) - 1;
       word |= ~mask;
-      num_negatives += ARROW_POPCOUNT64(~word);
+      num_negatives += std::popcount(~word);
     }
     if (i < num_build) {
       num_negatives_build += num_negatives;

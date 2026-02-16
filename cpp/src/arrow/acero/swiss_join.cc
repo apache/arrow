@@ -16,6 +16,7 @@
 // under the License.
 
 #include <sys/stat.h>
+#include <bit>
 #include <algorithm>  // std::upper_bound
 #include <cstdio>
 #include <cstdlib>
@@ -666,7 +667,7 @@ void SwissTableMerge::MergePartition(SwissTable* target, const SwissTable* sourc
     // For each non-empty source slot...
     constexpr uint64_t kHighBitOfEachByte = 0x8080808080808080ULL;
     int num_full_slots = SwissTable::kSlotsPerBlock -
-                         static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+                         static_cast<int>(std::popcount(block & kHighBitOfEachByte));
     for (int local_slot_id = 0; local_slot_id < num_full_slots; ++local_slot_id) {
       // Read group id and hash for this slot.
       //
@@ -722,7 +723,7 @@ inline bool SwissTableMerge::InsertNewGroup(SwissTable* target, uint32_t group_i
     return false;
   }
   int local_slot_id = SwissTable::kSlotsPerBlock -
-                      static_cast<int>(ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+                      static_cast<int>(std::popcount(block & kHighBitOfEachByte));
   uint32_t global_slot_id = SwissTable::global_slot_id(block_id, local_slot_id);
   target->insert_into_empty_slot(global_slot_id, hash, group_id);
   return true;

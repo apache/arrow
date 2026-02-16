@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <bit>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/bitmap_ops.h"
@@ -27,7 +28,6 @@
 
 namespace arrow {
 
-using bit_util::CountLeadingZeros;
 using internal::CpuInfo;
 
 namespace compute {
@@ -91,7 +91,7 @@ inline void SwissTable::search_block(uint64_t block, int stamp, int start_slot,
   // Now if we or with the highest bits of the block and scan zero bits in reverse, we get
   // 8x slot index that we were looking for. This formula works in all three cases a), b)
   // and c).
-  *out_slot = static_cast<int>(CountLeadingZeros(matches | block_high_bits) >> 3);
+  *out_slot = static_cast<int>(std::countl_zero(matches | block_high_bits) >> 3);
 }
 
 template <typename T, bool use_selection>
@@ -205,7 +205,7 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
   if (log_blocks_ == 0) {
     uint64_t block = *reinterpret_cast<const uint64_t*>(blocks_->mutable_data());
     uint32_t empty_slot = static_cast<uint32_t>(
-        kSlotsPerBlock - ARROW_POPCOUNT64(block & kHighBitOfEachByte));
+        kSlotsPerBlock - std::popcount(block & kHighBitOfEachByte));
     for (uint32_t i = 0; i < num_ids; ++i) {
       int id = ids[i];
       slot_ids[id] = empty_slot;
@@ -224,7 +224,7 @@ void SwissTable::init_slot_ids_for_new_keys(uint32_t num_ids, const uint16_t* id
         }
         iblock = (iblock + 1) & ((1 << log_blocks_) - 1);
       }
-      uint32_t empty_slot = static_cast<int>(kSlotsPerBlock - ARROW_POPCOUNT64(block));
+      uint32_t empty_slot = static_cast<int>(kSlotsPerBlock - std::popcount(block));
       slot_ids[id] = global_slot_id(iblock, empty_slot);
     }
   }
@@ -684,7 +684,7 @@ Status SwissTable::grow_double() {
         mutable_block_data(blocks_new->mutable_data(), 2 * i, block_size_after);
     uint64_t block = *reinterpret_cast<const uint64_t*>(block_base);
 
-    uint32_t full_slots = CountLeadingZeros(block & kHighBitOfEachByte) >> 3;
+    uint32_t full_slots = std::countl_zero(block & kHighBitOfEachByte) >> 3;
     uint32_t full_slots_new[2];
     full_slots_new[0] = full_slots_new[1] = 0;
     util::SafeStore(double_block_base_new, kHighBitOfEachByte);
@@ -722,7 +722,7 @@ Status SwissTable::grow_double() {
     // How many full slots in this block
     const uint8_t* block_base = block_data(i, block_size_before);
     uint64_t block = util::SafeLoadAs<uint64_t>(block_base);
-    uint32_t full_slots = CountLeadingZeros(block & kHighBitOfEachByte) >> 3;
+    uint32_t full_slots = std::countl_zero(block & kHighBitOfEachByte) >> 3;
 
     for (uint32_t j = 0; j < full_slots; ++j) {
       uint32_t slot_id = global_slot_id(i, j);
@@ -741,13 +741,13 @@ Status SwissTable::grow_double() {
           mutable_block_data(blocks_new->mutable_data(), block_id_new, block_size_after);
       uint64_t block_new = util::SafeLoadAs<uint64_t>(block_base_new);
       int full_slots_new =
-          static_cast<int>(CountLeadingZeros(block_new & kHighBitOfEachByte) >> 3);
+          static_cast<int>(std::countl_zero(block_new & kHighBitOfEachByte) >> 3);
       while (full_slots_new == kSlotsPerBlock) {
         block_id_new = (block_id_new + 1) & ((1 << log_blocks_after) - 1);
         block_base_new = blocks_new->mutable_data() + block_id_new * block_size_after;
         block_new = util::SafeLoadAs<uint64_t>(block_base_new);
         full_slots_new =
-            static_cast<int>(CountLeadingZeros(block_new & kHighBitOfEachByte) >> 3);
+            static_cast<int>(std::countl_zero(block_new & kHighBitOfEachByte) >> 3);
       }
 
       hashes_new[block_id_new * kSlotsPerBlock + full_slots_new] = hash;

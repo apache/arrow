@@ -21,6 +21,7 @@
 #include <cstring>
 #include <random>
 #include <vector>
+#include <bit>
 
 #include <gtest/gtest.h>
 
@@ -912,7 +913,7 @@ TEST(BitRle, Random) {
       }
       parity = !parity;
     }
-    if (!CheckRoundTrip(values, bit_util::NumRequiredBits(values.size()))) {
+    if (!CheckRoundTrip(values, std::bit_width(values.size()))) {
       FAIL() << "failing seed: " << seed;
     }
   }

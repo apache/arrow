@@ -21,6 +21,7 @@
 #include <iterator>
 #include <string>
 #include <vector>
+#include <bit>
 
 #include "arrow/array.h"
 #include "arrow/util/bit_util.h"
@@ -85,7 +86,7 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
 
   // assuming that the gear hash has a uniform distribution, we can calculate the mask
   // by taking the floor(log2(target_size))
-  int mask_bits = std::max(0, ::arrow::bit_util::NumRequiredBits(target_size) - 1);
+  int mask_bits = std::max(0, std::bit_width(static_cast<uint64_t>(target_size)) - 1);
 
   // a user defined `norm_level` can be used to adjust the mask size, hence the matching
   // probability, by increasing the norm_level we increase the probability of matching

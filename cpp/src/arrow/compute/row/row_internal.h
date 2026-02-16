@@ -18,6 +18,7 @@
 
 #include <cstdint>
 #include <vector>
+#include <bit>
 
 #include "arrow/buffer.h"
 #include "arrow/compute/light_array_internal.h"
@@ -85,7 +86,7 @@ struct ARROW_COMPUTE_EXPORT RowTableMetadata {
   /// Alignment must be a power of 2.
   static inline uint32_t padding_for_alignment_within_row(uint32_t offset,
                                                           int required_alignment) {
-    ARROW_DCHECK(ARROW_POPCOUNT64(required_alignment) == 1);
+    ARROW_DCHECK(std::popcount(static_cast<uint64_t>(required_alignment)) == 1);
     return static_cast<uint32_t>((-static_cast<int32_t>(offset)) &
                                  (required_alignment - 1));
   }
@@ -95,7 +96,7 @@ struct ARROW_COMPUTE_EXPORT RowTableMetadata {
   static inline uint32_t padding_for_alignment_within_row(
       uint32_t offset, int string_alignment, const KeyColumnMetadata& col_metadata) {
     if (!col_metadata.is_fixed_length ||
-        ARROW_POPCOUNT64(col_metadata.fixed_length) <= 1) {
+        std::popcount(col_metadata.fixed_length) <= 1) {
       return 0;
     } else {
       return padding_for_alignment_within_row(offset, string_alignment);
@@ -106,7 +107,7 @@ struct ARROW_COMPUTE_EXPORT RowTableMetadata {
   /// Alignment must be a power of 2.
   static inline offset_type padding_for_alignment_row(offset_type row_offset,
                                                       int required_alignment) {
-    ARROW_DCHECK(ARROW_POPCOUNT64(required_alignment) == 1);
+    ARROW_DCHECK(std::popcount(static_cast<uint64_t>(required_alignment)) == 1);
     return (-row_offset) & (required_alignment - 1);
   }
 

@@ -26,6 +26,7 @@
 #include <iomanip>
 #include <limits>
 #include <string>
+#include <bit>
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/config.h"  // for ARROW_USE_NATIVE_INT128
@@ -388,7 +389,7 @@ BasicDecimal64 operator%(const BasicDecimal64& left, const BasicDecimal64& right
 
 template <typename BaseType>
 int32_t SmallBasicDecimal<BaseType>::CountLeadingBinaryZeros() const {
-  return bit_util::CountLeadingZeros(static_cast<std::make_unsigned_t<BaseType>>(value_));
+  return std::countl_zero(static_cast<std::make_unsigned_t<BaseType>>(value_));
 }
 
 // same as kDecimal128PowersOfTen[38] - 1
@@ -892,7 +893,7 @@ static inline DecimalStatus DecimalDivide(const DecimalClass& dividend,
   // Normalize by shifting both by a multiple of 2 so that
   // the digit guessing is better. The requirement is that
   // divisor_array[0] is greater than 2**31.
-  int64_t normalize_bits = bit_util::CountLeadingZeros(divisor_array[0]);
+  int64_t normalize_bits = std::countl_zero(divisor_array[0]);
   ShiftArrayLeft(divisor_array, divisor_length, normalize_bits);
   ShiftArrayLeft(dividend_array, dividend_length, normalize_bits);
 
@@ -1155,9 +1156,9 @@ int32_t BasicDecimal128::CountLeadingBinaryZeros() const {
   DCHECK_GE(*this, BasicDecimal128(0));
 
   if (high_bits() == 0) {
-    return bit_util::CountLeadingZeros(low_bits()) + 64;
+    return std::countl_zero(low_bits()) + 64;
   } else {
-    return bit_util::CountLeadingZeros(static_cast<uint64_t>(high_bits()));
+    return std::countl_zero(static_cast<uint64_t>(high_bits()));
   }
 }
 

@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <limits>
 #include <memory>
+#include <bit>
 
 #include "arrow/buffer.h"
 #include "arrow/status.h"
@@ -130,10 +131,10 @@ class ARROW_EXPORT BitBlockCounter {
       if (bits_remaining_ < kFourWordsBits) {
         return GetBlockSlow(kFourWordsBits);
       }
-      total_popcount += bit_util::PopCount(LoadWord(bitmap_));
-      total_popcount += bit_util::PopCount(LoadWord(bitmap_ + 8));
-      total_popcount += bit_util::PopCount(LoadWord(bitmap_ + 16));
-      total_popcount += bit_util::PopCount(LoadWord(bitmap_ + 24));
+      total_popcount += std::popcount(LoadWord(bitmap_));
+      total_popcount += std::popcount(LoadWord(bitmap_ + 8));
+      total_popcount += std::popcount(LoadWord(bitmap_ + 16));
+      total_popcount += std::popcount(LoadWord(bitmap_ + 24));
     } else {
       // When the offset is > 0, we need there to be a word beyond the last
       // aligned word in the bitmap for the bit shifting logic.
@@ -142,16 +143,16 @@ class ARROW_EXPORT BitBlockCounter {
       }
       auto current = LoadWord(bitmap_);
       auto next = LoadWord(bitmap_ + 8);
-      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += std::popcount(ShiftWord(current, next, offset_));
       current = next;
       next = LoadWord(bitmap_ + 16);
-      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += std::popcount(ShiftWord(current, next, offset_));
       current = next;
       next = LoadWord(bitmap_ + 24);
-      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += std::popcount(ShiftWord(current, next, offset_));
       current = next;
       next = LoadWord(bitmap_ + 32);
-      total_popcount += bit_util::PopCount(ShiftWord(current, next, offset_));
+      total_popcount += std::popcount(ShiftWord(current, next, offset_));
     }
     bitmap_ += bit_util::BytesForBits(kFourWordsBits);
     bits_remaining_ -= kFourWordsBits;
@@ -175,14 +176,14 @@ class ARROW_EXPORT BitBlockCounter {
       if (bits_remaining_ < kWordBits) {
         return GetBlockSlow(kWordBits);
       }
-      popcount = bit_util::PopCount(LoadWord(bitmap_));
+      popcount = std::popcount(LoadWord(bitmap_));
     } else {
       // When the offset is > 0, we need there to be a word beyond the last
       // aligned word in the bitmap for the bit shifting logic.
       if (bits_remaining_ < 2 * kWordBits - offset_) {
         return GetBlockSlow(kWordBits);
       }
-      popcount = bit_util::PopCount(
+      popcount = std::popcount(
           ShiftWord(LoadWord(bitmap_), LoadWord(bitmap_ + 8), offset_));
     }
     bitmap_ += kWordBits / 8;
@@ -319,13 +320,13 @@ class ARROW_EXPORT BinaryBitBlockCounter {
     int64_t popcount = 0;
     if (left_offset_ == 0 && right_offset_ == 0) {
       popcount =
-          bit_util::PopCount(Op::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
+          std::popcount(Op::Call(LoadWord(left_bitmap_), LoadWord(right_bitmap_)));
     } else {
       auto left_word =
           ShiftWord(LoadWord(left_bitmap_), LoadWord(left_bitmap_ + 8), left_offset_);
       auto right_word =
           ShiftWord(LoadWord(right_bitmap_), LoadWord(right_bitmap_ + 8), right_offset_);
-      popcount = bit_util::PopCount(Op::Call(left_word, right_word));
+      popcount = std::popcount(Op::Call(left_word, right_word));
     }
     left_bitmap_ += kWordBits / 8;
     right_bitmap_ += kWordBits / 8;
