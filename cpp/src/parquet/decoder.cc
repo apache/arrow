@@ -41,6 +41,7 @@
 #include "arrow/util/bitmap_ops.h"
 #include "arrow/util/byte_stream_split_internal.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
@@ -408,9 +409,20 @@ int PlainDecoder<DType>::DecodeArrow(
       VisitBitRuns(valid_bits, valid_bits_offset, num_values,
                    [&](int64_t position, int64_t run_length, bool is_valid) {
                      if (is_valid) {
+#if ARROW_LITTLE_ENDIAN
                        RETURN_NOT_OK(builder->AppendValues(
                            reinterpret_cast<const value_type*>(data), run_length));
                        data += run_length * sizeof(value_type);
+#else
+                       // On big-endian systems, we need to byte-swap each value
+                       // since Parquet data is stored in little-endian format
+                       for (int64_t i = 0; i < run_length; ++i) {
+                         value_type value = ::arrow::bit_util::FromLittleEndian(
+                             SafeLoadAs<value_type>(data));
+                         RETURN_NOT_OK(builder->Append(value));
+                         data += sizeof(value_type);
+                       }
+#endif
                      } else {
                        RETURN_NOT_OK(builder->AppendNulls(run_length));
                      }
@@ -460,7 +472,24 @@ inline int DecodePlain(const uint8_t* data, int64_t data_size, int num_values,
   }
   // If bytes_to_decode == 0, data could be null
   if (bytes_to_decode > 0) {
+#if ARROW_LITTLE_ENDIAN
     memcpy(out, data, static_cast<size_t>(bytes_to_decode));
+#else
+    // On big-endian systems, we need to byte-swap each value
+    // since Parquet data is stored in little-endian format.
+    // Only apply to integer and floating-point types that have FromLittleEndian support.
+    if constexpr (std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> ||
+                  std::is_same_v<T, int64_t> || std::is_same_v<T, uint64_t> ||
+                  std::is_same_v<T, float> || std::is_same_v<T, double>) {
+      for (int i = 0; i < num_values; ++i) {
+        out[i] = ::arrow::bit_util::FromLittleEndian(SafeLoadAs<T>(data));
+        data += sizeof(T);
+      }
+    } else {
+      // For other types (bool, Int96, etc.), just do memcpy
+      memcpy(out, data, static_cast<size_t>(bytes_to_decode));
+    }
+#endif
   }
   return static_cast<int>(bytes_to_decode);
 }
@@ -473,7 +502,7 @@ static inline int64_t ReadByteArray(const uint8_t* data, int64_t data_size,
   if (ARROW_PREDICT_FALSE(data_size < 4)) {
     ParquetException::EofException();
   }
-  const int32_t len = SafeLoadAs<int32_t>(data);
+  const int32_t len = ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data));
   if (len < 0) {
     throw ParquetException("Invalid BYTE_ARRAY value");
   }
@@ -775,7 +804,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
             //   2. the running `value_len > estimated_data_length` check below.
             // This precondition follows from those two checks.
             DCHECK_GE(len_, 4);
-            auto value_len = SafeLoadAs<int32_t>(data_);
+            auto value_len = 
+              ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data_));
             // This check also ensures that `value_len <= len_ - 4` due to the way
             // `estimated_data_length` is computed.
             if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > estimated_data_length)) {
@@ -826,7 +856,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
                 return Status::Invalid(
                     "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
               }
-              auto value_len = SafeLoadAs<int32_t>(data_);
+              auto value_len =
+                  ::arrow::bit_util::FromLittleEndian(SafeLoadAs<int32_t>(data_));
               if (ARROW_PREDICT_FALSE(value_len < 0 || value_len > len_ - 4)) {
                 return Status::Invalid(
                     "Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
@@ -1625,9 +1656,17 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
       for (int j = 0; j < values_decode; ++j) {
         // Addition between min_delta, packed int and last_value should be treated as
         // unsigned addition. Overflow is as expected.
+#if ARROW_LITTLE_ENDIAN
         buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
                         static_cast<UT>(last_value_);
         last_value_ = buffer[i + j];
+#else
+        UT temp = static_cast<UT>(min_delta_) +
+                  static_cast<UT>(static_cast<uint64_t>(buffer[i + j])) +
+                  static_cast<UT>(last_value_);
+        buffer[i + j] = static_cast<T>(temp);
+        last_value_ = static_cast<T>(temp);
+#endif
       }
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
@@ -2314,6 +2353,17 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
     uint8_t* decode_out = this->EnsureDecodeBuffer(max_values);
     const int num_decoded = this->DecodeRaw(decode_out, max_values);
     DCHECK_EQ(num_decoded, max_values);
+
+#if !ARROW_LITTLE_ENDIAN
+    // On big-endian, ByteStreamSplitDecode (DoMergeStreams) reverses stream positions
+    // to produce numeric values in native byte order. For FLBA (opaque byte arrays),
+    // we need to undo this reversal to preserve the original byte sequence.
+    const int type_length = this->type_length_;
+    for (int i = 0; i < num_decoded; ++i) {
+      uint8_t* value_ptr = decode_out + static_cast<int64_t>(type_length) * i;
+      std::reverse(value_ptr, value_ptr + type_length);
+    }
+#endif
 
     for (int i = 0; i < num_decoded; ++i) {
       buffer[i] =
