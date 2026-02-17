@@ -387,6 +387,13 @@ TEST(TestStringOps, TestRepeat) {
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
   ctx.Reset();
+
+  out_str = repeat_utf8_int32(ctx_ptr, "aa", 2,
+                              std::numeric_limits<int32_t>::max() / 2 + 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {

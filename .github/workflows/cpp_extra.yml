@@ -395,6 +395,9 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Register Flight SQL ODBC Driver
+        run: |
+          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
       - name: Test
         shell: bash
         run: |
@@ -530,11 +533,46 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: flight-sql-odbc-msi-installer
-          path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
+          path: build/cpp/Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
           if-no-files-found: error
+      - name: Install ODBC MSI
+        run: |
+          cd build/cpp
+          $odbc_msi = Get-ChildItem -Filter "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi"
+          if (-not $odbc_msi) {
+            Write-Error "ODBC MSI not found"
+            exit 1
+          }
+
+          foreach ($msi in $odbc_msi) {
+            Write-Host "Installing $($msi.Name) with logs"
+            $log = "odbc-install.log"
+            Start-Process msiexec.exe -Wait -ArgumentList "/i `"$msi`"", "/qn", "/L*V `"$log`""
+            Get-Content $log
+          }
+      - name: Check ODBC DLL installation
+        run: |
+          $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache-Arrow-Flight-SQL-ODBC*"
+
+          foreach ($dir in $dirs) {
+            $bin = Join-Path $dir.FullName "bin"
+
+            if (Test-Path $bin) {
+              tree $bin /f
+
+              $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
+              if (Test-Path $dll) {
+                Write-Host "Found ODBC DLL: $dll"
+                exit 0
+              }
+            }
+          }
+
+          Write-Error "ODBC DLL not found"
+          exit 1
 
   odbc-nightly:
-    needs: odbc
+    needs: odbc-msvc
     name: ODBC nightly
     runs-on: ubuntu-latest
     if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
@@ -579,6 +617,39 @@ jobs:
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
+  odbc-release:
+    needs: odbc-msvc
+    name: ODBC release
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref_name, 'apache-arrow-') && contains(github.ref_name, '-rc') }}
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download the artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: flight-sql-odbc-msi-installer
+      - name: Wait for creating GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
+
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
     needs:
@@ -588,5 +659,6 @@ jobs:
       - msvc-arm64
       - odbc-macos
       - odbc-msvc
+      - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit

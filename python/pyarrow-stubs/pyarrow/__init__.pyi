@@ -15,19 +15,15 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Don't add pandas here, because it is not a mandatory test dependency
+"""Type stubs for PyArrow.
 
-# Not a direct dependency of s3fs, but needed for our s3fs fixture
-boto3
-cffi
-cython>=3.1
-cloudpickle
-fsspec
-hypothesis
-libcst>=1.8.6
-numpy>=1.16.6
-pytest
-pytest-faulthandler
-s3fs>=2023.10.0
-setuptools>=77
-setuptools_scm>=8
+This is a placeholder stub file.
+Complete type annotations will be added in subsequent PRs.
+"""
+
+from typing import Any
+
+# TODO(GH-48970): remove __getattr__ before release as this
+# will annotate non-existing attributes as Any.
+# https://github.com/apache/arrow/issues/48970
+def __getattr__(name: str) -> Any: ...
