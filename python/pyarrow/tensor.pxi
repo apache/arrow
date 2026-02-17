@@ -984,10 +984,10 @@ shape: {self.shape}"""
         data : numpy.ndarray
             Data used to populate the sparse matrix.
         indptr : numpy.ndarray
-            Range of the rows,
-            The i-th row spans from `indptr[i]` to `indptr[i+1]` in the data.
+            Range of the columns,
+            The i-th column spans from `indptr[i]` to `indptr[i+1]` in the data.
         indices : numpy.ndarray
-            Column indices of the corresponding non-zero values.
+            Row indices of the corresponding non-zero values.
         shape : tuple
             Shape of the matrix.
         dim_names : list, optional
