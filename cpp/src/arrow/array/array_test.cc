@@ -1037,23 +1037,23 @@ class TestBuilderAppendArraySlice : public TestArray {
   }
 };
 
-template <typename Type>
-class TestBuilderAppendArraySliceTyped : public TestBuilderAppendArraySlice {};
+TEST_F(TestBuilderAppendArraySlice, DynamicTypes) {
+  auto types = PrimitiveTypes();
+  auto temporal_types = TemporalTypes();
+  auto interval_types = IntervalTypes();
+  auto duration_types = DurationTypes();
 
-TYPED_TEST_SUITE(TestBuilderAppendArraySliceTyped, PrimitiveArrowTypes);
-TYPED_TEST(TestBuilderAppendArraySliceTyped, Primitives) {
-  this->CheckAppendArraySlice(TypeTraits<TypeParam>::type_singleton());
+  types.insert(types.end(), temporal_types.begin(), temporal_types.end());
+  types.insert(types.end(), interval_types.begin(), interval_types.end());
+  types.insert(types.end(), duration_types.begin(), duration_types.end());
+
+  for (const auto& type : types) {
+    ARROW_SCOPED_TRACE("type = ", type->ToString());
+    this->CheckAppendArraySlice(type);
+  }
 }
 
-template <typename Type>
-class TestBuilderAppendArraySliceBinary : public TestBuilderAppendArraySlice {};
-
-using BinaryAppendArraySliceTypes =
-    ::testing::Types<BinaryType, LargeBinaryType, StringType, LargeStringType>;
-TYPED_TEST_SUITE(TestBuilderAppendArraySliceBinary, BinaryAppendArraySliceTypes);
-TYPED_TEST(TestBuilderAppendArraySliceBinary, Binary) {
-  this->CheckAppendArraySlice(TypeTraits<TypeParam>::type_singleton());
-}
+TEST_F(TestBuilderAppendArraySlice, Float16) { CheckAppendArraySlice(float16()); }
 
 TEST_F(TestBuilderAppendArraySlice, List) { CheckAppendArraySlice(list(int32())); }
 
@@ -1071,6 +1071,12 @@ TEST_F(TestBuilderAppendArraySlice, LargeListView) {
 
 TEST_F(TestBuilderAppendArraySlice, FixedSizeBinary) {
   CheckAppendArraySlice(fixed_size_binary(10));
+}
+
+TEST_F(TestBuilderAppendArraySlice, Decimal32) { CheckAppendArraySlice(decimal32(7, 2)); }
+
+TEST_F(TestBuilderAppendArraySlice, Decimal64) {
+  CheckAppendArraySlice(decimal64(12, 2));
 }
 
 TEST_F(TestBuilderAppendArraySlice, Decimal128) {
@@ -1098,9 +1104,18 @@ TEST_F(TestBuilderAppendArraySlice, DenseUnion) {
 }
 
 TEST_F(TestBuilderAppendArraySlice, RunEndEncoded) {
-  CheckAppendArraySlice(run_end_encoded(int32(), int32()));
+  CheckAppendArraySlice(run_end_encoded(int32(), utf8()));
+  CheckAppendArraySlice(run_end_encoded(int32(), int64()));
 }
 
+// Dictionary types require a custom AssertResult because DictionaryBuilder
+// re-encodes values based on discovery order. This can change both the
+// dictionary and the indices, causing standard physical equality checks to fail.
+//
+// Example: Slicing values ["b", "a"] from an array with dictionary ["a", "b"]
+// (indices [1, 0]) and appending them to a fresh builder results in a new
+// dictionary ["b", "a"] (indices [0, 1]). Both represent the same logical
+// data but differ physically.
 class TestBuilderAppendArraySliceDictionary : public TestBuilderAppendArraySlice {
  public:
   void AssertResult(const Array& expected, const Array& actual) override {
