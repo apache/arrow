@@ -37,12 +37,11 @@
 // On MinGW, install a crash handler to log the exception address for debugging
 // intermittent segfaults. See https://github.com/apache/arrow/issues/49272
 #if defined(__MINGW32__) || defined(__MINGW64__)
-#  include <cstdio>
 #  include <windows.h>
+#  include <cstdio>
 namespace {
 LONG WINAPI ArrowCrashHandler(EXCEPTION_POINTERS* ep) {
-  fprintf(stderr, "CRASH: code=0x%lx addr=%p\n",
-          ep->ExceptionRecord->ExceptionCode,
+  fprintf(stderr, "CRASH: code=0x%lx addr=%p\n", ep->ExceptionRecord->ExceptionCode,
           ep->ExceptionRecord->ExceptionAddress);
   fflush(stderr);
   return EXCEPTION_CONTINUE_SEARCH;

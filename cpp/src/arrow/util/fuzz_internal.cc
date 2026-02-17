@@ -36,17 +36,16 @@ MemoryPool* fuzzing_memory_pool() {
 
 void LogFuzzStatus(const Status& st, const uint8_t* data, int64_t size) {
   static const int kVerbosity = []() {
-    auto maybe_env_value = GetEnvVar("ARROW_FUZZING_VERBOSITY");
-    if (maybe_env_value.status().IsKeyError()) {
-      return 0;
+    auto maybe_env_value =
+        GetEnvVarInteger("ARROW_FUZZING_VERBOSITY", /*min_value=*/0, /*max_value=*/1);
+    if (maybe_env_value.ok()) {
+      return static_cast<int>(*maybe_env_value);
     }
-    auto env_value = std::move(maybe_env_value).ValueOrDie();
-    int32_t value;
-    if (!ParseValue<Int32Type>(env_value.data(), env_value.length(), &value)) {
-      Status::Invalid("Invalid value for ARROW_FUZZING_VERBOSITY: '", env_value, "'")
-          .Abort();
+    if (!maybe_env_value.status().IsKeyError()) {
+      maybe_env_value.status().Abort();
     }
-    return value;
+    // Quiet by default
+    return 0;
   }();
 
   if (!st.ok() && kVerbosity >= 1) {
