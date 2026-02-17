@@ -36,6 +36,7 @@ import os
 from contextlib import contextmanager
 from pathlib import Path
 
+from scikit_build_core.build import *  # noqa: F401,F403
 from scikit_build_core.build import build_sdist as scikit_build_sdist
 
 LICENSE_FILES = ("LICENSE.txt", "NOTICE.txt")
