@@ -1753,7 +1753,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
         eck.__set_path_in_schema(column_->path()->ToDotVector());
         // check if column has its own encryption algorithm
         if (encrypt_md->parquet_cipher().has_value()) {
-          EncryptionAlgorithm column_encryption_algorithm;
+          EncryptionAlgorithm column_encryption_algorithm{};
           column_encryption_algorithm.algorithm = encrypt_md->parquet_cipher().value();
           eck.__set_encryption_algorithm(ToThrift(column_encryption_algorithm));
         }

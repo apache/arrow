@@ -580,7 +580,7 @@ bool IsParquetCipherSupported(ParquetCipher::type cipher);
 struct AadMetadata {
   std::string aad_prefix;
   std::string aad_file_unique;
-  bool supply_aad_prefix;
+  bool supply_aad_prefix = false;
 };
 
 struct EncryptionAlgorithm {

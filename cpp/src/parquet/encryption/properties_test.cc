@@ -250,6 +250,27 @@ TEST(TestEncryptionProperties, UseAES_GCM_CTR_V1Algorithm) {
   ASSERT_EQ(ParquetCipher::AES_GCM_CTR_V1, props->algorithm().algorithm);
 }
 
+// Verify AadMetadata is safe to value-initialize (all fields deterministic).
+// Regression guard: an uninitialized bool in supply_aad_prefix caused thrift
+// serialization failures on Windows (MSVC debug fills with 0xCC).
+TEST(TestEncryptionProperties, AadMetadataDefaultInitialization) {
+  AadMetadata aad{};
+  ASSERT_EQ("", aad.aad_prefix);
+  ASSERT_EQ("", aad.aad_file_unique);
+  ASSERT_EQ(false, aad.supply_aad_prefix);
+}
+
+// Verify EncryptionAlgorithm is safe to value-initialize — particularly the
+// nested AadMetadata::supply_aad_prefix bool that previously lacked a default
+// member initializer.
+TEST(TestEncryptionProperties, EncryptionAlgorithmDefaultInitialization) {
+  EncryptionAlgorithm algo{};
+  ASSERT_EQ(ParquetCipher::AES_GCM_V1, algo.algorithm);
+  ASSERT_EQ("", algo.aad.aad_prefix);
+  ASSERT_EQ("", algo.aad.aad_file_unique);
+  ASSERT_EQ(false, algo.aad.supply_aad_prefix);
+}
+
 TEST(TestExternalFileEncryptionProperties, SuperClassFieldsSetCorrectly) {
   std::string column_name_1 = "column_1";
   ColumnEncryptionProperties::Builder column_builder_1(column_name_1);
