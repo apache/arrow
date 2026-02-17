@@ -3045,7 +3045,7 @@ void GetReadRecordBatchReadRanges(
 
   auto read_ranges = tracked->get_read_ranges();
 
-  const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
+  const int32_t magic_size = static_cast<int>(ipc::internal::kArrowMagicBytes.size());
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
