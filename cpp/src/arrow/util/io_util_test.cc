@@ -1134,5 +1134,44 @@ TEST(CpuAffinity, NumberOfCores) {
 #endif
 }
 
+TEST(Environment, GetEnvVar) {
+  // An environment variable that should exist on roughly all platforms
+  ASSERT_OK_AND_ASSIGN(auto v, GetEnvVar("PATH"));
+  ASSERT_FALSE(v.empty());
+  ASSERT_OK_AND_ASSIGN(auto w, GetEnvVarNative("PATH"));
+  ASSERT_FALSE(w.empty());
+  // An environment variable that most probably does not exist
+  ASSERT_RAISES(KeyError, GetEnvVar("BZZT_NONEXISTENT_VAR"));
+  ASSERT_RAISES(KeyError, GetEnvVarNative("BZZT_NONEXISTENT_VAR"));
+  // (we try not to rely on EnvVarGuard here as that would be circular)
+}
+
+TEST(Environment, GetEnvVarInteger) {
+  {
+    EnvVarGuard guard("FOOBAR", "5");
+    ASSERT_OK_AND_EQ(5, GetEnvVarInteger("FOOBAR"));
+    ASSERT_OK_AND_EQ(5, GetEnvVarInteger("FOOBAR", /*min_value=*/5, /*max_value=*/7));
+    ASSERT_RAISES(Invalid, GetEnvVarInteger("FOOBAR", /*min_value=*/6, /*max_value=*/7));
+    ASSERT_RAISES(Invalid, GetEnvVarInteger("FOOBAR", /*min_value=*/3, /*max_value=*/4));
+  }
+  {
+    EnvVarGuard guard("FOOBAR", "BAZ");
+    ASSERT_RAISES(Invalid, GetEnvVarInteger("FOOBAR"));
+  }
+  {
+    EnvVarGuard guard("FOOBAR", std::nullopt);
+    ASSERT_RAISES(KeyError, GetEnvVarInteger("FOOBAR"));
+  }
+}
+
+TEST(Environment, SetEnvVar) {
+  EnvVarGuard guard("FOOBAR", "one");
+  ASSERT_OK_AND_EQ("one", GetEnvVar("FOOBAR"));
+  ASSERT_OK(SetEnvVar("FOOBAR", "two"));
+  ASSERT_OK_AND_EQ("two", GetEnvVar("FOOBAR"));
+  ASSERT_OK(DelEnvVar("FOOBAR"));
+  ASSERT_RAISES(KeyError, GetEnvVar("FOOBAR"));
+}
+
 }  // namespace internal
 }  // namespace arrow
