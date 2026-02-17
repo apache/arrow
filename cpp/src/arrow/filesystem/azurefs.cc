@@ -304,6 +304,10 @@ Status ExceptionToStatus(const Azure::Core::RequestFailedException& exception,
   return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
                          exception.ErrorCode, "] ", exception.what());
 }
+
+std::string BuildApplicationId() {
+  return "azpartner-arrow/" + GetBuildInfo().version_string;
+}
 }  // namespace
 
 std::string AzureOptions::AccountBlobUrl(const std::string& account_name) const {
@@ -388,8 +392,7 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
                            blob_storage_scheme);
   }
   Blobs::BlobClientOptions client_options;
-  client_options.Telemetry.ApplicationId =
-      "azpartner-arrow/" + GetBuildInfo().version_string;
+  client_options.Telemetry.ApplicationId = BuildApplicationId();
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
@@ -426,8 +429,7 @@ AzureOptions::MakeDataLakeServiceClient() const {
                            dfs_storage_scheme);
   }
   DataLake::DataLakeClientOptions client_options;
-  client_options.Telemetry.ApplicationId =
-      "azpartner-arrow/" + GetBuildInfo().version_string;
+  client_options.Telemetry.ApplicationId = BuildApplicationId();
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
