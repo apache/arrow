@@ -87,7 +87,7 @@ RUN apt-get update -y -q && \
         python3-venv \
         rapidjson-dev \
         rsync \
-        rust \
+        rustc \
         tzdata \
         tzdata-legacy \
         zlib1g-dev && \
