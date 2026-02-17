@@ -42,6 +42,7 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        cargo \
         ccache \
         clang-${llvm} \
         cmake \
@@ -85,13 +86,11 @@ RUN apt-get update -y -q && \
         python3-pip \
         python3-venv \
         rapidjson-dev \
+        rust \
         rsync \
         tzdata \
         tzdata-legacy \
         zlib1g-dev && \
-    if [ ${arch} = "i386" ]; then \
-        apt-get install -y -q --no-install-recommends rustc cargo; \
-    fi && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
