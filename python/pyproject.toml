@@ -24,7 +24,10 @@ requires = [
     "numpy>=1.25",
     "setuptools_scm[toml]>=8",
 ]
-build-backend = "scikit_build_core.build"
+# We use a really simple build backend wrapper over scikit-build-core
+# to solve licenses to work around links not being included in sdists.
+build-backend = "_build_backend"
+backend-path = ["."]
 
 [project]
 name = "pyarrow"
