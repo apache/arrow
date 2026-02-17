@@ -103,7 +103,6 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
-
 ARROW_SUPPRESS_DEPRECATION_WARNING
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
@@ -143,7 +142,7 @@ class ARROW_EXPORT SortOptions : public FunctionOptions {
   // DEPRECATED(Deprecated in arrow 24.0.0, use null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead") 
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
   std::optional<NullPlacement> null_placement;
 };
 ARROW_UNSUPPRESS_DEPRECATION_WARNING
@@ -205,13 +204,12 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
     Dense
   };
 
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")  
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
   explicit RankOptions(std::vector<SortKey> sort_keys,
                        std::optional<NullPlacement> null_placement = std::nullopt,
                        Tiebreaker tiebreaker = RankOptions::First);
   /// Convenience constructor for array inputs
-  explicit RankOptions(SortOrder order,
-                       NullPlacement null_placement,
+  explicit RankOptions(SortOrder order, NullPlacement null_placement,
                        Tiebreaker tiebreaker = RankOptions::First)
       : RankOptions({SortKey("", order, null_placement)}, tiebreaker) {}
 
@@ -246,7 +244,8 @@ class ARROW_EXPORT RankOptions : public FunctionOptions {
   // DEPRECATED(set null_placement in sort_keys instead)
   /// Whether nulls and NaNs are placed at the start or at the end
   /// Will overwrite null ordering of sort keys
-  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead") std::optional<NullPlacement> null_placement;
+  ARROW_DEPRECATED("Deprecated in arrow 24.0.0, use null_placement in sort_keys instead")
+  std::optional<NullPlacement> null_placement;
   /// Tiebreaker for dealing with equal values in ranks
   Tiebreaker tiebreaker;
 };

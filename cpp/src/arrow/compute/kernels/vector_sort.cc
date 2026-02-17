@@ -966,11 +966,11 @@ class SortIndicesMetaFunction : public MetaFunction {
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
-ARROW_SUPPRESS_DEPRECATION_WARNING
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
     ArraySortOptions array_options(order, null_placement);
     return CallFunction("array_sort_indices", {values}, &array_options, ctx);
   }
@@ -983,11 +983,11 @@ ARROW_UNSUPPRESS_DEPRECATION_WARNING
       order = options.sort_keys[0].order;
       null_placement = options.sort_keys[0].null_placement;
     }
-ARROW_SUPPRESS_DEPRECATION_WARNING
+    ARROW_SUPPRESS_DEPRECATION_WARNING
     if (options.null_placement.has_value()) {
       null_placement = options.null_placement.value();
     }
-ARROW_UNSUPPRESS_DEPRECATION_WARNING
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     auto out_type = uint64();
     auto length = chunked_array.length();

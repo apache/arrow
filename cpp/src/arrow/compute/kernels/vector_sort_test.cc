@@ -77,10 +77,9 @@ std::ostream& operator<<(std::ostream& os, NullPlacement null_placement) {
 }
 
 std::ostream& operator<<(std::ostream& os, std::optional<NullPlacement> null_placement) {
-  if(null_placement.has_value()){
+  if (null_placement.has_value()) {
     os << null_placement.value();
-  }
-  else {
+  } else {
     os << "None";
   }
   return os;
@@ -1219,7 +1218,7 @@ TEST_F(TestRecordBatchSortIndices, NoNull) {
                                        {"a": 1,    "b": 3}
                                        ])");
 
-  for (auto overwrite_null_placement : AllOptionalNullPlacements()){
+  for (auto overwrite_null_placement : AllOptionalNullPlacements()) {
     for (auto null_placement : AllNullPlacements()) {
       ARROW_SUPPRESS_DEPRECATION_WARNING
       SortOptions options({SortKey("a", SortOrder::Ascending, null_placement),
@@ -2112,7 +2111,8 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
     }
   }
   std::shuffle(sort_keys.begin(), sort_keys.end(), engine);
-  sort_keys.emplace(sort_keys.begin(), first_sort_key_name, generate_order(), generate_null_placement());
+  sort_keys.emplace(sort_keys.begin(), first_sort_key_name, generate_order(),
+                    generate_null_placement());
   sort_keys.erase(sort_keys.begin() + n_sort_keys, sort_keys.end());
   ASSERT_EQ(sort_keys.size(), n_sort_keys);
 
