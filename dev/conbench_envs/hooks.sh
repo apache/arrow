@@ -56,17 +56,8 @@ build_arrow_python() {
   ci/scripts/python_build.sh $(pwd) /tmp/arrow
 }
 
-install_r() {
-  if ! command -v R &> /dev/null; then
-    curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-latest.tar.gz | sudo tar xz -C /usr/local
-    sudo rig add release
-    sudo rig default release
-  fi
-}
-
 build_arrow_r() {
-  install_r
-  cat ci/etc/rprofile | sudo tee -a $(R RHOME)/etc/Rprofile.site > /dev/null
+  cat ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
   ci/scripts/r_deps.sh $(pwd) $(pwd)
   (cd r; R CMD INSTALL .;)
 }
