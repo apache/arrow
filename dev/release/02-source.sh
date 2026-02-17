@@ -131,7 +131,7 @@ if [ ${SOURCE_VOTE} -gt 0 ]; then
   curl_options+=(https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls)
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
   # Read the checksum so we can include it in the vote thread email.
-  sha512_path="artifacts/${tarball}.sha512}
+  sha512_path="artifacts/${tarball}.sha512"
   [[ -f "${sha512_path}" ]] || { echo "Error: ${sha512_path} must exist"; exit 1; }
   tarball_hash=$(cat "${sha512_path}" | awk '{print $1}')
 
