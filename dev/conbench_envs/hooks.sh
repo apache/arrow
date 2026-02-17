@@ -57,9 +57,12 @@ build_arrow_python() {
 }
 
 install_r() {
+  # install R using rig not conda so we can use RSPM binaries for faster dependency installs
   if ! command -v R &> /dev/null; then
     curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-latest.tar.gz | sudo tar xz -C /usr/local
-    sudo rig add release
+    # Amazon Linux 2023 isn't directly supported by rig, but it's RHEL-based
+    # so we override the platform detection to use RHEL 9 binaries
+    sudo RIG_PLATFORM="linux-rhel-9" rig add release
     sudo rig default release
   fi
 }
