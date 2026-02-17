@@ -114,6 +114,9 @@ OutputRangesByNullLikeness CalculateOutputRangesByNullLikeness(
 template <typename Comparator>
 void HeapSortNonNullsToOutput(std::span<uint64_t> non_null_input_range, Comparator cmp,
                               std::span<uint64_t> output_range) {
+  if(output_range.empty()){
+    return;
+  }
   std::span<uint64_t> heap = non_null_input_range.subspan(0, output_range.size());
   std::ranges::make_heap(heap, cmp);
 
