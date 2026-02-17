@@ -382,12 +382,8 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
 
   // When body_length is known, read metadata + body in one IO call.
   // Otherwise, read only metadata first.
-  std::shared_ptr<Buffer> metadata;
-  if (body_length.has_value()) {
-    ARROW_ASSIGN_OR_RAISE(metadata, file->ReadAt(offset, metadata_length + *body_length));
-  } else {
-    ARROW_ASSIGN_OR_RAISE(metadata, file->ReadAt(offset, metadata_length));
-  }
+  ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> metadata,
+                        file->ReadAt(offset, metadata_length + body_length.value_or(0)));
 
   if (metadata->size() < metadata_length) {
     return Status::Invalid("Expected to read ", metadata_length,
@@ -445,14 +441,16 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
 Result<std::unique_ptr<Message>> ReadMessage(int64_t offset, int32_t metadata_length,
                                              io::RandomAccessFile* file,
                                              const FieldsLoaderFunction& fields_loader) {
-  return ReadMessageInternal(offset, metadata_length, std::nullopt, file, fields_loader);
+  return ReadMessageInternal(offset, metadata_length, /*body_length=*/std::nullopt, file,
+                             fields_loader);
 }
 
 Result<std::unique_ptr<Message>> ReadMessage(const int64_t offset,
                                              const int32_t metadata_length,
                                              const int64_t body_length,
                                              io::RandomAccessFile* file) {
-  return ReadMessageInternal(offset, metadata_length, body_length, file, {});
+  return ReadMessageInternal(offset, metadata_length, body_length, file,
+                             /*fields_loader=*/{});
 }
 
 Future<std::shared_ptr<Message>> ReadMessageAsync(int64_t offset, int32_t metadata_length,
