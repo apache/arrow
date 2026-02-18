@@ -41,8 +41,8 @@ test_that("Setup (putting data in the dir)", {
   # Now, an IPC format dataset
   dir.create(file.path(ipc_dir, 3))
   dir.create(file.path(ipc_dir, 4))
-  write_feather(df1, file.path(ipc_dir, 3, "file1.arrow"))
-  write_feather(df2, file.path(ipc_dir, 4, "file2.arrow"))
+  write_ipc_file(df1, file.path(ipc_dir, 3, "file1.arrow"))
+  write_ipc_file(df2, file.path(ipc_dir, 4, "file2.arrow"))
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
 })
 
@@ -98,7 +98,7 @@ test_that("URI-decoding with directory partitioning", {
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "2021-05-04 00%3A00%3A00", "%24")
   dir.create(dir1, recursive = TRUE)
-  write_feather(df1, file.path(dir1, "data.feather"))
+  write_ipc_file(df1, file.path(dir1, "data.arrow"))
 
   partitioning <- DirectoryPartitioning$create(
     schema(date = timestamp(unit = "s"), string = utf8())
@@ -178,7 +178,7 @@ test_that("URI-decoding with hive partitioning", {
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "date=2021-05-04 00%3A00%3A00", "string=%24")
   dir.create(dir1, recursive = TRUE)
-  write_feather(df1, file.path(dir1, "data.feather"))
+  write_ipc_file(df1, file.path(dir1, "data.arrow"))
 
   partitioning <- hive_partition(
     date = timestamp(unit = "s"),
@@ -254,7 +254,7 @@ test_that("URI-decoding with hive partitioning with key encoded", {
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "test%20key=2021-05-04 00%3A00%3A00", "test%20key1=%24")
   dir.create(dir1, recursive = TRUE)
-  write_feather(df1, file.path(dir1, "data.feather"))
+  write_ipc_file(df1, file.path(dir1, "data.arrow"))
 
   partitioning <- hive_partition(
     `test key` = timestamp(unit = "s"),

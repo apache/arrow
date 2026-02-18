@@ -62,7 +62,7 @@ test_that("Writing a dataset: CSV->IPC", {
   )
 
   # Check whether "int" is present in the files or just in the dirs
-  first <- read_feather(
+  first <- read_ipc_file(
     dir(dst_dir, pattern = ".arrow$", recursive = TRUE, full.names = TRUE)[1],
     as_data_frame = FALSE
   )
