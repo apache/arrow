@@ -98,6 +98,8 @@ Gem::Specification.new do |spec|
 
       ["fedora", "libarrow-glib-devel"],
 
+      ["homebrew", "apache-arrow-glib"],
+
       # Try without additional repository
       ["rhel", "arrow-glib-devel"],
       # Retry with additional repository
