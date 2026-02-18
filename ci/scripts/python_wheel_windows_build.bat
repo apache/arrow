@@ -113,7 +113,6 @@ cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
 echo "=== (%PYTHON%) Building wheel ==="
-set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_CMAKE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%"
@@ -135,7 +134,7 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 pushd C:\arrow\python
 
 @REM Build wheel
-%PYTHON_CMD% -m build --sdist --wheel . --no-isolation || exit /B 1
+%PYTHON_CMD% -m build --sdist --wheel . --no-isolation --config-settings cmake.build-type=%CMAKE_BUILD_TYPE% || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM

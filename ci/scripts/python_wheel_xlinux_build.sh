@@ -146,7 +146,6 @@ popd
 check_arrow_visibility
 
 echo "=== (${PYTHON_VERSION}) Building wheel ==="
-export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE}
 export PYARROW_BUNDLE_ARROW_CPP=ON
 export PYARROW_CMAKE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
 export PYARROW_WITH_ACERO=${ARROW_ACERO}
@@ -166,7 +165,7 @@ export ARROW_HOME=/tmp/arrow-dist
 export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
-python -m build --sdist --wheel . --no-isolation
+python -m build --sdist --wheel . --no-isolation --config-settings cmake.build-type=${CMAKE_BUILD_TYPE:-Debug}
 
 echo "=== Strip symbols from wheel ==="
 mkdir -p dist/temp-fix-wheel

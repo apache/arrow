@@ -60,8 +60,6 @@ if [ -n "${CONDA_PREFIX}" ]; then
 fi
 
 export CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
-export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
-
 export PYARROW_WITH_ACERO=${ARROW_ACERO:-OFF}
 export PYARROW_WITH_AZURE=${ARROW_AZURE:-OFF}
 export PYARROW_WITH_CUDA=${ARROW_CUDA:-OFF}
@@ -92,7 +90,7 @@ cp -aL "${source_dir}" "${python_build_dir}"
 pushd "${python_build_dir}"
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
-${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv --config-settings cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" .
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then

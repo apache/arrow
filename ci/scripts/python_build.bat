@@ -111,7 +111,6 @@ echo "=== CCACHE Stats after build ==="
 ccache -sv
 
 echo "=== Building Python ==="
-set PYARROW_BUILD_TYPE=%CMAKE_BUILD_TYPE%
 set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
