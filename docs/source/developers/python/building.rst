@@ -444,8 +444,7 @@ artifacts before rebuilding. See :ref:`python-dev-env-variables`.
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
-``export PYARROW_BUILD_TYPE=debug`` prior to running
-``pip install --no-build-isolation -vv .`` above.
+``pip install --no-build-isolation -vv --config-settings cmake.build-type=Debug .``.
 A ``relwithdebinfo`` build can be created similarly.
 
 Self-Contained Wheel
@@ -461,7 +460,7 @@ To do this, set the ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before bui
 
 .. code-block::
 
-   $ set PYARROW_BUNDLE_ARROW_CPP=ON
+   $ export PYARROW_BUNDLE_ARROW_CPP=ON
    $ pip install build wheel  # if not installed
    $ python -m build --sdist --wheel . --no-isolation
 
@@ -555,9 +554,6 @@ PyArrow are:
    * - PyArrow environment variable
      - Description
      - Default value
-   * - ``PYARROW_BUILD_TYPE``
-     - Build type for PyArrow (release, debug or relwithdebinfo), sets ``CMAKE_BUILD_TYPE``
-     - ``release``
    * - ``CMAKE_GENERATOR``
      - Example: ``'Visual Studio 17 2022 Win64'``
      - ``''``
