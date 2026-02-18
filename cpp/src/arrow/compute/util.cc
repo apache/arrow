@@ -17,12 +17,13 @@
 
 #include "arrow/compute/util.h"
 
+#include <bit>
+
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
 
-using bit_util::CountTrailingZeros;
 using internal::CpuInfo;
 
 namespace util {
@@ -65,7 +66,7 @@ inline void bits_to_indexes_helper(uint64_t word, uint16_t base_index, int* num_
                                    uint16_t* indexes) {
   int n = *num_indexes;
   while (word) {
-    indexes[n++] = base_index + static_cast<uint16_t>(CountTrailingZeros(word));
+    indexes[n++] = base_index + static_cast<uint16_t>(std::countr_zero(word));
     word &= word - 1;
   }
   *num_indexes = n;
@@ -75,7 +76,7 @@ inline void bits_filter_indexes_helper(uint64_t word, const uint16_t* input_inde
                                        int* num_indexes, uint16_t* indexes) {
   int n = *num_indexes;
   while (word) {
-    indexes[n++] = input_indexes[CountTrailingZeros(word)];
+    indexes[n++] = input_indexes[std::countr_zero(word)];
     word &= word - 1;
   }
   *num_indexes = n;

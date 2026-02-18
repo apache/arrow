@@ -19,6 +19,7 @@
 #include "parquet/level_conversion.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <limits>
 
@@ -248,7 +249,7 @@ inline uint64_t ExtractBitsSoftware(uint64_t bitmap, uint64_t select_bitmap) {
   int bit_len = 0;
   constexpr uint8_t kLookupMask = (1U << kLookupBits) - 1;
   while (select_bitmap != 0) {
-    const auto mask_len = ARROW_POPCOUNT32(select_bitmap & kLookupMask);
+    const auto mask_len = std::popcount(select_bitmap & kLookupMask);
     const uint64_t value = kPextTable[select_bitmap & kLookupMask][bitmap & kLookupMask];
     bit_value |= (value << bit_len);
     bit_len += mask_len;
@@ -309,12 +310,12 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
         ::arrow::bit_util::FromLittleEndian(internal::GreaterThanBitmap(
             def_levels, batch_size, level_info.repeated_ancestor_def_level - 1)));
     auto selected_bits = ExtractBits(defined_bitmap, present_bitmap);
-    int64_t selected_count = ::arrow::bit_util::PopCount(present_bitmap);
+    int64_t selected_count = std::popcount(present_bitmap);
     if (ARROW_PREDICT_FALSE(selected_count > upper_bound_remaining)) {
       throw ParquetException("Values read exceeded upper bound");
     }
     writer->AppendWord(selected_bits, selected_count);
-    return ::arrow::bit_util::PopCount(selected_bits);
+    return std::popcount(selected_bits);
   } else {
     if (ARROW_PREDICT_FALSE(batch_size > upper_bound_remaining)) {
       std::stringstream ss;
@@ -323,7 +324,7 @@ int64_t DefLevelsBatchToBitmap(const int16_t* def_levels, const int64_t batch_si
     }
 
     writer->AppendWord(defined_bitmap, batch_size);
-    return ::arrow::bit_util::PopCount(defined_bitmap);
+    return std::popcount(defined_bitmap);
   }
 }
 
