@@ -116,9 +116,9 @@ class EncoderImpl : virtual public Encoder {
   const Encoding::type encoding_;
   MemoryPool* pool_;
 
-  /// Type length from descr
+  // Type length from descr
   const int type_length_;
-  /// Number of unencoded bytes written to the encoder. Used for ByteArray type only.
+  // Number of unencoded bytes written to the encoder. Used for ByteArray type only.
   int64_t unencoded_byte_array_data_bytes_ = 0;
 };
 

@@ -33,6 +33,7 @@
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/page_index.h"
 #include "parquet/properties.h"
+#include "parquet/visit_type_inline.h"
 
 namespace parquet::fuzzing::internal {
 
@@ -129,35 +130,10 @@ Status FuzzReadColumnIndex(const ColumnIndex* index, const ColumnDescriptor* des
   index->non_null_page_indices();
   index->encoded_min_values();
   index->encoded_max_values();
-  switch (descr->physical_type()) {
-    case Type::BOOLEAN:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const BoolColumnIndex*>(index));
-      break;
-    case Type::INT32:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const Int32ColumnIndex*>(index));
-      break;
-    case Type::INT64:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const Int64ColumnIndex*>(index));
-      break;
-    case Type::INT96:
-      st &= FuzzReadTypedColumnIndex(
-          dynamic_cast<const TypedColumnIndex<Int96Type>*>(index));
-      break;
-    case Type::FLOAT:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const FloatColumnIndex*>(index));
-      break;
-    case Type::DOUBLE:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const DoubleColumnIndex*>(index));
-      break;
-    case Type::FIXED_LEN_BYTE_ARRAY:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const FLBAColumnIndex*>(index));
-      break;
-    case Type::BYTE_ARRAY:
-      st &= FuzzReadTypedColumnIndex(dynamic_cast<const ByteArrayColumnIndex*>(index));
-      break;
-    case Type::UNDEFINED:
-      break;
-  }
+  VisitType(descr->physical_type(), [&](auto* dtype) {
+    using DType = std::decay_t<decltype(*dtype)>;
+    st &= FuzzReadTypedColumnIndex(dynamic_cast<const TypedColumnIndex<DType>*>(index));
+  });
   END_PARQUET_CATCH_EXCEPTIONS
   return st;
 }

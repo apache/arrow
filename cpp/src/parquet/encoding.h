@@ -455,4 +455,10 @@ std::unique_ptr<typename EncodingTraits<DType>::Decoder> MakeTypedDecoder(
   return std::unique_ptr<OutType>(dynamic_cast<OutType*>(base.release()));
 }
 
+/// Return the list of supported encodings for the given physical type
+///
+/// Only non-dictionary encodings are returned.
+PARQUET_EXPORT
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type);
+
 }  // namespace parquet

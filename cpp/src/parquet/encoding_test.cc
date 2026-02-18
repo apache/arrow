@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <limits>
 #include <span>
 #include <utility>
@@ -56,6 +57,50 @@ using arrow::util::span;
 namespace bit_util = arrow::bit_util;
 
 namespace parquet::test {
+
+// Validate that `func` succeeds on supported (Type, Encoding) combinations, and
+// raises on unsupported ones.
+void TestSupportedEncodingsConsistentWith(
+    std::function<void(Type::type, Encoding::type, const ColumnDescriptor&)> func) {
+  // Try all possible types and encodings
+  for (int int_type = 0; int_type < static_cast<int>(Type::UNDEFINED); ++int_type) {
+    const auto type = static_cast<Type::type>(int_type);
+    const auto supported_encodings = SupportedEncodings(type);
+    ARROW_SCOPED_TRACE("Type = ", TypeToString(type));
+    const auto descr =
+        ColumnDescriptor(schema::PrimitiveNode::Make("col", Repetition::REQUIRED, type,
+                                                     ConvertedType::NONE, /*length=*/2),
+                         /*max_definition_level=*/0, /*max_repetition_level=*/0);
+
+    for (int int_encoding = 0; int_encoding < static_cast<int>(Encoding::UNDEFINED);
+         ++int_encoding) {
+      const auto encoding = static_cast<Encoding::type>(int_encoding);
+      ARROW_SCOPED_TRACE("Encoding = ", EncodingToString(encoding));
+      if (std::find(supported_encodings.begin(), supported_encodings.end(), encoding) !=
+          supported_encodings.end()) {
+        ASSERT_NO_THROW(func(type, encoding, descr));
+      } else {
+        ASSERT_THROW(func(type, encoding, descr), ParquetException);
+      }
+    }
+  }
+}
+
+TEST(SupportedEncodings, TestMakeDecoder) {
+  auto make_decoder = [](Type::type type, Encoding::type encoding,
+                         const ColumnDescriptor& descr) {
+    ARROW_UNUSED(MakeDecoder(type, encoding, &descr));
+  };
+  TestSupportedEncodingsConsistentWith(make_decoder);
+}
+
+TEST(SupportedEncodings, TestMakeEncoder) {
+  auto make_encoder = [](Type::type type, Encoding::type encoding,
+                         const ColumnDescriptor& descr) {
+    ARROW_UNUSED(MakeEncoder(type, encoding, /*use_dictionary=*/false, &descr));
+  };
+  TestSupportedEncodingsConsistentWith(make_encoder);
+}
 
 TEST(VectorBooleanTest, TestEncodeBoolDecode) {
   // PARQUET-454

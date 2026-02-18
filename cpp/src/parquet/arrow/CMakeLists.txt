@@ -19,13 +19,19 @@ arrow_install_all_headers("parquet/arrow")
 
 if(ARROW_BUILD_FUZZING_UTILITIES)
   add_executable(parquet-arrow-generate-fuzz-corpus generate_fuzz_corpus.cc)
+  add_executable(parquet-generate-encoding-fuzz-corpus generate_encoding_fuzz_corpus.cc)
   if(ARROW_BUILD_STATIC)
     target_link_libraries(parquet-arrow-generate-fuzz-corpus parquet_static
                           arrow_testing_static)
+    target_link_libraries(parquet-generate-encoding-fuzz-corpus parquet_static
+                          arrow_testing_static)
   else()
     target_link_libraries(parquet-arrow-generate-fuzz-corpus parquet_shared
+                          arrow_testing_shared)
+    target_link_libraries(parquet-generate-encoding-fuzz-corpus parquet_shared
                           arrow_testing_shared)
   endif()
 endif()
 
 add_parquet_fuzz_target(fuzz PREFIX "parquet-arrow")
+add_parquet_fuzz_target(encoding_fuzz PREFIX "parquet")

@@ -38,6 +38,7 @@
 #include "parquet/exception.h"
 #include "parquet/platform.h"
 #include "parquet/schema.h"
+#include "parquet/visit_type_inline.h"
 
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
@@ -1102,28 +1103,14 @@ std::shared_ptr<Statistics> Statistics::Make(
     int64_t distinct_count, bool has_min_max, bool has_null_count,
     bool has_distinct_count, std::optional<bool> is_min_value_exact,
     std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
-#define MAKE_STATS(CAP_TYPE, KLASS)                                              \
-  case Type::CAP_TYPE:                                                           \
-    return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
-        descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
-        has_min_max, has_null_count, has_distinct_count, is_min_value_exact,     \
-        is_max_value_exact, pool)
-
-  switch (descr->physical_type()) {
-    MAKE_STATS(BOOLEAN, BooleanType);
-    MAKE_STATS(INT32, Int32Type);
-    MAKE_STATS(INT64, Int64Type);
-    MAKE_STATS(INT96, Int96Type);
-    MAKE_STATS(FLOAT, FloatType);
-    MAKE_STATS(DOUBLE, DoubleType);
-    MAKE_STATS(BYTE_ARRAY, ByteArrayType);
-    MAKE_STATS(FIXED_LEN_BYTE_ARRAY, FLBAType);
-    default:
-      break;
-  }
-#undef MAKE_STATS
-  DCHECK(false) << "Cannot reach here";
-  return nullptr;
+  return VisitType(descr->physical_type(),
+                   [&](auto* type) -> std::shared_ptr<Statistics> {
+                     using DType = std::decay_t<decltype(*type)>;
+                     return std::make_shared<TypedStatisticsImpl<DType>>(
+                         descr, encoded_min, encoded_max, num_values, null_count,
+                         distinct_count, has_min_max, has_null_count, has_distinct_count,
+                         is_min_value_exact, is_max_value_exact, pool);
+                   });
 }
 
 }  // namespace parquet

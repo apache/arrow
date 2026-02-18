@@ -122,6 +122,7 @@ RUN apt-get update -y -q && \
         tzdata \
         tzdata-legacy \
         uuid-runtime \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*
