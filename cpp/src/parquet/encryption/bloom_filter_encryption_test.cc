@@ -38,7 +38,6 @@
 #include "parquet/platform.h"
 #include "parquet/test_util.h"
 #include "parquet/thrift_internal.h"
-#include "parquet/types.h"
 
 namespace parquet::encryption::test {
 namespace {
@@ -77,16 +76,10 @@ EncryptedBloomFilterPayload BuildEncryptedBloomFilterPayload(int32_t bitset_size
   serializer.Serialize(&header, header_sink.get());
   PARQUET_ASSIGN_OR_THROW(auto header_buf, header_sink->Finish());
 
-  const std::string file_aad = "file_aad";
-  const int16_t row_group_ordinal = 0;
-  const int16_t column_ordinal = 0;
-  // AAD must match the module type, row group, and column ordinals.
-  const std::string header_aad =
-      encryption::CreateModuleAad(file_aad, encryption::kBloomFilterHeader,
-                                  row_group_ordinal, column_ordinal, kNonPageOrdinal);
-  const std::string bitset_aad =
-      encryption::CreateModuleAad(file_aad, encryption::kBloomFilterBitset,
-                                  row_group_ordinal, column_ordinal, kNonPageOrdinal);
+  // Use fixed AAD strings for the test. The encryptor and decryptor must use
+  // the same AAD, but the exact value does not matter for unit testing Deserialize.
+  const std::string header_aad = "test_bloom_filter_header_aad";
+  const std::string bitset_aad = "test_bloom_filter_bitset_aad";
 
   // Use fixed keys for deterministic test data.
   const ::arrow::util::SecureString header_key("0123456789abcdef");
@@ -134,11 +127,11 @@ EncryptedBloomFilterPayload BuildEncryptedBloomFilterPayload(int32_t bitset_size
   payload.header_decryptor = std::make_unique<Decryptor>(
       encryption::AesDecryptor::Make(ParquetCipher::AES_GCM_V1,
                                      static_cast<int32_t>(header_key.size()), true),
-      header_key, file_aad, header_aad, ::arrow::default_memory_pool());
+      header_key, "", header_aad, ::arrow::default_memory_pool());
   payload.bitset_decryptor = std::make_unique<Decryptor>(
       encryption::AesDecryptor::Make(ParquetCipher::AES_GCM_V1,
                                      static_cast<int32_t>(bitset_key.size()), false),
-      bitset_key, file_aad, bitset_aad, ::arrow::default_memory_pool());
+      bitset_key, "", bitset_aad, ::arrow::default_memory_pool());
 
   return payload;
 }
