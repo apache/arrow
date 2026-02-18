@@ -391,7 +391,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow/python
-         $ python setup.py build_ext --inplace
+         $ pip install --no-build-isolation -vv .
          $ popd
 
    .. tab-item:: Windows
@@ -400,7 +400,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow\python
-         $ python setup.py build_ext --inplace
+         $ pip install --no-build-isolation -vv .
          $ popd
 
       .. note::
@@ -428,8 +428,8 @@ To build PyArrow run:
 
          .. code-block::
 
-            $ set PYARROW_BUNDLE_ARROW_CPP=1
-            $ python setup.py build_ext --inplace
+            $ set PYARROW_BUNDLE_ARROW_CPP=ON
+            $ pip install --no-build-isolation -vv .
 
          Note that bundled Arrow C++ libraries will not be automatically
          updated when rebuilding Arrow C++.
@@ -444,9 +444,9 @@ artifacts before rebuilding. See :ref:`python-dev-env-variables`.
 
 By default, PyArrow will be built in release mode even if Arrow C++ has been
 built in debug mode. To create a debug build of PyArrow, run
-``export PYARROW_BUILD_TYPE=debug`` prior to running  ``python setup.py
-build_ext --inplace`` above. A ``relwithdebinfo`` build can be created
-similarly.
+``export PYARROW_BUILD_TYPE=debug`` prior to running
+``pip install --no-build-isolation -vv .`` above.
+A ``relwithdebinfo`` build can be created similarly.
 
 Self-Contained Wheel
 ^^^^^^^^^^^^^^^^^^^^
@@ -457,13 +457,13 @@ libraries). This ensures that all necessary native libraries are bundled inside
 the wheel, so users can install it without needing to have Arrow or Parquet
 installed separately on their system.
 
-To do this, pass the ``--bundle-arrow-cpp`` option to the build command:
+To do this, set the ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before building ``pyarrow``:
 
 .. code-block::
 
-   $ pip install wheel  # if not installed
-   $ python setup.py build_ext --build-type=$ARROW_BUILD_TYPE \
-            --bundle-arrow-cpp bdist_wheel
+   $ set PYARROW_BUNDLE_ARROW_CPP=ON
+   $ pip install build wheel  # if not installed
+   $ python -m build --sdist --wheel . --no-isolation
 
 This option is typically only needed for releases or distribution scenarios,
 not for local development.
@@ -558,7 +558,7 @@ PyArrow are:
    * - ``PYARROW_BUILD_TYPE``
      - Build type for PyArrow (release, debug or relwithdebinfo), sets ``CMAKE_BUILD_TYPE``
      - ``release``
-   * - ``PYARROW_CMAKE_GENERATOR``
+   * - ``CMAKE_GENERATOR``
      - Example: ``'Visual Studio 17 2022 Win64'``
      - ``''``
    * - ``PYARROW_CMAKE_OPTIONS``

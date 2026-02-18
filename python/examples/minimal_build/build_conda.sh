@@ -95,7 +95,7 @@ rm -rf build/  # remove any pesky preexisting build directory
 
 export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
 export PYARROW_BUILD_TYPE=Debug
-export PYARROW_CMAKE_GENERATOR=Ninja
+export CMAKE_GENERATOR=Ninja
 
 # Use the same command that we use on python_build.sh
 python -m pip install --no-deps --no-build-isolation -vv .
