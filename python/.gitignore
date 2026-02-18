@@ -24,9 +24,9 @@ cython_debug
 # Bundled headers
 pyarrow/include
 
-# setup.py working directory
+# build directory
 build
-# setup.py dist directory
+# dist directory
 dist
 # Coverage
 .coverage

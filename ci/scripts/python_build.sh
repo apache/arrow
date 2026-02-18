@@ -59,7 +59,7 @@ if [ -n "${CONDA_PREFIX}" ]; then
   conda list
 fi
 
-export PYARROW_CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
+export CMAKE_GENERATOR=${CMAKE_GENERATOR:-Ninja}
 export PYARROW_BUILD_TYPE=${CMAKE_BUILD_TYPE:-debug}
 
 export PYARROW_WITH_ACERO=${ARROW_ACERO:-OFF}
@@ -90,8 +90,6 @@ export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_P
 rm -rf "${python_build_dir}"
 cp -aL "${source_dir}" "${python_build_dir}"
 pushd "${python_build_dir}"
-# - Cannot call setup.py as it may install in the wrong directory
-#   on Debian/Ubuntu (ARROW-15243).
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
 ${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv .

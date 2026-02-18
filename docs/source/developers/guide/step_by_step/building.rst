@@ -155,7 +155,7 @@ Building other Arrow libraries
 
       .. code:: console
 
-         $ python setup.py build_ext --inplace
+         $ pip install --no-build-isolation -vv .
 
       **Recompiling C++**
 
