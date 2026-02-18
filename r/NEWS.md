@@ -18,6 +18,29 @@
 -->
 
 # arrow 23.0.1
+
+## Minor improvements and fixes
+
+- Fix C++20 compatibility issue on macOS (#49221).
+- Turn off GCS support by default on macOS; see `vignette("install", package = "arrow")` for details on enabling it (#49068, #48995).
+
+# arrow 23.0.0
+
+## New features
+
+- `nchar()` now supports `keepNA = FALSE` (@HyukjinKwon, #48665).
+- `stringr::str_ilike()` binding for case-insensitive pattern matching (#48262).
+
+## Minor improvements and fixes
+
+- Fix slow performance reading files with large number of columns (#48104).
+- Fix segfault when calling `concat_tables()` on a `RecordBatch` (#47885).
+- Writing partitioned datasets on S3 no longer requires `ListBucket` permissions (@HaochengLIU, #47599).
+
+## Installation
+
+- As of version 23.0.0, `arrow` requires C++20 to build from source. This means that you may need a newer compiler than the default on some older systems. See `vignette("install", package = "arrow")` for guidance.
+
 # arrow 22.0.0.1
 
 ## Minor improvements and fixes
