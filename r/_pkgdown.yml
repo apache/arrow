@@ -365,4 +365,6 @@ footer:
     left: older_versions
     right: built_with
   components:
-    older_versions: "[Older versions of these docs](https://arrow.apache.org/docs/r/versions.html)"
+    older_versions: |
+      [Older versions of these docs](https://arrow.apache.org/docs/r/versions.html)
+      <br><small>Apache Arrow, Arrow, Apache, the Apache logo, and the Apache Arrow project logo are either registered trademarks or trademarks of The Apache Software Foundation in the United States and other countries.</small>
