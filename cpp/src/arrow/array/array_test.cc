@@ -26,6 +26,7 @@
 #include <limits>
 #include <memory>
 #include <numeric>
+#include <random>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -996,28 +997,296 @@ TEST_F(TestArray, TestAppendArraySlice) {
     ASSERT_EQ(8, result->null_count());
   }
 }
+class TestArrayBinaryViewBuilderAppendArraySlice : public TestArray {
+ public:
+  struct StringOptions {
+    int64_t size = 0;
+    int32_t min_length = 0;
+    int32_t max_length = 0;
+    std::optional<int64_t> max_data_buffer_length = std::nullopt;
+    double null_probability = 0.0;
+  };
 
-// GH-39976: Test out-of-line data size calculation in
-// BinaryViewBuilder::AppendArraySlice.
-TEST_F(TestArray, TestBinaryViewAppendArraySlice) {
-  BinaryViewBuilder src_builder(pool_);
-  ASSERT_OK(src_builder.AppendNull());
-  ASSERT_OK(src_builder.Append("long string; not inlined"));
-  ASSERT_EQ(2, src_builder.length());
-  ASSERT_OK_AND_ASSIGN(auto src, src_builder.Finish());
-  ASSERT_OK(src->ValidateFull());
+  TestArrayBinaryViewBuilderAppendArraySlice() : TestArray(), generator_(12) {}
 
-  ArraySpan span;
-  span.SetMembers(*src->data());
-  BinaryViewBuilder dst_builder(pool_);
-  ASSERT_OK(dst_builder.AppendArraySlice(span, 0, 1));
-  ASSERT_EQ(1, dst_builder.length());
-  ASSERT_OK(dst_builder.AppendArraySlice(span, 1, 1));
-  ASSERT_EQ(2, dst_builder.length());
-  ASSERT_OK_AND_ASSIGN(auto dst, dst_builder.Finish());
-  ASSERT_OK(dst->ValidateFull());
+  void SetUp() override {
+    TestArray::SetUp();
+    builder_ = BinaryViewBuilder(pool_);
+  }
 
-  AssertArraysEqual(*src, *dst);
+  Result<std::shared_ptr<Array>> AppendArrayWithOutOffset(
+      const std::shared_ptr<Array>& src) {
+    ArraySpan span(*src->data());
+    ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, 0, src->length()));
+    return builder_.Finish();
+  }
+
+  Result<std::shared_ptr<Array>> AppendArraySliceWithSpanOffset(
+      const std::shared_ptr<Array>& array) {
+    const ArraySpan span(*array->data());
+    for (int i = 0; i < array->length(); ++i) {
+      ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, i, 1));
+    }
+    return builder_.Finish();
+  }
+
+  Result<std::shared_ptr<Array>> AppendArraySliceWithArrayOffset(
+      const std::shared_ptr<Array>& array) {
+    for (int i = 0; i < array->length(); ++i) {
+      auto slice = array->Slice(i, 1);
+      const ArraySpan span(*slice->data());
+      ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, 0, 1));
+    }
+    return builder_.Finish();
+  }
+
+  Result<std::shared_ptr<Array>> AppendArraySliceWithArrayAndSpanOffset(
+      const std::shared_ptr<Array>& array) {
+    for (int i = 0; i < array->length(); i += 2) {
+      auto slice = array->Slice(i, 2);
+      const ArraySpan span(*slice->data());
+      ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, 0, 1));
+      ARROW_RETURN_NOT_OK(builder_.AppendArraySlice(span, 1, 1));
+    }
+    return builder_.Finish();
+  }
+
+  Result<std::shared_ptr<Array>> GenerateString(const StringOptions& options) {
+    return generator_
+        .StringView(options.size, options.min_length, options.max_length,
+                    options.null_probability, options.max_data_buffer_length)
+        ->View(binary_view());
+  }
+
+  void ShuffleViewBuffer(const std::shared_ptr<Array>& array) {
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    auto view_buffer = array->data()->GetMutableValues<BinaryViewType::c_type>(1);
+    for (int64_t src_index = array->length() - 1; src_index >= 0; --src_index) {
+      std::uniform_int_distribution<int64_t> distribution(0, src_index);
+      auto dst_index = distribution(gen);
+      std::swap_ranges(view_buffer + src_index, view_buffer + src_index + 1,
+                       view_buffer + dst_index);
+    }
+  }
+
+  Result<std::shared_ptr<Array>> GenerateStringWithShufflingView(
+      const StringOptions& options) {
+    ARROW_ASSIGN_OR_RAISE(auto array, GenerateString(options));
+    ShuffleViewBuffer(array);
+    ARROW_RETURN_NOT_OK(array->ValidateFull());
+    return array;
+  }
+
+  void AssertAppendArraySlice(const std::shared_ptr<Array>& src) {
+    AssertAppendArraySliceWithoutOffset(src);
+    AssertAppendArraySliceWithSpanOffset(src);
+    AssertAppendArraySliceWithArrayOffset(src);
+    AssertAppendArraySliceWithArrayAndSpanOffset(src);
+  }
+
+  void AssertAppendArraySliceWithoutOffset(const std::shared_ptr<Array>& src) {
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArrayWithOutOffset(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  void AssertAppendArraySliceWithSpanOffset(const std::shared_ptr<Array>& src) {
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceWithSpanOffset(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  void AssertAppendArraySliceWithArrayOffset(const std::shared_ptr<Array>& src) {
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceWithArrayOffset(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+  void AssertAppendArraySliceWithArrayAndSpanOffset(const std::shared_ptr<Array>& src) {
+    // Ensure even length to simplify calculations in
+    // AppendArraySliceWithArrayAndSpanOffset
+    ASSERT_EQ(src->length() % 2, 0);
+    ASSERT_OK_AND_ASSIGN(auto dst, AppendArraySliceWithArrayAndSpanOffset(src));
+    ASSERT_OK(dst->ValidateFull());
+    AssertArraysEqual(*dst, *src);
+  }
+
+ protected:
+  BinaryViewBuilder builder_;
+  random::RandomArrayGenerator generator_;
+};
+
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, Inline) {
+  StringOptions options{};
+  options.size = 16;
+  options.min_length = 0;
+  options.max_length = 12;
+  options.null_probability = 0.0;
+
+  // Null values are not included
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, GenerateString(options));
+    AssertAppendArraySlice(array);
+  }
+
+  // Null values are  included
+  options.null_probability = 0.2;
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, GenerateString(options));
+    // Check for the existence of null values.
+    ASSERT_NE(array->data()->buffers[0], nullptr);
+    AssertAppendArraySlice(array);
+  }
+}
+
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, NonInline) {
+  StringOptions options{};
+  options.size = 200;
+  options.min_length = 13;
+  options.max_length = 40;
+  options.max_data_buffer_length = 80;
+  options.null_probability = 0.0;
+
+  // Null values are not included
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, GenerateStringWithShufflingView(options));
+    AssertAppendArraySlice(array);
+  }
+
+  // Null values are  included
+  options.null_probability = 0.2;
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, GenerateStringWithShufflingView(options));
+    // Check for the existence of null values.
+    ASSERT_NE(array->data()->buffers[0], nullptr);
+    AssertAppendArraySlice(array);
+  }
+}
+
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, NonInlineAndInline) {
+  StringOptions options{};
+  options.size = 200;
+  options.min_length = 0;
+  options.max_length = 40;
+  options.max_data_buffer_length = 80;
+  options.null_probability = 0.0;
+
+  // Null values are not included
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, GenerateStringWithShufflingView(options));
+    AssertAppendArraySlice(array);
+  }
+
+  // Null values are  included
+  options.null_probability = 0.2;
+  {
+    ASSERT_OK_AND_ASSIGN(auto array, GenerateStringWithShufflingView(options));
+    // Check for the existence of null values.
+    ASSERT_NE(array->data()->buffers[0], nullptr);
+    AssertAppendArraySlice(array);
+  }
+}
+
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, NonInlineAndInlineAndAppend) {
+  StringOptions options{};
+  options.size = 200;
+  options.min_length = 0;
+  options.max_length = 40;
+  options.max_data_buffer_length = 80;
+  options.null_probability = 0.0;
+  std::string non_inlined_string("this is a large string which is not inlined");
+  std::string inlined_string("inlined");
+  builder_.SetBlockSize(90);
+  ASSERT_OK_AND_ASSIGN(auto array, GenerateStringWithShufflingView(options));
+  ArraySpan span(*array->data());
+
+  ASSERT_OK(builder_.Append(inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.AppendArraySlice(span, 0, array->length()));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(inlined_string));
+  ASSERT_OK_AND_ASSIGN(auto dst_array, builder_.Finish());
+  ASSERT_OK(dst_array->ValidateFull());
+
+  AssertArraysEqual(*dst_array->Slice(2, 200), *array);
+
+  auto dst_array_data = dst_array->data();
+  // +2 accounts for the two additional buffers added by the builder when appending
+  // non_inlined_string
+  auto number_of_buffer_expected = array->data()->buffers.size() + 2;
+  ASSERT_EQ(number_of_buffer_expected, dst_array_data->buffers.size());
+  auto view_buffer = dst_array_data->GetValues<BinaryViewType::c_type>(1);
+  // Check whether arrow::internal::StringHeapBuilder::current_block_ is handled correctly
+  auto view_1 = view_buffer[1];
+  auto view_2 = view_buffer[202];
+  auto view_3 = view_buffer[203];
+
+  ASSERT_EQ(view_1.ref.buffer_index, 0);
+  ASSERT_EQ(view_2.ref.buffer_index, 0);
+
+  // Subtract 3: -2 accounts for the bitmap and view buffer,
+  // and -1 because ref.buffer_index refers to the index of last buffer,
+  // which is one less than the total number of data buffers.
+  ASSERT_EQ(view_3.ref.buffer_index, number_of_buffer_expected - 3);
+}
+
+// Check the state of arrow::internal::StringHeapBuilder::current_block_
+TEST_F(TestArrayBinaryViewBuilderAppendArraySlice, Reset) {
+  StringOptions options{};
+  options.size = 200;
+  options.min_length = 0;
+  options.max_length = 40;
+  options.max_data_buffer_length = 80;
+  options.null_probability = 0.2;
+  std::string non_inlined_string("this is a large string which is not inlined");
+  std::string inlined_string("inlined");
+  builder_.SetBlockSize(90);
+  ASSERT_OK_AND_ASSIGN(auto array, GenerateStringWithShufflingView(options));
+  ArraySpan span(*array->data());
+
+  ASSERT_OK(builder_.Append(inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.AppendArraySlice(span, 0, array->length()));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(inlined_string));
+  ASSERT_OK(builder_.Finish());
+
+  // Verify that arrow::internal::StringHeapBuilder is correctly reset after calling
+  // BinaryViewBuilder::Finish, by checking the state of
+  // arrow::internal::StringHeapBuilder::current_block_.
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK_AND_ASSIGN(auto dst_array, builder_.Finish());
+  auto view_buffer = dst_array->data()->GetValues<BinaryViewType::c_type>(1);
+  auto view_1 = view_buffer[0];
+  auto view_2 = view_buffer[1];
+  auto view_3 = view_buffer[2];
+
+  ASSERT_EQ(view_1.ref.buffer_index, 0);
+  ASSERT_EQ(view_2.ref.buffer_index, 0);
+  ASSERT_EQ(view_3.ref.buffer_index, 1);
+
+  // Check arrow::internal::StringHeapBuilder::Reset lonely
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.AppendArraySlice(span, 0, span.length));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  builder_.Reset();
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  ASSERT_OK(builder_.Append(non_inlined_string));
+  view_buffer = dst_array->data()->GetValues<BinaryViewType::c_type>(1);
+  view_1 = view_buffer[0];
+  view_2 = view_buffer[1];
+  view_3 = view_buffer[2];
+
+  ASSERT_EQ(view_1.ref.buffer_index, 0);
+  ASSERT_EQ(view_2.ref.buffer_index, 0);
+  ASSERT_EQ(view_3.ref.buffer_index, 1);
 }
 
 TEST_F(TestArray, ValidateBuffersPrimitive) {

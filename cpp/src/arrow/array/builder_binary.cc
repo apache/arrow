@@ -23,6 +23,7 @@
 #include <cstring>
 #include <numeric>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -31,12 +32,12 @@
 #include "arrow/status.h"
 #include "arrow/type.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/bit_block_counter.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
-#include "arrow/visit_data_inline.h"
 
 namespace arrow {
 
@@ -49,33 +50,53 @@ BinaryViewBuilder::BinaryViewBuilder(const std::shared_ptr<DataType>& type,
                                      MemoryPool* pool)
     : BinaryViewBuilder(pool) {}
 
+namespace {
+
+int32_t TryAddBufferAndGetIndex(std::unordered_map<int32_t, int32_t>& buffer_map_index,
+                                int32_t key_index,
+                                internal::StringHeapBuilder& string_heap_builder,
+                                const std::shared_ptr<Buffer>& buffer) {
+  auto it = buffer_map_index.find(key_index);
+  if (it == buffer_map_index.end()) {
+    auto value_index = string_heap_builder.TryAddBufferAndGetIndex(buffer);
+    buffer_map_index.emplace(key_index, value_index);
+    return value_index;
+  } else {
+    return it->second;
+  }
+}
+
+}  // namespace
+
 Status BinaryViewBuilder::AppendArraySlice(const ArraySpan& array, int64_t offset,
                                            int64_t length) {
-  auto bitmap = array.GetValues<uint8_t>(0, 0);
-  auto values = array.GetValues<BinaryViewType::c_type>(1) + offset;
-
-  int64_t out_of_line_total = 0, i = 0;
-  VisitNullBitmapInline(
-      array.buffers[0].data, array.offset + offset, length, array.null_count,
-      [&] {
-        if (!values[i].is_inline()) {
-          out_of_line_total += static_cast<int64_t>(values[i].size());
-        }
-        ++i;
-      },
-      [&] { ++i; });
-
   RETURN_NOT_OK(Reserve(length));
-  RETURN_NOT_OK(ReserveData(out_of_line_total));
 
-  for (int64_t i = 0; i < length; i++) {
-    if (bitmap && !bit_util::GetBit(bitmap, array.offset + offset + i)) {
-      UnsafeAppendNull();
-      continue;
-    }
+  auto absolute_offset = array.offset + offset;
+  auto src_view_buffer = array.GetValues<BinaryViewType::c_type>(1, absolute_offset);
+  auto src_data_buffers = array.GetVariadicBuffers();
+  auto dst_view_buffer = data_builder_.mutable_data() + data_builder_.length();
 
-    UnsafeAppend(util::FromBinaryView(values[i], array.GetVariadicBuffers().data()));
-  }
+  // First, copy the entire view buffer. Then update the buffer index if the view elements
+  // are not inlined.
+  std::memcpy(dst_view_buffer, src_view_buffer, length * BinaryViewType::kSize);
+  data_builder_.bytes_builder()->UnsafeAdvance(length * BinaryViewType::kSize);
+  UnsafeAppendToBitmap(array.buffers[0].data, absolute_offset, length);
+
+  std::unordered_map<int32_t, int32_t> buffer_index_map;
+  internal::VisitBitBlocksVoid(
+      array.buffers[0].data, absolute_offset, length,
+      [&](int64_t index) {
+        const auto& view = src_view_buffer[index];
+        if (!view.is_inline()) {
+          auto dst_data_buffer_index = TryAddBufferAndGetIndex(
+              buffer_index_map, view.ref.buffer_index, data_heap_builder_,
+              src_data_buffers[view.ref.buffer_index]);
+          dst_view_buffer[index].ref.buffer_index = dst_data_buffer_index;
+        }
+      },
+      [&]() {});
+
   return Status::OK();
 }
 
