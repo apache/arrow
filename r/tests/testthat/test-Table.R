@@ -144,7 +144,7 @@ test_that("[[<- assignment", {
   # can use $
   tab$new <- NULL
   expect_null(as.vector(tab$new))
-  expect_shape(tab, nrow = 10L, ncol = 4L)
+  expect_shape(tab, dim = c(10L, 4L))
 
   tab$int <- 1:10
   expect_as_vector(tab$int, 1:10)

@@ -204,7 +204,7 @@ test_that("[[<- assignment", {
   # can use $
   batch$new <- NULL
   expect_null(as.vector(batch$new))
-  expect_shape(batch, nrow = 10L, ncol = 4L)
+  expect_shape(batch, dim = c(10L, 4L))
 
   batch$int <- 1:10
   expect_as_vector(batch$int, 1:10)
@@ -328,7 +328,7 @@ test_that("record_batch(schema=) does some basic consistency checking of the sch
 
 test_that("RecordBatch dim() and nrow() (ARROW-3816)", {
   batch <- record_batch(x = 1:10, y = 1:10)
-  expect_shape(batch, nrow = 10L, ncol = 2L)
+  expect_shape(batch, dim = c(10L, 2L))
 })
 
 test_that("record_batch() handles Array", {
