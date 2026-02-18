@@ -157,7 +157,6 @@ export PYARROW_WITH_PARQUET=${ARROW_PARQUET}
 export PYARROW_WITH_PARQUET_ENCRYPTION=${PARQUET_REQUIRE_ENCRYPTION}
 export PYARROW_WITH_SUBSTRAIT=${ARROW_SUBSTRAIT}
 export PYARROW_WITH_S3=${ARROW_S3}
-export PYARROW_CMAKE_OPTIONS="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES} -DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 export ARROW_HOME=${build_dir}/install
 # PyArrow build configuration
 export CMAKE_PREFIX_PATH=${build_dir}/install
@@ -165,7 +164,10 @@ export CMAKE_PREFIX_PATH=${build_dir}/install
 export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
-python -m build --sdist --wheel . --no-isolation --config-settings cmake.build-type=${CMAKE_BUILD_TYPE:-Debug}
+python -m build --sdist --wheel . --no-isolation \
+  --config-settings cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
+  --config-settings cmake.args="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" \
+  --config-settings cmake.args="-DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="
