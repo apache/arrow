@@ -29,6 +29,7 @@ fuzz testing on several parts of the Arrow C++ feature set, currently:
 * the IPC stream reader
 * the IPC file reader
 * the Parquet file reader
+* the Parquet encoders and decoders
 * the CSV file reader
 
 We welcome any contribution to expand the scope of fuzz testing and cover
