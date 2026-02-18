@@ -557,9 +557,6 @@ PyArrow are:
    * - ``CMAKE_GENERATOR``
      - Example: ``'Visual Studio 17 2022 Win64'``
      - ``''``
-   * - ``PYARROW_CMAKE_OPTIONS``
-     - Extra CMake and Arrow options (ex. ``"-DARROW_SIMD_LEVEL=NONE -DCMAKE_OSX_ARCHITECTURES=x86_64;arm64"``)
-     - ``''``
    * - ``PYARROW_CXXFLAGS``
      - Extra C++ compiler flags
      - ``''``
@@ -578,6 +575,11 @@ PyArrow are:
    * - ``PYARROW_PARALLEL``
      - Number of processes used to compile PyArrow’s C++/Cython components
      - ``''``
+
+For extra CMake arguments you can use the ``--config-settings cmake.args=``
+argument when building PyArrow. For example, to build a version of PyArrow
+with ``ARROW_SIMD_LEVEL=NONE``, you can run
+``pip install --no-build-isolation -vv --config-settings cmake.args="-DARROW_SIMD_LEVEL=NONE" .``.
 
 The components being disabled or enabled when building PyArrow is by default
 based on how Arrow C++ is build (i.e. it follows the ``ARROW_$COMPONENT`` flags).
