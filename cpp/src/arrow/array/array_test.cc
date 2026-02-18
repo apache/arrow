@@ -1035,73 +1035,43 @@ class TestBuilderAppendArraySlice : public TestArray {
       AssertResult(*expected, *actual);
     }
   }
+
+  void CheckAppendArraySlice(const std::vector<std::shared_ptr<DataType>>& types) {
+    for (const auto& type : types) {
+      ARROW_SCOPED_TRACE("type = ", type->ToString());
+      CheckAppendArraySlice(type);
+    }
+  }
 };
 
-TEST_F(TestBuilderAppendArraySlice, DynamicTypes) {
-  auto types = PrimitiveTypes();
-  auto temporal_types = TemporalTypes();
-  auto interval_types = IntervalTypes();
-  auto duration_types = DurationTypes();
-
-  types.insert(types.end(), temporal_types.begin(), temporal_types.end());
-  types.insert(types.end(), interval_types.begin(), interval_types.end());
-  types.insert(types.end(), duration_types.begin(), duration_types.end());
-
-  for (const auto& type : types) {
-    ARROW_SCOPED_TRACE("type = ", type->ToString());
-    this->CheckAppendArraySlice(type);
-  }
+TEST_F(TestBuilderAppendArraySlice, Primitives) {
+  CheckAppendArraySlice(PrimitiveTypes());
 }
 
-TEST_F(TestBuilderAppendArraySlice, Float16) { CheckAppendArraySlice(float16()); }
+TEST_F(TestBuilderAppendArraySlice, Temporals) { CheckAppendArraySlice(TemporalTypes()); }
 
-TEST_F(TestBuilderAppendArraySlice, List) { CheckAppendArraySlice(list(int32())); }
+TEST_F(TestBuilderAppendArraySlice, Intervals) { CheckAppendArraySlice(IntervalTypes()); }
 
-TEST_F(TestBuilderAppendArraySlice, LargeList) {
-  CheckAppendArraySlice(large_list(int32()));
+TEST_F(TestBuilderAppendArraySlice, Durations) { CheckAppendArraySlice(DurationTypes()); }
+
+TEST_F(TestBuilderAppendArraySlice, Decimals) {
+  CheckAppendArraySlice(
+      {decimal32(7, 2), decimal64(12, 2), decimal128(10, 2), decimal256(10, 2)});
 }
 
-TEST_F(TestBuilderAppendArraySlice, ListView) {
-  CheckAppendArraySlice(list_view(int32()));
-}
-
-TEST_F(TestBuilderAppendArraySlice, LargeListView) {
-  CheckAppendArraySlice(large_list_view(int32()));
+TEST_F(TestBuilderAppendArraySlice, Nested) {
+  CheckAppendArraySlice({list(int32()), large_list(int32()), list_view(int32()),
+                         large_list_view(int32()), fixed_size_list(int32(), 3),
+                         struct_({field("a", int32()), field("b", utf8())}),
+                         sparse_union({field("a", int32()), field("b", utf8())}),
+                         dense_union({field("a", int32()), field("b", utf8())})});
 }
 
 TEST_F(TestBuilderAppendArraySlice, FixedSizeBinary) {
   CheckAppendArraySlice(fixed_size_binary(10));
 }
 
-TEST_F(TestBuilderAppendArraySlice, Decimal32) { CheckAppendArraySlice(decimal32(7, 2)); }
-
-TEST_F(TestBuilderAppendArraySlice, Decimal64) {
-  CheckAppendArraySlice(decimal64(12, 2));
-}
-
-TEST_F(TestBuilderAppendArraySlice, Decimal128) {
-  CheckAppendArraySlice(decimal128(10, 2));
-}
-
-TEST_F(TestBuilderAppendArraySlice, Decimal256) {
-  CheckAppendArraySlice(decimal256(10, 2));
-}
-
-TEST_F(TestBuilderAppendArraySlice, FixedSizeList) {
-  CheckAppendArraySlice(fixed_size_list(int32(), 3));
-}
-
-TEST_F(TestBuilderAppendArraySlice, Struct) {
-  CheckAppendArraySlice(struct_({field("a", int32()), field("b", utf8())}));
-}
-
-TEST_F(TestBuilderAppendArraySlice, SparseUnion) {
-  CheckAppendArraySlice(sparse_union({field("a", int32()), field("b", utf8())}));
-}
-
-TEST_F(TestBuilderAppendArraySlice, DenseUnion) {
-  CheckAppendArraySlice(dense_union({field("a", int32()), field("b", utf8())}));
-}
+TEST_F(TestBuilderAppendArraySlice, Float16) { CheckAppendArraySlice(float16()); }
 
 TEST_F(TestBuilderAppendArraySlice, RunEndEncoded) {
   CheckAppendArraySlice(run_end_encoded(int32(), utf8()));
