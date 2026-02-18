@@ -111,7 +111,6 @@ echo "=== CCACHE Stats after build ==="
 ccache -sv
 
 echo "=== Building Python ==="
-set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_AZURE=%ARROW_AZURE%
@@ -135,6 +134,6 @@ pushd %SOURCE_DIR%\python
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
 
 @REM Build PyArrow
-%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv . || exit /B 1
+%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv --config-settings build.verbose=true . || exit /B 1
 
 popd
