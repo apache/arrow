@@ -51,7 +51,7 @@ test_that("IPC/Feather format data", {
   expect_r6_class(ds$format, "IpcFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_named(ds, c(names(df1), "part"))
-  expect_identical(dim(ds), c(20L, 7L))
+  expect_shape(ds, nrow = 20L, ncol = 7L)
 
   expect_equal(
     ds |>
@@ -370,12 +370,12 @@ test_that("Can set schema on dataset", {
 
 test_that("as.data.frame.Dataset", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_identical(dim(as.data.frame(ds)), c(20L, 7L))
+  expect_shape(as.data.frame(ds), nrow = 20L, ncol = 7L)
 })
 
 test_that("dim method returns the correct number of rows and columns", {
   ds <- open_dataset(dataset_dir, partitioning = schema(part = uint8()))
-  expect_identical(dim(ds), c(20L, 7L))
+  expect_shape(ds, nrow = 20L, ncol = 7L)
 })
 
 test_that("dimnames, colnames on Dataset objects", {
