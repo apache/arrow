@@ -165,10 +165,10 @@ export SETUPTOOLS_SCM_PRETEND_VERSION=${PYARROW_VERSION}
 
 pushd ${source_dir}/python
 python -m build --sdist --wheel . --no-isolation \
-  --config-settings build.verbose=true \
-  --config-settings cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
-  --config-settings cmake.args="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" \
-  --config-settings cmake.args="-DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
+  --config-setting build.verbose=true \
+  --config-setting cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
+  --config-setting cmake.args="-DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}" \
+  --config-setting cmake.args="-DARROW_SIMD_LEVEL=${ARROW_SIMD_LEVEL}"
 popd
 
 echo "=== (${PYTHON_VERSION}) Show dynamic libraries the wheel depend on ==="

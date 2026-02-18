@@ -165,9 +165,9 @@ export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
 python -m build --sdist --wheel . --no-isolation \
-    --config-settings build.verbose=true \
-    --config-settings cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
-    --config-settings cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
+    --config-setting build.verbose=true \
+    --config-setting cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
+    --config-setting cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
 
 echo "=== Strip symbols from wheel ==="
 mkdir -p dist/temp-fix-wheel
