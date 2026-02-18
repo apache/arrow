@@ -165,6 +165,7 @@ export CMAKE_PREFIX_PATH=/tmp/arrow-dist
 
 pushd /arrow/python
 python -m build --sdist --wheel . --no-isolation \
+    --config-settings build.verbose=true \
     --config-settings cmake.build-type=${CMAKE_BUILD_TYPE:-Debug} \
     --config-settings cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=${CMAKE_INTERPROCEDURAL_OPTIMIZATION}"
 

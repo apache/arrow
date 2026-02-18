@@ -113,7 +113,6 @@ cmake --build . --config %CMAKE_BUILD_TYPE% --target install || exit /B 1
 popd
 
 echo "=== (%PYTHON%) Building wheel ==="
-set PYARROW_BUILD_VERBOSE=1
 set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
 set PYARROW_WITH_AZURE=%ARROW_AZURE%
@@ -133,7 +132,8 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 pushd C:\arrow\python
 
 @REM Build wheel
-%PYTHON_CMD% -m build --sdist --wheel . --no-isolation ^
+%PYTHON_CMD% -m build --sdist --wheel . --no-isolation -vv ^
+    --config-settings build.verbose=true ^
     --config-settings cmake.build-type=%CMAKE_BUILD_TYPE% ^
     --config-settings cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%" || exit /B 1
 
