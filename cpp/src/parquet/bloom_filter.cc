@@ -17,6 +17,7 @@
 
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 
 #include "arrow/result.h"
@@ -26,11 +27,28 @@
 #include "generated/parquet_types.h"
 
 #include "parquet/bloom_filter.h"
+#include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/thrift_internal.h"
 #include "parquet/xxhasher.h"
 
 namespace parquet {
+namespace {
+
+constexpr int32_t kCiphertextLengthSize = 4;
+
+int64_t ParseTotalCiphertextSize(const uint8_t* data, int64_t length) {
+  if (length < kCiphertextLengthSize) {
+    throw ParquetException("Ciphertext length buffer is too small");
+  }
+  uint32_t buffer_size =
+      (static_cast<uint32_t>(data[3]) << 24) | (static_cast<uint32_t>(data[2]) << 16) |
+      (static_cast<uint32_t>(data[1]) << 8) | (static_cast<uint32_t>(data[0]));
+  return static_cast<int64_t>(buffer_size) + kCiphertextLengthSize;
+}
+
+}  // namespace
+
 constexpr uint32_t BlockSplitBloomFilter::SALT[kBitsSetPerBlock];
 
 BlockSplitBloomFilter::BlockSplitBloomFilter(::arrow::MemoryPool* pool)
@@ -106,7 +124,99 @@ static ::arrow::Status ValidateBloomFilterHeader(
 
 BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     const ReaderProperties& properties, ArrowInputStream* input,
-    std::optional<int64_t> bloom_filter_length) {
+    std::optional<int64_t> bloom_filter_length, Decryptor* header_decryptor,
+    Decryptor* bitset_decryptor) {
+  if (header_decryptor != nullptr || bitset_decryptor != nullptr) {
+    if (header_decryptor == nullptr || bitset_decryptor == nullptr) {
+      throw ParquetException("Bloom filter decryptors must be both provided");
+    }
+
+    // Encrypted path: header and bitset are encrypted separately.
+    ThriftDeserializer deserializer(properties);
+    format::BloomFilterHeader header;
+
+    // Read the length-prefixed ciphertext for the header.
+    PARQUET_ASSIGN_OR_THROW(auto length_buf, input->Read(kCiphertextLengthSize));
+    if (ARROW_PREDICT_FALSE(length_buf->size() < kCiphertextLengthSize)) {
+      throw ParquetException("Bloom filter header read failed: not enough data");
+    }
+
+    const int64_t header_cipher_total_len =
+        ParseTotalCiphertextSize(length_buf->data(), length_buf->size());
+    if (ARROW_PREDICT_FALSE(header_cipher_total_len >
+                            std::numeric_limits<int32_t>::max())) {
+      throw ParquetException("Bloom filter header ciphertext length overflows int32");
+    }
+    if (bloom_filter_length && header_cipher_total_len > *bloom_filter_length) {
+      throw ParquetException(
+          "Bloom filter length less than encrypted bloom filter header length");
+    }
+    // Read the full header ciphertext and decrypt the Thrift header.
+    auto header_cipher_buf =
+        AllocateBuffer(properties.memory_pool(), header_cipher_total_len);
+    std::memcpy(header_cipher_buf->mutable_data(), length_buf->data(),
+                kCiphertextLengthSize);
+    const int64_t header_cipher_remaining =
+        header_cipher_total_len - kCiphertextLengthSize;
+    PARQUET_ASSIGN_OR_THROW(
+        auto read_size,
+        input->Read(header_cipher_remaining,
+                    header_cipher_buf->mutable_data() + kCiphertextLengthSize));
+    if (ARROW_PREDICT_FALSE(read_size < header_cipher_remaining)) {
+      throw ParquetException("Bloom filter header read failed: not enough data");
+    }
+
+    uint32_t header_cipher_len = static_cast<uint32_t>(header_cipher_total_len);
+    try {
+      deserializer.DeserializeMessage(
+          reinterpret_cast<const uint8_t*>(header_cipher_buf->data()), &header_cipher_len,
+          &header, header_decryptor);
+      DCHECK_EQ(header_cipher_len, header_cipher_total_len);
+    } catch (std::exception& e) {
+      std::stringstream ss;
+      ss << "Deserializing bloom filter header failed.\n" << e.what();
+      throw ParquetException(ss.str());
+    }
+    PARQUET_THROW_NOT_OK(ValidateBloomFilterHeader(header));
+
+    const int32_t bloom_filter_size = header.numBytes;
+    const int32_t bitset_cipher_len =
+        bitset_decryptor->CiphertextLength(bloom_filter_size);
+    const int64_t total_cipher_len =
+        header_cipher_total_len + static_cast<int64_t>(bitset_cipher_len);
+    if (bloom_filter_length && *bloom_filter_length != total_cipher_len) {
+      std::stringstream ss;
+      ss << "Bloom filter length (" << bloom_filter_length.value()
+         << ") does not match the actual bloom filter (size: " << total_cipher_len
+         << ").";
+      throw ParquetException(ss.str());
+    }
+
+    // Read and decrypt the bitset bytes.
+    PARQUET_ASSIGN_OR_THROW(auto bitset_cipher_buf, input->Read(bitset_cipher_len));
+    if (ARROW_PREDICT_FALSE(bitset_cipher_buf->size() < bitset_cipher_len)) {
+      throw ParquetException("Bloom Filter read failed: not enough data");
+    }
+
+    const int32_t bitset_plain_len =
+        bitset_decryptor->PlaintextLength(static_cast<int32_t>(bitset_cipher_len));
+    if (ARROW_PREDICT_FALSE(bitset_plain_len != bloom_filter_size)) {
+      throw ParquetException("Bloom filter bitset size does not match header");
+    }
+
+    auto bitset_plain_buf = AllocateBuffer(properties.memory_pool(), bitset_plain_len);
+    int32_t decrypted_len =
+        bitset_decryptor->Decrypt(bitset_cipher_buf->span_as<const uint8_t>(),
+                                  bitset_plain_buf->mutable_span_as<uint8_t>());
+    if (ARROW_PREDICT_FALSE(decrypted_len != bitset_plain_len)) {
+      throw ParquetException("Bloom filter bitset decryption failed");
+    }
+
+    // Initialize the bloom filter from the decrypted bitset.
+    BlockSplitBloomFilter bloom_filter(properties.memory_pool());
+    bloom_filter.Init(bitset_plain_buf->data(), bloom_filter_size);
+    return bloom_filter;
+  }
   ThriftDeserializer deserializer(properties);
   format::BloomFilterHeader header;
   int64_t bloom_filter_header_read_size = 0;
