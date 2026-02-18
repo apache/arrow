@@ -1000,8 +1000,9 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
 
   inline void DecodeDict(TypedDecoder<Type>* dictionary) {
     dictionary_length_ = static_cast<int32_t>(dictionary->values_left());
-    PARQUET_THROW_NOT_OK(dictionary_->Resize(dictionary_length_ * sizeof(T),
-                                             /*shrink_to_fit=*/false));
+    PARQUET_THROW_NOT_OK(
+        dictionary_->Resize(static_cast<int64_t>(dictionary_length_) * sizeof(T),
+                            /*shrink_to_fit=*/false));
     dictionary->Decode(dictionary_->mutable_data_as<T>(), dictionary_length_);
   }
 
@@ -1044,15 +1045,15 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
 
   auto* dict_values = dictionary_->mutable_data_as<ByteArray>();
 
-  int total_size = 0;
+  int64_t total_size = 0;
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
-  PARQUET_THROW_NOT_OK(
-      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                  /*shrink_to_fit=*/false));
+  PARQUET_THROW_NOT_OK(byte_array_offsets_->Resize(
+      (static_cast<int64_t>(dictionary_length_) + 1) * sizeof(int32_t),
+      /*shrink_to_fit=*/false));
 
   int32_t offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
@@ -1073,7 +1074,7 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
   auto* dict_values = dictionary_->mutable_data_as<FLBA>();
 
   int fixed_len = this->type_length_;
-  int total_size = dictionary_length_ * fixed_len;
+  int64_t total_size = static_cast<int64_t>(dictionary_length_) * fixed_len;
 
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
