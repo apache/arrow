@@ -277,8 +277,16 @@ template <typename T>
 concept CBooleanConcept = std::same_as<T, bool>;
 
 // XXX: Ideally we want to have std::floating_point<Float16> = true.
+// Some older standard library implementations (e.g., macOS 11.x libc++) have partial
+// C++20 concepts support with std::same_as but lack std::floating_point.
+#if defined(__cpp_lib_concepts) && __cpp_lib_concepts >= 202002L
 template <typename T>
 concept CFloatingPointConcept = std::floating_point<T> || std::same_as<T, util::Float16>;
+#else
+template <typename T>
+concept CFloatingPointConcept =
+    std::is_floating_point_v<T> || std::same_as<T, util::Float16>;
+#endif
 
 template <typename T>
 concept CDecimalConcept = std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||

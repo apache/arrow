@@ -5,11 +5,22 @@
 \alias{MessageReader}
 \title{MessageReader class}
 \description{
-MessageReader class
+\code{MessageReader} reads \code{Message} objects from an input stream.
 }
-\section{Methods}{
+\section{R6 Methods}{
+
+\itemize{
+\item \verb{$ReadNextMessage()}: Read the next \code{Message} from the stream. Returns \code{NULL} if
+there are no more messages.
+}
+}
+
+\section{Factory}{
 
 
-TODO
+\code{MessageReader$create()} takes the following argument:
+\itemize{
+\item \code{stream}: An \link{InputStream} or object coercible to one (e.g., a raw vector)
+}
 }
 
