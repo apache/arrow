@@ -1619,16 +1619,27 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
       int values_decode = std::min(values_remaining_current_mini_block_,
                                    static_cast<uint32_t>(max_values - i));
-      if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
-          values_decode) {
-        ParquetException::EofException();
-      }
-      for (int j = 0; j < values_decode; ++j) {
-        // Addition between min_delta, packed int and last_value should be treated as
-        // unsigned addition. Overflow is as expected.
-        buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                        static_cast<UT>(last_value_);
-        last_value_ = buffer[i + j];
+      if (delta_bit_width_ == 0) {
+        // Fast path that avoids a back-to-back dependency between two consecutive
+        // computations: we know all deltas decode to zero. We actually don't
+        // even need to decode them.
+        for (int j = 0; j < values_decode; ++j) {
+          buffer[i + j] = static_cast<UT>(last_value_) +
+                          static_cast<UT>(j + 1) * static_cast<UT>(min_delta_);
+        }
+        last_value_ += static_cast<UT>(values_decode) * static_cast<UT>(min_delta_);
+      } else {
+        if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
+            values_decode) {
+          ParquetException::EofException();
+        }
+        for (int j = 0; j < values_decode; ++j) {
+          // Addition between min_delta, packed int and last_value should be treated as
+          // unsigned addition. Overflow is as expected.
+          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
+                          static_cast<UT>(last_value_);
+          last_value_ = buffer[i + j];
+        }
       }
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
