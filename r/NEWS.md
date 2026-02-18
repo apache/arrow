@@ -21,6 +21,10 @@
 
 # arrow 23.0.1
 
+## Minor improvements and fixes
+
+- Fix C++20 compatibility issues affecting macOS CRAN checks (#49287)
+
 # arrow 23.0.0
 
 ## New features
