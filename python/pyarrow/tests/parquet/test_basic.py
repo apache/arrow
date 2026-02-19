@@ -760,23 +760,20 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    # TODO: once fastparquet supports pandas 3 dtypes revert string and categorical
-    # tests by removing `check_dtype=False` and `check_categorical=False` so type
-    # equality is asserted again
-    tm.assert_frame_equal(df, df_fp, check_dtype=False, check_categorical=False)
+    # pandas 3 uses StringDtype by default, fastparquet returns object
+    # TODO: remove .astype({"a": object}) casts once fastparquet
+    #  supports pandas 3 StringDtype
+    tm.assert_frame_equal(df.astype({"a": object}), df_fp)
 
     # Fastparquet -> arrow
     file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
     # fastparquet can't write pandas 3.0 StringDtype
-    df_for_fp = df.copy()
-    df_for_fp['a'] = df_for_fp['a'].astype(object)
-    fp.write(file_fastparquet, df_for_fp)
+    fp.write(file_fastparquet, df.astype({"a": object}))
 
     table_fp = pq.read_pandas(file_fastparquet)
-    # for fastparquet written file, categoricals comes back as strings
+    # for fastparquet written file, categoricals come back as the underlying type
     # (no arrow schema in parquet metadata)
-    tm.assert_frame_equal(table_fp.to_pandas(), df_for_fp, check_dtype=False,
-                          check_categorical=False)
+    tm.assert_frame_equal(table_fp.to_pandas(), df.astype({"f": int}))
 
 
 @pytest.mark.parametrize('array_factory', [
