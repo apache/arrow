@@ -196,6 +196,21 @@ repeat_value_as_array <- function(object, n) {
 }
 
 handle_csv_read_error <- function(msg, call, schema) {
+  # Handle null type inference issue with sparse data
+  if (grepl("conversion error to null", msg)) {
+    msg <- c(
+      msg,
+      i = paste(
+        "Column type was inferred as null because the first block of data",
+        "(default 1MB, set via `block_size` in read options) contained only",
+        "missing values. Try specifying the column types explicitly using the",
+        "`col_types` or `schema` argument."
+      )
+    )
+    abort(msg, call = call)
+  }
+
+  # Handle schema + header row issue
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
       msg,
