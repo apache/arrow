@@ -747,7 +747,7 @@ def test_fastparquet_cross_compatibility(tempdir):
             "c": np.arange(4.0, 7.0, dtype="float64"),
             "d": [True, False, True],
             "e": pd.date_range("20130101", periods=3),
-            "f": pd.Categorical([5, 6, 7]),
+            "f": pd.Categorical(["a", "b", "c"]),
             # fastparquet writes list as BYTE_ARRAY JSON, so no roundtrip
             # "g": [[1, 2], None, [1, 2, 3]],
         }
@@ -760,20 +760,19 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    # pandas 3 uses StringDtype by default, fastparquet returns object
-    # TODO: remove .astype({"a": object}) casts once fastparquet
-    #  supports pandas 3 StringDtype
-    tm.assert_frame_equal(df.astype({"a": object}), df_fp)
+    # pandas 3 defaults to StringDtype for strings, fastparquet still returns object
+    # TODO: remove astype casts once fastparquet supports pandas 3 StringDtype
+    tm.assert_frame_equal(df_fp, df.astype({"a": object}))
 
     # Fastparquet -> arrow
     file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
-    # fastparquet can't write pandas 3.0 StringDtype
+    # fastparquet doesn't support writing pandas 3 StringDtype yet
     fp.write(file_fastparquet, df.astype({"a": object}))
 
     table_fp = pq.read_pandas(file_fastparquet)
-    # for fastparquet written file, categoricals come back as the underlying type
+    # for fastparquet written file, categoricals comes back as strings
     # (no arrow schema in parquet metadata)
-    tm.assert_frame_equal(table_fp.to_pandas(), df.astype({"f": int}))
+    tm.assert_frame_equal(table_fp.to_pandas(), df.astype({"f": object}))
 
 
 @pytest.mark.parametrize('array_factory', [
