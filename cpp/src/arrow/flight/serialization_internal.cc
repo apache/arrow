@@ -17,18 +17,25 @@
 
 #include "arrow/flight/serialization_internal.h"
 
+#include <limits>
 #include <memory>
 #include <string>
 
 #include <google/protobuf/any.pb.h>
+#include <google/protobuf/io/coded_stream.h>
+#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
+#include <google/protobuf/wire_format_lite.h>
 
 #include "arrow/buffer.h"
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/io/memory.h"
+#include "arrow/ipc/message.h"
 #include "arrow/ipc/reader.h"
 #include "arrow/ipc/writer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/util/bit_util.h"
+#include "arrow/util/logging_internal.h"
 
 // Lambda helper & CTAD
 template <class... Ts>
@@ -610,6 +617,135 @@ Status FromProto(const pb::CloseSessionResult& pb_result, CloseSessionResult* re
 Status ToProto(const CloseSessionResult& result, pb::CloseSessionResult* pb_result) {
   pb_result->set_status(static_cast<protocol::CloseSessionResult::Status>(result.status));
   return Status::OK();
+}
+
+namespace {
+
+using google::protobuf::internal::WireFormatLite;
+using google::protobuf::io::ArrayOutputStream;
+using google::protobuf::io::CodedOutputStream;
+
+static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
+static const uint8_t kSerializePaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+
+arrow::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool has_body,
+                                   size_t* header_size, int32_t* metadata_size) {
+  DCHECK_LE(ipc_msg.metadata->size(), kInt32Max);
+  *metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
+
+  // 1 byte for metadata tag
+  *header_size += 1 + WireFormatLite::LengthDelimitedSize(*metadata_size);
+
+  // 2 bytes for body tag
+  if (has_body) {
+    // We write the body tag in the header but not the actual body data
+    *header_size += 2 + WireFormatLite::LengthDelimitedSize(ipc_msg.body_length) -
+                    ipc_msg.body_length;
+  }
+
+  return Status::OK();
+}
+
+}  // namespace
+
+arrow::Result<arrow::BufferVector> SerializePayloadToBuffers(
+    const arrow::flight::FlightPayload& msg) {
+  namespace pb = arrow::flight::protocol;
+  // Size of the IPC body (protobuf: data_body)
+  size_t body_size = 0;
+  // Size of the Protobuf "header" (everything except for the body)
+  size_t header_size = 0;
+  // Size of IPC header metadata (protobuf: data_header)
+  int32_t metadata_size = 0;
+
+  // Write the descriptor if present
+  int32_t descriptor_size = 0;
+  if (msg.descriptor != nullptr) {
+    DCHECK_LE(msg.descriptor->size(), kInt32Max);
+    descriptor_size = static_cast<int32_t>(msg.descriptor->size());
+    header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
+  }
+
+  // App metadata tag if appropriate
+  int32_t app_metadata_size = 0;
+  if (msg.app_metadata && msg.app_metadata->size() > 0) {
+    DCHECK_LE(msg.app_metadata->size(), kInt32Max);
+    app_metadata_size = static_cast<int32_t>(msg.app_metadata->size());
+    header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
+  }
+
+  const arrow::ipc::IpcPayload& ipc_msg = msg.ipc_message;
+  // No data in this payload (metadata-only).
+  bool has_ipc = ipc_msg.type != ipc::MessageType::NONE;
+  bool has_body = has_ipc ? ipc::Message::HasBody(ipc_msg.type) : false;
+
+  if (has_ipc) {
+    DCHECK(has_body || ipc_msg.body_length == 0);
+    ARROW_RETURN_NOT_OK(
+        IpcMessageHeaderSize(ipc_msg, has_body, &header_size, &metadata_size));
+    body_size = static_cast<size_t>(ipc_msg.body_length);
+  }
+
+  arrow::BufferVector buffers;
+  ARROW_ASSIGN_OR_RAISE(auto header_buf, arrow::AllocateBuffer(header_size));
+  // Force the header_stream to be destructed, which actually flushes
+  // the data into the buffer.
+  {
+    ArrayOutputStream header_writer(header_buf->mutable_data(),
+                                    static_cast<int>(header_size));
+    CodedOutputStream header_stream(&header_writer);
+
+    // Write descriptor
+    if (msg.descriptor != nullptr) {
+      WireFormatLite::WriteTag(pb::FlightData::kFlightDescriptorFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(descriptor_size);
+      header_stream.WriteRawMaybeAliased(msg.descriptor->data(),
+                                         static_cast<int>(msg.descriptor->size()));
+    }
+
+    // Write header
+    if (has_ipc) {
+      WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(metadata_size);
+      header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
+                                         static_cast<int>(ipc_msg.metadata->size()));
+    }
+
+    // Write app metadata
+    if (app_metadata_size > 0) {
+      WireFormatLite::WriteTag(pb::FlightData::kAppMetadataFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(app_metadata_size);
+      header_stream.WriteRawMaybeAliased(msg.app_metadata->data(),
+                                         static_cast<int>(msg.app_metadata->size()));
+    }
+    if (has_body) {
+      // Write body tag
+      WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
+                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
+      header_stream.WriteVarint32(static_cast<uint32_t>(body_size));
+    }
+    DCHECK_EQ(static_cast<int>(header_size), header_stream.ByteCount());
+  }
+  // Once header is written we just add the referenced buffers to the output BufferVector.
+  buffers.push_back(std::move(header_buf));
+
+  if (has_body) {
+    for (const auto& buffer : ipc_msg.body_buffers) {
+      if (!buffer || buffer->size() == 0) continue;
+      buffers.push_back(buffer);
+      const auto remainder = static_cast<int64_t>(
+          bit_util::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
+      if (remainder) {
+        buffers.push_back(
+            std::make_shared<arrow::Buffer>(kSerializePaddingBytes, remainder));
+      }
+    }
+  }
+
+  return buffers;
 }
 
 }  // namespace internal

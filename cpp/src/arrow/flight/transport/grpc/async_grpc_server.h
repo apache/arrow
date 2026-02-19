@@ -25,7 +25,9 @@
 #include "arrow/array/builder_primitive.h"
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/server.h"
 #include "arrow/flight/transport/grpc/customize_grpc.h"
+#include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/record_batch.h"
 
 namespace arrow::flight::transport::grpc {
@@ -67,62 +69,42 @@ class DoGetReactor : public ::grpc::ServerGenericBidiReactor {
  private:
   void WriteNextPayload() {
     FlightPayload payload;
-
-    auto schema = arrow::schema(
-        {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
-
-    if (!sent_schema_) {
-      // First call: send schema payload.
-      ipc::DictionaryFieldMapper mapper(*schema);
-      auto ipc_options = ipc::IpcWriteOptions::Defaults();
-
-      auto status =
-          ipc::GetSchemaPayload(*schema, ipc_options, mapper, &payload.ipc_message);
-      if (!status.ok()) {
-        Finish(::grpc::Status(::grpc::StatusCode::INTERNAL, status.ToString()));
-        return;
-      }
-      sent_schema_ = true;
-    } else if (batches_sent_ < num_batches_) {
-      // Send a RecordBatch.
-      // Build simple test arrays
+    if (data_stream_ == nullptr) {
+      auto schema = arrow::schema(
+          {arrow::field("a", arrow::int64()), arrow::field("b", arrow::int64())});
       arrow::Int64Builder builder_a, builder_b;
       (void)builder_a.AppendValues({1, 2, 3, 4, 5});
       (void)builder_b.AppendValues({10, 20, 30, 40, 50});
       auto arr_a = *builder_a.Finish();
       auto arr_b = *builder_b.Finish();
-
       auto batch = arrow::RecordBatch::Make(schema, 5, {arr_a, arr_b});
-
-      auto ipc_options = ipc::IpcWriteOptions::Defaults();
-      auto status = ipc::GetRecordBatchPayload(*batch, ipc_options, &payload.ipc_message);
-      if (!status.ok()) {
-        Finish(::grpc::Status(::grpc::StatusCode::INTERNAL, status.ToString()));
-        return;
-      }
-      batches_sent_++;
+      auto reader =
+          RecordBatchReader::Make({batch, batch, batch, batch, batch}).ValueOrDie();
+      data_stream_ = std::make_unique<RecordBatchStream>(std::move(reader));
+      payload = data_stream_->GetSchemaPayload().ValueOrDie();
     } else {
-      // Done - no more data
+      payload = data_stream_->Next().ValueOrDie();
+    }
+
+    if (payload.ipc_message.metadata == nullptr) {
       Finish(::grpc::Status::OK);
       return;
     }
 
-    // Serialize payload to ByteBuffer and send
-    bool own_buffer = false;
-    auto grpc_status = FlightDataSerialize(payload, &write_buf_, &own_buffer);
-    if (!grpc_status.ok()) {
-      Finish(grpc_status);
-      return;
+    auto buffers = payload.SerializeToBuffers().ValueOrDie();
+    std::vector<::grpc::Slice> slices;
+    slices.reserve(buffers.size());
+    for (const auto& buf : buffers) {
+      slices.push_back(SliceFromBuffer(buf).ValueOrDie());
     }
+    write_buf_ = ::grpc::ByteBuffer(slices.data(), slices.size());
 
     StartWrite(&write_buf_);
   }
 
-  bool sent_schema_ = false;
-  int batches_sent_ = 0;
-  int num_batches_ = 5;
   ::grpc::ByteBuffer request_buf_;
   ::grpc::ByteBuffer write_buf_;
+  std::unique_ptr<FlightDataStream> data_stream_;
 };
 
 class DoPutReactor : public ::grpc::ServerGenericBidiReactor {
