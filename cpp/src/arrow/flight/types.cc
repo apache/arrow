@@ -886,6 +886,10 @@ Status FlightPayload::Validate() const {
   return Status::OK();
 }
 
+arrow::Result<arrow::BufferVector> FlightPayload::SerializeToBuffers() const {
+  return internal::SerializePayloadToBuffers(*this);
+}
+
 std::string ActionType::ToString() const {
   return arrow::internal::JoinToString("<ActionType type='", type, "' description='",
                                        description, "'>");

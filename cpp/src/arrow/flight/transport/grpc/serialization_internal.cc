@@ -33,9 +33,7 @@
 #endif
 
 #include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl_lite.h>
 #include <google/protobuf/wire_format_lite.h>
-
 #include <grpc/byte_buffer_reader.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
@@ -49,9 +47,7 @@
 #include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport.h"
 #include "arrow/flight/transport/grpc/util_internal.h"
-#include "arrow/ipc/message.h"
 #include "arrow/ipc/writer.h"
-#include "arrow/util/bit_util.h"
 #include "arrow/util/logging_internal.h"
 
 namespace arrow {
@@ -63,9 +59,7 @@ namespace pb = arrow::flight::protocol;
 
 static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
 using google::protobuf::internal::WireFormatLite;
-using google::protobuf::io::ArrayOutputStream;
 using google::protobuf::io::CodedInputStream;
-using google::protobuf::io::CodedOutputStream;
 
 using ::grpc::ByteBuffer;
 
@@ -157,6 +151,8 @@ void ReleaseBuffer(void* buf_ptr) {
   delete reinterpret_cast<std::shared_ptr<Buffer>*>(buf_ptr);
 }
 
+}  // namespace
+
 // Initialize gRPC Slice from arrow Buffer
 arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf) {
   // Allocate persistent shared_ptr to control Buffer lifetime
@@ -176,142 +172,31 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   return slice;
 }
 
-const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-
-// Update the sizes of our Protobuf fields based on the given IPC payload.
-::grpc::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool has_body,
-                                    size_t* header_size, int32_t* metadata_size) {
-  DCHECK_LE(ipc_msg.metadata->size(), kInt32Max);
-  *metadata_size = static_cast<int32_t>(ipc_msg.metadata->size());
-
-  // 1 byte for metadata tag
-  *header_size += 1 + WireFormatLite::LengthDelimitedSize(*metadata_size);
-
-  // 2 bytes for body tag
-  if (has_body) {
-    // We write the body tag in the header but not the actual body data
-    *header_size += 2 + WireFormatLite::LengthDelimitedSize(ipc_msg.body_length) -
-                    ipc_msg.body_length;
-  }
-
-  return ::grpc::Status::OK;
-}
-
-}  // namespace
-
 ::grpc::Status FlightDataSerialize(const FlightPayload& msg, ByteBuffer* out,
                                    bool* own_buffer) {
-  // Size of the IPC body (protobuf: data_body)
-  size_t body_size = 0;
-  // Size of the Protobuf "header" (everything except for the body)
-  size_t header_size = 0;
-  // Size of IPC header metadata (protobuf: data_header)
-  int32_t metadata_size = 0;
-
-  // Write the descriptor if present
-  int32_t descriptor_size = 0;
-  if (msg.descriptor != nullptr) {
-    DCHECK_LE(msg.descriptor->size(), kInt32Max);
-    descriptor_size = static_cast<int32_t>(msg.descriptor->size());
-    header_size += 1 + WireFormatLite::LengthDelimitedSize(descriptor_size);
-  }
-
-  // App metadata tag if appropriate
-  int32_t app_metadata_size = 0;
-  if (msg.app_metadata && msg.app_metadata->size() > 0) {
-    DCHECK_LE(msg.app_metadata->size(), kInt32Max);
-    app_metadata_size = static_cast<int32_t>(msg.app_metadata->size());
-    header_size += 1 + WireFormatLite::LengthDelimitedSize(app_metadata_size);
-  }
-
-  const arrow::ipc::IpcPayload& ipc_msg = msg.ipc_message;
-  // No data in this payload (metadata-only).
-  bool has_ipc = ipc_msg.type != ipc::MessageType::NONE;
-  bool has_body = has_ipc ? ipc::Message::HasBody(ipc_msg.type) : false;
-
-  if (has_ipc) {
-    DCHECK(has_body || ipc_msg.body_length == 0);
-    GRPC_RETURN_NOT_GRPC_OK(
-        IpcMessageHeaderSize(ipc_msg, has_body, &header_size, &metadata_size));
-    body_size = static_cast<size_t>(ipc_msg.body_length);
-  }
-
   // TODO(wesm): messages over 2GB unlikely to be yet supported
   // Validated in WritePayload since returning error here causes gRPC to fail an assertion
-  DCHECK_LE(body_size, kInt32Max);
+  DCHECK_LE(msg.ipc_message.body_length, kInt32Max);
 
-  // Allocate and initialize slices
-  std::vector<::grpc::Slice> slices;
-  slices.emplace_back(header_size);
-
-  // Force the header_stream to be destructed, which actually flushes
-  // the data into the slice.
-  {
-    ArrayOutputStream header_writer(const_cast<uint8_t*>(slices[0].begin()),
-                                    static_cast<int>(slices[0].size()));
-    CodedOutputStream header_stream(&header_writer);
-
-    // Write descriptor
-    if (msg.descriptor != nullptr) {
-      WireFormatLite::WriteTag(pb::FlightData::kFlightDescriptorFieldNumber,
-                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-      header_stream.WriteVarint32(descriptor_size);
-      header_stream.WriteRawMaybeAliased(msg.descriptor->data(),
-                                         static_cast<int>(msg.descriptor->size()));
-    }
-
-    // Write header
-    if (has_ipc) {
-      WireFormatLite::WriteTag(pb::FlightData::kDataHeaderFieldNumber,
-                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-      header_stream.WriteVarint32(metadata_size);
-      header_stream.WriteRawMaybeAliased(ipc_msg.metadata->data(),
-                                         static_cast<int>(ipc_msg.metadata->size()));
-    }
-
-    // Write app metadata
-    if (app_metadata_size > 0) {
-      WireFormatLite::WriteTag(pb::FlightData::kAppMetadataFieldNumber,
-                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-      header_stream.WriteVarint32(app_metadata_size);
-      header_stream.WriteRawMaybeAliased(msg.app_metadata->data(),
-                                         static_cast<int>(msg.app_metadata->size()));
-    }
-
-    if (has_body) {
-      // Write body tag
-      WireFormatLite::WriteTag(pb::FlightData::kDataBodyFieldNumber,
-                               WireFormatLite::WIRETYPE_LENGTH_DELIMITED, &header_stream);
-      header_stream.WriteVarint32(static_cast<uint32_t>(body_size));
-
-      // Enqueue body buffers for writing, without copying
-      for (const auto& buffer : ipc_msg.body_buffers) {
-        // Buffer may be null when the row length is zero, or when all
-        // entries are invalid.
-        if (!buffer || buffer->size() == 0) continue;
-
-        ::grpc::Slice slice;
-        auto status = SliceFromBuffer(buffer).Value(&slice);
-        if (ARROW_PREDICT_FALSE(!status.ok())) {
-          // This will likely lead to abort as gRPC cannot recover from an error here
-          return ToGrpcStatus(status);
-        }
-        slices.push_back(std::move(slice));
-
-        // Write padding if not multiple of 8
-        const auto remainder = static_cast<int>(
-            bit_util::RoundUpToMultipleOf8(buffer->size()) - buffer->size());
-        if (remainder) {
-          slices.emplace_back(kPaddingBytes, remainder);
-        }
-      }
-    }
-
-    DCHECK_EQ(static_cast<int>(header_size), header_stream.ByteCount());
+  // Retrieve BufferVector from the FlightPayload's IPC message.
+  auto buffers_result = msg.SerializeToBuffers();
+  if (!buffers_result.ok()) {
+    return ToGrpcStatus(buffers_result.status());
   }
 
-  // Hand off the slices to the returned ByteBuffer
-  *out = ::grpc::ByteBuffer(slices.data(), slices.size());
+  std::vector<::grpc::Slice> slices;
+  slices.reserve(buffers_result->size());
+  for (const auto& buffer : *buffers_result) {
+    ::grpc::Slice slice;
+    auto status = SliceFromBuffer(buffer).Value(&slice);
+    if (ARROW_PREDICT_FALSE(!status.ok())) {
+      // This will likely lead to abort as gRPC cannot recover from an error here
+      return ToGrpcStatus(status);
+    }
+    slices.push_back(std::move(slice));
+  }
+
+  *out = ByteBuffer(slices.data(), slices.size());
   *own_buffer = true;
   return ::grpc::Status::OK;
 }
