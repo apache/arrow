@@ -711,3 +711,21 @@ test_that("open_dataset() with `decimal_point` argument", {
     tibble(x = 1.2, y = "c")
   )
 })
+
+
+test_that("more informative error when column inferred as null due to sparse data (GH-35806)", {
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  # Create a CSV where the second column has NAs in the first rows
+  # but a value later - this causes Arrow to infer null type
+  writeLines(c("x,y", paste0(1:100, ",")), tf)
+  write("101,foo", tf, append = TRUE)
+
+  # Use small block_size to force type inference from only the first rows
+  expect_error(
+    open_dataset(tf, format = "csv", read_options = csv_read_options(block_size = 100L)) |>
+      collect(),
+    "inferred as null"
+  )
+})
