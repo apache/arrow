@@ -59,6 +59,10 @@ jobs:
               echo "force=true" >> "${GITHUB_OUTPUT}"
               ;;
             pull_request)
+              gh pr view ${{ github.event.number }} \
+                --jq '[.labels[].name | select(startswith("CI: Extra"))]' \
+                --json labels \
+                --repo ${GITHUB_REPOSITORY}
               {
                 echo "ci-extra-labels<<LABELS"
                 gh pr view ${{ github.event.number }} \
