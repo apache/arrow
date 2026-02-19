@@ -37,7 +37,9 @@ namespace {
 
 constexpr int32_t kCiphertextLengthSize = 4;
 
-int64_t ParseTotalCiphertextSize(const uint8_t* data, int64_t length) {
+// Parse the little-endian length prefix and return the total ciphertext size
+// including the 4-byte length field itself.
+int64_t ParseCiphertextTotalLength(const uint8_t* data, int64_t length) {
   if (length < kCiphertextLengthSize) {
     throw ParquetException("Ciphertext length buffer is too small");
   }
@@ -142,7 +144,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     }
 
     const int64_t header_cipher_total_len =
-        ParseTotalCiphertextSize(length_buf->data(), length_buf->size());
+        ParseCiphertextTotalLength(length_buf->data(), length_buf->size());
     if (ARROW_PREDICT_FALSE(header_cipher_total_len >
                             std::numeric_limits<int32_t>::max())) {
       throw ParquetException("Bloom filter header ciphertext length overflows int32");
@@ -168,9 +170,8 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
 
     uint32_t header_cipher_len = static_cast<uint32_t>(header_cipher_total_len);
     try {
-      deserializer.DeserializeMessage(
-          reinterpret_cast<const uint8_t*>(header_cipher_buf->data()), &header_cipher_len,
-          &header, header_decryptor);
+      deserializer.DeserializeMessage(header_cipher_buf->data(), &header_cipher_len,
+                                      &header, header_decryptor);
       DCHECK_EQ(header_cipher_len, header_cipher_total_len);
     } catch (std::exception& e) {
       std::stringstream ss;
@@ -195,7 +196,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     // Read and decrypt the bitset bytes.
     PARQUET_ASSIGN_OR_THROW(auto bitset_cipher_buf, input->Read(bitset_cipher_len));
     if (ARROW_PREDICT_FALSE(bitset_cipher_buf->size() < bitset_cipher_len)) {
-      throw ParquetException("Bloom Filter read failed: not enough data");
+      throw ParquetException("Bloom filter read failed: not enough data");
     }
 
     const int32_t bitset_plain_len =
@@ -217,6 +218,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     bloom_filter.Init(bitset_plain_buf->data(), bloom_filter_size);
     return bloom_filter;
   }
+
   ThriftDeserializer deserializer(properties);
   format::BloomFilterHeader header;
   int64_t bloom_filter_header_read_size = 0;
@@ -236,8 +238,7 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
   // This gets used, then set by DeserializeThriftMsg
   uint32_t header_size = static_cast<uint32_t>(header_buf->size());
   try {
-    deserializer.DeserializeMessage(reinterpret_cast<const uint8_t*>(header_buf->data()),
-                                    &header_size, &header);
+    deserializer.DeserializeMessage(header_buf->data(), &header_size, &header);
     DCHECK_LE(header_size, header_buf->size());
   } catch (std::exception& e) {
     std::stringstream ss;
