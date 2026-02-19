@@ -15,5 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 Version: 5
+Pgp-Mode: auto
 Source: https://downloads.apache.org/arrow/arrow@SEMANTIC_VERSION@/
 Matching-Pattern: apache-arrow@SEMANTIC_VERSION@@ARCHIVE_EXT@
