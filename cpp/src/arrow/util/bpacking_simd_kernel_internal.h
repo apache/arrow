@@ -27,7 +27,6 @@
 #pragma once
 
 #include <array>
-#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <limits>
@@ -76,7 +75,7 @@ constexpr T max_value(const std::array<T, N>& arr) {
 template <std::array kArr, typename Arch, std::size_t... Is>
 constexpr auto array_to_batch_constant_impl(std::index_sequence<Is...>) {
   using Array = std::decay_t<decltype(kArr)>;
-  using value_type = Array::value_type;
+  using value_type = typename Array::value_type;
 
   return xsimd::batch_constant<value_type, Arch, kArr[Is]...>{};
 }
@@ -88,7 +87,7 @@ constexpr auto array_to_batch_constant() {
       std::make_index_sequence<kArr.size()>());
 }
 
-template <std::unsigned_integral Uint, typename Arch>
+template <typename Uint, typename Arch>
 xsimd::batch<uint8_t, Arch> load_val_as(const uint8_t* in) {
   const Uint val = util::SafeLoadAs<Uint>(in);
   const auto batch = xsimd::batch<Uint, Arch>(val);
@@ -104,7 +103,7 @@ xsimd::batch<uint8_t, Arch> safe_load_bytes(const uint8_t* in) {
   return simd_bytes::load_unaligned(in);
 }
 
-template <std::integral Int, int kOffset, int kLength, typename Arr>
+template <typename Int, int kOffset, int kLength, typename Arr>
 constexpr auto select_stride_impl(Arr shifts) {
   std::array<Int, shifts.size() / kLength> out{};
   for (std::size_t i = 0; i < out.size(); ++i) {
@@ -355,7 +354,7 @@ struct KernelShape {
 };
 
 /// Packing all useful and derived information about a kernel in a single type.
-template <std::unsigned_integral UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct KernelTraits {
   static constexpr KernelShape kShape = {
       .simd_bit_size_ = kSimdBitSize,
@@ -373,11 +372,11 @@ struct KernelTraits {
                                        SizedUint<sizeof(bool)>, unpacked_type>;
   using simd_batch = xsimd::make_sized_batch_t<uint_type, kShape.unpacked_per_simd()>;
   using simd_bytes = xsimd::make_sized_batch_t<uint8_t, kShape.simd_byte_size()>;
-  using arch_type = simd_batch::arch_type;
+  using arch_type = typename simd_batch::arch_type;
 };
 
 /// Return similar kernel traits but with a different integer unpacking type.
-template <typename KerTraits, std::unsigned_integral Uint>
+template <typename KerTraits, typename Uint>
 using KernelTraitsWithUnpackUint = KernelTraits<Uint, KerTraits::kShape.packed_bit_size(),
                                                 KerTraits::kShape.simd_bit_size()>;
 
@@ -497,7 +496,7 @@ constexpr int adjust_bytes_per_read(int bits_per_read, int simd_byte_size) {
 template <typename KerTraits, MediumKernelOptions kOptions>
 struct MediumKernelPlan {
   using Traits = KerTraits;
-  using uint_type = Traits::uint_type;
+  using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = MediumKernelPlanSize::Build(kShape, kOptions);
 
@@ -680,12 +679,12 @@ struct MediumKernel {
   static constexpr auto kPlan = MediumKernelPlan<KerTraits, kOptions>::Build();
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
-  using Traits = decltype(kPlan)::Traits;
-  using unpacked_type = Traits::unpacked_type;
-  using uint_type = Traits::uint_type;
-  using simd_batch = Traits::simd_batch;
-  using simd_bytes = Traits::simd_bytes;
-  using arch_type = Traits::arch_type;
+  using Traits = typename decltype(kPlan)::Traits;
+  using unpacked_type = typename Traits::unpacked_type;
+  using uint_type = typename Traits::uint_type;
+  using simd_batch = typename Traits::simd_batch;
+  using simd_bytes = typename Traits::simd_bytes;
+  using arch_type = typename Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlan.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
@@ -787,7 +786,7 @@ struct LargeKernelPlanSize {
 template <typename KerTraits>
 struct LargeKernelPlan {
   using Traits = KerTraits;
-  using uint_type = Traits::uint_type;
+  using uint_type = typename Traits::uint_type;
   static constexpr auto kShape = Traits::kShape;
   static constexpr auto kPlanSize = LargeKernelPlanSize::Build(kShape);
 
@@ -822,7 +821,7 @@ struct LargeKernelPlan {
 template <typename KerTraits>
 constexpr auto LargeKernelPlan<KerTraits>::Build() -> LargeKernelPlan<KerTraits> {
   using Plan = LargeKernelPlan<KerTraits>;
-  using uint_type = Plan::Traits::uint_type;
+  using uint_type = typename Plan::Traits::uint_type;
   constexpr auto kShape = Plan::kShape;
   constexpr auto kPlanSize = Plan::kPlanSize;
   static_assert(kShape.is_large());
@@ -969,10 +968,10 @@ struct LargeKernel {
   static constexpr auto kPlanSize = kPlan.kPlanSize;
   static constexpr auto kShape = kPlan.kShape;
   using Traits = typename decltype(kPlan)::Traits;
-  using unpacked_type = Traits::unpacked_type;
-  using simd_batch = Traits::simd_batch;
-  using simd_bytes = Traits::simd_bytes;
-  using arch_type = Traits::arch_type;
+  using unpacked_type = typename Traits::unpacked_type;
+  using simd_batch = typename Traits::simd_batch;
+  using simd_bytes = typename Traits::simd_bytes;
+  using arch_type = typename Traits::arch_type;
 
   static constexpr int kValuesUnpacked = kPlanSize.unpacked_per_kernel();
   static constexpr int kBytesRead = kPlan.total_bytes_read();
@@ -1032,7 +1031,7 @@ struct LargeKernel {
 /// A Kernel that does not extract anything, leaving all work to the naive implementation.
 template <typename KernelTraits>
 struct NoOpKernel {
-  using unpacked_type = KernelTraits::unpacked_type;
+  using unpacked_type = typename KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = 0;
   static constexpr int kBytesRead = 0;
@@ -1042,12 +1041,12 @@ struct NoOpKernel {
 
 template <typename KernelTraits, typename WorkingKernel>
 struct CastingKernel : WorkingKernel {
-  using unpacked_type = KernelTraits::unpacked_type;
+  using unpacked_type = typename KernelTraits::unpacked_type;
 
   static constexpr int kValuesUnpacked = WorkingKernel::kValuesUnpacked;
 
   static const uint8_t* unpack(const uint8_t* in, unpacked_type* out) {
-    using working_type = WorkingKernel::unpacked_type;
+    using working_type = typename WorkingKernel::unpacked_type;
 
     working_type buffer[kValuesUnpacked] = {};
     in = WorkingKernel::unpack(in, buffer);
@@ -1063,7 +1062,7 @@ struct CastingKernel : WorkingKernel {
  *******************************/
 
 // Benchmarking show unpack to uint64_t is underperforming on SSE4.2 and Avx2
-template <typename KerTraits, typename Arch = KerTraits::arch_type>
+template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
 constexpr bool kMediumShouldUseUint32 =
     IsSse2<Arch> &&  //
     (KerTraits::kShape.unpacked_byte_size() == sizeof(uint64_t)) &&
@@ -1071,7 +1070,7 @@ constexpr bool kMediumShouldUseUint32 =
     KernelTraitsWithUnpackUint<KerTraits, uint32_t>::kShape.is_medium();
 
 // Benchmarking show large unpack to uint8_t is underperforming on SSE4.2
-template <typename KerTraits, typename Arch = KerTraits::arch_type>
+template <typename KerTraits, typename Arch = typename KerTraits::arch_type>
 constexpr bool kLargeShouldUseUint16 =
     IsSse2<Arch> && (KerTraits::kShape.unpacked_byte_size() == sizeof(uint8_t));
 
@@ -1104,7 +1103,7 @@ template <typename Traits>
 using KernelDispatch = decltype(KernelDispatchImpl<Traits>());
 
 /// The public kernel exposed for any size.
-template <std::unsigned_integral UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
 struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>> {
 };
 
