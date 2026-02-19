@@ -15,214 +15,79 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
-#include <cstdint>
-#include <cstring>
 #include <memory>
-#include <optional>
 #include <string>
-#include <utility>
-#include <vector>
 
-#include "arrow/buffer.h"
 #include "arrow/io/file.h"
-#include "arrow/util/secure_string.h"
-#include "arrow/util/span.h"
 
 #include "parquet/bloom_filter.h"
-#include "parquet/encryption/encryption_internal.h"
-#include "parquet/encryption/internal_file_decryptor.h"
-#include "parquet/exception.h"
-#include "parquet/platform.h"
-#include "parquet/test_util.h"
-#include "parquet/thrift_internal.h"
+#include "parquet/bloom_filter_reader.h"
+#include "parquet/encryption/test_encryption_util.h"
+#include "parquet/file_reader.h"
+#include "parquet/properties.h"
 
 namespace parquet::encryption::test {
 namespace {
 
-using ::parquet::BlockSplitBloomFilter;
-using ::parquet::CreateOutputStream;
-using ::parquet::Decryptor;
-using ::parquet::ReaderProperties;
+std::shared_ptr<parquet::FileDecryptionProperties> BuildDecryptionProperties() {
+  // Map test key ids to fixed test keys for decrypting the file footer and columns.
+  std::shared_ptr<parquet::StringKeyIdRetriever> kr =
+      std::make_shared<parquet::StringKeyIdRetriever>();
+  kr->PutKey(kFooterMasterKeyId, kFooterEncryptionKey);
+  kr->PutKey(kColumnMasterKeyIds[0], kColumnEncryptionKey1);
+  kr->PutKey(kColumnMasterKeyIds[1], kColumnEncryptionKey2);
 
-struct EncryptedBloomFilterPayload {
-  std::shared_ptr<Buffer> buffer;
-  std::unique_ptr<Decryptor> header_decryptor;
-  std::unique_ptr<Decryptor> bitset_decryptor;
-  std::vector<uint8_t> bitset;
-  int64_t total_cipher_len = 0;
-};
-
-EncryptedBloomFilterPayload BuildEncryptedBloomFilterPayload(int32_t bitset_size) {
-  // Build an encrypted payload in memory to exercise the reader path without relying
-  // on writer-side encryption support.
-  EncryptedBloomFilterPayload payload;
-  payload.bitset.resize(bitset_size);
-  for (int32_t i = 0; i < bitset_size; ++i) {
-    payload.bitset[static_cast<size_t>(i)] = static_cast<uint8_t>(i);
-  }
-
-  // Prepare a valid Bloom filter header for the given bitset size.
-  format::BloomFilterHeader header;
-  header.algorithm.__set_BLOCK(format::SplitBlockAlgorithm());
-  header.hash.__set_XXHASH(format::XxHash());
-  header.compression.__set_UNCOMPRESSED(format::Uncompressed());
-  header.__set_numBytes(bitset_size);
-
-  auto header_sink = CreateOutputStream();
-  ThriftSerializer serializer;
-  serializer.Serialize(&header, header_sink.get());
-  PARQUET_ASSIGN_OR_THROW(auto header_buf, header_sink->Finish());
-
-  // Use fixed AAD strings for the test. The encryptor and decryptor must use
-  // the same AAD, but the exact value does not matter for unit testing Deserialize.
-  const std::string header_aad = "test_bloom_filter_header_aad";
-  const std::string bitset_aad = "test_bloom_filter_bitset_aad";
-
-  // Use fixed keys for deterministic test data.
-  const ::arrow::util::SecureString header_key("0123456789abcdef");
-  const ::arrow::util::SecureString bitset_key("abcdef0123456789");
-  auto header_encryptor = encryption::AesEncryptor::Make(
-      ParquetCipher::AES_GCM_V1, static_cast<int32_t>(header_key.size()), true);
-  auto bitset_encryptor = encryption::AesEncryptor::Make(
-      ParquetCipher::AES_GCM_V1, static_cast<int32_t>(bitset_key.size()), false);
-
-  // Encrypt header with the metadata cipher (AES-GCM).
-  const int32_t header_cipher_len =
-      header_encryptor->CiphertextLength(static_cast<int64_t>(header_buf->size()));
-  std::shared_ptr<Buffer> header_cipher_buf =
-      AllocateBuffer(::arrow::default_memory_pool(), header_cipher_len);
-  const int32_t header_written = header_encryptor->Encrypt(
-      header_buf->span_as<const uint8_t>(), header_key.as_span(), str2span(header_aad),
-      header_cipher_buf->mutable_span_as<uint8_t>());
-  if (header_written != header_cipher_len) {
-    throw ParquetException("Header encryption length mismatch");
-  }
-
-  // Encrypt bitset with the data cipher (AES-GCM).
-  const int32_t bitset_cipher_len =
-      bitset_encryptor->CiphertextLength(static_cast<int64_t>(payload.bitset.size()));
-  std::shared_ptr<Buffer> bitset_cipher_buf =
-      AllocateBuffer(::arrow::default_memory_pool(), bitset_cipher_len);
-  const int32_t bitset_written = bitset_encryptor->Encrypt(
-      ::arrow::util::span<const uint8_t>(payload.bitset.data(), payload.bitset.size()),
-      bitset_key.as_span(), str2span(bitset_aad),
-      bitset_cipher_buf->mutable_span_as<uint8_t>());
-  if (bitset_written != bitset_cipher_len) {
-    throw ParquetException("Bitset encryption length mismatch");
-  }
-
-  // Concatenate encrypted header and encrypted bitset.
-  payload.total_cipher_len = static_cast<int64_t>(header_cipher_len) + bitset_cipher_len;
-  std::shared_ptr<Buffer> total_cipher_buf =
-      AllocateBuffer(::arrow::default_memory_pool(), payload.total_cipher_len);
-  std::memcpy(total_cipher_buf->mutable_data(), header_cipher_buf->data(),
-              header_cipher_len);
-  std::memcpy(total_cipher_buf->mutable_data() + header_cipher_len,
-              bitset_cipher_buf->data(), bitset_cipher_len);
-  payload.buffer = std::move(total_cipher_buf);
-
-  payload.header_decryptor = std::make_unique<Decryptor>(
-      encryption::AesDecryptor::Make(ParquetCipher::AES_GCM_V1,
-                                     static_cast<int32_t>(header_key.size()), true),
-      header_key, "", header_aad, ::arrow::default_memory_pool());
-  payload.bitset_decryptor = std::make_unique<Decryptor>(
-      encryption::AesDecryptor::Make(ParquetCipher::AES_GCM_V1,
-                                     static_cast<int32_t>(bitset_key.size()), false),
-      bitset_key, "", bitset_aad, ::arrow::default_memory_pool());
-
-  return payload;
+  parquet::FileDecryptionProperties::Builder builder;
+  return builder
+      .key_retriever(std::static_pointer_cast<parquet::DecryptionKeyRetriever>(kr))
+      ->build();
 }
 
 }  // namespace
 
-TEST(EncryptedDeserializeTest, TestBloomFilter) {
-  // It decrypts the header and bitset and validates Bloom filter behavior.
-  const int32_t bitset_size = 128;
-  auto payload = BuildEncryptedBloomFilterPayload(bitset_size);
-  ReaderProperties reader_properties;
-  ::arrow::io::BufferReader source(payload.buffer);
-  BlockSplitBloomFilter decrypted = BlockSplitBloomFilter::Deserialize(
-      reader_properties, &source, payload.total_cipher_len,
-      payload.header_decryptor.get(), payload.bitset_decryptor.get());
+// Read Bloom filters from an encrypted parquet-testing file.
+// The test data enables Bloom filters for double_field and float_field only.
+TEST(EncryptedBloomFilterReader, ReadEncryptedBloomFilter) {
+  const std::string file_path =
+      data_file("encrypt_columns_and_footer_bloom_filter.parquet.encrypted");
 
-  BlockSplitBloomFilter expected;
-  expected.Init(payload.bitset.data(), bitset_size);
-  for (int value : {1, 2, 3, 4, 5, 42, 99}) {
-    EXPECT_EQ(expected.FindHash(expected.Hash(value)),
-              decrypted.FindHash(decrypted.Hash(value)));
+  parquet::ReaderProperties reader_properties = parquet::default_reader_properties();
+  reader_properties.file_decryption_properties(BuildDecryptionProperties());
+
+  PARQUET_ASSIGN_OR_THROW(auto source, ::arrow::io::ReadableFile::Open(
+                                           file_path, reader_properties.memory_pool()));
+  auto file_reader = parquet::ParquetFileReader::Open(source, reader_properties);
+  auto file_metadata = file_reader->metadata();
+
+  ASSERT_EQ(file_metadata->num_columns(), 4);
+  ASSERT_GE(file_metadata->num_row_groups(), 1);
+
+  auto& bloom_filter_reader = file_reader->GetBloomFilterReader();
+  auto row_group_0 = bloom_filter_reader.RowGroup(0);
+  ASSERT_NE(nullptr, row_group_0);
+
+  auto double_filter = row_group_0->GetColumnBloomFilter(0);
+  auto float_filter = row_group_0->GetColumnBloomFilter(1);
+  auto int32_filter = row_group_0->GetColumnBloomFilter(2);
+  auto name_filter = row_group_0->GetColumnBloomFilter(3);
+
+  // double_field and float_field have Bloom filters; the others do not.
+  ASSERT_NE(nullptr, double_filter);
+  ASSERT_NE(nullptr, float_filter);
+  ASSERT_EQ(nullptr, int32_filter);
+  ASSERT_EQ(nullptr, name_filter);
+
+  // Values follow a simple pattern in the test data.
+  for (int i : {0, 1, 7, 42}) {
+    const double value = static_cast<double>(i) + 0.5;
+    EXPECT_TRUE(double_filter->FindHash(double_filter->Hash(value)));
   }
-}
 
-TEST(EncryptedDeserializeTest, TestBloomFilterInvalidLength) {
-  // It throws when the reported total length does not match the payload.
-  const int32_t bitset_size = 128;
-  auto payload = BuildEncryptedBloomFilterPayload(bitset_size);
-
-  ReaderProperties reader_properties;
-  ::arrow::io::BufferReader source(payload.buffer);
-  EXPECT_THROW_THAT(
-      [&]() {
-        BlockSplitBloomFilter::Deserialize(
-            reader_properties, &source, payload.total_cipher_len + 1,
-            payload.header_decryptor.get(), payload.bitset_decryptor.get());
-      },
-      ParquetException,
-      ::testing::Property(&ParquetException::what,
-                          ::testing::HasSubstr("Bloom filter length")));
-}
-
-TEST(EncryptedDeserializeTest, TestBloomFilterMissingDecryptor) {
-  // It throws when only one decryptor is provided.
-  const int32_t bitset_size = 128;
-  auto payload = BuildEncryptedBloomFilterPayload(bitset_size);
-  ReaderProperties reader_properties;
-
-  {
-    ::arrow::io::BufferReader source(payload.buffer);
-    EXPECT_THROW_THAT(
-        [&]() {
-          BlockSplitBloomFilter::Deserialize(reader_properties, &source,
-                                             payload.total_cipher_len,
-                                             payload.header_decryptor.get(), nullptr);
-        },
-        ParquetException,
-        ::testing::Property(
-            &ParquetException::what,
-            ::testing::HasSubstr("Bloom filter decryptors must be both provided")));
-  }
-  {
-    ::arrow::io::BufferReader source(payload.buffer);
-    EXPECT_THROW_THAT(
-        [&]() {
-          BlockSplitBloomFilter::Deserialize(reader_properties, &source,
-                                             payload.total_cipher_len, nullptr,
-                                             payload.bitset_decryptor.get());
-        },
-        ParquetException,
-        ::testing::Property(
-            &ParquetException::what,
-            ::testing::HasSubstr("Bloom filter decryptors must be both provided")));
-  }
-}
-
-TEST(EncryptedDeserializeTest, TestBloomFilterWithoutLength) {
-  // It decrypts the payload when bloom_filter_length is not provided.
-  const int32_t bitset_size = 128;
-  auto payload = BuildEncryptedBloomFilterPayload(bitset_size);
-  ReaderProperties reader_properties;
-  ::arrow::io::BufferReader source(payload.buffer);
-  BlockSplitBloomFilter decrypted = BlockSplitBloomFilter::Deserialize(
-      reader_properties, &source, std::nullopt, payload.header_decryptor.get(),
-      payload.bitset_decryptor.get());
-
-  BlockSplitBloomFilter expected;
-  expected.Init(payload.bitset.data(), bitset_size);
-  for (int value : {1, 2, 3, 4, 5, 42, 99}) {
-    EXPECT_EQ(expected.FindHash(expected.Hash(value)),
-              decrypted.FindHash(decrypted.Hash(value)));
+  for (int i : {0, 2, 5, 10}) {
+    const float value = static_cast<float>(i) + 0.25f;
+    EXPECT_TRUE(float_filter->FindHash(float_filter->Hash(value)));
   }
 }
 
