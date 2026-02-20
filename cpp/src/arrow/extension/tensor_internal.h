@@ -21,18 +21,19 @@
 #include <vector>
 
 #include "arrow/array/array_nested.h"
+#include "arrow/util/span.h"
 
 namespace arrow::internal {
 
 ARROW_EXPORT
-bool IsPermutationTrivial(const std::vector<int64_t>& permutation);
+bool IsPermutationTrivial(util::span<const int64_t> permutation);
 
 ARROW_EXPORT
-Status IsPermutationValid(const std::vector<int64_t>& permutation);
+Status IsPermutationValid(util::span<const int64_t> permutation);
 
 ARROW_EXPORT
 Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                                            const std::vector<int64_t>& shape,
-                                            const std::vector<int64_t>& permutation);
+                                            util::span<const int64_t> shape,
+                                            util::span<const int64_t> permutation);
 
 }  // namespace arrow::internal
