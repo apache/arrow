@@ -2362,6 +2362,24 @@ TEST_F(TestRank, Real) {
   }
 }
 
+TEST_F(TestRank, NaNsAndNulls) {
+  auto type = float64();
+  auto array = ArrayFromJSON(type, "[1.0, null, NaN, 2.0, NaN, null]");
+  SetInput(array);
+
+  // Sorted order (at_end): [1.0, 2.0, NaN, NaN, null, null]
+  // Ranks (min): [1, 5, 3, 2, 3, 5]
+  auto expected_at_end = ArrayFromJSON(uint64(), "[1, 5, 3, 2, 3, 5]");
+  AssertRank(SortOrder::Ascending, NullPlacement::AtEnd, RankOptions::Min,
+             expected_at_end);
+
+  // Sorted order (at_start): [null, null, NaN, NaN, 1.0, 2.0]
+  // Ranks (min): [5, 1, 3, 6, 3, 1]
+  auto expected_at_start = ArrayFromJSON(uint64(), "[5, 1, 3, 6, 3, 1]");
+  AssertRank(SortOrder::Ascending, NullPlacement::AtStart, RankOptions::Min,
+             expected_at_start);
+}
+
 TEST_F(TestRank, Integral) {
   for (auto integer_type : ::arrow::IntTypes()) {
     SetInput(ArrayFromJSON(integer_type, "[2, 3, 1, 0, 5]"));
