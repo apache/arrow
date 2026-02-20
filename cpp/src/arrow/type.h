@@ -2585,9 +2585,6 @@ constexpr bool has_variadic_buffers(Type::type id) {
   }
 }
 
-ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
-constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
-
 ARROW_EXPORT
 std::string ToString(Type::type id);
 
