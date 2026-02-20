@@ -47,10 +47,9 @@ bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const 
   }
 
   const bool permutation_equivalent =
-      ((permutation_ == other_ext.permutation()) ||
-       (permutation_.empty() &&
-        internal::IsPermutationTrivial(other_ext.permutation())) ||
-       (internal::IsPermutationTrivial(permutation_) && other_ext.permutation().empty()));
+      (permutation_ == other_ext.permutation()) ||
+      (internal::IsPermutationTrivial(permutation_) &&
+       internal::IsPermutationTrivial(other_ext.permutation()));
 
   return (storage_type()->Equals(other_ext.storage_type())) &&
          (dim_names_ == other_ext.dim_names()) &&

@@ -46,10 +46,9 @@ bool FixedShapeTensorType::ExtensionEquals(const ExtensionType& other) const {
   const auto& other_ext = internal::checked_cast<const FixedShapeTensorType&>(other);
 
   const bool permutation_equivalent =
-      ((permutation_ == other_ext.permutation()) ||
-       (permutation_.empty() &&
-        internal::IsPermutationTrivial(other_ext.permutation())) ||
-       (internal::IsPermutationTrivial(permutation_) && other_ext.permutation().empty()));
+      (permutation_ == other_ext.permutation()) ||
+      (internal::IsPermutationTrivial(permutation_) &&
+       internal::IsPermutationTrivial(other_ext.permutation()));
 
   return (storage_type()->Equals(other_ext.storage_type())) &&
          (this->shape() == other_ext.shape()) && (dim_names_ == other_ext.dim_names()) &&
