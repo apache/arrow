@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <filesystem>
 #include <sstream>
 #include <string>
 
@@ -121,6 +122,34 @@ TEST(Misc, BuildInfo) {
   ASSERT_THAT(info.version_string, ::testing::HasSubstr(ss.str()));
   ASSERT_THAT(info.full_so_version, ::testing::HasSubstr(info.so_version));
 }
+
+#ifndef _WIN32
+TEST(Misc, TZDIREnvironmentVariable) {
+  // Find a valid zoneinfo directory
+  std::string tz_dir;
+  const char* env_tzdir = std::getenv("TZDIR");
+  if (env_tzdir != nullptr &&
+      std::filesystem::is_directory(env_tzdir)) {
+    tz_dir = env_tzdir;
+  } else if (std::filesystem::is_directory(
+                 "/usr/share/zoneinfo")) {
+    tz_dir = "/usr/share/zoneinfo";
+  } else {
+    GTEST_SKIP() << "No system zoneinfo directory found";
+  }
+
+  // Set TZDIR and verify timezone resolution works
+  EnvVarGuard guard("TZDIR", tz_dir);
+  auto arr = ArrayFromJSON(
+      timestamp(TimeUnit::SECOND, "UTC"), "[0]");
+  ASSERT_OK_AND_ASSIGN(
+      auto result,
+      compute::Cast(
+          arr,
+          timestamp(TimeUnit::SECOND, "America/New_York")));
+  ASSERT_NE(result.make_array(), nullptr);
+}
+#endif
 
 TEST(Misc, SetTimezoneConfig) {
 #ifndef _WIN32

@@ -25,7 +25,10 @@ The following changes are made:
 - enclose the `date` namespace inside the `arrow_vendored` namespace
 - fix 4 declarations like `CONSTCD11 date::day  operator "" _d(unsigned long long d) NOEXCEPT;`
   to not have offending whitespace for modern clang:
-  `CONSTCD11 date::day  operator ""_d(unsigned long long d) NOEXCEPT;` 
+  `CONSTCD11 date::day  operator ""_d(unsigned long long d) NOEXCEPT;`
+- check the TZDIR environment variable in `discover_tz_dir()` (tz.cpp) before
+  falling back to hardcoded paths, for compatibility with non-FHS Linux
+  distributions (e.g. NixOS)
 
 ## How to update
 
