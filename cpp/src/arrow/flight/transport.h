@@ -91,6 +91,10 @@ struct FlightData {
 
   /// Open IPC message from the metadata and body
   ::arrow::Result<std::unique_ptr<ipc::Message>> OpenMessage();
+
+  /// \brief Deserialize a FlightData from a contiguous buffer.
+  static ::arrow::Result<FlightData> DeserializeFrom(
+      const std::shared_ptr<Buffer>& buffer);
 };
 
 /// \brief A transport-specific interface for reading/writing Arrow data.

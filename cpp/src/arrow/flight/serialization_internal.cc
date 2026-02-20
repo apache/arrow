@@ -623,6 +623,7 @@ namespace {
 
 using google::protobuf::internal::WireFormatLite;
 using google::protobuf::io::ArrayOutputStream;
+using google::protobuf::io::CodedInputStream;
 using google::protobuf::io::CodedOutputStream;
 
 static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
@@ -644,6 +645,18 @@ arrow::Status IpcMessageHeaderSize(const arrow::ipc::IpcPayload& ipc_msg, bool h
   }
 
   return Status::OK();
+}
+
+bool ReadBytesZeroCopy(const std::shared_ptr<Buffer>& source_data,
+                       CodedInputStream* input, std::shared_ptr<Buffer>* out) {
+  uint32_t length;
+  if (!input->ReadVarint32(&length)) {
+    return false;
+  }
+  auto buf =
+      SliceBuffer(source_data, input->CurrentPosition(), static_cast<int64_t>(length));
+  *out = buf;
+  return input->Skip(static_cast<int>(length));
 }
 
 }  // namespace
@@ -746,6 +759,78 @@ arrow::Result<arrow::BufferVector> SerializePayloadToBuffers(
   }
 
   return buffers;
+}
+
+arrow::Result<arrow::flight::internal::FlightData> DeserializeFlightData(
+    const std::shared_ptr<arrow::Buffer>& in_buffer) {
+  arrow::flight::internal::FlightData out;
+
+  if (!in_buffer) {
+    return {Status::Invalid("No payload")};
+  }
+
+  auto buffer_length = static_cast<int>(in_buffer->size());
+  CodedInputStream pb_stream(in_buffer->data(), buffer_length);
+
+  pb_stream.SetTotalBytesLimit(buffer_length);
+
+  // This is the bytes remaining when using CodedInputStream like this
+  while (pb_stream.BytesUntilTotalBytesLimit()) {
+    const uint32_t tag = pb_stream.ReadTag();
+    const int field_number = WireFormatLite::GetTagFieldNumber(tag);
+    switch (field_number) {
+      case pb::FlightData::kFlightDescriptorFieldNumber: {
+        pb::FlightDescriptor pb_descriptor;
+        uint32_t length;
+        if (!pb_stream.ReadVarint32(&length)) {
+          return {Status::Invalid("Unable to parse length of FlightDescriptor")};
+        }
+        // Can't use ParseFromCodedStream as this reads the entire
+        // rest of the stream into the descriptor command field.
+        std::string buffer;
+        pb_stream.ReadString(&buffer, length);
+        if (!pb_descriptor.ParseFromString(buffer)) {
+          return {Status::Invalid("Unable to parse FlightDescriptor")};
+        }
+        arrow::flight::FlightDescriptor descriptor;
+        ARROW_RETURN_NOT_OK(
+            arrow::flight::internal::FromProto(pb_descriptor, &descriptor));
+        out.descriptor = std::make_unique<arrow::flight::FlightDescriptor>(descriptor);
+      } break;
+      case pb::FlightData::kDataHeaderFieldNumber: {
+        if (!ReadBytesZeroCopy(in_buffer, &pb_stream, &out.metadata)) {
+          return {Status::Invalid("Unable to read FlightData metadata")};
+        }
+      } break;
+      case pb::FlightData::kAppMetadataFieldNumber: {
+        if (!ReadBytesZeroCopy(in_buffer, &pb_stream, &out.app_metadata)) {
+          return {Status::Invalid("Unable to read FlightData application metadata")};
+        }
+      } break;
+      case pb::FlightData::kDataBodyFieldNumber: {
+        if (!ReadBytesZeroCopy(in_buffer, &pb_stream, &out.body)) {
+          return {Status::Invalid("Unable to read FlightData body")};
+        }
+      } break;
+      default: {
+        // Unknown field. We should skip it for compatibility.
+        if (!WireFormatLite::SkipField(&pb_stream, tag)) {
+          return {Status::Invalid("Could not skip unknown field tag in FlightData")};
+        }
+        break;
+      }
+    }
+  }
+  // TODO(wesm): Where and when should we verify that the FlightData is not
+  // malformed?
+
+  // Set the default value for an unspecified FlightData body. The other
+  // fields can be null if they're unspecified.
+  if (out.body == nullptr) {
+    out.body = std::make_shared<Buffer>(nullptr, 0);
+  }
+
+  return out;
 }
 
 }  // namespace internal

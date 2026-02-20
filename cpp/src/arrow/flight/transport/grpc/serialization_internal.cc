@@ -32,8 +32,6 @@
 #  pragma warning(disable : 4267)
 #endif
 
-#include <google/protobuf/io/coded_stream.h>
-#include <google/protobuf/wire_format_lite.h>
 #include <grpc/byte_buffer_reader.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/impl/codegen/proto_utils.h>
@@ -58,24 +56,10 @@ namespace grpc {
 namespace pb = arrow::flight::protocol;
 
 static constexpr int64_t kInt32Max = std::numeric_limits<int32_t>::max();
-using google::protobuf::internal::WireFormatLite;
-using google::protobuf::io::CodedInputStream;
 
 using ::grpc::ByteBuffer;
 
 namespace {
-
-bool ReadBytesZeroCopy(const std::shared_ptr<Buffer>& source_data,
-                       CodedInputStream* input, std::shared_ptr<Buffer>* out) {
-  uint32_t length;
-  if (!input->ReadVarint32(&length)) {
-    return false;
-  }
-  auto buf =
-      SliceBuffer(source_data, input->CurrentPosition(), static_cast<int64_t>(length));
-  *out = buf;
-  return input->Skip(static_cast<int>(length));
-}
 
 // Internal wrapper for gRPC ByteBuffer so its memory can be exposed to Arrow
 // consumers with zero-copy
@@ -209,81 +193,16 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
     return {::grpc::StatusCode::INTERNAL, "No payload"};
   }
 
-  // Reset fields in case the caller reuses a single allocation
-  out->descriptor = nullptr;
-  out->app_metadata = nullptr;
-  out->metadata = nullptr;
-  out->body = nullptr;
-
   std::shared_ptr<arrow::Buffer> wrapped_buffer;
   GRPC_RETURN_NOT_OK(GrpcBuffer::Wrap(buffer, &wrapped_buffer));
-
-  auto buffer_length = static_cast<int>(wrapped_buffer->size());
-  CodedInputStream pb_stream(wrapped_buffer->data(), buffer_length);
-
-  pb_stream.SetTotalBytesLimit(buffer_length);
-
-  // This is the bytes remaining when using CodedInputStream like this
-  while (pb_stream.BytesUntilTotalBytesLimit()) {
-    const uint32_t tag = pb_stream.ReadTag();
-    const int field_number = WireFormatLite::GetTagFieldNumber(tag);
-    switch (field_number) {
-      case pb::FlightData::kFlightDescriptorFieldNumber: {
-        pb::FlightDescriptor pb_descriptor;
-        uint32_t length;
-        if (!pb_stream.ReadVarint32(&length)) {
-          return {::grpc::StatusCode::INTERNAL,
-                  "Unable to parse length of FlightDescriptor"};
-        }
-        // Can't use ParseFromCodedStream as this reads the entire
-        // rest of the stream into the descriptor command field.
-        std::string buffer;
-        pb_stream.ReadString(&buffer, length);
-        if (!pb_descriptor.ParseFromString(buffer)) {
-          return {::grpc::StatusCode::INTERNAL, "Unable to parse FlightDescriptor"};
-        }
-        arrow::flight::FlightDescriptor descriptor;
-        GRPC_RETURN_NOT_OK(
-            arrow::flight::internal::FromProto(pb_descriptor, &descriptor));
-        out->descriptor = std::make_unique<arrow::flight::FlightDescriptor>(descriptor);
-      } break;
-      case pb::FlightData::kDataHeaderFieldNumber: {
-        if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->metadata)) {
-          return {::grpc::StatusCode::INTERNAL, "Unable to read FlightData metadata"};
-        }
-      } break;
-      case pb::FlightData::kAppMetadataFieldNumber: {
-        if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->app_metadata)) {
-          return {::grpc::StatusCode::INTERNAL,
-                  "Unable to read FlightData application metadata"};
-        }
-      } break;
-      case pb::FlightData::kDataBodyFieldNumber: {
-        if (!ReadBytesZeroCopy(wrapped_buffer, &pb_stream, &out->body)) {
-          return {::grpc::StatusCode::INTERNAL, "Unable to read FlightData body"};
-        }
-      } break;
-      default: {
-        // Unknown field. We should skip it for compatibility.
-        if (!WireFormatLite::SkipField(&pb_stream, tag)) {
-          return {::grpc::StatusCode::INTERNAL,
-                  "Could not skip unknown field tag in FlightData"};
-        }
-        break;
-      }
-    }
-  }
+  // Release gRPC memory now that Arrow Buffer holds its own reference.
   buffer->Clear();
 
-  // TODO(wesm): Where and when should we verify that the FlightData is not
-  // malformed?
-
-  // Set the default value for an unspecified FlightData body. The other
-  // fields can be null if they're unspecified.
-  if (out->body == nullptr) {
-    out->body = std::make_shared<Buffer>(nullptr, 0);
+  auto result = arrow::flight::internal::DeserializeFlightData(wrapped_buffer);
+  if (!result.ok()) {
+    return ToGrpcStatus(result.status());
   }
-
+  *out = result.MoveValueUnsafe();
   return ::grpc::Status::OK;
 }
 

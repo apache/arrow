@@ -22,6 +22,8 @@
 #include <unordered_map>
 
 #include "arrow/flight/client_auth.h"
+// TODO: We shouldn't be exposing this directly.
+#include "arrow/flight/serialization_internal.h"
 #include "arrow/flight/transport_server.h"
 #include "arrow/flight/types.h"
 #include "arrow/flight/types_async.h"
@@ -35,6 +37,12 @@ namespace internal {
 
 ::arrow::Result<std::unique_ptr<ipc::Message>> FlightData::OpenMessage() {
   return ipc::Message::Open(metadata, body);
+}
+
+// TODO: We shouldn't be exposing this directly.
+::arrow::Result<FlightData> FlightData::DeserializeFrom(
+    const std::shared_ptr<Buffer>& buffer) {
+  return internal::DeserializeFlightData(buffer);
 }
 
 bool TransportDataStream::ReadData(internal::FlightData*) { return false; }
