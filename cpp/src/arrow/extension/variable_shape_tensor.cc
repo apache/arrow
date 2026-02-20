@@ -314,7 +314,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
   }
 
   return std::make_shared<VariableShapeTensorType>(value_type, ndim, permutation,
-                                                    dim_names, uniform_shape);
+                                                   dim_names, uniform_shape);
 }
 
 std::shared_ptr<DataType> variable_shape_tensor(
