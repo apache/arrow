@@ -26,7 +26,6 @@
 #include "arrow/array/array_primitive.h"
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/tensor.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
 #include "arrow/util/sort_internal.h"
@@ -114,7 +113,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
       internal::checked_pointer_cast<FixedSizeListType>(storage_type)->value_type();
   rj::Document document;
   if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
-      !document.HasMember("shape") || !document["shape"].IsArray()) {
+      !document.IsObject() || !document.HasMember("shape") ||
+      !document["shape"].IsArray()) {
     return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
   }
 
@@ -251,7 +251,7 @@ Result<std::shared_ptr<FixedShapeTensorArray>> FixedShapeTensorArray::FromTensor
       break;
     }
     case Type::UINT64: {
-      value_array = std::make_shared<Int64Array>(tensor->size(), tensor->data());
+      value_array = std::make_shared<UInt64Array>(tensor->size(), tensor->data());
       break;
     }
     case Type::INT64: {
@@ -370,7 +370,7 @@ std::shared_ptr<DataType> fixed_shape_tensor(const std::shared_ptr<DataType>& va
                                              const std::vector<int64_t>& permutation,
                                              const std::vector<std::string>& dim_names) {
   auto maybe_type = FixedShapeTensorType::Make(value_type, shape, permutation, dim_names);
-  ARROW_DCHECK_OK(maybe_type.status());
+  ARROW_CHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }
 
