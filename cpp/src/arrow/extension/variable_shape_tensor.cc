@@ -24,7 +24,6 @@
 #include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/scalar.h"
 #include "arrow/tensor.h"
-#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/print_internal.h"
 #include "arrow/util/sort_internal.h"
@@ -151,7 +150,8 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
           .list_size();
 
   rj::Document document;
-  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError()) {
+  if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
+      !document.IsObject()) {
     return Status::Invalid("Invalid serialized JSON data: ", serialized_data);
   }
 
@@ -278,8 +278,7 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
       const auto buffer,
       SliceBufferSafe(data_array->data()->buffers[1], start_position, size * byte_width));
 
-  return Tensor::Make(ext_type.value_type(), std::move(buffer), std::move(shape),
-                      std::move(strides), std::move(dim_names));
+  return Tensor::Make(ext_type.value_type(), buffer, shape, strides, dim_names);
 }
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
@@ -288,6 +287,9 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::vector<std::optional<int64_t>>& uniform_shape) {
   if (!is_fixed_width(*value_type)) {
     return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
+  }
+  if (ndim < 0) {
+    return Status::Invalid("ndim must be non-negative. Got: ", ndim);
   }
 
   if (!dim_names.empty() && dim_names.size() != static_cast<size_t>(ndim)) {
@@ -319,11 +321,11 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
 
 std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, int32_t ndim,
-    std::vector<int64_t> permutation, std::vector<std::string> dim_names,
-    std::vector<std::optional<int64_t>> uniform_shape) {
+    const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
+    const std::vector<std::optional<int64_t>>& uniform_shape) {
   auto maybe_type =
-      VariableShapeTensorType::Make(value_type, ndim, std::move(permutation),
-                                    std::move(dim_names), std::move(uniform_shape));
+      VariableShapeTensorType::Make(value_type, ndim, permutation, dim_names,
+                                    uniform_shape);
   ARROW_CHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }

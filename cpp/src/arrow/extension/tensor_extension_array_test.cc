@@ -724,7 +724,7 @@ TEST_F(TestVariableShapeTensorType, CreateExtensionType) {
   ASSERT_TRUE(deserialized->Equals(*exact_ext_type));
   ASSERT_TRUE(deserialized->Equals(*ext_type_));
 
-  // Test FixedShapeTensorType methods
+  // Test VariableShapeTensorType methods
   ASSERT_EQ(exact_ext_type->id(), Type::EXTENSION);
   ASSERT_EQ(exact_ext_type->ndim(), ndim_);
   ASSERT_EQ(exact_ext_type->value_type(), value_type_);
@@ -796,7 +796,7 @@ TEST_F(TestVariableShapeTensorType, MetadataSerializationRoundtrip) {
                              "Invalid: dim_names");
 }
 
-TEST_F(TestVariableShapeTensorType, RoudtripBatch) {
+TEST_F(TestVariableShapeTensorType, RoundtripBatch) {
   auto exact_ext_type =
       internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);
 
@@ -820,12 +820,12 @@ TEST_F(TestVariableShapeTensorType, RoudtripBatch) {
 }
 
 TEST_F(TestVariableShapeTensorType, ComputeStrides) {
-  auto shapes = ArrayFromJSON(shape_type_, "[[2,3,1],[2,1,2],[3,1,3],null]");
+  auto shape = ArrayFromJSON(shape_type_, "[[2,3,1],[2,1,2],[3,1,3],null]");
   auto data = ArrayFromJSON(
       data_type_, "[[1,1,2,3,4,5],[2,7,8,9],[10,11,12,13,14,15,16,17,18],null]");
   std::vector<std::shared_ptr<Field>> fields = {field("data", data_type_),
-                                                field("shapes", shape_type_)};
-  ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({data, shapes}, fields));
+                                                field("shape", shape_type_)};
+  ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({data, shape}, fields));
   auto ext_arr = ExtensionType::WrapArray(ext_type_, storage_arr);
   auto exact_ext_type =
       internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);

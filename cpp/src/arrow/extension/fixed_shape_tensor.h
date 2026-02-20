@@ -111,7 +111,6 @@ class ARROW_EXPORT FixedShapeTensorType : public ExtensionType {
       const std::vector<std::string>& dim_names = {});
 
  private:
-  std::shared_ptr<DataType> storage_type_;
   std::shared_ptr<DataType> value_type_;
   std::vector<int64_t> shape_;
   std::vector<int64_t> strides_;

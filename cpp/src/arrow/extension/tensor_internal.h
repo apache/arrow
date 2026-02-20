@@ -22,7 +22,8 @@
 
 #include <span>
 
-#include "arrow/array/array_nested.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow::internal {
 
