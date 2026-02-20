@@ -278,6 +278,8 @@ class PackageTask
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",
       # "ubuntu-noble-arm64",
+      "ubuntu-resolute",
+      # "ubuntu-resolute-arm64",
     ]
   end
 

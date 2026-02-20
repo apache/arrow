@@ -218,7 +218,8 @@ test_apt() {
                     "debian:trixie" \
                     "debian:forky" \
                     "ubuntu:jammy" \
-                    "ubuntu:noble"; do \
+                    "ubuntu:noble" \
+                    "ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/x86_64 \
                --rm \
@@ -238,7 +239,8 @@ test_apt() {
                     "arm64v8/debian:trixie" \
                     "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
-                    "arm64v8/ubuntu:noble"; do \
+                    "arm64v8/ubuntu:noble" \
+                    "arm64v8/ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/arm64 \
                --rm \
