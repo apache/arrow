@@ -17,15 +17,24 @@
 
 #include "arrow/extension/tensor_internal.h"
 
-#include "arrow/tensor.h"
-#include "arrow/util/checked_cast.h"
+#include <numeric>
+
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/int_util_overflow.h"
+#include "arrow/util/print_internal.h"
 #include "arrow/util/sort_internal.h"
 
-#include "arrow/status.h"
-#include "arrow/util/print_internal.h"
-
 namespace arrow::internal {
+
+bool IsPermutationTrivial(const std::vector<int64_t>& permutation) {
+  for (size_t i = 1; i < permutation.size(); ++i) {
+    if (permutation[i - 1] + 1 != permutation[i]) {
+      return false;
+    }
+  }
+  return true;
+}
 
 Status IsPermutationValid(const std::vector<int64_t>& permutation) {
   const auto size = static_cast<int64_t>(permutation.size());
@@ -43,20 +52,25 @@ Status IsPermutationValid(const std::vector<int64_t>& permutation) {
   return Status::OK();
 }
 
-Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                      const std::vector<int64_t>& shape,
-                      const std::vector<int64_t>& permutation,
-                      std::vector<int64_t>* strides) {
-  auto fixed_width_type = internal::checked_pointer_cast<FixedWidthType>(value_type);
-  if (permutation.empty()) {
-    return internal::ComputeRowMajorStrides(*fixed_width_type.get(), shape, strides);
-  }
+Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                                            const std::vector<int64_t>& shape,
+                                            const std::vector<int64_t>& permutation) {
+  const auto ndim = shape.size();
   const int byte_width = value_type->byte_width();
+
+  // Use identity permutation if none provided
+  std::vector<int64_t> perm;
+  if (permutation.empty()) {
+    perm.resize(ndim);
+    std::iota(perm.begin(), perm.end(), 0);
+  } else {
+    perm = permutation;
+  }
 
   int64_t remaining = 0;
   if (!shape.empty() && shape.front() > 0) {
     remaining = byte_width;
-    for (auto i : permutation) {
+    for (auto i : perm) {
       if (i > 0) {
         if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
           return Status::Invalid(
@@ -66,21 +80,22 @@ Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
     }
   }
 
+  std::vector<int64_t> strides;
   if (remaining == 0) {
-    strides->assign(shape.size(), byte_width);
-    return Status::OK();
+    strides.assign(ndim, byte_width);
+    return strides;
   }
 
-  strides->push_back(remaining);
-  for (auto i : permutation) {
+  strides.push_back(remaining);
+  for (auto i : perm) {
     if (i > 0) {
       remaining /= shape[i];
-      strides->push_back(remaining);
+      strides.push_back(remaining);
     }
   }
-  internal::Permute(permutation, strides);
+  internal::Permute(perm, &strides);
 
-  return Status::OK();
+  return strides;
 }
 
 }  // namespace arrow::internal
