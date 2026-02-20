@@ -23,10 +23,10 @@
 
 #include "arrow/array.h"
 #include "arrow/array/builder_primitive.h"
-#include "arrow/flight/protocol_internal.h"
-#include "arrow/flight/serialization_internal.h"
+#include "arrow/flight/flight_data_decoder.h"
 #include "arrow/flight/server.h"
 #include "arrow/flight/transport/grpc/customize_grpc.h"
+// Currently used for `SliceFromBuffer` and `WrapGrpcBuffer`.
 #include "arrow/flight/transport/grpc/serialization_internal.h"
 #include "arrow/record_batch.h"
 
@@ -95,6 +95,8 @@ class DoGetReactor : public ::grpc::ServerGenericBidiReactor {
     std::vector<::grpc::Slice> slices;
     slices.reserve(buffers.size());
     for (const auto& buf : buffers) {
+      // Should we move this out of the internal files and expose as
+      // utility to the users?
       slices.push_back(SliceFromBuffer(buf).ValueOrDie());
     }
     write_buf_ = ::grpc::ByteBuffer(slices.data(), slices.size());
@@ -107,9 +109,33 @@ class DoGetReactor : public ::grpc::ServerGenericBidiReactor {
   std::unique_ptr<FlightDataStream> data_stream_;
 };
 
+// A listener that counts received batches, only for PoC purposes.
+class DoPutListener : public arrow::flight::FlightDataListener {
+ public:
+  arrow::Status OnSchemaDecoded(std::shared_ptr<arrow::Schema> schema) override {
+    schema_ = std::move(schema);
+    return arrow::Status::OK();
+  }
+
+  arrow::Status OnNext(arrow::flight::FlightStreamChunk chunk) override {
+    if (chunk.data) {
+      ++batches_received_;
+    }
+    return arrow::Status::OK();
+  }
+
+  int batches_received() const { return batches_received_; }
+
+ private:
+  std::shared_ptr<arrow::Schema> schema_;
+  int batches_received_ = 0;
+};
+
 class DoPutReactor : public ::grpc::ServerGenericBidiReactor {
  public:
-  DoPutReactor() { StartRead(&request_buf_); }
+  DoPutReactor() : decoder_(std::make_shared<DoPutListener>()) {
+    StartRead(&request_buf_);
+  }
 
   void OnReadDone(bool ok) override {
     // Request has been read.
@@ -123,13 +149,28 @@ class DoPutReactor : public ::grpc::ServerGenericBidiReactor {
       StartWrite(&write_buf_);
       return;
     }
-    // DoPut requests are a stream of FlightData messages.
-    // Deserialize directly from the grpc::ByteBuffer. This is the key
-    // we are trying to test in this PoC.
-    arrow::flight::internal::FlightData flight_data;
-    auto status = FlightDataDeserialize(&request_buf_, &flight_data);
-    if (!status.ok()) {
-      Finish(status);
+
+    // Extract Arrow buffers from the gRPC ByteBuffer, then feed it to
+    // the FlightMessageDecoder which fires Listener callbacks
+    // (OnSchemaDecoded / OnNext).
+    std::shared_ptr<arrow::Buffer> arrow_buf;
+    // TODO: What do we do with the WrapGrpcBuffer? This is internal and
+    // we don't want to expose it but it's quite complex to leave it to the
+    // user to implement. Similar to SliceFromBuffer, should we move this out
+    // of the serialization_internal file and expose as a utility to the user?
+    auto wrap_status = WrapGrpcBuffer(&request_buf_, &arrow_buf);
+    if (!wrap_status.ok()) {
+      Finish(::grpc::Status(::grpc::StatusCode::INTERNAL,
+                            "Failed to wrap gRPC buffer: " + wrap_status.message()));
+      return;
+    }
+
+    // Push the buffer into the decoder, which will fire the appropriate calls to the
+    // listener.
+    auto decode_status = decoder_.Consume(std::move(arrow_buf));
+    if (!decode_status.ok()) {
+      Finish(::grpc::Status(::grpc::StatusCode::INTERNAL,
+                            "Failed to decode Arrow buffer: " + decode_status.message()));
       return;
     }
     // Read next FlightData
@@ -152,6 +193,7 @@ class DoPutReactor : public ::grpc::ServerGenericBidiReactor {
   void OnDone() override { delete this; }
 
  private:
+  arrow::flight::FlightMessageDecoder decoder_;
   ::grpc::ByteBuffer request_buf_;
   ::grpc::ByteBuffer write_buf_;
 };

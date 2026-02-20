@@ -185,6 +185,13 @@ arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<Buffer>& buf)
   return ::grpc::Status::OK;
 }
 
+arrow::Status WrapGrpcBuffer(::grpc::ByteBuffer* grpc_buf,
+                             std::shared_ptr<arrow::Buffer>* out) {
+  ARROW_RETURN_NOT_OK(GrpcBuffer::Wrap(grpc_buf, out));
+  grpc_buf->Clear();
+  return arrow::Status::OK();
+}
+
 // Read internal::FlightData from grpc::ByteBuffer containing FlightData
 // protobuf without copying
 ::grpc::Status FlightDataDeserialize(ByteBuffer* buffer,

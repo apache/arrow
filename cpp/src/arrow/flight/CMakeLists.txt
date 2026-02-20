@@ -179,6 +179,7 @@ set(ARROW_FLIGHT_SRCS
     client_cookie_middleware.cc
     client_tracing_middleware.cc
     cookie_internal.cc
+    flight_data_decoder.cc
     middleware.cc
     serialization_internal.cc
     server.cc
