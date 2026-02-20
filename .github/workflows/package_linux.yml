@@ -109,6 +109,8 @@ jobs:
           - ubuntu-jammy-arm64
           - ubuntu-noble-amd64
           - ubuntu-noble-arm64
+          - ubuntu-resolute-amd64
+          - ubuntu-resolute-arm64
     env:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
