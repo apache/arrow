@@ -25,12 +25,14 @@
 namespace arrow::internal {
 
 ARROW_EXPORT
+bool IsPermutationTrivial(const std::vector<int64_t>& permutation);
+
+ARROW_EXPORT
 Status IsPermutationValid(const std::vector<int64_t>& permutation);
 
 ARROW_EXPORT
-Status ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                      const std::vector<int64_t>& shape,
-                      const std::vector<int64_t>& permutation,
-                      std::vector<int64_t>* strides);
+Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                                            const std::vector<int64_t>& shape,
+                                            const std::vector<int64_t>& permutation);
 
 }  // namespace arrow::internal

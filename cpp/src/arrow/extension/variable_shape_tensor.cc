@@ -47,18 +47,11 @@ bool VariableShapeTensorType::ExtensionEquals(const ExtensionType& other) const 
     return false;
   }
 
-  auto is_permutation_trivial = [](const std::vector<int64_t>& permutation) {
-    for (size_t i = 1; i < permutation.size(); ++i) {
-      if (permutation[i - 1] + 1 != permutation[i]) {
-        return false;
-      }
-    }
-    return true;
-  };
   const bool permutation_equivalent =
       ((permutation_ == other_ext.permutation()) ||
-       (permutation_.empty() && is_permutation_trivial(other_ext.permutation())) ||
-       (is_permutation_trivial(permutation_) && other_ext.permutation().empty()));
+       (permutation_.empty() &&
+        internal::IsPermutationTrivial(other_ext.permutation())) ||
+       (internal::IsPermutationTrivial(permutation_) && other_ext.permutation().empty()));
 
   return (storage_type()->Equals(other_ext.storage_type())) &&
          (dim_names_ == other_ext.dim_names()) &&
@@ -166,8 +159,15 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
 
   std::vector<int64_t> permutation;
   if (document.HasMember("permutation")) {
+    const auto& json_permutation = document["permutation"];
+    if (!json_permutation.IsArray()) {
+      return Status::Invalid("permutation must be an array");
+    }
     permutation.reserve(ndim);
-    for (const auto& x : document["permutation"].GetArray()) {
+    for (const auto& x : json_permutation.GetArray()) {
+      if (!x.IsInt64()) {
+        return Status::Invalid("permutation must contain integers");
+      }
       permutation.emplace_back(x.GetInt64());
     }
   }
@@ -246,16 +246,15 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     internal::Permute<std::string>(permutation, &dim_names);
   }
 
-  std::vector<int64_t> strides;
-  ARROW_RETURN_NOT_OK(
-      internal::ComputeStrides(ext_type.value_type(), shape, permutation, &strides));
+  ARROW_ASSIGN_OR_RAISE(
+      auto strides, internal::ComputeStrides(ext_type.value_type(), shape, permutation));
   internal::Permute<int64_t>(permutation, &shape);
 
   const auto byte_width = value_type.byte_width();
   const auto start_position = data_array->offset() * byte_width;
   const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
                                     std::multiplies<>());
-  ARROW_CHECK_EQ(size * byte_width, data_array->length() * byte_width);
+  ARROW_CHECK_EQ(size, data_array->length());
   ARROW_ASSIGN_OR_RAISE(
       const auto buffer,
       SliceBufferSafe(data_array->data()->buffers[1], start_position, size * byte_width));
