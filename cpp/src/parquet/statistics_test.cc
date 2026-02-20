@@ -323,7 +323,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     auto statistics2 = MakeStatistics<TestType>(
         this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
         /*null_count=*/0, /*distinct_count=*/0,
-        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true,
+        /*has_min_max=*/true, /*has_distinct_count=*/true,
         /*is_min_value_exact=*/true, /*is_max_value_exact=*/true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
@@ -338,7 +338,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     auto statistics4 = MakeStatistics<TestType>(
         this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
         /*null_count=*/0, /*distinct_count=*/0,
-        /*has_min_max=*/true, /*has_null_count=*/true, /*has_distinct_count=*/true);
+        /*has_min_max=*/true, /*has_distinct_count=*/true);
     ASSERT_EQ(encoded_min, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
@@ -572,7 +572,7 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
   auto statistics2 = MakeStatistics<ByteArrayType>(
       this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
       /*null_count=*/0,
-      /*distinct_count=*/0, /*has_min_max=*/true, /*has_null_count=*/true,
+      /*distinct_count=*/0, /*has_min_max=*/true,
       /*has_distinct_count=*/true, /*is_min_value_exact=*/true,
       /*is_max_value_exact=*/true);
 
@@ -758,7 +758,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       auto encoded_stats1 = statistics1->Encode();
       EXPECT_TRUE(statistics1->HasNullCount());
       EXPECT_EQ(0, statistics1->null_count());
-      EXPECT_TRUE(statistics1->Encode().has_null_count);
+      EXPECT_TRUE(statistics1->Encode().null_count.has_value());
     }
     // Merge with null-count should also have null count
     VerifyMergedStatistics(*statistics1, *statistics1,
@@ -766,7 +766,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
                              EXPECT_TRUE(merged_statistics->HasNullCount());
                              EXPECT_EQ(0, merged_statistics->null_count());
                              auto encoded = merged_statistics->Encode();
-                             EXPECT_TRUE(encoded.has_null_count);
+                             EXPECT_TRUE(encoded.null_count.has_value());
                              EXPECT_EQ(0, encoded.null_count);
                            });
 
@@ -774,34 +774,35 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     std::shared_ptr<TypedStatistics<TestType>> statistics2;
     {
       EncodedStatistics encoded_statistics2;
-      encoded_statistics2.has_null_count = false;
+      encoded_statistics2.null_count.reset();
       statistics2 = std::dynamic_pointer_cast<TypedStatistics<TestType>>(
           Statistics::Make(this->schema_.Column(0), &encoded_statistics2,
                            /*num_values=*/1000));
-      EXPECT_FALSE(statistics2->Encode().has_null_count);
+      EXPECT_FALSE(statistics2->Encode().null_count.has_value());
       EXPECT_FALSE(statistics2->HasNullCount());
     }
 
     // Merge without null-count should not have null count
-    VerifyMergedStatistics(*statistics1, *statistics2,
-                           [](TypedStatistics<TestType>* merged_statistics) {
-                             EXPECT_FALSE(merged_statistics->HasNullCount());
-                             EXPECT_FALSE(merged_statistics->Encode().has_null_count);
-                           });
+    // BUG: Failing here
+    VerifyMergedStatistics(
+        *statistics1, *statistics2, [](TypedStatistics<TestType>* merged_statistics) {
+          EXPECT_FALSE(merged_statistics->HasNullCount());
+          EXPECT_FALSE(merged_statistics->Encode().null_count.has_value());
+        });
   }
 
   // statistics.all_null_value is used to build the page index.
   // If statistics doesn't have null count, all_null_value should be false.
   void TestMissingNullCount() {
     EncodedStatistics encoded_statistics;
-    encoded_statistics.has_null_count = false;
+    encoded_statistics.null_count.reset();
     auto statistics = Statistics::Make(this->schema_.Column(0), &encoded_statistics,
                                        /*num_values=*/1000);
     auto typed_stats = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics);
     EXPECT_FALSE(typed_stats->HasNullCount());
     auto encoded = typed_stats->Encode();
     EXPECT_FALSE(encoded.all_null_value);
-    EXPECT_FALSE(encoded.has_null_count);
+    EXPECT_FALSE(encoded.null_count.has_value());
     EXPECT_FALSE(encoded.has_distinct_count);
     EXPECT_FALSE(encoded.has_min);
     EXPECT_FALSE(encoded.has_max);
@@ -1653,7 +1654,7 @@ TEST(TestStatisticsSortOrder, UNKNOWN) {
   ASSERT_TRUE(column_chunk->is_stats_set());
 
   std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
-  ASSERT_TRUE(enc_stats->has_null_count);
+  ASSERT_TRUE(enc_stats->null_count.has_value());
   ASSERT_FALSE(enc_stats->has_distinct_count);
   ASSERT_FALSE(enc_stats->has_min);
   ASSERT_FALSE(enc_stats->has_max);

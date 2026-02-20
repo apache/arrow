@@ -1084,7 +1084,7 @@ void ColumnWriterImpl::BuildDataPageV2(int64_t definition_levels_rle_size,
 
   // page_stats.null_count is not set when page_statistics_ is nullptr. It is only used
   // here for safety check.
-  DCHECK(!page_stats.has_null_count || page_stats.null_count == null_count);
+  DCHECK(!page_stats.null_count.has_value() || page_stats.null_count == null_count);
 
   // Write the page to OutputStream eagerly if there is no dictionary or
   // if dictionary encoding has fallen back to PLAIN

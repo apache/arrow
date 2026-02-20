@@ -491,8 +491,8 @@ static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
       statistics.__set_max(stats.max());
     }
   }
-  if (stats.has_null_count) {
-    statistics.__set_null_count(stats.null_count);
+  if (stats.null_count) {
+    statistics.__set_null_count(*stats.null_count);
   }
   if (stats.has_distinct_count) {
     statistics.__set_distinct_count(stats.distinct_count);

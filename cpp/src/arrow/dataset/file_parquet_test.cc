@@ -941,9 +941,8 @@ TEST(TestParquetStatistics, NoNullCount) {
     ::parquet::EncodedStatistics encoded_stats;
     encoded_stats.set_min(int32_to_parquet_stats(1));
     encoded_stats.set_max(int32_to_parquet_stats(100));
-    encoded_stats.has_null_count = false;
     encoded_stats.all_null_value = false;
-    encoded_stats.null_count = 0;
+    encoded_stats.null_count.reset();
     auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/10);
 
     auto stat_expression =
@@ -956,7 +955,6 @@ TEST(TestParquetStatistics, NoNullCount) {
     // Special case: when num_value is 0, it would return
     // "is_null".
     ::parquet::EncodedStatistics encoded_stats;
-    encoded_stats.has_null_count = true;
     encoded_stats.null_count = 1;
     encoded_stats.all_null_value = true;
     auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
@@ -965,7 +963,7 @@ TEST(TestParquetStatistics, NoNullCount) {
     ASSERT_TRUE(stat_expression.has_value());
     EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
 
-    encoded_stats.has_null_count = false;
+    encoded_stats.null_count.reset();
     encoded_stats.all_null_value = false;
     stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
     stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);

@@ -174,7 +174,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
             stats->is_min_value_exact.has_value()
                 ? (stats->is_min_value_exact.value() ? "true" : "false")
                 : "unknown";
-        stream << ", Null Values: " << stats->null_count
+        stream << ", Null Values: " << stats->null_count.value_or(0)
                << ", Distinct Values: " << stats->distinct_count << std::endl
                << "  Max (exact: " << max_exact << "): "
                << FormatStatValue(descr->physical_type(), max, descr->logical_type())
