@@ -4651,6 +4651,29 @@ def test_chunked_array_to_pandas_types_mapper():
     assert result.dtype == np.dtype("int64")
 
 
+@pytest.mark.parametrize(
+    "string_type", [pa.string(), pa.large_string(), pa.string_view()]
+)
+@pytest.mark.parametrize("data", [[], [None]])
+def test_array_to_pandas_string_dtype(string_type, data):
+    # GH-49002
+    if Version(pd.__version__) < Version("3.0.0"):
+        pytest.skip("PyArrow backed string dtype missing")
+
+    arr = pa.array(data, type=string_type)
+    result = arr.to_pandas()
+    assert result.dtype == pd.StringDtype(na_value=np.nan)
+
+    arr = pa.chunked_array([data], type=string_type)
+    result = arr.to_pandas()
+    assert result.dtype == pd.StringDtype(na_value=np.nan)
+
+    # Test types_mapper takes precedence
+    types_mapper = {string_type: None}.get
+    result = arr.to_pandas(types_mapper=types_mapper)
+    assert result.dtype == np.dtype("object")
+
+
 # ----------------------------------------------------------------------
 # Legacy metadata compatibility tests
 
