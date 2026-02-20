@@ -71,6 +71,7 @@
 #' Requires appropriate permissions on the storage backend. If set to FALSE,
 #' directories are assumed to be already present if writing on a classic
 #' hierarchical filesystem. Default is TRUE
+#' @param preserve_order Keep the row-ordering the same.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -138,6 +139,7 @@ write_dataset <- function(
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
   create_directory = TRUE,
+  preserve_order = FALSE,
   ...
 ) {
   format <- match.arg(format)
@@ -238,7 +240,8 @@ write_dataset <- function(
     max_rows_per_file,
     min_rows_per_group,
     max_rows_per_group,
-    create_directory
+    create_directory,
+    preserve_order
   )
 }
 
