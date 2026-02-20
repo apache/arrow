@@ -474,8 +474,14 @@ cdef class ColumnChunkMetaData(_Weakrefable):
   has_dictionary_page: {self.has_dictionary_page}
   dictionary_page_offset: {self.dictionary_page_offset}
   data_page_offset: {self.data_page_offset}
+  has_index_page: {self.has_index_page}
+  index_page_offset: {self.index_page_offset}
+  has_bloom_filter: {self.has_bloom_filter}
+  bloom_filter_offset: {self.bloom_filter_offset}
   total_compressed_size: {self.total_compressed_size}
-  total_uncompressed_size: {self.total_uncompressed_size}"""
+  total_uncompressed_size: {self.total_uncompressed_size}
+  has_offset_index: {self.has_offset_index}
+  has_column_index: {self.has_column_index}"""
 
     def to_dict(self):
         """
@@ -506,8 +512,14 @@ cdef class ColumnChunkMetaData(_Weakrefable):
             has_dictionary_page=self.has_dictionary_page,
             dictionary_page_offset=self.dictionary_page_offset,
             data_page_offset=self.data_page_offset,
+            has_index_page=self.has_index_page,
+            index_page_offset=self.index_page_offset,
+            has_bloom_filter=self.has_bloom_filter,
+            bloom_filter_offset=self.bloom_filter_offset,
             total_compressed_size=self.total_compressed_size,
-            total_uncompressed_size=self.total_uncompressed_size
+            total_uncompressed_size=self.total_uncompressed_size,
+            has_offset_index=self.has_offset_index,
+            has_column_index=self.has_column_index
         )
         return d
 
@@ -627,13 +639,30 @@ cdef class ColumnChunkMetaData(_Weakrefable):
 
     @property
     def has_index_page(self):
-        """Not yet supported."""
-        raise NotImplementedError('not supported in parquet-cpp')
+        """Whether there is an index data present in the column chunk (bool)."""
+        return self.metadata.has_index_page()
 
     @property
     def index_page_offset(self):
-        """Not yet supported."""
-        raise NotImplementedError("parquet-cpp doesn't return valid values")
+        """Offset of index page relative to beginning of the file (int or None)."""
+        return self.metadata.index_page_offset() if self.has_index_page else None
+
+    @property
+    def has_bloom_filter(self):
+        """Whether there is a bloom filter present in the column chunk (bool)."""
+        return self.metadata.bloom_filter_offset().has_value()
+
+    @property
+    def bloom_filter_offset(self):
+        """Offset of bloom filter relative to beginning of the file (int or None)."""
+        offset = self.metadata.bloom_filter_offset()
+        return offset.value() if offset.has_value() else None
+
+    @property
+    def bloom_filter_length(self):
+        """Length of bloom filter (int or None)."""
+        length = self.metadata.bloom_filter_length()
+        return length.value() if length.has_value() else None
 
     @property
     def total_compressed_size(self):
