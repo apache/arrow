@@ -370,7 +370,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
-  bool may_have_null = !statistics.HasNullCount() || statistics.null_count() > 0;
+  bool may_have_null = !statistics.HasNullCount() || statistics.NullCount().value() > 0;
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0) {
     // If there are no non-null values, column `field_ref` in the fragment
@@ -540,7 +540,7 @@ Future<std::shared_ptr<parquet::arrow::FileReader>> ParquetFileFormat::GetReader
     return parquet::ParquetFileReader::OpenAsync(input, properties, metadata)
         .Then(
             [=](const std::unique_ptr<parquet::ParquetFileReader>& reader) mutable
-            -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
+                -> Result<std::shared_ptr<parquet::arrow::FileReader>> {
               auto arrow_properties = MakeArrowReaderProperties(
                   *self, *reader->metadata(), *options, *parquet_scan_options);
 
