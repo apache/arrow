@@ -22,7 +22,7 @@
 # distutils: language = c++
 # cython: language_level = 3
 
-from pyarrow.lib import Table, RecordBatch, array
+from pyarrow.lib import Table, RecordBatch, array, Schema
 from pyarrow.compute import Expression, field
 
 try:
@@ -49,11 +49,14 @@ try:
 except ImportError:
     class DatasetModuleStub:
         class Dataset:
-            pass
+            @property
+            def schema(self):
+                return Schema()
 
         class InMemoryDataset:
-            pass
-    ds = DatasetModuleStub
+            def __init__(self, source):
+                pass
+    ds = DatasetModuleStub  # type: ignore[assignment]
 
 
 def _dataset_to_decl(dataset, use_threads=True, implicit_ordering=False):
@@ -306,7 +309,7 @@ def _perform_join_asof(left_operand, left_on, left_by,
     # AsofJoin does not return on or by columns for right_operand.
     right_columns = [
         col for col in right_operand.schema.names
-        if col not in [right_on] + right_by
+        if col not in [right_on] + right_by  # type: ignore[reportOperatorIssue]
     ]
     columns_collisions = set(left_operand.schema.names) & set(right_columns)
     if columns_collisions:

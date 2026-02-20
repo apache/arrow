@@ -114,13 +114,13 @@ elif sys.platform == "emscripten":
     defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
 
 try:
-    import cython  # noqa
+    import cython  # type: ignore[import-untyped, import-not-found] # noqa
     defaults['cython'] = True
 except ImportError:
     pass
 
 try:
-    import fastparquet  # noqa
+    import fastparquet  # type: ignore[import-untyped, import-not-found] # noqa
     defaults['fastparquet'] = True
 except ImportError:
     pass
@@ -347,7 +347,7 @@ def unary_agg_func_fixture():
 
     pc.register_aggregate_function(func,
                                    func_name,
-                                   func_doc,
+                                   func_doc,  # type: ignore
                                    {
                                        "x": pa.float64(),
                                    },
