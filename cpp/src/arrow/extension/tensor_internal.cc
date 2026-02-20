@@ -27,7 +27,7 @@
 
 namespace arrow::internal {
 
-bool IsPermutationTrivial(util::span<const int64_t> permutation) {
+bool IsPermutationTrivial(std::span<const int64_t> permutation) {
   for (size_t i = 1; i < permutation.size(); ++i) {
     if (permutation[i - 1] + 1 != permutation[i]) {
       return false;
@@ -36,7 +36,7 @@ bool IsPermutationTrivial(util::span<const int64_t> permutation) {
   return true;
 }
 
-Status IsPermutationValid(util::span<const int64_t> permutation) {
+Status IsPermutationValid(std::span<const int64_t> permutation) {
   const auto size = static_cast<int64_t>(permutation.size());
   std::vector<uint8_t> dim_seen(size, 0);
 
@@ -53,8 +53,8 @@ Status IsPermutationValid(util::span<const int64_t> permutation) {
 }
 
 Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                                            util::span<const int64_t> shape,
-                                            util::span<const int64_t> permutation) {
+                                            std::span<const int64_t> shape,
+                                            std::span<const int64_t> permutation) {
   const auto ndim = shape.size();
   const int byte_width = value_type->byte_width();
 
