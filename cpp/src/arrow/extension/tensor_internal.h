@@ -20,20 +20,21 @@
 #include <cstdint>
 #include <vector>
 
+#include <span>
+
 #include "arrow/array/array_nested.h"
-#include "arrow/util/span.h"
 
 namespace arrow::internal {
 
 ARROW_EXPORT
-bool IsPermutationTrivial(util::span<const int64_t> permutation);
+bool IsPermutationTrivial(std::span<const int64_t> permutation);
 
 ARROW_EXPORT
-Status IsPermutationValid(util::span<const int64_t> permutation);
+Status IsPermutationValid(std::span<const int64_t> permutation);
 
 ARROW_EXPORT
 Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
-                                            util::span<const int64_t> shape,
-                                            util::span<const int64_t> permutation);
+                                            std::span<const int64_t> shape,
+                                            std::span<const int64_t> permutation);
 
 }  // namespace arrow::internal
