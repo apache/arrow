@@ -32,8 +32,8 @@ namespace parquet {
 
 namespace {
 
-void MergeLevelHistogram(::arrow::util::span<int64_t> histogram,
-                         ::arrow::util::span<const int64_t> other) {
+void MergeLevelHistogram(std::span<int64_t> histogram,
+                         std::span<const int64_t> other) {
   ARROW_DCHECK_EQ(histogram.size(), other.size());
   std::transform(histogram.begin(), histogram.end(), other.begin(), histogram.begin(),
                  std::plus<>());
@@ -143,8 +143,8 @@ std::ostream& operator<<(std::ostream& os, const SizeStatistics& size_stats) {
   return os;
 }
 
-void UpdateLevelHistogram(::arrow::util::span<const int16_t> levels,
-                          ::arrow::util::span<int64_t> histogram) {
+void UpdateLevelHistogram(std::span<const int16_t> levels,
+                          std::span<int64_t> histogram) {
   const int64_t num_levels = static_cast<int64_t>(levels.size());
   DCHECK_GE(histogram.size(), 1);
   const int16_t max_level = static_cast<int16_t>(histogram.size() - 1);

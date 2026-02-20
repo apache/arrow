@@ -19,6 +19,7 @@
 
 #include <memory>
 #include <mutex>
+#include <span>
 #include <string>
 #include <vector>
 
@@ -52,8 +53,8 @@ class PARQUET_EXPORT Decryptor {
 
   [[nodiscard]] int32_t PlaintextLength(int32_t ciphertext_len) const;
   [[nodiscard]] int32_t CiphertextLength(int32_t plaintext_len) const;
-  int32_t Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                  ::arrow::util::span<uint8_t> plaintext);
+  int32_t Decrypt(std::span<const uint8_t> ciphertext,
+                  std::span<uint8_t> plaintext);
 
  private:
   std::unique_ptr<encryption::AesDecryptor> aes_decryptor_;

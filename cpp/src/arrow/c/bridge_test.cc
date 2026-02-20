@@ -592,8 +592,8 @@ struct ArrayExportChecker {
       ASSERT_EQ(c_export->buffers[i], expected_ptr);
     }
     if (has_variadic_buffer_sizes) {
-      auto variadic_buffers = util::span(expected_data.buffers).subspan(2);
-      auto variadic_buffer_sizes = util::span(
+      auto variadic_buffers = std::span(expected_data.buffers).subspan(2);
+      auto variadic_buffer_sizes = std::span(
           static_cast<const int64_t*>(c_export->buffers[c_export->n_buffers - 1]),
           variadic_buffers.size());
       for (auto [buf, size] : Zip(variadic_buffers, variadic_buffer_sizes)) {
