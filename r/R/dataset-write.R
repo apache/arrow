@@ -70,8 +70,8 @@
 #' @param create_directory whether to create the directories written into.
 #' Requires appropriate permissions on the storage backend. If set to FALSE,
 #' directories are assumed to be already present if writing on a classic
-#' hierarchical filesystem. Default is TRUE
-#' @param preserve_order Keep the row-ordering the same.
+#' hierarchical filesystem. Default is TRUE.
+#' @param preserve_order Preserve the order of the rows.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -287,7 +287,8 @@ write_delim_dataset <- function(
   delim = ",",
   na = "",
   eol = "\n",
-  quote = c("needed", "all", "none")
+  quote = c("needed", "all", "none"),
+  preserve_order = FALSE
 ) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
@@ -315,7 +316,8 @@ write_delim_dataset <- function(
     delimiter = delim,
     null_string = na,
     eol = eol,
-    quoting_style = quote
+    quoting_style = quote,
+    preserve_order = preserve_order
   )
 }
 
@@ -338,7 +340,8 @@ write_csv_dataset <- function(
   delim = ",",
   na = "",
   eol = "\n",
-  quote = c("needed", "all", "none")
+  quote = c("needed", "all", "none"),
+  preserve_order = FALSE
 ) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
@@ -366,7 +369,8 @@ write_csv_dataset <- function(
     delimiter = delim,
     null_string = na,
     eol = eol,
-    quoting_style = quote
+    quoting_style = quote,
+    preserve_order = preserve_order
   )
 }
 
@@ -388,7 +392,8 @@ write_tsv_dataset <- function(
   batch_size = 1024L,
   na = "",
   eol = "\n",
-  quote = c("needed", "all", "none")
+  quote = c("needed", "all", "none"),
+  preserve_order = FALSE
 ) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
@@ -415,7 +420,8 @@ write_tsv_dataset <- function(
     batch_size = batch_size,
     null_string = na,
     eol = eol,
-    quoting_style = quote
+    quoting_style = quote,
+    preserve_order = preserve_order
   )
 }
 
