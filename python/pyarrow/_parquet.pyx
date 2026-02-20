@@ -51,6 +51,10 @@ cimport cpython as cp
 _DEFAULT_ROW_GROUP_SIZE = 1024*1024
 _MAX_ROW_GROUP_SIZE = 64*1024*1024
 
+# from definition of BloomFilterOptions struct
+_DEFAULT_BLOOM_FILTER_NDV = 1024*1024
+_DEFAULT_BLOOM_FILTER_FPP = 0.05
+
 
 cdef Type _unwrap_list_type(obj) except *:
     if obj is ListType:
@@ -1992,13 +1996,15 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         write_page_checksum=False,
         sorting_columns=None,
         store_decimal_as_integer=False,
-        use_content_defined_chunking=False) except *:
+        use_content_defined_chunking=False,
+        bloom_filter_options=None) except *:
 
     """General writer properties"""
     cdef:
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
         CdcOptions cdc_options
+        BloomFilterOptions bloom_opts
 
     # data_page_version
 
@@ -2121,6 +2127,33 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         else:
             raise TypeError(
                 "'column_encoding' should be a dictionary or a string")
+
+    # bloom filters
+    if bloom_filter_options is not None:
+        if isinstance(bloom_filter_options, dict):
+            # for each entry in bloom_filter_options, {"path": {"ndv": ndv, "fpp", fpp}}
+            # convert (ndv,fpp) to BloomFilterOptions struct and pass to props
+            for column, _bloom_opts in bloom_filter_options.items():
+                # set defaults
+                bloom_opts.ndv = _DEFAULT_BLOOM_FILTER_NDV
+                bloom_opts.fpp = _DEFAULT_BLOOM_FILTER_FPP
+                if not isinstance(_bloom_opts, dict):
+                    raise TypeError(
+                        f"'bloom_filter_options:{column}' must be a dictionary")
+                if "ndv" in _bloom_opts:
+                    if isinstance(_bloom_opts["ndv"], int):
+                        bloom_opts.ndv = _bloom_opts["ndv"]
+                    else:
+                        raise TypeError(f"'ndv' for column '{column}' must be an int")
+                if "fpp" in _bloom_opts:
+                    if isinstance(_bloom_opts["fpp"], float):
+                        bloom_opts.fpp = _bloom_opts["fpp"]
+                    else:
+                        raise TypeError(f"'fpp' for column '{column}' must be a float")
+
+                props.enable_bloom_filter(tobytes(column), bloom_opts)
+        else:
+            raise TypeError("'bloom_filter_options' must be a dictionary")
 
     # size limits
     if data_page_size is not None:
@@ -2317,7 +2350,8 @@ cdef class ParquetWriter(_Weakrefable):
                   sorting_columns=None,
                   store_decimal_as_integer=False,
                   use_content_defined_chunking=False,
-                  write_time_adjusted_to_utc=False):
+                  write_time_adjusted_to_utc=False,
+                  bloom_filter_options=None):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2353,7 +2387,8 @@ cdef class ParquetWriter(_Weakrefable):
             write_page_checksum=write_page_checksum,
             sorting_columns=sorting_columns,
             store_decimal_as_integer=store_decimal_as_integer,
-            use_content_defined_chunking=use_content_defined_chunking
+            use_content_defined_chunking=use_content_defined_chunking,
+            bloom_filter_options=bloom_filter_options
         )
         arrow_properties = _create_arrow_writer_properties(
             use_deprecated_int96_timestamps=use_deprecated_int96_timestamps,

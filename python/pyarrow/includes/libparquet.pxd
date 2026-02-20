@@ -464,6 +464,10 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
 
 
 cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
+    cdef cppclass BloomFilterOptions:
+        int32_t ndv
+        double fpp
+
     cdef cppclass CdcOptions:
         int64_t min_chunk_size
         int64_t max_chunk_size
@@ -506,6 +510,9 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_content_defined_chunking()
             Builder* disable_content_defined_chunking()
             Builder* content_defined_chunking_options(CdcOptions options)
+            Builder* disable_bloom_filter(const c_string& path)
+            Builder* enable_bloom_filter(const c_string& path,
+                                         BloomFilterOptions bloom_filter_options)
             shared_ptr[WriterProperties] build()
 
     cdef cppclass ArrowWriterProperties:

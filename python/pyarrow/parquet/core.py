@@ -951,6 +951,14 @@ write_time_adjusted_to_utc : bool, default False
     are expressed in reference to midnight in the UTC timezone.
     If False (the default), the TIME columns are assumed to be expressed
     in reference to midnight in an unknown, presumably local, timezone.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+    The keys of the `dict` are column paths, and the values are `dict`s with
+    the keys "ndv" and "fpp". The value for "ndv" is an int indicating the
+    number of distinct values encoded by the Bloom filter. If omitted, the default
+    value of 1048576 will be used. The value for "fpp" is a float indicating the false
+    positive probability desired, in the range 0.0 to 1.0. If omitted, the default value
+    of 0.05 will be used.
 """
 
 _parquet_writer_example_doc = """\
@@ -1980,6 +1988,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=False,
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
+                bloom_filter_options=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2013,6 +2022,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=store_decimal_as_integer,
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
+                bloom_filter_options=bloom_filter_options,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
