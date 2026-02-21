@@ -133,20 +133,21 @@ class build_ext(_build_ext):
         build_cmd = self.get_finalized_command('build')
         build_lib = os.path.abspath(build_cmd.build_lib)
 
-        # Copy clean stubs to build directory first
         self._copy_stubs(stubs_dir, build_lib)
 
-        # Inject docstrings into the build copies (not the source stubs).
-        # We pass build_lib as stubs_dir since it mirrors the pyarrow-stubs/
-        # directory structure (both contain a pyarrow/ subdirectory with .pyi
-        # files), so the namespace resolution logic works identically.
-        import importlib.util
-        spec = importlib.util.spec_from_file_location(
-            "update_stub_docstrings",
-            pjoin(setup_dir, 'scripts', 'update_stub_docstrings.py'))
-        mod = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(mod)
-        mod.add_docstrings_from_build(build_lib, build_lib)
+        if os.environ.get('PYARROW_SKIP_STUB_DOCSTRINGS', '0') == '1':
+            print("-- Skipping stub docstring injection "
+                  "(PYARROW_SKIP_STUB_DOCSTRINGS=1)")
+            return
+
+        # Inject docstrings from the built pyarrow into the stub copies.
+        try:
+            from pyarrow._build_utils.update_stub_docstrings import (
+                add_docstrings_from_build,
+            )
+            add_docstrings_from_build(build_lib, build_lib)
+        except ImportError as e:
+            print(f"-- Skipping stub docstring injection ({e})")
 
     def _copy_stubs(self, stubs_dir, build_lib):
         """Copy .pyi stub files to the build directory."""
