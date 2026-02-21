@@ -58,6 +58,9 @@ class PARQUET_EXPORT RowGroupWriter {
     virtual int64_t total_compressed_bytes() const = 0;
     /// \brief total compressed bytes written by the page writer
     virtual int64_t total_compressed_bytes_written() const = 0;
+    /// \brief Estimated bytes of values and levels that are buffered by the page writer
+    /// but not written to a page yet
+    virtual int64_t EstimatedBufferedBytes() const = 0;
 
     virtual bool buffered() const = 0;
   };
@@ -99,6 +102,8 @@ class PARQUET_EXPORT RowGroupWriter {
   int64_t total_compressed_bytes() const;
   /// \brief total compressed bytes written by the page writer
   int64_t total_compressed_bytes_written() const;
+  /// \brief Estimate total compressed bytes including written and buffered bytes.
+  int64_t EstimatedTotalCompressedBytes() const;
 
   /// Returns whether the current RowGroupWriter is in the buffered mode and is created
   /// by calling ParquetFileWriter::AppendBufferedRowGroup.
@@ -150,6 +155,7 @@ class PARQUET_EXPORT ParquetFileWriter {
     virtual RowGroupWriter* AppendRowGroup() = 0;
     virtual RowGroupWriter* AppendBufferedRowGroup() = 0;
 
+    virtual int64_t written_compressed_bytes() const = 0;
     virtual int64_t num_rows() const = 0;
     virtual int num_columns() const = 0;
     virtual int num_row_groups() const = 0;
@@ -206,6 +212,10 @@ class PARQUET_EXPORT ParquetFileWriter {
   /// \throw ParquetException if Close() has been called.
   void AddKeyValueMetadata(
       const std::shared_ptr<const KeyValueMetadata>& key_value_metadata);
+
+  /// \brief Estimate compressed bytes per row from closed row groups.
+  /// \return Estimated bytes or std::nullopt when no written row group.
+  std::optional<double> EstimateCompressedBytesPerRow() const;
 
   /// Number of columns.
   ///
