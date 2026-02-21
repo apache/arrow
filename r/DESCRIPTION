@@ -68,7 +68,7 @@ Suggests:
     stringi,
     stringr,
     sys,
-    testthat (>= 3.1.0),
+    testthat (>= 3.3.0),
     tibble,
     tzdb,
     withr
