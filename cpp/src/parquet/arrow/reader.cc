@@ -976,7 +976,7 @@ Status GetReader(const SchemaField& field, const std::shared_ptr<Field>& arrow_f
       if (!schema_child_type.Equals(reader_child_type)) {
         child_field = child_field->WithType(child_reader->field()->type());
       }
-      child_fields.push_back(child_field);
+      child_fields.push_back(std::move(child_field));
       child_readers.emplace_back(std::move(child_reader));
     }
     if (child_fields.empty()) {

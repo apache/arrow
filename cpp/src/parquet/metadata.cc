@@ -177,9 +177,9 @@ std::shared_ptr<KeyValueMetadata> FromThriftKeyValueMetadata(const Metadata& sou
     std::vector<std::string> values;
     keys.reserve(source.key_value_metadata.size());
     values.reserve(source.key_value_metadata.size());
-    for (const auto& it : source.key_value_metadata) {
-      keys.push_back(it.key);
-      values.push_back(it.value);
+    for (auto& it : source.key_value_metadata) {
+      keys.push_back(std::move(it.key));
+      values.push_back(std::move(it.value));
     }
     metadata = std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
   }
