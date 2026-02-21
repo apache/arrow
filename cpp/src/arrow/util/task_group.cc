@@ -99,7 +99,7 @@ class ThreadedTaskGroup : public TaskGroup {
     // The hot path is unlocked thanks to atomics
     // Only if an error occurs is the lock taken
     if (ok_.load(std::memory_order_acquire)) {
-      nremaining_.fetch_add(1, std::memory_order_acquire);
+      nremaining_.fetch_add(1, std::memory_order_acq_rel);
 
       auto self = checked_pointer_cast<ThreadedTaskGroup>(shared_from_this());
 
@@ -176,7 +176,7 @@ class ThreadedTaskGroup : public TaskGroup {
 
   void OneTaskDone() {
     // Can be called unlocked thanks to atomics
-    auto nremaining = nremaining_.fetch_sub(1, std::memory_order_release) - 1;
+    auto nremaining = nremaining_.fetch_sub(1, std::memory_order_acq_rel) - 1;
     DCHECK_GE(nremaining, 0);
     if (nremaining == 0) {
       // Take the lock so that ~ThreadedTaskGroup cannot destroy cv
