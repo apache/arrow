@@ -196,7 +196,7 @@ struct FieldPathTestCase {
     }
     // Finalize the input Table
     out.table =
-        Table::Make(out.schema, {out.v0.chunked_array, out.v1.chunked_array}, kNumRows);
+        Table::Make(out.schema, {out.v0.chunked_array, out.v1.chunked_array}, kNumRows).ValueOrDie();
     ARROW_RETURN_NOT_OK(out.table->ValidateFull());
 
     return out;
@@ -440,7 +440,7 @@ TEST_F(TestFieldPath, GetFromEmptyChunked) {
   for (const auto& f : fields) {
     table_columns.push_back(std::make_shared<ChunkedArray>(ArrayVector{}, f->type()));
   }
-  auto table = Table::Make(schema(fields), table_columns, 0);
+  auto table = Table::Make(schema(fields), table_columns, 0).ValueOrDie();
   ASSERT_OK(table->ValidateFull());
   for (const auto& column : table->columns()) {
     ASSERT_EQ(column->num_chunks(), 0);
@@ -535,7 +535,7 @@ TEST_F(TestFieldRef, FindAllForTable) {
   auto a2 = gen_.ArrayOf(int32(), kNumRows);
   auto a3 = gen_.ArrayOf(int32(), kNumRows);
 
-  auto table_ptr = Table::Make(schema, {a0, a1, a2, a3});
+  auto table_ptr = Table::Make(schema, {a0, a1, a2, a3}).ValueOrDie();
   ASSERT_OK(table_ptr->ValidateFull());
 
   // lookup by index returns Indices{index}

@@ -175,7 +175,8 @@ TEST_P(TestFeather, ReadIndicesOrNames) {
   DoWrite(*table);
 
   // int32 type is at the column f4 of the result of MakeIntRecordBatch
-  auto expected = Table::Make(schema({field("f4", int32())}), {batch1->column(4)});
+  auto expected =
+      Table::Make(schema({field("f4", int32())}), {batch1->column(4)}).ValueOrDie();
 
   std::shared_ptr<Table> result1, result2;
 
@@ -190,7 +191,7 @@ TEST_P(TestFeather, ReadIndicesOrNames) {
 
 TEST_P(TestFeather, EmptyTable) {
   std::vector<std::shared_ptr<ChunkedArray>> columns;
-  auto table = Table::Make(schema({}), columns, 0);
+  auto table = Table::Make(schema({}), columns, 0).ValueOrDie();
 
   DoWrite(*table);
 
@@ -201,7 +202,7 @@ TEST_P(TestFeather, EmptyTable) {
 
 TEST_P(TestFeather, SetNumRows) {
   std::vector<std::shared_ptr<ChunkedArray>> columns;
-  auto table = Table::Make(schema({}), columns, 1000);
+  auto table = Table::Make(schema({}), columns, 1000).ValueOrDie();
   DoWrite(*table);
   std::shared_ptr<Table> result;
   ASSERT_OK(reader_->Read(&result));
