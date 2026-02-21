@@ -179,6 +179,23 @@ Status FuzzReadPageIndex(RowGroupPageIndexReader* reader, const SchemaDescriptor
   return st;
 }
 
+Status FuzzReadBloomFilter(RowGroupBloomFilterReader* reader, int column,
+                           std::uniform_int_distribution<uint64_t>& hash_dist,
+                           std::default_random_engine& rng) {
+  Status st;
+  BEGIN_PARQUET_CATCH_EXCEPTIONS
+  std::unique_ptr<BloomFilter> bloom;
+  bloom = reader->GetColumnBloomFilter(column);
+  // If the column has a bloom filter, find a bunch of random hashes
+  if (bloom != nullptr) {
+    for (int k = 0; k < 100; ++k) {
+      bloom->FindHash(hash_dist(rng));
+    }
+  }
+  END_PARQUET_CATCH_EXCEPTIONS
+  return st;
+}
+
 ReaderProperties MakeFuzzReaderProperties(MemoryPool* pool) {
   FileDecryptionProperties::Builder builder;
   builder.key_retriever(MakeKeyRetriever());
@@ -231,31 +248,12 @@ Status FuzzReader(const uint8_t* data, int64_t size) {
     }
     {
       // Read and decode bloom filters
-      try {
-        auto& bloom_reader = pq_file_reader->GetBloomFilterReader();
-        std::uniform_int_distribution<uint64_t> hash_dist;
-        for (int i = 0; i < num_row_groups; ++i) {
-          auto bloom_rg = bloom_reader.RowGroup(i);
-          for (int j = 0; j < num_columns; ++j) {
-            std::unique_ptr<BloomFilter> bloom;
-            bloom = bloom_rg->GetColumnBloomFilter(j);
-            // If the column has a bloom filter, find a bunch of random hashes
-            if (bloom != nullptr) {
-              for (int k = 0; k < 100; ++k) {
-                bloom->FindHash(hash_dist(rng));
-              }
-            }
-          }
-        }
-      } catch (const ParquetException& exc) {
-        // XXX we just want to ignore encrypted bloom filters and validate the
-        // rest of the file; there is no better way of doing this until GH-46597
-        // is done.
-        // (also see GH-48334 for reading encrypted bloom filters)
-        if (std::string_view(exc.what())
-                .find("BloomFilter decryption is not yet supported") ==
-            std::string_view::npos) {
-          throw;
+      auto& bloom_reader = pq_file_reader->GetBloomFilterReader();
+      std::uniform_int_distribution<uint64_t> hash_dist;
+      for (int i = 0; i < num_row_groups; ++i) {
+        auto bloom_rg = bloom_reader.RowGroup(i);
+        for (int j = 0; j < num_columns; ++j) {
+          st &= FuzzReadBloomFilter(bloom_rg.get(), j, hash_dist, rng);
         }
       }
     }
