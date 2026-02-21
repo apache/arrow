@@ -578,6 +578,14 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
   }
 };
 
+// Helper function to unwrap extension scalar to its storage scalar
+inline const Scalar& GetStorageScalar(const Scalar& scalar) {
+  if (scalar.type->id() == Type::EXTENSION) {
+    return *checked_cast<const ExtensionScalar&>(scalar).value;
+  }
+  return scalar;
+}
+
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 
@@ -657,7 +665,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -678,7 +687,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -704,7 +714,8 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -741,7 +752,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*scalar));
+      ARROW_RETURN_NOT_OK(
+          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -785,7 +797,7 @@ class PyDictionaryConverter<U, enable_if_has_c_type<U>>
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->value_builder_->AppendScalar(*scalar, 1);
+      return this->value_builder_->AppendScalar(GetStorageScalar(*scalar), 1);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
@@ -804,7 +816,7 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->value_builder_->AppendScalar(*scalar, 1);
+      return this->value_builder_->AppendScalar(GetStorageScalar(*scalar), 1);
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
@@ -977,7 +989,7 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->struct_builder_->AppendScalar(*scalar);
+      return this->struct_builder_->AppendScalar(GetStorageScalar(*scalar));
     }
     switch (input_kind_) {
       case InputKind::DICT:
