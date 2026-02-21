@@ -172,6 +172,7 @@ set(PARQUET_SRCS
     encryption/internal_file_encryptor.cc
     exception.cc
     file_reader.cc
+    file_rewriter.cc
     file_writer.cc
     geospatial/statistics.cc
     geospatial/util_internal.cc
@@ -405,6 +406,8 @@ add_parquet_test(arrow-reader-writer-test
                  arrow/variant_test.cc)
 
 add_parquet_test(arrow-index-test SOURCES arrow/index_test.cc)
+
+add_parquet_test(arrow-rewriter-test SOURCES arrow/arrow_rewriter_test.cc)
 
 add_parquet_test(arrow-internals-test SOURCES arrow/path_internal_test.cc
                  arrow/reconstruct_internal_test.cc)
