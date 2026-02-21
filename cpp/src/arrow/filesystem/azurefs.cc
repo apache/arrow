@@ -38,6 +38,7 @@
 #include <azure/storage/files/datalake.hpp>
 
 #include "arrow/buffer.h"
+#include "arrow/config.h"
 #include "arrow/filesystem/path_util.h"
 #include "arrow/filesystem/util_internal.h"
 #include "arrow/io/util_internal.h"
@@ -303,6 +304,10 @@ Status ExceptionToStatus(const Azure::Core::RequestFailedException& exception,
   return Status::IOError(std::forward<PrefixArgs>(prefix_args)..., " Azure Error: [",
                          exception.ErrorCode, "] ", exception.what());
 }
+
+std::string BuildApplicationId() {
+  return "azpartner-arrow/" + GetBuildInfo().version_string;
+}
 }  // namespace
 
 std::string AzureOptions::AccountBlobUrl(const std::string& account_name) const {
@@ -386,9 +391,12 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     return Status::Invalid("AzureOptions::blob_storage_scheme must be http or https: ",
                            blob_storage_scheme);
   }
+  Blobs::BlobClientOptions client_options;
+  client_options.Telemetry.ApplicationId = BuildApplicationId();
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name));
+      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
+                                                        client_options);
     case CredentialKind::kDefault:
       if (!token_credential_) {
         token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
@@ -399,14 +407,14 @@ Result<std::unique_ptr<Blobs::BlobServiceClient>> AzureOptions::MakeBlobServiceC
     case CredentialKind::kCLI:
     case CredentialKind::kWorkloadIdentity:
     case CredentialKind::kEnvironment:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
-                                                        token_credential_);
+      return std::make_unique<Blobs::BlobServiceClient>(
+          AccountBlobUrl(account_name), token_credential_, client_options);
     case CredentialKind::kStorageSharedKey:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name),
-                                                        storage_shared_key_credential_);
+      return std::make_unique<Blobs::BlobServiceClient>(
+          AccountBlobUrl(account_name), storage_shared_key_credential_, client_options);
     case CredentialKind::kSASToken:
-      return std::make_unique<Blobs::BlobServiceClient>(AccountBlobUrl(account_name) +
-                                                        sas_token_);
+      return std::make_unique<Blobs::BlobServiceClient>(
+          AccountBlobUrl(account_name) + sas_token_, client_options);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -420,10 +428,12 @@ AzureOptions::MakeDataLakeServiceClient() const {
     return Status::Invalid("AzureOptions::dfs_storage_scheme must be http or https: ",
                            dfs_storage_scheme);
   }
+  DataLake::DataLakeClientOptions client_options;
+  client_options.Telemetry.ApplicationId = BuildApplicationId();
   switch (credential_kind_) {
     case CredentialKind::kAnonymous:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name));
+          AccountDfsUrl(account_name), client_options);
     case CredentialKind::kDefault:
       if (!token_credential_) {
         token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
@@ -435,13 +445,13 @@ AzureOptions::MakeDataLakeServiceClient() const {
     case CredentialKind::kWorkloadIdentity:
     case CredentialKind::kEnvironment:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name), token_credential_);
+          AccountDfsUrl(account_name), token_credential_, client_options);
     case CredentialKind::kStorageSharedKey:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountDfsUrl(account_name), storage_shared_key_credential_);
+          AccountDfsUrl(account_name), storage_shared_key_credential_, client_options);
     case CredentialKind::kSASToken:
       return std::make_unique<DataLake::DataLakeServiceClient>(
-          AccountBlobUrl(account_name) + sas_token_);
+          AccountBlobUrl(account_name) + sas_token_, client_options);
   }
   return Status::Invalid("AzureOptions doesn't contain a valid auth configuration");
 }
@@ -967,10 +977,36 @@ Status StageBlock(Blobs::BlockBlobClient* block_blob_client, const std::string& 
   return Status::OK();
 }
 
+// Usually if the first page is empty it means there are no results. This was assumed in
+// several places in AzureFilesystem. The Azure docs do not guarantee this and we have
+// evidence (GH-49043) that there can be subsequent non-empty pages.
+// Applying `SkipStartingEmptyPages` on a paged response corrects this assumption.
+void SkipStartingEmptyPages(Blobs::ListBlobContainersPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.BlobContainers.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(Blobs::ListBlobsPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Blobs.size() == 0) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(Blobs::ListBlobsByHierarchyPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Blobs.empty() &&
+         paged_response.BlobPrefixes.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+void SkipStartingEmptyPages(DataLake::ListPathsPagedResponse& paged_response) {
+  while (paged_response.HasPage() && paged_response.Paths.empty()) {
+    paged_response.MoveToNextPage();
+  }
+}
+
 /// Writes will be buffered up to this size (in bytes) before actually uploading them.
 static constexpr int64_t kBlockUploadSizeBytes = 10 * 1024 * 1024;
 /// The maximum size of a block in Azure Blob (as per docs).
-static constexpr int64_t kMaxBlockSizeBytes = 4UL * 1024 * 1024 * 1024;
+static constexpr int64_t kMaxBlockSizeBytes = 4LL * 1024 * 1024 * 1024;
 
 /// This output stream, similar to other arrow OutputStreams, is not thread-safe.
 class ObjectAppendStream final : public io::OutputStream {
@@ -1362,7 +1398,7 @@ Result<HNSSupport> CheckIfHierarchicalNamespaceIsEnabled(
     // without hierarchical namespace enabled.
     directory_client.GetAccessControlList();
     return HNSSupport::kEnabled;
-  } catch (std::out_of_range& exception) {
+  } catch (const std::out_of_range&) {
     // Azurite issue detected.
     DCHECK(IsDfsEmulator(options));
     return HNSSupport::kDisabled;
@@ -1805,12 +1841,14 @@ class AzureFileSystem::Impl {
     try {
       FileInfo info{location.all};
       auto list_response = container_client.ListBlobsByHierarchy(kDelimiter, options);
+      SkipStartingEmptyPages(list_response);
       // Since PageSizeHint=1, we expect at most one entry in either Blobs or
       // BlobPrefixes. A BlobPrefix always ends with kDelimiter ("/"), so we can
       // distinguish between a directory and a file by checking if we received a
       // prefix or a blob.
       // This strategy allows us to implement GetFileInfo with just 1 blob storage
       // operation in almost every case.
+
       if (!list_response.BlobPrefixes.empty()) {
         // Ensure the returned BlobPrefixes[0] string doesn't contain more characters than
         // the requested Prefix. For instance, if we request with Prefix="dir/abra" and
@@ -1847,6 +1885,7 @@ class AzureFileSystem::Impl {
           // whether the path is a directory.
           options.Prefix = internal::EnsureTrailingSlash(location.path);
           auto list_with_trailing_slash_response = container_client.ListBlobs(options);
+          SkipStartingEmptyPages(list_with_trailing_slash_response);
           if (!list_with_trailing_slash_response.Blobs.empty()) {
             info.set_type(FileType::Directory);
             return info;
@@ -1909,6 +1948,7 @@ class AzureFileSystem::Impl {
     try {
       auto container_list_response =
           blob_service_client_->ListBlobContainers(options, context);
+      SkipStartingEmptyPages(container_list_response);
       for (; container_list_response.HasPage();
            container_list_response.MoveToNextPage(context)) {
         for (const auto& container : container_list_response.BlobContainers) {
@@ -1950,6 +1990,7 @@ class AzureFileSystem::Impl {
     auto base_path_depth = internal::GetAbstractPathDepth(base_location.path);
     try {
       auto list_response = directory_client.ListPaths(select.recursive, options, context);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
         if (list_response.Paths.empty()) {
           continue;
@@ -2040,6 +2081,7 @@ class AzureFileSystem::Impl {
     try {
       auto list_response =
           container_client.ListBlobsByHierarchy(/*delimiter=*/"/", options, context);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage(context)) {
         if (list_response.Blobs.empty() && list_response.BlobPrefixes.empty()) {
           continue;
@@ -2442,6 +2484,7 @@ class AzureFileSystem::Impl {
     bool found_dir_marker_blob = false;
     try {
       auto list_response = container_client.ListBlobs(options);
+      SkipStartingEmptyPages(list_response);
       if (list_response.Blobs.empty()) {
         if (require_dir_to_exist) {
           return PathNotFound(location);
@@ -2499,7 +2542,7 @@ class AzureFileSystem::Impl {
           try {
             auto delete_result = deferred_response.GetResponse();
             success = delete_result.Value.Deleted;
-          } catch (const Core::RequestFailedException& exception) {
+          } catch (const Core::RequestFailedException&) {
             success = false;
           }
           if (!success) {
@@ -2575,6 +2618,7 @@ class AzureFileSystem::Impl {
     auto directory_client = adlfs_client.GetDirectoryClient(location.path);
     try {
       auto list_response = directory_client.ListPaths(false);
+      SkipStartingEmptyPages(list_response);
       for (; list_response.HasPage(); list_response.MoveToNextPage()) {
         for (const auto& path : list_response.Paths) {
           if (path.IsDirectory) {
@@ -2899,6 +2943,7 @@ class AzureFileSystem::Impl {
       list_blobs_options.PageSizeHint = 1;
       try {
         auto dest_list_response = dest_container_client.ListBlobs(list_blobs_options);
+        SkipStartingEmptyPages(dest_list_response);
         dest_is_empty = dest_list_response.Blobs.empty();
         if (!dest_is_empty) {
           return NotEmpty(dest);
@@ -2952,6 +2997,7 @@ class AzureFileSystem::Impl {
       list_blobs_options.PageSizeHint = 1;
       try {
         auto src_list_response = src_container_client.ListBlobs(list_blobs_options);
+        SkipStartingEmptyPages(src_list_response);
         if (!src_list_response.Blobs.empty()) {
           // Reminder: dest is used here because we're semantically replacing dest
           // with src. By deleting src if it's empty just like dest.
@@ -3217,6 +3263,8 @@ class AzureFileSystem::Impl {
 
 std::atomic<LeaseGuard::SteadyClock::time_point> LeaseGuard::latest_known_expiry_time_ =
     SteadyClock::time_point{SteadyClock::duration::zero()};
+
+AzureFileSystem::~AzureFileSystem() = default;
 
 AzureFileSystem::AzureFileSystem(std::unique_ptr<Impl>&& impl)
     : FileSystem(impl->io_context()), impl_(std::move(impl)) {

@@ -16,6 +16,20 @@
 # under the License.
 
 module ReaderTests
+  def read
+    @reader.collect do |record_batch|
+      record_batch.to_h.tap do |hash|
+        hash.each do |key, value|
+          hash[key] = value.to_a
+        end
+      end
+    end
+  end
+
+  def type
+    @type ||= @reader.first.schema.fields[0].type
+  end
+
   class << self
     def included(base)
       base.class_eval do
@@ -191,7 +205,7 @@ module ReaderTests
         sub_test_case("Date64") do
           def setup(&block)
             @date_2017_08_28_00_00_00 = 1503878400000
-            @date_2025_12_09_00_00_00 = 1765324800000
+            @date_2025_12_10_00_00_00 = 1765324800000
             super(&block)
           end
 
@@ -199,7 +213,7 @@ module ReaderTests
             Arrow::Date64Array.new([
                                      @date_2017_08_28_00_00_00,
                                      nil,
-                                     @date_2025_12_09_00_00_00,
+                                     @date_2025_12_10_00_00_00,
                                    ])
           end
 
@@ -209,7 +223,7 @@ module ReaderTests
                              "value" => [
                                @date_2017_08_28_00_00_00,
                                nil,
-                               @date_2025_12_09_00_00_00,
+                               @date_2025_12_10_00_00_00,
                              ],
                            },
                          ],
@@ -225,7 +239,8 @@ module ReaderTests
           end
 
           def build_array
-            Arrow::Time32Array.new(:second, [@time_00_00_10, nil, @time_00_01_10])
+            Arrow::Time32Array.new(:second,
+                                   [@time_00_00_10, nil, @time_00_01_10])
           end
 
           def test_read
@@ -350,7 +365,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:second)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351
+            @timestamp_2019_11_17_15_09_11 = 1574003351
             @timestamp_2025_12_16_05_33_58 = 1765863238
             super(&block)
           end
@@ -358,7 +373,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:second,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -368,7 +383,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -380,7 +395,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:millisecond)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000
             @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000
             super(&block)
           end
@@ -388,7 +403,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:milli,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -398,7 +413,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -410,7 +425,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:microsecond)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000_000
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000
             @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000
             super(&block)
           end
@@ -418,7 +433,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:micro,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -428,7 +443,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -440,7 +455,7 @@ module ReaderTests
 
         sub_test_case("Timestamp(:nanosecond)") do
           def setup(&block)
-            @timestamp_2019_11_18_00_09_11 = 1574003351 * 1_000_000_000
+            @timestamp_2019_11_17_15_09_11 = 1574003351 * 1_000_000_000
             @timestamp_2025_12_16_05_33_58 = 1765863238 * 1_000_000_000
             super(&block)
           end
@@ -448,7 +463,7 @@ module ReaderTests
           def build_array
             Arrow::TimestampArray.new(:nano,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
@@ -458,7 +473,7 @@ module ReaderTests
             assert_equal([
                            {
                              "value" => [
-                               @timestamp_2019_11_18_00_09_11,
+                               @timestamp_2019_11_17_15_09_11,
                                nil,
                                @timestamp_2025_12_16_05_33_58,
                              ],
@@ -468,27 +483,27 @@ module ReaderTests
           end
         end
 
-        sub_test_case("Timestamp(timezone)") do
+        sub_test_case("Timestamp(time_zone)") do
           def setup(&block)
-            @timezone = "UTC"
-            @timestamp_2019_11_18_00_09_11 = 1574003351
+            @time_zone = "UTC"
+            @timestamp_2019_11_17_15_09_11 = 1574003351
             @timestamp_2025_12_16_05_33_58 = 1765863238
             super(&block)
           end
 
           def build_array
-            data_type = Arrow::TimestampDataType.new(:second, @timezone)
+            data_type = Arrow::TimestampDataType.new(:second, @time_zone)
             Arrow::TimestampArray.new(data_type,
                                       [
-                                        @timestamp_2019_11_18_00_09_11,
+                                        @timestamp_2019_11_17_15_09_11,
                                         nil,
                                         @timestamp_2025_12_16_05_33_58,
                                       ])
           end
 
           def test_type
-            assert_equal([:second, @timezone],
-                         [type.unit, type.timezone])
+            assert_equal([:second, @time_zone],
+                         [type.unit, type.time_zone])
           end
         end
 
@@ -900,20 +915,6 @@ class TestFileReader < Test::Unit::TestCase
       GC.start
     end
   end
-
-  def read
-    @reader.to_a.collect do |record_batch|
-      record_batch.to_h.tap do |hash|
-        hash.each do |key, value|
-          hash[key] = value.to_a
-        end
-      end
-    end
-  end
-
-  def type
-    @type ||= @reader.first.schema.fields[0].type
-  end
 end
 
 class TestStreamingReader < Test::Unit::TestCase
@@ -931,19 +932,5 @@ class TestStreamingReader < Test::Unit::TestCase
       end
       GC.start
     end
-  end
-
-  def read
-    @reader.collect do |record_batch|
-      record_batch.to_h.tap do |hash|
-        hash.each do |key, value|
-          hash[key] = value.to_a
-        end
-      end
-    end
-  end
-
-  def type
-    @type ||= @reader.first.schema.fields[0].type
   end
 end

@@ -813,6 +813,13 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_WIL_URL})
+  set(ARROW_WIL_URL "$ENV{ARROW_WIL_URL}")
+else()
+  set_urls(ARROW_WIL_URL
+           "https://github.com/microsoft/wil/archive/${ARROW_WIL_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
@@ -1826,6 +1833,8 @@ function(build_thrift)
   if(BOOST_VENDORED)
     target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
     target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
+  else()
+    target_link_libraries(thrift INTERFACE Boost::headers)
   endif()
 
   add_library(thrift::thrift INTERFACE IMPORTED)
@@ -2343,13 +2352,6 @@ if(ARROW_MIMALLOC)
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
-  set(MIMALLOC_PATCH_COMMAND "")
-  if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-    find_program(PATCH patch REQUIRED)
-    set(MIMALLOC_PATCH_COMMAND ${PATCH} -p1 -i
-                               ${CMAKE_CURRENT_LIST_DIR}/mimalloc-1138.patch)
-  endif()
-
   set(MIMALLOC_CMAKE_ARGS
       ${EP_COMMON_CMAKE_ARGS}
       "-DCMAKE_C_FLAGS=${MIMALLOC_C_FLAGS}"
@@ -2367,7 +2369,6 @@ if(ARROW_MIMALLOC)
                       ${EP_COMMON_OPTIONS}
                       URL ${MIMALLOC_SOURCE_URL}
                       URL_HASH "SHA256=${ARROW_MIMALLOC_BUILD_SHA256_CHECKSUM}"
-                      PATCH_COMMAND ${MIMALLOC_PATCH_COMMAND}
                       CMAKE_ARGS ${MIMALLOC_CMAKE_ARGS}
                       BUILD_BYPRODUCTS "${MIMALLOC_STATIC_LIB}")
 
@@ -2650,7 +2651,7 @@ if(ARROW_USE_XSIMD)
                      IS_RUNTIME_DEPENDENCY
                      FALSE
                      REQUIRED_VERSION
-                     "13.0.0")
+                     "14.0.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     set(ARROW_XSIMD arrow::xsimd)
@@ -2866,6 +2867,13 @@ function(build_re2)
   set(CMAKE_UNITY_BUILD OFF)
 
   fetchcontent_makeavailable(re2)
+
+  # Suppress -Wnested-anon-types warnings from RE2's use of anonymous types
+  # in anonymous unions (a compiler extension).
+  # See: https://github.com/apache/arrow/issues/48973
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+    target_compile_options(re2 PRIVATE -Wno-nested-anon-types)
+  endif()
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${re2_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
@@ -3366,10 +3374,6 @@ function(build_google_cloud_cpp_storage)
   # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
   build_crc32c_once()
 
-  # Curl is required on all platforms, but building it internally might also trip over S3's copy.
-  # For now, force its inclusion from the underlying system or fail.
-  find_curl()
-
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
@@ -3453,6 +3457,9 @@ if(ARROW_WITH_GOOGLE_CLOUD_CPP)
     )
   endif()
 
+  # curl is required on all platforms. We always use system curl to
+  # avoid conflict.
+  find_curl()
   resolve_dependency(google_cloud_cpp_storage PC_PACKAGE_NAMES google_cloud_cpp_storage)
   get_target_property(google_cloud_cpp_storage_INCLUDE_DIR google-cloud-cpp::storage
                       INTERFACE_INCLUDE_DIRECTORIES)
@@ -4054,6 +4061,21 @@ endif()
 
 function(build_azure_sdk)
   message(STATUS "Building Azure SDK for C++ from source")
+
+  # On Windows, Azure SDK's WinHTTP transport requires WIL (Windows Implementation Libraries).
+  # Fetch WIL before Azure SDK so the WIL::WIL target is available.
+  if(WIN32)
+    message(STATUS "Fetching WIL (Windows Implementation Libraries) for Azure SDK")
+    fetchcontent_declare(wil
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                         URL ${ARROW_WIL_URL}
+                         URL_HASH "SHA256=${ARROW_WIL_BUILD_SHA256_CHECKSUM}")
+    prepare_fetchcontent()
+    set(WIL_BUILD_PACKAGING OFF)
+    set(WIL_BUILD_TESTS OFF)
+    fetchcontent_makeavailable(wil)
+  endif()
+
   fetchcontent_declare(azure_sdk
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${ARROW_AZURE_SDK_URL}

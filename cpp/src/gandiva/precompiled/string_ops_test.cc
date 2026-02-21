@@ -387,6 +387,13 @@ TEST(TestStringOps, TestRepeat) {
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Repeat number can't be negative"));
   ctx.Reset();
+
+  out_str = repeat_utf8_int32(ctx_ptr, "aa", 2,
+                              std::numeric_limits<int32_t>::max() / 2 + 1, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
 }
 
 TEST(TestStringOps, TestCastBoolToVarchar) {
@@ -1883,10 +1890,6 @@ TEST(TestStringOps, TestBinaryString) {
   std::string output = std::string(out_str, out_len);
   EXPECT_EQ(output, "TestString");
 
-  out_str = binary_string(ctx_ptr, "", 0, &out_len);
-  output = std::string(out_str, out_len);
-  EXPECT_EQ(output, "");
-
   out_str = binary_string(ctx_ptr, "T", 1, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "T");
@@ -1910,6 +1913,22 @@ TEST(TestStringOps, TestBinaryString) {
   out_str = binary_string(ctx_ptr, "\\x4f\\x4D", 8, &out_len);
   output = std::string(out_str, out_len);
   EXPECT_EQ(output, "OM");
+}
+
+TEST(TestStringOps, TestBinaryStringNull) {
+  // This test is only valid if it is the first to trigger a memory allocation in the
+  // context.
+  gandiva::ExecutionContext ctx;
+  uint64_t ctx_ptr = reinterpret_cast<gdv_int64>(&ctx);
+  gdv_int32 out_len = 0;
+  const char* out_str;
+
+  std::string output;
+
+  out_str = binary_string(ctx_ptr, "", 0, &out_len);
+  ASSERT_FALSE(ctx.has_error());
+  output = std::string(out_str, out_len);
+  EXPECT_EQ(output, "");
 }
 
 TEST(TestStringOps, TestSplitPart) {

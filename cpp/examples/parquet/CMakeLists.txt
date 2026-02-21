@@ -43,8 +43,8 @@ endif()
 if(UNIX)
   foreach(FILE ${PARQUET_EXAMPLES_WARNING_SUPPRESSIONS})
     set_property(SOURCE ${FILE}
-                 APPEND_STRING
-                 PROPERTY COMPILE_FLAGS "-Wno-unused-variable")
+                 APPEND
+                 PROPERTY COMPILE_OPTIONS "-Wno-unused-variable")
   endforeach()
 endif()
 

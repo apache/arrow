@@ -138,6 +138,7 @@ x-hierarchy:
       - debian-docs
   - fedora-cpp:
     - fedora-python
+  - fedora-r-clang
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -440,7 +441,9 @@ services:
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
-      ARROW_MIMALLOC: "ON"
+      # explicitly enable GCS when we build libarrow so that binary libarrow
+      # users get more fully-featured builds
+      ARROW_GCS: "ON"
     volumes: *ubuntu-volumes
     command: &cpp-static-command
       /bin/bash -c "
@@ -1388,7 +1391,6 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        python_variant: default
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -1405,7 +1407,7 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        python_variant: freethreaded
+        python_variant_suffix: t
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -1530,13 +1532,15 @@ services:
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
+      PYTEST_RST_ARGS: "--doctest-glob=*.rst"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
 
   conda-python-dask:
     # Possible $DASK parameters:
@@ -1746,7 +1750,7 @@ services:
       cache_from:
         - ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
       args:
-        base: rstudio/r-base:4.2-focal
+        base: posit/r-base:4.2-focal
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
     shm_size: *shm-size
@@ -1788,6 +1792,37 @@ services:
       NOT_CRAN: "false"
     volumes:
       - .:/arrow:delegated
+    command: /arrow/ci/scripts/r_test.sh /arrow
+
+  fedora-r-clang:
+    # Usage:
+    #   docker compose build fedora-r-clang
+    #   docker compose run fedora-r-clang
+    # Tests R package on Fedora with Clang, simulating CRAN's
+    # r-devel-linux-x86_64-fedora-clang environment.
+    # R-devel is built from source with Clang and uses CRAN's compiler flags.
+    # See: https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
+    # Parameters:
+    #   FEDORA: 42
+    #   ARCH: amd64
+    image: ${REPO}:${ARCH}-fedora-${FEDORA}-r-clang
+    build:
+      context: .
+      dockerfile: ci/docker/fedora-${FEDORA}-r-clang.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-fedora-${FEDORA}-r-clang
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *sccache]
+      LIBARROW_BINARY: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_USE_PKG_CONFIG: "false"
+      SKIP_VIGNETTES: "true"
+      NOT_CRAN: "false"
+    volumes: *fedora-volumes
     command: /arrow/ci/scripts/r_test.sh /arrow
 
   ############################## Integration ##################################

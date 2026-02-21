@@ -34,6 +34,22 @@ namespace internal {
 
 namespace {
 
+bool IsAtForkEnabled() {
+  static bool is_enabled = [] {
+    auto maybe_value =
+        GetEnvVarInteger("ARROW_REGISTER_ATFORK", /*min_value=*/0, /*max_value=*/1);
+    if (maybe_value.ok()) {
+      return *maybe_value != 0;
+    }
+    if (!maybe_value.status().IsKeyError()) {
+      maybe_value.status().Warn();
+    }
+    // Enabled by default
+    return true;
+  }();
+  return is_enabled;
+}
+
 // Singleton state for at-fork management.
 // We do not use global variables because of initialization order issues (ARROW-18383).
 // Instead, a function-local static ensures the state is initialized
@@ -147,7 +163,11 @@ AtForkState* GetAtForkState() {
 };  // namespace
 
 void RegisterAtFork(std::weak_ptr<AtForkHandler> weak_handler) {
-  GetAtForkState()->RegisterAtFork(std::move(weak_handler));
+  // Only fetch the atfork state (and thus lazily call pthread_atfork) if enabled at all,
+  // to minimize potential nastiness with fork and threads.
+  if (IsAtForkEnabled()) {
+    GetAtForkState()->RegisterAtFork(std::move(weak_handler));
+  }
 }
 
 }  // namespace internal

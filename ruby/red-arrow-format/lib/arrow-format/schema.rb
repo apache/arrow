@@ -21,10 +21,10 @@ module ArrowFormat
       @fields = fields
     end
 
-    def to_flat_buffers
+    def to_flatbuffers
       fb_schema = FB::Schema::Data.new
       fb_schema.endianness = FB::Endianness::LITTLE
-      fb_schema.fields = fields.collect(&:to_flat_buffers)
+      fb_schema.fields = fields.collect(&:to_flatbuffers)
       # fb_schema.custom_metadata = @custom_metadata
       # fb_schema.features = @features
       fb_schema

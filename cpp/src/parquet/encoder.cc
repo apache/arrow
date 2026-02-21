@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -1164,8 +1165,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
-    const auto bit_width = bit_width_data[i] = bit_util::NumRequiredBits(
-        static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+    const auto bit_width = bit_width_data[i] =
+        std::bit_width(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // Convert delta to frame of reference. See overflow comment above.

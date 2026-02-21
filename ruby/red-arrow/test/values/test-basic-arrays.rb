@@ -147,13 +147,33 @@ module ValuesBasicArraysTests
     assert_equal(values, target.values)
   end
 
-  def test_tring
+  def test_large_binary
+    values = [
+      "\x00".b,
+      nil,
+      "\xff".b,
+    ]
+    target = build(Arrow::LargeBinaryArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_string
     values = [
       "Ruby",
       nil,
       "\u3042", # U+3042 HIRAGANA LETTER A
     ]
     target = build(Arrow::StringArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_large_string
+    values = [
+      "Ruby",
+      nil,
+      "\u3042", # U+3042 HIRAGANA LETTER A
+    ]
+    target = build(Arrow::LargeStringArray.new(values))
     assert_equal(values, target.values)
   end
 
@@ -314,6 +334,46 @@ module ValuesBasicArraysTests
       {month: 2, day: 3, nanosecond: 400},
     ]
     target = build(Arrow::MonthDayNanoIntervalArray.new(values))
+    assert_equal(values, target.values)
+  end
+
+  def test_duration_second
+    values = [
+      0,
+      nil,
+      100,
+    ]
+    target = build(Arrow::DurationArray.new(:second, values))
+    assert_equal(values, target.values)
+  end
+
+  def test_duration_milli
+    values = [
+      0,
+      nil,
+      100,
+    ]
+    target = build(Arrow::DurationArray.new(:milli, values))
+    assert_equal(values, target.values)
+  end
+
+  def test_duration_micro
+    values = [
+      0,
+      nil,
+      100,
+    ]
+    target = build(Arrow::DurationArray.new(:micro, values))
+    assert_equal(values, target.values)
+  end
+
+  def test_duration_nano
+    values = [
+      0,
+      nil,
+      100,
+    ]
+    target = build(Arrow::DurationArray.new(:nano, values))
     assert_equal(values, target.values)
   end
 end

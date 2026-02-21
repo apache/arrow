@@ -451,7 +451,7 @@ tasks:
       flags: -e CC=gcc-14 -e CXX=g++-14 -e RapidJSON_SOURCE=BUNDLED
       image: ubuntu-cpp
 
-{% for debian_version in ["12"] %}
+{% for debian_version in ["13"] %}
   test-debian-{{ debian_version }}-cpp-amd64:
     ci: github
     template: docker-tests/github.linux.yml
@@ -589,23 +589,25 @@ tasks:
         UBUNTU: 22.04
       image: ubuntu-python-313-freethreading
 
-  test-debian-12-python-3-amd64:
+{% for debian_version in ["13"] %}
+  test-debian-{{ debian_version }}-python-3-amd64:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
-        DEBIAN: 12
+        DEBIAN: "{{ debian_version }}"
       image: debian-python
 
-  test-debian-12-python-3-i386:
+  test-debian-{{ debian_version }}-python-3-i386:
     ci: github
     template: docker-tests/github.linux.yml
     params:
       env:
         ARCH: i386
-        DEBIAN: 12
+        DEBIAN: "{{ debian_version }}"
       flags: "-e ARROW_S3=OFF -e ARROW_GANDIVA=OFF"
       image: debian-python
+{% endfor %}
 
   test-ubuntu-22.04-python-3:
     ci: github
@@ -657,6 +659,15 @@ tasks:
     template: docker-tests/github.linux.yml
     params:
       image: alpine-linux-r
+
+  test-r-fedora-clang:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: fedora-r-clang
+      # R-devel built from source with Clang, simulating CRAN's
+      # r-devel-linux-x86_64-fedora-clang environment
+      timeout: 180 # 3 hours - R-devel build from source takes time
 
   test-r-macos-as-cran:
     ci: github
@@ -747,7 +758,7 @@ tasks:
     template: r/github.macos.m1san.yml
 
   # be sure to update binary-task.rb when upgrading Debian
-  test-debian-12-docs:
+  test-debian-13-docs:
     ci: github
     template: docs/github.linux.yml
     params:

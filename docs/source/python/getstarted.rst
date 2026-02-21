@@ -15,17 +15,6 @@
 .. specific language governing permissions and limitations
 .. under the License.
 
-.. ipython:: python
-    :suppress:
-
-    # set custom tmp working directory for files that create data
-    import os
-    import tempfile
-
-    orig_working_dir = os.getcwd()
-    temp_working_dir = tempfile.mkdtemp(prefix="pyarrow-")
-    os.chdir(temp_working_dir)
-
 .. _getstarted:
 
 Getting Started
@@ -47,24 +36,29 @@ Arrow to use the best performing implementation to store the data and
 perform computations on it. So each array is meant to have data and
 a type
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow as pa
-
-    days = pa.array([1, 12, 17, 23, 28], type=pa.int8())
+   >>> import pyarrow as pa
+   >>> days = pa.array([1, 12, 17, 23, 28], type=pa.int8())
 
 Multiple arrays can be combined in tables to form the columns
 in tabular data when attached to a column name
 
-.. ipython:: python
+.. code-block:: python
 
-    months = pa.array([1, 3, 5, 7, 1], type=pa.int8())
-    years = pa.array([1990, 2000, 1995, 2000, 1995], type=pa.int16())
-
-    birthdays_table = pa.table([days, months, years],
-                               names=["days", "months", "years"])
-
-    birthdays_table
+   >>> months = pa.array([1, 3, 5, 7, 1], type=pa.int8())
+   >>> years = pa.array([1990, 2000, 1995, 2000, 1995], type=pa.int16())
+   >>> birthdays_table = pa.table([days, months, years],
+   ...                            names=["days", "months", "years"])
+   >>> birthdays_table
+   pyarrow.Table
+   days: int8
+   months: int8
+   years: int16
+   ----
+   days: [[1,12,17,23,28]]
+   months: [[1,3,5,7,1]]
+   years: [[1990,2000,1995,2000,1995]]
 
 See :ref:`data` for more details.
 
@@ -75,21 +69,27 @@ Once you have tabular data, Arrow provides out of the box
 the features to save and restore that data for common formats
 like Parquet:
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow.parquet as pq
-
-    pq.write_table(birthdays_table, 'birthdays.parquet')
+   >>> import pyarrow.parquet as pq
+   >>> pq.write_table(birthdays_table, 'birthdays.parquet')
 
 Once you have your data on disk, loading it back is a single function call,
 and Arrow is heavily optimized for memory and speed so loading
 data will be as quick as possible
 
-.. ipython:: python
+.. code-block:: python
 
-    reloaded_birthdays = pq.read_table('birthdays.parquet')
-
-    reloaded_birthdays
+   >>> reloaded_birthdays = pq.read_table('birthdays.parquet')
+   >>> reloaded_birthdays
+   pyarrow.Table
+   days: int8
+   months: int8
+   years: int16
+   ----
+   days: [[1,12,17,23,28]]
+   months: [[1,3,5,7,1]]
+   years: [[1990,2000,1995,2000,1995]]
 
 Saving and loading back data in arrow is usually done through
 :ref:`Parquet <parquet>`, :ref:`IPC format <ipc>` (:ref:`feather`),
@@ -102,11 +102,24 @@ Arrow ships with a bunch of compute functions that can be applied
 to its arrays and tables, so through the compute functions
 it's possible to apply transformations to the data
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow.compute as pc
-
-    pc.value_counts(birthdays_table["years"])
+   >>> import pyarrow.compute as pc
+   >>> pc.value_counts(birthdays_table["years"])
+   <pyarrow.lib.StructArray object at ...>
+   -- is_valid: all not null
+   -- child 0 type: int16
+     [
+       1990,
+       2000,
+       1995
+     ]
+   -- child 1 type: int64
+     [
+       1,
+       2,
+       2
+     ]
 
 See :ref:`compute` for a list of available compute functions and
 how to use them.
@@ -118,33 +131,40 @@ Arrow also provides the :class:`pyarrow.dataset` API to work with
 large data, which will handle for you partitioning of your data in
 smaller chunks
 
-.. ipython:: python
+.. code-block:: python
 
-    import pyarrow.dataset as ds
-
-    ds.write_dataset(birthdays_table, "savedir", format="parquet",
-                     partitioning=ds.partitioning(
-                        pa.schema([birthdays_table.schema.field("years")])
-                    ))
+   >>> import pyarrow.dataset as ds
+   >>> ds.write_dataset(birthdays_table, "savedir", format="parquet",
+   ...                  partitioning=ds.partitioning(
+   ...                     pa.schema([birthdays_table.schema.field("years")])
+   ...                 ))
 
 Loading back the partitioned dataset will detect the chunks
 
-.. ipython:: python
+.. code-block:: python
 
-    birthdays_dataset = ds.dataset("savedir", format="parquet", partitioning=["years"])
-
-    birthdays_dataset.files
+   >>> birthdays_dataset = ds.dataset("savedir", format="parquet", partitioning=["years"])
+   >>> birthdays_dataset.files
+   ['savedir/1990/part-0.parquet', 'savedir/1995/part-0.parquet', 'savedir/2000/part-0.parquet']
 
 and will lazily load chunks of data only when iterating over them
 
-.. ipython:: python
-    :okexcept:
+.. code-block:: python
 
-    import datetime
-
-    current_year = datetime.datetime.now(datetime.UTC).year
-    for table_chunk in birthdays_dataset.to_batches():
-        print("AGES", pc.subtract(current_year, table_chunk["years"]))
+   >>> current_year = 2025
+   >>> for table_chunk in birthdays_dataset.to_batches():
+   ...     print("AGES", pc.subtract(current_year, table_chunk["years"]))
+   AGES [
+     35
+   ]
+   AGES [
+     30,
+     30
+   ]
+   AGES [
+     25,
+     25
+   ]
 
 For further details on how to work with big datasets, how to filter them,
 how to project them, etc., refer to :ref:`dataset` documentation.
@@ -155,14 +175,3 @@ Continuing from here
 For digging further into Arrow, you might want to read the
 :doc:`PyArrow Documentation <./index>` itself or the
 `Arrow Python Cookbook <https://arrow.apache.org/cookbook/py/>`_
-
-
-.. ipython:: python
-    :suppress:
-
-    # clean-up custom working directory
-    import os
-    import shutil
-
-    os.chdir(orig_working_dir)
-    shutil.rmtree(temp_working_dir, ignore_errors=True)

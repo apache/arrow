@@ -24,30 +24,9 @@
 #include <arrow/util/bitmap_reader.h>
 #include <arrow/visit_data_inline.h>
 
-#include <cpp11/altrep.hpp>
 #include <cpp11/declarations.hpp>
-#if defined(HAS_ALTREP)
 
-#if R_VERSION < R_Version(3, 6, 0)
-
-// workaround because R's <R_ext/Altrep.h> not so conveniently uses `class`
-// as a variable name, and C++ is not happy about that
-//
-// SEXP R_new_altrep(R_altrep_class_t class, SEXP data1, SEXP data2);
-//
-#define class klass
-
-// Because functions declared in <R_ext/Altrep.h> have C linkage
-extern "C" {
 #include <R_ext/Altrep.h>
-}
-
-// undo the workaround
-#undef class
-
-#else
-#include <R_ext/Altrep.h>
-#endif
 
 #include "./r_task_group.h"
 
@@ -1115,29 +1094,6 @@ std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) {
 }  // namespace altrep
 }  // namespace r
 }  // namespace arrow
-
-#else  // HAS_ALTREP
-
-namespace arrow {
-namespace r {
-namespace altrep {
-
-// return an altrep R vector that shadows the array if possible
-SEXP MakeAltrepVector(const std::shared_ptr<ChunkedArray>& chunked_array) {
-  return R_NilValue;
-}
-
-bool is_arrow_altrep(SEXP) { return false; }
-
-std::shared_ptr<ChunkedArray> vec_to_arrow_altrep_bypass(SEXP x) { return nullptr; }
-
-bool is_unmaterialized_arrow_altrep(SEXP) { return false; }
-
-}  // namespace altrep
-}  // namespace r
-}  // namespace arrow
-
-#endif
 
 // [[arrow::export]]
 bool is_arrow_altrep(cpp11::sexp x) { return arrow::r::altrep::is_arrow_altrep(x); }

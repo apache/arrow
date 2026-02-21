@@ -81,6 +81,7 @@ export PYARROW_PARALLEL=${n_jobs}
 : "${CMAKE_PREFIX_PATH:=${ARROW_HOME}}"
 export CMAKE_PREFIX_PATH
 export LD_LIBRARY_PATH=${ARROW_HOME}/lib:${LD_LIBRARY_PATH}
+export DYLD_LIBRARY_PATH=${ARROW_HOME}/lib${DYLD_LIBRARY_PATH:+:${DYLD_LIBRARY_PATH}}
 
 # https://github.com/apache/arrow/issues/41429
 # TODO: We want to out-of-source build. This is a workaround. We copy
@@ -115,6 +116,7 @@ if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   export ARROW_CPP_DOXYGEN_XML=${build_dir}/cpp/apidoc/xml
   pushd "${build_dir}"
   sphinx-build \
+    -j auto \
     -b html \
     "${python_build_dir}/docs/source" \
     "${build_dir}/docs"

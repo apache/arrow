@@ -78,11 +78,11 @@ module ArrowFormat
       when FB::Interval
         case fb_type.unit
         when FB::IntervalUnit::YEAR_MONTH
-          type = YearMonthIntervalType.new
+          type = YearMonthIntervalType.singleton
         when FB::IntervalUnit::DAY_TIME
-          type = DayTimeIntervalType.new
+          type = DayTimeIntervalType.singleton
         when FB::IntervalUnit::MONTH_DAY_NANO
-          type = MonthDayNanoIntervalType.new
+          type = MonthDayNanoIntervalType.singleton
         end
       when FB::Duration
         unit = fb_type.unit.name.downcase.to_sym
@@ -233,8 +233,8 @@ module ArrowFormat
       when DictionaryType
         indices_buffer = buffers.shift
         indices = body.slice(indices_buffer.offset, indices_buffer.length)
-        dictionary = find_dictionary(field.dictionary_id)
-        field.type.build_array(length, validity, indices, dictionary)
+        dictionaries = find_dictionaries(field.dictionary_id)
+        field.type.build_array(length, validity, indices, dictionaries)
       end
     end
   end

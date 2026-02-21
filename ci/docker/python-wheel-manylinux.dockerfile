@@ -26,7 +26,7 @@ ENV LINUX_WHEEL_KIND='manylinux'
 ENV LINUX_WHEEL_VERSION=${manylinux}
 
 # Install basic dependencies
-RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd wget
+RUN dnf install -y git flex curl autoconf zip perl-IPC-Cmd perl-Time-Piece wget
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
@@ -112,11 +112,6 @@ RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG
 
 SHELL ["/bin/bash", "-i", "-c"]
 ENTRYPOINT ["/bin/bash", "-i", "-c"]
-
-# Remove once there are released Cython wheels for 3.13 free-threaded available
-RUN if [ "${python_abi_tag}" = "cp313t" ]; then \
-      pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary ; \
-    fi
 
 COPY python/requirements-wheel-build.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-build.txt

@@ -134,7 +134,7 @@ env:
           echo "No wheel files found!"
           exit 1
       fi
-      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.12.3
+      python3 -m pip install git+https://github.com/Anaconda-Platform/anaconda-client.git@1.14.1
       anaconda -t ${CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN} upload --force -u scientific-python-nightly-wheels --label main {{ pattern }}
     env:
       CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN: {{ '${{ secrets.CROSSBOW_SCIENTIFIC_PYTHON_UPLOAD_TOKEN }}' }}
@@ -223,11 +223,13 @@ env:
       path: repo/libarrow
   {% endif %}
   {% if get_nix %}
-  - name: Get Linux binary
+    {% for arch in ["x86_64", "arm64"] %}
+  - name: Get Linux {{ arch }} binary
     uses: actions/download-artifact@v4
     with:
-      name: r-libarrow-linux-x86_64
+      name: r-libarrow-linux-{{ arch }}
       path: repo/libarrow
+    {% endfor %}
   {% endif %}
   {% if get_mac %}
     {% for arch in ["x86_64", "arm64"] %}
