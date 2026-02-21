@@ -22,6 +22,7 @@
 
 #include <memory>
 
+#include "arrow/buffer.h"
 #include "arrow/flight/protocol_internal.h"
 #include "arrow/flight/transport/grpc/protocol_grpc_internal.h"
 #include "arrow/flight/type_fwd.h"
@@ -33,6 +34,13 @@ namespace transport {
 namespace grpc {
 
 namespace pb = arrow::flight::protocol;
+
+/// Convert an Arrow Buffer to a gRPC Slice.
+arrow::Result<::grpc::Slice> SliceFromBuffer(const std::shared_ptr<arrow::Buffer>& buf);
+
+/// Wrap a gRPC ByteBuffer as a zero-copy Arrow Buffer (and clear the ByteBuffer).
+arrow::Status WrapGrpcBuffer(::grpc::ByteBuffer* grpc_buf,
+                             std::shared_ptr<arrow::Buffer>* out);
 
 /// Write Flight message on gRPC stream with zero-copy optimizations.
 // Returns Invalid if the payload is ill-formed
