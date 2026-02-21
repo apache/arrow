@@ -14,18 +14,3 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-
-"""
-CLI wrapper for stub docstring injection.
-
-Usage (from python/ directory with pyarrow built):
-    python scripts/update_stub_docstrings.py pyarrow-stubs
-"""
-
-import sys
-from pathlib import Path
-
-if __name__ == "__main__":
-    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-    from pyarrow._build_utils.update_stub_docstrings import main
-    main()

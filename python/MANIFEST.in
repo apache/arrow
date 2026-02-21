@@ -5,7 +5,6 @@ include ../NOTICE.txt
 global-include CMakeLists.txt
 graft pyarrow
 graft pyarrow-stubs
-include scripts/update_stub_docstrings.py
 graft cmake_modules
 
 global-exclude *.so
