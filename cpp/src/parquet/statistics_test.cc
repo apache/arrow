@@ -323,7 +323,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     auto statistics2 = MakeStatistics<TestType>(
         this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
         /*null_count=*/0, /*distinct_count=*/0,
-        /*has_min_max=*/true, /*has_distinct_count=*/true,
+        /*has_min_max=*/true,
         /*is_min_value_exact=*/true, /*is_max_value_exact=*/true);
 
     auto statistics3 = MakeStatistics<TestType>(this->schema_.Column(0));
@@ -335,10 +335,10 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     std::string encoded_max_spaced = statistics3->EncodeMax();
 
     // Use old API without is_{min/max}_value_exact
-    auto statistics4 = MakeStatistics<TestType>(
-        this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
-        /*null_count=*/0, /*distinct_count=*/0,
-        /*has_min_max=*/true, /*has_distinct_count=*/true);
+    auto statistics4 = MakeStatistics<TestType>(this->schema_.Column(0), encoded_min,
+                                                encoded_max, this->values_.size(),
+                                                /*null_count=*/0, /*distinct_count=*/0,
+                                                /*has_min_max=*/true);
     ASSERT_EQ(encoded_min, statistics2->EncodeMin());
     ASSERT_EQ(encoded_max, statistics2->EncodeMax());
     ASSERT_EQ(statistics1->min(), statistics2->min());
@@ -573,7 +573,7 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
       this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
       /*null_count=*/0,
       /*distinct_count=*/0, /*has_min_max=*/true,
-      /*has_distinct_count=*/true, /*is_min_value_exact=*/true,
+      /*is_min_value_exact=*/true,
       /*is_max_value_exact=*/true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
@@ -639,7 +639,6 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       const std::vector<std::optional<int64_t>>& subsequent) {
     EncodedStatistics encoded_statistics;
     if (initial) {
-      encoded_statistics.has_distinct_count = true;
       encoded_statistics.distinct_count = *initial;
     }
     std::shared_ptr<TypedStatistics<TestType>> statistics =
@@ -649,7 +648,6 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     for (const auto& distinct_count : subsequent) {
       EncodedStatistics next_encoded_statistics;
       if (distinct_count) {
-        next_encoded_statistics.has_distinct_count = true;
         next_encoded_statistics.distinct_count = *distinct_count;
       }
       std::shared_ptr<TypedStatistics<TestType>> next_statistics =
@@ -659,7 +657,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       statistics->Merge(*next_statistics);
     }
     EncodedStatistics final_statistics = statistics->Encode();
-    EXPECT_EQ(statistics->HasDistinctCount(), final_statistics.has_distinct_count);
+    EXPECT_EQ(statistics->HasDistinctCount(),
+              final_statistics.distinct_count.has_value());
     if (statistics->HasDistinctCount()) {
       EXPECT_EQ(statistics->distinct_count(), final_statistics.distinct_count);
       return statistics->distinct_count();
@@ -803,7 +802,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     auto encoded = typed_stats->Encode();
     EXPECT_FALSE(encoded.all_null_value);
     EXPECT_FALSE(encoded.null_count.has_value());
-    EXPECT_FALSE(encoded.has_distinct_count);
+    EXPECT_FALSE(encoded.distinct_count.has_value());
     EXPECT_FALSE(encoded.has_min);
     EXPECT_FALSE(encoded.has_max);
     EXPECT_FALSE(encoded.is_min_value_exact.has_value());
@@ -1655,7 +1654,7 @@ TEST(TestStatisticsSortOrder, UNKNOWN) {
 
   std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
   ASSERT_TRUE(enc_stats->null_count.has_value());
-  ASSERT_FALSE(enc_stats->has_distinct_count);
+  ASSERT_FALSE(enc_stats->distinct_count.has_value());
   ASSERT_FALSE(enc_stats->has_min);
   ASSERT_FALSE(enc_stats->has_max);
   ASSERT_EQ(1, enc_stats->null_count);

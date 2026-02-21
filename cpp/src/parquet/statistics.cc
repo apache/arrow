@@ -604,19 +604,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   // Create stats from a thrift Statistics object.
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
-                      std::optional<int64_t> null_count, int64_t distinct_count,
-                      bool has_min_max, bool has_distinct_count,
+                      std::optional<int64_t> null_count,
+                      std::optional<int64_t> distinct_count, bool has_min_max,
                       MemoryPool* pool)
       : TypedStatisticsImpl(descr, encoded_min, encoded_max, num_values, null_count,
                             distinct_count, has_min_max,
-                            has_distinct_count,
                             /*is_min_value_exact=*/std::nullopt,
                             /*is_max_value_exact=*/std::nullopt, pool) {}
 
   TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
-                      std::optional<int64_t> null_count, int64_t distinct_count,
-                      bool has_min_max, bool has_distinct_count,
+                      std::optional<int64_t> null_count,
+                      std::optional<int64_t> distinct_count, bool has_min_max,
                       std::optional<bool> is_min_value_exact,
                       std::optional<bool> is_max_value_exact, MemoryPool* pool)
       : TypedStatisticsImpl(descr, pool) {
@@ -626,10 +625,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     } else {
       statistics_.null_count = std::nullopt;
     }
-    if (has_distinct_count) {
-      SetDistinctCount(distinct_count);
+    if (distinct_count) {
+      SetDistinctCount(*distinct_count);
     } else {
-      has_distinct_count_ = false;
+      statistics_.distinct_count = std::nullopt;
     }
 
     if (has_min_max) {
@@ -642,7 +641,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     has_min_max_ = has_min_max;
   }
 
-  bool HasDistinctCount() const override { return has_distinct_count_; };
+  bool HasDistinctCount() const override {
+    return statistics_.distinct_count.has_value();
+  };
   bool HasMinMax() const override { return has_min_max_; }
   bool HasNullCount() const override { return statistics_.null_count.has_value(); };
 
@@ -702,19 +703,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->num_values_ += other.num_values();
     // null_count is valid only if both sides have it.
     if (this->HasNullCount() && other.HasNullCount()) {
-      this->statistics_.null_count =
-          *this->statistics_.null_count + other.null_count();
+      this->statistics_.null_count = *this->statistics_.null_count + other.null_count();
     } else {
       this->statistics_.null_count = std::nullopt;
     }
-    if (has_distinct_count_ && other.HasDistinctCount() &&
+    if (this->HasDistinctCount() && other.HasDistinctCount() &&
         (distinct_count() == 0 || other.distinct_count() == 0)) {
       // We can merge distinct counts if either side is zero.
       statistics_.distinct_count =
-          std::max(statistics_.distinct_count, other.distinct_count());
+          std::max(*statistics_.distinct_count, other.distinct_count());
     } else {
-      // Otherwise clear has_distinct_count_ as distinct count cannot be merged.
-      this->has_distinct_count_ = false;
+      // Otherwise clear distinct_count as distinct count cannot be merged.
+      this->statistics_.distinct_count = std::nullopt;
     }
     // Do not clear min/max here if the other side does not provide
     // min/max which may happen when other is an empty stats or all
@@ -783,7 +783,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   int64_t null_count() const override { return statistics_.null_count.value_or(0); }
-  int64_t distinct_count() const override { return statistics_.distinct_count; }
+  int64_t distinct_count() const override {
+    return statistics_.distinct_count.value_or(0);
+  }
   int64_t num_values() const override { return num_values_; }
   std::optional<bool> is_min_value_exact() const override {
     return statistics_.is_min_value_exact;
@@ -795,7 +797,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  private:
   const ColumnDescriptor* descr_;
   bool has_min_max_ = false;
-  bool has_distinct_count_ = false;
   T min_;
   T max_;
   ::arrow::MemoryPool* pool_;
@@ -818,7 +819,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void SetDistinctCount(int64_t n) {
     // distinct count can only be "set", and cannot be incremented.
     statistics_.distinct_count = n;
-    has_distinct_count_ = true;
   }
 
   void ResetCounts() {
@@ -830,10 +830,10 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   void ResetHasFlags() {
     // has_min_max_ will only be set when it meets any valid value.
     this->has_min_max_ = false;
-    // has_distinct_count_ will only be set once SetDistinctCount()
+    // distinct_count will only be set once SetDistinctCount()
     // is called because distinct count calculation is not cheap and
     // disabled by default.
-    this->has_distinct_count_ = false;
+    this->statistics_.distinct_count = std::nullopt;
     // Null count calculation is cheap and enabled by default.
     this->statistics_.null_count = this->statistics_.null_count.value_or(0);
   }
@@ -1078,18 +1078,15 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
   return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->has_min && encoded_stats->has_max,
-              encoded_stats->has_distinct_count,
               encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, std::optional<int64_t> null_count,
-    int64_t distinct_count, bool has_min_max,
-    bool has_distinct_count, ::arrow::MemoryPool* pool) {
-  return Statistics::Make(descr, encoded_min, encoded_max, num_values,
-                          null_count, distinct_count,
-                          has_min_max, has_distinct_count,
+    std::optional<int64_t> distinct_count, bool has_min_max, ::arrow::MemoryPool* pool) {
+  return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                          distinct_count, has_min_max,
                           /*is_min_value_exact=*/std::nullopt,
                           /*is_max_value_exact=*/std::nullopt, pool);
 }
@@ -1097,16 +1094,14 @@ std::shared_ptr<Statistics> Statistics::Make(
 std::shared_ptr<Statistics> Statistics::Make(
     const ColumnDescriptor* descr, const std::string& encoded_min,
     const std::string& encoded_max, int64_t num_values, std::optional<int64_t> null_count,
-    int64_t distinct_count, bool has_min_max,
-    bool has_distinct_count, std::optional<bool> is_min_value_exact,
-    std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
-#define MAKE_STATS(CAP_TYPE, KLASS)                                                 \
-  case Type::CAP_TYPE:                                                              \
-    return std::make_shared<TypedStatisticsImpl<KLASS>>(                            \
-        descr, encoded_min, encoded_max, num_values,                                \
-        null_count, distinct_count, has_min_max,    \
-        has_distinct_count, is_min_value_exact, is_max_value_exact, \
-        pool)
+    std::optional<int64_t> distinct_count, bool has_min_max,
+    std::optional<bool> is_min_value_exact, std::optional<bool> is_max_value_exact,
+    ::arrow::MemoryPool* pool) {
+#define MAKE_STATS(CAP_TYPE, KLASS)                                              \
+  case Type::CAP_TYPE:                                                           \
+    return std::make_shared<TypedStatisticsImpl<KLASS>>(                         \
+        descr, encoded_min, encoded_max, num_values, null_count, distinct_count, \
+        has_min_max, is_min_value_exact, is_max_value_exact, pool)
 
   switch (descr->physical_type()) {
     MAKE_STATS(BOOLEAN, BooleanType);
