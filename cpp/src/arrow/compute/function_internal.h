@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -97,16 +98,16 @@ ARROW_EXPORT
 Result<std::unique_ptr<FunctionOptions>> DeserializeFunctionOptions(const Buffer& buffer);
 
 template <typename T>
-static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
-    const T& value) {
+  requires(!has_enum_traits<T>::value)
+static inline std::string GenericToString(const T& value) {
   std::stringstream ss;
   ss << value;
   return ss.str();
 }
 
 template <typename T>
-static inline enable_if_t<!has_enum_traits<T>::value, std::string> GenericToString(
-    const std::optional<T>& value) {
+  requires(!has_enum_traits<T>::value)
+static inline std::string GenericToString(const std::optional<T>& value) {
   return value.has_value() ? GenericToString(value.value()) : "nullopt";
 }
 
@@ -119,8 +120,8 @@ static inline std::string GenericToString(const std::string& value) {
 }
 
 template <typename T>
-static inline enable_if_t<has_enum_traits<T>::value, std::string> GenericToString(
-    const T value) {
+  requires has_enum_traits<T>::value
+static inline std::string GenericToString(const T value) {
   return EnumTraits<T>::value_name(value);
 }
 
@@ -256,21 +257,20 @@ GenericTypeSingleton() {
 }
 
 template <typename T>
-static inline enable_if_same<T, std::shared_ptr<const KeyValueMetadata>,
-                             std::shared_ptr<DataType>>
-GenericTypeSingleton() {
+  requires std::same_as<T, std::shared_ptr<const KeyValueMetadata>>
+static inline std::shared_ptr<DataType> GenericTypeSingleton() {
   return map(binary(), binary());
 }
 
 template <typename T>
-static inline enable_if_t<has_enum_traits<T>::value, std::shared_ptr<DataType>>
-GenericTypeSingleton() {
+  requires has_enum_traits<T>::value
+static inline std::shared_ptr<DataType> GenericTypeSingleton() {
   return TypeTraits<typename EnumTraits<T>::Type>::type_singleton();
 }
 
 template <typename T>
-static inline enable_if_same<T, SortKey, std::shared_ptr<DataType>>
-GenericTypeSingleton() {
+  requires std::same_as<T, SortKey>
+static inline std::shared_ptr<DataType> GenericTypeSingleton() {
   std::vector<std::shared_ptr<Field>> fields;
   fields.emplace_back(new Field("target", GenericTypeSingleton<std::string>()));
   fields.emplace_back(new Field("order", GenericTypeSingleton<SortOrder>()));
@@ -294,7 +294,8 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const FieldRef& re
   return MakeScalar(ref.ToDotPath());
 }
 
-template <typename T, typename Enable = enable_if_t<has_enum_traits<T>::value>>
+template <typename T>
+  requires has_enum_traits<T>::value
 static inline Result<std::shared_ptr<Scalar>> GenericToScalar(const T value) {
   using CType = typename EnumTraits<T>::CType;
   return GenericToScalar(static_cast<CType>(value));
@@ -389,8 +390,9 @@ static inline Result<std::shared_ptr<Scalar>> GenericToScalar(
 }
 
 template <typename T>
-static inline enable_if_primitive_ctype<typename CTypeTraits<T>::ArrowType, Result<T>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+  requires requires { typename CTypeTraits<T>::ArrowType; } &&
+           is_primitive_ctype<typename CTypeTraits<T>::ArrowType>::value
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   using ArrowType = typename CTypeTraits<T>::ArrowType;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
   if (value->type->id() != ArrowType::type_id) {
@@ -403,8 +405,8 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
 }
 
 template <typename T>
-static inline enable_if_primitive_ctype<typename EnumTraits<T>::Type, Result<T>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+  requires is_primitive_ctype<typename EnumTraits<T>::Type>::value
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto raw_val,
                         GenericFromScalar<typename EnumTraits<T>::CType>(value));
   return ValidateEnumValue<T>(raw_val);
@@ -414,8 +416,8 @@ template <typename T, typename U>
 using enable_if_same_result = enable_if_same<T, U, Result<T>>;
 
 template <typename T>
-static inline enable_if_same_result<T, std::string> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, std::string>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   if (!is_base_binary_like(value->type->id())) {
     return Status::Invalid("Expected binary-like type but got ", value->type->ToString());
   }
@@ -425,15 +427,15 @@ static inline enable_if_same_result<T, std::string> GenericFromScalar(
 }
 
 template <typename T>
-static inline enable_if_same_result<T, FieldRef> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, FieldRef>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   ARROW_ASSIGN_OR_RAISE(auto path, GenericFromScalar<std::string>(value));
   return FieldRef::FromDotPath(path);
 }
 
 template <typename T>
-static inline enable_if_same_result<T, SortKey> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, SortKey>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   if (value->type->id() != Type::STRUCT) {
     return Status::Invalid("Expected type STRUCT but got ", value->type->id());
   }
@@ -447,26 +449,26 @@ static inline enable_if_same_result<T, SortKey> GenericFromScalar(
 }
 
 template <typename T>
-static inline enable_if_same_result<T, std::shared_ptr<DataType>> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, std::shared_ptr<DataType>>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   return value->type;
 }
 
 template <typename T>
-static inline enable_if_same_result<T, TypeHolder> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, TypeHolder>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   return value->type;
 }
 
 template <typename T>
-static inline enable_if_same_result<T, std::shared_ptr<Scalar>> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, std::shared_ptr<Scalar>>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   return value;
 }
 
 template <typename T>
-static inline enable_if_same_result<T, std::shared_ptr<const KeyValueMetadata>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, std::shared_ptr<const KeyValueMetadata>>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   auto ty = GenericTypeSingleton<std::shared_ptr<const KeyValueMetadata>>();
   if (!value->type->Equals(ty)) {
     return Status::Invalid("Expected ", ty->ToString(), " but got ",
@@ -486,8 +488,8 @@ GenericFromScalar(const std::shared_ptr<Scalar>& value) {
 }
 
 template <typename T>
-static inline enable_if_same_result<T, Datum> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires std::same_as<T, Datum>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   if (value->type->id() == Type::LIST) {
     const auto& holder = checked_cast<const BaseListScalar&>(*value);
     return holder.value;
@@ -504,8 +506,8 @@ template <>
 constexpr inline bool is_optional_v<std::nullopt_t> = true;
 
 template <typename T>
-static inline std::enable_if_t<is_optional_v<T>, Result<T>> GenericFromScalar(
-    const std::shared_ptr<Scalar>& value) {
+  requires is_optional_v<T>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   using value_type = typename T::value_type;
   if (value->type->id() == Type::NA) {
     return std::nullopt;
@@ -514,8 +516,9 @@ static inline std::enable_if_t<is_optional_v<T>, Result<T>> GenericFromScalar(
 }
 
 template <typename T>
-static enable_if_same<typename CTypeTraits<T>::ArrowType, ListType, Result<T>>
-GenericFromScalar(const std::shared_ptr<Scalar>& value) {
+  requires requires { typename CTypeTraits<T>::ArrowType; } &&
+           std::same_as<typename CTypeTraits<T>::ArrowType, ListType>
+static inline Result<T> GenericFromScalar(const std::shared_ptr<Scalar>& value) {
   using ValueType = typename T::value_type;
   if (value->type->id() != Type::LIST) {
     return Status::Invalid("Expected type LIST but got ", value->type->ToString());

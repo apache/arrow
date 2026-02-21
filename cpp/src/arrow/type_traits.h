@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <memory>
 #include <string>
 #include <type_traits>
@@ -997,6 +998,181 @@ using is_physical_floating_type =
 template <typename T, typename R = void>
 using enable_if_physical_floating_point =
     enable_if_t<is_physical_floating_type<T>::value, R>;
+
+//
+// C++20 concepts for Arrow type predicates
+//
+
+/// \addtogroup type-concepts
+/// @{
+
+// -- Primitive type concepts --
+
+template <typename T>
+concept arrow_null = is_null_type<T>::value;
+
+template <typename T>
+concept arrow_boolean = is_boolean_type<T>::value;
+
+template <typename T>
+concept arrow_number = is_number_type<T>::value;
+
+template <typename T>
+concept arrow_integer = is_integer_type<T>::value;
+
+template <typename T>
+concept arrow_signed_integer = is_signed_integer_type<T>::value;
+
+template <typename T>
+concept arrow_unsigned_integer = is_unsigned_integer_type<T>::value;
+
+template <typename T>
+concept arrow_floating_point = is_floating_type<T>::value;
+
+template <typename T>
+concept arrow_half_float = is_half_float_type<T>::value;
+
+template <typename T>
+concept arrow_8bit_int = is_8bit_int<T>::value;
+
+// -- Binary / String type concepts --
+
+template <typename T>
+concept arrow_base_binary = is_base_binary_type<T>::value;
+
+template <typename T>
+concept arrow_binary = is_binary_type<T>::value;
+
+template <typename T>
+concept arrow_string = is_string_type<T>::value;
+
+template <typename T>
+concept arrow_binary_view_like = is_binary_view_like_type<T>::value;
+
+template <typename T>
+concept arrow_binary_view = is_binary_view_type<T>::value;
+
+template <typename T>
+concept arrow_string_view = is_string_view_type<T>::value;
+
+template <typename T>
+concept arrow_string_like = is_string_like_type<T>::value;
+
+template <typename T>
+concept arrow_binary_like = is_binary_like_type<T>::value;
+
+template <typename T>
+concept arrow_fixed_size_binary = is_fixed_size_binary_type<T>::value;
+
+template <typename T>
+concept arrow_fixed_width = is_fixed_width_type<T>::value;
+
+// -- Decimal type concepts --
+
+template <typename T>
+concept arrow_decimal = is_decimal_type<T>::value;
+
+template <typename T>
+concept arrow_decimal32 = is_decimal32_type<T>::value;
+
+template <typename T>
+concept arrow_decimal64 = is_decimal64_type<T>::value;
+
+template <typename T>
+concept arrow_decimal128 = is_decimal128_type<T>::value;
+
+template <typename T>
+concept arrow_decimal256 = is_decimal256_type<T>::value;
+
+// -- Nested type concepts --
+
+template <typename T>
+concept arrow_nested = is_nested_type<T>::value;
+
+template <typename T>
+concept arrow_var_length_list = is_var_length_list_type<T>::value;
+
+template <typename T>
+concept arrow_fixed_size_list = is_fixed_size_list_type<T>::value;
+
+template <typename T>
+concept arrow_list = is_list_type<T>::value;
+
+template <typename T>
+concept arrow_list_view = is_list_view_type<T>::value;
+
+template <typename T>
+concept arrow_list_like = is_list_like_type<T>::value;
+
+template <typename T>
+concept arrow_var_length_list_like = is_var_length_list_like_type<T>::value;
+
+template <typename T>
+concept arrow_struct = is_struct_type<T>::value;
+
+template <typename T>
+concept arrow_union = is_union_type<T>::value;
+
+// -- Temporal type concepts --
+
+template <typename T>
+concept arrow_temporal = is_temporal_type<T>::value;
+
+template <typename T>
+concept arrow_date = is_date_type<T>::value;
+
+template <typename T>
+concept arrow_time = is_time_type<T>::value;
+
+template <typename T>
+concept arrow_timestamp = is_timestamp_type<T>::value;
+
+template <typename T>
+concept arrow_duration = is_duration_type<T>::value;
+
+template <typename T>
+concept arrow_interval = is_interval_type<T>::value;
+
+// -- Special type concepts --
+
+template <typename T>
+concept arrow_run_end_encoded = is_run_end_encoded_type<T>::value;
+
+template <typename T>
+concept arrow_dictionary = is_dictionary_type<T>::value;
+
+template <typename T>
+concept arrow_extension = is_extension_type<T>::value;
+
+// -- Attribute-based concepts --
+
+template <typename T>
+concept arrow_primitive_ctype = is_primitive_ctype<T>::value;
+
+template <typename T>
+concept arrow_has_c_type = has_c_type<T>::value;
+
+template <typename T>
+concept arrow_has_string_view = has_string_view<T>::value;
+
+template <typename T>
+concept arrow_parameter_free = is_parameter_free_type<T>::value;
+
+// -- Physical representation concepts --
+
+template <typename T>
+concept arrow_physical_signed_integer = is_physical_signed_integer_type<T>::value;
+
+template <typename T>
+concept arrow_physical_unsigned_integer = is_physical_unsigned_integer_type<T>::value;
+
+template <typename T>
+concept arrow_physical_integer = is_physical_integer_type<T>::value;
+
+template <typename T>
+concept arrow_physical_floating_point = is_physical_floating_type<T>::value;
+
+/// @}
 
 /// @}
 

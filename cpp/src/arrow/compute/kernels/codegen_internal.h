@@ -126,8 +126,8 @@ struct KernelStateFromFunctionOptions : public KernelState {
 template <typename Type, typename Enable = void>
 struct GetViewType;
 
-template <typename Type>
-struct GetViewType<Type, enable_if_has_c_type<Type>> {
+template <arrow_has_c_type Type>
+struct GetViewType<Type> {
   using T = typename Type::c_type;
   using PhysicalType = T;
 
@@ -143,9 +143,9 @@ struct GetViewType<HalfFloatType> {
 };
 
 template <typename Type>
-struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                     is_fixed_size_binary_type<Type>::value ||
-                                     is_binary_view_like_type<Type>::value>> {
+  requires(arrow_base_binary<Type> || arrow_fixed_size_binary<Type> ||
+           arrow_binary_view_like<Type>)
+struct GetViewType<Type> {
   using T = std::string_view;
   using PhysicalType = T;
 
@@ -203,8 +203,8 @@ struct GetViewType<Decimal256Type> {
 template <typename Type, typename Enable = void>
 struct GetOutputType;
 
-template <typename Type>
-struct GetOutputType<Type, enable_if_has_c_type<Type>> {
+template <arrow_has_c_type Type>
+struct GetOutputType<Type> {
   using T = typename Type::c_type;
 };
 
@@ -213,8 +213,8 @@ struct GetOutputType<HalfFloatType> {
   using T = Float16;
 };
 
-template <typename Type>
-struct GetOutputType<Type, enable_if_t<is_string_like_type<Type>::value>> {
+template <arrow_string_like Type>
+struct GetOutputType<Type> {
   using T = std::string;
 };
 
@@ -283,6 +283,26 @@ using enable_if_decimal_value =
                     std::is_same<Decimal256, T>::value,
                 R>;
 
+// C++20 concept equivalents for C-value types
+template <typename T>
+concept signed_integer_value = is_signed_integer_value<T>::value;
+
+template <typename T>
+concept unsigned_integer_value = is_unsigned_integer_value<T>::value;
+
+template <typename T>
+concept integer_value = signed_integer_value<T> || unsigned_integer_value<T>;
+
+template <typename T>
+concept floating_value = std::floating_point<T>;
+
+template <typename T>
+concept half_float_value = std::same_as<T, Float16>;
+
+template <typename T>
+concept decimal_value = std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||
+                        std::same_as<T, Decimal128> || std::same_as<T, Decimal256>;
+
 // ----------------------------------------------------------------------
 // Iteration / value access utilities
 
@@ -290,13 +310,18 @@ template <typename T, typename R = void>
 using enable_if_c_number_or_decimal = enable_if_t<
     (has_c_type<T>::value && !is_boolean_type<T>::value) || is_decimal_type<T>::value, R>;
 
+/// \brief Concept for Arrow types stored as a C number or decimal in memory
+template <typename T>
+concept arrow_c_number_or_decimal =
+    (arrow_has_c_type<T> && !arrow_boolean<T>) || arrow_decimal<T>;
+
 // Iterator over various input array types, yielding a GetViewType<Type>
 
 template <typename Type, typename Enable = void>
 struct ArrayIterator;
 
-template <typename Type>
-struct ArrayIterator<Type, enable_if_c_number_or_decimal<Type>> {
+template <arrow_c_number_or_decimal Type>
+struct ArrayIterator<Type> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
   const T* values;
 
@@ -313,8 +338,8 @@ struct ArrayIterator<HalfFloatType> {
   T operator()() { return *values++; }
 };
 
-template <typename Type>
-struct ArrayIterator<Type, enable_if_boolean<Type>> {
+template <arrow_boolean Type>
+struct ArrayIterator<Type> {
   BitmapReader reader;
 
   explicit ArrayIterator(const ArraySpan& arr)
@@ -326,8 +351,8 @@ struct ArrayIterator<Type, enable_if_boolean<Type>> {
   }
 };
 
-template <typename Type>
-struct ArrayIterator<Type, enable_if_base_binary<Type>> {
+template <arrow_base_binary Type>
+struct ArrayIterator<Type> {
   using offset_type = typename Type::offset_type;
   const ArraySpan& arr;
   const offset_type* offsets;
@@ -375,8 +400,8 @@ struct ArrayIterator<FixedSizeBinaryType> {
 template <typename Type, typename Enable = void>
 struct OutputArrayWriter;
 
-template <typename Type>
-struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
+template <arrow_c_number_or_decimal Type>
+struct OutputArrayWriter<Type> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
   T* values;
 
@@ -398,8 +423,8 @@ struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
 template <typename Type, typename Enable = void>
 struct UnboxScalar;
 
-template <typename Type>
-struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
+template <arrow_has_c_type Type>
+struct UnboxScalar<Type> {
   using T = typename Type::c_type;
   static T Unbox(const Scalar& val) {
     std::string_view view =
@@ -417,8 +442,8 @@ struct UnboxScalar<HalfFloatType> {
   }
 };
 
-template <typename Type>
-struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
+template <arrow_has_string_view Type>
+struct UnboxScalar<Type> {
   using T = std::string_view;
   static T Unbox(const Scalar& val) {
     if (!val.is_valid) return std::string_view();
@@ -585,8 +610,8 @@ static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult
 template <typename Type, typename Enable = void>
 struct OutputAdapter;
 
-template <typename Type>
-struct OutputAdapter<Type, enable_if_boolean<Type>> {
+template <arrow_boolean Type>
+struct OutputAdapter<Type> {
   template <typename Generator>
   static Status Write(KernelContext*, ArraySpan* out, Generator&& generator) {
     GenerateBitsUnrolled(out->buffers[1].data, out->offset, out->length,
@@ -595,8 +620,8 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
   }
 };
 
-template <typename Type>
-struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
+template <arrow_c_number_or_decimal Type>
+struct OutputAdapter<Type> {
   using T = std::conditional_t<std::is_same_v<Type, HalfFloatType>, Float16,
                                typename TypeTraits<Type>::ScalarType::ValueType>;
 
@@ -611,8 +636,8 @@ struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
   }
 };
 
-template <typename Type>
-struct OutputAdapter<Type, enable_if_base_binary<Type>> {
+template <arrow_base_binary Type>
+struct OutputAdapter<Type> {
   template <typename Generator>
   static Status Write(KernelContext* ctx, ArraySpan* out, Generator&& generator) {
     return Status::NotImplemented("NYI");
@@ -678,8 +703,8 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_c_number_or_decimal<Type>> {
+  template <arrow_c_number_or_decimal Type>
+  struct ArrayExec<Type> {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
@@ -697,8 +722,8 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_base_binary<Type>> {
+  template <arrow_base_binary Type>
+  struct ArrayExec<Type> {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       // NOTE: This code is not currently used by any kernels and has
@@ -719,8 +744,8 @@ struct ScalarUnaryNotNullStateful {
     }
   };
 
-  template <typename Type>
-  struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
+  template <arrow_boolean Type>
+  struct ArrayExec<Type> {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();

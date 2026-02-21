@@ -18,6 +18,7 @@
 #pragma once
 
 #include <bit>
+#include <concepts>
 #include <limits>
 #include "arrow/compute/api_scalar.h"
 #include "arrow/compute/kernels/common_internal.h"
@@ -44,33 +45,34 @@ namespace internal {
 
 struct Add {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                                    Status*) {
+    requires floating_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                            Arg1 right, Status*) {
+    requires unsigned_integer_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                          Arg1 right, Status*) {
+    requires signed_integer_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return arrow::internal::SafeSignedAdd(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
 };
 
 struct AddChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(AddWithOverflow(left, right, &result))) {
@@ -80,14 +82,15 @@ struct AddChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
+    requires floating_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left + right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + right;
   }
 };
@@ -125,34 +128,34 @@ struct AddTimeDurationChecked {
 
 struct AbsoluteValue {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
+    requires floating_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return std::fabs(arg);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                                 Status*) {
+    requires unsigned_integer_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                               Status* st) {
+    requires signed_integer_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status* st) {
     return (arg < 0) ? arrow::internal::SafeSignedNegate(arg) : arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+    requires decimal_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arg.Abs();
   }
 };
 
 struct AbsoluteValueChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                     Status* st) {
+    requires signed_integer_value<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == std::numeric_limits<Arg>::min()) {
       *st = Status::Invalid("overflow");
@@ -162,57 +165,58 @@ struct AbsoluteValueChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                       Status* st) {
+    requires unsigned_integer_value<Arg>
+  static T Call(KernelContext* ctx, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status* st) {
+    requires floating_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return std::fabs(arg);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+    requires decimal_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arg.Abs();
   }
 };
 
 struct Subtract {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                                    Status*) {
+    requires floating_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                            Arg1 right, Status*) {
+    requires unsigned_integer_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 left,
-                                                          Arg1 right, Status*) {
+    requires signed_integer_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return arrow::internal::SafeSignedSubtract(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + (-right);
   }
 };
 
 struct SubtractChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     T result = 0;
     if (ARROW_PREDICT_FALSE(SubtractWithOverflow(left, right, &result))) {
       *st = Status::Invalid("overflow");
@@ -221,14 +225,15 @@ struct SubtractChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
+    requires floating_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left - right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left + (-right);
   }
 };
@@ -298,22 +303,20 @@ struct Multiply {
   static_assert(std::is_same<decltype(uint64_t() * uint64_t()), uint64_t>::value, "");
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, T left, T right,
-                                                    Status*) {
+    requires floating_value<T>
+  static constexpr T Call(KernelContext*, T left, T right, Status*) {
     return left * right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_t<
-      is_unsigned_integer_value<T>::value && !std::is_same<T, uint16_t>::value, T>
-  Call(KernelContext*, T left, T right, Status*) {
+    requires(unsigned_integer_value<T> && !std::is_same_v<T, uint16_t>)
+  static constexpr T Call(KernelContext*, T left, T right, Status*) {
     return left * right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_t<
-      is_signed_integer_value<T>::value && !std::is_same<T, int16_t>::value, T>
-  Call(KernelContext*, T left, T right, Status*) {
+    requires(signed_integer_value<T> && !std::is_same_v<T, int16_t>)
+  static constexpr T Call(KernelContext*, T left, T right, Status*) {
     return to_unsigned(left) * to_unsigned(right);
   }
 
@@ -322,26 +325,27 @@ struct Multiply {
   // behaviour). Therefore we first cast to 32 bit unsigned integers where overflow is
   // well defined.
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_same<T, int16_t, T> Call(KernelContext*, int16_t left,
-                                                      int16_t right, Status*) {
+    requires std::same_as<T, int16_t>
+  static constexpr T Call(KernelContext*, int16_t left, int16_t right, Status*) {
     return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
   }
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_same<T, uint16_t, T> Call(KernelContext*, uint16_t left,
-                                                       uint16_t right, Status*) {
+    requires std::same_as<T, uint16_t>
+  static constexpr T Call(KernelContext*, uint16_t left, uint16_t right, Status*) {
     return static_cast<uint32_t>(left) * static_cast<uint32_t>(right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
   }
 };
 
 struct MultiplyChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(MultiplyWithOverflow(left, right, &result))) {
@@ -351,28 +355,29 @@ struct MultiplyChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
+    requires floating_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return left * right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left * right;
   }
 };
 
 struct Divide {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status*) {
+    requires floating_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left / right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
       if (right == 0) {
@@ -385,8 +390,8 @@ struct Divide {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires decimal_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     if (right == Arg1()) {
       *st = Status::Invalid("Divide by zero");
       return T();
@@ -398,8 +403,8 @@ struct Divide {
 
 struct DivideChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     T result;
     if (ARROW_PREDICT_FALSE(DivideWithOverflow(left, right, &result))) {
@@ -413,8 +418,8 @@ struct DivideChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                          Status* st) {
+    requires floating_value<T>
+  static T Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     if (ARROW_PREDICT_FALSE(right == 0)) {
       *st = Status::Invalid("divide by zero");
@@ -424,22 +429,22 @@ struct DivideChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(KernelContext* ctx, Arg0 left, Arg1 right,
-                                         Status* st) {
+    requires decimal_value<T>
+  static T Call(KernelContext* ctx, Arg0 left, Arg1 right, Status* st) {
     return Divide::Call<T>(ctx, left, right, st);
   }
 };
 
 struct FloatingDivide {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
-                                             Status*) {
+    requires floating_value<Arg0>
+  static Arg0 Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     return left / right;
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
-                                                    Arg1 right, Status* st) {
+    requires integer_value<Arg0>
+  static double Call(KernelContext* ctx, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<Arg0, Arg1>::value);
     return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
   }
@@ -449,8 +454,8 @@ struct FloatingDivide {
 
 struct FloatingDivideChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<Arg0> Call(KernelContext*, Arg0 left, Arg1 right,
-                                             Status* st) {
+    requires floating_value<Arg0>
+  static Arg0 Call(KernelContext*, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value);
     if (ARROW_PREDICT_FALSE(right == 0)) {
       *st = Status::Invalid("divide by zero");
@@ -460,8 +465,8 @@ struct FloatingDivideChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<Arg0, double> Call(KernelContext* ctx, Arg0 left,
-                                                    Arg1 right, Status* st) {
+    requires integer_value<Arg0>
+  static double Call(KernelContext* ctx, Arg0 left, Arg1 right, Status* st) {
     static_assert(std::is_same<Arg0, Arg1>::value);
     return Call<double>(ctx, static_cast<double>(left), static_cast<double>(right), st);
   }
@@ -470,38 +475,40 @@ struct FloatingDivideChecked {
 
 struct Negate {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg arg, Status*) {
+    requires floating_value<T>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return -arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_half_float_value<T> Call(KernelContext*, Arg arg, Status*) {
+    requires half_float_value<T>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return -arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg arg,
-                                                            Status*) {
+    requires unsigned_integer_value<T>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return ~arg + 1;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<T> Call(KernelContext*, Arg arg,
-                                                          Status*) {
+    requires signed_integer_value<T>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arrow::internal::SafeSignedNegate(arg);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+    requires decimal_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arg.Negate();
   }
 };
 
 struct NegateChecked {
   template <typename T, typename Arg>
-  static enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                     Status* st) {
+    requires signed_integer_value<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     T result = 0;
     if (ARROW_PREDICT_FALSE(NegateWithOverflow(arg, &result))) {
@@ -511,8 +518,8 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static enable_if_unsigned_integer_value<Arg, T> Call(KernelContext* ctx, Arg arg,
-                                                       Status* st) {
+    requires unsigned_integer_value<Arg>
+  static T Call(KernelContext* ctx, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     ARROW_DCHECK(false) << "This is included only for the purposes of instantiability "
                            "from the arithmetic kernel generator";
@@ -520,21 +527,22 @@ struct NegateChecked {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status* st) {
+    requires floating_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_half_float_value<T> Call(KernelContext*, Arg arg, Status*) {
+    requires half_float_value<T>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     return -arg;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+    requires decimal_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arg.Negate();
   }
 };
@@ -569,7 +577,8 @@ struct Power {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, T base, T exp, Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, T base, T exp, Status* st) {
     if (exp < 0) {
       *st = Status::Invalid("integers to negative integer powers are not allowed");
       return 0;
@@ -578,15 +587,16 @@ struct Power {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, T base, T exp, Status*) {
+    requires floating_value<T>
+  static T Call(KernelContext*, T base, T exp, Status*) {
     return std::pow(base, exp);
   }
 };
 
 struct PowerChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(KernelContext*, Arg0 base, Arg1 exp,
-                                         Status* st) {
+    requires integer_value<T>
+  static T Call(KernelContext*, Arg0 base, Arg1 exp, Status* st) {
     if (exp < 0) {
       *st = Status::Invalid("integers to negative integer powers are not allowed");
       return 0;
@@ -611,7 +621,8 @@ struct PowerChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
+    requires floating_value<T>
+  static T Call(KernelContext*, Arg0 base, Arg1 exp, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<T, Arg1>::value, "");
     return std::pow(base, exp);
   }
@@ -619,7 +630,8 @@ struct PowerChecked {
 
 struct SquareRoot {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    requires floating_value<Arg>
+  static T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg < 0.0) {
       return std::numeric_limits<T>::quiet_NaN();
@@ -630,7 +642,8 @@ struct SquareRoot {
 
 struct SquareRootChecked {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    requires floating_value<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg < 0.0) {
       *st = Status::Invalid("square root of negative number");
@@ -642,14 +655,14 @@ struct SquareRootChecked {
 
 struct Sign {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
+    requires floating_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return std::isnan(arg) ? arg : ((arg == 0) ? 0 : (std::signbit(arg) ? -1 : 1));
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_half_float_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                           Status*) {
+    requires half_float_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return arg.is_nan()
                ? arg
                : (arg.is_zero() ? Float16::zero()
@@ -657,35 +670,35 @@ struct Sign {
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_unsigned_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                                 Status*) {
+    requires unsigned_integer_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg > 0) ? 1 : 0;
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_signed_integer_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                               Status*) {
+    requires signed_integer_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg > 0) ? 1 : ((arg == 0) ? 0 : -1);
   }
 
   template <typename T, typename Arg>
-  static constexpr enable_if_decimal_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                        Status*) {
+    requires decimal_value<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     return (arg == 0) ? 0 : arg.Sign();
   }
 };
 
 struct Max {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
-                                                        Arg1 arg1, Status*) {
+    requires(!std::floating_point<T>)
+  static constexpr T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
     return std::max(arg0, arg1);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                                    Status*) {
+    requires floating_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
     if (std::isnan(left)) {
       return right;
@@ -699,15 +712,15 @@ struct Max {
 
 struct Min {
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_not_floating_value<T> Call(KernelContext*, Arg0 arg0,
-                                                        Arg1 arg1, Status*) {
+    requires(!std::floating_point<T>)
+  static constexpr T Call(KernelContext*, Arg0 arg0, Arg1 arg1, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
     return std::min(arg0, arg1);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static constexpr enable_if_floating_value<T> Call(KernelContext*, Arg0 left, Arg1 right,
-                                                    Status*) {
+    requires floating_value<T>
+  static constexpr T Call(KernelContext*, Arg0 left, Arg1 right, Status*) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value);
     if (std::isnan(left)) {
       return right;
