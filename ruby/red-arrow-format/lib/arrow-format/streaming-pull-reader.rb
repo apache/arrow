@@ -231,7 +231,7 @@ module ArrowFormat
       end
     end
 
-    def find_dictionary(id)
+    def find_dictionaries(id)
       @dictionaries[id]
     end
 

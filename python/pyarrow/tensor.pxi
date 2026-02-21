@@ -345,7 +345,22 @@ ctypedef CSparseCOOIndex* _CSparseCOOIndexPtr
 
 cdef class SparseCOOTensor(_Weakrefable):
     """
-    A sparse COO tensor.
+    A sparse COO (COOrdinate) tensor.
+
+    COO format stores a sparse tensor as a collection of (indices, values)
+    pairs. The indices specify the coordinates of non-zero elements, and
+    the values contain the actual data at those coordinates.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_tensor = np.array([[0, 1, 0], [2, 0, 3]], dtype=np.float32)
+    >>> sparse_coo = pa.SparseCOOTensor.from_dense_numpy(dense_tensor)
+    >>> sparse_coo
+    <pyarrow.SparseCOOTensor>
+    type: float
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -359,7 +374,7 @@ cdef class SparseCOOTensor(_Weakrefable):
         self.type = pyarrow_wrap_data_type(self.stp.type())
 
     def __repr__(self):
-        return """<pyarrow.SparseCOOTensor>
+        return f"""<pyarrow.SparseCOOTensor>
 type: {self.type}
 shape: {self.shape}"""
 
@@ -650,7 +665,23 @@ shape: {self.shape}"""
 
 cdef class SparseCSRMatrix(_Weakrefable):
     """
-    A sparse CSR matrix.
+    A sparse CSR (Compressed Sparse Row) matrix.
+
+    CSR format stores a sparse matrix by compressing the row information.
+    It uses three arrays: data (non-zero values), indices (column indices),
+    and indptr (row pointers that indicate where each row starts in the
+    data array).
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_matrix = np.array([[1, 0, 2], [0, 0, 3]], dtype=np.float64)
+    >>> sparse_csr = pa.SparseCSRMatrix.from_dense_numpy(dense_matrix)
+    >>> sparse_csr
+    <pyarrow.SparseCSRMatrix>
+    type: double
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -891,7 +922,23 @@ shape: {self.shape}"""
 
 cdef class SparseCSCMatrix(_Weakrefable):
     """
-    A sparse CSC matrix.
+    A sparse CSC (Compressed Sparse Column) matrix.
+
+    CSC format stores a sparse matrix by compressing the column information.
+    It uses three arrays: data (non-zero values), indices (row indices),
+    and indptr (column pointers that indicate where each column starts
+    in the data array). CSC is the transpose of CSR format.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> dense_matrix = np.array([[1, 0, 2], [0, 0, 3]], dtype=np.float64)
+    >>> sparse_csc = pa.SparseCSCMatrix.from_dense_numpy(dense_matrix)
+    >>> sparse_csc
+    <pyarrow.SparseCSCMatrix>
+    type: double
+    shape: (2, 3)
     """
 
     def __init__(self):
@@ -1142,6 +1189,20 @@ cdef class SparseCSFTensor(_Weakrefable):
     of prefix trees. Each path from a root to leaf forms one tensor
     non-zero index. CSF is implemented with two arrays of buffers and one
     arrays of integers.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import numpy as np
+    >>> # Create a 3D sparse tensor
+    >>> dense_tensor = np.zeros((2, 3, 2), dtype=np.float32)
+    >>> dense_tensor[0, 1, 0] = 1.0
+    >>> dense_tensor[1, 2, 1] = 2.0
+    >>> sparse_csf = pa.SparseCSFTensor.from_dense_numpy(dense_tensor)
+    >>> sparse_csf
+    <pyarrow.SparseCSFTensor>
+    type: float
+    shape: (2, 3, 2)
     """
 
     def __init__(self):

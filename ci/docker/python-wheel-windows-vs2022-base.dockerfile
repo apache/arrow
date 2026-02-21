@@ -89,14 +89,15 @@ RUN `
 # See https://docs.python.org/dev/using/windows.html#python-install-manager and
 # https://www.python.org/ftp/python/pymanager/
 RUN `
-  $pymanager_url = 'https://www.python.org/ftp/python/pymanager/python-manager-25.0.msix'; `
-  Invoke-WebRequest -Uri $pymanager_url -OutFile 'C:\Windows\pymanager.msix'; `
-  Add-AppxPackage C:\Windows\pymanager.msix
+  $pymanager_url = 'https://www.python.org/ftp/python/pymanager/python-manager-25.0.msi'; `
+  Invoke-WebRequest -Uri $pymanager_url -OutFile 'C:\Windows\pymanager.msi'; `
+  Start-Process msiexec.exe -Wait -ArgumentList '/i C:\Windows\pymanager.msi /quiet /norestart'; `
+  Remove-Item C:\Windows\pymanager.msi
 
 SHELL ["cmd", "/S", "/C"]
 
 # Install CMake and other tools
-ARG cmake=3.31.2
+ARG cmake=3.31.9
 RUN choco install --no-progress -r -y cmake --version=%cmake% --installargs 'ADD_CMAKE_TO_PATH=System'
 RUN choco install --no-progress -r -y git gzip ninja wget
 
@@ -136,9 +137,10 @@ RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=flight`
-  --x-feature=gcs`
-  --x-feature=json`
-  --x-feature=orc`
-  --x-feature=parquet`
+  --x-feature=azure `
+  --x-feature=flight `
+  --x-feature=gcs `
+  --x-feature=json `
+  --x-feature=orc `
+  --x-feature=parquet `
   --x-feature=s3

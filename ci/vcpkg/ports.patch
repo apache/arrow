@@ -66,15 +66,14 @@ index 0000000000..25568e70cd
 +     }
 + 
 diff --git a/ports/orc/portfile.cmake b/ports/orc/portfile.cmake
-index 77ebf41ec3..4d065594a7 100644
+index 278bc17a1c..d47d859360 100644
 --- a/ports/orc/portfile.cmake
 +++ b/ports/orc/portfile.cmake
-@@ -6,6 +6,8 @@ vcpkg_from_github(
-   REF "v${VERSION}"
-   SHA512 eabee16a6e984452a8cb715d0524041b20dd1bd88d78bb32534db93e5dbdd786aa4df8c05975406cb0728241eb3025a506c4fefb8c334ef0d8a27e6cb920d44c
-   HEAD_REF master
-+  PATCHES
-+    orc-fix-exception-propagation.diff
+@@ -9,6 +9,7 @@ vcpkg_from_github(
+     PATCHES
+         external-project.diff
+         tools-build.diff
++        orc-fix-exception-propagation.diff
  )
- 
- file(REMOVE "${SOURCE_PATH}/cmake_modules/FindGTest.cmake")
+ file(GLOB modules "${SOURCE_PATH}/cmake_modules/Find*.cmake")
+ file(REMOVE ${modules} "${SOURCE_PATH}/c++/libs/libhdfspp/libhdfspp.tar.gz")

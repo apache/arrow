@@ -29,6 +29,7 @@ RUN dnf install -y \
     gdb \
     git \
     perl-IPC-Cmd \
+    perl-Time-Piece \
     wget \
     zip
 

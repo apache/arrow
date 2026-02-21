@@ -1524,7 +1524,7 @@ cdef compression_name_from_enum(ParquetCompression compression_):
 
 cdef int check_compression_name(name) except -1:
     if name.upper() not in {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
-                            'ZSTD'}:
+                            'LZ4_RAW', 'ZSTD'}:
         raise ArrowException("Unsupported compression: " + name)
     return 0
 
@@ -1539,7 +1539,7 @@ cdef ParquetCompression compression_from_name(name):
         return ParquetCompression_LZO
     elif name == 'BROTLI':
         return ParquetCompression_BROTLI
-    elif name == 'LZ4':
+    elif name == 'LZ4' or name == 'LZ4_RAW':
         return ParquetCompression_LZ4
     elif name == 'ZSTD':
         return ParquetCompression_ZSTD
@@ -1811,7 +1811,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_row_groups
             vector[int] c_column_indices
 
@@ -1825,15 +1825,13 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, c_column_indices,
-                                            &ctable))
+                table_result = self.reader.get().ReadRowGroups(c_row_groups,
+                                                               c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, &ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadRowGroups(c_row_groups)
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def read_all(self, column_indices=None, bint use_threads=True):
         """
@@ -1847,7 +1845,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_column_indices
 
         self.set_use_threads(use_threads)
@@ -1857,14 +1855,12 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadTable(c_column_indices, &ctable))
+                table_result = self.reader.get().ReadTable(c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadTable(&ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadTable()
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def scan_contents(self, column_indices=None, batch_size=65536):
         """

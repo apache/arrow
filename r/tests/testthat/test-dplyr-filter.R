@@ -498,3 +498,51 @@ test_that("filter() with aggregation expressions errors", {
     "not supported in filter"
   )
 })
+
+test_that("filter_out() basic", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(chr == "b") |>
+      select(chr, int, lgl) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter_out() keeps NA values in predicate result", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(lgl) |>
+      select(chr, int, lgl) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("filter_out() with multiple conditions", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(dbl > 2, chr %in% c("d", "f")) |>
+      collect(),
+    tbl
+  )
+})
+
+test_that("More complex select/filter_out", {
+  compare_dplyr_binding(
+    .input |>
+      filter_out(dbl > 2, chr == "d" | chr == "f") |>
+      select(chr, int, lgl) |>
+      filter(int < 5) |>
+      select(int, chr) |>
+      collect(),
+    tbl
+  )
+
+  compare_dplyr_binding(
+    .input |>
+      filter_out(!is.na(int)) |>
+      collect(),
+    tbl
+  )
+})

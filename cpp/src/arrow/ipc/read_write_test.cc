@@ -552,9 +552,15 @@ class TestIpcRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*>,
     ASSERT_OK(WriteRecordBatch(*batch, buffer_offset, mmap_.get(), &metadata_length,
                                &body_length, options_));
 
-    ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
+    ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message1,
                          ReadMessage(0, metadata_length, mmap_.get()));
-    ASSERT_EQ(expected_version, message->metadata_version());
+    ASSERT_EQ(expected_version, message1->metadata_version());
+
+    ASSERT_OK_AND_ASSIGN(auto message2,
+                         ReadMessage(0, metadata_length, body_length, mmap_.get()));
+    ASSERT_EQ(expected_version, message2->metadata_version());
+
+    ASSERT_TRUE(message1->Equals(*message2));
   }
 };
 
@@ -611,6 +617,27 @@ TEST(TestReadMessage, CorruptedSmallInput) {
   auto reader2 = io::BufferReader::FromString("");
   ASSERT_OK_AND_ASSIGN(auto message, ReadMessage(reader2.get()));
   ASSERT_EQ(nullptr, message);
+}
+
+TEST(TestReadMessage, ReadBodyWithLength) {
+  // Test the optimized ReadMessage(offset, meta_len, body_len, file) overload
+  std::shared_ptr<RecordBatch> batch;
+  ASSERT_OK(MakeIntRecordBatch(&batch));
+
+  ASSERT_OK_AND_ASSIGN(auto stream, io::BufferOutputStream::Create(0));
+  int32_t metadata_length;
+  int64_t body_length;
+  ASSERT_OK(WriteRecordBatch(*batch, 0, stream.get(), &metadata_length, &body_length,
+                             IpcWriteOptions::Defaults()));
+
+  ASSERT_OK_AND_ASSIGN(auto buffer, stream->Finish());
+  io::BufferReader reader(buffer);
+
+  ASSERT_OK_AND_ASSIGN(auto message,
+                       ReadMessage(0, metadata_length, body_length, &reader));
+
+  ASSERT_EQ(body_length, message->body_length());
+  ASSERT_TRUE(message->Verify());
 }
 
 TEST(TestMetadata, GetMetadataVersion) {
@@ -1094,7 +1121,7 @@ TEST_F(RecursionLimits, ReadLimit) {
                         &schema));
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
-                       ReadMessage(0, metadata_length, mmap_.get()));
+                       ReadMessage(0, metadata_length, body_length, mmap_.get()));
 
   io::BufferReader reader(message->body());
 
@@ -1119,7 +1146,7 @@ TEST_F(RecursionLimits, StressLimit) {
                           &schema));
 
     ASSERT_OK_AND_ASSIGN(std::unique_ptr<Message> message,
-                         ReadMessage(0, metadata_length, mmap_.get()));
+                         ReadMessage(0, metadata_length, body_length, mmap_.get()));
 
     DictionaryMemo empty_memo;
 
@@ -1252,40 +1279,55 @@ struct FileGeneratorWriterHelper : public FileWriterHelper {
   Status ReadBatches(const IpcReadOptions& options, RecordBatchVector* out_batches,
                      ReadStats* out_stats = nullptr,
                      MetadataVector* out_metadata_list = nullptr) override {
-    std::shared_ptr<io::RandomAccessFile> buf_reader;
-    if (kCoalesce) {
-      // Use a non-zero-copy enabled BufferReader so we can test paths properly
-      buf_reader = std::make_shared<NoZeroCopyBufferReader>(buffer_);
-    } else {
-      buf_reader = std::make_shared<io::BufferReader>(buffer_);
-    }
-    AsyncGenerator<std::shared_ptr<RecordBatch>> generator;
-
-    {
-      auto fut = RecordBatchFileReader::OpenAsync(buf_reader, footer_offset_, options);
-      // Do NOT assert OK since some tests check whether this fails properly
-      EXPECT_FINISHES(fut);
-      ARROW_ASSIGN_OR_RAISE(auto reader, fut.result());
-      EXPECT_EQ(num_batches_written_, reader->num_record_batches());
-      // Generator will keep reader alive internally
-      ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(kCoalesce));
-    }
-
-    // Generator is async-reentrant
-    std::vector<Future<std::shared_ptr<RecordBatch>>> futures;
-    for (int i = 0; i < num_batches_written_; ++i) {
-      futures.push_back(generator());
-    }
-    auto fut = generator();
-    EXPECT_FINISHES_OK_AND_EQ(nullptr, fut);
-    for (auto& future : futures) {
-      EXPECT_FINISHES_OK_AND_ASSIGN(auto batch, future);
-      out_batches->push_back(batch);
-    }
-
     // The generator doesn't track stats.
     EXPECT_EQ(nullptr, out_stats);
 
+    auto read_batches = [&](bool pre_buffer) -> Result<RecordBatchVector> {
+      std::shared_ptr<io::RandomAccessFile> buf_reader;
+      if (kCoalesce) {
+        // Use a non-zero-copy enabled BufferReader so we can test paths properly
+        buf_reader = std::make_shared<NoZeroCopyBufferReader>(buffer_);
+      } else {
+        buf_reader = std::make_shared<io::BufferReader>(buffer_);
+      }
+      AsyncGenerator<std::shared_ptr<RecordBatch>> generator;
+
+      {
+        auto fut = RecordBatchFileReader::OpenAsync(buf_reader, footer_offset_, options);
+        ARROW_ASSIGN_OR_RAISE(auto reader, fut.result());
+        EXPECT_EQ(num_batches_written_, reader->num_record_batches());
+        if (pre_buffer) {
+          RETURN_NOT_OK(reader->PreBufferMetadata(/*indices=*/{}));
+        }
+        // Generator will keep reader alive internally
+        ARROW_ASSIGN_OR_RAISE(generator, reader->GetRecordBatchGenerator(kCoalesce));
+      }
+
+      // Generator is async-reentrant
+      std::vector<Future<std::shared_ptr<RecordBatch>>> futures;
+      for (int i = 0; i < num_batches_written_; ++i) {
+        futures.push_back(generator());
+      }
+      auto fut = generator();
+      ARROW_ASSIGN_OR_RAISE(auto final_batch, fut.result());
+      EXPECT_EQ(nullptr, final_batch);
+
+      RecordBatchVector batches;
+      for (auto& future : futures) {
+        ARROW_ASSIGN_OR_RAISE(auto batch, future.result());
+        EXPECT_NE(nullptr, batch);
+        batches.push_back(batch);
+      }
+      return batches;
+    };
+
+    ARROW_ASSIGN_OR_RAISE(*out_batches, read_batches(/*pre_buffer=*/false));
+    // Also read with pre-buffered metadata, and check the results are equal
+    ARROW_ASSIGN_OR_RAISE(auto batches_pre_buffered, read_batches(/*pre_buffer=*/true));
+    for (int i = 0; i < num_batches_written_; ++i) {
+      AssertBatchesEqual(*batches_pre_buffered[i], *(*out_batches)[i],
+                         /*check_metadata=*/true);
+    }
     return Status::OK();
   }
 };
@@ -3003,25 +3045,56 @@ void GetReadRecordBatchReadRanges(
 
   auto read_ranges = tracked->get_read_ranges();
 
-  // there are 3 read IOs before reading body:
-  // 1) read magic and footer length IO
-  // 2) read footer IO
-  // 3) read record batch metadata IO
-  EXPECT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
-  const int32_t magic_size = static_cast<int>(strlen(ipc::internal::kArrowMagicBytes));
+  const int32_t magic_size = static_cast<int>(ipc::internal::kArrowMagicBytes.size());
   // read magic and footer length IO
   auto file_end_size = magic_size + sizeof(int32_t);
   auto footer_length_offset = buffer->size() - file_end_size;
   auto footer_length = bit_util::FromLittleEndian(
       util::SafeLoadAs<int32_t>(buffer->data() + footer_length_offset));
+
+  // there are at least 2 read IOs before reading body:
+  // 1) read magic and footer length IO
+  // 2) footer IO
+  EXPECT_GE(read_ranges.size(), 2);
+
+  // read magic and footer length IO
   EXPECT_EQ(read_ranges[0].length, file_end_size);
   // read footer IO
   EXPECT_EQ(read_ranges[1].length, footer_length);
-  // read record batch metadata.  The exact size is tricky to determine but it doesn't
-  // matter for this test and it should be smaller than the footer.
-  EXPECT_LE(read_ranges[2].length, footer_length);
-  for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
-    EXPECT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+
+  if (included_fields.empty()) {
+    // When no fields are explicitly included, the reader optimizes by
+    // reading metadata and the entire body in a single IO.
+    // Thus, there are exactly 3 read IOs in total:
+    // 1) magic and footer length
+    // 2) footer
+    // 3) record batch metadata + body
+    EXPECT_EQ(read_ranges.size(), 3);
+
+    int64_t total_body = 0;
+    for (auto len : expected_body_read_lengths) total_body += len;
+
+    // In the optimized path (included_fields is empty), the 3rd read operation
+    // fetches both the message metadata (flatbuffer) and the entire message body
+    // in one contiguous block. Therefore, its length must at least exceed the
+    // total body length by the size of the metadata.
+    EXPECT_GT(read_ranges[2].length, total_body);
+    EXPECT_LE(read_ranges[2].length, total_body + footer_length);
+  } else {
+    // When fields are filtered, we see 3 initial reads followed by N body reads
+    // (one for each field/buffer range):
+    // 1) magic and footer length
+    // 2) footer
+    // 3) record batch metadata
+    // 4) individual body buffer reads
+    EXPECT_EQ(read_ranges.size(), 3 + expected_body_read_lengths.size());
+
+    // read record batch metadata.  The exact size is tricky to determine but it doesn't
+    // matter for this test and it should be smaller than the footer.
+    EXPECT_LE(read_ranges[2].length, footer_length);
+    for (uint32_t i = 0; i < expected_body_read_lengths.size(); i++) {
+      EXPECT_EQ(read_ranges[3 + i].length, expected_body_read_lengths[i]);
+    }
   }
 }
 
@@ -3171,7 +3244,9 @@ class PreBufferingTest : public ::testing::TestWithParam<bool> {
         metadata_reads++;
       }
     }
-    ASSERT_EQ(metadata_reads, reader_->num_record_batches() - num_indices_pre_buffered);
+    // With ReadMessage optimization, non-prebuffered reads verify metadata and body
+    // in a single large read, so we no longer see small metadata-only reads here.
+    ASSERT_EQ(metadata_reads, 0);
     ASSERT_EQ(data_reads, reader_->num_record_batches());
   }
 

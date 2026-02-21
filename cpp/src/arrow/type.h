@@ -2575,6 +2575,16 @@ constexpr bool may_have_validity_bitmap(Type::type id) {
   }
 }
 
+constexpr bool has_variadic_buffers(Type::type id) {
+  switch (id) {
+    case Type::BINARY_VIEW:
+    case Type::STRING_VIEW:
+      return true;
+    default:
+      return false;
+  }
+}
+
 ARROW_DEPRECATED("Deprecated in 17.0.0. Use may_have_validity_bitmap() instead.")
 constexpr bool HasValidityBitmap(Type::type id) { return may_have_validity_bitmap(id); }
 
@@ -2634,5 +2644,18 @@ const std::vector<std::shared_ptr<DataType>>& PrimitiveTypes();
 /// \brief Decimal type ids
 ARROW_EXPORT
 const std::vector<Type::type>& DecimalTypeIds();
+
+/// \brief Create a data type instance from a type ID for parameter-free types
+///
+/// This function creates a data type instance for types that don't require
+/// additional parameters (where TypeTraits<T>::is_parameter_free is true).
+/// For types that require parameters (like TimestampType or ListType),
+/// this function will return an error.
+///
+/// \param[in] id The type ID to create a type instance for
+/// \return The type instance for the given type ID,
+///         or a TypeError if the type requires parameters
+ARROW_EXPORT
+Result<std::shared_ptr<DataType>> type_singleton(Type::type id);
 
 }  // namespace arrow

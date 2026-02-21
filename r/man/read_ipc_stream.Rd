@@ -27,6 +27,13 @@ Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/
 a "stream" format and a "file" format, known as Feather. \code{read_ipc_stream()}
 and \code{\link[=read_feather]{read_feather()}} read those formats, respectively.
 }
+\section{Untrusted data}{
+
+If reading from an untrusted source, you can validate the data by reading
+with \code{as_data_frame = FALSE} and calling \verb{$ValidateFull()} on the Table
+before processing.
+}
+
 \seealso{
 \code{\link[=write_feather]{write_feather()}} for writing IPC files. \link{RecordBatchReader} for a
 lower-level interface.

@@ -636,6 +636,28 @@ TEST(ResultTest, MapFunctionToRrefError) {
   EXPECT_EQ(move_error.status(), error);  // error is *not* replaced by other_error
 }
 
+TEST(ResultTest, MapFunctionToStatus) {
+  static auto error = Status::Invalid("some error message");
+
+  const Result<MoveOnlyDataType> const_result(MoveOnlyDataType{kIntElement});
+  auto const_mapped =
+      const_result.Map([](const MoveOnlyDataType& m) -> Status { return Status::OK(); });
+  static_assert(std::is_same_v<decltype(const_mapped), Status>);
+  EXPECT_TRUE(const_mapped.ok());
+
+  auto move_mapped = Result<MoveOnlyDataType>(MoveOnlyDataType{kIntElement})
+                         .Map([](MoveOnlyDataType m) -> Status { return Status::OK(); });
+  static_assert(std::is_same_v<decltype(move_mapped), Status>);
+  EXPECT_TRUE(move_mapped.ok());
+
+  const Result<MoveOnlyDataType> error_result(error);
+  auto error_mapped =
+      error_result.Map([](const MoveOnlyDataType& m) -> Status { return Status::OK(); });
+  static_assert(std::is_same_v<decltype(error_mapped), Status>);
+  EXPECT_FALSE(error_mapped.ok());
+  EXPECT_EQ(error_mapped, error);
+}
+
 // Verify that a Result<U> is assignable to a Result<T>, where T
 // is a type which has an implicit constructor taking a const U &.
 TEST(ResultTest, TemplateCopyAssign) {

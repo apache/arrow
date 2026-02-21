@@ -322,22 +322,24 @@ endfunction()
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_AVX2_FLAGS}")
   endif()
 endmacro()
 
 macro(append_runtime_avx2_bmi2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
-                                                  "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
+    set_source_files_properties(${SRC}
+                                PROPERTIES COMPILE_OPTIONS
+                                           "${ARROW_AVX2_FLAGS};${ARROW_BMI2_FLAG}")
   endif()
 endmacro()
 
 macro(append_runtime_avx512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
+    separate_arguments(AVX512_FLAG_LIST NATIVE_COMMAND "${ARROW_AVX512_FLAG}")
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${AVX512_FLAG_LIST}")
   endif()
 endmacro()
 
@@ -364,6 +366,7 @@ set(ARROW_SRCS
     extension_type.cc
     extension/bool8.cc
     extension/json.cc
+    extension/parquet_variant.cc
     extension/uuid.cc
     pretty_print.cc
     record_batch.cc
@@ -912,8 +915,8 @@ if(ARROW_FILESYSTEM)
     # Suppress documentation warnings from google-cloud-cpp headers
     if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
       set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
-                                  PROPERTIES COMPILE_FLAGS
-                                             "-Wno-documentation -Wno-documentation-deprecated-sync"
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "-Wno-documentation;-Wno-documentation-deprecated-sync"
       )
     endif()
   endif()

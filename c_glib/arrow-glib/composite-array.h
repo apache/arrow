@@ -68,6 +68,10 @@ GARROW_AVAILABLE_IN_2_0
 const gint32 *
 garrow_list_array_get_value_offsets(GArrowListArray *array, gint64 *n_offsets);
 
+GARROW_AVAILABLE_IN_24_0
+GArrowBuffer *
+garrow_list_array_get_value_offsets_buffer(GArrowListArray *array);
+
 #define GARROW_TYPE_LARGE_LIST_ARRAY (garrow_large_list_array_get_type())
 GARROW_AVAILABLE_IN_0_16
 G_DECLARE_DERIVABLE_TYPE(
@@ -109,6 +113,10 @@ garrow_large_list_array_get_value_length(GArrowLargeListArray *array, gint64 i);
 GARROW_AVAILABLE_IN_2_0
 const gint64 *
 garrow_large_list_array_get_value_offsets(GArrowLargeListArray *array, gint64 *n_offsets);
+
+GARROW_AVAILABLE_IN_24_0
+GArrowBuffer *
+garrow_large_list_array_get_value_offsets_buffer(GArrowLargeListArray *array);
 
 #define GARROW_TYPE_FIXED_SIZE_LIST_ARRAY (garrow_fixed_size_list_array_get_type())
 GARROW_AVAILABLE_IN_23_0
@@ -227,6 +235,10 @@ garrow_union_array_get_child_id(GArrowUnionArray *array, gint64 i);
 GARROW_AVAILABLE_IN_ALL
 GArrowArray *
 garrow_union_array_get_field(GArrowUnionArray *array, gint i);
+
+GARROW_AVAILABLE_IN_24_0
+gint
+garrow_union_array_get_n_fields(GArrowUnionArray *array);
 
 #define GARROW_TYPE_SPARSE_UNION_ARRAY (garrow_sparse_union_array_get_type())
 GARROW_AVAILABLE_IN_ALL

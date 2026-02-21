@@ -64,7 +64,7 @@ It allows users to read and write data in a variety of formats:
 
 It provides access to remote filesystems and servers:
 
-- Read and write files in Amazon S3 and Google Cloud Storage buckets
+- Read and write files in Amazon S3 and Google Cloud Storage buckets (note: CRAN builds include S3 support but not GCS which require an alternative installation method; see the [cloud storage article](https://arrow.apache.org/docs/r/articles/fs.html) for details)
 - Connect to Arrow Flight servers to transport large datasets over networks
 
 Additional features include:

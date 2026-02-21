@@ -47,7 +47,7 @@ should show as an available ODBC driver in the x64 ODBC Driver Manager.
 3. `cd` to `build` folder.
 4. Run `cpack`. 
 
-If the generation is successful, you will find `Apache Arrow Flight SQL ODBC-<version>-win64.msi` generated under the `build` folder.
+If the generation is successful, you will find `Apache-Arrow-Flight-SQL-ODBC-<version>-win64.msi` generated under the `build` folder.
 
 
 ## Steps to Enable Logging

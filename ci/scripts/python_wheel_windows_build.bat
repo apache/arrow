@@ -37,6 +37,7 @@ del /s /q C:\arrow\python\pyarrow\*.so.*
 
 echo "=== (%PYTHON%) Building Arrow C++ libraries ==="
 set ARROW_ACERO=ON
+set ARROW_AZURE=ON
 set ARROW_DATASET=ON
 set ARROW_FLIGHT=ON
 set ARROW_GANDIVA=OFF
@@ -67,6 +68,7 @@ mkdir C:\arrow-build
 pushd C:\arrow-build
 cmake ^
     -DARROW_ACERO=%ARROW_ACERO% ^
+    -DARROW_AZURE=%ARROW_AZURE% ^
     -DARROW_BUILD_SHARED=ON ^
     -DARROW_BUILD_STATIC=OFF ^
     -DARROW_BUILD_TESTS=OFF ^
@@ -117,6 +119,7 @@ set PYARROW_BUNDLE_ARROW_CPP=ON
 set PYARROW_CMAKE_GENERATOR=%CMAKE_GENERATOR%
 set PYARROW_CMAKE_OPTIONS="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%"
 set PYARROW_WITH_ACERO=%ARROW_ACERO%
+set PYARROW_WITH_AZURE=%ARROW_AZURE%
 set PYARROW_WITH_DATASET=%ARROW_DATASET%
 set PYARROW_WITH_FLIGHT=%ARROW_FLIGHT%
 set PYARROW_WITH_GANDIVA=%ARROW_GANDIVA%
@@ -133,7 +136,7 @@ set CMAKE_PREFIX_PATH=C:\arrow-dist
 pushd C:\arrow\python
 
 @REM Build wheel
-%PYTHON_CMD% setup.py bdist_wheel || exit /B 1
+%PYTHON_CMD% -m build --sdist --wheel . --no-isolation || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM

@@ -17,6 +17,7 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <random>
@@ -912,7 +913,7 @@ TEST(BitRle, Random) {
       }
       parity = !parity;
     }
-    if (!CheckRoundTrip(values, bit_util::NumRequiredBits(values.size()))) {
+    if (!CheckRoundTrip(values, std::bit_width(values.size()))) {
       FAIL() << "failing seed: " << seed;
     }
   }

@@ -153,7 +153,15 @@ namespace red_arrow {
                          const int64_t i) {
       int32_t length;
       const auto value = array.GetValue(i, &length);
-      // TODO: encoding support
+      return rb_enc_str_new(reinterpret_cast<const char*>(value),
+                            length,
+                            rb_ascii8bit_encoding());
+    }
+
+    inline VALUE convert(const arrow::LargeBinaryArray& array,
+                         const int64_t i) {
+      int64_t length;
+      const auto value = array.GetValue(i, &length);
       return rb_enc_str_new(reinterpret_cast<const char*>(value),
                             length,
                             rb_ascii8bit_encoding());
@@ -162,6 +170,14 @@ namespace red_arrow {
     inline VALUE convert(const arrow::StringArray& array,
                          const int64_t i) {
       int32_t length;
+      const auto value = array.GetValue(i, &length);
+      return rb_utf8_str_new(reinterpret_cast<const char*>(value),
+                             length);
+    }
+
+    inline VALUE convert(const arrow::LargeStringArray& array,
+                         const int64_t i) {
+      int64_t length;
       const auto value = array.GetValue(i, &length);
       return rb_utf8_str_new(reinterpret_cast<const char*>(value),
                              length);
@@ -225,11 +241,6 @@ namespace red_arrow {
       return rb_time_num_new(sec, Qnil);
     }
 
-    // TODO
-    // inline VALUE convert(const arrow::IntervalArray& array,
-    //                      const int64_t i) {
-    // };
-
     inline VALUE convert(const arrow::MonthIntervalArray& array,
                          const int64_t i) {
       return INT2NUM(array.Value(i));
@@ -262,6 +273,11 @@ namespace red_arrow {
                    red_arrow::symbols::nanosecond,
                    INT2NUM(arrow_value.nanoseconds));
       return value;
+    }
+
+    inline VALUE convert(const arrow::DurationArray& array,
+                         const int64_t i) {
+      return LL2NUM(array.Value(i));
     }
 
     VALUE convert(const arrow::ListArray& array,
@@ -366,6 +382,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -465,6 +482,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -572,6 +590,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -675,6 +694,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -779,6 +799,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)
@@ -881,7 +902,9 @@ namespace red_arrow {
     VISIT(Float)
     VISIT(Double)
     VISIT(Binary)
+    VISIT(LargeBinary)
     VISIT(String)
+    VISIT(LargeString)
     VISIT(FixedSizeBinary)
     VISIT(Date32)
     VISIT(Date64)
@@ -891,6 +914,7 @@ namespace red_arrow {
     VISIT(MonthInterval)
     VISIT(DayTimeInterval)
     VISIT(MonthDayNanoInterval)
+    VISIT(Duration)
     VISIT(List)
     VISIT(LargeList)
     VISIT(Struct)

@@ -26,10 +26,10 @@ Fuzzing Arrow C++
 To make the handling of invalid input more robust, we have enabled
 fuzz testing on several parts of the Arrow C++ feature set, currently:
 
-* the IPC stream format
-* the IPC file format
-* the Parquet file format
-* the CSV file format
+* the IPC stream reader
+* the IPC file reader
+* the Parquet file reader
+* the CSV file reader
 
 We welcome any contribution to expand the scope of fuzz testing and cover
 areas ingesting potentially invalid or malicious data.
@@ -110,3 +110,23 @@ dependencies, you may need to install these before building the fuzz targets:
 
    $ conda install clang clangxx compiler-rt
    $ cmake .. --preset=fuzzing
+
+
+.. _fuzz-regression-files:
+
+Regression files
+================
+
+When a fuzzer-detected bug is found and fixed, the corresponding reproducer
+must be stored in the `arrow-testing <https://github.com/apache/arrow-testing/>`__
+repository to ensure that the code doesn't regress.
+
+The locations for these files are as follows:
+
+* IPC streams: in the ``data/arrow-ipc-stream`` `directory <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-stream>`__
+* IPC files: in the ``data/arrow-ipc-file`` `directory <https://github.com/apache/arrow-testing/tree/master/data/arrow-ipc-file>`__
+* Parquet files: in the ``data/parquet/fuzzing`` `directory <https://github.com/apache/arrow-testing/tree/master/data/parquet/fuzzing>`__
+* CSV files: in the ``data/csv/fuzzing`` `directory <https://github.com/apache/arrow-testing/tree/master/data/csv/fuzzing>`__
+
+Most of those files are invalid files for their respective formats and stress
+proper error detection and reporting in the implementation code.

@@ -244,6 +244,12 @@ ARROW_EXPORT
 Result<std::string> GetEnvVar(std::string_view name);
 ARROW_EXPORT
 Result<NativePathString> GetEnvVarNative(std::string_view name);
+// Returns KeyError if the environment variable doesn't exist,
+// Invalid if it's not a valid integer in the given range.
+ARROW_EXPORT
+Result<int64_t> GetEnvVarInteger(std::string_view name,
+                                 std::optional<int64_t> min_value = {},
+                                 std::optional<int64_t> max_value = {});
 
 ARROW_EXPORT
 Status SetEnvVar(std::string_view name, std::string_view value);

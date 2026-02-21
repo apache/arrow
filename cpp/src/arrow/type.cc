@@ -38,6 +38,7 @@
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/table.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/hash_util.h"
@@ -3550,6 +3551,18 @@ const std::vector<Type::type>& DecimalTypeIds() {
   static std::vector<Type::type> type_ids = {Type::DECIMAL32, Type::DECIMAL64,
                                              Type::DECIMAL128, Type::DECIMAL256};
   return type_ids;
+}
+
+Result<std::shared_ptr<DataType>> type_singleton(Type::type id) {
+  auto visit = [](auto type) -> Result<std::shared_ptr<DataType>> {
+    using T = std::decay_t<decltype(*type)>;
+    if constexpr (TypeTraits<T>::is_parameter_free) {
+      return TypeTraits<T>::type_singleton();
+    }
+    return Status::TypeError("Type ", internal::ToString(T::type_id),
+                             " is not a parameter-free type");
+  };
+  return VisitTypeId(id, visit);
 }
 
 }  // namespace arrow

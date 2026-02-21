@@ -336,9 +336,79 @@ jobs:
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
 
-  odbc:
+  odbc-macos:
     needs: check-labels
-    name: ODBC
+    name: ODBC ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+    runs-on: macos-${{ matrix.macos-version }}
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: AMD64
+            macos-version: "15-intel"
+          - architecture: ARM64
+            macos-version: "14"
+    env:
+      ARROW_BUILD_TESTS: ON
+      ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_HOME: /tmp/local
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6.0.1
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Install Dependencies
+        run: |
+          brew bundle --file=cpp/Brewfile
+      - name: Setup ccache
+        run: |
+          ci/scripts/ccache_setup.sh
+      - name: ccache info
+        id: ccache-info
+        run: |
+          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
+      - name: Cache ccache
+        uses: actions/cache@v5.0.2
+        with:
+          path: ${{ steps.ccache-info.outputs.cache-dir }}
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-
+      - name: Build
+        run: |
+          # Homebrew uses /usr/local as prefix. So packages
+          # installed by Homebrew also use /usr/local/include. We
+          # want to include headers for packages installed by
+          # Homebrew as system headers to ignore warnings in them.
+          # But "-isystem /usr/local/include" isn't used by CMake
+          # because /usr/local/include is marked as the default
+          # include path. So we disable -Werror to avoid build error
+          # by warnings from packages installed by Homebrew.
+          export BUILD_WARNING_LEVEL=PRODUCTION
+          LIBIODBC_DIR="$(brew --cellar libiodbc)/$(brew list --versions libiodbc | awk '{print $2}')"
+          ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
+          export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
+          export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
+          ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Register Flight SQL ODBC Driver
+        run: |
+          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
+      - name: Test
+        shell: bash
+        run: |
+          sudo sysctl -w kern.coredump=1
+          sudo sysctl -w kern.corefile=/tmp/core.%N.%P
+          ulimit -c unlimited  # must enable within the same shell
+          ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
+
+  odbc-msvc:
+    needs: check-labels
+    name: ODBC Windows
     runs-on: windows-2022
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -352,6 +422,9 @@ jobs:
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
+      ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
@@ -434,10 +507,15 @@ jobs:
         shell: cmd
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
-      # GH-48270 TODO: Resolve segementation fault during Arrow library unload
-      # GH-48269 TODO: Enable Flight & Flight SQL testing in MSVC CI
-      # GH-48547 TODO: enable ODBC tests after GH-48270 and GH-48269 are resolved.
-
+      - name: Test
+        shell: cmd
+        run: |
+          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
+          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
+          # Convert VCPKG Windows path to MSYS path
+          for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
+          bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
       - name: Install WiX Toolset
         shell: pwsh
         run: |
@@ -455,18 +533,79 @@ jobs:
         uses: actions/upload-artifact@v6
         with:
           name: flight-sql-odbc-msi-installer
-          path: build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi
+          path: build/cpp/Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
           if-no-files-found: error
-      # Upload ODBC installer as nightly release in scheduled runs
+      - name: Install ODBC MSI
+        run: |
+          cd build/cpp
+          $odbc_msi = Get-ChildItem -Filter "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi"
+          if (-not $odbc_msi) {
+            Write-Error "ODBC MSI not found"
+            exit 1
+          }
+
+          foreach ($msi in $odbc_msi) {
+            Write-Host "Installing $($msi.Name) with logs"
+            $log = "odbc-install.log"
+            Start-Process msiexec.exe -Wait -ArgumentList "/i `"$msi`"", "/qn", "/L*V `"$log`""
+            Get-Content $log
+          }
+      - name: Check ODBC DLL installation
+        run: |
+          $dirs = Get-ChildItem "C:\Program Files" -Directory -Filter "Apache-Arrow-Flight-SQL-ODBC*"
+
+          foreach ($dir in $dirs) {
+            $bin = Join-Path $dir.FullName "bin"
+
+            if (Test-Path $bin) {
+              tree $bin /f
+
+              $dll = Join-Path $bin "arrow_flight_sql_odbc.dll"
+              if (Test-Path $dll) {
+                Write-Host "Found ODBC DLL: $dll"
+                exit 0
+              }
+            }
+          }
+
+          Write-Error "ODBC DLL not found"
+          exit 1
+
+  odbc-nightly:
+    needs: odbc-msvc
+    name: ODBC nightly
+    runs-on: ubuntu-latest
+    if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
+    steps:
+      - name: Download the artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: flight-sql-odbc-msi-installer
       - name: Prepare ODBC installer for sync
-        if: github.event_name == 'schedule'
         run: |
           mkdir odbc-installer
-          Move-Item "build/cpp/Apache Arrow Flight SQL ODBC-*-win64.msi" odbc-installer/
-          tree odbc-installer /f
+          mv *.msi odbc-installer/
+
+          # Add `dev-yyyy-mm-dd` to ODBC MSI before `win64.msi`:
+          #   Apache Arrow Flight SQL ODBC-24.0.0-win64.msi ->
+          #   Apache Arrow Flight SQL ODBC-24.0.0-dev-2026-02-06-win64.msi
+          cd odbc-installer
+          msi_name=$(ls *.msi)
+          dev_msi_name=$(echo ${msi_name} | sed -e "s/win64\.msi$/dev-$(date +%Y-%m-%d)-win64.msi/")
+          mv "${msi_name}" "${dev_msi_name}"
+          cd ..
+          
+          tree odbc-installer
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 1
+          path: arrow
+          repository: apache/arrow
+          ref: main
+          submodules: recursive
       - name: Sync to Remote
-        if: github.event_name == 'schedule'
-        uses: ./.github/actions/sync-nightlies
+        uses: ./arrow/.github/actions/sync-nightlies
         with:
           upload: true
           switches: -avzh --update --delete --progress
@@ -478,6 +617,39 @@ jobs:
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
+  odbc-release:
+    needs: odbc-msvc
+    name: ODBC release
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref_name, 'apache-arrow-') && contains(github.ref_name, '-rc') }}
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download the artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: flight-sql-odbc-msi-installer
+      - name: Wait for creating GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
+
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
     needs:
@@ -485,6 +657,8 @@ jobs:
       - jni-linux
       - jni-macos
       - msvc-arm64
-      - odbc
+      - odbc-macos
+      - odbc-msvc
+      - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
     secrets: inherit

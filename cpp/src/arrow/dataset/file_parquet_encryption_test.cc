@@ -397,8 +397,7 @@ TEST_P(DatasetEncryptionTest, ReadSingleFile) {
   parquet::arrow::FileReaderBuilder reader_builder;
   ASSERT_OK(reader_builder.Open(input, reader_properties));
   ASSERT_OK_AND_ASSIGN(auto arrow_reader, reader_builder.Build());
-  std::shared_ptr<Table> table;
-  ASSERT_OK(arrow_reader->ReadTable(&table));
+  ASSERT_OK_AND_ASSIGN(auto table, arrow_reader->ReadTable());
 
   // Check the contents of the table
   ASSERT_EQ(table->num_rows(), 2);

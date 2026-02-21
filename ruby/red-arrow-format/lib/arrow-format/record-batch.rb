@@ -37,7 +37,7 @@ module ArrowFormat
       hash
     end
 
-    def to_flat_buffers
+    def to_flatbuffers
       fb_record_batch = FB::RecordBatch::Data.new
       fb_record_batch.length = @n_rows
       fb_record_batch.nodes = all_columns_enumerator.collect do |array|
@@ -70,7 +70,9 @@ module ArrowFormat
       Enumerator.new do |yielder|
         traverse = lambda do |array|
           yielder << array
-          if array.respond_to?(:children)
+          if array.respond_to?(:child)
+            traverse.call(array.child)
+          elsif array.respond_to?(:children)
             array.children.each do |child_array|
               traverse.call(child_array)
             end

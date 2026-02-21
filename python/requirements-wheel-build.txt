@@ -1,4 +1,7 @@
+build
 cython>=3.1
+# Needed for build-time stub docstring extraction
+libcst>=1.8.6
 numpy>=2.0.0
 setuptools_scm
 setuptools>=77

@@ -1,5 +1,3 @@
-#!/usr/bin/env bash
-
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -17,5 +15,12 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Deliberately empty, but exists so that we don't have to change
-# asv.conf.json if we need specific commands here.
+module Arrow
+  class UnionArray
+    def fields
+      @fields ||= n_fields.times.collect do |i|
+        get_field(i)
+      end
+    end
+  end
+end
