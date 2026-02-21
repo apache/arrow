@@ -486,6 +486,12 @@ discover_tz_dir()
 {
     struct stat sb;
     using namespace std;
+    // Check TZDIR environment variable first (POSIX standard)
+    const char* tz_dir_env = std::getenv("TZDIR");
+    if (tz_dir_env != nullptr
+        && stat(tz_dir_env, &sb) == 0
+        && S_ISDIR(sb.st_mode))
+        return tz_dir_env;
 #  if defined(ANDROID) || defined(__ANDROID__)
     CONSTDATA auto tz_dir_default = "/apex/com.android.tzdata/etc/tz";
     CONSTDATA auto tz_dir_fallback = "/system/usr/share/zoneinfo";
