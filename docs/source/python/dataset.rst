@@ -569,6 +569,28 @@ calculate the average of a column without loading the entire column into memory:
     ...     count += batch.num_rows
     >>> mean_a = col2_sum/count
 
+The ``filter`` argument of :meth:`Dataset.to_batches` (and :func:`~Dataset.to_table`)
+expects a boolean :class:`~pyarrow.dataset.Expression`, which can be constructed using
+:func:`pyarrow.dataset.field` and its operator overloads.  However, if you already have
+filters in the DNF (Disjunctive Normal Form) list-of-tuples format accepted by
+:class:`pyarrow.parquet.ParquetDataset`, you can convert them to an ``Expression``
+using :func:`pyarrow.parquet.filters_to_expression`:
+
+.. code-block:: python
+
+    >>> import pyarrow.parquet as pq
+    >>> import pyarrow.compute as pc
+    >>> filters = [("a", ">=", 5), ("c", "==", 2)]
+    >>> filter_expr = pq.filters_to_expression(filters)
+    >>> filter_expr
+    <pyarrow.compute.Expression ((a >= 5) and (c == 2))>
+    >>> a_sum = 0
+    >>> for batch in dataset.to_batches(columns=["a"], filter=filter_expr):
+    ...     if batch.num_rows:
+    ...         a_sum += pc.sum(batch.column("a")).as_py()
+    >>> a_sum
+    21
+
 Customizing the batch size
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
