@@ -55,6 +55,12 @@ namespace {
 constexpr int value_length(int value_length, const ByteArray& value) { return value.len; }
 constexpr int value_length(int type_length, const FLBA& value) { return type_length; }
 
+// Sentinel pointer to mark "no value" for ByteArray statistics.
+// Distinct from nullptr, which is valid for empty strings.
+// See: https://github.com/apache/arrow/issues/47995
+inline constexpr uint8_t kNoValueSentinelBytes[1] = {0};
+inline constexpr const uint8_t* kNoValueSentinel = kNoValueSentinelBytes;
+
 // Static "constants" for normalizing float16 min/max values. These need to be expressed
 // as pointers because `Float16LogicalType` represents an FLBA.
 struct Float16Constants {
@@ -290,7 +296,26 @@ struct BinaryLikeCompareHelperBase {
 
 template <bool is_signed>
 struct CompareHelper<ByteArrayType, is_signed>
-    : public BinaryLikeCompareHelperBase<ByteArrayType, is_signed> {};
+    : public BinaryLikeCompareHelperBase<ByteArrayType, is_signed> {
+  using Base = BinaryLikeCompareHelperBase<ByteArrayType, is_signed>;
+  using T = ByteArray;
+
+  // Use kNoValueSentinel instead of nullptr to distinguish "no value" from empty string.
+  static T DefaultMin() { return T{0, kNoValueSentinel}; }
+  static T DefaultMax() { return T{0, kNoValueSentinel}; }
+
+  static T Min(int type_length, const T& a, const T& b) {
+    if (a.ptr == kNoValueSentinel) return b;
+    if (b.ptr == kNoValueSentinel) return a;
+    return Base::Compare(type_length, a, b) ? a : b;
+  }
+
+  static T Max(int type_length, const T& a, const T& b) {
+    if (a.ptr == kNoValueSentinel) return b;
+    if (b.ptr == kNoValueSentinel) return a;
+    return Base::Compare(type_length, a, b) ? b : a;
+  }
+};
 
 template <bool is_signed>
 struct CompareHelper<FLBAType, is_signed>
@@ -412,7 +437,9 @@ optional<std::pair<FLBA, FLBA>> CleanStatistic(std::pair<FLBA, FLBA> min_max,
 
 optional<std::pair<ByteArray, ByteArray>> CleanStatistic(
     std::pair<ByteArray, ByteArray> min_max, LogicalType::Type::type) {
-  if (min_max.first.ptr == nullptr || min_max.second.ptr == nullptr) {
+  // Check for kNoValueSentinel (not nullptr) because nullptr is valid for empty strings.
+  // See: https://github.com/apache/arrow/issues/47995
+  if (min_max.first.ptr == kNoValueSentinel || min_max.second.ptr == kNoValueSentinel) {
     return ::std::nullopt;
   }
   return min_max;
