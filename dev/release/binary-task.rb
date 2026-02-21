@@ -1433,6 +1433,7 @@ class BinaryTask
       ["debian", "forky", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "noble", "main"],
+      ["ubuntu", "resolute", "main"],
     ]
   end
 
