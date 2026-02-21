@@ -323,9 +323,8 @@ std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, int32_t ndim,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
     const std::vector<std::optional<int64_t>>& uniform_shape) {
-  auto maybe_type =
-      VariableShapeTensorType::Make(value_type, ndim, permutation, dim_names,
-                                    uniform_shape);
+  auto maybe_type = VariableShapeTensorType::Make(value_type, ndim, permutation,
+                                                  dim_names, uniform_shape);
   ARROW_CHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }
