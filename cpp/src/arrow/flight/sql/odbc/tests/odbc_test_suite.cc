@@ -463,9 +463,6 @@ std::string GetOdbcErrorMessage(SQLSMALLINT handle_type, SQLHANDLE handle) {
   return res;
 }
 
-// GH-47822 TODO: once RegisterDsn is implemented in Mac and Linux, the following can be
-// re-enabled.
-#if defined _WIN32
 bool WriteDSN(std::string connection_str) {
   Connection::ConnPropertyMap properties;
 
@@ -490,7 +487,6 @@ bool WriteDSN(Connection::ConnPropertyMap properties) {
   std::wstring w_driver = arrow::util::UTF8ToWideString(driver).ValueOr(L"");
   return RegisterDsn(config, w_driver.c_str());
 }
-#endif
 
 std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id) {
   SQLWCHAR buf[1024];

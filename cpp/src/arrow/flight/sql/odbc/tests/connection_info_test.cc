@@ -73,7 +73,7 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoTruncation) {
   SQLSMALLINT message_length;
 
   ASSERT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetInfo(this->conn, SQL_KEYWORDS, value, info_len, &message_length));
+            SQLGetInfo(this->conn, SQL_INTEGRITY, value, info_len, &message_length));
 
   // Verify string truncation is reported
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState01004);
@@ -319,7 +319,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoOdbcVer) {
   SQLWCHAR value[kOdbcBufferSize] = L"";
   GetInfo(this->conn, SQL_ODBC_VER, value);
 
+#ifdef __APPLE__
+  EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"03.52.0000"), value);
+#else
   EXPECT_STREQ(static_cast<const SQLWCHAR*>(L"03.80.0000"), value);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoParamArrayRowCounts) {
@@ -786,8 +790,8 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoIntegrity) {
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoKeywords) {
-  // Keyword strings can require 5000 buffer length
-  static constexpr int info_len = kOdbcBufferSize * 5;
+  // Keyword strings can require 10000 buffer length
+  static constexpr int info_len = kOdbcBufferSize * 10;
   SQLWCHAR value[info_len] = L"";
   GetInfo(this->conn, SQL_KEYWORDS, value, info_len);
 
