@@ -82,6 +82,32 @@ def __getattr__(name):
     )
 
 
+def _is_likely_uri(path):
+    """
+    Check if a string looks like a URI (has a valid scheme followed by ':').
+
+    This is a Python port of the C++ ``IsLikelyUri()`` heuristic in
+    ``cpp/src/arrow/filesystem/path_util.cc``.  It is intentionally
+    conservative: single-letter schemes are excluded (could be a Windows
+    drive letter) and the scheme must conform to RFC 3986.
+    """
+    if not path or path[0] == '/':
+        return False
+    colon_pos = path.find(':')
+    if colon_pos < 0:
+        return False
+    # One-letter URI schemes don't officially exist; may be a Windows drive
+    if colon_pos < 2:
+        return False
+    # The largest IANA-registered scheme is 36 characters
+    if colon_pos > 36:
+        return False
+    scheme = path[:colon_pos]
+    if not scheme[0].isalpha():
+        return False
+    return all(c.isalnum() or c in ('+', '-', '.') for c in scheme[1:])
+
+
 def _ensure_filesystem(filesystem, *, use_mmap=False):
     if isinstance(filesystem, FileSystem):
         return filesystem
@@ -174,13 +200,17 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
             filesystem, path = FileSystem.from_uri(path)
         except ValueError as e:
             msg = str(e)
-            if "empty scheme" in msg or "Cannot parse URI" in msg:
-                # neither an URI nor a locally existing path, so assume that
-                # local path was given and propagate a nicer file not found
-                # error instead of a more confusing scheme parsing error
+            if "empty scheme" in msg:
+                # No scheme at all — treat as a local path and propagate
+                # a nicer "file not found" error later.
+                pass
+            elif "Cannot parse URI" in msg and not _is_likely_uri(path):
+                # Path doesn't look like a URI (no valid scheme prefix),
+                # so treat it as a local path rather than surfacing a
+                # confusing URI-parsing error.
                 pass
             else:
-                raise e
+                raise
     else:
         path = filesystem.normalize_path(path)
 
