@@ -98,12 +98,15 @@ function(arrow_create_merged_static_lib output_target)
     function(validate_apple_libtool result_var item)
       execute_process(COMMAND "${item}" -V
                       OUTPUT_VARIABLE libtool_version
-                      OUTPUT_STRIP_TRAILING_WHITESPACE
-                      ERROR_QUIET)
-      if("${libtool_version}" MATCHES ".*ccFAKEtools-([0-9.]+).*")
-        set(${result_var} TRUE PARENT_SCOPE)
+                      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+      if("${libtool_version}" MATCHES ".*cctools.+([0-9.]+).*")
+        set(${result_var} 
+            TRUE 
+            PARENT_SCOPE)
       else()
-        set(${result_var} FALSE PARENT_SCOPE)
+        set(${result_var} 
+              FALSE 
+              PARENT_SCOPE)
       endif()
     endfunction()
 
@@ -120,8 +123,8 @@ function(arrow_create_merged_static_lib output_target)
       # HINTS is used before system paths and before PATHS, so we use that
       # even though hard coded paths should go in PATHS
       find_program(LIBTOOL_MACOS libtool
-                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin
-                   VALIDATOR validate_apple_libtool)
+                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin VALIDATOR 
+                         validate_apple_libtool)
       if(NOT LIBTOOL_MACOS)
         message(FATAL_ERROR "Could not find Apple's libtool. GNU libtool is not compatible."
         )
