@@ -511,6 +511,25 @@ class ARROW_EXPORT StringHeapBuilder {
     return v;
   }
 
+  template <bool Safe>
+  std::conditional_t<Safe, Result<c_type>, c_type> GetViewFromBuffer(
+      const int32_t buffer_index, const int32_t offset, const int32_t length) const {
+    if constexpr (Safe) {
+      if (ARROW_PREDICT_FALSE(buffer_index < 0 ||
+                              buffer_index >= static_cast<int32_t>(blocks_.size()))) {
+        return Status::IndexError("buffer index ", buffer_index, " out of range 0..",
+                                  blocks_.size());
+      }
+      if (ARROW_PREDICT_FALSE(offset < 0 || length < 0 ||
+                              offset + length > current_offset_)) {
+        return Status::IndexError(offset, "..", offset + length, " out of range 0..",
+                                  current_offset_);
+      }
+    }
+    const auto* value = blocks_[buffer_index]->data_as<uint8_t>() + offset;
+    return util::ToBinaryView(value, length, buffer_index, offset);
+  }
+
   static constexpr int64_t ValueSizeLimit() {
     return std::numeric_limits<int32_t>::max();
   }
@@ -549,13 +568,9 @@ class ARROW_EXPORT StringHeapBuilder {
     if (!blocks_.empty()) {
       ARROW_RETURN_NOT_OK(FinishLastBlock());
     }
-    current_offset_ = 0;
-    current_out_buffer_ = NULLPTR;
-    current_remaining_bytes_ = 0;
     return std::move(blocks_);
   }
 
- private:
   Status FinishLastBlock() {
     if (current_remaining_bytes_ > 0) {
       // Avoid leaking uninitialized bytes from the allocator
@@ -564,9 +579,13 @@ class ARROW_EXPORT StringHeapBuilder {
                                  /*shrink_to_fit=*/true));
       blocks_.back()->ZeroPadding();
     }
+    current_offset_ = 0;
+    current_out_buffer_ = NULLPTR;
+    current_remaining_bytes_ = 0;
     return Status::OK();
   }
 
+ private:
   MemoryPool* pool_;
   int64_t alignment_;
   int64_t blocksize_ = kDefaultBlocksize;
@@ -637,12 +656,58 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
     UnsafeAppend(reinterpret_cast<const uint8_t*>(value), length);
   }
 
-  void UnsafeAppend(const std::string& value) {
-    UnsafeAppend(value.c_str(), static_cast<int64_t>(value.size()));
-  }
-
   void UnsafeAppend(std::string_view value) {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  /// \brief Append a buffer of raw bytes to the internal data heap
+  ///
+  /// This method is used to add out-of-line data buffers to the builder.
+  /// The size of the buffer must be larger than TypeClass::kInlineSize.
+  ///
+  /// \param[in] value Pointer to the raw byte data.
+  /// \param[in] length The number of bytes in the buffer.
+  /// \return A Result containing the index of the newly appended buffer on success,
+  ///         or a Status error if the length is too small or allocation fails.
+  Result<int32_t> AppendBuffer(const uint8_t* value, const int64_t length) {
+    if (ARROW_PREDICT_FALSE(length <= TypeClass::kInlineSize)) {
+      return Status::Invalid(
+          "The size of buffer to append should be larger than kInlineSize");
+    }
+    ARROW_RETURN_NOT_OK(data_heap_builder_.FinishLastBlock());
+    ARROW_ASSIGN_OR_RAISE(auto v,
+                          data_heap_builder_.Append</*Safe=*/true>(value, length));
+    return v.ref.buffer_index;
+  }
+
+  Result<int32_t> AppendBuffer(const char* value, const int64_t length) {
+    return AppendBuffer(reinterpret_cast<const uint8_t*>(value), length);
+  }
+
+  Result<int32_t> AppendBuffer(const std::string_view value) {
+    return AppendBuffer(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  Status AppendViewFromBuffer(const int32_t buffer_idx, const int32_t start,
+                              const int32_t length) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    ARROW_ASSIGN_OR_RAISE(
+        const auto v,
+        data_heap_builder_.GetViewFromBuffer</*Safe=*/true>(buffer_idx, start, length));
+    data_builder_.UnsafeAppend(v);
+    return Status::OK();
+  }
+
+  /// \pre The caller must ensure that:
+  ///      - `buffer_idx` is a valid index for buffer.
+  ///      - `start` and `length` define a valid range within the specified buffer.
+  void UnsafeAppendViewFromBuffer(const int32_t buffer_idx, const int32_t start,
+                                  const int32_t length) {
+    UnsafeAppendToBitmap(true);
+    const auto v =
+        data_heap_builder_.GetViewFromBuffer</*Safe=*/false>(buffer_idx, start, length);
+    data_builder_.UnsafeAppend(v);
   }
 
   /// \brief Ensures there is enough allocated available capacity in the
