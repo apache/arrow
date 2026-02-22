@@ -629,14 +629,6 @@ else()
            "${THIRDPARTY_MIRROR_URL}/cares-${ARROW_CARES_BUILD_VERSION}.tar.gz")
 endif()
 
-if(DEFINED ENV{ARROW_CRC32C_URL})
-  set(CRC32C_SOURCE_URL "$ENV{ARROW_CRC32C_URL}")
-else()
-  set_urls(CRC32C_SOURCE_URL
-           "https://github.com/google/crc32c/archive/${ARROW_CRC32C_BUILD_VERSION}.tar.gz"
-  )
-endif()
-
 if(DEFINED ENV{ARROW_GBENCHMARK_URL})
   set(GBENCHMARK_SOURCE_URL "$ENV{ARROW_GBENCHMARK_URL}")
 else()
@@ -753,7 +745,7 @@ else()
                    ARROW_PROTOBUF_STRIPPED_BUILD_VERSION)
   # strip the leading `v`
   set_urls(PROTOBUF_SOURCE_URL
-           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-all-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
+           "https://github.com/protocolbuffers/protobuf/releases/download/${ARROW_PROTOBUF_BUILD_VERSION}/protobuf-${ARROW_PROTOBUF_STRIPPED_BUILD_VERSION}.tar.gz"
            "${THIRDPARTY_MIRROR_URL}/protobuf-${ARROW_PROTOBUF_BUILD_VERSION}.tar.gz")
 endif()
 
@@ -1874,11 +1866,62 @@ if(ARROW_WITH_THRIFT)
 endif()
 
 # ----------------------------------------------------------------------
+# Abseil defined here so it can be called from build_protobuf()
+
+function(build_absl)
+  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
+  message(STATUS "Building Abseil from source using FetchContent")
+  set(ABSL_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
+    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
+  endif()
+
+  fetchcontent_declare(absl
+                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       URL ${ABSL_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # We have to enable Abseil install to add Abseil targets to an export set.
+  # But we don't install Abseil by EXCLUDE_FROM_ALL.
+  set(ABSL_ENABLE_INSTALL ON)
+  fetchcontent_makeavailable(absl)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  if(APPLE)
+    # This is due to upstream absl::cctz issue
+    # https://github.com/abseil/abseil-cpp/issues/283
+    find_library(CoreFoundation CoreFoundation)
+    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
+    # Cannot use set_property on alias targets (absl::time is an alias)
+    set_property(TARGET time
+                 APPEND
+                 PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
+  endif()
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+# ----------------------------------------------------------------------
 # Protocol Buffers (required for ORC, Flight and Substrait libraries)
 
 function(build_protobuf)
   list(APPEND CMAKE_MESSAGE_INDENT "Protobuf: ")
   message(STATUS "Building Protocol Buffers from source using FetchContent")
+
+  # Protobuf requires Abseil. Build Abseil first with OVERRIDE_FIND_PACKAGE
+  # so that protobuf doesn't build its own copy and we can reuse it on google-cloud-cpp
+  # if it's also being built.
+  if(NOT TARGET absl::strings)
+    build_absl()
+  endif()
+
   set(PROTOBUF_VENDORED
       TRUE
       PARENT_SCOPE)
@@ -1894,8 +1937,7 @@ function(build_protobuf)
   fetchcontent_declare(protobuf
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
                        URL ${PROTOBUF_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}"
-                       SOURCE_SUBDIR cmake)
+                       URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
@@ -3038,46 +3080,6 @@ endfunction()
 # ----------------------------------------------------------------------
 # Dependencies for Arrow Flight RPC
 
-function(build_absl)
-  list(APPEND CMAKE_MESSAGE_INDENT "ABSL: ")
-  message(STATUS "Building Abseil from source using FetchContent")
-  set(ABSL_VENDORED
-      TRUE
-      PARENT_SCOPE)
-
-  if(CMAKE_COMPILER_IS_GNUCC AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 13.0)
-    string(APPEND CMAKE_CXX_FLAGS " -include stdint.h")
-  endif()
-
-  fetchcontent_declare(absl
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${ABSL_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_ABSL_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  # We have to enable Abseil install to add Abseil targets to an export set.
-  # But we don't install Abseil by EXCLUDE_FROM_ALL.
-  set(ABSL_ENABLE_INSTALL ON)
-  fetchcontent_makeavailable(absl)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${absl_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  if(APPLE)
-    # This is due to upstream absl::cctz issue
-    # https://github.com/abseil/abseil-cpp/issues/283
-    find_library(CoreFoundation CoreFoundation)
-    # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
-    # Cannot use set_property on alias targets (absl::time is an alias)
-    set_property(TARGET time
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
-  endif()
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
 function(build_grpc)
   resolve_dependency(c-ares
                      ARROW_CMAKE_PACKAGE_NAME
@@ -3153,8 +3155,7 @@ function(build_grpc)
       gpr
       grpc
       grpc++
-      grpc++_reflection
-      upb)
+      grpc++_reflection)
 
   foreach(target ${GRPC_LIBRARY_TARGETS})
     if(TARGET ${target} AND NOT TARGET gRPC::${target})
@@ -3202,8 +3203,7 @@ function(build_grpc)
        gRPC::address_sorting
        gRPC::gpr
        gRPC::grpc
-       gRPC::grpcpp_for_bundling
-       gRPC::upb)
+       gRPC::grpcpp_for_bundling)
   set(ARROW_BUNDLED_STATIC_LIBS
       "${ARROW_BUNDLED_STATIC_LIBS}"
       PARENT_SCOPE)
@@ -3293,44 +3293,6 @@ endif()
 # ----------------------------------------------------------------------
 # GCS and dependencies
 
-function(build_crc32c_once)
-  list(APPEND CMAKE_MESSAGE_INDENT "CRC32C: ")
-  message(STATUS "Building CRC32C from source using FetchContent")
-  set(CRC32C_VENDORED
-      TRUE
-      PARENT_SCOPE)
-  set(CRC32C_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/crc32c_fc-install")
-  set(CRC32C_PREFIX
-      "${CRC32C_PREFIX}"
-      PARENT_SCOPE)
-
-  fetchcontent_declare(crc32c
-                       ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
-                       URL ${CRC32C_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_CRC32C_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  set(CRC32C_BUILD_TESTS OFF)
-  set(CRC32C_BUILD_BENCHMARKS OFF)
-  set(CRC32C_USE_GLOG OFF)
-  fetchcontent_makeavailable(crc32c)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${crc32c_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  # Create alias target for consistency (crc32c exports as Crc32c::crc32c when installed)
-  if(NOT TARGET Crc32c::crc32c)
-    add_library(Crc32c::crc32c ALIAS crc32c)
-  endif()
-
-  set(ARROW_BUNDLED_STATIC_LIBS
-      ${ARROW_BUNDLED_STATIC_LIBS} Crc32c::crc32c
-      PARENT_SCOPE)
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
 function(build_nlohmann_json)
   list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
   message(STATUS "Building nlohmann-json from source using FetchContent")
@@ -3371,18 +3333,19 @@ function(build_google_cloud_cpp_storage)
       TRUE
       PARENT_SCOPE)
 
-  # List of dependencies taken from https://github.com/googleapis/google-cloud-cpp/blob/main/doc/packaging.md
-  build_crc32c_once()
-
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${google_cloud_cpp_storage_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
+                       GIT_REPOSITORY https://github.com/googleapis/google-cloud-cpp.git
+                       GIT_TAG 2b9130f6b28457d9f92eb2e1a98d6aa5d730303f # prepare-for-v3.0.0 branch
+  )
 
   prepare_fetchcontent()
 
   message(STATUS "Only building the google-cloud-cpp::storage component")
-  set(GOOGLE_CLOUD_CPP_ENABLE storage)
+  # Disable auto-added features (monitoring, trace, opentelemetry, universe_domain)
+  # that require gRPC - storage only needs REST/curl
+  set(GOOGLE_CLOUD_CPP_ENABLE
+      "storage;-monitoring;-trace;-opentelemetry;-universe_domain")
   # We need this to build with OpenSSL 3.0.
   # See also: https://github.com/googleapis/google-cloud-cpp/issues/8544
   set(GOOGLE_CLOUD_CPP_ENABLE_WERROR OFF)
