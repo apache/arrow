@@ -580,6 +580,7 @@ using :func:`pyarrow.parquet.filters_to_expression`:
 
     >>> import pyarrow.parquet as pq
     >>> import pyarrow.compute as pc
+    >>> dataset = ds.dataset(base / "parquet_dataset", format="parquet")
     >>> filters = [("a", ">=", 5), ("c", "==", 2)]
     >>> filter_expr = pq.filters_to_expression(filters)
     >>> filter_expr
