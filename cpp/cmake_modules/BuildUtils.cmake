@@ -100,7 +100,7 @@ function(arrow_create_merged_static_lib output_target)
                       OUTPUT_VARIABLE libtool_version
                       OUTPUT_STRIP_TRAILING_WHITESPACE
                       ERROR_QUIET)
-      if("${libtool_version}" MATCHES ".*cctools-([0-9.]+).*")
+      if("${libtool_version}" MATCHES ".*ccFAKEtools-([0-9.]+).*")
         set(${result_var} TRUE PARENT_SCOPE)
       else()
         set(${result_var} FALSE PARENT_SCOPE)
