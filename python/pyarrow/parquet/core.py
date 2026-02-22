@@ -146,6 +146,7 @@ def filters_to_expression(filters):
     Examples
     --------
 
+    >>> import pyarrow.parquet as pq
     >>> filters_to_expression([('foo', '==', 'bar')])
     <pyarrow.compute.Expression (foo == "bar")>
 
