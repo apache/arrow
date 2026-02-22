@@ -481,6 +481,14 @@ cdef class DictionaryMemo(_Weakrefable):
         self.sp_memo.reset(new CDictionaryMemo())
         self.memo = self.sp_memo.get()
 
+    @staticmethod
+    cdef DictionaryMemo wrap(CDictionaryMemo* memo, object parent):
+        cdef DictionaryMemo self = DictionaryMemo.__new__(DictionaryMemo)
+        self.memo = memo
+        self.sp_memo.reset()  # don't own it
+        self._parent = parent  # prevent GC of owner
+        return self
+
 
 cdef class DictionaryType(DataType):
     """
