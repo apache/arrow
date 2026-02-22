@@ -3082,7 +3082,7 @@ cdef class RecordBatch(_Tabular):
 
         return pyarrow_wrap_batch(c_batch)
 
-    def serialize(self, memory_pool=None):
+    def serialize(self, memory_pool=None, Buffer buffer=None):
         """
         Write RecordBatch to Buffer as encapsulated IPC message, which does not
         include a Schema.
@@ -3095,6 +3095,13 @@ cdef class RecordBatch(_Tabular):
         ----------
         memory_pool : MemoryPool, default None
             Uses default memory pool if not specified
+        buffer : Buffer, default None
+            If provided, serialize into this pre-allocated buffer instead of
+            allocating a new one. The buffer must be mutable and large enough
+            to hold the serialized data. Use
+            :func:`pyarrow.ipc.get_record_batch_size` to determine the
+            required size. A slice of the buffer with the exact serialized
+            size is returned.
 
         Returns
         -------
@@ -3122,14 +3129,39 @@ cdef class RecordBatch(_Tabular):
         animals: ["Flamingo","Parrot","Dog","Horse","Brittle stars","Centipede"]
         """
         self._assert_cpu()
-        cdef shared_ptr[CBuffer] buffer
+        cdef shared_ptr[CBuffer] c_buffer
         cdef CIpcWriteOptions options = CIpcWriteOptions.Defaults()
+        cdef int64_t size
+        cdef CFixedSizeBufferWriter* stream
         options.memory_pool = maybe_unbox_memory_pool(memory_pool)
 
-        with nogil:
-            buffer = GetResultValue(
-                SerializeRecordBatch(deref(self.batch), options))
-        return pyarrow_wrap_buffer(buffer)
+        if buffer is not None:
+            if not buffer.is_mutable:
+                raise ValueError("buffer is not mutable")
+
+            with nogil:
+                check_status(GetRecordBatchSize(
+                    deref(self.batch), options, &size))
+
+            if buffer.size < size:
+                raise ValueError(
+                    f"buffer is too small: {buffer.size} < {size}")
+
+            stream = new CFixedSizeBufferWriter(buffer.buffer)
+            try:
+                with nogil:
+                    check_status(SerializeRecordBatch(
+                        deref(self.batch), options,
+                        <COutputStream*>stream))
+            finally:
+                del stream
+
+            return buffer.slice(0, size)
+        else:
+            with nogil:
+                c_buffer = GetResultValue(
+                    SerializeRecordBatch(deref(self.batch), options))
+            return pyarrow_wrap_buffer(c_buffer)
 
     def slice(self, offset=0, length=None):
         """
