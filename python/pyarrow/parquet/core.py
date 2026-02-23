@@ -953,12 +953,27 @@ write_time_adjusted_to_utc : bool, default False
     in reference to midnight in an unknown, presumably local, timezone.
 bloom_filter_options : dict, default None
     Create Bloom filters for the columns specified by the provided `dict`.
-    The keys of the `dict` are column paths, and the values are `dict`s with
-    the keys "ndv" and "fpp". The value for "ndv" is an int indicating the
-    number of distinct values encoded by the Bloom filter. If omitted, the default
-    value of 1048576 will be used. The value for "fpp" is a float indicating the false
-    positive probability desired, in the range 0.0 to 1.0. If omitted, the default value
-    of 0.05 will be used.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the default values of `NDV=1048576` and `FPP=0.05`.
+    - A dictionary, with keys `ndv` and `fpp`. `ndv` must be a positive integer, and
+      `fpp` must be a float between 0.0 and 1.0. Default values will be used for any
+      missing keys.
 """
 
 _parquet_writer_example_doc = """\

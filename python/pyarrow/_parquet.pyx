@@ -2137,19 +2137,34 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 # set defaults
                 bloom_opts.ndv = _DEFAULT_BLOOM_FILTER_NDV
                 bloom_opts.fpp = _DEFAULT_BLOOM_FILTER_FPP
-                if not isinstance(_bloom_opts, dict):
+                if isinstance(_bloom_opts, dict):
+                    if "ndv" in _bloom_opts:
+                        ndv = _bloom_opts["ndv"]
+                        if isinstance(ndv, int):
+                            if ndv < 0:
+                                raise ValueError(
+                                    f"'ndv' for column '{column}' must be positive, got {ndv}")
+                            bloom_opts.ndv = ndv
+                        else:
+                            raise TypeError(
+                                f"'ndv' for column '{column}' must be an int")
+                    if "fpp" in _bloom_opts:
+                        fpp = _bloom_opts["fpp"]
+                        if isinstance(fpp, float):
+                            if fpp <= 0.0 or fpp >= 1.0:
+                                raise ValueError(
+                                    f"'fpp' for column '{column}' must be in (0.0, 1,0), got {fpp}")
+                            bloom_opts.fpp = fpp
+                        else:
+                            raise TypeError(
+                                f"'fpp' for column '{column}' must be a float")
+                elif isinstance(_bloom_opts, bool):
+                    # if false do nothing, if true then just pass defaults
+                    if not _bloom_opts:
+                        continue
+                else:
                     raise TypeError(
-                        f"'bloom_filter_options:{column}' must be a dictionary")
-                if "ndv" in _bloom_opts:
-                    if isinstance(_bloom_opts["ndv"], int):
-                        bloom_opts.ndv = _bloom_opts["ndv"]
-                    else:
-                        raise TypeError(f"'ndv' for column '{column}' must be an int")
-                if "fpp" in _bloom_opts:
-                    if isinstance(_bloom_opts["fpp"], float):
-                        bloom_opts.fpp = _bloom_opts["fpp"]
-                    else:
-                        raise TypeError(f"'fpp' for column '{column}' must be a float")
+                        f"'bloom_filter_options:{column}' must be a boolean or a dictionary")
 
                 props.enable_bloom_filter(tobytes(column), bloom_opts)
         else:
