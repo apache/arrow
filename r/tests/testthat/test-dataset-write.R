@@ -1015,3 +1015,20 @@ test_that("Dataset write wrappers can write flat files using readr::write_csv() 
     c("true", "false", "NOVALUE", "true", "false", "true", "false", "NOVALUE", "true", "false")
   )
 })
+
+test_that("Row order is preserved when writing large parquet dataset", {
+  skip_if_not_available("parquet")
+  # Make a data frame with a sufficiently large number of rows.
+  df <- data.frame(x = 1:1.1e6)
+  dst_dir1 <- make_temp_dir()
+  write_dataset(df, dst_dir1)
+
+  dst_dir2 <- make_temp_dir()
+  write_dataset(df, dst_dir2, preserve_order = TRUE)
+
+  ds1 <- open_dataset(dst_dir1) |> collect()
+  ds2 <- open_dataset(dst_dir2) |> collect()
+
+  expect_true(any(ds1$x != df$x))
+  expect_true(all(ds2$x == df$x))
+})
