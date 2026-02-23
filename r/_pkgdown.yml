@@ -363,7 +363,7 @@ repo:
 footer:
   structure:
     left: older_versions
-    right: built_with
+    right: [built_with, legal]
   components:
     older_versions: |
       [Older versions of these docs](https://arrow.apache.org/docs/r/versions.html)
