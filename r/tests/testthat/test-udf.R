@@ -17,7 +17,7 @@
 
 test_that("list_compute_functions() works", {
   expect_type(list_compute_functions(), "character")
-  expect_true(all(!grepl("^hash_", list_compute_functions())))
+  expect_all_false(grepl("^hash_", list_compute_functions()))
 })
 
 test_that("arrow_scalar_function() works", {

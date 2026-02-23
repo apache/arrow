@@ -36,7 +36,7 @@ Optional support for reading from cloud storage--AWS S3 and
 Google Cloud Storage (GCS)--requires additional system dependencies:
 
 * CURL: install `libcurl-devel` (rpm) or `libcurl4-openssl-dev` (deb)
-* OpenSSL >= 1.0.2: install `openssl-devel` (rpm) or `libssl-dev` (deb)
+* OpenSSL >= 3.0: install `openssl-devel` (rpm) or `libssl-dev` (deb)
 
 The prebuilt binaries come with S3 and GCS support enabled, so you will need to meet these system requirements in order to use them. If you're building everything from source, the install script will check for the presence of these dependencies and turn off S3 and GCS support in the build if the prerequisites are not met--installation will succeed but without S3 or GCS functionality. If afterwards you install the missing system requirements, you'll need to reinstall the package in order to enable S3 and GCS support.
 
@@ -271,8 +271,7 @@ See below for more in-depth explanations of these environment variables.
   will work with your system. You can set it to `false` to skip this option
   altogether, or you can specify a string "distro-version" that corresponds to
   a binary that is available, to override what this function may discover by
-  default. Possible values are: "linux-openssl-1.0", "linux-openssl-1.1",
-  "linux-openssl-3.0".
+  default. Possible values are: "linux-x86_64", "linux-aarch64".
 * `LIBARROW_BUILD` : If set to `false`, the build script
   will not attempt to build the C++ from source. This means you will only get
   a working arrow R package if a prebuilt binary is found.
