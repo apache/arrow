@@ -208,7 +208,6 @@ handle_csv_read_error <- function(msg, call, schema) {
     abort(msg, call = call)
   }
 
-  # Handle schema + header row issue
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
       msg,
