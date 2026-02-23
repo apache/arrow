@@ -196,7 +196,6 @@ repeat_value_as_array <- function(object, n) {
 }
 
 handle_csv_read_error <- function(msg, call, schema) {
-  # Handle null type inference issue with sparse data
   if (grepl("conversion error to null", msg)) {
     msg <- c(
       msg,
