@@ -91,14 +91,22 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
+    # Get the version string from a libtool binary.
+    function(get_libtool_version item result_var)
+      execute_process(COMMAND "${item}" -V
+                      OUTPUT_VARIABLE _version
+                      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+      set(${result_var}
+          "${_version}"
+          PARENT_SCOPE)
+    endfunction()
+
     # Validator function to confirm that the libtool is Apple's libtool.
     # The apple-distributed libtool is what we want for bundling, but there is
     # a GNU libtool that has a name collision (and happens to be bundled with R, too).
     # We are not compatible with GNU libtool, so we need to avoid it.
     function(validate_apple_libtool result_var item)
-      execute_process(COMMAND "${item}" -V
-                      OUTPUT_VARIABLE libtool_version
-                      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+      get_libtool_version("${item}" libtool_version)
       if("${libtool_version}" MATCHES ".*cctools.+([0-9.]+).*")
         set(${result_var}
             TRUE
@@ -115,7 +123,8 @@ function(arrow_create_merged_static_lib output_target)
       # Validate that CMAKE_LIBTOOL is Apple's libtool
       validate_apple_libtool(is_apple_libtool "${LIBTOOL_MACOS}")
       if(NOT is_apple_libtool)
-        message(FATAL_ERROR "CMAKE_LIBTOOL does not appear to be Apple's libtool: ${LIBTOOL_MACOS}"
+        get_libtool_version("${LIBTOOL_MACOS}" _libtool_version_output)
+        message(FATAL_ERROR "CMAKE_LIBTOOL does not appear to be Apple's libtool: ${LIBTOOL_MACOS}\nlibtool -V output: ${_libtool_version_output}"
         )
       endif()
     else()
@@ -126,8 +135,14 @@ function(arrow_create_merged_static_lib output_target)
                    HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin VALIDATOR
                          validate_apple_libtool)
       if(NOT LIBTOOL_MACOS)
+        # Find any libtool (without validation) to show its version in the error
+        find_program(_any_libtool libtool)
+        if(_any_libtool)
+          get_libtool_version("${_any_libtool}" _libtool_version_output)
+        endif()
         message(FATAL_ERROR "Could not find Apple's libtool. GNU libtool is not compatible."
-        )
+                            "\nFound libtool: ${_any_libtool}"
+                            "\nlibtool -V output: ${_libtool_version_output}")
       endif()
     endif()
 
