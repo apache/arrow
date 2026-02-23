@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstring>
+#include <limits>
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
@@ -688,6 +689,17 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
+  static Status ValidateCapacityForOffsetType(int64_t data_bytes) {
+    int64_t max_offset = static_cast<int64_t>(std::numeric_limits<OffsetType>::max());
+    if (data_bytes > max_offset) {
+      return Status::CapacityError("Result may exceed offset capacity for this type: ",
+                                   data_bytes, " > ", max_offset,
+                                   ". Convert inputs to a type that uses an int64 based "
+                                   "index such as a large_string");
+    }
+    return Status::OK();
+  }
+
   // A - Array, S - Scalar, X = Array/Scalar
 
   // SXX
@@ -712,9 +724,12 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const uint8_t* right_data = right.buffers[2].data;
 
     // allocate data buffer conservatively
-    int64_t data_buff_alloc = left_offsets[left.length] - left_offsets[0] +
-                              right_offsets[right.length] - right_offsets[0];
+    int64_t data_buff_alloc = (static_cast<int64_t>(left_offsets[left.length]) -
+                               static_cast<int64_t>(left_offsets[0])) +
+                              (static_cast<int64_t>(right_offsets[right.length]) -
+                               static_cast<int64_t>(right_offsets[0]));
 
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -745,18 +760,22 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
       std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
 
-      auto right_data_length = right_offsets[right.length] - right_offsets[0];
+      int64_t right_data_length = static_cast<int64_t>(right_offsets[right.length]) -
+                                  static_cast<int64_t>(right_offsets[0]);
+      ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(right_data_length));
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
       std::memcpy(out_data->buffers[2]->mutable_data(), right_data, right_data_length);
       return Status::OK();
     }
 
     std::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    auto left_size = static_cast<OffsetType>(left_data.size());
 
     // allocate data buffer conservatively
-    int64_t data_buff_alloc =
-        left_size * cond.length + right_offsets[right.length] - right_offsets[0];
+    int64_t data_buff_alloc = static_cast<int64_t>(left_data.size()) * cond.length +
+                              (static_cast<int64_t>(right_offsets[right.length]) -
+                               static_cast<int64_t>(right_offsets[0]));
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
+    auto left_size = static_cast<OffsetType>(left_data.size());
 
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
@@ -785,18 +804,22 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
       std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
 
-      auto left_data_length = left_offsets[left.length] - left_offsets[0];
+      int64_t left_data_length = static_cast<int64_t>(left_offsets[left.length]) -
+                                 static_cast<int64_t>(left_offsets[0]);
+      ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(left_data_length));
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
       std::memcpy(out_data->buffers[2]->mutable_data(), left_data, left_data_length);
       return Status::OK();
     }
 
     std::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
-    auto right_size = static_cast<OffsetType>(right_data.size());
 
     // allocate data buffer conservatively
-    int64_t data_buff_alloc =
-        right_size * cond.length + left_offsets[left.length] - left_offsets[0];
+    int64_t data_buff_alloc = static_cast<int64_t>(right_data.size()) * cond.length +
+                              (static_cast<int64_t>(left_offsets[left.length]) -
+                               static_cast<int64_t>(left_offsets[0]));
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
+    auto right_size = static_cast<OffsetType>(right_data.size());
 
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
@@ -817,13 +840,15 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   static Status Call(KernelContext* ctx, const ArraySpan& cond, const Scalar& left,
                      const Scalar& right, ExecResult* out) {
     std::string_view left_data = internal::UnboxScalar<Type>::Unbox(left);
-    auto left_size = static_cast<OffsetType>(left_data.size());
 
     std::string_view right_data = internal::UnboxScalar<Type>::Unbox(right);
-    auto right_size = static_cast<OffsetType>(right_data.size());
 
     // allocate data buffer conservatively
-    int64_t data_buff_alloc = std::max(right_size, left_size) * cond.length;
+    int64_t data_buff_alloc =
+        static_cast<int64_t>(std::max(left_data.size(), right_data.size())) * cond.length;
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
+    auto left_size = static_cast<OffsetType>(left_data.size());
+    auto right_size = static_cast<OffsetType>(right_data.size());
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
