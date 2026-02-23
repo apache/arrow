@@ -969,6 +969,7 @@ bloom_filter_options : dict, default None
     to minimize space usage.
 
     The keys of the `dict` are column paths. For each path, the value can be either:
+
     - A boolean, with ``True`` indicating that a Bloom filter should be produced with
       the default values of `NDV=1048576` and `FPP=0.05`.
     - A dictionary, with keys `ndv` and `fpp`. `ndv` must be a positive integer, and
