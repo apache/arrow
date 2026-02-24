@@ -107,11 +107,7 @@ function(arrow_create_merged_static_lib output_target)
     # We are not compatible with GNU libtool, so we need to avoid it.
     function(validate_apple_libtool result_var item)
       get_libtool_version("${item}" libtool_version)
-      if("${libtool_version}" MATCHES ".*cctools.+([0-9.]+).*")
-        set(${result_var}
-            TRUE
-            PARENT_SCOPE)
-      else()
+      if(NOT "${libtool_version}" MATCHES ".*cctools.+([0-9.]+).*")
         set(${result_var}
             FALSE
             PARENT_SCOPE)
