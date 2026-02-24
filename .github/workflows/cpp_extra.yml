@@ -415,6 +415,10 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Check ODBC Dependency
+        run: |
+          # ODBC dependency should not include Arrow or third party libraries
+          ! otool -L $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib | grep -Ei 'arrow_flight_sql\.|arrow_flight\.|arrow_compute|boost|iodbc|grpc'
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
