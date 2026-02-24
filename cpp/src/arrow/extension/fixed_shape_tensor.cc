@@ -165,10 +165,6 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
   if (array->null_count() > 0) {
     return Status::Invalid("Cannot convert data with nulls to Tensor.");
   }
-  const auto& value_type =
-      internal::checked_cast<const FixedWidthType&>(*ext_type.value_type());
-  const auto byte_width = value_type.byte_width();
-
   std::vector<int64_t> permutation = ext_type.permutation();
   if (permutation.empty()) {
     permutation.resize(ext_type.ndim());
@@ -185,11 +181,8 @@ Result<std::shared_ptr<Tensor>> FixedShapeTensorType::MakeTensor(
 
   ARROW_ASSIGN_OR_RAISE(
       auto strides, internal::ComputeStrides(ext_type.value_type(), shape, permutation));
-  const auto start_position = array->offset() * byte_width;
-  const auto size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                    std::multiplies<>());
-  const auto buffer =
-      SliceBuffer(array->data()->buffers[1], start_position, size * byte_width);
+  ARROW_ASSIGN_OR_RAISE(const auto buffer, internal::SliceTensorBuffer(
+                                               *array, *ext_type.value_type(), shape));
 
   return Tensor::Make(ext_type.value_type(), buffer, shape, strides, dim_names);
 }

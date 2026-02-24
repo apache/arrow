@@ -38,4 +38,9 @@ Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& val
                                             std::span<const int64_t> shape,
                                             std::span<const int64_t> permutation);
 
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> SliceTensorBuffer(const Array& data_array,
+                                                  const DataType& value_type,
+                                                  std::span<const int64_t> shape);
+
 }  // namespace arrow::internal

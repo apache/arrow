@@ -19,6 +19,8 @@
 
 #include <numeric>
 
+#include "arrow/array/array_base.h"
+#include "arrow/buffer.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
@@ -73,7 +75,7 @@ Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& val
     remaining = byte_width;
     for (auto i : perm) {
       if (i > 0) {
-        if (internal::MultiplyWithOverflow(remaining, shape[i], &remaining)) {
+        if (MultiplyWithOverflow(remaining, shape[i], &remaining)) {
           return Status::Invalid(
               "Strides computed from shape would not fit in 64-bit integer");
         }
@@ -94,9 +96,36 @@ Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& val
       strides.push_back(remaining);
     }
   }
-  internal::Permute(perm, &strides);
+  Permute(perm, &strides);
 
   return strides;
+}
+
+Result<std::shared_ptr<Buffer>> SliceTensorBuffer(const Array& data_array,
+                                                  const DataType& value_type,
+                                                  std::span<const int64_t> shape) {
+  const int64_t byte_width = value_type.byte_width();
+  int64_t size = 1;
+  for (const auto dim : shape) {
+    if (MultiplyWithOverflow(size, dim, &size)) {
+      return Status::Invalid("Tensor size would not fit in 64-bit integer");
+    }
+  }
+  if (size != data_array.length()) {
+    return Status::Invalid("Expected data array of length ", size, ", got ",
+                           data_array.length());
+  }
+
+  int64_t start_position = 0;
+  if (MultiplyWithOverflow(data_array.offset(), byte_width, &start_position)) {
+    return Status::Invalid("Data offset in bytes would not fit in 64-bit integer");
+  }
+  int64_t size_bytes = 0;
+  if (MultiplyWithOverflow(size, byte_width, &size_bytes)) {
+    return Status::Invalid("Tensor byte size would not fit in 64-bit integer");
+  }
+
+  return SliceBufferSafe(data_array.data()->buffers[1], start_position, size_bytes);
 }
 
 }  // namespace arrow::internal
