@@ -34,6 +34,7 @@ module ArrowFormat
     FOOTER_SIZE_FORMAT = :s32
     FOOTER_SIZE_SIZE = IO::Buffer.size_of(FOOTER_SIZE_FORMAT)
 
+    attr_reader :schema
     def initialize(input)
       case input
       when IO

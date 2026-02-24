@@ -91,28 +91,55 @@ function(arrow_create_merged_static_lib output_target)
   endforeach()
 
   if(APPLE)
+    # Get the version string from a libtool binary.
+    function(get_libtool_version item result_var)
+      execute_process(COMMAND "${item}" -V
+                      OUTPUT_VARIABLE _version
+                      OUTPUT_STRIP_TRAILING_WHITESPACE ERROR_QUIET)
+      set(${result_var}
+          "${_version}"
+          PARENT_SCOPE)
+    endfunction()
+
+    # Validator function to confirm that the libtool is Apple's libtool.
+    # The apple-distributed libtool is what we want for bundling, but there is
+    # a GNU libtool that has a name collision (and happens to be bundled with R, too).
+    # We are not compatible with GNU libtool, so we need to avoid it.
+    function(validate_apple_libtool result_var item)
+      get_libtool_version("${item}" libtool_version)
+      if(NOT "${libtool_version}" MATCHES ".*cctools.+([0-9.]+).*")
+        set(${result_var}
+            FALSE
+            PARENT_SCOPE)
+      endif()
+    endfunction()
+
     if(CMAKE_LIBTOOL)
       set(LIBTOOL_MACOS ${CMAKE_LIBTOOL})
+      # Validate that CMAKE_LIBTOOL is Apple's libtool
+      validate_apple_libtool(is_apple_libtool "${LIBTOOL_MACOS}")
+      if(NOT is_apple_libtool)
+        get_libtool_version("${LIBTOOL_MACOS}" _libtool_version_output)
+        message(FATAL_ERROR "CMAKE_LIBTOOL does not appear to be Apple's libtool: ${LIBTOOL_MACOS}\nlibtool -V output: ${_libtool_version_output}"
+        )
+      endif()
     else()
-      # The apple-distributed libtool is what we want for bundling, but there is
-      # a GNU libtool that has a namecollision (and happens to be bundled with R, too).
-      # We are not compatible with GNU libtool, so we need to avoid it.
-
-      # check in the obvious places first to find Apple's libtool
+      # Check in the obvious places first to find Apple's libtool
       # HINTS is used before system paths and before PATHS, so we use that
       # even though hard coded paths should go in PATHS
-      # TODO: use a VALIDATOR when we require cmake >= 3.25
       find_program(LIBTOOL_MACOS libtool
-                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin)
-    endif()
-
-    # confirm that the libtool we found is Apple's libtool
-    execute_process(COMMAND ${LIBTOOL_MACOS} -V
-                    OUTPUT_VARIABLE LIBTOOL_V_OUTPUT
-                    OUTPUT_STRIP_TRAILING_WHITESPACE)
-    if(NOT "${LIBTOOL_V_OUTPUT}" MATCHES ".*cctools-([0-9.]+).*")
-      message(FATAL_ERROR "libtool found appears not to be Apple's libtool: ${LIBTOOL_MACOS}"
-      )
+                   HINTS /usr/bin /Library/Developer/CommandLineTools/usr/bin VALIDATOR
+                         validate_apple_libtool)
+      if(NOT LIBTOOL_MACOS)
+        # Find any libtool (without validation) to show its version in the error
+        find_program(_any_libtool libtool)
+        if(_any_libtool)
+          get_libtool_version("${_any_libtool}" _libtool_version_output)
+        endif()
+        message(FATAL_ERROR "Could not find Apple's libtool. GNU libtool is not compatible."
+                            "\nFound libtool: ${_any_libtool}"
+                            "\nlibtool -V output: ${_libtool_version_output}")
+      endif()
     endif()
 
     set(BUNDLE_COMMAND ${LIBTOOL_MACOS} "-no_warning_for_no_symbols" "-static" "-o"
