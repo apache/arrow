@@ -126,7 +126,6 @@ Result<OrcColumnStatistics> ConvertColumnStatistics(
   stats.max = nullptr;
 
   // Try to extract min/max based on the ORC column statistics type.
-  // Use single dynamic_cast per branch to avoid unnecessary casts.
   if (const auto* int_stats =
           dynamic_cast<const liborc::IntegerColumnStatistics*>(orc_stats)) {
     if (int_stats->hasMinimum() && int_stats->hasMaximum()) {
