@@ -133,9 +133,9 @@ pushd C:\arrow\python
 
 @REM Build wheel
 %PYTHON_CMD% -m build --sdist --wheel . --no-isolation -vv ^
-    --config-setting build.verbose=true ^
-    --config-setting cmake.build-type=%CMAKE_BUILD_TYPE% ^
-    --config-setting cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%" || exit /B 1
+    -C build.verbose=true ^
+    -C cmake.build-type=%CMAKE_BUILD_TYPE% ^
+    -C cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%" || exit /B 1
 
 @REM Repair the wheel with delvewheel
 @REM
