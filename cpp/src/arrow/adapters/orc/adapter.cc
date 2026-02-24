@@ -102,6 +102,17 @@ namespace {
 // The following is required by ORC to be uint64_t
 constexpr uint64_t kOrcNaturalWriteSize = 128 * 1024;
 
+// Max millisecond value that can be safely converted to nanoseconds without
+// overflowing int64_t. Beyond ~292,000 years from epoch, millis * 1,000,000
+// exceeds int64_t range.
+constexpr int64_t kMaxMillisForNanos = std::numeric_limits<int64_t>::max() / 1000000LL;
+constexpr int64_t kMinMillisForNanos = std::numeric_limits<int64_t>::lowest() / 1000000LL;
+
+// Whether a millisecond value can be converted to nanoseconds without overflowing int64_t.
+bool MillisFitInNanos(int64_t millis) {
+  return millis >= kMinMillisForNanos && millis <= kMaxMillisForNanos;
+}
+
 // Convert ORC column statistics to Arrow OrcColumnStatistics
 // Returns a Result with the converted statistics, or an error if conversion fails
 Result<OrcColumnStatistics> ConvertColumnStatistics(
@@ -151,24 +162,18 @@ Result<OrcColumnStatistics> ConvertColumnStatistics(
   } else if (const auto* ts_stats =
                  dynamic_cast<const liborc::TimestampColumnStatistics*>(orc_stats)) {
     if (ts_stats->hasMinimum() && ts_stats->hasMaximum()) {
-      stats.has_min_max = true;
-      // getMinimum/getMaximum return milliseconds.
-      // getMinimumNanos/getMaximumNanos return the
-      // last 6 digits of nanoseconds.
+      // ORC returns millis + sub-millisecond nanos (0-999999).
+      // Convert to total nanoseconds, skipping if millis would overflow.
       int64_t min_millis = ts_stats->getMinimum();
       int64_t max_millis = ts_stats->getMaximum();
-      int32_t min_nanos = ts_stats->getMinimumNanos();
-      int32_t max_nanos = ts_stats->getMaximumNanos();
-
-      // millis * 1,000,000 + sub-millisecond nanos
-      int64_t min_ns = min_millis * 1000000LL + min_nanos;
-      int64_t max_ns = max_millis * 1000000LL + max_nanos;
-
-      auto ts_type = timestamp(TimeUnit::NANO);
-      stats.min =
-          std::make_shared<TimestampScalar>(min_ns, ts_type);
-      stats.max =
-          std::make_shared<TimestampScalar>(max_ns, ts_type);
+      if (MillisFitInNanos(min_millis) && MillisFitInNanos(max_millis)) {
+        stats.has_min_max = true;
+        auto ts_type = timestamp(TimeUnit::NANO);
+        stats.min = std::make_shared<TimestampScalar>(
+            min_millis * 1000000LL + ts_stats->getMinimumNanos(), ts_type);
+        stats.max = std::make_shared<TimestampScalar>(
+            max_millis * 1000000LL + ts_stats->getMaximumNanos(), ts_type);
+      }
     }
   } else if (const auto* decimal_stats =
                  dynamic_cast<const liborc::DecimalColumnStatistics*>(orc_stats)) {
@@ -354,6 +359,11 @@ Status BuildOrcSchemaFieldsRecursive(const liborc::Type* orc_type,
     RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(value_type, map_type.item_field(),
                                                 &out_field->children[1]));
   }
+  // Union types are intentionally treated as leaves. ORC stores a single set
+  // of column statistics for the union that aggregates across all variants,
+  // so a min/max from one variant is mixed with values from other variants.
+  // This makes per-variant predicate pushdown unsound, and the dataset layer
+  // won't generate filter expressions targeting union children.
 
   return Status::OK();
 }
@@ -570,16 +580,14 @@ class ORCFileReader::Impl {
       return Table::MakeEmpty(schema);
     }
 
-    std::vector<std::shared_ptr<Table>> tables;
-    tables.reserve(stripe_indices.size());
-
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    batches.reserve(stripe_indices.size());
     for (int64_t stripe_index : stripe_indices) {
       ARROW_ASSIGN_OR_RAISE(auto batch, ReadStripe(stripe_index));
-      ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches({batch}));
-      tables.push_back(table);
+      batches.push_back(std::move(batch));
     }
-
-    return ConcatenateTables(tables);
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+    return Table::FromRecordBatches(schema, std::move(batches));
   }
 
   Result<std::shared_ptr<Table>> ReadStripes(const std::vector<int64_t>& stripe_indices,
@@ -591,16 +599,16 @@ class ORCFileReader::Impl {
       return Table::MakeEmpty(schema);
     }
 
-    std::vector<std::shared_ptr<Table>> tables;
-    tables.reserve(stripe_indices.size());
-
+    std::vector<std::shared_ptr<RecordBatch>> batches;
+    batches.reserve(stripe_indices.size());
     for (int64_t stripe_index : stripe_indices) {
       ARROW_ASSIGN_OR_RAISE(auto batch, ReadStripe(stripe_index, include_indices));
-      ARROW_ASSIGN_OR_RAISE(auto table, Table::FromRecordBatches({batch}));
-      tables.push_back(table);
+      batches.push_back(std::move(batch));
     }
-
-    return ConcatenateTables(tables);
+    liborc::RowReaderOptions opts = DefaultRowReaderOptions();
+    RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+    ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+    return Table::FromRecordBatches(schema, std::move(batches));
   }
 
   Status SelectStripe(liborc::RowReaderOptions* opts, int64_t stripe) {
@@ -819,20 +827,19 @@ class ORCFileReader::Impl {
       return Status::Invalid("ORC root type must be STRUCT");
     }
 
-    size_t num_fields = arrow_schema->num_fields();
-    if (num_fields != orc_root_type.getSubtypeCount()) {
+    int num_fields = arrow_schema->num_fields();
+    if (static_cast<uint64_t>(num_fields) != orc_root_type.getSubtypeCount()) {
       return Status::Invalid("Arrow schema field count (", num_fields,
                              ") does not match ORC type subtype count (",
                              orc_root_type.getSubtypeCount(), ")");
     }
 
-    manifest->schema_fields.resize(num_fields);
+    manifest->schema_fields.resize(static_cast<size_t>(num_fields));
 
-    for (size_t i = 0; i < num_fields; ++i) {
-      const liborc::Type* orc_subtype = orc_root_type.getSubtype(i);
+    for (int i = 0; i < num_fields; ++i) {
+      const liborc::Type* orc_subtype = orc_root_type.getSubtype(static_cast<uint64_t>(i));
       RETURN_NOT_OK(BuildOrcSchemaFieldsRecursive(
-          orc_subtype, arrow_schema->field(static_cast<int>(i)),
-          &manifest->schema_fields[i]));
+          orc_subtype, arrow_schema->field(i), &manifest->schema_fields[i]));
     }
 
     return manifest;
