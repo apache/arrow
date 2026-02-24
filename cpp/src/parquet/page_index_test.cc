@@ -817,7 +817,7 @@ class PageIndexBuilderTest : public ::testing::Test {
     ASSERT_EQ(stats.max, column_index->encoded_max_values()[0]);
     ASSERT_EQ(stats.null_count.has_value(), column_index->has_null_counts());
     if (stats.null_count) {
-      ASSERT_EQ(*stats.null_count, column_index->null_counts()[0]);
+      ASSERT_EQ(stats.null_count.value(), column_index->null_counts()[0]);
     }
   }
 

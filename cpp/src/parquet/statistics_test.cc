@@ -780,7 +780,6 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     }
 
     // Merge without null-count should not have null count
-    // BUG: Failing here
     VerifyMergedStatistics(
         *statistics1, *statistics2, [](TypedStatistics<TestType>* merged_statistics) {
           EXPECT_FALSE(merged_statistics->HasNullCount());
@@ -792,7 +791,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
   // If statistics doesn't have null count, all_null_value should be false.
   void TestMissingNullCount() {
     EncodedStatistics encoded_statistics;
-    encoded_statistics.null_count.reset();
+    encoded_statistics.null_count = std::nullopt;
     auto statistics = Statistics::Make(this->schema_.Column(0), &encoded_statistics,
                                        /*num_values=*/1000);
     auto typed_stats = std::dynamic_pointer_cast<TypedStatistics<TestType>>(statistics);

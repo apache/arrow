@@ -737,7 +737,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->num_values_ += other.num_values();
     // null_count is valid only if both sides have it.
     if (this->HasNullCount() && other.HasNullCount()) {
-      this->statistics_.null_count = *this->statistics_.null_count + other.null_count();
+      this->statistics_.null_count = this->statistics_.null_count.value() + other.null_count();
     } else {
       this->statistics_.null_count = std::nullopt;
     }
@@ -745,7 +745,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
         (distinct_count() == 0 || other.distinct_count() == 0)) {
       // We can merge distinct counts if either side is zero.
       statistics_.distinct_count =
-          std::max(*statistics_.distinct_count, other.distinct_count());
+          std::max(statistics_.DistinctCount().value(), other.DistinctCount().value());
     } else {
       // Otherwise clear distinct_count as distinct count cannot be merged.
       this->statistics_.distinct_count = std::nullopt;
@@ -879,6 +879,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
     auto min = maybe_min_max.value().first;
     auto max = maybe_min_max.value().second;
+
     if (!HasMinMax()) {
       min_.emplace();
       max_.emplace();
@@ -1125,7 +1126,7 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t num_values,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
-  return Make(descr, encoded_stats->min, encoded_stats->max, num_values,
+  return Make(descr, encoded_stats->Min(), encoded_stats->Max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
               encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }

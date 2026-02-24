@@ -942,7 +942,7 @@ TEST(TestParquetStatistics, NoNullCount) {
     encoded_stats.set_min(int32_to_parquet_stats(1));
     encoded_stats.set_max(int32_to_parquet_stats(100));
     encoded_stats.all_null_value = false;
-    encoded_stats.null_count.reset();
+    encoded_stats.null_count = std::nullopt;
     auto stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/10);
 
     auto stat_expression =
@@ -963,7 +963,7 @@ TEST(TestParquetStatistics, NoNullCount) {
     ASSERT_TRUE(stat_expression.has_value());
     EXPECT_EQ(stat_expression->ToString(), "is_null(x, {nan_is_null=false})");
 
-    encoded_stats.null_count.reset();
+    encoded_stats.null_count = std::nullopt;
     encoded_stats.all_null_value = false;
     stats = ::parquet::Statistics::Make(&descr, &encoded_stats, /*num_values=*/0);
     stat_expression = ParquetFileFragment::EvaluateStatisticsAsExpression(*field, *stats);

@@ -161,7 +161,10 @@ class PARQUET_EXPORT EncodedStatistics {
     this->min = std::nullopt;
   }
 
-  bool is_set() const { return this->min || this->max || null_count || distinct_count; }
+  bool is_set() const {
+    return this->min.has_value() || this->max.has_value() || null_count.has_value() ||
+           distinct_count.has_value();
+  }
 
   bool is_signed() const { return is_signed_; }
 
@@ -207,8 +210,8 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] encoded_min the encoded minimum value
   /// \param[in] encoded_max the encoded maximum value
   /// \param[in] num_values total number of values
-  /// \param[in] null_count number of null values (std::nullopt if not set)
-  /// \param[in] distinct_count number of distinct values (std::nullopt if not set)
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
@@ -222,8 +225,8 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] encoded_min the encoded minimum value
   /// \param[in] encoded_max the encoded maximum value
   /// \param[in] num_values total number of values
-  /// \param[in] null_count number of null values (std::nullopt if not set)
-  /// \param[in] distinct_count number of distinct values (std::nullopt if not set)
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
   /// \param[in] is_min_value_exact whether the min value is exact
   /// \param[in] is_max_value_exact whether the max value is exact
   /// \param[in] pool a memory pool to use for any memory allocations, optional
