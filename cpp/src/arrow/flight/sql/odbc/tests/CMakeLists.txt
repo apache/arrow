@@ -53,30 +53,23 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
 # On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
 # On unix systems, static linking ODBC is supported, thus tests link libraries statically.
 if(WIN32)
-  add_arrow_test(flight_sql_odbc_test
-                 SOURCES
-                 ${ARROW_FLIGHT_SQL_ODBC_TEST_SRCS}
-                 ${ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS}
-                 DEFINITIONS
-                 UNICODE
-                 EXTRA_LINK_LIBS
-                 ${ODBC_LIBRARIES}
-                 ${ODBCINST}
-                 ${SQLite3_LIBRARIES}
-                 ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
-elseif(APPLE)
-  add_arrow_test(flight_sql_odbc_test
-                 SOURCES
-                 ${ARROW_FLIGHT_SQL_ODBC_TEST_SRCS}
-                 ${ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS}
-                 DEFINITIONS
-                 UNICODE
-                 STATIC_LINK_LIBS
-                 ${ODBC_LIBRARIES}
-                 ${ODBCINST}
-                 ${SQLite3_LIBRARIES}
-                 ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS_TYPE EXTRA_LINK_LIBS)
+else()
+  # Unix
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS_TYPE STATIC_LINK_LIBS)
 endif()
+
+add_arrow_test(flight_sql_odbc_test
+               SOURCES
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_SRCS}
+               ${ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS}
+               DEFINITIONS
+               UNICODE
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS_TYPE}
+               ${ODBC_LIBRARIES}
+               ${ODBCINST}
+               ${SQLite3_LIBRARIES}
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
 
 find_package(ODBC REQUIRED)
 target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)

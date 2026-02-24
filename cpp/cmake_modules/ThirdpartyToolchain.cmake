@@ -3041,8 +3041,7 @@ function(build_cares)
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
     find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv REQUIRED)
-    set_target_properties(c-ares PROPERTIES INTERFACE_LINK_LIBRARIES
-                                            "${LIBRESOLV_LIBRARY}")
+    target_link_libraries(c-ares INTERFACE ${LIBRESOLV_LIBRARY})
   endif()
 
   set(ARROW_BUNDLED_STATIC_LIBS
