@@ -134,6 +134,6 @@ pushd %SOURCE_DIR%\python
 %PYTHON_CMD% -m pip install -r requirements-build.txt || exit /B 1
 
 @REM Build PyArrow
-%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv --config-settings build.verbose=true . || exit /B 1
+%PYTHON_CMD% -m pip install --no-deps --no-build-isolation -vv -C build.verbose=true . || exit /B 1
 
 popd

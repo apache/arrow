@@ -63,7 +63,7 @@ if [ -n "${ARROW_PYTHON_VENV:-}" ]; then
   . "${ARROW_PYTHON_VENV}/bin/activate"
 fi
 
-${PYTHON:-python} -m pip install --config-settings cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" "${sdist}"
+${PYTHON:-python} -m pip install -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" "${sdist}"
 
 # shellcheck disable=SC2086
 pytest -r s ${PYTEST_ARGS:-} --pyargs pyarrow

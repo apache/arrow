@@ -89,7 +89,7 @@ cp -aL "${source_dir}" "${python_build_dir}"
 pushd "${python_build_dir}"
 # - Cannot use build isolation as we want to use specific dependency versions
 #   (e.g. Numpy, Pandas) on some CI jobs.
-${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv --config-settings cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" .
+${PYTHON:-python} -m pip install --no-deps --no-build-isolation -vv -C cmake.build-type="${CMAKE_BUILD_TYPE:-Debug}" .
 popd
 
 if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then

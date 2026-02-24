@@ -97,7 +97,7 @@ export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}
 export CMAKE_GENERATOR=Ninja
 
 # Use the same command that we use on python_build.sh
-python -m pip install --no-deps --no-build-isolation -vv --config-settings cmake.build-type=Debug .
+python -m pip install --no-deps --no-build-isolation -vv -C cmake.build-type=Debug .
 popd
 
 pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow
