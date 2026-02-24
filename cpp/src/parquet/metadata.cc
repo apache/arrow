@@ -109,20 +109,30 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.__isset.distinct_count
           ? std::optional<int64_t>(metadata.statistics.distinct_count)
           : std::nullopt;
+  std::optional<std::string> min_val = metadata.statistics.__isset.min
+                                           ? std::make_optional(metadata.statistics.min)
+                                           : std::nullopt;
+  std::optional<std::string> max_val = metadata.statistics.__isset.max
+                                           ? std::make_optional(metadata.statistics.max)
+                                           : std::nullopt;
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
-    return MakeStatistics<DType>(
-        descr, metadata.statistics.min_value, metadata.statistics.max_value,
-        metadata.num_values - null_count.value_or(0), null_count, distinct_count,
-        metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
-        min_exact, max_exact, pool);
+    std::optional<std::string> min_value =
+        metadata.statistics.__isset.min_value
+            ? std::make_optional(metadata.statistics.min_value)
+            : std::nullopt;
+    std::optional<std::string> max_value =
+        metadata.statistics.__isset.max_value
+            ? std::make_optional(metadata.statistics.max_value)
+            : std::nullopt;
+    return MakeStatistics<DType>(descr, min_value, max_value,
+                                 metadata.num_values - null_count.value_or(0), null_count,
+                                 distinct_count, min_exact, max_exact, pool);
   }
   // Default behavior
-  return MakeStatistics<DType>(
-      descr, metadata.statistics.min, metadata.statistics.max,
-      metadata.num_values - null_count.value_or(0), null_count, distinct_count,
-      metadata.statistics.__isset.max && metadata.statistics.__isset.min, min_exact,
-      max_exact, pool);
+  return MakeStatistics<DType>(descr, min_val, max_val,
+                               metadata.num_values - null_count.value_or(0), null_count,
+                               distinct_count, min_exact, max_exact, pool);
 }
 
 namespace {
@@ -1614,8 +1624,8 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
       (application_ == "parquet-mr" && VersionLt(PARQUET_MR_FIXED_STATS_VERSION()))) {
     // Only SIGNED are valid unless max and min are the same
     // (in which case the sort order does not matter)
-    bool max_equals_min = statistics.min.has_value() && statistics.has_max
-                              ? statistics.min.value() == statistics.max()
+    bool max_equals_min = statistics.min.has_value() && statistics.max.has_value()
+                              ? statistics.min.value() == statistics.max.value()
                               : false;
     if (SortOrder::SIGNED != sort_order && !max_equals_min) {
       return false;

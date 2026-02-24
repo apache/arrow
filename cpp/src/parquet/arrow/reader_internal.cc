@@ -170,7 +170,7 @@ Status MakeMinMaxScalar(const StatisticsType& statistics,
                         std::shared_ptr<::arrow::Scalar>* min,
                         std::shared_ptr<::arrow::Scalar>* max) {
   *min = ::arrow::MakeScalar(static_cast<CType>(statistics.min().value()));
-  *max = ::arrow::MakeScalar(static_cast<CType>(statistics.max()));
+  *max = ::arrow::MakeScalar(static_cast<CType>(statistics.max().value()));
   return Status::OK();
 }
 
@@ -180,7 +180,7 @@ Status MakeMinMaxTypedScalar(const StatisticsType& statistics,
                              std::shared_ptr<::arrow::Scalar>* min,
                              std::shared_ptr<::arrow::Scalar>* max) {
   ARROW_ASSIGN_OR_RAISE(*min, ::arrow::MakeScalar(type, statistics.min().value()));
-  ARROW_ASSIGN_OR_RAISE(*max, ::arrow::MakeScalar(type, statistics.max()));
+  ARROW_ASSIGN_OR_RAISE(*max, ::arrow::MakeScalar(type, statistics.max().value()));
   return Status::OK();
 }
 
@@ -227,7 +227,7 @@ static Status FromInt32Statistics(const Int32Statistics& statistics,
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int32_t>(statistics, type, min, max);
     case LogicalType::Type::DECIMAL:
-      return ExtractDecimalMinMaxFromInteger(statistics.min().value(), statistics.max(),
+      return ExtractDecimalMinMaxFromInteger(statistics.min().value(), statistics.max().value(),
                                              logical_type, min, max);
     default:
       break;
@@ -252,7 +252,7 @@ static Status FromInt64Statistics(const Int64Statistics& statistics,
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int64_t>(statistics, type, min, max);
     case LogicalType::Type::DECIMAL:
-      return ExtractDecimalMinMaxFromInteger(statistics.min().value(), statistics.max(),
+      return ExtractDecimalMinMaxFromInteger(statistics.min().value(), statistics.max().value(),
                                              logical_type, min, max);
     default:
       break;
@@ -390,7 +390,7 @@ void AttachStatistics(::arrow::ArrayData* data,
       const auto* typed_statistics =
           checked_cast<const ::parquet::TypedStatistics<ParquetType>*>(statistics.get());
       const ArrowCType min = typed_statistics->min().value();
-      const ArrowCType max = typed_statistics->max();
+      const ArrowCType max = typed_statistics->max().value();
       if constexpr (std::is_same_v<ArrowCType, bool>) {
         array_statistics->min = static_cast<bool>(min);
         array_statistics->max = static_cast<bool>(max);

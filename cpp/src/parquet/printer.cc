@@ -165,7 +165,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       }
       stream << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
-        std::string min = stats->min.value_or(""), max = stats->max();
+        std::string min = stats->min.value_or(""), max = stats->max.value_or("");
         std::string max_exact =
             stats->is_max_value_exact.has_value()
                 ? (stats->is_max_value_exact.value() ? "true" : "false")

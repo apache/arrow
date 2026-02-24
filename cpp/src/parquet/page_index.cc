@@ -511,11 +511,11 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_pages.emplace_back(true);
       column_index_.min_values.emplace_back("");
       column_index_.max_values.emplace_back("");
-    } else if (stats.min.has_value() && stats.has_max) {
+    } else if (stats.min.has_value() && stats.max.has_value()) {
       const size_t page_ordinal = column_index_.null_pages.size();
       non_null_page_indices_.emplace_back(page_ordinal);
       column_index_.min_values.emplace_back(stats.min.value());
-      column_index_.max_values.emplace_back(stats.max());
+      column_index_.max_values.emplace_back(stats.max.value());
       column_index_.null_pages.emplace_back(false);
     } else {
       /// This is a non-null page but it lacks of meaningful min/max values.

@@ -547,7 +547,7 @@ void TestWriteTypedColumnIndex(schema::NodePtr node,
     for (size_t i = 0; i < num_pages; ++i) {
       ASSERT_EQ(page_stats[i].all_null_value, column_index->null_pages()[i]);
       ASSERT_EQ(page_stats[i].min.value_or(""), column_index->encoded_min_values()[i]);
-      ASSERT_EQ(page_stats[i].max(), column_index->encoded_max_values()[i]);
+      ASSERT_EQ(page_stats[i].max.value_or(""), column_index->encoded_max_values()[i]);
       if (has_null_counts) {
         ASSERT_EQ(page_stats[i].null_count, column_index->null_counts()[i]);
       }
@@ -814,7 +814,7 @@ class PageIndexBuilderTest : public ::testing::Test {
     ASSERT_EQ(size_t{1}, column_index->null_pages().size());
     ASSERT_EQ(stats.all_null_value, column_index->null_pages()[0]);
     ASSERT_EQ(stats.min, column_index->encoded_min_values()[0]);
-    ASSERT_EQ(stats.max(), column_index->encoded_max_values()[0]);
+    ASSERT_EQ(stats.max, column_index->encoded_max_values()[0]);
     ASSERT_EQ(stats.null_count.has_value(), column_index->has_null_counts());
     if (stats.null_count) {
       ASSERT_EQ(*stats.null_count, column_index->null_counts()[0]);

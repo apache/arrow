@@ -119,13 +119,12 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
 /// \brief Structure represented encoded statistics to be written to
 /// and read from Parquet serialized metadata.
 class PARQUET_EXPORT EncodedStatistics {
-  std::string max_;
   bool is_signed_ = false;
 
  public:
   EncodedStatistics() = default;
 
-  const std::string& max() const { return max_; }
+  std::optional<std::string> max;
   std::optional<std::string> min;
 
   std::optional<bool> is_max_value_exact;
@@ -133,8 +132,6 @@ class PARQUET_EXPORT EncodedStatistics {
 
   std::optional<int64_t> null_count;
   std::optional<int64_t> distinct_count;
-
-  bool has_max = false;
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
@@ -148,9 +145,8 @@ class PARQUET_EXPORT EncodedStatistics {
   // the true minimum for aggregations and there is no way to mark that a
   // value has been truncated and is a lower bound and not in the page.
   void ApplyStatSizeLimits(size_t length) {
-    if (max_.length() > length) {
-      has_max = false;
-      max_.clear();
+    if (this->max.has_value() && this->max->length() > length) {
+      this->max = std::nullopt;
       is_max_value_exact = std::nullopt;
     }
     if (this->min.has_value() && this->min->length() > length) {
@@ -161,20 +157,18 @@ class PARQUET_EXPORT EncodedStatistics {
 
   // Clear Min Max.
   void ClearMinMax() {
-    has_max = false;
-    max_.clear();
+    this->max = std::nullopt;
     this->min = std::nullopt;
   }
 
-  bool is_set() const { return this->min || has_max || null_count || distinct_count; }
+  bool is_set() const { return this->min || this->max || null_count || distinct_count; }
 
   bool is_signed() const { return is_signed_; }
 
   void set_is_signed(bool is_signed) { is_signed_ = is_signed; }
 
   EncodedStatistics& set_max(std::string value) {
-    max_ = std::move(value);
-    has_max = true;
+    this->max = std::move(value);
     return *this;
   }
 
@@ -215,13 +209,12 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] num_values total number of values
   /// \param[in] null_count number of null values (std::nullopt if not set)
   /// \param[in] distinct_count number of distinct values (std::nullopt if not set)
-  /// \param[in] has_min_max whether the min/max statistics are set
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
-      const std::string& encoded_max, int64_t num_values,
+      const std::optional<std::string>& encoded_max, int64_t num_values,
       std::optional<int64_t> null_count, std::optional<int64_t> distinct_count,
-      bool has_min_max, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   /// \brief Create a new statistics instance given a column schema
   /// definition and preexisting state
@@ -231,16 +224,14 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] num_values total number of values
   /// \param[in] null_count number of null values (std::nullopt if not set)
   /// \param[in] distinct_count number of distinct values (std::nullopt if not set)
-  /// \param[in] has_min_max whether the min/max statistics are set
   /// \param[in] is_min_value_exact whether the min value is exact
   /// \param[in] is_max_value_exact whether the max value is exact
   /// \param[in] pool a memory pool to use for any memory allocations, optional
   static std::shared_ptr<Statistics> Make(
       const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
-      const std::string& encoded_max, int64_t num_values,
+      const std::optional<std::string>& encoded_max, int64_t num_values,
       std::optional<int64_t> null_count, std::optional<int64_t> distinct_count,
-      bool has_min_max, std::optional<bool> is_min_value_exact,
-      std::optional<bool> is_max_value_exact,
+      std::optional<bool> is_min_value_exact, std::optional<bool> is_max_value_exact,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Helper function to convert EncodedStatistics to Statistics.
@@ -315,7 +306,7 @@ class TypedStatistics : public Statistics {
   virtual std::optional<T> min() const = 0;
 
   /// \brief The current maximum value
-  virtual const T& max() const = 0;
+  virtual std::optional<T> max() const = 0;
 
   /// \brief Update state with state of another Statistics object
   virtual void Merge(const TypedStatistics<DType>& other) = 0;
@@ -353,7 +344,7 @@ class TypedStatistics : public Statistics {
   virtual void SetMinMax(const T& min, const T& max) = 0;
 
   /// \brief Set min and max values to particular values, where min is optional
-  virtual void SetMinMax(std::optional<T> min, const T& max) = 0;
+  virtual void SetMinMax(std::optional<T> min, std::optional<T> max) = 0;
 
   /// \brief Increments the null count directly
   /// Use Update to extract the null count from data.  Use this if you determine
@@ -402,12 +393,11 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(const typename DType::c_t
 template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
-    const std::string& encoded_max, int64_t num_values, std::optional<int64_t> null_count,
-    std::optional<int64_t> distinct_count, bool has_min_max,
+    const std::optional<std::string>& encoded_max, int64_t num_values,
+    std::optional<int64_t> null_count, std::optional<int64_t> distinct_count,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
   return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
       descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-      has_min_max,
       /*is_min_value_exact=*/std::nullopt, /*is_max_value_exact=*/std::nullopt, pool));
 }
 
@@ -415,12 +405,12 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
 template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
-    const std::string& encoded_max, int64_t num_values, std::optional<int64_t> null_count,
-    std::optional<int64_t> distinct_count, bool has_min_max,
+    const std::optional<std::string>& encoded_max, int64_t num_values,
+    std::optional<int64_t> null_count, std::optional<int64_t> distinct_count,
     std::optional<bool> is_min_value_exact, std::optional<bool> is_max_value_exact,
     ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
-  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
-      descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
-      has_min_max, is_min_value_exact, is_max_value_exact, pool));
+  return std::static_pointer_cast<TypedStatistics<DType>>(
+      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                       distinct_count, is_min_value_exact, is_max_value_exact, pool));
 }
 }  // namespace parquet

@@ -375,7 +375,7 @@ class TestPrimitiveWriter : public PrimitiveTypedTest<TestType> {
     auto metadata_accessor = ColumnChunkMetaData::Make(
         metadata_->contents(), this->descr_, default_reader_properties(), &app_version);
     auto encoded_stats = metadata_accessor->statistics()->Encode();
-    return {encoded_stats.min.has_value(), encoded_stats.has_max};
+    return {encoded_stats.min.has_value(), encoded_stats.max.has_value()};
   }
 
   std::vector<Encoding::type> metadata_encodings() {
