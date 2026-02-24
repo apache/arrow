@@ -1020,15 +1020,21 @@ test_that("Row order is preserved when writing large parquet dataset", {
   skip_if_not_available("parquet")
   # Make a data frame with a sufficiently large number of rows.
   df <- data.frame(x = 1:1.1e6)
-  dst_dir1 <- make_temp_dir()
-  write_dataset(df, dst_dir1)
 
-  dst_dir2 <- make_temp_dir()
-  write_dataset(df, dst_dir2, preserve_order = TRUE)
+  unordered_dir <- make_temp_dir()
+  write_dataset(df, unordered_dir)
 
-  ds1 <- open_dataset(dst_dir1) |> collect()
-  ds2 <- open_dataset(dst_dir2) |> collect()
+  ordered_dir <- make_temp_dir()
+  write_dataset(df, ordered_dir, preserve_order = TRUE)
 
-  expect_true(any(ds1$x != df$x))
-  expect_true(all(ds2$x == df$x))
+  unordered_ds <- open_dataset(unordered_dir) |> collect()
+  ordered_ds <- open_dataset(ordered_dir) |> collect()
+
+  # Unordered is set equal, but not necessarily equal.
+  expect_setequal(unordered_ds$x, df$x)
+  # expect_false(all(unordered_ds$x == df$x)) can fail on certain
+  # platforms, so is not tested.
+
+  # But ordered is exactly equal.
+  expect_equal(ordered_ds$x, df$x)
 })
