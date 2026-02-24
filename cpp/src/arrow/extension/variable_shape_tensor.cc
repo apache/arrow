@@ -262,9 +262,9 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
     internal::Permute<std::string>(permutation, &dim_names);
   }
 
+  internal::Permute<int64_t>(permutation, &shape);
   ARROW_ASSIGN_OR_RAISE(
       auto strides, internal::ComputeStrides(ext_type.value_type(), shape, permutation));
-  internal::Permute<int64_t>(permutation, &shape);
 
   ARROW_ASSIGN_OR_RAISE(const auto buffer,
                         internal::SliceTensorBuffer(*data_array, value_type, shape));

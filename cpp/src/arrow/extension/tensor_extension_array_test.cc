@@ -897,6 +897,29 @@ TEST_F(TestVariableShapeTensorType, ComputeStrides) {
   ASSERT_TRUE(tensor->Equals(*t));
 }
 
+TEST_F(TestVariableShapeTensorType, ComputeStridesWithNonTrivialPermutation) {
+  auto permuted_ext_type = internal::checked_pointer_cast<VariableShapeTensorType>(
+      variable_shape_tensor(value_type_, ndim_, {1, 0, 2}, dim_names_, uniform_shape_));
+
+  auto shape = ArrayFromJSON(shape_type_, "[[2,3,1]]");
+  auto data = ArrayFromJSON(data_type_, "[[1,1,2,3,4,5]]");
+  std::vector<std::shared_ptr<Field>> fields = {field("data", data_type_),
+                                                field("shape", shape_type_)};
+  ASSERT_OK_AND_ASSIGN(auto storage_arr, StructArray::Make({data, shape}, fields));
+  auto ext_arr = ExtensionType::WrapArray(permuted_ext_type, storage_arr);
+  auto ext_array = std::static_pointer_cast<VariableShapeTensorArray>(ext_arr);
+
+  ASSERT_OK_AND_ASSIGN(auto scalar, ext_array->GetScalar(0));
+  ASSERT_OK_AND_ASSIGN(auto tensor,
+                       permuted_ext_type->MakeTensor(
+                           internal::checked_pointer_cast<ExtensionScalar>(scalar)));
+
+  ASSERT_EQ(tensor->shape(), (std::vector<int64_t>{3, 2, 1}));
+  ASSERT_EQ(tensor->strides(), (std::vector<int64_t>{sizeof(int64_t), sizeof(int64_t) * 2,
+                                                     sizeof(int64_t)}));
+  ASSERT_EQ(tensor->dim_names(), (std::vector<std::string>{"y", "x", "z"}));
+}
+
 TEST_F(TestVariableShapeTensorType, ToString) {
   auto exact_ext_type =
       internal::checked_pointer_cast<VariableShapeTensorType>(ext_type_);
