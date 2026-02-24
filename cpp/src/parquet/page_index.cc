@@ -511,10 +511,10 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_pages.emplace_back(true);
       column_index_.min_values.emplace_back("");
       column_index_.max_values.emplace_back("");
-    } else if (stats.has_min && stats.has_max) {
+    } else if (stats.min.has_value() && stats.has_max) {
       const size_t page_ordinal = column_index_.null_pages.size();
       non_null_page_indices_.emplace_back(page_ordinal);
-      column_index_.min_values.emplace_back(stats.min());
+      column_index_.min_values.emplace_back(stats.min.value());
       column_index_.max_values.emplace_back(stats.max());
       column_index_.null_pages.emplace_back(false);
     } else {

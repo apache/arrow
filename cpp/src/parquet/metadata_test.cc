@@ -154,13 +154,14 @@ TEST(Metadata, TestBuildAccess) {
     auto rg1_column2 = rg1_accessor->ColumnChunk(1);
     ASSERT_EQ(true, rg1_column1->is_stats_set());
     ASSERT_EQ(true, rg1_column2->is_stats_set());
-    ASSERT_EQ(stats_float.min(), rg1_column2->statistics()->EncodeMin());
+    ASSERT_EQ(stats_float.min,
+              std::make_optional(rg1_column2->statistics()->EncodeMin()));
     ASSERT_EQ(stats_float.max(), rg1_column2->statistics()->EncodeMax());
-    ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
+    ASSERT_EQ(stats_int.min, std::make_optional(rg1_column1->statistics()->EncodeMin()));
     ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
-    ASSERT_EQ(stats_float.min(), rg1_column2->encoded_statistics()->min());
+    ASSERT_EQ(stats_float.min, rg1_column2->encoded_statistics()->min);
     ASSERT_EQ(stats_float.max(), rg1_column2->encoded_statistics()->max());
-    ASSERT_EQ(stats_int.min(), rg1_column1->encoded_statistics()->min());
+    ASSERT_EQ(stats_int.min, rg1_column1->encoded_statistics()->min);
     ASSERT_EQ(stats_int.max(), rg1_column1->encoded_statistics()->max());
     ASSERT_EQ(0, rg1_column1->statistics()->null_count());
     ASSERT_EQ(0, rg1_column2->statistics()->null_count());
@@ -205,13 +206,14 @@ TEST(Metadata, TestBuildAccess) {
     auto rg2_column2 = rg2_accessor->ColumnChunk(1);
     ASSERT_EQ(true, rg2_column1->is_stats_set());
     ASSERT_EQ(true, rg2_column2->is_stats_set());
-    ASSERT_EQ(stats_float.min(), rg2_column2->statistics()->EncodeMin());
+    ASSERT_EQ(stats_float.min,
+              std::make_optional(rg2_column2->statistics()->EncodeMin()));
     ASSERT_EQ(stats_float.max(), rg2_column2->statistics()->EncodeMax());
-    ASSERT_EQ(stats_int.min(), rg1_column1->statistics()->EncodeMin());
+    ASSERT_EQ(stats_int.min, std::make_optional(rg1_column1->statistics()->EncodeMin()));
     ASSERT_EQ(stats_int.max(), rg1_column1->statistics()->EncodeMax());
-    ASSERT_EQ(stats_float.min(), rg2_column2->encoded_statistics()->min());
+    ASSERT_EQ(stats_float.min, rg2_column2->encoded_statistics()->min);
     ASSERT_EQ(stats_float.max(), rg2_column2->encoded_statistics()->max());
-    ASSERT_EQ(stats_int.min(), rg1_column1->encoded_statistics()->min());
+    ASSERT_EQ(stats_int.min, rg1_column1->encoded_statistics()->min);
     ASSERT_EQ(stats_int.max(), rg1_column1->encoded_statistics()->max());
     ASSERT_EQ(0, rg2_column1->statistics()->null_count());
     ASSERT_EQ(0, rg2_column2->statistics()->null_count());

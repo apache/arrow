@@ -469,15 +469,15 @@ static inline format::GeospatialStatistics ToThrift(
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
-  if (stats.has_min) {
-    statistics.__set_min_value(stats.min());
+  if (stats.min.has_value()) {
+    statistics.__set_min_value(stats.min.value());
     if (stats.is_min_value_exact.has_value()) {
       statistics.__set_is_min_value_exact(stats.is_min_value_exact.value());
     }
     // If the order is SIGNED, then the old min value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
-      statistics.__set_min(stats.min());
+      statistics.__set_min(stats.min.value());
     }
   }
   if (stats.has_max) {

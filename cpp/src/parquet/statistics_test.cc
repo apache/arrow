@@ -472,9 +472,9 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
     EXPECT_EQ(null_count, enc_stats->null_count);
-    EXPECT_TRUE(enc_stats->has_min);
+    EXPECT_TRUE(enc_stats->min.has_value());
     EXPECT_TRUE(enc_stats->has_max);
-    EXPECT_EQ(expected_stats->EncodeMin(), enc_stats->min());
+    EXPECT_EQ(std::make_optional(expected_stats->EncodeMin()), enc_stats->min);
     EXPECT_EQ(expected_stats->EncodeMax(), enc_stats->max());
     EXPECT_EQ(enc_stats->is_min_value_exact, std::make_optional(true));
     EXPECT_EQ(enc_stats->is_max_value_exact, std::make_optional(true));
@@ -563,8 +563,8 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
 
   // encoded is same as unencoded
   ASSERT_EQ(encoded_min,
-            std::string(reinterpret_cast<const char*>(statistics1->min().ptr),
-                        statistics1->min().len));
+            std::string(reinterpret_cast<const char*>(statistics1->min().value().ptr),
+                        statistics1->min().value().len));
   ASSERT_EQ(encoded_max,
             std::string(reinterpret_cast<const char*>(statistics1->max().ptr),
                         statistics1->max().len));
@@ -712,7 +712,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
                           /*null_count=*/this->values_.size());
       auto encoded_stats1 = statistics1->Encode();
       EXPECT_FALSE(statistics1->HasMinMax());
-      EXPECT_FALSE(encoded_stats1.has_min);
+      EXPECT_FALSE(encoded_stats1.min.has_value());
       EXPECT_FALSE(encoded_stats1.has_max);
       EXPECT_EQ(encoded_stats1.is_max_value_exact, std::nullopt);
       EXPECT_EQ(encoded_stats1.is_min_value_exact, std::nullopt);
@@ -724,7 +724,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       statistics2->Update(this->values_ptr_, this->values_.size(), 0);
       auto encoded_stats2 = statistics2->Encode();
       EXPECT_TRUE(statistics2->HasMinMax());
-      EXPECT_TRUE(encoded_stats2.has_min);
+      EXPECT_TRUE(encoded_stats2.min.has_value());
       EXPECT_TRUE(encoded_stats2.has_max);
       EXPECT_EQ(encoded_stats2.is_min_value_exact, std::make_optional(true));
       EXPECT_EQ(encoded_stats2.is_max_value_exact, std::make_optional(true));
@@ -732,7 +732,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     VerifyMergedStatistics(*statistics1, *statistics2,
                            [](TypedStatistics<TestType>* merged_statistics) {
                              EXPECT_TRUE(merged_statistics->HasMinMax());
-                             EXPECT_TRUE(merged_statistics->Encode().has_min);
+                             EXPECT_TRUE(merged_statistics->Encode().min.has_value());
                              EXPECT_TRUE(merged_statistics->Encode().has_max);
                              EXPECT_EQ(merged_statistics->Encode().is_min_value_exact,
                                        std::make_optional(true));
@@ -803,7 +803,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     EXPECT_FALSE(encoded.all_null_value);
     EXPECT_FALSE(encoded.null_count.has_value());
     EXPECT_FALSE(encoded.distinct_count.has_value());
-    EXPECT_FALSE(encoded.has_min);
+    EXPECT_FALSE(encoded.min.has_value());
     EXPECT_FALSE(encoded.has_max);
     EXPECT_FALSE(encoded.is_min_value_exact.has_value());
     EXPECT_FALSE(encoded.is_max_value_exact.has_value());
@@ -1001,7 +1001,8 @@ class TestStatisticsSortOrder : public ::testing::Test {
       ARROW_SCOPED_TRACE("Statistics for field #", i);
       std::shared_ptr<parquet::ColumnChunkMetaData> cc_metadata =
           rg_metadata->ColumnChunk(i);
-      EXPECT_EQ(stats_[i].min(), cc_metadata->statistics()->EncodeMin());
+      EXPECT_EQ(stats_[i].min,
+                std::make_optional(cc_metadata->statistics()->EncodeMin()));
       EXPECT_EQ(stats_[i].max(), cc_metadata->statistics()->EncodeMax());
       EXPECT_EQ(stats_[i].is_max_value_exact, std::make_optional(true));
       EXPECT_EQ(stats_[i].is_min_value_exact, std::make_optional(true));
@@ -1242,7 +1243,7 @@ void TestByteArrayStatisticsFromArrow() {
   auto stats = MakeStatistics<ByteArrayType>(&descr);
   ASSERT_NO_FATAL_FAILURE(stats->Update(*values));
 
-  ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min());
+  ASSERT_EQ(ByteArray(typed_values.GetView(2)), stats->min().value());
   ASSERT_EQ(ByteArray(typed_values.GetView(9)), stats->max());
   ASSERT_EQ(2, stats->null_count());
 }
@@ -1419,8 +1420,8 @@ class TestFloatStatistics : public ::testing::Test {
     stats->Update(values.data(), values.size(), /*null_count=*/0);
     ASSERT_TRUE(stats->HasMinMax());
 
-    this->CheckEq(stats->min(), positive_zero_);
-    ASSERT_TRUE(this->signbit(stats->min()));
+    this->CheckEq(stats->min().value(), positive_zero_);
+    ASSERT_TRUE(this->signbit(stats->min().value()));
     ASSERT_EQ(stats->EncodeMin(), EncodeValue(negative_zero_));
 
     this->CheckEq(stats->max(), positive_zero_);
@@ -1655,7 +1656,7 @@ TEST(TestStatisticsSortOrder, UNKNOWN) {
   std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
   ASSERT_TRUE(enc_stats->null_count.has_value());
   ASSERT_FALSE(enc_stats->distinct_count.has_value());
-  ASSERT_FALSE(enc_stats->has_min);
+  ASSERT_FALSE(enc_stats->min.has_value());
   ASSERT_FALSE(enc_stats->has_max);
   ASSERT_EQ(1, enc_stats->null_count);
   ASSERT_FALSE(enc_stats->is_max_value_exact.has_value());
@@ -1723,7 +1724,7 @@ TEST(TestEncodedStatistics, TruncatedMinMax) {
         column_chunk->encoded_statistics();
     ASSERT_TRUE(encoded_statistics != NULL);
     ASSERT_EQ(0, encoded_statistics->null_count);
-    EXPECT_EQ("Al", encoded_statistics->min());
+    EXPECT_EQ(std::make_optional("Al"), encoded_statistics->min);
     ASSERT_TRUE(encoded_statistics->is_max_value_exact.has_value());
     ASSERT_TRUE(encoded_statistics->is_min_value_exact.has_value());
     switch (num_column) {
@@ -1763,7 +1764,7 @@ TEST(TestEncodedStatistics, CopySafe) {
   ASSERT_TRUE(encoded_statistics.is_max_value_exact.has_value());
 
   encoded_statistics.set_min("abc");
-  ASSERT_TRUE(encoded_statistics.has_min);
+  ASSERT_TRUE(encoded_statistics.min.has_value());
   encoded_statistics.is_min_value_exact = true;
   ASSERT_TRUE(encoded_statistics.is_min_value_exact.has_value());
 
@@ -1773,7 +1774,7 @@ TEST(TestEncodedStatistics, CopySafe) {
   copy_statistics.is_max_value_exact = false;
   copy_statistics.is_min_value_exact = false;
 
-  EXPECT_EQ("abc", encoded_statistics.min());
+  EXPECT_EQ(std::make_optional("abc"), encoded_statistics.min);
   EXPECT_EQ("abc", encoded_statistics.max());
   EXPECT_EQ(encoded_statistics.is_min_value_exact, std::make_optional(true));
   EXPECT_EQ(encoded_statistics.is_max_value_exact, std::make_optional(true));
@@ -1782,15 +1783,15 @@ TEST(TestEncodedStatistics, CopySafe) {
 TEST(TestEncodedStatistics, ApplyStatSizeLimits) {
   EncodedStatistics encoded_statistics;
   encoded_statistics.set_min("a");
-  ASSERT_TRUE(encoded_statistics.has_min);
+  ASSERT_TRUE(encoded_statistics.min.has_value());
 
   encoded_statistics.set_max("abc");
   ASSERT_TRUE(encoded_statistics.has_max);
 
   encoded_statistics.ApplyStatSizeLimits(2);
 
-  ASSERT_TRUE(encoded_statistics.has_min);
-  ASSERT_EQ("a", encoded_statistics.min());
+  ASSERT_TRUE(encoded_statistics.min.has_value());
+  ASSERT_EQ(std::make_optional("a"), encoded_statistics.min);
   ASSERT_FALSE(encoded_statistics.has_max);
 
   NodePtr node =

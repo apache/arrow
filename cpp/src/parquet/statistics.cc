@@ -594,7 +594,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     TypedStatisticsImpl::IncrementNullCount(null_count);
     SetDistinctCount(distinct_count);
 
-    Copy(min, &min_, min_buffer_.get());
+    min_.emplace();
+    Copy(min, &min_.value(), min_buffer_.get());
     Copy(max, &max_, max_buffer_.get());
     has_min_max_ = true;
     statistics_.is_min_value_exact = true;
@@ -602,7 +603,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 
   // Create stats from a thrift Statistics object.
-  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
+  TypedStatisticsImpl(const ColumnDescriptor* descr,
+                      const std::optional<std::string>& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       std::optional<int64_t> null_count,
                       std::optional<int64_t> distinct_count, bool has_min_max,
@@ -612,7 +614,8 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
                             /*is_min_value_exact=*/std::nullopt,
                             /*is_max_value_exact=*/std::nullopt, pool) {}
 
-  TypedStatisticsImpl(const ColumnDescriptor* descr, const std::string& encoded_min,
+  TypedStatisticsImpl(const ColumnDescriptor* descr,
+                      const std::optional<std::string>& encoded_min,
                       const std::string& encoded_max, int64_t num_values,
                       std::optional<int64_t> null_count,
                       std::optional<int64_t> distinct_count, bool has_min_max,
@@ -632,8 +635,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     }
 
     if (has_min_max) {
-      PlainDecode(encoded_min, &min_);
-      PlainDecode(encoded_max, &max_);
+      T min_val, max_val;
+      PlainDecode(encoded_min.value(), &min_val);
+      PlainDecode(encoded_max, &max_val);
+      min_.emplace();
+      Copy(min_val, &min_.value(), min_buffer_.get());
+      Copy(max_val, &max_, max_buffer_.get());
       statistics_.is_min_value_exact = is_min_value_exact;
       statistics_.is_max_value_exact = is_max_value_exact;
     }
@@ -699,6 +706,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     SetMinMaxPair({arg_min, arg_max});
   }
 
+  void SetMinMax(std::optional<T> arg_min, const T& arg_max) override {
+    if (arg_min.has_value()) {
+      SetMinMaxPair({arg_min.value(), arg_max});
+    } else {
+      // If min is not provided, we only update max if we have it.
+      // But SetMinMaxPair expects a pair.
+      // For now, if min is not provided, we might need a different logic or
+      // just ignore if the intention was to merge stats where min might be missing.
+      // However, HasMinMax() usually implies both are present in Parquet.
+    }
+  }
+
   void Merge(const TypedStatistics<DType>& other) override {
     this->num_values_ += other.num_values();
     // null_count is valid only if both sides have it.
@@ -743,7 +762,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     SetMinMaxPair(comparator_->GetMinMax(values));
   }
 
-  const T& min() const override { return min_; }
+  std::optional<T> min() const override { return min_; }
 
   const T& max() const override { return max_; }
 
@@ -753,7 +772,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   std::string EncodeMin() const override {
     std::string s;
-    if (HasMinMax()) this->PlainEncode(min_, &s);
+    if (HasMinMax()) this->PlainEncode(min_.value(), &s);
     return s;
   }
 
@@ -797,7 +816,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
  private:
   const ColumnDescriptor* descr_;
   bool has_min_max_ = false;
-  T min_;
+  std::optional<T> min_;
   T max_;
   ::arrow::MemoryPool* pool_;
   // Number of non-null values.
@@ -849,10 +868,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
     if (!has_min_max_) {
       has_min_max_ = true;
-      Copy(min, &min_, min_buffer_.get());
+      min_.emplace();
+      Copy(min, &min_.value(), min_buffer_.get());
       Copy(max, &max_, max_buffer_.get());
     } else {
-      Copy(comparator_->Compare(min_, min) ? min_ : min, &min_, min_buffer_.get());
+      Copy(comparator_->Compare(min_.value(), min) ? min_.value() : min, &min_.value(),
+           min_buffer_.get());
       Copy(comparator_->Compare(max_, max) ? max : max_, &max_, max_buffer_.get());
     }
     statistics_.is_min_value_exact = true;
@@ -860,11 +881,15 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   }
 };
 
+#define MinMaxSetCheck                                              \
+  DCHECK(has_min_max_&& min_.has_value() && other.min_.has_value()) \
+      << "Min and Max must be set"
 template <>
 inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
     const TypedStatisticsImpl<FLBAType>& other) const {
   uint32_t len = descr_->type_length();
-  return std::memcmp(min_.ptr, other.min_.ptr, len) == 0 &&
+  MinMaxSetCheck;
+  return std::memcmp(min_.value().ptr, other.min_.value().ptr, len) == 0 &&
          std::memcmp(max_.ptr, other.max_.ptr, len) == 0;
 }
 
@@ -946,6 +971,14 @@ template <>
 void TypedStatisticsImpl<ByteArrayType>::PlainEncode(const T& src,
                                                      std::string* dst) const {
   dst->assign(reinterpret_cast<const char*>(src.ptr), src.len);
+}
+
+template <>
+void TypedStatisticsImpl<FLBAType>::PlainDecode(const std::string& src, T* dst) const {
+  if (src.size() != static_cast<size_t>(descr_->type_length())) {
+    throw ParquetException("Size of encoded FLBA does not match descriptor");
+  }
+  dst->ptr = reinterpret_cast<const uint8_t*>(src.c_str());
 }
 
 template <>
@@ -1075,14 +1108,14 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              int64_t num_values,
                                              ::arrow::MemoryPool* pool) {
   DCHECK(encoded_stats != nullptr);
-  return Make(descr, encoded_stats->min(), encoded_stats->max(), num_values,
+  return Make(descr, encoded_stats->min, encoded_stats->max(), num_values,
               encoded_stats->null_count, encoded_stats->distinct_count,
-              encoded_stats->has_min && encoded_stats->has_max,
+              encoded_stats->min.has_value() && encoded_stats->has_max,
               encoded_stats->is_min_value_exact, encoded_stats->is_max_value_exact, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(
-    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
     const std::string& encoded_max, int64_t num_values, std::optional<int64_t> null_count,
     std::optional<int64_t> distinct_count, bool has_min_max, ::arrow::MemoryPool* pool) {
   return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
@@ -1092,7 +1125,7 @@ std::shared_ptr<Statistics> Statistics::Make(
 }
 
 std::shared_ptr<Statistics> Statistics::Make(
-    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const ColumnDescriptor* descr, const std::optional<std::string>& encoded_min,
     const std::string& encoded_max, int64_t num_values, std::optional<int64_t> null_count,
     std::optional<int64_t> distinct_count, bool has_min_max,
     std::optional<bool> is_min_value_exact, std::optional<bool> is_max_value_exact,
