@@ -17,6 +17,10 @@
   under the License.
 -->
 
+# arrow 23.0.1.1
+
+- More robust against malignant libtools
+
 # arrow 23.0.1
 
 ## Minor improvements and fixes
