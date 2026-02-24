@@ -91,9 +91,8 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
   /// \brief Create a VariableShapeTensorType instance
   static Result<std::shared_ptr<DataType>> Make(
       const std::shared_ptr<DataType>& value_type, int32_t ndim,
-      const std::vector<int64_t>& permutation = {},
-      const std::vector<std::string>& dim_names = {},
-      const std::vector<std::optional<int64_t>>& uniform_shape = {});
+      std::vector<int64_t> permutation = {}, std::vector<std::string> dim_names = {},
+      std::vector<std::optional<int64_t>> uniform_shape = {});
 
  private:
   std::shared_ptr<DataType> value_type_;
@@ -106,8 +105,7 @@ class ARROW_EXPORT VariableShapeTensorType : public ExtensionType {
 /// \brief Return a VariableShapeTensorType instance.
 ARROW_EXPORT std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, int32_t ndim,
-    const std::vector<int64_t>& permutation = {},
-    const std::vector<std::string>& dim_names = {},
-    const std::vector<std::optional<int64_t>>& uniform_shape = {});
+    std::vector<int64_t> permutation = {}, std::vector<std::string> dim_names = {},
+    std::vector<std::optional<int64_t>> uniform_shape = {});
 
 }  // namespace arrow::extension

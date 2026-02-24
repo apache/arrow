@@ -274,8 +274,8 @@ Result<std::shared_ptr<Tensor>> VariableShapeTensorType::MakeTensor(
 
 Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, int32_t ndim,
-    const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
-    const std::vector<std::optional<int64_t>>& uniform_shape) {
+    std::vector<int64_t> permutation, std::vector<std::string> dim_names,
+    std::vector<std::optional<int64_t>> uniform_shape) {
   if (!is_fixed_width(*value_type)) {
     return Status::Invalid("Cannot convert non-fixed-width values to Tensor.");
   }
@@ -306,16 +306,18 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Make(
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
-  return std::make_shared<VariableShapeTensorType>(value_type, ndim, permutation,
-                                                   dim_names, uniform_shape);
+  return std::make_shared<VariableShapeTensorType>(
+      value_type, ndim, std::move(permutation), std::move(dim_names),
+      std::move(uniform_shape));
 }
 
 std::shared_ptr<DataType> variable_shape_tensor(
     const std::shared_ptr<DataType>& value_type, int32_t ndim,
-    const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names,
-    const std::vector<std::optional<int64_t>>& uniform_shape) {
-  auto maybe_type = VariableShapeTensorType::Make(value_type, ndim, permutation,
-                                                  dim_names, uniform_shape);
+    std::vector<int64_t> permutation, std::vector<std::string> dim_names,
+    std::vector<std::optional<int64_t>> uniform_shape) {
+  auto maybe_type = VariableShapeTensorType::Make(
+      value_type, ndim, std::move(permutation), std::move(dim_names),
+      std::move(uniform_shape));
   ARROW_CHECK_OK(maybe_type.status());
   return maybe_type.MoveValueUnsafe();
 }

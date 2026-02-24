@@ -18,9 +18,8 @@
 #pragma once
 
 #include <cstdint>
-#include <vector>
-
 #include <span>
+#include <vector>
 
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
