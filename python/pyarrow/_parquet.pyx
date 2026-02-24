@@ -2159,8 +2159,8 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                             raise TypeError(
                                 f"'fpp' for column '{column}' must be a float")
                 elif isinstance(_bloom_opts, bool):
-                    # if false do nothing, if true then just pass defaults
                     if not _bloom_opts:
+                        props.disable_bloom_filter(tobytes(column))
                         continue
                 else:
                     raise TypeError(
