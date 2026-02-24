@@ -114,37 +114,18 @@ Result<OrcColumnStatistics> ConvertColumnStatistics(
   stats.min = nullptr;
   stats.max = nullptr;
 
-  // Try to extract min/max based on the ORC column statistics type
-  const auto* int_stats =
-      dynamic_cast<const liborc::IntegerColumnStatistics*>(
-          orc_stats);
-  const auto* double_stats =
-      dynamic_cast<const liborc::DoubleColumnStatistics*>(
-          orc_stats);
-  const auto* string_stats =
-      dynamic_cast<const liborc::StringColumnStatistics*>(
-          orc_stats);
-  const auto* date_stats =
-      dynamic_cast<const liborc::DateColumnStatistics*>(
-          orc_stats);
-  const auto* ts_stats =
-      dynamic_cast<const liborc::TimestampColumnStatistics*>(
-          orc_stats);
-  const auto* decimal_stats =
-      dynamic_cast<const liborc::DecimalColumnStatistics*>(
-          orc_stats);
-
-  if (int_stats != nullptr) {
+  // Try to extract min/max based on the ORC column statistics type.
+  // Use single dynamic_cast per branch to avoid unnecessary casts.
+  if (const auto* int_stats =
+          dynamic_cast<const liborc::IntegerColumnStatistics*>(orc_stats)) {
     if (int_stats->hasMinimum() && int_stats->hasMaximum()) {
       stats.has_min_max = true;
-      stats.min = std::make_shared<Int64Scalar>(
-          int_stats->getMinimum());
-      stats.max = std::make_shared<Int64Scalar>(
-          int_stats->getMaximum());
+      stats.min = std::make_shared<Int64Scalar>(int_stats->getMinimum());
+      stats.max = std::make_shared<Int64Scalar>(int_stats->getMaximum());
     }
-  } else if (double_stats != nullptr) {
-    if (double_stats->hasMinimum() &&
-        double_stats->hasMaximum()) {
+  } else if (const auto* double_stats =
+                 dynamic_cast<const liborc::DoubleColumnStatistics*>(orc_stats)) {
+    if (double_stats->hasMinimum() && double_stats->hasMaximum()) {
       double min_val = double_stats->getMinimum();
       double max_val = double_stats->getMaximum();
       if (!std::isnan(min_val) && !std::isnan(max_val)) {
@@ -153,25 +134,22 @@ Result<OrcColumnStatistics> ConvertColumnStatistics(
         stats.max = std::make_shared<DoubleScalar>(max_val);
       }
     }
-  } else if (string_stats != nullptr) {
-    if (string_stats->hasMinimum() &&
-        string_stats->hasMaximum()) {
+  } else if (const auto* string_stats =
+                 dynamic_cast<const liborc::StringColumnStatistics*>(orc_stats)) {
+    if (string_stats->hasMinimum() && string_stats->hasMaximum()) {
       stats.has_min_max = true;
-      stats.min = std::make_shared<StringScalar>(
-          string_stats->getMinimum());
-      stats.max = std::make_shared<StringScalar>(
-          string_stats->getMaximum());
+      stats.min = std::make_shared<StringScalar>(string_stats->getMinimum());
+      stats.max = std::make_shared<StringScalar>(string_stats->getMaximum());
     }
-  } else if (date_stats != nullptr) {
-    if (date_stats->hasMinimum() &&
-        date_stats->hasMaximum()) {
+  } else if (const auto* date_stats =
+                 dynamic_cast<const liborc::DateColumnStatistics*>(orc_stats)) {
+    if (date_stats->hasMinimum() && date_stats->hasMaximum()) {
       stats.has_min_max = true;
-      stats.min = std::make_shared<Date32Scalar>(
-          date_stats->getMinimum(), date32());
-      stats.max = std::make_shared<Date32Scalar>(
-          date_stats->getMaximum(), date32());
+      stats.min = std::make_shared<Date32Scalar>(date_stats->getMinimum());
+      stats.max = std::make_shared<Date32Scalar>(date_stats->getMaximum());
     }
-  } else if (ts_stats != nullptr) {
+  } else if (const auto* ts_stats =
+                 dynamic_cast<const liborc::TimestampColumnStatistics*>(orc_stats)) {
     if (ts_stats->hasMinimum() && ts_stats->hasMaximum()) {
       stats.has_min_max = true;
       // getMinimum/getMaximum return milliseconds.
@@ -192,7 +170,8 @@ Result<OrcColumnStatistics> ConvertColumnStatistics(
       stats.max =
           std::make_shared<TimestampScalar>(max_ns, ts_type);
     }
-  } else if (decimal_stats != nullptr) {
+  } else if (const auto* decimal_stats =
+                 dynamic_cast<const liborc::DecimalColumnStatistics*>(orc_stats)) {
     if (decimal_stats->hasMinimum() &&
         decimal_stats->hasMaximum()) {
       liborc::Decimal min_dec = decimal_stats->getMinimum();
@@ -587,7 +566,8 @@ class ORCFileReader::Impl {
   Result<std::shared_ptr<Table>> ReadStripes(
       const std::vector<int64_t>& stripe_indices) {
     if (stripe_indices.empty()) {
-      return Status::Invalid("stripe_indices cannot be empty");
+      ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema());
+      return Table::MakeEmpty(schema);
     }
 
     std::vector<std::shared_ptr<Table>> tables;
@@ -605,7 +585,10 @@ class ORCFileReader::Impl {
   Result<std::shared_ptr<Table>> ReadStripes(const std::vector<int64_t>& stripe_indices,
                                               const std::vector<int>& include_indices) {
     if (stripe_indices.empty()) {
-      return Status::Invalid("stripe_indices cannot be empty");
+      liborc::RowReaderOptions opts = DefaultRowReaderOptions();
+      RETURN_NOT_OK(SelectIndices(&opts, include_indices));
+      ARROW_ASSIGN_OR_RAISE(auto schema, ReadSchema(opts));
+      return Table::MakeEmpty(schema);
     }
 
     std::vector<std::shared_ptr<Table>> tables;

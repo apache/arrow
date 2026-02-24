@@ -150,6 +150,7 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// Reads only the specified stripes and concatenates them into a single table.
   /// This is useful for stripe-selective reading based on predicate pushdown.
+  /// If stripe_indices is empty, returns an empty table with the file's schema.
   ///
   /// \param[in] stripe_indices the indices of stripes to read
   /// \return the returned Table containing data from the selected stripes
@@ -160,6 +161,7 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// Reads only the specified stripes and selected columns, concatenating them
   /// into a single table.
+  /// If stripe_indices is empty, returns an empty table with the selected schema.
   ///
   /// \param[in] stripe_indices the indices of stripes to read
   /// \param[in] include_indices the selected field indices to read

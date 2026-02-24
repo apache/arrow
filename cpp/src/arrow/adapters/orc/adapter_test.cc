@@ -37,6 +37,7 @@
 #include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/util/decimal.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -1498,13 +1499,20 @@ TEST(TestAdapterRead, GetColumnStatisticsTimestamp) {
   ASSERT_NE(col_stats.min, nullptr);
   ASSERT_NE(col_stats.max, nullptr);
 
-  // Verify the timestamps are TimestampScalar
+  // Verify the timestamps are TimestampScalar with correct nanosecond values.
+  // Written: data[i] = i*1000 seconds, nanoseconds[i] = i*100 sub-second nanos.
+  // Min (i=0): 0s + 0ns = 0 ns total.
+  // Max (i=9): 9000s + 900ns = 9000 * 1,000,000,000 + 900 = 9,000,000,000,900 ns.
+  // Statistics store millis + sub-ms-nanos (last 6 digits of ns).
+  // Conversion: millis * 1,000,000 + sub_ms_nanos = total nanoseconds.
   auto min_ts = checked_pointer_cast<TimestampScalar>(col_stats.min);
   auto max_ts = checked_pointer_cast<TimestampScalar>(col_stats.max);
   EXPECT_TRUE(min_ts->is_valid);
   EXPECT_TRUE(max_ts->is_valid);
-  // The actual values will be in nanoseconds
-  EXPECT_GT(max_ts->value, min_ts->value);
+  EXPECT_EQ(min_ts->value, 0);
+  // 9000 seconds + 900 nanoseconds
+  constexpr int64_t expected_max_ns = 9000LL * 1000000000LL + 900LL;
+  EXPECT_EQ(max_ts->value, expected_max_ns);
 }
 
 TEST(TestAdapterRead, ReadStripesMultiple) {
@@ -1687,10 +1695,12 @@ TEST(TestAdapterRead, ReadStripesEmptyVector) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  // Try to read with an empty stripe indices vector
+  // Empty stripe indices should return an empty table with the file's schema
   std::vector<int64_t> stripe_indices;
-  EXPECT_THAT(reader->ReadStripes(stripe_indices),
-              Raises(StatusCode::Invalid, testing::HasSubstr("cannot be empty")));
+  ASSERT_OK_AND_ASSIGN(auto table, reader->ReadStripes(stripe_indices));
+  EXPECT_EQ(table->num_rows(), 0);
+  EXPECT_EQ(table->num_columns(), 1);
+  EXPECT_EQ(table->schema()->field(0)->name(), "col1");
 }
 
 TEST(TestAdapterRead, BuildSchemaManifest) {
@@ -1894,6 +1904,191 @@ TEST(TestAdapterRead, GetStripeStatisticsBulk) {
   // Verify out-of-range stripe index in bulk API
   EXPECT_THAT(reader->GetStripeStatistics(999, column_indices),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
+}
+
+TEST(TestAdapterRead, BuildSchemaManifestNested) {
+  // ORC type with nested struct and list.
+  // ORC column IDs (depth-first pre-order):
+  //   0: root struct
+  //   1: col1 (int)
+  //   2: col2 (struct)
+  //   3: col2.a (string)
+  //   4: col2.b (bigint)
+  //   5: col3 (array/list)
+  //   6: col3._elem (int)
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  std::unique_ptr<liborc::Type> type(liborc::Type::buildTypeFromString(
+      "struct<col1:int,col2:struct<a:string,b:bigint>,col3:array<int>>"));
+
+  constexpr uint64_t stripe_size = 1024;
+  constexpr uint64_t row_count = 1;
+
+  auto writer = CreateWriter(stripe_size, *type, &mem_stream);
+  auto batch = writer->createRowBatch(row_count);
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+
+  // Set up col1 (int)
+  auto int_batch =
+      internal::checked_cast<liborc::LongVectorBatch*>(struct_batch->fields[0]);
+  int_batch->data[0] = 42;
+  int_batch->numElements = row_count;
+
+  // Set up col2 (struct<a:string,b:bigint>)
+  auto inner_struct =
+      internal::checked_cast<liborc::StructVectorBatch*>(struct_batch->fields[1]);
+  auto str_batch =
+      internal::checked_cast<liborc::StringVectorBatch*>(inner_struct->fields[0]);
+  auto bigint_batch =
+      internal::checked_cast<liborc::LongVectorBatch*>(inner_struct->fields[1]);
+  std::string str_data = "hello";
+  str_batch->data[0] = const_cast<char*>(str_data.c_str());
+  str_batch->length[0] = static_cast<int64_t>(str_data.size());
+  str_batch->numElements = row_count;
+  bigint_batch->data[0] = 100;
+  bigint_batch->numElements = row_count;
+  inner_struct->numElements = row_count;
+
+  // Set up col3 (array<int>) - write one list with one element
+  auto list_batch =
+      internal::checked_cast<liborc::ListVectorBatch*>(struct_batch->fields[2]);
+  auto list_elem_batch =
+      internal::checked_cast<liborc::LongVectorBatch*>(list_batch->elements.get());
+  list_batch->offsets[0] = 0;
+  list_batch->offsets[1] = 1;
+  list_elem_batch->data[0] = 7;
+  list_elem_batch->numElements = 1;
+  list_batch->numElements = row_count;
+
+  struct_batch->numElements = row_count;
+  writer->add(*batch);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+                               static_cast<int64_t>(mem_stream.getLength()))));
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+  ASSERT_OK_AND_ASSIGN(auto arrow_schema, reader->ReadSchema());
+
+  ASSERT_OK_AND_ASSIGN(auto manifest, reader->BuildSchemaManifest(arrow_schema));
+  ASSERT_EQ(manifest->schema_fields.size(), 3);
+
+  // col1: leaf, orc_column_id=1
+  EXPECT_EQ(manifest->schema_fields[0].field->name(), "col1");
+  EXPECT_EQ(manifest->schema_fields[0].orc_column_id, 1);
+  EXPECT_TRUE(manifest->schema_fields[0].is_leaf());
+
+  // col2: struct with 2 children, orc_column_id=2
+  EXPECT_EQ(manifest->schema_fields[1].field->name(), "col2");
+  EXPECT_EQ(manifest->schema_fields[1].orc_column_id, 2);
+  EXPECT_FALSE(manifest->schema_fields[1].is_leaf());
+  ASSERT_EQ(manifest->schema_fields[1].children.size(), 2);
+  EXPECT_EQ(manifest->schema_fields[1].children[0].field->name(), "a");
+  EXPECT_EQ(manifest->schema_fields[1].children[0].orc_column_id, 3);
+  EXPECT_TRUE(manifest->schema_fields[1].children[0].is_leaf());
+  EXPECT_EQ(manifest->schema_fields[1].children[1].field->name(), "b");
+  EXPECT_EQ(manifest->schema_fields[1].children[1].orc_column_id, 4);
+  EXPECT_TRUE(manifest->schema_fields[1].children[1].is_leaf());
+
+  // col3: list with 1 child element, orc_column_id=5
+  EXPECT_EQ(manifest->schema_fields[2].field->name(), "col3");
+  EXPECT_EQ(manifest->schema_fields[2].orc_column_id, 5);
+  EXPECT_FALSE(manifest->schema_fields[2].is_leaf());
+  ASSERT_EQ(manifest->schema_fields[2].children.size(), 1);
+  EXPECT_EQ(manifest->schema_fields[2].children[0].orc_column_id, 6);
+  EXPECT_TRUE(manifest->schema_fields[2].children[0].is_leaf());
+
+  // Test GetField() with various paths
+  EXPECT_EQ(manifest->GetField({}), nullptr);  // empty path
+  EXPECT_EQ(manifest->GetField({99}), nullptr);  // out of range
+
+  // GetField({0}) -> col1
+  const auto* f0 = manifest->GetField({0});
+  ASSERT_NE(f0, nullptr);
+  EXPECT_EQ(f0->field->name(), "col1");
+  EXPECT_EQ(f0->orc_column_id, 1);
+
+  // GetField({1}) -> col2 (struct)
+  const auto* f1 = manifest->GetField({1});
+  ASSERT_NE(f1, nullptr);
+  EXPECT_EQ(f1->field->name(), "col2");
+  EXPECT_EQ(f1->orc_column_id, 2);
+
+  // GetField({1, 0}) -> col2.a
+  const auto* f1_0 = manifest->GetField({1, 0});
+  ASSERT_NE(f1_0, nullptr);
+  EXPECT_EQ(f1_0->field->name(), "a");
+  EXPECT_EQ(f1_0->orc_column_id, 3);
+
+  // GetField({1, 1}) -> col2.b
+  const auto* f1_1 = manifest->GetField({1, 1});
+  ASSERT_NE(f1_1, nullptr);
+  EXPECT_EQ(f1_1->field->name(), "b");
+  EXPECT_EQ(f1_1->orc_column_id, 4);
+
+  // GetField({2, 0}) -> col3 element
+  const auto* f2_0 = manifest->GetField({2, 0});
+  ASSERT_NE(f2_0, nullptr);
+  EXPECT_EQ(f2_0->orc_column_id, 6);
+
+  // Out of range nested paths
+  EXPECT_EQ(manifest->GetField({1, 99}), nullptr);
+  EXPECT_EQ(manifest->GetField({0, 0}), nullptr);  // col1 is leaf, no children
+}
+
+TEST(TestAdapterRead, GetColumnStatisticsDecimal) {
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  // decimal(10,2) uses Decimal64VectorBatch internally (precision <= 18)
+  std::unique_ptr<liborc::Type> type(
+      liborc::Type::buildTypeFromString("struct<col1:decimal(10,2)>"));
+
+  constexpr uint64_t stripe_size = 1024;
+  constexpr uint64_t row_count = 5;
+
+  auto writer = CreateWriter(stripe_size, *type, &mem_stream);
+  auto batch = writer->createRowBatch(row_count);
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  auto dec_batch =
+      internal::checked_cast<liborc::Decimal64VectorBatch*>(struct_batch->fields[0]);
+
+  // Write unscaled values with non-zero trailing digits to avoid ORC
+  // normalizing away trailing zeros in statistics (e.g. 1.00 → 1 scale 0).
+  // Values: 101, 203, 305, 407, 509 with scale=2
+  // Represent: 1.01, 2.03, 3.05, 4.07, 5.09
+  dec_batch->values[0] = 101;
+  dec_batch->values[1] = 203;
+  dec_batch->values[2] = 305;
+  dec_batch->values[3] = 407;
+  dec_batch->values[4] = 509;
+  struct_batch->numElements = row_count;
+  dec_batch->numElements = row_count;
+  writer->add(*batch);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+                               static_cast<int64_t>(mem_stream.getLength()))));
+
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+
+  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  EXPECT_EQ(col_stats.num_values, row_count);
+  EXPECT_FALSE(col_stats.has_null);
+  EXPECT_TRUE(col_stats.has_min_max);
+  ASSERT_NE(col_stats.min, nullptr);
+  ASSERT_NE(col_stats.max, nullptr);
+
+  // Verify Decimal128Scalar values (unscaled integers with scale 2)
+  auto min_dec = checked_pointer_cast<Decimal128Scalar>(col_stats.min);
+  auto max_dec = checked_pointer_cast<Decimal128Scalar>(col_stats.max);
+  EXPECT_EQ(min_dec->value, Decimal128(101));   // 1.01 unscaled
+  EXPECT_EQ(max_dec->value, Decimal128(509));   // 5.09 unscaled
+
+  // Verify the type has precision 38 and scale 2 (as set by ConvertColumnStatistics)
+  EXPECT_TRUE(min_dec->type->Equals(decimal128(38, 2)));
+  EXPECT_TRUE(max_dec->type->Equals(decimal128(38, 2)));
 }
 
 }  // namespace arrow
