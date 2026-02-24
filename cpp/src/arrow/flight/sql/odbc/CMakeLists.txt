@@ -15,15 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Use C++ 20 for ODBC and its subdirectory
-# GH-44792: Arrow will switch to C++ 20
-set(CMAKE_CXX_STANDARD 20)
-
-if(APPLE)
-  # CMAKE_FIND_LIBRARY_SUFFIXES.
-  set(APPEND CMAKE_FIND_LIBRARY_SUFFIXES ".a")
-endif()
-
 if(WIN32)
   if(MSVC_VERSION GREATER_EQUAL 1900)
     set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
@@ -31,7 +22,7 @@ if(WIN32)
     set(ODBCINST odbccp32 shlwapi)
   endif()
 elseif(APPLE)
-  set(ODBCINST iodbcinst)
+  set(ODBCINST iodbc iodbcinst)
 else()
   set(ODBCINST odbcinst)
 endif()
@@ -110,7 +101,6 @@ else()
                 SHARED_LINK_FLAGS
                 ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
                 STATIC_LINK_LIBS
-                iodbc
                 ODBC::ODBC
                 ${ODBCINST}
                 SHARED_LINK_LIBS
