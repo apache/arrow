@@ -226,8 +226,7 @@ struct GetByteRangesArray {
     }
     for (const auto& [buf_index, range] : buffer_ranges) {
       const Buffer& data_buffer = *input.buffers[2 + buf_index];
-      RETURN_NOT_OK(
-          range_starts->Append(reinterpret_cast<uint64_t>(data_buffer.data())));
+      RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(data_buffer.data())));
       RETURN_NOT_OK(range_offsets->Append(static_cast<uint64_t>(range.first)));
       RETURN_NOT_OK(
           range_lengths->Append(static_cast<uint64_t>(range.second - range.first)));
