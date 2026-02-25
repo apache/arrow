@@ -309,8 +309,7 @@ class ModuleOnceRunner {
 #endif
 
  public:
-  explicit ModuleOnceRunner(const std::string& module_name)
-      : module_name_(module_name) {}
+  explicit ModuleOnceRunner(const std::string& module_name) : module_name_(module_name) {}
 
   template <typename Func>
   void RunOnce(Func&& func) {
