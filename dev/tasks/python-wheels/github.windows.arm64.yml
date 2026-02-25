@@ -57,6 +57,7 @@ jobs:
             --binarysource="clear;x-gha,readwrite" ^
             --x-install-root=C:\vcpkg\installed ^
             --x-manifest-root=. ^
+            --x-feature=azure ^
             --x-feature=flight ^
             --x-feature=json ^
             --x-feature=gcs ^
