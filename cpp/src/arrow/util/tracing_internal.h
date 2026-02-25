@@ -23,6 +23,8 @@
 #include "arrow/util/config.h"
 
 #ifdef ARROW_WITH_OPENTELEMETRY
+// Avoid for example defining max() macro
+#  include "arrow/util/windows_compatibility.h"
 #  ifdef _MSC_VER
 #    pragma warning(push)
 #    pragma warning(disable : 4522)
