@@ -300,26 +300,25 @@ namespace {
 // Uses std::call_once when the GIL is disabled, or a simple boolean flag when
 // the GIL is enabled to avoid deadlocks. See ARROW-10519 for more details and
 // https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272
-class ModuleOnceRunner {
-  std::string module_name_;
+struct ModuleOnceRunner {
+  std::string module_name;
 #ifdef Py_GIL_DISABLED
-  std::once_flag initialized_;
+  std::once_flag initialized;
 #else
-  bool initialized_ = false;
+  bool initialized = false;
 #endif
 
- public:
-  explicit ModuleOnceRunner(const std::string& module_name) : module_name_(module_name) {}
+  explicit ModuleOnceRunner(const std::string& module_name) : module_name(module_name) {}
 
   template <typename Func>
   void RunOnce(Func&& func) {
     auto do_init = [&]() {
       OwnedRef module;
-      if (ImportModule(module_name_, &module).ok()) {
+      if (ImportModule(module_name, &module).ok()) {
 #ifndef Py_GIL_DISABLED
         // Since ImportModule can release the GIL, another thread could have
         // already initialized the static data.
-        if (initialized_) {
+        if (initialized) {
           return;
         }
 #endif
@@ -327,11 +326,11 @@ class ModuleOnceRunner {
       }
     };
 #ifdef Py_GIL_DISABLED
-    std::call_once(initialized_, do_init);
+    std::call_once(initialized, do_init);
 #else
-    if (!initialized_) {
+    if (!initialized) {
       do_init();
-      initialized_ = true;
+      initialized = true;
     }
 #endif
   }
