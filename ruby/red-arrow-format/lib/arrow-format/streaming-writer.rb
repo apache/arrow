@@ -125,7 +125,7 @@ module ArrowFormat
           dictionary = dictionary.slice(written_offset - current_base_offset)
         end
 
-        schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+        schema = Schema.new([Field.new("dummy", value_type)])
         size = dictionary.size
         record_batch = RecordBatch.new(schema, size, [dictionary])
         fb_dictionary_batch = FB::DictionaryBatch::Data.new
