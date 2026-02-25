@@ -356,7 +356,7 @@ bool IsPyUuid(PyObject* obj) {
     PyErr_Clear();
     return false;
   }
-  return result == 1;
+  return result != 0;
 }
 
 namespace {
