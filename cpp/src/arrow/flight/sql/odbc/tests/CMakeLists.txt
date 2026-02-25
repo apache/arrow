@@ -25,14 +25,6 @@ set(ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS
     ../../example/sqlite_server.cc
     ../../example/sqlite_tables_schema_batch_reader.cc)
 
-if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
-                                           ${ARROW_TEST_STATIC_LINK_LIBS})
-else()
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
-                                           ${ARROW_TEST_SHARED_LINK_LIBS})
-endif()
-
 set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     odbc_test_suite.cc
     odbc_test_suite.h
@@ -50,13 +42,31 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     # GH-46889: move protobuf_test_util to a more common location
     ../../../../engine/substrait/protobuf_test_util.cc)
 
+if(ARROW_TEST_LINKAGE STREQUAL "static")
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
+                                           ${ARROW_TEST_LINK_LIBS})
+else()
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
+                                           ${ARROW_TEST_LINK_LIBS})
+endif()
+
+list(APPEND
+     ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
+     ${ODBC_LIBRARIES}
+     ${ODBCINST}
+     ${SQLite3_LIBRARIES})
+
 # On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
 # On unix systems, static linking ODBC is supported, thus tests link libraries statically.
+set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
+set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
 if(WIN32)
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS_TYPE EXTRA_LINK_LIBS)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
 else()
   # Unix
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS_TYPE STATIC_LINK_LIBS)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
 endif()
 
 add_arrow_test(flight_sql_odbc_test
@@ -65,11 +75,10 @@ add_arrow_test(flight_sql_odbc_test
                ${ARROW_FLIGHT_SQL_MOCK_SERVER_SRCS}
                DEFINITIONS
                UNICODE
-               ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS_TYPE}
-               ${ODBC_LIBRARIES}
-               ${ODBCINST}
-               ${SQLite3_LIBRARIES}
-               ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+               EXTRA_LINK_LIBS
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS}
+               STATIC_LINK_LIBS
+               ${ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS})
 
 find_package(ODBC REQUIRED)
 target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)

@@ -414,10 +414,24 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery
       - name: Check ODBC Dependency
         run: |
-          # ODBC dependency should not include Arrow or third party libraries
-          ! otool -L $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib | grep -Ei 'arrow_flight_sql\.|arrow_flight\.|arrow_compute|boost|iodbc|grpc'
+          # ODBC dependency should not include other Arrow or third party libraries
+          archery linking check-dependencies \
+            --allow CoreFoundation \
+            --allow libSystem \
+            --allow libarrow_flight_sql_odbc \
+            --allow libc++ \
+            --allow libiconv \
+            --allow libresolv \
+            --allow libz \
+            "$(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib"
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
