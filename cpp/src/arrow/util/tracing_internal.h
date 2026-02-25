@@ -125,13 +125,13 @@ struct Scope {
   opentelemetry::trace::Scope scope_impl;
 };
 
-opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
+ARROW_EXPORT opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
     ::arrow::util::tracing::SpanDetails* span);
 
-const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& UnwrapSpan(
-    const ::arrow::util::tracing::SpanDetails* span);
+ARROW_EXPORT const opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>&
+UnwrapSpan(const ::arrow::util::tracing::SpanDetails* span);
 
-opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
+ARROW_EXPORT opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span>& RewrapSpan(
     ::arrow::util::tracing::SpanDetails* span,
     opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> ot_span);
 
