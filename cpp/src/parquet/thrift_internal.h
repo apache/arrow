@@ -469,33 +469,33 @@ static inline format::GeospatialStatistics ToThrift(
 
 static inline format::Statistics ToThrift(const EncodedStatistics& stats) {
   format::Statistics statistics;
-  if (stats.min.has_value()) {
-    statistics.__set_min_value(stats.min.value());
+  if (stats.min_.has_value()) {
+    statistics.__set_min_value(stats.min());
     if (stats.is_min_value_exact.has_value()) {
       statistics.__set_is_min_value_exact(stats.is_min_value_exact.value());
     }
     // If the order is SIGNED, then the old min value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
-      statistics.__set_min(stats.min.value());
+      statistics.__set_min(stats.min());
     }
   }
-  if (stats.max.has_value()) {
-    statistics.__set_max_value(stats.max.value());
+  if (stats.max_.has_value()) {
+    statistics.__set_max_value(stats.max());
     if (stats.is_max_value_exact.has_value()) {
       statistics.__set_is_max_value_exact(stats.is_max_value_exact.value());
     }
     // If the order is SIGNED, then the old max value must be set too.
     // This for backward compatibility
     if (stats.is_signed()) {
-      statistics.__set_max(stats.max.value());
+      statistics.__set_max(stats.max());
     }
   }
   if (stats.null_count) {
-    statistics.__set_null_count(*stats.null_count);
+    statistics.__set_null_count(stats.null_count.value());
   }
   if (stats.distinct_count) {
-    statistics.__set_distinct_count(*stats.distinct_count);
+    statistics.__set_distinct_count(stats.distinct_count.value());
   }
 
   return statistics;

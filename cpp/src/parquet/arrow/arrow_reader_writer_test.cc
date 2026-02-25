@@ -4735,12 +4735,12 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 
         auto expect_has_min_max =
             expected_has_min_max_by_page[case_index][row_group_index][page_index];
-        EXPECT_EQ(stats.min.has_value(), expect_has_min_max);
-        EXPECT_EQ(stats.max.has_value(), expect_has_min_max);
+        EXPECT_EQ(stats.min_.has_value(), expect_has_min_max);
+        EXPECT_EQ(stats.max_.has_value(), expect_has_min_max);
         if (expect_has_min_max) {
-          EXPECT_EQ(stats.min.value(),
+          EXPECT_EQ(stats.min(),
                     expected_min_by_page[case_index][row_group_index][page_index]);
-          EXPECT_EQ(stats.max.value(),
+          EXPECT_EQ(stats.max(),
                     expected_max_by_page[case_index][row_group_index][page_index]);
         }
 
@@ -4839,8 +4839,8 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
     ASSERT_EQ(3, data_page->num_values());
     const auto& stats = data_page->statistics();
     EXPECT_EQ(1, stats.null_count);
-    EXPECT_EQ(rg0_min_values[i], stats.min.value());
-    EXPECT_EQ(rg0_max_values[i], stats.max.value());
+    EXPECT_EQ(rg0_min_values[i], stats.min());
+    EXPECT_EQ(rg0_max_values[i], stats.max());
   }
   ASSERT_EQ(rg0_page_reader->NextPage(), nullptr);
 
@@ -4853,8 +4853,8 @@ TEST_P(TestArrowWriteDictionary, StatisticsUnifiedDictionary) {
     ASSERT_EQ(3, data_page->num_values());
     const auto& stats = data_page->statistics();
     EXPECT_EQ(1, stats.null_count);
-    EXPECT_EQ("b", stats.min.value());
-    EXPECT_EQ("c", stats.max.value());
+    EXPECT_EQ("b", stats.min());
+    EXPECT_EQ("c", stats.max());
   }
   ASSERT_EQ(rg1_page_reader->NextPage(), nullptr);
 }

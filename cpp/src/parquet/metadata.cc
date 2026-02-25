@@ -109,21 +109,23 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.__isset.distinct_count
           ? std::optional<int64_t>(metadata.statistics.distinct_count)
           : std::nullopt;
-  std::optional<std::string> min_val = metadata.statistics.__isset.min
-                                           ? std::make_optional(metadata.statistics.min)
-                                           : std::nullopt;
-  std::optional<std::string> max_val = metadata.statistics.__isset.max
-                                           ? std::make_optional(metadata.statistics.max)
-                                           : std::nullopt;
+  std::optional<std::string_view> min_val =
+      metadata.statistics.__isset.min
+          ? std::optional<std::string_view>(metadata.statistics.min)
+          : std::nullopt;
+  std::optional<std::string_view> max_val =
+      metadata.statistics.__isset.max
+          ? std::optional<std::string_view>(metadata.statistics.max)
+          : std::nullopt;
   // If ColumnOrder is defined, return max_value and min_value
   if (descr->column_order().get_order() == ColumnOrder::TYPE_DEFINED_ORDER) {
-    std::optional<std::string> min_value =
+    std::optional<std::string_view> min_value =
         metadata.statistics.__isset.min_value
-            ? std::make_optional(metadata.statistics.min_value)
+            ? std::optional<std::string_view>(metadata.statistics.min_value)
             : std::nullopt;
-    std::optional<std::string> max_value =
+    std::optional<std::string_view> max_value =
         metadata.statistics.__isset.max_value
-            ? std::make_optional(metadata.statistics.max_value)
+            ? std::optional<std::string_view>(metadata.statistics.max_value)
             : std::nullopt;
     return MakeStatistics<DType>(descr, min_value, max_value,
                                  metadata.num_values - null_count.value_or(0), null_count,
@@ -1624,8 +1626,8 @@ bool ApplicationVersion::HasCorrectStatistics(Type::type col_type,
       (application_ == "parquet-mr" && VersionLt(PARQUET_MR_FIXED_STATS_VERSION()))) {
     // Only SIGNED are valid unless max and min are the same
     // (in which case the sort order does not matter)
-    bool max_equals_min = statistics.min.has_value() && statistics.max.has_value()
-                              ? statistics.min.value() == statistics.max.value()
+    bool max_equals_min = statistics.min_.has_value() && statistics.max_.has_value()
+                              ? statistics.min() == statistics.max()
                               : false;
     if (SortOrder::SIGNED != sort_order && !max_equals_min) {
       return false;

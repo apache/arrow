@@ -69,10 +69,10 @@ static inline void AddDummyStats(int stat_size, H& header, bool fill_all_stats =
 template <typename H>
 static inline void CheckStatistics(const H& expected, const EncodedStatistics& actual) {
   if (expected.statistics.__isset.max) {
-    ASSERT_EQ(expected.statistics.max, actual.max);
+    ASSERT_EQ(expected.statistics.max, actual.max());
   }
   if (expected.statistics.__isset.min) {
-    ASSERT_EQ(expected.statistics.min, actual.min);
+    ASSERT_EQ(expected.statistics.min, actual.min());
   }
   if (expected.statistics.__isset.null_count) {
     ASSERT_EQ(expected.statistics.null_count, actual.null_count);
@@ -513,8 +513,8 @@ TYPED_TEST(PageFilterTest, TestPageFilterCallback) {
           CheckDataPageHeader(this->data_page_headers_[i], current_page.get()));
       auto data_page = static_cast<const DataPage*>(current_page.get());
       const EncodedStatistics encoded_statistics = data_page->statistics();
-      ASSERT_EQ(read_stats[i].max, encoded_statistics.max);
-      ASSERT_EQ(read_stats[i].min, encoded_statistics.min);
+      ASSERT_EQ(read_stats[i].max(), encoded_statistics.max());
+      ASSERT_EQ(read_stats[i].min(), encoded_statistics.min());
       ASSERT_EQ(read_stats[i].null_count, encoded_statistics.null_count);
       ASSERT_EQ(read_stats[i].distinct_count, encoded_statistics.distinct_count);
       ASSERT_EQ(read_num_values[i], this->data_page_headers_[i].num_values);
