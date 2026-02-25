@@ -970,11 +970,13 @@ bloom_filter_options : dict, default None
 
     The keys of the `dict` are column paths. For each path, the value can be either:
 
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
     - A boolean, with ``True`` indicating that a Bloom filter should be produced with
-      the default values of `NDV=1048576` and `FPP=0.05`.
-    - A dictionary, with keys `ndv` and `fpp`. `ndv` must be a positive integer, and
-      `fpp` must be a float between 0.0 and 1.0. Default values will be used for any
-      missing keys.
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 """
 
 _parquet_writer_example_doc = """\
