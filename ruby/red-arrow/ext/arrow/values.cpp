@@ -84,6 +84,7 @@ namespace red_arrow {
       VISIT(Duration)
       VISIT(List)
       VISIT(LargeList)
+      VISIT(FixedSizeList)
       VISIT(Struct)
       VISIT(Map)
       VISIT(SparseUnion)
