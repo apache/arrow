@@ -5190,9 +5190,22 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         values : array-like
             Flat tensor values.
         row_splits : array-like
-            Monotonically increasing boundaries into ``values`` with ``row_splits[0] == 0``.
+            Monotonically increasing boundaries into ``values`` with
+            ``row_splits[0] == 0``.
         shapes : array-like
             Physical tensor shapes for each row.
+        dim_names : tuple or list of strings, default None
+            Explicit names for tensor dimensions.
+        permutation : tuple or list of integers, default None
+            Physical permutation of tensor dimensions.
+        uniform_shape : tuple or list of integers or None, default None
+            Optional known uniform dimensions in physical order. If None,
+            inferred from shapes.
+        value_type : pyarrow.DataType or numpy dtype, default None
+            Optional explicit tensor value type. Required when values are
+            empty.
+        ndim : int, default None
+            Optional explicit tensor rank. If None, inferred from shapes.
         """
         cdef:
             object values_arr
@@ -5298,6 +5311,28 @@ cdef class VariableShapeTensorArray(ExtensionArray):
                      uniform_shape=None, value_type=None, ndim=None):
         """
         Alias for :meth:`from_row_splits`.
+
+        Parameters
+        ----------
+        values : array-like
+            Flat tensor values.
+        offsets : array-like
+            Monotonically increasing boundaries into ``values`` with
+            ``offsets[0] == 0``.
+        shapes : array-like
+            Physical tensor shapes for each row.
+        dim_names : tuple or list of strings, default None
+            Explicit names for tensor dimensions.
+        permutation : tuple or list of integers, default None
+            Physical permutation of tensor dimensions.
+        uniform_shape : tuple or list of integers or None, default None
+            Optional known uniform dimensions in physical order. If None,
+            inferred from shapes.
+        value_type : pyarrow.DataType or numpy dtype, default None
+            Optional explicit tensor value type. Required when values are
+            empty.
+        ndim : int, default None
+            Optional explicit tensor rank. If None, inferred from shapes.
         """
         return VariableShapeTensorArray.from_row_splits(
             values,

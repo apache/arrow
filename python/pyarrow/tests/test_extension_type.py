@@ -1868,7 +1868,7 @@ def test_variable_shape_tensor_from_numpy_validation():
     with pytest.raises(TypeError, match=r"obj\[1\] must be a numpy.ndarray"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([arr, [1, 2]])
 
-    with pytest.raises(ValueError, match="permutation must contain each dimension index"):
+    with pytest.raises(ValueError, match="permutation must contain each dimension"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([arr], permutation=[0, 0])
 
     with pytest.raises(ValueError, match=r"obj\[0\] has permutation"):
