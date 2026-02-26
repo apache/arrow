@@ -40,6 +40,7 @@ template<int kBitWidth>
 struct Simd512UnpackerForWidth<bool, kBitWidth> {
 
   static constexpr int kValuesUnpacked = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+  static constexpr int kBytesRead = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kBytesRead;
 
   static const uint8_t* unpack(const uint8_t* in, bool* out) {
     uint32_t buffer[kValuesUnpacked] = {};
@@ -55,6 +56,7 @@ template<int kBitWidth>
 struct Simd512UnpackerForWidth<uint8_t, kBitWidth> {
 
   static constexpr int kValuesUnpacked = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+  static constexpr int kBytesRead = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kBytesRead;
 
   static const uint8_t* unpack(const uint8_t* in, uint8_t* out) {
     uint32_t buffer[kValuesUnpacked] = {};
@@ -70,6 +72,7 @@ template<int kBitWidth>
 struct Simd512UnpackerForWidth<uint16_t, kBitWidth> {
 
   static constexpr int kValuesUnpacked = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kValuesUnpacked;
+  static constexpr int kBytesRead = Simd512UnpackerForWidth<uint32_t, kBitWidth>::kBytesRead;
 
   static const uint8_t* unpack(const uint8_t* in, uint16_t* out) {
     uint32_t buffer[kValuesUnpacked] = {};
@@ -86,6 +89,7 @@ struct Simd512UnpackerForWidth<uint32_t, 1> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 4;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1;
@@ -151,6 +155,7 @@ struct Simd512UnpackerForWidth<uint32_t, 2> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 8;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3;
@@ -216,6 +221,7 @@ struct Simd512UnpackerForWidth<uint32_t, 3> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 12;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7;
@@ -281,6 +287,7 @@ struct Simd512UnpackerForWidth<uint32_t, 4> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 16;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xf;
@@ -346,6 +353,7 @@ struct Simd512UnpackerForWidth<uint32_t, 5> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 20;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1f;
@@ -411,6 +419,7 @@ struct Simd512UnpackerForWidth<uint32_t, 6> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 24;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3f;
@@ -476,6 +485,7 @@ struct Simd512UnpackerForWidth<uint32_t, 7> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 28;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7f;
@@ -541,6 +551,7 @@ struct Simd512UnpackerForWidth<uint32_t, 8> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 32;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xff;
@@ -606,6 +617,7 @@ struct Simd512UnpackerForWidth<uint32_t, 9> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 36;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1ff;
@@ -671,6 +683,7 @@ struct Simd512UnpackerForWidth<uint32_t, 10> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 40;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3ff;
@@ -736,6 +749,7 @@ struct Simd512UnpackerForWidth<uint32_t, 11> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 44;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7ff;
@@ -801,6 +815,7 @@ struct Simd512UnpackerForWidth<uint32_t, 12> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 48;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xfff;
@@ -866,6 +881,7 @@ struct Simd512UnpackerForWidth<uint32_t, 13> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 52;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1fff;
@@ -931,6 +947,7 @@ struct Simd512UnpackerForWidth<uint32_t, 14> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 56;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3fff;
@@ -996,6 +1013,7 @@ struct Simd512UnpackerForWidth<uint32_t, 15> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 60;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7fff;
@@ -1061,6 +1079,7 @@ struct Simd512UnpackerForWidth<uint32_t, 16> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 64;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xffff;
@@ -1126,6 +1145,7 @@ struct Simd512UnpackerForWidth<uint32_t, 17> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 68;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1ffff;
@@ -1191,6 +1211,7 @@ struct Simd512UnpackerForWidth<uint32_t, 18> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 72;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3ffff;
@@ -1256,6 +1277,7 @@ struct Simd512UnpackerForWidth<uint32_t, 19> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 76;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7ffff;
@@ -1321,6 +1343,7 @@ struct Simd512UnpackerForWidth<uint32_t, 20> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 80;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xfffff;
@@ -1386,6 +1409,7 @@ struct Simd512UnpackerForWidth<uint32_t, 21> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 84;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1fffff;
@@ -1451,6 +1475,7 @@ struct Simd512UnpackerForWidth<uint32_t, 22> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 88;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3fffff;
@@ -1516,6 +1541,7 @@ struct Simd512UnpackerForWidth<uint32_t, 23> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 92;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7fffff;
@@ -1581,6 +1607,7 @@ struct Simd512UnpackerForWidth<uint32_t, 24> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 96;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xffffff;
@@ -1646,6 +1673,7 @@ struct Simd512UnpackerForWidth<uint32_t, 25> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 100;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1ffffff;
@@ -1711,6 +1739,7 @@ struct Simd512UnpackerForWidth<uint32_t, 26> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 104;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3ffffff;
@@ -1776,6 +1805,7 @@ struct Simd512UnpackerForWidth<uint32_t, 27> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 108;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7ffffff;
@@ -1841,6 +1871,7 @@ struct Simd512UnpackerForWidth<uint32_t, 28> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 112;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0xfffffff;
@@ -1906,6 +1937,7 @@ struct Simd512UnpackerForWidth<uint32_t, 29> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 116;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x1fffffff;
@@ -1971,6 +2003,7 @@ struct Simd512UnpackerForWidth<uint32_t, 30> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 120;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x3fffffff;
@@ -2036,6 +2069,7 @@ struct Simd512UnpackerForWidth<uint32_t, 31> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint32_t, 16>;
   static constexpr int kValuesUnpacked = 32;
+  static constexpr int kBytesRead = 124;
 
   static const uint8_t* unpack(const uint8_t* in, uint32_t* out) {
     constexpr uint32_t kMask = 0x7fffffff;
@@ -2102,6 +2136,7 @@ struct Simd512UnpackerForWidth<uint64_t, 1> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 8;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1;
@@ -2247,6 +2282,7 @@ struct Simd512UnpackerForWidth<uint64_t, 2> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 16;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3;
@@ -2392,6 +2428,7 @@ struct Simd512UnpackerForWidth<uint64_t, 3> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 24;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7;
@@ -2537,6 +2574,7 @@ struct Simd512UnpackerForWidth<uint64_t, 4> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 32;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xf;
@@ -2682,6 +2720,7 @@ struct Simd512UnpackerForWidth<uint64_t, 5> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 40;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1f;
@@ -2827,6 +2866,7 @@ struct Simd512UnpackerForWidth<uint64_t, 6> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 48;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3f;
@@ -2972,6 +3012,7 @@ struct Simd512UnpackerForWidth<uint64_t, 7> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 56;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7f;
@@ -3117,6 +3158,7 @@ struct Simd512UnpackerForWidth<uint64_t, 8> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 64;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xff;
@@ -3262,6 +3304,7 @@ struct Simd512UnpackerForWidth<uint64_t, 9> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 72;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ff;
@@ -3407,6 +3450,7 @@ struct Simd512UnpackerForWidth<uint64_t, 10> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 80;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ff;
@@ -3552,6 +3596,7 @@ struct Simd512UnpackerForWidth<uint64_t, 11> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 88;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ff;
@@ -3697,6 +3742,7 @@ struct Simd512UnpackerForWidth<uint64_t, 12> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 96;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfff;
@@ -3842,6 +3888,7 @@ struct Simd512UnpackerForWidth<uint64_t, 13> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 104;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fff;
@@ -3987,6 +4034,7 @@ struct Simd512UnpackerForWidth<uint64_t, 14> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 112;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fff;
@@ -4132,6 +4180,7 @@ struct Simd512UnpackerForWidth<uint64_t, 15> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 120;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fff;
@@ -4277,6 +4326,7 @@ struct Simd512UnpackerForWidth<uint64_t, 16> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 128;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xffff;
@@ -4422,6 +4472,7 @@ struct Simd512UnpackerForWidth<uint64_t, 17> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 136;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ffff;
@@ -4567,6 +4618,7 @@ struct Simd512UnpackerForWidth<uint64_t, 18> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 144;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ffff;
@@ -4712,6 +4764,7 @@ struct Simd512UnpackerForWidth<uint64_t, 19> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 152;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ffff;
@@ -4857,6 +4910,7 @@ struct Simd512UnpackerForWidth<uint64_t, 20> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 160;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfffff;
@@ -5002,6 +5056,7 @@ struct Simd512UnpackerForWidth<uint64_t, 21> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 168;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fffff;
@@ -5147,6 +5202,7 @@ struct Simd512UnpackerForWidth<uint64_t, 22> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 176;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fffff;
@@ -5292,6 +5348,7 @@ struct Simd512UnpackerForWidth<uint64_t, 23> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 184;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fffff;
@@ -5437,6 +5494,7 @@ struct Simd512UnpackerForWidth<uint64_t, 24> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 192;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xffffff;
@@ -5582,6 +5640,7 @@ struct Simd512UnpackerForWidth<uint64_t, 25> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 200;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ffffff;
@@ -5727,6 +5786,7 @@ struct Simd512UnpackerForWidth<uint64_t, 26> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 208;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ffffff;
@@ -5872,6 +5932,7 @@ struct Simd512UnpackerForWidth<uint64_t, 27> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 216;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ffffff;
@@ -6017,6 +6078,7 @@ struct Simd512UnpackerForWidth<uint64_t, 28> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 224;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfffffff;
@@ -6162,6 +6224,7 @@ struct Simd512UnpackerForWidth<uint64_t, 29> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 232;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fffffff;
@@ -6307,6 +6370,7 @@ struct Simd512UnpackerForWidth<uint64_t, 30> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 240;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fffffff;
@@ -6452,6 +6516,7 @@ struct Simd512UnpackerForWidth<uint64_t, 31> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 248;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fffffff;
@@ -6597,6 +6662,7 @@ struct Simd512UnpackerForWidth<uint64_t, 32> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 256;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xffffffff;
@@ -6742,6 +6808,7 @@ struct Simd512UnpackerForWidth<uint64_t, 33> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 264;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ffffffff;
@@ -6887,6 +6954,7 @@ struct Simd512UnpackerForWidth<uint64_t, 34> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 272;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ffffffff;
@@ -7032,6 +7100,7 @@ struct Simd512UnpackerForWidth<uint64_t, 35> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 280;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ffffffff;
@@ -7177,6 +7246,7 @@ struct Simd512UnpackerForWidth<uint64_t, 36> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 288;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfffffffff;
@@ -7322,6 +7392,7 @@ struct Simd512UnpackerForWidth<uint64_t, 37> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 296;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fffffffff;
@@ -7467,6 +7538,7 @@ struct Simd512UnpackerForWidth<uint64_t, 38> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 304;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fffffffff;
@@ -7612,6 +7684,7 @@ struct Simd512UnpackerForWidth<uint64_t, 39> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 312;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fffffffff;
@@ -7757,6 +7830,7 @@ struct Simd512UnpackerForWidth<uint64_t, 40> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 320;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xffffffffff;
@@ -7902,6 +7976,7 @@ struct Simd512UnpackerForWidth<uint64_t, 41> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 328;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ffffffffff;
@@ -8047,6 +8122,7 @@ struct Simd512UnpackerForWidth<uint64_t, 42> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 336;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ffffffffff;
@@ -8192,6 +8268,7 @@ struct Simd512UnpackerForWidth<uint64_t, 43> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 344;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ffffffffff;
@@ -8337,6 +8414,7 @@ struct Simd512UnpackerForWidth<uint64_t, 44> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 352;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfffffffffff;
@@ -8482,6 +8560,7 @@ struct Simd512UnpackerForWidth<uint64_t, 45> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 360;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fffffffffff;
@@ -8627,6 +8706,7 @@ struct Simd512UnpackerForWidth<uint64_t, 46> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 368;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fffffffffff;
@@ -8772,6 +8852,7 @@ struct Simd512UnpackerForWidth<uint64_t, 47> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 376;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fffffffffff;
@@ -8917,6 +8998,7 @@ struct Simd512UnpackerForWidth<uint64_t, 48> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 384;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xffffffffffff;
@@ -9062,6 +9144,7 @@ struct Simd512UnpackerForWidth<uint64_t, 49> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 392;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ffffffffffff;
@@ -9207,6 +9290,7 @@ struct Simd512UnpackerForWidth<uint64_t, 50> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 400;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ffffffffffff;
@@ -9352,6 +9436,7 @@ struct Simd512UnpackerForWidth<uint64_t, 51> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 408;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ffffffffffff;
@@ -9497,6 +9582,7 @@ struct Simd512UnpackerForWidth<uint64_t, 52> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 416;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfffffffffffff;
@@ -9642,6 +9728,7 @@ struct Simd512UnpackerForWidth<uint64_t, 53> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 424;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fffffffffffff;
@@ -9787,6 +9874,7 @@ struct Simd512UnpackerForWidth<uint64_t, 54> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 432;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fffffffffffff;
@@ -9932,6 +10020,7 @@ struct Simd512UnpackerForWidth<uint64_t, 55> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 440;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fffffffffffff;
@@ -10077,6 +10166,7 @@ struct Simd512UnpackerForWidth<uint64_t, 56> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 448;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xffffffffffffff;
@@ -10222,6 +10312,7 @@ struct Simd512UnpackerForWidth<uint64_t, 57> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 456;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1ffffffffffffff;
@@ -10367,6 +10458,7 @@ struct Simd512UnpackerForWidth<uint64_t, 58> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 464;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3ffffffffffffff;
@@ -10512,6 +10604,7 @@ struct Simd512UnpackerForWidth<uint64_t, 59> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 472;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7ffffffffffffff;
@@ -10657,6 +10750,7 @@ struct Simd512UnpackerForWidth<uint64_t, 60> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 480;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0xfffffffffffffff;
@@ -10802,6 +10896,7 @@ struct Simd512UnpackerForWidth<uint64_t, 61> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 488;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x1fffffffffffffff;
@@ -10947,6 +11042,7 @@ struct Simd512UnpackerForWidth<uint64_t, 62> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 496;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x3fffffffffffffff;
@@ -11092,6 +11188,7 @@ struct Simd512UnpackerForWidth<uint64_t, 63> {
 
   using simd_batch = xsimd::make_sized_batch_t<uint64_t, 8>;
   static constexpr int kValuesUnpacked = 64;
+  static constexpr int kBytesRead = 504;
 
   static const uint8_t* unpack(const uint8_t* in, uint64_t* out) {
     constexpr uint64_t kMask = 0x7fffffffffffffff;
