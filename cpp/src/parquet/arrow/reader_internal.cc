@@ -227,9 +227,8 @@ static Status FromInt32Statistics(const Int32Statistics& statistics,
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int32_t>(statistics, type, min, max);
     case LogicalType::Type::DECIMAL:
-      return ExtractDecimalMinMaxFromInteger(statistics.Min().value(),
-                                             statistics.Max().value(), logical_type, min,
-                                             max);
+      return ExtractDecimalMinMaxFromInteger(
+          statistics.Min().value(), statistics.Max().value(), logical_type, min, max);
     default:
       break;
   }
@@ -253,9 +252,8 @@ static Status FromInt64Statistics(const Int64Statistics& statistics,
     case LogicalType::Type::NONE:
       return MakeMinMaxTypedScalar<int64_t>(statistics, type, min, max);
     case LogicalType::Type::DECIMAL:
-      return ExtractDecimalMinMaxFromInteger(statistics.Min().value(),
-                                             statistics.Max().value(), logical_type, min,
-                                             max);
+      return ExtractDecimalMinMaxFromInteger(
+          statistics.Min().value(), statistics.Max().value(), logical_type, min, max);
     default:
       break;
   }
