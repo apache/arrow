@@ -1659,7 +1659,7 @@ def test_variable_shape_tensor_class_methods(value_type):
     struct_arr = pa.StructArray.from_arrays([values, shapes], fields=fields)
     arr = pa.ExtensionArray.from_storage(tensor_type, struct_arr)
     basic_arr = pa.ExtensionArray.from_storage(
-        pa.variable_shape_tensor(arrow_type, ndim), struct_arr
+        pa.variable_shape_tensor(arrow_type, ndim, uniform_shape=[2, None]), struct_arr
     )
 
     storage = pa.array(
@@ -1676,9 +1676,9 @@ def test_variable_shape_tensor_class_methods(value_type):
     list(np.testing.assert_array_equal(x.to_numpy_ndarray(), y) for x, y in
          zip(arr, ndarray_list))
 
-    assert pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list).equals(
-        basic_arr
-    )
+    from_numpy = pa.VariableShapeTensorArray.from_numpy_ndarray(ndarray_list)
+    assert from_numpy.equals(basic_arr)
+    assert from_numpy.type.uniform_shape == [2, None]
 
     assert arr.to_pylist() == [
         {"data": [1, 2, 3, 4, 5, 6], "shape": [2, 3]},
@@ -1720,15 +1720,16 @@ def test_variable_shape_tensor_array_from_numpy(value_type):
     assert isinstance(tensor_array_from_numpy.type, pa.VariableShapeTensorType)
     assert tensor_array_from_numpy.type.value_type == arrow_type
     assert tensor_array_from_numpy.type.ndim == 3
-    assert tensor_array_from_numpy.type.permutation == [0, 1, 2]
+    assert tensor_array_from_numpy.type.permutation is None
+    assert tensor_array_from_numpy.type.uniform_shape == [2, 2, 3]
 
     f_arr = np.array([[[1, 2, 3], [4, 5, 6]], [[7, 8, 9], [10, 11, 12]]],
                      dtype=value_type, order="F")
-    with pytest.raises(ValueError, match="numpy arrays must have matching permutation"):
+    with pytest.raises(ValueError, match=r"obj\[1\] has permutation"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([f_arr, arr])
-    with pytest.raises(ValueError, match="numpy arrays must have matching ndim"):
+    with pytest.raises(ValueError, match=r"obj\[1\] has ndim"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((12, 1)), arr])
-    with pytest.raises(TypeError, match="numpy arrays must have matching dtype"):
+    with pytest.raises(TypeError, match=r"obj\[1\] has dtype"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([arr.astype(np.int32()), arr])
 
     from numpy.lib.stride_tricks import as_strided
@@ -1739,7 +1740,8 @@ def test_variable_shape_tensor_array_from_numpy(value_type):
     arr = flat_arr.reshape(1, 3, 4)
     tensor_array_from_numpy = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
     assert tensor_array_from_numpy.type.ndim == 3
-    assert tensor_array_from_numpy.type.permutation == [0, 1, 2]
+    assert tensor_array_from_numpy.type.permutation is None
+    assert tensor_array_from_numpy.type.uniform_shape == [1, 3, 4]
 
     arr = as_strided(flat_arr, shape=(1, 2, 3, 2),
                      strides=(bw * 12, bw * 6, bw, bw * 3))
@@ -1747,6 +1749,7 @@ def test_variable_shape_tensor_array_from_numpy(value_type):
     assert tensor_array_from_numpy.type.ndim == 4
     assert tensor_array_from_numpy.type.permutation == [0, 1, 3, 2]
     assert tensor_array_from_numpy[0].to_tensor() == pa.Tensor.from_numpy(arr)
+    assert tensor_array_from_numpy.type.uniform_shape == [1, 2, 2, 3]
 
     arr = flat_arr.reshape(1, 2, 3, 2)
     result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
@@ -1754,25 +1757,40 @@ def test_variable_shape_tensor_array_from_numpy(value_type):
         [[[[1, 2], [3, 4], [5, 6]], [[7, 8], [9, 10], [11, 12]]]], dtype=value_type)
     np.testing.assert_array_equal(result[0].to_numpy_ndarray(), expected)
 
-    arr = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12], dtype=value_type)
-    msg = "Cannot convert 1D array or scalar to variable"
-    with pytest.raises(ValueError, match=msg):
-        pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    arr = np.arange(24, dtype=value_type).reshape((2, 3, 4))
+    arr = np.transpose(arr, (2, 0, 1))
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert result.type.permutation == [1, 2, 0]
+    expected_tensor_view = np.transpose(arr, np.argsort(result.type.permutation))
+    tensor = result[0].to_tensor()
+    assert list(tensor.shape) == list(expected_tensor_view.shape)
+    result_ndarray = result[0].to_numpy_ndarray()
+    assert list(result_ndarray.shape) == list(expected_tensor_view.shape)
+
+    arr = np.array([1, 2, 3, 4], dtype=value_type)
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert result.type.ndim == 1
+    assert result.type.uniform_shape == [4]
+    np.testing.assert_array_equal(result[0].to_numpy_ndarray(), arr)
 
     arr = np.array(1, dtype=value_type)
-    with pytest.raises(ValueError, match=msg):
+    with pytest.raises(ValueError, match="Cannot convert scalar"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
 
-    arr = np.array([], dtype=value_type)
+    arr = np.array([], dtype=value_type).reshape((0))
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert result.type.ndim == 1
+    np.testing.assert_array_equal(result[0].to_numpy_ndarray(), arr)
 
-    with pytest.raises(ValueError, match=msg):
-        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((0))])
+    arr = np.array([], dtype=value_type).reshape((0, 3, 2))
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert result.type.ndim == 3
+    np.testing.assert_array_equal(result[0].to_numpy_ndarray(), arr)
 
-    with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
-        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((0, 3, 2))])
-
-    with pytest.raises(ValueError, match="Expected a non-empty ndarray"):
-        pa.VariableShapeTensorArray.from_numpy_ndarray([arr.reshape((3, 0, 2))])
+    arr = np.array([], dtype=value_type).reshape((3, 0, 2))
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
+    assert result.type.ndim == 3
+    np.testing.assert_array_equal(result[0].to_numpy_ndarray(), arr)
 
 
 @pytest.mark.numpy
@@ -1784,7 +1802,7 @@ def test_variable_shape_tensor_roundtrip_2d(dtype):
     arr = np.array([[1, 2, 3], [4, 5, 6], [7, 8, 9], [10, 11, 12]], dtype=dtype)
 
     result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
-    assert result.type.permutation == [0, 1]
+    assert result.type.permutation is None
     assert result.type.ndim == 2
 
     tensor = result[0].to_tensor()
@@ -1815,6 +1833,97 @@ def test_variable_shape_tensor_roundtrip_2d(dtype):
     expected_1 = np.array([[7], [8]], dtype=dtype)
     np.testing.assert_array_equal(ext_arr[0].to_numpy_ndarray(), expected_0)
     np.testing.assert_array_equal(ext_arr[1].to_numpy_ndarray(), expected_1)
+
+
+@pytest.mark.numpy
+def test_variable_shape_tensor_from_numpy_empty_input_schema():
+    arr = pa.VariableShapeTensorArray.from_numpy_ndarray(
+        [],
+        value_type=pa.int32(),
+        ndim=2,
+        dim_names=["H", "W"],
+        permutation=[1, 0],
+        uniform_shape=[None, None],
+    )
+    assert len(arr) == 0
+    assert arr.type.value_type == pa.int32()
+    assert arr.type.ndim == 2
+    assert arr.type.dim_names == ["H", "W"]
+    assert arr.type.permutation == [1, 0]
+    assert arr.type.uniform_shape == [None, None]
+
+    with pytest.raises(ValueError, match="both value_type and ndim must be provided"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([])
+
+
+@pytest.mark.numpy
+def test_variable_shape_tensor_from_numpy_validation():
+    arr = np.array([[1, 2], [3, 4]], dtype=np.int32)
+    result = pa.VariableShapeTensorArray.from_numpy_ndarray((arr,))
+    assert result.type.ndim == 2
+
+    with pytest.raises(TypeError, match="obj must be a sequence of numpy arrays"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray(arr)
+
+    with pytest.raises(TypeError, match=r"obj\[1\] must be a numpy.ndarray"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr, [1, 2]])
+
+    with pytest.raises(ValueError, match="permutation must contain each dimension index"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr], permutation=[0, 0])
+
+    with pytest.raises(ValueError, match=r"obj\[0\] has permutation"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr], permutation=[1, 0])
+
+    with pytest.raises(ValueError, match=r"uniform_shape\[0\]=3"):
+        pa.VariableShapeTensorArray.from_numpy_ndarray([arr], uniform_shape=[3, None])
+
+
+@pytest.mark.numpy
+def test_variable_shape_tensor_row_split_adapters():
+    values = pa.array([1, 2, 3, 4, 5, 6, 7, 8], pa.int32())
+    row_splits = pa.array([0, 6, 8], pa.int32())
+    shapes = pa.array([[2, 3], [2, 1]], pa.list_(pa.int32(), 2))
+
+    arr = pa.VariableShapeTensorArray.from_row_splits(
+        values, row_splits, shapes, dim_names=["H", "W"])
+    arr2 = pa.VariableShapeTensorArray.from_offsets(
+        values, row_splits, shapes, dim_names=["H", "W"])
+
+    assert arr.equals(arr2)
+    assert arr.type.dim_names == ["H", "W"]
+    assert arr.type.uniform_shape == [2, None]
+    assert arr.to_row_splits().to_pylist() == [0, 6, 8]
+    assert arr.to_offsets().to_pylist() == [0, 6, 8]
+    assert arr[1:].to_row_splits().to_pylist() == [0, 2]
+
+    ndarray_list = arr.to_numpy_ndarray_list()
+    np.testing.assert_array_equal(
+        ndarray_list[0], np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int32))
+    np.testing.assert_array_equal(
+        ndarray_list[1], np.array([[7], [8]], dtype=np.int32))
+
+
+@pytest.mark.numpy
+def test_variable_shape_tensor_metadata_roundtrip_from_numpy():
+    ndarray_list = [
+        np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
+        np.array([[7], [8]], dtype=np.int32),
+    ]
+    arr = pa.VariableShapeTensorArray.from_numpy_ndarray(
+        ndarray_list, dim_names=["H", "W"])
+    batch = pa.RecordBatch.from_arrays([arr], ["ext"])
+
+    buf = ipc_write_batch(batch)
+    batch = ipc_read_batch(buf)
+    result = batch.column(0)
+
+    assert isinstance(result, pa.VariableShapeTensorArray)
+    assert result.type.dim_names == ["H", "W"]
+    assert result.type.permutation is None
+    assert result.type.uniform_shape == [2, None]
+    out_list = result.to_numpy_ndarray_list()
+    np.testing.assert_array_equal(out_list[0], ndarray_list[0])
+    np.testing.assert_array_equal(out_list[1], ndarray_list[1])
 
 
 @pytest.mark.parametrize("tensor_type", (
