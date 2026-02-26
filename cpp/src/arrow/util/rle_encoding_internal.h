@@ -159,10 +159,11 @@ class BitPackedRun {
   constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
                          rle_size_t value_bit_width, rle_size_t max_read_bytes) noexcept
       : data_(data), values_count_(values_count), max_read_bytes_(max_read_bytes) {
-    ARROW_CHECK_GE(value_bit_width, 0);
-    ARROW_CHECK_GE(values_count_, 0);
-    ARROW_CHECK(max_read_bytes < 0 ||
-                bit_util::BytesForBits(value_bit_width * values_count) <= max_read_bytes);
+    ARROW_DCHECK_GE(value_bit_width, 0);
+    ARROW_DCHECK_GE(values_count_, 0);
+    ARROW_DCHECK(max_read_bytes < 0 ||
+                 bit_util::BytesForBits(value_bit_width * values_count) <=
+                     max_read_bytes);
   }
 
   constexpr rle_size_t values_count() const noexcept { return values_count_; }
@@ -172,7 +173,7 @@ class BitPackedRun {
   constexpr rle_size_t raw_data_size(rle_size_t value_bit_width) const noexcept {
     auto out = bit_util::BytesForBits(static_cast<int64_t>(value_bit_width) *
                                       static_cast<int64_t>(values_count_));
-    ARROW_CHECK_LE(out, std::numeric_limits<rle_size_t>::max());
+    ARROW_DCHECK_LE(out, std::numeric_limits<rle_size_t>::max());
     return static_cast<rle_size_t>(out);
   }
 

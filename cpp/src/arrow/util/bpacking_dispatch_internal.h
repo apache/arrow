@@ -98,6 +98,8 @@ using SpreadBufferUint = std::conditional_t<
 /// stop if it finds a byte aligned value start.
 template <int kPackedBitWidth, bool kIsProlog, typename Uint>
 int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
+  static_assert(kPackedBitWidth > 0);
+
   // For the epilog we adapt the max spread since better alignment give shorter spreads
   ARROW_DCHECK(kIsProlog || bit_offset == 0);
   ARROW_DCHECK(bit_offset >= 0 && bit_offset < 8);
@@ -121,6 +123,7 @@ int unpack_exact(const uint8_t* in, Uint* out, int batch_size, int bit_offset) {
   while ((start_bit < start_bit_term) && (!kIsProlog || (start_bit % 8 != 0))) {
     const int start_byte = start_bit / 8;
     const int spread_bytes = ((start_bit + kPackedBitWidth - 1) / 8) - start_byte + 1;
+    ARROW_DCHECK_LE(spread_bytes, kMaxSpreadBytes);
     ARROW_COMPILER_ASSUME(spread_bytes <= kMaxSpreadBytes);
 
     // Reading the bytes for the current value.
