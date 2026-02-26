@@ -17,15 +17,24 @@
 module ArrowFormat
   class Schema
     attr_reader :fields
-    def initialize(fields)
+    attr_reader :metadata
+    def initialize(fields, metadata: nil)
       @fields = fields
+      @metadata = metadata
     end
 
     def to_flatbuffers
       fb_schema = FB::Schema::Data.new
       fb_schema.endianness = FB::Endianness::LITTLE
       fb_schema.fields = fields.collect(&:to_flatbuffers)
-      # fb_schema.custom_metadata = @custom_metadata
+      if @metadata
+        fb_schema.custom_metadata = @metadata.collect do |key, value|
+          fb_key_value = FB::KeyValue::Data.new
+          fb_key_value.key = key
+          fb_key_value.value = value
+          fb_key_value
+        end
+      end
       # fb_schema.features = @features
       fb_schema
     end

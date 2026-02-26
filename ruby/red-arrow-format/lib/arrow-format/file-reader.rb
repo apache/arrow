@@ -47,7 +47,7 @@ module ArrowFormat
 
       validate
       @footer = read_footer
-      @record_batch_blocks = @footer.record_batches
+      @record_batch_blocks = @footer.record_batches || []
       @schema = read_schema(@footer.schema)
       @dictionaries = read_dictionaries
     end
@@ -193,7 +193,7 @@ module ArrowFormat
         end
 
         value_type = dictionary_fields[id].type.value_type
-        schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+        schema = Schema.new([Field.new("dummy", value_type)])
         record_batch = read_record_batch(fb_header.data, schema, body)
         if fb_header.delta?
           dictionaries[id] << record_batch.columns[0]
