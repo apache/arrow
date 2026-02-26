@@ -22,6 +22,7 @@
 #include <cstring>
 #include <memory>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <unordered_map>
@@ -1236,9 +1237,15 @@ Result<std::unique_ptr<Message>> ReadMessageFromBlock(
     const FileBlock& block, io::RandomAccessFile* file,
     const FieldsLoaderFunction& fields_loader) {
   RETURN_NOT_OK(CheckAligned(block));
-  ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
-                                                  file, fields_loader));
-  return CheckBodyLength(std::move(message), block);
+  if (fields_loader) {
+    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
+                                                    file, fields_loader));
+    return CheckBodyLength(std::move(message), block);
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto message, ReadMessage(block.offset, block.metadata_length,
+                                                    block.body_length, file));
+    return CheckBodyLength(std::move(message), block);
+  }
 }
 
 Future<std::shared_ptr<Message>> ReadMessageFromBlockAsync(
@@ -1858,26 +1865,28 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
   }
 
   Future<> ReadFooterAsync(arrow::internal::Executor* executor) {
-    const int32_t magic_size = static_cast<int>(strlen(kArrowMagicBytes));
+    constexpr int32_t kMagicSize = static_cast<int>(kArrowMagicBytes.size());
 
-    if (footer_offset_ <= magic_size * 2 + 4) {
+    if (footer_offset_ <= kMagicSize * 2 + 4) {
       return Status::Invalid("File is too small: ", footer_offset_);
     }
 
-    int file_end_size = static_cast<int>(magic_size + sizeof(int32_t));
+    int file_end_size = static_cast<int>(kMagicSize + sizeof(int32_t));
     auto self = std::dynamic_pointer_cast<RecordBatchFileReaderImpl>(shared_from_this());
     auto read_magic = file_->ReadAsync(footer_offset_ - file_end_size, file_end_size);
     if (executor) read_magic = executor->Transfer(std::move(read_magic));
     return read_magic
         .Then([=](const std::shared_ptr<Buffer>& buffer)
                   -> Future<std::shared_ptr<Buffer>> {
-          const int64_t expected_footer_size = magic_size + sizeof(int32_t);
+          const int64_t expected_footer_size = kMagicSize + sizeof(int32_t);
           if (buffer->size() < expected_footer_size) {
             return Status::Invalid("Unable to read ", expected_footer_size,
                                    "from end of file");
           }
 
-          if (memcmp(buffer->data() + sizeof(int32_t), kArrowMagicBytes, magic_size)) {
+          const auto magic_start = buffer->data() + sizeof(int32_t);
+          if (std::string_view(reinterpret_cast<const char*>(magic_start), kMagicSize) !=
+              kArrowMagicBytes) {
             return Status::Invalid("Not an Arrow file");
           }
 
@@ -1885,7 +1894,7 @@ class RecordBatchFileReaderImpl : public RecordBatchFileReader {
               *reinterpret_cast<const int32_t*>(buffer->data()));
 
           if (footer_length <= 0 ||
-              footer_length > self->footer_offset_ - magic_size * 2 - 4) {
+              footer_length > self->footer_offset_ - kMagicSize * 2 - 4) {
             return Status::Invalid("File is smaller than indicated metadata size");
           }
 
@@ -2683,6 +2692,28 @@ Status ValidateFuzzBatch(const RecordBatchWithMetadata& batch) {
   return Status::OK();
 }
 
+Status CompareFuzzBatches(const RecordBatchWithMetadata& left,
+                          const RecordBatchWithMetadata& right) {
+  bool ok = true;
+  if ((left.batch != nullptr) != (right.batch != nullptr)) {
+    ok = false;
+  } else if (left.batch) {
+    ok &= left.batch->Equals(*right.batch, EqualOptions{}.nans_equal(true));
+  }
+  return ok ? Status::OK() : Status::Invalid("Batches unequal");
+}
+
+Status CompareFuzzBatches(const std::vector<RecordBatchWithMetadata>& left,
+                          const std::vector<RecordBatchWithMetadata>& right) {
+  if (left.size() != right.size()) {
+    return Status::Invalid("Not the same number of batches");
+  }
+  for (size_t i = 0; i < left.size(); ++i) {
+    RETURN_NOT_OK(CompareFuzzBatches(left[i], right[i]));
+  }
+  return Status::OK();
+}
+
 IpcReadOptions FuzzingOptions() {
   IpcReadOptions options;
   options.memory_pool = ::arrow::internal::fuzzing_memory_pool();
@@ -2717,7 +2748,29 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
 
   Status final_status;
 
-  auto do_read = [&](bool pre_buffer) {
+  // Try to read the IPC file as a stream to compare the results (differential fuzzing)
+  auto do_stream_read = [&]() -> Result<std::vector<RecordBatchWithMetadata>> {
+    io::BufferReader buffer_reader(buffer);
+    // Skip magic bytes at the beginning
+    RETURN_NOT_OK(
+        buffer_reader.Advance(bit_util::RoundUpToMultipleOf8(kArrowMagicBytes.length())));
+    ARROW_ASSIGN_OR_RAISE(auto batch_reader, RecordBatchStreamReader::Open(
+                                                 &buffer_reader, FuzzingOptions()));
+
+    std::vector<RecordBatchWithMetadata> batches;
+    while (true) {
+      ARROW_ASSIGN_OR_RAISE(auto batch, batch_reader->ReadNext());
+      if (!batch.batch && !batch.custom_metadata) {
+        // EOS
+        break;
+      }
+      batches.push_back(batch);
+    }
+    return batches;
+  };
+
+  auto do_file_read =
+      [&](bool pre_buffer) -> Result<std::vector<RecordBatchWithMetadata>> {
     io::BufferReader buffer_reader(buffer);
     ARROW_ASSIGN_OR_RAISE(auto batch_reader,
                           RecordBatchFileReader::Open(&buffer_reader, FuzzingOptions()));
@@ -2727,20 +2780,43 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
     }
 
     const int n_batches = batch_reader->num_record_batches();
+    std::vector<RecordBatchWithMetadata> batches;
+    // Delay error return until the end, as we want to access all record batches
+    Status st;
     for (int i = 0; i < n_batches; ++i) {
       RecordBatchWithMetadata batch;
-      auto st = batch_reader->ReadRecordBatchWithCustomMetadata(i).Value(&batch);
-      final_status &= st;
-      if (!st.ok()) {
-        continue;
-      }
-      final_status &= ValidateFuzzBatch(batch);
+      st &= batch_reader->ReadRecordBatchWithCustomMetadata(i).Value(&batch);
+      st &= ValidateFuzzBatch(batch);
+      batches.push_back(batch);
     }
-    return Status::OK();
+    RETURN_NOT_OK(st);
+    return batches;
   };
 
+  // Lazily-initialized if the IPC reader succeeds
+  std::optional<Result<std::vector<RecordBatchWithMetadata>>> maybe_stream_batches;
+
   for (const bool pre_buffer : {false, true}) {
-    final_status &= do_read(pre_buffer);
+    auto maybe_file_batches = do_file_read(pre_buffer);
+    final_status &= maybe_file_batches.status();
+    if (maybe_file_batches.ok()) {
+      // IPC file read successful: differential fuzzing with IPC stream reader,
+      // if possible.
+      // NOTE: some valid IPC files may not be readable as IPC streams,
+      // for example because of excess spacing between IPC messages.
+      // A regular IPC file writer would not produce them, but fuzzing might.
+      if (!maybe_stream_batches.has_value()) {
+        maybe_stream_batches = do_stream_read();
+        final_status &= maybe_stream_batches->status();
+      }
+      if (maybe_stream_batches->ok()) {
+        // XXX: in some rare cases, an IPC file might read unequal to the enclosed
+        // IPC stream, for example if the footer skips some batches or orders the
+        // batches differently. We should revisit this if the fuzzer generates such
+        // files.
+        ARROW_CHECK_OK(CompareFuzzBatches(*maybe_file_batches, **maybe_stream_batches));
+      }
+    }
   }
 
   return final_status;

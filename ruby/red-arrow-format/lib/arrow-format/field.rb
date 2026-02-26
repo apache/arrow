@@ -19,11 +19,17 @@ module ArrowFormat
     attr_reader :name
     attr_reader :type
     attr_reader :dictionary_id
-    def initialize(name, type, nullable, dictionary_id)
+    attr_reader :metadata
+    def initialize(name,
+                   type,
+                   nullable: true,
+                   dictionary_id: nil,
+                   metadata: nil)
       @name = name
       @type = type
       @nullable = nullable
       @dictionary_id = dictionary_id
+      @metadata = metadata
     end
 
     def nullable?
@@ -44,7 +50,14 @@ module ArrowFormat
       elsif @type.respond_to?(:children)
         fb_field.children = @type.children.collect(&:to_flatbuffers)
       end
-      # fb_field.custom_metadata = @custom_metadata
+      if @metadata
+        fb_field.custom_metadata = @metadata.collect do |key, value|
+          fb_key_value = FB::KeyValue::Data.new
+          fb_key_value.key = key
+          fb_key_value.value = value
+          fb_key_value
+        end
+      end
       fb_field
     end
   end

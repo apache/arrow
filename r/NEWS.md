@@ -21,6 +21,11 @@
 
 # arrow 23.0.1
 
+## Minor improvements and fixes
+
+- Fix C++20 compatibility issue on macOS (#49221).
+- Turn off GCS support by default on macOS; see `vignette("install", package = "arrow")` for details on enabling it (#49068, #48995).
+
 # arrow 23.0.0
 
 ## New features

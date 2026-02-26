@@ -79,3 +79,12 @@
   - any-glob-to-any-file:
     - .github/workflows/cpp_extra.yml
     - cpp/src/arrow/flight/sql/odbc/**/*
+
+"CI: Extra: Package: Linux":
+- changed-files:
+  - any-glob-to-any-file:
+    - .github/workflows/package_linux.yml
+    - dev/release/binary-task.rb
+    - dev/release/verify-apt.sh
+    - dev/release/verify-yum.sh
+    - dev/tasks/linux-packages/**/*

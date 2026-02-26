@@ -42,6 +42,7 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        cargo \
         ccache \
         clang-${llvm} \
         cmake \
@@ -86,6 +87,7 @@ RUN apt-get update -y -q && \
         python3-venv \
         rapidjson-dev \
         rsync \
+        rustc \
         tzdata \
         tzdata-legacy \
         zlib1g-dev && \

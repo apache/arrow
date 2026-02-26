@@ -18,27 +18,28 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
-#include "arrow/status.h"
-#include "arrow/util/print_internal.h"
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
 
 namespace arrow::internal {
 
-inline Status IsPermutationValid(const std::vector<int64_t>& permutation) {
-  const auto size = static_cast<int64_t>(permutation.size());
-  std::vector<uint8_t> dim_seen(size, 0);
+ARROW_EXPORT
+bool IsPermutationTrivial(std::span<const int64_t> permutation);
 
-  for (const auto p : permutation) {
-    if (p < 0 || p >= size || dim_seen[p] != 0) {
-      return Status::Invalid(
-          "Permutation indices for ", size,
-          " dimensional tensors must be unique and within [0, ", size - 1,
-          "] range. Got: ", ::arrow::internal::PrintVector{permutation, ","});
-    }
-    dim_seen[p] = 1;
-  }
-  return Status::OK();
-}
+ARROW_EXPORT
+Status IsPermutationValid(std::span<const int64_t> permutation);
+
+ARROW_EXPORT
+Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                                            std::span<const int64_t> shape,
+                                            std::span<const int64_t> permutation);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> SliceTensorBuffer(const Array& data_array,
+                                                  const DataType& value_type,
+                                                  std::span<const int64_t> shape);
 
 }  // namespace arrow::internal

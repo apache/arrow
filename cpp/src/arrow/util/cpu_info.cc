@@ -184,17 +184,19 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
   }
 
   bool zmm_enabled = false;
+  bool ymm_enabled = false;
   if (features_ECX[27]) {  // OSXSAVE
-    // Query if the OS supports saving ZMM registers when switching contexts
+    // Query if the OS supports saving YMM and ZMM registers when switching contexts
     int64_t xcr0 = _xgetbv(0);
     zmm_enabled = (xcr0 & 0xE0) == 0xE0;
+    ymm_enabled = (xcr0 & 0b110) == 0b110;
   }
 
   if (features_ECX[9]) *hardware_flags |= CpuInfo::SSSE3;
   if (features_ECX[19]) *hardware_flags |= CpuInfo::SSE4_1;
   if (features_ECX[20]) *hardware_flags |= CpuInfo::SSE4_2;
   if (features_ECX[23]) *hardware_flags |= CpuInfo::POPCNT;
-  if (features_ECX[28]) *hardware_flags |= CpuInfo::AVX;
+  if (ymm_enabled && features_ECX[28]) *hardware_flags |= CpuInfo::AVX;
 
   // cpuid with EAX=7, ECX=0: Extended Features
   register_EAX_id = 7;
@@ -203,10 +205,11 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
     std::bitset<32> features_EBX = cpu_info[1];
 
     if (features_EBX[3]) *hardware_flags |= CpuInfo::BMI1;
-    if (features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
     if (features_EBX[8]) *hardware_flags |= CpuInfo::BMI2;
+    // Only use AVX/AVX2 if enabled by the OS
+    if (ymm_enabled && features_EBX[5]) *hardware_flags |= CpuInfo::AVX2;
     // ARROW-11427: only use AVX512 if enabled by the OS
-    if (zmm_enabled) {
+    if (ymm_enabled && zmm_enabled) {
       if (features_EBX[16]) *hardware_flags |= CpuInfo::AVX512F;
       if (features_EBX[17]) *hardware_flags |= CpuInfo::AVX512DQ;
       if (features_EBX[28]) *hardware_flags |= CpuInfo::AVX512CD;

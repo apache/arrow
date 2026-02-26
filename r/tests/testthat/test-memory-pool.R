@@ -22,5 +22,5 @@ test_that("default_memory_pool and its attributes", {
   expect_type(pool$max_memory, "double")
   expect_true(pool$backend_name %in% c("system", "jemalloc", "mimalloc"))
 
-  expect_true(all(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc")))
+  expect_all_true(supported_memory_backends() %in% c("system", "jemalloc", "mimalloc"))
 })

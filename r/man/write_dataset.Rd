@@ -18,6 +18,7 @@ write_dataset(
   min_rows_per_group = 0L,
   max_rows_per_group = bitwShiftL(1, 20),
   create_directory = TRUE,
+  preserve_order = FALSE,
   ...
 )
 }
@@ -85,7 +86,9 @@ greater than \code{min_rows_per_group}. Default is 1024 * 1024.}
 \item{create_directory}{whether to create the directories written into.
 Requires appropriate permissions on the storage backend. If set to FALSE,
 directories are assumed to be already present if writing on a classic
-hierarchical filesystem. Default is TRUE}
+hierarchical filesystem. Default is TRUE.}
+
+\item{preserve_order}{Preserve the order of the rows.}
 
 \item{...}{additional format-specific arguments. For available Parquet
 options, see \code{\link[=write_parquet]{write_parquet()}}. The available Feather options are:
