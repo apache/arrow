@@ -126,10 +126,12 @@ class PARQUET_EXPORT EncodedStatistics {
   EncodedStatistics() = default;
 
   std::optional<std::string> max_, min_;
+  std::optional<int64_t> null_count;
+  std::optional<int64_t> distinct_count;
 
-  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead")
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead.")
   const std::string& max() const { return max_.value(); }
-  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Min() instead")
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Min() instead.")
   const std::string& min() const { return min_.value(); }
 
   std::optional<std::string> Max() const { return max_; }
@@ -142,9 +144,6 @@ class PARQUET_EXPORT EncodedStatistics {
 
   std::optional<bool> is_max_value_exact;
   std::optional<bool> is_min_value_exact;
-
-  std::optional<int64_t> null_count;
-  std::optional<int64_t> distinct_count;
 
   bool HasNullCount() const { return null_count.has_value(); }
   bool HasDistinctCount() const { return distinct_count.has_value(); }
@@ -242,6 +241,27 @@ class PARQUET_EXPORT Statistics {
   /// \param[in] num_values total number of values
   /// \param[in] null_count number of null values
   /// \param[in] distinct_count number of distinct values
+  /// \param[in] has_min_max whether the min/max statistics are set
+  /// \param[in] has_null_count whether the null_count statistics are set
+  /// \param[in] has_distinct_count whether the distinct_count statistics are set
+  /// \param[in] pool a memory pool to use for any memory allocations, optional
+  /// \deprecated Deprecated in 24.0.0. Use std::optional version instead.
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use std::optional version instead.")
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr, const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values, int64_t null_count,
+      int64_t distinct_count, bool has_min_max, bool has_null_count,
+      bool has_distinct_count,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  /// \brief Create a new statistics instance given a column schema
+  /// definition and preexisting state
+  /// \param[in] descr the column schema
+  /// \param[in] encoded_min the encoded minimum value
+  /// \param[in] encoded_max the encoded maximum value
+  /// \param[in] num_values total number of values
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
   /// \param[in] is_min_value_exact whether the min value is exact
   /// \param[in] is_max_value_exact whether the max value is exact
   /// \param[in] pool a memory pool to use for any memory allocations, optional
@@ -250,6 +270,30 @@ class PARQUET_EXPORT Statistics {
       std::optional<std::string_view> encoded_max, int64_t num_values,
       std::optional<int64_t> null_count, std::optional<int64_t> distinct_count,
       std::optional<bool> is_min_value_exact, std::optional<bool> is_max_value_exact,
+      ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
+
+  /// \brief Create a new statistics instance given a column schema
+  /// definition and preexisting state
+  /// \param[in] descr the column schema
+  /// \param[in] encoded_min the encoded minimum value
+  /// \param[in] encoded_max the encoded maximum value
+  /// \param[in] num_values total number of values
+  /// \param[in] null_count number of null values
+  /// \param[in] distinct_count number of distinct values
+  /// \param[in] has_min_max whether the min/max statistics are set
+  /// \param[in] has_null_count whether the null_count statistics are set
+  /// \param[in] has_distinct_count whether the distinct_count statistics are set
+  /// \param[in] is_min_value_exact whether the min value is exact
+  /// \param[in] is_max_value_exact whether the max value is exact
+  /// \param[in] pool a memory pool to use for any memory allocations, optional
+  /// \deprecated Deprecated in 24.0.0. Use std::optional version instead.
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use std::optional version instead.")
+  static std::shared_ptr<Statistics> Make(
+      const ColumnDescriptor* descr, const std::string& encoded_min,
+      const std::string& encoded_max, int64_t num_values, int64_t null_count,
+      int64_t distinct_count, bool has_min_max, bool has_null_count,
+      bool has_distinct_count, std::optional<bool> is_min_value_exact,
+      std::optional<bool> is_max_value_exact,
       ::arrow::MemoryPool* pool = ::arrow::default_memory_pool());
 
   // Helper function to convert EncodedStatistics to Statistics.
@@ -264,7 +308,7 @@ class PARQUET_EXPORT Statistics {
   virtual bool HasNullCount() const = 0;
 
   /// \brief The number of null values, may not be set
-  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use NullCount() instead")
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use NullCount() instead.")
   virtual int64_t null_count() const = 0;
 
   /// \brief The number of null values, may not be set
@@ -274,7 +318,7 @@ class PARQUET_EXPORT Statistics {
   virtual bool HasDistinctCount() const = 0;
 
   /// \brief The number of distinct values, may not be set
-  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use DistinctCount() instead")
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use DistinctCount() instead.")
   virtual int64_t distinct_count() const = 0;
 
   /// \brief The number of distinct values, may not be set
@@ -335,14 +379,14 @@ class TypedStatistics : public Statistics {
   using T = typename DType::c_type;
 
   /// \brief The current minimum value
-  PARQUET_DEPRECATED("Use Min() instead")
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Min() instead.")
   virtual const T& min() const = 0;
 
   /// \brief The current minimum value
   virtual std::optional<T> Min() const = 0;
 
   /// \brief The current maximum value
-  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead")
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead.")
   virtual const T& max() const = 0;
 
   /// \brief The current maximum value
@@ -440,6 +484,20 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
 
 /// \brief Typed version of Statistics::Make
 template <typename DType>
+PARQUET_DEPRECATED("Deprecated in 24.0.0. Use std::optional version instead.")
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(Statistics::Make(
+      descr, encoded_min, encoded_max, num_values, null_count, distinct_count,
+      has_min_max, has_null_count, has_distinct_count,
+      /*is_min_value_exact=*/std::nullopt, /*is_max_value_exact=*/std::nullopt, pool));
+}
+
+/// \brief Typed version of Statistics::Make
+template <typename DType>
 std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
     const ColumnDescriptor* descr, std::optional<std::string_view> encoded_min,
     std::optional<std::string_view> encoded_max, int64_t num_values,
@@ -450,4 +508,21 @@ std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
       Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
                        distinct_count, is_min_value_exact, is_max_value_exact, pool));
 }
+
+/// \brief Typed version of Statistics::Make
+template <typename DType>
+PARQUET_DEPRECATED("Deprecated in 24.0.0. Use std::optional version instead.")
+std::shared_ptr<TypedStatistics<DType>> MakeStatistics(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact,
+    ::arrow::MemoryPool* pool = ::arrow::default_memory_pool()) {
+  return std::static_pointer_cast<TypedStatistics<DType>>(
+      Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                       distinct_count, has_min_max, has_null_count, has_distinct_count,
+                       is_min_value_exact, is_max_value_exact, pool));
+}
+
 }  // namespace parquet

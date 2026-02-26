@@ -755,7 +755,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       auto encoded_stats1 = statistics1->Encode();
       EXPECT_TRUE(statistics1->HasNullCount());
       EXPECT_EQ(0, statistics1->NullCount());
-      EXPECT_TRUE(statistics1->Encode().null_count.has_value());
+      EXPECT_TRUE(statistics1->Encode().HasNullCount());
     }
     // Merge with null-count should also have null count
     VerifyMergedStatistics(*statistics1, *statistics1,

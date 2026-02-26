@@ -1104,6 +1104,19 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
 }
 
 std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
+                                             const std::string& encoded_min,
+                                             const std::string& encoded_max,
+                                             int64_t num_values, int64_t null_count,
+                                             int64_t distinct_count, bool has_min_max,
+                                             bool has_null_count, bool has_distinct_count,
+                                             ::arrow::MemoryPool* pool) {
+  return Statistics::Make(descr, encoded_min, encoded_max, num_values, null_count,
+                          distinct_count, has_min_max, has_null_count, has_distinct_count,
+                          /*is_min_value_exact=*/std::nullopt,
+                          /*is_max_value_exact=*/std::nullopt, pool);
+}
+
+std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                                              std::optional<std::string_view> encoded_min,
                                              std::optional<std::string_view> encoded_max,
                                              int64_t num_values,
@@ -1114,6 +1127,30 @@ std::shared_ptr<Statistics> Statistics::Make(const ColumnDescriptor* descr,
                           distinct_count,
                           /*is_min_value_exact=*/std::nullopt,
                           /*is_max_value_exact=*/std::nullopt, pool);
+}
+
+std::shared_ptr<Statistics> Statistics::Make(
+    const ColumnDescriptor* descr, const std::string& encoded_min,
+    const std::string& encoded_max, int64_t num_values, int64_t null_count,
+    int64_t distinct_count, bool has_min_max, bool has_null_count,
+    bool has_distinct_count, std::optional<bool> is_min_value_exact,
+    std::optional<bool> is_max_value_exact, ::arrow::MemoryPool* pool) {
+  std::optional<std::string_view> min = std::nullopt;
+  std::optional<std::string_view> max = std::nullopt;
+  if (has_min_max) {
+    min = encoded_min;
+    max = encoded_max;
+  }
+  std::optional<int64_t> null_cnt = std::nullopt;
+  if (has_null_count) {
+    null_cnt = null_count;
+  }
+  std::optional<int64_t> distinct_cnt = std::nullopt;
+  if (has_distinct_count) {
+    distinct_cnt = distinct_count;
+  }
+  return Statistics::Make(descr, min, max, num_values, null_cnt, distinct_cnt,
+                          is_min_value_exact, is_max_value_exact, pool);
 }
 
 std::shared_ptr<Statistics> Statistics::Make(

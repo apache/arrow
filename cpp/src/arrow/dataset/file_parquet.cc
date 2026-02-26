@@ -370,7 +370,7 @@ std::optional<compute::Expression> ParquetFileFragment::EvaluateStatisticsAsExpr
     const parquet::Statistics& statistics) {
   auto field_expr = compute::field_ref(field_ref);
 
-  bool may_have_null = !statistics.HasNullCount() || statistics.NullCount() > 0;
+  bool may_have_null = !statistics.HasNullCount() || statistics.NullCount().value() > 0;
   // Optimize for corner case where all values are nulls
   if (statistics.num_values() == 0) {
     // If there are no non-null values, column `field_ref` in the fragment
