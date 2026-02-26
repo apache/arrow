@@ -22,16 +22,19 @@ ARG arch
 ARG arch_short
 
 # Install basic dependencies
-RUN dnf install -y \
-    autoconf \
-    curl \
-    flex \
-    gdb \
-    git \
-    perl-IPC-Cmd \
-    perl-Time-Piece \
-    wget \
-    zip
+RUN dnf module enable -y llvm-toolset && \
+    dnf install -y \
+      autoconf \
+      curl \
+      flex \
+      gdb \
+      git \
+      llvm-devel \
+      llvm-toolset \
+      perl-IPC-Cmd \
+      perl-Time-Piece \
+      wget \
+      zip
 
 # A system Python is required for Ninja and vcpkg in this Dockerfile.
 # On manylinux_2_28 base images, no system Python is installed.
@@ -96,7 +99,9 @@ RUN --mount=type=secret,id=github_repository_owner \
         --x-feature=azure \
         --x-feature=dev \
         --x-feature=flight \
-        --x-feature=gandiva \
+        # We can't use LLVM installed by vcpkg with gcc-toolset because
+        # LLVM installed by vcpkg doesn't use libc++ installed by gcc-toolset.
+        # --x-feature=gandiva \
         --x-feature=gcs \
         --x-feature=json \
         --x-feature=orc \
