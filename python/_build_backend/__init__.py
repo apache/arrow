@@ -36,7 +36,6 @@ from contextlib import contextmanager
 import os
 from pathlib import Path
 import shutil
-import sys
 
 from scikit_build_core.build import *  # noqa: F401,F403
 from scikit_build_core.build import build_sdist as scikit_build_sdist
@@ -47,31 +46,20 @@ PYTHON_DIR = Path(__file__).resolve().parent.parent
 
 @contextmanager
 def prepare_licenses():
-    # Temporarily replace symlinks with hardlinks so sdist gets real content.
-    # On Windows we just copy the files since hardlinks might not be supported.
+    # Temporarily copy the files so they are included on sdist.
     for name in LICENSE_FILES:
         parent_license = PYTHON_DIR.parent / name
         pyarrow_license = PYTHON_DIR / name
-        if sys.platform == "win32":
-            # For Windows copy the files.
-            pyarrow_license.unlink(missing_ok=True)
-            shutil.copy2(parent_license, pyarrow_license)
-        else:
-            # For Unix-like systems we replace the symlink with
-            # a hardlink to avoid copying the file content.
-            if pyarrow_license.is_symlink():
-                target = pyarrow_license.resolve()
-                pyarrow_license.unlink()
-                os.link(target, pyarrow_license)
+        pyarrow_license.unlink(missing_ok=True)
+        shutil.copy2(parent_license, pyarrow_license)
     try:
         yield
     finally:
-        if sys.platform != "win32":
-            # Copy back the original symlinks so git status is clean.
-            for name in LICENSE_FILES:
-                filepath = PYTHON_DIR / name
-                filepath.unlink()
-                os.symlink(f"../{name}", filepath)
+        # Copy back the original symlinks so git status is clean.
+        for name in LICENSE_FILES:
+            filepath = PYTHON_DIR / name
+            os.unlink(filepath)
+            os.symlink(f"../{name}", filepath)
 
 
 def build_sdist(sdist_directory, config_settings=None):
