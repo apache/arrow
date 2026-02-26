@@ -368,7 +368,7 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
     ASSERT_TRUE(statistics->HasNullCount());
     ASSERT_FALSE(statistics->HasMinMax());
     ASSERT_FALSE(statistics->HasDistinctCount());
-    ASSERT_EQ(std::make_optional(0), statistics->NullCount());
+    ASSERT_EQ(0, statistics->NullCount());
     ASSERT_EQ(0, statistics->num_values());
     ASSERT_EQ(std::nullopt, statistics->DistinctCount());
     ASSERT_EQ("", statistics->EncodeMin());
@@ -470,8 +470,8 @@ class TestStatistics : public PrimitiveTypedTest<TestType> {
 
     std::shared_ptr<EncodedStatistics> enc_stats = column_chunk->encoded_statistics();
     EXPECT_EQ(null_count, enc_stats->null_count);
-    EXPECT_TRUE(enc_stats->min_.has_value());
-    EXPECT_TRUE(enc_stats->max_.has_value());
+    EXPECT_TRUE(enc_stats->HasMin());
+    EXPECT_TRUE(enc_stats->HasMax());
     EXPECT_EQ(expected_stats->EncodeMin(), enc_stats->Min());
     EXPECT_EQ(expected_stats->EncodeMax(), enc_stats->Max());
     EXPECT_EQ(enc_stats->is_min_value_exact, std::make_optional(true));
@@ -567,12 +567,10 @@ void TestStatistics<ByteArrayType>::TestMinMaxEncode() {
             std::string(reinterpret_cast<const char*>(statistics1->Max()->ptr),
                         statistics1->Max()->len));
 
-  auto statistics2 = MakeStatistics<ByteArrayType>(this->schema_.Column(0), encoded_min,
-                                                   encoded_max, this->values_.size(),
-                                                   /*null_count=*/0,
-                                                   /*distinct_count=*/0,
-                                                   /*is_min_value_exact=*/true,
-                                                   /*is_max_value_exact=*/true);
+  auto statistics2 = MakeStatistics<ByteArrayType>(
+      this->schema_.Column(0), encoded_min, encoded_max, this->values_.size(),
+      /*null_count=*/0, /*distinct_count=*/0,
+      /*is_min_value_exact=*/true, /*is_max_value_exact=*/true);
 
   ASSERT_EQ(encoded_min, statistics2->EncodeMin());
   ASSERT_EQ(encoded_max, statistics2->EncodeMax());
@@ -655,8 +653,7 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
       statistics->Merge(*next_statistics);
     }
     EncodedStatistics final_statistics = statistics->Encode();
-    EXPECT_EQ(statistics->HasDistinctCount(),
-              final_statistics.HasDistinctCount());
+    EXPECT_EQ(statistics->HasDistinctCount(), final_statistics.HasDistinctCount());
     if (statistics->HasDistinctCount()) {
       EXPECT_EQ(statistics->DistinctCount(), final_statistics.distinct_count);
       return statistics->DistinctCount();
@@ -710,8 +707,8 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
                           /*null_count=*/this->values_.size());
       auto encoded_stats1 = statistics1->Encode();
       EXPECT_FALSE(statistics1->HasMinMax());
-      EXPECT_FALSE(encoded_stats1.min_.has_value());
-      EXPECT_FALSE(encoded_stats1.max_.has_value());
+      EXPECT_FALSE(encoded_stats1.HasMin());
+      EXPECT_FALSE(encoded_stats1.HasMax());
       EXPECT_EQ(encoded_stats1.is_max_value_exact, std::nullopt);
       EXPECT_EQ(encoded_stats1.is_min_value_exact, std::nullopt);
     }
@@ -780,11 +777,11 @@ class TestStatisticsHasFlag : public TestStatistics<TestType> {
     }
 
     // Merge without null-count should not have null count
-    VerifyMergedStatistics(
-        *statistics1, *statistics2, [](TypedStatistics<TestType>* merged_statistics) {
-          EXPECT_FALSE(merged_statistics->HasNullCount());
-          EXPECT_FALSE(merged_statistics->Encode().null_count.has_value());
-        });
+    VerifyMergedStatistics(*statistics1, *statistics2,
+                           [](TypedStatistics<TestType>* merged_statistics) {
+                             EXPECT_FALSE(merged_statistics->HasNullCount());
+                             EXPECT_FALSE(merged_statistics->Encode().HasNullCount());
+                           });
   }
 
   // statistics.all_null_value is used to build the page index.

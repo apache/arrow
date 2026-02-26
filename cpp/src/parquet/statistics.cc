@@ -645,6 +645,9 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       Copy(max, &max_.value(), max_buffer_.get());
       statistics_.is_min_value_exact = is_min_value_exact;
       statistics_.is_max_value_exact = is_max_value_exact;
+    } else {
+      min_ = std::nullopt;
+      max_ = std::nullopt;
     }
   }
 
@@ -882,13 +885,9 @@ inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
     const TypedStatisticsImpl<FLBAType>& other) const {
   uint32_t len = descr_->type_length();
   if (min_.has_value() != other.min_.has_value()) return false;
-  if (min_.has_value()) {
-    if (std::memcmp(min_.value().ptr, other.min_.value().ptr, len) != 0) return false;
-  }
+  if (min_.has_value() && std::memcmp(min_->ptr, other.min_->ptr, len) != 0) return false;
   if (max_.has_value() != other.max_.has_value()) return false;
-  if (max_.has_value()) {
-    if (std::memcmp(max_.value().ptr, other.max_.value().ptr, len) != 0) return false;
-  }
+  if (max_.has_value() && std::memcmp(max_->ptr, other.max_->ptr, len) != 0) return false;
   return true;
 }
 
