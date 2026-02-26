@@ -234,7 +234,8 @@ from pyarrow.lib import (null, bool_,
                          FixedSizeBinaryScalar, DictionaryScalar,
                          MapScalar, StructScalar, UnionScalar,
                          RunEndEncodedScalar, Bool8Scalar, ExtensionScalar,
-                         FixedShapeTensorScalar, JsonScalar, OpaqueScalar, UuidScalar)
+                         FixedShapeTensorScalar, JsonScalar, OpaqueScalar, UuidScalar,
+                         VariableShapeTensorScalar)
 
 # Buffers, allocation
 from pyarrow.lib import (DeviceAllocationType, Device, MemoryManager,

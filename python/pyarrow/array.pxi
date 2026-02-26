@@ -4974,7 +4974,8 @@ cdef class VariableShapeTensorArray(ExtensionArray):
             ]
           ]
         """
-        assert isinstance(obj, list), 'obj must be a list of numpy arrays'
+        if not isinstance(obj, list) or len(obj) == 0:
+            raise TypeError('obj must be a non-empty list of numpy arrays')
         numpy_type = obj[0].dtype
         arrow_type = from_numpy_dtype(numpy_type)
         ndim = obj[0].ndim
@@ -4982,19 +4983,19 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         permutation = permutations[0]
         shapes = [np.take(o.shape, permutation) for o in obj]
 
-        if not all([o.dtype == numpy_type for o in obj]):
+        if not all(o.dtype == numpy_type for o in obj):
             raise TypeError('All numpy arrays must have matching dtype.')
 
-        if not all([o.ndim == ndim for o in obj]):
+        if not all(o.ndim == ndim for o in obj):
             raise ValueError('All numpy arrays must have matching ndim.')
 
-        if not all([np.array_equal(p, permutation) for p in permutations]):
+        if not all(np.array_equal(p, permutation) for p in permutations):
             raise ValueError('All numpy arrays must have matching permutation.')
 
         for shape in shapes:
             if len(shape) < 2:
                 raise ValueError(
-                    "Cannot convert 1D array or scalar to fixed shape tensor array")
+                    "Cannot convert 1D array or scalar to variable shape tensor array")
             if np.prod(shape) == 0:
                 raise ValueError("Expected a non-empty ndarray")
 
@@ -5002,7 +5003,8 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         shapes = array(shapes, list_(int32(), list_size=ndim))
         struct_arr = StructArray.from_arrays([values, shapes], names=["data", "shape"])
 
-        return ExtensionArray.from_storage(variable_shape_tensor(arrow_type, ndim, permutation=permutation), struct_arr)
+        ext_type = variable_shape_tensor(arrow_type, ndim, permutation=permutation)
+        return ExtensionArray.from_storage(ext_type, struct_arr)
 
 
 cdef dict _array_classes = {

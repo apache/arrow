@@ -2075,7 +2075,7 @@ cdef class VariableShapeTensorType(BaseExtensionType):
 
     def __reduce__(self):
         return variable_shape_tensor, (self.value_type, self.ndim,
-                                       self.permutation, self.dim_names, self.uniform_shape)
+                                       self.dim_names, self.permutation, self.uniform_shape)
 
     def __arrow_ext_scalar_class__(self):
         return VariableShapeTensorScalar
@@ -5936,8 +5936,10 @@ def variable_shape_tensor(DataType value_type, ndim, dim_names=None, permutation
         vector[optional[int64_t]] c_uniform_shape
         shared_ptr[CDataType] c_tensor_ext_type
 
-    assert value_type is not None
-    assert ndim is not None
+    if value_type is None:
+        raise TypeError('value_type must not be None')
+    if ndim is None:
+        raise TypeError('ndim must not be None')
 
     c_ndim = ndim
 
