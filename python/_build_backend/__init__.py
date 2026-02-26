@@ -36,6 +36,7 @@ from contextlib import contextmanager
 import os
 from pathlib import Path
 import shutil
+import sys
 
 from scikit_build_core.build import *  # noqa: F401,F403
 from scikit_build_core.build import build_sdist as scikit_build_sdist
@@ -55,11 +56,12 @@ def prepare_licenses():
     try:
         yield
     finally:
-        # Copy back the original symlinks so git status is clean.
-        for name in LICENSE_FILES:
-            filepath = PYTHON_DIR / name
-            os.unlink(filepath)
-            os.symlink(f"../{name}", filepath)
+        if sys.platform != "win32":
+            # Copy back the original symlinks so git status is clean.
+            for name in LICENSE_FILES:
+                filepath = PYTHON_DIR / name
+                os.unlink(filepath)
+                os.symlink(f"../{name}", filepath)
 
 
 def build_sdist(sdist_directory, config_settings=None):
