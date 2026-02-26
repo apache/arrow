@@ -335,11 +335,11 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
       if (column_chunk->is_stats_set()) {
         stream << R"("True", "Stats": {)";
         if (stats->HasNullCount()) {
-          stream << R"("NumNulls": ")" << stats->null_count() << "\"";
+          stream << R"("NumNulls": ")" << stats->NullCount().value() << "\"";
         }
         if (stats->HasDistinctCount()) {
           stream << ", "
-                 << R"("DistinctValues": ")" << stats->distinct_count() << "\"";
+                 << R"("DistinctValues": ")" << stats->DistinctCount().value() << "\"";
         }
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();

@@ -127,14 +127,27 @@ class PARQUET_EXPORT EncodedStatistics {
 
   std::optional<std::string> max_, min_;
 
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead")
   const std::string& max() const { return max_.value(); }
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Min() instead")
   const std::string& min() const { return min_.value(); }
+
+  std::optional<std::string> Max() const { return max_; }
+  std::optional<std::string> Min() const { return min_; }
+  std::optional<int64_t> DistinctCount() const { return distinct_count; }
+  std::optional<int64_t> NullCount() const { return null_count; }
+
+  bool HasMax() const { return max_.has_value(); }
+  bool HasMin() const { return min_.has_value(); }
 
   std::optional<bool> is_max_value_exact;
   std::optional<bool> is_min_value_exact;
 
   std::optional<int64_t> null_count;
   std::optional<int64_t> distinct_count;
+
+  bool HasNullCount() const { return null_count.has_value(); }
+  bool HasDistinctCount() const { return distinct_count.has_value(); }
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
@@ -148,11 +161,11 @@ class PARQUET_EXPORT EncodedStatistics {
   // the true minimum for aggregations and there is no way to mark that a
   // value has been truncated and is a lower bound and not in the page.
   void ApplyStatSizeLimits(size_t length) {
-    if (max_.has_value() && max_->length() > length) {
+    if (HasMax() && max_->length() > length) {
       max_ = std::nullopt;
       is_max_value_exact = std::nullopt;
     }
-    if (min_.has_value() && min_->length() > length) {
+    if (HasMin() && min_->length() > length) {
       min_ = std::nullopt;
       is_min_value_exact = std::nullopt;
     }
@@ -165,8 +178,7 @@ class PARQUET_EXPORT EncodedStatistics {
   }
 
   bool is_set() const {
-    return min_.has_value() || max_.has_value() || null_count.has_value() ||
-           distinct_count.has_value();
+    return HasMin() || HasMax() || HasNullCount() || HasDistinctCount();
   }
 
   bool is_signed() const { return is_signed_; }
@@ -252,16 +264,30 @@ class PARQUET_EXPORT Statistics {
   virtual bool HasNullCount() const = 0;
 
   /// \brief The number of null values, may not be set
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use NullCount() instead")
   virtual int64_t null_count() const = 0;
+
+  /// \brief The number of null values, may not be set
+  virtual std::optional<int64_t> NullCount() const = 0;
 
   /// \brief Return true if the count of distinct values is set
   virtual bool HasDistinctCount() const = 0;
 
   /// \brief The number of distinct values, may not be set
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use DistinctCount() instead")
   virtual int64_t distinct_count() const = 0;
+
+  /// \brief The number of distinct values, may not be set
+  virtual std::optional<int64_t> DistinctCount() const = 0;
 
   /// \brief The number of non-null values in the column
   virtual int64_t num_values() const = 0;
+
+  /// \brief Return true if the minimum value statistic is set.
+  virtual bool HasMin() const = 0;
+
+  /// \brief Return true if the maximum value statistic is set.
+  virtual bool HasMax() const = 0;
 
   /// \brief Return true if both min and max statistics are set. Obtain
   /// with TypedStatistics<T>::min and max
@@ -309,10 +335,18 @@ class TypedStatistics : public Statistics {
   using T = typename DType::c_type;
 
   /// \brief The current minimum value
+  PARQUET_DEPRECATED("Use Min() instead")
   virtual const T& min() const = 0;
 
+  /// \brief The current minimum value
+  virtual std::optional<T> Min() const = 0;
+
   /// \brief The current maximum value
+  PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead")
   virtual const T& max() const = 0;
+
+  /// \brief The current maximum value
+  virtual std::optional<T> Max() const = 0;
 
   /// \brief Update state with state of another Statistics object
   virtual void Merge(const TypedStatistics<DType>& other) = 0;

@@ -511,11 +511,11 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       column_index_.null_pages.emplace_back(true);
       column_index_.min_values.emplace_back("");
       column_index_.max_values.emplace_back("");
-    } else if (stats.min_.has_value() && stats.max_.has_value()) {
+    } else if (stats.HasMin() && stats.HasMax()) {
       const size_t page_ordinal = column_index_.null_pages.size();
       non_null_page_indices_.emplace_back(page_ordinal);
-      column_index_.min_values.emplace_back(stats.min());
-      column_index_.max_values.emplace_back(stats.max());
+      column_index_.min_values.emplace_back(stats.Min().value());
+      column_index_.max_values.emplace_back(stats.Max().value());
       column_index_.null_pages.emplace_back(false);
     } else {
       /// This is a non-null page but it lacks of meaningful min/max values.
@@ -524,7 +524,7 @@ class ColumnIndexBuilderImpl final : public ColumnIndexBuilder {
       return;
     }
 
-    if (column_index_.__isset.null_counts && stats.null_count.has_value()) {
+    if (column_index_.__isset.null_counts && stats.HasNullCount()) {
       column_index_.null_counts.emplace_back(stats.null_count.value());
     } else {
       column_index_.__isset.null_counts = false;

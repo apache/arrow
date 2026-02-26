@@ -651,11 +651,18 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasDistinctCount() const override {
     return statistics_.distinct_count.has_value();
   };
-  bool HasMinMax() const override { return min_.has_value() && max_.has_value(); }
+  bool HasMin() const override { return min_.has_value(); }
+  bool HasMax() const override { return max_.has_value(); }
+  bool HasMinMax() const override { return HasMin() && HasMax(); }
   bool HasNullCount() const override { return statistics_.null_count.has_value(); };
 
+  std::optional<int64_t> NullCount() const override { return statistics_.null_count; }
+  std::optional<int64_t> DistinctCount() const override {
+    return statistics_.distinct_count;
+  }
+
   void IncrementNullCount(int64_t n) override {
-    statistics_.null_count = statistics_.null_count.value_or(0) + n;
+    statistics_.null_count = NullCount().value_or(0) + n;
   }
 
   void IncrementNumValues(int64_t n) override { num_values_ += n; }
@@ -685,8 +692,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     if (this->HasMinMax() != other.HasMinMax()) return false;
     if (this->HasMinMax() && !MinMaxEqual(other)) return false;
 
-    return null_count() == other.null_count() &&
-           distinct_count() == other.distinct_count() &&
+    return NullCount() == other.NullCount() && DistinctCount() == other.DistinctCount() &&
            num_values() == other.num_values() &&
            is_min_value_exact() == other.is_min_value_exact() &&
            is_max_value_exact() == other.is_max_value_exact();
@@ -707,12 +713,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     this->num_values_ += other.num_values();
     // null_count is valid only if both sides have it.
     if (this->HasNullCount() && other.HasNullCount()) {
-      this->statistics_.null_count.value() += other.null_count();
+      this->statistics_.null_count = NullCount().value() + other.NullCount().value();
     } else {
       this->statistics_.null_count = std::nullopt;
     }
     if (this->HasDistinctCount() && other.HasDistinctCount() &&
-        (distinct_count() == 0 || other.distinct_count() == 0)) {
+        (DistinctCount().value() == 0 || other.DistinctCount().value() == 0)) {
       // We can merge distinct counts if either side is zero.
       statistics_.distinct_count =
           std::max(statistics_.DistinctCount().value(), other.DistinctCount().value());
@@ -724,7 +730,7 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     // min/max which may happen when other is an empty stats or all
     // its values are null and/or NaN.
     if (other.HasMinMax()) {
-      SetMinMax(other.min(), other.max());
+      SetMinMax(other.Min().value(), other.Max().value());
     }
   }
 
@@ -749,7 +755,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
 
   const T& min() const override { return min_.value(); }
 
+  std::optional<T> Min() const override { return min_; }
+
   const T& max() const override { return max_.value(); }
+
+  std::optional<T> Max() const override { return max_; }
 
   Type::type physical_type() const override { return descr_->physical_type(); }
 
@@ -776,12 +786,12 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
       s.is_max_value_exact = this->is_max_value_exact();
     }
     if (HasNullCount()) {
-      s.set_null_count(this->null_count());
+      s.set_null_count(this->NullCount().value());
       // num_values_ is reliable and it means number of non-null values.
       s.all_null_value = num_values_ == 0;
     }
     if (HasDistinctCount()) {
-      s.set_distinct_count(this->distinct_count());
+      s.set_distinct_count(this->DistinctCount().value());
     }
     return s;
   }

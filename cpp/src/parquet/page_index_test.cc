@@ -813,8 +813,8 @@ class PageIndexBuilderTest : public ::testing::Test {
     ASSERT_NE(nullptr, column_index);
     ASSERT_EQ(size_t{1}, column_index->null_pages().size());
     ASSERT_EQ(stats.all_null_value, column_index->null_pages()[0]);
-    ASSERT_EQ(stats.min(), column_index->encoded_min_values()[0]);
-    ASSERT_EQ(stats.max(), column_index->encoded_max_values()[0]);
+    ASSERT_EQ(stats.Min(), column_index->encoded_min_values()[0]);
+    ASSERT_EQ(stats.Max(), column_index->encoded_max_values()[0]);
     ASSERT_EQ(stats.null_count.has_value(), column_index->has_null_counts());
     if (stats.null_count) {
       ASSERT_EQ(stats.null_count.value(), column_index->null_counts()[0]);
