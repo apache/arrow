@@ -26,25 +26,12 @@ function text = getSchemaString(schema)
     idx = strlength(names) == 0;
     names(idx) = "<empty>";
 
-    if usejava("desktop")
-        % When in desktop mode, the Command Window can interpret HTML tags
-        % to display bold font and hyperlinks.
-        names = compose("<strong>%s</strong>", names);
-        classNames = arrayfun(@(type) string(class(type)), types);
-
-        % Creates a string array with the following form:
-        %  
-        % ["arrow.type.BooleanType" "Boolean" "arrow.type.StringType" "String" ...]
-        %
-        % This string array is passed to the compose call below. The 
-        % format specifier operator supplied to compose contains two 
-        % formatting operators (%s), so compose uses two elements from the
-        % string array (classNameAndIDs) at a time.
-        classNameAndIDs = strings([1 numel(typeIDs) * 2]);
-        classNameAndIDs(1:2:end-1) = classNames;
-        classNameAndIDs(2:2:end) = typeIDs;
-        typeIDs = compose("<a href=""matlab:helpPopup('%s')"" style=""font-weight:bold"">%s</a>", classNameAndIDs);
-    end
+    % When in desktop mode, the Command Window can interpret HTML tags
+    % to display bold font and hyperlinks.
+    names = arrayfun(@arrow.internal.display.boldFontIfPossible, names);
+    classNames = arrayfun(@(type) string(class(type)), types);
+    typeIDs = arrayfun(@(className, typeID) arrow.internal.display.makeLinkString( ...
+        HelpTarget=className, Text=typeID, BoldFont=true), classNames, typeIDs);
 
     text = names + ": " + typeIDs;
     text = strjoin(text, " | ");
