@@ -560,7 +560,7 @@ static inline format::SizeStatistics ToThrift(const SizeStatistics& size_stats) 
   return size_statistics;
 }
 
-// Get KeyValueMetadata from parquet Thrift RowGroup or ColumnChunk metadata.
+// Get KeyValueMetadata from parquet Thrift File or ColumnChunk metadata.
 //
 // Returns nullptr if the metadata is not set.
 template <typename Metadata>

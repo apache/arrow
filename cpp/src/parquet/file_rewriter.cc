@@ -98,31 +98,31 @@ class PagesRewriter {
   void WritePages() {
     bool has_dictionary = false;
     bool fallback = false;
-    std::shared_ptr<Page> page;
-    size_t page_no = 0;
-    while ((page = page_reader_->NextPage()) != nullptr) {
+    size_t page_ordinal = 0;
+    auto page = page_reader_->NextPage();
+    while (page != nullptr) {
       switch (page->type()) {
         case parquet::PageType::DICTIONARY_PAGE: {
-          WriteDictionaryPage(*static_cast<const DictionaryPage*>(page.get()));
+          WriteDictionaryPage(static_cast<const DictionaryPage&>(*page));
           has_dictionary = true;
           break;
         }
         case parquet::PageType::DATA_PAGE: {
-          auto& data_page = *static_cast<const DataPageV1*>(page.get());
-          if (data_page.encoding() != Encoding::PLAIN_DICTIONARY) {
+          auto& data_page = static_cast<const DataPageV1&>(*page);
+          if (!IsDictionaryIndexEncoding(data_page.encoding())) {
             fallback = true;
           }
-          WriteDataPageV1(data_page, page_no);
-          page_no++;
+          WriteDataPageV1(data_page, page_ordinal);
+          page_ordinal++;
           break;
         }
         case parquet::PageType::DATA_PAGE_V2: {
-          auto& data_page = *static_cast<const DataPageV2*>(page.get());
-          if (data_page.encoding() != Encoding::PLAIN_DICTIONARY) {
+          auto& data_page = static_cast<const DataPageV2&>(*page);
+          if (!IsDictionaryIndexEncoding(data_page.encoding())) {
             fallback = true;
           }
-          WriteDataPageV2(data_page, page_no);
-          page_no++;
+          WriteDataPageV2(data_page, page_ordinal);
+          page_ordinal++;
           break;
         }
         default: {
@@ -130,6 +130,7 @@ class PagesRewriter {
           break;
         }
       }
+      page = page_reader_->NextPage();
     }
     page_writer_->Close(has_dictionary, has_dictionary && fallback);
   }
@@ -141,7 +142,7 @@ class PagesRewriter {
     total_uncompressed_size_ += page_writer_->WriteDictionaryPage(dict_page);
   }
 
-  void WriteDataPageV1(const DataPageV1& data_page, const size_t page_no) {
+  void WriteDataPageV1(const DataPageV1& data_page, const size_t page_ordinal) {
     std::shared_ptr<Buffer> compressed_data;
     if (page_writer_->has_compressor()) {
       auto buffer = std::static_pointer_cast<ResizableBuffer>(
@@ -153,7 +154,7 @@ class PagesRewriter {
     }
     auto first_row_index =
         original_offset_index_
-            ? std::optional{original_offset_index_->page_locations()[page_no]
+            ? std::optional{original_offset_index_->page_locations()[page_ordinal]
                                 .first_row_index}
             : std::nullopt;
     SizeStatistics size_statistics;
@@ -161,7 +162,7 @@ class PagesRewriter {
         original_offset_index_ &&
                 !original_offset_index_->unencoded_byte_array_data_bytes().empty()
             ? std::optional{original_offset_index_
-                                ->unencoded_byte_array_data_bytes()[page_no]}
+                                ->unencoded_byte_array_data_bytes()[page_ordinal]}
             : std::nullopt;
     DataPageV1 new_page(compressed_data, data_page.num_values(), data_page.encoding(),
                         data_page.definition_level_encoding(),
@@ -171,7 +172,7 @@ class PagesRewriter {
     total_uncompressed_size_ += page_writer_->WriteDataPage(new_page);
   }
 
-  void WriteDataPageV2(const DataPageV2& data_page, const size_t page_no) {
+  void WriteDataPageV2(const DataPageV2& data_page, const size_t page_ordinal) {
     int32_t levels_byte_len = data_page.repetition_levels_byte_length() +
                               data_page.definition_levels_byte_length();
     bool page_is_compressed = false;
@@ -199,7 +200,7 @@ class PagesRewriter {
 
     auto first_row_index =
         original_offset_index_
-            ? std::optional{original_offset_index_->page_locations()[page_no]
+            ? std::optional{original_offset_index_->page_locations()[page_ordinal]
                                 .first_row_index}
             : std::nullopt;
     SizeStatistics size_statistics;
@@ -207,7 +208,7 @@ class PagesRewriter {
         original_offset_index_ &&
                 !original_offset_index_->unencoded_byte_array_data_bytes().empty()
             ? std::optional{original_offset_index_
-                                ->unencoded_byte_array_data_bytes()[page_no]}
+                                ->unencoded_byte_array_data_bytes()[page_ordinal]}
             : std::nullopt;
     DataPageV2 new_page(output_buffer, data_page.num_values(), data_page.num_nulls(),
                         data_page.num_rows(), data_page.encoding(),
@@ -493,7 +494,7 @@ class SingleFileRewriter {
 
   const SchemaDescriptor& schema() const { return *metadata_->schema(); }
 
-  std::vector<int64_t> row_group_row_counts() const {
+  std::vector<int64_t> RowGroupRowCounts() const {
     int num_row_groups = metadata_->num_row_groups();
     std::vector<int64_t> row_counts;
     row_counts.reserve(num_row_groups);
@@ -553,10 +554,10 @@ class ConcatRewriter {
 
   const SchemaDescriptor& schema() const { return file_rewriters_[0]->schema(); }
 
-  std::vector<int64_t> row_group_row_counts() const {
+  std::vector<int64_t> RowGroupRowCounts() const {
     std::vector<int64_t> row_counts;
     for (auto& rewriter : file_rewriters_) {
-      auto count = rewriter->row_group_row_counts();
+      auto count = rewriter->RowGroupRowCounts();
       row_counts.insert(row_counts.end(), count.begin(), count.end());
     }
     return row_counts;
@@ -574,9 +575,9 @@ class JoinRewriter {
     if (rewriters_.empty()) {
       throw ParquetException("At least one ConcatRewriter is required");
     }
-    auto row_counts = rewriters_[0]->row_group_row_counts();
+    auto row_counts = rewriters_[0]->RowGroupRowCounts();
     for (size_t i = 1; i < rewriters_.size(); ++i) {
-      if (auto current_row_counts = rewriters_[i]->row_group_row_counts();
+      if (auto current_row_counts = rewriters_[i]->RowGroupRowCounts();
           row_counts != current_row_counts) {
         // TODO(anyone): use `std::format("{}", row_counts)` instead when C++23 available
         auto vecToString = [](const std::vector<int64_t>& v) -> std::string {
@@ -657,8 +658,8 @@ class GeneratedFile : public ParquetFileRewriter::Contents {
       std::vector<std::vector<std::shared_ptr<ArrowInputFile>>> sources,
       std::shared_ptr<ArrowOutputStream> sink,
       std::vector<std::vector<std::shared_ptr<FileMetaData>>> sources_metadata,
-      std::shared_ptr<const KeyValueMetadata> sink_metadata,
-      std::shared_ptr<RewriterProperties> props) {
+      std::shared_ptr<RewriterProperties> props,
+      std::shared_ptr<const KeyValueMetadata> sink_metadata) {
     if (sources.size() != sources_metadata.size() ||
         // TODO(anyone): use std::views::zip when C++23 available
         std::ranges::any_of(std::views::iota(0u, sources.size()), [&](size_t i) {
@@ -669,7 +670,7 @@ class GeneratedFile : public ParquetFileRewriter::Contents {
     }
     std::unique_ptr<ParquetFileRewriter::Contents> result(new GeneratedFile(
         std::move(sources), std::move(sink), std::move(sources_metadata),
-        std::move(sink_metadata), std::move(props)));
+        std::move(props), std::move(sink_metadata)));
     return result;
   }
 
@@ -712,16 +713,16 @@ class GeneratedFile : public ParquetFileRewriter::Contents {
                                            bloom_filter_locations);
     }
 
-    auto file_metadata = metadata_builder_->Finish(sink_metadata_);
-    WriteFileMetaData(*file_metadata, sink_.get());
+    file_metadata_ = metadata_builder_->Finish(sink_metadata_);
+    WriteFileMetaData(*file_metadata_, sink_.get());
   }
 
  private:
   GeneratedFile(std::vector<std::vector<std::shared_ptr<ArrowInputFile>>> sources,
                 std::shared_ptr<ArrowOutputStream> sink,
                 std::vector<std::vector<std::shared_ptr<FileMetaData>>> sources_metadata,
-                std::shared_ptr<const KeyValueMetadata> sink_metadata,
-                std::shared_ptr<RewriterProperties> props)
+                std::shared_ptr<RewriterProperties> props,
+                std::shared_ptr<const KeyValueMetadata> sink_metadata)
       : sink_(std::move(sink)),
         props_(std::move(props)),
         sink_metadata_(std::move(sink_metadata)) {
@@ -786,11 +787,11 @@ std::unique_ptr<ParquetFileRewriter> ParquetFileRewriter::Open(
     std::vector<std::vector<std::shared_ptr<ArrowInputFile>>> sources,
     std::shared_ptr<ArrowOutputStream> sink,
     std::vector<std::vector<std::shared_ptr<FileMetaData>>> sources_metadata,
-    std::shared_ptr<const KeyValueMetadata> sink_metadata,
-    std::shared_ptr<RewriterProperties> props) {
+    std::shared_ptr<RewriterProperties> props,
+    std::shared_ptr<const KeyValueMetadata> sink_metadata) {
   auto contents = GeneratedFile::Open(std::move(sources), std::move(sink),
-                                      std::move(sources_metadata),
-                                      std::move(sink_metadata), std::move(props));
+                                      std::move(sources_metadata), std::move(props),
+                                      std::move(sink_metadata));
   std::unique_ptr<ParquetFileRewriter> result(new ParquetFileRewriter());
   result->Open(std::move(contents));
   return result;
@@ -803,10 +804,15 @@ void ParquetFileRewriter::Open(std::unique_ptr<ParquetFileRewriter::Contents> co
 void ParquetFileRewriter::Close() {
   if (contents_) {
     contents_->Close();
+    file_metadata_ = contents_->metadata();
     contents_.reset();
   }
 }
 
 void ParquetFileRewriter::Rewrite() { contents_->Rewrite(); }
+
+const std::shared_ptr<FileMetaData>& ParquetFileRewriter::metadata() const {
+  return file_metadata_;
+}
 
 }  // namespace parquet

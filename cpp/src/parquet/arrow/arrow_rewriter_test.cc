@@ -52,9 +52,8 @@ TEST(ParquetRewriterTest, SimpleRoundTrip) {
                                                   schema, {R"([[1, "a"], [2, "b"]])"})));
 
   auto sink = CreateOutputStream();
-  auto rewriter =
-      ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}}, sink,
-                                {{NULLPTR}}, NULLPTR, rewriter_properties);
+  auto rewriter = ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}},
+                                            sink, {{NULLPTR}}, rewriter_properties);
   rewriter->Rewrite();
   rewriter->Close();
 
@@ -92,7 +91,7 @@ TEST(ParquetRewriterTest, ConcatRoundTrip) {
   auto rewriter =
       ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer_up),
                                   std::make_shared<BufferReader>(buffer_down)}},
-                                sink, {{NULLPTR, NULLPTR}}, NULLPTR, rewriter_properties);
+                                sink, {{NULLPTR, NULLPTR}}, rewriter_properties);
   rewriter->Rewrite();
   rewriter->Close();
 
@@ -131,10 +130,10 @@ TEST(ParquetRewriterTest, JoinRoundTrip) {
                 ::arrow::TableFromJSON(right_schema, {R"([[10], [20], [30]])"})));
 
   auto sink = CreateOutputStream();
-  auto rewriter = ParquetFileRewriter::Open(
-      {{std::make_shared<BufferReader>(buffer_left)},
-       {std::make_shared<BufferReader>(buffer_right)}},
-      sink, {{NULLPTR}, {NULLPTR}}, NULLPTR, rewriter_properties);
+  auto rewriter =
+      ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer_left)},
+                                 {std::make_shared<BufferReader>(buffer_right)}},
+                                sink, {{NULLPTR}, {NULLPTR}}, rewriter_properties);
   rewriter->Rewrite();
   rewriter->Close();
 
@@ -183,7 +182,7 @@ TEST(ParquetRewriterTest, ConcatJoinRoundTrip) {
       {{std::make_shared<BufferReader>(buffer_left_up),
         std::make_shared<BufferReader>(buffer_left_down)},
        {std::make_shared<BufferReader>(buffer_right)}},
-      sink, {{NULLPTR, NULLPTR}, {NULLPTR}}, NULLPTR, rewriter_properties);
+      sink, {{NULLPTR, NULLPTR}, {NULLPTR}}, rewriter_properties);
   rewriter->Rewrite();
   rewriter->Close();
 
@@ -227,8 +226,7 @@ TEST(ParquetRewriterTest, JoinRowCountsMismatch) {
       [&]() {
         ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer_left)},
                                    {std::make_shared<BufferReader>(buffer_right)}},
-                                  sink, {{NULLPTR}, {NULLPTR}}, NULLPTR,
-                                  rewriter_properties);
+                                  sink, {{NULLPTR}, {NULLPTR}}, rewriter_properties);
       },
       ParquetException,
       ::testing::Property(
@@ -254,7 +252,7 @@ TEST(ParquetRewriterTest, InvalidInputDimensions) {
   EXPECT_THROW_THAT(
       [&]() {
         ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}}, sink, {},
-                                  NULLPTR, rewriter_properties);
+                                  rewriter_properties);
       },
       ParquetException,
       ::testing::Property(
@@ -265,7 +263,7 @@ TEST(ParquetRewriterTest, InvalidInputDimensions) {
   EXPECT_THROW_THAT(
       [&]() {
         ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}}, sink, {{}},
-                                  NULLPTR, rewriter_properties);
+                                  rewriter_properties);
       },
       ParquetException,
       ::testing::Property(
@@ -307,9 +305,8 @@ TEST(ParquetRewriterTest, AddCompression) {
           ->build();
 
   auto sink = CreateOutputStream();
-  auto rewriter =
-      ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}}, sink,
-                                {{NULLPTR}}, NULLPTR, rewriter_properties);
+  auto rewriter = ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}},
+                                            sink, {{NULLPTR}}, rewriter_properties);
   rewriter->Rewrite();
   rewriter->Close();
 
@@ -366,9 +363,8 @@ TEST(ParquetRewriterTest, ChangeCompression) {
           ->build();
 
   auto sink = CreateOutputStream();
-  auto rewriter =
-      ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}}, sink,
-                                {{NULLPTR}}, NULLPTR, rewriter_properties);
+  auto rewriter = ParquetFileRewriter::Open({{std::make_shared<BufferReader>(buffer)}},
+                                            sink, {{NULLPTR}}, rewriter_properties);
   rewriter->Rewrite();
   rewriter->Close();
 

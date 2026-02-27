@@ -32,6 +32,9 @@ class PARQUET_EXPORT ParquetFileRewriter {
     virtual ~Contents() = default;
     virtual void Close() = 0;
     virtual void Rewrite() = 0;
+
+    const std::shared_ptr<FileMetaData>& metadata() const { return file_metadata_; }
+    std::shared_ptr<FileMetaData> file_metadata_;
   };
 
   ParquetFileRewriter();
@@ -41,8 +44,8 @@ class PARQUET_EXPORT ParquetFileRewriter {
       std::vector<std::vector<std::shared_ptr<ArrowInputFile>>> sources,
       std::shared_ptr<ArrowOutputStream> sink,
       std::vector<std::vector<std::shared_ptr<FileMetaData>>> sources_metadata,
-      std::shared_ptr<const ::arrow::KeyValueMetadata> sink_metadata = NULLPTR,
-      std::shared_ptr<RewriterProperties> props = default_rewriter_properties());
+      std::shared_ptr<RewriterProperties> props = default_rewriter_properties(),
+      std::shared_ptr<const ::arrow::KeyValueMetadata> sink_metadata = NULLPTR);
 
   void Open(std::unique_ptr<Contents> contents);
   void Close();
@@ -52,8 +55,12 @@ class PARQUET_EXPORT ParquetFileRewriter {
   /// This method may throw.
   void Rewrite();
 
+  /// Returns the file metadata, only available after calling Close().
+  const std::shared_ptr<FileMetaData>& metadata() const;
+
  private:
   std::unique_ptr<Contents> contents_;
+  std::shared_ptr<FileMetaData> file_metadata_;
 };
 
 }  // namespace parquet
