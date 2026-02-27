@@ -2053,6 +2053,12 @@ cdef class VariableShapeTensorType(BaseExtensionType):
     def uniform_shape(self):
         """
         Shape over dimensions that are guaranteed to be constant.
+
+        Returns None if no uniform shape metadata is present on the type.
+        When present, returns a list of length ``ndim`` where integer values
+        indicate uniform (fixed) dimensions and None values indicate
+        variable dimensions. Note that ``[None, None]`` (metadata present,
+        all dimensions variable) is distinct from ``None`` (no metadata).
         """
         cdef:
             vector[optional[int64_t]] c_uniform_shape = self.tensor_ext_type.uniform_shape()

@@ -1545,9 +1545,9 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
     Concrete class for variable shape tensor extension scalar.
     """
 
-    def to_numpy_ndarray(self):
+    def to_numpy(self):
         """
-        Convert variable shape tensor extension scalar to a numpy array.
+        Convert variable shape tensor extension scalar to a numpy.ndarray.
 
         The conversion is zero-copy if data is primitive numeric and without nulls.
 
@@ -1555,6 +1555,8 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
         -------
         numpy.ndarray
         """
+        if not self.is_valid:
+            raise ValueError("Cannot convert null scalar to numpy array")
         return self.to_tensor().to_numpy()
 
     def to_tensor(self):
@@ -1565,6 +1567,8 @@ cdef class VariableShapeTensorScalar(ExtensionScalar):
         -------
         tensor : pyarrow.Tensor
         """
+        if not self.is_valid:
+            raise ValueError("Cannot convert null scalar to Tensor")
         cdef:
             CVariableShapeTensorType* c_type = static_pointer_cast[CVariableShapeTensorType, CDataType](
                 self.wrapped.get().type).get()

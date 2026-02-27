@@ -4902,6 +4902,32 @@ def _validate_uniform_shape(uniform_shape, ndim):
                 "uniform_shape must contain non-negative values")
 
 
+def _infer_uniform_shape(shape_rows, ndim):
+    if len(shape_rows) == 0:
+        return None
+    inferred = []
+    for i in range(ndim):
+        axis_size = shape_rows[0][i]
+        if all(shape[i] == axis_size for shape in shape_rows):
+            inferred.append(axis_size)
+        else:
+            inferred.append(None)
+    if all(x is None for x in inferred):
+        return None
+    return inferred
+
+
+def _permutation_from_strides(arr):
+    """Infer the dimension permutation from array strides.
+
+    Note: for arrays with size-1 dimensions, the inferred permutation
+    may be unreliable since size-1 strides are unconstrained. Callers
+    should skip permutation validation for such arrays.
+    """
+    return [int(x) for x in
+            (-np.array(arr.strides, dtype=np.int64)).argsort(kind="stable")]
+
+
 cdef class VariableShapeTensorArray(ExtensionArray):
     """
     Concrete class for variable shape tensor extension arrays.
@@ -4974,13 +5000,11 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         cdef:
             list arrays
             list shape_rows
-            list inferred_uniform_shape
             int array_ndim
             int i
             object base_dtype
             DataType arrow_type
             object normalized_permutation
-            object ndarray_permutation
             object permutation_metadata
             object shape_type
             object values
@@ -4997,7 +5021,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         if value_type is not None and not isinstance(value_type, DataType):
             try:
                 value_type = from_numpy_dtype(np.dtype(value_type))
-            except Exception as exc:
+            except (TypeError, ValueError) as exc:
                 raise TypeError(
                     "value_type must be a pyarrow.DataType or numpy dtype"
                 ) from exc
@@ -5056,19 +5080,27 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         _validate_dim_names(dim_names, ndim)
         normalized_permutation = _validate_permutation(permutation, ndim)
 
+        # Infer permutation if not provided by the user. Prefer arrays
+        # without size-1 dimensions since their strides are unambiguous.
+        if normalized_permutation is None:
+            for arr in arrays:
+                if all(s > 1 for s in arr.shape):
+                    normalized_permutation = _permutation_from_strides(arr)
+                    break
+            else:
+                # All arrays have size-1 dims; use first array's strides
+                normalized_permutation = _permutation_from_strides(arrays[0])
+
+        # Validate permutation consistency for arrays without size-1
+        # dims (size-1 strides are unconstrained, so skip those).
         for i, arr in enumerate(arrays):
-            ndarray_permutation = (-np.array(arr.strides)).argsort(kind="stable")
-            ndarray_permutation_list = [int(x) for x in ndarray_permutation]
-            if normalized_permutation is None:
-                if i == 0:
-                    normalized_permutation = ndarray_permutation_list
-                elif not np.array_equal(ndarray_permutation, normalized_permutation):
-                    raise ValueError(
-                        "All numpy arrays must have matching permutation.")
-            elif not np.array_equal(ndarray_permutation, normalized_permutation):
+            if any(s <= 1 for s in arr.shape):
+                continue
+            ndarray_permutation_list = _permutation_from_strides(arr)
+            if ndarray_permutation_list != normalized_permutation:
                 raise ValueError(
-                    (f"obj[{i}] has permutation {ndarray_permutation_list}; expected "
-                     f"{list(normalized_permutation)}"))
+                    (f"obj[{i}] has permutation {ndarray_permutation_list}; "
+                     f"expected {list(normalized_permutation)}"))
 
         shape_rows = [
             [int(x) for x in np.take(arr.shape, normalized_permutation)]
@@ -5084,17 +5116,24 @@ cdef class VariableShapeTensorArray(ExtensionArray):
                             (f"uniform_shape[{i}]={value} does not match input shape "
                              f"dimension values"))
         else:
-            inferred_uniform_shape = []
-            for i in range(ndim):
-                axis_size = shape_rows[0][i]
-                if all(shape[i] == axis_size for shape in shape_rows):
-                    inferred_uniform_shape.append(axis_size)
-                else:
-                    inferred_uniform_shape.append(None)
-            if all(x is None for x in inferred_uniform_shape):
-                uniform_shape = None
-            else:
-                uniform_shape = inferred_uniform_shape
+            uniform_shape = _infer_uniform_shape(shape_rows, ndim)
+
+        # Verify that ravel(order="K") + inferred permutation are consistent
+        # by round-tripping the first non-empty array.
+        for arr in arrays:
+            if arr.size > 0:
+                raveled = np.ravel(arr, order="K")
+                physical_shape = tuple(
+                    np.take(arr.shape, normalized_permutation))
+                reconstructed = raveled.reshape(physical_shape)
+                inv_perm = list(np.argsort(normalized_permutation))
+                reconstructed_logical = np.transpose(reconstructed, inv_perm)
+                if not np.array_equal(reconstructed_logical, arr):
+                    raise ValueError(
+                        "Array memory layout is incompatible with variable "
+                        "shape tensor representation. Consider making the "
+                        "array contiguous first with np.ascontiguousarray().")
+                break
 
         values = array([np.ravel(arr, order="K") for arr in arrays], list_(arrow_type))
         shapes = array(shape_rows, list_(int32(), list_size=ndim))
@@ -5123,7 +5162,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         list
             List containing one ndarray per valid element and None for null elements.
         """
-        return [x.to_numpy_ndarray() if x.is_valid else None for x in self]
+        return [x.to_numpy() if x.is_valid else None for x in self]
 
     def to_row_splits(self):
         """
@@ -5140,7 +5179,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         base = offsets[0].as_py()
         if base == 0:
             return offsets
-        return array([x - base for x in offsets.to_pylist()], type=offsets.type)
+        return _pc().subtract(offsets, base)
 
     def to_offsets(self):
         """
@@ -5186,13 +5225,12 @@ cdef class VariableShapeTensorArray(ExtensionArray):
             object data
             object struct_arr
             object ext_type
-            list inferred_uniform_shape
             list shape_rows
 
         if value_type is not None and not isinstance(value_type, DataType):
             try:
                 value_type = from_numpy_dtype(np.dtype(value_type))
-            except Exception as exc:
+            except (TypeError, ValueError) as exc:
                 raise TypeError(
                     "value_type must be a pyarrow.DataType or numpy dtype"
                 ) from exc
@@ -5240,6 +5278,9 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         elif ndim < 0:
             raise ValueError("ndim must be non-negative")
 
+        _validate_dim_names(dim_names, ndim)
+        permutation = _validate_permutation(permutation, ndim)
+
         shape_type = list_(int32(), list_size=ndim)
         shape_arr = asarray(shapes, type=shape_type)
         if isinstance(shape_arr, ChunkedArray):
@@ -5251,18 +5292,29 @@ cdef class VariableShapeTensorArray(ExtensionArray):
                 (f"shapes length ({len(shape_arr)}) must equal number of rows "
                  f"({len(splits) - 1})"))
 
-        if uniform_shape is None:
-            shape_rows = shape_arr.to_pylist()
-            if len(shape_rows) > 0:
-                inferred_uniform_shape = []
-                for i in range(ndim):
-                    axis_size = shape_rows[0][i]
-                    if all(shape[i] == axis_size for shape in shape_rows):
-                        inferred_uniform_shape.append(axis_size)
-                    else:
-                        inferred_uniform_shape.append(None)
-                if any(x is not None for x in inferred_uniform_shape):
-                    uniform_shape = inferred_uniform_shape
+        shape_rows = shape_arr.to_pylist()
+
+        # Validate that each row's shape product matches its segment length
+        for i in range(len(splits) - 1):
+            expected_size = 1
+            for dim in shape_rows[i]:
+                expected_size *= dim
+            actual_size = splits[i + 1] - splits[i]
+            if expected_size != actual_size:
+                raise ValueError(
+                    (f"shapes[{i}] product ({expected_size}) does not match "
+                     f"row_splits interval ({actual_size})"))
+
+        if uniform_shape is not None:
+            _validate_uniform_shape(uniform_shape, ndim)
+            for i, value in enumerate(uniform_shape):
+                if value is not None:
+                    if any(shape[i] != value for shape in shape_rows):
+                        raise ValueError(
+                            (f"uniform_shape[{i}]={value} does not match "
+                             f"shape dimension values"))
+        else:
+            uniform_shape = _infer_uniform_shape(shape_rows, ndim)
 
         data = ListArray.from_arrays(row_splits_arr, values_arr)
         struct_arr = StructArray.from_arrays([data, shape_arr], names=["data", "shape"])
