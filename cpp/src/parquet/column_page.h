@@ -54,6 +54,9 @@ class Page {
   // @returns: the total size in bytes of the page's data buffer
   int32_t size() const { return static_cast<int32_t>(buffer_->size()); }
 
+ protected:
+  ~Page() = default;
+
  private:
   std::shared_ptr<Buffer> buffer_;
   PageType::type type_;
