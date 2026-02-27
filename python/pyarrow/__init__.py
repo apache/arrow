@@ -135,7 +135,7 @@ def show_info():
     for module in modules:
         status = "Enabled" if _module_is_available(module) else "-"
         print(f"  {module: <20}: {status: <8}")
-    print(f"  {"opentelemetry": <20}: {"Enabled" if is_opentelemetry_enabled() else "-": <8}")
+    print(f"  {'opentelemetry': <20}: {'Enabled' if is_opentelemetry_enabled() else '-': <8}")
 
     print("\nFilesystems:")
     filesystems = ["AzureFileSystem", "GcsFileSystem",
