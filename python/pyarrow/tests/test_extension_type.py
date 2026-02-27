@@ -1904,6 +1904,28 @@ def test_variable_shape_tensor_row_split_adapters():
 
 
 @pytest.mark.numpy
+def test_variable_shape_tensor_to_numpy_ndarray_list_with_nulls():
+    tensor_type = pa.variable_shape_tensor(pa.int32(), 2)
+
+    data = pa.array([[1, 2, 3, 4, 5, 6], [10, 20], [7, 8]], pa.list_(pa.int32()))
+    shapes = pa.array([[2, 3], [1, 2], [2, 1]],
+                      pa.list_(pa.int32(), 2))
+    mask = pa.array([False, True, False])
+
+    storage = pa.StructArray.from_arrays(
+        [data, shapes], names=["data", "shape"], mask=mask)
+    arr = pa.ExtensionArray.from_storage(tensor_type, storage)
+
+    result = arr.to_numpy_ndarray_list()
+    assert len(result) == 3
+    np.testing.assert_array_equal(
+        result[0], np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int32))
+    assert result[1] is None
+    np.testing.assert_array_equal(
+        result[2], np.array([[7], [8]], dtype=np.int32))
+
+
+@pytest.mark.numpy
 def test_variable_shape_tensor_metadata_roundtrip_from_numpy():
     ndarray_list = [
         np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int32),

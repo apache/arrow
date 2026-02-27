@@ -4705,17 +4705,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                 "Cannot convert 1D array or scalar to fixed shape tensor array")
         if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
-        if dim_names is not None:
-            if not isinstance(dim_names, Sequence):
-                raise TypeError("dim_names must be a tuple or list")
-            if len(dim_names) != len(obj.shape[1:]):
-                raise ValueError(
-                    (f"The length of dim_names ({len(dim_names)}) does not match"
-                     f"the number of tensor dimensions ({len(obj.shape[1:])})."
-                     )
-                )
-            if not all(isinstance(name, str) for name in dim_names):
-                raise TypeError("Each element of dim_names must be a string")
+        _validate_dim_names(dim_names, len(obj.shape[1:]))
 
         permutation = (-np.array(obj.strides)).argsort(kind='stable')
         if permutation[0] != 0:
@@ -4874,6 +4864,44 @@ cdef class Bool8Array(ExtensionArray):
         return Bool8Array.from_storage(storage_arr)
 
 
+def _check_sequence_param(value, ndim, name):
+    if value is None:
+        return False
+    if not isinstance(value, Sequence):
+        raise TypeError(f"{name} must be a tuple or list")
+    if len(value) != ndim:
+        raise ValueError(
+            (f"The length of {name} ({len(value)}) does not match"
+             f" the number of tensor dimensions ({ndim})."))
+    return True
+
+
+def _validate_dim_names(dim_names, ndim):
+    if not _check_sequence_param(dim_names, ndim, "dim_names"):
+        return
+    if not all(isinstance(name, str) for name in dim_names):
+        raise TypeError("Each element of dim_names must be a string")
+
+
+def _validate_permutation(permutation, ndim):
+    if not _check_sequence_param(permutation, ndim, "permutation"):
+        return None
+    normalized = [int(x) for x in permutation]
+    if sorted(normalized) != list(range(ndim)):
+        raise ValueError(
+            "permutation must contain each dimension index exactly once")
+    return normalized
+
+
+def _validate_uniform_shape(uniform_shape, ndim):
+    if not _check_sequence_param(uniform_shape, ndim, "uniform_shape"):
+        return
+    for value in uniform_shape:
+        if value is not None and value < 0:
+            raise ValueError(
+                "uniform_shape must contain non-negative values")
+
+
 cdef class VariableShapeTensorArray(ExtensionArray):
     """
     Concrete class for variable shape tensor extension arrays.
@@ -4981,39 +5009,9 @@ cdef class VariableShapeTensorArray(ExtensionArray):
             if ndim < 0:
                 raise ValueError("ndim must be non-negative")
 
-            if dim_names is not None:
-                if not isinstance(dim_names, Sequence):
-                    raise TypeError("dim_names must be a tuple or list")
-                if len(dim_names) != ndim:
-                    raise ValueError(
-                        (f"The length of dim_names ({len(dim_names)}) does not match"
-                         f" the number of tensor dimensions ({ndim})."))
-                if not all(isinstance(name, str) for name in dim_names):
-                    raise TypeError("Each element of dim_names must be a string")
-
-            if permutation is not None:
-                if not isinstance(permutation, Sequence):
-                    raise TypeError("permutation must be a tuple or list")
-                permutation = [int(x) for x in permutation]
-                if len(permutation) != ndim:
-                    raise ValueError(
-                        (f"The length of permutation ({len(permutation)}) does not match"
-                         f" the number of tensor dimensions ({ndim})."))
-                if sorted(permutation) != list(range(ndim)):
-                    raise ValueError(
-                        "permutation must contain each dimension index exactly once")
-
-            if uniform_shape is not None:
-                if not isinstance(uniform_shape, Sequence):
-                    raise TypeError("uniform_shape must be a tuple or list")
-                if len(uniform_shape) != ndim:
-                    raise ValueError(
-                        (f"The length of uniform_shape ({len(uniform_shape)}) does not match"
-                         f" the number of tensor dimensions ({ndim})."))
-                for value in uniform_shape:
-                    if value is not None and value < 0:
-                        raise ValueError(
-                            "uniform_shape must contain non-negative values")
+            _validate_dim_names(dim_names, ndim)
+            permutation = _validate_permutation(permutation, ndim)
+            _validate_uniform_shape(uniform_shape, ndim)
 
             shape_type = list_(int32(), list_size=ndim)
             values = array([], list_(value_type))
@@ -5055,29 +5053,8 @@ cdef class VariableShapeTensorArray(ExtensionArray):
             if arr.ndim != ndim:
                 raise ValueError(f"obj[{i}] has ndim {arr.ndim}; expected {ndim}")
 
-        if dim_names is not None:
-            if not isinstance(dim_names, Sequence):
-                raise TypeError("dim_names must be a tuple or list")
-            if len(dim_names) != ndim:
-                raise ValueError(
-                    (f"The length of dim_names ({len(dim_names)}) does not match"
-                     f" the number of tensor dimensions ({ndim})."))
-            if not all(isinstance(name, str) for name in dim_names):
-                raise TypeError("Each element of dim_names must be a string")
-
-        if permutation is not None:
-            if not isinstance(permutation, Sequence):
-                raise TypeError("permutation must be a tuple or list")
-            normalized_permutation = [int(x) for x in permutation]
-            if len(normalized_permutation) != ndim:
-                raise ValueError(
-                    (f"The length of permutation ({len(normalized_permutation)}) does not match"
-                     f" the number of tensor dimensions ({ndim})."))
-            if sorted(normalized_permutation) != list(range(ndim)):
-                raise ValueError(
-                    "permutation must contain each dimension index exactly once")
-        else:
-            normalized_permutation = None
+        _validate_dim_names(dim_names, ndim)
+        normalized_permutation = _validate_permutation(permutation, ndim)
 
         for i, arr in enumerate(arrays):
             ndarray_permutation = (-np.array(arr.strides)).argsort(kind="stable")
@@ -5099,17 +5076,9 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         ]
 
         if uniform_shape is not None:
-            if not isinstance(uniform_shape, Sequence):
-                raise TypeError("uniform_shape must be a tuple or list")
-            if len(uniform_shape) != ndim:
-                raise ValueError(
-                    (f"The length of uniform_shape ({len(uniform_shape)}) does not match"
-                     f" the number of tensor dimensions ({ndim})."))
+            _validate_uniform_shape(uniform_shape, ndim)
             for i, value in enumerate(uniform_shape):
                 if value is not None:
-                    if value < 0:
-                        raise ValueError(
-                            "uniform_shape must contain non-negative values")
                     if any(shape[i] != value for shape in shape_rows):
                         raise ValueError(
                             (f"uniform_shape[{i}]={value} does not match input shape "
