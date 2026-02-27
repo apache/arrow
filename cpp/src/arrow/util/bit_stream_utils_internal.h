@@ -203,8 +203,9 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
 
   if (ARROW_PREDICT_FALSE(static_cast<int64_t>(byte_offset_) * 8 + bit_offset_ +
                               num_bits >
-                          static_cast<int64_t>(max_bytes_) * 8))
+                          static_cast<int64_t>(max_bytes_) * 8)) {
     return false;
+  }
 
   buffered_values_ |= v << bit_offset_;
   bit_offset_ += num_bits;
@@ -273,14 +274,19 @@ inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
     batch_size = static_cast<int>(remaining_bits / num_bits);
   }
 
+  const ::arrow::internal::UnpackOptions opts{
+      .batch_size = batch_size,
+      .bit_width = num_bits,
+      .bit_offset = bit_offset_,
+      .max_read_bytes = max_bytes_ - byte_offset_,
+  };
+
   if constexpr (std::is_same_v<T, bool>) {
-    ::arrow::internal::unpack(buffer_ + byte_offset_, v, batch_size, num_bits,
-                              bit_offset_);
+    ::arrow::internal::unpack(buffer_ + byte_offset_, v, opts);
 
   } else {
     ::arrow::internal::unpack(buffer_ + byte_offset_,
-                              reinterpret_cast<std::make_unsigned_t<T>*>(v), batch_size,
-                              num_bits, bit_offset_);
+                              reinterpret_cast<std::make_unsigned_t<T>*>(v), opts);
   }
 
   Advance(batch_size * num_bits);

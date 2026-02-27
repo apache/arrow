@@ -17,7 +17,6 @@
 
 #include <array>
 
-#include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
@@ -29,19 +28,21 @@ namespace {
 
 template <typename Uint>
 struct UnpackDynamicFunction {
-  using FunctionType = decltype(&unpack_scalar<Uint>);
+  using FunctionType = decltype(&bpacking::unpack_scalar<Uint>);
   using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static constexpr auto implementations() {
     return std::array{
-        // Current SIMD unpack algorithm works terribly on SSE4.2 due to lack of variable
-        // rhsift and poor xsimd fallback.
-        Implementation{DispatchLevel::NONE, &unpack_scalar<Uint>},
+#if defined(ARROW_HAVE_SSE4_2)
+        Implementation{DispatchLevel::NONE, &bpacking::unpack_sse4_2<Uint>},
+#else
+        Implementation{DispatchLevel::NONE, &bpacking::unpack_scalar<Uint>},
+#endif
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, &unpack_avx2<Uint>},
+        Implementation{DispatchLevel::AVX2, &bpacking::unpack_avx2<Uint>},
 #endif
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-        Implementation{DispatchLevel::AVX512, &unpack_avx512<Uint>},
+        Implementation{DispatchLevel::AVX512, &bpacking::unpack_avx512<Uint>},
 #endif
     };
   }
@@ -50,19 +51,19 @@ struct UnpackDynamicFunction {
 }  // namespace
 
 template <typename Uint>
-void unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits, int bit_offset) {
+void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
 #if defined(ARROW_HAVE_NEON)
-  return unpack_neon(in, out, batch_size, num_bits, bit_offset);
+  return bpacking::unpack_neon(in, out, opts);
 #else
   static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
-  return dispatch.func(in, out, batch_size, num_bits, bit_offset);
+  return dispatch.func(in, out, opts);
 #endif
 }
 
-template void unpack<bool>(const uint8_t*, bool*, int, int, int);
-template void unpack<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void unpack<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void unpack<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void unpack<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
+template void unpack<bool>(const uint8_t*, bool*, const UnpackOptions&);
+template void unpack<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
+template void unpack<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
+template void unpack<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
+template void unpack<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
 }  // namespace arrow::internal

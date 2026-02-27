@@ -53,7 +53,6 @@ dev/tasks/linux-packages/apache-arrow/debian/patches/series
 dev/tasks/linux-packages/apache-arrow/debian/rules
 dev/tasks/linux-packages/apache-arrow/debian/shlibs.local
 dev/tasks/linux-packages/apache-arrow/debian/source/format
-dev/tasks/linux-packages/apache-arrow/debian/watch
 dev/tasks/requirements*.txt
 dev/tasks/conda-recipes/*
 docs/requirements.txt

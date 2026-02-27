@@ -1433,6 +1433,7 @@ class BinaryTask
       ["debian", "forky", "main"],
       ["ubuntu", "jammy", "main"],
       ["ubuntu", "noble", "main"],
+      ["ubuntu", "resolute", "main"],
     ]
   end
 
@@ -2333,6 +2334,8 @@ class LocalBinaryTask < BinaryTask
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",
       # "ubuntu-noble-arm64",
+      "ubuntu-resolute",
+      # "ubuntu-resolute-arm64",
     ]
   end
 

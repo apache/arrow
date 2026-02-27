@@ -25,11 +25,21 @@ require_relative "type"
 module ArrowFormat
   module Readable
     private
+    def read_custom_metadata(fb_custom_metadata)
+      return nil if fb_custom_metadata.nil?
+      metadata = {}
+      fb_custom_metadata.each do |key_value|
+        metadata[key_value.key] = key_value.value
+      end
+      metadata
+    end
+
     def read_schema(fb_schema)
       fields = fb_schema.fields.collect do |fb_field|
         read_field(fb_field)
       end
-      Schema.new(fields)
+      Schema.new(fields,
+                 metadata: read_custom_metadata(fb_schema.custom_metadata))
     end
 
     def read_field(fb_field)
@@ -132,7 +142,11 @@ module ArrowFormat
       else
         dictionary_id = nil
       end
-      Field.new(fb_field.name, type, fb_field.nullable?, dictionary_id)
+      Field.new(fb_field.name,
+                type,
+                nullable: fb_field.nullable?,
+                dictionary_id: dictionary_id,
+                metadata: read_custom_metadata(fb_field.custom_metadata))
     end
 
     def read_type_int(fb_type)

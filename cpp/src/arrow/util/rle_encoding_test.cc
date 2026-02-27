@@ -259,7 +259,8 @@ TEST(BitPacked, BitPackedRun) {
   // 16 values of 1 bit for a total of 16 bits
   const rle_size_t value_count_1 = 16;
   const rle_size_t value_bit_width_1 = 1;
-  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1);
+  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1,
+                                  /* .max_read_bytes= */ -1);
   EXPECT_EQ(run_1.values_count(), value_count_1);
   EXPECT_EQ(run_1.raw_data_size(value_bit_width_1), 2);  // 16 bits fit in 2 bytes
   EXPECT_EQ(run_1.raw_data_ptr(), value.data());
@@ -267,7 +268,8 @@ TEST(BitPacked, BitPackedRun) {
   // 8 values of 3 bits for a total of 24 bits
   const rle_size_t value_count_3 = 8;
   const rle_size_t value_bit_width_3 = 3;
-  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3);
+  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3,
+                                  /* .max_read_bytes= */ -1);
   EXPECT_EQ(run_3.values_count(), value_count_3);
   EXPECT_EQ(run_3.raw_data_size(value_bit_width_3), 3);  // 24 bits fit in 3 bytes
   EXPECT_EQ(run_3.raw_data_ptr(), value.data());
@@ -339,7 +341,8 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
-  const auto run = BitPackedRun(bytes.data(), value_count, bit_width);
+  const auto run =
+      BitPackedRun(bytes.data(), value_count, bit_width, /* .max_read_bytes= */ -1);
 
   auto decoder = BitPackedRunDecoder<T>(run, bit_width);
   std::vector<T> vals = {0, 0};

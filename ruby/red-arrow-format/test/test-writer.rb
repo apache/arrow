@@ -128,8 +128,9 @@ module WriterHelper
     end
     ArrowFormat::Field.new(red_arrow_field.name,
                            type,
-                           red_arrow_field.nullable?,
-                           dictionary_id)
+                           nullable: red_arrow_field.nullable?,
+                           dictionary_id: dictionary_id,
+                           metadata: red_arrow_field.metadata)
   end
 
   def convert_buffer(buffer)
@@ -230,13 +231,58 @@ module WriterHelper
       end
       # pp(read(path)) # debug
       data = File.open(path, "rb", &:read).freeze
-      table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrow)
-      [table.value.data_type, table.value.values]
+      case file_extension
+      when "arrow"
+        format = :arrow_file
+      else
+        format = :arrow_streaming
+      end
+      table = Arrow::Table.load(Arrow::Buffer.new(data), format: format)
+      if inputs[0].is_a?(Arrow::Array)
+        [table.value.data_type, table.value.values]
+      else
+        table
+      end
     end
   end
 end
 
 module WriterTests
+  def test_custom_metadata_field
+    field = ArrowFormat::Field.new("value",
+                                   ArrowFormat::BooleanType.new,
+                                   metadata: {
+                                     "key1" => "value1",
+                                     "key2" => "value2",
+                                   })
+    schema = ArrowFormat::Schema.new([field])
+    column = convert_array(Arrow::BooleanArray.new([true, nil, false]))
+    record_batch = ArrowFormat::RecordBatch.new(schema, 3, [column])
+    table = roundtrip(record_batch)
+    assert_equal({
+                   "key1" => "value1",
+                   "key2" => "value2",
+                 },
+                 table.schema.fields[0].metadata)
+  end
+
+  def test_custom_metadata_schema
+    field = ArrowFormat::Field.new("value", ArrowFormat::BooleanType.new)
+    schema = ArrowFormat::Schema.new([field],
+                                     metadata: {
+                                       "key1" => "value1",
+                                       "key2" => "value2",
+                                     })
+    column = convert_array(Arrow::BooleanArray.new([true, nil, false]))
+    record_batch = ArrowFormat::RecordBatch.new(schema, 3, [column])
+    table = roundtrip(record_batch)
+    assert_equal({
+                   "key1" => "value1",
+                   "key2" => "value2",
+                 },
+                 table.schema.metadata)
+  end
+
   def test_null
     array = Arrow::NullArray.new(3)
     type, values = roundtrip(array)
@@ -865,12 +911,9 @@ module WriterDictionaryDeltaTests
     type = ArrowFormat::DictionaryType.new(index_type,
                                            value_type,
                                            ordered)
-    nullable = true
-    dictionary_id = 1
     field = ArrowFormat::Field.new("value",
                                    type,
-                                   nullable,
-                                   dictionary_id)
+                                   dictionary_id: 1)
     ArrowFormat::Schema.new([field])
   end
 
@@ -934,9 +977,10 @@ module WriterDictionaryDeltaTests
   end
 
   def roundtrip(value_type, values1, values2)
-    r = build_record_batches(value_type, values1, values2)
+    record_batches = build_record_batches(value_type, values1, values2)
     GC.start
-    super(*r)
+    table = super(*record_batches)
+    [table.value.data_type, table.value.values]
   end
 
   def test_boolean

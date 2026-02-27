@@ -16,21 +16,24 @@
 // under the License.
 
 #include "arrow/util/bpacking_dispatch_internal.h"
-#include "arrow/util/bpacking_simd256_generated_internal.h"
+#include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
+#include "arrow/util/bpacking_simd_kernel_internal.h"
 
-namespace arrow::internal {
+namespace arrow::internal::bpacking {
+
+template <typename UnpackedUint, int kPackedBitSize>
+using Simd256Kernel = Kernel<UnpackedUint, kPackedBitSize, 256>;
 
 template <typename Uint>
-void unpack_avx2(const uint8_t* in, Uint* out, int batch_size, int num_bits,
-                 int bit_offset) {
-  return unpack_jump<Simd256UnpackerForWidth>(in, out, batch_size, num_bits, bit_offset);
+void unpack_avx2(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
+  return unpack_jump<Simd256Kernel>(in, out, opts);
 }
 
-template void unpack_avx2<bool>(const uint8_t*, bool*, int, int, int);
-template void unpack_avx2<uint8_t>(const uint8_t*, uint8_t*, int, int, int);
-template void unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, int, int, int);
-template void unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, int, int, int);
-template void unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, int, int, int);
+template void unpack_avx2<bool>(const uint8_t*, bool*, const UnpackOptions&);
+template void unpack_avx2<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
+template void unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
+template void unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
+template void unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
-}  // namespace arrow::internal
+}  // namespace arrow::internal::bpacking

@@ -263,7 +263,8 @@ fi
 current_major_version=${package_version%%.*}
 # 22 -> 21
 previous_major_version=$[current_major_version -1]
-# 22 -> 21
+previous_so_version="${previous_major_version}00"
+previous_gi_api_version="${previous_major_version}.0"
 previous_package_version="${previous_major_version}.0.0-1"
 echo "::endgroup::"
 
@@ -273,36 +274,67 @@ fi
 
 echo "::group::Downgrade Gandiva"
 ${APT_INSTALL} --allow-downgrades \
+  gir1.2-arrow-${previous_gi_api_version}=${previous_package_version} \
+  gir1.2-gandiva-${previous_gi_api_version}=${previous_package_version} \
+  libarrow${previous_so_version}=${previous_package_version} \
+  libarrow-acero${previous_so_version}=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
+  libarrow-compute${previous_so_version}=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
+  libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
+  libgandiva${previous_so_version}=${previous_package_version} \
   libgandiva-dev=${previous_package_version} \
+  libgandiva-glib${previous_so_version}=${previous_package_version} \
   libgandiva-glib-dev=${previous_package_version} \
+  libparquet${previous_so_version}=${previous_package_version} \
   libparquet-dev=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Flight SQL"
 ${APT_INSTALL} --allow-downgrades \
+  gir1.2-arrow-${previous_gi_api_version}=${previous_package_version} \
+  gir1.2-arrow-flight-${previous_gi_api_version}=${previous_package_version} \
+  gir1.2-arrow-flight-sql-${previous_gi_api_version}=${previous_package_version} \
+  libarrow${previous_so_version}=${previous_package_version} \
+  libarrow-acero${previous_so_version}=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
+  libarrow-compute${previous_so_version}=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
+  libarrow-flight${previous_so_version}=${previous_package_version} \
   libarrow-flight-dev=${previous_package_version} \
+  libarrow-flight-glib${previous_so_version}=${previous_package_version} \
   libarrow-flight-glib-dev=${previous_package_version} \
+  libarrow-flight-sql${previous_so_version}=${previous_package_version} \
   libarrow-flight-sql-dev=${previous_package_version} \
+  libarrow-flight-sql-glib${previous_so_version}=${previous_package_version} \
   libarrow-flight-sql-glib-dev=${previous_package_version} \
+  libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version}
 echo "::endgroup::"
 
 echo "::group::Downgrade Apache Arrow Dataset"
 ${APT_INSTALL} --allow-downgrades \
+  gir1.2-arrow-${previous_gi_api_version}=${previous_package_version} \
+  gir1.2-arrow-dataset-${previous_gi_api_version}=${previous_package_version} \
+  gir1.2-parquet-${previous_gi_api_version}=${previous_package_version} \
+  libarrow${previous_so_version}=${previous_package_version} \
+  libarrow-acero${previous_so_version}=${previous_package_version} \
   libarrow-acero-dev=${previous_package_version} \
+  libarrow-compute${previous_so_version}=${previous_package_version} \
   libarrow-compute-dev=${previous_package_version} \
+  libarrow-dataset${previous_so_version}=${previous_package_version} \
   libarrow-dataset-dev=${previous_package_version} \
+  libarrow-dataset-glib${previous_so_version}=${previous_package_version} \
   libarrow-dataset-glib-dev=${previous_package_version} \
   libarrow-dev=${previous_package_version} \
+  libarrow-glib${previous_so_version}=${previous_package_version} \
   libarrow-glib-dev=${previous_package_version} \
+  libparquet${previous_so_version}=${previous_package_version} \
   libparquet-dev=${previous_package_version} \
+  libparquet-glib${previous_so_version}=${previous_package_version} \
   libparquet-glib-dev=${previous_package_version}
 echo "::endgroup::"
 

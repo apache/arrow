@@ -6,7 +6,13 @@
 # This has to be exported to make some magic below work.
 export DH_OPTIONS
 
+# lto1 (GCC 15) on Ubuntu 26.04 crashes with LTO.
+include /etc/os-release
+ifeq ($(VERSION_CODENAME),resolute)
+export DEB_BUILD_MAINT_OPTIONS=optimize=-lto,reproducible=-timeless
+else
 export DEB_BUILD_MAINT_OPTIONS=reproducible=-timeless
+endif
 
 BUILD_TYPE=relwithdebinfo
 
@@ -14,9 +20,7 @@ BUILD_TYPE=relwithdebinfo
 	dh $@ --with gir
 
 override_dh_auto_configure:
-	code_name="$$(. /etc/os-release &&			\
-                        echo $${VERSION_CODENAME})";		\
-	if [ "$${code_name}" = "focal" ]; then			\
+	if [ "$(VERSION_CODENAME)" = "focal" ]; then		\
 	  ARROW_AZURE=OFF;					\
 	else							\
 	  ARROW_AZURE=ON;					\
@@ -25,6 +29,12 @@ override_dh_auto_configure:
 	  ARROW_CUDA=ON;					\
 	else							\
 	  ARROW_CUDA=OFF;					\
+	fi;							\
+	if [ "$(VERSION_CODENAME)" = "resolute" ]; then		\
+	  : "RE2 is not built for C++17 or later";		\
+	  re2_SOURCE=BUNDLED;					\
+	else							\
+	  re2_SOURCE=SYSTEM;					\
 	fi;							\
 	dh_auto_configure					\
 	  --sourcedirectory=cpp					\
@@ -61,7 +71,8 @@ override_dh_auto_configure:
 	  -DCUDAToolkit_ROOT=/usr				\
 	  -DFETCHCONTENT_FULLY_DISCONNECTED=OFF			\
 	  -DPARQUET_BUILD_EXECUTABLES=ON			\
-	  -DPARQUET_REQUIRE_ENCRYPTION=ON
+	  -DPARQUET_REQUIRE_ENCRYPTION=ON			\
+	  -Dre2_SOURCE=$${re2_SOURCE}
 
 override_dh_auto_build:
 	dh_auto_build				\

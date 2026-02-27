@@ -1036,6 +1036,8 @@ template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
+  // If these constants are changed, then the corresponding values in
+  // TestDeltaBitPackEncoding (in `encoding_test.cc`) should be updated too.
   static constexpr uint32_t kValuesPerBlock =
       std::is_same_v<int32_t, typename DType::c_type> ? 128 : 256;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
