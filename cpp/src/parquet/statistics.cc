@@ -659,11 +659,6 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
   bool HasMinMax() const override { return HasMin() && HasMax(); }
   bool HasNullCount() const override { return statistics_.null_count.has_value(); };
 
-  std::optional<int64_t> NullCount() const override { return statistics_.null_count; }
-  std::optional<int64_t> DistinctCount() const override {
-    return statistics_.distinct_count;
-  }
-
   void IncrementNullCount(int64_t n) override {
     statistics_.null_count = NullCount().value_or(0) + n;
   }
@@ -804,6 +799,11 @@ class TypedStatisticsImpl : public TypedStatistics<DType> {
     return statistics_.distinct_count.value_or(0);
   }
   int64_t num_values() const override { return num_values_; }
+
+  std::optional<int64_t> NullCount() const override { return statistics_.null_count; }
+  std::optional<int64_t> DistinctCount() const override {
+    return statistics_.distinct_count;
+  }
   std::optional<bool> is_min_value_exact() const override {
     return statistics_.is_min_value_exact;
   }
@@ -884,10 +884,10 @@ template <>
 inline bool TypedStatisticsImpl<FLBAType>::MinMaxEqual(
     const TypedStatisticsImpl<FLBAType>& other) const {
   uint32_t len = descr_->type_length();
-  if (min_.has_value() != other.min_.has_value()) return false;
-  if (min_.has_value() && std::memcmp(min_->ptr, other.min_->ptr, len) != 0) return false;
-  if (max_.has_value() != other.max_.has_value()) return false;
-  if (max_.has_value() && std::memcmp(max_->ptr, other.max_->ptr, len) != 0) return false;
+  if (this->HasMin() != other.HasMin()) return false;
+  if (this->HasMin() && std::memcmp(Min()->ptr, other.Min()->ptr, len) != 0) return false;
+  if (this->HasMax() != other.HasMax()) return false;
+  if (this->HasMax() && std::memcmp(Max()->ptr, other.Max()->ptr, len) != 0) return false;
   return true;
 }
 

@@ -120,14 +120,12 @@ std::shared_ptr<TypedComparator<DType>> MakeComparator(const ColumnDescriptor* d
 /// \brief Structure represented encoded statistics to be written to
 /// and read from Parquet serialized metadata.
 class PARQUET_EXPORT EncodedStatistics {
+  std::optional<std::string> max_, min_;
   bool is_signed_ = false;
 
  public:
   EncodedStatistics() = default;
 
-  std::optional<std::string> max_, min_;
-  std::optional<int64_t> null_count;
-  std::optional<int64_t> distinct_count;
 
   PARQUET_DEPRECATED("Deprecated in 24.0.0. Use Max() instead.")
   const std::string& max() const { return max_.value(); }
@@ -136,17 +134,20 @@ class PARQUET_EXPORT EncodedStatistics {
 
   std::optional<std::string> Max() const { return max_; }
   std::optional<std::string> Min() const { return min_; }
-  std::optional<int64_t> DistinctCount() const { return distinct_count; }
-  std::optional<int64_t> NullCount() const { return null_count; }
-
-  bool HasMax() const { return max_.has_value(); }
-  bool HasMin() const { return min_.has_value(); }
 
   std::optional<bool> is_max_value_exact;
   std::optional<bool> is_min_value_exact;
 
+  std::optional<int64_t> null_count;
+  std::optional<int64_t> distinct_count;
+
+  bool HasMax() const { return max_.has_value(); }
+  bool HasMin() const { return min_.has_value(); }
   bool HasNullCount() const { return null_count.has_value(); }
   bool HasDistinctCount() const { return distinct_count.has_value(); }
+
+  std::optional<int64_t> DistinctCount() const { return distinct_count; }
+  std::optional<int64_t> NullCount() const { return null_count; }
 
   // When all values in the statistics are null, it is set to true.
   // Otherwise, at least one value is not null, or we are not sure at all.
