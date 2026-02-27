@@ -22,6 +22,8 @@ import os
 import pathlib
 import signal
 import struct
+import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -36,7 +38,7 @@ except ImportError:
 import pytest
 import pyarrow as pa
 
-from pyarrow.lib import IpcReadOptions, ReadStats, tobytes
+from pyarrow.lib import IpcReadOptions, ReadStats, is_opentelemetry_enabled, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
 
@@ -2642,6 +2644,35 @@ def test_tracing():
         ])
         for value in client.do_action((b"", b""), options=options):
             pass
+
+
+def test_tracing_server_middleware_emits_traces():
+    # Validate that we are able to emit traces to stdout when
+    # ARROW_TRACING_BACKEND=ostream
+    if not is_opentelemetry_enabled():
+        pytest.skip("Arrow not built with OpenTelemetry")
+    code = """if 1:
+        import pyarrow.flight as flight
+        from pyarrow.flight import FlightServerBase, FlightClient
+
+        class SimpleServer(FlightServerBase):
+            def do_action(self, context, action):
+                return []
+
+        with SimpleServer(
+            middleware={"otel": flight.TracingServerMiddlewareFactory()}
+        ) as server:
+            with FlightClient(('localhost', server.port)) as client:
+                list(client.do_action((b"", b"")))
+        """
+    env = os.environ.copy()
+    env['ARROW_TRACING_BACKEND'] = "ostream"
+    env['OTEL_SERVICE_NAME'] = "pyarrow-testing-service"
+    res = subprocess.run([sys.executable, "-c", code], env=env,
+                         capture_output=True)
+    assert res.returncode == 0, res.stderr
+    msg = "Expected service name in trace output"
+    assert b"service.name: pyarrow-testing-service" in res.stdout, msg
 
 
 def test_do_put_does_not_crash_when_schema_is_none():
