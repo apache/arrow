@@ -256,9 +256,12 @@ bool AzureOptions::Equals(const AzureOptions& other) const {
       dfs_storage_scheme == other.dfs_storage_scheme &&
       default_metadata == other.default_metadata &&
       background_writes == other.background_writes &&
-      credential_kind_ == other.credential_kind_ && account_key_ == other.account_key_ &&
-      sas_token_ == other.sas_token_ && tenant_id_ == other.tenant_id_ &&
-      client_id_ == other.client_id_ && client_secret_ == other.client_secret_;
+      credential_kind_ == other.credential_kind_ &&
+      account_key_ == other.account_key_ &&
+      sas_token_ == other.sas_token_ &&
+      tenant_id_ == other.tenant_id_ &&
+      client_id_ == other.client_id_ &&
+      client_secret_ == other.client_secret_;
   if (!equals) {
     return false;
   }
