@@ -286,11 +286,12 @@ cdef extern from "arrow/python/benchmark.h" namespace "arrow::py::benchmark":
 cdef extern from "arrow/python/gdb.h" namespace "arrow::gdb" nogil:
     void GdbTestSession "arrow::gdb::TestSession"()
 
-cdef extern from "arrow/python/helpers.h" namespace "arrow::py::internal":
-    c_bool IsThreadingEnabled()
-
 cdef extern from "arrow/python/config.h" namespace "arrow::py":
     cdef cppclass CBuildInfo "arrow::py::BuildInfo":
         c_string build_type
 
     const CBuildInfo& GetBuildInfo "arrow::py::GetBuildInfo"()
+
+cdef extern from "arrow/python/config.h" namespace "arrow::py::internal":
+    c_bool IsOpenTelemetryEnabled()
+    c_bool IsThreadingEnabled()
