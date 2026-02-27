@@ -1448,6 +1448,42 @@ def test_uuid_array_from_python():
         assert arr[i].as_py() == u
 
 
+@pytest.mark.parametrize("bytes_value,exc_type,match", [
+    (b"0123456789abcde", pa.ArrowInvalid, "expected to be length 16 was 15"),
+    (
+        "0123456789abcdef", TypeError,
+        "Expected uuid.UUID.bytes to return bytes, got 'str'"
+    ),
+    (None, TypeError, "Expected uuid.UUID.bytes to return bytes, got 'NoneType'"),
+])
+def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
+    import uuid
+
+    class BadUuid(uuid.UUID):
+        @property
+        def bytes(self):
+            return bytes_value
+
+    bad = BadUuid(uuid.uuid4().hex)
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad], type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad, type=pa.uuid())
+
+
+def test_uuid_bytes_property_raises():
+    import uuid
+
+    class BadUuid(uuid.UUID):
+        @property
+        def bytes(self):
+            raise RuntimeError("broken")
+
+    bad = BadUuid(uuid.uuid4().hex)
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad], type=pa.uuid())
+
+
 def test_tensor_type():
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"

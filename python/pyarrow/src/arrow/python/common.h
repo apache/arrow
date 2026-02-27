@@ -423,6 +423,10 @@ struct PyBytesView {
   Status ParseUuid(PyObject* obj) {
     ref.reset(PyObject_GetAttrString(obj, "bytes"));
     RETURN_IF_PYERROR();
+    if (!PyBytes_Check(ref.obj())) {
+      return Status::TypeError("Expected uuid.UUID.bytes to return bytes, got '",
+                               Py_TYPE(ref.obj())->tp_name, "' object");
+    }
     bytes = PyBytes_AS_STRING(ref.obj());
     size = PyBytes_GET_SIZE(ref.obj());
     is_utf8 = false;
