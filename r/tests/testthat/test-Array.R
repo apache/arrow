@@ -332,7 +332,7 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   )
   if (!identical(Sys.timezone(), "Pacific/Marquesas")) {
     # Confirming that the columns are in fact different
-    expect_false(any(df$no_tz == df$yes_tz))
+    expect_all_false(df$no_tz == df$yes_tz)
   }
   feather_file <- tempfile()
   on.exit(unlink(feather_file))

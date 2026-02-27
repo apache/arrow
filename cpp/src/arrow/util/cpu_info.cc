@@ -146,7 +146,7 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
   int highest_valid_id = 0;
   int highest_extended_valid_id = 0;
   std::bitset<32> features_ECX;
-  std::array<int, 4> cpu_info;
+  std::array<int, 4> cpu_info = {};
 
   // Get highest valid id
   __cpuid(cpu_info.data(), 0);

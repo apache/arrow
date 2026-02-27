@@ -23,28 +23,29 @@
 
 namespace arrow::internal {
 
+struct UnpackOptions {
+  int batch_size;
+  int bit_width;
+  int bit_offset = 0;
+  int max_read_bytes = -1;
+};
+
 template <typename Uint>
-ARROW_EXPORT void unpack(const uint8_t* in, Uint* out, int batch_size, int num_bits,
-                         int bit_offset = 0);
+ARROW_EXPORT void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack<bool>(const uint8_t* in, bool* out,
-                                                        int batch_size, int num_bits,
-                                                        int bit_offset);
+extern template ARROW_TEMPLATE_EXPORT void unpack<bool>(  //
+    const uint8_t* in, bool* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack<uint8_t>(const uint8_t* in,
-                                                           uint8_t* out, int batch_size,
-                                                           int num_bits, int bit_offset);
+extern template ARROW_TEMPLATE_EXPORT void unpack<uint8_t>(  //
+    const uint8_t* in, uint8_t* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack<uint16_t>(const uint8_t* in,
-                                                            uint16_t* out, int batch_size,
-                                                            int num_bits, int bit_offset);
+extern template ARROW_TEMPLATE_EXPORT void unpack<uint16_t>(  //
+    const uint8_t* in, uint16_t* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack<uint32_t>(const uint8_t* in,
-                                                            uint32_t* out, int batch_size,
-                                                            int num_bits, int bit_offset);
+extern template ARROW_TEMPLATE_EXPORT void unpack<uint32_t>(  //
+    const uint8_t* in, uint32_t* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack<uint64_t>(const uint8_t* in,
-                                                            uint64_t* out, int batch_size,
-                                                            int num_bits, int bit_offset);
+extern template ARROW_TEMPLATE_EXPORT void unpack<uint64_t>(  //
+    const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
 
 }  // namespace arrow::internal

@@ -114,6 +114,9 @@ class ScalarUnpackGenerator:
             self.total_in_values * bit + self.out_bit_width - 1
         ) // self.out_bit_width
 
+    def total_in_bytes(self, bit: int) -> int:
+        return (self.total_in_values * bit) // 8
+
     def total_out_bytes(self, bit: int) -> int:
         return (
             self.total_in_values * bit + self.out_byte_width - 1
@@ -186,6 +189,7 @@ class ScalarUnpackGenerator:
         print(f"struct {self.struct_specialization(bit)} {{")
         print()
         print(f"  static constexpr int kValuesUnpacked = {self.total_in_values};")
+        print(f"  static constexpr int kBytesRead = {self.total_in_bytes(bit)};")
         print()
         self.print_unpack_k(bit)
         print("};")
@@ -198,6 +202,10 @@ class ScalarUnpackGenerator:
         print(
             "  static constexpr int kValuesUnpacked = "
             f"{self.struct_name}<uint32_t, kBitWidth>::kValuesUnpacked;"
+        )
+        print(
+            "  static constexpr int kBytesRead = "
+            f"{self.struct_name}<uint32_t, kBitWidth>::kBytesRead;"
         )
         print()
 
