@@ -1167,8 +1167,15 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
+    // TODO: We can remove this condition once CRAN upgrades its macOS
+    // SDK from 11.3.
+#if defined(__clang__) && !defined(__cpp_lib_bitops)
+    const auto bit_width = bit_width_data[i] =
+        std::log2p1(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#else
     const auto bit_width = bit_width_data[i] =
         std::bit_width(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#endif
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // Convert delta to frame of reference. See overflow comment above.
