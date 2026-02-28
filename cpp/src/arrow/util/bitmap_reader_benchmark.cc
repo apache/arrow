@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <bit>
 #include <bitset>
 #include <cstdint>
 #include <cstdlib>
@@ -88,9 +89,9 @@ static void BitmapWordReaderBench(benchmark::State& state) {
       //      if (word == UINT64_MAX) {
       //        set_bits += sizeof(uint64_t) * 8;
       //      } else if (word) {
-      //        set_bits += PopCount(word);
+      //        set_bits += std::popcount(word);
       //      }
-      set_bits += PopCount(word);
+      set_bits += std::popcount(word);
       benchmark::DoNotOptimize(set_bits);
     }
 
@@ -98,7 +99,7 @@ static void BitmapWordReaderBench(benchmark::State& state) {
     while (cnt--) {
       int valid_bits;
       const auto& byte = static_cast<uint32_t>(counter.NextTrailingByte(valid_bits));
-      set_bits += PopCount(kPrecedingBitmask[valid_bits] & byte);
+      set_bits += std::popcount(kPrecedingBitmask[valid_bits] & byte);
       benchmark::DoNotOptimize(set_bits);
     }
     benchmark::ClobberMemory();

@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <limits>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -119,14 +120,14 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
 }
 
 template <typename T>
-void VerifyResults(T* result, T* expected, int num_values) {
+void VerifyResults(const T* result, const T* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(expected[i], result[i]) << i;
   }
 }
 
 template <typename T>
-void VerifyResultsSpaced(T* result, T* expected, int num_values,
+void VerifyResultsSpaced(const T* result, const T* expected, int num_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -136,14 +137,14 @@ void VerifyResultsSpaced(T* result, T* expected, int num_values,
 }
 
 template <>
-void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
+void VerifyResults<FLBA>(const FLBA* result, const FLBA* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
   }
 }
 
 template <>
-void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
+void VerifyResultsSpaced<FLBA>(const FLBA* result, const FLBA* expected, int num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -1735,33 +1736,43 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
-  void CheckDecoding() {
+  void CheckDecoding() { CheckDecoding(std::span(draws_, num_values_)); }
+
+  void CheckDecoding(std::span<const c_type> expected_values) {
+    const auto num_values = static_cast<int>(expected_values.size());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
     auto read_batch_sizes = kReadBatchSizes;
-    read_batch_sizes.push_back(num_values_);
+    read_batch_sizes.push_back(num_values);
     // Exercise different batch sizes
     for (const int read_batch_size : read_batch_sizes) {
-      decoder->SetData(num_values_, encode_buffer_->data(),
+      decoder->SetData(num_values, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
 
+      std::vector<c_type> decoded_values(num_values);
       int values_decoded = 0;
-      while (values_decoded < num_values_) {
-        values_decoded += decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
+      while (values_decoded < num_values) {
+        values_decoded +=
+            decoder->Decode(decoded_values.data() + values_decoded, read_batch_size);
       }
-      ASSERT_EQ(num_values_, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+      ASSERT_EQ(num_values, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decoded_values.data(),
+                                                    expected_values.data(), num_values));
     }
   }
 
-  void CheckRoundtrip() override {
+  void CheckRoundtripWithValues(std::span<const c_type> values) {
     auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
                                           /*use_dictionary=*/false, descr_.get());
     // Encode a number of times to exercise the flush logic
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
-      encoder->Put(draws_, num_values_);
+      encoder->Put(values.data(), static_cast<int>(values.size()));
       encode_buffer_ = encoder->FlushValues();
-      CheckDecoding();
+      CheckDecoding(values);
     }
+  }
+
+  void CheckRoundtrip() override {
+    CheckRoundtripWithValues(std::span(draws_, num_values_));
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits,
@@ -1920,24 +1931,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedWrapping) {
                                1,
                                -1,
                                1};
-  const int num_values = static_cast<int>(int_values.size());
-
-  const auto encoder = MakeTypedEncoder<TypeParam>(
-      Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
-  encoder->Put(int_values, num_values);
-  const auto encoded = encoder->FlushValues();
-
-  const auto decoder =
-      MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, this->descr_.get());
-
-  std::vector<T> decoded(num_values);
-  decoder->SetData(num_values, encoded->data(), static_cast<int>(encoded->size()));
-
-  const int values_decoded = decoder->Decode(decoded.data(), num_values);
-
-  ASSERT_EQ(num_values, values_decoded);
-  ASSERT_NO_FATAL_FAILURE(
-      VerifyResults<T>(decoded.data(), int_values.data(), num_values));
+  this->CheckRoundtripWithValues(int_values);
 }
 
 // Test that the DELTA_BINARY_PACKED encoding does not use more bits to encode than
@@ -1965,6 +1959,29 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedSize) {
   const auto encoded = encoder->FlushValues();
 
   ASSERT_EQ(encoded->size(), encoded_size);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, ZeroDeltaBitWidth) {
+  // Exercise ranges of zero deltas interspersed between ranges of non-zero deltas.
+  // This checks that the zero bit-width optimization in GH-49266 doesn't mess
+  // decoder state.
+  using T = typename TypeParam::c_type;
+
+  // At least the size of a block
+  constexpr int kRangeSize = 256;
+
+  std::vector<T> int_values;
+  for (int i = 0; i < kRangeSize; ++i) {
+    int_values.push_back((i * 7) % 11);
+  }
+  // Range of equal values, should emit zero-width deltas
+  for (int i = 0; i < kRangeSize * 2; ++i) {
+    int_values.push_back(42);
+  }
+  for (int i = 0; i < kRangeSize; ++i) {
+    int_values.push_back((i * 5) % 7);
+  }
+  this->CheckRoundtripWithValues(int_values);
 }
 
 // ----------------------------------------------------------------------

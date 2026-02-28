@@ -1,6 +1,6 @@
 Package: arrow
 Title: Integration to 'Apache' 'Arrow'
-Version: 23.0.0.9000
+Version: 23.0.1.9000
 Authors@R: c(
     person("Neal", "Richardson", email = "neal.p.richardson@gmail.com", role = c("aut")),
     person("Ian", "Cook", email = "ianmcook@gmail.com", role = c("aut")),
@@ -68,7 +68,7 @@ Suggests:
     stringi,
     stringr,
     sys,
-    testthat (>= 3.1.0),
+    testthat (>= 3.3.0),
     tibble,
     tzdb,
     withr

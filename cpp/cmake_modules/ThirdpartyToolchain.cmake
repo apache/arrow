@@ -1833,6 +1833,8 @@ function(build_thrift)
   if(BOOST_VENDORED)
     target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
     target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
+  else()
+    target_link_libraries(thrift INTERFACE Boost::headers)
   endif()
 
   add_library(thrift::thrift INTERFACE IMPORTED)

@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <bit>
 #include <cstring>
 
 #include "arrow/compute/util.h"
@@ -54,7 +55,7 @@ void bits_to_indexes_imp_avx2(const int num_bits, const uint8_t* bits, int* num_
           _pext_u64(mask, _pdep_u64(word, kEachByteIs1) * 0xff) + base;
       *reinterpret_cast<uint64_t*>(byte_indexes + num_indexes_loop) = byte_indexes_next;
       base += incr;
-      num_indexes_loop += static_cast<int>(arrow::bit_util::PopCount(word & 0xff));
+      num_indexes_loop += static_cast<int>(std::popcount(word & 0xff));
       word >>= 8;
     }
     // Unpack indexes to 16-bits and either add the base of i * 64 or shuffle input
@@ -144,7 +145,7 @@ void bits_filter_indexes_imp_avx2(const int num_bits, const uint8_t* bits,
                                                       kByteSequence_0_8_1_9_2_10_3_11,
                                                       kByteSequence_4_12_5_13_6_14_7_15));
       _mm256_storeu_si256((__m256i*)(indexes + num_indexes), output);
-      num_indexes += static_cast<int>(arrow::bit_util::PopCount(word & 0xffff));
+      num_indexes += static_cast<int>(std::popcount(word & 0xffff));
       word >>= 16;
       ++loop_id;
     }

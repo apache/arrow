@@ -1000,8 +1000,9 @@ class DictDecoderImpl : public TypedDecoderImpl<Type>, public DictDecoder<Type> 
 
   inline void DecodeDict(TypedDecoder<Type>* dictionary) {
     dictionary_length_ = static_cast<int32_t>(dictionary->values_left());
-    PARQUET_THROW_NOT_OK(dictionary_->Resize(dictionary_length_ * sizeof(T),
-                                             /*shrink_to_fit=*/false));
+    PARQUET_THROW_NOT_OK(
+        dictionary_->Resize(static_cast<int64_t>(dictionary_length_) * sizeof(T),
+                            /*shrink_to_fit=*/false));
     dictionary->Decode(dictionary_->mutable_data_as<T>(), dictionary_length_);
   }
 
@@ -1044,15 +1045,15 @@ void DictDecoderImpl<ByteArrayType>::SetDict(TypedDecoder<ByteArrayType>* dictio
 
   auto* dict_values = dictionary_->mutable_data_as<ByteArray>();
 
-  int total_size = 0;
+  int64_t total_size = 0;
   for (int i = 0; i < dictionary_length_; ++i) {
     total_size += dict_values[i].len;
   }
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
-  PARQUET_THROW_NOT_OK(
-      byte_array_offsets_->Resize((dictionary_length_ + 1) * sizeof(int32_t),
-                                  /*shrink_to_fit=*/false));
+  PARQUET_THROW_NOT_OK(byte_array_offsets_->Resize(
+      (static_cast<int64_t>(dictionary_length_) + 1) * sizeof(int32_t),
+      /*shrink_to_fit=*/false));
 
   int32_t offset = 0;
   uint8_t* bytes_data = byte_array_data_->mutable_data();
@@ -1073,7 +1074,7 @@ inline void DictDecoderImpl<FLBAType>::SetDict(TypedDecoder<FLBAType>* dictionar
   auto* dict_values = dictionary_->mutable_data_as<FLBA>();
 
   int fixed_len = this->type_length_;
-  int total_size = dictionary_length_ * fixed_len;
+  int64_t total_size = static_cast<int64_t>(dictionary_length_) * fixed_len;
 
   PARQUET_THROW_NOT_OK(byte_array_data_->Resize(total_size,
                                                 /*shrink_to_fit=*/false));
@@ -1618,16 +1619,27 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
       int values_decode = std::min(values_remaining_current_mini_block_,
                                    static_cast<uint32_t>(max_values - i));
-      if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
-          values_decode) {
-        ParquetException::EofException();
-      }
-      for (int j = 0; j < values_decode; ++j) {
-        // Addition between min_delta, packed int and last_value should be treated as
-        // unsigned addition. Overflow is as expected.
-        buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                        static_cast<UT>(last_value_);
-        last_value_ = buffer[i + j];
+      if (delta_bit_width_ == 0) {
+        // Fast path that avoids a back-to-back dependency between two consecutive
+        // computations: we know all deltas decode to zero. We actually don't
+        // even need to decode them.
+        for (int j = 0; j < values_decode; ++j) {
+          buffer[i + j] = static_cast<UT>(last_value_) +
+                          static_cast<UT>(j + 1) * static_cast<UT>(min_delta_);
+        }
+        last_value_ += static_cast<UT>(values_decode) * static_cast<UT>(min_delta_);
+      } else {
+        if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
+            values_decode) {
+          ParquetException::EofException();
+        }
+        for (int j = 0; j < values_decode; ++j) {
+          // Addition between min_delta, packed int and last_value should be treated as
+          // unsigned addition. Overflow is as expected.
+          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
+                          static_cast<UT>(last_value_);
+          last_value_ = buffer[i + j];
+        }
       }
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;

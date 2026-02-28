@@ -17,6 +17,7 @@
 
 #include "gandiva/selection_vector.h"
 
+#include <bit>
 #include <memory>
 #include <sstream>
 #include <utility>
@@ -64,7 +65,7 @@ Status SelectionVector::PopulateFromBitMap(const uint8_t* bitmap, int64_t bitmap
 #  pragma warning(pop)
 #endif
 
-      int pos_in_word = arrow::bit_util::CountTrailingZeros(highest_only);
+      int pos_in_word = std::countr_zero(highest_only);
 
       int64_t pos_in_bitmap = bitmap_idx * 64 + pos_in_word;
       if (pos_in_bitmap > max_bitmap_index) {

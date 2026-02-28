@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -1035,6 +1036,8 @@ template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
+  // If these constants are changed, then the corresponding values in
+  // TestDeltaBitPackEncoding (in `encoding_test.cc`) should be updated too.
   static constexpr uint32_t kValuesPerBlock =
       std::is_same_v<int32_t, typename DType::c_type> ? 128 : 256;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
@@ -1164,8 +1167,8 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
-    const auto bit_width = bit_width_data[i] = bit_util::NumRequiredBits(
-        static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+    const auto bit_width = bit_width_data[i] =
+        std::bit_width(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // Convert delta to frame of reference. See overflow comment above.
