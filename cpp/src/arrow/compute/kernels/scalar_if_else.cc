@@ -762,7 +762,6 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 
       int64_t right_data_length = static_cast<int64_t>(right_offsets[right.length]) -
                                   static_cast<int64_t>(right_offsets[0]);
-      ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(right_data_length));
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
       std::memcpy(out_data->buffers[2]->mutable_data(), right_data, right_data_length);
       return Status::OK();
