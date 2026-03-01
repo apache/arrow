@@ -200,6 +200,8 @@ using ListArrowTypes = ::testing::Types<ListType, LargeListType>;
 
 using UnionArrowTypes = ::testing::Types<SparseUnionType, DenseUnionType>;
 
+using DictionaryArrowTypes = ::testing::Types<DictionaryType>;
+
 class Array;
 class ChunkedArray;
 class RecordBatch;

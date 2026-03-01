@@ -18,6 +18,7 @@
 #include <unordered_set>
 
 #include "arrow/compute/function.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/kernels/vector_sort_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
