@@ -1184,10 +1184,15 @@ int main(int argc, char** argv) {
   int ret = 0;
 
   if (FLAGS_integration) {
-    arrow::Status result =
-        arrow::internal::integration::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
-    if (!result.ok()) {
-      std::cout << "Error message: " << result.ToString() << std::endl;
+    try {
+      const arrow::Status result =
+          arrow::internal::integration::RunCommand(FLAGS_json, FLAGS_arrow, FLAGS_mode);
+      if (!result.ok()) {
+        std::cerr << "Error message: " << result.ToString() << std::endl;
+        ret = 1;
+      }
+    } catch (const std::exception& e) {
+      std::cout << "Exception raised: " << e.what() << std::endl;
       ret = 1;
     }
   } else {
@@ -1195,5 +1200,6 @@ int main(int argc, char** argv) {
     ret = RUN_ALL_TESTS();
   }
   gflags::ShutDownCommandLineFlags();
+
   return ret;
 }

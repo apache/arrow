@@ -23,6 +23,7 @@ import glob
 import gzip
 import itertools
 import os
+from pathlib import Path
 import sys
 import tempfile
 import traceback
@@ -591,8 +592,8 @@ def get_static_json_files():
 
 def select_testers(with_cpp=True, with_java=True, with_js=True,
                    with_dotnet=True, with_go=True, with_rust=False,
-                   with_nanoarrow=False, target_implementations="",
-                   **kwargs):
+                   with_nanoarrow=False, with_external_library=None,
+                   target_implementations="",**kwargs):
     target_implementations = (target_implementations.split(",")
                               if target_implementations else [])
 
@@ -632,6 +633,20 @@ def select_testers(with_cpp=True, with_java=True, with_js=True,
     if with_rust:
         from .tester_rust import RustTester
         append_tester("rust", RustTester(**kwargs))
+
+    if with_external_library:
+        from .tester_external_library import ExternalLibraryTester
+
+        append_tester("external_library", ExternalLibraryTester(
+            path=Path(with_external_library),
+            is_producer_compatible=kwargs.get("external_library_ipc_producer", False),
+            is_consumer_compatible=kwargs.get("external_library_ipc_consumer", False),
+            is_c_data_schema_exporter_compatible=kwargs.get("external_library_c_data_schema_exporter", False),
+            is_c_data_array_exporter_compatible=kwargs.get("external_library_c_data_array_exporter", False),
+            is_c_data_schema_importer_compatible=kwargs.get("external_library_c_data_schema_importer", False),
+            is_c_data_array_importer_compatible=kwargs.get("external_library_c_data_array_importer", False),
+            supports_releasing_memory=kwargs.get("external_library_supports_releasing_memory", False),
+            **kwargs))
 
     return testers, other_testers
 
