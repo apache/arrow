@@ -15,10 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Use C++ 20 for ODBC and its subdirectory
-# GH-44792: Arrow will switch to C++ 20
-set(CMAKE_CXX_STANDARD 20)
-
 if(WIN32)
   if(MSVC_VERSION GREATER_EQUAL 1900)
     set(ODBCINST legacy_stdio_definitions odbccp32 shlwapi)
@@ -26,7 +22,7 @@ if(WIN32)
     set(ODBCINST odbccp32 shlwapi)
   endif()
 elseif(APPLE)
-  set(ODBCINST iodbcinst)
+  set(ODBCINST iodbc iodbcinst)
 else()
   set(ODBCINST odbcinst)
 endif()
@@ -61,6 +57,25 @@ if(WIN32)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SRCS odbc.def install/versioninfo.rc)
 endif()
 
+# On Windows, dynmaic build for ODBC is supported.
+# On unix systems, static build for ODBC is supported, all libraries are linked statically on unix.
+set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
+set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
+set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
+if(WIN32)
+  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared arrow_odbc_spi_impl)
+  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+       ArrowFlight::arrow_flight_sql_shared)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+       ArrowFlight::arrow_flight_sql_static)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
+else()
+  # Unix
+  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
+  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS ODBC::ODBC ${ODBCINST})
+endif()
+
 add_arrow_lib(arrow_flight_sql_odbc
               CMAKE_PACKAGE_NAME
               ArrowFlightSqlOdbc
@@ -70,24 +85,20 @@ add_arrow_lib(arrow_flight_sql_odbc
               ARROW_FLIGHT_SQL_ODBC_LIBRARIES
               SOURCES
               ${ARROW_FLIGHT_SQL_ODBC_SRCS}
-              DEPENDENCIES
-              arrow_flight_sql
               DEFINITIONS
               UNICODE
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS
-              arrow_flight_sql_shared
+              ${ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS}
               SHARED_INSTALL_INTERFACE_LIBS
-              ArrowFlight::arrow_flight_sql_shared
+              ${ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS}
               STATIC_LINK_LIBS
-              arrow_flight_sql_static
+              ${ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
-              ArrowFlight::arrow_flight_sql_static
+              ${ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS}
               SHARED_PRIVATE_LINK_LIBS
-              ODBC::ODBC
-              ${ODBCINST}
-              arrow_odbc_spi_impl)
+              ${ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS})
 
 foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_SQL_ODBC_EXPORTING)

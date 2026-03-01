@@ -15,7 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "ui/add_property_window.h"
+#include "arrow/flight/sql/odbc/odbc_impl/ui/add_property_window.h"
 
 #include <Windowsx.h>
 
@@ -25,8 +25,8 @@
 #include <commctrl.h>
 
 #include "arrow/flight/sql/odbc/odbc_impl/exceptions.h"
-#include "ui/custom_window.h"
-#include "ui/window.h"
+#include "arrow/flight/sql/odbc/odbc_impl/ui/custom_window.h"
+#include "arrow/flight/sql/odbc/odbc_impl/ui/window.h"
 
 namespace arrow::flight::sql::odbc {
 namespace config {
