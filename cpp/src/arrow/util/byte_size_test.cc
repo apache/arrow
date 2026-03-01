@@ -316,6 +316,65 @@ TEST(ByteRanges, FixedSizeList) {
   CheckBufferRanges(list_arr_with_nulls->Slice(4, 1), {{0, 0, 1}, {1, 1, 1}, {2, 8, 2}});
 }
 
+TEST(ByteRanges, StringViewType) {
+  std::shared_ptr<Array> str_view_arr = ArrayFromJSON(
+      utf8_view(), R"(["short", "a longer string that requires a buffer"])");
+  // First buffer is validity (null in this case), second is views (16 bytes per view),
+  // third is the data buffer for long strings
+  CheckBufferRanges(str_view_arr, {{0, 0, 32}, {1, 0, 38}});
+
+  std::shared_ptr<Array> str_view_with_nulls = ArrayFromJSON(
+      utf8_view(), R"(["short", null, "another long string that requires a buffer"])");
+  CheckBufferRanges(str_view_with_nulls, {{0, 0, 1}, {1, 0, 48}, {2, 0, 42}});
+}
+
+TEST(ByteRanges, BinaryViewType) {
+  std::shared_ptr<Array> bin_view_arr =
+      ArrayFromJSON(binary_view(), R"(["ABCD", "EFGHIJKLMNOPQRSTUVWXYZ"])");
+  // Similar to string view: views buffer (16 bytes per view), then data buffers
+  CheckBufferRanges(bin_view_arr, {{0, 0, 32}, {1, 0, 22}});
+
+  std::shared_ptr<Array> bin_view_with_nulls =
+      ArrayFromJSON(binary_view(), R"(["AB", null, "CDEFGHIJKLMNOPQRSTUVWXYZ"])");
+  CheckBufferRanges(bin_view_with_nulls, {{0, 0, 1}, {1, 0, 48}, {2, 0, 24}});
+}
+
+using ListViewArrowTypes = ::testing::Types<ListViewType, LargeListViewType>;
+template <typename Type>
+class ByteRangesListView : public ::testing::Test {};
+TYPED_TEST_SUITE(ByteRangesListView, ListViewArrowTypes);
+
+TYPED_TEST(ByteRangesListView, Basic) {
+  using offset_type = typename TypeParam::offset_type;
+  std::shared_ptr<DataType> type = std::make_shared<TypeParam>(int32());
+  std::shared_ptr<Array> list_view_arr = ArrayFromJSON(type, "[[1, 2], [3], [0]]");
+  // Offsets buffer, sizes buffer, then child data
+  CheckBufferRanges(
+      list_view_arr,
+      {{0, 0, 3 * sizeof(offset_type)}, {1, 0, 3 * sizeof(offset_type)}, {2, 0, 16}});
+
+  std::shared_ptr<Array> list_view_with_nulls =
+      ArrayFromJSON(type, "[[1, 2], null, [3, 4, 5]]");
+  CheckBufferRanges(list_view_with_nulls, {{0, 0, 1},
+                                           {1, 0, 3 * sizeof(offset_type)},
+                                           {2, 0, 3 * sizeof(offset_type)},
+                                           {3, 0, 20}});
+}
+
+TYPED_TEST(ByteRangesListView, NestedListView) {
+  using offset_type = typename TypeParam::offset_type;
+  std::shared_ptr<DataType> type =
+      std::make_shared<TypeParam>(std::make_shared<TypeParam>(int32()));
+  std::shared_ptr<Array> list_view_arr =
+      ArrayFromJSON(type, "[[[1], [2, 3]], [[4, 5, 6]], [[7]]]");
+  // Parent offsets, parent sizes, child offsets, child sizes, grandchild data
+  CheckBufferRanges(list_view_arr, {{0, 0, 3 * sizeof(offset_type)},
+                                    {1, 0, 3 * sizeof(offset_type)},
+                                    {2, 0, 4 * sizeof(offset_type)},
+                                    {3, 0, 4 * sizeof(offset_type)},
+                                    {4, 0, 28}});
+}
+
 TEST(ByteRanges, Map) {
   std::shared_ptr<Array> map_arr = ArrayFromJSON(
       map(utf8(), uint16()), R"([[["x", 1], ["y", 2]], [["x", 3], ["y", 4]]])");
