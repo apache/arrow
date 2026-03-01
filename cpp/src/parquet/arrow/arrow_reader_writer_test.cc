@@ -4735,8 +4735,8 @@ TEST_P(TestArrowWriteDictionary, Statistics) {
 
         auto expect_has_min_max =
             expected_has_min_max_by_page[case_index][row_group_index][page_index];
-        EXPECT_EQ(stats.has_min, expect_has_min_max);
-        EXPECT_EQ(stats.has_max, expect_has_min_max);
+        EXPECT_EQ(stats.HasMin(), expect_has_min_max);
+        EXPECT_EQ(stats.HasMax(), expect_has_min_max);
         if (expect_has_min_max) {
           EXPECT_EQ(stats.min(),
                     expected_min_by_page[case_index][row_group_index][page_index]);

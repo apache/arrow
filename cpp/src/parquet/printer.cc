@@ -165,7 +165,7 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
       }
       stream << "  Values: " << column_chunk->num_values();
       if (column_chunk->is_stats_set()) {
-        std::string min = stats->min(), max = stats->max();
+        std::string min = stats->Min().value_or(""), max = stats->Max().value_or("");
         std::string max_exact =
             stats->is_max_value_exact.has_value()
                 ? (stats->is_max_value_exact.value() ? "true" : "false")
@@ -174,8 +174,8 @@ void ParquetFilePrinter::DebugPrint(std::ostream& stream, std::list<int> selecte
             stats->is_min_value_exact.has_value()
                 ? (stats->is_min_value_exact.value() ? "true" : "false")
                 : "unknown";
-        stream << ", Null Values: " << stats->null_count
-               << ", Distinct Values: " << stats->distinct_count << std::endl
+        stream << ", Null Values: " << stats->NullCount().value_or(0)
+               << ", Distinct Values: " << stats->DistinctCount().value_or(0) << std::endl
                << "  Max (exact: " << max_exact << "): "
                << FormatStatValue(descr->physical_type(), max, descr->logical_type())
                << ", Min (exact: " << min_exact << "): "
@@ -335,11 +335,11 @@ void ParquetFilePrinter::JSONPrint(std::ostream& stream, std::list<int> selected
       if (column_chunk->is_stats_set()) {
         stream << R"("True", "Stats": {)";
         if (stats->HasNullCount()) {
-          stream << R"("NumNulls": ")" << stats->null_count() << "\"";
+          stream << R"("NumNulls": ")" << stats->NullCount().value() << "\"";
         }
         if (stats->HasDistinctCount()) {
           stream << ", "
-                 << R"("DistinctValues": ")" << stats->distinct_count() << "\"";
+                 << R"("DistinctValues": ")" << stats->DistinctCount().value() << "\"";
         }
         if (stats->HasMinMax()) {
           std::string min = stats->EncodeMin(), max = stats->EncodeMax();
