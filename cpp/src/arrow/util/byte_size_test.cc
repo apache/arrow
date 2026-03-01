@@ -472,5 +472,40 @@ TEST(ByteRanges, TableNoOverlap) {
   ASSERT_OK_AND_EQ(13, ReferencedBufferSize(*table));
 }
 
+TEST(ByteRanges, BinaryViewInline) {
+  // All inline strings (<=12 bytes each) - only bitmap + views buffers
+  std::shared_ptr<Array> sv_arr = ArrayFromJSON(binary_view(), R"(["a", "bb", "ccc"])");
+  // 3 views * 16 bytes = 48 bytes for views buffer
+  // No data buffers since everything is inline
+  ASSERT_OK_AND_ASSIGN(int64_t size, ReferencedBufferSize(*sv_arr));
+  ASSERT_EQ(48, size);
+
+  // With nulls
+  std::shared_ptr<Array> sv_arr_null =
+      ArrayFromJSON(binary_view(), R"(["a", null, "ccc"])");
+  ASSERT_OK_AND_ASSIGN(int64_t size_null, ReferencedBufferSize(*sv_arr_null));
+  // 1 byte bitmap + 48 bytes views
+  ASSERT_EQ(49, size_null);
+}
+
+TEST(ByteRanges, StringViewInline) {
+  // string_view should work exactly the same as binary_view
+  std::shared_ptr<Array> sv_arr = ArrayFromJSON(utf8_view(), R"(["hello", "world"])");
+  ASSERT_OK_AND_ASSIGN(int64_t size, ReferencedBufferSize(*sv_arr));
+  // 2 views * 16 bytes = 32 bytes
+  ASSERT_EQ(32, size);
+}
+
+TEST(ByteRanges, BinaryViewOutOfLine) {
+  // Strings > 12 bytes are stored out-of-line in data buffers
+  std::shared_ptr<Array> sv_arr =
+      ArrayFromJSON(binary_view(), R"(["this string is longer than twelve bytes"])");
+  ASSERT_OK_AND_ASSIGN(int64_t size, ReferencedBufferSize(*sv_arr));
+  // 1 view * 16 bytes = 16 bytes for views
+  // + the out-of-line data length (40 bytes for "this string is longer than twelve
+  // bytes")
+  ASSERT_EQ(16 + 40, size);
+}
+
 }  // namespace util
 }  // namespace arrow
