@@ -1663,6 +1663,13 @@ def scalar(value, type=None, *, from_pandas=None, MemoryPool memory_pool=None):
         ty = ensure_type(type)
         options.type = ty.sp_type
 
+    cdef shared_ptr[CArray] c_array
+
+    if hasattr(value, "__arrow_c_array__"):
+        c_array = pyarrow_unwrap_array(value.__arrow_c_array__())
+        if c_array.get().length() != 1:
+            raise ValueError("Expected a length-1 array for scalar construction")
+
     if from_pandas is None:
         options.from_pandas = is_pandas_object
     else:
