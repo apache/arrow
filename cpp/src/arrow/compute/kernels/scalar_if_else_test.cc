@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 
 #include <gtest/gtest.h>
@@ -606,6 +607,93 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
   CheckIfElseOutput(cond, left, right, expected_data);
+}
+
+Result<std::shared_ptr<Array>> MakeAllocatedVarBinaryArray(
+    const std::shared_ptr<DataType>& type, int64_t data_length) {
+  ARROW_ASSIGN_OR_RAISE(auto values, AllocateBuffer(data_length));
+  if (type->id() == Type::STRING || type->id() == Type::BINARY) {
+    if (data_length > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("data_length exceeds int32 offset range");
+    }
+    auto offsets =
+        Buffer::FromVector(std::vector<int32_t>{0, static_cast<int32_t>(data_length)});
+    return MakeArray(
+        ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(values)}));
+  }
+  if (type->id() != Type::LARGE_STRING && type->id() != Type::LARGE_BINARY) {
+    return Status::TypeError("unsupported var-binary type for helper: ", *type);
+  }
+  auto offsets = Buffer::FromVector(std::vector<int64_t>{0, data_length});
+  return MakeArray(
+      ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(values)}));
+}
+
+TEST_F(TestIfElseKernel, IfElseStringAndLargeStringAAAOverflowBehavior) {
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  auto check = [&](const std::shared_ptr<DataType>& type, bool expect_capacity_error) {
+    ASSERT_OK_AND_ASSIGN(auto left, MakeAllocatedVarBinaryArray(type, kPerSide));
+    ASSERT_OK_AND_ASSIGN(auto right, MakeAllocatedVarBinaryArray(type, kPerSide));
+
+    auto maybe_out = CallFunction("if_else", {cond, left, right});
+    if (expect_capacity_error) {
+      ASSERT_TRUE(maybe_out.status().IsCapacityError()) << maybe_out.status();
+      ASSERT_THAT(
+          maybe_out.status().message(),
+          ::testing::HasSubstr("Result may exceed offset capacity for this type"));
+    } else {
+      ASSERT_OK(maybe_out.status()) << maybe_out.status();
+    }
+  };
+
+  check(TypeTraits<StringType>::type_singleton(), true);
+  check(TypeTraits<LargeStringType>::type_singleton(), false);
+}
+
+TEST_F(TestIfElseKernel, IfElseBinaryCapacityErrorASA) {
+  constexpr int32_t capacity_limit = std::numeric_limits<int32_t>::max();
+
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+  auto left = Datum(std::make_shared<BinaryScalar>("x"));
+  ASSERT_OK_AND_ASSIGN(
+      auto right, MakeAllocatedVarBinaryArray(TypeTraits<StringType>::type_singleton(),
+                                              capacity_limit));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      CapacityError,
+      ::testing::HasSubstr("Result may exceed offset capacity for this type"),
+      CallFunction("if_else", {cond, left, right}));
+}
+
+TEST_F(TestIfElseKernel, IfElseBinaryCapacityErrorAAS) {
+  constexpr int32_t capacity_limit = std::numeric_limits<int32_t>::max();
+
+  auto cond = ArrayFromJSON(boolean(), "[false]");
+  ASSERT_OK_AND_ASSIGN(
+      auto left, MakeAllocatedVarBinaryArray(TypeTraits<StringType>::type_singleton(),
+                                             capacity_limit));
+  auto right = Datum(std::make_shared<BinaryScalar>("x"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      CapacityError,
+      ::testing::HasSubstr("Result may exceed offset capacity for this type"),
+      CallFunction("if_else", {cond, left, right}));
+}
+
+TEST_F(TestIfElseKernel, IfElseBinaryCapacityErrorASS) {
+  constexpr int64_t kLength = 3000;
+  std::string payload(1 << 20, 'x');
+  ASSERT_OK_AND_ASSIGN(auto cond, MakeArrayFromScalar(BooleanScalar(true), kLength));
+  auto left = Datum(std::make_shared<BinaryScalar>(payload));
+  auto right = Datum(std::make_shared<BinaryScalar>("x"));
+
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      CapacityError,
+      ::testing::HasSubstr("Result may exceed offset capacity for this type"),
+      CallFunction("if_else", {cond, left, right}));
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinary) {
