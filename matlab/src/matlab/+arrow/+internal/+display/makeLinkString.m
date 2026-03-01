@@ -1,4 +1,4 @@
-%MAKELINKSTRING Utility function for creating hyperlinks.
+%MAKELINKSTRING Creates a hyperlink string if possible.
 
 % Licensed to the Apache Software Foundation (ASF) under one or more
 % contributor license agreements.  See the NOTICE file distributed with
@@ -17,16 +17,24 @@
 
 function link = makeLinkString(opts)
     arguments
-        opts.FullClassName(1, 1) string
-        opts.ClassName(1, 1) string
+        opts.HelpTarget(1, 1) string {mustBeNonzeroLengthText}
+        opts.Text(1, 1) string {mustBeNonzeroLengthText}
         % When displaying heterogeneous arrays, only the name of the 
         % closest shared ancestor class is displayed in bold. All other
         % class names are not bolded.
-        opts.BoldFont(1, 1) logical
+        opts.BoldFont(1, 1) logical = false
     end
-        
-    link = arrow.internal.display.makeLinkString( ...
-        HelpTarget=opts.FullClassName, ...
-        Text=opts.ClassName, ...
-        BoldFont=opts.BoldFont);
+
+    if usejava("desktop")
+        if opts.BoldFont
+            link = compose("<a href=""matlab:helpPopup('%s')""" + ...
+                " style=""font-weight:bold"">%s</a>", ...
+                opts.HelpTarget, opts.Text);
+        else
+            link = compose("<a href=""matlab:helpPopup('%s')"">%s</a>", ...
+                opts.HelpTarget, opts.Text);
+        end
+    else
+        link = opts.Text;
+    end
 end
