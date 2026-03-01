@@ -1809,9 +1809,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays([[2, 4, 5, 100],
-        ...                               ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...                               names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.column_names
         ['n_legs', 'animals']
         """
@@ -1873,13 +1872,9 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> import pandas as pd
-        >>> df = pd.DataFrame({'year': [None, 2022, 2019, 2021],
+        >>> table = pa.table({'year': [None, 2022, 2019, 2021],
         ...                   'n_legs': [2, 4, 5, 100],
         ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
-        >>> table = pa.Table.from_arrays(
-        ...     [[None, 2022, 2019, 2021], [2, 4, 5, 100], ["Flamingo", "Horse", None, "Centipede"]],
-        ...     names=['year', 'n_legs', 'animals'])
         >>> table.drop_null()
         pyarrow.Table
         year: int64
@@ -1911,9 +1906,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.field(0)
         pyarrow.Field<n_legs: int64>
         >>> table.field(1)
@@ -2065,9 +2059,8 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[None, 4, 5, None], ["Flamingo", "Horse", None, "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
+        ...                    'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> for i in table.itercolumns():
         ...     print(i.null_count)
         ...
@@ -2134,11 +2127,10 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2020, 2022, 2021, 2022, 2019, 2021],
-        ...      [2, 2, 4, 4, 5, 100],
-        ...      ["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['year', 'n_legs', 'animal'])
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                   "Brittle stars", "Centipede"]})
         >>> table.sort_by('animal')
         pyarrow.Table
         year: int64
@@ -2180,10 +2172,9 @@ cdef class _Tabular(_PandasConvertible):
         Table (works similarly for RecordBatch)
 
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2020, 2022, 2019, 2021], [2, 4, 5, 100],
-        ...      ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['year', 'n_legs', 'animals'])
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.take([1,3])
         pyarrow.Table
         year: int64
@@ -2471,9 +2462,8 @@ cdef class _Tabular(_PandasConvertible):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Append column at the end:
 
@@ -2542,7 +2532,7 @@ cdef class RecordBatch(_Tabular):
     month: int64
     day: int64
     n_legs: int64
-    animals: ...string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -2582,7 +2572,7 @@ cdef class RecordBatch(_Tabular):
     month: int64
     day: int64
     n_legs: int64
-    animals: ...string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -3406,7 +3396,7 @@ cdef class RecordBatch(_Tabular):
         month: int64
         day: int64
         n_legs: int64
-        animals: ...string
+        animals: large_string
         ----
         year: [2020,2022,2021,2022]
         month: [3,5,7,9]
@@ -4146,7 +4136,7 @@ cdef class Table(_Tabular):
     pyarrow.Table
     year: int64
     n_legs: int64
-    animals: ...string
+    animals: large_string
     ----
     year: [[2020,2022,2019,2021]]
     n_legs: [[2,4,5,100]]
@@ -4272,10 +4262,9 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2020, 2022, 2019, 2021], [2, 4, 5, 100],
-        ...      ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['year', 'n_legs', 'animals'])
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.slice(length=3)
         pyarrow.Table
         year: int64
@@ -4336,10 +4325,9 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2020, 2022, 2019, 2021], [2, 4, 5, 100],
-        ...      ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['year', 'n_legs', 'animals'])
+        >>> table = pa.table({'year': [2020, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.select([0,1])
         pyarrow.Table
         year: int64
@@ -4675,9 +4663,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.schema
         n_legs: int64
         animals: string
@@ -4772,7 +4759,7 @@ cdef class Table(_Tabular):
         >>> pa.Table.from_pandas(df)
         pyarrow.Table
         n_legs: int64
-        animals: ...string
+        animals: large_string
         ----
         n_legs: [[2,4,5,100]]
         animals: [["Flamingo","Horse","Brittle stars","Centipede"]]
@@ -5117,9 +5104,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Convert a Table to a RecordBatchReader:
 
@@ -5175,9 +5161,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.schema
         n_legs: int64
         animals: string
@@ -5267,9 +5252,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[None, 4, 5, None], ["Flamingo", "Horse", None, "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table.nbytes
         72
         """
@@ -5296,9 +5280,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[None, 4, 5, None], ["Flamingo", "Horse", None, "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [None, 4, 5, None],
+        ...                   'animals': ["Flamingo", "Horse", None, "Centipede"]})
         >>> table.get_total_buffer_size()
         76
         """
@@ -5337,9 +5320,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Add column:
 
@@ -5402,9 +5384,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> table.remove_column(1)
         pyarrow.Table
         n_legs: int64
@@ -5440,9 +5421,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
 
         Replace a column:
 
@@ -5501,9 +5481,8 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2, 4, 5, 100], ["Flamingo", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['n_legs', 'animals'])
+        >>> table = pa.table({'n_legs': [2, 4, 5, 100],
+        ...                   'animals': ["Flamingo", "Horse", "Brittle stars", "Centipede"]})
         >>> new_names = ["n", "name"]
         >>> table.rename_columns(new_names)
         pyarrow.Table
@@ -5593,11 +5572,10 @@ cdef class Table(_Tabular):
         Examples
         --------
         >>> import pyarrow as pa
-        >>> table = pa.Table.from_arrays(
-        ...     [[2020, 2022, 2021, 2022, 2019, 2021],
-        ...      [2, 2, 4, 4, 5, 100],
-        ...      ["Flamingo", "Parrot", "Dog", "Horse", "Brittle stars", "Centipede"]],
-        ...     names=['year', 'n_legs', 'animal'])
+        >>> table = pa.table({'year': [2020, 2022, 2021, 2022, 2019, 2021],
+        ...                   'n_legs': [2, 2, 4, 4, 5, 100],
+        ...                   'animal': ["Flamingo", "Parrot", "Dog", "Horse",
+        ...                              "Brittle stars", "Centipede"]})
         >>> table.group_by('year').aggregate([('n_legs', 'sum')])
         pyarrow.Table
         year: int64
@@ -5656,12 +5634,11 @@ cdef class Table(_Tabular):
         --------
         >>> import pyarrow as pa
         >>> import pyarrow.compute as pc
-        >>> t1 = pa.Table.from_arrays(
-        ...     [[1, 2, 3], [2020, 2022, 2019]],
-        ...     names=['id', 'year'])
-        >>> t2 = pa.Table.from_arrays(
-        ...     [[3, 4], [5, 100], ["Brittle stars", "Centipede"]],
-        ...     names=['id', 'n_legs', 'animal'])
+        >>> t1 = pa.table({'id': [1, 2, 3],
+        ...                'year': [2020, 2022, 2019]})
+        >>> t2 = pa.table({'id': [3, 4],
+        ...                'n_legs': [5, 100],
+        ...                'animal': ["Brittle stars", "Centipede"]})
 
         Left outer join:
 
@@ -5973,7 +5950,7 @@ def record_batch(data, names=None, schema=None, metadata=None):
     month: int64
     day: int64
     n_legs: int64
-    animals: ...string
+    animals: large_string
     ----
     year: [2020,2022,2021,2022]
     month: [3,5,7,9]
@@ -6134,7 +6111,7 @@ def table(data, names=None, schema=None, metadata=None, nthreads=None):
     pyarrow.Table
     year: int64
     n_legs: int64
-    animals: ...string
+    animals: large_string
     ----
     year: [[2020,2022,2019,2021]]
     n_legs: [[2,4,5,100]]
