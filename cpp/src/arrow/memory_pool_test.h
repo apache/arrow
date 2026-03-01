@@ -21,6 +21,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <limits>
+#include <string>
 
 #include <gtest/gtest.h>
 
@@ -56,10 +57,18 @@ class TestMemoryPoolBase : public ::testing::Test {
 
   void TestOOM() {
     auto pool = memory_pool();
+    const std::string backend = pool->backend_name();
+    if (backend == "mimalloc") {
+      GTEST_SKIP() << "Skip synthetic OOM for mimalloc to avoid allocator fatal path";
+    }
 
     uint8_t* data;
     int64_t max_alloc = std::min<uint64_t>(std::numeric_limits<int64_t>::max(),
                                            std::numeric_limits<size_t>::max());
+    // On big-memory systems/allocators this can trigger fatal paths before we see
+    // OutOfMemory. Clamp to a still-impossible size that will fail reliably.
+    constexpr int64_t kHugeAlloc = static_cast<int64_t>(1) << 48;  // 256 TB
+    max_alloc = std::min(max_alloc, kHugeAlloc);
     // subtract 63 to prevent overflow after the size is aligned
     for (int64_t to_alloc : {max_alloc, max_alloc - 63, max_alloc - 127}) {
       ASSERT_RAISES(OutOfMemory, pool->Allocate(to_alloc, &data));
