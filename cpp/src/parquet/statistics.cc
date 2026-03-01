@@ -30,6 +30,7 @@
 #include "arrow/type_traits.h"
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ubsan.h"
@@ -923,19 +924,95 @@ void TypedStatisticsImpl<DType>::UpdateSpaced(const T* values, const uint8_t* va
                                              valid_bits_offset));
 }
 
+template <typename T>
+T ToLittleEndianValue(const T& value) {
+#if ARROW_LITTLE_ENDIAN
+  return value;
+#else
+  if constexpr (std::is_integral_v<T>) {
+    return ::arrow::bit_util::ToLittleEndian(value);
+  } else if constexpr (std::is_floating_point_v<T>) {
+    using UInt = std::conditional_t<sizeof(T) == 4, uint32_t,
+                                    std::conditional_t<sizeof(T) == 8, uint64_t, void>>;
+
+    UInt bits;
+    std::memcpy(&bits, &value, sizeof(bits));
+    bits = ::arrow::bit_util::ToLittleEndian(bits);
+
+    T out;
+    std::memcpy(&out, &bits, sizeof(out));
+    return out;
+  } else {
+    return value;  // non-numeric types handled elsewhere
+  }
+#endif
+}
+
+template <typename T>
+T FromLittleEndianValue(const char* src, size_t src_size) {
+#if ARROW_LITTLE_ENDIAN
+  T out{};
+  std::memcpy(&out, src, std::min(src_size, sizeof(T)));
+  return out;
+#else
+  if constexpr (std::is_integral_v<T>) {
+    T value{};
+    std::memcpy(&value, src, std::min(src_size, sizeof(T)));
+    return ::arrow::bit_util::FromLittleEndian(value);
+  } else if constexpr (std::is_floating_point_v<T>) {
+    using UInt = std::conditional_t<sizeof(T) == 4, uint32_t,
+                                    std::conditional_t<sizeof(T) == 8, uint64_t, void>>;
+
+    UInt bits{};
+    std::memcpy(&bits, src, std::min(src_size, sizeof(bits)));
+    bits = ::arrow::bit_util::FromLittleEndian(bits);
+
+    T out;
+    std::memcpy(&out, &bits, sizeof(out));
+    return out;
+  } else {
+    T out{};
+    std::memcpy(&out, src, std::min(src_size, sizeof(T)));
+    return out;
+  }
+#endif
+}
+
+template <typename DType>
+constexpr bool kIsArithmeticType = std::is_arithmetic_v<typename DType::c_type>;
+
 template <typename DType>
 void TypedStatisticsImpl<DType>::PlainEncode(const T& src, std::string* dst) const {
+  using CType = typename DType::c_type;
+
+  // Fast path: fixed-width arithmetic types (int32/int64/float/double)
+  if constexpr (kIsArithmeticType<DType>) {
+    CType le_value = ToLittleEndianValue(src);
+    dst->assign(reinterpret_cast<const char*>(&le_value), sizeof(le_value));
+    return;
+  }
+
+  // Generic fallback for non-arithmetic types
   auto encoder = MakeTypedEncoder<DType>(Encoding::PLAIN, false, descr_, pool_);
   encoder->Put(&src, 1);
   auto buffer = encoder->FlushValues();
-  auto ptr = reinterpret_cast<const char*>(buffer->data());
-  dst->assign(ptr, static_cast<size_t>(buffer->size()));
+  dst->assign(reinterpret_cast<const char*>(buffer->data()),
+              static_cast<size_t>(buffer->size()));
 }
 
 template <typename DType>
 void TypedStatisticsImpl<DType>::PlainDecode(const std::string& src, T* dst) const {
+  using CType = typename DType::c_type;
+
+  // Fast path: fixed-width arithmetic types
+  if constexpr (kIsArithmeticType<DType>) {
+    *dst = FromLittleEndianValue<CType>(src.data(), src.size());
+    return;
+  }
+
+  // Fallback for non-arithmetic types
   auto decoder = MakeTypedDecoder<DType>(Encoding::PLAIN, descr_);
-  decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.c_str()),
+  decoder->SetData(1, reinterpret_cast<const uint8_t*>(src.data()),
                    static_cast<int>(src.size()));
   int decoded_values = decoder->Decode(dst, 1);
   if (decoded_values != 1) {
