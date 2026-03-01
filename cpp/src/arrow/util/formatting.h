@@ -32,6 +32,7 @@
 #include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
+#include "arrow/util/float16.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/string.h"
 #include "arrow/util/time.h"
@@ -319,6 +320,16 @@ template <>
 class StringFormatter<HalfFloatType> : public FloatToStringFormatterMixin<HalfFloatType> {
  public:
   using FloatToStringFormatterMixin::FloatToStringFormatterMixin;
+
+  template <typename T, typename Appender>
+  Return<Appender> operator()(T value, Appender&& append) {
+    auto&& base = static_cast<FloatToStringFormatterMixin&>(*this);
+    return base(bits(value), std::forward<Appender&&>(append));
+  }
+
+ private:
+  static constexpr value_type bits(value_type v) { return v; }
+  static constexpr value_type bits(util::Float16 v) { return v.bits(); }
 };
 
 template <>

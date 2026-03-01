@@ -92,6 +92,10 @@ class ARROW_EXPORT Float16 {
 
   explicit operator float() const { return ToFloat(); }
   explicit operator double() const { return ToDouble(); }
+  template <typename T, typename std::enable_if_t<std::is_integral_v<T>>* = NULLPTR>
+  explicit operator T() const {
+    return static_cast<T>(ToFloat());
+  }
 
   /// \brief Copy the value's bytes in native-endian byte order
   void ToBytes(uint8_t* dest) const { std::memcpy(dest, &bits_, sizeof(bits_)); }
@@ -203,4 +207,11 @@ class std::numeric_limits<arrow::util::Float16> {
   static constexpr T infinity() { return T::FromBits(0b0111110000000000); }
 
   static constexpr T quiet_NaN() { return T::FromBits(0b0111111111111111); }
+};
+
+template <>
+struct std::hash<arrow::util::Float16> {
+  size_t operator()(const arrow::util::Float16& f) const noexcept {
+    return std::hash<uint16_t>{}(f.bits());
+  }
 };

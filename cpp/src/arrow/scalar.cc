@@ -64,8 +64,8 @@ namespace {
 struct ScalarHashImpl {
   Status Visit(const NullScalar& s) { return Status::OK(); }
 
-  template <typename T>
-  Status Visit(const internal::PrimitiveScalar<T>& s) {
+  template <typename... Ts>
+  Status Visit(const internal::PrimitiveScalar<Ts...>& s) {
     return ValueHash(s);
   }
 
@@ -258,8 +258,8 @@ struct ScalarValidateImpl {
     return Status::OK();
   }
 
-  template <typename T>
-  Status Visit(const internal::PrimitiveScalar<T>& s) {
+  template <typename... Ts>
+  Status Visit(const internal::PrimitiveScalar<Ts...>& s) {
     return Status::OK();
   }
 
@@ -1111,7 +1111,8 @@ enable_if_number<To, Result<std::shared_ptr<Scalar>>> CastImpl(
 template <typename To, typename From>
 enable_if_boolean<To, Result<std::shared_ptr<Scalar>>> CastImpl(
     const NumericScalar<From>& from, std::shared_ptr<DataType> to_type) {
-  constexpr auto zero = static_cast<typename From::c_type>(0);
+  using ValueType = typename NumericScalar<From>::ValueType;
+  const auto zero = static_cast<ValueType>(0);
   return std::make_shared<BooleanScalar>(from.value != zero, std::move(to_type));
 }
 
