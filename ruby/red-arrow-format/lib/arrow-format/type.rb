@@ -856,6 +856,34 @@ module ArrowFormat
     end
   end
 
+  class FixedSizeListType < Type
+    attr_reader :child
+    attr_reader :size
+    def initialize(child, size)
+      super()
+      @child = child
+      @size = size
+    end
+
+    def name
+      "FixedSizeList"
+    end
+
+    def to_s
+      "#{super}<#{child.name}: #{child.type}>(#{@size})"
+    end
+
+    def build_array(size, validity_buffer, child)
+      FixedSizeListArray.new(self, size, validity_buffer, child)
+    end
+
+    def to_flatbuffers
+      fb_type = FB::FixedSizeList::Data.new
+      fb_type.list_size = @size
+      fb_type
+    end
+  end
+
   class StructType < Type
     attr_reader :children
     def initialize(children)
