@@ -60,7 +60,7 @@ from pyarrow.lib import (BuildInfo, CppBuildInfo, RuntimeInfo, set_timezone_db_p
                          MonthDayNano, VersionInfo, build_info, cpp_build_info,
                          cpp_version, cpp_version_info, runtime_info,
                          cpu_count, set_cpu_count, enable_signal_handlers,
-                         io_thread_count, set_io_thread_count)
+                         io_thread_count, is_opentelemetry_enabled, set_io_thread_count)
 
 
 def show_versions():
@@ -135,6 +135,7 @@ def show_info():
     for module in modules:
         status = "Enabled" if _module_is_available(module) else "-"
         print(f"  {module: <20}: {status: <8}")
+    print(f"  {'opentelemetry': <20}: {'Enabled' if is_opentelemetry_enabled() else '-': <8}")
 
     print("\nFilesystems:")
     filesystems = ["AzureFileSystem", "GcsFileSystem",
