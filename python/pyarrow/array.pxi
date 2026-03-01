@@ -27,7 +27,7 @@ cdef extern from "<variant>" namespace "std":
     T get[T](...)
 
 cdef _sequence_to_array(object sequence, object mask, object size,
-                        DataType type, CMemoryPool* pool, c_bool from_pandas):
+                        DataType type, CMemoryPool* pool, c_bool from_pandas, bint safe=True):
     cdef:
         int64_t c_size
         PyConversionOptions options
@@ -41,7 +41,6 @@ cdef _sequence_to_array(object sequence, object mask, object size,
 
     options.from_pandas = from_pandas
     options.ignore_timezone = os.environ.get('PYARROW_IGNORE_TIMEZONE', False)
-
     with nogil:
         chunked = GetResultValue(
             ConvertPySequence(sequence, mask, options, pool)
@@ -365,14 +364,24 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 result = _ndarray_to_array(values, mask, type, c_from_pandas, safe,
                                            pool)
     else:
-        if type and type.id == _Type_RUN_END_ENCODED:
-            arr = _sequence_to_array(
-                obj, mask, size, type.value_type, pool, from_pandas)
-            result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
-                                          memory_pool=memory_pool)
-        # ConvertPySequence does strict conversion if type is explicitly passed
-        else:
-            result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas)
+        try:
+            if type and type.id == _Type_RUN_END_ENCODED:
+                arr = _sequence_to_array(
+                    obj, mask, size, type.value_type, pool, from_pandas, safe)
+                result = _pc().run_end_encode(arr, run_end_type=type.run_end_type,
+                                              memory_pool=memory_pool)
+            else:
+                # Try regular construction first (strict)
+                result = _sequence_to_array(obj, mask, size, type, pool, c_from_pandas, safe)
+        except ArrowInvalid as e:
+            if type is not None and not safe:
+                # Retry without type, then cast with safe=False
+                temp_result = array(obj, mask=mask, size=size,
+                                    from_pandas=from_pandas,
+                                    memory_pool=memory_pool)
+                return temp_result.cast(type, safe=False, memory_pool=memory_pool)
+            else:
+                raise e
 
     if extension_type is not None:
         result = ExtensionArray.from_storage(extension_type, result)
