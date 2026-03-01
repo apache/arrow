@@ -1399,6 +1399,91 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+def test_uuid_scalar_from_python():
+    import uuid
+
+    # Test with explicit type
+    py_uuid = uuid.uuid4()
+    scalar = pa.scalar(py_uuid, type=pa.uuid())
+    assert isinstance(scalar, pa.UuidScalar)
+    assert scalar.type == pa.uuid()
+    assert scalar.as_py() == py_uuid
+
+    # Test with specific UUID value
+    specific_uuid = UUID("12345678-1234-5678-1234-567812345678")
+    scalar = pa.scalar(specific_uuid, type=pa.uuid())
+    assert scalar.as_py() == specific_uuid
+    assert scalar.value.as_py() == specific_uuid.bytes
+
+    scalar = pa.scalar(None, type=pa.uuid())
+    assert scalar.is_valid is False
+    assert scalar.as_py() is None
+
+    # Test type inference from uuid.UUID
+    py_uuid = uuid.uuid4()
+    scalar = pa.scalar(py_uuid)
+    assert isinstance(scalar, pa.UuidScalar)
+    assert scalar.type == pa.uuid()
+    assert scalar.as_py() == py_uuid
+
+
+def test_uuid_array_from_python():
+    import uuid
+
+    # Test array with explicit type
+    uuids = [uuid.uuid4() for _ in range(3)]
+    uuids.append(None)
+
+    arr = pa.array(uuids, type=pa.uuid())
+    assert arr.type == pa.uuid()
+    assert len(arr) == 4
+    assert arr.null_count == 1
+    for i, u in enumerate(uuids):
+        assert arr[i].as_py() == u
+
+    # Test type inference for arrays
+    arr = pa.array(uuids)
+    assert arr.type == pa.uuid()
+    for i, u in enumerate(uuids):
+        assert arr[i].as_py() == u
+
+
+@pytest.mark.parametrize("bytes_value,exc_type,match", [
+    (b"0123456789abcde", pa.ArrowInvalid, "expected to be length 16 was 15"),
+    (
+        "0123456789abcdef", TypeError,
+        "Expected uuid.UUID.bytes to return bytes, got 'str'"
+    ),
+    (None, TypeError, "Expected uuid.UUID.bytes to return bytes, got 'NoneType'"),
+])
+def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
+    import uuid
+
+    class BadUuid(uuid.UUID):
+        @property
+        def bytes(self):
+            return bytes_value
+
+    bad = BadUuid(uuid.uuid4().hex)
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad], type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad, type=pa.uuid())
+
+
+def test_uuid_bytes_property_raises():
+    import uuid
+
+    class BadUuid(uuid.UUID):
+        @property
+        def bytes(self):
+            raise RuntimeError("broken")
+
+    bad = BadUuid(uuid.uuid4().hex)
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad], type=pa.uuid())
+
+
 def test_tensor_type():
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
