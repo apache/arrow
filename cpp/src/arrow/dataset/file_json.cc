@@ -301,11 +301,11 @@ Result<Future<ReaderPtr>> DoOpenReader(
             std::move(state->stream), state->read_options, state->parse_options);
       });
   ARROW_ASSIGN_OR_RAISE(auto future, maybe_future);
-  return future.Then([](const ReaderPtr& reader) -> Result<ReaderPtr> { return reader; },
-                     [path = source.path()](const Status& error) -> Result<ReaderPtr> {
-                       return error.WithMessage("Could not open JSON input source '",
-                                                path, "': ", error);
-                     });
+  return future.Then([](const ReaderPtr& reader) -> Result<ReaderPtr> { 
+    return reader; 
+  }, [path = source.path()](const Status& error) -> Result<ReaderPtr> { 
+    return error.WithMessage("Could not open JSON input source '", path, "': ", error); 
+  });
 }
 
 Future<ReaderPtr> OpenReaderAsync(
