@@ -74,15 +74,34 @@ struct GroupedCountAllImpl : public GroupedAggregator {
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
+    // Validate that raw_other can be cast to GroupedCountAllImpl
     auto other = checked_cast<GroupedCountAllImpl*>(&raw_other);
+    if (!other) { return Status::Invalid("Invalid GroupedCountAllImpl cast during merge."); }
+
+    // Validate that group_id_mapping is valid
+    auto* g = group_id_mapping.GetValues<uint32_t>(1);
+    if (!g) { return Status::Invalid("Group ID mapping contains invalid or null data."); }
+
+    // Validate group_id_mapping size
+    if (group_id_mapping.length != static_cast<int64_t>(counts_.size())) {
+      return Status::Invalid("Group ID mapping length does not match counts array size."); }
 
     auto* counts = counts_.mutable_data_as<int64_t>();
     const auto* other_counts = other->counts_.data_as<int64_t>();
 
-    auto* g = group_id_mapping.GetValues<uint32_t>(1);
+    // Perform merging with error handling
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      counts[*g] += other_counts[other_g];
-    }
+      if (*g >= counts_.size() || other_g >= other->counts_.size()) {
+        ARROW_LOG(ERROR) << "Group index out of bounds: group_id=" << *g;
+        return Status::IndexError("Group index out of bounds during merge.");
+      }
+
+      try { counts[*g] += other_counts[other_g];} 
+      catch (const std::exception& e) {
+        ARROW_LOG(ERROR) << "Failed to merge count for group: " << *g << ". Error: " << e.what();
+        return Status::ExecutionError("Failed to merge counts.");
+      }
+    
     return Status::OK();
   }
 
@@ -121,15 +140,38 @@ struct GroupedCountImpl : public GroupedAggregator {
 
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
+    // Validate that raw_other can be cast to GroupedCountImpl
     auto other = checked_cast<GroupedCountImpl*>(&raw_other);
+    if (!other) { return Status::Invalid("Invalid GroupedCountImpl cast during merge."); }
 
+    // Validate that group_id_mapping is valid
+    auto* g = group_id_mapping.GetValues<uint32_t>(1);
+    if (!g) { return Status::Invalid("Group ID mapping contains invalid or null data."); }
+
+    // Validate group_id_mapping length
+    if (group_id_mapping.length != static_cast<int64_t>(counts_.size())) {
+      return Status::Invalid("Group ID mapping length does not match counts array size.");
+    }
+
+    // Get mutable pointers to data
     auto* counts = counts_.mutable_data_as<int64_t>();
     const auto* other_counts = other->counts_.data_as<int64_t>();
 
-    auto* g = group_id_mapping.GetValues<uint32_t>(1);
+    // Perform merging with error handling
     for (int64_t other_g = 0; other_g < group_id_mapping.length; ++other_g, ++g) {
-      counts[*g] += other_counts[other_g];
+      // Ensuring that group indices are within bounds
+      if (*g >= counts_.size() || other_g >= other->counts_.size()) {
+        ARROW_LOG(ERROR) << "Group index out of bounds: group_id=" << *g;
+        return Status::IndexError("Group index out of bounds during merge.");
+      }
+
+      try { counts[*g] += other_counts[other_g]; } 
+      catch (const std::exception& e) {
+        ARROW_LOG(ERROR) << "Failed to merge count for group: " << *g << ". Error: " << e.what();
+        return Status::ExecutionError("Failed to merge counts.");
+      }
     }
+
     return Status::OK();
   }
 
@@ -484,17 +526,38 @@ struct GroupedMinMaxImpl<Type,
   Status Merge(GroupedAggregator&& raw_other,
                const ArrayData& group_id_mapping) override {
     auto other = checked_cast<GroupedMinMaxImpl*>(&raw_other);
+    // Validate that raw_other can be cast to GroupedMinMaxImpl type
+    if (!other) { return Status::Invalid("Invalid GroupedMinMax Impl cast during merge.") };
+
     auto g = group_id_mapping.GetValues<uint32_t>(1);
+    // Validate that group_id_mapping is valid
+    if (!g) { return Status::Invalid("Group ID mapping contains invalid or null data.") };
+
     for (uint32_t other_g = 0; static_cast<int64_t>(other_g) < group_id_mapping.length;
          ++other_g, ++g) {
+      // Validate group_id_mapping size
+      if (*g > mins_.size() || other_g >= other->mins_.size()) {
+        ARROW_LOG(ERROR) << "Group index out of bounds: group_id=" << *g;
+        return Status::IndexError("Group index out of bounds during merge.");
+      }
+
+      // Perform merging with error handling
       if (!mins_[*g] ||
           (mins_[*g] && other->mins_[other_g] && *mins_[*g] > *other->mins_[other_g])) {
-        mins_[*g] = std::move(other->mins_[other_g]);
+            try { mins_[*g] = std::move(other->mins_[other_g]); }
+            catch (const std::exception& e) {
+              ARROW_LOG(ERROR) << "Failed to merge minimum value for group: " << *g << ". Error: " << e.what();
+              return Status::ExecutionError("Failed to merge minimum value.");
+            }
+        
       }
       if (!maxes_[*g] || (maxes_[*g] && other->maxes_[other_g] &&
                           *maxes_[*g] < *other->maxes_[other_g])) {
-        maxes_[*g] = std::move(other->maxes_[other_g]);
-      }
+        try { maxes_[*g] = std::move(other->maxes_[other_g]); }
+        catch (const std::exception& e) {
+          ARROW_LOG(ERROR) << "Failed to merge maximum value for group: " << *g << ". Error: " << e.what();
+          return Status::ExecutionError("Failed to merge maximum value.");
+        }
 
       if (bit_util::GetBit(other->has_values_.data(), other_g)) {
         bit_util::SetBit(has_values_.mutable_data(), *g);

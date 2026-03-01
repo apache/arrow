@@ -156,6 +156,12 @@ add_arrow_compute_test(aggregate_test
                        arrow_compute_testing
                        Boost::headers)
 
+add_arrow_compute_test(hash_aggregate_test
+                      SOURCES
+                      hash_aggregate_test.c
+                      EXTRA_LINK_LIBS
+                      arrow_compute_kernels_testing
+                      Boost:headers)
 # ----------------------------------------------------------------------
 # Utilities
 
