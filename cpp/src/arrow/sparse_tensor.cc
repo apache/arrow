@@ -134,6 +134,10 @@ inline Status CheckSparseCOOIndexValidity(const std::shared_ptr<DataType>& type,
 
   RETURN_NOT_OK(internal::CheckSparseIndexMaximumValue(type, shape));
 
+  // Indexes with no values are considered valid
+  if (std::find(shape.begin(), shape.end(), 0) != shape.end()) {
+    return Status::OK();
+  }
   if (!internal::IsTensorStridesContiguous(type, shape, strides)) {
     return Status::Invalid("SparseCOOIndex indices must be contiguous");
   }
