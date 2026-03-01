@@ -196,6 +196,18 @@ repeat_value_as_array <- function(object, n) {
 }
 
 handle_csv_read_error <- function(msg, call, schema) {
+  if (grepl("conversion error to null", msg)) {
+    msg <- c(
+      msg,
+      i = paste(
+        "Column type was inferred as null because the first block of data",
+        "contained only missing values. See `?csv_read_options` for how to",
+        "set a smaller value."
+      )
+    )
+    abort(msg, call = call)
+  }
+
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
       msg,
