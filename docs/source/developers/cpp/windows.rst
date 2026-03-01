@@ -346,10 +346,6 @@ linking some dependencies, we provide some options
 * ``-LZ4_MSVC_STATIC_LIB_SUFFIX=%LZ4_SUFFIX%``
 * ``-ZSTD_MSVC_STATIC_LIB_SUFFIX=%ZSTD_SUFFIX%``
 
-To get the latest build instructions, you can reference `ci/appveyor-built.bat
-<https://github.com/apache/arrow/blob/main/ci/appveyor-cpp-build.bat>`_,
-which is used by automated Appveyor builds.
-
 Statically linking to Arrow on Windows
 ======================================
 
@@ -384,19 +380,23 @@ be defined, and similarly for ``-DARROW_FLIGHT_SQL=ON``.
 Downloading the Timezone Database
 =================================
 
-To run some of the compute unit tests on Windows, the IANA timezone database
-and the Windows timezone mapping need to be downloaded first. See
-:ref:`download-timezone-database` for download instructions. To set a non-default
-path for the timezone database while running the unit tests, set the
-``ARROW_TIMEZONE_DATABASE`` environment variable.
+When building with MSVC or recent MinGW GCC (version 13+), Arrow uses the
+Windows timezone database or the system-provided tzdata respectively, and
+no additional setup is needed.
 
-Replicating Appveyor Builds
-===========================
+When building with Clang/libc++ (e.g., MSYS2 Clang64), the IANA timezone
+database and the Windows timezone mapping need to be downloaded first to run
+some of the compute unit tests. See :ref:`download-timezone-database` for
+download instructions. To set a non-default path for the timezone database
+while running the unit tests, set the ``ARROW_TIMEZONE_DATABASE`` environment
+variable.
 
-For people more familiar with linux development but need to replicate a failing
-appveyor build, here are some rough notes from replicating the
-``Static_Crt_Build`` (make unittest will probably still fail but many unit
-tests can be made with there individual make targets).
+Replicating Windows CI Builds
+=============================
+
+For people more familiar with Linux development but need to replicate a failing
+Windows CI build, here are some rough notes (make unittest will probably still
+fail but many unit tests can be made with their individual make targets).
 
 1. Microsoft offers trial VMs for `Windows with Microsoft Visual Studio
    <https://developer.microsoft.com/en-us/windows/downloads/virtual-machines>`_.
@@ -421,7 +421,7 @@ tests can be made with there individual make targets).
 
    cd $EXTRACT_BOOST_DIRECTORY
    .\bootstrap.bat
-   @rem This is for static libraries needed for static_crt_build in appveyor
+   @rem This is for static libraries needed for static_crt_build
    .\b2 link=static --with-filesystem --with-regex --with-system install
    @rem this should put libraries and headers in c:\Boost
 
@@ -438,10 +438,8 @@ tests can be made with there individual make targets).
 
 .. code-block:: shell
 
-   @rem Change the build type based on which appveyor job you want.
    SET JOB=Static_Crt_Build
    SET GENERATOR=Ninja
-   SET APPVEYOR_BUILD_WORKER_IMAGE=Visual Studio 2017
    SET USE_CLCACHE=false
    SET ARROW_BUILD_GANDIVA=OFF
    SET ARROW_LLVM_VERSION=8.0.*
@@ -451,14 +449,11 @@ tests can be made with there individual make targets).
    SET BOOST_LIBRARYDIR=C:\Boost\lib
    SET BOOST_ROOT=C:\Boost
 
-7. Run appveyor scripts:
+7. Install dependencies and build:
 
 .. code-block:: shell
 
    conda install -c conda-forge --file .\ci\conda_env_cpp.txt
-   .\ci\appveyor-cpp-setup.bat
-   @rem this might fail but at this point most unit tests should be buildable by there individual targets
-   @rem see next line for example.
-   .\ci\appveyor-cpp-build.bat
+   git submodule update --init
    @rem you can also just invoke cmake directly with the desired options
    cmake --build . --config Release --target arrow-compute-hash-test

@@ -20,7 +20,7 @@
 set -ex
 
 # Download database
-curl https://data.iana.org/time-zones/releases/tzdata2024b.tar.gz --output ~/Downloads/tzdata.tar.gz
+curl https://data.iana.org/time-zones/tzdata-latest.tar.gz --output ~/Downloads/tzdata.tar.gz
 
 # Extract
 mkdir -p ~/Downloads/tzdata
