@@ -580,6 +580,16 @@ bool IsContainerNotFound(const Core::RequestFailedException& e) {
   return false;
 }
 
+bool IsForbidden(const Storage::StorageException& e) {
+  // In some situations, only the ReasonPhrase is set and the
+  // ErrorCode is empty, so we check both.
+  if (e.ErrorCode == "AuthorizationFailure" ||
+      e.ReasonPhrase == "This request is not authorized to perform this operation.") {
+    DCHECK_EQ(e.StatusCode, Http::HttpStatusCode::Forbidden);
+  }
+  return e.StatusCode == Http::HttpStatusCode::Forbidden;
+}
+
 const auto kHierarchicalNamespaceIsDirectoryMetadataKey = "hdi_isFolder";
 const auto kFlatNamespaceIsDirectoryMetadataKey = "is_directory";
 
@@ -1472,6 +1482,14 @@ Result<FileInfo> GetContainerPropsAsFileInfo(const AzureLocation& location,
   } catch (const Core::RequestFailedException& exception) {
     if (IsContainerNotFound(exception)) {
       info.set_type(FileType::NotFound);
+      return info;
+    }
+
+    if (IsForbidden(exception)) {
+      // User delegated sas tokens don't allow for getting container properties. Assume
+      // the container exists
+      info.set_type(FileType::Directory);
+      info.set_mtime(std::chrono::system_clock::now());
       return info;
     }
     return ExceptionToStatus(exception, "GetProperties for '", container_client.GetUrl(),
