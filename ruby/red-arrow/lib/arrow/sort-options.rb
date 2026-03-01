@@ -102,8 +102,8 @@ module Arrow
     #     options.sort_keys.collect(&:to_s) # => ["-price"]
     #
     # @since 4.0.0
-    def add_sort_key(target, order=nil)
-      add_sort_key_raw(SortKey.resolve(target, order))
+    def add_sort_key(target, order=nil, null_placement=nil)
+      add_sort_key_raw(SortKey.resolve(target, order, null_placement))
     end
   end
 end

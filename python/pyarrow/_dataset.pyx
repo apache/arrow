@@ -850,11 +850,13 @@ cdef class Dataset(_Weakrefable):
 
         Parameters
         ----------
-        sorting : str or list[tuple(name, order)]
+        sorting : str or list[tuple(name, order, null_placement)]
             Name of the column to use to sort (ascending), or
             a list of multiple sorting conditions where
             each entry is a tuple with column name
             and sorting order ("ascending" or "descending")
+            and nulls and NaNs are placed 
+            at the start or at the end ("at_start" or "at_end")
         **kwargs : dict, optional
             Additional sorting options.
             As allowed by :class:`SortOptions`
@@ -865,7 +867,7 @@ cdef class Dataset(_Weakrefable):
             A new dataset sorted according to the sort keys.
         """
         if isinstance(sorting, str):
-            sorting = [(sorting, "ascending")]
+            sorting = [(sorting, "ascending", "at_end")]
 
         res = _pac()._sort_source(
             self, output_type=InMemoryDataset, sort_keys=sorting, **kwargs

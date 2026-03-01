@@ -35,39 +35,64 @@ class SortKeyTest < Test::Unit::TestCase
 
   sub_test_case("#initialize") do
     test("String") do
-      assert_equal("+count",
+      assert_equal("+$count",
                    Arrow::SortKey.new("count").to_s)
     end
 
     test("+String") do
-      assert_equal("+count",
+      assert_equal("+$count",
                    Arrow::SortKey.new("+count").to_s)
     end
 
     test("-String") do
-      assert_equal("-count",
+      assert_equal("-$count",
                    Arrow::SortKey.new("-count").to_s)
     end
 
     test("Symbol") do
-      assert_equal("+-count",
+      assert_equal("+$-count",
                    Arrow::SortKey.new(:"-count").to_s)
     end
 
     test("String, Symbol") do
-      assert_equal("--count",
+      assert_equal("-$-count",
                    Arrow::SortKey.new("-count", :desc).to_s)
     end
 
     test("String, String") do
-      assert_equal("--count",
+      assert_equal("-$-count",
                    Arrow::SortKey.new("-count", "desc").to_s)
     end
 
     test("String, SortOrder") do
-      assert_equal("--count",
+      assert_equal("-$-count",
                    Arrow::SortKey.new("-count",
                                       Arrow::SortOrder::DESCENDING).to_s)
+    end
+
+    test("^String") do
+      assert_equal("+^count",
+                   Arrow::SortKey.new("^count").to_s)
+    end
+
+    test("-^String") do
+      assert_equal("-^count",
+                   Arrow::SortKey.new("-^count").to_s)
+    end
+
+    test("+$String") do
+      assert_equal("+$count",
+                   Arrow::SortKey.new("+$count").to_s)
+    end
+
+    test("+^^String") do
+      assert_equal("+^^count",
+                   Arrow::SortKey.new("^count", :ascending, :at_start).to_s)
+    end
+
+    test("+$$String") do
+      assert_equal("+$$count",
+                   Arrow::SortKey.new("$count", :ascending, :at_end).to_s)
     end
   end
 

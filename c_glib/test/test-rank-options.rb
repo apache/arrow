@@ -29,27 +29,21 @@ class TestRankOptions < Test::Unit::TestCase
 
   def test_sort_keys
     sort_keys = [
-      Arrow::SortKey.new("column1", :ascending),
-      Arrow::SortKey.new("column2", :descending),
+      Arrow::SortKey.new("column1", :ascending, :at_end),
+      Arrow::SortKey.new("column2", :descending, :at_end),
     ]
     @options.sort_keys = sort_keys
     assert_equal(sort_keys, @options.sort_keys)
   end
 
   def test_add_sort_key
-    @options.add_sort_key(Arrow::SortKey.new("column1", :ascending))
-    @options.add_sort_key(Arrow::SortKey.new("column2", :descending))
+    @options.add_sort_key(Arrow::SortKey.new("column1", :ascending, :at_end))
+    @options.add_sort_key(Arrow::SortKey.new("column2", :descending, :at_start))
     assert_equal([
-                   Arrow::SortKey.new("column1", :ascending),
-                   Arrow::SortKey.new("column2", :descending),
+                   Arrow::SortKey.new("column1", :ascending, :at_end),
+                   Arrow::SortKey.new("column2", :descending, :at_start),
                  ],
                  @options.sort_keys)
-  end
-
-  def test_null_placement
-    assert_equal(Arrow::NullPlacement::AT_END, @options.null_placement)
-    @options.null_placement = :at_start
-    assert_equal(Arrow::NullPlacement::AT_START, @options.null_placement)
   end
 
   def test_tiebreaker

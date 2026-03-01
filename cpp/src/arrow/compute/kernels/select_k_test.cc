@@ -62,8 +62,7 @@ Result<std::shared_ptr<Array>> SelectK(const Datum& values, int64_t k) {
   }
 }
 
-void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder order,
-                     bool stable_sort = false) {
+void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder order) {
   ASSERT_TRUE(datum.is_arraylike());
   ASSERT_OK_AND_ASSIGN(auto sorted_indices,
                        SortIndices(datum, SortOptions({SortKey("unused", order)})));
@@ -71,15 +70,11 @@ void ValidateSelectK(const Datum& datum, Array& select_k_indices, SortOrder orde
   int64_t k = select_k_indices.length();
   // head(k)
   auto head_k_indices = sorted_indices->Slice(0, k);
-  if (stable_sort) {
-    AssertDatumsEqual(*head_k_indices, select_k_indices);
-  } else {
-    ASSERT_OK_AND_ASSIGN(auto expected,
-                         Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
-    ASSERT_OK_AND_ASSIGN(auto actual,
-                         Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
-    AssertDatumsEqual(Datum(expected), Datum(actual));
-  }
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       Take(datum, *head_k_indices, TakeOptions::NoBoundsCheck()));
+  ASSERT_OK_AND_ASSIGN(auto actual,
+                       Take(datum, select_k_indices, TakeOptions::NoBoundsCheck()));
+  AssertDatumsEqual(Datum(expected), Datum(actual));
 }
 
 template <typename ArrowType>
@@ -234,6 +229,79 @@ TYPED_TEST(TestSelectKRandom, RandomValues) {
   }
 }
 
+class TestSelectKWithArray : public ::testing::Test {
+ public:
+  void Check(const std::shared_ptr<DataType>& type, const std::string& array_json,
+             const SelectKOptions& options, const std::string& expected_array) {
+    std::shared_ptr<Array> actual;
+    ASSERT_OK(this->DoSelectK(type, array_json, options, &actual));
+    ASSERT_ARRAYS_EQUAL(*ArrayFromJSON(type, expected_array), *actual);
+  }
+
+  void CheckIndices(const std::shared_ptr<DataType>& type, const std::string& array_json,
+                    const SelectKOptions& options, const std::string& expected_json) {
+    auto array = ArrayFromJSON(type, array_json);
+    auto expected = ArrayFromJSON(uint64(), expected_json);
+    ASSERT_OK_AND_ASSIGN(auto indices, SelectKUnstable(Datum(*array), options));
+    ValidateOutput(*indices);
+    AssertArraysEqual(*expected, *indices, /*verbose=*/true);
+  }
+
+  Status DoSelectK(const std::shared_ptr<DataType>& type, const std::string& array_json,
+                   const SelectKOptions& options, std::shared_ptr<Array>* out) {
+    auto array = ArrayFromJSON(type, array_json);
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectKUnstable(Datum(*array), options));
+
+    ValidateOutput(*indices);
+    ARROW_ASSIGN_OR_RAISE(
+        auto select_k, Take(Datum(array), Datum(indices), TakeOptions::NoBoundsCheck()));
+    *out = select_k.make_array();
+    return Status::OK();
+  }
+};
+
+TEST_F(TestSelectKWithArray, PartialSelectKNull) {
+  auto array_input = R"([null, 30, 20, 10, null])";
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending)};
+  auto options = SelectKOptions(4, sort_keys);
+  auto expected = R"([10, 20, 30, null])";
+  Check(uint8(), array_input, options, expected);
+  options.k = 3;
+  expected = R"([10, 20, 30])";
+  Check(uint8(), array_input, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  expected = R"([null, null, 10])";
+  Check(uint8(), array_input, options, expected);
+}
+
+TEST_F(TestSelectKWithArray, FullSelectKNull) {
+  auto array_input = R"([null, 30, 20, 10, null])";
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending)};
+  auto options = SelectKOptions(10, sort_keys);
+  auto expected = R"([10, 20, 30, null, null])";
+  Check(uint8(), array_input, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  expected = R"([null, null, 10, 20, 30])";
+  Check(uint8(), array_input, options, expected);
+}
+
+TEST_F(TestSelectKWithArray, PartialSelectKNullNaN) {
+  auto array_input = R"([null, 30, NaN, 20, 10, null])";
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
+  auto options = SelectKOptions(4, sort_keys);
+  CheckIndices(float64(), array_input, options, "[1, 3, 4, 2]");
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  CheckIndices(float64(), array_input, options, "[0, 5, 2, 1]");
+}
+
+TEST_F(TestSelectKWithArray, FullSelectKNullNaN) {
+  auto array_input = R"([null, 30, NaN, 20, 10, null])";
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
+  auto options = SelectKOptions(10, sort_keys);
+  CheckIndices(float64(), array_input, options, "[1, 3, 4, 2, 0, 5]");
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  CheckIndices(float64(), array_input, options, "[0, 5, 2, 1, 3, 4]");
+}
 // Test basic cases for chunked array
 
 template <typename ArrowType>
@@ -263,6 +331,35 @@ struct TestSelectKWithChunkedArray : public ::testing::Test {
   void AssertBottomK(const std::shared_ptr<ChunkedArray>& chunked_array, int64_t k) {
     AssertSelectK<SortOrder::Ascending>(chunked_array, k);
   }
+
+  void Check(const std::shared_ptr<ChunkedArray>& chunked_array,
+             const SelectKOptions& options,
+             const std::shared_ptr<ChunkedArray>& expected_array) {
+    std::shared_ptr<ChunkedArray> actual;
+    ASSERT_OK(this->DoSelectK(chunked_array, options, &actual));
+    AssertChunkedEqual(*expected_array, *actual);
+  }
+
+  void CheckIndices(const std::shared_ptr<ChunkedArray>& chunked_array,
+                    const SelectKOptions& options, const std::string& expected_json) {
+    auto expected = ArrayFromJSON(uint64(), expected_json);
+    auto indices = SelectKUnstable(Datum(*chunked_array), options);
+    ASSERT_OK(indices);
+    auto actual = indices.MoveValueUnsafe();
+    ValidateOutput(*actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
+  Status DoSelectK(const std::shared_ptr<ChunkedArray>& chunked_array,
+                   const SelectKOptions& options, std::shared_ptr<ChunkedArray>* out) {
+    ARROW_ASSIGN_OR_RAISE(auto indices, SelectKUnstable(Datum(*chunked_array), options));
+
+    ValidateOutput(*indices);
+    ARROW_ASSIGN_OR_RAISE(auto select_k, Take(Datum(chunked_array), Datum(indices),
+                                              TakeOptions::NoBoundsCheck()));
+    *out = select_k.chunked_array();
+    return Status::OK();
+  }
 };
 
 TYPED_TEST_SUITE(TestSelectKWithChunkedArray, SelectKableTypes);
@@ -281,6 +378,62 @@ TYPED_TEST(TestSelectKWithChunkedArray, RandomValuesWithSlices) {
       this->AssertBottomK(chunked_array, k);
     }
   }
+}
+
+TYPED_TEST(TestSelectKWithChunkedArray, PartialSelectKNull) {
+  auto chunked_array = ChunkedArrayFromJSON(uint8(), {
+                                                         "[null, 1]",
+                                                         "[3, null, 2]",
+                                                         "[1]",
+                                                     });
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending)};
+  auto options = SelectKOptions(3, sort_keys);
+  auto expected = ChunkedArrayFromJSON(uint8(), {"[1, 1, 2]"});
+  this->Check(chunked_array, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  expected = ChunkedArrayFromJSON(uint8(), {"[null, null, 1]"});
+  this->Check(chunked_array, options, expected);
+}
+
+TYPED_TEST(TestSelectKWithChunkedArray, FullSelectKNull) {
+  auto chunked_array = ChunkedArrayFromJSON(uint8(), {
+                                                         "[null, 1]",
+                                                         "[3, null, 2]",
+                                                         "[1]",
+                                                     });
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending)};
+  auto options = SelectKOptions(10, sort_keys);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  auto expected = ChunkedArrayFromJSON(uint8(), {"[null, null, 1, 1, 2, 3]"});
+  this->Check(chunked_array, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtEnd;
+  expected = ChunkedArrayFromJSON(uint8(), {"[1, 1, 2, 3, null, null]"});
+  this->Check(chunked_array, options, expected);
+}
+
+TYPED_TEST(TestSelectKWithChunkedArray, PartialSelectKNullNaN) {
+  auto chunked_array = ChunkedArrayFromJSON(
+      float64(), {"[null, 1]", "[3, null, NaN]", "[10, NaN, 2]", "[1]"});
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
+  auto options = SelectKOptions(3, sort_keys);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  auto expected = ChunkedArrayFromJSON(float64(), {"[null, null, NaN]"});
+  this->Check(chunked_array, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtEnd;
+  expected = ChunkedArrayFromJSON(float64(), {"[10, 3, 2]"});
+  this->Check(chunked_array, options, expected);
+}
+
+TYPED_TEST(TestSelectKWithChunkedArray, FullSelectKNullNaN) {
+  auto chunked_array = ChunkedArrayFromJSON(
+      float64(), {"[null, 1]", "[3, null, NaN]", "[10, NaN, 2]", "[1]"});
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Descending)};
+  auto options = SelectKOptions(10, sort_keys);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  // These check that nulls and Nan are sorted in a stable way, but do we want that?
+  this->CheckIndices(chunked_array, options, "[0, 3, 4, 6, 5, 2, 7, 8, 1]");
+  options.sort_keys[0].null_placement = NullPlacement::AtEnd;
+  this->CheckIndices(chunked_array, options, "[5, 2, 7, 8, 1, 4, 6, 0, 3]");
 }
 
 template <typename ArrayType, SortOrder order>
@@ -363,6 +516,17 @@ class TestSelectKWithRecordBatch : public ::testing::Test {
     ASSERT_BATCHES_EQUAL(*RecordBatchFromJSON(schm, expected_batch), *actual);
   }
 
+  void CheckIndices(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
+                    const SelectKOptions& options, const std::string& expected_json) {
+    auto batch = RecordBatchFromJSON(schm, batch_json);
+    auto expected = ArrayFromJSON(uint64(), expected_json);
+    auto indices = SelectKUnstable(Datum(*batch), options);
+    ASSERT_OK(indices);
+    auto actual = indices.MoveValueUnsafe();
+    ValidateOutput(*actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
+  }
+
   Status DoSelectK(const std::shared_ptr<Schema>& schm, const std::string& batch_json,
                    const SelectKOptions& options, std::shared_ptr<RecordBatch>* out) {
     auto batch = RecordBatchFromJSON(schm, batch_json);
@@ -428,6 +592,17 @@ TEST_F(TestSelectKWithRecordBatch, TopKNull) {
   ])";
 
   Check(schema, batch_input, options, expected_batch);
+
+  auto options_with_null = SelectKOptions::TopKDefault(4, {"a", "b"});
+
+  auto expected_batch_with_null = R"([
+    {"a": 30,    "b": 3},
+    {"a": 20,    "b": 5},
+    {"a": 10,    "b": 3},
+    {"a": null,   "b": 6}
+  ])";
+
+  Check(schema, batch_input, options_with_null, expected_batch_with_null);
 }
 
 TEST_F(TestSelectKWithRecordBatch, TopKOneColumnKey) {
@@ -539,6 +714,128 @@ TEST_F(TestSelectKWithRecordBatch, BottomKNull) {
   Check(schema, batch_input, options, expected_batch);
 }
 
+TEST_F(TestSelectKWithRecordBatch, PartialSelectKNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  auto batch_input = R"([
+    {"a": null, "b": 5},
+    {"a": 30,   "b": 3},
+    {"a": null, "b": 4},
+    {"a": null, "b": 6},
+    {"a": 20,   "b": 5},
+    {"a": null, "b": 5},
+    {"a": 10,   "b": 3},
+    {"a": null, "b": null}
+  ])";
+  std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending, NullPlacement::AtStart),
+      SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(3, sort_keys);
+  auto expected_batch = R"([{"a": null,   "b": 6},
+                            {"a": null,   "b": 5},
+                            {"a": null,   "b": 5}
+                           ])";
+  Check(schema, batch_input, options, expected_batch);
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  expected_batch = R"([{"a": null,    "b": null},
+                       {"a": null,    "b": 6},
+                       {"a": null,    "b": 5}
+                      ])";
+  Check(schema, batch_input, options, expected_batch);
+}
+
+TEST_F(TestSelectKWithRecordBatch, FullSelectKNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  auto batch_input = R"([
+    {"a": null, "b": 5},
+    {"a": 30,   "b": 3},
+    {"a": null, "b": 4},
+    {"a": null, "b": 6},
+    {"a": 20,   "b": 5},
+    {"a": null, "b": 5},
+    {"a": 10,   "b": 3},
+    {"a": null, "b": null}
+  ])";
+  std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending, NullPlacement::AtStart),
+      SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(10, sort_keys);
+  auto expected_batch = R"([{"a": null,  "b": 6},
+                            {"a": null,  "b": 5},
+                            {"a": null,  "b": 5},
+                            {"a": null,  "b": 4},
+                            {"a": null,  "b": null},
+                            {"a": 10,    "b": 3},
+                            {"a": 20,    "b": 5},
+                            {"a": 30,    "b": 3}
+                           ])";
+  Check(schema, batch_input, options, expected_batch);
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  expected_batch = R"([{"a": null,  "b": null},
+                        {"a": null,  "b": 6},
+                        {"a": null,  "b": 5},
+                        {"a": null,  "b": 5},
+                        {"a": null,  "b": 4},
+                        {"a": 10,    "b": 3},
+                        {"a": 20,    "b": 5},
+                        {"a": 30,    "b": 3}
+                      ])";
+  Check(schema, batch_input, options, expected_batch);
+}
+
+TEST_F(TestSelectKWithRecordBatch, PartialSelectKNullNaN) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  auto batch_input = R"([
+    {"a": null, "b": 5},
+    {"a": 1,    "b": 3},
+    {"a": 3,    "b": null},
+    {"a": null, "b": null},
+    {"a": 6,    "b": null},
+    {"a": 6,    "b": NaN},
+    {"a": NaN,  "b": 5},
+    {"a": 1,    "b": 5}
+  ])";
+  std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending, NullPlacement::AtStart),
+      SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(3, sort_keys);
+  CheckIndices(schema, batch_input, options, "[0, 3, 6]");
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  CheckIndices(schema, batch_input, options, "[3, 0, 6]");
+}
+
+TEST_F(TestSelectKWithRecordBatch, FullSelectKNullNaN) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  auto batch_input = R"([
+    {"a": null, "b": 5},
+    {"a": 1,    "b": 3},
+    {"a": 3,    "b": null},
+    {"a": null, "b": null},
+    {"a": 6,    "b": null},
+    {"a": 6,    "b": NaN},
+    {"a": NaN,  "b": 5},
+    {"a": 1,    "b": 5}
+  ])";
+  std::vector<SortKey> sort_keys{
+      SortKey("a", SortOrder::Ascending, NullPlacement::AtStart),
+      SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(10, sort_keys);
+  CheckIndices(schema, batch_input, options, "[0, 3, 6, 7, 1, 2, 5, 4]");
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  CheckIndices(schema, batch_input, options, "[3, 0, 6, 7, 1, 2, 4, 5]");
+}
+
 TEST_F(TestSelectKWithRecordBatch, BottomKOneColumnKey) {
   auto schema = ::arrow::schema({
       {field("country", utf8())},
@@ -603,6 +900,18 @@ struct TestSelectKWithTable : public ::testing::Test {
     std::shared_ptr<Table> actual;
     ASSERT_OK(this->DoSelectK(schm, input_json, options, &actual));
     ASSERT_TABLES_EQUAL(*TableFromJSON(schm, expected), *actual);
+  }
+
+  void CheckIndices(const std::shared_ptr<Schema>& schm,
+                    const std::vector<std::string>& input_json,
+                    const SelectKOptions& options, const std::string& expected_json) {
+    auto table = TableFromJSON(schm, input_json);
+    auto expected = ArrayFromJSON(uint64(), expected_json);
+    auto indices = SelectKUnstable(Datum(*table), options);
+    ASSERT_OK(indices);
+    auto actual = indices.MoveValueUnsafe();
+    ValidateOutput(*actual);
+    AssertArraysEqual(*expected, *actual, /*verbose=*/true);
   }
 
   Status DoSelectK(const std::shared_ptr<Schema>& schm,
@@ -709,6 +1018,144 @@ TEST_F(TestSelectKWithTable, BottomKMultipleColumnKeys) {
                                      {"a": 2,    "b": 5}
                                     ])"};
   Check(schema, input, options, expected);
+}
+
+TEST_F(TestSelectKWithTable, PartialSelectKNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  std::vector<std::string> input = {R"([{"a": null, "b": 5},
+                                        {"a": 1,    "b": 3},
+                                        {"a": 3,    "b": null}
+                                      ])",
+                                    R"([{"a": null, "b": null},
+                                          {"a": 2,    "b": 5},
+                                          {"a": 1,    "b": 5},
+                                          {"a": 3,    "b": 5}
+                                        ])"};
+
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                 SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(3, sort_keys);
+  std::vector<std::string> expected = {R"([{"a": 1,    "b": 5},
+                                           {"a": 1,    "b": 3},
+                                           {"a": 2,    "b": 5}
+                                          ])"};
+  Check(schema, input, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  expected = {R"([{"a": null, "b": 5},
+                  {"a": null, "b": null},
+                  {"a": 1,    "b": 5}
+                 ])"};
+  Check(schema, input, options, expected);
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  expected = {R"([{"a": null, "b": null},
+                  {"a": null, "b": 5},
+                  {"a": 1,    "b": 5}
+                 ])"};
+  Check(schema, input, options, expected);
+}
+
+TEST_F(TestSelectKWithTable, FullSelectKNull) {
+  auto schema = ::arrow::schema({
+      {field("a", uint8())},
+      {field("b", uint32())},
+  });
+  std::vector<std::string> input = {R"([{"a": null, "b": 5},
+                                        {"a": 1,    "b": 3},
+                                        {"a": 3,    "b": null}
+                                      ])",
+                                    R"([{"a": null, "b": null},
+                                          {"a": 2,    "b": 5},
+                                          {"a": 1,    "b": 5},
+                                          {"a": 3,    "b": 5}
+                                        ])"};
+
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                 SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(10, sort_keys);
+  std::vector<std::string> expected = {R"([{"a": 1,    "b": 5},
+                                           {"a": 1,    "b": 3},
+                                           {"a": 2,    "b": 5},
+                                           {"a": 3,    "b": 5},
+                                           {"a": 3,    "b": null},
+                                           {"a": null, "b": 5},
+                                           {"a": null, "b": null}
+                                          ])"};
+  Check(schema, input, options, expected);
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  expected = {R"([{"a": null, "b": 5},
+                  {"a": null, "b": null},
+                  {"a": 1,    "b": 5},
+                  {"a": 1,    "b": 3},
+                  {"a": 2,    "b": 5},
+                  {"a": 3,    "b": 5},
+                  {"a": 3,    "b": null}
+                 ])"};
+  Check(schema, input, options, expected);
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  expected = {R"([{"a": null, "b": null},
+                  {"a": null, "b": 5},
+                  {"a": 1,    "b": 5},
+                  {"a": 1,    "b": 3},
+                  {"a": 2,    "b": 5},
+                  {"a": 3,    "b": null},
+                  {"a": 3,    "b": 5}
+                 ])"};
+  Check(schema, input, options, expected);
+}
+
+TEST_F(TestSelectKWithTable, PartialSelectKNullNaN) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  std::vector<std::string> input = {R"([{"a": null, "b": 5},
+                                        {"a": 1,    "b": 3},
+                                        {"a": 3,    "b": null}
+                                      ])",
+                                    R"([{"a": null, "b": null},
+                                        {"a": 6,    "b": null},
+                                        {"a": 6,    "b": NaN},
+                                        {"a": NaN,  "b": 5},
+                                        {"a": 1,    "b": 5}
+                                      ])"};
+
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                 SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(3, sort_keys);
+  CheckIndices(schema, input, options, "[7, 1, 2]");
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  CheckIndices(schema, input, options, "[0, 3, 6]");
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  CheckIndices(schema, input, options, "[3, 0, 6]");
+}
+
+TEST_F(TestSelectKWithTable, FullSelectKNullNaN) {
+  auto schema = ::arrow::schema({
+      {field("a", float32())},
+      {field("b", float64())},
+  });
+  std::vector<std::string> input = {R"([{"a": null, "b": 5},
+                                        {"a": 1,    "b": 3},
+                                        {"a": 3,    "b": null}
+                                      ])",
+                                    R"([{"a": null, "b": null},
+                                        {"a": 6,    "b": null},
+                                        {"a": 6,    "b": NaN},
+                                        {"a": NaN,  "b": 5},
+                                        {"a": 1,    "b": 5}
+                                      ])"};
+
+  std::vector<SortKey> sort_keys{SortKey("a", SortOrder::Ascending),
+                                 SortKey("b", SortOrder::Descending)};
+  auto options = SelectKOptions(10, sort_keys);
+  CheckIndices(schema, input, options, "[7, 1, 2, 5, 4, 6, 0, 3]");
+  options.sort_keys[0].null_placement = NullPlacement::AtStart;
+  CheckIndices(schema, input, options, "[0, 3, 6, 7, 1, 2, 5, 4]");
+  options.sort_keys[1].null_placement = NullPlacement::AtStart;
+  CheckIndices(schema, input, options, "[3, 0, 6, 7, 1, 2, 4, 5]");
 }
 
 }  // namespace compute

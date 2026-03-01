@@ -28,6 +28,7 @@ from pyarrow.includes.libarrow_acero cimport *
 from pyarrow.lib cimport (Table, pyarrow_unwrap_table, pyarrow_wrap_table,
                           RecordBatchReader)
 from pyarrow.lib import frombytes, tobytes
+import warnings
 from pyarrow._compute cimport (
     Expression, FunctionOptions, _ensure_field_ref, _true,
     unwrap_null_placement, unwrap_sort_keys
@@ -234,12 +235,19 @@ class AggregateNodeOptions(_AggregateNodeOptions):
 cdef class _OrderByNodeOptions(ExecNodeOptions):
 
     def _set_options(self, sort_keys, null_placement):
-        self.wrapped.reset(
-            new COrderByNodeOptions(
-                COrdering(unwrap_sort_keys(sort_keys, allow_str=False),
-                          unwrap_null_placement(null_placement))
+        if null_placement is None:
+            self.wrapped.reset(
+                new COrderByNodeOptions(
+                    COrdering(unwrap_sort_keys(sort_keys, allow_str=False))
+                )
             )
-        )
+        else:
+            self.wrapped.reset(
+                new COrderByNodeOptions(
+                    COrdering(unwrap_sort_keys(sort_keys, allow_str=False),
+                              unwrap_null_placement(null_placement))
+                )
+            )
 
 
 class OrderByNodeOptions(_OrderByNodeOptions):
@@ -254,18 +262,24 @@ class OrderByNodeOptions(_OrderByNodeOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order) tuples
+    sort_keys : sequence of (name, order, null_placement="at_end") tuples
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
-        Accepted values for `order` are "ascending", "descending".
         Each field reference can be a string column name or expression.
-    null_placement : str, default "at_end"
+        Accepted values for `order` are "ascending", "descending".
+        Accepted values for `null_placement` are "at_start", "at_end".
+    null_placement : str, optional
         Where nulls in input should be sorted, only applying to
         columns/fields mentioned in `sort_keys`.
-        Accepted values are "at_start", "at_end".
+        Accepted values are "at_start", "at_end",
     """
 
-    def __init__(self, sort_keys=(), *, null_placement="at_end"):
+    def __init__(self, sort_keys=(), *, null_placement=None):
+        if null_placement is not None:
+            warnings.warn(
+                "Specifying null_placement in OrderByNodeOptions is deprecated "
+                "as of 24.0.0. Specify null_placement per sort_key instead."
+            )
         self._set_options(sort_keys, null_placement)
 
 

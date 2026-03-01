@@ -517,6 +517,36 @@ typedef enum /*<prefix=GARROW_NULL_PLACEMENT_>*/ {
   GARROW_NULL_PLACEMENT_AT_END,
 } GArrowNullPlacement;
 
+/**
+ * GArrowOptionalNullPlacement:
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_START:
+ *   Place nulls and NaNs before any non-null values.
+ *   NaNs will come after nulls.
+ *   Ignore null-placement of each individual
+ *   `arrow:compute::SortKey`.
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_AT_END:
+ *   Place nulls and NaNs after any non-null values.
+ *   NaNs will come before nulls.
+ *   Ignore null-placement of each individual
+ *   `arrow:compute::SortKey`.
+ * @GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED:
+ *   Do not specify null placement.
+ *   Instead, the null-placement of each individual
+ *   `arrow:compute::SortKey` will be followed.
+ *
+ * They are corresponding to `arrow::compute::NullPlacement` values except
+ * `GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED`.
+ * `GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED` is used to specify
+ * `std::nullopt`.
+ *
+ * Since: 24.0.0
+ */
+typedef enum /*<prefix=GARROW_OPTIONAL_NULL_PLACEMENT_>*/ {
+  GARROW_OPTIONAL_NULL_PLACEMENT_UNSPECIFIED = -1,
+  GARROW_OPTIONAL_NULL_PLACEMENT_AT_START,
+  GARROW_OPTIONAL_NULL_PLACEMENT_AT_END,
+} GArrowOptionalNullPlacement;
+
 #define GARROW_TYPE_ARRAY_SORT_OPTIONS (garrow_array_sort_options_get_type())
 GARROW_AVAILABLE_IN_3_0
 G_DECLARE_DERIVABLE_TYPE(GArrowArraySortOptions,
@@ -547,7 +577,10 @@ struct _GArrowSortKeyClass
 
 GARROW_AVAILABLE_IN_3_0
 GArrowSortKey *
-garrow_sort_key_new(const gchar *target, GArrowSortOrder order, GError **error);
+garrow_sort_key_new(const gchar *target,
+                    GArrowSortOrder order,
+                    GArrowNullPlacement null_placement,
+                    GError **error);
 
 GARROW_AVAILABLE_IN_3_0
 gboolean

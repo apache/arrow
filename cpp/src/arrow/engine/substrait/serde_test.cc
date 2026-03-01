@@ -5554,8 +5554,6 @@ TEST(Substrait, SortAndFetch) {
 }
 
 TEST(Substrait, MixedSort) {
-  // Substrait allows two sort keys with differing direction but Acero
-  // does not.  We should detect this and reject it.
   std::string substrait_json = R"({
   "version": {
     "major_number": 9999,
@@ -5650,10 +5648,19 @@ TEST(Substrait, MixedSort) {
   ConversionOptions conversion_options;
   conversion_options.named_table_provider = std::move(table_provider);
 
-  ASSERT_THAT(
-      DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
-                      conversion_options),
-      Raises(StatusCode::NotImplemented, testing::HasSubstr("mixed null placement")));
+  ASSERT_OK_AND_ASSIGN(
+      auto plan_info, DeserializePlan(*buf, /*registry=*/nullptr, /*ext_set_out=*/nullptr,
+                                      conversion_options));
+  auto& order_by_options =
+      checked_cast<const acero::OrderByNodeOptions&>(*plan_info.root.declaration.options);
+
+  EXPECT_THAT(
+      order_by_options.ordering.sort_keys(),
+      ElementsAre(
+          arrow::compute::SortKey{FieldPath({0}), arrow::compute::SortOrder::Ascending,
+                                  arrow::compute::NullPlacement::AtStart},
+          arrow::compute::SortKey{FieldPath({1}), arrow::compute::SortOrder::Ascending,
+                                  arrow::compute::NullPlacement::AtEnd}));
 }
 
 TEST(Substrait, PlanWithExtension) {
