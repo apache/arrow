@@ -1513,7 +1513,7 @@ bool TypeEquals(const DataType& left, const DataType& right, bool check_metadata
       return left_fp == right_fp;
     }
 
-    // TODO remove check_metadata here?
+    // Fall back to TypeEqualsVisitor when fingerprints are unavailable.
     TypeEqualsVisitor visitor(right, check_metadata);
     auto error = VisitTypeInline(left, &visitor);
     if (!error.ok()) {
