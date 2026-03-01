@@ -1238,13 +1238,14 @@ memory_map : bool, default False
 buffer_size : int, default 0
     If positive, perform read buffering when deserializing individual
     column chunks. Otherwise IO calls are unbuffered.
-partitioning : pyarrow.dataset.Partitioning or str or list of str, \
+partitioning : pyarrow.dataset.Partitioning or str or list of str or None, \
 default "hive"
     The partitioning scheme for a partitioned dataset. The default of "hive"
     assumes directory names with key=value pairs like "/year=2009/month=11".
     In addition, a scheme like "/2009/11" is also supported, in which case
-    you need to specify the field names or a full schema. See the
-    ``pyarrow.dataset.partitioning()`` function for more details."""
+    you need to specify the field names or a full schema. If no partitioning
+    is used, pass ``None``.
+    See the ``pyarrow.dataset.partitioning()`` function for more details."""
 
 
 _parquet_dataset_example = """\

@@ -538,7 +538,7 @@ def parquet_dataset(metadata_path, schema=None, filesystem=None, format=None,
     format : ParquetFileFormat
         An instance of a ParquetFileFormat if special options needs to be
         passed.
-    partitioning : Partitioning, PartitioningFactory, str, list of str
+    partitioning : Partitioning, PartitioningFactory, str, list of str, optional
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectoryPartitioning will be inferred.
@@ -634,7 +634,7 @@ RecordBatch or Table, iterable of RecordBatch, RecordBatchReader, or URI
         examples below.
         Note that the URIs on Windows must follow 'file:///C:...' or
         'file:/C:...' patterns.
-    partitioning : Partitioning, PartitioningFactory, str, list of str
+    partitioning : Partitioning, PartitioningFactory, str, list of str, optional
         The partitioning scheme specified with the ``partitioning()``
         function. A flavor string can be used as shortcut, and with a list of
         field names a DirectoryPartitioning will be inferred.
