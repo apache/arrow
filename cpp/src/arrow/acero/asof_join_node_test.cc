@@ -44,6 +44,7 @@
 #include "arrow/compute/cast.h"
 #include "arrow/compute/row/row_encoder_internal.h"
 #include "arrow/compute/test_util_internal.h"
+#include "arrow/io/util_internal.h"
 #include "arrow/testing/generator.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/matchers.h"
@@ -1412,15 +1413,28 @@ struct BackpressureCountingNode : public MapNode {
   Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
 
   void PauseProducing(ExecNode* output, int32_t counter) override {
-    ++counters->pause_count;
+    std::lock_guard<std::mutex> lg(mutex_);
+    if (counter > backpressure_counter_) {
+      backpressure_counter_ = counter;
+      if (!paused) ++counters->pause_count;
+      paused = true;
+    }
     inputs()[0]->PauseProducing(this, counter);
   }
   void ResumeProducing(ExecNode* output, int32_t counter) override {
-    ++counters->resume_count;
+    std::lock_guard<std::mutex> lg(mutex_);
+    if (counter > backpressure_counter_) {
+      backpressure_counter_ = counter;
+      if (paused) ++counters->resume_count;
+      paused = false;
+    }
     inputs()[0]->ResumeProducing(this, counter);
   }
 
   BackpressureCounters* counters;
+  std::mutex mutex_;
+  std::atomic<int32_t> backpressure_counter_{0};
+  bool paused{false};
 };
 
 AsyncGenerator<std::optional<ExecBatch>> GetGen(
@@ -1553,6 +1567,145 @@ TEST(AsofJoinTest, BackpressureWithBatches) {
                           /*num_r0_batches=*/50, /*num_r1_batches=*/20, /*slow_r0=*/true);
 }
 
+TEST(AsofJoinTest, PauseProducingAsofJoinSource) {
+  int batch_size = 1;
+  auto make_shift = [batch_size](int num_batches, const std::shared_ptr<Schema>& schema,
+                                 int shift) {
+    return MakeIntegerBatches(
+        {[](int row) -> int64_t { return row; },
+         [num_batches](int row) -> int64_t { return row / num_batches; },
+         [shift](int row) -> int64_t { return row * 10 + shift; }},
+        schema, num_batches, batch_size);
+  };
+  auto l_schema =
+      schema({field("time", int64()), field("key", int64()), field("l_value", int64())});
+  auto r_schema =
+      schema({field("time", int64()), field("key", int64()), field("r0_value", int64())});
+
+  auto output_schema =
+      schema({field("time", int64()), field("key", int64()), field("l_value", int64()),
+              field("key", int64()), field("r0_value", int64())});
+
+  ASSERT_OK_AND_ASSIGN(auto out_batch,
+                       MakeIntegerBatches({[](int row) -> int64_t { return row; },
+                                           [](int row) -> int64_t { return row; },
+                                           [](int row) -> int64_t { return row / 20; },
+                                           [](int row) -> int64_t { return row / 20; },
+                                           [](int row) -> int64_t { return row * 10; }},
+                                          output_schema, 20, batch_size))
+
+  ASSERT_OK_AND_ASSIGN(auto l_batches, make_shift(50, l_schema, 2));
+  ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(50, r_schema, 1));
+  std::optional<ExecBatch> out = out_batch.batches[0];
+
+  constexpr uint32_t thresholdOfBackpressureAsof = 8;
+
+  EXPECT_OK_AND_ASSIGN(std::shared_ptr<ExecPlan> plan, ExecPlan::Make());
+  PushGenerator<std::optional<ExecBatch>> batch_producer_left;
+  PushGenerator<std::optional<ExecBatch>> batch_producer_right;
+
+  AsyncGenerator<std::optional<ExecBatch>> sink_gen;
+  BackpressureMonitor* backpressure_monitor;
+  BackpressureOptions backpressure_options(1, 2);
+  std::shared_ptr<Schema> schema_ = schema({field("data", uint32())});
+
+  BackpressureCountingNode::Register();
+
+  Declaration left{"source", SourceNodeOptions(l_schema, batch_producer_left)};
+  Declaration right{"source", SourceNodeOptions(r_schema, batch_producer_right)};
+  AsofJoinNodeOptions asof_join_opts({{{"time"}, {}}, {{"time"}, {}}}, 0);
+
+  BackpressureCounters bp_countersl, bp_countersr;
+  BackpressureCountingNode::Register();
+
+  Declaration left_count{"backpressure_count",
+                         {std::move(left)},
+                         BackpressureCountingNodeOptions(&bp_countersl)};
+
+  Declaration right_count{"backpressure_count",
+                          {std::move(right)},
+                          BackpressureCountingNodeOptions(&bp_countersr)};
+
+  Declaration asof_join{"asofjoin",
+                        {std::move(left_count), std::move(right_count)},
+                        std::move(asof_join_opts)};
+
+  ARROW_EXPECT_OK(
+      acero::Declaration::Sequence(
+          {
+              std::move(asof_join),
+              {"sink", SinkNodeOptions{&sink_gen, /*schema=*/nullptr,
+                                       backpressure_options, &backpressure_monitor}},
+          })
+          .AddToPlan(plan.get()));
+
+  ASSERT_TRUE(backpressure_monitor);
+  plan->StartProducing();
+  auto fut = plan->finished();
+
+  EXPECT_FALSE(backpressure_monitor->is_paused());
+
+  auto is_l_paused = [&]() {
+    return bp_countersl.pause_count != bp_countersl.resume_count;
+  };
+  auto is_r_paused = [&]() {
+    return bp_countersr.pause_count != bp_countersr.resume_count;
+  };
+
+  // Should be able to push kPauseIfAbove batches without triggering back pressure
+  int64_t l_cnt = 0;
+  int64_t r_cnt = 0;
+
+  EXPECT_FALSE(is_l_paused());
+  EXPECT_FALSE(is_r_paused());
+  EXPECT_FALSE(backpressure_monitor->is_paused());
+  batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
+  batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
+
+  // this should trigger pause on sink
+  BusyWait(3.0, [&]() { return backpressure_monitor->is_paused(); });
+  arrow::io::internal::GetIOThreadPool()->WaitForIdle();
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+
+  // Fill up the inputs of the asof join node
+  for (uint32_t i = 0; i < thresholdOfBackpressureAsof; i++) {
+    SleepABit();
+    EXPECT_FALSE(is_l_paused());
+    EXPECT_FALSE(is_r_paused());
+    EXPECT_TRUE(backpressure_monitor->is_paused());
+    batch_producer_left.producer().Push(l_batches.batches[l_cnt++]);
+    batch_producer_right.producer().Push(r0_batches.batches[r_cnt++]);
+  }
+
+  BusyWait(3.0, is_l_paused);
+  BusyWait(3.0, is_r_paused);
+  arrow::io::internal::GetIOThreadPool()->WaitForIdle();
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+  // Verify pause propagates
+  EXPECT_TRUE(is_l_paused());
+  EXPECT_TRUE(is_r_paused());
+
+  std::optional<ExecBatch> opt_batch;
+
+  do {
+    ASSERT_FINISHES_OK_AND_ASSIGN(opt_batch, sink_gen());
+    ASSERT_TRUE(opt_batch);
+    l_cnt -= opt_batch->length;
+  } while (l_cnt);
+
+  BusyWait(3.0, [&]() { return !is_l_paused(); });
+  BusyWait(3.0, [&]() { return !is_r_paused(); });
+  arrow::io::internal::GetIOThreadPool()->WaitForIdle();
+  arrow::internal::GetCpuThreadPool()->WaitForIdle();
+  EXPECT_FALSE(is_l_paused());
+  EXPECT_FALSE(is_r_paused());
+  EXPECT_FALSE(backpressure_monitor->is_paused());
+
+  batch_producer_left.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+  batch_producer_right.producer().Push(IterationEnd<std::optional<ExecBatch>>());
+
+  ASSERT_THAT(fut, Finishes(Ok()));
+}
 template <typename BatchesMaker>
 void TestSequencing(BatchesMaker maker, int num_batches, int batch_size) {
   auto l_schema =
