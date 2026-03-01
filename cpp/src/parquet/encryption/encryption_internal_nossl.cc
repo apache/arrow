@@ -33,11 +33,11 @@ class AesEncryptor::AesEncryptorImpl {};
 
 AesEncryptor::~AesEncryptor() {}
 
-int32_t AesEncryptor::SignedFooterEncrypt(::arrow::util::span<const uint8_t> footer,
-                                          ::arrow::util::span<const uint8_t> key,
-                                          ::arrow::util::span<const uint8_t> aad,
-                                          ::arrow::util::span<const uint8_t> nonce,
-                                          ::arrow::util::span<uint8_t> encrypted_footer) {
+int32_t AesEncryptor::SignedFooterEncrypt(std::span<const uint8_t> footer,
+                                          std::span<const uint8_t> key,
+                                          std::span<const uint8_t> aad,
+                                          std::span<const uint8_t> nonce,
+                                          std::span<uint8_t> encrypted_footer) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -47,10 +47,10 @@ int32_t AesEncryptor::CiphertextLength(int64_t plaintext_len) const {
   return -1;
 }
 
-int32_t AesEncryptor::Encrypt(::arrow::util::span<const uint8_t> plaintext,
-                              ::arrow::util::span<const uint8_t> key,
-                              ::arrow::util::span<const uint8_t> aad,
-                              ::arrow::util::span<uint8_t> ciphertext) {
+int32_t AesEncryptor::Encrypt(std::span<const uint8_t> plaintext,
+                              std::span<const uint8_t> key,
+                              std::span<const uint8_t> aad,
+                              std::span<uint8_t> ciphertext) {
   ThrowOpenSSLRequiredException();
   return -1;
 }
@@ -62,10 +62,10 @@ AesEncryptor::AesEncryptor(ParquetCipher::type alg_id, int32_t key_len, bool met
 
 class AesDecryptor::AesDecryptorImpl {};
 
-int32_t AesDecryptor::Decrypt(::arrow::util::span<const uint8_t> ciphertext,
-                              ::arrow::util::span<const uint8_t> key,
-                              ::arrow::util::span<const uint8_t> aad,
-                              ::arrow::util::span<uint8_t> plaintext) {
+int32_t AesDecryptor::Decrypt(std::span<const uint8_t> ciphertext,
+                              std::span<const uint8_t> key,
+                              std::span<const uint8_t> aad,
+                              std::span<uint8_t> plaintext) {
   ThrowOpenSSLRequiredException();
   return -1;
 }

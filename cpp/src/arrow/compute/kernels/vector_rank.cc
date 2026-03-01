@@ -27,8 +27,6 @@
 
 namespace arrow::compute::internal {
 
-using ::arrow::util::span;
-
 namespace {
 
 // ----------------------------------------------------------------------
@@ -103,7 +101,8 @@ Result<NullPartitionResult> DoSortAndMarkDuplicate(
                                          physical_chunks, order, null_placement));
   if (needs_duplicates) {
     const auto arrays = GetArrayPointers(physical_chunks);
-    auto value_selector = [resolver = ChunkedArrayResolver(span(arrays))](int64_t index) {
+    auto value_selector = [resolver =
+                               ChunkedArrayResolver(std::span(arrays))](int64_t index) {
       return resolver.Resolve(index).Value<ArrowType>();
     };
     MarkDuplicates(sorted, value_selector);

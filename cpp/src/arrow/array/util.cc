@@ -44,10 +44,8 @@
 #include "arrow/util/endian.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
-#include "arrow/util/span.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
-
 namespace arrow {
 
 using internal::checked_cast;

@@ -38,7 +38,7 @@ std::string EncryptKeyLocally(const SecureString& key_bytes,
   int32_t encrypted_key_len =
       key_encryptor.CiphertextLength(static_cast<int64_t>(key_bytes.size()));
   std::string encrypted_key(encrypted_key_len, '\0');
-  ::arrow::util::span<uint8_t> encrypted_key_span(
+  std::span<uint8_t> encrypted_key_span(
       reinterpret_cast<uint8_t*>(&encrypted_key[0]), encrypted_key_len);
 
   encrypted_key_len = key_encryptor.Encrypt(key_bytes.as_span(), master_key.as_span(),

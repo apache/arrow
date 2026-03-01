@@ -603,7 +603,7 @@ struct ArrayExporter {
                    });
 
     if (need_variadic_buffer_sizes) {
-      auto variadic_buffers = util::span(data->buffers).subspan(2);
+      auto variadic_buffers = std::span(data->buffers).subspan(2);
       export_.variadic_buffer_sizes_.resize(variadic_buffers.size());
       size_t i = 0;
       for (const auto& buf : variadic_buffers) {
