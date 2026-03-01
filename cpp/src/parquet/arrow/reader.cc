@@ -37,7 +37,6 @@
 #include "arrow/util/async_generator.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/future.h"
-#include "arrow/util/fuzz_internal.h"
 #include "arrow/util/iterator.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/parallel.h"

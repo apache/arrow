@@ -180,10 +180,36 @@ fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
+
+    # This will display any errors generated during fuzzing. These errors are
+    # usually not bugs (most fuzz files are invalid and hence generate errors
+    # when trying to read them), which is why they are hidden by default when
+    # fuzzing.
+    export ARROW_FUZZING_VERBOSITY=1
     # Some fuzz regression files may trigger huge memory allocations,
     # let the allocator return null instead of aborting.
     export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
-    export ARROW_FUZZING_VERBOSITY=1
+
+    # 1. Generate seed corpuses
+    "${source_dir}/build-support/fuzzing/generate_corpuses.sh" "${binary_output_dir}"
+
+    # 2. Run fuzz targets on seed corpus entries
+    function run_fuzz_target_on_seed_corpus() {
+      fuzz_target_basename=$1
+      corpus_dir=${binary_output_dir}/${fuzz_target_basename}_seed_corpus
+      mkdir -p "${corpus_dir}"
+      rm -f "${corpus_dir}"/*
+      unzip "${binary_output_dir}"/"${fuzz_target_basename}"_seed_corpus.zip -d "${corpus_dir}"
+      "${binary_output_dir}"/"${fuzz_target_basename}" -rss_limit_mb=4000 "${corpus_dir}"/*
+    }
+    run_fuzz_target_on_seed_corpus arrow-csv-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-file-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-stream-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-tensor-stream-fuzz
+    run_fuzz_target_on_seed_corpus parquet-arrow-fuzz
+    run_fuzz_target_on_seed_corpus parquet-encoding-fuzz
+
+    # 3. Run fuzz targets on regression files from arrow-testing
     # Run golden IPC integration files: these should ideally load without errors,
     # though some very old ones carry invalid data (such as decimal values
     # larger than their advertised precision).

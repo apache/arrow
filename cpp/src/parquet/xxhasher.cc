@@ -58,8 +58,7 @@ uint64_t XxHasher::Hash(const FLBA* value, uint32_t len) const {
 }
 
 uint64_t XxHasher::Hash(const Int96* value) const {
-  return XXH64(reinterpret_cast<const void*>(value->value), sizeof(value->value),
-               kParquetBloomXxHashSeed);
+  return XXH64(value->value.data(), sizeof(value->value), kParquetBloomXxHashSeed);
 }
 
 uint64_t XxHasher::Hash(std::string_view value) const {
@@ -89,8 +88,8 @@ void XxHasher::Hashes(const double* values, int num_values, uint64_t* hashes) co
 
 void XxHasher::Hashes(const Int96* values, int num_values, uint64_t* hashes) const {
   for (int i = 0; i < num_values; ++i) {
-    hashes[i] = XXH64(reinterpret_cast<const void*>(values[i].value),
-                      sizeof(values[i].value), kParquetBloomXxHashSeed);
+    hashes[i] =
+        XXH64(values[i].value.data(), sizeof(values[i].value), kParquetBloomXxHashSeed);
   }
 }
 
