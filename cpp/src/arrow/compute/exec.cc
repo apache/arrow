@@ -288,7 +288,27 @@ void ComputeDataPreallocate(const DataType& type,
   if (is_fixed_width(type.id()) && type.id() != Type::NA) {
     widths->emplace_back(checked_cast<const FixedWidthType&>(type).bit_width());
     return;
+  } else if (is_list_view(type.id())) {
+    int32_t offset = offset_bit_width(type.id());
+    // Offset Buffer
+    widths->emplace_back(offset);
+    // Sized Buffer
+    widths->emplace_back(offset);
+    return;
+  } else if (is_binary_view_like(type.id())) {
+    // View Buffer
+    widths->emplace_back(BinaryViewType::kSize * 8);
+    return;
+  } else if (is_union(type.id())) {
+    // Typed Buffer
+    widths->emplace_back(8);
+    if (type.id() == Type::DENSE_UNION) {
+      // Offset Buffer
+      widths->emplace_back(32);
+    }
+    return;
   }
+
   // Preallocate binary and list offsets
   switch (type.id()) {
     case Type::BINARY:
@@ -964,7 +984,8 @@ class ScalarExecutor : public KernelExecutorImpl<ScalarKernel> {
     preallocating_all_buffers_ =
         ((validity_preallocated_ || elide_validity_bitmap_) &&
          data_preallocated_.size() == static_cast<size_t>(output_num_buffers_ - 1) &&
-         !is_nested(out_type_id) && !is_dictionary(out_type_id));
+         !is_nested(out_type_id) && !is_dictionary(out_type_id) &&
+         !is_binary_view_like(out_type_id));
 
     // TODO(wesm): why was this check ever here? Fixed width binary
     // can be 0-width but anything else?
