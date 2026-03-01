@@ -1837,7 +1837,7 @@ extern "C" SEXP _arrow_dataset___FileFormat__DefaultWriteOptions(SEXP fmt_sexp){
 #endif
 
 // dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
+#if defined(ARROW_R_WITH_DATASET) && defined(ARROW_R_WITH_PARQUET)
 std::shared_ptr<ds::ParquetFileFormat> dataset___ParquetFileFormat__Make(const std::shared_ptr<ds::ParquetFragmentScanOptions>& options, cpp11::strings dict_columns);
 extern "C" SEXP _arrow_dataset___ParquetFileFormat__Make(SEXP options_sexp, SEXP dict_columns_sexp){
 BEGIN_CPP11
@@ -1868,7 +1868,7 @@ extern "C" SEXP _arrow_dataset___FileWriteOptions__type_name(SEXP options_sexp){
 #endif
 
 // dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
+#if defined(ARROW_R_WITH_DATASET) && defined(ARROW_R_WITH_PARQUET)
 void dataset___ParquetFileWriteOptions__update(const std::shared_ptr<ds::ParquetFileWriteOptions>& options, const std::shared_ptr<parquet::WriterProperties>& writer_props, const std::shared_ptr<parquet::ArrowWriterProperties>& arrow_writer_props);
 extern "C" SEXP _arrow_dataset___ParquetFileWriteOptions__update(SEXP options_sexp, SEXP writer_props_sexp, SEXP arrow_writer_props_sexp){
 BEGIN_CPP11
@@ -2034,7 +2034,7 @@ extern "C" SEXP _arrow_dataset___JsonFragmentScanOptions__Make(SEXP parse_option
 #endif
 
 // dataset.cpp
-#if defined(ARROW_R_WITH_DATASET)
+#if defined(ARROW_R_WITH_DATASET) && defined(ARROW_R_WITH_PARQUET)
 std::shared_ptr<ds::ParquetFragmentScanOptions> dataset___ParquetFragmentScanOptions__Make(bool use_buffered_stream, int64_t buffer_size, bool pre_buffer, int32_t thrift_string_size_limit, int32_t thrift_container_size_limit);
 extern "C" SEXP _arrow_dataset___ParquetFragmentScanOptions__Make(SEXP use_buffered_stream_sexp, SEXP buffer_size_sexp, SEXP pre_buffer_sexp, SEXP thrift_string_size_limit_sexp, SEXP thrift_container_size_limit_sexp){
 BEGIN_CPP11
