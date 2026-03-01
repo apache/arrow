@@ -86,7 +86,7 @@ zip-safe=false
 include-package-data=true
 
 [tool.setuptools.packages.find]
-include = ["pyarrow"]
+include = ["pyarrow", "pyarrow.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
