@@ -65,33 +65,43 @@ Status SqliteTablesWithSchemaBatchReader::ReadNext(std::shared_ptr<RecordBatch>*
 
   auto* string_array = reinterpret_cast<StringArray*>(table_name_array.get());
 
+  std::map<std::string, std::vector<std::shared_ptr<Field>>> table_columns_map;
+  for (int i = 0; i < table_name_array->length(); i++) {
+    const std::string& table_name = string_array->GetString(i);
+    table_columns_map[table_name];
+  }
+
+  while (sqlite3_step(schema_statement->GetSqlite3Stmt()) == SQLITE_ROW) {
+    std::string table_name = std::string(reinterpret_cast<const char*>(
+        sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 0)));
+
+    if (table_columns_map.contains(table_name)) {
+      const char* column_name = reinterpret_cast<const char*>(
+          sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 1));
+      const char* column_type = reinterpret_cast<const char*>(
+          sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2));
+      int nullable = sqlite3_column_int(schema_statement->GetSqlite3Stmt(), 3);
+
+      const ColumnMetadata& column_metadata =
+          GetColumnMetadata(GetSqlTypeFromTypeName(column_type), table_name.c_str());
+
+      std::shared_ptr<DataType> arrow_type;
+      auto status = GetArrowType(column_type).Value(&arrow_type);
+      if (!status.ok()) {
+        return Status::NotImplemented("Unknown SQLite type '", column_type,
+                                      "' for column '", column_name, "' in table '",
+                                      table_name, "': ", status);
+      }
+      table_columns_map[table_name].push_back(arrow::field(
+          column_name, arrow_type, nullable == 0, column_metadata.metadata_map()));
+    }
+  }
+
   std::vector<std::shared_ptr<Field>> column_fields;
   for (int i = 0; i < table_name_array->length(); i++) {
     const std::string& table_name = string_array->GetString(i);
+    column_fields = table_columns_map[table_name];
 
-    while (sqlite3_step(schema_statement->GetSqlite3Stmt()) == SQLITE_ROW) {
-      std::string sqlite_table_name = std::string(reinterpret_cast<const char*>(
-          sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 0)));
-      if (sqlite_table_name == table_name) {
-        const char* column_name = reinterpret_cast<const char*>(
-            sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 1));
-        const char* column_type = reinterpret_cast<const char*>(
-            sqlite3_column_text(schema_statement->GetSqlite3Stmt(), 2));
-        int nullable = sqlite3_column_int(schema_statement->GetSqlite3Stmt(), 3);
-
-        const ColumnMetadata& column_metadata = GetColumnMetadata(
-            GetSqlTypeFromTypeName(column_type), sqlite_table_name.c_str());
-        std::shared_ptr<DataType> arrow_type;
-        auto status = GetArrowType(column_type).Value(&arrow_type);
-        if (!status.ok()) {
-          return Status::NotImplemented("Unknown SQLite type '", column_type,
-                                        "' for column '", column_name, "' in table '",
-                                        table_name, "': ", status);
-        }
-        column_fields.push_back(arrow::field(column_name, arrow_type, nullable == 0,
-                                             column_metadata.metadata_map()));
-      }
-    }
     ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Buffer> schema_buffer,
                           ipc::SerializeSchema(*arrow::schema(column_fields)));
 

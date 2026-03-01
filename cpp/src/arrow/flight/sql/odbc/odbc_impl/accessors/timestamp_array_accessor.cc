@@ -19,12 +19,12 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/calendar_utils.h"
 
-using arrow::TimeUnit;
+#include <cmath>
+#include <limits>
 
 namespace arrow::flight::sql::odbc {
 namespace {
-
-int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
+inline int64_t GetConversionToSecondsDivisor(TimeUnit::type unit) {
   int64_t divisor = 1;
   switch (unit) {
     case TimeUnit::SECOND:
@@ -79,6 +79,10 @@ template <CDataType TARGET_TYPE, TimeUnit::type UNIT>
 RowStatus TimestampArrayFlightSqlAccessor<TARGET_TYPE, UNIT>::MoveSingleCellImpl(
     ColumnBinding* binding, int64_t arrow_row, int64_t cell_counter,
     int64_t& value_offset, bool update_value_offset, Diagnostics& diagnostics) {
+  // Times less than the minimum integer number of seconds that can be represented
+  // for each time unit will not convert correctly.  This is mostly interesting for
+  // nanoseconds as timestamps in other units are outside of the accepted range of
+  // Gregorian dates.
   auto* buffer = static_cast<TIMESTAMP_STRUCT*>(binding->buffer);
 
   int64_t value = this->GetArray()->Value(arrow_row);

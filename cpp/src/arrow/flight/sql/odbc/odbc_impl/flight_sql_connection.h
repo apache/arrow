@@ -34,7 +34,7 @@ class FlightSqlSslConfig;
 /// \brief Create an instance of the FlightSqlSslConfig class, from the properties passed
 ///        into the map.
 /// \param conn_property_map the map with the Connection properties.
-/// \return                  An instance of the FlightSqlSslConfig.
+/// \return                An instance of the FlightSqlSslConfig.
 std::shared_ptr<FlightSqlSslConfig> LoadFlightSslConfigs(
     const Connection::ConnPropertyMap& conn_property_map);
 

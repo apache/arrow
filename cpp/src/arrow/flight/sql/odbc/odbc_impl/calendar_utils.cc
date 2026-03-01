@@ -40,6 +40,9 @@ int64_t GetTodayTimeFromEpoch() {
 #endif
 }
 
+// GH-47631: add support for non-UTC time zone data.
+// Read the time zone value from Arrow::Timestamp, and use the time zone value to convert
+// seconds_since_epoch instead of converting to UTC time zone by default
 void GetTimeForSecondsSinceEpoch(const int64_t seconds_since_epoch, std::tm& out_tm) {
   std::memset(&out_tm, 0, sizeof(std::tm));
 

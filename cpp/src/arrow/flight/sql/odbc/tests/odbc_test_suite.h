@@ -206,7 +206,13 @@ class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase 
 };
 
 /** ODBC read buffer size. */
+#ifdef __APPLE__
+// iODBC driver manager may crash with smaller buffer sizes
+// so we use a larger buffer on MacOS
+static constexpr int kOdbcBufferSize = 2048;
+#else
 static constexpr int kOdbcBufferSize = 1024;
+#endif  // __APPLE__
 
 /// Compare ConnPropertyMap, key value is case-insensitive
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
@@ -236,10 +242,13 @@ static constexpr std::string_view kErrorStateHY106 = "HY106";
 static constexpr std::string_view kErrorStateHY114 = "HY114";
 static constexpr std::string_view kErrorStateHY118 = "HY118";
 static constexpr std::string_view kErrorStateHYC00 = "HYC00";
+static constexpr std::string_view kErrorStateIM001 = "IM001";
+static constexpr std::string_view kErrorStateS1000 = "S1000";
 static constexpr std::string_view kErrorStateS1002 = "S1002";
 static constexpr std::string_view kErrorStateS1004 = "S1004";
 static constexpr std::string_view kErrorStateS1010 = "S1010";
 static constexpr std::string_view kErrorStateS1090 = "S1090";
+static constexpr std::string_view kErrorStateS1C00 = "S1C00";
 
 /// Verify ODBC Error State
 void VerifyOdbcErrorState(SQLSMALLINT handle_type, SQLHANDLE handle,

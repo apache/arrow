@@ -54,9 +54,15 @@ TYPED_TEST(StatementTest, TestSQLExecDirectSimpleQuery) {
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectInvalidQuery) {
@@ -89,9 +95,15 @@ TYPED_TEST(StatementTest, TestSQLExecuteSimpleQuery) {
 
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(1, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLPrepareInvalidQuery) {
@@ -105,7 +117,11 @@ TYPED_TEST(StatementTest, TestSQLPrepareInvalidQuery) {
 
   ASSERT_EQ(SQL_ERROR, SQLExecute(this->stmt));
   // Verify function sequence error state is returned
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectDataQuery) {
@@ -805,10 +821,15 @@ TYPED_TEST(StatementTest, TestSQLExecDirectRowFetching) {
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(3, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
-
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
@@ -864,9 +885,15 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollRowFetching) {
   // Verify result set has no more data beyond row 3
   ASSERT_EQ(SQL_NO_DATA, SQLFetchScroll(this->stmt, SQL_FETCH_NEXT, 0));
 
+#ifdef __APPLE__
+  // With iODBC we expect SQL_SUCCESS and the buffer unchanged in this situation.
+  ASSERT_EQ(SQL_SUCCESS, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, nullptr));
+  EXPECT_EQ(3, val);
+#else
   ASSERT_EQ(SQL_ERROR, SQLGetData(this->stmt, 1, SQL_C_LONG, &val, 0, &ind));
   // Invalid cursor state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState24000);
+#endif
 }
 
 TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
@@ -901,8 +928,12 @@ TYPED_TEST(StatementTest, TestSQLFetchScrollUnsupportedOrientation) {
 
   ASSERT_EQ(SQL_ERROR, SQLFetchScroll(this->stmt, SQL_FETCH_BOOKMARK, fetch_offset));
 
-  // DM returns state HY106 for SQL_FETCH_BOOKMARK
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHYC00);
+#else
+  // Windows DM returns state HY106 for SQL_FETCH_BOOKMARK
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY106);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, TestSQLExecDirectVarcharTruncation) {
@@ -1170,6 +1201,9 @@ TEST_F(StatementRemoteTest, TestSQLExecDirectNullQueryNullIndicator) {
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorState22002);
 }
 
+// MacOS Driver Manager iODBC returns SQL_ERROR when invalid buffer length is provided to
+// SQLGetData
+#ifndef __APPLE__
 TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   // Verify the driver ignores invalid buffer length for fixed data types
 
@@ -1367,6 +1401,7 @@ TYPED_TEST(StatementTest, TestSQLExecDirectIgnoreInvalidBufLen) {
   EXPECT_EQ(59, timestamp_var.second);
   EXPECT_EQ(0, timestamp_var.fraction);
 }
+#endif  // __APPLE__
 
 TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
   // Numeric Types
@@ -1503,7 +1538,7 @@ TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
             SQLBindCol(this->stmt, 25, SQL_C_CHAR, &char_val, buf_len, &ind));
 
   SQLWCHAR wchar_val[2];
-  size_t wchar_size = arrow::flight::sql::odbc::GetSqlWCharSize();
+  size_t wchar_size = GetSqlWCharSize();
   buf_len = wchar_size * 2;
 
   ASSERT_EQ(SQL_SUCCESS,
@@ -1533,10 +1568,10 @@ TYPED_TEST(StatementTest, TestSQLBindColDataQuery) {
 
   SQL_TIMESTAMP_STRUCT timestamp_val_min{}, timestamp_val_max{};
 
-  EXPECT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 31, SQL_C_TYPE_TIMESTAMP,
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 31, SQL_C_TYPE_TIMESTAMP,
                                     &timestamp_val_min, buf_len, &ind));
 
-  EXPECT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 32, SQL_C_TYPE_TIMESTAMP,
+  ASSERT_EQ(SQL_SUCCESS, SQLBindCol(this->stmt, 32, SQL_C_TYPE_TIMESTAMP,
                                     &timestamp_val_max, buf_len, &ind));
 
   // Execute query and fetch data once since there is only 1 row.
@@ -1990,7 +2025,8 @@ TEST_F(StatementRemoteTest, DISABLED_TestSQLExtendedFetchQueryNullIndicator) {
 }
 
 TYPED_TEST(StatementTest, TestSQLMoreResultsNoData) {
-  // Verify SQLMoreResults returns SQL_NO_DATA by default.
+  // Verify SQLMoreResults is stubbed to return SQL_NO_DATA
+
   std::wstring wsql = L"SELECT 1;";
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
@@ -2107,7 +2143,11 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsErrorOnBadInputs) {
 
   ASSERT_EQ(SQL_ERROR, SQLNativeSql(this->conn, input_str, -100, buf, buf_char_len,
                                     &output_char_len));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateS1090);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorStateHY090);
+#endif  // __APPLE__
 }
 
 TYPED_TEST(StatementTest, SQLNumResultColsReturnsColumnsOnSelect) {
@@ -2149,9 +2189,20 @@ TYPED_TEST(StatementTest, SQLNumResultColsFunctionSequenceErrorOnNoQuery) {
   SQLSMALLINT expected_value = 0;
 
   ASSERT_EQ(SQL_ERROR, SQLNumResultCols(this->stmt, &column_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 
-  EXPECT_EQ(expected_value, column_count);
+  ASSERT_EQ(SQL_ERROR, SQLNumResultCols(this->stmt, &column_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
+
+  ASSERT_EQ(expected_value, column_count);
 }
 
 TYPED_TEST(StatementTest, SQLRowCountReturnsNegativeOneOnSelect) {
@@ -2193,9 +2244,23 @@ TYPED_TEST(StatementTest, SQLRowCountFunctionSequenceErrorOnNoQuery) {
   SQLLEN expected_value = 0;
 
   ASSERT_EQ(SQL_ERROR, SQLRowCount(this->stmt, &row_count));
+#ifdef __APPLE__
+  VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1010);
+#else
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateHY010);
+#endif  // __APPLE__
 
   EXPECT_EQ(expected_value, row_count);
+}
+
+TYPED_TEST(StatementTest, TestSQLFreeStmtSQLClose) {
+  std::wstring wsql = L"SELECT 1;";
+  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+
+  ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(this->stmt, SQL_CLOSE));
 }
 
 TYPED_TEST(StatementTest, TestSQLCloseCursor) {
@@ -2209,7 +2274,7 @@ TYPED_TEST(StatementTest, TestSQLCloseCursor) {
 }
 
 TYPED_TEST(StatementTest, TestSQLFreeStmtSQLCloseWithoutCursor) {
-  // Verify SQLFreeStmt(SQL_CLOSE) does not throw error with invalid cursor
+  // SQLFreeStmt(SQL_CLOSE) does not throw error with invalid cursor
 
   ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(this->stmt, SQL_CLOSE));
 }

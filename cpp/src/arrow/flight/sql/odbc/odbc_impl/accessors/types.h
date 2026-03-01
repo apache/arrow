@@ -102,7 +102,7 @@ class FlightSqlAccessor : public Accessor {
           throw NullWithoutIndicatorException();
         }
       } else {
-        // TODO: Optimize this by creating different versions of MoveSingleCell
+        // GH-47849 TODO: Optimize this by creating different versions of MoveSingleCell
         // depending on if str_len_buffer is null.
         auto row_status = MoveSingleCell(binding, current_arrow_row, i, value_offset,
                                          update_value_offset, diagnostics);

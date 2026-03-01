@@ -117,12 +117,13 @@ SqlDataType GetDataTypeFromArrowFieldV3(const std::shared_ptr<Field>& field,
     case Type::TIME64:
       return SqlDataType_TYPE_TIME;
     case Type::INTERVAL_MONTHS:
-      return SqlDataType_INTERVAL_MONTH;  // TODO: maybe
-                                          // SqlDataType_INTERVAL_YEAR_TO_MONTH
+      return SqlDataType_INTERVAL_MONTH;  // GH-47873 TODO: check and update to
+                                          // SqlDataType_INTERVAL_YEAR_TO_MONTH if it is
+                                          // more appropriate
     case Type::INTERVAL_DAY_TIME:
       return SqlDataType_INTERVAL_DAY;
 
-    // TODO: Handle remaining types.
+    // GH-47873 TODO: Handle remaining types.
     case Type::INTERVAL_MONTH_DAY_NANO:
     case Type::LIST:
     case Type::STRUCT:
@@ -670,7 +671,7 @@ optional<int32_t> GetDisplaySize(SqlDataType data_type,
     case SqlDataType_INTERVAL_HOUR_TO_MINUTE:
     case SqlDataType_INTERVAL_HOUR_TO_SECOND:
     case SqlDataType_INTERVAL_MINUTE_TO_SECOND:
-      return nullopt;  // TODO: Implement for INTERVAL types
+      return nullopt;  // GH-47874 TODO: Implement for INTERVAL types
     case SqlDataType_GUID:
       return 36;
     default:
@@ -935,9 +936,9 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       auto seconds_from_epoch = GetTodayTimeFromEpoch();
 
-      auto third_converted_array = CheckConversion(
-          arrow::compute::Add(second_converted_array,
-                              std::make_shared<Int64Scalar>(seconds_from_epoch * 1000)));
+      auto third_converted_array = CheckConversion(arrow::compute::Add(
+          second_converted_array,
+          std::make_shared<arrow::Int64Scalar>(seconds_from_epoch * 1000)));
 
       arrow::compute::CastOptions cast_options_2;
       cast_options_2.to_type = arrow::timestamp(TimeUnit::MILLI);
@@ -956,7 +957,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
 
       auto second_converted_array = CheckConversion(arrow::compute::Add(
           first_converted_array,
-          std::make_shared<Int64Scalar>(seconds_from_epoch * 1000000000)));
+          std::make_shared<arrow::Int64Scalar>(seconds_from_epoch * 1000000000)));
 
       arrow::compute::CastOptions cast_options_2;
       cast_options_2.to_type = arrow::timestamp(TimeUnit::NANO);
@@ -980,7 +981,7 @@ ArrayConvertTask GetConverter(Type::type original_type_id, CDataType target_type
   } else if (original_type_id == Type::DECIMAL128 &&
              (target_type == CDataType_CHAR || target_type == CDataType_WCHAR)) {
     return [=](const std::shared_ptr<Array>& original_array) {
-      StringBuilder builder;
+      arrow::StringBuilder builder;
       int64_t length = original_array->length();
       ThrowIfNotOK(builder.ReserveData(length));
 

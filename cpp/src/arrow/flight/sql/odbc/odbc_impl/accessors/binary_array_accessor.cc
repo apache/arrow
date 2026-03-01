@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include "arrow/array.h"
 
 namespace arrow::flight::sql::odbc {
@@ -39,7 +40,7 @@ inline RowStatus MoveSingleCellToBinaryBuffer(ColumnBinding* binding, BinaryArra
 
   auto* byte_buffer =
       static_cast<unsigned char*>(binding->buffer) + i * binding->buffer_length;
-  memcpy(byte_buffer, ((char*)value) + value_offset, value_length);
+  std::memcpy(byte_buffer, ((char*)value) + value_offset, value_length);
 
   if (remaining_length > binding->buffer_length) {
     result = RowStatus_SUCCESS_WITH_INFO;
