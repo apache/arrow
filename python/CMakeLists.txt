@@ -352,7 +352,21 @@ set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 
 # Write out compile-time configuration constants
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+if(CMAKE_BUILD_TYPE)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" UPPERCASE_PYBUILD_TYPE)
+else()
+  # For multi-config generators (XCode and Visual Studio),
+  # CMAKE_BUILD_TYPE is not set at configure time.
+  # scikit-build-core does the right thing with cmake.build-type and
+  # adds the corresponding --config but does not populate CMAKE_BUILD_TYPE
+  # for those. On this specific case, we set the default to "RELEASE"
+  # as it's the most common build type for users building from source.
+  # This is mainly relevant for our Windows wheels, which are built with
+  # Visual Studio and thus use a multi-config generator with Release.
+  # As a note this is only to populate config_internal.h.cmake.
+  set(UPPERCASE_PYBUILD_TYPE "RELEASE")
+endif()
+
 configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
                "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
 

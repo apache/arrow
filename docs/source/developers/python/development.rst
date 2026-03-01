@@ -222,7 +222,8 @@ Debug build
 Since PyArrow depends on the Arrow C++ libraries, debugging can
 frequently involve crossing between Python and C++ shared libraries.
 For the best experience, make sure you've built both Arrow C++
-(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow (``export PYARROW_BUILD_TYPE=debug``)
+(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow
+(``pip install --no-build-isolation -C cmake.build-type=Debug .``)
 in debug mode.
 
 Using gdb on Linux
