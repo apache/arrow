@@ -371,6 +371,13 @@ add_library(arrow::flatbuffers INTERFACE IMPORTED)
 target_include_directories(arrow::flatbuffers
                            INTERFACE "${THIRDPARTY_DIR}/flatbuffers/include")
 
+add_library(arrow::xxhash INTERFACE IMPORTED)
+# GH-47475: xxhash fails inlining when -Og is
+# used. -DCMAKE_BUILD_TYPE=Debug may use -Og.
+# See: https://github.com/Cyan4973/xxHash/issues/943
+target_compile_definitions(arrow::xxhash
+                           INTERFACE "$<$<CONFIG:Debug>:XXH_NO_INLINE_HINTS>")
+
 # ----------------------------------------------------------------------
 # Some EP's require other EP's
 
