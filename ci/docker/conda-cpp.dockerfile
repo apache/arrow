@@ -38,6 +38,8 @@ RUN mamba install -q -y \
         doxygen \
         libnuma \
         mold \
+        nvidia::cuda \
+        nvidia::cuda-toolkit \
         python=${python} \
         valgrind && \
     mamba clean --all --yes
