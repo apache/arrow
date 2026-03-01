@@ -1648,8 +1648,6 @@ class ObjectOutputStream final : public io::OutputStream {
   }
 
   Status CreateMultipartUpload() {
-    DCHECK(ShouldBeMultipartUpload());
-
     ARROW_ASSIGN_OR_RAISE(auto client_lock, holder_->Lock());
 
     // Initiate the multi-part upload
