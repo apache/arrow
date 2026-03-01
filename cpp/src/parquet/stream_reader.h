@@ -65,6 +65,7 @@ class PARQUET_EXPORT StreamReader {
   //      assigned afterwards.
   StreamReader() = default;
 
+  /// Reader must have at least one field defined in its schema.
   explicit StreamReader(std::unique_ptr<ParquetFileReader> reader);
 
   ~StreamReader() = default;
