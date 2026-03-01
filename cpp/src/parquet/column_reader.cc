@@ -559,11 +559,9 @@ std::shared_ptr<Buffer> SerializedPageReader::DecompressIfNeeded(
   PARQUET_THROW_NOT_OK(
       decompression_buffer_->Resize(uncompressed_len, /*shrink_to_fit=*/false));
 
-  if (levels_byte_len > 0) {
-    // First copy the levels as-is
-    uint8_t* decompressed = decompression_buffer_->mutable_data();
-    memcpy(decompressed, page_buffer->data(), levels_byte_len);
-  }
+  // First copy the levels as-is
+  uint8_t* decompressed = decompression_buffer_->mutable_data();
+  SafeMemcpy(decompressed, page_buffer->data(), levels_byte_len);
 
   // GH-31992: DataPageV2 may store only levels and no values when all
   // values are null. In this case, Parquet java is known to produce a
