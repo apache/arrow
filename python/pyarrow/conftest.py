@@ -111,7 +111,8 @@ if sys.platform == "emscripten":
 if sys.platform == "win32":
     defaults['timezone_data'] = windows_has_tzdata()
 elif sys.platform == "emscripten":
-    defaults['timezone_data'] = os.path.exists("/usr/share/zoneinfo")
+    tz_dir = os.environ.get("TZDIR", "/usr/share/zoneinfo")
+    defaults['timezone_data'] = os.path.exists(tz_dir)
 
 try:
     import cython  # noqa
