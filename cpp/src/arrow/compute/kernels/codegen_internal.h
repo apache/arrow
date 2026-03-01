@@ -708,6 +708,8 @@ struct ScalarUnaryNotNullStateful {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
+      using OutValue = typename ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>::OutValue;
+      using Arg0Value = typename ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>::Arg0Value;
       auto out_data = out->array_span_mutable()->GetValues<OutValue>(1);
       VisitArrayValuesInline<Arg0Type>(
           arg0,
@@ -726,6 +728,7 @@ struct ScalarUnaryNotNullStateful {
   struct ArrayExec<Type> {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
+      using Arg0Value = typename ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>::Arg0Value;
       // NOTE: This code is not currently used by any kernels and has
       // suboptimal performance because it's recomputing the validity bitmap
       // that is already computed by the kernel execution layer. Consider
@@ -749,6 +752,8 @@ struct ScalarUnaryNotNullStateful {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
+      using OutValue = typename ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>::OutValue;
+      using Arg0Value = typename ScalarUnaryNotNullStateful<OutType, Arg0Type, Op>::Arg0Value;
       ArraySpan* out_arr = out->array_span_mutable();
       FirstTimeBitmapWriter out_writer(out_arr->buffers[1].data, out_arr->offset,
                                        out_arr->length);
