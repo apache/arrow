@@ -35,6 +35,7 @@ class SparseTensor;
 struct Scalar;
 
 static constexpr double kDefaultAbsoluteTolerance = 1E-5;
+static constexpr uint16_t kDefaultUlpDistance = 4;
 
 /// A container of options for equality comparisons
 class EqualOptions {
@@ -66,6 +67,8 @@ class EqualOptions {
   bool use_atol() const { return use_atol_; }
 
   /// Return a new EqualOptions object with the "use_atol" property changed.
+  /// If both "ulp_distance" and "atol" are specified, the comparison
+  /// succeeds when either condition is satisfied.
   EqualOptions use_atol(bool v) const {
     auto res = EqualOptions(*this);
     res.use_atol_ = v;
@@ -115,6 +118,31 @@ class EqualOptions {
     return res;
   }
 
+  /// Whether the "ulp_distance" property is used in the comparison.
+  ///
+  /// This option only affects the Equals methods
+  /// and has no effect on ApproxEquals methods.
+  /// If both "ulp_distance" and "atol" are specified, the comparison
+  /// succeeds when either condition is satisfied.
+  bool use_ulp_distance() const { return use_ulp_distance_; }
+
+  /// Return a new EqualOptions object with the "use_ulp_distance" property changed.
+  EqualOptions use_ulp_distance(bool v) const {
+    auto res = EqualOptions(*this);
+    res.use_ulp_distance_ = v;
+    return res;
+  }
+
+  /// The ulp distance for approximate comparisons of floating-point values.
+  /// Note that this option is ignored if "use_ulp_distance" is set to false.
+  uint16_t ulp_distance() const { return ulp_distance_; }
+
+  /// Return a new EqualOptions object with the "ulp_distance" property changed.
+  EqualOptions ulp_distance(uint16_t v) {
+    auto res = EqualOptions(*this);
+    res.ulp_distance_ = v;
+    return res;
+  }
   /// The ostream to which a diff will be formatted if arrays disagree.
   /// If this is null (the default) no diff will be formatted.
   std::ostream* diff_sink() const { return diff_sink_; }
@@ -132,11 +160,13 @@ class EqualOptions {
 
  protected:
   double atol_ = kDefaultAbsoluteTolerance;
+  uint16_t ulp_distance_ = kDefaultUlpDistance;
   bool nans_equal_ = false;
   bool signed_zeros_equal_ = true;
   bool use_atol_ = false;
   bool use_schema_ = true;
   bool use_metadata_ = false;
+  bool use_ulp_distance_ = false;
 
   std::ostream* diff_sink_ = NULLPTR;
 };
@@ -147,8 +177,8 @@ class EqualOptions {
 ARROW_EXPORT bool ArrayEquals(const Array& left, const Array& right,
                               const EqualOptions& = EqualOptions::Defaults());
 
-/// Returns true if the arrays are approximately equal. For non-floating point
-/// types, this is equivalent to ArrayEquals(left, right)
+/// Returns true if the arrays are approximately equal according to the absolute tolerance
+/// method. For non-floating point types, this is equivalent to ArrayEquals(left, right)
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayApproxEquals(const Array& left, const Array& right,
@@ -163,6 +193,7 @@ ARROW_EXPORT bool ArrayRangeEquals(const Array& left, const Array& right,
                                    const EqualOptions& = EqualOptions::Defaults());
 
 /// Returns true if indicated equal-length segment of arrays are approximately equal
+/// according to the absolute tolerance method.
 ///
 /// Note that arrow::ArrayStatistics is not included in the comparison.
 ARROW_EXPORT bool ArrayRangeApproxEquals(const Array& left, const Array& right,
@@ -202,7 +233,8 @@ ARROW_EXPORT bool ArrayStatisticsEquals(
 ARROW_EXPORT bool ScalarEquals(const Scalar& left, const Scalar& right,
                                const EqualOptions& options = EqualOptions::Defaults());
 
-/// Returns true if scalars are approximately equal
+/// Returns true if the scalars are approximately equal according to the absolute
+/// tolerance method.
 /// \param[in] left a Scalar
 /// \param[in] right a Scalar
 /// \param[in] options comparison options
