@@ -5574,6 +5574,192 @@ def test_union_dataset_filter(tempdir, dstype):
         ds.dataset((filtered_ds1, filtered_ds2))
 
 
+@pytest.mark.dataset
+def test_dataset_aggregate(tempdir):
+    def sorted_by_keys(d):
+        # Ensure a guaranteed order of keys for aggregation results.
+        if "keys2" in d:
+            keys = tuple(zip(d["keys"], d["keys2"]))
+        else:
+            keys = d["keys"]
+        sorted_keys = sorted(keys)
+        sorted_d = {"keys": sorted(d["keys"])}
+        for entry in d:
+            if entry == "keys":
+                continue
+            values = dict(zip(keys, d[entry]))
+            for k in sorted_keys:
+                sorted_d.setdefault(entry, []).append(values[k])
+        return sorted_d
+
+    t1 = pa.table([
+        pa.array(["a", "a", "b", "b", "c"]),
+        pa.array(["X", "X", "Y", "Z", "Z"]),
+        pa.array([1, 2, 3, 4, 5]),
+        pa.array([10, 20, 30, 40, 50])
+    ], names=["keys", "keys2", "values", "bigvalues"])
+    ds.write_dataset(t1, tempdir / "t1", format="ipc")
+    ds1 = ds.dataset(tempdir / "t1", format="ipc")
+
+    r = ds1.aggregate(
+        [("values", "hash_sum")],
+        keys=["keys"]
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5]
+    }
+
+    r = ds1.aggregate(
+        [
+            ("values", "hash_sum"),
+            ("values", "hash_count")
+        ],
+        keys=["keys"]
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "values_count": [2, 2, 1]
+    }
+
+    # Test without hash_ prefix
+    r = ds1.aggregate(
+        [("values", "sum")],
+        keys=["keys"]
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5]
+    }
+
+    r = ds1.aggregate(
+        [
+            ("values", "max"),
+            ("bigvalues", "sum")
+        ],
+        keys=["keys"],
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_max": [2, 4, 5],
+        "bigvalues_sum": [30, 70, 50]
+    }
+
+    r = ds1.aggregate(
+        [
+            ("bigvalues", "max"),
+            ("values", "sum")
+        ],
+        keys=["keys"],
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_sum": [3, 7, 5],
+        "bigvalues_max": [20, 40, 50]
+    }
+
+    r = ds1.aggregate(
+        [("values", "sum")],
+        keys=["keys", "keys2"]
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "b", "c"],
+        "keys2": ["X", "Y", "Z", "Z"],
+        "values_sum": [3, 3, 4, 5]
+    }
+
+    # Test many arguments
+    r = ds1.aggregate(
+        [
+            ("values", "max"),
+            ("bigvalues", "sum"),
+            ("bigvalues", "max"),
+            ([], "count_all"),
+            ("values", "sum")
+        ],
+        keys=["keys"],
+    )
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b", "c"],
+        "values_max": [2, 4, 5],
+        "bigvalues_sum": [30, 70, 50],
+        "bigvalues_max": [20, 40, 50],
+        "count_all": [2, 2, 1],
+        "values_sum": [3, 7, 5]
+    }
+
+    table_with_nulls = pa.table([
+        pa.array(["a", "a", "a"]),
+        pa.array([1, None, None])
+    ], names=["keys", "values"])
+    ds.write_dataset(table_with_nulls, tempdir / "t2", format="ipc")
+    ds2 = ds.dataset(tempdir / "t2", format="ipc")
+
+    r = ds2.aggregate(
+        [("values", "count", pc.CountOptions(mode="all"))],
+        keys=["keys"]
+    )
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [3]
+    }
+
+    r = ds2.aggregate(
+        [("values", "count", pc.CountOptions(mode="only_null"))],
+        keys=["keys"]
+    )
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [2]
+    }
+
+    r = ds2.aggregate(
+        [("values", "count", pc.CountOptions(mode="only_valid"))],
+        keys=["keys"],
+    )
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "values_count": [1]
+    }
+
+    r = ds2.aggregate(
+        [
+            ([], "count_all"),  # nullary count that takes no parameters
+            ("values", "count", pc.CountOptions(mode="only_valid"))
+        ],
+        keys=["keys"],
+    )
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "count_all": [3],
+        "values_count": [1]
+    }
+
+    r = ds2.aggregate(
+        [([], "count_all")],
+        keys=["keys"]
+    )
+    assert r.to_pydict() == {
+        "keys": ["a"],
+        "count_all": [3]
+    }
+
+    table = pa.table({
+        'keys': ['a', 'b', 'a', 'b', 'a', 'b'],
+        'values': range(6)})
+    table_with_chunks = pa.Table.from_batches(
+        table.to_batches(max_chunksize=3))
+    ds.write_dataset(table_with_chunks, tempdir / "t3", format="ipc")
+    ds3 = ds.dataset(tempdir / "t3", format="ipc")
+
+    r = ds3.aggregate([('values', 'sum')], keys=["keys"])
+    assert sorted_by_keys(r.to_pydict()) == {
+        "keys": ["a", "b"],
+        "values_sum": [6, 9]
+    }
+
+
 def test_parquet_dataset_filter(tempdir):
     root_path = tempdir / "test_parquet_dataset_filter"
     metadata_path, _ = _create_parquet_dataset_simple(root_path)

@@ -990,6 +990,66 @@ cdef class Dataset(_Weakrefable):
                                          right_dataset, right_on, right_by,
                                          tolerance, output_type=InMemoryDataset)
 
+    def aggregate(self, aggregations, keys=None, use_threads=True):
+        """
+        Perform an aggregation over the grouped columns of the dataset.
+
+        Result of the aggregations will be a table.
+
+        Parameters
+        ----------
+        aggregations : list[tuple(str, str)] or \
+list[tuple(str, str, FunctionOptions)]
+            List of tuples, where each tuple is one aggregation specification
+            and consists of: aggregation column name followed
+            by function name and optionally aggregation function option.
+            Pass empty list to get a single row for each group.
+            The column name can be a string, an empty list or a list of
+            column names, for unary, nullary and n-ary aggregation functions
+            respectively.
+
+            For the list of function names and respective aggregation
+            function options see :ref:`py-grouped-aggrs`.
+        keys : list[str], default None
+            List of names of columns by which aggregations will be grouped.
+        use_threads : bool, default True
+            Whenever to use multithreading or not.
+
+        Returns
+        -------
+        Table
+            Results of the aggregation functions.
+        """
+        if keys is None:
+            keys = []
+        group_by_aggrs = []
+        for aggr in aggregations:
+            # Set opt to None if not specified
+            if len(aggr) == 2:
+                target, func = aggr
+                opt = None
+            else:
+                target, func, opt = aggr
+            # Ensure target is a list
+            if not isinstance(target, (list, tuple)):
+                target = [target]
+            # Ensure aggregate function is hash_ if needed
+            if len(keys) > 0 and not func.startswith("hash_"):
+                func = "hash_" + func
+            if len(keys) == 0 and func.startswith("hash_"):
+                func = func[5:]
+            # Determine output field name
+            func_nohash = func if not func.startswith("hash_") else func[5:]
+            if len(target) == 0:
+                aggr_name = func_nohash
+            else:
+                aggr_name = "_".join(target) + "_" + func_nohash
+            group_by_aggrs.append((target, func, opt, aggr_name))
+
+        return _pac()._group_by(
+            self, group_by_aggrs, keys, use_threads=use_threads
+        )
+
 
 cdef class InMemoryDataset(Dataset):
     """
