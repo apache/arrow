@@ -1261,6 +1261,13 @@ Result<std::shared_ptr<ChunkedArray>> ConvertPySequence(PyObject* obj, PyObject*
     internal::InitPandasStaticData();
   }
 
+  ARROW_ASSIGN_OR_RAISE(auto is_uuid_imported, internal::IsModuleImported("uuid"));
+  if (is_uuid_imported) {
+    // If uuid has been already imported initialize the static uuid objects to
+    // support converting uuid.UUID objects
+    internal::InitUUIDStaticData();
+  }
+
   int64_t size = options.size;
   RETURN_NOT_OK(ConvertToSequenceAndInferSize(obj, &seq, &size));
   tmp_seq_nanny.reset(seq);

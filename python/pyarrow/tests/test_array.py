@@ -4398,3 +4398,8 @@ def test_non_cpu_array():
         arr.tolist()
     with pytest.raises(NotImplementedError):
         arr.validate(full=True)
+
+def test_array_from_uuid():
+    import uuid
+    arr = pa.array([uuid.uuid4() for i in range(10)])
+    assert len(arr) == 10
