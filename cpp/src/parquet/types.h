@@ -26,6 +26,7 @@
 #include <string>
 #include <string_view>
 
+#include "arrow/util/endian.h"
 #include "parquet/platform.h"
 #include "parquet/type_fwd.h"
 #include "parquet/windows_fixup.h"  // for OPTIONAL
@@ -705,7 +706,12 @@ static inline std::string ByteArrayToString(const ByteArray& a) {
 }
 
 static inline void Int96SetNanoSeconds(parquet::Int96& i96, int64_t nanoseconds) {
+#if ARROW_LITTLE_ENDIAN
   std::memcpy(&i96.value, &nanoseconds, sizeof(nanoseconds));
+#else
+  i96.value[0] = static_cast<uint32_t>(nanoseconds);
+  i96.value[1] = static_cast<uint32_t>(nanoseconds >> 32);
+#endif
 }
 
 struct DecodedInt96 {
@@ -720,7 +726,12 @@ static inline DecodedInt96 DecodeInt96Timestamp(const parquet::Int96& i96) {
   result.days_since_epoch = i96.value[2] - static_cast<uint64_t>(kJulianToUnixEpochDays);
   result.nanoseconds = 0;
 
+#if ARROW_LITTLE_ENDIAN
   memcpy(&result.nanoseconds, &i96.value, sizeof(uint64_t));
+#else
+  result.nanoseconds =
+      static_cast<uint64_t>(i96.value[0]) | (static_cast<uint64_t>(i96.value[1]) << 32);
+#endif
   return result;
 }
 
