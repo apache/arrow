@@ -1651,12 +1651,13 @@ TEST(ExecPlanExecution, SegmentedAggregationWithMultiThreading) {
   data.schema = schema({field("i32", int32())});
   Declaration plan = Declaration::Sequence(
       {{"source",
-        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false),
+                          Ordering::Unordered()}},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/{
                                               {"count", nullptr, "i32", "count(i32)"},
                                           },
                                           /*keys=*/{}, /*segment_keys=*/{"i32"}}}});
-  EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented, HasSubstr("multi-threaded"),
+  EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, HasSubstr("meaningful ordering"),
                                   DeclarationToExecBatches(std::move(plan)));
 }
 
@@ -1674,7 +1675,8 @@ TEST(ExecPlanExecution, SegmentedAggregationWithOneSegment) {
 
   Declaration plan = Declaration::Sequence(
       {{"source",
-        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false),
+                          Ordering::Implicit()}},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/{
                                               {"hash_sum", nullptr, "c", "sum(c)"},
                                               {"hash_mean", nullptr, "c", "mean(c)"},
@@ -1703,7 +1705,8 @@ TEST(ExecPlanExecution, SegmentedAggregationWithTwoSegments) {
 
   Declaration plan = Declaration::Sequence(
       {{"source",
-        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false),
+                          Ordering::Implicit()}},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/{
                                               {"hash_sum", nullptr, "c", "sum(c)"},
                                               {"hash_mean", nullptr, "c", "mean(c)"},
@@ -1733,7 +1736,8 @@ TEST(ExecPlanExecution, SegmentedAggregationWithBatchCrossingSegment) {
 
   Declaration plan = Declaration::Sequence(
       {{"source",
-        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false)}},
+        SourceNodeOptions{data.schema, data.gen(/*parallel=*/false, /*slow=*/false),
+                          Ordering::Implicit()}},
        {"aggregate", AggregateNodeOptions{/*aggregates=*/{
                                               {"hash_sum", nullptr, "c", "sum(c)"},
                                               {"hash_mean", nullptr, "c", "mean(c)"},
