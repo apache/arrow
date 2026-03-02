@@ -20,12 +20,12 @@
 #include "arrow/compute/api_vector.h"
 #include "arrow/compute/kernel.h"
 #include "arrow/compute/kernels/common_internal.h"
-#include "arrow/compute/kernels/ree_util_internal.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/ree_util.h"
+#include "arrow/util/ree_util_internal.h"
 
 namespace arrow {
 namespace compute {
@@ -41,214 +41,27 @@ struct RunEndEncodingState : public KernelState {
   std::shared_ptr<DataType> run_end_type;
 };
 
-template <typename RunEndType, typename ValueType, bool has_validity_buffer>
-class RunEndEncodingLoop {
- public:
-  using RunEndCType = typename RunEndType::c_type;
-
- private:
-  using ReadWriteValue = ree_util::ReadWriteValue<ValueType, has_validity_buffer>;
-  using ValueRepr = typename ReadWriteValue::ValueRepr;
-
- private:
-  const int64_t input_length_;
-  const int64_t input_offset_;
-  ReadWriteValue read_write_value_;
-  // Needed only by WriteEncodedRuns()
-  RunEndCType* output_run_ends_;
-
- public:
-  explicit RunEndEncodingLoop(const ArraySpan& input_array,
-                              ArrayData* output_values_array_data,
-                              RunEndCType* output_run_ends)
-      : input_length_(input_array.length),
-        input_offset_(input_array.offset),
-        read_write_value_(input_array, output_values_array_data),
-        output_run_ends_(output_run_ends) {
-    DCHECK_GT(input_array.length, 0);
-  }
-
-  /// \brief Give a pass over the input data and count the number of runs
-  ///
-  /// \return a tuple with the number of non-null run values, the total number of runs,
-  /// and the data buffer size for string and binary types
-  ARROW_NOINLINE std::tuple<int64_t, int64_t, int64_t> CountNumberOfRuns() const {
-    int64_t read_offset = input_offset_;
-    ValueRepr current_run;
-    bool current_run_valid = read_write_value_.ReadValue(&current_run, read_offset);
-    read_offset += 1;
-    int64_t num_valid_runs = current_run_valid ? 1 : 0;
-    int64_t num_output_runs = 1;
-    int64_t data_buffer_size = 0;
-    if constexpr (is_base_binary_like(ValueType::type_id)) {
-      data_buffer_size = current_run_valid ? current_run.size() : 0;
-    }
-    for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
-      ValueRepr value;
-      const bool valid = read_write_value_.ReadValue(&value, read_offset);
-
-      const bool open_new_run =
-          valid != current_run_valid || !read_write_value_.Compare(value, current_run);
-      if (open_new_run) {
-        // Open the new run
-        current_run = value;
-        current_run_valid = valid;
-        // Count the new run
-        num_output_runs += 1;
-        num_valid_runs += valid ? 1 : 0;
-        if constexpr (is_base_binary_like(ValueType::type_id)) {
-          data_buffer_size += valid ? current_run.size() : 0;
-        }
-      }
-    }
-    return std::make_tuple(num_valid_runs, num_output_runs, data_buffer_size);
-  }
-
-  ARROW_NOINLINE int64_t WriteEncodedRuns() {
-    DCHECK(output_run_ends_);
-    int64_t read_offset = input_offset_;
-    int64_t write_offset = 0;
-    ValueRepr current_run;
-    bool current_run_valid = read_write_value_.ReadValue(&current_run, read_offset);
-    read_offset += 1;
-    for (; read_offset < input_offset_ + input_length_; read_offset += 1) {
-      ValueRepr value;
-      const bool valid = read_write_value_.ReadValue(&value, read_offset);
-
-      const bool open_new_run =
-          valid != current_run_valid || !read_write_value_.Compare(value, current_run);
-      if (open_new_run) {
-        // Close the current run first by writing it out
-        read_write_value_.WriteValue(write_offset, current_run_valid, current_run);
-        const int64_t run_end = read_offset - input_offset_;
-        output_run_ends_[write_offset] = static_cast<RunEndCType>(run_end);
-        write_offset += 1;
-        // Open the new run
-        current_run_valid = valid;
-        current_run = value;
-      }
-    }
-    read_write_value_.WriteValue(write_offset, current_run_valid, current_run);
-    DCHECK_EQ(input_length_, read_offset - input_offset_);
-    output_run_ends_[write_offset] = static_cast<RunEndCType>(input_length_);
-    return write_offset + 1;
-  }
-};
-
-ARROW_NOINLINE Status ValidateRunEndType(const std::shared_ptr<DataType>& run_end_type,
-                                         int64_t input_length) {
-  int64_t run_end_max = std::numeric_limits<int64_t>::max();
-  switch (run_end_type->id()) {
-    case Type::INT16:
-      run_end_max = std::numeric_limits<int16_t>::max();
-      break;
-    case Type::INT32:
-      run_end_max = std::numeric_limits<int32_t>::max();
-      break;
-    default:
-      DCHECK_EQ(run_end_type->id(), Type::INT64);
-      break;
-  }
-  if (input_length < 0 || input_length > run_end_max) {
-    return Status::Invalid(
-        "Cannot run-end encode Arrays with more elements than the "
-        "run end type can hold: ",
-        run_end_max);
-  }
-  return Status::OK();
-}
-
-template <typename RunEndType, typename ValueType, bool has_validity_buffer>
-class RunEndEncodeImpl {
- private:
-  KernelContext* ctx_;
-  const ArraySpan& input_array_;
-  ExecResult* output_;
-
- public:
-  using RunEndCType = typename RunEndType::c_type;
-
-  RunEndEncodeImpl(KernelContext* ctx, const ArraySpan& input_array, ExecResult* out)
-      : ctx_{ctx}, input_array_{input_array}, output_{out} {}
-
-  Status Exec() {
-    const int64_t input_length = input_array_.length;
-
-    auto run_end_type = TypeTraits<RunEndType>::type_singleton();
-    auto ree_type = std::make_shared<RunEndEncodedType>(
-        run_end_type, input_array_.type->GetSharedPtr());
-    if (input_length == 0) {
-      ARROW_ASSIGN_OR_RAISE(
-          auto output_array_data,
-          ree_util::PreallocateREEArray(std::move(ree_type), has_validity_buffer,
-                                        /*logical_length=*/input_length,
-                                        /*physical_length=*/0, ctx_->memory_pool(),
-                                        /*data_buffer_size=*/0));
-      output_->value = std::move(output_array_data);
-      return Status::OK();
-    }
-
-    // First pass: count the number of runs
-    int64_t num_valid_runs = 0;
-    int64_t num_output_runs = 0;
-    int64_t data_buffer_size = 0;  // for string and binary types
-    RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_length));
-
-    RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> counting_loop(
-        input_array_,
-        /*output_values_array_data=*/NULLPTR,
-        /*output_run_ends=*/NULLPTR);
-    std::tie(num_valid_runs, num_output_runs, data_buffer_size) =
-        counting_loop.CountNumberOfRuns();
-    const auto physical_null_count = num_output_runs - num_valid_runs;
-    DCHECK(!has_validity_buffer || physical_null_count > 0)
-        << "has_validity_buffer is expected to imply physical_null_count > 0";
-
-    ARROW_ASSIGN_OR_RAISE(
-        auto output_array_data,
-        ree_util::PreallocateREEArray(
-            std::move(ree_type), has_validity_buffer, /*logical_length=*/input_length,
-            /*physical_length=*/num_output_runs, ctx_->memory_pool(), data_buffer_size));
-
-    // Initialize the output pointers
-    auto* output_run_ends =
-        output_array_data->child_data[0]->template GetMutableValues<RunEndCType>(1, 0);
-    auto* output_values_array_data = output_array_data->child_data[1].get();
-    // Set the null_count on the physical array
-    output_values_array_data->null_count = physical_null_count;
-
-    // Second pass: write the runs
-    RunEndEncodingLoop<RunEndType, ValueType, has_validity_buffer> writing_loop(
-        input_array_, output_values_array_data, output_run_ends);
-    [[maybe_unused]] int64_t num_written_runs = writing_loop.WriteEncodedRuns();
-    DCHECK_EQ(num_written_runs, num_output_runs);
-
-    output_->value = std::move(output_array_data);
-    return Status::OK();
-  }
-};
-
 ARROW_NOINLINE Status RunEndEncodeNullArray(const std::shared_ptr<DataType>& run_end_type,
                                             KernelContext* ctx,
                                             const ArraySpan& input_array,
                                             ExecResult* output) {
   const int64_t input_length = input_array.length;
-  DCHECK(input_array.type->id() == Type::NA);
+  ARROW_DCHECK(input_array.type->id() == Type::NA);
 
   if (input_length == 0) {
     ARROW_ASSIGN_OR_RAISE(
         auto output_array_data,
-        ree_util::MakeNullREEArray(run_end_type, 0, ctx->memory_pool()));
+        ree_util::internal::MakeNullREEArray(run_end_type, 0, ctx->memory_pool()));
     output->value = std::move(output_array_data);
     return Status::OK();
   }
 
   // Abort if run-end type cannot hold the input length
-  RETURN_NOT_OK(ValidateRunEndType(run_end_type, input_array.length));
+  RETURN_NOT_OK(ree_util::internal::ValidateRunEndType(run_end_type, input_array.length));
 
-  ARROW_ASSIGN_OR_RAISE(
-      auto output_array_data,
-      ree_util::MakeNullREEArray(run_end_type, input_length, ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto output_array_data,
+                        ree_util::internal::MakeNullREEArray(run_end_type, input_length,
+                                                             ctx->memory_pool()));
 
   output->value = std::move(output_array_data);
   return Status::OK();
@@ -257,19 +70,18 @@ ARROW_NOINLINE Status RunEndEncodeNullArray(const std::shared_ptr<DataType>& run
 struct RunEndEncodeExec {
   template <typename RunEndType, typename ValueType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    DCHECK(span.values[0].is_array());
+    ARROW_DCHECK(span.values[0].is_array());
     const auto& input_array = span.values[0].array;
+    auto run_end_type = TypeTraits<RunEndType>::type_singleton();
+
     if constexpr (ValueType::type_id == Type::NA) {
-      return RunEndEncodeNullArray(TypeTraits<RunEndType>::type_singleton(), ctx,
-                                   input_array, result);
+      return RunEndEncodeNullArray(run_end_type, ctx, input_array, result);
     } else {
-      const bool has_validity_buffer = input_array.GetNullCount() > 0;
-      if (has_validity_buffer) {
-        return RunEndEncodeImpl<RunEndType, ValueType, true>(ctx, input_array, result)
-            .Exec();
-      }
-      return RunEndEncodeImpl<RunEndType, ValueType, false>(ctx, input_array, result)
-          .Exec();
+      ARROW_ASSIGN_OR_RAISE(
+          auto encoded,
+          ree_util::RunEndEncodeArray(input_array, run_end_type, ctx->memory_pool()));
+      result->value = std::move(encoded);
+      return Status::OK();
     }
   }
 
@@ -312,7 +124,8 @@ class RunEndDecodingLoop {
   using RunEndCType = typename RunEndType::c_type;
 
  private:
-  using ReadWriteValue = ree_util::ReadWriteValue<ValueType, has_validity_buffer>;
+  using ReadWriteValue =
+      arrow::ree_util::internal::ReadWriteValue<ValueType, has_validity_buffer>;
   using ValueRepr = typename ReadWriteValue::ValueRepr;
 
   const ArraySpan& input_array_;
@@ -376,7 +189,7 @@ class RunEndDecodingLoop {
       write_offset += run_length;
       output_valid_count += valid ? run_length : 0;
     }
-    DCHECK(write_offset == ree_array_span.length());
+    ARROW_DCHECK(write_offset == ree_array_span.length());
     return output_valid_count;
   }
 };
@@ -407,10 +220,10 @@ class RunEndDecodeImpl {
       }
     }
 
-    ARROW_ASSIGN_OR_RAISE(
-        auto output_array_data,
-        ree_util::PreallocateValuesArray(ree_type->value_type(), has_validity_buffer,
-                                         length, ctx_->memory_pool(), data_buffer_size));
+    ARROW_ASSIGN_OR_RAISE(auto output_array_data,
+                          arrow::ree_util::internal::PreallocateValuesArray(
+                              ree_type->value_type(), has_validity_buffer, length,
+                              ctx_->memory_pool(), data_buffer_size));
 
     int64_t output_null_count = 0;
     if (length > 0) {
@@ -438,7 +251,7 @@ Status RunEndDecodeNullREEArray(KernelContext* ctx, const ArraySpan& input_array
 struct RunEndDecodeExec {
   template <typename RunEndType, typename ValueType>
   static Status DoExec(KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
-    DCHECK(span.values[0].is_array());
+    ARROW_DCHECK(span.values[0].is_array());
     auto& input_array = span.values[0].array;
     if constexpr (ValueType::type_id == Type::NA) {
       return RunEndDecodeNullREEArray(ctx, input_array, result);
@@ -478,60 +291,6 @@ struct RunEndDecodeExec {
   }
 };
 
-template <typename Functor>
-static ArrayKernelExec GenerateREEKernelExec(Type::type type_id) {
-  switch (type_id) {
-    case Type::NA:
-      return Functor::template Exec<NullType>;
-    case Type::BOOL:
-      return Functor::template Exec<BooleanType>;
-    case Type::UINT8:
-    case Type::INT8:
-      return Functor::template Exec<UInt8Type>;
-    case Type::UINT16:
-    case Type::INT16:
-    case Type::HALF_FLOAT:
-      return Functor::template Exec<UInt16Type>;
-    case Type::UINT32:
-    case Type::INT32:
-    case Type::FLOAT:
-    case Type::DATE32:
-    case Type::TIME32:
-    case Type::INTERVAL_MONTHS:
-    case Type::DECIMAL32:
-      return Functor::template Exec<UInt32Type>;
-    case Type::UINT64:
-    case Type::INT64:
-    case Type::DOUBLE:
-    case Type::DATE64:
-    case Type::TIMESTAMP:
-    case Type::TIME64:
-    case Type::DURATION:
-    case Type::INTERVAL_DAY_TIME:
-    case Type::DECIMAL64:
-      return Functor::template Exec<UInt64Type>;
-    case Type::INTERVAL_MONTH_DAY_NANO:
-      return Functor::template Exec<MonthDayNanoIntervalType>;
-    case Type::DECIMAL128:
-      return Functor::template Exec<Decimal128Type>;
-    case Type::DECIMAL256:
-      return Functor::template Exec<Decimal256Type>;
-    case Type::FIXED_SIZE_BINARY:
-      return Functor::template Exec<FixedSizeBinaryType>;
-    case Type::STRING:
-      return Functor::template Exec<StringType>;
-    case Type::BINARY:
-      return Functor::template Exec<BinaryType>;
-    case Type::LARGE_STRING:
-      return Functor::template Exec<LargeStringType>;
-    case Type::LARGE_BINARY:
-      return Functor::template Exec<LargeBinaryType>;
-    default:
-      DCHECK(false);
-      return FailFunctor<ArrayKernelExec>::Exec;
-  }
-}
-
 static const FunctionDoc run_end_encode_doc(
     "Run-end encode array", ("Return a run-end encoded version of the input array."),
     {"array"}, "RunEndEncodeOptions");
@@ -552,39 +311,41 @@ void RegisterVectorRunEndEncode(FunctionRegistry* registry) {
   // cannot be encoded as a single run in the output. This is a conscious trade-off as
   // trying to solve this corner-case would complicate the implementation,
   // require reallocations, and could create surprising behavior for users of this API.
-  auto add_kernel = [&function](Type::type type_id) {
-    auto sig = KernelSignature::Make({InputType(match::SameTypeId(type_id))},
-                                     OutputType(RunEndEncodeExec::ResolveOutputType));
-    auto exec = GenerateREEKernelExec<RunEndEncodeExec>(type_id);
-    VectorKernel kernel(sig, exec, RunEndEncodeInit);
-    // A REE has null_count=0, so no need to allocate a validity bitmap for them.
-    kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
-    DCHECK_OK(function->AddKernel(std::move(kernel)));
+
+  // Runtime dispatcher for flexible REE value type matcher
+  auto runtime_exec = [](KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    const auto& input_array = span.values[0].array;
+    const Type::type type_id = input_array.type->id();
+
+    // Dispatch to the appropriate exec based on input type
+    switch (type_id) {
+#define DISPATCH_REE_ENCODE_CASE(TypeClass, TYPE_ENUM) \
+  case Type::TYPE_ENUM:                                \
+    return RunEndEncodeExec::Exec<TypeClass##Type>(ctx, span, result);
+      ARROW_REE_SUPPORTED_TYPES(DISPATCH_REE_ENCODE_CASE)
+#undef DISPATCH_REE_ENCODE_CASE
+      case Type::NA:
+        return RunEndEncodeExec::Exec<NullType>(ctx, span, result);
+      default:
+        return Status::NotImplemented("run_end_encode does not support type ",
+                                      input_array.type->ToString());
+    }
   };
 
-  add_kernel(Type::NA);
-  add_kernel(Type::BOOL);
-  for (const auto& ty : NumericTypes()) {
-    add_kernel(ty->id());
-  }
-  add_kernel(Type::HALF_FLOAT);
-  add_kernel(Type::DATE32);
-  add_kernel(Type::DATE64);
-  add_kernel(Type::TIME32);
-  add_kernel(Type::TIME64);
-  add_kernel(Type::TIMESTAMP);
-  add_kernel(Type::DURATION);
-  for (const auto& ty : IntervalTypes()) {
-    add_kernel(ty->id());
-  }
-  for (const auto& type_id : DecimalTypeIds()) {
-    add_kernel(type_id);
-  }
-  add_kernel(Type::FIXED_SIZE_BINARY);
-  add_kernel(Type::STRING);
-  add_kernel(Type::BINARY);
-  add_kernel(Type::LARGE_STRING);
-  add_kernel(Type::LARGE_BINARY);
+  // Use flexible matcher for REE value types (any non-nested type except Null)
+  auto sig = KernelSignature::Make({InputType(match::REEValue())},
+                                   OutputType(RunEndEncodeExec::ResolveOutputType));
+  VectorKernel kernel(sig, runtime_exec, RunEndEncodeInit);
+  // A REE has null_count=0, so no need to allocate a validity bitmap for them.
+  kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  DCHECK_OK(function->AddKernel(std::move(kernel)));
+
+  // Also support Null type explicitly
+  sig = KernelSignature::Make({InputType(Type::NA)},
+                              OutputType(RunEndEncodeExec::ResolveOutputType));
+  VectorKernel null_kernel(sig, runtime_exec, RunEndEncodeInit);
+  null_kernel.null_handling = NullHandling::OUTPUT_NOT_NULL;
+  DCHECK_OK(function->AddKernel(std::move(null_kernel)));
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
@@ -593,41 +354,45 @@ void RegisterVectorRunEndDecode(FunctionRegistry* registry) {
   auto function = std::make_shared<VectorFunction>("run_end_decode", Arity::Unary(),
                                                    run_end_decode_doc);
 
-  auto add_kernel = [&function](Type::type type_id) {
-    for (const auto& run_end_type_id : {Type::INT16, Type::INT32, Type::INT64}) {
-      auto exec = GenerateREEKernelExec<RunEndDecodeExec>(type_id);
-      auto input_type_matcher = match::RunEndEncoded(match::SameTypeId(run_end_type_id),
-                                                     match::SameTypeId(type_id));
-      auto sig = KernelSignature::Make({InputType(std::move(input_type_matcher))},
-                                       OutputType(RunEndDecodeExec::ResolveOutputType));
-      VectorKernel kernel(sig, exec);
-      DCHECK_OK(function->AddKernel(std::move(kernel)));
+  // Runtime dispatcher for flexible REE value type matcher
+  auto runtime_exec = [](KernelContext* ctx, const ExecSpan& span, ExecResult* result) {
+    const auto& input_array = span.values[0].array;
+    const auto& ree_type = checked_cast<const RunEndEncodedType&>(*input_array.type);
+    const Type::type value_type_id = ree_type.value_type()->id();
+
+    // Dispatch to the appropriate exec based on value type
+    switch (value_type_id) {
+#define DISPATCH_REE_DECODE_CASE(TypeClass, TYPE_ENUM) \
+  case Type::TYPE_ENUM:                                \
+    return RunEndDecodeExec::Exec<TypeClass##Type>(ctx, span, result);
+      ARROW_REE_SUPPORTED_TYPES(DISPATCH_REE_DECODE_CASE)
+#undef DISPATCH_REE_DECODE_CASE
+      case Type::NA:
+        return RunEndDecodeExec::Exec<NullType>(ctx, span, result);
+      default:
+        return Status::NotImplemented("run_end_decode does not support value type ",
+                                      ree_type.value_type()->ToString());
     }
   };
 
-  add_kernel(Type::NA);
-  add_kernel(Type::BOOL);
-  for (const auto& ty : NumericTypes()) {
-    add_kernel(ty->id());
+  for (const auto& run_end_type_id : {Type::INT16, Type::INT32, Type::INT64}) {
+    // Use flexible matcher for REE value types (any non-nested type except Null)
+    auto input_type_matcher =
+        match::RunEndEncoded(match::SameTypeId(run_end_type_id), match::REEValue());
+    auto sig = KernelSignature::Make({InputType(std::move(input_type_matcher))},
+                                     OutputType(RunEndDecodeExec::ResolveOutputType));
+    VectorKernel kernel(sig, runtime_exec);
+    DCHECK_OK(function->AddKernel(std::move(kernel)));
+
+    // Also register a kernel for null value type explicitly
+    auto null_input_matcher = match::RunEndEncoded(match::SameTypeId(run_end_type_id),
+                                                   match::SameTypeId(Type::NA));
+    auto null_sig =
+        KernelSignature::Make({InputType(std::move(null_input_matcher))},
+                              OutputType(RunEndDecodeExec::ResolveOutputType));
+    VectorKernel null_kernel(null_sig, runtime_exec);
+    DCHECK_OK(function->AddKernel(std::move(null_kernel)));
   }
-  add_kernel(Type::HALF_FLOAT);
-  add_kernel(Type::DATE32);
-  add_kernel(Type::DATE64);
-  add_kernel(Type::TIME32);
-  add_kernel(Type::TIME64);
-  add_kernel(Type::TIMESTAMP);
-  add_kernel(Type::DURATION);
-  for (const auto& ty : IntervalTypes()) {
-    add_kernel(ty->id());
-  }
-  for (const auto& type_id : DecimalTypeIds()) {
-    add_kernel(type_id);
-  }
-  add_kernel(Type::FIXED_SIZE_BINARY);
-  add_kernel(Type::STRING);
-  add_kernel(Type::BINARY);
-  add_kernel(Type::LARGE_STRING);
-  add_kernel(Type::LARGE_BINARY);
 
   DCHECK_OK(registry->AddFunction(std::move(function)));
 }
