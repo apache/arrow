@@ -171,7 +171,8 @@ def get_modified_env_with_pythonpath():
     existing_pythonpath = env.get('PYTHONPATH', '')
 
     module_path = os.path.abspath(
-        os.path.dirname(os.path.dirname(pa.__file__)))
+        os.path.dirname(os.path.dirname(  # type: ignore[no-matching-overload]
+            pa.__file__)))
 
     if existing_pythonpath:
         new_pythonpath = os.pathsep.join((module_path, existing_pythonpath))
@@ -336,6 +337,7 @@ def _ensure_minio_component_version(component, minimum_year):
                           stderr=subprocess.PIPE, encoding='utf-8') as proc:
         if proc.wait(10) != 0:
             return False
+        assert proc.stdout is not None
         stdout = proc.stdout.read()
         pattern = component + r' version RELEASE\.(\d+)-.*'
         version_match = re.search(pattern, stdout)
@@ -367,6 +369,8 @@ def _run_mc_command(mcdir, *args):
         cmd_str = ' '.join(full_args)
         print(f'Cmd: {cmd_str}')
         print(f'  Return: {retval}')
+        assert proc.stdout is not None
+        assert proc.stderr is not None
         print(f'  Stdout: {proc.stdout.read()}')
         print(f'  Stderr: {proc.stderr.read()}')
         if retval != 0:

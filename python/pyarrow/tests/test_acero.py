@@ -16,6 +16,7 @@
 # under the License.
 
 import pytest
+from typing import Literal, cast
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -37,9 +38,10 @@ except ImportError:
 
 try:
     import pyarrow.dataset as ds
-    from pyarrow.acero import ScanNodeOptions
+    from pyarrow._dataset import ScanNodeOptions
 except ImportError:
-    ds = None
+    ds = None  # type: ignore[assignment]
+    ScanNodeOptions = None  # type: ignore[assignment, misc]
 
 pytestmark = pytest.mark.acero
 
@@ -53,7 +55,6 @@ def table_source():
 
 
 def test_declaration():
-
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
     table_opts = TableSourceNodeOptions(table)
     filter_opts = FilterNodeOptions(field('a') > 1)
@@ -89,7 +90,8 @@ def test_declaration_to_reader(table_source):
 
 def test_table_source():
     with pytest.raises(TypeError):
-        TableSourceNodeOptions(pa.record_batch([pa.array([1, 2, 3])], ["a"]))
+        TableSourceNodeOptions(pa.record_batch(
+            [pa.array([1, 2, 3])], ["a"]))
 
     table_source = TableSourceNodeOptions(None)
     decl = Declaration("table_source", table_source)
@@ -110,9 +112,9 @@ def test_filter(table_source):
 
     # requires a pyarrow Expression
     with pytest.raises(TypeError):
-        FilterNodeOptions(pa.array([True, False, True]))
+        FilterNodeOptions(pa.array([True, False, True]))  # type: ignore[arg-type]
     with pytest.raises(TypeError):
-        FilterNodeOptions(None)
+        FilterNodeOptions(None)  # type: ignore[arg-type]
 
 
 @pytest.mark.parametrize('source', [
@@ -267,19 +269,23 @@ def test_order_by():
     table = pa.table({'a': [1, 2, 3, 4], 'b': [1, 3, None, 2]})
     table_source = Declaration("table_source", TableSourceNodeOptions(table))
 
-    ord_opts = OrderByNodeOptions([("b", "ascending")])
+    sort_keys = [("b", "ascending")]
+    sort_keys = cast(list[tuple[str, Literal["ascending", "descending"]]], sort_keys)
+    ord_opts = OrderByNodeOptions(sort_keys)
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [1, 4, 2, 3], "b": [1, 2, 3, None]})
     assert result.equals(expected)
 
-    ord_opts = OrderByNodeOptions([(field("b"), "descending")])
+    ord_opts = OrderByNodeOptions(
+        [(field("b"), "descending")])  # type: ignore[arg-type]
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [2, 4, 1, 3], "b": [3, 2, 1, None]})
     assert result.equals(expected)
 
-    ord_opts = OrderByNodeOptions([(1, "descending")], null_placement="at_start")
+    ord_opts = OrderByNodeOptions(
+        [(1, "descending")], null_placement="at_start")  # type: ignore[arg-type]
     decl = Declaration.from_sequence([table_source, Declaration("order_by", ord_opts)])
     result = decl.to_table()
     expected = pa.table({"a": [3, 2, 4, 1], "b": [None, 3, 2, 1]})
@@ -294,10 +300,12 @@ def test_order_by():
         _ = decl.to_table()
 
     with pytest.raises(ValueError, match="\"decreasing\" is not a valid sort order"):
-        _ = OrderByNodeOptions([("b", "decreasing")])
+        _ = OrderByNodeOptions([("b", "decreasing")])  # type: ignore[arg-type]
 
     with pytest.raises(ValueError, match="\"start\" is not a valid null placement"):
-        _ = OrderByNodeOptions([("b", "ascending")], null_placement="start")
+        _ = OrderByNodeOptions(
+            [("b", "ascending")], null_placement="start"  # type: ignore[arg-type]
+        )
 
 
 def test_hash_join():
@@ -382,7 +390,9 @@ def test_hash_join_with_residual_filter():
     # test filter expression referencing columns from both side
     join_opts = HashJoinNodeOptions(
         "left outer", left_keys="key", right_keys="key",
-        filter_expression=pc.equal(pc.field("a"), 5) | pc.equal(pc.field("b"), 10)
+        filter_expression=(
+            pc.equal(pc.field("a"), 5)
+            | pc.equal(pc.field("b"), 10))  # type: ignore[reportOperatorIssue]
     )
     joined = Declaration(
         "hashjoin", options=join_opts, inputs=[left_source, right_source])
@@ -462,6 +472,8 @@ def test_asof_join():
 
 @pytest.mark.dataset
 def test_scan(tempdir):
+    assert ds is not None
+    assert ScanNodeOptions is not None
     table = pa.table({'a': [1, 2, 3], 'b': [4, 5, 6]})
     ds.write_dataset(table, tempdir / "dataset", format="parquet")
     dataset = ds.dataset(tempdir / "dataset", format="parquet")
@@ -486,11 +498,10 @@ def test_scan(tempdir):
     assert decl.to_table().num_rows == 0
 
     # projection scan option
-
     scan_opts = ScanNodeOptions(dataset, columns={"a2": pc.multiply(field("a"), 2)})
     decl = Declaration("scan", scan_opts)
     result = decl.to_table()
     # "a" is included in the result (needed later on for the actual projection)
     assert result["a"].to_pylist() == [1, 2, 3]
     # "b" is still included, but without data as it will be removed by the projection
-    assert pc.all(result["b"].is_null()).as_py()
+    assert pc.all(result.column("b").is_null()).as_py()

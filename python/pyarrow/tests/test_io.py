@@ -24,16 +24,17 @@ import gzip
 import math
 import os
 import pathlib
-import pytest
+import pytest  # type: ignore[import-not-found]
 import random
 import sys
 import tempfile
+from typing import cast
 import weakref
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 
 from pyarrow.util import guid
 from pyarrow import Codec
@@ -44,7 +45,7 @@ def check_large_seeks(file_factory, expected_error=None):
     if sys.platform in ('win32', 'darwin', 'emscripten'):
         pytest.skip("need sparse file support")
     try:
-        filename = tempfile.mktemp(prefix='test_io')
+        filename = tempfile.mkstemp(prefix='test_io')[1]
         with open(filename, 'wb') as f:
             f.truncate(2 ** 32 + 10)
             f.seek(2 ** 32 + 5)
@@ -234,7 +235,7 @@ def test_python_file_read_buffer():
             return memoryview(dst_buf)[:nbytes]
 
     duck_reader = DuckReader()
-    with pa.PythonFile(duck_reader, mode='r') as f:
+    with pa.PythonFile(duck_reader, mode='r') as f:  # type: ignore[arg-type]
         buf = f.read_buffer(length)
         assert len(buf) == length
         assert memoryview(buf).tobytes() == dst_buf[:length]
@@ -474,7 +475,7 @@ def test_buffer_to_numpy():
     byte_array = bytearray(20)
     byte_array[0] = 42
     buf = pa.py_buffer(byte_array)
-    array = np.frombuffer(buf, dtype="uint8")
+    array = np.frombuffer(buf, dtype="uint8")  # type: ignore[arg-type]
     assert array[0] == byte_array[0]
     byte_array[0] += 1
     assert array[0] == byte_array[0]
@@ -557,7 +558,7 @@ def test_buffer_eq_bytes():
     assert buf != b'some dat1'
 
     with pytest.raises(TypeError):
-        buf == 'some data'
+        _ = buf == 'some data'
 
 
 def test_buffer_getitem():
@@ -598,22 +599,22 @@ def test_buffer_slicing():
 
     with pytest.raises(IndexError):
         buf.slice(len(buf) + 1)
-    assert buf[11:].to_pybytes() == b""
+    assert cast(pa.Buffer, buf[11:]).to_pybytes() == b""
 
     # Slice stop exceeds buffer length
     with pytest.raises(IndexError):
         buf.slice(1, len(buf))
-    assert buf[1:11].to_pybytes() == buf.to_pybytes()[1:]
+    assert cast(pa.Buffer, buf[1:11]).to_pybytes() == buf.to_pybytes()[1:]
 
     # Negative length
     with pytest.raises(IndexError):
         buf.slice(1, -1)
 
     # Test slice notation
-    assert buf[2:].equals(buf.slice(2))
-    assert buf[2:5].equals(buf.slice(2, 3))
-    assert buf[-5:].equals(buf.slice(len(buf) - 5))
-    assert buf[-5:-2].equals(buf.slice(len(buf) - 5, 3))
+    assert cast(pa.Buffer, buf[2:]).equals(buf.slice(2))
+    assert cast(pa.Buffer, buf[2:5]).equals(buf.slice(2, 3))
+    assert cast(pa.Buffer, buf[-5:]).equals(buf.slice(len(buf) - 5))
+    assert cast(pa.Buffer, buf[-5:-2]).equals(buf.slice(len(buf) - 5, 3))
 
     with pytest.raises(IndexError):
         buf[::-1]
@@ -623,7 +624,8 @@ def test_buffer_slicing():
     n = len(buf)
     for start in range(-n * 2, n * 2):
         for stop in range(-n * 2, n * 2):
-            assert buf[start:stop].to_pybytes() == buf.to_pybytes()[start:stop]
+            assert cast(pa.Buffer, buf[start:stop]).to_pybytes(
+            ) == buf.to_pybytes()[start:stop]
 
 
 def test_buffer_hashing():
@@ -640,7 +642,7 @@ def test_buffer_protocol_respects_immutability():
     # immutable
     a = b'12345'
     arrow_ref = pa.py_buffer(a)
-    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)
+    numpy_ref = np.frombuffer(arrow_ref, dtype=np.uint8)  # type: ignore[arg-type]
     assert not numpy_ref.flags.writeable
 
 
@@ -652,7 +654,8 @@ def test_foreign_buffer():
     buf = pa.foreign_buffer(addr, size, obj)
     wr = weakref.ref(obj)
     del obj
-    assert np.frombuffer(buf, dtype=np.int32).tolist() == [1, 2]
+    assert (np.frombuffer(buf, dtype=np.int32).tolist()  # type: ignore[arg-type]
+            == [1, 2])
     assert wr() is not None
     del buf
     assert wr() is None
@@ -688,6 +691,7 @@ def test_non_cpu_buffer(pickle_module):
     cuda_buf = ctx.buffer_from_data(data)
     arr = pa.FixedSizeBinaryArray.from_buffers(pa.binary(7), 1, [None, cuda_buf])
     buf_on_gpu = arr.buffers()[1]
+    assert buf_on_gpu is not None
 
     assert buf_on_gpu.size == cuda_buf.size
     assert buf_on_gpu.address == cuda_buf.address
@@ -708,7 +712,7 @@ def test_non_cpu_buffer(pickle_module):
     assert cuda_sliced.to_pybytes() == b'st'
 
     # Sliced buffers with same address
-    assert buf_on_gpu_sliced.equals(cuda_buf[2:4])
+    assert cast(pa.Buffer, buf_on_gpu_sliced).equals(cuda_buf[2:4])
 
     # Buffers on different devices
     msg_device = "Device on which the data resides differs between buffers"
@@ -720,13 +724,14 @@ def test_non_cpu_buffer(pickle_module):
     arr_short = np.array([b'sting'])
     cuda_buf_short = ctx.buffer_from_data(arr_short)
     with pytest.raises(NotImplementedError, match=msg):
-        buf_on_gpu_sliced.equals(cuda_buf_short)
+        cast(pa.Buffer, buf_on_gpu_sliced).equals(cuda_buf_short)
     arr_short = pa.FixedSizeBinaryArray.from_buffers(
         pa.binary(5), 1, [None, cuda_buf_short]
     )
     buf_on_gpu_short = arr_short.buffers()[1]
+    assert buf_on_gpu_short is not None
     with pytest.raises(NotImplementedError, match=msg):
-        buf_on_gpu_sliced.equals(buf_on_gpu_short)
+        cast(pa.Buffer, buf_on_gpu_sliced).equals(buf_on_gpu_short)
 
     with pytest.raises(NotImplementedError, match=msg):
         buf_on_gpu.hex()
@@ -811,8 +816,9 @@ def test_cache_options_pickling(pickle_module):
 
 @pytest.mark.numpy
 @pytest.mark.parametrize("compression", [
-    pytest.param(
-        "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    pytest.param("bz2", marks=pytest.mark.xfail(
+        raises=pa.lib.ArrowNotImplementedError  # type: ignore[attr-defined]
+    )
     ),
     "brotli",
     "gzip",
@@ -843,6 +849,7 @@ def test_compress_decompress(compression):
 
     assert isinstance(decompressed_bytes, bytes)
 
+    assert isinstance(decompressed_buf, pa.Buffer)
     assert decompressed_buf.equals(test_buf)
     assert decompressed_bytes == test_data
 
@@ -852,8 +859,9 @@ def test_compress_decompress(compression):
 
 @pytest.mark.numpy
 @pytest.mark.parametrize("compression", [
-    pytest.param(
-        "bz2", marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    pytest.param("bz2", marks=pytest.mark.xfail(
+        raises=pa.lib.ArrowNotImplementedError  # type: ignore[attr-defined]
+    )
     ),
     "brotli",
     "gzip",
@@ -910,6 +918,7 @@ def test_compression_level(compression):
 
         assert isinstance(decompressed_bytes, bytes)
 
+        assert isinstance(decompressed_buf, pa.Buffer)
         assert decompressed_buf.equals(test_buf)
         assert decompressed_bytes == test_data
 
@@ -951,12 +960,12 @@ def test_buffer_memoryview_is_immutable():
     assert result.readonly
 
     with pytest.raises(TypeError) as exc:
-        result[0] = b'h'
+        result[0] = b'h'  # type: ignore[index]
         assert 'cannot modify read-only' in str(exc.value)
 
     b = bytes(buf)
     with pytest.raises(TypeError) as exc:
-        b[0] = b'h'
+        b[0] = b'h'  # type: ignore[index]
         assert 'cannot modify read-only' in str(exc.value)
 
 
@@ -1748,9 +1757,9 @@ def test_unknown_compression_raises():
     "gzip",
     "lz4",
     "zstd",
-    pytest.param(
-        "snappy",
-        marks=pytest.mark.xfail(raises=pa.lib.ArrowNotImplementedError)
+    pytest.param("snappy", marks=pytest.mark.xfail(
+        raises=pa.lib.ArrowNotImplementedError  # type: ignore[attr-defined]
+    )
     )
 ])
 def test_compressed_roundtrip(compression):
@@ -2021,7 +2030,7 @@ def test_input_stream_native_file():
 def test_input_stream_errors(tmpdir):
     buf = memoryview(b"")
     with pytest.raises(ValueError):
-        pa.input_stream(buf, compression="foo")
+        pa.input_stream(buf, compression="foo")  # type: ignore[reportArgumentType]
 
     for arg in [bytearray(), StringIO()]:
         with pytest.raises(TypeError):
@@ -2198,7 +2207,7 @@ def test_output_stream_python_file(tmpdir):
 def test_output_stream_errors(tmpdir):
     buf = memoryview(bytearray())
     with pytest.raises(ValueError):
-        pa.output_stream(buf, compression="foo")
+        pa.output_stream(buf, compression="foo")  # type: ignore[reportArgumentType]
 
     for arg in [bytearray(), StringIO()]:
         with pytest.raises(TypeError):

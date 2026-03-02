@@ -19,6 +19,7 @@ from datetime import datetime, timezone, timedelta
 import gzip
 import os
 import pathlib
+from typing import cast
 from urllib.request import urlopen
 import subprocess
 import sys
@@ -44,17 +45,19 @@ here = os.path.dirname(os.path.abspath(__file__))
 
 
 class DummyHandler(FileSystemHandler):
+    _value: int
+
     def __init__(self, value=42):
         self._value = value
 
     def __eq__(self, other):
         if isinstance(other, FileSystemHandler):
-            return self._value == other._value
+            return self._value == other._value  # type: ignore[attr-defined]
         return NotImplemented
 
     def __ne__(self, other):
         if isinstance(other, FileSystemHandler):
-            return self._value != other._value
+            return self._value != other._value  # type: ignore[attr-defined]
         return NotImplemented
 
     def get_type_name(self):
@@ -106,7 +109,7 @@ class DummyHandler(FileSystemHandler):
     def delete_dir(self, path):
         assert path == "delete_dir"
 
-    def delete_dir_contents(self, path, missing_dir_ok):
+    def delete_dir_contents(self, path, missing_dir_ok):  # type: ignore[override]
         if not path.strip("/"):
             raise ValueError
         assert path == "delete_dir_contents"
@@ -231,7 +234,7 @@ def gcsfs(request, gcs_server):
 
     yield dict(
         fs=fs,
-        pathfn=bucket.__add__,
+        pathfn=lambda p: bucket + p,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -258,7 +261,7 @@ def s3fs(request, s3_server):
 
     yield dict(
         fs=fs,
-        pathfn=bucket.__add__,
+        pathfn=lambda p: bucket + p,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -270,7 +273,7 @@ def subtree_s3fs(request, s3fs):
     prefix = 'pyarrow-filesystem/prefix/'
     return dict(
         fs=SubTreeFileSystem(prefix, s3fs['fs']),
-        pathfn=prefix.__add__,
+        pathfn=lambda p: prefix + p,
         allow_move_dir=False,
         allow_append_to_file=False,
     )
@@ -330,7 +333,7 @@ def azurefs(request, azure_server):
 
     yield dict(
         fs=fs,
-        pathfn=container.__add__,
+        pathfn=lambda p: container + p,
         allow_move_dir=True,
         allow_append_to_file=True,
     )
@@ -361,7 +364,7 @@ def py_fsspec_localfs(request, tempdir):
     fsspec = pytest.importorskip("fsspec")
     fs = fsspec.filesystem('file')
     return dict(
-        fs=PyFileSystem(FSSpecHandler(fs)),
+        fs=PyFileSystem(FSSpecHandler(fs)),  # type: ignore[abstract]
         pathfn=lambda p: (tempdir / p).as_posix(),
         allow_move_dir=True,
         allow_append_to_file=True,
@@ -376,7 +379,7 @@ def py_fsspec_memoryfs(request, tempdir):
         pytest.skip("Bug in fsspec 0.8.5 for in-memory filesystem")
     fs = fsspec.filesystem('memory')
     return dict(
-        fs=PyFileSystem(FSSpecHandler(fs)),
+        fs=PyFileSystem(FSSpecHandler(fs)),  # type: ignore[abstract]
         pathfn=lambda p: p,
         allow_move_dir=True,
         allow_append_to_file=True,
@@ -394,12 +397,12 @@ def py_fsspec_s3fs(request, s3_server):
         secret=secret_key,
         client_kwargs=dict(endpoint_url=f'http://{host}:{port}')
     )
-    fs = PyFileSystem(FSSpecHandler(fs))
+    fs = PyFileSystem(FSSpecHandler(fs))  # type: ignore[abstract]
     fs.create_dir(bucket)
 
     yield dict(
         fs=fs,
-        pathfn=bucket.__add__,
+        pathfn=lambda p: bucket + p,
         allow_move_dir=False,
         allow_append_to_file=True,
     )
@@ -601,7 +604,7 @@ def test_filesystem_equals():
     assert fs0.equals(fs0)
     assert fs0.equals(fs1)
     with pytest.raises(TypeError):
-        fs0.equals('string')
+        fs0.equals('string')  # type: ignore[arg-type]
     assert fs0 == fs0 == fs1
     assert fs0 != 4
 
@@ -778,7 +781,7 @@ def test_get_file_info_with_selector(fs, pathfn):
         infos = fs.get_file_info(selector)
         if fs.type_name == "py::fsspec+('s3', 's3a')":
             # s3fs only lists directories if they are not empty
-            len(infos) == 4
+            assert len(infos) == 4
         else:
             assert len(infos) == 5
 
@@ -1123,7 +1126,7 @@ def test_localfs_options():
     LocalFileSystem(use_mmap=False)
 
     with pytest.raises(TypeError):
-        LocalFileSystem(xxx=False)
+        LocalFileSystem(xxx=False)  # type: ignore[call-arg]
 
 
 def test_localfs_errors(localfs):
@@ -1166,7 +1169,7 @@ def test_mockfs_mtime_roundtrip(mockfs):
 
     with fs.open_output_stream('foo'):
         pass
-    [info] = fs.get_file_info(['foo'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['foo']))
     assert info.mtime == dt
 
 
@@ -1437,20 +1440,24 @@ def test_s3_proxy_options(monkeypatch, pickle_module):
         S3FileSystem(proxy_options=('http', 'localhost', 9090))
     # Missing scheme
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'host': 'localhost', 'port': 9090})
+        S3FileSystem(proxy_options={  # type: ignore[missing-typed-dict-key]
+            'host': 'localhost', 'port': 9090})
     # Missing host
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'scheme': 'https', 'port': 9090})
+        S3FileSystem(proxy_options={  # type: ignore[missing-typed-dict-key]
+            'scheme': 'https', 'port': 9090})
     # Missing port
     with pytest.raises(KeyError):
-        S3FileSystem(proxy_options={'scheme': 'http', 'host': 'localhost'})
+        S3FileSystem(proxy_options={  # type: ignore[missing-typed-dict-key]
+            'scheme': 'http', 'host': 'localhost'})
     # Invalid proxy URI (invalid scheme httpsB)
     with pytest.raises(pa.ArrowInvalid):
         S3FileSystem(proxy_options='httpsB://localhost:9000')
     # Invalid proxy_options dict (invalid scheme httpA)
     with pytest.raises(pa.ArrowInvalid):
-        S3FileSystem(proxy_options={'scheme': 'httpA', 'host': 'localhost',
-                                    'port': 8999})
+        S3FileSystem(proxy_options={
+            'scheme': 'httpA',  # type: ignore[typeddict-item]
+            'host': 'localhost', 'port': 8999})
 
 
 @pytest.mark.s3
@@ -1709,7 +1716,7 @@ def test_filesystem_from_uri_s3(s3_server):
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [info] = fs.get_file_info([path])
+    [info] = cast(list[FileInfo], fs.get_file_info([path]))
     assert info.path == path
     assert info.type == FileType.Directory
 
@@ -1729,7 +1736,7 @@ def test_filesystem_from_uri_gcs(gcs_server):
     assert path == "mybucket/foo/bar"
 
     fs.create_dir(path)
-    [info] = fs.get_file_info([path])
+    [info] = cast(list[FileInfo], fs.get_file_info([path]))
     assert info.path == path
     assert info.type == FileType.Directory
 
@@ -1772,6 +1779,7 @@ def test_py_filesystem_pickling(pickle_module):
     serialized = pickle_module.dumps(fs)
     restored = pickle_module.loads(serialized)
     assert isinstance(restored, FileSystem)
+    assert isinstance(restored, PyFileSystem)
     assert restored == fs
     assert restored.handler == handler
     assert restored.type_name == "py::dummy"
@@ -1802,15 +1810,15 @@ def test_py_filesystem_get_file_info():
     handler = DummyHandler()
     fs = PyFileSystem(handler)
 
-    [info] = fs.get_file_info(['some/dir'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['some/dir']))
     assert info.path == 'some/dir'
     assert info.type == FileType.Directory
 
-    [info] = fs.get_file_info(['some/file'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['some/file']))
     assert info.path == 'some/file'
     assert info.type == FileType.File
 
-    [info] = fs.get_file_info(['notfound'])
+    [info] = cast(list[FileInfo], fs.get_file_info(['notfound']))
     assert info.path == 'notfound'
     assert info.type == FileType.NotFound
 
@@ -1826,7 +1834,7 @@ def test_py_filesystem_get_file_info_selector():
     fs = PyFileSystem(handler)
 
     selector = FileSelector(base_dir="somedir")
-    infos = fs.get_file_info(selector)
+    infos = cast(list[FileInfo], fs.get_file_info(selector))
     assert len(infos) == 2
     assert infos[0].path == "somedir/file1"
     assert infos[0].type == FileType.File
@@ -1836,7 +1844,7 @@ def test_py_filesystem_get_file_info_selector():
     assert infos[1].size is None
 
     selector = FileSelector(base_dir="somedir", recursive=True)
-    infos = fs.get_file_info(selector)
+    infos = cast(list[FileInfo], fs.get_file_info(selector))
     assert len(infos) == 3
     assert infos[0].path == "somedir/file1"
     assert infos[1].path == "somedir/subdir1"
@@ -1913,8 +1921,9 @@ def test_s3_real_aws():
     assert fs.region == default_region
 
     fs = S3FileSystem(anonymous=True, region='us-east-1')
-    entries = fs.get_file_info(FileSelector(
-        'arrow-datasets/nyc-taxi'))
+    entries = cast(list[FileInfo], fs.get_file_info(FileSelector(
+        'voltrondata-labs-datasets/nyc-taxi')))
+
     assert len(entries) > 0
     key = 'arrow-datasets/nyc-taxi/year=2019/month=6/part-0.parquet'
     with fs.open_input_stream(key) as f:
@@ -1931,6 +1940,8 @@ def test_s3_real_aws_region_selection():
     # Taken from a registry of open S3-hosted datasets
     # at https://github.com/awslabs/open-data-registry
     fs, path = FileSystem.from_uri('s3://mf-nwp-models/README.txt')
+    from pyarrow.fs import S3FileSystem
+    assert isinstance(fs, S3FileSystem)
     assert fs.region == 'eu-west-1'
     with fs.open_input_stream(path) as f:
         assert b"Meteo-France Atmospheric models on AWS" in f.read(50)
@@ -1938,6 +1949,8 @@ def test_s3_real_aws_region_selection():
     # Passing an explicit region disables auto-selection
     fs, path = FileSystem.from_uri(
         's3://mf-nwp-models/README.txt?region=us-east-2')
+    from pyarrow.fs import S3FileSystem
+    assert isinstance(fs, S3FileSystem)
     assert fs.region == 'us-east-2'
     # Reading from the wrong region may still work for public buckets...
 
@@ -1948,6 +1961,8 @@ def test_s3_real_aws_region_selection():
     with pytest.raises(IOError, match="Bucket '.*' not found"):
         FileSystem.from_uri('s3://x-arrow..nonexistent-bucket')
     fs, path = FileSystem.from_uri('s3://x-arrow-nonexistent-bucket?region=us-east-3')
+    from pyarrow.fs import S3FileSystem
+    assert isinstance(fs, S3FileSystem)
     assert fs.region == 'us-east-3'
 
     # allow_delayed_open has a side-effect of delaying errors until I/O is performed.
@@ -2188,13 +2203,16 @@ def test_uwsgi_integration():
 
 def test_fsspec_filesystem_from_uri():
     try:
-        from fsspec.implementations.local import LocalFileSystem
-        from fsspec.implementations.memory import MemoryFileSystem
+        from fsspec.implementations.local import (  # type: ignore[import-untyped]
+            LocalFileSystem)
+        from fsspec.implementations.memory import (  # type: ignore[import-untyped]
+            MemoryFileSystem)
     except ImportError:
         pytest.skip("fsspec not installed")
 
     fs, path = FileSystem.from_uri("fsspec+memory://path/to/data.parquet")
-    expected_fs = PyFileSystem(FSSpecHandler(MemoryFileSystem()))
+    expected_fs = PyFileSystem(FSSpecHandler(
+        MemoryFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
     assert path == "/path/to/data.parquet"
 
@@ -2202,7 +2220,8 @@ def test_fsspec_filesystem_from_uri():
     # arrow local filesystem
     uri = "file:///tmp/my.file"
     fs, _ = FileSystem.from_uri(f"fsspec+{uri}")
-    expected_fs = PyFileSystem(FSSpecHandler(LocalFileSystem()))
+    expected_fs = PyFileSystem(FSSpecHandler(
+        LocalFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
 
 
@@ -2212,7 +2231,7 @@ def test_fsspec_delete_root_dir_contents():
     except ImportError:
         pytest.skip("fsspec not installed")
 
-    fs = FSSpecHandler(MemoryFileSystem())
+    fs = FSSpecHandler(MemoryFileSystem())  # type: ignore[abstract]
 
     # Create some files and directories
     fs.create_dir("test_dir", recursive=True)
@@ -2226,7 +2245,7 @@ def test_fsspec_delete_root_dir_contents():
 
     # Verify files exist before deletion
     def get_type(path):
-        return fs.get_file_info([path])[0].type
+        return cast(list[FileInfo], fs.get_file_info([path]))[0].type
 
     assert get_type("test_file.txt") == FileType.File
     assert get_type("test_dir") == FileType.Directory
@@ -2244,13 +2263,13 @@ def test_fsspec_delete_root_dir_contents():
 def test_huggingface_filesystem_from_uri():
     pytest.importorskip("fsspec")
     try:
-        from huggingface_hub import HfFileSystem
+        from huggingface_hub import HfFileSystem  # type: ignore[import-not-found]
     except ImportError:
         pytest.skip("huggingface_hub not installed")
 
     fs, path = FileSystem.from_uri(
         "hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"
     )
-    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))
+    expected_fs = PyFileSystem(FSSpecHandler(HfFileSystem()))  # type: ignore[abstract]
     assert fs == expected_fs
     assert path == "datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet"

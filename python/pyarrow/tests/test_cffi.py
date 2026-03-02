@@ -24,7 +24,7 @@ import pyarrow as pa
 try:
     from pyarrow.cffi import ffi
 except ImportError:
-    ffi = None
+    pass
 
 import pytest
 
@@ -32,7 +32,7 @@ try:
     import pandas as pd
     import pandas.testing as tm
 except ImportError:
-    pd = tm = None
+    pd = None  # type: ignore[assignment]
 
 
 needs_cffi = pytest.mark.skipif(ffi is None,
@@ -148,7 +148,7 @@ def test_export_import_type():
     # Invalid format string
     pa.int32()._export_to_c(ptr_schema)
     bad_format = ffi.new("char[]", b"zzz")
-    c_schema.format = bad_format
+    c_schema.format = bad_format  # type: ignore[attr-defined]
     with pytest.raises(ValueError,
                        match="Invalid or unsupported format string"):
         pa.DataType._import_from_c(ptr_schema)
@@ -248,9 +248,9 @@ def test_export_import_device_array():
     arr = pa.array([[1], [2, 42]], type=pa.list_(pa.int32()))
     arr._export_to_c_device(ptr_array)
 
-    assert c_array.device_type == 1  # ARROW_DEVICE_CPU 1
-    assert c_array.device_id == -1
-    assert c_array.array.length == 2
+    assert c_array.device_type == 1  # type: ignore[attr-defined]  # ARROW_DEVICE_CPU 1
+    assert c_array.device_id == -1  # type: ignore[attr-defined]
+    assert c_array.array.length == 2  # type: ignore[attr-defined]
 
 
 def check_export_import_schema(schema_factory, expected_schema_factory=None):
@@ -310,9 +310,10 @@ def test_export_import_schema_float_pointer():
 
     match = "Passing a pointer value as a float is unsafe"
     with pytest.warns(UserWarning, match=match):
-        make_schema()._export_to_c(float(ptr_schema))
+        make_schema()._export_to_c(float(ptr_schema))  # type: ignore[arg-type]
     with pytest.warns(UserWarning, match=match):
-        schema_new = pa.Schema._import_from_c(float(ptr_schema))
+        schema_new = pa.Schema._import_from_c(
+            float(ptr_schema))  # type: ignore[arg-type]
     assert schema_new == make_schema()
 
 
@@ -405,9 +406,9 @@ def test_export_import_device_batch():
     ptr_array = int(ffi.cast("uintptr_t", c_array))
     batch = make_batch()
     batch._export_to_c_device(ptr_array)
-    assert c_array.device_type == 1  # ARROW_DEVICE_CPU 1
-    assert c_array.device_id == -1
-    assert c_array.array.length == 2
+    assert c_array.device_type == 1  # type: ignore[attr-defined]  # ARROW_DEVICE_CPU 1
+    assert c_array.device_id == -1  # type: ignore[attr-defined]
+    assert c_array.array.length == 2  # type: ignore[attr-defined]
 
 
 def _export_import_batch_reader(ptr_stream, reader_factory):
@@ -764,7 +765,7 @@ def test_import_device_no_cuda():
 
     # patch the device type of the struct, this results in an invalid ArrowDeviceArray
     # but this is just to test we raise am error before actually importing buffers
-    c_array.device_type = 2  # ARROW_DEVICE_CUDA
+    c_array.device_type = 2  # type: ignore[attr-defined]  # ARROW_DEVICE_CUDA
 
     with pytest.raises(ImportError, match="Trying to import data on a CUDA device"):
         pa.Array._import_from_c_device(ptr_array, arr.type)

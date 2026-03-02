@@ -183,6 +183,7 @@ def write_feather(df, dest, compression=None, compression_level=None,
                              f'one of {_FEATHER_SUPPORTED_CODECS}')
 
     try:
+        assert version in (1, 2)
         _feather.write_feather(table, dest, compression=compression,
                                compression_level=compression_level,
                                chunksize=chunksize, version=version)
@@ -269,7 +270,7 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
                         f"Got columns {columns} of types {column_type_names}")
 
     # Feather v1 already respects the column selection
-    if reader.version < 3:
+    if int(reader.version) < 3:
         return table
     # Feather v2 reads with sorted / deduplicated selection
     elif sorted(set(columns)) == columns:
