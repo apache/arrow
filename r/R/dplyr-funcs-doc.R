@@ -77,7 +77,7 @@
 #'
 #' # Function mappings
 #'
-#' In the list below, any differences in behavior or support between Acero and
+#' In the list below, any differences in behavior or support between Arrow and
 #' the R function are listed. If no notes follow the function name, then you
 #' can assume that the function works in Acero just as it does in R.
 #'
