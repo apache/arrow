@@ -65,9 +65,9 @@ test_that("table round trip", {
     expect_equal(chunked_array_raw$chunk(i - 1L), chunks_raw[[i]])
   }
   tf <- tempfile()
-  write_feather(tbl, tf)
+  write_ipc_file(tbl, tf)
 
-  res <- read_feather(tf)
+  res <- read_ipc_file(tf)
   expect_identical(tbl$int, res$int)
   expect_identical(tbl$dbl, res$dbl)
   expect_identical(as.integer(tbl$raw), res$raw)
@@ -98,9 +98,9 @@ test_that("table round trip handles NA in integer and numeric", {
   expect_equal(tab$column(2)$type, uint8())
 
   tf <- tempfile()
-  write_feather(tbl, tf)
+  write_ipc_file(tbl, tf)
 
-  res <- read_feather(tf)
+  res <- read_ipc_file(tf)
   expect_identical(tbl$int, res$int)
   expect_identical(tbl$dbl, res$dbl)
   expect_identical(as.integer(tbl$raw), res$raw)

@@ -334,10 +334,10 @@ test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
     # Confirming that the columns are in fact different
     expect_all_false(df$no_tz == df$yes_tz)
   }
-  feather_file <- tempfile()
-  on.exit(unlink(feather_file))
-  write_feather(df, feather_file)
-  expect_identical(read_feather(feather_file), df)
+  ipc_file <- tempfile()
+  on.exit(unlink(ipc_file))
+  write_ipc_file(df, ipc_file)
+  expect_identical(read_ipc_file(ipc_file), df)
 })
 
 test_that("array supports integer64", {
