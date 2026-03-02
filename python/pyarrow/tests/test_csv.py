@@ -213,6 +213,18 @@ def test_read_options(pickle_module):
         opts.column_names = ('a', 'b')
         opts.validate()
 
+    expected_repr_inner = """
+use_threads=True
+block_size=1048576
+skip_rows=0
+skip_rows_after_names=0
+column_names=['a', 'b']
+autogenerate_column_names=True
+encoding='utf8'"""
+
+    assert repr(opts) == f"<pyarrow.csv.ReadOptions>({expected_repr_inner})"
+    assert str(opts) == f"ReadOptions({expected_repr_inner})"
+
 
 def test_parse_options(pickle_module):
     cls = ParseOptions
@@ -272,6 +284,18 @@ def test_parse_options(pickle_module):
         opts = cls()
         opts.escape_char = "\r"
         opts.validate()
+
+    expected_repr_inner = r"""
+delimiter=','
+quote_char='"'
+double_quote=True
+escape_char='\r'
+newlines_in_values=False
+ignore_empty_lines=True
+invalid_row_handler=None"""
+
+    assert repr(opts) == f"<pyarrow.csv.ParseOptions>({expected_repr_inner})"
+    assert str(opts) == f"ParseOptions({expected_repr_inner})"
 
 
 def test_convert_options(pickle_module):
@@ -354,6 +378,23 @@ def test_convert_options(pickle_module):
     assert opts.auto_dict_max_cardinality == 999
     assert opts.timestamp_parsers == [ISO8601, '%Y-%m-%d']
 
+    expected_repr_inner = ("""
+check_utf8=True
+column_types={'a': DataType(null)}
+null_values=['N', 'nn']
+true_values=['T', 'tt']
+false_values=['F', 'ff']
+decimal_point='.'
+strings_can_be_null=False
+quoted_strings_can_be_null=True
+include_columns=[]
+include_missing_columns=False
+auto_dict_encode=False
+auto_dict_max_cardinality=999
+timestamp_parsers=['ISO8601', '%Y-%m-%d']""")
+    assert repr(opts) == f"<pyarrow.csv.ConvertOptions>({expected_repr_inner})"
+    assert str(opts) == f"ConvertOptions({expected_repr_inner})"
+
 
 def test_write_options():
     cls = WriteOptions
@@ -377,6 +418,15 @@ def test_write_options():
         opts = cls()
         opts.batch_size = 0
         opts.validate()
+
+    expected_repr_inner = """
+include_header=True
+batch_size=0
+delimiter=','
+quoting_style='needed'"""
+
+    assert repr(opts) == f"<pyarrow.csv.WriteOptions>({expected_repr_inner})"
+    assert str(opts) == f"WriteOptions({expected_repr_inner})"
 
 
 class BaseTestCSV(abc.ABC):

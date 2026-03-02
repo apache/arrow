@@ -332,6 +332,22 @@ cdef class ReadOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+use_threads={self.use_threads}
+block_size={self.block_size}
+skip_rows={self.skip_rows}
+skip_rows_after_names={self.skip_rows_after_names}
+column_names={self.column_names}
+autogenerate_column_names={self.autogenerate_column_names}
+encoding='{self.encoding}'""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ReadOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"ReadOptions({self._repr_base()})")
+
 
 cdef class ParseOptions(_Weakrefable):
     """
@@ -584,6 +600,23 @@ cdef class ParseOptions(_Weakrefable):
             return self.equals(other)
         except TypeError:
             return False
+
+    def _repr_base(self):
+        return (f"""
+delimiter={self.delimiter!r}
+quote_char={self.quote_char!r}
+double_quote={self.double_quote}
+escape_char={self.escape_char!r}
+newlines_in_values={self.newlines_in_values}
+ignore_empty_lines={self.ignore_empty_lines}
+invalid_row_handler={getattr(self.invalid_row_handler, '__name__',
+                             self.invalid_row_handler)}""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ParseOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"ParseOptions({self._repr_base()})")
 
 
 cdef class _ISO8601(_Weakrefable):
@@ -1108,6 +1141,28 @@ cdef class ConvertOptions(_Weakrefable):
         except TypeError:
             return False
 
+    def _repr_base(self):
+        return (f"""
+check_utf8={self.check_utf8}
+column_types={self.column_types}
+null_values={self.null_values}
+true_values={self.true_values}
+false_values={self.false_values}
+decimal_point={self.decimal_point!r}
+strings_can_be_null={self.strings_can_be_null}
+quoted_strings_can_be_null={self.quoted_strings_can_be_null}
+include_columns={self.include_columns}
+include_missing_columns={self.include_missing_columns}
+auto_dict_encode={self.auto_dict_encode}
+auto_dict_max_cardinality={self.auto_dict_max_cardinality}
+timestamp_parsers={[str(i) for i in self.timestamp_parsers]}""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.ConvertOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"ConvertOptions({self._repr_base()})")
+
 
 cdef _get_reader(input_file, ReadOptions read_options,
                  shared_ptr[CInputStream]* out):
@@ -1458,6 +1513,19 @@ cdef class WriteOptions(_Weakrefable):
 
     def validate(self):
         check_status(self.options.get().Validate())
+
+    def _repr_base(self):
+        return (f"""
+include_header={self.include_header}
+batch_size={self.batch_size}
+delimiter={self.delimiter!r}
+quoting_style='{self.quoting_style}'""")
+
+    def __repr__(self):
+        return (f"<pyarrow.csv.WriteOptions>({self._repr_base()})")
+
+    def __str__(self):
+        return (f"WriteOptions({self._repr_base()})")
 
 
 cdef _get_write_options(WriteOptions write_options, CCSVWriteOptions* out):
