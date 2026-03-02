@@ -196,9 +196,11 @@ class IntegrationRunner(object):
                 skip_testers.add(".NET")
                 skip_testers.add("Java")
                 skip_testers.add("JS")
+                skip_testers.add("Ruby")
                 skip_testers.add("Rust")
             if prefix == '2.0.0-compression':
                 skip_testers.add("JS")
+                skip_testers.add("Ruby")
             if prefix == '2.0.0-compression' and 'lz4' in name:
                 # https://github.com/apache/arrow-nanoarrow/issues/621
                 skip_testers.add("nanoarrow")
@@ -590,9 +592,9 @@ def get_static_json_files():
 
 
 def select_testers(with_cpp=True, with_java=True, with_js=True,
-                   with_dotnet=True, with_go=True, with_rust=False,
-                   with_nanoarrow=False, target_implementations="",
-                   **kwargs):
+                   with_dotnet=True, with_go=True, with_ruby=False,
+                   with_rust=False, with_nanoarrow=False,
+                   target_implementations="", **kwargs):
     target_implementations = (target_implementations.split(",")
                               if target_implementations else [])
 
@@ -628,6 +630,10 @@ def select_testers(with_cpp=True, with_java=True, with_js=True,
     if with_nanoarrow:
         from .tester_nanoarrow import NanoarrowTester
         append_tester("nanoarrow", NanoarrowTester(**kwargs))
+
+    if with_ruby:
+        from .tester_ruby import RubyTester
+        append_tester("ruby", RubyTester(**kwargs))
 
     if with_rust:
         from .tester_rust import RustTester

@@ -42,6 +42,7 @@ RUN mamba install -q -y \
         nodejs=${node} \
         yarn=${yarn} \
         openjdk=${jdk} \
+        ruby \
         zstd && \
     mamba clean --yes --all --force-pkgs-dirs
 
