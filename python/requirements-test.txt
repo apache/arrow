@@ -1,7 +1,7 @@
-cffi
+cffi; python_version < "3.15"  # TODO: temporary - reenable when 3.15 wheels ship
 hypothesis
 packaging
-pandas
+pandas; python_version < "3.15"  # TODO: temporary - reenable when 3.15 wheels ship
 pytest
 pytest-xdist
 pytz
