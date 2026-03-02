@@ -28,19 +28,21 @@ import time
 import traceback
 import json
 from datetime import datetime
+from typing import Any
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 import pytest
 import pyarrow as pa
 
 from pyarrow.lib import IpcReadOptions, ReadStats, tobytes
 from pyarrow.util import find_free_port
 from pyarrow.tests import util
+from typing import TYPE_CHECKING
 
-try:
+if TYPE_CHECKING:
     from pyarrow import flight
     from pyarrow.flight import (
         FlightClient, FlightServerBase,
@@ -49,13 +51,26 @@ try:
         ClientMiddleware, ClientMiddlewareFactory,
         FlightCallOptions,
     )
-except ImportError:
-    flight = None
-    FlightClient, FlightServerBase = object, object
-    ServerAuthHandler, ClientAuthHandler = object, object
-    ServerMiddleware, ServerMiddlewareFactory = object, object
-    ClientMiddleware, ClientMiddlewareFactory = object, object
-    FlightCallOptions = object
+else:
+    try:
+        from pyarrow import flight
+        from pyarrow.flight import (
+            FlightClient, FlightServerBase,
+            ServerAuthHandler, ClientAuthHandler,
+            ServerMiddleware, ServerMiddlewareFactory,
+            ClientMiddleware, ClientMiddlewareFactory,
+            FlightCallOptions,
+        )
+    except ImportError:
+        flight = None  # type: ignore[assignment]
+        FlightClient, FlightServerBase = object, object
+        ServerAuthHandler, ClientAuthHandler = (  # type: ignore[misc]
+            object, object)  # type: ignore[assignment]
+        ServerMiddleware, ServerMiddlewareFactory = (  # type: ignore[misc]
+            object, object)  # type: ignore[assignment]
+        ClientMiddleware, ClientMiddlewareFactory = (  # type: ignore[misc]
+            object, object)  # type: ignore[assignment]
+        # FlightCallOptions = object  # type: ignore[assignment, misc]
 
 # Marks all of the tests in this module
 # Ignore these with pytest ... -m 'not flight'
@@ -196,7 +211,7 @@ class MetadataFlightServer(FlightServerBase):
             assert buf is not None
             client_counter, = struct.unpack('<i', buf.to_pybytes())
             assert counter == client_counter
-            writer.write(struct.pack('<i', counter))
+            writer.write(struct.pack('<i', counter))  # type: ignore[arg-type]
             counter += 1
         assert reader.stats.num_messages == 6
         assert reader.stats.num_record_batches == 5
@@ -232,7 +247,8 @@ class EchoFlightServer(FlightServerBase):
 class EchoStreamFlightServer(EchoFlightServer):
     """An echo server that streams individual record batches."""
 
-    def do_get(self, context, ticket):
+    def do_get(self, context, ticket):  # type: ignore[override]
+        assert self.last_message is not None
         return flight.GeneratorStream(
             self.last_message.schema,
             self.last_message.to_batches(max_chunksize=1024))
@@ -250,6 +266,7 @@ class EchoTableStreamFlightServer(EchoFlightServer):
     """An echo server that streams the whole table."""
 
     def do_get(self, context, ticket):
+        assert self.last_message is not None
         return flight.GeneratorStream(
             self.last_message.schema,
             [self.last_message])
@@ -267,6 +284,7 @@ class EchoRecordBatchReaderStreamFlightServer(EchoFlightServer):
     """An echo server that streams the whole table as a RecordBatchReader."""
 
     def do_get(self, context, ticket):
+        assert self.last_message is not None
         return flight.GeneratorStream(
             self.last_message.schema,
             [self.last_message.to_reader()])
@@ -304,6 +322,7 @@ class GetInfoFlightServer(FlightServerBase):
 
     def get_schema(self, context, descriptor):
         info = self.get_flight_info(context, descriptor)
+        assert info.schema is not None
         return flight.SchemaResult(info.schema)
 
 
@@ -355,7 +374,7 @@ class InvalidStreamFlightServer(FlightServerBase):
     def do_get(self, context, ticket):
         data1 = [pa.array([-10, -5, 0, 5, 10], type=pa.int32())]
         data2 = [pa.array([-10.0, -5.0, 0.0, 5.0, 10.0], type=pa.float64())]
-        assert data1.type != data2.type
+        assert data1[0].type != data2[0].type  # type: ignore[misc]
         table1 = pa.Table.from_arrays(data1, names=['a'])
         table2 = pa.Table.from_arrays(data2, names=['a'])
         assert table1.schema == self.schema
@@ -543,7 +562,7 @@ class HttpBasicServerAuthHandler(ServerAuthHandler):
             raise flight.FlightUnauthenticatedError("unknown user")
         if self.creds[auth.username] != auth.password:
             raise flight.FlightUnauthenticatedError("wrong password")
-        outgoing.write(tobytes(auth.username))
+        outgoing.write(tobytes(auth.username))  # type: ignore[arg-type]
 
     def is_valid(self, token):
         if not token:
@@ -581,7 +600,8 @@ class TokenServerAuthHandler(ServerAuthHandler):
         username = incoming.read()
         password = incoming.read()
         if username in self.creds and self.creds[username] == password:
-            outgoing.write(base64.b64encode(b'secret:' + username))
+            outgoing.write(
+                base64.b64encode(b'secret:' + username))  # type: ignore[arg-type]
         else:
             raise flight.FlightUnauthenticatedError(
                 "invalid username/password")
@@ -671,7 +691,8 @@ class ClientHeaderAuthMiddleware(ClientMiddleware):
         if auth_header:
             self.factory.set_call_credential([
                 b'authorization',
-                auth_header[0].encode("utf-8")])
+                auth_header[0].encode("utf-8") if isinstance(auth_header[0], str)
+                else auth_header[0]])
 
 
 class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -682,7 +703,9 @@ class HeaderAuthServerMiddlewareFactory(ServerMiddlewareFactory):
             headers,
             'Authorization'
         )
-        values = auth_header[0].split(' ')
+        if auth_header:
+            values = auth_header[0].split(b' ') if isinstance(
+                auth_header[0], bytes) else auth_header[0].split(' ')
         token = ''
         error_message = 'Invalid credentials'
 
@@ -720,8 +743,9 @@ class HeaderAuthFlightServer(FlightServerBase):
         if middleware:
             auth_header = case_insensitive_header_lookup(
                 middleware.sending_headers(), 'Authorization')
-            values = auth_header.split(' ')
-            return [values[1].encode("utf-8")]
+            if auth_header:
+                values = auth_header.split(' ')  # type: ignore[union-attr]
+                return [values[1].encode("utf-8")]  # type: ignore[misc]
         raise flight.FlightUnauthenticatedError(
             'No token auth middleware found.')
 
@@ -758,9 +782,12 @@ class ArbitraryHeadersFlightServer(FlightServerBase):
                 headers,
                 'test-header-2'
             )
-            value1 = header_1[0].encode("utf-8")
-            value2 = header_2[0].encode("utf-8")
-            return [value1, value2]
+            if header_1 and header_2:
+                value1 = header_1[0].encode(
+                    "utf-8") if isinstance(header_1[0], str) else header_1[0]
+                value2 = header_2[0].encode(
+                    "utf-8") if isinstance(header_2[0], str) else header_2[0]
+                return [value1, value2]
         raise flight.FlightServerError("No headers middleware found")
 
 
@@ -784,7 +811,7 @@ class HeaderFlightServer(FlightServerBase):
     def do_action(self, context, action):
         middleware = context.get_middleware("test")
         if middleware:
-            return [middleware.special_value.encode()]
+            return [middleware.special_value.encode()]  # type: ignore[attr-defined]
         return [b""]
 
 
@@ -793,8 +820,10 @@ class MultiHeaderFlightServer(FlightServerBase):
 
     def do_action(self, context, action):
         middleware = context.get_middleware("test")
-        headers = repr(middleware.client_headers).encode("utf-8")
-        return [headers]
+        if middleware:
+            headers = repr(middleware.client_headers  # type: ignore[attr-defined]
+                           ).encode("utf-8")
+            return [headers]
 
 
 class SelectiveAuthServerMiddlewareFactory(ServerMiddlewareFactory):
@@ -1139,7 +1168,7 @@ def test_client_wait_for_available():
     server = None
 
     def serve():
-        global server
+        global server  # type: ignore[unresolved-global]
         time.sleep(0.5)
         server = FlightServerBase(location)
         server.serve()
@@ -1872,7 +1901,8 @@ def test_flight_do_put_metadata():
                 writer.write_with_metadata(batch, metadata)
                 buf = metadata_reader.read()
                 assert buf is not None
-                server_idx, = struct.unpack('<i', buf.to_pybytes())
+                server_idx, = struct.unpack(
+                    '<i', buf.to_pybytes())  # type: ignore[attr-defined]
                 assert idx == server_idx
 
 
@@ -2510,7 +2540,7 @@ def test_large_metadata_client():
 
 class ActionNoneFlightServer(EchoFlightServer):
     """A server that implements a side effect to a non iterable action."""
-    VALUES = []
+    VALUES: list[Any] = []
 
     def do_action(self, context, action):
         if action.type == "get_value":
@@ -2562,14 +2592,14 @@ def test_write_error_propagation():
 
         # Set a concurrent reader - ensure this doesn't block the
         # writer side from calling Close()
-        def _reader():
+        def reader_fn():  # Renamed to avoid redeclaration error
             try:
                 while True:
                     reader.read()
             except flight.FlightError:
                 return
 
-        thread = threading.Thread(target=_reader, daemon=True)
+        thread = threading.Thread(target=reader_fn, daemon=True)
         thread.start()
 
         with pytest.raises(flight.FlightCancelledError) as exc_info:
@@ -2618,7 +2648,8 @@ class TracingFlightServer(FlightServerBase):
     """A server that echoes back trace context values."""
 
     def do_action(self, context, action):
-        trace_context = context.get_middleware("tracing").trace_context
+        middleware = context.get_middleware("tracing")
+        trace_context = middleware.trace_context if middleware else {}
         # Don't turn this method into a generator since then
         # trace_context will be evaluated after we've exited the scope
         # of the OTel span (and so the value we want won't be present)
@@ -2656,6 +2687,7 @@ def test_do_put_does_not_crash_when_schema_is_none():
 
 def test_headers_trailers():
     """Ensure that server-sent headers/trailers make it through."""
+    assert flight is not None
 
     class HeadersTrailersFlightServer(FlightServerBase):
         def get_flight_info(self, context, descriptor):
@@ -2696,6 +2728,7 @@ def test_headers_trailers():
 
 
 def test_flight_dictionary_deltas_do_exchange():
+    assert flight is not None
     expected_stats = {
         'dict_deltas': ReadStats(
             num_messages=6,
@@ -2718,6 +2751,7 @@ def test_flight_dictionary_deltas_do_exchange():
             expected_table = simple_dicts_table()
             received_table = reader.read_all()
             assert received_table.equals(expected_table)
+            assert descriptor.command is not None
             assert reader.stats == expected_stats[descriptor.command.decode()]
             if descriptor.command == b'dict_deltas':
                 options = pa.ipc.IpcWriteOptions(emit_dictionary_deltas=True)
