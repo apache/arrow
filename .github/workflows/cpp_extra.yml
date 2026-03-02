@@ -181,6 +181,7 @@ jobs:
     uses: ./.github/workflows/cpp_windows.yml
     with:
       arch: arm64
+      flight-sql-odbc: true
       os: windows-11-arm
       simd-level: NONE
 
