@@ -417,6 +417,10 @@ TEST(TestStringOps, TestCastBoolToVarchar) {
   EXPECT_EQ(std::string(out_str, out_len), "false");
   EXPECT_FALSE(ctx.has_error());
 
+  out_str = castVARCHAR_bool_int64(ctx_ptr, true, 0, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "");
+  EXPECT_FALSE(ctx.has_error());
+
   castVARCHAR_bool_int64(ctx_ptr, true, -3, &out_len);
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr("Output buffer length can't be negative"));
