@@ -100,7 +100,7 @@ class FilterNode : public MapNode {
     auto values = batch.values;
     for (auto& value : values) {
       if (value.is_scalar()) continue;
-      ARROW_ASSIGN_OR_RAISE(value, Filter(value, mask, FilterOptions::Defaults()));
+      ARROW_ASSIGN_OR_RAISE(value, Filter(value, mask, FilterOptions::Defaults(), plan()->query_context()->exec_context()));
     }
     return ExecBatch::Make(std::move(values));
   }
