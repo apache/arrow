@@ -55,8 +55,10 @@ def test_type_integers():
 @pytest.mark.pandas
 def test_type_to_pandas_dtype():
     M8 = np.dtype('datetime64[ms]')
+    M8s = np.dtype('datetime64[s]')
     if Version(pd.__version__) < Version("2.0.0"):
         M8 = np.dtype('datetime64[ns]')
+        M8s = np.dtype('datetime64[ns]')
     cases = [
         (pa.null(), np.object_),
         (pa.bool_(), np.bool_),
@@ -71,8 +73,8 @@ def test_type_to_pandas_dtype():
         (pa.float16(), np.float16),
         (pa.float32(), np.float32),
         (pa.float64(), np.float64),
-        (pa.date32(), M8),
-        (pa.date64(), M8),
+        (pa.date32(), M8s),
+        (pa.date64(), M8s),
         (pa.timestamp('ms'), M8),
         (pa.binary(), np.object_),
         (pa.large_binary(), np.object_),
