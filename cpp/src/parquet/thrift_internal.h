@@ -36,12 +36,15 @@
 #include <thrift/protocol/TCompactProtocol.h>
 #include <thrift/transport/TBufferTransports.h>
 
+#include "arrow/util/key_value_metadata.h"  // IWYU pragma: keep
 #include "arrow/util/logging.h"
 
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/encryption/internal_file_encryptor.h"
 #include "parquet/exception.h"
 #include "parquet/geospatial/statistics.h"
+#include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/platform.h"
 #include "parquet/properties.h"
 #include "parquet/size_statistics.h"
@@ -430,6 +433,19 @@ constexpr format::BoundaryOrder::type ToThrift(BoundaryOrder::type type) {
   }
 }
 
+constexpr format::PageType::type ToThrift(PageType::type type) {
+  switch (type) {
+    case PageType::DATA_PAGE:
+    case PageType::INDEX_PAGE:
+    case PageType::DICTIONARY_PAGE:
+    case PageType::DATA_PAGE_V2:
+      return static_cast<format::PageType::type>(type);
+    default:
+      ARROW_DCHECK(false) << "Cannot reach here";
+      return format::PageType::DATA_PAGE;
+  }
+}
+
 static inline format::SortingColumn ToThrift(SortingColumn sorting_column) {
   format::SortingColumn thrift_sorting_column;
   thrift_sorting_column.column_idx = sorting_column.column_idx;
@@ -542,6 +558,131 @@ static inline format::SizeStatistics ToThrift(const SizeStatistics& size_stats) 
         size_stats.unencoded_byte_array_data_bytes.value());
   }
   return size_statistics;
+}
+
+// Get KeyValueMetadata from parquet Thrift File or ColumnChunk metadata.
+//
+// Returns nullptr if the metadata is not set.
+template <typename Metadata>
+std::shared_ptr<KeyValueMetadata> FromThriftKeyValueMetadata(const Metadata& source) {
+  std::shared_ptr<KeyValueMetadata> metadata = nullptr;
+  if (source.__isset.key_value_metadata) {
+    std::vector<std::string> keys;
+    std::vector<std::string> values;
+    keys.reserve(source.key_value_metadata.size());
+    values.reserve(source.key_value_metadata.size());
+    for (const auto& it : source.key_value_metadata) {
+      keys.push_back(it.key);
+      values.push_back(it.value);
+    }
+    metadata = std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
+  }
+  return metadata;
+}
+
+template <typename Metadata>
+void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata) {
+  std::vector<format::KeyValue> key_value_metadata;
+  key_value_metadata.reserve(static_cast<size_t>(source.size()));
+  for (int64_t i = 0; i < source.size(); ++i) {
+    format::KeyValue kv_pair;
+    kv_pair.__set_key(source.key(i));
+    kv_pair.__set_value(source.value(i));
+    key_value_metadata.emplace_back(std::move(kv_pair));
+  }
+  metadata->__set_key_value_metadata(std::move(key_value_metadata));
+}
+
+static inline format::ColumnMetaData ToThrift(const ColumnChunkMetaData& cc_metadata) {
+  format::ColumnMetaData column_meta_data;
+  column_meta_data.__set_type(ToThrift(cc_metadata.type()));
+  std::vector<format::Encoding::type> thrift_encodings;
+  thrift_encodings.reserve(cc_metadata.encodings().size());
+  for (const auto& encoding : cc_metadata.encodings()) {
+    thrift_encodings.push_back(ToThrift(encoding));
+  }
+  column_meta_data.__set_encodings(std::move(thrift_encodings));
+  column_meta_data.__set_path_in_schema(cc_metadata.path_in_schema()->ToDotVector());
+  column_meta_data.__set_codec(ToThrift(cc_metadata.compression()));
+  column_meta_data.__set_num_values(cc_metadata.num_values());
+  column_meta_data.__set_total_uncompressed_size(cc_metadata.total_uncompressed_size());
+  column_meta_data.__set_total_compressed_size(cc_metadata.total_compressed_size());
+  if (auto& key_value_metadata = cc_metadata.key_value_metadata();
+      key_value_metadata != nullptr) {
+    ToThriftKeyValueMetadata(*key_value_metadata, &column_meta_data);
+  }
+  column_meta_data.__set_data_page_offset(cc_metadata.data_page_offset());
+  if (cc_metadata.has_index_page()) {
+    column_meta_data.__set_index_page_offset(cc_metadata.index_page_offset());
+  }
+  if (cc_metadata.has_dictionary_page()) {
+    column_meta_data.__set_dictionary_page_offset(cc_metadata.dictionary_page_offset());
+  }
+  if (cc_metadata.is_stats_set()) {
+    column_meta_data.__set_statistics(ToThrift(*cc_metadata.encoded_statistics()));
+  }
+  std::vector<format::PageEncodingStats> thrift_encoding_stats;
+  thrift_encoding_stats.reserve(cc_metadata.encoding_stats().size());
+  for (const auto& encoding_stat : cc_metadata.encoding_stats()) {
+    format::PageEncodingStats enc_stat;
+    enc_stat.__set_page_type(ToThrift(encoding_stat.page_type));
+    enc_stat.__set_encoding(ToThrift(encoding_stat.encoding));
+    enc_stat.__set_count(encoding_stat.count);
+    thrift_encoding_stats.push_back(enc_stat);
+  }
+  column_meta_data.__set_encoding_stats(std::move(thrift_encoding_stats));
+  if (auto size_stats = cc_metadata.size_statistics(); size_stats != nullptr) {
+    column_meta_data.__set_size_statistics(ToThrift(*size_stats));
+  }
+  if (auto geo_stats = cc_metadata.geo_statistics(); geo_stats != nullptr) {
+    if (auto encoded_geo_stats = geo_stats->Encode(); encoded_geo_stats.has_value()) {
+      column_meta_data.__set_geospatial_statistics(ToThrift(*encoded_geo_stats));
+    }
+  }
+  return column_meta_data;
+}
+
+static inline format::PageLocation ToThrift(const PageLocation& page_location) {
+  format::PageLocation thrift_page_location;
+  thrift_page_location.__set_offset(page_location.offset);
+  thrift_page_location.__set_compressed_page_size(page_location.compressed_page_size);
+  thrift_page_location.__set_first_row_index(page_location.first_row_index);
+  return thrift_page_location;
+}
+
+static inline format::ColumnIndex ToThrift(const ColumnIndex& column_index) {
+  format::ColumnIndex thrift_column_index;
+  thrift_column_index.__set_null_pages(column_index.null_pages());
+  thrift_column_index.__set_min_values(column_index.encoded_min_values());
+  thrift_column_index.__set_max_values(column_index.encoded_max_values());
+  thrift_column_index.__set_boundary_order(ToThrift(column_index.boundary_order()));
+  if (column_index.has_null_counts()) {
+    thrift_column_index.__set_null_counts(column_index.null_counts());
+  }
+  if (column_index.has_definition_level_histograms()) {
+    thrift_column_index.__set_definition_level_histograms(
+        column_index.definition_level_histograms());
+  }
+  if (column_index.has_repetition_level_histograms()) {
+    thrift_column_index.__set_repetition_level_histograms(
+        column_index.repetition_level_histograms());
+  }
+  return thrift_column_index;
+}
+
+static inline format::OffsetIndex ToThrift(const OffsetIndex& offset_index) {
+  format::OffsetIndex thrift_offset_index;
+  std::vector<format::PageLocation> thrift_page_locations;
+  thrift_page_locations.reserve(offset_index.page_locations().size());
+  for (const auto& page_location : offset_index.page_locations()) {
+    thrift_page_locations.push_back(ToThrift(page_location));
+  }
+  thrift_offset_index.__set_page_locations(std::move(thrift_page_locations));
+  if (!offset_index.unencoded_byte_array_data_bytes().empty()) {
+    thrift_offset_index.__set_unencoded_byte_array_data_bytes(
+        offset_index.unencoded_byte_array_data_bytes());
+  }
+  return thrift_offset_index;
 }
 
 // ----------------------------------------------------------------------

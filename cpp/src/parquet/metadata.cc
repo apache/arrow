@@ -18,7 +18,6 @@
 #include "parquet/metadata.h"
 
 #include <algorithm>
-#include <cinttypes>
 #include <memory>
 #include <ostream>
 #include <random>
@@ -29,7 +28,6 @@
 #include <vector>
 
 #include "arrow/io/memory.h"
-#include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/pcg_random.h"
 #include "parquet/encryption/encryption_internal.h"
@@ -165,40 +163,6 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   }
   throw ParquetException("Can't decode page statistics for selected column type");
 }
-
-// Get KeyValueMetadata from parquet Thrift RowGroup or ColumnChunk metadata.
-//
-// Returns nullptr if the metadata is not set.
-template <typename Metadata>
-std::shared_ptr<KeyValueMetadata> FromThriftKeyValueMetadata(const Metadata& source) {
-  std::shared_ptr<KeyValueMetadata> metadata = nullptr;
-  if (source.__isset.key_value_metadata) {
-    std::vector<std::string> keys;
-    std::vector<std::string> values;
-    keys.reserve(source.key_value_metadata.size());
-    values.reserve(source.key_value_metadata.size());
-    for (const auto& it : source.key_value_metadata) {
-      keys.push_back(it.key);
-      values.push_back(it.value);
-    }
-    metadata = std::make_shared<KeyValueMetadata>(std::move(keys), std::move(values));
-  }
-  return metadata;
-}
-
-template <typename Metadata>
-void ToThriftKeyValueMetadata(const KeyValueMetadata& source, Metadata* metadata) {
-  std::vector<format::KeyValue> key_value_metadata;
-  key_value_metadata.reserve(static_cast<size_t>(source.size()));
-  for (int64_t i = 0; i < source.size(); ++i) {
-    format::KeyValue kv_pair;
-    kv_pair.__set_key(source.key(i));
-    kv_pair.__set_value(source.value(i));
-    key_value_metadata.emplace_back(std::move(kv_pair));
-  }
-  metadata->__set_key_value_metadata(std::move(key_value_metadata));
-}
-
 }  // namespace
 
 // MetaData Accessor
@@ -413,6 +377,10 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline int64_t data_page_offset() const { return column_metadata_->data_page_offset; }
 
+  inline int64_t start_offset() const {
+    return has_dictionary_page() ? dictionary_page_offset() : data_page_offset();
+  }
+
   inline bool has_index_page() const {
     return column_metadata_->__isset.index_page_offset;
   }
@@ -426,6 +394,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   inline int64_t total_uncompressed_size() const {
     return column_metadata_->total_uncompressed_size;
   }
+
+  inline bool is_encrypted() const { return column_->__isset.crypto_metadata; }
 
   inline std::unique_ptr<ColumnCryptoMetaData> crypto_metadata() const {
     if (column_->__isset.crypto_metadata) {
@@ -550,6 +520,8 @@ int64_t ColumnChunkMetaData::data_page_offset() const {
   return impl_->data_page_offset();
 }
 
+int64_t ColumnChunkMetaData::start_offset() const { return impl_->start_offset(); }
+
 bool ColumnChunkMetaData::has_index_page() const { return impl_->has_index_page(); }
 
 int64_t ColumnChunkMetaData::index_page_offset() const {
@@ -579,6 +551,8 @@ int64_t ColumnChunkMetaData::total_uncompressed_size() const {
 int64_t ColumnChunkMetaData::total_compressed_size() const {
   return impl_->total_compressed_size();
 }
+
+bool ColumnChunkMetaData::is_encrypted() const { return impl_->is_encrypted(); }
 
 std::unique_ptr<ColumnCryptoMetaData> ColumnChunkMetaData::crypto_metadata() const {
   return impl_->crypto_metadata();
@@ -1924,6 +1898,32 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
     return column_builder_ptr;
   }
 
+  void NextColumnChunk(std::unique_ptr<ColumnChunkMetaData> cc_metadata, int64_t shift) {
+    if (!(next_column_ < num_columns())) {
+      std::stringstream ss;
+      ss << "The schema only has " << num_columns()
+         << " columns, added column chunk for column: " << next_column_;
+      throw ParquetException(ss.str());
+    }
+    auto* column_chunk = &row_group_->columns[next_column_++];
+    column_chunk->__set_file_offset(0);
+    column_chunk->__isset.meta_data = true;
+    column_chunk->meta_data = ToThrift(*cc_metadata);
+
+    auto& meta_data = column_chunk->meta_data;
+    meta_data.__set_data_page_offset(meta_data.data_page_offset + shift);
+    if (meta_data.__isset.dictionary_page_offset) {
+      meta_data.__set_dictionary_page_offset(meta_data.dictionary_page_offset + shift);
+    }
+    if (meta_data.__isset.index_page_offset) {
+      meta_data.__set_index_page_offset(meta_data.index_page_offset + shift);
+    }
+    // Do not propagate bloom filter offsets here; they are set later by
+    // FileMetaDataBuilder::SetIndexLocations when/if bloom filters are written.
+    meta_data.__isset.bloom_filter_offset = false;
+    column_builders_.push_back(NULLPTR);
+  }
+
   int current_column() { return next_column_ - 1; }
 
   void Finish(int64_t total_bytes_written, int16_t row_group_ordinal) {
@@ -1955,6 +1955,10 @@ class RowGroupMetaDataBuilder::RowGroupMetaDataBuilderImpl {
       }
       // sometimes column metadata is encrypted and not available to read,
       // so we must get total_compressed_size from column builder
+      if (column_builders_[i] == NULLPTR) {
+        total_compressed_size += row_group_->columns[i].meta_data.total_compressed_size;
+        continue;
+      }
       total_compressed_size += column_builders_[i]->total_compressed_size();
     }
 
@@ -2007,6 +2011,11 @@ RowGroupMetaDataBuilder::~RowGroupMetaDataBuilder() = default;
 
 ColumnChunkMetaDataBuilder* RowGroupMetaDataBuilder::NextColumnChunk() {
   return impl_->NextColumnChunk();
+}
+
+void RowGroupMetaDataBuilder::NextColumnChunk(
+    std::unique_ptr<ColumnChunkMetaData> cc_metadata, int64_t shift) {
+  impl_->NextColumnChunk(std::move(cc_metadata), shift);
 }
 
 int RowGroupMetaDataBuilder::current_column() const { return impl_->current_column(); }

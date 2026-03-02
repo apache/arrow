@@ -77,7 +77,7 @@ class PARQUET_EXPORT ReaderProperties {
   MemoryPool* memory_pool() const { return pool_; }
 
   std::shared_ptr<ArrowInputStream> GetStream(std::shared_ptr<ArrowInputFile> source,
-                                              int64_t start, int64_t num_bytes);
+                                              int64_t start, int64_t num_bytes) const;
 
   /// Buffered stream reading allows the user to control the memory usage of
   /// parquet readers. This ensure that all `RandomAccessFile::ReadAt` calls are
@@ -1525,5 +1525,73 @@ struct ArrowWriteContext {
 
 PARQUET_EXPORT
 std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties();
+
+class PARQUET_EXPORT RewriterProperties {
+ public:
+  class Builder {
+   public:
+    Builder()
+        : pool_(::arrow::default_memory_pool()),
+          writer_properties_(default_writer_properties()),
+          reader_properties_(default_reader_properties()) {}
+
+    explicit Builder(const RewriterProperties& properties)
+        : pool_(properties.memory_pool()),
+          writer_properties_(properties.writer_properties()),
+          reader_properties_(properties.reader_properties()) {}
+
+    /// Specify the memory pool for the rewriter. Default default_memory_pool.
+    Builder* memory_pool(MemoryPool* pool) {
+      pool_ = pool;
+      return this;
+    }
+
+    /// Set the writer properties.
+    Builder* writer_properties(std::shared_ptr<WriterProperties> properties) {
+      writer_properties_ = std::move(properties);
+      return this;
+    }
+
+    /// Set the reader properties.
+    Builder* reader_properties(ReaderProperties properties) {
+      reader_properties_ = std::move(properties);
+      return this;
+    }
+
+    /// Build the RewriterProperties with the builder parameters.
+    std::shared_ptr<RewriterProperties> build() {
+      return std::shared_ptr<RewriterProperties>(new RewriterProperties(
+          pool_, std::move(writer_properties_), std::move(reader_properties_)));
+    }
+
+   private:
+    MemoryPool* pool_;
+    std::shared_ptr<WriterProperties> writer_properties_;
+    ReaderProperties reader_properties_;
+  };
+
+  MemoryPool* memory_pool() const { return pool_; }
+
+  const std::shared_ptr<WriterProperties>& writer_properties() const {
+    return writer_properties_;
+  }
+
+  const ReaderProperties& reader_properties() const { return reader_properties_; }
+
+ private:
+  explicit RewriterProperties(MemoryPool* pool,
+                              std::shared_ptr<WriterProperties> writer_properties,
+                              ReaderProperties reader_properties)
+      : pool_(pool),
+        writer_properties_(std::move(writer_properties)),
+        reader_properties_(std::move(reader_properties)) {}
+
+  MemoryPool* pool_;
+  std::shared_ptr<WriterProperties> writer_properties_;
+  ReaderProperties reader_properties_;
+};
+
+PARQUET_EXPORT
+const std::shared_ptr<RewriterProperties>& default_rewriter_properties();
 
 }  // namespace parquet
