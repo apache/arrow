@@ -98,6 +98,9 @@ class ARROW_EXPORT RecordBatchStreamReader : public RecordBatchReader {
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+  /// \brief Return the DictionaryMemo used by this reader
+  virtual DictionaryMemo* dictionary_memo() = 0;
 };
 
 /// \brief Reads the record batch file format
@@ -199,6 +202,9 @@ class ARROW_EXPORT RecordBatchFileReader
 
   /// \brief Return current read statistics
   virtual ReadStats stats() const = 0;
+
+  /// \brief Return the DictionaryMemo used by this reader
+  virtual DictionaryMemo* dictionary_memo() = 0;
 
   /// \brief Computes the total number of rows in the file.
   virtual Result<int64_t> CountRows() = 0;
@@ -579,6 +585,19 @@ Result<std::shared_ptr<RecordBatch>> ReadRecordBatch(
     const Buffer& metadata, const std::shared_ptr<Schema>& schema,
     const DictionaryMemo* dictionary_memo, const IpcReadOptions& options,
     io::RandomAccessFile* file);
+
+/// \brief Read a dictionary message and add its contents to a DictionaryMemo
+///
+/// If the memo already contains a dictionary with the same id, it is replaced.
+/// Does not perform endian swapping; intended for use with native-endian data.
+/// For cross-endian support, use RecordBatchStreamReader or RecordBatchFileReader.
+///
+/// \param[in] message a Message of type DICTIONARY_BATCH
+/// \param[in,out] dictionary_memo DictionaryMemo to populate with the dictionary data
+/// \param[in] options IPC options for reading
+ARROW_EXPORT
+Status ReadDictionary(const Message& message, DictionaryMemo* dictionary_memo,
+                      const IpcReadOptions& options = IpcReadOptions::Defaults());
 
 /// \brief Read arrow::Tensor as encapsulated IPC message in file
 ///
