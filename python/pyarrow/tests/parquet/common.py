@@ -16,11 +16,12 @@
 # under the License.
 
 import io
+from typing import cast
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 
 import pyarrow as pa
 from pyarrow.tests import util
@@ -137,7 +138,7 @@ def make_sample_file(table_or_df):
     else:
         a_table = pa.Table.from_pandas(table_or_df)
 
-    buf = io.BytesIO()
+    buf = io.BytesIO()  # type: ignore[attr-defined]
     _write_table(a_table, buf, compression='SNAPPY', version='2.6')
 
     buf.seek(0)
@@ -161,12 +162,9 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         'float32': np.arange(size, dtype=np.float32),
         'float64': np.arange(size, dtype=np.float64),
         'bool': np.random.randn(size) > 0,
-        'datetime_ms': np.arange("2016-01-01T00:00:00.001", size,
-                                 dtype='datetime64[ms]'),
-        'datetime_us': np.arange("2016-01-01T00:00:00.000001", size,
-                                 dtype='datetime64[us]'),
-        'datetime_ns': np.arange("2016-01-01T00:00:00.000000001", size,
-                                 dtype='datetime64[ns]'),
+        'datetime_ms': pd.date_range("2016-01-01T00:00:00.001", periods=size, freq='ms').values,
+        'datetime_us': pd.date_range("2016-01-01T00:00:00.000001", periods=size, freq='us').values,
+        'datetime_ns': pd.date_range("2016-01-01T00:00:00.000000001", periods=size, freq='ns').values,
         'timedelta': np.arange(0, size, dtype="timedelta64[s]"),
         'str': pd.Series([str(x) for x in range(size)]),
         'empty_str': [''] * size,
@@ -175,5 +173,6 @@ def alltypes_sample(size=10000, seed=0, categorical=False):
         'null_list': [None] * 2 + [[None] * (x % 4) for x in range(size - 2)],
     }
     if categorical:
-        arrays['str_category'] = arrays['str'].astype('category')
+        import pandas as pd
+        arrays['str_category'] = cast(pd.Series, arrays['str']).astype('category')
     return pd.DataFrame(arrays)
