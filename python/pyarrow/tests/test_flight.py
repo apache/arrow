@@ -2646,6 +2646,8 @@ def test_tracing():
             pass
 
 
+@pytest.mark.skipif(sys.platform == "win32",
+                    reason="Opentelemetry traces don't appear on stdout on Windows")
 def test_tracing_server_middleware_emits_traces():
     # Validate that we are able to emit traces to stdout when
     # ARROW_TRACING_BACKEND=ostream
