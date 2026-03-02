@@ -364,9 +364,12 @@ cdef extern from "parquet/api/reader.h" namespace "parquet" nogil:
         const vector[ParquetEncoding]& encodings() const
         c_bool Equals(const CColumnChunkMetaData&) const
 
+        optional[int64_t] bloom_filter_offset() const
+        optional[int64_t] bloom_filter_length() const
         int64_t has_dictionary_page() const
         int64_t dictionary_page_offset() const
         int64_t data_page_offset() const
+        c_bool has_index_page() const
         int64_t index_page_offset() const
         int64_t total_compressed_size() const
         int64_t total_uncompressed_size() const
