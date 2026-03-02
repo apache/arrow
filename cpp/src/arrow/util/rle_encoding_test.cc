@@ -918,7 +918,7 @@ TEST(BitRle, Random) {
     }
     // TODO: We can remove this condition once CRAN upgrades its macOS
     // SDK from 11.3.
-#if defined(__clang__) && !defined(__cpp_lib_bitops)
+#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
     if (!CheckRoundTrip(values, std::log2p1(values.size()))) {
 #else
     if (!CheckRoundTrip(values, std::bit_width(values.size()))) {

@@ -88,7 +88,7 @@ uint64_t CalculateMask(int64_t min_chunk_size, int64_t max_chunk_size, int norm_
   // by taking the floor(log2(target_size))
   // TODO: We can remove this condition once CRAN upgrades its macOS
   // SDK from 11.3.
-#if defined(__clang__) && !defined(__cpp_lib_bitops)
+#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
   auto target_bits = std::log2p1(static_cast<uint64_t>(target_size));
 #else
   auto target_bits = std::bit_width(static_cast<uint64_t>(target_size));
