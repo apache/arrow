@@ -18,6 +18,7 @@
 #include <gtest/gtest.h>
 
 #include "arrow/array/array_base.h"
+#include "arrow/array/data.h"
 #include "arrow/c/dlpack.h"
 #include "arrow/c/dlpack_abi.h"
 #include "arrow/memory_pool.h"
