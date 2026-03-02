@@ -126,6 +126,9 @@ class build_ext(_build_ext):
 
     def _update_stubs(self):
         """Copy stubs to build directory, then inject docstrings into the copies."""
+        if is_emscripten:
+            # stubs are not supported in Emscripten build
+            return
         stubs_dir = pjoin(setup_dir, 'pyarrow-stubs')
         if not os.path.exists(stubs_dir):
             return
