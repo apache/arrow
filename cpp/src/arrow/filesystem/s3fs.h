@@ -86,6 +86,11 @@ class ARROW_EXPORT S3RetryStrategy {
   /// Returns the time in milliseconds the S3 client should sleep for until retrying.
   virtual int64_t CalculateDelayBeforeNextRetry(const AWSErrorDetail& error,
                                                 int64_t attempted_retries) = 0;
+  /// Returns true if this retry strategy is equal to another retry strategy.
+  /// By default, it returns true if the two objects are of the same type.
+  virtual bool Equals(const S3RetryStrategy& other) const {
+    return typeid(*this) == typeid(other);
+  }
   /// Returns a stock AWS Default retry strategy.
   static std::shared_ptr<S3RetryStrategy> GetAwsDefaultRetryStrategy(
       int64_t max_attempts);
