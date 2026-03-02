@@ -33,6 +33,7 @@ jobs:
         shell: bash
         env:
           ARROW_JAVA_SKIP_GIT_PLUGIN: true
+          DOCS_DEV: "1"
         run: |
           mkdir -p build
           archery docker run \
