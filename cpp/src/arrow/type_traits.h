@@ -135,6 +135,28 @@ struct CTypeTraits<bool> : public TypeTraits<BooleanType> {
   using ArrowType = BooleanType;
 };
 
+template <>
+struct CTypeTraits<Decimal128Type> {
+  using ArrowType = Decimal128Type;
+  using CType = Decimal128;
+};
+
+template <>
+struct CTypeTraits<Decimal256Type> {
+  using ArrowType = Decimal256Type;
+  using CType = Decimal256;
+};
+
+template <> struct CTypeTraits<Decimal32Type> {
+  using ArrowType = Decimal32Type;
+  using CType = Decimal32;
+};
+
+template <> struct CTypeTraits<Decimal64Type> {
+  using ArrowType = Decimal64Type;
+  using CType = Decimal64;
+};
+
 #define PRIMITIVE_TYPE_TRAITS_DEF_(CType_, ArrowType_, ArrowArrayType, ArrowBuilderType, \
                                    ArrowScalarType, ArrowTensorType, SingletonFn)        \
   template <>                                                                            \
