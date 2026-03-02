@@ -927,6 +927,32 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   return builder->Finish();
 }
 
+Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
+                                      MemoryPool* pool) {
+  if (step == 0) {
+    return Status::Invalid("arange: step cannot be zero");
+  }
+
+  int64_t size;
+  if (step > 0 && stop > start) {
+    size = (stop - start + step - 1) / step;
+  } else if (step < 0 && stop < start) {
+    size = (start - stop - step - 1) / (-step);
+  } else {
+    return MakeEmptyArray(int64(), pool);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto data_buffer, AllocateBuffer(size * sizeof(int64_t), pool));
+
+  auto values = reinterpret_cast<int64_t*>(data_buffer->mutable_data());
+  for (int64_t i = 0; i < size; ++i) {
+    values[i] = start + i * step;
+  }
+
+  auto data = ArrayData::Make(int64(), size, {nullptr, std::move(data_buffer)}, 0);
+  return MakeArray(data);
+}
+
 namespace internal {
 
 std::vector<ArrayVector> RechunkArraysConsistently(
