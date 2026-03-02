@@ -141,7 +141,7 @@ static inline int Log2(uint64_t x) {
 
   // TODO: We can remove this condition once CRAN upgrades its macOS
   // SDK from 11.3.
-#if defined(__clang__) && !defined(__cpp_lib_bitops)
+#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
   return std::log2p1(x - 1);
 #else
   return std::bit_width(x - 1);
