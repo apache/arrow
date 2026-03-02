@@ -582,11 +582,13 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
     *out_length = 0;
     return "";
   }
-  const char* out =
-      reinterpret_cast<const char*>(gdv_fn_context_arena_malloc(context, 5));
-  out = value ? "true" : "false";
-  *out_length = value ? ((len > 4) ? 4 : len) : ((len > 5) ? 5 : len);
-  return out;
+  if (value) {
+    *out_length = (len > 4) ? 4 : len;
+    return "true";
+  } else {
+    *out_length = (len > 5) ? 5 : len;
+    return "false";
+  }
 }
 
 // Truncates the string to given length
