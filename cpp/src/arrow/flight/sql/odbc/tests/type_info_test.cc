@@ -1655,12 +1655,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
 
-TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeDateODBCVer2) {
+TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeDate) {
+#ifdef __APPLE__
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TYPE_DATE));
+#else
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, SQL_TYPE_DATE));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1004);
+#endif  // __APPLE__
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
@@ -1763,12 +1767,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
 
-TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimeODBCVer2) {
+TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTime) {
+#ifdef __APPLE__
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TYPE_DATE));
+#else
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIME));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1004);
+#endif  // __APPLE__
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
@@ -1871,12 +1879,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
 
-TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimestampODBCVer2) {
+TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
+#ifdef __APPLE__
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIMESTAMP));
+#else
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(this->stmt, SQL_TYPE_TIMESTAMP));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, this->stmt, kErrorStateS1004);
+#endif  // __APPLE__
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInvalidDataType) {

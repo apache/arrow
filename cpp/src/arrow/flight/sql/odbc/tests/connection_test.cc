@@ -248,7 +248,6 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
 }
 
-#if defined _WIN32
 TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
   // Connect string
   std::string connect_str = this->GetConnectionString();
@@ -431,8 +430,6 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
   ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
-
-#endif  // _WIN32
 
 TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
   // Invalid connect string

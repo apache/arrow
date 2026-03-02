@@ -26,6 +26,9 @@
 
 namespace arrow::flight::sql::odbc {
 
+// MacOS driver manager iODBC does not support SQLGetFunctions for ODBC 3.x or 2.x driver
+#ifndef __APPLE__
+
 template <typename T>
 class GetFunctionsTest : public T {};
 
@@ -216,5 +219,6 @@ TYPED_TEST(GetFunctionsOdbcV2Test, TestSQLGetFunctionsUnsupportedSingleAPIODBCVe
     api_exists = -1;
   }
 }
+#endif  // __APPLE__
 
 }  // namespace arrow::flight::sql::odbc
