@@ -229,6 +229,14 @@ struct ARROW_EXPORT S3Options {
   /// This option applies if the scheme is "https".
   bool tls_verify_certificates = true;
 
+  /// The size in bytes of parts to upload or download objects in.
+  /// If zero, the AWS default will be used (typically 8 MiB).
+  uint64_t part_size = 0;
+
+  /// Optional list of the network interfaces to use.
+  /// When empty, the default network interface is used.
+  std::vector<std::string> network_interface_names;
+
   S3Options();
 
   /// Configure with the default AWS credentials provider chain.

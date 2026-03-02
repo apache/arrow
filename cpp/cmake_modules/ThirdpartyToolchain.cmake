@@ -3930,7 +3930,7 @@ function(build_awssdk)
        config
        core
        identity-management
-       s3
+       s3-crt
        sts
        transfer)
   set(BUILD_SHARED_LIBS
@@ -4008,7 +4008,7 @@ function(build_awssdk)
        aws-cpp-sdk-identity-management
        aws-cpp-sdk-sts
        aws-cpp-sdk-cognito-identity
-       aws-cpp-sdk-s3
+       aws-cpp-sdk-s3-crt
        aws-cpp-sdk-core)
 
   set(AWSSDK_VENDORED
