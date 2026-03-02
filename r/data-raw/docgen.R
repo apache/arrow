@@ -89,12 +89,25 @@ library(purrr)
 # Functions that for whatever reason cause xref problems, so don't hyperlink
 do_not_link <- c()
 
+# Operators documented on a different help page than their name
+operator_help_pages <- c(
+  "%%" = "base::Arithmetic",
+  "%/%" = "base::Arithmetic",
+  "%in%" = "base::match"
+)
+
 package_notes <- list(
   stringr = "Pattern modifiers `coll()` and `boundary()` are not supported in any functions."
 )
 
 # Vectorized function to make entries for each function
 render_fun <- function(fun, pkg_fun, notes) {
+  # Use special help pages for certain operators
+  link_target <- ifelse(
+    fun %in% names(operator_help_pages),
+    paste0(operator_help_pages[fun], "()"),
+    paste0(pkg_fun, "()")
+  )
   # Add () to fun if it's not an operator
   not_operators <- grepl("^[[:alpha:]]", fun)
   fun[not_operators] <- paste0(fun[not_operators], "()")
@@ -104,7 +117,7 @@ render_fun <- function(fun, pkg_fun, notes) {
   out <- ifelse(
     pkg_fun %in% do_not_link,
     fun,
-    paste0("[", fun, "][", pkg_fun, "()]")
+    paste0("[", fun, "][", link_target, "]")
   )
   # Add notes after :, if exist
   has_notes <- nzchar(notes)
