@@ -261,8 +261,8 @@ class HashJoinDictBuildMulti {
  public:
   Status Init(const SchemaProjectionMaps<HashJoinProjection>& proj_map,
               const ExecBatch* opt_non_empty_batch, ExecContext* ctx);
-  static void InitEncoder(const SchemaProjectionMaps<HashJoinProjection>& proj_map,
-                          RowEncoder* encoder, ExecContext* ctx);
+  static Status InitEncoder(const SchemaProjectionMaps<HashJoinProjection>& proj_map,
+                            RowEncoder* encoder, ExecContext* ctx);
   Status EncodeBatch(size_t thread_index,
                      const SchemaProjectionMaps<HashJoinProjection>& proj_map,
                      const ExecBatch& batch, RowEncoder* encoder, ExecContext* ctx) const;
@@ -280,10 +280,9 @@ class HashJoinDictBuildMulti {
 class HashJoinDictProbeMulti {
  public:
   void Init(size_t num_threads);
-  bool BatchRemapNeeded(size_t thread_index,
-                        const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
-                        const SchemaProjectionMaps<HashJoinProjection>& proj_map_build,
-                        ExecContext* ctx);
+  Result<bool> BatchRemapNeeded(
+      size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
+      const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx);
   Status EncodeBatch(size_t thread_index,
                      const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
                      const SchemaProjectionMaps<HashJoinProjection>& proj_map_build,
@@ -292,12 +291,13 @@ class HashJoinDictProbeMulti {
                      ExecContext* ctx);
 
  private:
-  void InitLocalStateIfNeeded(
+  Status InitLocalStateIfNeeded(
       size_t thread_index, const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
       const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, ExecContext* ctx);
-  static void InitEncoder(const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
-                          const SchemaProjectionMaps<HashJoinProjection>& proj_map_build,
-                          RowEncoder* encoder, ExecContext* ctx);
+  static Status InitEncoder(
+      const SchemaProjectionMaps<HashJoinProjection>& proj_map_probe,
+      const SchemaProjectionMaps<HashJoinProjection>& proj_map_build, RowEncoder* encoder,
+      ExecContext* ctx);
   struct ThreadLocalState {
     bool is_initialized;
     // Whether any key column needs remapping (because of dictionaries used) before doing
