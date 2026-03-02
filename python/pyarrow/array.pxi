@@ -174,6 +174,15 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
 
     Notes
     -----
+    Multidimensional numpy arrays are supported and will be converted to
+    nested list arrays. For example, a 2D array of shape (2, 3) will be
+    converted to a list array of 2 lists, each containing 3 elements.
+    For C-contiguous arrays (default numpy layout), conversion is zero-copy
+    and very efficient. For non-contiguous arrays (e.g., transposed, sliced,
+    or Fortran-ordered), a conversion via Python lists is used.
+    Note that mask and size parameters are not supported for multidimensional
+    arrays.
+
     Timezone will be preserved in the returned array for timezone-aware data,
     else no timezone will be returned for naive timestamps.
     Internally, UTC values are stored for timezone-aware data with the
@@ -229,6 +238,24 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
     >>> arr = pa.array(range(1024), type=pa.dictionary(pa.int8(), pa.int64()))
     >>> arr.type.index_type
     DataType(int16)
+
+    Multidimensional numpy arrays are supported:
+
+    >>> np_2d = np.arange(6).reshape(2, 3)
+    >>> pa.array(np_2d)
+    <pyarrow.lib.ListArray object at ...>
+    [
+      [
+        0,
+        1,
+        2
+      ],
+      [
+        3,
+        4,
+        5
+      ]
+    ]
     """
     cdef:
         CMemoryPool* pool = maybe_unbox_memory_pool(memory_pool)
@@ -298,6 +325,47 @@ def array(object obj, type=None, mask=None, size=None, from_pandas=None,
                 # don't use shrunken masks
                 mask = None if values.mask is np.ma.nomask else values.mask
                 values = values.data
+
+        # Handle multidimensional numpy arrays by converting to nested lists
+        if isinstance(values, np.ndarray) and values.ndim > 1:
+            if mask is not None:
+                raise NotImplementedError(
+                    "mask is not supported for multidimensional arrays")
+            if size is not None:
+                raise NotImplementedError(
+                    "size is not supported for multidimensional arrays")
+
+            # For efficiency, use recursive FixedSizeListArray construction
+            # for C-contiguous arrays (zero-copy), otherwise use .tolist()
+            if values.flags['C_CONTIGUOUS']:
+                # Efficient path: flatten to 1D, convert with zero-copy,
+                # then wrap in nested FixedSizeListArray layers
+                shape = values.shape
+                flat = values.ravel()
+
+                # Convert flattened 1D array to Arrow (zero-copy)
+                base_arr = _ndarray_to_array(flat, None, None, c_from_pandas,
+                                             safe, pool)
+
+                # Build nested FixedSizeListArray from innermost to outermost
+                # For shape (2, 3, 4), we create:
+                #   FixedSizeList[4] -> FixedSizeList[3] -> 2 elements
+                result = base_arr
+                for dim_size in reversed(shape[1:]):
+                    result = FixedSizeListArray.from_arrays(result, int(dim_size))
+
+                # Apply explicit type if provided
+                if type is not None:
+                    result = result.cast(type, safe=safe, memory_pool=memory_pool)
+            else:
+                # Non-contiguous arrays: fallback to .tolist()
+                # This handles transposed, sliced, and F-contiguous arrays
+                result = _sequence_to_array(values.tolist(), None, None, type, pool,
+                                            c_from_pandas)
+
+            if extension_type is not None:
+                result = ExtensionArray.from_storage(extension_type, result)
+            return result
 
         if mask is not None:
             if mask.dtype != np.bool_:
