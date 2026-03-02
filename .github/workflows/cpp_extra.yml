@@ -578,7 +578,7 @@ jobs:
     if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
     steps:
       - name: Download the artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: flight-sql-odbc-msi-installer
       - name: Prepare ODBC installer for sync
@@ -632,7 +632,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Download the artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: flight-sql-odbc-msi-installer
       - name: Wait for creating GitHub Release
