@@ -490,7 +490,8 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromDouble) {
   EXPECT_FALSE(ctx.has_error());
 
   // test exponential notation with large negative exponent (24 chars)
-  out_str = gdv_fn_castVARCHAR_float64_int64(ctx_ptr, -1.2345678901234567e-100, 100, &out_len);
+  out_str =
+      gdv_fn_castVARCHAR_float64_int64(ctx_ptr, -1.2345678901234567e-100, 100, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "-1.2345678901234567E-100");
   EXPECT_FALSE(ctx.has_error());
 }
