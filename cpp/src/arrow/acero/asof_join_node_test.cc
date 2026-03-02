@@ -1373,56 +1373,6 @@ TRACED_TEST(AsofJoinTest, TestUnorderedOnKey, {
       schema({field("time", int64()), field("key", int32()), field("r0_v0", float64())}));
 })
 
-struct BackpressureCounters {
-  std::atomic<int32_t> pause_count = 0;
-  std::atomic<int32_t> resume_count = 0;
-};
-
-struct BackpressureCountingNodeOptions : public ExecNodeOptions {
-  BackpressureCountingNodeOptions(BackpressureCounters* counters) : counters(counters) {}
-
-  BackpressureCounters* counters;
-};
-
-struct BackpressureCountingNode : public MapNode {
-  static constexpr const char* kKindName = "BackpressureCountingNode";
-  static constexpr const char* kFactoryName = "backpressure_count";
-
-  static void Register() {
-    auto exec_reg = default_exec_factory_registry();
-    if (!exec_reg->GetFactory(kFactoryName).ok()) {
-      ASSERT_OK(exec_reg->AddFactory(kFactoryName, BackpressureCountingNode::Make));
-    }
-  }
-
-  BackpressureCountingNode(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                           std::shared_ptr<Schema> output_schema,
-                           const BackpressureCountingNodeOptions& options)
-      : MapNode(plan, inputs, output_schema), counters(options.counters) {}
-
-  static Result<ExecNode*> Make(ExecPlan* plan, std::vector<ExecNode*> inputs,
-                                const ExecNodeOptions& options) {
-    RETURN_NOT_OK(ValidateExecNodeInputs(plan, inputs, 1, kKindName));
-    auto bp_options = static_cast<const BackpressureCountingNodeOptions&>(options);
-    return plan->EmplaceNode<BackpressureCountingNode>(
-        plan, inputs, inputs[0]->output_schema(), bp_options);
-  }
-
-  const char* kind_name() const override { return kKindName; }
-  Result<ExecBatch> ProcessBatch(ExecBatch batch) override { return batch; }
-
-  void PauseProducing(ExecNode* output, int32_t counter) override {
-    ++counters->pause_count;
-    inputs()[0]->PauseProducing(this, counter);
-  }
-  void ResumeProducing(ExecNode* output, int32_t counter) override {
-    ++counters->resume_count;
-    inputs()[0]->ResumeProducing(this, counter);
-  }
-
-  BackpressureCounters* counters;
-};
-
 AsyncGenerator<std::optional<ExecBatch>> GetGen(
     AsyncGenerator<std::optional<ExecBatch>> gen) {
   return gen;
@@ -1453,8 +1403,7 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
   ASSERT_OK_AND_ASSIGN(auto r0_batches, make_shift(num_r0_batches, r0_schema, 1));
   ASSERT_OK_AND_ASSIGN(auto r1_batches, make_shift(num_r1_batches, r1_schema, 2));
 
-  BackpressureCountingNode::Register();
-  RegisterTestNodes();  // for GatedNode
+  RegisterTestNodes();  // for GatedNode and BackpressureCountingNode
 
   struct BackpressureSourceConfig {
     std::string name_prefix;
@@ -1499,7 +1448,7 @@ void TestBackpressure(BatchesMaker maker, int batch_size, int num_l_batches,
         std::make_shared<BackpressureCountingNodeOptions>(&bp_counters[i]));
     std::shared_ptr<ExecNodeOptions> options = bp_options.back();
     std::vector<Declaration::Input> bp_in = {src_decls.back()};
-    Declaration bp_decl = {BackpressureCountingNode::kFactoryName, bp_in,
+    Declaration bp_decl = {BackpressureCountingNodeOptions::kName, bp_in,
                            std::move(options)};
     if (config.is_gated) {
       bp_decl = {std::string{GatedNodeOptions::kName}, {bp_decl}, gate_options};
