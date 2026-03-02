@@ -1769,7 +1769,7 @@ TEST_F(TestTableSortIndices, HeterogenousChunking) {
       ChunkedArrayFromJSON(float32(), {"[null, 1]", "[]", "[3, null, NaN, NaN, NaN, 1]"});
   auto col_b = ChunkedArrayFromJSON(float64(),
                                     {"[5]", "[3, null, null]", "[null, NaN, 5]", "[5]"});
-  auto table = Table::Make(schema, {col_a, col_b});
+  auto table = Table::Make(schema, {col_a, col_b}).ValueOrDie();
 
   SortOptions options(
       {SortKey("a", SortOrder::Ascending), SortKey("b", SortOrder::Descending)});
@@ -2083,7 +2083,7 @@ TEST_P(TestTableSortIndicesRandom, Sort) {
       ASSERT_EQ(columns.back()->length(), length);
     }
 
-    auto table = Table::Make(schema, std::move(columns));
+    auto table = Table::Make(schema, std::move(columns)).ValueOrDie();
     for (auto null_placement : AllNullPlacements()) {
       ARROW_SCOPED_TRACE("null_placement = ", null_placement);
       options.null_placement = null_placement;
@@ -2186,7 +2186,7 @@ class TestNestedSortIndices : public ::testing::Test {
     auto chunked = GetChunkedArray();
     auto columns = *chunked->Flatten();
     auto table =
-        Table::Make(arrow::schema(chunked->type()->fields()), std::move(columns));
+        Table::Make(arrow::schema(chunked->type()->fields()), std::move(columns)).ValueOrDie();
     ARROW_CHECK_OK(table->ValidateFull());
     return table;
   }

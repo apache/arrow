@@ -1753,7 +1753,7 @@ TEST(TestDictionaryUnifier, ChunkedArrayNestedDict) {
 
 TEST(TestDictionaryUnifier, TableZeroColumns) {
   auto schema = ::arrow::schema(FieldVector{});
-  auto table = Table::Make(schema, ArrayVector{}, /*num_rows=*/42);
+  auto table = Table::Make(schema, ArrayVector{}, /*num_rows=*/42).ValueOrDie();
 
   ASSERT_OK_AND_ASSIGN(auto unified, DictionaryUnifier::UnifyTable(*table));
   AssertSchemaEqual(*schema, *unified->schema());

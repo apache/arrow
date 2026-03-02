@@ -446,7 +446,7 @@ class NestedFieldsEncryptionTest
   void PrepareTableAndPartitioning() override {
     // Prepare table and partitioning.
     auto table_schema = schema({field("id", int8()), field("a", column_type_)});
-    table_ = arrow::Table::Make(table_schema, {id_data_, column_data_});
+    table_ = arrow::Table::Make(table_schema, {id_data_, column_data_}).ValueOrDie();
     partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
   }
 
@@ -612,7 +612,7 @@ class LargeRowCountEncryptionTest
     auto table_schema = schema({field("a", float32())});
 
     // Prepare table and partitioning.
-    table_ = arrow::Table::Make(table_schema, {column});
+    table_ = arrow::Table::Make(table_schema, {column}).ValueOrDie();
     partitioning_ = std::make_shared<dataset::DirectoryPartitioning>(arrow::schema({}));
   }
 };
