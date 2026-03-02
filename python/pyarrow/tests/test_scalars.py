@@ -20,11 +20,12 @@ import decimal
 import pytest
 import weakref
 from collections.abc import Sequence, Mapping
+from typing import cast
 
 try:
     import numpy as np
 except ImportError:
-    np = None
+    pass
 
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -68,7 +69,7 @@ import pyarrow.compute as pc
      pa.Time32Scalar),
     (datetime.datetime.now().time(), None, pa.Time64Scalar),
     (datetime.timedelta(days=1), None, pa.DurationScalar),
-    (pa.MonthDayNano([1, -1, -10100]), None,
+    (pa.MonthDayNano([1, -1, -10100]), None,  # type: ignore[call-arg, arg-type]
      pa.MonthDayNanoIntervalScalar),
     ({'a': 1, 'b': [1, 2]}, None, pa.StructScalar),
     ([('a', 1), ('b', 2)], pa.map_(pa.string(), pa.int8()), pa.MapScalar),
@@ -360,7 +361,8 @@ def test_time_from_datetime_time():
 def test_temporal_values(value, time_type: pa.DataType):
     time_scalar = pa.scalar(value, type=time_type)
     time_scalar.validate(full=True)
-    assert time_scalar.value == value
+    assert (time_scalar.value  # type: ignore[union-attr, reportAttributeAccessIssue]
+            == value)
 
 
 def test_cast():
@@ -422,7 +424,9 @@ def test_timestamp():
         expected = pd.Timestamp('2000-01-01 12:34:56')
 
         assert arrow_arr[0].as_py() == expected
-        assert arrow_arr[0].value * 1000**i == expected.value
+        value = cast(pa.TimestampScalar, arrow_arr[0]).value
+        assert value is not None
+        assert value * 1000**i == expected.value
 
         tz = 'America/New_York'
         arrow_type = pa.timestamp(unit, tz=tz)
@@ -434,7 +438,9 @@ def test_timestamp():
                     .tz_convert(tz))
 
         assert arrow_arr[0].as_py() == expected
-        assert arrow_arr[0].value * 1000**i == expected.value
+        value = cast(pa.TimestampScalar, arrow_arr[0]).value
+        assert value is not None
+        assert value * 1000**i == expected.value
 
 
 @pytest.mark.nopandas
@@ -529,7 +535,7 @@ def test_duration_nanos_nopandas():
 
 
 def test_month_day_nano_interval():
-    triple = pa.MonthDayNano([-3600, 1800, -50])
+    triple = pa.MonthDayNano([-3600, 1800, -50])  # type: ignore[invalid-argument-type]
     arr = pa.array([triple])
     assert isinstance(arr[0].as_py(), pa.MonthDayNano)
     assert arr[0].as_py() == triple
@@ -577,7 +583,7 @@ def test_binary(value, ty, scalar_typ):
         with pytest.raises(ValueError):
             memoryview(s)
     else:
-        assert buf.to_pybytes() == value
+        assert buf.to_pybytes() == value  # type: ignore[union-attr]
         assert isinstance(buf, pa.Buffer)
         assert bytes(s) == value
 
@@ -852,7 +858,7 @@ def test_dictionary(pickle_module):
     assert arr.to_pylist() == expected
 
     for j, (i, v) in enumerate(zip(indices, expected)):
-        s = arr[j]
+        s = cast(pa.DictionaryScalar, arr[j])
 
         assert s.as_py() == v
         assert s.value.as_py() == v
@@ -868,14 +874,14 @@ def test_run_end_encoded():
     values = [1, 2, 1, None, 3]
     arr = pa.RunEndEncodedArray.from_arrays(run_ends, values)
 
-    scalar = arr[0]
+    scalar = cast(pa.RunEndEncodedScalar, arr[0])
     assert isinstance(scalar, pa.RunEndEncodedScalar)
     assert isinstance(scalar.value, pa.Int64Scalar)
     assert scalar.value == pa.array(values)[0]
     assert scalar.as_py() == 1
 
     # null -> .value is still a scalar, as_py returns None
-    scalar = arr[10]
+    scalar = cast(pa.RunEndEncodedScalar, arr[10])
     assert isinstance(scalar.value, pa.Int64Scalar)
     assert scalar.as_py() is None
 
@@ -901,13 +907,13 @@ def test_union(pickle_module):
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle_module.loads(pickle_module.dumps(s))
 
-    assert arr[0].type_code == 0
+    assert cast(pa.UnionScalar, arr[0]).type_code == 0
     assert arr[0].as_py() == "a"
-    assert arr[1].type_code == 0
+    assert cast(pa.UnionScalar, arr[1]).type_code == 0
     assert arr[1].as_py() == "b"
-    assert arr[2].type_code == 1
+    assert cast(pa.UnionScalar, arr[2]).type_code == 1
     assert arr[2].as_py() == 3
-    assert arr[3].type_code == 1
+    assert cast(pa.UnionScalar, arr[3]).type_code == 1
     assert arr[3].as_py() == 4
 
     # dense
@@ -927,9 +933,9 @@ def test_union(pickle_module):
         with pytest.raises(pa.ArrowNotImplementedError):
             pickle_module.loads(pickle_module.dumps(s))
 
-    assert arr[0].type_code == 0
+    assert cast(pa.UnionScalar, arr[0]).type_code == 0
     assert arr[0].as_py() == b'a'
-    assert arr[5].type_code == 1
+    assert cast(pa.UnionScalar, arr[5]).type_code == 1
     assert arr[5].as_py() == 3
 
 

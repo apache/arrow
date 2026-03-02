@@ -18,7 +18,7 @@ import copy
 import sys
 
 
-def strip_blank_lines(l):
+def strip_blank_lines(l):  # noqa: E741
     "Remove leading and trailing blank lines from a list of lines"
     while l and not l[0].strip():
         del l[0]
@@ -62,7 +62,7 @@ class Reader:
             return ''
 
     def seek_next_non_empty_line(self):
-        for l in self[self._l:]:
+        for l in self[self._l:]:  # noqa: E741
             if l.strip():
                 break
             else:
@@ -185,8 +185,9 @@ class NumpyDocString(Mapping):
         l2 = self._doc.peek(1).strip()  # ---------- or ==========
         if len(l2) >= 3 and (set(l2) in ({'-'}, {'='})) and len(l2) != len(l1):
             snip = '\n'.join(self._doc._str[:2])+'...'
-            self._error_location("potentially wrong underline length... \n%s \n%s in \n%s"
-                                 % (l1, l2, snip), error=False)
+            self._error_location(
+                "potentially wrong underline length... \n%s \n%s in \n%s"
+                % (l1, l2, snip), error=False)
         return l2.startswith('-'*len(l1)) or l2.startswith('='*len(l1))
 
     def _strip(self, doc):
