@@ -2384,6 +2384,38 @@ def test_to_numpy_roundtrip():
 
 
 @pytest.mark.numpy
+@pytest.mark.parametrize(
+    "arrow_type",
+    [pa.string(), pa.large_string(), pa.string_view()],
+)
+@pytest.mark.parametrize("scenario", ["no_nulls", "with_nulls", "sliced", "empty"])
+def test_to_numpy_stringdtype(arrow_type, scenario):
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    values = {
+        "no_nulls": ["a", "b", "c"],
+        "with_nulls": ["a", None, "c"],
+        "sliced": ["z", "a", None, "c", "q"],
+        "empty": [],
+    }
+
+    arr = pa.array(values[scenario], type=arrow_type)
+    if scenario == "sliced":
+        arr = arr.slice(1, 3)
+
+    result = arr.to_numpy(zero_copy_only=False, string_dtype="numpy")
+
+    assert result.dtype == np.dtype(StringDType())
+    assert result.tolist() == arr.to_pylist()
+
+
+@pytest.mark.numpy
 def test_array_uint64_from_py_over_range():
     arr = pa.array([2 ** 63], type=pa.uint64())
     expected = pa.array(np.array([2 ** 63], dtype='u8'))
@@ -2832,6 +2864,119 @@ def test_array_from_numpy_unicode(string_type):
     arrow_arr = pa.array(arr, string_type)
     expected = pa.array(['', '', ''], type=expected_type)
     assert arrow_arr.equals(expected)
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype():
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    dtype = StringDType()
+
+    arr = np.array(["some", "strings"], dtype=dtype)
+
+    arrow_arr = pa.array(arr)
+
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arrow_arr = pa.array(arr, type=pa.string())
+    assert arrow_arr.type == pa.string()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arrow_arr = pa.array(arr, type=pa.large_string())
+    assert arrow_arr.type == pa.large_string()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arrow_arr = pa.array(arr, type=pa.string_view())
+    assert arrow_arr.type == pa.string_view()
+    assert arrow_arr.to_pylist() == ["some", "strings"]
+
+    arr_full = np.array(["a", "b", "c", "d", "e"], dtype=dtype)
+    arr = arr_full[::2]
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["a", "c", "e"]
+
+
+@pytest.mark.numpy
+def test_numpy_stringdtype_thresholds_and_unicode():
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    dtype = StringDType()
+
+    short = "hello"
+    medium = "a" * 100
+    long_ = "b" * 300
+    unicode_ = "árvíztűrő tükörfúrógép 🥐 你好"
+    long_unicode = "🥐" * 200
+
+    arr = np.array([short, medium, long_, unicode_, long_unicode], dtype=dtype)
+    assert pa.array(arr).to_pylist() == [short, medium, long_, unicode_, long_unicode]
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype_nulls_and_mask():
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    # Real StringDType, use its NA sentinel
+    dtype = StringDType(na_object=None)
+    arr = np.array(["this array has", None, "as an entry"], dtype=dtype)
+
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["this array has", None, "as an entry"]
+
+    # Test interplay of NA sentinel and an explicit mask:
+    # - index 1 is null because of na_object / Python None
+    # - index 2 is forced null by the mask
+    mask = np.array([False, False, True], dtype=bool)
+    arrow_arr = pa.array(arr, mask=mask)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.null_count == 2
+    assert arrow_arr.to_pylist() == ["this array has", None, None]
+
+    mask = np.array([True, False, True], dtype=bool)
+    assert pa.array(arr, mask=mask).to_pylist() == [None, None, None]
+
+
+@pytest.mark.numpy
+def test_array_from_numpy_string_dtype_string_sentinel_and_mask():
+    dtypes_mod = getattr(np, "dtypes", None)
+    if dtypes_mod is None:
+        pytest.skip("NumPy dtypes module not available")
+
+    StringDType = getattr(dtypes_mod, "StringDType", None)
+    if StringDType is None:
+        pytest.skip("NumPy StringDType not available")
+
+    sentinel = "__placeholder__"
+    dtype = StringDType(na_object=sentinel)
+    arr = np.array(["this array has", sentinel, "as an entry"], dtype=dtype)
+
+    arrow_arr = pa.array(arr)
+    assert arrow_arr.type == pa.utf8()
+    assert arrow_arr.to_pylist() == ["this array has", None, "as an entry"]
+
+    mask = np.array([False, False, True], dtype=bool)
+    assert pa.array(arr, mask=mask).to_pylist() == ["this array has", None, None]
 
 
 @pytest.mark.numpy

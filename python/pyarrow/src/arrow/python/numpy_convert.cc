@@ -37,6 +37,10 @@
 namespace arrow {
 namespace py {
 
+#ifndef NPY_VSTRING
+#  define NPY_VSTRING 2056
+#endif
+
 NumPyBuffer::NumPyBuffer(PyObject* ao) : Buffer(nullptr, 0) {
   PyAcquireGIL lock;
   arr_ = ao;
@@ -122,6 +126,10 @@ Result<std::shared_ptr<DataType>> NumPyScalarToArrowDataType(PyObject* scalar) {
   return NumPyDtypeToArrow(descr);
 }
 
+bool IsStringDType(PyArray_Descr* descr) {
+  return descr != nullptr && descr->type_num == NPY_VSTRING;
+}
+
 Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyObject* dtype) {
   if (!PyObject_TypeCheck(dtype, &PyArrayDescr_Type)) {
     return Status::TypeError("Did not pass numpy.dtype object");
@@ -132,6 +140,10 @@ Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyObject* dtype) {
 
 Result<std::shared_ptr<DataType>> NumPyDtypeToArrow(PyArray_Descr* descr) {
   int type_num = fix_numpy_type_num(descr->type_num);
+
+  if (IsStringDType(descr)) {
+    return utf8();
+  }
 
   switch (type_num) {
     TO_ARROW_TYPE_CASE(BOOL, boolean);
