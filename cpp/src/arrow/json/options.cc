@@ -24,5 +24,14 @@ ParseOptions ParseOptions::Defaults() { return ParseOptions(); }
 
 ReadOptions ReadOptions::Defaults() { return ReadOptions(); }
 
+WriteOptions WriteOptions::Defaults() { return WriteOptions(); }
+
+Status WriteOptions::Validate() const {
+  if (ARROW_PREDICT_FALSE(batch_size < 1)) {
+    return Status::Invalid("WriteOptions: batch_size must be at least 1: ", batch_size);
+  }
+  return Status::OK();
+}
+
 }  // namespace json
 }  // namespace arrow
