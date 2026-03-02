@@ -124,8 +124,14 @@ TEST_P(TestRunEndEncodedArray, FromRunEndsAndValues) {
   EXPECT_RAISES_WITH_MESSAGE_THAT(
       Invalid,
       ::testing::HasSubstr(
-          "Invalid: Length of run_ends is greater than the length of values: 3 > 2"),
+          "Invalid: Length of run_ends (3) does not match the length of values (2)"),
       RunEndEncodedArray::Make(30, run_end_values, ArrayFromJSON(int32(), "[2, 0]")));
+  EXPECT_RAISES_WITH_MESSAGE_THAT(
+      Invalid,
+      ::testing::HasSubstr(
+          "Invalid: Length of run_ends (3) does not match the length of values (4)"),
+      RunEndEncodedArray::Make(30, run_end_values,
+                               ArrayFromJSON(int32(), "[2, 0, 1, 3]")));
 }
 
 TEST_P(TestRunEndEncodedArray, FindPhysicalRange) {
@@ -405,9 +411,9 @@ TEST_P(TestRunEndEncodedArray, Validate) {
                        RunEndEncodedArray::Make(40, run_ends_good, values));
   ASSERT_OK(good_array->ValidateFull());
 
-  ASSERT_OK_AND_ASSIGN(
-      auto require64_array,
-      RunEndEncodedArray::Make(9223372036854775806, run_ends_require64, values));
+  ASSERT_OK_AND_ASSIGN(auto require64_array,
+                       RunEndEncodedArray::Make(9223372036854775806, run_ends_require64,
+                                                values->Slice(1, 2)));
   ASSERT_OK(require64_array->ValidateFull());
 
   auto sliced = good_array->Slice(5, 20);
@@ -418,7 +424,7 @@ TEST_P(TestRunEndEncodedArray, Validate) {
 
   ASSERT_OK_AND_ASSIGN(
       auto sliced_children,
-      RunEndEncodedArray::Make(15, run_ends_good->Slice(1, 2), values->Slice(1, 3)));
+      RunEndEncodedArray::Make(15, run_ends_good->Slice(1, 2), values->Slice(1, 2)));
   ASSERT_OK(sliced_children->ValidateFull());
 
   ASSERT_OK_AND_ASSIGN(auto empty_array,
@@ -445,7 +451,7 @@ TEST_P(TestRunEndEncodedArray, Validate) {
       offset_length_overflow->Validate());
 
   ASSERT_OK_AND_ASSIGN(auto too_large_for_ree16,
-                       RunEndEncodedArray::Make(40, run_ends_long, values));
+                       RunEndEncodedArray::Make(40, run_ends_long, values->Slice(1, 2)));
   too_large_for_ree16->data()->offset = std::numeric_limits<int16_t>::max();
   too_large_for_ree16->data()->length = 1;
   if (run_end_type->id() == Type::INT16) {
@@ -461,7 +467,7 @@ TEST_P(TestRunEndEncodedArray, Validate) {
   }
 
   ASSERT_OK_AND_ASSIGN(auto too_large_for_ree32,
-                       RunEndEncodedArray::Make(40, run_ends_long, values));
+                       RunEndEncodedArray::Make(40, run_ends_long, values->Slice(1, 2)));
   too_large_for_ree32->data()->offset = std::numeric_limits<int32_t>::max();
   too_large_for_ree32->data()->length = 1;
   if (run_end_type->id() == Type::INT16) {
