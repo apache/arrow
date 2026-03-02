@@ -535,6 +535,32 @@ TEST_F(TestRecordBatch, RenameColumns) {
   ASSERT_RAISES(Invalid, batch->RenameColumns({"hello", "world"}));
 }
 
+TEST_F(TestRecordBatch, RenameColumnsPreservesMetadata) {
+  const int length = 10;
+
+  auto field1 = field("f1", int32());
+  auto field2 = field("f2", uint8());
+  auto field3 = field("f3", int16());
+
+  auto metadata = key_value_metadata({"foo", "bar"}, {"fizz", "buzz"});
+  auto schema1 = ::arrow::schema({field1, field2, field3})->WithMetadata(metadata);
+
+  random::RandomArrayGenerator gen(42);
+
+  auto array1 = gen.ArrayOf(int32(), length);
+  auto array2 = gen.ArrayOf(uint8(), length);
+  auto array3 = gen.ArrayOf(int16(), length);
+
+  auto batch = RecordBatch::Make(schema1, length, {array1, array2, array3});
+
+  ASSERT_OK_AND_ASSIGN(auto renamed, batch->RenameColumns({"zero", "one", "two"}));
+  EXPECT_THAT(renamed->ColumnNames(), testing::ElementsAre("zero", "one", "two"));
+
+  // Verify metadata is preserved
+  ASSERT_NE(nullptr, renamed->schema()->metadata());
+  ASSERT_TRUE(renamed->schema()->metadata()->Equals(*metadata));
+}
+
 TEST_F(TestRecordBatch, SelectColumns) {
   const int length = 10;
 

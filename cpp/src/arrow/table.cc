@@ -366,7 +366,8 @@ Result<std::shared_ptr<Table>> Table::RenameColumns(
     columns[i] = column(i);
     fields[i] = field(i)->WithName(names[i]);
   }
-  return Table::Make(::arrow::schema(std::move(fields)), std::move(columns), num_rows());
+  return Table::Make(::arrow::schema(std::move(fields), schema()->metadata()),
+                     std::move(columns), num_rows());
 }
 
 Result<std::shared_ptr<Table>> Table::SelectColumns(
