@@ -1695,6 +1695,67 @@ def test_filesystem_from_path_object(path):
     assert path == p.resolve().absolute().as_posix()
 
 
+def test_is_likely_uri():
+    """Unit tests for the _is_likely_uri() heuristic."""
+    from pyarrow.fs import _is_likely_uri
+
+    # Valid URI schemes
+    assert _is_likely_uri("s3://bucket/key")
+    assert _is_likely_uri("gs://bucket/key")
+    assert _is_likely_uri("hdfs://host/path")
+    assert _is_likely_uri("file:///local/path")
+    assert _is_likely_uri("abfss://container@account/path")
+    assert _is_likely_uri("grpc+https://host:443")
+
+    # Not URIs — local paths, Windows drives, empty, etc.
+    assert not _is_likely_uri("")
+    assert not _is_likely_uri("/absolute/path")
+    assert not _is_likely_uri("relative/path")
+    assert not _is_likely_uri("C:\\Users\\foo")      # single-letter → drive
+    assert not _is_likely_uri("C:/Users/foo")
+    assert not _is_likely_uri("3bucket://key")       # scheme starts with digit
+    assert not _is_likely_uri("-scheme://key")        # scheme starts with dash
+
+
+def test_resolve_filesystem_and_path_uri_with_spaces():
+    """
+    URIs with a recognised scheme but un-encoded spaces must raise
+    ValueError — NOT silently fall back to LocalFileSystem.
+    (GH-41365)
+    """
+    from pyarrow.fs import _resolve_filesystem_and_path
+
+    # S3 URI with spaces should raise, not return LocalFileSystem
+    with pytest.raises(ValueError, match="Cannot parse URI"):
+        _resolve_filesystem_and_path("s3://bucket/path with space/file.parquet")
+
+    # GCS URI with spaces should also raise
+    with pytest.raises(ValueError, match="Cannot parse URI"):
+        _resolve_filesystem_and_path("gs://bucket/path with space/file.csv")
+
+    # abfss URI with spaces
+    with pytest.raises(ValueError, match="Cannot parse URI"):
+        _resolve_filesystem_and_path(
+            "abfss://container@account/dir with space/file"
+        )
+
+
+def test_resolve_filesystem_and_path_local_with_spaces():
+    """
+    Local paths (no scheme) with spaces should still resolve to
+    LocalFileSystem — they must NOT be confused with malformed URIs.
+    """
+    from pyarrow.fs import _resolve_filesystem_and_path
+
+    # Absolute local path with spaces → LocalFileSystem
+    fs, path = _resolve_filesystem_and_path("/tmp/path with spaces/data")
+    assert isinstance(fs, LocalFileSystem)
+
+    # Non-existent absolute path → still LocalFileSystem
+    fs, path = _resolve_filesystem_and_path("/nonexistent/path")
+    assert isinstance(fs, LocalFileSystem)
+
+
 @pytest.mark.s3
 def test_filesystem_from_uri_s3(s3_server):
     from pyarrow.fs import S3FileSystem
