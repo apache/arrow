@@ -5939,3 +5939,36 @@ def test_scanner_from_substrait(dataset):
         filter=ps.BoundExpressions.from_substrait(filtering)
     ).to_table()
     assert result.to_pydict() == {'str': ['4', '4']}
+
+
+@pytest.mark.parametrize("names, expected_schema", [
+    (["new-index", "new-color"],
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("new-color", pa.string())])),
+    (("new-index", "new-color"),
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("new-color", pa.string())])),
+    ({"index": "new-index", "color": "new-color"},
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("new-color", pa.string())])),
+    ({"index": "new-index"},
+     pa.schema([pa.field("new-index", pa.int64()),
+                pa.field("color", pa.string())])),
+]
+)
+def test_rename_columns(names, expected_schema):
+    original_schema = pa.schema([
+        pa.field('index', pa.int64()),
+        pa.field('color', pa.string()),
+    ]
+    )
+
+    dataset = ds.InMemoryDataset(
+        pa.RecordBatch.from_pylist(
+            [{"index": 1, "color": "green"}, {"index": 2, "color": "blue"}]),
+        schema=original_schema
+    )
+
+    dataset.rename_columns(names)
+
+    assert dataset.to_table().schema.equals(expected_schema)
