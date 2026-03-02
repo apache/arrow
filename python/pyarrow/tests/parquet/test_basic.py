@@ -19,6 +19,7 @@ import os
 import sys
 from collections import OrderedDict
 import io
+import re
 import warnings
 from shutil import copytree
 from decimal import Decimal
@@ -618,6 +619,70 @@ def test_lz4_raw_compression_alias():
     table = pa.Table.from_arrays([arr, arr], names=['a', 'b'])
     _check_roundtrip(table, expected=table, compression="lz4_raw")
     _check_roundtrip(table, expected=table, compression="LZ4_RAW")
+
+
+def test_bloom_filter_options():
+    arr_int = pa.array(list(map(int, range(100))))
+    arr_bin = pa.array([str(x) for x in range(100)], type=pa.binary())
+    data = [arr_int, arr_bin]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # bloom filter for one column
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': 0.05}})
+
+    # bloom filter for two columns
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': 0.05}, 'b': {'ndv': 10, 'fpp': 0.1}})
+
+    # bloom filter for one column with default ndv
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'fpp': 0.05}})
+
+    # bloom filter for one column with default fpp
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100}})
+
+    # bloom filter for one column with default ndv and fpp
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {}})
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': True})
+
+    # should remain disabled
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': False})
+
+    # wrong type for ndv
+    buf = io.BytesIO()
+    with pytest.raises(TypeError, match="'ndv' for column 'a' must be an int"):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': '100', 'fpp': 0.05}})
+
+    # wrong type for fpp
+    with pytest.raises(TypeError, match="'fpp' for column 'a' must be a float"):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': '0.05'}})
+
+    # wrong type for options
+    with pytest.raises(TypeError, match="'bloom_filter_options' must be a dictionary"):
+        _write_table(table, buf, bloom_filter_options=True)
+
+    # invalid ndv value
+    with pytest.raises(ValueError,
+                       match="'ndv' for column 'a' must be positive, got -10"):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': -10}})
+
+    # invalid fpp values
+    with pytest.raises(ValueError, match=re.escape(
+            "'fpp' for column 'a' must be in (0.0, 1,0), got 2.0")):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'fpp': 2.0}})
+    with pytest.raises(ValueError, match=re.escape(
+            "'fpp' for column 'a' must be in (0.0, 1,0), got -0.5")):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'fpp': -0.5}})
 
 
 def test_sanitized_spark_field_names():
