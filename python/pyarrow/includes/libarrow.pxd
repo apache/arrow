@@ -2104,6 +2104,7 @@ cdef extern from "arrow/csv/api.h" namespace "arrow::csv" nogil:
     cdef cppclass CCSVConvertOptions" arrow::csv::ConvertOptions":
         c_bool check_utf8
         unordered_map[c_string, shared_ptr[CDataType]] column_types
+        shared_ptr[CDataType] default_column_type
         vector[c_string] null_values
         vector[c_string] true_values
         vector[c_string] false_values
