@@ -16,6 +16,7 @@
 // under the License.
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
+
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/result.h"
@@ -129,16 +130,30 @@ void Configuration::LoadDsn(const std::string& dsn) {
   Set(FlightSqlConnection::TOKEN, ReadDsnString(dsn, FlightSqlConnection::TOKEN));
   Set(FlightSqlConnection::UID, ReadDsnString(dsn, FlightSqlConnection::UID));
   Set(FlightSqlConnection::PWD, ReadDsnString(dsn, FlightSqlConnection::PWD));
-  Set(FlightSqlConnection::USE_ENCRYPTION,
-      ReadDsnString(dsn, FlightSqlConnection::USE_ENCRYPTION, DEFAULT_ENABLE_ENCRYPTION));
   Set(FlightSqlConnection::TRUSTED_CERTS,
       ReadDsnString(dsn, FlightSqlConnection::TRUSTED_CERTS));
+
+#ifdef __APPLE__
+  // macOS iODBC treats non-empty defaults as the real values when reading from system
+  // DSN, so we don't pass defaults on macOS.
+  // GH-49387 TODO: enable default values on macOS
+  Set(FlightSqlConnection::USE_ENCRYPTION,
+      ReadDsnString(dsn, FlightSqlConnection::USE_ENCRYPTION));
+  Set(FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
+      ReadDsnString(dsn, FlightSqlConnection::USE_SYSTEM_TRUST_STORE));
+  Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
+      ReadDsnString(dsn, FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION));
+#else
+  // Windows and Linux
+  Set(FlightSqlConnection::USE_ENCRYPTION,
+      ReadDsnString(dsn, FlightSqlConnection::USE_ENCRYPTION, DEFAULT_ENABLE_ENCRYPTION));
   Set(FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
       ReadDsnString(dsn, FlightSqlConnection::USE_SYSTEM_TRUST_STORE,
                     DEFAULT_USE_CERT_STORE));
   Set(FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
       ReadDsnString(dsn, FlightSqlConnection::DISABLE_CERTIFICATE_VERIFICATION,
                     DEFAULT_DISABLE_CERT_VERIFICATION));
+#endif
 
   auto customKeys = ReadAllKeys(dsn);
   RemoveAllKnownKeys(customKeys);
@@ -195,6 +210,5 @@ std::vector<std::string> Configuration::GetCustomKeys() const {
   boost::copy(copy_props | boost::adaptors::map_keys, std::back_inserter(keys));
   return keys;
 }
-
 }  // namespace config
 }  // namespace arrow::flight::sql::odbc

@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include "ui/window.h"
+#include "arrow/flight/sql/odbc/odbc_impl/ui/window.h"
 
 namespace arrow::flight::sql::odbc {
 namespace config {
