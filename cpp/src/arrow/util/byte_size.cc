@@ -261,7 +261,7 @@ struct GetByteRangesArray {
     RETURN_NOT_OK(range_offsets->Append(sizeof(offset_type) * offset));
     RETURN_NOT_OK(range_lengths->Append(sizeof(offset_type) * length));
 
-    // The following calculation is an over/under estimate of the byte size since views
+    // The following calculation is an over estimate of the byte size since views
     // buffer might
     // 1. Not reference all the values in data buffers (the array was filtered without gc)
     // 2. Reference a value multiple times without repeating it in the data buffer
