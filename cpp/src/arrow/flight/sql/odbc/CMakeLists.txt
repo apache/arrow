@@ -59,10 +59,12 @@ endif()
 
 # On Windows, dynmaic build for ODBC is supported.
 # On unix systems, static build for ODBC is supported, all libraries are linked statically on unix.
+set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 if(WIN32)
+  set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES arrow_flight_sql)
   set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared arrow_odbc_spi_impl)
   set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
@@ -87,6 +89,8 @@ add_arrow_lib(arrow_flight_sql_odbc
               ${ARROW_FLIGHT_SQL_ODBC_SRCS}
               DEFINITIONS
               UNICODE
+              DEPENDENCIES
+              ${ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES}
               SHARED_LINK_FLAGS
               ${ARROW_VERSION_SCRIPT_FLAGS} # Defined in cpp/arrow/CMakeLists.txt
               SHARED_LINK_LIBS

@@ -44,29 +44,26 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
 
 if(ARROW_TEST_LINKAGE STREQUAL "static")
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
-                                           ${ARROW_TEST_LINK_LIBS})
+                                           ${ARROW_TEST_STATIC_LINK_LIBS})
 else()
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
-                                           ${ARROW_TEST_LINK_LIBS})
+                                           ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
-list(APPEND
-     ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS
-     ${ODBC_LIBRARIES}
-     ${ODBCINST}
-     ${SQLite3_LIBRARIES})
+set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBC_LIBRARIES} ${ODBCINST} ${SQLite3_LIBRARIES})
 
 # On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
 # On unix systems, static linking ODBC is supported, thus tests link libraries statically.
 set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
 if(WIN32)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+  # arrow_odbc_spi_impl is required on Windows due to dynamic linking
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
 else()
   # Unix
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
-       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
 endif()
 
 add_arrow_test(flight_sql_odbc_test
