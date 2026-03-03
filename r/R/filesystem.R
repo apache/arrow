@@ -648,6 +648,23 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 #' @usage NULL
 #' @format NULL
 #' @rdname FileSystem
+#' @importFrom utils modifyList
+#' @export
+AzureBlobFileSystem <- R6Class(
+  "AzureBlobFileSystem",
+  inherit = FileSystem,
+  active = list(
+    region = function() fs___S3FileSystem__region(self)
+  )
+)
+
+AzureBlobFileSystem$test <- function(msg) {
+  sprintf("Hello, %s", msg)
+}
+
+#' @usage NULL
+#' @format NULL
+#' @rdname FileSystem
 #' @export
 SubTreeFileSystem <- R6Class(
   "SubTreeFileSystem",
