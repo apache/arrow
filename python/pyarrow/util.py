@@ -245,11 +245,25 @@ def _download_requests(url, out_path):
             f.write(response.content)
 
 
+# TODO(GH-48593): Remove when libc++ supports std::chrono timezone
+# https://github.com/apache/arrow/issues/48593
 def download_tzdata_on_windows():
     r"""
     Download and extract latest IANA timezone database into the
     location expected by Arrow which is %USERPROFILE%\Downloads\tzdata.
+
+    .. deprecated:: 24.0.0
+       This function is deprecated and will be removed in a future version.
+       PyArrow now uses the operating system's timezone database on Windows.
     """
+
+    warnings.warn(
+        "pyarrow.util.download_tzdata_on_windows is deprecated as of 24.0.0 "
+        "and will be removed in a future version. PyArrow now uses the "
+        "operating system's timezone database on most Windows builds.",
+        FutureWarning,
+        stacklevel=2
+    )
     if sys.platform != 'win32':
         raise TypeError(f"Timezone database is already provided by {sys.platform}")
 
