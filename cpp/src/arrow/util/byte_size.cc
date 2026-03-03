@@ -18,6 +18,7 @@
 #include "arrow/util/byte_size.h"
 
 #include <cstdint>
+#include <unordered_map>
 #include <unordered_set>
 
 #include "arrow/array.h"
@@ -191,6 +192,47 @@ struct GetByteRangesArray {
   Status Visit(const BinaryType& type) const { return VisitBaseBinary(type); }
 
   Status Visit(const LargeBinaryType& type) const { return VisitBaseBinary(type); }
+
+  Status Visit(const BinaryViewType& type) const {
+    using c_type = BinaryViewType::c_type;
+    RETURN_NOT_OK(VisitBitmap(input.buffers[0]));
+
+    // Views buffer (buffer[1]) is fixed-width: 16 bytes per view
+    const Buffer& views_buffer = *input.buffers[1];
+    RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(views_buffer.data())));
+    RETURN_NOT_OK(range_offsets->Append(static_cast<uint64_t>(offset) * sizeof(c_type)));
+    RETURN_NOT_OK(range_lengths->Append(static_cast<uint64_t>(length) * sizeof(c_type)));
+
+    // For out-of-line views, track the referenced ranges in data buffers.
+    // We track [min_offset, max_end) per data buffer to report a single range
+    // per buffer.
+    const c_type* views = input.GetValues<c_type>(1, offset);
+    // Map from buffer_index to (min_offset, max_end)
+    std::unordered_map<int32_t, std::pair<int32_t, int32_t>> buffer_ranges;
+    for (int64_t i = 0; i < length; i++) {
+      const c_type& view = views[i];
+      if (!view.is_inline() && view.size() > 0) {
+        int32_t buf_index = view.ref.buffer_index;
+        int32_t buf_offset = view.ref.offset;
+        int32_t buf_end = buf_offset + view.size();
+        auto it = buffer_ranges.find(buf_index);
+        if (it == buffer_ranges.end()) {
+          buffer_ranges[buf_index] = {buf_offset, buf_end};
+        } else {
+          it->second.first = std::min(it->second.first, buf_offset);
+          it->second.second = std::max(it->second.second, buf_end);
+        }
+      }
+    }
+    for (const auto& [buf_index, range] : buffer_ranges) {
+      const Buffer& data_buffer = *input.buffers[2 + buf_index];
+      RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(data_buffer.data())));
+      RETURN_NOT_OK(range_offsets->Append(static_cast<uint64_t>(range.first)));
+      RETURN_NOT_OK(
+          range_lengths->Append(static_cast<uint64_t>(range.second - range.first)));
+    }
+    return Status::OK();
+  }
 
   template <typename BaseListType>
   Status VisitBaseList(const BaseListType& type) const {
