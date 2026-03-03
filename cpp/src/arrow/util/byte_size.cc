@@ -201,6 +201,12 @@ struct GetByteRangesArray {
     RETURN_NOT_OK(range_offsets->Append(sizeof(c_type) * offset));
     RETURN_NOT_OK(range_lengths->Append(sizeof(c_type) * length));
 
+    // The following calculation is an over/under estimate of the size since views buffer
+    // might
+    // 1. Not reference all the values in data buffers (the array was filtered without gc)
+    // 2. Reference a value multiple times without repeating it in the data buffer
+    //
+    // Producing exact byte size would require linear scan of all values in view buffer
     for (int i = 2; i < input.buffers.size(); i++) {
       const Buffer& buf = *input.buffers[i];
       RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(buf.data())));
@@ -255,6 +261,12 @@ struct GetByteRangesArray {
     RETURN_NOT_OK(range_offsets->Append(sizeof(offset_type) * offset));
     RETURN_NOT_OK(range_lengths->Append(sizeof(offset_type) * length));
 
+    // The following calculation is an over/under estimate of the byte size since views
+    // buffer might
+    // 1. Not reference all the values in data buffers (the array was filtered without gc)
+    // 2. Reference a value multiple times without repeating it in the data buffer
+    //
+    // Producing exact byte size would require linear scan of all values in view buffer
     GetByteRangesArray child{*input.child_data[0],
                              0,
                              (*input.child_data[0]).length,

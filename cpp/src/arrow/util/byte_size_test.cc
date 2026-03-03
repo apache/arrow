@@ -326,6 +326,11 @@ TEST(ByteRanges, StringViewType) {
   std::shared_ptr<Array> str_view_with_nulls = ArrayFromJSON(
       utf8_view(), R"(["short", null, "another long string that requires a buffer"])");
   CheckBufferRanges(str_view_with_nulls, {{0, 0, 1}, {1, 0, 48}, {2, 0, 42}});
+
+  CheckBufferRanges(str_view_arr->Slice(1, 1), {{0, 16, 16}, {1, 0, 38}});
+  CheckBufferRanges(str_view_arr->Slice(0, 1), {{0, 0, 16}, {1, 0, 38}});
+  CheckBufferRanges(str_view_with_nulls->Slice(2, 1),
+                    {{0, 0, 1}, {1, 32, 16}, {2, 0, 42}});
 }
 
 TEST(ByteRanges, BinaryViewType) {
@@ -337,6 +342,10 @@ TEST(ByteRanges, BinaryViewType) {
   std::shared_ptr<Array> bin_view_with_nulls =
       ArrayFromJSON(binary_view(), R"(["AB", null, "CDEFGHIJKLMNOPQRSTUVWXYZ"])");
   CheckBufferRanges(bin_view_with_nulls, {{0, 0, 1}, {1, 0, 48}, {2, 0, 24}});
+
+  CheckBufferRanges(bin_view_arr->Slice(1, 1), {{0, 16, 16}, {1, 0, 22}});
+  CheckBufferRanges(bin_view_with_nulls->Slice(2, 1),
+                    {{0, 0, 1}, {1, 32, 16}, {2, 0, 24}});
 }
 
 using ListViewArrowTypes = ::testing::Types<ListViewType, LargeListViewType>;
@@ -359,6 +368,15 @@ TYPED_TEST(ByteRangesListView, Basic) {
                                            {1, 0, 3 * sizeof(offset_type)},
                                            {2, 0, 3 * sizeof(offset_type)},
                                            {3, 0, 20}});
+  CheckBufferRanges(list_view_arr->Slice(2, 1),
+                    {{0, 2 * sizeof(offset_type), sizeof(offset_type)},
+                     {1, 2 * sizeof(offset_type), sizeof(offset_type)},
+                     {2, 0, 16}});
+  CheckBufferRanges(list_view_with_nulls->Slice(2, 1),
+                    {{0, 0, 1},
+                     {1, 2 * sizeof(offset_type), sizeof(offset_type)},
+                     {2, 2 * sizeof(offset_type), sizeof(offset_type)},
+                     {3, 0, 20}});
 }
 
 TYPED_TEST(ByteRangesListView, NestedListView) {
