@@ -80,13 +80,13 @@ if(ARROW_WITH_ZSTD)
 endif()
 
 if(ARROW_ORC)
-  if(ORC_SOURCE STREQUAL "SYSTEM")
+  if(orc_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS orc::orc)
   endif()
 endif()
 
 if(ARROW_USE_GLOG)
-  if(GLOG_SOURCE STREQUAL "SYSTEM")
+  if(glog_SOURCE STREQUAL "SYSTEM")
     list(APPEND ARROW_STATIC_INSTALL_INTERFACE_LIBS glog::glog)
   endif()
 endif()
@@ -202,7 +202,7 @@ function(arrow_add_object_library PREFIX)
       add_library(${prefix}_shared OBJECT ${SOURCES})
       set_target_properties(${prefix}_shared PROPERTIES POSITION_INDEPENDENT_CODE ON)
       target_compile_definitions(${prefix}_shared PRIVATE ARROW_EXPORTING)
-      target_compile_features(${prefix}_shared PRIVATE cxx_std_17)
+      target_compile_features(${prefix}_shared PRIVATE cxx_std_20)
       set(${PREFIX}_TARGET_SHARED
           ${prefix}_shared
           PARENT_SCOPE)
@@ -212,7 +212,7 @@ function(arrow_add_object_library PREFIX)
       add_library(${prefix}_static OBJECT ${SOURCES})
       set_target_properties(${prefix}_static PROPERTIES POSITION_INDEPENDENT_CODE ON)
       target_compile_definitions(${prefix}_static PRIVATE ARROW_STATIC)
-      target_compile_features(${prefix}_static PRIVATE cxx_std_17)
+      target_compile_features(${prefix}_static PRIVATE cxx_std_20)
       set(${PREFIX}_TARGET_STATIC
           ${prefix}_static
           PARENT_SCOPE)
@@ -224,7 +224,7 @@ function(arrow_add_object_library PREFIX)
   else()
     add_library(${prefix} OBJECT ${SOURCES})
     set_target_properties(${prefix} PROPERTIES POSITION_INDEPENDENT_CODE ON)
-    target_compile_features(${prefix} PRIVATE cxx_std_17)
+    target_compile_features(${prefix} PRIVATE cxx_std_20)
     set(${PREFIX}_TARGET_SHARED
         ${prefix}
         PARENT_SCOPE)
@@ -322,26 +322,32 @@ endfunction()
 macro(append_runtime_avx2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX2_FLAG})
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${ARROW_AVX2_FLAGS}")
   endif()
 endmacro()
 
 macro(append_runtime_avx2_bmi2_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX2 AND ARROW_HAVE_RUNTIME_BMI2)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS
-                                                  "${ARROW_AVX2_FLAG} ${ARROW_BMI2_FLAG}")
+    set_source_files_properties(${SRC}
+                                PROPERTIES COMPILE_OPTIONS
+                                           "${ARROW_AVX2_FLAGS};${ARROW_BMI2_FLAG}")
   endif()
 endmacro()
 
 macro(append_runtime_avx512_src SRCS SRC)
   if(ARROW_HAVE_RUNTIME_AVX512)
     list(APPEND ${SRCS} ${SRC})
-    set_source_files_properties(${SRC} PROPERTIES COMPILE_FLAGS ${ARROW_AVX512_FLAG})
+    separate_arguments(AVX512_FLAG_LIST NATIVE_COMMAND "${ARROW_AVX512_FLAG}")
+    set_source_files_properties(${SRC} PROPERTIES COMPILE_OPTIONS "${AVX512_FLAG_LIST}")
   endif()
 endmacro()
 
 # Write out compile-time configuration constants
+string(REPLACE "${CMAKE_SOURCE_DIR}" "<CMAKE_SOURCE_DIR>" REDACTED_CXX_FLAGS
+               ${CMAKE_CXX_FLAGS})
+string(REPLACE "${CMAKE_BINARY_DIR}" "<CMAKE_BINARY_DIR>" REDACTED_CXX_FLAGS
+               ${REDACTED_CXX_FLAGS})
 configure_file("util/config.h.cmake" "util/config.h" ESCAPE_QUOTES)
 configure_file("util/config_internal.h.cmake" "util/config_internal.h" ESCAPE_QUOTES)
 install(FILES "${CMAKE_CURRENT_BINARY_DIR}/util/config.h"
@@ -360,6 +366,7 @@ set(ARROW_SRCS
     extension_type.cc
     extension/bool8.cc
     extension/json.cc
+    extension/parquet_variant.cc
     extension/uuid.cc
     pretty_print.cc
     record_batch.cc
@@ -490,6 +497,8 @@ set(ARROW_UTIL_SRCS
     util/bitmap_builders.cc
     util/bitmap_ops.cc
     util/bpacking.cc
+    util/bpacking_scalar.cc
+    util/bpacking_simd_default.cc
     util/byte_size.cc
     util/byte_stream_split_internal.cc
     util/cancel.cc
@@ -505,6 +514,7 @@ set(ARROW_UTIL_SRCS
     util/float16.cc
     util/formatting.cc
     util/future.cc
+    util/fuzz_internal.cc
     util/hashing.cc
     util/int_util.cc
     util/io_util.cc
@@ -533,11 +543,8 @@ set(ARROW_UTIL_SRCS
 
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 
-append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_avx2.cc)
-append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_avx512.cc)
-if(ARROW_HAVE_NEON)
-  list(APPEND ARROW_UTIL_SRCS util/bpacking_neon.cc)
-endif()
+append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_avx2.cc)
+append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
 if(ARROW_WITH_BROTLI)
   list(APPEND ARROW_UTIL_SRCS util/compression_brotli.cc)
@@ -680,8 +687,8 @@ set(ARROW_TESTING_SRCS
 #
 
 if(ARROW_BUILD_INTEGRATION OR ARROW_BUILD_TESTS)
-  arrow_add_object_library(ARROW_INTEGRATION integration/c_data_integration_internal.cc
-                           integration/json_integration.cc integration/json_internal.cc)
+  arrow_add_object_library(ARROW_INTEGRATION integration/json_integration.cc
+                           integration/json_internal.cc)
   foreach(ARROW_INTEGRATION_TARGET ${ARROW_INTEGRATION_TARGETS})
     target_link_libraries(${ARROW_INTEGRATION_TARGET} PRIVATE RapidJSON)
   endforeach()
@@ -735,6 +742,7 @@ set(ARROW_COMPUTE_SRCS
     compute/kernels/scalar_cast_numeric.cc
     compute/kernels/scalar_cast_string.cc
     compute/kernels/scalar_cast_temporal.cc
+    compute/kernels/temporal_internal.cc
     compute/kernels/vector_hash.cc
     compute/kernels/vector_selection.cc
     compute/kernels/vector_selection_filter_internal.cc
@@ -904,6 +912,13 @@ if(ARROW_FILESYSTEM)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/gcsfs.cc filesystem/gcsfs_internal.cc)
     set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
                                 PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+    # Suppress documentation warnings from google-cloud-cpp headers
+    if(CMAKE_CXX_COMPILER_ID MATCHES "Clang|AppleClang")
+      set_source_files_properties(filesystem/gcsfs.cc filesystem/gcsfs_internal.cc
+                                  PROPERTIES COMPILE_OPTIONS
+                                             "-Wno-documentation;-Wno-documentation-deprecated-sync"
+      )
+    endif()
   endif()
   if(ARROW_HDFS)
     list(APPEND ARROW_FILESYSTEM_SRCS filesystem/hdfs.cc)
@@ -980,6 +995,8 @@ if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
                            extension/opaque.cc
+                           extension/tensor_internal.cc
+                           extension/variable_shape_tensor.cc
                            json/options.cc
                            json/chunked_builder.cc
                            json/chunker.cc
@@ -1168,8 +1185,8 @@ endif()
 
 foreach(LIB_TARGET ${ARROW_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_EXPORTING)
-  # C++17 is required to compile against Arrow C++ headers and libraries
-  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_17)
+  # C++20 is required to compile against Arrow C++ headers and libraries
+  target_compile_features(${LIB_TARGET} PUBLIC cxx_std_20)
 endforeach()
 
 if(ARROW_WITH_BACKTRACE)

@@ -51,8 +51,8 @@ class EqualityComparable {
     }
   };
 
-  friend bool operator==(T const& a, T const& b) { return a.Equals(b); }
-  friend bool operator!=(T const& a, T const& b) { return !(a == b); }
+  friend bool operator==(const T& a, const T& b) { return a.Equals(b); }
+  friend bool operator!=(const T& a, const T& b) { return !(a == b); }
 
  private:
   const T& cast() const { return static_cast<const T&>(*this); }

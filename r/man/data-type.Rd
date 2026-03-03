@@ -207,7 +207,7 @@ Use \code{decimal128()} or \code{decimal256()} as the names are more informative
 \code{decimal()}.
 }
 \examples{
-\dontshow{if (arrow_with_acero()) (if (getRversion() >= "3.4") withAutoprint else force)(\{ # examplesIf}
+\dontshow{if (arrow_with_acero()) withAutoprint(\{ # examplesIf}
 bool()
 struct(a = int32(), b = double())
 timestamp("ms", timezone = "CEST")
@@ -227,11 +227,11 @@ my_chunked_array$cast(date32()) # date32[day]
 # You can also use `cast()` in an Arrow dplyr query.
 if (requireNamespace("dplyr", quietly = TRUE)) {
   library(dplyr, warn.conflicts = FALSE)
-  arrow_table(mtcars) \%>\%
+  arrow_table(mtcars) |>
     transmute(
       col1 = cast(cyl, string()),
       col2 = cast(cyl, int8())
-    ) \%>\%
+    ) |>
     compute()
 }
 \dontshow{\}) # examplesIf}

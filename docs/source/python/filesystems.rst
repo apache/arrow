@@ -56,17 +56,22 @@ Instantiating a filesystem
 ~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 A FileSystem object can be created with one of the constructors (and check the
-respective constructor for its options)::
+respective constructor for its options):
+
+.. code-block:: python
 
    >>> from pyarrow import fs
+   >>> import pyarrow as pa
    >>> local = fs.LocalFileSystem()
 
-or alternatively inferred from a URI::
+or alternatively inferred from a URI:
 
-   >>> s3, path = fs.FileSystem.from_uri("s3://my-bucket")
-   >>> s3
-   <pyarrow._s3fs.S3FileSystem at 0x7f6760cbf4f0>
-   >>> path
+.. code-block:: python
+
+   >>> s3, path = fs.FileSystem.from_uri("s3://my-bucket")  # doctest: +SKIP
+   >>> s3  # doctest: +SKIP
+   <pyarrow._s3fs.S3FileSystem at ...>
+   >>> path  # doctest: +SKIP
    'my-bucket'
 
 
@@ -76,27 +81,28 @@ Reading and writing files
 Several of the IO-related functions in PyArrow accept either a URI (and infer
 the filesystem) or an explicit ``filesystem`` argument to specify the filesystem
 to read or write from. For example, the :meth:`pyarrow.parquet.read_table`
-function can be used in the following ways::
+function can be used in the following ways:
 
-   import pyarrow.parquet as pq
+.. code-block:: python
 
-   # using a URI -> filesystem is inferred
-   pq.read_table("s3://my-bucket/data.parquet")
-   # using a path and filesystem
-   s3 = fs.S3FileSystem(..)
-   pq.read_table("my-bucket/data.parquet", filesystem=s3)
+   >>> import pyarrow.parquet as pq
+   >>> # using a URI -> filesystem is inferred
+   >>> pq.read_table("s3://my-bucket/data.parquet")  # doctest: +SKIP
+   >>> # using a path and filesystem
+   >>> s3 = fs.S3FileSystem(..)  # doctest: +SKIP
+   >>> pq.read_table("my-bucket/data.parquet", filesystem=s3)  # doctest: +SKIP
 
 The filesystem interface further allows to open files for reading (input) or
 writing (output) directly, which can be combined with functions that work with
-file-like objects. For example::
+file-like objects. For example:
 
-   import pyarrow as pa
+.. code-block:: python
 
-   local = fs.LocalFileSystem()
-
-   with local.open_output_stream("test.arrow") as file:
-      with pa.RecordBatchFileWriter(file, table.schema) as writer:
-         writer.write_table(table)
+   >>> table = pa.table({'col1': [1, 2, 3]})
+   >>> local = fs.LocalFileSystem()
+   >>> with local.open_output_stream("test.arrow") as file:
+   ...    with pa.RecordBatchFileWriter(file, table.schema) as writer:
+   ...       writer.write_table(table)
 
 
 Listing files
@@ -104,9 +110,11 @@ Listing files
 
 Inspecting the directories and files on a filesystem can be done with the
 :meth:`FileSystem.get_file_info` method. To list the contents of a directory,
-use the :class:`FileSelector` object to specify the selection::
+use the :class:`FileSelector` object to specify the selection:
 
-   >>> local.get_file_info(fs.FileSelector("dataset/", recursive=True))
+.. code-block:: python
+
+   >>> local.get_file_info(fs.FileSelector("dataset/", recursive=True))  # doctest: +SKIP
    [<FileInfo for 'dataset/part=B': type=FileType.Directory>,
     <FileInfo for 'dataset/part=B/data0.parquet': type=FileType.File, size=1564>,
     <FileInfo for 'dataset/part=A': type=FileType.Directory>,
@@ -116,11 +124,12 @@ This returns a list of :class:`FileInfo` objects, containing information about
 the type (file or directory), the size, the date last modified, etc.
 
 You can also get this information for a single explicit path (or list of
-paths)::
+paths):
+
+.. code-block:: python
 
    >>> local.get_file_info('test.arrow')
-   <FileInfo for 'test.arrow': type=FileType.File, size=3250>
-
+   <FileInfo for 'test.arrow': type=FileType.File, size=498>
    >>> local.get_file_info('non_existent')
    <FileInfo for 'non_existent': type=FileType.NotFound>
 
@@ -132,15 +141,16 @@ Local FS
 
 The :class:`LocalFileSystem` allows you to access files on the local machine.
 
-Example how to write to disk and read it back::
+Example how to write to disk and read it back:
 
-   >>> from pyarrow import fs
+.. code-block:: python
+
    >>> local = fs.LocalFileSystem()
-   >>> with local.open_output_stream('/tmp/pyarrowtest.dat') as stream:
-           stream.write(b'data')
+   >>> with local.open_output_stream('pyarrowtest.dat') as stream:
+   ...     stream.write(b'data')
    4
-   >>> with local.open_input_stream('/tmp/pyarrowtest.dat') as stream:
-           print(stream.readall())
+   >>> with local.open_input_stream('pyarrowtest.dat') as stream:
+   ...     print(stream.readall())
    b'data'
 
 
@@ -159,13 +169,13 @@ supported by AWS (such as the ``AWS_ACCESS_KEY_ID`` and
 and EC2 Instance Metadata Service for EC2 nodes).
 
 
-Example how you can read contents from a S3 bucket::
+Example how you can read contents from a S3 bucket:
 
-   >>> from pyarrow import fs
-   >>> s3 = fs.S3FileSystem(region='eu-west-3')
+.. code-block:: python
 
-   # List all contents in a bucket, recursively
-   >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))
+   >>> s3 = fs.S3FileSystem(region='eu-west-3')  # doctest: +SKIP
+   >>> # List all contents in a bucket, recursively
+   >>> s3.get_file_info(fs.FileSelector('my-test-bucket', recursive=True))  # doctest: +SKIP
    [<FileInfo for 'my-test-bucket/File1': type=FileType.File, size=10>,
     <FileInfo for 'my-test-bucket/File5': type=FileType.File, size=10>,
     <FileInfo for 'my-test-bucket/Dir1': type=FileType.Directory>,
@@ -175,10 +185,9 @@ Example how you can read contents from a S3 bucket::
     <FileInfo for 'my-test-bucket/Dir1/Subdir': type=FileType.Directory>,
     <FileInfo for 'my-test-bucket/Dir2/Subdir': type=FileType.Directory>,
     <FileInfo for 'my-test-bucket/Dir2/Subdir/File3': type=FileType.File, size=10>]
-
-   # Open a file for reading and download its contents
-   >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')
-   >>> f.readall()
+   >>> # Open a file for reading and download its contents
+   >>> f = s3.open_input_stream('my-test-bucket/Dir1/File2')  # doctest: +SKIP
+   >>> f.readall()  # doctest: +SKIP
    b'some data'
 
 
@@ -192,13 +201,13 @@ It is also possible to resolve the region from the bucket name for
 :class:`S3FileSystem` by using :func:`pyarrow.fs.resolve_s3_region` or
 :func:`pyarrow.fs.S3FileSystem.from_uri`.
 
-Here are a couple examples in code::
+Here are a couple examples in code:
 
-   >>> from pyarrow import fs
-   >>> s3 = fs.S3FileSystem(region=fs.resolve_s3_region('my-test-bucket'))
+.. code-block:: python
 
-   # Or via URI:
-   >>> s3, path = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path]')
+   >>> s3 = fs.S3FileSystem(region=fs.resolve_s3_region('my-test-bucket'))  # doctest: +SKIP
+   >>> # Or via URI:
+   >>> s3, path = fs.S3FileSystem.from_uri('s3://[access_key:secret_key@]bucket/path]')  # doctest: +SKIP
 
 
 .. seealso::
@@ -237,19 +246,18 @@ To connect to a public bucket without using any credentials, you must pass
 will report ``Couldn't resolve host name`` since there are different host
 names for authenticated and public access.
 
-Example showing how you can read contents from a GCS bucket::
+Example showing how you can read contents from a GCS bucket:
+
+.. code-block:: python
 
    >>> from datetime import timedelta
-   >>> from pyarrow import fs
-   >>> gcs = fs.GcsFileSystem(anonymous=True, retry_time_limit=timedelta(seconds=15))
-
-   # List all contents in a bucket, recursively
-   >>> uri = "gcp-public-data-landsat/LC08/01/001/003/"
-   >>> file_list = gcs.get_file_info(fs.FileSelector(uri, recursive=True))
-
-   # Open a file for reading and download its contents
-   >>> f = gcs.open_input_stream(file_list[0].path)
-   >>> f.read(64)
+   >>> gcs = fs.GcsFileSystem(anonymous=True, retry_time_limit=timedelta(seconds=15))  # doctest: +SKIP
+   >>> # List all contents in a bucket, recursively
+   >>> uri = "gcp-public-data-landsat/LC08/01/001/003/"  # doctest: +SKIP
+   >>> file_list = gcs.get_file_info(fs.FileSelector(uri, recursive=True))  # doctest: +SKIP
+   >>> # Open a file for reading and download its contents
+   >>> f = gcs.open_input_stream(file_list[0].path)  # doctest: +SKIP
+   >>> f.read(64)  # doctest: +SKIP
    b'GROUP = FILE_HEADER\n  LANDSAT_SCENE_ID = "LC80010032013082LGN03"\n  S'
 
 .. seealso::
@@ -270,8 +278,7 @@ using the :class:`HadoopFileSystem` constructor:
 
 .. code-block:: python
 
-   from pyarrow import fs
-   hdfs = fs.HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path)
+   >>> hdfs = fs.HadoopFileSystem(host, port, user=user, kerb_ticket=ticket_cache_path)  # doctest: +SKIP
 
 The ``libhdfs`` library is loaded **at runtime** (rather than at link / library
 load time, since the library may not be in your LD_LIBRARY_PATH), and relies on
@@ -289,9 +296,9 @@ some environment variables.
 
   .. code-block:: shell
 
-      export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`
-      # or on Windows
-      %HADOOP_HOME%/bin/hadoop classpath --glob > %CLASSPATH%
+      >>> export CLASSPATH=`$HADOOP_HOME/bin/hadoop classpath --glob`  # doctest: +SKIP
+      >>> # or on Windows
+      >>> %HADOOP_HOME%/bin/hadoop classpath --glob > %CLASSPATH%  # doctest: +SKIP
 
   In contrast to the legacy HDFS filesystem with ``pa.hdfs.connect``, setting
   ``CLASSPATH`` is not optional (pyarrow will not attempt to infer it).
@@ -312,21 +319,20 @@ is used for authentication. This means it will try several types of authenticati
 and go with the first one that works. If any authentication parameters are provided when
 initialising the FileSystem, they will be used instead of the default credential.
 
-Example showing how you can read contents from an Azure Blob Storage account::
+Example showing how you can read contents from an Azure Blob Storage account:
 
-   >>> from pyarrow import fs
-   >>> azure_fs = fs.AzureFileSystem(account_name='myaccount')
+.. code-block:: python
 
-   # List all contents in a container, recursively
-   >>> azure_fs.get_file_info(fs.FileSelector('my-container', recursive=True))
+   >>> azure_fs = fs.AzureFileSystem(account_name='myaccount')  # doctest: +SKIP
+   >>> # List all contents in a container, recursively
+   >>> azure_fs.get_file_info(fs.FileSelector('my-container', recursive=True))  # doctest: +SKIP
    [<FileInfo for 'my-container/File1': type=FileType.File, size=10>,
     <FileInfo for 'my-container/File2': type=FileType.File, size=20>,
     <FileInfo for 'my-container/Dir1': type=FileType.Directory>,
     <FileInfo for 'my-container/Dir1/File3': type=FileType.File, size=30>]
-
-   # Open a file for reading and download its contents
-   >>> f = azure_fs.open_input_stream('my-container/File1')
-   >>> f.readall()
+   >>> # Open a file for reading and download its contents
+   >>> f = azure_fs.open_input_stream('my-container/File1')  # doctest: +SKIP
+   >>> f.readall()  # doctest: +SKIP
    b'some data'
 
 For more details on the parameters and usage, refer to the :class:`AzureFileSystem` class documentation.
@@ -346,46 +352,49 @@ The Python ecosystem, however, also has several filesystem packages. Those
 packages following the `fsspec`_ interface can be used in PyArrow as well.
 
 Functions accepting a filesystem object will also accept an fsspec subclass.
-For example::
+For example:
 
-   # creating an fsspec-based filesystem object for Google Cloud Storage
-   import gcsfs
-   fs = gcsfs.GCSFileSystem(project='my-google-project')
+.. code-block:: python
 
-   # using this to read a partitioned dataset
-   import pyarrow.dataset as ds
-   ds.dataset("data/", filesystem=fs)
+   >>> # creating an fsspec-based filesystem object for Google Cloud Storage
+   >>> import gcsfs  # doctest: +SKIP
+   >>> fs_gcs = gcsfs.GCSFileSystem(project='my-google-project')  # doctest: +SKIP
+   >>> # using this to read a partitioned dataset
+   >>> import pyarrow.dataset as ds  # doctest: +SKIP
+   >>> ds.dataset("data/", filesystem=fs_gcs)  # doctest: +SKIP
 
-Similarly for Azure Blob Storage::
+Similarly for Azure Blob Storage:
 
-   import adlfs
-   # ... load your credentials and configure the filesystem
-   fs = adlfs.AzureBlobFileSystem(account_name=account_name, account_key=account_key)
+.. code-block:: python
 
-   import pyarrow.dataset as ds
-   ds.dataset("mycontainer/data/", filesystem=fs)
+   >>> import adlfs  # doctest: +SKIP
+   >>> # ... load your credentials and configure the filesystem
+   >>> fs_azure = adlfs.AzureBlobFileSystem(account_name=account_name, account_key=account_key)  # doctest: +SKIP
+   >>> ds.dataset("mycontainer/data/", filesystem=fs_azure)  # doctest: +SKIP
 
 Under the hood, the fsspec filesystem object is wrapped into a python-based
 PyArrow filesystem (:class:`PyFileSystem`) using :class:`FSSpecHandler`.
 You can also manually do this to get an object with the PyArrow FileSystem
-interface::
+interface:
 
-   from pyarrow.fs import PyFileSystem, FSSpecHandler
-   pa_fs = PyFileSystem(FSSpecHandler(fs))
+.. code-block:: python
 
-Then all the functionalities of :class:`FileSystem` are accessible::
+   >>> from pyarrow.fs import PyFileSystem, FSSpecHandler  # doctest: +SKIP
+   >>> pa_fs = PyFileSystem(FSSpecHandler(fs_azure))  # doctest: +SKIP
 
-   # write data
-   with pa_fs.open_output_stream('mycontainer/pyarrowtest.dat') as stream:
-      stream.write(b'data')
+Then all the functionalities of :class:`FileSystem` are accessible:
 
-   # read data
-   with pa_fs.open_input_stream('mycontainer/pyarrowtest.dat') as stream:
-      print(stream.readall())
-   #b'data'
+.. code-block:: python
 
-   # read a partitioned dataset
-   ds.dataset("data/", filesystem=pa_fs)
+   >>> # write data
+   >>> with pa_fs.open_output_stream('mycontainer/pyarrowtest.dat') as stream:  # doctest: +SKIP
+   ...    stream.write(b'data')
+   >>> # read data
+   >>> with pa_fs.open_input_stream('mycontainer/pyarrowtest.dat') as stream:  # doctest: +SKIP
+   ...    print(stream.readall())
+   b'data'
+   >>> # read a partitioned dataset
+   >>> ds.dataset("data/", filesystem=pa_fs)  # doctest: +SKIP
 
 
 Using fsspec-compatible filesystem URIs
@@ -395,23 +404,26 @@ PyArrow can automatically instantiate fsspec filesystems by prefixing the URI
 scheme with ``fsspec+``. This allows you to use the fsspec-compatible
 filesystems directly with PyArrow's IO functions without needing to manually
 create a filesystem object. Example writing and reading a Parquet file
-using an in-memory filesystem provided by `fsspec`_::
+using an in-memory filesystem provided by `fsspec`_:
 
-   import pyarrow as pa
-   import pyarrow.parquet as pq
+.. code-block:: python
 
-   table = pa.table({'a': [1, 2, 3]})
-   pq.write_table(table, "fsspec+memory://path/to/my_table.parquet")
-   pq.read_table("fsspec+memory://path/to/my_table.parquet")
+   >>> table = pa.table({'a': [1, 2, 3]})
+   >>> pq.write_table(table, "fsspec+memory://path/to/my_table.parquet")  # doctest: +SKIP
+   >>> pq.read_table("fsspec+memory://path/to/my_table.parquet")  # doctest: +SKIP
 
-Example reading parquet file from GitHub directly::
+Example reading parquet file from GitHub directly:
 
-   pq.read_table("fsspec+github://apache:arrow-testing@/data/parquet/alltypes-java.parquet")
+.. code-block:: python
+
+   >>> pq.read_table("fsspec+github://apache:arrow-testing@/data/parquet/alltypes-java.parquet")  # doctest: +SKIP
 
 Hugging Face URIs are explicitly allowed as a shortcut without needing to prefix
-with ``fsspec+``. This is useful for reading datasets hosted on Hugging Face::
+with ``fsspec+``. This is useful for reading datasets hosted on Hugging Face:
 
-   pq.read_table("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")
+.. code-block:: python
+
+   >>> pq.read_table("hf://datasets/stanfordnlp/imdb/plain_text/train-00000-of-00001.parquet")  # doctest: +SKIP
 
 
 Using Arrow filesystems with fsspec
@@ -425,20 +437,23 @@ need to interact with a package that expects fsspec-compatible filesystem
 objects, you can wrap an Arrow FileSystem object with fsspec.
 
 Starting with ``fsspec`` version 2021.09, the ``ArrowFSWrapper`` can be used
-for this::
+for this:
 
-   >>> from pyarrow import fs
+.. code-block:: python
+
    >>> local = fs.LocalFileSystem()
-   >>> from fsspec.implementations.arrow import ArrowFSWrapper
-   >>> local_fsspec = ArrowFSWrapper(local)
+   >>> from fsspec.implementations.arrow import ArrowFSWrapper  # doctest: +SKIP
+   >>> local_fsspec = ArrowFSWrapper(local)  # doctest: +SKIP
 
 The resulting object now has an fsspec-compatible interface, while being backed
 by the Arrow FileSystem under the hood.
-Example usage to create a directory and file, and list the content::
+Example usage to create a directory and file, and list the content:
 
-   >>> local_fsspec.mkdir("./test")
-   >>> local_fsspec.touch("./test/file.txt")
-   >>> local_fsspec.ls("./test/")
+.. code-block:: python
+
+   >>> local_fsspec.mkdir("./test")  # doctest: +SKIP
+   >>> local_fsspec.touch("./test/file.txt")  # doctest: +SKIP
+   >>> local_fsspec.ls("./test/")  # doctest: +SKIP
    ['./test/file.txt']
 
 For more information, see the `fsspec`_ documentation.

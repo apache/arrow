@@ -241,7 +241,10 @@ class TestUnaryArithmetic : public TestBaseUnaryArithmetic<T, ArithmeticOptions>
  protected:
   using Base = TestBaseUnaryArithmetic<T, ArithmeticOptions>;
   using Base::options_;
-  void SetOverflowCheck(bool value) { options_.check_overflow = value; }
+  void SetOverflowCheck(bool value) {
+    ARROW_SCOPED_TRACE("check_overflow = ", value);
+    options_.check_overflow = value;
+  }
 };
 
 template <typename T>
@@ -421,7 +424,10 @@ class TestBinaryArithmetic : public TestBaseArithmetic<T> {
     AssertArraysApproxEqual(*expected, *actual, /*verbose=*/true, equal_options_);
   }
 
-  void SetOverflowCheck(bool value = true) { options_.check_overflow = value; }
+  void SetOverflowCheck(bool value) {
+    ARROW_SCOPED_TRACE("check_overflow = ", value);
+    options_.check_overflow = value;
+  }
 
   void SetNansEqual(bool value = true) {
     this->equal_options_ = equal_options_.nans_equal(value);
@@ -2484,6 +2490,29 @@ TEST_F(TestBinaryArithmeticDecimal, Power) {
                                  ArrayFromJSON(int64(), R"([1, null, 3])")});
       CheckDecimalToFloat(func, {ArrayFromJSON(int64(), R"([1, 2, null])"),
                                  ArrayFromJSON(ty, R"(["1.23", null, "3.45"])")});
+    }
+  }
+}
+
+TEST_F(TestBinaryArithmeticDecimal, ErrorOnNonCastable) {
+  for (const auto& name : {"add", "subtract", "multiply", "divide"}) {
+    for (const auto& suffix : {"", "_checked"}) {
+      auto func = std::string(name) + suffix;
+      SCOPED_TRACE(func);
+      for (const auto& dec_ty : PositiveScaleTypes()) {
+        SCOPED_TRACE(dec_ty->ToString());
+        auto dec_arr = ArrayFromJSON(dec_ty, R"([])");
+        for (const auto& other_ty : {boolean(), fixed_size_binary(42), utf8()}) {
+          SCOPED_TRACE(other_ty->ToString());
+          auto other_arr = ArrayFromJSON(other_ty, R"([])");
+          EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                          ::testing::HasSubstr("has no kernel matching"),
+                                          CallFunction(func, {dec_arr, other_arr}));
+          EXPECT_RAISES_WITH_MESSAGE_THAT(NotImplemented,
+                                          ::testing::HasSubstr("has no kernel matching"),
+                                          CallFunction(func, {other_arr, dec_arr}));
+        }
+      }
     }
   }
 }

@@ -23,6 +23,12 @@ exc = executable(
     dependencies: [arrow_test_dep_no_main, rapidjson_dep, gflags_dep],
 )
 
+arrow_c_data_integration_lib = library(
+    'arrow_c_data_integration',
+    sources: ['c_data_integration_internal.cc'],
+    dependencies: [arrow_test_dep_no_main],
+)
+
 if needs_tests
     test('arrow-json-integration-test', exc)
 endif

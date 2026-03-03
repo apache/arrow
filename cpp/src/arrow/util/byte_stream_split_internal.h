@@ -29,7 +29,9 @@
 #include <cstdint>
 #include <cstring>
 
-#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_SSE4_2)
+// ARROW_HAVE_RUNTIME_SSE4_2 is used on x86-64 to indicate
+// ARROW_RUNTIME_SIMD_LEVEL != NONE.
+#if defined(ARROW_HAVE_NEON) || defined(ARROW_HAVE_RUNTIME_SSE4_2)
 #  include <xsimd/xsimd.hpp>
 #  define ARROW_HAVE_SIMD_SPLIT
 #endif
@@ -120,8 +122,8 @@ void ByteStreamSplitDecodeSimd(const uint8_t* data, int width, int64_t num_value
 
 // Like xsimd::zip_lo, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Arch>& b)
-    -> xsimd::batch<int8_t, Arch> {
+auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a,
+              const xsimd::batch<int8_t, Arch>& b) -> xsimd::batch<int8_t, Arch> {
   using arrow::internal::SizedInt;
   using simd_batch = xsimd::batch<int8_t, Arch>;
   // For signed arithmetic
@@ -144,8 +146,8 @@ auto zip_lo_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Ar
 
 // Like xsimd::zip_hi, but zip groups of kNumBytes at once.
 template <typename Arch, int kNumBytes>
-auto zip_hi_n(const xsimd::batch<int8_t, Arch>& a, const xsimd::batch<int8_t, Arch>& b)
-    -> xsimd::batch<int8_t, Arch> {
+auto zip_hi_n(const xsimd::batch<int8_t, Arch>& a,
+              const xsimd::batch<int8_t, Arch>& b) -> xsimd::batch<int8_t, Arch> {
   using simd_batch = xsimd::batch<int8_t, Arch>;
   using arrow::internal::SizedInt;
   // For signed arithmetic

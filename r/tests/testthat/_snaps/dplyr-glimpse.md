@@ -86,7 +86,7 @@
 # glimpse() calls print() instead of showing data for RBR
 
     Code
-      example_data %>% as_record_batch_reader() %>% glimpse()
+      glimpse(as_record_batch_reader(example_data))
     Message
       Cannot glimpse() data from a RecordBatchReader because it can only be read one time; call `as_arrow_table()` to consume it first.
     Output
@@ -103,7 +103,7 @@
 ---
 
     Code
-      example_data %>% as_record_batch_reader() %>% select(int) %>% glimpse()
+      glimpse(select(as_record_batch_reader(example_data), int))
     Message
       Cannot glimpse() data from a RecordBatchReader because it can only be read one time. Call `compute()` to evaluate the query first.
     Output
@@ -131,7 +131,7 @@
 # glimpse() on Dataset query only shows data for streaming eval
 
     Code
-      ds %>% summarize(max(int)) %>% glimpse()
+      glimpse(summarize(ds, max(int)))
     Message
       This query requires a full table scan, so glimpse() may be expensive. Call `compute()` to evaluate the query first.
     Output
@@ -143,8 +143,7 @@
 # glimpse() on in-memory query shows data even if aggregating
 
     Code
-      example_data %>% arrow_table() %>% summarize(sum(int, na.rm = TRUE)) %>%
-        glimpse()
+      glimpse(summarize(arrow_table(example_data), sum(int, na.rm = TRUE)))
     Output
       Table (query)
       ?? rows x 1 columns

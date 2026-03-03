@@ -492,6 +492,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_store_decimal_as_integer()
             Builder* disable_store_decimal_as_integer()
             Builder* data_pagesize(int64_t size)
+            Builder* max_rows_per_page(int64_t max_rows)
             Builder* encoding(ParquetEncoding encoding)
             Builder* encoding(const c_string& path,
                               ParquetEncoding encoding)
@@ -519,6 +520,7 @@ cdef extern from "parquet/api/writer.h" namespace "parquet" nogil:
             Builder* enable_compliant_nested_types()
             Builder* disable_compliant_nested_types()
             Builder* set_engine_version(ArrowWriterEngineVersion version)
+            Builder* set_time_adjusted_to_utc(c_bool adjusted)
             shared_ptr[ArrowWriterProperties] build()
         c_bool support_deprecated_int96_timestamps()
 
@@ -532,23 +534,20 @@ cdef extern from "parquet/arrow/reader.h" namespace "parquet::arrow" nogil:
         CStatus ReadSchemaField(int i, shared_ptr[CChunkedArray]* out)
 
         int num_row_groups()
-        CStatus ReadRowGroup(int i, shared_ptr[CTable]* out)
-        CStatus ReadRowGroup(int i, const vector[int]& column_indices,
-                             shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadRowGroup(int i)
+        CResult[shared_ptr[CTable]] ReadRowGroup(int i,
+                                                 const vector[int]& column_indices)
 
-        CStatus ReadRowGroups(const vector[int]& row_groups,
-                              shared_ptr[CTable]* out)
-        CStatus ReadRowGroups(const vector[int]& row_groups,
-                              const vector[int]& column_indices,
-                              shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadRowGroups(const vector[int]& row_groups)
+        CResult[shared_ptr[CTable]] ReadRowGroups(const vector[int]& row_groups,
+                                                  const vector[int]& column_indices)
 
         CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices,
                                                                      const vector[int]& column_indices)
         CResult[unique_ptr[CRecordBatchReader]] GetRecordBatchReader(const vector[int]& row_group_indices)
 
-        CStatus ReadTable(shared_ptr[CTable]* out)
-        CStatus ReadTable(const vector[int]& column_indices,
-                          shared_ptr[CTable]* out)
+        CResult[shared_ptr[CTable]] ReadTable()
+        CResult[shared_ptr[CTable]] ReadTable(const vector[int]& column_indices)
 
         CStatus ScanContents(vector[int] columns, int32_t column_batch_size,
                              int64_t* num_rows)

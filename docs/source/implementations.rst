@@ -47,7 +47,7 @@ documentation and source code for these libraries.
      - `Go Docs <https://arrow.apache.org/go/>`_ :fa:`external-link-alt`
      - `Go Source <https://github.com/apache/arrow-go>`_
    * - Java
-     - :doc:`Java Docs<java/index>`
+     - `Java Docs <https://arrow.apache.org/java/>`_ :fa:`external-link-alt`
      - `Java Source <https://github.com/apache/arrow-java>`_
    * - JavaScript
      - `JavaScript Docs <https://arrow.apache.org/js/>`_ :fa:`external-link-alt`
@@ -121,6 +121,6 @@ The source files for the Cookbook are maintained in the
    R <https://arrow.apache.org/docs/r>
    Ruby <https://github.com/apache/arrow/blob/main/ruby/README.md>
    Rust <https://docs.rs/crate/arrow/>
-   Swift <https://github.com/apache/arrow-swift/blob/main/Arrow/README.md>
+   Swift <https://arrow.apache.org/swift/>
    nanoarrow <https://arrow.apache.org/nanoarrow/>
    Implementation Status <status>

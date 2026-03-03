@@ -18,35 +18,36 @@
 ARG base
 FROM ${base}
 
-RUN apk add --no-cache \
-    bash \
-    build-base \
-    bzip2-dev \
-    g++ \
-    git \
-    libffi-dev \
-    libnsl-dev \
-    libtirpc-dev \
-    linux-headers \
-    ncurses-dev \
-    openssl-dev \
-    pkgconf \
-    tzdata \
-    zlib-dev
+ARG python_version=3.13
+ARG arch=aarch64
+ARG build_date
 
-# Install Python3.13.2 without GIL
-RUN wget https://github.com/python/cpython/archive/refs/tags/v3.13.2.tar.gz && \
-    tar -xzf v3.13.2.tar.gz && \
-    rm v3.13.2.tar.gz && \
-    cd cpython-3.13.2/ && \
-    ./configure --disable-gil --with-ensurepip && \
-    make -j && \
-    make install && \
-    cd ../ && \
-    rm -rf cpython-3.13.2/
+RUN apk update && \
+    apk add --no-cache \
+    bash \
+    curl \
+    git \
+    tar \
+    tzdata \
+    zstd
+
+# Install Python with free-threading from python-build-standalone
+# See available releases at: https://github.com/astral-sh/python-build-standalone/releases
+RUN set -e; \
+    case "${python_version}" in \
+      3.13) python_patch_version="3.13.9";; \
+      3.14) python_patch_version="3.14.0";; \
+    esac && \
+    curl -L -o python.tar.zst \
+    https://github.com/astral-sh/python-build-standalone/releases/download/${build_date}/cpython-${python_patch_version}+${build_date}-${arch}-unknown-linux-musl-freethreaded+lto-full.tar.zst && \
+    mkdir -p /opt/python && \
+    tar -xf python.tar.zst -C /opt/python --strip-components=1 && \
+    rm python.tar.zst
+
+ENV PATH="/opt/python/install/bin:${PATH}"
 
 ENV ARROW_PYTHON_VENV /arrow-dev
-RUN python3.13t -m venv ${ARROW_PYTHON_VENV}
+RUN python${python_version}t -m venv ${ARROW_PYTHON_VENV}
 
 ENV PYTHON_GIL 0
 ENV PATH "${ARROW_PYTHON_VENV}/bin:${PATH}"

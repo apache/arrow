@@ -18,6 +18,7 @@
  */
 
 #include <arrow-glib/array.hpp>
+#include <arrow-glib/enums.h>
 #include <arrow-glib/error.hpp>
 #include <arrow-glib/record-batch.hpp>
 #include <arrow-glib/schema.hpp>
@@ -300,6 +301,320 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
   }
 }
 
+struct GArrowCSVWriteOptionsPrivate
+{
+  arrow::csv::WriteOptions write_options;
+};
+
+enum {
+  PROP_CSV_WRITE_OPTIONS_INCLUDE_HEADER = 1,
+  PROP_CSV_WRITE_OPTIONS_BATCH_SIZE,
+  PROP_CSV_WRITE_OPTIONS_DELIMITER,
+  PROP_CSV_WRITE_OPTIONS_NULL_STRING,
+  PROP_CSV_WRITE_OPTIONS_EOL,
+  PROP_CSV_WRITE_OPTIONS_QUOTING_STYLE,
+  PROP_CSV_WRITE_OPTIONS_QUOTING_HEADER,
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowCSVWriteOptions, garrow_csv_write_options, G_TYPE_OBJECT)
+
+#define GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object)                                     \
+  static_cast<GArrowCSVWriteOptionsPrivate *>(                                           \
+    garrow_csv_write_options_get_instance_private(GARROW_CSV_WRITE_OPTIONS(object)))
+
+static void
+garrow_csv_write_options_finalize(GObject *object)
+{
+  auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  priv->write_options.~WriteOptions();
+
+  G_OBJECT_CLASS(garrow_csv_write_options_parent_class)->finalize(object);
+}
+
+static void
+garrow_csv_write_options_set_property(GObject *object,
+                                      guint prop_id,
+                                      const GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CSV_WRITE_OPTIONS_INCLUDE_HEADER:
+    priv->write_options.include_header = g_value_get_boolean(value);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_BATCH_SIZE:
+    priv->write_options.batch_size = g_value_get_int(value);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_DELIMITER:
+    priv->write_options.delimiter = g_value_get_schar(value);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_NULL_STRING:
+    priv->write_options.null_string = g_value_get_string(value);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_EOL:
+    priv->write_options.eol = g_value_get_string(value);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_QUOTING_STYLE:
+    priv->write_options.quoting_style =
+      static_cast<arrow::csv::QuotingStyle>(g_value_get_enum(value));
+    break;
+  case PROP_CSV_WRITE_OPTIONS_QUOTING_HEADER:
+    priv->write_options.quoting_header =
+      static_cast<arrow::csv::QuotingStyle>(g_value_get_enum(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_csv_write_options_get_property(GObject *object,
+                                      guint prop_id,
+                                      GValue *value,
+                                      GParamSpec *pspec)
+{
+  auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_CSV_WRITE_OPTIONS_INCLUDE_HEADER:
+    g_value_set_boolean(value, priv->write_options.include_header);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_BATCH_SIZE:
+    g_value_set_int(value, priv->write_options.batch_size);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_DELIMITER:
+    g_value_set_schar(value, priv->write_options.delimiter);
+    break;
+  case PROP_CSV_WRITE_OPTIONS_NULL_STRING:
+    g_value_set_string(value, priv->write_options.null_string.c_str());
+    break;
+  case PROP_CSV_WRITE_OPTIONS_EOL:
+    g_value_set_string(value, priv->write_options.eol.c_str());
+    break;
+  case PROP_CSV_WRITE_OPTIONS_QUOTING_STYLE:
+    g_value_set_enum(
+      value,
+      static_cast<GArrowCSVQuotingStyle>(priv->write_options.quoting_style));
+    break;
+  case PROP_CSV_WRITE_OPTIONS_QUOTING_HEADER:
+    g_value_set_enum(
+      value,
+      static_cast<GArrowCSVQuotingStyle>(priv->write_options.quoting_header));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_csv_write_options_init(GArrowCSVWriteOptions *object)
+{
+  auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(object);
+  new (&priv->write_options) arrow::csv::WriteOptions;
+  priv->write_options = arrow::csv::WriteOptions::Defaults();
+}
+
+static void
+garrow_csv_write_options_class_init(GArrowCSVWriteOptionsClass *klass)
+{
+  GParamSpec *spec;
+
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->finalize = garrow_csv_write_options_finalize;
+  gobject_class->set_property = garrow_csv_write_options_set_property;
+  gobject_class->get_property = garrow_csv_write_options_get_property;
+
+  auto write_options = arrow::csv::WriteOptions::Defaults();
+
+  /**
+   * GArrowCSVWriteOptions:include-header:
+   *
+   * Whether to write an initial header line with column names.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_boolean("include-header",
+                              "Include header",
+                              "Whether to write an initial header line with column names",
+                              write_options.include_header,
+                              static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CSV_WRITE_OPTIONS_INCLUDE_HEADER,
+                                  spec);
+
+  /**
+   * GArrowCSVWriteOptions:batch-size:
+   *
+   * Maximum number of rows processed at a time.
+   *
+   * The CSV writer converts and writes data in batches of N rows. This number can impact
+   * performance.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_int("batch-size",
+                          "Batch size",
+                          "Maximum number of rows processed at a time",
+                          1,
+                          G_MAXINT32,
+                          write_options.batch_size,
+                          static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_CSV_WRITE_OPTIONS_BATCH_SIZE, spec);
+
+  /**
+   * GArrowCSVWriteOptions:delimiter:
+   *
+   * Field delimiter.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_char("delimiter",
+                           "Delimiter",
+                           "Field delimiter",
+                           0,
+                           G_MAXINT8,
+                           write_options.delimiter,
+                           static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_CSV_WRITE_OPTIONS_DELIMITER, spec);
+
+  /**
+   * GArrowCSVWriteOptions:null-string:
+   *
+   * The string to write for null values. Quotes are not allowed in this string.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("null-string",
+                             "Null string",
+                             "The string to write for null values",
+                             write_options.null_string.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CSV_WRITE_OPTIONS_NULL_STRING,
+                                  spec);
+
+  /**
+   * GArrowCSVWriteOptions:eol:
+   *
+   * The end of line character to use for ending rows.
+   *
+   * Since: 23.0.0
+   */
+  spec = g_param_spec_string("eol",
+                             "EOL",
+                             "The end of line character to use for ending rows",
+                             write_options.eol.c_str(),
+                             static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class, PROP_CSV_WRITE_OPTIONS_EOL, spec);
+
+  /**
+   * GArrowCSVWriteOptions:quoting-style:
+   *
+   * Quoting style.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_enum("quoting-style",
+                      "Quoting style",
+                      "Quoting style",
+                      GARROW_TYPE_CSV_QUOTING_STYLE,
+                      static_cast<GArrowCSVQuotingStyle>(write_options.quoting_style),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CSV_WRITE_OPTIONS_QUOTING_STYLE,
+                                  spec);
+
+  /**
+   * GArrowCSVWriteOptions:quoting-header:
+   *
+   * Quoting style of header.
+   *
+   * Note that #GARROW_CSV_QUOTING_STYLE_NEEDED and #GARROW_CSV_QUOTING_STYLE_ALL_VALID
+   * have the same effect of quoting all column names.
+   *
+   * Since: 23.0.0
+   */
+  spec =
+    g_param_spec_enum("quoting-header",
+                      "Quoting header",
+                      "Quoting style of header",
+                      GARROW_TYPE_CSV_QUOTING_STYLE,
+                      static_cast<GArrowCSVQuotingStyle>(write_options.quoting_header),
+                      static_cast<GParamFlags>(G_PARAM_READWRITE));
+  g_object_class_install_property(gobject_class,
+                                  PROP_CSV_WRITE_OPTIONS_QUOTING_HEADER,
+                                  spec);
+}
+
+/**
+ * garrow_csv_write_options_new:
+ *
+ * Returns: A newly created #GArrowCSVWriteOptions.
+ *
+ * Since: 23.0.0
+ */
+GArrowCSVWriteOptions *
+garrow_csv_write_options_new(void)
+{
+  auto csv_write_options = g_object_new(GARROW_TYPE_CSV_WRITE_OPTIONS, nullptr);
+  return GARROW_CSV_WRITE_OPTIONS(csv_write_options);
+}
+
+G_DEFINE_TYPE(GArrowCSVWriter, garrow_csv_writer, GARROW_TYPE_RECORD_BATCH_WRITER);
+
+static void
+garrow_csv_writer_init(GArrowCSVWriter *object)
+{
+}
+
+static void
+garrow_csv_writer_class_init(GArrowCSVWriterClass *klass)
+{
+}
+
+/**
+ * garrow_csv_writer_new:
+ * @sink: The output of the writer.
+ * @schema: The schema of the writer.
+ * @options: (nullable): Options for serialization.
+ * @error: (nullable): Return location for a #GError or %NULL.
+ *
+ * Returns: (nullable): A newly created #GArrowCSVWriter
+ *   or %NULL on error.
+ *
+ * Since: 23.0.0
+ */
+GArrowCSVWriter *
+garrow_csv_writer_new(GArrowOutputStream *sink,
+                      GArrowSchema *schema,
+                      GArrowCSVWriteOptions *options,
+                      GError **error)
+{
+  auto arrow_sink = garrow_output_stream_get_raw(sink);
+  auto arrow_schema = garrow_schema_get_raw(schema);
+  arrow::csv::WriteOptions arrow_write_options;
+  if (options) {
+    auto arrow_write_options_ptr = garrow_csv_write_options_get_raw(options);
+    arrow_write_options = *arrow_write_options_ptr;
+  } else {
+    arrow_write_options = arrow::csv::WriteOptions::Defaults();
+  }
+  auto arrow_writer_result =
+    arrow::csv::MakeCSVWriter(arrow_sink, arrow_schema, arrow_write_options);
+  if (garrow::check(error, arrow_writer_result, "[csv-writer][new]")) {
+    auto arrow_writer = *arrow_writer_result;
+    return garrow_csv_writer_new_raw(&arrow_writer);
+  } else {
+    return nullptr;
+  }
+}
+
 G_END_DECLS
 
 GArrowRecordBatchWriter *
@@ -342,4 +657,19 @@ garrow_record_batch_file_writer_new_raw(
                                                  arrow_writer,
                                                  NULL));
   return writer;
+}
+
+GArrowCSVWriter *
+garrow_csv_writer_new_raw(std::shared_ptr<arrow::ipc::RecordBatchWriter> *arrow_writer)
+{
+  auto writer = GARROW_CSV_WRITER(
+    g_object_new(GARROW_TYPE_CSV_WRITER, "record-batch-writer", arrow_writer, nullptr));
+  return writer;
+}
+
+arrow::csv::WriteOptions *
+garrow_csv_write_options_get_raw(GArrowCSVWriteOptions *options)
+{
+  auto priv = GARROW_CSV_WRITE_OPTIONS_GET_PRIVATE(options);
+  return &priv->write_options;
 }

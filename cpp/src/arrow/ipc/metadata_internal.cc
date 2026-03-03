@@ -390,9 +390,7 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
-        *out = std::make_shared<MapType>(children[0]->type()->field(0)->WithName("key"),
-                                         children[0]->type()->field(1)->WithName("value"),
-                                         map->keysSorted());
+        *out = std::make_shared<MapType>(children[0], map->keysSorted());
       }
       return Status::OK();
     case flatbuf::Type::Type_FixedSizeList:
@@ -933,18 +931,6 @@ Status FieldFromFlatbuffer(const flatbuf::Field* field, FieldPosition field_pos,
   return Status::OK();
 }
 
-// will return the endianness of the system we are running on
-// based the NUMPY_API function. See NOTICE.txt
-flatbuf::Endianness endianness() {
-  union {
-    uint32_t i;
-    char c[4];
-  } bint = {0x01020304};
-
-  return bint.c[0] == 1 ? flatbuf::Endianness::Endianness_Big
-                        : flatbuf::Endianness::Endianness_Little;
-}
-
 flatbuffers::Offset<KVVector> SerializeCustomMetadata(
     FBB& fbb, const std::shared_ptr<const KeyValueMetadata>& metadata) {
   std::vector<KeyValueOffset> key_values;
@@ -970,7 +956,10 @@ Status SchemaToFlatbuffer(FBB& fbb, const Schema& schema,
   }
 
   auto fb_offsets = fbb.CreateVector(field_offsets);
-  *out = flatbuf::CreateSchema(fbb, endianness(), fb_offsets,
+  auto fb_endianness = schema.endianness() == Endianness::Little
+                           ? flatbuf::Endianness::Endianness_Little
+                           : flatbuf::Endianness::Endianness_Big;
+  *out = flatbuf::CreateSchema(fbb, fb_endianness, fb_offsets,
                                SerializeCustomMetadata(fbb, schema.metadata()));
   return Status::OK();
 }

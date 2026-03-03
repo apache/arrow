@@ -25,6 +25,7 @@
 // We need Windows fixes before including Boost
 #include "arrow/util/windows_compatibility.h"
 
+#include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
 #include "arrow/array.h"
@@ -103,6 +104,20 @@ arrow::Result<FlightPayload> NumberingStream::Next() {
     counter_++;
   }
   return payload;
+}
+
+void AssertEqual(const FlightInfo& expected, const FlightInfo& actual) {
+  ipc::DictionaryMemo expected_memo;
+  ipc::DictionaryMemo actual_memo;
+  ASSERT_OK_AND_ASSIGN(auto ex_schema, expected.GetSchema(&expected_memo));
+  ASSERT_OK_AND_ASSIGN(auto actual_schema, actual.GetSchema(&actual_memo));
+
+  AssertSchemaEqual(*ex_schema, *actual_schema);
+  ASSERT_EQ(expected.total_records(), actual.total_records());
+  ASSERT_EQ(expected.total_bytes(), actual.total_bytes());
+
+  ASSERT_EQ(expected.descriptor(), actual.descriptor());
+  ASSERT_THAT(actual.endpoints(), ::testing::ContainerEq(expected.endpoints()));
 }
 
 std::shared_ptr<Schema> ExampleIntSchema() {

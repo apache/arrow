@@ -49,6 +49,10 @@ using ChunkData = std::vector<std::vector<std::string>>;
 
 class ColumnBuilderTest : public ::testing::Test {
  public:
+  std::shared_ptr<ConvertOptions> MakeOptions(ConvertOptions options) {
+    return std::make_shared<ConvertOptions>(std::move(options));
+  }
+
   void AssertBuilding(const std::shared_ptr<ColumnBuilder>& builder,
                       const ChunkData& chunks, bool validate_full,
                       std::shared_ptr<ChunkedArray>* out) {
@@ -76,8 +80,8 @@ class ColumnBuilderTest : public ::testing::Test {
                      std::shared_ptr<ChunkedArray> expected, bool validate_full = true) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
-    ASSERT_OK_AND_ASSIGN(builder,
-                         ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
+    ASSERT_OK_AND_ASSIGN(
+        builder, ColumnBuilder::Make(default_memory_pool(), 0, MakeOptions(options), tg));
     AssertBuilding(builder, csv_data, validate_full, &actual);
     AssertChunkedEqual(*actual, *expected);
   }
@@ -96,8 +100,8 @@ class ColumnBuilderTest : public ::testing::Test {
                       std::shared_ptr<ChunkedArray> expected) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
-    ASSERT_OK_AND_ASSIGN(
-        builder, ColumnBuilder::Make(default_memory_pool(), type, 0, options, tg));
+    ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::Make(default_memory_pool(), type, 0,
+                                                      MakeOptions(options), tg));
     AssertBuilding(builder, csv_data, &actual);
     AssertChunkedEqual(*actual, *expected);
   }
@@ -219,8 +223,8 @@ TEST_F(TypedColumnBuilderTest, Empty) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK_AND_ASSIGN(
-      builder, ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg));
+  ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::Make(default_memory_pool(), int32(), 0,
+                                                    MakeOptions(options), tg));
 
   std::shared_ptr<ChunkedArray> actual;
   AssertBuilding(builder, {}, &actual);
@@ -242,8 +246,8 @@ TEST_F(TypedColumnBuilderTest, Insert) {
   auto options = ConvertOptions::Defaults();
   auto tg = TaskGroup::MakeSerial();
   std::shared_ptr<ColumnBuilder> builder;
-  ASSERT_OK_AND_ASSIGN(
-      builder, ColumnBuilder::Make(default_memory_pool(), int32(), 0, options, tg));
+  ASSERT_OK_AND_ASSIGN(builder, ColumnBuilder::Make(default_memory_pool(), int32(), 0,
+                                                    MakeOptions(options), tg));
 
   std::shared_ptr<BlockParser> parser;
   std::shared_ptr<ChunkedArray> actual, expected;
@@ -298,8 +302,8 @@ class InferringColumnBuilderTest : public ColumnBuilderTest {
                             bool validate_full = true) {
     std::shared_ptr<ColumnBuilder> builder;
     std::shared_ptr<ChunkedArray> actual;
-    ASSERT_OK_AND_ASSIGN(builder,
-                         ColumnBuilder::Make(default_memory_pool(), 0, options, tg));
+    ASSERT_OK_AND_ASSIGN(
+        builder, ColumnBuilder::Make(default_memory_pool(), 0, MakeOptions(options), tg));
     AssertBuilding(builder, csv_data, validate_full, &actual);
     ASSERT_EQ(actual->num_chunks(), static_cast<int>(csv_data.size()));
     for (int i = 0; i < actual->num_chunks(); ++i) {

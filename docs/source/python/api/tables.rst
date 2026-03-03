@@ -64,3 +64,7 @@ Tensors
    :toctree: ../generated/
 
    Tensor
+   SparseCOOTensor
+   SparseCSRMatrix
+   SparseCSCMatrix
+   SparseCSFTensor

@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstring>
 #include <memory>
+#include <random>
 #include <unordered_set>
 #include <utility>
 #include <vector>
@@ -28,6 +29,7 @@
 #include "arrow/buffer.h"
 #include "arrow/extension_type.h"
 #include "arrow/io/memory.h"
+#include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/table.h"
 #include "arrow/type.h"
@@ -40,11 +42,15 @@
 #include "arrow/util/parallel.h"
 #include "arrow/util/range.h"
 #include "arrow/util/tracing_internal.h"
+
 #include "parquet/arrow/reader_internal.h"
+#include "parquet/bloom_filter.h"
+#include "parquet/bloom_filter_reader.h"
 #include "parquet/column_reader.h"
 #include "parquet/exception.h"
 #include "parquet/file_reader.h"
 #include "parquet/metadata.h"
+#include "parquet/page_index.h"
 #include "parquet/properties.h"
 #include "parquet/schema.h"
 
@@ -195,9 +201,9 @@ class FileReaderImpl : public FileReader {
 
   std::shared_ptr<RowGroupReader> RowGroup(int row_group_index) override;
 
-  Status ReadTable(const std::vector<int>& indices,
-                   std::shared_ptr<Table>* out) override {
-    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), indices, out);
+  Result<std::shared_ptr<Table>> ReadTable(
+      const std::vector<int>& column_indices) override {
+    return ReadRowGroups(Iota(reader_->metadata()->num_row_groups()), column_indices);
   }
 
   Status GetFieldReader(int i,
@@ -298,13 +304,12 @@ class FileReaderImpl : public FileReader {
     return ReadColumn(i, Iota(reader_->metadata()->num_row_groups()), out);
   }
 
-  Status ReadTable(std::shared_ptr<Table>* table) override {
-    return ReadTable(Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadTable() override {
+    return ReadTable(Iota(reader_->metadata()->num_columns()));
   }
 
-  Status ReadRowGroups(const std::vector<int>& row_groups,
-                       const std::vector<int>& indices,
-                       std::shared_ptr<Table>* table) override;
+  Result<std::shared_ptr<Table>> ReadRowGroups(const std::vector<int>& row_groups,
+                                               const std::vector<int>& indices) override;
 
   // Helper method used by ReadRowGroups - read the given row groups/columns, skipping
   // bounds checks and pre-buffering. Takes a shared_ptr to self to keep the reader
@@ -313,18 +318,18 @@ class FileReaderImpl : public FileReader {
       std::shared_ptr<FileReaderImpl> self, const std::vector<int>& row_groups,
       const std::vector<int>& column_indices, ::arrow::internal::Executor* cpu_executor);
 
-  Status ReadRowGroups(const std::vector<int>& row_groups,
-                       std::shared_ptr<Table>* table) override {
-    return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadRowGroups(
+      const std::vector<int>& row_groups) override {
+    return ReadRowGroups(row_groups, Iota(reader_->metadata()->num_columns()));
   }
 
-  Status ReadRowGroup(int row_group_index, const std::vector<int>& column_indices,
-                      std::shared_ptr<Table>* out) override {
-    return ReadRowGroups({row_group_index}, column_indices, out);
+  Result<std::shared_ptr<Table>> ReadRowGroup(
+      int row_group_index, const std::vector<int>& column_indices) override {
+    return ReadRowGroups({row_group_index}, column_indices);
   }
 
-  Status ReadRowGroup(int i, std::shared_ptr<Table>* table) override {
-    return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()), table);
+  Result<std::shared_ptr<Table>> ReadRowGroup(int i) override {
+    return ReadRowGroup(i, Iota(reader_->metadata()->num_columns()));
   }
 
   Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
@@ -427,11 +432,13 @@ class RowGroupReaderImpl : public RowGroupReader {
 
   Status ReadTable(const std::vector<int>& column_indices,
                    std::shared_ptr<::arrow::Table>* out) override {
-    return impl_->ReadRowGroup(row_group_index_, column_indices, out);
+    ARROW_ASSIGN_OR_RAISE(*out, impl_->ReadRowGroup(row_group_index_, column_indices));
+    return Status::OK();
   }
 
   Status ReadTable(std::shared_ptr<::arrow::Table>* out) override {
-    return impl_->ReadRowGroup(row_group_index_, out);
+    ARROW_ASSIGN_OR_RAISE(*out, impl_->ReadRowGroup(row_group_index_));
+    return Status::OK();
   }
 
  private:
@@ -1244,9 +1251,8 @@ Status FileReaderImpl::GetColumn(int i, FileColumnIteratorFactory iterator_facto
   return Status::OK();
 }
 
-Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
-                                     const std::vector<int>& column_indices,
-                                     std::shared_ptr<Table>* out) {
+Result<std::shared_ptr<Table>> FileReaderImpl::ReadRowGroups(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
   RETURN_NOT_OK(BoundsCheck(row_groups, column_indices));
 
   // PARQUET-1698/PARQUET-1820: pre-buffer row groups/column chunks if enabled
@@ -1260,8 +1266,7 @@ Status FileReaderImpl::ReadRowGroups(const std::vector<int>& row_groups,
 
   auto fut = DecodeRowGroups(/*self=*/nullptr, row_groups, column_indices,
                              /*cpu_executor=*/nullptr);
-  ARROW_ASSIGN_OR_RAISE(*out, fut.MoveResult());
-  return Status::OK();
+  return fut.MoveResult();
 }
 
 Future<std::shared_ptr<Table>> FileReaderImpl::DecodeRowGroups(
@@ -1332,18 +1337,69 @@ Status FileReader::GetRecordBatchReader(const std::vector<int>& row_group_indice
   return Status::OK();
 }
 
+Status FileReader::ReadTable(std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadTable());
+  return Status::OK();
+}
+
+Status FileReader::ReadTable(const std::vector<int>& column_indices,
+                             std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadTable(column_indices));
+  return Status::OK();
+}
+
+Status FileReader::ReadRowGroup(int i, const std::vector<int>& column_indices,
+                                std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroup(i, column_indices));
+  return Status::OK();
+}
+
+Status FileReader::ReadRowGroup(int i, std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroup(i));
+  return Status::OK();
+}
+
+Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
+                                 const std::vector<int>& column_indices,
+                                 std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroups(row_groups, column_indices));
+  return Status::OK();
+}
+
+Status FileReader::ReadRowGroups(const std::vector<int>& row_groups,
+                                 std::shared_ptr<Table>* out) {
+  ARROW_ASSIGN_OR_RAISE(*out, ReadRowGroups(row_groups));
+  return Status::OK();
+}
+
 Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         const ArrowReaderProperties& properties,
                         std::unique_ptr<FileReader>* out) {
-  *out = std::make_unique<FileReaderImpl>(pool, std::move(reader), properties);
-  return static_cast<FileReaderImpl*>(out->get())->Init();
+  ARROW_ASSIGN_OR_RAISE(*out, Make(pool, std::move(reader), properties));
+  return Status::OK();
 }
 
 Status FileReader::Make(::arrow::MemoryPool* pool,
                         std::unique_ptr<ParquetFileReader> reader,
                         std::unique_ptr<FileReader>* out) {
-  return Make(pool, std::move(reader), default_arrow_reader_properties(), out);
+  ARROW_ASSIGN_OR_RAISE(*out,
+                        Make(pool, std::move(reader), default_arrow_reader_properties()));
+  return Status::OK();
+}
+
+Result<std::unique_ptr<FileReader>> FileReader::Make(
+    ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> parquet_reader,
+    const ArrowReaderProperties& properties) {
+  std::unique_ptr<FileReader> reader =
+      std::make_unique<FileReaderImpl>(pool, std::move(parquet_reader), properties);
+  RETURN_NOT_OK(static_cast<FileReaderImpl*>(reader.get())->Init());
+  return reader;
+}
+
+Result<std::unique_ptr<FileReader>> FileReader::Make(
+    ::arrow::MemoryPool* pool, std::unique_ptr<ParquetFileReader> parquet_reader) {
+  return Make(pool, std::move(parquet_reader), default_arrow_reader_properties());
 }
 
 FileReaderBuilder::FileReaderBuilder()
@@ -1378,13 +1434,13 @@ FileReaderBuilder* FileReaderBuilder::properties(
 }
 
 Status FileReaderBuilder::Build(std::unique_ptr<FileReader>* out) {
-  return FileReader::Make(pool_, std::move(raw_reader_), properties_, out);
+  ARROW_ASSIGN_OR_RAISE(*out,
+                        FileReader::Make(pool_, std::move(raw_reader_), properties_));
+  return Status::OK();
 }
 
 Result<std::unique_ptr<FileReader>> FileReaderBuilder::Build() {
-  std::unique_ptr<FileReader> out;
-  RETURN_NOT_OK(FileReader::Make(pool_, std::move(raw_reader_), properties_, &out));
-  return out;
+  return FileReader::Make(pool_, std::move(raw_reader_), properties_);
 }
 
 Result<std::unique_ptr<FileReader>> OpenFile(
@@ -1393,47 +1449,5 @@ Result<std::unique_ptr<FileReader>> OpenFile(
   RETURN_NOT_OK(builder.Open(std::move(file)));
   return builder.memory_pool(pool)->Build();
 }
-
-namespace internal {
-
-namespace {
-
-Status FuzzReader(std::unique_ptr<FileReader> reader) {
-  auto st = Status::OK();
-  for (int i = 0; i < reader->num_row_groups(); ++i) {
-    std::shared_ptr<Table> table;
-    auto row_group_status = reader->ReadRowGroup(i, &table);
-    if (row_group_status.ok()) {
-      row_group_status &= table->ValidateFull();
-    }
-    st &= row_group_status;
-  }
-  return st;
-}
-
-}  // namespace
-
-Status FuzzReader(const uint8_t* data, int64_t size) {
-  auto buffer = std::make_shared<::arrow::Buffer>(data, size);
-  Status st;
-  for (auto batch_size : std::vector<std::optional<int>>{std::nullopt, 1, 13, 300}) {
-    auto file = std::make_shared<::arrow::io::BufferReader>(buffer);
-    FileReaderBuilder builder;
-    ArrowReaderProperties properties;
-    if (batch_size) {
-      properties.set_batch_size(batch_size.value());
-    }
-    builder.properties(properties);
-
-    RETURN_NOT_OK(builder.Open(std::move(file)));
-
-    std::unique_ptr<FileReader> reader;
-    RETURN_NOT_OK(builder.Build(&reader));
-    st &= FuzzReader(std::move(reader));
-  }
-  return st;
-}
-
-}  // namespace internal
 
 }  // namespace parquet::arrow

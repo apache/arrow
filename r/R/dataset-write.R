@@ -67,6 +67,11 @@
 #' group and when this number of rows is exceeded, it is split and the next set
 #' of rows is written to the next group. This value must be set such that it is
 #' greater than `min_rows_per_group`. Default is 1024 * 1024.
+#' @param create_directory whether to create the directories written into.
+#' Requires appropriate permissions on the storage backend. If set to FALSE,
+#' directories are assumed to be already present if writing on a classic
+#' hierarchical filesystem. Default is TRUE.
+#' @param preserve_order Preserve the order of the rows.
 #' @param ... additional format-specific arguments. For available Parquet
 #' options, see [write_parquet()]. The available Feather options are:
 #' - `use_legacy_format` logical: write data formatted so that Arrow libraries
@@ -105,8 +110,8 @@
 #' # output directory will be different.
 #' library(dplyr)
 #' two_levels_tree_2 <- tempfile()
-#' mtcars %>%
-#'   group_by(cyl, gear) %>%
+#' mtcars |>
+#'   group_by(cyl, gear) |>
 #'   write_dataset(two_levels_tree_2)
 #' list.files(two_levels_tree_2, recursive = TRUE)
 #'
@@ -115,24 +120,28 @@
 #'
 #' # Write a structure X/Y/part-Z.parquet.
 #' two_levels_tree_no_hive <- tempfile()
-#' mtcars %>%
-#'   group_by(cyl, gear) %>%
+#' mtcars |>
+#'   group_by(cyl, gear) |>
 #'   write_dataset(two_levels_tree_no_hive, hive_style = FALSE)
 #' list.files(two_levels_tree_no_hive, recursive = TRUE)
 #' @export
-write_dataset <- function(dataset,
-                          path,
-                          format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
-                          partitioning = dplyr::group_vars(dataset),
-                          basename_template = paste0("part-{i}.", as.character(format)),
-                          hive_style = TRUE,
-                          existing_data_behavior = c("overwrite", "error", "delete_matching"),
-                          max_partitions = 1024L,
-                          max_open_files = 900L,
-                          max_rows_per_file = 0L,
-                          min_rows_per_group = 0L,
-                          max_rows_per_group = bitwShiftL(1, 20),
-                          ...) {
+write_dataset <- function(
+  dataset,
+  path,
+  format = c("parquet", "feather", "arrow", "ipc", "csv", "tsv", "txt", "text"),
+  partitioning = dplyr::group_vars(dataset),
+  basename_template = paste0("part-{i}.", as.character(format)),
+  hive_style = TRUE,
+  existing_data_behavior = c("overwrite", "error", "delete_matching"),
+  max_partitions = 1024L,
+  max_open_files = 900L,
+  max_rows_per_file = 0L,
+  min_rows_per_group = 0L,
+  max_rows_per_group = bitwShiftL(1, 20),
+  create_directory = TRUE,
+  preserve_order = FALSE,
+  ...
+) {
   format <- match.arg(format)
   if (format %in% c("feather", "ipc")) {
     format <- "arrow"
@@ -220,11 +229,19 @@ write_dataset <- function(dataset,
 
   plan$Write(
     final_node,
-    options, path_and_fs$fs, path_and_fs$path,
-    partitioning, basename_template,
-    existing_data_behavior, max_partitions,
-    max_open_files, max_rows_per_file,
-    min_rows_per_group, max_rows_per_group
+    options,
+    path_and_fs$fs,
+    path_and_fs$path,
+    partitioning,
+    basename_template,
+    existing_data_behavior,
+    max_partitions,
+    max_open_files,
+    max_rows_per_file,
+    min_rows_per_group,
+    max_rows_per_group,
+    create_directory,
+    preserve_order
   )
 }
 
@@ -253,23 +270,26 @@ write_dataset <- function(dataset,
 #'
 #' @seealso [write_dataset()]
 #' @export
-write_delim_dataset <- function(dataset,
-                                path,
-                                partitioning = dplyr::group_vars(dataset),
-                                basename_template = "part-{i}.txt",
-                                hive_style = TRUE,
-                                existing_data_behavior = c("overwrite", "error", "delete_matching"),
-                                max_partitions = 1024L,
-                                max_open_files = 900L,
-                                max_rows_per_file = 0L,
-                                min_rows_per_group = 0L,
-                                max_rows_per_group = bitwShiftL(1, 20),
-                                col_names = TRUE,
-                                batch_size = 1024L,
-                                delim = ",",
-                                na = "",
-                                eol = "\n",
-                                quote = c("needed", "all", "none")) {
+write_delim_dataset <- function(
+  dataset,
+  path,
+  partitioning = dplyr::group_vars(dataset),
+  basename_template = "part-{i}.txt",
+  hive_style = TRUE,
+  existing_data_behavior = c("overwrite", "error", "delete_matching"),
+  max_partitions = 1024L,
+  max_open_files = 900L,
+  max_rows_per_file = 0L,
+  min_rows_per_group = 0L,
+  max_rows_per_group = bitwShiftL(1, 20),
+  col_names = TRUE,
+  batch_size = 1024L,
+  delim = ",",
+  na = "",
+  eol = "\n",
+  quote = c("needed", "all", "none"),
+  preserve_order = FALSE
+) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
@@ -296,29 +316,33 @@ write_delim_dataset <- function(dataset,
     delimiter = delim,
     null_string = na,
     eol = eol,
-    quoting_style = quote
+    quoting_style = quote,
+    preserve_order = preserve_order
   )
 }
 
 #' @rdname write_delim_dataset
 #' @export
-write_csv_dataset <- function(dataset,
-                              path,
-                              partitioning = dplyr::group_vars(dataset),
-                              basename_template = "part-{i}.csv",
-                              hive_style = TRUE,
-                              existing_data_behavior = c("overwrite", "error", "delete_matching"),
-                              max_partitions = 1024L,
-                              max_open_files = 900L,
-                              max_rows_per_file = 0L,
-                              min_rows_per_group = 0L,
-                              max_rows_per_group = bitwShiftL(1, 20),
-                              col_names = TRUE,
-                              batch_size = 1024L,
-                              delim = ",",
-                              na = "",
-                              eol = "\n",
-                              quote = c("needed", "all", "none")) {
+write_csv_dataset <- function(
+  dataset,
+  path,
+  partitioning = dplyr::group_vars(dataset),
+  basename_template = "part-{i}.csv",
+  hive_style = TRUE,
+  existing_data_behavior = c("overwrite", "error", "delete_matching"),
+  max_partitions = 1024L,
+  max_open_files = 900L,
+  max_rows_per_file = 0L,
+  min_rows_per_group = 0L,
+  max_rows_per_group = bitwShiftL(1, 20),
+  col_names = TRUE,
+  batch_size = 1024L,
+  delim = ",",
+  na = "",
+  eol = "\n",
+  quote = c("needed", "all", "none"),
+  preserve_order = FALSE
+) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
@@ -345,28 +369,32 @@ write_csv_dataset <- function(dataset,
     delimiter = delim,
     null_string = na,
     eol = eol,
-    quoting_style = quote
+    quoting_style = quote,
+    preserve_order = preserve_order
   )
 }
 
 #' @rdname write_delim_dataset
 #' @export
-write_tsv_dataset <- function(dataset,
-                              path,
-                              partitioning = dplyr::group_vars(dataset),
-                              basename_template = "part-{i}.tsv",
-                              hive_style = TRUE,
-                              existing_data_behavior = c("overwrite", "error", "delete_matching"),
-                              max_partitions = 1024L,
-                              max_open_files = 900L,
-                              max_rows_per_file = 0L,
-                              min_rows_per_group = 0L,
-                              max_rows_per_group = bitwShiftL(1, 20),
-                              col_names = TRUE,
-                              batch_size = 1024L,
-                              na = "",
-                              eol = "\n",
-                              quote = c("needed", "all", "none")) {
+write_tsv_dataset <- function(
+  dataset,
+  path,
+  partitioning = dplyr::group_vars(dataset),
+  basename_template = "part-{i}.tsv",
+  hive_style = TRUE,
+  existing_data_behavior = c("overwrite", "error", "delete_matching"),
+  max_partitions = 1024L,
+  max_open_files = 900L,
+  max_rows_per_file = 0L,
+  min_rows_per_group = 0L,
+  max_rows_per_group = bitwShiftL(1, 20),
+  col_names = TRUE,
+  batch_size = 1024L,
+  na = "",
+  eol = "\n",
+  quote = c("needed", "all", "none"),
+  preserve_order = FALSE
+) {
   if (!missing(max_rows_per_file) && missing(max_rows_per_group) && max_rows_per_group > max_rows_per_file) {
     max_rows_per_group <- max_rows_per_file
   }
@@ -392,7 +420,8 @@ write_tsv_dataset <- function(dataset,
     batch_size = batch_size,
     null_string = na,
     eol = eol,
-    quoting_style = quote
+    quoting_style = quote,
+    preserve_order = preserve_order
   )
 }
 

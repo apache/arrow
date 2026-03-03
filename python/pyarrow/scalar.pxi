@@ -1173,7 +1173,10 @@ cdef class MapScalar(ListScalar, Mapping):
         if not maps_as_pydicts:
             return list(self)
         result_dict = {}
-        for key, value in self:
+        if self.values is None:
+            return result_dict
+
+        for key, value in zip(self.keys(), self.values.field(self.type.item_field.name)):
             if key in result_dict:
                 if maps_as_pydicts == "strict":
                     raise KeyError(
@@ -1183,7 +1186,7 @@ cdef class MapScalar(ListScalar, Mapping):
                 else:
                     warnings.warn(
                         f"Encountered key '{key}' which was already encountered.")
-            result_dict[key] = value
+            result_dict[key] = value.as_py(maps_as_pydicts=maps_as_pydicts)
         return result_dict
 
     def keys(self):

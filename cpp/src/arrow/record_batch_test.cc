@@ -318,7 +318,6 @@ TEST_F(TestRecordBatch, Validate) {
   auto a3 = gen.ArrayOf(int16(), 5);
 
   auto b1 = RecordBatch::Make(schema, length, {a0, a1, a2});
-
   ASSERT_OK(b1->ValidateFull());
 
   // Length mismatch
@@ -328,6 +327,21 @@ TEST_F(TestRecordBatch, Validate) {
   // Type mismatch
   auto b3 = RecordBatch::Make(schema, length, {a0, a1, a0});
   ASSERT_RAISES(Invalid, b3->ValidateFull());
+
+  // Invalid column data (nulls in map key array) that would abort on MakeArray
+  auto map_field = field("f", map(utf8(), int32()));
+  schema = ::arrow::schema({map_field});
+  auto map_key_data = ArrayFromJSON(utf8(), "[null]")->data();
+  auto map_item_data = ArrayFromJSON(int32(), "[null]")->data();
+  auto map_data = ArrayData::Make(map_field->type(), /*length=*/1, /*buffers=*/{nullptr},
+                                  /*child_data=*/{map_key_data, map_item_data});
+
+  auto b4 = RecordBatch::Make(schema, /*num_rows=*/map_data->length, {map_data});
+  ASSERT_RAISES(Invalid, b4->ValidateFull());
+
+  // Length mismatch with a column data that would also fail on MakeArray
+  auto b5 = RecordBatch::Make(schema, /*num_rows=*/1 + map_data->length, {map_data});
+  ASSERT_RAISES(Invalid, b5->Validate());
 }
 
 TEST_F(TestRecordBatch, Slice) {
@@ -614,8 +628,23 @@ TEST_F(TestRecordBatch, FromSlicedStructArray) {
   StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
   std::shared_ptr<Array> sliced = struct_array.Slice(5, 3);
   ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+  ASSERT_OK(batch->ValidateFull());
 
   std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[5, 6, 7]");
+  std::shared_ptr<RecordBatch> expected =
+      RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
+  AssertBatchesEqual(*expected, *batch);
+}
+
+TEST_F(TestRecordBatch, FromSlicedStructArrayWithOffsetZero) {
+  static constexpr int64_t kLength = 5;
+  std::shared_ptr<Array> x_arr = ArrayFromJSON(int64(), "[0, 1, 2, 3, 4]");
+  StructArray struct_array(struct_({field("x", int64())}), kLength, {x_arr});
+  std::shared_ptr<Array> sliced = struct_array.Slice(0, 3);
+  ASSERT_OK_AND_ASSIGN(auto batch, RecordBatch::FromStructArray(sliced));
+  ASSERT_OK(batch->ValidateFull());
+
+  std::shared_ptr<Array> expected_arr = ArrayFromJSON(int64(), "[0, 1, 2]");
   std::shared_ptr<RecordBatch> expected =
       RecordBatch::Make(schema({field("x", int64())}), 3, {expected_arr});
   AssertBatchesEqual(*expected, *batch);
@@ -1441,7 +1470,7 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayRowCount) {
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 
-TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
+TEST_F(TestRecordBatch, MakeStatisticsArrayNullCountExact) {
   auto schema =
       ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
   auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
@@ -1468,6 +1497,37 @@ TEST_F(TestRecordBatch, MakeStatisticsArrayNullCount) {
                                             {
                                                 ArrayStatistics::ValueType{int64_t{1}},
                                             }}));
+  AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
+}
+
+TEST_F(TestRecordBatch, MakeStatisticsArrayNullCountApproximate) {
+  auto schema =
+      ::arrow::schema({field("no-statistics", boolean()), field("int32", int32())});
+  auto no_statistics_array = ArrayFromJSON(boolean(), "[true, false, true]");
+  auto int32_array_data = ArrayFromJSON(int32(), "[1, null, -1]")->data()->Copy();
+  int32_array_data->statistics = std::make_shared<ArrayStatistics>();
+  int32_array_data->statistics->null_count = 1.0;
+  auto int32_array = MakeArray(std::move(int32_array_data));
+  auto batch = RecordBatch::Make(schema, int32_array->length(),
+                                 {no_statistics_array, int32_array});
+
+  ASSERT_OK_AND_ASSIGN(auto statistics_array, batch->MakeStatisticsArray());
+
+  ASSERT_OK_AND_ASSIGN(
+      auto expected_statistics_array,
+      MakeStatisticsArray("[null, 1]",
+                          {{
+                               ARROW_STATISTICS_KEY_ROW_COUNT_EXACT,
+                           },
+                           {
+                               ARROW_STATISTICS_KEY_NULL_COUNT_APPROXIMATE,
+                           }},
+                          {{
+                               ArrayStatistics::ValueType{int64_t{3}},
+                           },
+                           {
+                               ArrayStatistics::ValueType{1.0},
+                           }}));
   AssertArraysEqual(*expected_statistics_array, *statistics_array, true);
 }
 

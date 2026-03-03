@@ -91,7 +91,8 @@ std::string ParquetVersionToString(ParquetVersion::type ver) {
 
 template <typename DType>
 static std::shared_ptr<Statistics> MakeTypedColumnStats(
-    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr) {
+    const format::ColumnMetaData& metadata, const ColumnDescriptor* descr,
+    ::arrow::MemoryPool* pool) {
   std::optional<bool> min_exact =
       metadata.statistics.__isset.is_min_value_exact
           ? std::optional<bool>(metadata.statistics.is_min_value_exact)
@@ -108,7 +109,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
         metadata.statistics.null_count, metadata.statistics.distinct_count,
         metadata.statistics.__isset.max_value && metadata.statistics.__isset.min_value,
         metadata.statistics.__isset.null_count,
-        metadata.statistics.__isset.distinct_count, min_exact, max_exact);
+        metadata.statistics.__isset.distinct_count, min_exact, max_exact, pool);
   }
   // Default behavior
   return MakeStatistics<DType>(
@@ -117,7 +118,7 @@ static std::shared_ptr<Statistics> MakeTypedColumnStats(
       metadata.statistics.null_count, metadata.statistics.distinct_count,
       metadata.statistics.__isset.max && metadata.statistics.__isset.min,
       metadata.statistics.__isset.null_count, metadata.statistics.__isset.distinct_count,
-      min_exact, max_exact);
+      min_exact, max_exact, pool);
 }
 
 namespace {
@@ -134,7 +135,8 @@ std::shared_ptr<geospatial::GeoStatistics> MakeColumnGeometryStats(
 }
 
 std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_data,
-                                            const ColumnDescriptor* descr) {
+                                            const ColumnDescriptor* descr,
+                                            ::arrow::MemoryPool* pool) {
   auto metadata_type = LoadEnumSafe(&meta_data.type);
   if (descr->physical_type() != metadata_type) {
     throw ParquetException(
@@ -143,21 +145,21 @@ std::shared_ptr<Statistics> MakeColumnStats(const format::ColumnMetaData& meta_d
   }
   switch (metadata_type) {
     case Type::BOOLEAN:
-      return MakeTypedColumnStats<BooleanType>(meta_data, descr);
+      return MakeTypedColumnStats<BooleanType>(meta_data, descr, pool);
     case Type::INT32:
-      return MakeTypedColumnStats<Int32Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int32Type>(meta_data, descr, pool);
     case Type::INT64:
-      return MakeTypedColumnStats<Int64Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int64Type>(meta_data, descr, pool);
     case Type::INT96:
-      return MakeTypedColumnStats<Int96Type>(meta_data, descr);
+      return MakeTypedColumnStats<Int96Type>(meta_data, descr, pool);
     case Type::DOUBLE:
-      return MakeTypedColumnStats<DoubleType>(meta_data, descr);
+      return MakeTypedColumnStats<DoubleType>(meta_data, descr, pool);
     case Type::FLOAT:
-      return MakeTypedColumnStats<FloatType>(meta_data, descr);
+      return MakeTypedColumnStats<FloatType>(meta_data, descr, pool);
     case Type::BYTE_ARRAY:
-      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr);
+      return MakeTypedColumnStats<ByteArrayType>(meta_data, descr, pool);
     case Type::FIXED_LEN_BYTE_ARRAY:
-      return MakeTypedColumnStats<FLBAType>(meta_data, descr);
+      return MakeTypedColumnStats<FLBAType>(meta_data, descr, pool);
     case Type::UNDEFINED:
       break;
   }
@@ -363,7 +365,8 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
     if (is_stats_set()) {
       const std::lock_guard<std::mutex> guard(stats_mutex_);
       if (possible_stats_ == nullptr) {
-        possible_stats_ = MakeColumnStats(*column_metadata_, descr_);
+        possible_stats_ =
+            MakeColumnStats(*column_metadata_, descr_, properties_.memory_pool());
       }
       return possible_stats_;
     }
@@ -1164,6 +1167,42 @@ std::string FileMetaData::SerializeUnencrypted(bool scrub, bool debug) const {
 void FileMetaData::WriteTo(::arrow::io::OutputStream* dst,
                            const std::shared_ptr<Encryptor>& encryptor) const {
   return impl_->WriteTo(dst, encryptor);
+}
+
+bool FileMetaData::VerifySignature(std::span<const uint8_t> serialized_metadata,
+                                   std::span<const uint8_t> signature,
+                                   InternalFileDecryptor* file_decryptor) {
+  DCHECK_NE(file_decryptor, nullptr);
+
+  // In plaintext footer, the "signature" is the concatenation of the nonce used
+  // for GCM encryption, and the authentication tag obtained after GCM encryption.
+  if (signature.size() != encryption::kGcmTagLength + encryption::kNonceLength) {
+    throw ParquetInvalidOrCorruptedFileException(
+        "Invalid footer encryption signature (expected ",
+        encryption::kGcmTagLength + encryption::kNonceLength, " bytes, got ",
+        signature.size(), ")");
+  }
+
+  // Encrypt plaintext serialized metadata so as to compute its signature
+  auto nonce = signature.subspan(0, encryption::kNonceLength);
+  auto tag = signature.subspan(encryption::kNonceLength);
+  const SecureString& key = file_decryptor->GetFooterKey();
+  const std::string& aad = encryption::CreateFooterAad(file_decryptor->file_aad());
+
+  auto aes_encryptor = encryption::AesEncryptor::Make(
+      file_decryptor->algorithm(), static_cast<int>(key.size()), /*metadata=*/true,
+      /*write_length=*/false);
+
+  std::shared_ptr<Buffer> encrypted_buffer =
+      AllocateBuffer(file_decryptor->pool(),
+                     aes_encryptor->CiphertextLength(serialized_metadata.size()));
+  int32_t encrypted_len = aes_encryptor->SignedFooterEncrypt(
+      serialized_metadata, key.as_span(), str2span(aad), nonce,
+      encrypted_buffer->mutable_span_as<uint8_t>());
+  DCHECK_EQ(encrypted_len, encrypted_buffer->size());
+  // Check computed signature against expected
+  return 0 == memcmp(encrypted_buffer->data() + encrypted_len - encryption::kGcmTagLength,
+                     tag.data(), encryption::kGcmTagLength);
 }
 
 class FileCryptoMetaData::FileCryptoMetaDataImpl {
@@ -2006,37 +2045,32 @@ class FileMetaDataBuilder::FileMetaDataBuilderImpl {
     return current_row_group_builder_.get();
   }
 
-  void SetPageIndexLocation(const PageIndexLocation& location) {
-    auto set_index_location =
-        [this](size_t row_group_ordinal,
-               const PageIndexLocation::FileIndexLocation& file_index_location,
-               bool column_index) {
-          auto& row_group_metadata = this->row_groups_.at(row_group_ordinal);
-          auto iter = file_index_location.find(row_group_ordinal);
-          if (iter != file_index_location.cend()) {
-            const auto& row_group_index_location = iter->second;
-            for (size_t i = 0; i < row_group_index_location.size(); ++i) {
-              if (i >= row_group_metadata.columns.size()) {
-                throw ParquetException("Cannot find metadata for column ordinal ", i);
-              }
-              auto& column_metadata = row_group_metadata.columns.at(i);
-              const auto& index_location = row_group_index_location.at(i);
-              if (index_location.has_value()) {
-                if (column_index) {
-                  column_metadata.__set_column_index_offset(index_location->offset);
-                  column_metadata.__set_column_index_length(index_location->length);
-                } else {
-                  column_metadata.__set_offset_index_offset(index_location->offset);
-                  column_metadata.__set_offset_index_length(index_location->length);
-                }
-              }
-            }
-          }
-        };
+  void SetIndexLocations(IndexKind kind, const IndexLocations& locations) {
+    for (const auto& [chunk_id, location] : locations) {
+      auto row_group_id = static_cast<size_t>(chunk_id.row_group_index);
+      if (row_group_id >= row_groups_.size()) {
+        throw ParquetException("Row group id out of range: ", row_group_id);
+      }
 
-    for (size_t i = 0; i < row_groups_.size(); ++i) {
-      set_index_location(i, location.column_index_location, true);
-      set_index_location(i, location.offset_index_location, false);
+      auto& row_group_metadata = row_groups_.at(row_group_id);
+      auto column_id = static_cast<size_t>(chunk_id.column_index);
+      if (column_id >= row_group_metadata.columns.size()) {
+        throw ParquetException("Column id out of range: ", column_id);
+      }
+
+      auto& column_metadata = row_group_metadata.columns.at(column_id);
+      if (kind == IndexKind::kColumnIndex) {
+        column_metadata.__set_column_index_offset(location.offset);
+        column_metadata.__set_column_index_length(location.length);
+      } else if (kind == IndexKind::kOffsetIndex) {
+        column_metadata.__set_offset_index_offset(location.offset);
+        column_metadata.__set_offset_index_length(location.length);
+      } else if (kind == IndexKind::kBloomFilter) {
+        column_metadata.meta_data.__set_bloom_filter_offset(location.offset);
+        column_metadata.meta_data.__set_bloom_filter_length(location.length);
+      } else {
+        throw ParquetException("Invalid index kind: ", static_cast<int>(kind));
+      }
     }
   }
 
@@ -2154,8 +2188,9 @@ RowGroupMetaDataBuilder* FileMetaDataBuilder::AppendRowGroup() {
   return impl_->AppendRowGroup();
 }
 
-void FileMetaDataBuilder::SetPageIndexLocation(const PageIndexLocation& location) {
-  impl_->SetPageIndexLocation(location);
+void FileMetaDataBuilder::SetIndexLocations(IndexKind kind,
+                                            const IndexLocations& locations) {
+  impl_->SetIndexLocations(kind, locations);
 }
 
 std::unique_ptr<FileMetaData> FileMetaDataBuilder::Finish(

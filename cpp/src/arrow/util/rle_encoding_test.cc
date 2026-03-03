@@ -17,6 +17,7 @@
 
 // From Apache Impala (incubating) as of 2016-01-29
 
+#include <bit>
 #include <cstdint>
 #include <cstring>
 #include <random>
@@ -35,6 +36,7 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding_internal.h"
+#include "arrow/util/span.h"
 
 namespace arrow::util {
 
@@ -257,7 +259,8 @@ TEST(BitPacked, BitPackedRun) {
   // 16 values of 1 bit for a total of 16 bits
   const rle_size_t value_count_1 = 16;
   const rle_size_t value_bit_width_1 = 1;
-  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1);
+  const auto run_1 = BitPackedRun(value.data(), value_count_1, value_bit_width_1,
+                                  /* .max_read_bytes= */ -1);
   EXPECT_EQ(run_1.values_count(), value_count_1);
   EXPECT_EQ(run_1.raw_data_size(value_bit_width_1), 2);  // 16 bits fit in 2 bytes
   EXPECT_EQ(run_1.raw_data_ptr(), value.data());
@@ -265,7 +268,8 @@ TEST(BitPacked, BitPackedRun) {
   // 8 values of 3 bits for a total of 24 bits
   const rle_size_t value_count_3 = 8;
   const rle_size_t value_bit_width_3 = 3;
-  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3);
+  const auto run_3 = BitPackedRun(value.data(), value_count_3, value_bit_width_3,
+                                  /* .max_read_bytes= */ -1);
   EXPECT_EQ(run_3.values_count(), value_count_3);
   EXPECT_EQ(run_3.raw_data_size(value_bit_width_3), 3);  // 24 bits fit in 3 bytes
   EXPECT_EQ(run_3.raw_data_ptr(), value.data());
@@ -290,7 +294,7 @@ void TestRleDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(vals.at(0), expected_value);
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
-  EXPECT_EQ(decoder.Advance(3, bit_width), 3);
+  EXPECT_EQ(decoder.Advance(3), 3);
   read += 3;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
@@ -302,9 +306,9 @@ void TestRleDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   // Exhaust iteration
-  EXPECT_EQ(decoder.Advance(value_count - read, bit_width), value_count - read);
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(decoder.Advance(1, bit_width), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
   vals = {0, 0};
   EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
   EXPECT_EQ(vals.at(0), 0);
@@ -337,7 +341,8 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   // Pre-requisite for this test
   EXPECT_GT(value_count, 6);
 
-  const auto run = BitPackedRun(bytes.data(), value_count, bit_width);
+  const auto run =
+      BitPackedRun(bytes.data(), value_count, bit_width, /* .max_read_bytes= */ -1);
 
   auto decoder = BitPackedRunDecoder<T>(run, bit_width);
   std::vector<T> vals = {0, 0};
@@ -350,7 +355,7 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   read += 1;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
-  EXPECT_EQ(decoder.Advance(3, bit_width), 3);
+  EXPECT_EQ(decoder.Advance(3), 3);
   read += 3;
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
@@ -362,9 +367,9 @@ void TestBitPackedDecoder(std::vector<uint8_t> bytes, rle_size_t value_count,
   EXPECT_EQ(decoder.remaining(), value_count - read);
 
   // Exhaust iteration
-  EXPECT_EQ(decoder.Advance(value_count - read, bit_width), value_count - read);
+  EXPECT_EQ(decoder.Advance(value_count - read), value_count - read);
   EXPECT_EQ(decoder.remaining(), 0);
-  EXPECT_EQ(decoder.Advance(1, bit_width), 0);
+  EXPECT_EQ(decoder.Advance(1), 0);
   vals = {0, 0};
   EXPECT_EQ(decoder.Get(vals.data(), bit_width), 0);
   EXPECT_EQ(vals.at(0), 0);
@@ -458,6 +463,29 @@ void TestRleBitPackedParser(std::vector<uint8_t> bytes, rle_size_t bit_width,
   EXPECT_EQ(decoded, expected);
 }
 
+void TestRleBitPackedParserError(span<const uint8_t> bytes, rle_size_t bit_width) {
+  auto parser =
+      RleBitPackedParser(bytes.data(), static_cast<rle_size_t>(bytes.size()), bit_width);
+  EXPECT_FALSE(parser.exhausted());
+
+  struct {
+    auto OnRleRun(RleRun run) { return RleBitPackedParser::ControlFlow::Continue; }
+    auto OnBitPackedRun(BitPackedRun run) {
+      return RleBitPackedParser::ControlFlow::Continue;
+    }
+  } handler;
+
+  // Iterate over all runs
+  parser.Parse(handler);
+  // Non-exhaustion despite ControlFlow::Continue signals an error occurred.
+  EXPECT_FALSE(parser.exhausted());
+}
+
+void TestRleBitPackedParserError(const std::vector<uint8_t>& bytes,
+                                 rle_size_t bit_width) {
+  TestRleBitPackedParserError(span(bytes), bit_width);
+}
+
 TEST(RleBitPacked, RleBitPackedParser) {
   TestRleBitPackedParser<uint16_t>(
       /* bytes= */
@@ -498,6 +526,114 @@ TEST(RleBitPacked, RleBitPackedParser) {
         /* bit_width= */ 2,
         /* expected= */ expected);
   }
+}
+
+TEST(RleBitPacked, RleBitPackedParserInvalidNonPadded) {
+  // GH-47981: a non-padded trailing bit-packed, produced by some non-compliant
+  // encoders, should still be decoded successfully.
+
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x88, 0xc6},
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1, 2, 3, 4});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x88},
+      /* bit_width= */ 3,
+      /* expected= */ {0, 1});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x1, 0x2, 0x3},
+      /* bit_width= */ 8,
+      /* expected= */ {1, 2, 3});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7},
+      /* bit_width= */ 8,
+      /* expected= */ {1, 2, 3, 4, 5, 6, 7});
+  TestRleBitPackedParser<uint16_t>(
+      /* bytes= */
+      {/* LEB128 for 16 values bit packed marker */ 0x5,
+       /* Bitpacked run */ 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8, 0x9},
+      /* bit_width= */ 8,
+      /* expected= */ {1, 2, 3, 4, 5, 6, 7, 8, 9});
+
+  // If the trailing bit-packed declares more values than padding allows,
+  // it's an error.
+
+  // 2 values encoded, 16 values declared (8 would be ok)
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 16 values bit packed marker */ 0x5,
+       /* Bitpacked run */ 0x88},
+      /* bit_width= */ 3);
+  // 8 values encoded, 16 values declared (8 would be ok)
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 16 values bit packed marker */ 0x5,
+       /* Bitpacked run */ 0x1, 0x2, 0x3, 0x4, 0x5, 0x6, 0x7, 0x8},
+      /* bit_width= */ 8);
+
+  // If the trailing bit-packed run does not have room for at least 1 value,
+  // it's an error.
+
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3},
+      /* bit_width= */ 3);
+  TestRleBitPackedParserError(
+      /* bytes= */
+      {/* LEB128 for 8 values bit packed marker */ 0x3,
+       /* Bitpacked run */ 0x1},
+      /* bit_width= */ 9);
+}
+
+TEST(RleBitPacked, RleBitPackedParserErrors) {
+  using V = std::vector<uint8_t>;
+
+  // Truncated LEB128 header
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0x81},
+      /* bit_width= */ 3);
+
+  // Invalid LEB128 header for a 32-bit value
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0xFF, 0xFF, 0xFF, 0xFF, 0x7f},
+      /* bit_width= */ 3);
+
+  // Zero-length repeated run
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0x00, 0x00},
+      /* bit_width= */ 3);
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0x80, 0x00, 0x00},
+      /* bit_width= */ 3);
+
+  // Zero-length bit-packed run
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0x01},
+      /* bit_width= */ 3);
+  TestRleBitPackedParserError(
+      /* bytes= */
+      V{0x80, 0x01},
+      /* bit_width= */ 3);
+
+  // Bit-packed run too large
+  // (we pass a span<> on invalid memory, but only the reachable part should be read)
+  std::vector<uint8_t> bytes = {0x81, 0x80, 0x80, 0x80, 0x02};
+  TestRleBitPackedParserError(
+      /* bytes= */ span(bytes.data(), 1ULL << 30),
+      /* bit_width= */ 1);
 }
 
 // Validates encoding of values by encoding and decoding them.  If
@@ -780,7 +916,13 @@ TEST(BitRle, Random) {
       }
       parity = !parity;
     }
-    if (!CheckRoundTrip(values, bit_util::NumRequiredBits(values.size()))) {
+    // TODO: We can remove this condition once CRAN upgrades its macOS
+    // SDK from 11.3.
+#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
+    if (!CheckRoundTrip(values, std::log2p1(values.size()))) {
+#else
+    if (!CheckRoundTrip(values, std::bit_width(values.size()))) {
+#endif
       FAIL() << "failing seed: " << seed;
     }
   }
@@ -813,7 +955,7 @@ TEST(BitRle, RepeatedPattern) {
 
 TEST(BitRle, Overflow) {
   for (int bit_width = 1; bit_width < 32; bit_width += 3) {
-    int len = RleBitPackedEncoder::MinBufferSize(bit_width);
+    int len = static_cast<int>(RleBitPackedEncoder::MinBufferSize(bit_width));
     std::vector<uint8_t> buffer(len);
     int num_added = 0;
     bool parity = true;
@@ -861,10 +1003,15 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
   const int data_size = static_cast<int>(data.length());
   const int data_values_count =
       static_cast<int>(data.length() - spaced * data.null_count());
-  const int buffer_size = RleBitPackedEncoder::MaxBufferSize(bit_width, data_size);
+  const int buffer_size = static_cast<int>(
+      ::arrow::util::RleBitPackedEncoder::MaxBufferSize(bit_width, data_values_count) +
+      ::arrow::util::RleBitPackedEncoder::MinBufferSize(bit_width));
+
   ASSERT_GE(parts, 1);
   ASSERT_LE(parts, data_size);
 
+  ARROW_SCOPED_TRACE("bit_width = ", bit_width, ", spaced = ", spaced,
+                     ", data_size = ", data_size, ", buffer_size = ", buffer_size);
   const value_type* data_values = static_cast<const ArrayType&>(data).raw_values();
 
   // Encode the data into `buffer` using the encoder.
@@ -875,7 +1022,8 @@ void CheckRoundTrip(const Array& data, int bit_width, bool spaced, int32_t parts
     // Depending on `spaced` we treat nulls as regular values.
     if (data.IsValid(i) || !spaced) {
       bool success = encoder.Put(static_cast<uint64_t>(data_values[i]));
-      ASSERT_TRUE(success) << "Encoding failed in pos " << i;
+      ASSERT_TRUE(success) << "Encoding failed in pos " << i
+                           << ", current encoder len: " << encoder.len();
       ++encoded_values_size;
     }
   }

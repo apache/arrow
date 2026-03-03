@@ -22,7 +22,7 @@
 
 namespace parquet {
 // Abstract class for hash
-class Hasher {
+class PARQUET_EXPORT Hasher {
  public:
   /// Compute hash for 32 bits value by using its plain encoding result.
   ///
@@ -65,6 +65,11 @@ class Hasher {
   /// @param value the value address.
   /// @param len the value length.
   virtual uint64_t Hash(const FLBA* value, uint32_t len) const = 0;
+
+  /// Compute hash for std::string_view value by using its plain encoding result.
+  ///
+  /// @param value the value to hash.
+  virtual uint64_t Hash(std::string_view value) const = 0;
 
   /// Batch compute hashes for 32 bits values by using its plain encoding result.
   ///

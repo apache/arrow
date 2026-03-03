@@ -57,39 +57,37 @@ jobs:
           path: arrow/r/arrow_*.tar.gz
 
   macos-cpp:
-    name: C++ Binary macOS OpenSSL {{ '${{ matrix.openssl }}' }} {{ '${{ matrix.platform.arch }}' }}
+    name: C++ Binary macOS {{ '${{ matrix.platform.arch }}' }}
     runs-on: {{ '${{ matrix.platform.runs_on }}' }}
     needs: source
     strategy:
       fail-fast: false
       matrix:
         platform:
-          - { runs_on: macos-13, arch: "x86_64" }
+          - { runs_on: macos-15-intel, arch: "x86_64" }
           - { runs_on: macos-14, arch: "arm64" }
-        openssl: ['3.0', '1.1']
     env:
-      PKG_ID: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}
-      PKG_FILE: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+      PKG_ID: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}
+      PKG_FILE: r-libarrow-darwin-{{ '${{ matrix.platform.arch }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow(action_v="3")|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
       - name: Install Deps
         run: |
           brew install sccache ninja
-          brew install openssl@{{ '${{ matrix.openssl }}' }}
+          brew install openssl@3.0
       - name: Build libarrow
         shell: bash
         env:
         {{ macros.github_set_sccache_envvars()|indent(8) }}
           MACOSX_DEPLOYMENT_TARGET: "11.6"
-          ARROW_S3: ON
           ARROW_GCS: ON
           ARROW_DEPENDENCY_SOURCE: BUNDLED
           CMAKE_GENERATOR: Ninja
           LIBARROW_MINIMAL: false
         run: |
           sccache --start-server
-          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@{{ '${{ matrix.openssl }}' }})"
+          export EXTRA_CMAKE_FLAGS="-DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3.0)"
           cd arrow
           r/inst/build_arrow_static.sh
       - name: Bundle libarrow
@@ -112,26 +110,22 @@ jobs:
             {{ '${{ env.PKG_FILE }}' }}.sha512
 
   linux-cpp:
-    name: C++ Binary Linux OpenSSL {{ '${{ matrix.openssl }}' }}
-    runs-on: ubuntu-latest
+    name: C++ Binary Linux {{ '${{ matrix.arch }}' }}
+    runs-on: {{ '${{ matrix.runs-on }}' }}
     needs: source
     strategy:
       fail-fast: false
       matrix:
         include:
-          - openssl: "3.0"
-            os: ubuntu
+          - arch: x86_64
+            runs-on: ubuntu-latest
             ubuntu: "22.04"
-          - extra-cmake-flags: >-
-              -DCMAKE_INCLUDE_PATH=/usr/include/openssl11
-              -DCMAKE_LIBRARY_PATH=/usr/lib64/openssl11
-            openssl: "1.1"
-            os: centos
-          - openssl: "1.0"
-            os: centos
+          - arch: arm64
+            runs-on: ubuntu-24.04-arm
+            ubuntu: "22.04"
     env:
-      PKG_ID: r-libarrow-linux-x86_64-openssl-{{ '${{ matrix.openssl }}' }}
-      PKG_FILE: r-libarrow-linux-x86_64-openssl-{{ '${{ matrix.openssl }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
+      PKG_ID: r-libarrow-linux-{{ '${{ matrix.arch }}' }}
+      PKG_FILE: r-libarrow-linux-{{ '${{ matrix.arch }}' }}-{{ '${{ needs.source.outputs.pkg_version }}' }}.zip
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_change_r_pkg_version(is_fork, '${{ needs.source.outputs.pkg_version }}')|indent }}
@@ -139,13 +133,12 @@ jobs:
       - name: Build libarrow
         shell: bash
         env:
-          UBUNTU: {{ '"${{ matrix.ubuntu }}"' }}
+          ARCH: {{ "${{ matrix.arch == 'x86_64' && 'amd64' || 'arm64v8' }}" }}
+          UBUNTU: {{ '${{ matrix.ubuntu }}' }}
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: |
           source arrow/ci/scripts/util_enable_core_dumps.sh
-          archery docker run \
-            -e EXTRA_CMAKE_FLAGS="{{ '${{ matrix.extra-cmake-flags }}' }}" \
-            {{ '${{ matrix.os }}' }}-cpp-static
+          archery docker run ubuntu-cpp-static
       - name: Bundle libarrow
         shell: bash
         run: |
@@ -191,6 +184,8 @@ jobs:
         shell: bash
         env:
           ARROW_HOME: "arrow"
+          MINGW_ARCH: "ucrt64"
+          RTOOLS_VERSION: 40
         {{ macros.github_set_sccache_envvars()|indent(8) }}
         run: arrow/ci/scripts/r_windows_build.sh
       - name: Create Checksum
@@ -216,7 +211,7 @@ jobs:
       matrix:
         platform:
           - { runs_on: 'windows-latest', name: "Windows"}
-          - { runs_on: macos-13, name: "macOS x86_64"}
+          - { runs_on: macos-15-intel, name: "macOS x86_64"}
           - { runs_on: macos-14, name: "macOS arm64" }
         r_version: [oldrel, release]
     steps:
@@ -305,8 +300,8 @@ jobs:
           path: arrow_*
   test-linux-binary:
     needs: [source, linux-cpp]
-    name: Test binary {{ '${{ matrix.config.image }}' }}
-    runs-on: ubuntu-latest
+    name: Test binary {{ '${{ matrix.config.image }}' }} {{ '${{ matrix.config.runner }}' }}
+    runs-on: {{ '${{ matrix.config.runner }}' }}
     container: {{ '${{ matrix.config.image }}' }}
     strategy:
       fail-fast: false
@@ -317,13 +312,18 @@ jobs:
           # an OS that is not in the allowlist, so we have to opt-in to use the
           # binary. Other env vars used in r_docker_configure.sh can be added
           # here and wired up in the later steps.
-          - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE"}
+          # x86_64 tests
+          - {image: "rhub/ubuntu-clang", libarrow_binary: "TRUE", runner: "ubuntu-latest"}
           # fedora-clang-devel cannot use binaries bc of libc++ (uncomment to see the error)
-          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE"}
-          - {image: "rhub/ubuntu-release"} # currently ubuntu-22.04
-          - {image: "rstudio/r-base:4.1-jammy"}
-          - {image: "rstudio/r-base:4.2-jammy"}
-          - {image: "rstudio/r-base:4.3-noble"}
+          # - {image: "rhub/fedora-clang-devel", libarrow_binary: "TRUE", runner: "ubuntu-latest"}
+          - {image: "rhub/ubuntu-release", runner: "ubuntu-latest"} # currently ubuntu-24.04
+          - {image: "posit/r-base:4.3-noble", runner: "ubuntu-latest"}
+          - {image: "posit/r-base:4.4-noble", runner: "ubuntu-latest"}
+          - {image: "posit/r-base:4.5-noble", runner: "ubuntu-latest"}
+          # ARM64 tests
+          - {image: "posit/r-base:4.3-noble", runner: "ubuntu-24.04-arm"}
+          - {image: "posit/r-base:4.4-noble", runner: "ubuntu-24.04-arm"}
+          - {image: "posit/r-base:4.5-noble", runner: "ubuntu-24.04-arm"}
     steps:
       # Get the arrow checkout just for the docker config scripts
       # Don't need submodules for this (hence false arg to macro): they fail on
@@ -352,41 +352,6 @@ jobs:
           Rscript -e '
           {{  macros.github_test_r_src_pkg()|indent(8) }}
           '
-      - name: Upload binary artifact
-        if: matrix.config.devtoolset
-        uses: actions/upload-artifact@v4
-        with:
-          name: r-pkg_centos7
-          path: arrow_*
-
-  test-centos-binary:
-    # arrow binary package not on ppm currently see #37922
-    if: false
-    needs: test-linux-binary
-    runs-on: ubuntu-latest
-    container: "rstudio/r-base:4.2-centos7"
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: r-pkg_centos7
-      - name: Install DTS Package
-        shell: Rscript {0}
-        run: |
-          pkg <- list.files(pattern = "arrow_*")
-          if(length(pkg) > 1) {
-            pkg <- pkg[[1]]
-            warning("Multiple packages found! Using first one.")
-          }
-
-          # Install dependencies from RSPM
-          install.packages("arrow", repos = "https://packagemanager.rstudio.com/all/__linux__/centos7/latest")
-          remove.packages("arrow")
-
-          install.packages(pkg)
-          library(arrow)
-          read_parquet(system.file("v0.7.1.parquet", package = "arrow"))
-          print(arrow_info())
-
   test-source:
     needs: source
     name: Test {{ '${{ matrix.platform.name }}' }} source build
@@ -396,7 +361,7 @@ jobs:
       matrix:
         platform:
           - {runs_on: "ubuntu-latest", name: "Linux"}
-          - {runs_on: "macos-13" , name: "macOS"}
+          - {runs_on: "macos-15-intel" , name: "macOS"}
     steps:
       - name: Install R
         uses: r-lib/actions/setup-r@v2

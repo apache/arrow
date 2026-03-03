@@ -22,6 +22,7 @@
 #include <cstdint>
 #include <functional>
 #include <memory>
+#include <numeric>
 #include <string>
 #include <unordered_set>
 #include <vector>
@@ -32,6 +33,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -47,6 +49,29 @@ using internal::checked_pointer_cast;
 TEST(TestTypeId, AllTypeIds) {
   const auto all_ids = AllTypeIds();
   ASSERT_EQ(static_cast<int>(all_ids.size()), Type::MAX_ID);
+}
+
+TEST(TestTypeSingleton, ParameterFreeTypes) {
+  // Test successful cases - parameter-free types (sample a few)
+  std::vector<std::pair<Type::type, std::shared_ptr<DataType>>> cases = {
+      {Type::NA, null()},     {Type::BOOL, boolean()},  {Type::INT32, int32()},
+      {Type::STRING, utf8()}, {Type::DATE32, date32()},
+  };
+
+  for (const auto& test_case : cases) {
+    ARROW_SCOPED_TRACE("Testing type: ", internal::ToString(test_case.first));
+    auto result = type_singleton(test_case.first);
+    ASSERT_OK_AND_ASSIGN(auto type, result);
+    AssertTypeEqual(*type, *test_case.second);
+  }
+}
+
+TEST(TestTypeSingleton, ParameterizedTypes) {
+  // Test error cases - parameterized types (test one representative)
+  auto result = type_singleton(Type::TIMESTAMP);
+  ASSERT_RAISES(TypeError, result);
+  EXPECT_THAT(result.status().message(),
+              testing::HasSubstr("is not a parameter-free type"));
 }
 
 template <typename ReprFunc>
@@ -2189,6 +2214,36 @@ TEST(TestUnionType, Basics) {
   ASSERT_EQ(ty4->child_ids(), child_ids1);
   ASSERT_EQ(ty5->child_ids(), child_ids1);
   ASSERT_EQ(ty6->child_ids(), child_ids2);
+}
+
+TEST(TestUnionType, MaxTypeCode) {
+  std::vector<std::shared_ptr<Field>> fields;
+  for (int32_t i = 0; i <= UnionType::kMaxTypeCode; i++) {
+    fields.push_back(field(std::to_string(i), int32()));
+  }
+
+  std::vector<int8_t> type_codes(fields.size());
+  std::iota(type_codes.begin(), type_codes.end(), 0);
+
+  auto t1 = checked_pointer_cast<UnionType>(dense_union(fields, type_codes));
+  ASSERT_EQ(t1->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t1->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  auto t2 = checked_pointer_cast<UnionType>(dense_union(fields));
+  ASSERT_EQ(t2->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t2->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  AssertTypeEqual(*t1, *t2);
+
+  auto t3 = checked_pointer_cast<UnionType>(sparse_union(fields, type_codes));
+  ASSERT_EQ(t3->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t3->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  auto t4 = checked_pointer_cast<UnionType>(sparse_union(fields));
+  ASSERT_EQ(t4->type_codes().size(), UnionType::kMaxTypeCode + 1);
+  ASSERT_EQ(t4->child_ids().size(), UnionType::kMaxTypeCode + 1);
+
+  AssertTypeEqual(*t3, *t4);
 }
 
 TEST(TestDictionaryType, Basics) {

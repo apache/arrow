@@ -1524,7 +1524,7 @@ cdef compression_name_from_enum(ParquetCompression compression_):
 
 cdef int check_compression_name(name) except -1:
     if name.upper() not in {'NONE', 'SNAPPY', 'GZIP', 'LZO', 'BROTLI', 'LZ4',
-                            'ZSTD'}:
+                            'LZ4_RAW', 'ZSTD'}:
         raise ArrowException("Unsupported compression: " + name)
     return 0
 
@@ -1539,7 +1539,7 @@ cdef ParquetCompression compression_from_name(name):
         return ParquetCompression_LZO
     elif name == 'BROTLI':
         return ParquetCompression_BROTLI
-    elif name == 'LZ4':
+    elif name == 'LZ4' or name == 'LZ4_RAW':
         return ParquetCompression_LZ4
     elif name == 'ZSTD':
         return ParquetCompression_ZSTD
@@ -1811,7 +1811,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_row_groups
             vector[int] c_column_indices
 
@@ -1825,15 +1825,13 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, c_column_indices,
-                                            &ctable))
+                table_result = self.reader.get().ReadRowGroups(c_row_groups,
+                                                               c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadRowGroups(c_row_groups, &ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadRowGroups(c_row_groups)
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def read_all(self, column_indices=None, bint use_threads=True):
         """
@@ -1847,7 +1845,7 @@ cdef class ParquetReader(_Weakrefable):
         table : pyarrow.Table
         """
         cdef:
-            shared_ptr[CTable] ctable
+            CResult[shared_ptr[CTable]] table_result
             vector[int] c_column_indices
 
         self.set_use_threads(use_threads)
@@ -1857,14 +1855,12 @@ cdef class ParquetReader(_Weakrefable):
                 c_column_indices.push_back(index)
 
             with nogil:
-                check_status(self.reader.get()
-                             .ReadTable(c_column_indices, &ctable))
+                table_result = self.reader.get().ReadTable(c_column_indices)
         else:
             # Read all columns
             with nogil:
-                check_status(self.reader.get()
-                             .ReadTable(&ctable))
-        return pyarrow_wrap_table(ctable)
+                table_result = self.reader.get().ReadTable()
+        return pyarrow_wrap_table(GetResultValue(table_result))
 
     def scan_contents(self, column_indices=None, batch_size=65536):
         """
@@ -1984,6 +1980,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         version=None,
         write_statistics=None,
         data_page_size=None,
+        max_rows_per_page=None,
         compression_level=None,
         use_byte_stream_split=False,
         column_encoding=None,
@@ -2129,6 +2126,9 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
     if data_page_size is not None:
         props.data_pagesize(data_page_size)
 
+    if max_rows_per_page is not None:
+        props.max_rows_per_page(max_rows_per_page)
+
     if write_batch_size is not None:
         props.write_batch_size(write_batch_size)
 
@@ -2202,7 +2202,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
         allow_truncated_timestamps=False,
         writer_engine_version=None,
         use_compliant_nested_type=True,
-        store_schema=True) except *:
+        store_schema=True,
+        write_time_adjusted_to_utc=False) except *:
     """Arrow writer properties"""
     cdef:
         shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2251,6 +2252,8 @@ cdef shared_ptr[ArrowWriterProperties] _create_arrow_writer_properties(
     elif writer_engine_version != "V2":
         raise ValueError(f"Unsupported Writer Engine Version: {writer_engine_version}")
 
+    arrow_props.set_time_adjusted_to_utc(write_time_adjusted_to_utc)
+
     arrow_properties = arrow_props.build()
 
     return arrow_properties
@@ -2297,6 +2300,7 @@ cdef class ParquetWriter(_Weakrefable):
                   use_deprecated_int96_timestamps=False,
                   coerce_timestamps=None,
                   data_page_size=None,
+                  max_rows_per_page=None,
                   allow_truncated_timestamps=False,
                   compression_level=None,
                   use_byte_stream_split=False,
@@ -2312,7 +2316,8 @@ cdef class ParquetWriter(_Weakrefable):
                   write_page_checksum=False,
                   sorting_columns=None,
                   store_decimal_as_integer=False,
-                  use_content_defined_chunking=False):
+                  use_content_defined_chunking=False,
+                  write_time_adjusted_to_utc=False):
         cdef:
             shared_ptr[WriterProperties] properties
             shared_ptr[ArrowWriterProperties] arrow_properties
@@ -2336,6 +2341,7 @@ cdef class ParquetWriter(_Weakrefable):
             version=version,
             write_statistics=write_statistics,
             data_page_size=data_page_size,
+            max_rows_per_page=max_rows_per_page,
             compression_level=compression_level,
             use_byte_stream_split=use_byte_stream_split,
             column_encoding=column_encoding,
@@ -2356,6 +2362,7 @@ cdef class ParquetWriter(_Weakrefable):
             writer_engine_version=writer_engine_version,
             use_compliant_nested_type=use_compliant_nested_type,
             store_schema=store_schema,
+            write_time_adjusted_to_utc=write_time_adjusted_to_utc,
         )
 
         pool = maybe_unbox_memory_pool(memory_pool)

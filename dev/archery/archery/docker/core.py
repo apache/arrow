@@ -101,7 +101,7 @@ class ComposeConfig:
 
     def _read_config(self, config_path, compose_bin):
         """
-        Validate and read the docker-compose.yml
+        Validate and read the compose.yaml
         """
         yaml = YAML()
         with config_path.open() as fp:
@@ -149,7 +149,7 @@ class ComposeConfig:
         if errors:
             msg = '\n'.join([f' - {msg}' for msg in errors])
             raise ValueError(
-                f'Found errors with docker-compose:\n{msg}'
+                f'Found errors with docker compose:\n{msg}'
             )
 
         rendered_config = StringIO(result.stdout.decode())
@@ -407,7 +407,7 @@ class DockerCompose(Command):
                 cmd = service.get('command', '')
                 if cmd:
                     # service command might be already defined as a list
-                    # in docker-compose.yml.
+                    # in compose.yaml.
                     if isinstance(cmd, list):
                         cmd = shlex.join(cmd)
                     # Match behaviour from Docker Compose
@@ -433,16 +433,24 @@ class DockerCompose(Command):
             else:
                 return self._execute_compose(*args, service['name'])
 
+        service = self.config.get(service_name)
+
         if user is not None:
+            login_args = ['--username', user, '--password-stdin']
+            login_kwargs = {'input': password.encode()}
+            image = service['image']
+            # [[HOST[:PORT]/]NAMESPACE/]REPOSITORY[:TAG]
+            components = image.split('/', 3)
+            if len(components) == 3:
+                server = components[0]
+                login_args.append(server)
             try:
-                # TODO(kszucs): have an option for a prompt
-                self._execute_docker('login', '-u', user, '-p', password)
+                self._execute_docker('login', *login_args, **login_kwargs)
             except subprocess.CalledProcessError:
                 # hide credentials
                 msg = f'Failed to push `{service_name}`, check the passed credentials'
                 raise RuntimeError(msg) from None
 
-        service = self.config.get(service_name)
         for ancestor in service['ancestors']:
             _push(self.config.get(ancestor))
         _push(service)

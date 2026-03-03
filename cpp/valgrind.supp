@@ -82,3 +82,15 @@
     fun:curl_share_init
     fun:*Azure*CurlConnection*
 }
+{
+    <protobuf>:leak on library initialization
+    Memcheck:Leak
+    ...
+    fun:*google*protobuf*AddDescriptorsRunner*
+}
+{
+    <protobuf>:leak on library initialization
+    Memcheck:Leak
+    ...
+    fun:*google*protobuf*InternalRegisterGeneratedFile*
+}

@@ -52,7 +52,7 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
   auto col_chunk = row_group_metadata_->ColumnChunk(i);
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
   if (crypto_metadata != nullptr) {
-    ParquetException::NYI("Cannot read encrypted bloom filter yet");
+    ParquetException::NYI("BloomFilter decryption is not yet supported");
   }
 
   auto bloom_filter_offset = col_chunk->bloom_filter_offset();
@@ -60,6 +60,9 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
     return nullptr;
   }
   PARQUET_ASSIGN_OR_THROW(auto file_size, input_->GetSize());
+  if (*bloom_filter_offset < 0) {
+    throw ParquetException("bloom_filter_offset less than 0");
+  }
   if (file_size <= *bloom_filter_offset) {
     throw ParquetException("file size less or equal than bloom offset");
   }
@@ -68,7 +71,7 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
     if (*bloom_filter_length < 0) {
       throw ParquetException("bloom_filter_length less than 0");
     }
-    if (*bloom_filter_length + *bloom_filter_offset > file_size) {
+    if (*bloom_filter_length > file_size - *bloom_filter_offset) {
       throw ParquetException(
           "bloom filter length + bloom filter offset greater than file size");
     }

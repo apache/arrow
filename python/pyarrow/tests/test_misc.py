@@ -80,8 +80,7 @@ def test_env_var_io_thread_count():
     for v in ('-1', 'z'):
         out, err = run_with_env_var(v)
         assert out.strip() == '8'  # default value
-        assert ("ARROW_IO_THREADS does not contain a valid number of threads"
-                in err.strip())
+        assert "Invalid value for ARROW_IO_THREADS" in err.strip()
 
 
 def test_build_info():
@@ -143,10 +142,11 @@ def test_import_at_shutdown():
                            "on non-Windows platforms")
 def test_set_timezone_db_path_non_windows():
     # set_timezone_db_path raises an error on non-Windows platforms
-    with pytest.raises(ArrowInvalid,
-                       match="Arrow was set to use OS timezone "
-                             "database at compile time"):
-        pa.set_timezone_db_path("path")
+    with pytest.warns(FutureWarning, match="deprecated"):
+        with pytest.raises(ArrowInvalid,
+                           match="Arrow was set to use OS timezone "
+                                 "database at compile time"):
+            pa.set_timezone_db_path("path")
 
 
 @pytest.mark.parametrize('klass', [

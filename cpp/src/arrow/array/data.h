@@ -641,7 +641,7 @@ struct ARROW_EXPORT ArraySpan {
     this->length = length;
     if (this->type->id() == Type::NA) {
       this->null_count = this->length;
-    } else if (this->MayHaveNulls()) {
+    } else if (buffers[0].data != NULLPTR) {
       this->null_count = kUnknownNullCount;
     } else {
       this->null_count = 0;

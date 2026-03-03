@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <iterator>
@@ -178,6 +179,9 @@ class PARQUET_EXPORT LogicalType {
     KARNEY = 5
   };
 
+  /// \brief The latest supported Variant specification version by this library
+  static constexpr int8_t kVariantSpecVersion = 1;
+
   /// \brief If possible, return a logical type equivalent to the given legacy
   /// converted type (and decimal metadata if applicable).
   static std::shared_ptr<const LogicalType> FromConvertedType(
@@ -224,7 +228,8 @@ class PARQUET_EXPORT LogicalType {
   static std::shared_ptr<const LogicalType> BSON();
   static std::shared_ptr<const LogicalType> UUID();
   static std::shared_ptr<const LogicalType> Float16();
-  static std::shared_ptr<const LogicalType> Variant();
+  static std::shared_ptr<const LogicalType> Variant(
+      int8_t specVersion = kVariantSpecVersion);
 
   static std::shared_ptr<const LogicalType> Geometry(std::string crs = "");
 
@@ -495,7 +500,10 @@ class PARQUET_EXPORT GeographyLogicalType : public LogicalType {
 /// \brief Allowed for group nodes only.
 class PARQUET_EXPORT VariantLogicalType : public LogicalType {
  public:
-  static std::shared_ptr<const LogicalType> Make();
+  static std::shared_ptr<const LogicalType> Make(
+      int8_t specVersion = kVariantSpecVersion);
+
+  int8_t spec_version() const;
 
  private:
   VariantLogicalType() = default;
@@ -684,11 +692,13 @@ constexpr int64_t kMillisecondsPerDay = kSecondsPerDay * INT64_C(1000);
 constexpr int64_t kMicrosecondsPerDay = kMillisecondsPerDay * INT64_C(1000);
 constexpr int64_t kNanosecondsPerDay = kMicrosecondsPerDay * INT64_C(1000);
 
-MANUALLY_ALIGNED_STRUCT(1) Int96 { uint32_t value[3]; };
-STRUCT_END(Int96, 12);
+ARROW_PACKED_START(struct, Int96) { std::array<uint32_t, 3> value; };
+ARROW_PACKED_END
+static_assert(sizeof(Int96) == 12, "Int96 not packed to 12 bytes");
+static_assert(alignof(Int96) <= 4, "Int96 alignment too large");
 
 inline bool operator==(const Int96& left, const Int96& right) {
-  return std::equal(left.value, left.value + 3, right.value);
+  return left.value == right.value;
 }
 
 inline bool operator!=(const Int96& left, const Int96& right) { return !(left == right); }
@@ -745,7 +755,7 @@ static inline int64_t Int96GetSeconds(const parquet::Int96& i96) {
 
 static inline std::string Int96ToString(const Int96& a) {
   std::ostringstream result;
-  std::copy(a.value, a.value + 3, std::ostream_iterator<uint32_t>(result, " "));
+  std::copy(a.value.begin(), a.value.end(), std::ostream_iterator<uint32_t>(result, " "));
   return result.str();
 }
 

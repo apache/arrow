@@ -518,4 +518,9 @@ struct EnsureResult<Result<T>> {
   using type = Result<T>;
 };
 
+template <>
+struct EnsureResult<Status> {
+  using type = Status;
+};
+
 }  // namespace arrow

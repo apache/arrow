@@ -136,7 +136,7 @@ class Downloader:
                     os.remove(dest_path)
                 except IOError:
                     pass
-                if "OpenSSL" not in stderr:
+                if b"OpenSSL" not in stderr:
                     # We assume curl has already retried on other errors.
                     break
             else:

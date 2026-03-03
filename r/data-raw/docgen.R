@@ -115,8 +115,8 @@ render_fun <- function(fun, pkg_fun, notes) {
 
 # This renders a bulleted list under a package heading
 render_pkg <- function(df, pkg) {
-  bullets <- df %>%
-    transmute(render_fun(fun, pkg_fun, notes)) %>%
+  bullets <- df |>
+    transmute(render_fun(fun, pkg_fun, notes)) |>
     pull()
   header <- paste0("## ", pkg, "\n#'")
   # Some packages have global notes to include
@@ -126,6 +126,17 @@ render_pkg <- function(df, pkg) {
     header <- c(header, paste0(pkg_notes, "\n#'"))
   }
   paste("#'", c(header, bullets), collapse = "\n")
+}
+
+# Load the current development version so we get the latest function mappings
+if (requireNamespace("devtools", quietly = TRUE)) {
+  devtools::load_all()
+} else {
+  warning(
+    "devtools is not installed. Using installed arrow package instead of current working code.\n",
+    "To generate accurate docs, install the current branch version of arrow first via `R CMD INSTALL .` ",
+    "or install devtools before running this script again."
+  )
 }
 
 docs <- arrow:::.cache$docs
@@ -158,7 +169,7 @@ docs <- c(docs, setNames(rep(list(NULL), length(tidyselect)), tidyselect))
 fun_df <- tibble::tibble(
   pkg_fun = names(docs),
   notes = docs
-) %>%
+) |>
   mutate(
     has_pkg = grepl("::", pkg_fun),
     fun = sub("^.*?:{+}", "", pkg_fun),
@@ -167,7 +178,7 @@ fun_df <- tibble::tibble(
     pkg = if_else(has_pkg, pkg, "base"),
     # Flatten notes to a single string
     notes = map_chr(notes, ~ paste(., collapse = "\n#' "))
-  ) %>%
+  ) |>
   arrange(pkg, fun)
 
 # Group by package name and render the lists
@@ -182,13 +193,13 @@ dplyr_verbs <- c(
 verb_bullets <- tibble::tibble(
   fun = names(dplyr_verbs),
   notes = dplyr_verbs
-) %>%
+) |>
   mutate(
     pkg_fun = paste0("dplyr::", fun),
     notes = map_chr(notes, ~ paste(., collapse = " "))
-  ) %>%
-  arrange(fun) %>%
-  transmute(render_fun(fun, pkg_fun, notes)) %>%
+  ) |>
+  arrange(fun) |>
+  transmute(render_fun(fun, pkg_fun, notes)) |>
   pull()
 
 writeLines(

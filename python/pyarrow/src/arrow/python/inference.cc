@@ -22,8 +22,8 @@
 
 #include <algorithm>
 #include <limits>
-#include <map>
 #include <string>
+#include <unordered_map>
 #include <utility>
 #include <vector>
 
@@ -106,6 +106,17 @@ class NumPyDtypeUnifier {
     return Status::Invalid("Cannot mix NumPy dtypes ",
                            GetNumPyTypeName(current_type_num_), " and ",
                            GetNumPyTypeName(new_dtype));
+  }
+
+  Status InvalidDatetimeUnitMix(PyArray_Descr* new_descr) {
+    auto new_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(new_descr));
+    auto current_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(current_dtype_));
+
+    return Status::Invalid("Cannot mix NumPy datetime64 units ",
+                           DatetimeUnitName(current_meta->meta.base), " and ",
+                           DatetimeUnitName(new_meta->meta.base));
   }
 
   int Observe_BOOL(PyArray_Descr* descr, int dtype) { return INVALID; }
@@ -255,7 +266,17 @@ class NumPyDtypeUnifier {
   }
 
   int Observe_DATETIME(PyArray_Descr* dtype_obj) {
-    // TODO: check that units are all the same
+    // Check that datetime units are consistent across all values
+    auto datetime_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(dtype_obj));
+    auto current_meta = reinterpret_cast<PyArray_DatetimeDTypeMetaData*>(
+        PyDataType_C_METADATA(current_dtype_));
+
+    if (datetime_meta->meta.base != current_meta->meta.base) {
+      // Units don't match - this is invalid
+      return INVALID;
+    }
+
     return OK;
   }
 
@@ -267,6 +288,13 @@ class NumPyDtypeUnifier {
       current_type_num_ = dtype;
       return Status::OK();
     } else if (current_type_num_ == dtype) {
+      // Same type, but for datetime we still need to check units match
+      if (dtype == NPY_DATETIME) {
+        int action = Observe_DATETIME(descr);
+        if (action == INVALID) {
+          return InvalidDatetimeUnitMix(descr);
+        }
+      }
       return Status::OK();
     }
 
@@ -309,6 +337,41 @@ class NumPyDtypeUnifier {
   int current_type_num() const { return current_type_num_; }
 
  private:
+  static std::string DatetimeUnitName(NPY_DATETIMEUNIT unit) {
+    switch (unit) {
+      case NPY_FR_Y:
+        return "Y";
+      case NPY_FR_M:
+        return "M";
+      case NPY_FR_W:
+        return "W";
+      case NPY_FR_D:
+        return "D";
+      case NPY_FR_h:
+        return "h";
+      case NPY_FR_m:
+        return "m";
+      case NPY_FR_s:
+        return "s";
+      case NPY_FR_ms:
+        return "ms";
+      case NPY_FR_us:
+        return "us";
+      case NPY_FR_ns:
+        return "ns";
+      case NPY_FR_ps:
+        return "ps";
+      case NPY_FR_fs:
+        return "fs";
+      case NPY_FR_as:
+        return "as";
+      case NPY_FR_GENERIC:
+        return "generic";
+      default:
+        return "unknown (" + std::to_string(static_cast<int>(unit)) + ")";
+    }
+  }
+
   int current_type_num_;
   PyArray_Descr* current_dtype_;
 };
@@ -641,15 +704,19 @@ class TypeInferrer {
                                  Py_TYPE(key_obj)->tp_name, "'");
       }
       // Get or create visitor for this key
-      auto it = struct_inferrers_.find(key);
-      if (it == struct_inferrers_.end()) {
-        it = struct_inferrers_
-                 .insert(
-                     std::make_pair(key, TypeInferrer(pandas_null_sentinels_,
-                                                      validate_interval_, make_unions_)))
-                 .first;
+      TypeInferrer* visitor;
+      auto it = struct_field_index_.find(key);
+      if (it == struct_field_index_.end()) {
+        // New field - add to vector and index
+        size_t new_index = struct_inferrers_.size();
+        struct_inferrers_.emplace_back(
+            key, TypeInferrer(pandas_null_sentinels_, validate_interval_, make_unions_));
+        struct_field_index_.emplace(std::move(key), new_index);
+        visitor = &struct_inferrers_.back().second;
+      } else {
+        // Existing field - retrieve from vector
+        visitor = &struct_inferrers_[it->second].second;
       }
-      TypeInferrer* visitor = &it->second;
 
       // We ignore termination signals from child visitors for now
       //
@@ -667,7 +734,8 @@ class TypeInferrer {
 
   Status GetStructType(std::shared_ptr<DataType>* out) {
     std::vector<std::shared_ptr<Field>> fields;
-    for (auto&& it : struct_inferrers_) {
+    fields.reserve(struct_inferrers_.size());
+    for (auto& it : struct_inferrers_) {
       std::shared_ptr<DataType> field_type;
       RETURN_NOT_OK(it.second.GetType(&field_type));
       fields.emplace_back(field(it.first, field_type));
@@ -699,7 +767,8 @@ class TypeInferrer {
   int64_t numpy_dtype_count_;
   int64_t interval_count_;
   std::unique_ptr<TypeInferrer> list_inferrer_;
-  std::map<std::string, TypeInferrer> struct_inferrers_;
+  std::vector<std::pair<std::string, TypeInferrer>> struct_inferrers_;
+  std::unordered_map<std::string, size_t> struct_field_index_;
   std::shared_ptr<DataType> scalar_type_;
 
   // If we observe a strongly-typed value in e.g. a NumPy array, we can store

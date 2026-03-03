@@ -47,12 +47,19 @@ ctest_options=()
 if ! type azurite >/dev/null 2>&1; then
   exclude_tests+=("arrow-azurefs-test")
 fi
+if ! type storage-testbench >/dev/null 2>&1; then
+  exclude_tests+=("arrow-gcsfs-test")
+fi
+if ! type minio >/dev/null 2>&1; then
+  exclude_tests+=("arrow-s3fs-test")
+fi
 case "$(uname)" in
   Linux)
     n_jobs=$(nproc)
     ;;
   Darwin)
     n_jobs=$(sysctl -n hw.ncpu)
+    exclude_tests+=("arrow-flight-sql-odbc-test")
     # TODO: https://github.com/apache/arrow/issues/40410
     exclude_tests+=("arrow-s3fs-test")
     ;;
@@ -99,9 +106,11 @@ fi
 if [ "${ARROW_USE_MESON:-OFF}" = "ON" ]; then
   ARROW_BUILD_EXAMPLES=OFF # TODO: Remove this
   meson test \
+    --max-lines=0 \
     --no-rebuild \
     --print-errorlogs \
     --suite arrow \
+    --timeout-multiplier=10 \
     "$@"
 else
   ctest \
@@ -112,6 +121,44 @@ else
     --timeout "${ARROW_CTEST_TIMEOUT:-300}" \
     "${ctest_options[@]}" \
     "$@"
+fi
+
+# This is for testing find_package(Arrow).
+#
+# Note that this is not a perfect solution. We should improve this
+# later.
+#
+# * This is ad-hoc
+# * This doesn't test other CMake packages such as ArrowDataset
+if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
+     [ "${ARROW_EMSCRIPTEN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_ASAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_USE_TSAN:-OFF}" = "OFF" ] && \
+     [ "${ARROW_CSV:-ON}" = "ON" ]; then
+  CMAKE_PREFIX_PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}"
+  case "$(uname)" in
+    MINGW*)
+      # <prefix>/lib/cmake/ isn't searched on Windows.
+      #
+      # See also:
+      # https://cmake.org/cmake/help/latest/command/find_package.html#config-mode-search-procedure
+      CMAKE_PREFIX_PATH+="/lib/cmake/"
+      ;;
+  esac
+  if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_DEFAULT_TRIPLET}" ]; then
+    # Search vcpkg before <prefix>/lib/cmake.
+    CMAKE_PREFIX_PATH="${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET};${CMAKE_PREFIX_PATH}"
+  fi
+  cmake \
+    -S "${source_dir}/examples/minimal_build" \
+    -B "${build_dir}/examples/minimal_build" \
+    -DCMAKE_PREFIX_PATH="${CMAKE_PREFIX_PATH}"
+  cmake --build "${build_dir}/examples/minimal_build"
+  pushd "${source_dir}/examples/minimal_build"
+  # PATH= is for Windows.
+  PATH="${CMAKE_INSTALL_PREFIX:-${ARROW_HOME}}/bin:${PATH}" \
+    "${build_dir}/examples/minimal_build/arrow-example"
+  popd
 fi
 
 if [ "${ARROW_BUILD_EXAMPLES}" == "ON" ]; then
@@ -133,9 +180,46 @@ fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
+
+    # This will display any errors generated during fuzzing. These errors are
+    # usually not bugs (most fuzz files are invalid and hence generate errors
+    # when trying to read them), which is why they are hidden by default when
+    # fuzzing.
+    export ARROW_FUZZING_VERBOSITY=1
     # Some fuzz regression files may trigger huge memory allocations,
     # let the allocator return null instead of aborting.
     export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
+
+    # 1. Generate seed corpuses
+    "${source_dir}/build-support/fuzzing/generate_corpuses.sh" "${binary_output_dir}"
+
+    # 2. Run fuzz targets on seed corpus entries
+    function run_fuzz_target_on_seed_corpus() {
+      fuzz_target_basename=$1
+      corpus_dir=${binary_output_dir}/${fuzz_target_basename}_seed_corpus
+      mkdir -p "${corpus_dir}"
+      rm -f "${corpus_dir}"/*
+      unzip "${binary_output_dir}"/"${fuzz_target_basename}"_seed_corpus.zip -d "${corpus_dir}"
+      "${binary_output_dir}"/"${fuzz_target_basename}" -rss_limit_mb=4000 "${corpus_dir}"/*
+    }
+    run_fuzz_target_on_seed_corpus arrow-csv-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-file-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-stream-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-tensor-stream-fuzz
+    if [ "${ARROW_PARQUET}" == "ON" ]; then
+      run_fuzz_target_on_seed_corpus parquet-arrow-fuzz
+      run_fuzz_target_on_seed_corpus parquet-encoding-fuzz
+    fi
+
+    # 3. Run fuzz targets on regression files from arrow-testing
+    # Run golden IPC integration files: these should ideally load without errors,
+    # though some very old ones carry invalid data (such as decimal values
+    # larger than their advertised precision).
+    # shellcheck disable=SC2046
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" $(find "${ARROW_TEST_DATA}"/arrow-ipc-stream/integration -name "*.stream")
+    # shellcheck disable=SC2046
+    "${binary_output_dir}/arrow-ipc-file-fuzz" $(find "${ARROW_TEST_DATA}"/arrow-ipc-stream/integration -name "*.arrow_file")
+    # Run known crash files
     "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
     "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
     "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*
@@ -143,6 +227,7 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     if [ "${ARROW_PARQUET}" == "ON" ]; then
       "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
     fi
+    "${binary_output_dir}/arrow-csv-fuzz" "${ARROW_TEST_DATA}"/csv/fuzzing/*-testcase-*
 fi
 
 popd

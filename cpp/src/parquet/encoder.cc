@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <bit>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
@@ -48,6 +49,11 @@
 #include "parquet/platform.h"
 #include "parquet/schema.h"
 #include "parquet/types.h"
+
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
 
 namespace bit_util = arrow::bit_util;
 
@@ -110,9 +116,9 @@ class EncoderImpl : virtual public Encoder {
   const Encoding::type encoding_;
   MemoryPool* pool_;
 
-  /// Type length from descr
+  // Type length from descr
   const int type_length_;
-  /// Number of unencoded bytes written to the encoder. Used for ByteArray type only.
+  // Number of unencoded bytes written to the encoder. Used for ByteArray type only.
   int64_t unencoded_byte_array_data_bytes_ = 0;
 };
 
@@ -433,7 +439,7 @@ struct DictEncoderTraits<FLBAType> {
 // Initially 1024 elements
 static constexpr int32_t kInitialHashTableSize = 1 << 10;
 
-int RlePreserveBufferSize(int num_values, int bit_width) {
+int64_t RlePreserveBufferSize(int64_t num_values, int bit_width) {
   // Note: because of the way RleEncoder::CheckBufferFull()
   // is called, we have to reserve an extra "RleEncoder::MinBufferSize"
   // bytes. These extra bytes won't be used but not reserving them
@@ -443,12 +449,11 @@ int RlePreserveBufferSize(int num_values, int bit_width) {
 }
 
 /// See the dictionary encoding section of
-/// https://github.com/Parquet/parquet-format.  The encoding supports
-/// streaming encoding. Values are encoded as they are added while the
-/// dictionary is being constructed. At any time, the buffered values
-/// can be written out with the current dictionary size. More values
-/// can then be added to the encoder, including new dictionary
-/// entries.
+/// https://github.com/apache/parquet-format/blob/master/Encodings.md.  The encoding
+/// supports streaming encoding. Values are encoded as they are added while the dictionary
+/// is being constructed. At any time, the buffered values can be written out with the
+/// current dictionary size. More values can then be added to the encoder, including new
+/// dictionary entries.
 template <typename DType>
 class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   using MemoTableType = typename DictEncoderTraits<DType>::MemoTableType;
@@ -491,7 +496,8 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   /// indices. Used to size the buffer passed to WriteIndices().
   int64_t EstimatedDataEncodedSize() override {
     return kDataPageBitWidthBytes +
-           RlePreserveBufferSize(static_cast<int>(buffered_indices_.size()), bit_width());
+           RlePreserveBufferSize(static_cast<int64_t>(buffered_indices_.size()),
+                                 bit_width());
   }
 
   /// The minimum bit width required to encode the currently buffered indices.
@@ -577,10 +583,15 @@ class DictEncoderImpl : public EncoderImpl, virtual public DictEncoder<DType> {
   }
 
   std::shared_ptr<Buffer> FlushValues() override {
-    std::shared_ptr<ResizableBuffer> buffer =
-        AllocateBuffer(this->pool_, EstimatedDataEncodedSize());
-    int result_size = WriteIndices(buffer->mutable_data(),
-                                   static_cast<int>(EstimatedDataEncodedSize()));
+    const int64_t buffer_size = EstimatedDataEncodedSize();
+    if (buffer_size > std::numeric_limits<int>::max()) {
+      std::stringstream ss;
+      ss << "Buffer size for DictEncoder (" << buffer_size
+         << ") exceeds maximum int value";
+      throw ParquetException(ss.str());
+    }
+    std::shared_ptr<ResizableBuffer> buffer = AllocateBuffer(this->pool_, buffer_size);
+    int result_size = WriteIndices(buffer->mutable_data(), static_cast<int>(buffer_size));
     PARQUET_THROW_NOT_OK(buffer->Resize(result_size, false));
     return buffer;
   }
@@ -1025,6 +1036,8 @@ template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
+  // If these constants are changed, then the corresponding values in
+  // TestDeltaBitPackEncoding (in `encoding_test.cc`) should be updated too.
   static constexpr uint32_t kValuesPerBlock =
       std::is_same_v<int32_t, typename DType::c_type> ? 128 : 256;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
@@ -1154,8 +1167,15 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
-    const auto bit_width = bit_width_data[i] = bit_util::NumRequiredBits(
-        static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+    // TODO: We can remove this condition once CRAN upgrades its macOS
+    // SDK from 11.3.
+#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
+    const auto bit_width = bit_width_data[i] =
+        std::log2p1(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#else
+    const auto bit_width = bit_width_data[i] =
+        std::bit_width(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#endif
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // Convert delta to frame of reference. See overflow comment above.
@@ -1685,8 +1705,8 @@ class RleBooleanEncoder final : public EncoderImpl, virtual public BooleanEncode
   template <typename SequenceType>
   void PutImpl(const SequenceType& src, int num_values);
 
-  int MaxRleBufferSize() const noexcept {
-    return RlePreserveBufferSize(static_cast<int>(buffered_append_values_.size()),
+  int64_t MaxRleBufferSize() const noexcept {
+    return RlePreserveBufferSize(static_cast<int64_t>(buffered_append_values_.size()),
                                  kBitWidth);
   }
 
@@ -1714,11 +1734,17 @@ void RleBooleanEncoder::PutImpl(const SequenceType& src, int num_values) {
 }
 
 std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
-  int rle_buffer_size_max = MaxRleBufferSize();
+  int64_t rle_buffer_size_max = MaxRleBufferSize();
+  if (rle_buffer_size_max > std::numeric_limits<int>::max()) {
+    std::stringstream ss;
+    ss << "Buffer size for RleBooleanEncoder (" << rle_buffer_size_max
+       << ") exceeds maximum int value";
+    throw ParquetException(ss.str());
+  }
   std::shared_ptr<ResizableBuffer> buffer =
       AllocateBuffer(this->pool_, rle_buffer_size_max + kRleLengthInBytes);
   ::arrow::util::RleBitPackedEncoder encoder(buffer->mutable_data() + kRleLengthInBytes,
-                                             rle_buffer_size_max,
+                                             static_cast<int>(rle_buffer_size_max),
                                              /*bit_width*/ kBitWidth);
 
   for (bool value : buffered_append_values_) {

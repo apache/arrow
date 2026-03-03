@@ -15,24 +15,14 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 # The following S3 methods are registered on load if dplyr is present
 
-group_by.arrow_dplyr_query <- function(.data,
-                                       ...,
-                                       .add = FALSE,
-                                       add = NULL,
-                                       .drop = dplyr::group_by_drop_default(.data)) {
-  if (!missing(add)) {
-    .Deprecated(
-      msg = paste(
-        "The `add` argument of `group_by()` is deprecated.",
-        "Please use the `.add` argument instead."
-      )
-    )
-    .add <- add
-  }
-
+group_by.arrow_dplyr_query <- function(
+  .data,
+  ...,
+  .add = FALSE,
+  .drop = dplyr::group_by_drop_default(.data)
+) {
   .data <- as_adq(.data)
   expression_list <- expand_across(.data, quos(...))
   named_expression_list <- ensure_named_exprs(expression_list)

@@ -285,12 +285,7 @@ class RecordBatchStream::RecordBatchStreamImpl {
 
   Status GetSchemaPayload(FlightPayload* payload) {
     if (!writer_) {
-      // Create the IPC writer on first call
-      auto payload_writer =
-          std::make_unique<ServerRecordBatchPayloadWriter>(&payload_deque_);
-      ARROW_ASSIGN_OR_RAISE(
-          writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
-                                                        reader_->schema(), options_));
+      RETURN_NOT_OK(InitializeWriter());
     }
 
     // Return the expected schema payload.
@@ -317,8 +312,15 @@ class RecordBatchStream::RecordBatchStreamImpl {
         return Status::OK();
       }
       if (!writer_) {
-        return Status::UnknownError(
-            "Writer should be initialized before reading Next batches");
+        RETURN_NOT_OK(InitializeWriter());
+        // If the writer has not been initialized yet, the first batch in the payload
+        // queue is going to be a SCHEMA one. In this context, that is
+        // unexpected, so drop it from the queue so that there is a RECORD_BATCH
+        // message on the top (same as would be if the writer had been initialized
+        // in GetSchemaPayload).
+        if (payload_deque_.front().ipc_message.type == ipc::MessageType::SCHEMA) {
+          payload_deque_.pop_front();
+        }
       }
       // One WriteRecordBatch call might generate multiple payloads, so we
       // need to collect them in a deque.
@@ -370,6 +372,15 @@ class RecordBatchStream::RecordBatchStreamImpl {
   ipc::IpcWriteOptions options_;
   std::unique_ptr<ipc::RecordBatchWriter> writer_;
   std::deque<FlightPayload> payload_deque_;
+
+  Status InitializeWriter() {
+    auto payload_writer =
+        std::make_unique<ServerRecordBatchPayloadWriter>(&payload_deque_);
+    ARROW_ASSIGN_OR_RAISE(
+        writer_, ipc::internal::OpenRecordBatchWriter(std::move(payload_writer),
+                                                      reader_->schema(), options_));
+    return Status::OK();
+  }
 };
 
 FlightMetadataWriter::~FlightMetadataWriter() = default;

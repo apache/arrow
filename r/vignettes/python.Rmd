@@ -191,7 +191,7 @@ Now you have a single Array in R.
 - To learn more about installing and configuring Python from R,
 see the [reticulate documentation](https://rstudio.github.io/reticulate/articles/python_packages.html).
 - To learn PyArrow, see the official [PyArrow Documentation](https://arrow.apache.org/docs/python/) and [Apache Arrow Python Cookbook](https://arrow.apache.org/cookbook/py/).
-- R/Python integration in Arrow is also discussed in the [PyArrow Integrations Documentation](https://arrow.apache.org/docs/python/integration/python_r.html), in this [blog post about reticulate integration in Arrow](https://voltrondata.com/blog/passing-arrow-data-between-r-and-python-with-reticulate/), and in this [blog post about rpy2 integration in Arrow](https://voltrondata.com/blog/data-transfer-between-python-and-r-with-rpy2-and-apache-arrow/).
+- R/Python integration in Arrow is also discussed in the [PyArrow Integrations Documentation](https://arrow.apache.org/docs/python/integration/python_r.html), and in this [blog post about reticulate integration in Arrow](https://blog.djnavarro.net/posts/2022-09-09_reticulated-arrow/).
 - The integration between R Arrow and PyArrow is supported through the [Arrow C data interface](https://arrow.apache.org/docs/format/CDataInterface.html#c-data-interface).
 - To learn more about Arrow data objects, see the [data objects article](./data_objects.html).
 

@@ -57,6 +57,11 @@
 #include "parquet/thrift_internal.h"  // IWYU pragma: keep
 #include "parquet/windows_fixup.h"    // for OPTIONAL
 
+#ifdef _MSC_VER
+// disable warning about inheritance via dominance in the diamond pattern
+#  pragma warning(disable : 4250)
+#endif
+
 using arrow::MemoryPool;
 using arrow::internal::AddWithOverflow;
 using arrow::internal::checked_cast;
@@ -127,7 +132,7 @@ int LevelDecoder::SetData(Encoding::type encoding, int16_t max_level,
             "Number of buffered values too large (corrupt data page?)");
       }
       num_bytes = static_cast<int32_t>(bit_util::BytesForBits(num_bits));
-      if (num_bytes < 0 || num_bytes > data_size - 4) {
+      if (num_bytes < 0 || num_bytes > data_size) {
         throw ParquetException("Received invalid number of bytes (corrupt data page?)");
       }
       if (!bit_packed_decoder_) {

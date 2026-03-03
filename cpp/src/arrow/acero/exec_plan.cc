@@ -137,7 +137,7 @@ struct ExecPlanImpl : public ExecPlan {
             opentelemetry::nostd::shared_ptr<opentelemetry::trace::Span> span =
                 ::arrow::internal::tracing::UnwrapSpan(span_.details.get());
             std::for_each(std::begin(pairs), std::end(pairs),
-                          [span](std::pair<std::string, std::string> const& pair) {
+                          [span](const std::pair<std::string, std::string>& pair) {
                             span->SetAttribute(pair.first, pair.second);
                           });
           }

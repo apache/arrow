@@ -3,13 +3,40 @@
 \docType{class}
 \name{DictionaryType}
 \alias{DictionaryType}
-\title{class DictionaryType}
+\title{DictionaryType class}
 \description{
-class DictionaryType
+\code{DictionaryType} is a \link{FixedWidthType} that represents dictionary-encoded data.
+Dictionary encoding stores unique values in a dictionary and uses integer-type
+indices to reference them, which can be more memory-efficient for data with many
+repeated values.
 }
-\section{Methods}{
+\section{R6 Methods}{
+
+\itemize{
+\item \verb{$ToString()}: Return a string representation of the dictionary type
+\item \verb{$code(namespace = FALSE)}: Return R code to create this dictionary type
+}
+}
+
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$index_type}: The \link{DataType} for the dictionary indices (must be an integer type,
+signed or unsigned)
+\item \verb{$value_type}: The \link{DataType} for the dictionary values
+\item \verb{$name}: The name of the type.
+\item \verb{$ordered}: Whether the dictionary is ordered.
+}
+}
+
+\section{Factory}{
 
 
-TODO
+\code{DictionaryType$create()} takes the following arguments:
+\itemize{
+\item \code{index_type}: A \link{DataType} for the indices (default \code{\link[=int32]{int32()}})
+\item \code{value_type}: A \link{DataType} for the values (default \code{\link[=utf8]{utf8()}})
+\item \code{ordered}: Is this an ordered dictionary (default \code{FALSE})?
+}
 }
 

@@ -17,6 +17,8 @@
 
 module Parquet
   class ArrowFileWriter
+    include Arrow::BlockClosable
+
     # Write data to Apache Parquet.
     #
     # @return [void]

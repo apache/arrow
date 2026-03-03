@@ -82,6 +82,7 @@ RUN --mount=type=secret,id=github_repository_owner \
       export GITHUB_REPOSITORY_OWNER=$(cat /run/secrets/github_repository_owner); \
       export GITHUB_TOKEN=$(cat /run/secrets/github_token); \
       export VCPKG_BINARY_SOURCES=$(cat /run/secrets/vcpkg_binary_sources); \
+      export CMAKE_POLICY_VERSION_MINIMUM=3.5; \
       arrow/ci/scripts/install_vcpkg.sh ${VCPKG_ROOT} ${vcpkg} && \
       vcpkg install \
         --clean-after-build \
@@ -109,11 +110,6 @@ RUN PYTHON_ROOT=$(find /opt/python -name cp${PYTHON_VERSION/./}-${PYTHON_ABI_TAG
 
 SHELL ["/bin/bash", "-i", "-c", "-l"]
 ENTRYPOINT ["/bin/bash", "-i", "-c", "-l"]
-
-# Remove once there are released Cython wheels for 3.13 free-threaded available
-RUN if [ "${python_abi_tag}" = "cp313t" ]; then \
-      pip install cython --pre --extra-index-url "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" --prefer-binary ; \
-    fi
 
 COPY python/requirements-wheel-build.txt /arrow/python/
 RUN pip install -r /arrow/python/requirements-wheel-build.txt

@@ -72,7 +72,7 @@ def docker(ctx, src, dry_run, using_legacy_docker_compose, using_docker_cli,
     """
     ctx.ensure_object(dict)
 
-    config_path = src.path / 'docker-compose.yml'
+    config_path = src.path / 'compose.yaml'
     if not config_path.exists():
         raise click.ClickException(
             "Docker compose configuration cannot be found in directory {}, "
@@ -123,7 +123,7 @@ def docker_pull(obj, image, *, pull_leaf, ignore_pull_failures):
                      ignore_pull_failures=ignore_pull_failures)
     except UndefinedImage as e:
         raise click.ClickException(
-            "There is no service/image defined in docker-compose.yml with "
+            "There is no service/image defined in compose.yaml with "
             f"name: {e}"
         )
     except RuntimeError as e:
@@ -156,7 +156,7 @@ def docker_build(obj, image, *, force_pull, use_cache, use_leaf_cache):
                       pull_parents=force_pull)
     except UndefinedImage as e:
         raise click.ClickException(
-            "There is no service/image defined in docker-compose.yml with "
+            "There is no service/image defined in compose.yaml with "
             f"name: {e}"
         )
     except RuntimeError as e:
@@ -250,7 +250,7 @@ def docker_run(obj, image, command, *, env, user, force_pull, force_build,
         )
     except UndefinedImage as e:
         raise click.ClickException(
-            "There is no service/image defined in docker-compose.yml with "
+            "There is no service/image defined in compose.yaml with "
             f"name: {e}"
         )
     except RuntimeError as e:
@@ -291,7 +291,7 @@ def docker_compose_info(obj, service_name, show):
     """Show Docker Compose definition info for service_name.
 
     SERVICE_NAME is the name of the docker service defined in
-    docker-compose.yml. Look at `archery docker images` output for names.
+    compose.yaml. Look at `archery docker images` output for names.
     """
     compose = obj['compose']
     try:

@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("field() factory", {
   x <- field("x", int32())
   expect_equal(x$type, int32())

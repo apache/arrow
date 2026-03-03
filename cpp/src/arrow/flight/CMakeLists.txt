@@ -101,6 +101,11 @@ set(FLIGHT_GENERATED_PROTO_FILES
 set(PROTO_DEPENDS ${FLIGHT_PROTO} ${ARROW_PROTOBUF_LIBPROTOBUF} gRPC::grpc_cpp_plugin)
 
 set(FLIGHT_PROTOC_COMMAND ${ARROW_PROTOBUF_PROTOC} "-I${FLIGHT_PROTO_PATH}")
+# Add protobuf include directory for well-known types (e.g., timestamp.proto).
+# This is needed when using vendored Protobuf where protoc doesn't have built-in paths.
+if(PROTOBUF_VENDORED AND Protobuf_INCLUDE_DIRS)
+  list(APPEND FLIGHT_PROTOC_COMMAND "-I${Protobuf_INCLUDE_DIRS}")
+endif()
 if(Protobuf_VERSION VERSION_LESS 3.15)
   list(APPEND FLIGHT_PROTOC_COMMAND "--experimental_allow_proto3_optional")
 endif()
@@ -189,6 +194,19 @@ set(ARROW_FLIGHT_SRCS
     transport/grpc/util_internal.cc
     types.cc)
 
+# Handle Unity build header conflicts on Windows.
+if(CMAKE_UNITY_BUILD AND WIN32)
+  set_source_files_properties(client.cc
+                              cookie_internal.cc
+                              serialization_internal.cc
+                              server.cc
+                              transport/grpc/serialization_internal.cc
+                              transport/grpc/protocol_grpc_internal.cc
+                              transport/grpc/util_internal.cc
+                              types.cc
+                              PROPERTIES SKIP_UNITY_BUILD_INCLUSION TRUE)
+endif()
+
 if(ARROW_WITH_OPENTELEMETRY)
   list(APPEND ARROW_FLIGHT_SRCS otel_logging.cc)
 endif()
@@ -271,7 +289,9 @@ if(ARROW_TESTING)
          ArrowTesting::arrow_testing_static)
   endif()
   list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
+  list(APPEND ARROW_FLIGHT_TESTING_SHARED_LINK_LIBS ${ARROW_GTEST_GMOCK})
   list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_FLIGHT_TEST_INTERFACE_LIBS})
+  list(APPEND ARROW_FLIGHT_TESTING_STATIC_LINK_LIBS ${ARROW_GTEST_GMOCK})
   add_arrow_lib(arrow_flight_testing
                 CMAKE_PACKAGE_NAME
                 ArrowFlightTesting

@@ -96,7 +96,7 @@ if(POLICY CMP0170)
   cmake_policy(SET CMP0170 NEW)
 endif()
 
-set(ARROW_VERSION "22.0.0-SNAPSHOT")
+set(ARROW_VERSION "24.0.0-SNAPSHOT")
 
 string(REGEX MATCH "^[0-9]+\\.[0-9]+\\.[0-9]+" ARROW_BASE_VERSION "${ARROW_VERSION}")
 
@@ -520,8 +520,6 @@ endif()
 set(PARQUET_PC_REQUIRES "")
 set(PARQUET_PC_REQUIRES_PRIVATE "")
 
-include(ThirdpartyToolchain)
-
 # Add common flags
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CXX_COMMON_FLAGS}")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
@@ -530,11 +528,13 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${ARROW_CXXFLAGS}")
 # C++ specific flags.
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${CXX_COMMON_FLAGS} ${ARROW_CXXFLAGS}")
 
-# Remove --std=c++17 to avoid errors from C compilers
-string(REPLACE "-std=c++17" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
+# Remove -std=c++20 to avoid errors from C compilers
+string(REPLACE "-std=c++20" "" CMAKE_C_FLAGS ${CMAKE_C_FLAGS})
 
-# Add C++-only flags, like -std=c++17
+# Add C++-only flags, like -std=c++20
 set(CMAKE_CXX_FLAGS "${CXX_ONLY_FLAGS} ${CMAKE_CXX_FLAGS}")
+
+include(ThirdpartyToolchain)
 
 # ASAN / TSAN / UBSAN
 if(ARROW_FUZZING)

@@ -186,32 +186,22 @@ struct SafeLoader {
     return static_cast<ApiTypeRawEnum>(LoadEnumRaw(in));
   }
 
-  template <typename ThriftType, bool IsUnsigned = true>
-  inline static ApiTypeEnum LoadChecked(
-      const typename std::enable_if<IsUnsigned, ThriftType>::type* in) {
-    auto raw_value = LoadRaw(in);
-    if (ARROW_PREDICT_FALSE(raw_value >=
-                            static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
-      return ApiType::UNDEFINED;
-    }
-    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
-  }
-
-  template <typename ThriftType, bool IsUnsigned = false>
-  inline static ApiTypeEnum LoadChecked(
-      const typename std::enable_if<!IsUnsigned, ThriftType>::type* in) {
-    auto raw_value = LoadRaw(in);
-    if (ARROW_PREDICT_FALSE(raw_value >=
-                                static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||
-                            raw_value < 0)) {
-      return ApiType::UNDEFINED;
-    }
-    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
-  }
-
   template <typename ThriftType>
   inline static ApiTypeEnum Load(const ThriftType* in) {
-    return LoadChecked<ThriftType, std::is_unsigned<ApiTypeRawEnum>::value>(in);
+    const auto raw_value = LoadRaw(in);
+    if constexpr (std::is_unsigned_v<ApiTypeRawEnum>) {
+      if (ARROW_PREDICT_FALSE(raw_value >=
+                              static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED))) {
+        return ApiType::UNDEFINED;
+      }
+    } else {
+      if (ARROW_PREDICT_FALSE(raw_value >=
+                                  static_cast<ApiTypeRawEnum>(ApiType::UNDEFINED) ||
+                              raw_value < 0)) {
+        return ApiType::UNDEFINED;
+      }
+    }
+    return FromThriftUnsafe(static_cast<ThriftType>(raw_value));
   }
 };
 

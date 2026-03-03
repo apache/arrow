@@ -28,33 +28,33 @@ cdef class AzureFileSystem(FileSystem):
     Azure Blob Storage backed FileSystem implementation
 
     This implementation supports flat namespace and hierarchical namespace (HNS) a.k.a.
-    Data Lake Gen2 storage accounts. HNS will be automatically detected and HNS specific 
-    features will be used when they provide a performance advantage. Azurite emulator is 
+    Data Lake Gen2 storage accounts. HNS will be automatically detected and HNS specific
+    features will be used when they provide a performance advantage. Azurite emulator is
     also supported. Note: `/` is the only supported delimiter.
 
-    The storage account is considered the root of the filesystem. When enabled, containers 
-    will be created or deleted during relevant directory operations. Obviously, this also 
-    requires authentication with the additional permissions. 
+    The storage account is considered the root of the filesystem. When enabled, containers
+    will be created or deleted during relevant directory operations. Obviously, this also
+    requires authentication with the additional permissions.
 
-    By default `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__ 
+    By default `DefaultAzureCredential <https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential>`__
     is used for authentication. This means it will try several types of authentication
-    and go with the first one that works. If any authentication parameters are provided when 
+    and go with the first one that works. If any authentication parameters are provided when
     initialising the FileSystem, they will be used instead of the default credential.
 
     Parameters
     ----------
     account_name : str
-        Azure Blob Storage account name. This is the globally unique identifier for the 
+        Azure Blob Storage account name. This is the globally unique identifier for the
         storage account.
     account_key : str, default None
-        Account key of the storage account. If sas_token and account_key are None the 
+        Account key of the storage account. If sas_token and account_key are None the
         default credential will be used. The parameters account_key and sas_token are
         mutually exclusive.
     blob_storage_authority : str, default None
         hostname[:port] of the Blob Service. Defaults to `.blob.core.windows.net`. Useful
         for connecting to a local emulator, like Azurite.
     blob_storage_scheme : str, default None
-        Either `http` or `https`. Defaults to `https`. Useful for connecting to a local 
+        Either `http` or `https`. Defaults to `https`. Useful for connecting to a local
         emulator, like Azurite.
     client_id : str, default None
         The client ID (Application ID) for Azure Active Directory authentication.
@@ -101,11 +101,6 @@ cdef class AzureFileSystem(FileSystem):
     """
     cdef:
         CAzureFileSystem* azurefs
-        c_string account_key
-        c_string sas_token
-        c_string tenant_id
-        c_string client_id
-        c_string client_secret
 
     def __init__(self, account_name, *, account_key=None, blob_storage_authority=None,
                  blob_storage_scheme=None, client_id=None, client_secret=None,
@@ -133,14 +128,10 @@ cdef class AzureFileSystem(FileSystem):
                 raise ValueError("client_id must be specified")
             if not tenant_id and not client_secret:
                 options.ConfigureManagedIdentityCredential(tobytes(client_id))
-                self.client_id = tobytes(client_id)
             elif tenant_id and client_secret:
                 options.ConfigureClientSecretCredential(
                     tobytes(tenant_id), tobytes(client_id), tobytes(client_secret)
                 )
-                self.tenant_id = tobytes(tenant_id)
-                self.client_id = tobytes(client_id)
-                self.client_secret = tobytes(client_secret)
             else:
                 raise ValueError(
                     "Invalid Azure credential configuration: "
@@ -149,10 +140,8 @@ cdef class AzureFileSystem(FileSystem):
                 )
         elif account_key:
             options.ConfigureAccountKeyCredential(tobytes(account_key))
-            self.account_key = tobytes(account_key)
         elif sas_token:
             options.ConfigureSASCredential(tobytes(sas_token))
-            self.sas_token = tobytes(sas_token)
         else:
             options.ConfigureDefaultCredential()
 
@@ -176,13 +165,13 @@ cdef class AzureFileSystem(FileSystem):
         return (
             AzureFileSystem._reconstruct, (dict(
                 account_name=frombytes(opts.account_name),
-                account_key=frombytes(self.account_key),
+                account_key=frombytes(opts.AccountKey()),
                 blob_storage_authority=frombytes(opts.blob_storage_authority),
                 blob_storage_scheme=frombytes(opts.blob_storage_scheme),
-                client_id=frombytes(self.client_id),
-                client_secret=frombytes(self.client_secret),
+                client_id=frombytes(opts.ClientId()),
+                client_secret=frombytes(opts.ClientSecret()),
                 dfs_storage_authority=frombytes(opts.dfs_storage_authority),
                 dfs_storage_scheme=frombytes(opts.dfs_storage_scheme),
-                sas_token=frombytes(self.sas_token),
-                tenant_id=frombytes(self.tenant_id)
+                sas_token=frombytes(opts.SasToken()),
+                tenant_id=frombytes(opts.TenantId())
             ),))

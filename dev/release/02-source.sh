@@ -130,6 +130,10 @@ if [ ${SOURCE_VOTE} -gt 0 ]; then
   curl_options+=(--data "head=apache:${rc_branch}")
   curl_options+=(https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls)
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
+  # Read the checksum so we can include it in the vote thread email.
+  sha512_path="artifacts/${tarball}.sha512"
+  [[ -f "${sha512_path}" ]] || { echo "Error: ${sha512_path} must exist"; exit 1; }
+  tarball_hash=$(cat "${sha512_path}" | awk '{print $1}')
 
   echo "The following draft email has been created to send to the"
   echo "dev@arrow.apache.org mailing list"
@@ -153,9 +157,10 @@ The binary artifacts are hosted at [4][5][6][7][8][9].
 The changelog is located at [10].
 
 Please download, verify checksums and signatures, run the unit tests,
-and vote on the release. See [11] for how to validate a release candidate.
+and vote on the release. See [11] for the SHA-512 checksum for this RC and [12]
+for how to validate a release candidate.
 
-See also a verification result on GitHub pull request [12].
+See also a verification result on GitHub pull request [13].
 
 The vote will be open for at least 72 hours.
 
@@ -173,8 +178,9 @@ The vote will be open for at least 72 hours.
 [8]: https://packages.apache.org/artifactory/arrow/ubuntu-rc/
 [9]: https://github.com/apache/arrow/releases/tag/apache-arrow-${version}-rc${rc}
 [10]: https://github.com/apache/arrow/blob/${release_hash}/CHANGELOG.md
-[11]: https://arrow.apache.org/docs/developers/release_verification.html
-[12]: ${verify_pr_url}
+[11]: ${tarball_hash}
+[12]: https://arrow.apache.org/docs/developers/release_verification.html
+[13]: ${verify_pr_url}
 MAIL
   echo "---------------------------------------------------------"
 fi

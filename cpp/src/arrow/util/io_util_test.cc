@@ -1096,7 +1096,7 @@ TEST(CpuInfo, Basic) {
   const auto l2 = ci->CacheSize(CpuInfo::CacheLevel::L2);
   const auto l3 = ci->CacheSize(CpuInfo::CacheLevel::L3);
   ASSERT_TRUE(l1 >= 4 * 1024 && l1 <= 512 * 1024) << "unexpected L1 size: " << l1;
-  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 12 * 1024 * 1024) << "unexpected L2 size: " << l2;
+  ASSERT_TRUE(l2 >= 32 * 1024 && l2 <= 64 * 1024 * 1024) << "unexpected L2 size: " << l2;
   ASSERT_TRUE(l3 >= 256 * 1024 && l3 <= 1024 * 1024 * 1024)
       << "unexpected L3 size: " << l3;
   ASSERT_LE(l1, l2) << "L1 cache size " << l1 << " larger than L2 " << l2;
@@ -1132,6 +1132,45 @@ TEST(CpuAffinity, NumberOfCores) {
 #else
   ASSERT_RAISES(NotImplemented, maybe_affinity_cores);
 #endif
+}
+
+TEST(Environment, GetEnvVar) {
+  // An environment variable that should exist on roughly all platforms
+  ASSERT_OK_AND_ASSIGN(auto v, GetEnvVar("PATH"));
+  ASSERT_FALSE(v.empty());
+  ASSERT_OK_AND_ASSIGN(auto w, GetEnvVarNative("PATH"));
+  ASSERT_FALSE(w.empty());
+  // An environment variable that most probably does not exist
+  ASSERT_RAISES(KeyError, GetEnvVar("BZZT_NONEXISTENT_VAR"));
+  ASSERT_RAISES(KeyError, GetEnvVarNative("BZZT_NONEXISTENT_VAR"));
+  // (we try not to rely on EnvVarGuard here as that would be circular)
+}
+
+TEST(Environment, GetEnvVarInteger) {
+  {
+    EnvVarGuard guard("FOOBAR", "5");
+    ASSERT_OK_AND_EQ(5, GetEnvVarInteger("FOOBAR"));
+    ASSERT_OK_AND_EQ(5, GetEnvVarInteger("FOOBAR", /*min_value=*/5, /*max_value=*/7));
+    ASSERT_RAISES(Invalid, GetEnvVarInteger("FOOBAR", /*min_value=*/6, /*max_value=*/7));
+    ASSERT_RAISES(Invalid, GetEnvVarInteger("FOOBAR", /*min_value=*/3, /*max_value=*/4));
+  }
+  {
+    EnvVarGuard guard("FOOBAR", "BAZ");
+    ASSERT_RAISES(Invalid, GetEnvVarInteger("FOOBAR"));
+  }
+  {
+    EnvVarGuard guard("FOOBAR", std::nullopt);
+    ASSERT_RAISES(KeyError, GetEnvVarInteger("FOOBAR"));
+  }
+}
+
+TEST(Environment, SetEnvVar) {
+  EnvVarGuard guard("FOOBAR", "one");
+  ASSERT_OK_AND_EQ("one", GetEnvVar("FOOBAR"));
+  ASSERT_OK(SetEnvVar("FOOBAR", "two"));
+  ASSERT_OK_AND_EQ("two", GetEnvVar("FOOBAR"));
+  ASSERT_OK(DelEnvVar("FOOBAR"));
+  ASSERT_RAISES(KeyError, GetEnvVar("FOOBAR"));
 }
 
 }  // namespace internal

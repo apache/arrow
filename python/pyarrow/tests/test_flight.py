@@ -246,6 +246,40 @@ class EchoStreamFlightServer(EchoFlightServer):
         raise NotImplementedError
 
 
+class EchoTableStreamFlightServer(EchoFlightServer):
+    """An echo server that streams the whole table."""
+
+    def do_get(self, context, ticket):
+        return flight.GeneratorStream(
+            self.last_message.schema,
+            [self.last_message])
+
+    def list_actions(self, context):
+        return []
+
+    def do_action(self, context, action):
+        if action.type == "who-am-i":
+            return [context.peer_identity(), context.peer().encode("utf-8")]
+        raise NotImplementedError
+
+
+class EchoRecordBatchReaderStreamFlightServer(EchoFlightServer):
+    """An echo server that streams the whole table as a RecordBatchReader."""
+
+    def do_get(self, context, ticket):
+        return flight.GeneratorStream(
+            self.last_message.schema,
+            [self.last_message.to_reader()])
+
+    def list_actions(self, context):
+        return []
+
+    def do_action(self, context, action):
+        if action.type == "who-am-i":
+            return [context.peer_identity(), context.peer().encode("utf-8")]
+        raise NotImplementedError
+
+
 class GetInfoFlightServer(FlightServerBase):
     """A Flight server that tests GetFlightInfo."""
 
@@ -1362,13 +1396,108 @@ def test_flight_large_message():
         assert result.equals(data)
 
 
-def test_flight_generator_stream():
+def test_flight_generator_stream_of_batches():
     """Try downloading a flight of RecordBatches in a GeneratorStream."""
     data = pa.Table.from_arrays([
         pa.array(range(0, 10 * 1024))
     ], names=['a'])
 
     with EchoStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_batches_with_dict():
+    """
+    Try downloading a flight of RecordBatches with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_table():
+    """Try downloading a flight of Table in a GeneratorStream."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=['a'])
+
+    with EchoTableStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_table_with_dict():
+    """
+    Try downloading a flight of Table with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_record_batch_reader():
+    """Try downloading a flight of RecordBatchReader in a GeneratorStream."""
+    data = pa.Table.from_arrays([
+        pa.array(range(0, 10 * 1024))
+    ], names=['a'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
+            FlightClient(('localhost', server.port)) as client:
+        writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
+                                  data.schema)
+        writer.write_table(data)
+        writer.close()
+        result = client.do_get(flight.Ticket(b'')).read_all()
+        assert result.equals(data)
+
+
+def test_flight_generator_stream_of_record_batch_reader_with_dict():
+    """
+    Try downloading a flight of RecordBatchReader with dictionaries
+    in a GeneratorStream.
+    """
+    data = pa.Table.from_arrays([
+        pa.array(["foo", "bar", "baz", "foo", "foo"],
+                 pa.dictionary(pa.int64(), pa.utf8())),
+        pa.array([123, 234, 345, 456, 567])
+    ], names=['a', 'b'])
+
+    with EchoRecordBatchReaderStreamFlightServer() as server, \
             FlightClient(('localhost', server.port)) as client:
         writer, _ = client.do_put(flight.FlightDescriptor.for_path('test'),
                                   data.schema)

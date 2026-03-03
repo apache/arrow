@@ -162,7 +162,7 @@ void WKBGeometryBounder::MergeGeometry(::arrow::util::span<const uint8_t> bytes_
 
 void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type) {
   uint8_t endian = src->ReadUInt8();
-#if defined(ARROW_LITTLE_ENDIAN)
+#if ARROW_LITTLE_ENDIAN
   bool swap = endian != 0x01;
 #else
   bool swap = endian != 0x00;

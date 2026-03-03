@@ -29,45 +29,44 @@
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/time.h"
 #include "arrow/util/value_parsing.h"
-#include "arrow/vendored/datetime.h"
 
 namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
 
-namespace compute {
-namespace internal {
+namespace compute::internal {
+
+namespace chrono = arrow::internal::chrono;
 
 namespace {
 
-using arrow_vendored::date::ceil;
-using arrow_vendored::date::days;
-using arrow_vendored::date::floor;
-using arrow_vendored::date::hh_mm_ss;
-using arrow_vendored::date::local_days;
-using arrow_vendored::date::local_time;
-using arrow_vendored::date::locate_zone;
-using arrow_vendored::date::Monday;
-using arrow_vendored::date::months;
-using arrow_vendored::date::round;
-using arrow_vendored::date::Sunday;
-using arrow_vendored::date::sys_time;
-using arrow_vendored::date::trunc;
-using arrow_vendored::date::weekday;
-using arrow_vendored::date::weeks;
-using arrow_vendored::date::year;
-using arrow_vendored::date::year_month_day;
-using arrow_vendored::date::year_month_weekday;
-using arrow_vendored::date::years;
-using arrow_vendored::date::zoned_time;
-using arrow_vendored::date::literals::dec;
-using arrow_vendored::date::literals::jan;
-using arrow_vendored::date::literals::last;
-using arrow_vendored::date::literals::mon;
-using arrow_vendored::date::literals::sun;
-using arrow_vendored::date::literals::thu;
-using arrow_vendored::date::literals::wed;
+using chrono::ceil;
+using chrono::days;
+using chrono::dec;
+using chrono::floor;
+using chrono::hh_mm_ss;
+using chrono::jan;
+using chrono::last;
+using chrono::local_days;
+using chrono::local_time;
+using chrono::locate_zone;
+using chrono::mon;
+using chrono::Monday;
+using chrono::months;
+using chrono::round;
+using chrono::sun;
+using chrono::Sunday;
+using chrono::sys_time;
+using chrono::thu;
+using chrono::trunc;
+using chrono::wed;
+using chrono::weekday;
+using chrono::weeks;
+using chrono::year;
+using chrono::year_month_day;
+using chrono::year_month_weekday;
+using chrono::years;
 using std::chrono::duration_cast;
 using std::chrono::hours;
 using std::chrono::minutes;
@@ -527,8 +526,8 @@ struct Week {
   }
 
   Localizer localizer_;
-  arrow_vendored::date::weekday wd_;
-  arrow_vendored::date::days days_offset_;
+  chrono::weekday wd_;
+  chrono::days days_offset_;
   const bool count_from_zero_;
   const bool first_week_is_fully_in_year_;
 };
@@ -664,15 +663,19 @@ struct Nanosecond {
 
 template <typename Duration>
 struct IsDaylightSavings {
-  explicit IsDaylightSavings(const FunctionOptions* options, const time_zone* tz)
+  explicit IsDaylightSavings(const FunctionOptions* options, const ArrowTimeZone tz)
       : tz_(tz) {}
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status*) const {
-    return tz_->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+    return std::visit(
+        [&arg](const auto& tz) -> bool {
+          return tz->get_info(sys_time<Duration>{Duration{arg}}).save.count() != 0;
+        },
+        tz_);
   }
 
-  const time_zone* tz_;
+  const ArrowTimeZone tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -1166,7 +1169,7 @@ Result<std::locale> GetLocale(const std::string& locale) {
 template <typename Duration, typename InType>
 struct Strftime {
   const StrftimeOptions& options;
-  const time_zone* tz;
+  const ArrowTimeZone tz;
   const std::locale locale;
 
   static Result<Strftime> Make(KernelContext* ctx, const DataType& type) {
@@ -1187,9 +1190,7 @@ struct Strftime {
             options.format);
       }
     }
-
-    ARROW_ASSIGN_OR_RAISE(const time_zone* tz,
-                          LocateZone(timezone.empty() ? "UTC" : timezone));
+    ARROW_ASSIGN_OR_RAISE(auto tz, LocateZone(timezone.empty() ? "UTC" : timezone));
 
     ARROW_ASSIGN_OR_RAISE(std::locale locale, GetLocale(options.locale));
 
@@ -1354,32 +1355,32 @@ Result<TypeHolder> ResolveLocalTimestampOutput(KernelContext* ctx,
 
 template <typename Duration>
 struct AssumeTimezone {
-  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const time_zone* tz)
+  explicit AssumeTimezone(const AssumeTimezoneOptions* options, const ArrowTimeZone tz)
       : options(*options), tz_(tz) {}
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const time_zone* tz) const {
-    return static_cast<T>(zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}))
-                              .get_sys_time()
-                              .time_since_epoch()
-                              .count());
+  T get_local_time(Arg0 arg, const ArrowTimeZone* tz) const {
+    const auto lt = local_time<Duration>(Duration{arg});
+    auto local_to_sys_time = [&](auto&& t) {
+      return t.get_sys_time().time_since_epoch().count();
+    };
+    return ApplyTimeZone(tz_, lt, std::nullopt, local_to_sys_time);
   }
 
   template <typename T, typename Arg0>
-  T get_local_time(Arg0 arg, const arrow_vendored::date::choose choose,
-                   const time_zone* tz) const {
-    return static_cast<T>(
-        zoned_time<Duration>(tz, local_time<Duration>(Duration{arg}), choose)
-            .get_sys_time()
-            .time_since_epoch()
-            .count());
+  T get_local_time(Arg0 arg, const choose c, const ArrowTimeZone* tz) const {
+    const auto lt = local_time<Duration>(Duration{arg});
+    auto local_to_sys_time = [&](auto&& t) {
+      return t.get_sys_time().time_since_epoch().count();
+    };
+    return ApplyTimeZone(tz_, lt, c, local_to_sys_time);
   }
 
   template <typename T, typename Arg0>
   T Call(KernelContext*, Arg0 arg, Status* st) const {
     try {
-      return get_local_time<T, Arg0>(arg, tz_);
-    } catch (const arrow_vendored::date::nonexistent_local_time& e) {
+      return get_local_time<T, Arg0>(arg, &tz_);
+    } catch (const chrono::nonexistent_local_time& e) {
       switch (options.nonexistent) {
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_RAISE: {
           *st = Status::Invalid("Timestamp doesn't exist in timezone '", options.timezone,
@@ -1387,14 +1388,13 @@ struct AssumeTimezone {
           return arg;
         }
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_EARLIEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_) -
-                 1;
+          return get_local_time<T, Arg0>(arg, chrono::choose::latest, &tz_) - 1;
         }
         case AssumeTimezoneOptions::Nonexistent::NONEXISTENT_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+          return get_local_time<T, Arg0>(arg, chrono::choose::latest, &tz_);
         }
       }
-    } catch (const arrow_vendored::date::ambiguous_local_time& e) {
+    } catch (const chrono::ambiguous_local_time& e) {
       switch (options.ambiguous) {
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_RAISE: {
           *st = Status::Invalid("Timestamp is ambiguous in timezone '", options.timezone,
@@ -1402,18 +1402,17 @@ struct AssumeTimezone {
           return arg;
         }
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_EARLIEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::earliest,
-                                         tz_);
+          return get_local_time<T, Arg0>(arg, chrono::choose::earliest, &tz_);
         }
         case AssumeTimezoneOptions::Ambiguous::AMBIGUOUS_LATEST: {
-          return get_local_time<T, Arg0>(arg, arrow_vendored::date::choose::latest, tz_);
+          return get_local_time<T, Arg0>(arg, chrono::choose::latest, &tz_);
         }
       }
     }
     return 0;
   }
   AssumeTimezoneOptions options;
-  const time_zone* tz_;
+  const ArrowTimeZone tz_;
 };
 
 // ----------------------------------------------------------------------
@@ -2035,6 +2034,5 @@ void RegisterScalarTemporalUnary(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunction(std::move(round_temporal)));
 }
 
-}  // namespace internal
-}  // namespace compute
+}  // namespace compute::internal
 }  // namespace arrow

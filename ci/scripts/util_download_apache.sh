@@ -44,10 +44,9 @@ APACHE_MIRRORS=(
 
 mkdir -p "${target_dir}"
 
-for mirror in ${APACHE_MIRRORS[*]}
+for mirror in "${APACHE_MIRRORS[@]}"
 do
-  curl -SL "${mirror}/${tarball_path}" | tar -xzf - -C "${target_dir}"
-  if [ $? == 0 ]; then
+  if curl -SL "${mirror}/${tarball_path}" | tar -xzf - -C "${target_dir}"; then
     exit 0
   fi
 done

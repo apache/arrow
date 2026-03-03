@@ -25,7 +25,7 @@ du -hsc /usr/local/*
 echo "::endgroup::"
 # ~1GB
 sudo rm -rf \
-  /usr/local/aws-sam-cil \
+  /usr/local/aws-sam-cli \
   /usr/local/julia* || :
 echo "::group::/usr/local/bin/*"
 du -hsc /usr/local/bin/*
@@ -87,8 +87,9 @@ sudo rm -rf /opt/hostedtoolcache/PyPy || :
 # 376MB
 sudo rm -rf /opt/hostedtoolcache/node || :
 # Remove Web browser packages
-sudo apt purge -y \
-  firefox \
-  google-chrome-stable \
-  microsoft-edge-stable
+sudo apt purge -y firefox
+# google-chrome-stable isn't installed on arm64 image.
+sudo apt purge -y google-chrome-stable || :
+# microsoft-edge-stable isn't installed on arm64 image.
+sudo apt purge -y microsoft-edge-stable || :
 df -h

@@ -108,6 +108,7 @@ RUN apt-get update -y -q && \
         ninja-build \
         nlohmann-json3-dev \
         npm \
+        patch \
         pkg-config \
         protobuf-compiler \
         protobuf-compiler-grpc \
@@ -121,6 +122,7 @@ RUN apt-get update -y -q && \
         tzdata \
         tzdata-legacy \
         uuid-runtime \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

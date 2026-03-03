@@ -22,8 +22,6 @@
 The Arrow PyCapsule Interface
 =============================
 
-.. warning:: The Arrow PyCapsule Interface should be considered experimental
-
 Rationale
 =========
 

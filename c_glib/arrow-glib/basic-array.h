@@ -54,9 +54,21 @@ struct _GArrowArrayStatisticsClass
 GARROW_AVAILABLE_IN_20_0
 gboolean
 garrow_array_statistics_has_null_count(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_23_0
+gboolean
+garrow_array_statistics_is_null_count_exact(GArrowArrayStatistics *statistics);
+#ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_20_0
+GARROW_DEPRECATED_IN_23_0_FOR(garrow_array_statistics_get_null_count_exact)
 gint64
 garrow_array_statistics_get_null_count(GArrowArrayStatistics *statistics);
+#endif
+GARROW_AVAILABLE_IN_23_0
+gint64
+garrow_array_statistics_get_null_count_exact(GArrowArrayStatistics *statistics);
+GARROW_AVAILABLE_IN_23_0
+gdouble
+garrow_array_statistics_get_null_count_approximate(GArrowArrayStatistics *statistics);
 
 GARROW_AVAILABLE_IN_21_0
 gboolean
@@ -872,6 +884,31 @@ garrow_month_day_nano_interval_array_get_value(GArrowMonthDayNanoIntervalArray *
 GARROW_AVAILABLE_IN_8_0
 GList *
 garrow_month_day_nano_interval_array_get_values(GArrowMonthDayNanoIntervalArray *array);
+
+#define GARROW_TYPE_DURATION_ARRAY (garrow_duration_array_get_type())
+GARROW_AVAILABLE_IN_ALL
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowDurationArray, garrow_duration_array, GARROW, DURATION_ARRAY, GArrowNumericArray)
+struct _GArrowDurationArrayClass
+{
+  GArrowNumericArrayClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowDurationArray *
+garrow_duration_array_new(GArrowDurationDataType *data_type,
+                          gint64 length,
+                          GArrowBuffer *data,
+                          GArrowBuffer *null_bitmap,
+                          gint64 n_nulls);
+
+GARROW_AVAILABLE_IN_23_0
+gint64
+garrow_duration_array_get_value(GArrowDurationArray *array, gint64 i);
+
+GARROW_AVAILABLE_IN_23_0
+const gint64 *
+garrow_duration_array_get_values(GArrowDurationArray *array, gint64 *length);
 
 #define GARROW_TYPE_FIXED_SIZE_BINARY_ARRAY (garrow_fixed_size_binary_array_get_type())
 GARROW_AVAILABLE_IN_3_0

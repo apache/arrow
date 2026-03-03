@@ -20,7 +20,7 @@
 # Apache Arrow
 
 [![Fuzzing Status](https://oss-fuzz-build-logs.storage.googleapis.com/badges/arrow.svg)](https://bugs.chromium.org/p/oss-fuzz/issues/list?sort=-opened&can=1&q=proj:arrow)
-[![License](http://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/main/LICENSE.txt)
+[![License](https://img.shields.io/:license-Apache%202-blue.svg)](https://github.com/apache/arrow/blob/main/LICENSE.txt)
 [![BlueSky Follow](https://img.shields.io/badge/bluesky-Follow-blue?logo=bluesky)](https://bsky.app/profile/arrow.apache.org)
 
 ## Powering In-Memory Analytics
@@ -43,7 +43,7 @@ Major components of the project include:
    Arrow data with application-defined semantics (for example a storage server or a database)
  - [C++ libraries](https://github.com/apache/arrow/tree/main/cpp)
  - [C bindings using GLib](https://github.com/apache/arrow/tree/main/c_glib)
- - [.NET libraries](https://github.com/apache/arrow-dotnet)
+ - [.NET libraries](https://github.com/apache/arrow-dotnet) `↗`
  - [Gandiva](https://github.com/apache/arrow/tree/main/cpp/src/gandiva):
    an [LLVM](https://llvm.org)-based Arrow expression compiler, part of the C++ codebase
  - [Go libraries](https://github.com/apache/arrow-go) `↗`
@@ -68,7 +68,7 @@ The reference Arrow libraries contain many distinct software components:
 
 - Columnar vector and table-like containers (similar to data frames) supporting
   flat or nested types
-- Fast, language agnostic metadata messaging layer (using Google's Flatbuffers
+- Fast, language agnostic metadata messaging layer (using Google's FlatBuffers
   library)
 - Reference-counted off-heap buffer memory management, for zero-copy memory
   sharing and handling memory-mapped files
@@ -89,7 +89,7 @@ on git main.
 
 ## How to Contribute
 
-Please read our latest [project contribution guide][5].
+Please read our latest [project contribution guide][4].
 
 ## Getting involved
 
@@ -103,8 +103,14 @@ integrations in other projects, we'd be happy to have you involved:
 - [Learn the format][2]
 - Contribute code to one of the reference implementations
 
+## Continuous Integration Sponsors
+
+We use [runs-on][5] for managing the project self-hosted runners.
+We use [AWS][6] for some of the required infrastructure for the project.
+
 [1]: mailto:dev-subscribe@arrow.apache.org
 [2]: https://github.com/apache/arrow/tree/main/format
 [3]: https://github.com/apache/arrow/issues
-[4]: https://github.com/apache/arrow
-[5]: https://arrow.apache.org/docs/dev/developers/index.html
+[4]: https://arrow.apache.org/docs/dev/developers/index.html
+[5]: https://runs-on.com/
+[6]: https://aws.amazon.com/

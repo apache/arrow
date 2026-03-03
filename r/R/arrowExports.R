@@ -468,8 +468,8 @@ ExecNode_Scan <- function(plan, dataset, filter, projection) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
-ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group))
+ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -550,10 +550,6 @@ build_info <- function() {
 
 runtime_info <- function() {
   .Call(`_arrow_runtime_info`)
-}
-
-set_timezone_database <- function(path) {
-  invisible(.Call(`_arrow_set_timezone_database`, path))
 }
 
 csv___WriteOptions__initialize <- function(options) {
@@ -938,6 +934,10 @@ Decimal128Type__initialize <- function(precision, scale) {
 
 Decimal256Type__initialize <- function(precision, scale) {
   .Call(`_arrow_Decimal256Type__initialize`, precision, scale)
+}
+
+SmallestDecimal__initialize <- function(precision, scale) {
+  .Call(`_arrow_SmallestDecimal__initialize`, precision, scale)
 }
 
 DayTimeInterval__initialize <- function() {

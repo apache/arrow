@@ -649,5 +649,23 @@ TYPED_TEST(TestAddWithOverflow, Basics) {
   this->CheckOk(almost_min, almost_max + T{2}, T{1});
 }
 
+TEST(AddWithOverflow, Variadic) {
+  ASSERT_EQ(AddWithOverflow<int>({}), std::nullopt);
+  ASSERT_EQ(AddWithOverflow({1, 2, 3}), 6);
+  ASSERT_EQ(AddWithOverflow<int8_t>({1, 2, 125}), std::nullopt);
+  ASSERT_EQ(AddWithOverflow<int8_t>({125, 2, 1}), std::nullopt);
+  ASSERT_EQ(AddWithOverflow<int16_t>({1, 2, 125}), 128);
+  ASSERT_EQ(AddWithOverflow<int16_t>({125, 2, 1}), 128);
+}
+
+TEST(MultiplyWithOverflow, Variadic) {
+  ASSERT_EQ(MultiplyWithOverflow<int>({}), std::nullopt);
+  ASSERT_EQ(MultiplyWithOverflow({1, 2, 3, 4}), 24);
+  ASSERT_EQ(MultiplyWithOverflow<int8_t>({2, 2, 32}), std::nullopt);
+  ASSERT_EQ(MultiplyWithOverflow<int8_t>({32, 4, 1}), std::nullopt);
+  ASSERT_EQ(MultiplyWithOverflow<int16_t>({2, 2, 32}), 128);
+  ASSERT_EQ(MultiplyWithOverflow<int16_t>({32, 4, 1}), 128);
+}
+
 }  // namespace internal
 }  // namespace arrow

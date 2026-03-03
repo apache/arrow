@@ -23,6 +23,7 @@
 #include <memory>
 #include <type_traits>
 
+#include "arrow/util/aligned_storage.h"
 #include "arrow/util/macros.h"
 
 namespace arrow {
@@ -55,16 +56,22 @@ inline T* MakeNonNull(T* maybe_null = NULLPTR) {
 template <typename T>
 inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoadAs(
     const uint8_t* unaligned) {
-  std::remove_const_t<T> ret;
-  std::memcpy(&ret, unaligned, sizeof(T));
-  return ret;
+  using Type = std::remove_const_t<T>;
+  arrow::internal::AlignedStorage<Type> raw_data;
+  std::memcpy(raw_data.get(), unaligned, sizeof(T));
+  auto data = *raw_data.get();
+  raw_data.destroy();
+  return data;
 }
 
 template <typename T>
 inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoad(const T* unaligned) {
-  std::remove_const_t<T> ret;
-  std::memcpy(&ret, static_cast<const void*>(unaligned), sizeof(T));
-  return ret;
+  using Type = std::remove_const_t<T>;
+  arrow::internal::AlignedStorage<Type> raw_data;
+  std::memcpy(raw_data.get(), static_cast<const void*>(unaligned), sizeof(T));
+  auto data = *raw_data.get();
+  raw_data.destroy();
+  return data;
 }
 
 template <typename U, typename T>
@@ -72,9 +79,12 @@ inline std::enable_if_t<std::is_trivially_copyable_v<T> &&
                             std::is_trivially_copyable_v<U> && sizeof(T) == sizeof(U),
                         U>
 SafeCopy(T value) {
-  std::remove_const_t<U> ret;
-  std::memcpy(&ret, static_cast<const void*>(&value), sizeof(T));
-  return ret;
+  using TypeU = std::remove_const_t<U>;
+  arrow::internal::AlignedStorage<TypeU> raw_data;
+  std::memcpy(raw_data.get(), static_cast<const void*>(&value), sizeof(T));
+  auto data = *raw_data.get();
+  raw_data.destroy();
+  return data;
 }
 
 template <typename T>

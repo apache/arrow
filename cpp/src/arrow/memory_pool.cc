@@ -857,6 +857,45 @@ std::vector<std::string> SupportedMemoryBackendNames() {
   return supported;
 }
 
+///////////////////////////////////////////////////////////////////////
+// CappedMemoryPool implementation
+
+Status CappedMemoryPool::Allocate(int64_t size, int64_t alignment, uint8_t** out) {
+  // XXX Another thread may allocate memory between the limit check and
+  // the `Allocate` call. It is possible for the two allocations to be successful
+  // while going above the limit.
+  // Solving this issue would require refactoring the `MemoryPool` implementation
+  // to delegate the limit check to `MemoryPoolStats`.
+  const int64_t allocated = wrapped_->bytes_allocated();
+  if (ARROW_PREDICT_FALSE(bytes_allocated_limit_ - allocated < size)) {
+    return OutOfMemory(allocated, size);
+  }
+  return wrapped_->Allocate(size, alignment, out);
+}
+
+Status CappedMemoryPool::Reallocate(int64_t old_size, int64_t new_size, int64_t alignment,
+                                    uint8_t** ptr) {
+  if (new_size > old_size) {
+    const int64_t allocated = wrapped_->bytes_allocated();
+    if (ARROW_PREDICT_FALSE(bytes_allocated_limit_ - allocated < new_size - old_size)) {
+      return OutOfMemory(allocated, new_size - old_size);
+    }
+  }
+  return wrapped_->Reallocate(old_size, new_size, alignment, ptr);
+}
+
+void CappedMemoryPool::Free(uint8_t* buffer, int64_t size, int64_t alignment) {
+  return wrapped_->Free(buffer, size, alignment);
+}
+
+Status CappedMemoryPool::OutOfMemory(int64_t current_allocated, int64_t requested) const {
+  return Status::OutOfMemory(
+      "MemoryPool bytes_allocated cap exceeded: "
+      "limit=",
+      bytes_allocated_limit_, ", current allocation=", current_allocated,
+      ", requested=", requested);
+}
+
 // -----------------------------------------------------------------------
 // Pool buffer and allocation
 

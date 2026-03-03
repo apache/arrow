@@ -19,7 +19,6 @@
 
 #pragma once
 
-#include <algorithm>
 #include <cstdint>
 #include <cstring>
 #include <type_traits>
@@ -59,7 +58,7 @@ class BitWriter {
   int buffer_len() const { return max_bytes_; }
 
   /// Writes a value to buffered_values_, flushing to buffer_ if necessary.  This is bit
-  /// packed.  Returns false if there was not enough space. num_bits must be <= 32.
+  /// packed.  Returns false if there was not enough space. num_bits must be <= 64.
   bool PutValue(uint64_t v, int num_bits);
 
   /// Writes v to the next aligned byte using num_bytes. If T is larger than
@@ -161,6 +160,10 @@ class BitReader {
   /// are not enough bits left.
   bool Advance(int64_t num_bits);
 
+  /// Advance the stream by a number of bytes, ignoring remaning bits.
+  /// Returns true if succeed or false if there are not enough bits left.
+  bool AdvanceBytes(int num_bytes);
+
   /// Reads a vlq encoded int from the stream.  The encoded int must start at
   /// the beginning of a byte. Return false if there were not enough bytes in
   /// the buffer.
@@ -198,8 +201,11 @@ inline bool BitWriter::PutValue(uint64_t v, int num_bits) {
     ARROW_DCHECK_EQ(v >> num_bits, 0) << "v = " << v << ", num_bits = " << num_bits;
   }
 
-  if (ARROW_PREDICT_FALSE(byte_offset_ * 8 + bit_offset_ + num_bits > max_bytes_ * 8))
+  if (ARROW_PREDICT_FALSE(static_cast<int64_t>(byte_offset_) * 8 + bit_offset_ +
+                              num_bits >
+                          static_cast<int64_t>(max_bytes_) * 8)) {
     return false;
+  }
 
   buffered_values_ |= v << bit_offset_;
   bit_offset_ += num_bits;
@@ -249,48 +255,6 @@ inline bool BitWriter::PutAligned(T val, int num_bytes) {
   return true;
 }
 
-namespace detail {
-
-template <typename T>
-inline void GetValue_(int num_bits, T* v, int max_bytes, const uint8_t* buffer,
-                      int* bit_offset, int* byte_offset, uint64_t* buffered_values) {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable : 4800)
-#endif
-  *v = static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset + num_bits) >>
-                      *bit_offset);
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-  *bit_offset += num_bits;
-  if (*bit_offset >= 64) {
-    *byte_offset += 8;
-    *bit_offset -= 64;
-
-    *buffered_values =
-        detail::ReadLittleEndianWord(buffer + *byte_offset, max_bytes - *byte_offset);
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable : 4800 4805)
-#endif
-    // Read bits of v that crossed into new buffered_values_
-    if (ARROW_PREDICT_TRUE(num_bits - *bit_offset < static_cast<int>(8 * sizeof(T)))) {
-      // if shift exponent(num_bits - *bit_offset) is not less than sizeof(T), *v will not
-      // change and the following code may cause a runtime error that the shift exponent
-      // is too large
-      *v = *v | static_cast<T>(bit_util::TrailingBits(*buffered_values, *bit_offset)
-                               << (num_bits - *bit_offset));
-    }
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-    ARROW_DCHECK_LE(*bit_offset, 64);
-  }
-}
-
-}  // namespace detail
-
 template <typename T>
 inline bool BitReader::GetValue(int num_bits, T* v) {
   return GetBatch(num_bits, v, 1) == 1;
@@ -298,84 +262,34 @@ inline bool BitReader::GetValue(int num_bits, T* v) {
 
 template <typename T>
 inline int BitReader::GetBatch(int num_bits, T* v, int batch_size) {
-  ARROW_DCHECK(buffer_ != NULL);
+  constexpr uint64_t kBitsPerByte = 8;
+
+  ARROW_DCHECK(buffer_ != NULLPTR);
   ARROW_DCHECK_LE(num_bits, static_cast<int>(sizeof(T) * 8)) << "num_bits: " << num_bits;
 
-  int bit_offset = bit_offset_;
-  int byte_offset = byte_offset_;
-  uint64_t buffered_values = buffered_values_;
-  int max_bytes = max_bytes_;
-  const uint8_t* buffer = buffer_;
-
   const int64_t needed_bits = num_bits * static_cast<int64_t>(batch_size);
-  constexpr uint64_t kBitsPerByte = 8;
   const int64_t remaining_bits =
-      static_cast<int64_t>(max_bytes - byte_offset) * kBitsPerByte - bit_offset;
+      static_cast<int64_t>(max_bytes_ - byte_offset_) * kBitsPerByte - bit_offset_;
   if (remaining_bits < needed_bits) {
     batch_size = static_cast<int>(remaining_bits / num_bits);
   }
 
-  int i = 0;
-  if (ARROW_PREDICT_FALSE(bit_offset != 0)) {
-    for (; i < batch_size && bit_offset != 0; ++i) {
-      detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                        &buffered_values);
-    }
-  }
+  const ::arrow::internal::UnpackOptions opts{
+      .batch_size = batch_size,
+      .bit_width = num_bits,
+      .bit_offset = bit_offset_,
+      .max_read_bytes = max_bytes_ - byte_offset_,
+  };
 
-  if (sizeof(T) == 4) {
-    int num_unpacked =
-        internal::unpack32(buffer + byte_offset, reinterpret_cast<uint32_t*>(v + i),
-                           batch_size - i, num_bits);
-    i += num_unpacked;
-    byte_offset += num_unpacked * num_bits / 8;
-  } else if (sizeof(T) == 8 && num_bits > 32) {
-    // Use unpack64 only if num_bits is larger than 32
-    // TODO (ARROW-13677): improve the performance of internal::unpack64
-    // and remove the restriction of num_bits
-    int num_unpacked =
-        internal::unpack64(buffer + byte_offset, reinterpret_cast<uint64_t*>(v + i),
-                           batch_size - i, num_bits);
-    i += num_unpacked;
-    byte_offset += num_unpacked * num_bits / 8;
+  if constexpr (std::is_same_v<T, bool>) {
+    ::arrow::internal::unpack(buffer_ + byte_offset_, v, opts);
+
   } else {
-    // TODO: revisit this limit if necessary
-    ARROW_DCHECK_LE(num_bits, 32);
-    const int buffer_size = 1024;
-    uint32_t unpack_buffer[buffer_size];
-    while (i < batch_size) {
-      int unpack_size = std::min(buffer_size, batch_size - i);
-      int num_unpacked =
-          internal::unpack32(buffer + byte_offset, unpack_buffer, unpack_size, num_bits);
-      if (num_unpacked == 0) {
-        break;
-      }
-      for (int k = 0; k < num_unpacked; ++k) {
-#ifdef _MSC_VER
-#  pragma warning(push)
-#  pragma warning(disable : 4800)
-#endif
-        v[i + k] = static_cast<T>(unpack_buffer[k]);
-#ifdef _MSC_VER
-#  pragma warning(pop)
-#endif
-      }
-      i += num_unpacked;
-      byte_offset += num_unpacked * num_bits / 8;
-    }
+    ::arrow::internal::unpack(buffer_ + byte_offset_,
+                              reinterpret_cast<std::make_unsigned_t<T>*>(v), opts);
   }
 
-  buffered_values =
-      detail::ReadLittleEndianWord(buffer + byte_offset, max_bytes - byte_offset);
-
-  for (; i < batch_size; ++i) {
-    detail::GetValue_(num_bits, &v[i], max_bytes, buffer, &bit_offset, &byte_offset,
-                      &buffered_values);
-  }
-
-  bit_offset_ = bit_offset;
-  byte_offset_ = byte_offset;
-  buffered_values_ = buffered_values;
+  Advance(batch_size * num_bits);
 
   return batch_size;
 }
@@ -424,6 +338,17 @@ inline bool BitReader::Advance(int64_t num_bits) {
   return true;
 }
 
+inline bool BitReader::AdvanceBytes(int num_bytes) {
+  if (ARROW_PREDICT_FALSE(num_bytes > max_bytes_ - byte_offset_)) {
+    return false;
+  }
+  byte_offset_ += num_bytes;
+  bit_offset_ = 0;
+  buffered_values_ =
+      detail::ReadLittleEndianWord(buffer_ + byte_offset_, max_bytes_ - byte_offset_);
+  return true;
+}
+
 template <typename Int>
 inline bool BitWriter::PutVlqInt(Int v) {
   static_assert(std::is_integral_v<Int>);
@@ -458,25 +383,10 @@ inline bool BitReader::GetVlqInt(Int* v) {
   static_assert(std::is_integral_v<Int>);
 
   // The data that we will pass to the LEB128 parser
-  // In all case, we read a byte-aligned value, skipping remaining bits
-  const uint8_t* data = NULLPTR;
-  int max_size = 0;
-
-  // Number of bytes left in the buffered values, not including the current
-  // byte (i.e., there may be an additional fraction of a byte).
-  const int bytes_left_in_cache =
-      sizeof(buffered_values_) - static_cast<int>(bit_util::BytesForBits(bit_offset_));
-
-  // If there are clearly enough bytes left we can try to parse from the cache
-  if (bytes_left_in_cache >= kMaxLEB128ByteLenFor<Int>) {
-    max_size = bytes_left_in_cache;
-    data = reinterpret_cast<const uint8_t*>(&buffered_values_) +
-           bit_util::BytesForBits(bit_offset_);
-    // Otherwise, we try straight from buffer (ignoring few bytes that may be cached)
-  } else {
-    max_size = bytes_left();
-    data = buffer_ + (max_bytes_ - max_size);
-  }
+  // We read a byte-aligned value, skipping remaining bits.
+  // Also, we don't bother with the cache since the decoding would be the same.
+  int max_size = bytes_left();
+  const uint8_t* data = buffer_ + (max_bytes_ - max_size);
 
   const auto bytes_read = bit_util::ParseLeadingLEB128(data, max_size, v);
   if (ARROW_PREDICT_FALSE(bytes_read == 0)) {
@@ -484,8 +394,8 @@ inline bool BitReader::GetVlqInt(Int* v) {
     return false;
   }
 
-  // Advance for the bytes we have read + the bits we skipped
-  return Advance((8 * bytes_read) + (bit_offset_ % 8));
+  // Advance for the bytes we have read
+  return AdvanceBytes(bytes_read);
 }
 
 template <typename Int>

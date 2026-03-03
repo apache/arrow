@@ -29,6 +29,8 @@
 #include "arrow/util/bit_run_reader.h"
 #include "arrow/util/bit_stream_utils_internal.h"
 #include "arrow/util/bit_util.h"
+#include "arrow/util/bpacking_internal.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/macros.h"
 
 namespace arrow::util {
@@ -155,10 +157,13 @@ class BitPackedRun {
   constexpr BitPackedRun() noexcept = default;
 
   constexpr BitPackedRun(const uint8_t* data, rle_size_t values_count,
-                         rle_size_t value_bit_width) noexcept
-      : data_(data), values_count_(values_count) {
-    ARROW_CHECK_GE(value_bit_width, 0);
-    ARROW_CHECK_GE(values_count_, 0);
+                         rle_size_t value_bit_width, rle_size_t max_read_bytes) noexcept
+      : data_(data), values_count_(values_count), max_read_bytes_(max_read_bytes) {
+    ARROW_DCHECK_GE(value_bit_width, 0);
+    ARROW_DCHECK_GE(values_count_, 0);
+    ARROW_DCHECK(max_read_bytes < 0 ||
+                 bit_util::BytesForBits(value_bit_width * values_count) <=
+                     max_read_bytes);
   }
 
   constexpr rle_size_t values_count() const noexcept { return values_count_; }
@@ -168,15 +173,22 @@ class BitPackedRun {
   constexpr rle_size_t raw_data_size(rle_size_t value_bit_width) const noexcept {
     auto out = bit_util::BytesForBits(static_cast<int64_t>(value_bit_width) *
                                       static_cast<int64_t>(values_count_));
-    ARROW_CHECK_LE(out, std::numeric_limits<rle_size_t>::max());
+    ARROW_DCHECK_LE(out, std::numeric_limits<rle_size_t>::max());
     return static_cast<rle_size_t>(out);
   }
+
+  /// Maximum number of bytes allowed to be read in the buffer.
+  /// This is used for unpacking operations that may need to read more bytes than they
+  /// extract for performance.
+  constexpr rle_size_t raw_data_max_size() const noexcept { return max_read_bytes_; }
 
  private:
   /// The pointer to the beginning of the run
   const uint8_t* data_ = nullptr;
   /// Number of values in this run.
   rle_size_t values_count_ = 0;
+  /// Not the size of the run, but the maximum number of bytes we can read in the buffer.
+  rle_size_t max_read_bytes_ = -1;
 };
 
 /// A parser that emits either a ``BitPackedRun`` or a ``RleRun``.
@@ -278,10 +290,9 @@ class RleRunDecoder {
   /// Return the repeated value of this decoder.
   constexpr value_type value() const { return value_; }
 
-  /// Try to advance by as many values as provided.
+  /// Advance by as many values as provided or until exhaustion of the decoder.
   /// Return the number of values skipped.
-  /// May advance by less than asked for if there are not enough values left.
-  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size, rle_size_t value_bit_width) {
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
     const auto steps = std::min(batch_size, remaining_count_);
     remaining_count_ -= steps;
     return steps;
@@ -331,52 +342,66 @@ class BitPackedRunDecoder {
   }
 
   void Reset(const RunType& run, rle_size_t value_bit_width) noexcept {
-    remaining_count_ = run.values_count();
     ARROW_DCHECK_GE(value_bit_width, 0);
     ARROW_DCHECK_LE(value_bit_width, 64);
-    bit_reader_.Reset(run.raw_data_ptr(), run.raw_data_size(value_bit_width));
+    data_ = run.raw_data_ptr();
+    values_count_ = run.values_count();
+    values_read_ = 0;
+    max_read_bytes_ = run.raw_data_max_size();
   }
 
   /// Return the number of values that can be advanced.
-  constexpr rle_size_t remaining() const { return remaining_count_; }
+  constexpr rle_size_t remaining() const { return values_count_ - values_read_; }
 
-  /// Try to advance by as many values as provided.
-  /// Return the number of values skipped or 0 if it fail to advance.
-  /// May advance by less than asked for if there are not enough values left.
-  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size, rle_size_t value_bit_width) {
-    const auto steps = std::min(batch_size, remaining_count_);
-    if (bit_reader_.Advance(steps * value_bit_width)) {
-      remaining_count_ -= steps;
-      return steps;
-    }
-    return 0;
+  /// Advance by as many values as provided or until exhaustion of the decoder.
+  /// Return the number of values skipped.
+  [[nodiscard]] rle_size_t Advance(rle_size_t batch_size) {
+    const auto steps = std::min(batch_size, remaining());
+    values_read_ += steps;
+    return steps;
   }
 
-  /// Get the next value and return false if there are no more or an error occurred.
+  /// Get the next value and return false if there are no more.
   [[nodiscard]] constexpr bool Get(value_type* out_value, rle_size_t value_bit_width) {
     return GetBatch(out_value, 1, value_bit_width) == 1;
   }
 
   /// Get a batch of values return the number of decoded elements.
   /// May write fewer elements to the output than requested if there are not enough values
-  /// left or if an error occurred.
+  /// left.
   [[nodiscard]] rle_size_t GetBatch(value_type* out, rle_size_t batch_size,
                                     rle_size_t value_bit_width) {
-    if (ARROW_PREDICT_FALSE(remaining_count_ == 0)) {
-      return 0;
-    }
+    const int bits_read = values_read_ * value_bit_width;
+    const int bytes_fully_read = bits_read / 8;
+    const uint8_t* unread_data = data_ + bytes_fully_read;
 
-    const auto to_read = std::min(remaining_count_, batch_size);
-    const auto actual_read = bit_reader_.GetBatch(value_bit_width, out, to_read);
-    // There should not be any reason why the actual read would be different
-    // but this is error resistant.
-    remaining_count_ -= actual_read;
-    return actual_read;
+    const ::arrow::internal::UnpackOptions opts{
+        /* .batch_size= */ std::min(batch_size, remaining()),
+        /* .bit_width= */ value_bit_width,
+        /* .bit_offset= */ bits_read % 8,
+        /* .max_read_bytes= */ max_read_bytes_ - bytes_fully_read,
+    };
+
+    if constexpr (std::is_same_v<T, bool>) {
+      ::arrow::internal::unpack(unread_data, out, opts);
+
+    } else {
+      ::arrow::internal::unpack(
+          unread_data, reinterpret_cast<std::make_unsigned_t<value_type>*>(out), opts);
+    }
+    values_read_ += opts.batch_size;
+    return opts.batch_size;
   }
 
  private:
-  ::arrow::bit_util::BitReader bit_reader_ = {};
-  rle_size_t remaining_count_ = 0;
+  /// The pointer to the beginning of the run
+  const uint8_t* data_ = nullptr;
+  /// The total number of values in the run
+  rle_size_t values_count_ = 0;
+  /// The number of values read by the decoder
+  rle_size_t values_read_ = 0;
+  /// Total number of bytes in the buffer that we can over-read.
+  rle_size_t max_read_bytes_ = -1;
 
   static_assert(std::is_integral_v<value_type>,
                 "This class is meant to decode positive integers");
@@ -506,7 +531,7 @@ class RleBitPackedEncoder {
       : bit_width_(bit_width), bit_writer_(buffer, buffer_len) {
     ARROW_DCHECK_GE(bit_width_, 0);
     ARROW_DCHECK_LE(bit_width_, 64);
-    max_run_byte_size_ = MinBufferSize(bit_width);
+    max_run_byte_size_ = static_cast<int>(MinBufferSize(bit_width));
     ARROW_DCHECK_GE(buffer_len, max_run_byte_size_) << "Input buffer not big enough.";
     Clear();
   }
@@ -514,32 +539,34 @@ class RleBitPackedEncoder {
   /// Returns the minimum buffer size needed to use the encoder for 'bit_width'
   /// This is the maximum length of a single run for 'bit_width'.
   /// It is not valid to pass a buffer less than this length.
-  static int MinBufferSize(int bit_width) {
+  static int64_t MinBufferSize(int bit_width) {
     // 1 indicator byte and MAX_VALUES_PER_LITERAL_RUN 'bit_width' values.
-    int max_literal_run_size = 1 + static_cast<int>(::arrow::bit_util::BytesForBits(
-                                       MAX_VALUES_PER_LITERAL_RUN * bit_width));
+    int64_t max_literal_run_size =
+        1 + ::arrow::bit_util::BytesForBits(MAX_VALUES_PER_LITERAL_RUN * bit_width);
     // Up to kMaxVlqByteLength indicator and a single 'bit_width' value.
-    int max_repeated_run_size =
-        bit_util::kMaxLEB128ByteLenFor<int32_t> +
-        static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
+    int64_t max_repeated_run_size = bit_util::kMaxLEB128ByteLenFor<int32_t> +
+                                    ::arrow::bit_util::BytesForBits(bit_width);
     return std::max(max_literal_run_size, max_repeated_run_size);
   }
 
   /// Returns the maximum byte size it could take to encode 'num_values'.
-  static int MaxBufferSize(int bit_width, int num_values) {
+  ///
+  /// Note: because of the way CheckBufferFull() is called, you have to
+  /// reserve an extra "RleEncoder::MinBufferSize" bytes. These extra bytes
+  /// won't be used but not reserving them can cause the encoder to fail.
+  static int64_t MaxBufferSize(int bit_width, int64_t num_values) {
     // For a bit_width > 1, the worst case is the repetition of "literal run of length 8
     // and then a repeated run of length 8".
     // 8 values per smallest run, 8 bits per byte
-    int bytes_per_run = bit_width;
-    int num_runs = static_cast<int>(::arrow::bit_util::CeilDiv(num_values, 8));
-    int literal_max_size = num_runs + num_runs * bytes_per_run;
+    int64_t bytes_per_run = bit_width;
+    int64_t num_runs = ::arrow::bit_util::CeilDiv(num_values, 8);
+    int64_t literal_max_size = num_runs + num_runs * bytes_per_run;
 
     // In the very worst case scenario, the data is a concatenation of repeated
     // runs of 8 values. Repeated run has a 1 byte varint followed by the
     // bit-packed repeated value
-    int min_repeated_run_size =
-        1 + static_cast<int>(::arrow::bit_util::BytesForBits(bit_width));
-    int repeated_max_size = num_runs * min_repeated_run_size;
+    int64_t min_repeated_run_size = 1 + ::arrow::bit_util::BytesForBits(bit_width);
+    int64_t repeated_max_size = num_runs * min_repeated_run_size;
 
     return std::max(literal_max_size, repeated_max_size);
   }
@@ -654,17 +681,18 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
 
   constexpr auto kMaxSize = bit_util::kMaxLEB128ByteLenFor<uint32_t>;
   uint32_t run_len_type = 0;
-  const auto header_bytes = bit_util::ParseLeadingLEB128(data_, kMaxSize, &run_len_type);
-
+  const auto header_bytes =
+      bit_util::ParseLeadingLEB128(data_, std::min(kMaxSize, data_size_), &run_len_type);
   if (ARROW_PREDICT_FALSE(header_bytes == 0)) {
-    // Malfomrmed LEB128 data
+    // Malformed LEB128 data
     return {0, ControlFlow::Break};
   }
 
   const bool is_bit_packed = run_len_type & 1;
   const uint32_t count = run_len_type >> 1;
   if (is_bit_packed) {
-    constexpr auto kMaxCount = bit_util::CeilDiv(internal::max_size_for_v<rle_size_t>, 8);
+    // Bit-packed run
+    constexpr auto kMaxCount = internal::max_size_for_v<rle_size_t> / 8;
     if (ARROW_PREDICT_FALSE(count == 0 || count > kMaxCount)) {
       // Illegal number of encoded values
       return {0, ControlFlow::Break};
@@ -672,17 +700,34 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
 
     ARROW_DCHECK_LT(static_cast<uint64_t>(count) * 8,
                     internal::max_size_for_v<rle_size_t>);
-    const auto values_count = static_cast<rle_size_t>(count * 8);
-    // Count Already divided by 8
-    const auto bytes_read =
-        header_bytes + static_cast<rle_size_t>(count) * value_bit_width_;
+    // Count Already divided by 8 for byte size calculations
+    auto bytes_read = header_bytes + static_cast<int64_t>(count) * value_bit_width_;
+    auto values_count = static_cast<rle_size_t>(count * 8);
+    if (ARROW_PREDICT_FALSE(bytes_read > data_size_)) {
+      // Bit-packed run would overflow data buffer, but we might still be able
+      // to return a truncated bit-packed such as generated by some non-compliant
+      // encoders.
+      // Example in GH-47981: column contains 25 5-bit values, has a single
+      // bit-packed run with count=4 (theoretically 32 values), but only 17
+      // bytes of RLE-bit-packed data (including the one-byte header).
+      bytes_read = data_size_;
+      values_count =
+          static_cast<rle_size_t>((bytes_read - header_bytes) * 8 / value_bit_width_);
+      // Only allow errors where the bit-packed run is not padded to a multiple
+      // of 8 values. Larger truncation should not occur.
+      if (values_count <= static_cast<rle_size_t>((count - 1) * 8)) {
+        return {0, ControlFlow::Break};
+      }
+    }
 
     auto control = handler.OnBitPackedRun(
-        BitPackedRun(data_ + header_bytes, values_count, value_bit_width_));
+        BitPackedRun(data_ + header_bytes, values_count, value_bit_width_,
+                     /* .max_read_bytes= */ data_size_ - header_bytes));
 
-    return {bytes_read, control};
+    return {static_cast<rle_size_t>(bytes_read), control};
   }
 
+  // RLE run
   if (ARROW_PREDICT_FALSE(count == 0)) {
     // Illegal number of encoded values
     return {0, ControlFlow::Break};
@@ -693,6 +738,11 @@ auto RleBitPackedParser::PeekImpl(Handler&& handler) const
   const auto value_bytes = bit_util::BytesForBits(value_bit_width_);
   ARROW_DCHECK_LT(value_bytes, internal::max_size_for_v<rle_size_t>);
   const auto bytes_read = header_bytes + static_cast<rle_size_t>(value_bytes);
+
+  if (ARROW_PREDICT_FALSE(bytes_read > data_size_)) {
+    // RLE run would overflow data buffer
+    return {0, ControlFlow::Break};
+  }
 
   auto control =
       handler.OnRleRun(RleRun(data_ + header_bytes, values_count, value_bit_width_));
@@ -722,8 +772,8 @@ bool RleBitPackedDecoder<T>::Get(value_type* val) {
 }
 
 template <typename T>
-auto RleBitPackedDecoder<T>::GetBatch(value_type* out, rle_size_t batch_size)
-    -> rle_size_t {
+auto RleBitPackedDecoder<T>::GetBatch(value_type* out,
+                                      rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
   rle_size_t values_read = 0;
@@ -836,8 +886,8 @@ template <typename Converter, typename BitRunReader, typename BitRun, typename v
 auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
                   rle_size_t batch_size, rle_size_t null_count,
                   rle_size_t value_bit_width, BitRunReader* validity_reader,
-                  BitRun* validity_run, RleRunDecoder<value_type>* decoder)
-    -> GetSpacedResult<rle_size_t> {
+                  BitRun* validity_run,
+                  RleRunDecoder<value_type>* decoder) -> GetSpacedResult<rle_size_t> {
   ARROW_DCHECK_GT(batch_size, 0);
   // The equality case is handled in the main loop in GetSpaced
   ARROW_DCHECK_LT(null_count, batch_size);
@@ -885,7 +935,7 @@ auto RunGetSpaced(Converter* converter, typename Converter::out_type* out,
     return {0, 0};
   }
   converter->WriteRepeated(out, out + batch.total_read(), value);
-  const auto actual_values_read = decoder->Advance(batch.values_read(), value_bit_width);
+  const auto actual_values_read = decoder->Advance(batch.values_read());
   // We always cropped the number of values_read by the remaining values in the run.
   // What's more the RLE decoder should not encounter any errors.
   ARROW_DCHECK_EQ(actual_values_read, batch.values_read());
@@ -1079,7 +1129,6 @@ auto RleBitPackedDecoder<T>::GetSpaced(Converter converter,
   // There may be remaining null if they are not greedily filled by either decoder calls
   check_and_handle_fully_null_remaining();
 
-  ARROW_DCHECK(batch.is_done() || exhausted());
   return batch.total_read();
 }
 
@@ -1117,8 +1166,8 @@ struct NoOpConverter {
 template <typename T>
 auto RleBitPackedDecoder<T>::GetBatchSpaced(rle_size_t batch_size, rle_size_t null_count,
                                             const uint8_t* valid_bits,
-                                            int64_t valid_bits_offset, value_type* out)
-    -> rle_size_t {
+                                            int64_t valid_bits_offset,
+                                            value_type* out) -> rle_size_t {
   if (null_count == 0) {
     return GetBatch(out, batch_size);
   }
@@ -1201,7 +1250,8 @@ auto RleBitPackedDecoder<T>::GetBatchWithDict(const V* dictionary,
                                               rle_size_t batch_size) -> rle_size_t {
   using ControlFlow = RleBitPackedParser::ControlFlow;
 
-  if (ARROW_PREDICT_FALSE(batch_size <= 0)) {
+  if (ARROW_PREDICT_FALSE(batch_size <= 0 || dictionary_length == 0)) {
+    // Either empty batch or invalid dictionary
     return 0;
   }
 
@@ -1265,11 +1315,22 @@ template <typename T>
 template <typename V>
 auto RleBitPackedDecoder<T>::GetBatchWithDictSpaced(
     const V* dictionary, int32_t dictionary_length, V* out, rle_size_t batch_size,
-    rle_size_t null_count, const uint8_t* valid_bits, int64_t valid_bits_offset)
-    -> rle_size_t {
+    rle_size_t null_count, const uint8_t* valid_bits,
+    int64_t valid_bits_offset) -> rle_size_t {
   if (null_count == 0) {
     return GetBatchWithDict<V>(dictionary, dictionary_length, out, batch_size);
   }
+  if (null_count == batch_size) {
+    // All nulls, avoid instantiating DictionaryConverter as dictionary_length
+    // could be 0.
+    std::fill(out, out + batch_size, V{});
+    return batch_size;
+  }
+  if (ARROW_PREDICT_FALSE(batch_size <= 0 || dictionary_length == 0)) {
+    // Either empty batch or invalid dictionary
+    return 0;
+  }
+
   internal::DictionaryConverter<V, value_type> converter{dictionary, dictionary_length};
 
   return GetSpaced(converter, out, batch_size, valid_bits, valid_bits_offset, null_count);
@@ -1416,7 +1477,7 @@ inline int RleBitPackedEncoder::Flush() {
 }
 
 inline void RleBitPackedEncoder::CheckBufferFull() {
-  int bytes_written = bit_writer_.bytes_written();
+  int64_t bytes_written = bit_writer_.bytes_written();
   if (bytes_written + max_run_byte_size_ > bit_writer_.buffer_len()) {
     buffer_full_ = true;
   }

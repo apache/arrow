@@ -45,7 +45,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             with PYARROW_WHEEL_PATH.open(mode="rb") as wheel:
                 self.copyfile(wheel, self.wfile)
-        if self.path.endswith("/test.html"):
+        elif self.path.endswith("/test.html"):
             body = b"""
                 <!doctype html>
                 <html>

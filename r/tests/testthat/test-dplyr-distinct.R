@@ -24,9 +24,9 @@ tbl$some_grouping <- rep(c(1, 2), 5)
 
 test_that("distinct()", {
   compare_dplyr_binding(
-    .input %>%
-      distinct(some_grouping, lgl) %>%
-      arrange(some_grouping, lgl) %>%
+    .input |>
+      distinct(some_grouping, lgl) |>
+      arrange(some_grouping, lgl) |>
       collect(),
     tbl
   )
@@ -34,19 +34,19 @@ test_that("distinct()", {
 
 test_that("distinct() works without any variables", {
   compare_dplyr_binding(
-    .input %>%
-      distinct() %>%
-      arrange(int) %>%
+    .input |>
+      distinct() |>
+      arrange(int) |>
       collect(),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      group_by(x = int + 1) %>%
-      distinct() %>%
+    .input |>
+      group_by(x = int + 1) |>
+      distinct() |>
       # Even though we have group_by(x), all cols (including int) are kept
-      arrange(int) %>%
+      arrange(int) |>
       collect(),
     tbl
   )
@@ -54,20 +54,20 @@ test_that("distinct() works without any variables", {
 
 test_that("distinct() can retain groups", {
   compare_dplyr_binding(
-    .input %>%
-      group_by(some_grouping, int) %>%
-      distinct(lgl) %>%
-      arrange(lgl, int) %>%
+    .input |>
+      group_by(some_grouping, int) |>
+      distinct(lgl) |>
+      arrange(lgl, int) |>
       collect(),
     tbl
   )
 
   # With expressions here
   compare_dplyr_binding(
-    .input %>%
-      group_by(y = some_grouping, int) %>%
-      distinct(x = lgl) %>%
-      arrange(int) %>%
+    .input |>
+      group_by(y = some_grouping, int) |>
+      distinct(x = lgl) |>
+      arrange(int) |>
       collect(),
     tbl
   )
@@ -75,18 +75,18 @@ test_that("distinct() can retain groups", {
 
 test_that("distinct() can contain expressions", {
   compare_dplyr_binding(
-    .input %>%
-      distinct(lgl, x = some_grouping + 1) %>%
-      collect() %>%
+    .input |>
+      distinct(lgl, x = some_grouping + 1) |>
+      collect() |>
       arrange(lgl, x),
     tbl
   )
 
   compare_dplyr_binding(
-    .input %>%
-      group_by(lgl, int) %>%
-      distinct(x = some_grouping + 1) %>%
-      arrange(int) %>%
+    .input |>
+      group_by(lgl, int) |>
+      distinct(x = some_grouping + 1) |>
+      arrange(int) |>
       collect(),
     tbl
   )
@@ -94,9 +94,9 @@ test_that("distinct() can contain expressions", {
 
 test_that("across() works in distinct()", {
   compare_dplyr_binding(
-    .input %>%
-      distinct(across(starts_with("d"))) %>%
-      collect() %>%
+    .input |>
+      distinct(across(starts_with("d"))) |>
+      collect() |>
       arrange(dbl, dbl2),
     tbl
   )
@@ -105,35 +105,35 @@ test_that("across() works in distinct()", {
 test_that("distinct() can return all columns", {
   # hash_one prefers to keep non-null values, which is different from .keep_all in dplyr
   # so we can't compare the result directly
-  expected <- tbl %>%
+  expected <- tbl |>
     # Drop factor because of #44661:
     # NotImplemented: Function 'hash_one' has no kernel matching input types
     #   (dictionary<values=string, indices=int8, ordered=0>, uint8)
-    select(-fct) %>%
-    distinct(lgl, .keep_all = TRUE) %>%
+    select(-fct) |>
+    distinct(lgl, .keep_all = TRUE) |>
     arrange(int)
 
-  with_table <- tbl %>%
-    arrow_table() %>%
-    select(-fct) %>%
-    distinct(lgl, .keep_all = TRUE) %>%
-    arrange(int) %>%
+  with_table <- tbl |>
+    arrow_table() |>
+    select(-fct) |>
+    distinct(lgl, .keep_all = TRUE) |>
+    arrange(int) |>
     collect()
 
   expect_identical(dim(with_table), dim(expected))
   expect_identical(names(with_table), names(expected))
 
   # Test with some mutation in there
-  expected <- tbl %>%
-    select(-fct) %>%
-    distinct(lgl, bigger = int * 10L, .keep_all = TRUE) %>%
+  expected <- tbl |>
+    select(-fct) |>
+    distinct(lgl, bigger = int * 10L, .keep_all = TRUE) |>
     arrange(int)
 
-  with_table <- tbl %>%
-    arrow_table() %>%
-    select(-fct) %>%
-    distinct(lgl, bigger = int * 10, .keep_all = TRUE) %>%
-    arrange(int) %>%
+  with_table <- tbl |>
+    arrow_table() |>
+    select(-fct) |>
+    distinct(lgl, bigger = int * 10, .keep_all = TRUE) |>
+    arrange(int) |>
     collect()
 
   expect_identical(dim(with_table), dim(expected))
@@ -141,16 +141,16 @@ test_that("distinct() can return all columns", {
   expect_identical(with_table$bigger, expected$bigger)
 
   # Mutation that overwrites
-  expected <- tbl %>%
-    select(-fct) %>%
-    distinct(lgl, int = int * 10L, .keep_all = TRUE) %>%
+  expected <- tbl |>
+    select(-fct) |>
+    distinct(lgl, int = int * 10L, .keep_all = TRUE) |>
     arrange(int)
 
-  with_table <- tbl %>%
-    arrow_table() %>%
-    select(-fct) %>%
-    distinct(lgl, int = int * 10, .keep_all = TRUE) %>%
-    arrange(int) %>%
+  with_table <- tbl |>
+    arrow_table() |>
+    select(-fct) |>
+    distinct(lgl, int = int * 10, .keep_all = TRUE) |>
+    arrange(int) |>
     collect()
 
   expect_identical(dim(with_table), dim(expected))

@@ -42,7 +42,7 @@ _FLIGHT_CLIENT_CMD = [
 ]
 
 _DLL_PATH = _EXE_PATH
-_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow" + cdata.dll_suffix)
+_ARROW_DLL = os.path.join(_DLL_PATH, "libarrow_c_data_integration" + cdata.dll_suffix)
 
 
 class CppTester(Tester):

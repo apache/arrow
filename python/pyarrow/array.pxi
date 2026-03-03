@@ -766,10 +766,24 @@ cdef class ArrayStatistics(_Weakrefable):
         null_count = self.sp_statistics.get().null_count
         # We'll be able to simplify this after
         # https://github.com/cython/cython/issues/6692 is solved.
-        if null_count.has_value():
-            return null_count.value()
-        else:
+        if not null_count.has_value():
             return None
+        value = null_count.value()
+        if holds_alternative[int64_t](value):
+            return get[int64_t](value)
+        else:
+            return get[double](value)
+
+    @property
+    def is_null_count_exact(self):
+        """
+        Whether the number of null values is a valid exact value or not.
+        """
+        null_count = self.sp_statistics.get().null_count
+        if not null_count.has_value():
+            return False
+        value = null_count.value()
+        return holds_alternative[int64_t](value)
 
     @property
     def distinct_count(self):
@@ -1450,22 +1464,6 @@ cdef class Array(_PandasConvertible):
             )
 
         return frombytes(result, safe=True)
-
-    def format(self, **kwargs):
-        """
-        DEPRECATED, use pyarrow.Array.to_string
-
-        Parameters
-        ----------
-        **kwargs : dict
-
-        Returns
-        -------
-        str
-        """
-        import warnings
-        warnings.warn('Array.format is deprecated, use Array.to_string')
-        return self.to_string(**kwargs)
 
     def __str__(self):
         return self.to_string()

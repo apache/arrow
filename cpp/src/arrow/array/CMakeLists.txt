@@ -16,6 +16,7 @@
 # under the License.
 
 add_arrow_test(concatenate_test)
+add_arrow_test(data_test)
 add_arrow_test(diff_test)
 
 # Headers: top level

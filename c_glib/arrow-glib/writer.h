@@ -94,4 +94,49 @@ garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                                     GArrowSchema *schema,
                                     GError **error);
 
+/**
+ * GArrowCSVQuotingStyle:
+ * @GARROW_CSV_QUOTING_STYLE_NEEDED: Only enclose values in quotes which need them.
+ * @GARROW_CSV_QUOTING_STYLE_ALL_VALID: Enclose all valid values in quotes.
+ * @GARROW_CSV_QUOTING_STYLE_NONE: Do not enclose any values in quotes.
+ *
+ * They are corresponding to `arrow::csv::QuotingStyle` values.
+ *
+ * Since: 23.0.0
+ */
+typedef enum {
+  GARROW_CSV_QUOTING_STYLE_NEEDED,
+  GARROW_CSV_QUOTING_STYLE_ALL_VALID,
+  GARROW_CSV_QUOTING_STYLE_NONE,
+} GArrowCSVQuotingStyle;
+
+#define GARROW_TYPE_CSV_WRITE_OPTIONS (garrow_csv_write_options_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowCSVWriteOptions, garrow_csv_write_options, GARROW, CSV_WRITE_OPTIONS, GObject)
+struct _GArrowCSVWriteOptionsClass
+{
+  GObjectClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCSVWriteOptions *
+garrow_csv_write_options_new(void);
+
+#define GARROW_TYPE_CSV_WRITER (garrow_csv_writer_get_type())
+GARROW_AVAILABLE_IN_23_0
+G_DECLARE_DERIVABLE_TYPE(
+  GArrowCSVWriter, garrow_csv_writer, GARROW, CSV_WRITER, GArrowRecordBatchWriter)
+struct _GArrowCSVWriterClass
+{
+  GArrowRecordBatchWriterClass parent_class;
+};
+
+GARROW_AVAILABLE_IN_23_0
+GArrowCSVWriter *
+garrow_csv_writer_new(GArrowOutputStream *sink,
+                      GArrowSchema *schema,
+                      GArrowCSVWriteOptions *options,
+                      GError **error);
+
 G_END_DECLS

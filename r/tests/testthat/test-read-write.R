@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("table round trip", {
   tbl <- tibble::tibble(
     int = 1:10,

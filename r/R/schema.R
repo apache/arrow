@@ -78,7 +78,8 @@
 #'
 #' @rdname Schema-class
 #' @export
-Schema <- R6Class("Schema",
+Schema <- R6Class(
+  "Schema",
   inherit = ArrowObject,
   public = list(
     ToString = function(truncate = FALSE) {
@@ -365,14 +366,15 @@ length.Schema <- function(x) x$num_fields
   if (is.numeric(i)) {
     if (all(i < 0)) {
       # in R, negative i means "everything but i"
-      i <- setdiff(seq_len(length(x)), -1 * i)
+      i <- setdiff(seq_along(x), -1 * i)
     }
   }
   fields <- map(i, ~ x[[.]])
   invalid <- map_lgl(fields, is.null)
   if (any(invalid)) {
     stop(
-      "Invalid field name", ifelse(sum(invalid) > 1, "s: ", ": "),
+      "Invalid field name",
+      ifelse(sum(invalid) > 1, "s: ", ": "),
       oxford_paste(i[invalid]),
       call. = FALSE
     )

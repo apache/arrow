@@ -389,6 +389,10 @@ TEST_F(TestProjector, TestAllIntTypes) {
 }
 
 TEST_F(TestProjector, TestExtendedMath) {
+#ifdef __aarch64__
+  GTEST_SKIP() << "Failed on aarch64 with 'JIT session error: Symbols not found: [ "
+                  "__multf3, __subtf3, __trunctfdf2, __extenddftf2, __divtf3 ]'";
+#endif
   // schema for input fields
   auto field0 = arrow::field("f0", arrow::float64());
   auto field1 = arrow::field("f1", arrow::float64());

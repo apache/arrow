@@ -15,7 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-
 test_that("We handle non-UTF strings", {
   x <- iconv("Veitingastaðir", to = "latin1")
   df <- tibble::tibble(
