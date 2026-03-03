@@ -26,12 +26,12 @@ function text = getSchemaString(schema)
     idx = strlength(names) == 0;
     names(idx) = "<empty>";
 
-    % When in desktop mode, the Command Window can interpret HTML tags
-    % to display bold font and hyperlinks.
     names = arrayfun(@arrow.internal.display.boldFontIfPossible, names);
     classNames = arrayfun(@(type) string(class(type)), types);
-    typeIDs = arrayfun(@(className, typeID) arrow.internal.display.makeLinkString( ...
-        HelpTarget=className, Text=typeID, BoldFont=true), classNames, typeIDs);
+    if usejava("desktop")
+        typeIDs = arrayfun(@(className, typeID) arrow.internal.display.makeLinkString( ...
+            HelpTarget=className, Text=typeID, BoldFont=true), classNames, typeIDs);
+    end
 
     text = names + ": " + typeIDs;
     text = strjoin(text, " | ");
