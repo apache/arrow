@@ -207,7 +207,7 @@ struct GetByteRangesArray {
     // 2. Reference a value multiple times without repeating it in the data buffer
     //
     // Producing exact byte size would require linear scan of all values in view buffer
-    for (int i = 2; i < input.buffers.size(); i++) {
+    for (size_t i = 2; i < input.buffers.size(); i++) {
       const Buffer& buf = *input.buffers[i];
       RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(buf.data())));
       RETURN_NOT_OK(range_offsets->Append(0));
