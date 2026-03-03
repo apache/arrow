@@ -1400,10 +1400,8 @@ def test_uuid_extension():
 
 
 def test_uuid_scalar_from_python():
-    import uuid
-
     # Test with explicit type
-    py_uuid = uuid.uuid4()
+    py_uuid = uuid4()
     scalar = pa.scalar(py_uuid, type=pa.uuid())
     assert isinstance(scalar, pa.UuidScalar)
     assert scalar.type == pa.uuid()
@@ -1420,7 +1418,7 @@ def test_uuid_scalar_from_python():
     assert scalar.as_py() is None
 
     # Test type inference from uuid.UUID
-    py_uuid = uuid.uuid4()
+    py_uuid = uuid4()
     scalar = pa.scalar(py_uuid)
     assert isinstance(scalar, pa.UuidScalar)
     assert scalar.type == pa.uuid()
@@ -1428,10 +1426,8 @@ def test_uuid_scalar_from_python():
 
 
 def test_uuid_array_from_python():
-    import uuid
-
     # Test array with explicit type
-    uuids = [uuid.uuid4() for _ in range(3)]
+    uuids = [uuid4() for _ in range(3)]
     uuids.append(None)
 
     arr = pa.array(uuids, type=pa.uuid())
@@ -1457,14 +1453,12 @@ def test_uuid_array_from_python():
     (None, TypeError, "Expected uuid.UUID.bytes to return bytes, got 'NoneType'"),
 ])
 def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
-    import uuid
-
-    class BadUuid(uuid.UUID):
+    class BadUuid(UUID):
         @property
         def bytes(self):
             return bytes_value
 
-    bad = BadUuid(uuid.uuid4().hex)
+    bad = BadUuid(uuid4().hex)
     with pytest.raises(exc_type, match=match):
         pa.array([bad], type=pa.uuid())
     with pytest.raises(exc_type, match=match):
@@ -1476,14 +1470,12 @@ def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
 
 
 def test_uuid_bytes_property_raises():
-    import uuid
-
-    class BadUuid(uuid.UUID):
+    class BadUuid(UUID):
         @property
         def bytes(self):
             raise RuntimeError("broken")
 
-    bad = BadUuid(uuid.uuid4().hex)
+    bad = BadUuid(uuid4().hex)
     with pytest.raises(RuntimeError, match="broken"):
         pa.array([bad], type=pa.uuid())
     with pytest.raises(RuntimeError, match="broken"):
