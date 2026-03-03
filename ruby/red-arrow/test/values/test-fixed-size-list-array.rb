@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ValuesListArrayTests
+module ValuesFixedSizeListArrayTests
   def build_data_type(type)
     field_description = {
       name: :element,
@@ -25,16 +25,17 @@ module ValuesListArrayTests
     else
       field_description[:type] = type
     end
-    Arrow::ListDataType.new(field: field_description)
+    Arrow::FixedSizeListDataType.new(field: field_description,
+                                     size: 4)
   end
 
   def build_array(type, values)
-    Arrow::ListArray.new(build_data_type(type), values)
+    Arrow::FixedSizeListArray.new(build_data_type(type), values)
   end
 
   def test_null
     values = [
-      [nil, nil, nil],
+      [nil, nil, nil, nil],
       nil,
     ]
     target = build(:null, values)
@@ -43,7 +44,7 @@ module ValuesListArrayTests
 
   def test_boolean
     values = [
-      [true, nil, false],
+      [true, nil, false, true],
       nil,
     ]
     target = build(:boolean, values)
@@ -52,7 +53,7 @@ module ValuesListArrayTests
 
   def test_int8
     values = [
-      [-(2 ** 7), nil, (2 ** 7) - 1],
+      [-(2 ** 7), nil, (2 ** 7) - 1, 0],
       nil,
     ]
     target = build(:int8, values)
@@ -61,7 +62,7 @@ module ValuesListArrayTests
 
   def test_uint8
     values = [
-      [0, nil, (2 ** 8) - 1],
+      [0, nil, (2 ** 8) - 1, 0],
       nil,
     ]
     target = build(:uint8, values)
@@ -70,7 +71,7 @@ module ValuesListArrayTests
 
   def test_int16
     values = [
-      [-(2 ** 15), nil, (2 ** 15) - 1],
+      [-(2 ** 15), nil, (2 ** 15) - 1, 0],
       nil,
     ]
     target = build(:int16, values)
@@ -79,7 +80,7 @@ module ValuesListArrayTests
 
   def test_uint16
     values = [
-      [0, nil, (2 ** 16) - 1],
+      [0, nil, (2 ** 16) - 1, 0],
       nil,
     ]
     target = build(:uint16, values)
@@ -88,7 +89,7 @@ module ValuesListArrayTests
 
   def test_int32
     values = [
-      [-(2 ** 31), nil, (2 ** 31) - 1],
+      [-(2 ** 31), nil, (2 ** 31) - 1, 0],
       nil,
     ]
     target = build(:int32, values)
@@ -97,7 +98,7 @@ module ValuesListArrayTests
 
   def test_uint32
     values = [
-      [0, nil, (2 ** 32) - 1],
+      [0, nil, (2 ** 32) - 1, 0],
       nil,
     ]
     target = build(:uint32, values)
@@ -106,7 +107,7 @@ module ValuesListArrayTests
 
   def test_int64
     values = [
-      [-(2 ** 63), nil, (2 ** 63) - 1],
+      [-(2 ** 63), nil, (2 ** 63) - 1, 0],
       nil,
     ]
     target = build(:int64, values)
@@ -115,7 +116,7 @@ module ValuesListArrayTests
 
   def test_uint64
     values = [
-      [0, nil, (2 ** 64) - 1],
+      [0, nil, (2 ** 64) - 1, 0],
       nil,
     ]
     target = build(:uint64, values)
@@ -124,7 +125,7 @@ module ValuesListArrayTests
 
   def test_float
     values = [
-      [-1.0, nil, 1.0],
+      [-1.0, nil, 1.0, 0.0],
       nil,
     ]
     target = build(:float, values)
@@ -133,7 +134,7 @@ module ValuesListArrayTests
 
   def test_double
     values = [
-      [-1.0, nil, 1.0],
+      [-1.0, nil, 1.0, 0.0],
       nil,
     ]
     target = build(:double, values)
@@ -142,7 +143,7 @@ module ValuesListArrayTests
 
   def test_binary
     values = [
-      ["\x00".b, nil, "\xff".b],
+      ["\x00".b, nil, "\xff".b, "".b],
       nil,
     ]
     target = build(:binary, values)
@@ -155,6 +156,7 @@ module ValuesListArrayTests
         "Ruby",
         nil,
         "\u3042", # U+3042 HIRAGANA LETTER A
+        ""
       ],
       nil,
     ]
@@ -168,6 +170,7 @@ module ValuesListArrayTests
         Date.new(1960, 1, 1),
         nil,
         Date.new(2017, 8, 23),
+        Date.new(1970, 1, 1),
       ],
       nil,
     ]
@@ -181,6 +184,7 @@ module ValuesListArrayTests
         DateTime.new(1960, 1, 1, 2, 9, 30),
         nil,
         DateTime.new(2017, 8, 23, 14, 57, 2),
+        DateTime.new(1970, 1, 1, 0, 0, 0),
       ],
       nil,
     ]
@@ -194,6 +198,7 @@ module ValuesListArrayTests
         Time.parse("1960-01-01T02:09:30Z"),
         nil,
         Time.parse("2017-08-23T14:57:02Z"),
+        Time.parse("1970-01-01T00:00:00Z"),
       ],
       nil,
     ]
@@ -211,6 +216,7 @@ module ValuesListArrayTests
         Time.parse("1960-01-01T02:09:30.123Z"),
         nil,
         Time.parse("2017-08-23T14:57:02.987Z"),
+        Time.parse("1970-01-01T00:00:00.000Z"),
       ],
       nil,
     ]
@@ -228,6 +234,7 @@ module ValuesListArrayTests
         Time.parse("1960-01-01T02:09:30.123456Z"),
         nil,
         Time.parse("2017-08-23T14:57:02.987654Z"),
+        Time.parse("1970-01-01T00:00:00.000000Z"),
       ],
       nil,
     ]
@@ -245,6 +252,7 @@ module ValuesListArrayTests
         Time.parse("1960-01-01T02:09:30.123456789Z"),
         nil,
         Time.parse("2017-08-23T14:57:02.987654321Z"),
+        Time.parse("1970-01-01T00:00:00.000000000Z"),
       ],
       nil,
     ]
@@ -265,6 +273,8 @@ module ValuesListArrayTests
         nil,
         # 02:00:09
         Arrow::Time.new(unit, 60 * 60 * 2 + 9),
+        # 00:00:00
+        Arrow::Time.new(unit, 0),
       ],
       nil,
     ]
@@ -285,6 +295,8 @@ module ValuesListArrayTests
         nil,
         # 02:00:09.987
         Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1000 + 987),
+        # 00:00:00.000
+        Arrow::Time.new(unit, 0),
       ],
       nil,
     ]
@@ -305,6 +317,8 @@ module ValuesListArrayTests
         nil,
         # 02:00:09.987654
         Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654),
+        # 00:00:00.000000
+        Arrow::Time.new(unit, 0),
       ],
       nil,
     ]
@@ -325,6 +339,8 @@ module ValuesListArrayTests
         nil,
         # 02:00:09.987654321
         Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321),
+        # 00:00:00.000000000
+        Arrow::Time.new(unit, 0),
       ],
       nil,
     ]
@@ -342,6 +358,7 @@ module ValuesListArrayTests
         BigDecimal("92.92"),
         nil,
         BigDecimal("29.29"),
+        BigDecimal("00.00"),
       ],
       nil,
     ]
@@ -360,6 +377,7 @@ module ValuesListArrayTests
         BigDecimal("92.92"),
         nil,
         BigDecimal("29.29"),
+        BigDecimal("00.00"),
       ],
       nil,
     ]
@@ -378,6 +396,7 @@ module ValuesListArrayTests
         1,
         nil,
         12,
+        0,
       ],
       nil,
     ]
@@ -391,6 +410,7 @@ module ValuesListArrayTests
         {day: 1, millisecond: 100},
         nil,
         {day: 2, millisecond: 300},
+        {day: 0, millisecond: 0},
       ],
       nil,
     ]
@@ -404,6 +424,7 @@ module ValuesListArrayTests
         {month: 1, day: 1, nanosecond: 100},
         nil,
         {month: 2, day: 3, nanosecond: 400},
+        {month: 0, day: 0, nanosecond: 0},
       ],
       nil,
     ]
@@ -421,6 +442,10 @@ module ValuesListArrayTests
         nil,
         [
           nil,
+          false,
+        ],
+        [
+          true,
           false,
         ],
       ],
@@ -449,6 +474,10 @@ module ValuesListArrayTests
           nil,
           false,
         ],
+        [
+          true,
+          false,
+        ],
       ],
       nil,
     ]
@@ -475,6 +504,10 @@ module ValuesListArrayTests
           nil,
           false,
         ],
+        [
+          true,
+          false,
+        ],
       ],
       nil,
     ]
@@ -496,6 +529,7 @@ module ValuesListArrayTests
         {"field" => true},
         nil,
         {"field" => nil},
+        {"field" => false},
       ],
       nil,
     ]
@@ -517,6 +551,8 @@ module ValuesListArrayTests
       [
         {"key1" => true, "key2" => nil},
         nil,
+        {"key1" => false},
+        {"key3" => nil},
       ],
       nil,
     ]
@@ -609,6 +645,7 @@ module ValuesListArrayTests
         "Ruby",
         nil,
         "GLib",
+        "Ruby",
       ],
       nil,
     ]
@@ -623,16 +660,16 @@ module ValuesListArrayTests
   end
 end
 
-class ValuesArrayListArrayTest < Test::Unit::TestCase
-  include ValuesListArrayTests
+class ValuesArrayFixedSizeListArrayTest < Test::Unit::TestCase
+  include ValuesFixedSizeListArrayTests
 
   def build(type, values)
     build_array(type, values)
   end
 end
 
-class ValuesChunkedArrayListArrayTest < Test::Unit::TestCase
-  include ValuesListArrayTests
+class ValuesChunkedArrayFixedSizeListArrayTest < Test::Unit::TestCase
+  include ValuesFixedSizeListArrayTests
 
   def build(type, values)
     Arrow::ChunkedArray.new([build_array(type, values)])

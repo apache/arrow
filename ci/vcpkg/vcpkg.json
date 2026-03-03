@@ -42,6 +42,7 @@
         "benchmark",
         "boost-crc",
         "boost-filesystem",
+        "boost-multiprecision",
         "boost-process",
         "gtest"
       ]
@@ -70,7 +71,6 @@
         "boost-date-time",
         "boost-format",
         "boost-locale",
-        "boost-multiprecision",
         "boost-predef",
         "boost-regex",
         "boost-system",

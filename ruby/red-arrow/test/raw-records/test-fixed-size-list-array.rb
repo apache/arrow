@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module RawRecordsListArrayTests
+module RawRecordsFixedSizeListArrayTests
   def build_schema(type)
     field_description = {
       name: :element,
@@ -27,15 +27,16 @@ module RawRecordsListArrayTests
     end
     {
       column: {
-        type: :list,
+        type: :fixed_size_list,
         field: field_description,
+        size: 4,
       },
     }
   end
 
   def test_null
     records = [
-      [[nil, nil, nil]],
+      [[nil, nil, nil, nil]],
       [nil],
     ]
     target = build(:null, records)
@@ -44,7 +45,7 @@ module RawRecordsListArrayTests
 
   def test_boolean
     records = [
-      [[true, nil, false]],
+      [[true, nil, false, true]],
       [nil],
     ]
     target = build(:boolean, records)
@@ -53,7 +54,7 @@ module RawRecordsListArrayTests
 
   def test_int8
     records = [
-      [[-(2 ** 7), nil, (2 ** 7) - 1]],
+      [[-(2 ** 7), nil, (2 ** 7) - 1, 0]],
       [nil],
     ]
     target = build(:int8, records)
@@ -62,7 +63,7 @@ module RawRecordsListArrayTests
 
   def test_uint8
     records = [
-      [[0, nil, (2 ** 8) - 1]],
+      [[0, nil, (2 ** 8) - 1, 0]],
       [nil],
     ]
     target = build(:uint8, records)
@@ -71,7 +72,7 @@ module RawRecordsListArrayTests
 
   def test_int16
     records = [
-      [[-(2 ** 15), nil, (2 ** 15) - 1]],
+      [[-(2 ** 15), nil, (2 ** 15) - 1, 0]],
       [nil],
     ]
     target = build(:int16, records)
@@ -80,7 +81,7 @@ module RawRecordsListArrayTests
 
   def test_uint16
     records = [
-      [[0, nil, (2 ** 16) - 1]],
+      [[0, nil, (2 ** 16) - 1, 0]],
       [nil],
     ]
     target = build(:uint16, records)
@@ -89,7 +90,7 @@ module RawRecordsListArrayTests
 
   def test_int32
     records = [
-      [[-(2 ** 31), nil, (2 ** 31) - 1]],
+      [[-(2 ** 31), nil, (2 ** 31) - 1, 0]],
       [nil],
     ]
     target = build(:int32, records)
@@ -98,7 +99,7 @@ module RawRecordsListArrayTests
 
   def test_uint32
     records = [
-      [[0, nil, (2 ** 32) - 1]],
+      [[0, nil, (2 ** 32) - 1, 0]],
       [nil],
     ]
     target = build(:uint32, records)
@@ -107,7 +108,7 @@ module RawRecordsListArrayTests
 
   def test_int64
     records = [
-      [[-(2 ** 63), nil, (2 ** 63) - 1]],
+      [[-(2 ** 63), nil, (2 ** 63) - 1, 0]],
       [nil],
     ]
     target = build(:int64, records)
@@ -116,7 +117,7 @@ module RawRecordsListArrayTests
 
   def test_uint64
     records = [
-      [[0, nil, (2 ** 64) - 1]],
+      [[0, nil, (2 ** 64) - 1, 0]],
       [nil],
     ]
     target = build(:uint64, records)
@@ -125,7 +126,7 @@ module RawRecordsListArrayTests
 
   def test_float
     records = [
-      [[-1.0, nil, 1.0]],
+      [[-1.0, nil, 1.0, 0.0]],
       [nil],
     ]
     target = build(:float, records)
@@ -134,7 +135,7 @@ module RawRecordsListArrayTests
 
   def test_double
     records = [
-      [[-1.0, nil, 1.0]],
+      [[-1.0, nil, 1.0, 0.0]],
       [nil],
     ]
     target = build(:double, records)
@@ -143,7 +144,7 @@ module RawRecordsListArrayTests
 
   def test_binary
     records = [
-      [["\x00".b, nil, "\xff".b]],
+      [["\x00".b, nil, "\xff".b, "".b]],
       [nil],
     ]
     target = build(:binary, records)
@@ -157,6 +158,7 @@ module RawRecordsListArrayTests
           "Ruby",
           nil,
           "\u3042", # U+3042 HIRAGANA LETTER A
+          "",
         ],
       ],
       [nil],
@@ -172,6 +174,7 @@ module RawRecordsListArrayTests
           Date.new(1960, 1, 1),
           nil,
           Date.new(2017, 8, 23),
+          Date.new(1970, 1, 1),
         ],
       ],
       [nil],
@@ -187,6 +190,7 @@ module RawRecordsListArrayTests
           DateTime.new(1960, 1, 1, 2, 9, 30),
           nil,
           DateTime.new(2017, 8, 23, 14, 57, 2),
+          DateTime.new(1970, 1, 1, 0, 0, 0),
         ],
       ],
       [nil],
@@ -202,6 +206,7 @@ module RawRecordsListArrayTests
           Time.parse("1960-01-01T02:09:30Z"),
           nil,
           Time.parse("2017-08-23T14:57:02Z"),
+          Time.parse("1970-01-01T00:00:00Z"),
         ],
       ],
       [nil],
@@ -221,6 +226,7 @@ module RawRecordsListArrayTests
           Time.parse("1960-01-01T02:09:30.123Z"),
           nil,
           Time.parse("2017-08-23T14:57:02.987Z"),
+          Time.parse("1970-01-01T00:00:00.000Z"),
         ],
       ],
       [nil],
@@ -240,6 +246,7 @@ module RawRecordsListArrayTests
           Time.parse("1960-01-01T02:09:30.123456Z"),
           nil,
           Time.parse("2017-08-23T14:57:02.987654Z"),
+          Time.parse("1970-01-01T00:00:00.000000Z"),
         ],
       ],
       [nil],
@@ -259,6 +266,7 @@ module RawRecordsListArrayTests
           Time.parse("1960-01-01T02:09:30.123456789Z"),
           nil,
           Time.parse("2017-08-23T14:57:02.987654321Z"),
+          Time.parse("1970-01-01T00:00:00.000000000Z"),
         ],
       ],
       [nil],
@@ -281,6 +289,8 @@ module RawRecordsListArrayTests
           nil,
           # 02:00:09
           Arrow::Time.new(unit, 60 * 60 * 2 + 9),
+          # 00:00:00
+          Arrow::Time.new(unit, 0),
         ],
       ],
       [nil],
@@ -303,6 +313,8 @@ module RawRecordsListArrayTests
           nil,
           # 02:00:09.987
           Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1000 + 987),
+          # 00:00:00.000
+          Arrow::Time.new(unit, 0),
         ],
       ],
       [nil],
@@ -325,6 +337,8 @@ module RawRecordsListArrayTests
           nil,
           # 02:00:09.987654
           Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000 + 987_654),
+          # 00:00:00.000000
+          Arrow::Time.new(unit, 0),
         ],
       ],
       [nil],
@@ -347,6 +361,8 @@ module RawRecordsListArrayTests
           nil,
           # 02:00:09.987654321
           Arrow::Time.new(unit, (60 * 60 * 2 + 9) * 1_000_000_000 + 987_654_321),
+          # 00:00:00.000000000
+          Arrow::Time.new(unit, 0),
         ],
       ],
       [nil],
@@ -366,6 +382,7 @@ module RawRecordsListArrayTests
           BigDecimal("92.92"),
           nil,
           BigDecimal("29.29"),
+          BigDecimal("00.00"),
         ],
       ],
       [nil],
@@ -386,6 +403,7 @@ module RawRecordsListArrayTests
           BigDecimal("92.92"),
           nil,
           BigDecimal("29.29"),
+          BigDecimal("00.00"),
         ],
       ],
       [nil],
@@ -401,7 +419,7 @@ module RawRecordsListArrayTests
 
   def test_month_interval
     records = [
-      [[1, nil, 12]],
+      [[1, nil, 12, 0]],
       [nil],
     ]
     target = build(:month_interval, records)
@@ -415,6 +433,7 @@ module RawRecordsListArrayTests
           {day: 1, millisecond: 100},
           nil,
           {day: 2, millisecond: 300},
+          {day: 0, millisecond: 0},
         ]
       ],
       [nil],
@@ -430,6 +449,7 @@ module RawRecordsListArrayTests
           {month: 1, day: 1, nanosecond: 100},
           nil,
           {month: 2, day: 3, nanosecond: 400},
+          {month: 0, day: 0, nanosecond: 0},
         ]
       ],
       [nil],
@@ -449,6 +469,10 @@ module RawRecordsListArrayTests
           nil,
           [
             nil,
+            false,
+          ],
+          [
+            true,
             false,
           ],
         ],
@@ -479,6 +503,10 @@ module RawRecordsListArrayTests
             nil,
             false,
           ],
+          [
+            true,
+            false,
+          ],
         ],
       ],
       [nil],
@@ -507,6 +535,10 @@ module RawRecordsListArrayTests
             nil,
             false,
           ],
+          [
+            true,
+            false,
+          ],
         ],
       ],
       [nil],
@@ -530,6 +562,7 @@ module RawRecordsListArrayTests
           {"field" => true},
           nil,
           {"field" => nil},
+          {"field" => false},
         ],
       ],
       [nil],
@@ -553,6 +586,8 @@ module RawRecordsListArrayTests
         [
           {"key1" => true, "key2" => nil},
           nil,
+          {"key1" => false},
+          {"key3" => nil},
         ],
       ],
       [nil],
@@ -653,6 +688,7 @@ module RawRecordsListArrayTests
           "Ruby",
           nil,
           "GLib",
+          "Ruby",
         ],
       ],
       [nil],
@@ -668,8 +704,8 @@ module RawRecordsListArrayTests
   end
 end
 
-class EachRawRecordRecordBatchListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class EachRawRecordRecordBatchFixedSizeListArrayTest < Test::Unit::TestCase
+  include RawRecordsFixedSizeListArrayTests
 
   def build(type, records)
     Arrow::RecordBatch.new(build_schema(type), records)
@@ -680,8 +716,8 @@ class EachRawRecordRecordBatchListArrayTest < Test::Unit::TestCase
   end
 end
 
-class EachRawRecordTableListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class EachRawRecordTableFixedSizeListArrayTest < Test::Unit::TestCase
+  include RawRecordsFixedSizeListArrayTests
 
   def build(type, records)
     record_batch = Arrow::RecordBatch.new(build_schema(type), records)
@@ -700,8 +736,8 @@ class EachRawRecordTableListArrayTest < Test::Unit::TestCase
 end
 
 
-class RawRecordsRecordBatchListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class RawRecordsRecordBatchFixedSizeListArrayTest < Test::Unit::TestCase
+  include RawRecordsFixedSizeListArrayTests
 
   def build(type, records)
     Arrow::RecordBatch.new(build_schema(type), records)
@@ -712,8 +748,8 @@ class RawRecordsRecordBatchListArrayTest < Test::Unit::TestCase
   end
 end
 
-class RawRecordsTableListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class RawRecordsTableFixedSizeListArrayTest < Test::Unit::TestCase
+  include RawRecordsFixedSizeListArrayTests
 
   def build(type, records)
     Arrow::Table.new(build_schema(type), records)

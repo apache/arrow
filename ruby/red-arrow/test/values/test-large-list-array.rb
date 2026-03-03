@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module ValuesListArrayTests
+module ValuesLargeListArrayTests
   def build_data_type(type)
     field_description = {
       name: :element,
@@ -25,11 +25,11 @@ module ValuesListArrayTests
     else
       field_description[:type] = type
     end
-    Arrow::ListDataType.new(field: field_description)
+    Arrow::LargeListDataType.new(field: field_description)
   end
 
   def build_array(type, values)
-    Arrow::ListArray.new(build_data_type(type), values)
+    Arrow::LargeListArray.new(build_data_type(type), values)
   end
 
   def test_null
@@ -623,16 +623,16 @@ module ValuesListArrayTests
   end
 end
 
-class ValuesArrayListArrayTest < Test::Unit::TestCase
-  include ValuesListArrayTests
+class ValuesArrayLargeListArrayTest < Test::Unit::TestCase
+  include ValuesLargeListArrayTests
 
   def build(type, values)
     build_array(type, values)
   end
 end
 
-class ValuesChunkedArrayListArrayTest < Test::Unit::TestCase
-  include ValuesListArrayTests
+class ValuesChunkedArrayLargeListArrayTest < Test::Unit::TestCase
+  include ValuesLargeListArrayTests
 
   def build(type, values)
     Arrow::ChunkedArray.new([build_array(type, values)])

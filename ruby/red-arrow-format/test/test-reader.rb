@@ -561,6 +561,26 @@ module ReaderTests
                  [type.to_s, values])
   end
 
+  def test_fixed_size_list
+    data_type = Arrow::FixedSizeListDataType.new({
+                                                   name: "count",
+                                                   type: :int8,
+                                                 },
+                                                 2)
+    array = Arrow::FixedSizeListArray.new(data_type,
+                                          [[-128, 127], nil, [-1, 1]])
+    type, values = roundtrip(array)
+    assert_equal([
+                   "FixedSizeList<count: Int8>(2)",
+                   [
+                     [-128, 127],
+                     nil,
+                     [-1, 1],
+                   ],
+                 ],
+                 [type.to_s, values])
+  end
+
   def test_struct
     data_type = Arrow::StructDataType.new(count: :int8,
                                           visible: :boolean)

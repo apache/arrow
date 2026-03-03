@@ -17,7 +17,7 @@
 
 require_relative "array"
 require_relative "field"
-require_relative "flat-buffers"
+require_relative "flatbuffers"
 require_relative "record-batch"
 require_relative "schema"
 require_relative "type"
@@ -101,6 +101,9 @@ module ArrowFormat
         type = ListType.new(read_field(fb_field.children[0]))
       when FB::LargeList
         type = LargeListType.new(read_field(fb_field.children[0]))
+      when FB::FixedSizeList
+        type = FixedSizeListType.new(read_field(fb_field.children[0]),
+                                     fb_type.list_size)
       when FB::Struct
         children = fb_field.children.collect {|child| read_field(child)}
         type = StructType.new(children)
@@ -223,6 +226,9 @@ module ArrowFormat
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
         child = read_column(field.type.child, nodes, buffers, body)
         field.type.build_array(length, validity, offsets, child)
+      when FixedSizeListType
+        child = read_column(field.type.child, nodes, buffers, body)
+        field.type.build_array(length, validity, child)
       when StructType
         children = field.type.children.collect do |child|
           read_column(child, nodes, buffers, body)

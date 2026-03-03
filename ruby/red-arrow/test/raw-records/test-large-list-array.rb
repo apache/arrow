@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-module RawRecordsListArrayTests
+module RawRecordsLargeListArrayTests
   def build_schema(type)
     field_description = {
       name: :element,
@@ -27,7 +27,7 @@ module RawRecordsListArrayTests
     end
     {
       column: {
-        type: :list,
+        type: :large_list,
         field: field_description,
       },
     }
@@ -668,8 +668,8 @@ module RawRecordsListArrayTests
   end
 end
 
-class EachRawRecordRecordBatchListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class EachRawRecordRecordBatchLargeListArrayTest < Test::Unit::TestCase
+  include RawRecordsLargeListArrayTests
 
   def build(type, records)
     Arrow::RecordBatch.new(build_schema(type), records)
@@ -680,8 +680,8 @@ class EachRawRecordRecordBatchListArrayTest < Test::Unit::TestCase
   end
 end
 
-class EachRawRecordTableListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class EachRawRecordTableLargeListArrayTest < Test::Unit::TestCase
+  include RawRecordsLargeListArrayTests
 
   def build(type, records)
     record_batch = Arrow::RecordBatch.new(build_schema(type), records)
@@ -700,8 +700,8 @@ class EachRawRecordTableListArrayTest < Test::Unit::TestCase
 end
 
 
-class RawRecordsRecordBatchListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class RawRecordsRecordBatchLargeListArrayTest < Test::Unit::TestCase
+  include RawRecordsLargeListArrayTests
 
   def build(type, records)
     Arrow::RecordBatch.new(build_schema(type), records)
@@ -712,8 +712,8 @@ class RawRecordsRecordBatchListArrayTest < Test::Unit::TestCase
   end
 end
 
-class RawRecordsTableListArrayTest < Test::Unit::TestCase
-  include RawRecordsListArrayTests
+class RawRecordsTableLargeListArrayTest < Test::Unit::TestCase
+  include RawRecordsLargeListArrayTests
 
   def build(type, records)
     Arrow::Table.new(build_schema(type), records)
