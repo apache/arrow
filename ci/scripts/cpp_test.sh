@@ -191,6 +191,7 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
 
     # 1. Generate seed corpuses
+    # For IPC fuzz targets, these will include the golden IPC integration files.
     "${source_dir}/build-support/fuzzing/generate_corpuses.sh" "${binary_output_dir}"
 
     # 2. Run fuzz targets on seed corpus entries
@@ -198,9 +199,11 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
       fuzz_target_basename=$1
       corpus_dir=${binary_output_dir}/${fuzz_target_basename}_seed_corpus
       mkdir -p "${corpus_dir}"
-      rm -f "${corpus_dir}"/*
-      unzip "${binary_output_dir}"/"${fuzz_target_basename}"_seed_corpus.zip -d "${corpus_dir}"
-      "${binary_output_dir}"/"${fuzz_target_basename}" -rss_limit_mb=4000 "${corpus_dir}"/*
+      pushd "${corpus_dir}"
+      unzip -q "${binary_output_dir}"/"${fuzz_target_basename}"_seed_corpus.zip -d .
+      "${binary_output_dir}"/"${fuzz_target_basename}" -rss_limit_mb=4000 ./*
+      popd
+      rm -rf "${corpus_dir}"
     }
     run_fuzz_target_on_seed_corpus arrow-csv-fuzz
     run_fuzz_target_on_seed_corpus arrow-ipc-file-fuzz
@@ -212,22 +215,17 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     fi
 
     # 3. Run fuzz targets on regression files from arrow-testing
-    # Run golden IPC integration files: these should ideally load without errors,
-    # though some very old ones carry invalid data (such as decimal values
-    # larger than their advertised precision).
-    # shellcheck disable=SC2046
-    "${binary_output_dir}/arrow-ipc-stream-fuzz" $(find "${ARROW_TEST_DATA}"/arrow-ipc-stream/integration -name "*.stream")
-    # shellcheck disable=SC2046
-    "${binary_output_dir}/arrow-ipc-file-fuzz" $(find "${ARROW_TEST_DATA}"/arrow-ipc-stream/integration -name "*.arrow_file")
-    # Run known crash files
-    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
-    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
-    "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*
-    "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-tensor-stream/*-testcase-*
+    pushd "${ARROW_TEST_DATA}"
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" arrow-ipc-stream/crash-*
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" arrow-ipc-stream/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-file-fuzz" arrow-ipc-file/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" arrow-ipc-tensor-stream/*-testcase-*
     if [ "${ARROW_PARQUET}" == "ON" ]; then
-      "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
+      "${binary_output_dir}/parquet-arrow-fuzz" parquet/fuzzing/*-testcase-*
+      # TODO replay encoding regression files when we have some
     fi
-    "${binary_output_dir}/arrow-csv-fuzz" "${ARROW_TEST_DATA}"/csv/fuzzing/*-testcase-*
+    "${binary_output_dir}/arrow-csv-fuzz" csv/fuzzing/*-testcase-*
+    popd
 fi
 
 popd

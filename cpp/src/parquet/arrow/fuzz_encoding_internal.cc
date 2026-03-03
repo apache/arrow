@@ -467,7 +467,8 @@ Status FuzzEncoding(const uint8_t* data, int64_t size) {
 
   ARROW_ASSIGN_OR_RAISE(const auto parse_result,
                         FuzzEncodingHeader::Parse(std::span(data, size)));
-  auto& [header, encoded_data] = parse_result;
+  const auto header = parse_result.first;
+  const auto encoded_data = parse_result.second;
   if (encoded_data.size() > static_cast<size_t>(kInt32Max)) {
     // Unlikely but who knows?
     return Status::Invalid("Fuzz payload too large");
