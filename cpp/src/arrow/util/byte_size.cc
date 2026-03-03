@@ -269,7 +269,7 @@ struct GetByteRangesArray {
     // Producing exact byte size would require linear scan of all values in view buffer
     GetByteRangesArray child{*input.child_data[0],
                              0,
-                             (*input.child_data[0]).length,
+                             input.child_data[0]->length,
                              range_starts,
                              range_offsets,
                              range_lengths};
