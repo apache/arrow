@@ -37,8 +37,8 @@ namespace {
 
 constexpr int32_t kCiphertextLengthSize = 4;
 
-// Parse the little-endian length prefix and return the total ciphertext size
-// including the 4-byte length field itself.
+/// Parse the 4-byte little-endian length prefix and return the total ciphertext size,
+/// including the 4-byte length field itself.
 int64_t ParseCiphertextTotalLength(const uint8_t* data, int64_t length) {
   if (length < kCiphertextLengthSize) {
     throw ParquetException("Ciphertext length buffer is too small");
@@ -130,7 +130,8 @@ BlockSplitBloomFilter BlockSplitBloomFilter::Deserialize(
     Decryptor* bitset_decryptor) {
   if (header_decryptor != nullptr || bitset_decryptor != nullptr) {
     if (header_decryptor == nullptr || bitset_decryptor == nullptr) {
-      throw ParquetException("Bloom filter decryptors must be both provided");
+      throw ParquetException(
+          "Bloom filter decryptors must be both provided or both null");
     }
 
     // Encrypted path: header and bitset are encrypted separately.
