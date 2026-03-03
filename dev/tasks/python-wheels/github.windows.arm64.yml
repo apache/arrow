@@ -54,6 +54,7 @@ jobs:
         run: |
           cd arrow\ci\vcpkg
           C:\vcpkg\vcpkg.exe install ^
+            --triplet arm64-windows-static-md ^
             --binarysource="clear;x-gha,readwrite" ^
             --x-install-root=C:\vcpkg\installed ^
             --x-manifest-root=. ^
