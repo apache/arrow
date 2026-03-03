@@ -1469,6 +1469,10 @@ def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
         pa.array([bad], type=pa.uuid())
     with pytest.raises(exc_type, match=match):
         pa.scalar(bad, type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad])
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad)
 
 
 def test_uuid_bytes_property_raises():
@@ -1482,6 +1486,12 @@ def test_uuid_bytes_property_raises():
     bad = BadUuid(uuid.uuid4().hex)
     with pytest.raises(RuntimeError, match="broken"):
         pa.array([bad], type=pa.uuid())
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.scalar(bad, type=pa.uuid())
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad])
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.scalar(bad)
 
 
 def test_tensor_type():
