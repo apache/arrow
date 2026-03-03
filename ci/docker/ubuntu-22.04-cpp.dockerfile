@@ -120,6 +120,7 @@ RUN apt-get update -y -q && \
         rsync \
         tzdata \
         uuid-runtime \
+        unzip \
         wget \
         xz-utils && \
     apt-get clean && \

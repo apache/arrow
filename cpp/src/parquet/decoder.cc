@@ -2447,4 +2447,28 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
+
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return {Encoding::PLAIN, Encoding::RLE};
+    case Type::INT32:
+    case Type::INT64:
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
+              Encoding::BYTE_STREAM_SPLIT};
+    case Type::INT96:
+      return {Encoding::PLAIN};
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
+    case Type::BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
+              Encoding::DELTA_BYTE_ARRAY};
+    default:
+      throw ParquetException("Invalid physical type");
+  }
+}
+
 }  // namespace parquet

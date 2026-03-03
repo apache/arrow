@@ -151,6 +151,7 @@ endif()
 # Library config
 
 set(PARQUET_SRCS
+    arrow/fuzz_encoding_internal.cc
     arrow/fuzz_internal.cc
     arrow/path_internal.cc
     arrow/reader.cc
