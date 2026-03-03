@@ -31,7 +31,7 @@ if "%arch%"=="" set arch=x64
 if "%arch%"=="ARM64" (
     set CMAKE_PLATFORM=ARM64
     set VCVARS_BAT=C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsarm64.bat
-    set VCPKG_TARGET_TRIPLET=arm64-windows
+    set VCPKG_TARGET_TRIPLET=arm64-windows-static-md
     set ARROW_SRC=%GITHUB_WORKSPACE%\arrow
     set ARROW_DIST=%GITHUB_WORKSPACE%\arrow-dist
     set CMAKE_TOOLCHAIN=-DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
