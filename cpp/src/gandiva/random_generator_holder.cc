@@ -16,6 +16,9 @@
 // under the License.
 
 #include "gandiva/random_generator_holder.h"
+
+#include <limits>
+
 #include "gandiva/node.h"
 
 namespace gandiva {
@@ -64,7 +67,9 @@ Result<std::shared_ptr<RandomIntegerGeneratorHolder>> RandomIntegerGeneratorHold
         Status::Invalid(
             "'rand_integer' function requires an int32 literal as parameter"));
 
-    int32_t range = literal->is_null() ? 1 : std::get<int32_t>(literal->holder());
+    // NULL range defaults to INT32_MAX (full positive range)
+    int32_t range = literal->is_null() ? std::numeric_limits<int32_t>::max()
+                                       : std::get<int32_t>(literal->holder());
     ARROW_RETURN_IF(range <= 0,
                     Status::Invalid("'rand_integer' function range must be positive"));
 
@@ -84,8 +89,10 @@ Result<std::shared_ptr<RandomIntegerGeneratorHolder>> RandomIntegerGeneratorHold
           max_literal->return_type()->id() != arrow::Type::INT32,
       Status::Invalid("'rand_integer' function requires int32 literals as parameters"));
 
+  // NULL min defaults to 0, NULL max defaults to INT32_MAX
   int32_t min_val = min_literal->is_null() ? 0 : std::get<int32_t>(min_literal->holder());
-  int32_t max_val = max_literal->is_null() ? 0 : std::get<int32_t>(max_literal->holder());
+  int32_t max_val = max_literal->is_null() ? std::numeric_limits<int32_t>::max()
+                                           : std::get<int32_t>(max_literal->holder());
 
   ARROW_RETURN_IF(min_val > max_val,
                   Status::Invalid("'rand_integer' function min must be <= max"));

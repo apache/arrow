@@ -67,7 +67,7 @@ double gdv_fn_random(int64_t ptr) {
   return (*holder)();
 }
 
-double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
+double gdv_fn_random_with_seed(int64_t ptr, int32_t /*seed*/, bool /*seed_validity*/) {
   gandiva::RandomGeneratorHolder* holder =
       reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
   return (*holder)();
@@ -79,14 +79,16 @@ int32_t gdv_fn_rand_integer(int64_t ptr) {
   return (*holder)();
 }
 
-int32_t gdv_fn_rand_integer_with_range(int64_t ptr, int32_t range, bool range_validity) {
+int32_t gdv_fn_rand_integer_with_range(int64_t ptr, int32_t /*range*/,
+                                       bool /*range_validity*/) {
   gandiva::RandomIntegerGeneratorHolder* holder =
       reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
   return (*holder)();
 }
 
-int32_t gdv_fn_rand_integer_with_min_max(int64_t ptr, int32_t min, bool min_validity,
-                                         int32_t max, bool max_validity) {
+int32_t gdv_fn_rand_integer_with_min_max(int64_t ptr, int32_t /*min*/,
+                                         bool /*min_validity*/, int32_t /*max*/,
+                                         bool /*max_validity*/) {
   gandiva::RandomIntegerGeneratorHolder* holder =
       reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
   return (*holder)();
