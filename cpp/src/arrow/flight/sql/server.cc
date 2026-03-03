@@ -537,7 +537,9 @@ arrow::Result<std::string> CreateStatementQueryTicket(
   ticket_statement_query.set_statement_handle(statement_handle);
 
   google::protobuf::Any ticket;
-  ticket.PackFrom(ticket_statement_query);
+  if (!ticket.PackFrom(ticket_statement_query)) {
+    return Status::Invalid("Unable to pack ticket");
+  }
 
   std::string ticket_string;
 
