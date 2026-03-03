@@ -87,4 +87,113 @@ TEST_F(TestRandGenHolder, WithInValidSeed) {
   EXPECT_EQ(random_1(), random_2());
 }
 
+class TestRandIntGenHolder : public ::testing::Test {
+ public:
+  FunctionNode BuildRandIntFunc() { return {"rand_integer", {}, arrow::int32()}; }
+
+  FunctionNode BuildRandIntWithRangeFunc(int32_t range, bool range_is_null) {
+    auto range_node = std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(range),
+                                                    range_is_null);
+    return {"rand_integer", {range_node}, arrow::int32()};
+  }
+
+  FunctionNode BuildRandIntWithMinMaxFunc(int32_t min, bool min_is_null, int32_t max,
+                                          bool max_is_null) {
+    auto min_node =
+        std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(min), min_is_null);
+    auto max_node =
+        std::make_shared<LiteralNode>(arrow::int32(), LiteralHolder(max), max_is_null);
+    return {"rand_integer", {min_node, max_node}, arrow::int32()};
+  }
+};
+
+TEST_F(TestRandIntGenHolder, NoParams) {
+  FunctionNode rand_func = BuildRandIntFunc();
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are integers
+  for (int i = 0; i < 10; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, std::numeric_limits<int32_t>::min());
+    EXPECT_LE(val, std::numeric_limits<int32_t>::max());
+  }
+}
+
+TEST_F(TestRandIntGenHolder, WithRange) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(100, false);
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are in range [0, 99]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, 0);
+    EXPECT_LT(val, 100);
+  }
+}
+
+TEST_F(TestRandIntGenHolder, WithMinMax) {
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(10, false, 20, false);
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are in range [10, 20]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, 10);
+    EXPECT_LE(val, 20);
+  }
+}
+
+TEST_F(TestRandIntGenHolder, WithNegativeMinMax) {
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(-50, false, -10, false);
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // Generate multiple values and verify they are in range [-50, -10]
+  for (int i = 0; i < 100; i++) {
+    int32_t val = random();
+    EXPECT_GE(val, -50);
+    EXPECT_LE(val, -10);
+  }
+}
+
+TEST_F(TestRandIntGenHolder, InvalidRangeZero) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(0, false);
+  auto result = RandomIntegerGeneratorHolder::Make(rand_func);
+  EXPECT_FALSE(result.ok());
+  EXPECT_TRUE(result.status().IsInvalid());
+}
+
+TEST_F(TestRandIntGenHolder, InvalidRangeNegative) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(-5, false);
+  auto result = RandomIntegerGeneratorHolder::Make(rand_func);
+  EXPECT_FALSE(result.ok());
+  EXPECT_TRUE(result.status().IsInvalid());
+}
+
+TEST_F(TestRandIntGenHolder, InvalidMinGreaterThanMax) {
+  FunctionNode rand_func = BuildRandIntWithMinMaxFunc(20, false, 10, false);
+  auto result = RandomIntegerGeneratorHolder::Make(rand_func);
+  EXPECT_FALSE(result.ok());
+  EXPECT_TRUE(result.status().IsInvalid());
+}
+
+TEST_F(TestRandIntGenHolder, NullRangeDefaultsToOne) {
+  FunctionNode rand_func = BuildRandIntWithRangeFunc(0, true);  // null range
+  EXPECT_OK_AND_ASSIGN(auto rand_gen_holder,
+                       RandomIntegerGeneratorHolder::Make(rand_func));
+
+  auto& random = *rand_gen_holder;
+  // With range=1 (default for null), all values should be 0
+  for (int i = 0; i < 10; i++) {
+    EXPECT_EQ(random(), 0);
+  }
+}
+
 }  // namespace gandiva
