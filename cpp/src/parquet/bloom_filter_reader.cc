@@ -90,6 +90,16 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
   std::unique_ptr<Decryptor> bitset_decryptor =
       InternalFileDecryptor::GetColumnDataDecryptorFactory(file_decryptor_.get(),
                                                            crypto_metadata.get())();
+  if (header_decryptor != nullptr || bitset_decryptor != nullptr) {
+    constexpr auto kEncryptedOrdinalLimit = 32767;
+    if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
+    }
+    if (ARROW_PREDICT_FALSE(i > kEncryptedOrdinalLimit)) {
+      throw ParquetException("Encrypted files cannot contain more than 32767 columns");
+    }
+  }
+
   if (header_decryptor != nullptr) {
     UpdateDecryptor(header_decryptor.get(), row_group_ordinal_, static_cast<int16_t>(i),
                     encryption::kBloomFilterHeader);
@@ -98,6 +108,7 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
     UpdateDecryptor(bitset_decryptor.get(), row_group_ordinal_, static_cast<int16_t>(i),
                     encryption::kBloomFilterBitset);
   }
+
   const int64_t stream_length =
       bloom_filter_length ? *bloom_filter_length : file_size - *bloom_filter_offset;
   auto stream = ::arrow::io::RandomAccessFile::GetStream(input_, *bloom_filter_offset,
