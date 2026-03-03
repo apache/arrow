@@ -296,15 +296,68 @@ bool PyFloat_IsNaN(PyObject* obj) {
 
 namespace {
 
-// This needs a conditional, because using std::once_flag could introduce
-// a deadlock when the GIL is enabled. See
-// https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272 for
-// more info.
+// Thread-safe one-time Python module import + attribute lookup. For Pandas and UUID.
+// Uses std::call_once when the GIL is disabled, or a simple boolean flag when
+// the GIL is enabled to avoid deadlocks. See ARROW-10519 for more details and
+// https://github.com/apache/arrow/commit/f69061935e92e36e25bb891177ca8bc4f463b272
+struct ModuleOnceRunner {
+  std::string module_name;
 #ifdef Py_GIL_DISABLED
-static std::once_flag pandas_static_initialized;
+  std::once_flag initialized;
 #else
-static bool pandas_static_initialized = false;
+  bool initialized = false;
 #endif
+
+  explicit ModuleOnceRunner(const std::string& module_name) : module_name(module_name) {}
+
+  template <typename Func>
+  void RunOnce(Func&& func) {
+    auto do_init = [&]() {
+      OwnedRef module;
+      if (ImportModule(module_name, &module).ok()) {
+#ifndef Py_GIL_DISABLED
+        // Since ImportModule can release the GIL, another thread could have
+        // already initialized the static data.
+        if (initialized) {
+          return;
+        }
+#endif
+        func(module);
+      }
+    };
+#ifdef Py_GIL_DISABLED
+    std::call_once(initialized, do_init);
+#else
+    if (!initialized) {
+      do_init();
+      initialized = true;
+    }
+#endif
+  }
+};
+
+static PyObject* uuid_UUID = nullptr;
+static ModuleOnceRunner uuid_runner("uuid");
+
+}  // namespace
+
+bool IsPyUuid(PyObject* obj) {
+  uuid_runner.RunOnce([](OwnedRef& module) {
+    OwnedRef ref;
+    if (ImportFromModule(module.obj(), "UUID", &ref).ok()) {
+      uuid_UUID = ref.obj();
+    }
+  });
+  if (!uuid_UUID) return false;
+  int result = PyObject_IsInstance(obj, uuid_UUID);
+  if (result < 0) {
+    PyErr_Clear();
+    return false;
+  }
+  return result != 0;
+}
+
+namespace {
 
 // Once initialized, these variables hold borrowed references to Pandas static data.
 // We should not use OwnedRef here because Python destructors would be
@@ -315,72 +368,43 @@ static PyObject* pandas_Timedelta = nullptr;
 static PyObject* pandas_Timestamp = nullptr;
 static PyTypeObject* pandas_NaTType = nullptr;
 static PyObject* pandas_DateOffset = nullptr;
-
-void GetPandasStaticSymbols() {
-  OwnedRef pandas;
-
-  // Import pandas
-  Status s = ImportModule("pandas", &pandas);
-  if (!s.ok()) {
-    return;
-  }
-
-#ifndef Py_GIL_DISABLED
-  // Since ImportModule can release the GIL, another thread could have
-  // already initialized the static data.
-  if (pandas_static_initialized) {
-    return;
-  }
-#endif
-
-  OwnedRef ref;
-
-  // set NaT sentinel and its type
-  if (ImportFromModule(pandas.obj(), "NaT", &ref).ok()) {
-    pandas_NaT = ref.obj();
-    // PyObject_Type returns a new reference but we trust that pandas.NaT will
-    // outlive our use of this PyObject*
-    pandas_NaTType = Py_TYPE(ref.obj());
-  }
-
-  // retain a reference to Timedelta
-  if (ImportFromModule(pandas.obj(), "Timedelta", &ref).ok()) {
-    pandas_Timedelta = ref.obj();
-  }
-
-  // retain a reference to Timestamp
-  if (ImportFromModule(pandas.obj(), "Timestamp", &ref).ok()) {
-    pandas_Timestamp = ref.obj();
-  }
-
-  // if pandas.NA exists, retain a reference to it
-  if (ImportFromModule(pandas.obj(), "NA", &ref).ok()) {
-    pandas_NA = ref.obj();
-  }
-
-  // Import DateOffset type
-  if (ImportFromModule(pandas.obj(), "DateOffset", &ref).ok()) {
-    pandas_DateOffset = ref.obj();
-  }
-}
+static ModuleOnceRunner pandas_runner("pandas");
 
 }  // namespace
 
-#ifdef Py_GIL_DISABLED
 void InitPandasStaticData() {
-  std::call_once(pandas_static_initialized, GetPandasStaticSymbols);
+  pandas_runner.RunOnce([](OwnedRef& module) {
+    OwnedRef ref;
+
+    // set NaT sentinel and its type
+    if (ImportFromModule(module.obj(), "NaT", &ref).ok()) {
+      pandas_NaT = ref.obj();
+      // PyObject_Type returns a new reference but we trust that pandas.NaT will
+      // outlive our use of this PyObject*
+      pandas_NaTType = Py_TYPE(ref.obj());
+    }
+
+    // retain a reference to Timedelta
+    if (ImportFromModule(module.obj(), "Timedelta", &ref).ok()) {
+      pandas_Timedelta = ref.obj();
+    }
+
+    // retain a reference to Timestamp
+    if (ImportFromModule(module.obj(), "Timestamp", &ref).ok()) {
+      pandas_Timestamp = ref.obj();
+    }
+
+    // if pandas.NA exists, retain a reference to it
+    if (ImportFromModule(module.obj(), "NA", &ref).ok()) {
+      pandas_NA = ref.obj();
+    }
+
+    // Import DateOffset type
+    if (ImportFromModule(module.obj(), "DateOffset", &ref).ok()) {
+      pandas_DateOffset = ref.obj();
+    }
+  });
 }
-#else
-void InitPandasStaticData() {
-  // NOTE: This is called with the GIL held.  We needn't (and shouldn't,
-  // to avoid deadlocks) use an additional C++ lock (ARROW-10519).
-  if (pandas_static_initialized) {
-    return;
-  }
-  GetPandasStaticSymbols();
-  pandas_static_initialized = true;
-}
-#endif
 
 bool PandasObjectIsNull(PyObject* obj) {
   if (!MayHaveNaN(obj)) {
