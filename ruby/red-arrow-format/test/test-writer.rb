@@ -91,6 +91,9 @@ module WriterHelper
       ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
     when Arrow::LargeListDataType
       ArrowFormat::LargeListType.new(convert_field(red_arrow_type.field))
+    when Arrow::FixedSizeListDataType
+      ArrowFormat::FixedSizeListType.new(convert_field(red_arrow_type.field),
+                                         red_arrow_type.list_size)
     when Arrow::StructDataType
       fields = red_arrow_type.fields.collect do |field|
         convert_field(field)
@@ -160,6 +163,10 @@ module WriterHelper
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.value_offsets_buffer),
+                       convert_array(red_arrow_array.values_raw))
+    when ArrowFormat::FixedSizeListType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
                        convert_array(red_arrow_array.values_raw))
     when ArrowFormat::StructType
       children = red_arrow_array.fields.collect do |red_arrow_field|
@@ -802,6 +809,22 @@ module WriterTests
     assert_equal([
                    "large_list<count: int8>",
                    [[-128, 127], nil, [-1, 0, 1]],
+                 ],
+                 [type.to_s, values])
+  end
+
+  def test_fixed_size_list
+    data_type = Arrow::FixedSizeListDataType.new({
+                                                   name: "count",
+                                                   type: :int8,
+                                                 },
+                                                 2)
+    array = Arrow::FixedSizeListArray.new(data_type,
+                                          [[-128, 127], nil, [-1, 1]])
+    type, values = roundtrip(array)
+    assert_equal([
+                   "fixed_size_list<count: int8>[2]",
+                   [[-128, 127], nil, [-1, 1]],
                  ],
                  [type.to_s, values])
   end
