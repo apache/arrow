@@ -40,7 +40,7 @@ FileStats = FileInfo
 
 _not_imported = []
 try:
-    from pyarrow._azurefs import AzureFileSystem  # noqa
+    from pyarrow._azurefs import AzureFileSystem  # noqa  # type: ignore[reportMissingModuleSource]
 except ImportError:
     _not_imported.append("AzureFileSystem")
 
@@ -50,12 +50,12 @@ except ImportError:
     _not_imported.append("HadoopFileSystem")
 
 try:
-    from pyarrow._gcsfs import GcsFileSystem  # noqa
+    from pyarrow._gcsfs import GcsFileSystem  # noqa  # type: ignore[reportMissingModuleSource]
 except ImportError:
     _not_imported.append("GcsFileSystem")
 
 try:
-    from pyarrow._s3fs import (  # noqa
+    from pyarrow._s3fs import (  # noqa  # type: ignore[reportMissingModuleSource]
         AwsDefaultS3RetryStrategy, AwsStandardS3RetryStrategy,
         S3FileSystem, S3LogLevel, S3RetryStrategy, ensure_s3_initialized,
         finalize_s3, ensure_s3_finalized, initialize_s3, resolve_s3_region)
@@ -111,7 +111,7 @@ def _ensure_filesystem(filesystem, *, use_mmap=False):
     else:
         # handle fsspec-compatible filesystems
         try:
-            import fsspec
+            import fsspec  # type: ignore[import-untyped]
         except ImportError:
             pass
         else:
@@ -165,6 +165,7 @@ def _resolve_filesystem_and_path(path, filesystem=None, *, memory_map=False):
         file_info = None
         exists_locally = False
     else:
+        assert isinstance(file_info, FileInfo)
         exists_locally = (file_info.type != FileType.NotFound)
 
     # if the file or directory doesn't exists locally, then assume that
@@ -250,7 +251,9 @@ def copy_files(source, destination,
         destination, destination_filesystem
     )
 
+    assert isinstance(source_fs, FileSystem)
     file_info = source_fs.get_file_info(source_path)
+    assert isinstance(file_info, FileInfo)
     if file_info.type == FileType.Directory:
         source_sel = FileSelector(source_path, recursive=True)
         _copy_files_selector(source_fs, source_sel,
