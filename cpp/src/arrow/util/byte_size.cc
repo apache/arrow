@@ -201,7 +201,7 @@ struct GetByteRangesArray {
     RETURN_NOT_OK(range_offsets->Append(sizeof(c_type) * offset));
     RETURN_NOT_OK(range_lengths->Append(sizeof(c_type) * length));
 
-    for (std::size_t i = 2; i < input.buffers.size(); i++) {
+    for (int i = 2; i < input.buffers.size(); i++) {
       const Buffer& buf = *input.buffers[i];
       RETURN_NOT_OK(range_starts->Append(reinterpret_cast<uint64_t>(buf.data())));
       RETURN_NOT_OK(range_offsets->Append(0));
