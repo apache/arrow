@@ -608,6 +608,28 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   CheckIfElseOutput(cond, left, right, expected_data);
 }
 
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  auto full_arr = ArrayFromJSON(type, R"([null, "x", "x", null, "x", "x"])");
+  auto sliced = full_arr->Slice(3);
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(
+      auto result_asa,
+      CallFunction("if_else", {cond_asa, MakeNullScalar(type), sliced}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  auto expected = ArrayFromJSON(type, R"([null, "x", "x"])");
+  AssertArraysEqual(*expected, *result_asa.make_array(),true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(
+      auto result_aas,
+      CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(),true);
+}
+
 TEST_F(TestIfElseKernel, IfElseFSBinary) {
   auto type = fixed_size_binary(4);
 
@@ -3778,36 +3800,5 @@ TEST(TestChooseKernel, Errors) {
                    {ArrayFromJSON(int64(), "[-1]"), ArrayFromJSON(int32(), "[0]")}));
 }
 
-TEST_F(TestIfElseKernel, IfElseBaseBinarySlicedChunk) {
-  for (auto type : {utf8(), binary(), large_utf8(), large_binary()}) {
-    auto full_arr = ArrayFromJSON(type, R"([null, "x", "x", null, "x", "x"])");
-    auto chunk0 = full_arr->Slice(0, 3);
-    auto chunk1 = full_arr->Slice(3);
-
-    auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
-    ASSERT_OK_AND_ASSIGN(auto result_asa,
-                        CallFunction("if_else", {cond_asa, MakeNullScalar(type), chunk1}));
-    ASSERT_OK(result_asa.make_array()->ValidateFull());
-    AssertArraysEqual(*ArrayFromJSON(type, R"([null, "x", "x"])"),
-                      *result_asa.make_array(), true);
-
-    auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
-    ASSERT_OK_AND_ASSIGN(auto result_aas,
-                        CallFunction("if_else", {cond_aas, chunk1, MakeNullScalar(type)}));
-    ASSERT_OK(result_aas.make_array()->ValidateFull());
-    AssertArraysEqual(*ArrayFromJSON(type, R"([null, "x", "x"])"),
-                      *result_aas.make_array(), true);
-
-    auto arr1 = std::make_shared<ChunkedArray>(ArrayVector{chunk0, chunk1});
-    auto mask = *CallFunction("is_null", {arr1});
-    ASSERT_OK_AND_ASSIGN(auto arr2_datum,
-                        CallFunction("if_else", {Datum(true), *Concatenate(arr1->chunks()), arr1}));
-    ASSERT_OK(arr2_datum.chunked_array()->ValidateFull());
-    ASSERT_OK_AND_ASSIGN(auto arr3_datum,
-                        CallFunction("if_else", {mask, MakeNullScalar(type), arr2_datum}));
-    ASSERT_OK(arr3_datum.chunked_array()->ValidateFull());
-    AssertDatumsEqual(Datum(arr1), arr3_datum);
-  }
-}
 }  // namespace compute
 }  // namespace arrow
