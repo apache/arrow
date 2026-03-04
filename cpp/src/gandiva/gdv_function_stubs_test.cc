@@ -390,6 +390,7 @@ TEST(TestGdvFnStubs, TestCastVARCHARFromMilliseconds) {
   EXPECT_EQ(std::string(out_str, out_len), "2008");
   EXPECT_FALSE(ctx.has_error());
 
+  ts = StringToTimestamp("2021-04-23 10:20:33");
   out_str = gdv_fn_castVARCHAR_date64_int64(ctx_ptr, ts, 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
