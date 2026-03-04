@@ -25,7 +25,13 @@ function check_arrow_visibility {
     # Filter out Arrow symbols and see if anything remains.
     # '_init' and '_fini' symbols may or not be present, we don't care.
     # (note we must ignore the grep exit status when no match is found)
-    grep ' T ' nm_arrow.log | grep -v -E '(arrow|\b_init\b|\b_fini\b)' | cat - > visible_symbols.log
+    local allowed_symbols='(arrow|\b_init\b|\b_fini\b)'
+    # OpenTelemetry symbols are intentionally exported for features like
+    # automatic span linking. See cpp/src/arrow/symbols.map for more details.
+    if [[ "${ARROW_WITH_OPENTELEMETRY:-OFF}" == "ON" ]]; then
+        allowed_symbols="${allowed_symbols}|(opentelemetry)"
+    fi
+    grep ' T ' nm_arrow.log | grep -v -E "${allowed_symbols}" | cat - > visible_symbols.log
 
     if [[ -f visible_symbols.log && `cat visible_symbols.log | wc -l` -eq 0 ]]; then
         return 0
@@ -65,6 +71,7 @@ echo "=== (${PYTHON_VERSION}) Building Arrow C++ libraries ==="
 : ${ARROW_WITH_BROTLI:=ON}
 : ${ARROW_WITH_BZ2:=ON}
 : ${ARROW_WITH_LZ4:=ON}
+: ${ARROW_WITH_OPENTELEMETRY:=ON}
 : ${ARROW_WITH_SNAPPY:=ON}
 : ${ARROW_WITH_ZLIB:=ON}
 : ${ARROW_WITH_ZSTD:=ON}
@@ -124,6 +131,7 @@ cmake \
     -DARROW_WITH_BROTLI=${ARROW_WITH_BROTLI} \
     -DARROW_WITH_BZ2=${ARROW_WITH_BZ2} \
     -DARROW_WITH_LZ4=${ARROW_WITH_LZ4} \
+    -DARROW_WITH_OPENTELEMETRY=${ARROW_WITH_OPENTELEMETRY} \
     -DARROW_WITH_SNAPPY=${ARROW_WITH_SNAPPY} \
     -DARROW_WITH_ZLIB=${ARROW_WITH_ZLIB} \
     -DARROW_WITH_ZSTD=${ARROW_WITH_ZSTD} \
