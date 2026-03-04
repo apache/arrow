@@ -1487,66 +1487,68 @@ def test_uuid_bytes_property_raises():
 
 
 def test_array_from_extension_scalars():
-    # Test unwrap to various storage types and different converters
     import datetime
+    from decimal import Decimal
 
     builtin_cases = [
-        # fixed_size_binary[16] storage
-        (pa.uuid(), [b"0123456789abcdef"], [
-         UUID('30313233-3435-3637-3839-616263646566')]),
-        # int8 storage
-        (pa.bool8(), [0, 1], [0, 1]),
-        # string storage
-        (pa.json_(pa.string()), ['{"a":1}', '{"b":2}'], ['{"a":1}', '{"b":2}']),
-        # binary storage
-        (pa.opaque(pa.binary(), "t", "v"), [b"x", b"y"], [b"x", b"y"]),
+        (pa.uuid(), [b"0123456789abcdef"]),
+        (pa.bool8(), [0, 1]),
+        (pa.json_(pa.string()), ['{"a":1}', '{"b":2}']),
+        (pa.opaque(pa.binary(), "t", "v"), [b"x", b"y"]),
     ]
-    for ext_type, values, expected in builtin_cases:
+    for ext_type, values in builtin_cases:
         scalars = [pa.scalar(v, type=ext_type) for v in values]
         result = pa.array(scalars, type=ext_type)
-        assert result.type == ext_type
-        # TODO: make `expected` pyarrow array so `to_pylist` isn't used, check GH-48241
-        assert result.to_pylist() == expected
+        expected = pa.array(values, type=ext_type)
+        assert result.equals(expected)
 
     # Custom extension types requiring registration
     custom_cases = [
-        # int8 storage
-        (TinyIntType(), [1, 2], [1, 2]),
-        # int64 storage
-        (IntegerType(), [100, 200], [100, 200]),
-        # string storage
-        (LabelType(), ["a", "b"], ["a", "b"]),
-        # struct storage
-        (MyStructType(), [{"left": 1, "right": 2}], [{"left": 1, "right": 2}]),
-        # timestamp storage
+        (TinyIntType(), [1, 2]),
+        (IntegerType(), [100, 200]),
+        (LabelType(), ["a", "b"]),
+        (MyStructType(), [{"left": 1, "right": 2}]),
         (AnnotatedType(pa.timestamp("us"), "ts"),
-         [datetime.datetime(2023, 1, 1)], [datetime.datetime(2023, 1, 1)]),
-        # duration storage
+         [datetime.datetime(2023, 1, 1)]),
         (AnnotatedType(pa.duration("s"), "dur"),
-         [datetime.timedelta(seconds=100)], [datetime.timedelta(seconds=100)]),
-        # date storage
+         [datetime.timedelta(seconds=100)]),
         (AnnotatedType(pa.date32(), "date"),
-         [datetime.date(2023, 1, 1)], [datetime.date(2023, 1, 1)]),
-        # float64 storage
-        (AnnotatedType(pa.float64(), "f"), [1.5, 2.5], [1.5, 2.5]),
-        # boolean storage
-        (AnnotatedType(pa.bool_(), "b"), [True, False], [True, False]),
-        # binary storage
-        (AnnotatedType(pa.binary(), "bin"), [b"x", b"y"], [b"x", b"y"]),
+         [datetime.date(2023, 1, 1)]),
+        (AnnotatedType(pa.float64(), "f"), [1.5, 2.5]),
+        (AnnotatedType(pa.bool_(), "b"), [True, False]),
+        (AnnotatedType(pa.binary(), "bin"), [b"x", b"y"]),
+        (AnnotatedType(pa.decimal128(10, 2), "dec"),
+         [Decimal("1.50"), Decimal("2.75")]),
+        (AnnotatedType(pa.large_string(), "lstr"), ["hello", "world"]),
+        (AnnotatedType(pa.large_binary(), "lbin"), [b"ab", b"cd"]),
     ]
-    for ext_type, values, expected in custom_cases:
+    for ext_type, values in custom_cases:
         with registered_extension_type(ext_type):
             scalars = [pa.scalar(v, type=ext_type) for v in values]
             result = pa.array(scalars, type=ext_type)
-            assert result.type == ext_type
-            # TODO: make `expected` pyarrow array so `to_pylist` isn't used
-            assert result.to_pylist() == expected
+            expected = pa.array(values, type=ext_type)
+            assert result.equals(expected)
 
+    # Null handling
     uuid_type = pa.uuid()
     scalars = [pa.scalar(b"0123456789abcdef", type=uuid_type),
                pa.scalar(None, type=uuid_type)]
     result = pa.array(scalars, type=uuid_type)
     assert result[0].is_valid and not result[1].is_valid
+
+    # Type inference without explicit type
+    u = uuid4()
+    scalars = [pa.scalar(u, type=pa.uuid()), None]
+    result = pa.array(scalars)
+    assert result.type == pa.uuid()
+    assert result[0].as_py() == u
+    assert not result[1].is_valid
+
+    # Mixed extension scalars and raw Python objects
+    u1, u2 = uuid4(), uuid4()
+    result = pa.array([pa.scalar(u1, type=pa.uuid()), u2], type=pa.uuid())
+    expected = pa.array([u1, u2], type=pa.uuid())
+    assert result.equals(expected)
 
 
 def test_tensor_type():

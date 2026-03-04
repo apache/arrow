@@ -585,7 +585,7 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
 };
 
 // Helper function to unwrap extension scalar to its storage scalar
-inline const Scalar& GetStorageScalar(const Scalar& scalar) {
+const Scalar& GetStorageScalar(const Scalar& scalar) {
   if (scalar.type->id() == Type::EXTENSION) {
     return *checked_cast<const ExtensionScalar&>(scalar).value;
   }
