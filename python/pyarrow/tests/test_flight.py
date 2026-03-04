@@ -2646,6 +2646,7 @@ def test_tracing():
             pass
 
 
+# More info about the skip: GH-49447
 @pytest.mark.skipif(sys.platform == "win32",
                     reason="Opentelemetry traces don't appear on stdout on Windows")
 def test_tracing_server_middleware_emits_traces():
