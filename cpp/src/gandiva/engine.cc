@@ -73,7 +73,7 @@
 #  include <llvm/IR/PassManager.h>
 #  include <llvm/MC/TargetRegistry.h>
 #  if LLVM_VERSION_MAJOR >= 22
-#    include "llvm/Plugins/PassPlugin.h"
+#    include <llvm/Plugins/PassPlugin.h>
 #  else
 #    include <llvm/Passes/PassPlugin.h>
 #  endif
