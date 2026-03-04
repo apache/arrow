@@ -50,8 +50,8 @@ def teardown_module(module):
                          ids=context_choice_ids)
 def test_context(c):
     ctx, nb_ctx = context_choices[c]
-    assert ctx.handle == nb_ctx.handle.value
-    assert ctx.handle == ctx.to_numba().handle.value
+    assert ctx.handle == int(nb_ctx.handle)
+    assert ctx.handle == int(ctx.to_numba().handle)
     ctx2 = cuda.Context.from_numba(nb_ctx)
     assert ctx.handle == ctx2.handle
     size = 10
@@ -203,7 +203,7 @@ def test_numba_context(c, dtype):
     with nb_cuda.gpus[0]:
         arr, cbuf = make_random_buffer(size, target='device',
                                        dtype=dtype, ctx=ctx)
-        assert cbuf.context.handle == nb_ctx.handle.value
+        assert cbuf.context.handle == int(nb_ctx.handle)
         mem = cbuf.to_numba()
         darr = DeviceNDArray(arr.shape, arr.strides, arr.dtype, gpu_data=mem)
         np.testing.assert_equal(darr.copy_to_host(), arr)

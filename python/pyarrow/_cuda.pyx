@@ -81,7 +81,7 @@ cdef class Context(_Weakrefable):
             import numba.cuda
             context = numba.cuda.current_context()
         return Context(device_number=context.device.id,
-                       handle=context.handle.value)
+                       handle=int(context.handle))
 
     def to_numba(self):
         """
