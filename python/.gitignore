@@ -4,7 +4,6 @@ CMakeCache.txt
 CTestTestfile.cmake
 Makefile
 cmake_install.cmake
-build/
 Testing/
 
 # Python stuff
