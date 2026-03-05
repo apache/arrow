@@ -356,21 +356,6 @@ void FinalizeS3() {
 #endif
 }
 
-#if defined(ARROW_R_WITH_AZUREFS)
-
-#include <arrow/filesystem/azurefs.h>
-
-// [[arrow::export]]
-bool azurefs_is_functional_test(std::string input_string) {
-  // This just proves we can pass data in and out of the guarded block
-  if (input_string == "hello") {
-    return true;
-  }
-  return false;
-}
-
-#endif
-
 #if defined(ARROW_R_WITH_GCS)
 
 #include <arrow/filesystem/gcsfs.h>
