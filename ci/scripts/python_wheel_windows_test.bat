@@ -44,6 +44,7 @@ py -0p
 
 @REM Test that the modules are importable
 %PYTHON_CMD% -c "import pyarrow" || exit /B 1
+%PYTHON_CMD% -c "import pyarrow; print(pyarrow.build_info.build_type)" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._azurefs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._gcsfs" || exit /B 1
 %PYTHON_CMD% -c "import pyarrow._hdfs" || exit /B 1
