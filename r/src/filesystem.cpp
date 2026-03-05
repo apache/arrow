@@ -504,13 +504,17 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
 
 // TODO: Write the Rcpp function to interface with the AzureFileSystem class in
 // arrow/filesystem/azurefs.h.
-#if defined(ARROW_R_WITH_AZURE)
+#if defined(ARROW_R_WITH_AZUREFS)
 #include <arrow/filesystem/azurefs.h>
 
 // [[azure::export]]
 std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list options) {
   fs::AzureOptions azure_opts;
-  azure_opts = fs::AzureOptions::Defaults();
+  
+  // Set account name
+  if (!Rf_isNull(options["account_name"])) {
+    azure_opts.account_name = cpp11::as_cpp<std::string>(options["account_name"]);
+  }
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
   return ValueOrStop(fs::AzureFileSystem::Make(azure_opts, io_context));
