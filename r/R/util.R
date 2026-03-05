@@ -202,7 +202,7 @@ handle_csv_read_error <- function(msg, call, schema) {
       i = paste(
         "If you have not specified the schema, this error may be due to the column type being",
         "inferred as `null` because the first block of data contained only missing values.",
-        "See `?csv_read_options` for how to set a smaller value."
+        "See `?csv_read_options` for how to set a smaller value or specify a schema if you know the correct types."
       )
     )
     abort(msg, call = call)
