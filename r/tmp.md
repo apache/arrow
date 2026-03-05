@@ -9,3 +9,5 @@
 2. Rscript `data-raw/codegen.R`
 
 The second step auto-generates stubs in `arrowExports.R` and `arrowExports.cpp` based on which C++ functions have `// [[arrow::export]]` comments above them.
+
+**Note**: at the moment we need to run `export ARROW_R_WITH_AZUREFS=true` before `R CMD INSTALL .` to export the environment variable that "forces" the Azure build flag.
