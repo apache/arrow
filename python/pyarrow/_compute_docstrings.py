@@ -236,7 +236,7 @@ function_doc_additions["first_last"] = """
 
     >>> arr2 = pa.array([None, 2.0, 3.0, None])
     >>> pc.first_last(arr2)
-    <pyarrow.StructScalar: [('first', 1.0), ('last', 3.0)]>
+    <pyarrow.StructScalar: [('first', 2.0), ('last', 3.0)]>
     >>> pc.first_last(arr2, skip_nulls=False)
     <pyarrow.StructScalar: [('first', None), ('last', None)]>
 
