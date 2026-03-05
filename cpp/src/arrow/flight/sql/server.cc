@@ -537,9 +537,13 @@ arrow::Result<std::string> CreateStatementQueryTicket(
   ticket_statement_query.set_statement_handle(statement_handle);
 
   google::protobuf::Any ticket;
-  // PackFrom returns void for older protobuf versions and [[nodiscard]] bool
-  // for newer versions, so we explicitly ignore the return value.
-  (void)ticket.PackFrom(ticket_statement_query);
+#if PROTOBUF_VERSION >= 3015000
+  if (!ticket.PackFrom(ticket_statement_query)) {
+    return Status::IOError("Failed to pack ticket");
+  }
+#else
+  ticket.PackFrom(ticket_statement_query);
+#endif
 
   std::string ticket_string;
 
