@@ -11,3 +11,8 @@
 The second step auto-generates stubs in `arrowExports.R` and `arrowExports.cpp` based on which C++ functions have `// [[arrow::export]]` comments above them.
 
 **Note**: at the moment we need to run `export ARROW_R_WITH_AZUREFS=true` before `R CMD INSTALL .` to export the environment variable that "forces" the Azure build flag.
+
+## Using Azurite
+
+`docker run -p 10000:10000 -p 10001:10001 -p 10002:10002 mcr.microsoft.com/azure-storage/azurite` (see README.md in https://github.com/Azure/Azurite)
+
