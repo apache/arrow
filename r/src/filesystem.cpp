@@ -253,7 +253,7 @@ std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
 // [[arrow::export]]
 std::string fs___SubTreeFileSystem__base_path(
     const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
-  return file_system->base_path();
+  // return file_system->base_path();
 }
 
 // [[arrow::export]]
@@ -513,6 +513,22 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
   }
 
   return out;
+}
+
+#endif
+
+// TODO:
+#if defined(ARROW_R_WITH_AZURE)
+#include <arrow/filesystem/azurefs.h>
+
+// [[azure::export]]
+std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list options) {
+  fs::AzureOptions azure_opts;
+  azure_opts = fs::AzureOptions::Defaults();
+
+  auto io_context = MainRThread::GetInstance().CancellableIOContext();
+  return ValueOrStop(fs::AzureFileSystem::Make(azure_opts, io_context));
+  
 }
 
 #endif
