@@ -26,10 +26,7 @@ This is done before any build backend is invoked that's why symlinks are necessa
 But when building sdist tarballs symlinks are not copied and we end up with
 broken LICENSE.txt and NOTICE.txt.
 
-This custom build backend only replace the symlinks with hardlinks
-before scikit_build_core.build.build_sdist so
-that sdist contains the actual file content. The symlinks are restored
-afterwards so the git working tree stays clean.
+This custom build backend replaces the symlinks with actual file copies before scikit_build_core.build.build_sdist so that the sdist contains the real file content. The symlinks are restored afterwards to keep the git working tree clean.
 """
 
 from contextlib import contextmanager
