@@ -517,7 +517,8 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
 
 #endif
 
-// TODO:
+// TODO: Write the Rcpp function to interface with the AzureFileSystem class in
+// arrow/filesystem/azurefs.h.
 #if defined(ARROW_R_WITH_AZURE)
 #include <arrow/filesystem/azurefs.h>
 
