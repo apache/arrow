@@ -652,14 +652,22 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 #' @export
 AzureBlobFileSystem <- R6Class(
   "AzureBlobFileSystem",
-  inherit = FileSystem,
-  active = list(
-    region = function() fs___S3FileSystem__region(self)
-  )
+  inherit = FileSystem
 )
 
-AzureBlobFileSystem$test <- function(msg) {
-  sprintf("Hello, %s", msg)
+# TODO:
+AzureBlobFileSystem$create <- function(...) {
+  fs___AzureFileSystem__Make(...)
+}
+
+# TODO:
+az_bucket <- function(bucket, ...) {
+  assert_that(is.string(bucket))
+  args <- list2(...)
+
+  fs <- exec(AzureFileSystem$create, !!!args)
+
+  SubTreeFileSystem$create(bucket, fs)
 }
 
 #' @usage NULL
