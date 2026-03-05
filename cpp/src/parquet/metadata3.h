@@ -27,24 +27,25 @@ namespace parquet {
 
 // Convert to flatbuffer representation of the footer metadata.
 // Return false if the schema is not supported by the FlatBuffer format.
-bool ToFlatbuffer(format::FileMetaData* md, std::string* flatbuf);
+PARQUET_EXPORT bool ToFlatbuffer(format::FileMetaData* md, std::string* flatbuf);
 
 // The flatbuffer in `from` must be valid (such as one retured by `ToFlatbuffer`).
-format::FileMetaData FromFlatbuffer(const format3::FileMetaData* md);
-
+PARQUET_EXPORT format::FileMetaData FromFlatbuffer(const format3::FileMetaData* md);
 
 // Append/extract the flatbuffer from the footer as a thrift extension:
 // https://github.com/apache/parquet-format/blob/master/BinaryProtocolExtensions.md.
 //
 // `flatbuf` is the flatbuffer representation of the footer metadata.
-// `thrift` is the buffer containing the thrift representation of the footer metadata as its suffix.
+// `thrift` is the buffer containing the thrift representation of the footer metadata as
+// its suffix.
 //
 // Returns the number of bytes added.
 //
 // The extension itself is as follows:
 //
 // +-------------------+------------+--------------------------------------+----------------+---------+--------------------------------+------+
-// | compress(flatbuf) | compressor | crc(compress(flatbuf) .. compressor) | compressed_len | raw_len | crc(compressed_len .. raw_len) | UUID |
+// | compress(flatbuf) | compressor | crc(compress(flatbuf) .. compressor) |
+// compressed_len | raw_len | crc(compressed_len .. raw_len) | UUID |
 // +-------------------+------------+--------------------------------------+----------------+---------+--------------------------------+------+
 //
 // flatbuf: the flatbuffer representation of the footer metadata.
@@ -59,13 +60,13 @@ format::FileMetaData FromFlatbuffer(const format3::FileMetaData* md);
 // Append a flatbuffer as an extended field to Thrift-serialized metadata.
 // The flatbuffer is compressed with LZ4, packed with checksums and metadata,
 // then appended as a Thrift binary field (ID 32767) followed by a stop field.
-void AppendFlatbuffer(std::string flatbuffer, std::string* thrift);
+PARQUET_EXPORT void AppendFlatbuffer(std::string flatbuffer, std::string* thrift);
 
 // Extract flatbuffer from a Parquet file buffer.
 // Returns the size of the flatbuffer if found (and writes to out_flatbuffer),
 // returns 0 if no flatbuffer extension is present, or returns the required
 // buffer size if the input buffer is too small.
-::arrow::Result<int32_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer);
+PARQUET_EXPORT ::arrow::Result<uint32_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf,
+                                                           std::string* out_flatbuffer);
 
-}  // using namespace parquet
-
+}  // namespace parquet

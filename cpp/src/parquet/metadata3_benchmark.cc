@@ -138,8 +138,10 @@ static inline std::string GetBasename(const std::string& path) {
 //
 //
 
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-function"
+#ifndef _MSC_VER
+#  pragma GCC diagnostic ignored "-Wunused-parameter"
+#  pragma GCC diagnostic ignored "-Wunused-function"
+#endif
 
 namespace parquet {
 namespace {
@@ -316,10 +318,10 @@ int main(int argc, char** argv) {
   for (size_t i = 0; i < footers.size(); ++i) {
     auto&& f = footers[i];
     auto name = GetBasename(f.name);
-    snprintf(key, sizeof(key), "%lu/%s", i, name.c_str());
+    snprintf(key, sizeof(key), "%zu/%s", i, name.c_str());
     auto thrift = parquet::ToSiBytes(f.thrift.size());
     auto flatbuf = parquet::ToSiBytes(f.flatbuf.size());
-    snprintf(val, sizeof(val), "num-rgs=%lu num-cols=%lu thrift=%.*f%c flatbuf=%.*f%c",
+    snprintf(val, sizeof(val), "num-rgs=%zu num-cols=%zu thrift=%.*f%c flatbuf=%.*f%c",
              f.md.row_groups.size(), f.md.schema.size() - 1, thrift.p, thrift.v, thrift.u,
              flatbuf.p, flatbuf.v, flatbuf.u);
     ::benchmark::AddCustomContext(key, val);

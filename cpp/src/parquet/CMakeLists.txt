@@ -309,9 +309,9 @@ add_arrow_lib(parquet
               STATIC_LINK_LIBS
               ${PARQUET_STATIC_LINK_LIBS}
               STATIC_INSTALL_INTERFACE_LIBS
-              ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS})
-
-target_include_directories(parquet_objlib SYSTEM PRIVATE ${ARROW_SOURCE_DIR}/thirdparty/flatbuffers/include)
+              ${PARQUET_STATIC_INSTALL_INTERFACE_LIBS}
+              PRIVATE_INCLUDES
+              ${ARROW_SOURCE_DIR}/thirdparty/flatbuffers/include)
 
 if(WIN32 AND NOT (ARROW_TEST_LINKAGE STREQUAL "static"))
   add_library(parquet_test_support STATIC

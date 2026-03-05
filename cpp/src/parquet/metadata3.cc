@@ -21,13 +21,14 @@
 #include <string>
 #include <vector>
 
+#include "arrow/util/bit_util.h"
 #include "arrow/util/compression.h"
 #include "arrow/util/crc32.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/util/unreachable.h"
-#include "parquet/file_writer.h"
 #include "generated/parquet_types.h"
+#include "parquet/file_writer.h"
 #include "parquet/thrift_internal.h"
 
 namespace parquet {
@@ -92,7 +93,7 @@ static_assert(IsEnumEq(format::PageType::DICTIONARY_PAGE,
 constexpr double kMinCompressionRatio = 1.2;
 
 constexpr uint8_t kExtUUID[16] = {0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
-                                   0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef};
+                                  0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef};
 
 // Extended format compression codec (using same values as format3::CompressionCodec)
 enum class CompressionCodec : uint8_t {
@@ -100,33 +101,42 @@ enum class CompressionCodec : uint8_t {
   LZ4_RAW = 7,
 };
 
-auto GetNumChildren(
-    const flatbuffers::Vector<flatbuffers::Offset<format3::SchemaElement>>& s, size_t i) {
+int32_t GetNumChildren(
+    const flatbuffers::Vector<flatbuffers::Offset<format3::SchemaElement>>& s,
+    uint32_t i) {
   return s.Get(i)->num_children();
 }
 
-auto GetNumChildren(const std::vector<format::SchemaElement>& s, size_t i) {
+int32_t GetNumChildren(const std::vector<format::SchemaElement>& s, uint32_t i) {
   return s[i].num_children;
 }
 
-auto GetName(const flatbuffers::Vector<flatbuffers::Offset<format3::SchemaElement>>& s,
-             size_t i) {
+std::string GetName(
+    const flatbuffers::Vector<flatbuffers::Offset<format3::SchemaElement>>& s,
+    uint32_t i) {
   return s.Get(i)->name()->str();
 }
 
-auto GetName(const std::vector<format::SchemaElement>& s, size_t i) { return s[i].name; }
+std::string GetName(const std::vector<format::SchemaElement>& s, uint32_t i) {
+  return s[i].name;
+}
 
+// Maps between column chunk indices (leaf columns only) and schema element indices
+// (all columns including groups). Also tracks parent relationships for building
+// column paths.
 class ColumnMap {
  public:
   template <typename Schema>
   explicit ColumnMap(const Schema& s) {
-    for (size_t i = 0; i < s.size(); ++i) {
+    for (uint32_t i = 0; i < s.size(); ++i) {
       if (GetNumChildren(s, i) == 0) colchunk2schema_.push_back(i);
     }
     BuildParents(s);
   }
 
-  size_t ToSchema(size_t cc_idx) const { return colchunk2schema_[cc_idx]; }
+  // Convert a column chunk index to the corresponding schema element index.
+  uint32_t ToSchema(size_t cc_idx) const { return colchunk2schema_[cc_idx]; }
+  // Convert a schema element index to its column chunk index, if it is a leaf column.
   std::optional<size_t> ToCc(size_t schema_idx) const {
     auto it =
         std::lower_bound(colchunk2schema_.begin(), colchunk2schema_.end(), schema_idx);
@@ -135,13 +145,13 @@ class ColumnMap {
   }
 
   template <typename Schema>
-  auto ToPath(const Schema& s, size_t col_idx) {
+  auto ToPath(const Schema& s, uint32_t col_idx) {
     std::vector<std::string> path;
-    size_t len = 0;
-    for (size_t idx = ToSchema(col_idx); idx != 0; idx = parents_[idx]) ++len;
+    uint32_t len = 0;
+    for (uint32_t idx = ToSchema(col_idx); idx != 0; idx = parents_[idx]) ++len;
     path.reserve(len);
 
-    for (size_t idx = ToSchema(col_idx); idx != 0; idx = parents_[idx]) {
+    for (uint32_t idx = ToSchema(col_idx); idx != 0; idx = parents_[idx]) {
       path.push_back(GetName(s, idx));
     }
     std::reverse(path.begin(), path.end());
@@ -163,7 +173,7 @@ class ColumnMap {
     parents_[0] = 0;
 
     stack.push({0, static_cast<uint32_t>(GetNumChildren(s, 0))});
-    for (size_t idx = 1; idx < s.size(); ++idx) {
+    for (uint32_t idx = 1; idx < s.size(); ++idx) {
       parents_[idx] = stack.top().parent_idx;
       stack.top().remaining_children--;
       if (auto num_children = GetNumChildren(s, idx); num_children > 0) {
@@ -177,6 +187,9 @@ class ColumnMap {
   std::vector<uint32_t> parents_;
 };
 
+// Packed representation of min/max statistics for a column chunk.
+// Values are split into lo4 (4 bytes), lo8 (8 bytes), and hi8 (8 bytes) parts
+// to allow compact flatbuffer encoding.
 struct MinMax {
   struct Packed {
     uint32_t lo4 = 0;
@@ -269,7 +282,8 @@ MinMax Pack(format::Type::type type, const std::string& min, bool is_min_exact,
           char buf[4] = {};
           memcpy(buf, v.data(), v.size());
           return {.lo4 = LoadBE32(buf),
-                  .len = static_cast<int8_t>(is_exact ? v.size() : -v.size())};
+                  .len = static_cast<int8_t>(is_exact ? v.size()
+                                                      : -static_cast<int>(v.size()))};
         }
         return {.lo4 = LoadBE32(v.data()) + (is_max ? 1 : -1), .len = -4};
       };
@@ -383,13 +397,15 @@ struct ThriftConverter {
   auto To(format3::CompressionCodec c) {
     return static_cast<format::CompressionCodec::type>(c);
   }
-  auto To(format3::Encoding e, size_t) { return static_cast<format::Encoding::type>(e); }
+  auto To(format3::Encoding e, uint32_t) {
+    return static_cast<format::Encoding::type>(e);
+  }
   auto To(format3::PageType t) { return static_cast<format::PageType::type>(t); }
   auto To(format3::EdgeInterpolationAlgorithm a) {
     return static_cast<format::EdgeInterpolationAlgorithm::type>(a);
   }
 
-  auto To(format3::LogicalType t, size_t col_idx) {
+  auto To(format3::LogicalType t, uint32_t col_idx) {
     const format3::SchemaElement* e = md->schema()->Get(col_idx);
     format::LogicalType out;
     switch (t) {
@@ -480,7 +496,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::SchemaElement* e, size_t col_idx) {
+  auto To(const format3::SchemaElement* e, uint32_t col_idx) {
     format::SchemaElement out;
     out.name = e->name()->str();
     if (e->type()) {
@@ -509,7 +525,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::KV* kv, size_t) {
+  auto To(const format3::KV* kv, uint32_t) {
     format::KeyValue out;
     if (kv->key()->size() != 0) out.key = kv->key()->str();
     if (flatbuffers::IsFieldPresent(kv, format3::KV::VT_VAL)) {
@@ -519,7 +535,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::Statistics* s, size_t, size_t col_idx) {
+  auto To(const format3::Statistics* s, uint32_t, uint32_t col_idx) {
     format::Statistics out;
     if (s->null_count()) {
       out.__isset.null_count = true;
@@ -550,7 +566,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::ColumnMetadata* cm, size_t rg_idx, size_t col_idx) {
+  auto To(const format3::ColumnMetadata* cm, uint32_t rg_idx, uint32_t col_idx) {
     format::ColumnMetaData out;
     out.type = To(*md->schema()->Get(colmap.ToSchema(col_idx))->type());
     out.codec = To(cm->codec());
@@ -600,7 +616,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::ColumnChunk* cc, size_t rg_idx, size_t col_idx) {
+  auto To(const format3::ColumnChunk* cc, uint32_t rg_idx, uint32_t col_idx) {
     format::ColumnChunk out;
     out.__isset.meta_data = true;
     out.meta_data = To(cc->meta_data(), rg_idx, col_idx);
@@ -608,7 +624,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::SortingColumn* sc, size_t, size_t) {
+  auto To(const format3::SortingColumn* sc, uint32_t, uint32_t) {
     format::SortingColumn out;
     out.column_idx = sc->column_idx();
     out.descending = sc->descending();
@@ -616,7 +632,7 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::RowGroup* rg, size_t rg_idx) {
+  auto To(const format3::RowGroup* rg, uint32_t rg_idx) {
     format::RowGroup out;
     out.columns = To(rg->columns(), rg_idx);
     if (rg->sorting_columns()) {
@@ -663,7 +679,7 @@ struct FlatbufferConverter {
   auto To(const std::vector<T>& in, Args&&... args) {
     std::vector<decltype(To(in.at(0), std::forward<Args>(args)..., 0))> out;
     out.reserve(in.size());
-    size_t idx = 0;
+    uint32_t idx = 0;
     for (auto&& e : in) out.push_back(To(e, std::forward<Args>(args)..., idx++));
     return root.CreateVector(out);
   }
@@ -814,7 +830,7 @@ struct FlatbufferConverter {
     return {format3::ColumnOrder::TypeDefinedOrder, format3::CreateEmpty(root).Union()};
   }
 
-  auto To(const format::SchemaElement& e, size_t schema_idx) {
+  auto To(const format::SchemaElement& e, uint32_t schema_idx) {
     auto name = root.CreateSharedString(e.name);
     std::optional<std::pair<format3::LogicalType, flatbuffers::Offset<void>>>
         logical_type;
@@ -846,7 +862,7 @@ struct FlatbufferConverter {
     return b.Finish();
   }
 
-  auto To(const format::KeyValue& kv, size_t) {
+  auto To(const format::KeyValue& kv, uint32_t) {
     auto key = root.CreateSharedString(kv.key);
     std::optional<::flatbuffers::Offset<::flatbuffers::String>> val;
     if (kv.__isset.value) val = root.CreateSharedString(kv.value);
@@ -918,7 +934,7 @@ struct FlatbufferConverter {
     return false;
   }
 
-  auto To(const format::Statistics& s, size_t, size_t col_idx) {
+  auto To(const format::Statistics& s, uint32_t, uint32_t col_idx) {
     std::optional<MinMax> mm;
     if (s.__isset.min_value && s.__isset.max_value) {
       const auto& col = md.schema[colmap.ToSchema(col_idx)];
@@ -930,7 +946,7 @@ struct FlatbufferConverter {
     if (mm && !mm->prefix.empty()) prefix = root.CreateSharedString(mm->prefix);
 
     format3::StatisticsBuilder b(root);
-    if (s.__isset.null_count) b.add_null_count(s.null_count);
+    if (s.__isset.null_count) b.add_null_count(static_cast<int32_t>(s.null_count));
     if (prefix) b.add_prefix(*prefix);
     if (mm) {
       b.add_min_lo4(mm->min.lo4);
@@ -945,7 +961,7 @@ struct FlatbufferConverter {
     return b.Finish();
   }
 
-  auto To(const format::ColumnMetaData& cm, size_t rg_idx, size_t col_idx) {
+  auto To(const format::ColumnMetaData& cm, uint32_t rg_idx, uint32_t col_idx) {
     auto codec = To(cm.codec);
     auto kv = OptTo(cm.key_value_metadata);
     std::optional<decltype(To(cm.statistics, rg_idx, col_idx))> statistics;
@@ -976,7 +992,7 @@ struct FlatbufferConverter {
     return b.Finish();
   }
 
-  auto To(const format::ColumnChunk& cc, size_t rg_idx, size_t col_idx) {
+  auto To(const format::ColumnChunk& cc, uint32_t rg_idx, uint32_t col_idx) {
     auto meta_data = To(cc.meta_data, rg_idx, col_idx);
 
     format3::ColumnChunkBuilder b(root);
@@ -987,12 +1003,12 @@ struct FlatbufferConverter {
     return b.Finish();
   }
 
-  auto To(const format::SortingColumn& sc, size_t, size_t) {
+  auto To(const format::SortingColumn& sc, uint32_t, uint32_t) {
     return format3::CreateSortingColumn(root, sc.column_idx, sc.descending,
                                         sc.nulls_first);
   }
 
-  auto To(const format::RowGroup& rg, size_t rg_idx) {
+  auto To(const format::RowGroup& rg, uint32_t rg_idx) {
     auto columns = To(rg.columns, rg_idx);
     auto sorting_columns = OptTo(rg.sorting_columns, rg_idx);
 
@@ -1110,7 +1126,7 @@ format::FileMetaData FromFlatbuffer(const format3::FileMetaData* md) {
 
 static std::string PackFlatbuffer(const std::string& in) {
   std::string out;
-  int n = 0;
+  int64_t n = 0;
   // Create LZ4 codec
   auto maybe_codec = ::arrow::util::Codec::Create(::arrow::Compression::LZ4);
   if (maybe_codec.ok()) {
@@ -1137,12 +1153,13 @@ static std::string PackFlatbuffer(const std::string& in) {
   uint8_t* const p = reinterpret_cast<uint8_t*>(out.data()) + n + 1;
 
   // Compute and store checksums and lengths
-  uint32_t crc32 = ::arrow::internal::crc32(0, reinterpret_cast<const uint8_t*>(out.data()), n + 1);
-  StoreLE32(crc32, p + 0);           // crc32(data .. compressor)
-  StoreLE32(n, p + 4);               // compressed_len
-  StoreLE32(in.size(), p + 8);       // raw_len
+  uint32_t crc32 =
+      ::arrow::internal::crc32(0, reinterpret_cast<const uint8_t*>(out.data()), n + 1);
+  StoreLE32(crc32, p + 0);                             // crc32(data .. compressor)
+  StoreLE32(static_cast<uint32_t>(n), p + 4);          // compressed_len
+  StoreLE32(static_cast<uint32_t>(in.size()), p + 8);  // raw_len
   uint32_t len_crc32 = ::arrow::internal::crc32(0, p + 4, 8);
-  StoreLE32(len_crc32, p + 12);      // crc32(compressed_len .. raw_len)
+  StoreLE32(len_crc32, p + 12);  // crc32(compressed_len .. raw_len)
 
   // Store UUID identifier
   std::memcpy(p + 16, kExtUUID, 16);
@@ -1150,43 +1167,20 @@ static std::string PackFlatbuffer(const std::string& in) {
   return out;
 }
 
-inline uint8_t* WriteULEB64(uint64_t v, uint8_t* out) {
-  uint8_t* p = out;
-  do {
-    uint8_t b = v & 0x7F;
-    if (v < 0x80) {
-      *p++ = b;
-      return p;
-    }
-    *p++ = b | 0x80;
-    v >>= 7;
-  } while (true);
-}
-
-inline uint32_t CountLeadingZeros32(uint32_t v) {
-  if (v == 0) return 32;
-  uint32_t count = 0;
-  uint32_t mask = 0x80000000;
-  while ((v & mask) == 0) {
-    ++count;
-    mask >>= 1;
-  }
-  return count;
-}
-
-inline int32_t ULEB32Len(uint32_t v) {
-  return 1 + ((32 - CountLeadingZeros32(v | 0x1)) * 9) / 64;
-}
-
 void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
+  using ::arrow::bit_util::kMaxLEB128ByteLenFor;
+  using ::arrow::bit_util::WriteLEB128;
+
   // Pack the flatbuffer with LZ4 compression and checksums
   std::string packed = PackFlatbuffer(flatbuffer);
 
   const uint32_t kFieldId = 32767;
-  int header_size = 1 + ULEB32Len(kFieldId) + ULEB32Len(packed.length());
+  // Max header: 1 (type byte) + max ULEB for field id + max ULEB for packed length
+  constexpr int32_t kMaxHeaderSize =
+      1 + kMaxLEB128ByteLenFor<uint32_t> + kMaxLEB128ByteLenFor<uint32_t>;
 
   const size_t old_size = thrift->size();
-  thrift->resize(old_size + header_size + packed.size() + 1);  // +1 for stop field
+  thrift->resize(old_size + kMaxHeaderSize + packed.size() + 1);  // +1 for stop field
 
   // Pointer to the new write position
   uint8_t* p = reinterpret_cast<uint8_t*>(&(*thrift)[old_size]);
@@ -1194,9 +1188,10 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
   // Write the binary type indicator
   *p++ = 0x08;
 
-  // Write field id and size using ULEB64
-  p = WriteULEB64(kFieldId, p);
-  p = WriteULEB64(static_cast<uint32_t>(packed.size()), p);
+  // Write field id and size using ULEB128
+  p += WriteLEB128(kFieldId, p, kMaxLEB128ByteLenFor<uint32_t>);
+  p += WriteLEB128(static_cast<uint32_t>(packed.size()), p,
+                   kMaxLEB128ByteLenFor<uint32_t>);
 
   // Copy the packed payload
   std::memcpy(p, packed.data(), packed.size());
@@ -1204,13 +1199,16 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
 
   // Add stop field
   *p = 0x00;
-  return;
+
+  // Trim to actual size (header may have been smaller than max)
+  thrift->resize(p - reinterpret_cast<uint8_t*>(thrift->data()) + 1);
 }
 
-::arrow::Result<int32_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf, std::string* out_flatbuffer) {
+::arrow::Result<uint32_t> ExtractFlatbuffer(std::shared_ptr<Buffer> buf,
+                                            std::string* out_flatbuffer) {
   if (buf->size() < 8) return 8;
-  PARQUET_THROW_NOT_OK(CheckMagicNumber(buf->data() + buf->size() - 4));
-  uint32_t md_len = LoadLE32(buf->data() + buf->size() -8);
+  if (!CheckMagicNumber(buf->data() + buf->size() - 4).ok()) return 0;
+  uint32_t md_len = LoadLE32(buf->data() + buf->size() - 8);
   if (md_len < 34) return 0;
   if (buf->size() < 42) return 42;  // 34 (metadata3 trailer) + 8 (len + PAR1)
 
@@ -1235,7 +1233,8 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
   }
 
   // Verify data CRC
-  uint32_t expected_crc = ::arrow::internal::crc32(0, p - compressed_len, compressed_len + 1);
+  uint32_t expected_crc =
+      ::arrow::internal::crc32(0, p - compressed_len, compressed_len + 1);
   if (crc32_val != expected_crc) {
     return ::arrow::Status::Invalid("Extended metadata data CRC mismatch");
   }
@@ -1254,11 +1253,11 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
         return ::arrow::Status::Invalid("LZ4 length error: raw_len < compressed_len");
       }
       // Use Arrow's LZ4 codec for decompression
-      ARROW_ASSIGN_OR_RAISE(auto codec, ::arrow::util::Codec::Create(::arrow::Compression::LZ4));
-      ARROW_ASSIGN_OR_RAISE(
-          int64_t actual_size,
-          codec->Decompress(compressed_len, p - compressed_len, raw_len,
-                            decompressed_data.data()));
+      ARROW_ASSIGN_OR_RAISE(auto codec,
+                            ::arrow::util::Codec::Create(::arrow::Compression::LZ4));
+      ARROW_ASSIGN_OR_RAISE(int64_t actual_size,
+                            codec->Decompress(compressed_len, p - compressed_len, raw_len,
+                                              decompressed_data.data()));
       if (static_cast<uint32_t>(actual_size) != raw_len) {
         return ::arrow::Status::Invalid("LZ4 decompression failed: expected ", raw_len,
                                         " bytes but got ", actual_size, " bytes");
@@ -1276,7 +1275,8 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
   }
 
   ARROW_CHECK_NE(out_flatbuffer, nullptr);
-  out_flatbuffer->assign(reinterpret_cast<const char*>(decompressed_data.data()), raw_len);
+  out_flatbuffer->assign(reinterpret_cast<const char*>(decompressed_data.data()),
+                         raw_len);
 
   return compressed_len + 42;
 }

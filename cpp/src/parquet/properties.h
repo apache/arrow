@@ -139,10 +139,15 @@ class PARQUET_EXPORT ReaderProperties {
   void set_footer_read_size(size_t size) { footer_read_size_ = size; }
   size_t footer_read_size() const { return footer_read_size_; }
 
-  // If enabled, try to read the metadata3 footer from the file.
+  // If enabled, try to read the flatbuffer metadata footer from the file as an
+  // extension (i.e. a PAR1 file).
   // If it fails, fall back to Thrift footer decoding.
-  bool read_metadata3() const { return read_metadata3_; }
-  void set_read_metadata3(bool read_metadata3) { read_metadata3_ = read_metadata3; }
+  bool read_flatbuffer_metadata_if_present() const {
+    return read_flatbuffer_metadata_if_present_;
+  }
+  void set_read_flatbuffer_metadata_if_present(bool v) {
+    read_flatbuffer_metadata_if_present_ = v;
+  }
 
  private:
   MemoryPool* pool_;
@@ -153,7 +158,7 @@ class PARQUET_EXPORT ReaderProperties {
   bool page_checksum_verification_ = false;
   // Used with a RecordReader.
   bool read_dense_for_nullable_ = false;
-  bool read_metadata3_ = false;
+  bool read_flatbuffer_metadata_if_present_ = true;
   size_t footer_read_size_ = kDefaultFooterReadSize;
   std::shared_ptr<FileDecryptionProperties> file_decryption_properties_;
 };

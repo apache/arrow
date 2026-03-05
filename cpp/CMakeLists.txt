@@ -729,7 +729,8 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/gdb_arrow.py DESTINATION "${ARROW_GDB_
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/
         DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/generated"
         FILES_MATCHING
-        PATTERN "*.h")
+        PATTERN "*.h"
+        PATTERN "*.tcc")
 
 #
 # Validate and print out Arrow configuration options

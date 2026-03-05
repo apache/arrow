@@ -441,13 +441,14 @@ class SerializedFile : public ParquetFileReader::Contents {
     PARQUET_ASSIGN_OR_THROW(
         auto footer_buffer,
         source_->ReadAt(source_size_ - footer_read_size, footer_read_size));
-    if (properties_.read_metadata3()) {
+    if (properties_.read_flatbuffer_metadata_if_present()) {
       // Try to extract flatbuffer metadata from footer
       std::string flatbuffer_data;
       auto result = ExtractFlatbuffer(footer_buffer, &flatbuffer_data);
       if (result.ok()) {
-        int32_t required_or_consumed = *result;
-        if (required_or_consumed > static_cast<int32_t>(footer_buffer->size())) {
+        uint32_t required_or_consumed = *result;
+        if (required_or_consumed > static_cast<uint32_t>(footer_buffer->size()) &&
+            static_cast<int64_t>(required_or_consumed) <= source_size_) {
           PARQUET_ASSIGN_OR_THROW(
               footer_buffer,
               source_->ReadAt(source_size_ - required_or_consumed, required_or_consumed));
@@ -461,8 +462,8 @@ class SerializedFile : public ParquetFileReader::Contents {
               format3::GetFileMetaData(flatbuffer_data.data());
           auto thrift_metadata =
               std::make_unique<format::FileMetaData>(FromFlatbuffer(fb_metadata));
-          file_metadata_ = FileMetaData::Make(
-              std::move(thrift_metadata), static_cast<uint32_t>(*result), properties_);
+          file_metadata_ =
+              FileMetaData::Make(std::move(thrift_metadata), *result, properties_);
           return;
         }
       }
