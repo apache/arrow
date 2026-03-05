@@ -3637,6 +3637,14 @@ BEGIN_CPP11
 END_CPP11
 }
 // filesystem.cpp
+bool azurefs_is_functional_test(std::string input_string);
+extern "C" SEXP _arrow_azurefs_is_functional_test(SEXP input_string_sexp){
+BEGIN_CPP11
+	arrow::r::Input<std::string>::type input_string(input_string_sexp);
+	return cpp11::as_sexp(azurefs_is_functional_test(input_string));
+END_CPP11
+}
+// filesystem.cpp
 #if defined(ARROW_R_WITH_GCS)
 std::shared_ptr<fs::GcsFileSystem> fs___GcsFileSystem__Make(bool anonymous, cpp11::list options);
 extern "C" SEXP _arrow_fs___GcsFileSystem__Make(SEXP anonymous_sexp, SEXP options_sexp){
@@ -6086,6 +6094,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_fs___S3FileSystem__create", (DL_FUNC) &_arrow_fs___S3FileSystem__create, 18}, 
 		{ "_arrow_fs___S3FileSystem__region", (DL_FUNC) &_arrow_fs___S3FileSystem__region, 1}, 
 		{ "_arrow_FinalizeS3", (DL_FUNC) &_arrow_FinalizeS3, 0}, 
+		{ "_arrow_azurefs_is_functional_test", (DL_FUNC) &_arrow_azurefs_is_functional_test, 1}, 
 		{ "_arrow_fs___GcsFileSystem__Make", (DL_FUNC) &_arrow_fs___GcsFileSystem__Make, 2}, 
 		{ "_arrow_fs___GcsFileSystem__options", (DL_FUNC) &_arrow_fs___GcsFileSystem__options, 1}, 
 		{ "_arrow_io___Readable__Read", (DL_FUNC) &_arrow_io___Readable__Read, 2}, 

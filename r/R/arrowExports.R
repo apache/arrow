@@ -1412,6 +1412,10 @@ FinalizeS3 <- function() {
   invisible(.Call(`_arrow_FinalizeS3`))
 }
 
+azurefs_is_functional_test <- function(input_string) {
+  .Call(`_arrow_azurefs_is_functional_test`, input_string)
+}
+
 fs___GcsFileSystem__Make <- function(anonymous, options) {
   .Call(`_arrow_fs___GcsFileSystem__Make`, anonymous, options)
 }
