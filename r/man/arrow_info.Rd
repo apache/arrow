@@ -9,6 +9,7 @@
 \alias{arrow_with_parquet}
 \alias{arrow_with_s3}
 \alias{arrow_with_gcs}
+\alias{arrow_with_azure}
 \alias{arrow_with_json}
 \title{Report information on the package's capabilities}
 \usage{
@@ -27,6 +28,8 @@ arrow_with_parquet()
 arrow_with_s3()
 
 arrow_with_gcs()
+
+arrow_with_azure()
 
 arrow_with_json()
 }
