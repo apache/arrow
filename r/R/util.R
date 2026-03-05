@@ -200,9 +200,9 @@ handle_csv_read_error <- function(msg, call, schema) {
     msg <- c(
       msg,
       i = paste(
-        "Column type was inferred as null because the first block of data",
-        "contained only missing values. See `?csv_read_options` for how to",
-        "set a smaller value."
+        "If you have not specified the schema, this error may be due to the column type being",
+        "inferred as `null` because the first block of data contained only missing values.",
+        "See `?csv_read_options` for how to set a smaller value."
       )
     )
     abort(msg, call = call)
