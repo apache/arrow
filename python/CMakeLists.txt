@@ -359,11 +359,9 @@ else()
   # CMAKE_BUILD_TYPE is not set at configure time.
   # scikit-build-core does the right thing with cmake.build-type and
   # adds the corresponding --config but does not populate CMAKE_BUILD_TYPE
-  # for those. On this specific case, we set the default to "RELEASE"
-  # as it's the most common build type for users building from source.
-  # This is mainly relevant for our Windows wheels, which are built with
-  # Visual Studio and thus use a multi-config generator with Release.
-  # As a note this is only to populate config_internal.h.cmake.
+  # for those. On this specific case, we set the default to "RELEASE".
+  # The actual build type is injected through target compile definitions
+  # for multi-config generators.
   set(UPPERCASE_PYBUILD_TYPE "RELEASE")
 endif()
 
@@ -515,6 +513,9 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+if(CMAKE_CONFIGURATION_TYPES)
+  target_compile_definitions(arrow_python PRIVATE PYARROW_BUILD_TYPE="$<CONFIG>")
+endif()
 set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
                                               SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
