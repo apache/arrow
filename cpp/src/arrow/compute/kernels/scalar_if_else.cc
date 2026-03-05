@@ -745,9 +745,17 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
       std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
 
-      auto right_data_length = right_offsets[right.length] - right_offsets[0];
+      OffsetType base = right_offsets[0];
+      auto* out_offsets = reinterpret_cast<OffsetType*>(
+          out_data->buffers[1]->mutable_data());
+      for (int64_t i = 0; i <= cond.length; ++i) {
+        out_offsets[i] = right_offsets[i] - base;
+      }
+
+      auto right_data_length = right_offsets[right.length] - base;
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
-      std::memcpy(out_data->buffers[2]->mutable_data(), right_data, right_data_length);
+      std::memcpy(out_data->buffers[2]->mutable_data(), right_data + base,
+                  right_data_length);
       return Status::OK();
     }
 
@@ -785,9 +793,17 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
       std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
 
-      auto left_data_length = left_offsets[left.length] - left_offsets[0];
+      OffsetType base = left_offsets[0];
+      auto* out_offsets = reinterpret_cast<OffsetType*>(
+          out_data->buffers[1]->mutable_data());
+      for (int64_t i = 0; i <= cond.length; ++i) {
+        out_offsets[i] = left_offsets[i] - base;
+      }
+
+      auto left_data_length = left_offsets[left.length] - base;
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
-      std::memcpy(out_data->buffers[2]->mutable_data(), left_data, left_data_length);
+      std::memcpy(out_data->buffers[2]->mutable_data(), left_data + base,
+                  left_data_length);
       return Status::OK();
     }
 

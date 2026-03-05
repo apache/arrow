@@ -611,8 +611,8 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
 TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
   auto type = TypeTraits<TypeParam>::type_singleton();
 
-  auto full_arr = ArrayFromJSON(type, R"([null, "x", "x", null, "x", "x"])");
-  auto sliced = full_arr->Slice(3);
+  auto full_arr = ArrayFromJSON(type, R"(["not used", null, "x", "x"])");
+  auto sliced = full_arr->Slice(1);
 
   auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
   ASSERT_OK_AND_ASSIGN(
