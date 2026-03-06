@@ -26,9 +26,9 @@ After the build succeeds, the ODBC DLL will be located in
 
 2. Register your ODBC DLL:
 
-   Need to replace `<path\to\repo>` with actual path to repository in the commands.
+   Need to replace `<path\\to\\repo>` with actual path to repository in the commands.
 
-   1. `cd <path\to\repo>`
+   1. `cd <path\\to\\repo>`
    2. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
       ```
       .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
