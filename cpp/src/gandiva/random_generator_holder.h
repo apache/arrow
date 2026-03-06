@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <limits>
 #include <memory>
 #include <random>
 
@@ -51,6 +52,38 @@ class GANDIVA_EXPORT RandomGeneratorHolder : public FunctionHolder {
 
   std::mt19937_64 generator_;
   std::uniform_real_distribution<> distribution_;
+};
+
+/// Function Holder for 'rand_integer'
+class GANDIVA_EXPORT RandomIntegerGeneratorHolder : public FunctionHolder {
+ public:
+  ~RandomIntegerGeneratorHolder() override = default;
+
+  static Result<std::shared_ptr<RandomIntegerGeneratorHolder>> Make(
+      const FunctionNode& node);
+
+  int32_t operator()() { return distribution_(generator_); }
+
+ private:
+  // Full range: [INT32_MIN, INT32_MAX]
+  RandomIntegerGeneratorHolder()
+      : distribution_(std::numeric_limits<int32_t>::min(),
+                      std::numeric_limits<int32_t>::max()) {
+    generator_.seed(::arrow::internal::GetRandomSeed());
+  }
+
+  // Range: [0, range - 1]
+  explicit RandomIntegerGeneratorHolder(int32_t range) : distribution_(0, range - 1) {
+    generator_.seed(::arrow::internal::GetRandomSeed());
+  }
+
+  // Min/Max: [min, max] inclusive
+  RandomIntegerGeneratorHolder(int32_t min, int32_t max) : distribution_(min, max) {
+    generator_.seed(::arrow::internal::GetRandomSeed());
+  }
+
+  std::mt19937_64 generator_;
+  std::uniform_int_distribution<int32_t> distribution_;
 };
 
 }  // namespace gandiva
