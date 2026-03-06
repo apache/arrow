@@ -366,7 +366,7 @@ You may choose between different kinds of C++ build types:
    For any other C++ build challenges, see :ref:`cpp-development`.
 
 In case you may need to rebuild the C++ part due to errors in the process it is
-advisable to delete the build folder, see :ref:`python-dev-env-variables`.
+advisable to delete the build folder, see :ref:`stale_artifacts`.
 If the build has passed successfully and you need to rebuild due to latest pull
 from git main, then this step is not needed.
 
@@ -391,7 +391,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow/python
-         $ pip install --no-build-isolation -vv .
+         $ pip install --no-build-isolation --editable -vv .
          $ popd
 
    .. tab-item:: Windows
@@ -400,7 +400,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow\python
-         $ pip install --no-build-isolation -vv .
+         $ pip install --no-build-isolation --editable -vv .
          $ popd
 
       .. note::
@@ -429,7 +429,7 @@ To build PyArrow run:
          .. code-block::
 
             $ set PYARROW_BUNDLE_ARROW_CPP=ON
-            $ pip install --no-build-isolation -vv .
+            $ pip install --no-build-isolation --editable -vv .
 
          Note that bundled Arrow C++ libraries will not be automatically
          updated when rebuilding Arrow C++.
@@ -580,6 +580,12 @@ For extra CMake arguments you can use the ``-C cmake.args=``
 argument when building PyArrow. For example, to build a version of PyArrow
 with ``ARROW_SIMD_LEVEL=NONE``, you can run
 ``pip install --no-build-isolation -vv -C cmake.args="-DARROW_SIMD_LEVEL=NONE" .``.
+
+On PyArrow 24.0.0 we migrated our Python build backend from setuptools to
+scikit-build-core, which is a CMake-based build system. Previous versions used
+``PYARROW_CMAKE_OPTIONS`` environment variable to pass CMake options in the form of
+``-D<OPTION>=<VALUE>``. This is no longer supported.
+Instead, use the ``-C cmake.args=-D<OPTION>=<VALUE>`` option as described above.
 
 To enable verbose output from the build tool, pass
 ``-C build.verbose=true`` to ``pip install`` or to ``python -m build``.
