@@ -670,7 +670,7 @@ module ReaderTests
     array = string_array.dictionary_encode
     type, values = roundtrip(array)
     assert_equal([
-                   "Dictionary<index=Int32, value=UTF8, ordered=false>",
+                   "Dictionary<id=0, index=Int32, value=UTF8, ordered=false>",
                    ["a", "b", "c", nil, "a"],
                  ],
                  [type.to_s, values])

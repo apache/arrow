@@ -24,9 +24,14 @@ build_dir=${2}
 
 gold_dir=$arrow_dir/testing/data/arrow-ipc-stream/integration
 
+# For backward compatibility.
 : "${ARROW_INTEGRATION_CPP:=ON}"
+: "${ARCHERY_INTEGRATION_WITH_CPP:=$([ "${ARROW_INTEGRATION_CPP}" = "ON" ] && echo "1" || echo "0")}"
+export ARCHERY_INTEGRATION_WITH_CPP
+: "${ARCHERY_INTEGRATION_WITH_RUBY:=1}"
+export ARCHERY_INTEGRATION_WITH_RUBY
 
-: "${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp}"
+: "${ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS:=cpp,ruby}"
 export ARCHERY_INTEGRATION_TARGET_IMPLEMENTATIONS
 
 . "${arrow_dir}/ci/scripts/util_log.sh"
@@ -57,14 +62,11 @@ export PYTHONFAULTHANDLER=1
 export GOMEMLIMIT=200MiB
 export GODEBUG=gctrace=1,clobberfree=1
 
-ARCHERY_WITH_CPP=$([ "$ARROW_INTEGRATION_CPP" == "ON" ] && echo "1" || echo "0")
-
 # Rust can be enabled by exporting ARCHERY_INTEGRATION_WITH_RUST=1
 time archery integration \
     --run-c-data \
     --run-ipc \
     --run-flight \
-    --with-cpp="${ARCHERY_WITH_CPP}" \
     --gold-dirs="$gold_dir/0.14.1" \
     --gold-dirs="$gold_dir/0.17.1" \
     --gold-dirs="$gold_dir/1.0.0-bigendian" \

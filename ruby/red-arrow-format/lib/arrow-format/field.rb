@@ -18,17 +18,14 @@ module ArrowFormat
   class Field
     attr_reader :name
     attr_reader :type
-    attr_reader :dictionary_id
     attr_reader :metadata
     def initialize(name,
                    type,
                    nullable: true,
-                   dictionary_id: nil,
                    metadata: nil)
       @name = name
       @type = type
       @nullable = nullable
-      @dictionary_id = dictionary_id
       @metadata = metadata
     end
 
@@ -41,7 +38,7 @@ module ArrowFormat
       fb_field.name = @name
       fb_field.nullable = @nullable
       if @type.respond_to?(:build_fb_field)
-        @type.build_fb_field(fb_field, self)
+        @type.build_fb_field(fb_field)
       else
         fb_field.type = @type.to_flatbuffers
       end

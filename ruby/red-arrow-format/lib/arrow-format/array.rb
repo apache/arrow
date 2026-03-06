@@ -56,6 +56,10 @@ module ArrowFormat
       end
     end
 
+    def empty?
+      @size.zero?
+    end
+
     protected
     def slice!(offset, size)
       @offset = offset
@@ -144,6 +148,10 @@ module ArrowFormat
       return to_enum(__method__) unless block_given?
     end
 
+    def n_nulls
+      @size
+    end
+
     def to_a
       [nil] * @size
     end
@@ -156,6 +164,8 @@ module ArrowFormat
     end
 
     def to_a
+      return [] if empty?
+
       offset = element_size * @offset
       apply_validity(@values_buffer.values(@type.buffer_type, offset, @size))
     end
@@ -177,6 +187,8 @@ module ArrowFormat
 
   class BooleanArray < PrimitiveArray
     def to_a
+      return [] if empty?
+
       @values_bitmap ||= Bitmap.new(@values_buffer, @offset, @size)
       values = @values_bitmap.to_a
       apply_validity(values)
@@ -264,6 +276,8 @@ module ArrowFormat
 
   class DayTimeIntervalArray < IntervalArray
     def to_a
+      return [] if empty?
+
       offset = element_size * @offset
       values = @values_buffer.
                  each(@type.buffer_type, offset, @size * 2).
@@ -282,6 +296,8 @@ module ArrowFormat
 
   class MonthDayNanoIntervalArray < IntervalArray
     def to_a
+      return [] if empty?
+
       buffer_types = @type.buffer_types
       value_size = IO::Buffer.size_of(buffer_types)
       base_offset = value_size * @offset
@@ -301,7 +317,7 @@ module ArrowFormat
   class DurationArray < TemporalArray
   end
 
-  class VariableSizeBinaryLayoutArray < Array
+  class VariableSizeBinaryArray < Array
     def initialize(type, size, validity_buffer, offsets_buffer, values_buffer)
       super(type, size, validity_buffer)
       @offsets_buffer = offsets_buffer
@@ -323,11 +339,18 @@ module ArrowFormat
       yield(sliced_values_buffer)
     end
 
-    def to_a
-      values = @offsets_buffer.
+    def offsets
+      return [0] if empty?
+
+      @offsets_buffer.
         each(@type.offset_buffer_type, offset_size * @offset, @size + 1).
-        each_cons(2).
-        collect do |(_, offset), (_, next_offset)|
+        collect {|_, offset| offset}
+    end
+
+    def to_a
+      return [] if empty?
+
+      values = offsets.each_cons(2).collect do |offset, next_offset|
         length = next_offset - offset
         @values_buffer.get_string(offset, length, @type.encoding)
       end
@@ -340,16 +363,19 @@ module ArrowFormat
     end
   end
 
-  class BinaryArray < VariableSizeBinaryLayoutArray
+  class BinaryArray < VariableSizeBinaryArray
   end
 
-  class LargeBinaryArray < VariableSizeBinaryLayoutArray
+  class LargeBinaryArray < VariableSizeBinaryArray
   end
 
-  class UTF8Array < VariableSizeBinaryLayoutArray
+  class VariableSizeUTF8Array < VariableSizeBinaryArray
   end
 
-  class LargeUTF8Array < VariableSizeBinaryLayoutArray
+  class UTF8Array < VariableSizeUTF8Array
+  end
+
+  class LargeUTF8Array < VariableSizeUTF8Array
   end
 
   class FixedSizeBinaryArray < Array
@@ -368,6 +394,8 @@ module ArrowFormat
     end
 
     def to_a
+      return [] if empty?
+
       byte_width = @type.byte_width
       values = 0.step(@size * byte_width - 1, byte_width).collect do |offset|
         @values_buffer.get_string(offset, byte_width)
@@ -378,6 +406,8 @@ module ArrowFormat
 
   class DecimalArray < FixedSizeBinaryArray
     def to_a
+      return [] if empty?
+
       byte_width = @type.byte_width
       buffer_types = [:u64] * (byte_width / 8 - 1) + [:s64]
       base_offset = byte_width * @offset
@@ -408,8 +438,8 @@ module ArrowFormat
       elsif @type.scale > 0
         n_digits = string.bytesize
         n_digits -= 1 if value < 0
-        if n_digits < @type.scale
-          prefix = "0." + ("0" * (@type.scale - n_digits - 1))
+        if n_digits <= @type.scale
+          prefix = "0." + ("0" * (@type.scale - n_digits))
           if value < 0
             string[1, 0] = prefix
           else
@@ -446,12 +476,19 @@ module ArrowFormat
                                  @type.offset_buffer_type))
     end
 
-    def to_a
-      child_values = @child.to_a
-      values = @offsets_buffer.
+    def offsets
+      return [0] if empty?
+
+      @offsets_buffer.
         each(@type.offset_buffer_type, offset_size * @offset, @size + 1).
-        each_cons(2).
-        collect do |(_, offset), (_, next_offset)|
+        collect {|_, offset| offset}
+    end
+
+    def to_a
+      return [] if empty?
+
+      child_values = @child.to_a
+      values = offsets.each_cons(2).collect do |offset, next_offset|
         child_values[offset...next_offset]
       end
       apply_validity(values)
@@ -494,6 +531,8 @@ module ArrowFormat
     end
 
     def to_a
+      return [] if empty?
+
       values = @child.to_a.each_slice(@type.size).to_a
       apply_validity(values)
     end
@@ -520,6 +559,8 @@ module ArrowFormat
     end
 
     def to_a
+      return [] if empty?
+
       if @children.empty?
         values = [[]] * @size
       else
@@ -540,6 +581,8 @@ module ArrowFormat
 
   class MapArray < VariableSizeListArray
     def to_a
+      return [] if empty?
+
       super.collect do |entries|
         if entries.nil?
           entries
@@ -555,11 +598,24 @@ module ArrowFormat
   end
 
   class UnionArray < Array
+    attr_reader :types_buffer
     attr_reader :children
     def initialize(type, size, types_buffer, children)
       super(type, size, nil)
       @types_buffer = types_buffer
       @children = children
+    end
+
+    def each_type(&block)
+      return [].each(&block) if empty?
+
+      return to_enum(__method__) unless block_given?
+
+      @types_buffer.each(type_buffer_type,
+                         type_element_size * @offset,
+                         @size) do |_, type|
+        yield(type)
+      end
     end
 
     private
@@ -590,15 +646,23 @@ module ArrowFormat
       yield(@offsets_buffer)
     end
 
+    def each_offset(&block)
+      return [].each(&block) if empty?
+
+      return to_enum(__method__) unless block_given?
+
+      @offsets_buffer.each(@type.offset_buffer_type,
+                           offset_element_size * @offset,
+                           @size) do |_, offset|
+        yield(offset)
+      end
+    end
+
     def to_a
+      return [] if empty?
+
       children_values = @children.collect(&:to_a)
-      types = @types_buffer.each(type_buffer_type,
-                                 type_element_size * @offset,
-                                 @size)
-      offsets = @offsets_buffer.each(:s32,
-                                     offset_element_size * @offset,
-                                     @size)
-      types.zip(offsets).collect do |(_, type), (_, offset)|
+      each_type.zip(each_offset).collect do |type, offset|
         index = @type.resolve_type_index(type)
         children_values[index][offset]
       end
@@ -624,10 +688,10 @@ module ArrowFormat
     end
 
     def to_a
+      return [] if empty?
+
       children_values = @children.collect(&:to_a)
-      @types_buffer.each(type_buffer_type,
-                         type_element_size * @offset,
-                         @size).with_index.collect do |(_, type), i|
+      each_type.with_index.collect do |type, i|
         index = @type.resolve_type_index(type)
         children_values[index][i]
       end
@@ -663,15 +727,19 @@ module ArrowFormat
       yield(@indices_buffer)
     end
 
+    def indices
+      buffer_type = @type.index_type.buffer_type
+      offset = IO::Buffer.size_of(buffer_type) * @offset
+      apply_validity(@indices_buffer.values(buffer_type, offset, @size))
+    end
+
     def to_a
+      return [] if empty?
+
       values = []
       @dictionaries.each do |dictionary|
         values.concat(dictionary.to_a)
       end
-      buffer_type = @type.index_type.buffer_type
-      offset = IO::Buffer.size_of(buffer_type) * @offset
-      indices =
-        apply_validity(@indices_buffer.values(buffer_type, offset, @size))
       indices.collect do |index|
         if index.nil?
           nil
