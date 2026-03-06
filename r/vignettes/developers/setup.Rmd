@@ -354,6 +354,10 @@ sudo apt install -y -V libarrow-dev
 MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 
+```{bash, save=run & !sys_install & ubuntu}
+MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
+```
+
 ## `rpath` issues
 
 If the package fails to install/load with an error like this:
