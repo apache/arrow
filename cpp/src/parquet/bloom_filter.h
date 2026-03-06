@@ -29,6 +29,8 @@
 
 namespace parquet {
 
+class Decryptor;
+
 // A Bloom filter is a compact structure to indicate whether an item is not in a set or
 // probably in a set. The Bloom filter usually consists of a bit set that represents a
 // set of elements, a hash strategy and a Bloom filter algorithm.
@@ -323,10 +325,15 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   /// @param input_stream The input stream from which to construct the bloom filter.
   /// @param bloom_filter_length The length of the serialized bloom filter including
   /// header.
+  /// @param header_decryptor Optional decryptor for the serialized header.
+  /// @param bitset_decryptor Optional decryptor for the bitset bytes.
+  /// Both decryptors must be provided for encrypted bloom filters, or both be null
+  /// for unencrypted. Providing only one will throw ParquetException.
   /// @return The BlockSplitBloomFilter.
   static BlockSplitBloomFilter Deserialize(
       const ReaderProperties& properties, ArrowInputStream* input_stream,
-      std::optional<int64_t> bloom_filter_length = std::nullopt);
+      std::optional<int64_t> bloom_filter_length = std::nullopt,
+      Decryptor* header_decryptor = NULLPTR, Decryptor* bitset_decryptor = NULLPTR);
 
  private:
   inline void InsertHashImpl(uint64_t hash);
