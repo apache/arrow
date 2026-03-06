@@ -951,6 +951,32 @@ write_time_adjusted_to_utc : bool, default False
     are expressed in reference to midnight in the UTC timezone.
     If False (the default), the TIME columns are assumed to be expressed
     in reference to midnight in an unknown, presumably local, timezone.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 """
 
 _parquet_writer_example_doc = """\
@@ -1980,6 +2006,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=False,
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
+                bloom_filter_options=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2013,6 +2040,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=store_decimal_as_integer,
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
+                bloom_filter_options=bloom_filter_options,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:
