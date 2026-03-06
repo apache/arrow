@@ -67,6 +67,7 @@ cdef class AzureFileSystem(FileSystem):
           user-assigned managed identity and need to explicitly specify which one
           (e.g., if the resource has multiple user-assigned identities). For
           system-assigned managed identities, this parameter is typically not required.
+
     client_secret : str, default None
         Client secret for Azure Active Directory authentication. Must be provided together
         with `tenant_id` and `client_id` to use ClientSecretCredential.

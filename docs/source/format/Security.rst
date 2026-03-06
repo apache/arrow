@@ -52,7 +52,7 @@ Columnar Format
 Invalid data
 ------------
 
-The Arrow :ref:`columnar format <_format_columnar>` is an efficient binary
+The Arrow :ref:`columnar format <format_columnar>` is an efficient binary
 representation with a focus on performance and efficiency. While the format
 does not store raw pointers, the contents of Arrow buffers are often
 combined and converted to pointers into the process' address space.
@@ -165,7 +165,7 @@ have bugs anyway.
 IPC Format
 ==========
 
-The :ref:`IPC format <_ipc-message-format>` is a serialization format for the
+The :ref:`IPC format <ipc-message-format>` is a serialization format for the
 columnar format with associated metadata. Reading an IPC stream or file from
 an untrusted source comes with similar caveats as reading the Arrow columnar
 format.

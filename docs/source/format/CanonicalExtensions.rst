@@ -546,6 +546,11 @@ Primitive Type Mappings
 | UUID extension type  | UUID                   |
 +----------------------+------------------------+
 
+.. toctree::
+   :maxdepth: 1
+
+   CanonicalExtensions/Examples
+
 .. _timestamp_with_offset_extension:
 
 Timestamp With Offset

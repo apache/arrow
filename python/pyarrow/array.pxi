@@ -2557,6 +2557,7 @@ cdef class BaseListArray(Array):
         --------
 
         Basic logical list-array's flatten
+
         >>> import pyarrow as pa
         >>> values = [1, 2, 3, 4]
         >>> offsets = [2, 1, 0]
@@ -4840,7 +4841,7 @@ cdef class Bool8Array(ExtensionArray):
     def from_numpy(obj):
         """
         Convert numpy array to a bool8 extension array without making a copy.
-        The input array must be 1-dimensional, with either bool_ or int8 dtype.
+        The input array must be 1-dimensional, with either ``bool_`` or ``int8`` dtype.
 
         Parameters
         ----------
