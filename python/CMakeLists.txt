@@ -282,6 +282,11 @@ message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
 message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
 
 include(UseCython)
+
+if(CYTHON_VERSION VERSION_LESS "3.1")
+  message(FATAL_ERROR "Please update your Cython version. Supported Cython >= 3.1, found ${CYTHON_VERSION}"
+  )
+endif()
 message(STATUS "Found Cython version: ${CYTHON_VERSION}")
 
 # Arrow C++ and set default PyArrow build options
