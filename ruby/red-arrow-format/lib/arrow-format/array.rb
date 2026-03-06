@@ -480,6 +480,32 @@ module ArrowFormat
   class LargeListArray < VariableSizeListArray
   end
 
+  class FixedSizeListArray < Array
+    attr_reader :child
+    def initialize(type, size, validity_buffer, child)
+      super(type, size, validity_buffer)
+      @child = child
+    end
+
+    def each_buffer(&block)
+      return to_enum(__method__) unless block_given?
+
+      yield(slice_bitmap_buffer(:validity, @validity_buffer))
+    end
+
+    def to_a
+      values = @child.to_a.each_slice(@type.size).to_a
+      apply_validity(values)
+    end
+
+    private
+    def slice!(offset, size)
+      super
+      @child = @child.slice(@type.size * @offset,
+                            @type.size * (@offset + @size + 1))
+    end
+  end
+
   class StructArray < Array
     attr_reader :children
     def initialize(type, size, validity_buffer, children)

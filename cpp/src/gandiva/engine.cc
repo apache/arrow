@@ -72,7 +72,11 @@
 #if LLVM_VERSION_MAJOR >= 14
 #  include <llvm/IR/PassManager.h>
 #  include <llvm/MC/TargetRegistry.h>
-#  include <llvm/Passes/PassPlugin.h>
+#  if LLVM_VERSION_MAJOR >= 22
+#    include <llvm/Plugins/PassPlugin.h>
+#  else
+#    include <llvm/Passes/PassPlugin.h>
+#  endif
 #  include <llvm/Transforms/IPO/GlobalOpt.h>
 #  include <llvm/Transforms/Scalar/NewGVN.h>
 #  include <llvm/Transforms/Scalar/SimplifyCFG.h>

@@ -91,6 +91,9 @@ module WriterHelper
       ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
     when Arrow::LargeListDataType
       ArrowFormat::LargeListType.new(convert_field(red_arrow_type.field))
+    when Arrow::FixedSizeListDataType
+      ArrowFormat::FixedSizeListType.new(convert_field(red_arrow_type.field),
+                                         red_arrow_type.list_size)
     when Arrow::StructDataType
       fields = red_arrow_type.fields.collect do |field|
         convert_field(field)
@@ -128,8 +131,9 @@ module WriterHelper
     end
     ArrowFormat::Field.new(red_arrow_field.name,
                            type,
-                           red_arrow_field.nullable?,
-                           dictionary_id)
+                           nullable: red_arrow_field.nullable?,
+                           dictionary_id: dictionary_id,
+                           metadata: red_arrow_field.metadata)
   end
 
   def convert_buffer(buffer)
@@ -159,6 +163,10 @@ module WriterHelper
       type.build_array(red_arrow_array.size,
                        convert_buffer(red_arrow_array.null_bitmap),
                        convert_buffer(red_arrow_array.value_offsets_buffer),
+                       convert_array(red_arrow_array.values_raw))
+    when ArrowFormat::FixedSizeListType
+      type.build_array(red_arrow_array.size,
+                       convert_buffer(red_arrow_array.null_bitmap),
                        convert_array(red_arrow_array.values_raw))
     when ArrowFormat::StructType
       children = red_arrow_array.fields.collect do |red_arrow_field|
@@ -230,13 +238,58 @@ module WriterHelper
       end
       # pp(read(path)) # debug
       data = File.open(path, "rb", &:read).freeze
-      table = Arrow::Table.load(Arrow::Buffer.new(data), format: :arrow)
-      [table.value.data_type, table.value.values]
+      case file_extension
+      when "arrow"
+        format = :arrow_file
+      else
+        format = :arrow_streaming
+      end
+      table = Arrow::Table.load(Arrow::Buffer.new(data), format: format)
+      if inputs[0].is_a?(Arrow::Array)
+        [table.value.data_type, table.value.values]
+      else
+        table
+      end
     end
   end
 end
 
 module WriterTests
+  def test_custom_metadata_field
+    field = ArrowFormat::Field.new("value",
+                                   ArrowFormat::BooleanType.new,
+                                   metadata: {
+                                     "key1" => "value1",
+                                     "key2" => "value2",
+                                   })
+    schema = ArrowFormat::Schema.new([field])
+    column = convert_array(Arrow::BooleanArray.new([true, nil, false]))
+    record_batch = ArrowFormat::RecordBatch.new(schema, 3, [column])
+    table = roundtrip(record_batch)
+    assert_equal({
+                   "key1" => "value1",
+                   "key2" => "value2",
+                 },
+                 table.schema.fields[0].metadata)
+  end
+
+  def test_custom_metadata_schema
+    field = ArrowFormat::Field.new("value", ArrowFormat::BooleanType.new)
+    schema = ArrowFormat::Schema.new([field],
+                                     metadata: {
+                                       "key1" => "value1",
+                                       "key2" => "value2",
+                                     })
+    column = convert_array(Arrow::BooleanArray.new([true, nil, false]))
+    record_batch = ArrowFormat::RecordBatch.new(schema, 3, [column])
+    table = roundtrip(record_batch)
+    assert_equal({
+                   "key1" => "value1",
+                   "key2" => "value2",
+                 },
+                 table.schema.metadata)
+  end
+
   def test_null
     array = Arrow::NullArray.new(3)
     type, values = roundtrip(array)
@@ -760,6 +813,22 @@ module WriterTests
                  [type.to_s, values])
   end
 
+  def test_fixed_size_list
+    data_type = Arrow::FixedSizeListDataType.new({
+                                                   name: "count",
+                                                   type: :int8,
+                                                 },
+                                                 2)
+    array = Arrow::FixedSizeListArray.new(data_type,
+                                          [[-128, 127], nil, [-1, 1]])
+    type, values = roundtrip(array)
+    assert_equal([
+                   "fixed_size_list<count: int8>[2]",
+                   [[-128, 127], nil, [-1, 1]],
+                 ],
+                 [type.to_s, values])
+  end
+
   def test_map
     data_type = Arrow::MapDataType.new(:string, :int8)
     array = Arrow::MapArray.new(data_type,
@@ -865,12 +934,9 @@ module WriterDictionaryDeltaTests
     type = ArrowFormat::DictionaryType.new(index_type,
                                            value_type,
                                            ordered)
-    nullable = true
-    dictionary_id = 1
     field = ArrowFormat::Field.new("value",
                                    type,
-                                   nullable,
-                                   dictionary_id)
+                                   dictionary_id: 1)
     ArrowFormat::Schema.new([field])
   end
 
@@ -934,9 +1000,10 @@ module WriterDictionaryDeltaTests
   end
 
   def roundtrip(value_type, values1, values2)
-    r = build_record_batches(value_type, values1, values2)
+    record_batches = build_record_batches(value_type, values1, values2)
     GC.start
-    super(*r)
+    table = super(*record_batches)
+    [table.value.data_type, table.value.values]
   end
 
   def test_boolean

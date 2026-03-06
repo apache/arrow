@@ -2358,15 +2358,7 @@ constexpr char kTimestampSecondsJson[] =
 constexpr char kTimestampExtremeJson[] =
     R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
 
-class CastTimezone : public ::testing::Test {
- protected:
-  void SetUp() override {
-#ifdef _WIN32
-    // Initialize timezone database on Windows
-    ASSERT_OK(InitTestTimezoneDatabase());
-#endif
-  }
-};
+class CastTimezone : public ::testing::Test {};
 
 TEST(Cast, TimestampToDate) {
   // See scalar_temporal_test.cc
@@ -2595,6 +2587,11 @@ TEST(Cast, TimestampToTime) {
 }
 
 TEST_F(CastTimezone, ZonedTimestampToTime) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO, "Pacific/Marquesas"), kTimestampJson),
             ArrayFromJSON(time64(TimeUnit::NANO), R"([
           52259123456789, 50003999999999, 56480001001001, 65000000000000,

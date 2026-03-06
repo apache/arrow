@@ -17,7 +17,7 @@
 
 require_relative "array"
 require_relative "field"
-require_relative "flat-buffers"
+require_relative "flatbuffers"
 require_relative "record-batch"
 require_relative "schema"
 require_relative "type"
@@ -25,11 +25,21 @@ require_relative "type"
 module ArrowFormat
   module Readable
     private
+    def read_custom_metadata(fb_custom_metadata)
+      return nil if fb_custom_metadata.nil?
+      metadata = {}
+      fb_custom_metadata.each do |key_value|
+        metadata[key_value.key] = key_value.value
+      end
+      metadata
+    end
+
     def read_schema(fb_schema)
       fields = fb_schema.fields.collect do |fb_field|
         read_field(fb_field)
       end
-      Schema.new(fields)
+      Schema.new(fields,
+                 metadata: read_custom_metadata(fb_schema.custom_metadata))
     end
 
     def read_field(fb_field)
@@ -91,6 +101,9 @@ module ArrowFormat
         type = ListType.new(read_field(fb_field.children[0]))
       when FB::LargeList
         type = LargeListType.new(read_field(fb_field.children[0]))
+      when FB::FixedSizeList
+        type = FixedSizeListType.new(read_field(fb_field.children[0]),
+                                     fb_type.list_size)
       when FB::Struct
         children = fb_field.children.collect {|child| read_field(child)}
         type = StructType.new(children)
@@ -132,7 +145,11 @@ module ArrowFormat
       else
         dictionary_id = nil
       end
-      Field.new(fb_field.name, type, fb_field.nullable?, dictionary_id)
+      Field.new(fb_field.name,
+                type,
+                nullable: fb_field.nullable?,
+                dictionary_id: dictionary_id,
+                metadata: read_custom_metadata(fb_field.custom_metadata))
     end
 
     def read_type_int(fb_type)
@@ -209,6 +226,9 @@ module ArrowFormat
         offsets = body.slice(offsets_buffer.offset, offsets_buffer.length)
         child = read_column(field.type.child, nodes, buffers, body)
         field.type.build_array(length, validity, offsets, child)
+      when FixedSizeListType
+        child = read_column(field.type.child, nodes, buffers, body)
+        field.type.build_array(length, validity, child)
       when StructType
         children = field.type.children.collect do |child|
           read_column(child, nodes, buffers, body)

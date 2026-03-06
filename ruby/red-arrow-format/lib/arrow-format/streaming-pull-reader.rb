@@ -222,7 +222,7 @@ module ArrowFormat
       end
       field = @dictionary_fields[header.id]
       value_type = field.type.value_type
-      schema = Schema.new([Field.new("dummy", value_type, true, nil)])
+      schema = Schema.new([Field.new("dummy", value_type)])
       record_batch = read_record_batch(header.data, schema, body)
       if header.delta?
         @dictionaries[header.id] << record_batch.columns[0]
