@@ -16,6 +16,7 @@
 # under the License.
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+from pyarrow.includes.libarrow_python cimport HasNumPyStringDType, StringConversionMode
 
 from collections.abc import Sequence
 import os
@@ -63,6 +64,30 @@ cdef inline _is_array_like(obj):
 
 def _ndarray_to_arrow_type(object values, DataType type):
     return pyarrow_wrap_data_type(_ndarray_to_type(values, type))
+
+
+cdef inline StringConversionMode _resolve_string_conversion_mode(object string_dtype):
+    if string_dtype is True:
+        return StringConversionMode_STRING_DTYPE
+    if string_dtype is False:
+        return StringConversionMode_PYTHON_OBJECT
+
+    if string_dtype is None:
+        return StringConversionMode_PYTHON_OBJECT
+
+    if isinstance(string_dtype, str):
+        option = string_dtype.lower()
+        if option == "auto":
+            return StringConversionMode_PYTHON_OBJECT
+        if option in ("numpy", "string", "stringdtype"):
+            return StringConversionMode_STRING_DTYPE
+        if option in ("python", "object"):
+            return StringConversionMode_PYTHON_OBJECT
+
+    raise ValueError(
+        "string_dtype must be one of 'auto', 'numpy', 'python', 'object', "
+        "True or False"
+    )
 
 
 cdef shared_ptr[CDataType] _ndarray_to_type(object values,
@@ -1734,7 +1759,7 @@ cdef class Array(_PandasConvertible):
             return values
         return np.asarray(values, dtype=dtype)
 
-    def to_numpy(self, zero_copy_only=True, writable=False):
+    def to_numpy(self, zero_copy_only=True, writable=False, *, string_dtype="auto"):
         """
         Return a NumPy view or copy of this array.
 
@@ -1757,6 +1782,14 @@ cdef class Array(_PandasConvertible):
             By setting this to True, a copy of the array is made to ensure
             it is writable.
 
+        string_dtype : {"auto", "numpy", "python", "object", True, False}, default "auto"
+            Controls how string-like arrays are converted when NumPy 2.0's
+            :class:`~numpy.typing.StringDType` is available. ``"numpy"`` or
+            ``True`` will request StringDType (copying), ``"python"``/``"object"``
+            or ``False`` will force Python object dtype. ``"auto"`` preserves the
+            default object dtype unless StringDType is explicitly requested.
+            Converting to NumPy's StringDType always copies string data.
+
         Returns
         -------
         array : numpy.ndarray
@@ -1774,6 +1807,11 @@ cdef class Array(_PandasConvertible):
         if zero_copy_only and writable:
             raise ValueError(
                 "Cannot return a writable array if asking for zero-copy")
+
+        c_options.string_conversion_mode = _resolve_string_conversion_mode(string_dtype)
+        if c_options.string_conversion_mode == StringConversionMode_STRING_DTYPE:
+            if not HasNumPyStringDType():
+                raise NotImplementedError("NumPy StringDType not available")
 
         # If there are nulls and the array is a DictionaryArray
         # decoding the dictionary will make sure nulls are correctly handled.

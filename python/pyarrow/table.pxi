@@ -17,9 +17,34 @@
 # under the License.
 
 from cpython.pycapsule cimport PyCapsule_CheckExact, PyCapsule_GetPointer, PyCapsule_New
+from pyarrow.includes.libarrow_python cimport HasNumPyStringDType, StringConversionMode
 
 import warnings
 from cython import sizeof
+
+
+cdef inline StringConversionMode _resolve_table_string_conversion_mode(object string_dtype):
+    if string_dtype is True:
+        return StringConversionMode_STRING_DTYPE
+    if string_dtype is False:
+        return StringConversionMode_PYTHON_OBJECT
+
+    if string_dtype is None:
+        return StringConversionMode_PYTHON_OBJECT
+
+    if isinstance(string_dtype, str):
+        option = string_dtype.lower()
+        if option == "auto":
+            return StringConversionMode_PYTHON_OBJECT
+        if option in ("numpy", "string", "stringdtype"):
+            return StringConversionMode_STRING_DTYPE
+        if option in ("python", "object"):
+            return StringConversionMode_PYTHON_OBJECT
+
+    raise ValueError(
+        "string_dtype must be one of 'auto', 'numpy', 'python', 'object', "
+        "True or False"
+    )
 
 cdef class ChunkedArray(_PandasConvertible):
     """
@@ -491,7 +516,7 @@ cdef class ChunkedArray(_PandasConvertible):
         self._assert_cpu()
         return _array_like_to_pandas(self, options, types_mapper=types_mapper)
 
-    def to_numpy(self, zero_copy_only=False):
+    def to_numpy(self, zero_copy_only=False, *, string_dtype="auto"):
         """
         Return a NumPy copy of this array (experimental).
 
@@ -500,6 +525,13 @@ cdef class ChunkedArray(_PandasConvertible):
         zero_copy_only : bool, default False
             Introduced for signature consistence with pyarrow.Array.to_numpy.
             This must be False here since NumPy arrays' buffer must be contiguous.
+        string_dtype : {"auto", "numpy", "python", "object", True, False}, default "auto"
+            Controls how string-like arrays are converted when NumPy 2.0's
+            :class:`~numpy.typing.StringDType` is available. ``"numpy"`` or
+            ``True`` will request StringDType (copying), ``"python"``/``"object"``
+            or ``False`` will force Python object dtype. ``"auto"`` preserves the
+            default object dtype unless StringDType is explicitly requested.
+            Converting to NumPy's StringDType always copies string data.
 
         Returns
         -------
@@ -526,6 +558,11 @@ cdef class ChunkedArray(_PandasConvertible):
             object values
 
         c_options.to_numpy = True
+        c_options.string_conversion_mode = _resolve_table_string_conversion_mode(
+            string_dtype)
+        if c_options.string_conversion_mode == StringConversionMode_STRING_DTYPE:
+            if not HasNumPyStringDType():
+                raise NotImplementedError("NumPy StringDType not available")
 
         with nogil:
             check_status(
