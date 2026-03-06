@@ -65,6 +65,9 @@ set VCPKG_ROOT=C:\vcpkg
 set VCPKG_FEATURE_FLAGS=-manifests
 set VCPKG_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
 
+@REM Just testing debug builds on Windows
+set CMAKE_BUILD_TYPE=debug
+
 mkdir C:\arrow-build
 pushd C:\arrow-build
 cmake ^
