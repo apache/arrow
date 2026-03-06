@@ -1229,6 +1229,30 @@ int GetOrcMajorVersion() {
   return std::stoi(major_version);
 }
 
+const OrcSchemaField* OrcSchemaManifest::GetField(const std::vector<int>& path) const {
+  if (path.empty()) {
+    return nullptr;
+  }
+
+  // Start with top-level field
+  if (path[0] < 0 || static_cast<size_t>(path[0]) >= schema_fields.size()) {
+    return nullptr;
+  }
+
+  const OrcSchemaField* current = &schema_fields[path[0]];
+
+  // Traverse nested path
+  for (size_t i = 1; i < path.size(); ++i) {
+    int child_index = path[i];
+    if (child_index < 0 || static_cast<size_t>(child_index) >= current->children.size()) {
+      return nullptr;
+    }
+    current = &current->children[child_index];
+  }
+
+  return current;
+}
+
 }  // namespace orc
 }  // namespace adapters
 }  // namespace arrow
