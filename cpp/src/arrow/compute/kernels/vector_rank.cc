@@ -23,6 +23,7 @@
 #include "arrow/compute/registry.h"
 #include "arrow/compute/registry_internal.h"
 #include "arrow/util/logging_internal.h"
+#include "arrow/util/macros.h"
 #include "arrow/util/math_internal.h"
 
 namespace arrow::compute::internal {
@@ -347,9 +348,16 @@ class RankMetaFunctionBase : public MetaFunction {
         checked_cast<const typename Derived::FunctionOptionsType&>(function_options);
 
     SortOrder order = SortOrder::Ascending;
+    NullPlacement null_placement = NullPlacement::AtEnd;
     if (!options.sort_keys.empty()) {
       order = options.sort_keys[0].order;
+      null_placement = options.sort_keys[0].null_placement;
     }
+    ARROW_SUPPRESS_DEPRECATION_WARNING
+    if (options.null_placement.has_value()) {
+      null_placement = options.null_placement.value();
+    }
+    ARROW_UNSUPPRESS_DEPRECATION_WARNING
 
     int64_t length = input.length();
     ARROW_ASSIGN_OR_RAISE(auto indices,
@@ -360,7 +368,7 @@ class RankMetaFunctionBase : public MetaFunction {
     auto needs_duplicates = Derived::NeedsDuplicates(options);
     ARROW_ASSIGN_OR_RAISE(
         auto sorted, SortAndMarkDuplicate(ctx, indices_begin, indices_end, input, order,
-                                          options.null_placement, needs_duplicates)
+                                          null_placement, needs_duplicates)
                          .Run());
 
     auto ranker = Derived::GetRanker(options);
