@@ -28,7 +28,33 @@
 
 namespace arrow::flight::sql::odbc {
 
-void ODBCRemoteTestBase::AllocEnvConnHandles(SQLINTEGER odbc_ver) {
+class MockServerEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override {
+    ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
+    arrow::flight::FlightServerOptions options(location);
+    options.auth_handler = std::make_unique<NoOpAuthHandler>();
+    options.middleware.push_back(
+        {"bearer-auth-server", std::make_shared<MockServerMiddlewareFactory>()});
+    ASSERT_OK_AND_ASSIGN(mock_server,
+                         arrow::flight::sql::example::SQLiteFlightSqlServer::Create());
+    ASSERT_OK(mock_server->Init(options));
+
+    mock_server_port = mock_server->port();
+    ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", mock_server_port));
+    ASSERT_OK_AND_ASSIGN(auto client, arrow::flight::FlightClient::Connect(location));
+  }
+
+  void TearDown() override {
+    ASSERT_OK(mock_server->Shutdown());
+    ASSERT_OK(mock_server->Wait());
+  }
+};
+
+::testing::Environment* mock_env =
+    ::testing::AddGlobalTestEnvironment(new MockServerEnvironment);
+
+void ODBCTestBase::AllocEnvConnHandles(SQLINTEGER odbc_ver) {
   // Allocate an environment handle
   ASSERT_EQ(SQL_SUCCESS, SQLAllocEnv(&env));
 
@@ -41,13 +67,12 @@ void ODBCRemoteTestBase::AllocEnvConnHandles(SQLINTEGER odbc_ver) {
   ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DBC, env, &conn));
 }
 
-void ODBCRemoteTestBase::Connect(SQLINTEGER odbc_ver) {
+void ODBCTestBase::Connect(std::string connect_str, SQLINTEGER odbc_ver) {
   ASSERT_NO_FATAL_FAILURE(AllocEnvConnHandles(odbc_ver));
-  std::string connect_str = GetConnectionString();
   ASSERT_NO_FATAL_FAILURE(ConnectWithString(connect_str));
 }
 
-void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
+void ODBCTestBase::ConnectWithString(std::string connect_str) {
   // Connect string
   std::vector<SQLWCHAR> connect_str0(connect_str.begin(), connect_str.end());
 
@@ -60,13 +85,9 @@ void ODBCRemoteTestBase::ConnectWithString(std::string connect_str) {
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
-
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
 }
 
-void ODBCRemoteTestBase::Disconnect() {
-  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
-
+void ODBCTestBase::Disconnect() {
   // Disconnect from ODBC
   EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
@@ -74,7 +95,7 @@ void ODBCRemoteTestBase::Disconnect() {
   FreeEnvConnHandles();
 }
 
-void ODBCRemoteTestBase::FreeEnvConnHandles() {
+void ODBCTestBase::FreeEnvConnHandles() {
   // Free connection handle
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
 
@@ -82,20 +103,20 @@ void ODBCRemoteTestBase::FreeEnvConnHandles() {
   EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
 }
 
-std::string ODBCRemoteTestBase::GetConnectionString() {
+std::string ODBCTestBase::GetConnectionString() {
   std::string connect_str =
       arrow::internal::GetEnvVar(kTestConnectStr.data()).ValueOrDie();
   return connect_str;
 }
 
-std::string ODBCRemoteTestBase::GetInvalidConnectionString() {
+std::string ODBCTestBase::GetInvalidConnectionString() {
   std::string connect_str = GetConnectionString();
   // Append invalid uid to connection string
   connect_str += std::string("uid=non_existent_id;");
   return connect_str;
 }
 
-std::wstring ODBCRemoteTestBase::GetQueryAllDataTypes() {
+std::wstring ODBCTestBase::GetQueryAllDataTypes() {
   std::wstring wsql =
       LR"( SELECT
            -- Numeric types
@@ -146,59 +167,69 @@ std::wstring ODBCRemoteTestBase::GetQueryAllDataTypes() {
   return wsql;
 }
 
-void ODBCRemoteTestBase::SetUp() {
+void ODBCTestBase::SetUp() {
+  if (connected) {
+    ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_STMT, conn, &stmt));
+  }
+}
+
+void ODBCTestBase::TearDown() {
+  if (connected) {
+    ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_STMT, stmt));
+  }
+}
+
+void ODBCTestBase::TearDownTestSuite() {
+  if (connected) {
+    Disconnect();
+    connected = false;
+  }
+}
+
+void FlightSQLODBCRemoteTestBase::CheckForRemoteTest() {
   if (arrow::internal::GetEnvVar(kTestConnectStr.data()).ValueOr("").empty()) {
-    skipping_test_ = true;
+    skipping_test = true;
     GTEST_SKIP() << "Skipping test: kTestConnectStr not set";
   }
 }
 
-void FlightSQLODBCRemoteTestBase::SetUp() {
-  ODBCRemoteTestBase::SetUp();
-  if (skipping_test_) {
+void FlightSQLODBCRemoteTestBase::SetUpTestSuite() {
+  CheckForRemoteTest();
+  if (skipping_test) {
     return;
   }
 
-  this->Connect();
-  connected_ = true;
+  std::string connect_str = GetConnectionString();
+  Connect(connect_str, SQL_OV_ODBC3);
+  connected = true;
 }
 
-void FlightSQLODBCRemoteTestBase::TearDown() {
-  if (connected_) {
-    this->Disconnect();
-    connected_ = false;
-  }
-}
-
-void FlightSQLOdbcV2RemoteTestBase::SetUp() {
-  ODBCRemoteTestBase::SetUp();
-  if (skipping_test_) {
+void FlightSQLOdbcV2RemoteTestBase::SetUpTestSuite() {
+  CheckForRemoteTest();
+  if (skipping_test) {
     return;
   }
 
-  this->Connect(SQL_OV_ODBC2);
-  connected_ = true;
+  std::string connect_str = GetConnectionString();
+  Connect(connect_str, SQL_OV_ODBC2);
+  connected = true;
 }
 
-void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUp() {
-  ODBCRemoteTestBase::SetUp();
-  if (skipping_test_) {
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUpTestSuite() {
+  CheckForRemoteTest();
+  if (skipping_test) {
     return;
   }
 
   AllocEnvConnHandles();
 }
 
-void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDown() {
-  if (skipping_test_) {
+void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDownTestSuite() {
+  if (skipping_test) {
     return;
   }
 
-  // Free connection handle
-  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
-
-  // Free environment handle
-  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
+  FreeEnvConnHandles();
 }
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
@@ -244,7 +275,7 @@ Status MockServerMiddlewareFactory::StartCall(
 std::string ODBCMockTestBase::GetConnectionString() {
   std::string connect_str(
       "driver={Apache Arrow Flight SQL ODBC Driver};HOST=localhost;port=" +
-      std::to_string(port) + ";token=" + std::string(kTestToken) +
+      std::to_string(mock_server_port) + ";token=" + std::string(kTestToken) +
       ";useEncryption=false;UseWideChar=true;");
   return connect_str;
 }
@@ -305,8 +336,8 @@ std::wstring ODBCMockTestBase::GetQueryAllDataTypes() {
   return wsql;
 }
 
-void ODBCMockTestBase::CreateTestTables() {
-  ASSERT_OK(server_->ExecuteSql(R"(
+void ODBCMockTestBase::CreateTestTable() {
+  ASSERT_OK(mock_server->ExecuteSql(R"(
     CREATE TABLE TestTable (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     keyName varchar(100),
@@ -318,11 +349,15 @@ void ODBCMockTestBase::CreateTestTables() {
   )"));
 }
 
-void ODBCMockTestBase::CreateTableAllDataType() {
+void ODBCMockTestBase::DropTestTable() {
+  ASSERT_OK(mock_server->ExecuteSql("DROP TABLE TestTable;"));
+}
+
+void ODBCMockTestBase::CreateAllDataTypeTable() {
   // Limitation on mock SQLite server:
   // Only int64, float64, binary, and utf8 Arrow Types are supported by
   // SQLiteFlightSqlServer::Impl::DoGetTables
-  ASSERT_OK(server_->ExecuteSql(R"(
+  ASSERT_OK(mock_server->ExecuteSql(R"(
     CREATE TABLE AllTypesTable(
     bigint_col INTEGER PRIMARY KEY AUTOINCREMENT,
     char_col varchar(100),
@@ -340,6 +375,10 @@ void ODBCMockTestBase::CreateTableAllDataType() {
   )"));
 }
 
+void ODBCMockTestBase::DropAllDataTypeTable() {
+  ASSERT_OK(mock_server->ExecuteSql("DROP TABLE AllTypesTable;"));
+}
+
 void ODBCMockTestBase::CreateUnicodeTable() {
   std::string unicode_sql = arrow::util::WideStringToUTF8(
                                 LR"(
@@ -351,63 +390,30 @@ void ODBCMockTestBase::CreateUnicodeTable() {
     INSERT INTO 数据 (资料) VALUES ('3rd Row');
   )")
                                 .ValueOr("");
-  ASSERT_OK(server_->ExecuteSql(unicode_sql));
+  ASSERT_OK(mock_server->ExecuteSql(unicode_sql));
 }
 
-void ODBCMockTestBase::SetUp() {
-  ASSERT_OK_AND_ASSIGN(auto location, Location::ForGrpcTcp("0.0.0.0", 0));
-  arrow::flight::FlightServerOptions options(location);
-  options.auth_handler = std::make_unique<NoOpAuthHandler>();
-  options.middleware.push_back(
-      {"bearer-auth-server", std::make_shared<MockServerMiddlewareFactory>()});
-  ASSERT_OK_AND_ASSIGN(server_,
-                       arrow::flight::sql::example::SQLiteFlightSqlServer::Create());
-  ASSERT_OK(server_->Init(options));
-
-  port = server_->port();
-  ASSERT_OK_AND_ASSIGN(location, Location::ForGrpcTcp("localhost", port));
-  ASSERT_OK_AND_ASSIGN(auto client, arrow::flight::FlightClient::Connect(location));
+void ODBCMockTestBase::DropUnicodeTable() {
+  std::string unicode_sql =
+      arrow::util::WideStringToUTF8(L"DROP TABLE 数据;").ValueOr("");
+  ASSERT_OK(mock_server->ExecuteSql(unicode_sql));
 }
 
-void FlightSQLODBCMockTestBase::SetUp() {
-  ODBCMockTestBase::SetUp();
-  this->Connect();
-  connected_ = true;
+void FlightSQLODBCMockTestBase::SetUpTestSuite() {
+  std::string connect_str = GetConnectionString();
+  Connect(connect_str, SQL_OV_ODBC3);
+  connected = true;
 }
 
-void ODBCMockTestBase::TearDown() {
-  ASSERT_OK(server_->Shutdown());
-  ASSERT_OK(server_->Wait());
+void FlightSQLOdbcV2MockTestBase::SetUpTestSuite() {
+  std::string connect_str = GetConnectionString();
+  Connect(connect_str, SQL_OV_ODBC2);
+  connected = true;
 }
 
-void FlightSQLODBCMockTestBase::TearDown() {
-  if (connected_) {
-    this->Disconnect();
-    connected_ = false;
-  }
-  ODBCMockTestBase::TearDown();
-}
+void FlightSQLOdbcEnvConnHandleMockTestBase::SetUpTestSuite() { AllocEnvConnHandles(); }
 
-void FlightSQLOdbcV2MockTestBase::SetUp() {
-  ODBCMockTestBase::SetUp();
-  this->Connect(SQL_OV_ODBC2);
-  connected_ = true;
-}
-
-void FlightSQLOdbcEnvConnHandleMockTestBase::SetUp() {
-  ODBCMockTestBase::SetUp();
-  AllocEnvConnHandles();
-}
-
-void FlightSQLOdbcEnvConnHandleMockTestBase::TearDown() {
-  // Free connection handle
-  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DBC, conn));
-
-  // Free environment handle
-  EXPECT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_ENV, env));
-
-  ASSERT_OK(server_->Shutdown());
-}
+void FlightSQLOdbcEnvConnHandleMockTestBase::TearDownTestSuite() { FreeEnvConnHandles(); }
 
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
                             Connection::ConnPropertyMap map2) {

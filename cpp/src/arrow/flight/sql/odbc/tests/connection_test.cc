@@ -155,7 +155,7 @@ TYPED_TEST(ConnectionTest, TestSQLGetEnvAttrOutputNTS) {
   SQLINTEGER output_nts;
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetEnvAttr(this->env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, nullptr));
+            SQLGetEnvAttr(env, SQL_ATTR_OUTPUT_NTS, &output_nts, 0, nullptr));
 
   ASSERT_EQ(SQL_TRUE, output_nts);
 }
@@ -165,8 +165,7 @@ TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrGetLength) {
   // Windows. Windows driver manager ignores the length pointer.
   // This test case can be potentially used on macOS/Linux
   SQLINTEGER length;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, &length));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, nullptr, 0, &length));
 
   EXPECT_EQ(sizeof(SQLINTEGER), length);
 }
@@ -175,8 +174,7 @@ TYPED_TEST(ConnectionTest, DISABLED_TestSQLGetEnvAttrNullValuePointer) {
   // Test is disabled because call to SQLGetEnvAttr is handled by the driver manager on
   // Windows. The Windows driver manager doesn't error out when null pointer is passed.
   // This test case can be potentially used on macOS/Linux
-  ASSERT_EQ(SQL_ERROR,
-            SQLGetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION, nullptr, 0, nullptr));
+  ASSERT_EQ(SQL_ERROR, SQLGetEnvAttr(env, SQL_ATTR_ODBC_VERSION, nullptr, 0, nullptr));
 }
 
 TEST(SQLSetEnvAttr, TestSQLSetEnvAttrOutputNTSValid) {
@@ -229,10 +227,10 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
   // Check that out_str has same content as connect_str
   std::string out_connection_string = ODBC::SqlWcharToString(out_str, out_str_len);
@@ -244,8 +242,8 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnect) {
   ASSERT_TRUE(CompareConnPropertyMap(out_properties, in_properties));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
 TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
@@ -271,17 +269,17 @@ TYPED_TEST(ConnectionHandleTest, TestSQLDriverConnectDsn) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
 TYPED_TEST(ConnectionHandleTest, TestSQLConnect) {
@@ -303,17 +301,17 @@ TYPED_TEST(ConnectionHandleTest, TestSQLConnect) {
 
   // Connecting to ODBC server. Empty uid and pwd should be ignored.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
+            SQLConnect(conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                        static_cast<SQLSMALLINT>(pwd0.size())))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
 TEST_F(ConnectionRemoteTest, TestSQLConnectInputUidPwd) {
@@ -344,7 +342,7 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectInputUidPwd) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
+            SQLConnect(conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                        static_cast<SQLSMALLINT>(pwd0.size())))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
@@ -353,7 +351,7 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectInputUidPwd) {
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
@@ -386,11 +384,11 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectInvalidUid) {
   // UID specified in DSN will take precedence,
   // so connection still fails despite passing valid uid in SQLConnect call
   ASSERT_EQ(SQL_ERROR,
-            SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
+            SQLConnect(conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                        static_cast<SQLSMALLINT>(pwd0.size())));
 
-  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState28000);
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorState28000);
 
   // Remove DSN
   ASSERT_TRUE(UnregisterDsn(wdsn));
@@ -418,7 +416,7 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLConnect(this->conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
+            SQLConnect(conn, dsn0.data(), static_cast<SQLSMALLINT>(dsn0.size()),
                        uid0.data(), static_cast<SQLSMALLINT>(uid0.size()), pwd0.data(),
                        static_cast<SQLSMALLINT>(pwd0.size())))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
@@ -427,7 +425,7 @@ TEST_F(ConnectionRemoteTest, TestSQLConnectDSNPrecedence) {
   ASSERT_TRUE(UnregisterDsn(wdsn));
 
   // Disconnect from ODBC
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn))
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
@@ -444,11 +442,11 @@ TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_ERROR,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT));
 
-  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState28000);
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorState28000);
 
   std::string out_connection_string = ODBC::SqlWcharToString(out_str, out_str_len);
   ASSERT_TRUE(out_connection_string.empty());
@@ -456,21 +454,17 @@ TEST_F(ConnectionRemoteTest, TestSQLDriverConnectInvalidUid) {
 
 TYPED_TEST(ConnectionHandleTest, TestSQLDisconnectWithoutConnection) {
   // Attempt to disconnect without a connection, expect to fail
-  ASSERT_EQ(SQL_ERROR, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_ERROR, SQLDisconnect(conn));
 
   // Expect ODBC driver manager to return error state
-  VerifyOdbcErrorState(SQL_HANDLE_DBC, this->conn, kErrorState08003);
-}
-
-TYPED_TEST(ConnectionTest, TestConnect) {
-  // Verifies connect and disconnect works on its own
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorState08003);
 }
 
 TYPED_TEST(ConnectionTest, TestSQLAllocFreeStmt) {
   SQLHSTMT statement;
 
   // Allocate a statement using alloc statement
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(this->conn, &statement));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(conn, &statement));
 
   // Close statement handle
   ASSERT_EQ(SQL_SUCCESS, SQLFreeStmt(statement, SQL_CLOSE));
@@ -493,23 +487,23 @@ TYPED_TEST(ConnectionHandleTest, TestCloseConnectionWithOpenStatement) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_SUCCESS,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT))
-      << GetOdbcErrorMessage(SQL_HANDLE_DBC, this->conn);
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 
   // Allocate a statement using alloc statement
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(this->conn, &statement));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocStmt(conn, &statement));
 
   // Disconnect from ODBC without closing the statement first
-  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(this->conn));
+  ASSERT_EQ(SQL_SUCCESS, SQLDisconnect(conn));
 }
 
 TYPED_TEST(ConnectionTest, TestSQLAllocFreeDesc) {
   SQLHDESC descriptor;
 
   // Allocate a descriptor using alloc handle
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &descriptor));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, conn, &descriptor));
 
   // Free descriptor handle
   ASSERT_EQ(SQL_SUCCESS, SQLFreeHandle(SQL_HANDLE_DESC, descriptor));
@@ -519,37 +513,37 @@ TYPED_TEST(ConnectionTest, TestSQLSetStmtAttrDescriptor) {
   SQLHDESC apd_descriptor, ard_descriptor;
 
   // Allocate an APD descriptor using alloc handle
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &apd_descriptor));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, conn, &apd_descriptor));
 
   // Allocate an ARD descriptor using alloc handle
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &ard_descriptor));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, conn, &ard_descriptor));
 
   // Save implicitly allocated internal APD and ARD descriptor pointers
   SQLPOINTER internal_apd, internal_ard = nullptr;
 
-  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC,
-                                        &internal_apd, sizeof(internal_apd), 0));
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC, &internal_apd,
+                                        sizeof(internal_apd), 0));
 
-  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &internal_ard,
+  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, &internal_ard,
                                         sizeof(internal_ard), 0));
 
   // Set APD descriptor to explicitly allocated handle
-  EXPECT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC,
+  EXPECT_EQ(SQL_SUCCESS, SQLSetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC,
                                         reinterpret_cast<SQLPOINTER>(apd_descriptor), 0));
 
   // Set ARD descriptor to explicitly allocated handle
-  EXPECT_EQ(SQL_SUCCESS, SQLSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC,
+  EXPECT_EQ(SQL_SUCCESS, SQLSetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC,
                                         reinterpret_cast<SQLPOINTER>(ard_descriptor), 0));
 
   // Verify APD and ARD descriptors are set to explicitly allocated pointers
   SQLPOINTER value = nullptr;
-  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
-                                        sizeof(value), 0));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC, &value, sizeof(value), 0));
 
   EXPECT_EQ(apd_descriptor, value);
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
+            SQLGetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
 
   EXPECT_EQ(ard_descriptor, value);
 
@@ -561,13 +555,13 @@ TYPED_TEST(ConnectionTest, TestSQLSetStmtAttrDescriptor) {
   // Verify APD and ARD descriptors has been reverted to implicit descriptors
   value = nullptr;
 
-  EXPECT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value,
-                                        sizeof(value), 0));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC, &value, sizeof(value), 0));
 
   EXPECT_EQ(internal_apd, value);
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
+            SQLGetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, &value, sizeof(value), 0));
 
   EXPECT_EQ(internal_ard, value);
 }

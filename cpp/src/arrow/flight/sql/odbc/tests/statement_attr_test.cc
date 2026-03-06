@@ -123,21 +123,21 @@ void ValidateSetStmtAttrErrorCode(SQLHSTMT statement, SQLINTEGER attribute,
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAppParamDesc) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, &value);
+  GetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC, &value);
 
   EXPECT_GT(value, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAppRowDesc) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &value);
+  GetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, &value);
 
   EXPECT_GT(value, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncEnable) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_ASYNC_ENABLE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ASYNC_ENABLE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_ASYNC_ENABLE_OFF), value);
 }
@@ -145,190 +145,188 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncEnable) {
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtEventUnsupported) {
   // Optional feature not implemented
-  ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, kErrorStateHYC00);
+  ValidateGetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_EVENT, kErrorStateHYC00);
 }
 #endif
 
 #ifdef SQL_ATTR_ASYNC_STMT_PCALLBACK
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtPCCallbackUnsupported) {
   // Optional feature not implemented
-  ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK,
-                               kErrorStateHYC00);
+  ValidateGetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK, kErrorStateHYC00);
 }
 #endif
 
 #ifdef SQL_ATTR_ASYNC_STMT_PCONTEXT
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrAsyncStmtPCContextUnsupported) {
   // Optional feature not implemented
-  ValidateGetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT,
-                               kErrorStateHYC00);
+  ValidateGetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT, kErrorStateHYC00);
 }
 #endif
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrConcurrency) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_CONCURRENCY, &value);
+  GetStmtAttr(stmt, SQL_ATTR_CONCURRENCY, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_CONCUR_READ_ONLY), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrCursorScrollable) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_CURSOR_SCROLLABLE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_CURSOR_SCROLLABLE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_NONSCROLLABLE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrCursorSensitivity) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_CURSOR_SENSITIVITY, &value);
+  GetStmtAttr(stmt, SQL_ATTR_CURSOR_SENSITIVITY, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_UNSPECIFIED), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrCursorType) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_CURSOR_TYPE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_CURSOR_TYPE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_CURSOR_FORWARD_ONLY), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrEnableAutoIPD) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_ENABLE_AUTO_IPD, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ENABLE_AUTO_IPD, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_FALSE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrFetchBookmarkPointer) {
   SQLLEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_FETCH_BOOKMARK_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_FETCH_BOOKMARK_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLLEN>(NULL), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrIMPParamDesc) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_IMP_PARAM_DESC, &value);
+  GetStmtAttr(stmt, SQL_ATTR_IMP_PARAM_DESC, &value);
 
   EXPECT_GT(value, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrIMPRowDesc) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_IMP_ROW_DESC, &value);
+  GetStmtAttr(stmt, SQL_ATTR_IMP_ROW_DESC, &value);
 
   EXPECT_GT(value, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrKeysetSize) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_KEYSET_SIZE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_KEYSET_SIZE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrMaxLength) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_MAX_LENGTH, &value);
+  GetStmtAttr(stmt, SQL_ATTR_MAX_LENGTH, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrMaxRows) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_MAX_ROWS, &value);
+  GetStmtAttr(stmt, SQL_ATTR_MAX_ROWS, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrMetadataID) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_METADATA_ID, &value);
+  GetStmtAttr(stmt, SQL_ATTR_METADATA_ID, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_FALSE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrNoscan) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_NOSCAN, &value);
+  GetStmtAttr(stmt, SQL_ATTR_NOSCAN, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_NOSCAN_OFF), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamBindOffsetPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamBindType) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_TYPE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_BIND_TYPE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_PARAM_BIND_BY_COLUMN), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamOperationPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_OPERATION_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_OPERATION_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamStatusPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_STATUS_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_STATUS_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamsProcessedPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrParamsetSize) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAMSET_SIZE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAMSET_SIZE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrQueryTimeout) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_QUERY_TIMEOUT, &value);
+  GetStmtAttr(stmt, SQL_ATTR_QUERY_TIMEOUT, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRetrieveData) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_RETRIEVE_DATA, &value);
+  GetStmtAttr(stmt, SQL_ATTR_RETRIEVE_DATA, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_RD_ON), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowArraySize) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_ARRAY_SIZE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_ARRAY_SIZE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindOffsetPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_TYPE, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_BIND_TYPE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(0), value);
 }
@@ -338,47 +336,47 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
 
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_NUMBER, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_NUMBER, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowOperationPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_OPERATION_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_OPERATION_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowStatusPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_STATUS_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_STATUS_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowsFetchedPtr) {
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROWS_FETCHED_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(nullptr), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrSimulateCursor) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_SIMULATE_CURSOR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_SIMULATE_CURSOR, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_SC_UNIQUE), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrUseBookmarks) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ATTR_USE_BOOKMARKS, &value);
+  GetStmtAttr(stmt, SQL_ATTR_USE_BOOKMARKS, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(SQL_UB_OFF), value);
 }
@@ -386,7 +384,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrUseBookmarks) {
 // This is a pre ODBC 3 attribute
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowsetSize) {
   SQLULEN value;
-  GetStmtAttr(this->stmt, SQL_ROWSET_SIZE, &value);
+  GetStmtAttr(stmt, SQL_ROWSET_SIZE, &value);
 
   EXPECT_EQ(static_cast<SQLULEN>(1), value);
 }
@@ -395,12 +393,12 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppParamDesc) {
   SQLULEN app_param_desc = 0;
   SQLINTEGER string_length_ptr;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC,
-                                        &app_param_desc, 0, &string_length_ptr));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC, &app_param_desc, 0,
+                                        &string_length_ptr));
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC, static_cast<SQLULEN>(0));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC, static_cast<SQLULEN>(0));
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_APP_PARAM_DESC,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_APP_PARAM_DESC,
                       static_cast<SQLULEN>(app_param_desc));
 }
 
@@ -408,19 +406,18 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAppRowDesc) {
   SQLULEN app_row_desc = 0;
   SQLINTEGER string_length_ptr;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, &app_row_desc,
-                                        0, &string_length_ptr));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, &app_row_desc, 0,
+                                        &string_length_ptr));
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC, static_cast<SQLULEN>(0));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, static_cast<SQLULEN>(0));
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_APP_ROW_DESC,
-                      static_cast<SQLULEN>(app_row_desc));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_APP_ROW_DESC, static_cast<SQLULEN>(app_row_desc));
 }
 
 #ifdef SQL_ATTR_ASYNC_ENABLE
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
   // Optional feature not implemented
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_ENABLE, SQL_ASYNC_ENABLE_OFF,
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_ENABLE, SQL_ASYNC_ENABLE_OFF,
                                SQL_ERROR, kErrorStateHYC00);
 }
 #endif
@@ -428,14 +425,14 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtEventUnsupported) {
   // Driver does not support asynchronous notification
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0, SQL_ERROR,
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0, SQL_ERROR,
                                kErrorStateHY118);
 }
 #endif
 
 #ifdef SQL_ATTR_ASYNC_STMT_PCALLBACK
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCCallbackUnsupported) {
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK, 0, SQL_ERROR,
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_PCALLBACK, 0, SQL_ERROR,
                                kErrorStateHYC00);
 }
 #endif
@@ -443,44 +440,43 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCCallbackUnsuppor
 #ifdef SQL_ATTR_ASYNC_STMT_PCONTEXT
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtPCContextUnsupported) {
   // Optional feature not implemented
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT, 0, SQL_ERROR,
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_PCONTEXT, 0, SQL_ERROR,
                                kErrorStateHYC00);
 }
 #endif
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrConcurrency) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_CONCURRENCY,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_CONCURRENCY,
                       static_cast<SQLULEN>(SQL_CONCUR_READ_ONLY));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrCursorScrollable) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_CURSOR_SCROLLABLE,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_CURSOR_SCROLLABLE,
                       static_cast<SQLULEN>(SQL_NONSCROLLABLE));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrCursorSensitivity) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_CURSOR_SENSITIVITY,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_CURSOR_SENSITIVITY,
                       static_cast<SQLULEN>(SQL_UNSPECIFIED));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrCursorType) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_CURSOR_TYPE,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_CURSOR_TYPE,
                       static_cast<SQLULEN>(SQL_CURSOR_FORWARD_ONLY));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrEnableAutoIPD) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ENABLE_AUTO_IPD,
-                      static_cast<SQLULEN>(SQL_FALSE));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ENABLE_AUTO_IPD, static_cast<SQLULEN>(SQL_FALSE));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrFetchBookmarkPointer) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_FETCH_BOOKMARK_PTR, static_cast<SQLLEN>(NULL));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_FETCH_BOOKMARK_PTR, static_cast<SQLLEN>(NULL));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPParamDesc) {
   // Invalid use of an automatically allocated descriptor handle
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_PARAM_DESC,
-                               static_cast<SQLULEN>(0), SQL_ERROR,
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_IMP_PARAM_DESC, static_cast<SQLULEN>(0),
+                               SQL_ERROR,
 #ifdef __APPLE__
                                // static iODBC on MacOS returns IM001 for this case
                                kErrorStateIM001);
@@ -491,7 +487,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPParamDesc) {
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPRowDesc) {
   // Invalid use of an automatically allocated descriptor handle
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_IMP_ROW_DESC, static_cast<SQLULEN>(0),
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_IMP_ROW_DESC, static_cast<SQLULEN>(0),
                                SQL_ERROR,
 #ifdef __APPLE__
                                // static iODBC on MacOS returns IM001 for this case
@@ -502,41 +498,41 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrIMPRowDesc) {
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrKeysetSizeUnsupported) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_KEYSET_SIZE, static_cast<SQLULEN>(0));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_KEYSET_SIZE, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMaxLength) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_MAX_LENGTH, static_cast<SQLULEN>(0));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_MAX_LENGTH, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMaxRows) {
   // Cannot set read-only attribute
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_MAX_ROWS, static_cast<SQLULEN>(0),
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_MAX_ROWS, static_cast<SQLULEN>(0),
                                SQL_ERROR, kErrorStateHY092);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrMetadataID) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_METADATA_ID, static_cast<SQLULEN>(SQL_FALSE));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_METADATA_ID, static_cast<SQLULEN>(SQL_FALSE));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrNoscan) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_NOSCAN, static_cast<SQLULEN>(SQL_NOSCAN_OFF));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_NOSCAN, static_cast<SQLULEN>(SQL_NOSCAN_OFF));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamBindOffsetPtr) {
   SQLULEN offset = 1000;
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR,
                       static_cast<SQLPOINTER>(&offset));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_BIND_OFFSET_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(&offset), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamBindType) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_PARAM_BIND_TYPE,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_PARAM_BIND_TYPE,
                       static_cast<SQLULEN>(SQL_PARAM_BIND_BY_COLUMN));
 }
 
@@ -545,11 +541,11 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamOperationPtr) {
   SQLUSMALLINT param_operations[param_set_size] = {SQL_PARAM_PROCEED, SQL_PARAM_IGNORE,
                                                    SQL_PARAM_PROCEED, SQL_PARAM_IGNORE};
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_PARAM_OPERATION_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_PARAM_OPERATION_PTR,
                       static_cast<SQLPOINTER>(param_operations));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_OPERATION_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_OPERATION_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(param_operations), value);
 }
@@ -560,11 +556,11 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamStatusPtr) {
   SQLUSMALLINT param_status[param_status_size] = {SQL_PARAM_PROCEED, SQL_PARAM_IGNORE,
                                                   SQL_PARAM_PROCEED, SQL_PARAM_IGNORE};
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_PARAM_STATUS_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_PARAM_STATUS_PTR,
                       static_cast<SQLPOINTER>(param_status));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAM_STATUS_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAM_STATUS_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(param_status), value);
 }
@@ -572,51 +568,50 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamStatusPtr) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamsProcessedPtr) {
   SQLULEN processed_count = 0;
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_PARAMS_PROCESSED_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_PARAMS_PROCESSED_PTR,
                       static_cast<SQLPOINTER>(&processed_count));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_PARAMS_PROCESSED_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(&processed_count), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrParamsetSize) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_PARAMSET_SIZE, static_cast<SQLULEN>(1));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_PARAMSET_SIZE, static_cast<SQLULEN>(1));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrQueryTimeout) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_QUERY_TIMEOUT, static_cast<SQLULEN>(1));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_QUERY_TIMEOUT, static_cast<SQLULEN>(1));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRetrieveData) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_RETRIEVE_DATA,
-                      static_cast<SQLULEN>(SQL_RD_ON));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_RETRIEVE_DATA, static_cast<SQLULEN>(SQL_RD_ON));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowArraySize) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROW_ARRAY_SIZE, static_cast<SQLULEN>(1));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ROW_ARRAY_SIZE, static_cast<SQLULEN>(1));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowBindOffsetPtr) {
   SQLULEN offset = 1000;
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR,
                       static_cast<SQLPOINTER>(&offset));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_BIND_OFFSET_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(&offset), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowBindType) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROW_BIND_TYPE, static_cast<SQLULEN>(0));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ROW_BIND_TYPE, static_cast<SQLULEN>(0));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowNumber) {
   // Cannot set read-only attribute
-  ValidateSetStmtAttrErrorCode(this->stmt, SQL_ATTR_ROW_NUMBER, static_cast<SQLULEN>(0),
+  ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ROW_NUMBER, static_cast<SQLULEN>(0),
                                SQL_ERROR, kErrorStateHY092);
 }
 
@@ -625,11 +620,11 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowOperationPtr) {
   SQLUSMALLINT row_operations[param_set_size] = {SQL_ROW_PROCEED, SQL_ROW_IGNORE,
                                                  SQL_ROW_PROCEED, SQL_ROW_IGNORE};
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROW_OPERATION_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ROW_OPERATION_PTR,
                       static_cast<SQLPOINTER>(row_operations));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_OPERATION_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_OPERATION_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(row_operations), value);
 }
@@ -638,11 +633,10 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowStatusPtr) {
   constexpr SQLULEN row_status_size = 4;
   SQLUSMALLINT values[row_status_size] = {0, 0, 0, 0};
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROW_STATUS_PTR,
-                      static_cast<SQLPOINTER>(values));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ROW_STATUS_PTR, static_cast<SQLPOINTER>(values));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROW_STATUS_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROW_STATUS_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(values), value);
 }
@@ -650,28 +644,27 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowStatusPtr) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowsFetchedPtr) {
   SQLULEN rows_fetched = 1;
 
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_ROWS_FETCHED_PTR,
                       static_cast<SQLPOINTER>(&rows_fetched));
 
   SQLPOINTER value = nullptr;
-  GetStmtAttr(this->stmt, SQL_ATTR_ROWS_FETCHED_PTR, &value);
+  GetStmtAttr(stmt, SQL_ATTR_ROWS_FETCHED_PTR, &value);
 
   EXPECT_EQ(static_cast<SQLPOINTER>(&rows_fetched), value);
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrSimulateCursor) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_SIMULATE_CURSOR,
+  ValidateSetStmtAttr(stmt, SQL_ATTR_SIMULATE_CURSOR,
                       static_cast<SQLULEN>(SQL_SC_UNIQUE));
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrUseBookmarks) {
-  ValidateSetStmtAttr(this->stmt, SQL_ATTR_USE_BOOKMARKS,
-                      static_cast<SQLULEN>(SQL_UB_OFF));
+  ValidateSetStmtAttr(stmt, SQL_ATTR_USE_BOOKMARKS, static_cast<SQLULEN>(SQL_UB_OFF));
 }
 
 // This is a pre ODBC 3 attribute
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrRowsetSize) {
-  ValidateSetStmtAttr(this->stmt, SQL_ROWSET_SIZE, static_cast<SQLULEN>(1));
+  ValidateSetStmtAttr(stmt, SQL_ROWSET_SIZE, static_cast<SQLULEN>(1));
 }
 
 }  // namespace arrow::flight::sql::odbc

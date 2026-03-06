@@ -426,6 +426,9 @@ jobs:
           sudo sysctl -w kern.coredump=1
           sudo sysctl -w kern.corefile=/tmp/core.%N.%P
           ulimit -c unlimited  # must enable within the same shell
+          # Give CI write access for system DSN
+          sudo mkdir -p /Library/ODBC
+          sudo chown -R $USER /Library/ODBC
           ci/scripts/cpp_test.sh $(pwd) $(pwd)/build
 
   odbc-msvc:

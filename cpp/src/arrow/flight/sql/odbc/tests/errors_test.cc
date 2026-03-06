@@ -62,7 +62,7 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_ERROR,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT));
 
@@ -75,7 +75,7 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   SQLSMALLINT diag_number_length;
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLGetDiagField(SQL_HANDLE_DBC, this->conn, HEADER_LEVEL, SQL_DIAG_NUMBER,
+            SQLGetDiagField(SQL_HANDLE_DBC, conn, HEADER_LEVEL, SQL_DIAG_NUMBER,
                             &diag_number, sizeof(SQLINTEGER), &diag_number_length));
 
   EXPECT_EQ(1, diag_number);
@@ -85,16 +85,15 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   SQLSMALLINT server_name_length;
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_SERVER_NAME,
+            SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_SERVER_NAME,
                             server_name, kOdbcBufferSize, &server_name_length));
 
   // SQL_DIAG_MESSAGE_TEXT
   SQLWCHAR message_text[kOdbcBufferSize];
   SQLSMALLINT message_text_length;
 
-  SQLRETURN ret =
-      SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
-                      message_text, kOdbcBufferSize, &message_text_length);
+  SQLRETURN ret = SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
+                                  message_text, kOdbcBufferSize, &message_text_length);
 
   // dependent on the size of the message it could output SQL_SUCCESS_WITH_INFO
   EXPECT_TRUE(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO);
@@ -106,8 +105,8 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   SQLSMALLINT diag_native_length;
 
   EXPECT_EQ(SQL_SUCCESS,
-            SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_NATIVE,
-                            &diag_native, sizeof(diag_native), &diag_native_length));
+            SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_NATIVE, &diag_native,
+                            sizeof(diag_native), &diag_native_length));
 
   EXPECT_EQ(200, diag_native);
 
@@ -116,10 +115,9 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagFieldWForConnectFailure) {
   SQLWCHAR sql_state[sql_state_size];
   SQLSMALLINT sql_state_length;
 
-  EXPECT_EQ(
-      SQL_SUCCESS,
-      SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_SQLSTATE, sql_state,
-                      sql_state_size * GetSqlWCharSize(), &sql_state_length));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_SQLSTATE, sql_state,
+                            sql_state_size * GetSqlWCharSize(), &sql_state_length));
 
   EXPECT_EQ(kErrorState28000, SqlWcharToString(sql_state));
 }
@@ -140,7 +138,7 @@ TYPED_TEST(ErrorsHandleTest, DISABLED_TestSQLGetDiagFieldWForConnectFailureNTS) 
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_ERROR,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT));
 
@@ -154,7 +152,7 @@ TYPED_TEST(ErrorsHandleTest, DISABLED_TestSQLGetDiagFieldWForConnectFailureNTS) 
   message_text[kOdbcBufferSize - 1] = '\0';
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLGetDiagField(SQL_HANDLE_DBC, this->conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
+            SQLGetDiagField(SQL_HANDLE_DBC, conn, RECORD_1, SQL_DIAG_MESSAGE_TEXT,
                             message_text, SQL_NTS, &message_text_length));
 
   EXPECT_GT(message_text_length, 100);
@@ -166,7 +164,7 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagFieldWForDescriptorFailureFromDriverManager
   SQLHDESC descriptor;
 
   // Allocate a descriptor using alloc handle
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &descriptor));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, conn, &descriptor));
 
   EXPECT_EQ(SQL_ERROR, SQLGetDescField(descriptor, 1, SQL_DESC_DATETIME_INTERVAL_CODE, 0,
                                        0, nullptr));
@@ -232,7 +230,7 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecForDescriptorFailureFromDriverManager) {
   SQLHDESC descriptor;
 
   // Allocate a descriptor using alloc handle
-  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, this->conn, &descriptor));
+  ASSERT_EQ(SQL_SUCCESS, SQLAllocHandle(SQL_HANDLE_DESC, conn, &descriptor));
 
   EXPECT_EQ(SQL_ERROR, SQLGetDescField(descriptor, 1, SQL_DESC_DATETIME_INTERVAL_CODE, 0,
                                        0, nullptr));
@@ -273,7 +271,7 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagRecForConnectFailure) {
 
   // Connecting to ODBC server.
   ASSERT_EQ(SQL_ERROR,
-            SQLDriverConnect(this->conn, NULL, &connect_str0[0],
+            SQLDriverConnect(conn, NULL, &connect_str0[0],
                              static_cast<SQLSMALLINT>(connect_str0.size()), out_str,
                              kOdbcBufferSize, &out_str_len, SQL_DRIVER_NOPROMPT));
 
@@ -281,9 +279,8 @@ TYPED_TEST(ErrorsHandleTest, TestSQLGetDiagRecForConnectFailure) {
   SQLINTEGER native_error;
   SQLWCHAR message[kOdbcBufferSize];
   SQLSMALLINT message_length;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 1, sql_state, &native_error,
-                          message, kOdbcBufferSize, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetDiagRec(SQL_HANDLE_DBC, conn, 1, sql_state, &native_error,
+                                       message, kOdbcBufferSize, &message_length));
 
   EXPECT_GT(message_length, 120);
 
@@ -303,19 +300,18 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecInputData) {
   SQLSMALLINT message_length;
 
   // Pass invalid record number
-  EXPECT_EQ(SQL_ERROR,
-            SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 0, sql_state, &native_error,
-                          message, kOdbcBufferSize, &message_length));
+  EXPECT_EQ(SQL_ERROR, SQLGetDiagRec(SQL_HANDLE_DBC, conn, 0, sql_state, &native_error,
+                                     message, kOdbcBufferSize, &message_length));
 
   // Pass valid record number with null inputs
-  EXPECT_EQ(SQL_NO_DATA, SQLGetDiagRec(SQL_HANDLE_DBC, this->conn, 1, nullptr, nullptr,
-                                       nullptr, 0, nullptr));
+  EXPECT_EQ(SQL_NO_DATA, SQLGetDiagRec(SQL_HANDLE_DBC, conn, 1, nullptr, nullptr, nullptr,
+                                       0, nullptr));
 
   // Invalid handle
 #ifdef __APPLE__
   // MacOS ODBC driver manager requires connection handle
   EXPECT_EQ(SQL_INVALID_HANDLE,
-            SQLGetDiagRec(0, this->conn, 1, nullptr, nullptr, nullptr, 0, nullptr));
+            SQLGetDiagRec(0, conn, 1, nullptr, nullptr, nullptr, 0, nullptr));
 #else
   EXPECT_EQ(SQL_INVALID_HANDLE,
             SQLGetDiagRec(0, nullptr, 0, nullptr, nullptr, nullptr, 0, nullptr));
@@ -328,17 +324,17 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorInputData) {
 
   // Pass valid handles with null inputs
   EXPECT_EQ(SQL_NO_DATA,
-            SQLError(this->env, nullptr, nullptr, nullptr, nullptr, nullptr, 0, nullptr));
+            SQLError(env, nullptr, nullptr, nullptr, nullptr, nullptr, 0, nullptr));
 
-  EXPECT_EQ(SQL_NO_DATA, SQLError(nullptr, this->conn, nullptr, nullptr, nullptr, nullptr,
-                                  0, nullptr));
+  EXPECT_EQ(SQL_NO_DATA,
+            SQLError(nullptr, conn, nullptr, nullptr, nullptr, nullptr, 0, nullptr));
 
 #ifdef __APPLE__
-  EXPECT_EQ(SQL_NO_DATA, SQLError(SQL_NULL_HENV, this->conn, this->stmt, nullptr, nullptr,
-                                  nullptr, 0, nullptr));
+  EXPECT_EQ(SQL_NO_DATA,
+            SQLError(SQL_NULL_HENV, conn, stmt, nullptr, nullptr, nullptr, 0, nullptr));
 #else
-  EXPECT_EQ(SQL_NO_DATA, SQLError(nullptr, nullptr, this->stmt, nullptr, nullptr, nullptr,
-                                  0, nullptr));
+  EXPECT_EQ(SQL_NO_DATA,
+            SQLError(nullptr, nullptr, stmt, nullptr, nullptr, nullptr, 0, nullptr));
 #endif  // __APPLE__
 
   // Invalid handle
@@ -353,14 +349,14 @@ TYPED_TEST(ErrorsTest, TestSQLErrorEnvErrorFromDriverManager) {
   // DM passes 512 as buffer length to SQLError.
 
   // Attempt to set environment attribute after connection handle allocation
-  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION,
+  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION,
                                      reinterpret_cast<void*>(SQL_OV_ODBC2), 0));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
+  ASSERT_EQ(SQL_SUCCESS, SQLError(env, nullptr, nullptr, sql_state, &native_error,
                                   message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 40);
@@ -380,14 +376,13 @@ TYPED_TEST(ErrorsTest, TestSQLErrorConnError) {
   // DM passes 512 as buffer length to SQLError.
 
   // Attempt to set unsupported attribute
-  ASSERT_EQ(SQL_ERROR,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr));
+  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, this->conn, nullptr, sql_state, &native_error,
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, conn, nullptr, sql_state, &native_error,
                                   message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 60);
@@ -410,14 +405,14 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtError) {
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
   ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  SQLRETURN ret = SQLError(nullptr, this->conn, this->stmt, sql_state, &native_error,
-                           message, SQL_MAX_MESSAGE_LENGTH, &message_length);
+  SQLRETURN ret = SQLError(nullptr, conn, stmt, sql_state, &native_error, message,
+                           SQL_MAX_MESSAGE_LENGTH, &message_length);
 
   EXPECT_TRUE(ret == SQL_SUCCESS || ret == SQL_SUCCESS_WITH_INFO);
 
@@ -437,9 +432,9 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtWarning) {
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
 
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   const int len = 17;
   SQLCHAR char_val[len];
@@ -447,15 +442,14 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtWarning) {
   SQLLEN ind;
 
   EXPECT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 1, SQL_C_CHAR, &char_val, buf_len, &ind));
+            SQLGetData(stmt, 1, SQL_C_CHAR, &char_val, buf_len, &ind));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
-                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(SQL_NULL_HENV, conn, stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 
@@ -474,14 +468,14 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorEnvErrorFromDriverManager) {
   // DM passes 512 as buffer length to SQLError.
 
   // Attempt to set environment attribute after connection handle allocation
-  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(this->env, SQL_ATTR_ODBC_VERSION,
+  ASSERT_EQ(SQL_ERROR, SQLSetEnvAttr(env, SQL_ATTR_ODBC_VERSION,
                                      reinterpret_cast<void*>(SQL_OV_ODBC2), 0));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(this->env, nullptr, nullptr, sql_state, &native_error,
+  ASSERT_EQ(SQL_SUCCESS, SQLError(env, nullptr, nullptr, sql_state, &native_error,
                                   message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 40);
@@ -514,14 +508,13 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorConnError) {
   // macOS Excel.
 
   // Attempt to set unsupported attribute
-  ASSERT_EQ(SQL_ERROR,
-            SQLGetConnectAttr(this->conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr));
+  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(conn, SQL_ATTR_TXN_ISOLATION, 0, 0, nullptr));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, this->conn, nullptr, sql_state, &native_error,
+  ASSERT_EQ(SQL_SUCCESS, SQLError(nullptr, conn, nullptr, sql_state, &native_error,
                                   message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 60);
@@ -545,15 +538,14 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
   ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLSMALLINT message_length = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
-                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(SQL_NULL_HENV, conn, stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
   EXPECT_GT(message_length, 70);
 
   EXPECT_EQ(100, native_error);
@@ -571,9 +563,9 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarning) {
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
   ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(this->stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
 
-  ASSERT_EQ(SQL_SUCCESS, SQLFetch(this->stmt));
+  ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
   const int len = 17;
   SQLCHAR char_val[len];
@@ -581,15 +573,14 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarning) {
   SQLLEN ind;
 
   EXPECT_EQ(SQL_SUCCESS_WITH_INFO,
-            SQLGetData(this->stmt, 1, SQL_C_CHAR, &char_val, buf_len, &ind));
+            SQLGetData(stmt, 1, SQL_C_CHAR, &char_val, buf_len, &ind));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
   SQLWCHAR message[SQL_MAX_MESSAGE_LENGTH] = {0};
   SQLSMALLINT message_length = 0;
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLError(SQL_NULL_HENV, this->conn, this->stmt, sql_state, &native_error,
-                     message, SQL_MAX_MESSAGE_LENGTH, &message_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLError(SQL_NULL_HENV, conn, stmt, sql_state, &native_error,
+                                  message, SQL_MAX_MESSAGE_LENGTH, &message_length));
 
   EXPECT_GT(message_length, 50);
 
