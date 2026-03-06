@@ -253,20 +253,18 @@ class SerializedRowGroup : public RowGroupReader::Contents {
       stream = properties_.GetStream(source_, col_range.offset, col_range.length);
     }
 
-    std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col->crypto_metadata();
-
     // Prior to Arrow 3.0.0, is_compressed was always set to false in column headers,
     // even if compression was used. See ARROW-17100.
     bool always_compressed = file_metadata_->writer_version().VersionLt(
         ApplicationVersion::PARQUET_CPP_10353_FIXED_VERSION());
 
-    // Column is encrypted only if crypto_metadata exists.
-    if (!crypto_metadata) {
+    if (!col->is_encrypted()) {
       return PageReader::Open(stream, col->num_values(), col->compression(), properties_,
                               always_compressed);
     }
 
     // The column is encrypted
+    auto crypto_metadata = col->crypto_metadata();
     auto* file_decryptor = file_metadata_->file_decryptor().get();
     auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
         file_decryptor, crypto_metadata.get());

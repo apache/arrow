@@ -92,6 +92,18 @@ class PARQUET_EXPORT BloomFilterBuilder {
   ///   - `WriteTo()` has been called
   virtual BloomFilter* CreateBloomFilter(int32_t column_ordinal) = 0;
 
+  /// \brief Insert a BloomFilter of the column ordinal of the current row group.
+  ///
+  /// \param column_ordinal Column ordinal for the bloom filter.
+  /// \param bloom_filter The bloom filter to insert.
+  /// \throws ParquetException if any condition is violated:
+  ///   - `AppendRowGroup()` has not been called yet
+  ///   - The column ordinal is out of bound
+  ///   - Bloom filter already exists for the column
+  ///   - `WriteTo()` has been called
+  virtual void InsertBloomFilter(int32_t column_ordinal,
+                                 std::unique_ptr<BloomFilter> bloom_filter) = 0;
+
   /// \brief Write all bloom filters to sink.
   ///
   /// The bloom filters cannot be modified after this method is called.
