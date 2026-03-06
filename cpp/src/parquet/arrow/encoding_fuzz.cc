@@ -15,19 +15,13 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "./arrow_types.h"
+#include "arrow/status.h"
+#include "arrow/util/fuzz_internal.h"
+#include "parquet/arrow/fuzz_encoding_internal.h"
 
-#include <arrow/config.h>
-
-// [[arrow::export]]
-std::vector<std::string> build_info() {
-  auto info = arrow::GetBuildInfo();
-  return {info.version_string, info.compiler_id, info.compiler_version,
-          info.compiler_flags, info.git_id};
-}
-
-// [[arrow::export]]
-std::vector<std::string> runtime_info() {
-  auto info = arrow::GetRuntimeInfo();
-  return {info.simd_level, info.detected_simd_level};
+extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
+  auto status =
+      parquet::fuzzing::internal::FuzzEncoding(data, static_cast<int64_t>(size));
+  arrow::internal::LogFuzzStatus(status, data, static_cast<int64_t>(size));
+  return 0;
 }

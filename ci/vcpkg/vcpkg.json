@@ -143,6 +143,17 @@
           ]
         }
       ]
+    },
+    "opentelemetry": {
+      "description": "OpenTelemetry support",
+      "dependencies": [
+        {
+          "name": "opentelemetry-cpp",
+          "features": [
+            "otlp-http"
+          ]
+        }
+      ]
     }
   }
 }
