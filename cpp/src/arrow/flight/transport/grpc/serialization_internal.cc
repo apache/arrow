@@ -353,7 +353,10 @@ const uint8_t kPaddingBytes[8] = {0, 0, 0, 0, 0, 0, 0, 0};
         // Can't use ParseFromCodedStream as this reads the entire
         // rest of the stream into the descriptor command field.
         std::string buffer;
-        pb_stream.ReadString(&buffer, length);
+        if (!pb_stream.ReadString(&buffer, length)) {
+          return {::grpc::StatusCode::INTERNAL,
+                  "Unable to read FlightDescriptor from protobuf"};
+        }
         if (!pb_descriptor.ParseFromString(buffer)) {
           return {::grpc::StatusCode::INTERNAL, "Unable to parse FlightDescriptor"};
         }
