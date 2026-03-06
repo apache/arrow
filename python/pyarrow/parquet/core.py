@@ -262,9 +262,9 @@ class ParquetFile:
     page_checksum_verification : bool, default False
         If True, verify the checksum for each page read from the file.
     arrow_extensions_enabled : bool, default True
-        If True, read Parquet logical types as Arrow extension types where possible,
-        (e.g., read JSON as the canonical `arrow.json` extension type or UUID as
-        the canonical `arrow.uuid` extension type).
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g., read JSON as the canonical `arrow.json` extension type
+        or UUID as the canonical `arrow.uuid` extension type).
 
     Examples
     --------
@@ -2334,7 +2334,7 @@ def write_metadata(schema, where, metadata_collector=None, filesystem=None,
 
 
 def read_metadata(where, memory_map=False, decryption_properties=None,
-                  filesystem=None):
+                  filesystem=None, arrow_extensions_enabled=True):
     """
     Read FileMetaData from footer of a single Parquet file.
 
@@ -2349,6 +2349,10 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    arrow_extensions_enabled : bool, default True
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g. UUID as the canonical `arrow.uuid` extension type).
+        If False, use the underlying storage types instead.
 
     Returns
     -------
@@ -2378,13 +2382,17 @@ def read_metadata(where, memory_map=False, decryption_properties=None,
         file_ctx = where = filesystem.open_input_file(where)
 
     with file_ctx:
-        file = ParquetFile(where, memory_map=memory_map,
-                           decryption_properties=decryption_properties)
+        file = ParquetFile(
+            where,
+            memory_map=memory_map,
+            decryption_properties=decryption_properties,
+            arrow_extensions_enabled=arrow_extensions_enabled,
+        )
         return file.metadata
 
 
 def read_schema(where, memory_map=False, decryption_properties=None,
-                filesystem=None):
+                filesystem=None, arrow_extensions_enabled=True):
     """
     Read effective Arrow schema from Parquet file metadata.
 
@@ -2399,6 +2407,9 @@ def read_schema(where, memory_map=False, decryption_properties=None,
         If nothing passed, will be inferred based on path.
         Path will try to be found in the local on-disk filesystem otherwise
         it will be parsed as an URI to determine the filesystem.
+    arrow_extensions_enabled : bool, default True
+        If True, read Parquet logical types as Arrow extension types where
+        possible (e.g., UUID as the canonical `arrow.uuid` extension type).
 
     Returns
     -------
@@ -2424,9 +2435,12 @@ def read_schema(where, memory_map=False, decryption_properties=None,
 
     with file_ctx:
         file = ParquetFile(
-            where, memory_map=memory_map,
-            decryption_properties=decryption_properties)
-        return file.schema.to_arrow_schema()
+            where,
+            memory_map=memory_map,
+            decryption_properties=decryption_properties,
+            arrow_extensions_enabled=arrow_extensions_enabled,
+        )
+        return file.schema_arrow
 
 
 __all__ = (
