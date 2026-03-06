@@ -122,7 +122,7 @@ RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && `
 # statements but bash notation in ENV statements
 # VCPKG_FORCE_SYSTEM_BINARIES=1 spare around ~750MB of image size if the system
 # cmake's and ninja's versions are recent enough
-ARG build_type=release
+ARG build_type=debug
 ENV CMAKE_BUILD_TYPE=${build_type} `
   VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg `
   VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} `
