@@ -59,6 +59,9 @@ struct is_formattable {
 template <typename T, typename R = void>
 using enable_if_formattable = enable_if_t<is_formattable<T>::value, R>;
 
+template <typename T>
+concept arrow_formattable = is_formattable<T>::value;
+
 template <typename Appender>
 using Return = decltype(std::declval<Appender>()(std::string_view{}));
 
@@ -546,8 +549,8 @@ class StringFormatter<TimestampType> {
   std::string timezone_;
 };
 
-template <typename T>
-class StringFormatter<T, enable_if_time<T>> {
+template <arrow_time T>
+class StringFormatter<T> {
  public:
   using value_type = typename T::c_type;
 
