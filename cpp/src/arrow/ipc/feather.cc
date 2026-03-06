@@ -345,7 +345,7 @@ class ReaderV1 : public Reader {
       columns.emplace_back();
       RETURN_NOT_OK(GetColumn(i, &columns.back()));
     }
-    *out = Table::Make(this->schema(), std::move(columns), this->num_rows());
+    ARROW_ASSIGN_OR_RAISE(*out, Table::Make(this->schema(), std::move(columns), this->num_rows()));
     return Status::OK();
   }
 
@@ -362,8 +362,9 @@ class ReaderV1 : public Reader {
       RETURN_NOT_OK(GetColumn(field_index, &columns.back()));
       fields.push_back(my_schema->field(field_index));
     }
-    *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
-                       this->num_rows());
+    ARROW_ASSIGN_OR_RAISE(
+        *out, Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
+                          this->num_rows()));
     return Status::OK();
   }
 
@@ -382,8 +383,9 @@ class ReaderV1 : public Reader {
       RETURN_NOT_OK(GetColumn(field_index, &columns.back()));
       fields.push_back(sch->field(field_index));
     }
-    *out = Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
-                       this->num_rows());
+    ARROW_ASSIGN_OR_RAISE(
+        *out, Table::Make(::arrow::schema(std::move(fields)), std::move(columns),
+                          this->num_rows()));
     return Status::OK();
   }
 

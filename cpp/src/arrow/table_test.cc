@@ -67,9 +67,24 @@ class TestTable : public ::testing::Test {
   std::vector<std::shared_ptr<ChunkedArray>> columns_;
 };
 
+TEST_F(TestTable, MakeInvalidInputs) {
+  auto schema = ::arrow::schema({field("f0", int8())});
+
+  // Null column
+  std::vector<std::shared_ptr<Array>> arrays = {nullptr};
+  ASSERT_RAISES(Invalid, Table::Make(schema, arrays));
+
+  std::vector<std::shared_ptr<ChunkedArray>> chunked_arrays = {nullptr};
+  ASSERT_RAISES(Invalid, Table::Make(schema, chunked_arrays));
+
+  // Mismatched field count
+  ASSERT_RAISES(Invalid, Table::Make(schema, std::vector<std::shared_ptr<Array>>{}));
+  ASSERT_RAISES(Invalid, Table::Make(schema, std::vector<std::shared_ptr<ChunkedArray>>{}));
+}
+
 TEST_F(TestTable, EmptySchema) {
   auto empty_schema = ::arrow::schema({});
-  table_ = Table::Make(empty_schema, columns_);
+  table_ = Table::Make(empty_schema, columns_).ValueOrDie();
   ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(0, table_->num_rows());
   ASSERT_EQ(0, table_->num_columns());
@@ -79,19 +94,19 @@ TEST_F(TestTable, Ctors) {
   const int length = 100;
   MakeExample1(length);
 
-  table_ = Table::Make(schema_, columns_);
+  table_ = Table::Make(schema_, columns_).ValueOrDie();
   ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
 
-  auto array_ctor = Table::Make(schema_, arrays_);
+  auto array_ctor = Table::Make(schema_, arrays_).ValueOrDie();
   ASSERT_TRUE(table_->Equals(*array_ctor));
 
-  table_ = Table::Make(schema_, columns_, length);
+  table_ = Table::Make(schema_, columns_, length).ValueOrDie();
   ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(length, table_->num_rows());
 
-  table_ = Table::Make(schema_, arrays_);
+  table_ = Table::Make(schema_, arrays_).ValueOrDie();
   ASSERT_OK(table_->ValidateFull());
   ASSERT_EQ(length, table_->num_rows());
   ASSERT_EQ(3, table_->num_columns());
@@ -101,7 +116,7 @@ TEST_F(TestTable, Metadata) {
   const int length = 100;
   MakeExample1(length);
 
-  table_ = Table::Make(schema_, columns_);
+  table_ = Table::Make(schema_, columns_).ValueOrDie();
 
   ASSERT_TRUE(table_->schema()->Equals(*schema_));
 
@@ -114,26 +129,25 @@ TEST_F(TestTable, InvalidColumns) {
   const int length = 100;
   MakeExample1(length);
 
-  table_ = Table::Make(schema_, columns_, length - 1);
+  table_ = Table::Make(schema_, columns_, length - 1).ValueOrDie();
   ASSERT_RAISES(Invalid, table_->ValidateFull());
 
   // Wrong number of columns
   columns_.clear();
-  table_ = Table::Make(schema_, columns_, length);
-  ASSERT_RAISES(Invalid, table_->ValidateFull());
+  ASSERT_RAISES(Invalid, Table::Make(schema_, columns_, length));
 
   columns_ = {std::make_shared<ChunkedArray>(gen_.ArrayOf(int32(), length)),
               std::make_shared<ChunkedArray>(gen_.ArrayOf(uint8(), length)),
               std::make_shared<ChunkedArray>(gen_.ArrayOf(int16(), length - 1))};
 
-  table_ = Table::Make(schema_, columns_, length);
+  table_ = Table::Make(schema_, columns_, length).ValueOrDie();
   ASSERT_RAISES(Invalid, table_->ValidateFull());
 }
 
 TEST_F(TestTable, AllColumnsAndFields) {
   const int length = 100;
   MakeExample1(length);
-  table_ = Table::Make(schema_, columns_);
+  table_ = Table::Make(schema_, columns_).ValueOrDie();
 
   auto columns = table_->columns();
   auto fields = table_->fields();
@@ -145,7 +159,7 @@ TEST_F(TestTable, AllColumnsAndFields) {
 
   // Zero length
   std::vector<std::shared_ptr<Array>> t2_columns;
-  auto t2 = Table::Make(::arrow::schema({}), t2_columns);
+  auto t2 = Table::Make(::arrow::schema({}), t2_columns).ValueOrDie();
   columns = t2->columns();
   fields = t2->fields();
 
@@ -176,13 +190,13 @@ TEST(TestTableEquality, Equals) {
   auto a_f1_different = gen.ArrayOf(uint8(), length);
   auto a_f2_different = gen.ArrayOf(uint16(), length);
 
-  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length);
-  auto table_same = Table::Make(schema_same, {a_f0, a_f1, a_f2}, length);
-  auto table_fewer_fields = Table::Make(schema_fewer_fields, {a_f0, a_f1}, length);
+  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length).ValueOrDie();
+  auto table_same = Table::Make(schema_same, {a_f0, a_f1, a_f2}, length).ValueOrDie();
+  auto table_fewer_fields = Table::Make(schema_fewer_fields, {a_f0, a_f1}, length).ValueOrDie();
   auto table_half =
-      Table::Make(schema_fewer_fields, {a_f0_half, a_f1_half, a_f2_half}, length / 2);
+      Table::Make(schema_fewer_fields, {a_f0_half, a_f1_half, a_f2_half}, length / 2).ValueOrDie();
   auto table_different = Table::Make(
-      schema_fewer_fields, {a_f0_different, a_f1_different, a_f2_different}, length);
+      schema_fewer_fields, {a_f0_different, a_f1_different, a_f2_different}, length).ValueOrDie();
 
   // Same Values
   ASSERT_TRUE(table->Equals(*table_same));
@@ -219,11 +233,11 @@ TEST(TestTableEquality, MetadataAndSchema) {
   auto a_f2_renamed = a_f2;
 
   // All Tables have the same values but different schemas.
-  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length);
+  auto table = Table::Make(schema, {a_f0, a_f1, a_f2}, length).ValueOrDie();
   auto table_with_metadata =
-      Table::Make(schema_with_metadata, {a_f0, a_f1, a_f2}, length);
+      Table::Make(schema_with_metadata, {a_f0, a_f1, a_f2}, length).ValueOrDie();
   auto table_renamed_field =
-      Table::Make(schema_renamed_field, {a_f0, a_f1, a_f2_renamed}, length);
+      Table::Make(schema_renamed_field, {a_f0, a_f1, a_f2_renamed}, length).ValueOrDie();
 
   auto options = EqualOptions::Defaults();
 
@@ -381,7 +395,7 @@ TEST_F(TestTable, FromRecordBatches) {
 
   ASSERT_OK_AND_ASSIGN(auto result, Table::FromRecordBatches({batch1}));
 
-  auto expected = Table::Make(schema_, columns_);
+  auto expected = Table::Make(schema_, columns_).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   std::vector<std::shared_ptr<ChunkedArray>> other_columns;
@@ -391,7 +405,7 @@ TEST_F(TestTable, FromRecordBatches) {
   }
 
   ASSERT_OK_AND_ASSIGN(result, Table::FromRecordBatches({batch1, batch1}));
-  expected = Table::Make(schema_, other_columns);
+  expected = Table::Make(schema_, other_columns).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   // Error states
@@ -524,7 +538,7 @@ std::shared_ptr<Table> MakeTableWithOneNullFilledColumn(
     const std::string& column_name, const std::shared_ptr<DataType>& data_type,
     const int length) {
   auto array_of_nulls = *MakeArrayOfNull(data_type, length);
-  return Table::Make(schema({field(column_name, data_type)}), {array_of_nulls});
+  return Table::Make(schema({field(column_name, data_type)}), {array_of_nulls}).ValueOrDie();
 }
 
 using TestPromoteTableToSchema = TestTable;
@@ -534,7 +548,7 @@ TEST_F(TestPromoteTableToSchema, IdenticalSchema) {
   auto metadata = std::make_shared<KeyValueMetadata>(std::vector<std::string>{"foo"},
                                                      std::vector<std::string>{"bar"});
   MakeExample1(length);
-  std::shared_ptr<Table> table = Table::Make(schema_, arrays_);
+  std::shared_ptr<Table> table = Table::Make(schema_, arrays_).ValueOrDie();
 
   ASSERT_OK_AND_ASSIGN(auto result,
                        PromoteTableToSchema(table, schema_->WithMetadata(metadata)));
@@ -553,7 +567,7 @@ TEST_F(TestPromoteTableToSchema, FieldsReorderedAfterPromotion) {
                                                       schema_->fields().crend());
   std::vector<std::shared_ptr<Array>> reversed_arrays(arrays_.crbegin(), arrays_.crend());
 
-  std::shared_ptr<Table> table = Table::Make(schema(reversed_fields), reversed_arrays);
+  std::shared_ptr<Table> table = Table::Make(schema(reversed_fields), reversed_arrays).ValueOrDie();
 
   ASSERT_OK_AND_ASSIGN(auto result, PromoteTableToSchema(table, schema_));
 
@@ -578,7 +592,7 @@ TEST_F(TestPromoteTableToSchema, PromoteNullTypeField) {
 TEST_F(TestPromoteTableToSchema, AddMissingField) {
   const int length = 10;
   auto f0 = field("f0", int32());
-  auto table = Table::Make(schema({}), std::vector<std::shared_ptr<Array>>(), length);
+  auto table = Table::Make(schema({}), std::vector<std::shared_ptr<Array>>(), length).ValueOrDie();
   auto promoted_schema = schema({field("field", int32())});
 
   ASSERT_OK_AND_ASSIGN(auto result, PromoteTableToSchema(table, promoted_schema));
@@ -611,7 +625,7 @@ TEST_F(TestPromoteTableToSchema, DuplicateFieldNames) {
   const int length = 10;
 
   auto table = Table::Make(schema({field("field", int32()), field("field", null())}),
-                           {gen_.ArrayOf(int32(), length), gen_.ArrayOf(null(), length)});
+                           {gen_.ArrayOf(int32(), length), gen_.ArrayOf(null(), length)}).ValueOrDie();
 
   ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("field", int32())})));
 }
@@ -620,7 +634,7 @@ TEST_F(TestPromoteTableToSchema, TableFieldAbsentFromSchema) {
   const int length = 10;
 
   auto table =
-      Table::Make(schema({field("f0", int32())}), {gen_.ArrayOf(int32(), length)});
+      Table::Make(schema({field("f0", int32())}), {gen_.ArrayOf(int32(), length)}).ValueOrDie();
 
   std::shared_ptr<Table> result;
   ASSERT_RAISES(Invalid, PromoteTableToSchema(table, schema({field("f1", int32())})));
@@ -745,7 +759,7 @@ TEST_F(TestTable, RemoveColumn) {
   const int64_t length = 10;
   MakeExample1(length);
 
-  auto table_sp = Table::Make(schema_, columns_);
+  auto table_sp = Table::Make(schema_, columns_).ValueOrDie();
   const Table& table = *table_sp;
 
   ASSERT_OK_AND_ASSIGN(auto result, table.RemoveColumn(0));
@@ -754,20 +768,20 @@ TEST_F(TestTable, RemoveColumn) {
   std::vector<std::shared_ptr<ChunkedArray>> ex_columns = {table.column(1),
                                                            table.column(2)};
 
-  auto expected = Table::Make(ex_schema, ex_columns);
+  auto expected = Table::Make(ex_schema, ex_columns).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   ASSERT_OK_AND_ASSIGN(result, table.RemoveColumn(1));
   ex_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
   ex_columns = {table.column(0), table.column(2)};
 
-  expected = Table::Make(ex_schema, ex_columns);
+  expected = Table::Make(ex_schema, ex_columns).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   ASSERT_OK_AND_ASSIGN(result, table.RemoveColumn(2));
   ex_schema = ::arrow::schema({schema_->field(0), schema_->field(1)});
   ex_columns = {table.column(0), table.column(1)};
-  expected = Table::Make(ex_schema, ex_columns);
+  expected = Table::Make(ex_schema, ex_columns).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 }
 
@@ -775,7 +789,7 @@ TEST_F(TestTable, SetColumn) {
   const int64_t length = 10;
   MakeExample1(length);
 
-  auto table_sp = Table::Make(schema_, columns_);
+  auto table_sp = Table::Make(schema_, columns_).ValueOrDie();
   const Table& table = *table_sp;
 
   ASSERT_OK_AND_ASSIGN(auto result,
@@ -785,13 +799,16 @@ TEST_F(TestTable, SetColumn) {
       ::arrow::schema({schema_->field(1), schema_->field(1), schema_->field(2)});
 
   auto expected =
-      Table::Make(ex_schema, {table.column(1), table.column(1), table.column(2)});
+      Table::Make(ex_schema, {table.column(1), table.column(1), table.column(2)}).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
+
+  // Set null column
+  ASSERT_RAISES(Invalid, table.SetColumn(0, schema_->field(1), nullptr));
 }
 
 TEST_F(TestTable, RenameColumns) {
   MakeExample1(10);
-  auto table = Table::Make(schema_, columns_);
+  auto table = Table::Make(schema_, columns_).ValueOrDie();
   EXPECT_THAT(table->ColumnNames(), testing::ElementsAre("f0", "f1", "f2"));
 
   ASSERT_OK_AND_ASSIGN(auto renamed, table->RenameColumns({"zero", "one", "two"}));
@@ -803,13 +820,13 @@ TEST_F(TestTable, RenameColumns) {
 
 TEST_F(TestTable, SelectColumns) {
   MakeExample1(10);
-  auto table = Table::Make(schema_, columns_);
+  auto table = Table::Make(schema_, columns_).ValueOrDie();
 
   ASSERT_OK_AND_ASSIGN(auto subset, table->SelectColumns({0, 2}));
   ASSERT_OK(subset->ValidateFull());
 
   auto expected_schema = ::arrow::schema({schema_->field(0), schema_->field(2)});
-  auto expected = Table::Make(expected_schema, {table->column(0), table->column(2)});
+  auto expected = Table::Make(expected_schema, {table->column(0), table->column(2)}).ValueOrDie();
   ASSERT_TRUE(subset->Equals(*expected));
 
   // Out of bounds indices
@@ -825,7 +842,7 @@ TEST_F(TestTable, RemoveColumnEmpty) {
   auto schema = ::arrow::schema({f0});
   auto a0 = gen_.ArrayOf(int32(), length);
 
-  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(a0)});
+  auto table = Table::Make(schema, {std::make_shared<ChunkedArray>(a0)}).ValueOrDie();
 
   ASSERT_OK_AND_ASSIGN(auto empty, table->RemoveColumn(0));
 
@@ -839,7 +856,7 @@ TEST_F(TestTable, AddColumn) {
   const int64_t length = 10;
   MakeExample1(length);
 
-  auto table_sp = Table::Make(schema_, columns_);
+  auto table_sp = Table::Make(schema_, columns_).ValueOrDie();
   const Table& table = *table_sp;
 
   auto f0 = schema_->field(0);
@@ -853,13 +870,16 @@ TEST_F(TestTable, AddColumn) {
   auto longer_col = std::make_shared<ChunkedArray>(gen_.ArrayOf(int32(), length + 1));
   ASSERT_RAISES(Invalid, table.AddColumn(0, f0, longer_col));
 
+  // Add null column
+  ASSERT_RAISES(Invalid, table.AddColumn(0, f0, nullptr));
+
   // Add column 0 in different places
-  ASSERT_OK_AND_ASSIGN(auto result, table.AddColumn(0, f0, columns_[0]));
+  ASSERT_OK_AND_ASSIGN(auto result, table.AddColumn(0, f0, columns_[0]).ValueOrDie());
   auto ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)});
 
   auto expected = Table::Make(
-      ex_schema, {table.column(0), table.column(0), table.column(1), table.column(2)});
+      ex_schema, {table.column(0), table.column(0), table.column(1), table.column(2)}).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   ASSERT_OK_AND_ASSIGN(result, table.AddColumn(1, f0, columns_[0]));
@@ -867,21 +887,21 @@ TEST_F(TestTable, AddColumn) {
       {schema_->field(0), schema_->field(0), schema_->field(1), schema_->field(2)});
 
   expected = Table::Make(
-      ex_schema, {table.column(0), table.column(0), table.column(1), table.column(2)});
+      ex_schema, {table.column(0), table.column(0), table.column(1), table.column(2)}).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   ASSERT_OK_AND_ASSIGN(result, table.AddColumn(2, f0, columns_[0]));
   ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(1), schema_->field(0), schema_->field(2)});
   expected = Table::Make(
-      ex_schema, {table.column(0), table.column(1), table.column(0), table.column(2)});
+      ex_schema, {table.column(0), table.column(1), table.column(0), table.column(2)}).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 
   ASSERT_OK_AND_ASSIGN(result, table.AddColumn(3, f0, columns_[0]));
   ex_schema = ::arrow::schema(
       {schema_->field(0), schema_->field(1), schema_->field(2), schema_->field(0)});
   expected = Table::Make(
-      ex_schema, {table.column(0), table.column(1), table.column(2), table.column(0)});
+      ex_schema, {table.column(0), table.column(1), table.column(2), table.column(0)}).ValueOrDie();
   ASSERT_TRUE(result->Equals(*expected));
 }
 
@@ -908,7 +928,7 @@ TEST_F(TestTableBatchReader, ReadNext) {
   std::vector<std::shared_ptr<Array>> arrays_2 = {a2, a2};
   columns = {std::make_shared<ChunkedArray>(arrays_1),
              std::make_shared<ChunkedArray>(arrays_2)};
-  auto t1 = Table::Make(sch1, columns);
+  auto t1 = Table::Make(sch1, columns).ValueOrDie();
 
   TableBatchReader i1(*t1);
 
@@ -928,7 +948,7 @@ TEST_F(TestTableBatchReader, ReadNext) {
   arrays_2 = {a4};
   columns = {std::make_shared<ChunkedArray>(arrays_1),
              std::make_shared<ChunkedArray>(arrays_2)};
-  auto t2 = Table::Make(sch1, columns);
+  auto t2 = Table::Make(sch1, columns).ValueOrDie();
 
   TableBatchReader i2(*t2);
 
@@ -951,7 +971,7 @@ TEST_F(TestTableBatchReader, Chunksize) {
   auto sch1 = arrow::schema({field("f1", int32())});
 
   std::vector<std::shared_ptr<Array>> arrays = {a1, a2, a3};
-  auto t1 = Table::Make(sch1, {std::make_shared<ChunkedArray>(arrays)});
+  auto t1 = Table::Make(sch1, {std::make_shared<ChunkedArray>(arrays)}).ValueOrDie();
 
   TableBatchReader i1(*t1);
 
@@ -980,7 +1000,7 @@ TEST_F(TestTableBatchReader, Chunksize) {
 
 TEST_F(TestTableBatchReader, NoColumns) {
   std::shared_ptr<Table> table =
-      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100);
+      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100).ValueOrDie();
   TableBatchReader reader(*table);
   reader.set_chunksize(60);
 
@@ -999,7 +1019,7 @@ TEST_F(TestTableBatchReader, NoColumns) {
 
 TEST_F(TestTableBatchReader, OwnedTableNoColumns) {
   std::shared_ptr<Table> table =
-      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100);
+      Table::Make(schema({}), std::vector<std::shared_ptr<Array>>{}, 100).ValueOrDie();
   TableBatchReader reader(table);
   table.reset();
   reader.set_chunksize(80);
