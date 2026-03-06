@@ -1,0 +1,241 @@
+// Licensed to the Apache Software Foundation (ASF) under one
+// or more contributor license agreements.  See the NOTICE file
+// distributed with this work for additional information
+// regarding copyright ownership.  The ASF licenses this file
+// to you under the Apache License, Version 2.0 (the
+// "License"); you may not use this file except in compliance
+// with the License.  You may obtain a copy of the License at
+//
+//   http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
+namespace parquet.format3;
+
+// Optimization notes
+// 1. Statistics are stored in integral types if their size is fixed, otherwise prefix + suffix
+// 2. ColumnMetaData.encoding_stats are removed, they are replaced with
+//    ColumnMetaData.is_fully_dict_encoded.
+// 3. RowGroups are limited to 2GB in size, so we can use int for sizes.
+// 4. ColumnChunk/ColumnMetaData offsets are now relative to the start of the row group, so we can
+//    use int for offsets.
+// 5. Remove ordinal.
+// 6. Restrict RowGroups to 2^31-1 rows.
+// 7. Remove offset/column indexes, they are small and just their offsets are of similar size.
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Physical types.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+enum Type : byte {
+  BOOLEAN = 0,
+  INT32 = 1,
+  INT64 = 2,
+  INT96 = 3,
+  FLOAT = 4,
+  DOUBLE = 5,
+  BYTE_ARRAY = 6,
+  FIXED_LEN_BYTE_ARRAY = 7,
+}
+
+enum FieldRepetitionType : byte {
+  REQUIRED = 0,
+  OPTIONAL = 1,
+  REPEATED = 2,
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Encodings.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+// Note: Match the thrift enum values so that we can cast between them.
+enum Encoding : byte {
+  PLAIN = 0,
+  // GROUP_VAR_INT = 1,
+  PLAIN_DICTIONARY = 2,
+  RLE = 3,
+  // BIT_PACKED = 4,
+  DELTA_BINARY_PACKED = 5,
+  DELTA_LENGTH_BYTE_ARRAY = 6,
+  DELTA_BYTE_ARRAY = 7,
+  RLE_DICTIONARY = 8,
+  BYTE_STREAM_SPLIT = 9,
+}
+
+// Note: Match the thrift enum values so that we can cast between them.
+enum CompressionCodec : byte {
+  UNCOMPRESSED = 0,
+  SNAPPY = 1,
+  GZIP = 2,
+  LZO = 3,
+  BROTLI = 4,
+  // LZ4 = 5,
+  ZSTD = 6,
+  LZ4_RAW = 7,
+}
+
+///////////////////////////////////////////////////////////////////////////////////////////////////
+// Logical types.
+///////////////////////////////////////////////////////////////////////////////////////////////////
+
+table Empty {}
+table DecimalOpts {
+  precision: int;
+  scale: int;
+}
+enum TimeUnit : byte {
+  MS = 0,
+  US = 1,
+  NS = 2,
+}
+table TimeOpts {
+  is_adjusted_to_utc: bool;
+  unit: TimeUnit;
+}
+table IntOpts {
+  bit_width: byte = 8;
+  is_signed: bool;
+}
+table GeometryType {
+  crs: string;
+}
+enum EdgeInterpolationAlgorithm : byte {
+  SPHERICAL = 0,
+  VINCENTY = 1,
+  THOMAS = 2,
+  ANDOYER = 3,
+  KARNEY = 4,
+}
+table GeographyType {
+  crs: string;
+  algorithm: EdgeInterpolationAlgorithm;
+}
+union LogicalType {
+  StringType:Empty,
+  MapType:Empty,
+  ListType:Empty,
+  EnumType:Empty,
+  DecimalType:DecimalOpts,
+  DateType:Empty,
+  TimeType:TimeOpts,
+  TimestampType:TimeOpts,
+  IntType:IntOpts,
+  NullType:Empty,
+  JsonType:Empty,
+  BsonType:Empty,
+  UUIDType:Empty,
+  Float16Type:Empty,
+  VariantType:Empty,
+  GeometryType:GeometryType,
+  GeographyType:GeographyType,
+}
+
+table Statistics {
+  null_count: int = null;
+  // Store min/max values fixed sized entities depending on the physical type. If len is present
+  // then the min/max value is present.
+  //
+  // - BOOLEAN: none
+  // - INT32/FLOAT: lo4 (little-endian)
+  // - INT64/DOUBLE: lo8 (little-endian)
+  // - INT96: lo4+lo8 (little-endian)
+  // - FIXED_LEN_BYTE_ARRAY:
+  // - BYTE_ARRAY:
+  //   prefix: the longest common prefix of min/max
+  //   lo8+hi8 zero padded 16 bytes (big-endian) of the suffix
+  //   len: the length for the suffix of the value after removing the prefix. If > 16 then the
+  //        value is inexact
+  min_lo4: uint;
+  min_lo8: ulong;
+  min_hi8: ulong;
+  min_len: byte = null;
+  max_lo4: uint;
+  max_lo8: ulong;
+  max_hi8: ulong;
+  max_len: byte = null;
+  prefix: string;
+}
+
+union ColumnOrder {
+  TypeDefinedOrder:Empty,
+}
+
+table SchemaElement {
+  name: string;
+  type: Type = null;
+  repetition_type: FieldRepetitionType;
+  logical_type: LogicalType;
+  type_length: int = null;
+  num_children: int = 0;
+  field_id: int = null;
+  column_order: ColumnOrder;  // only present for leaf nodes
+}
+
+enum PageType : byte {
+  DATA_PAGE = 0,
+  INDEX_PAGE = 1,
+  DICTIONARY_PAGE = 2,
+  DATA_PAGE_V2 = 3,
+}
+
+table KV {
+  key: string;
+  val: string;
+}
+
+table ColumnMetadata {
+  codec: CompressionCodec;
+  num_values: long = null;  // only present if not equal to rg.num_rows
+  total_uncompressed_size: long;
+  total_compressed_size: long;
+  key_value_metadata: [KV];
+  data_page_offset: long;
+  index_page_offset: long = null;
+  dictionary_page_offset: long = null;
+  statistics: Statistics;
+  is_fully_dict_encoded: bool;
+  bloom_filter_offset: long = null;
+  bloom_filter_length: int = null;
+}
+
+table ColumnChunk {
+  file_path: string;
+  meta_data: ColumnMetadata;
+  // crypto_metadata: ColumnCryptoMetadata;  // TODO
+  // encrypted_column_metadata: [byte];  // TODO
+}
+
+table SortingColumn {
+  column_idx: int;
+  descending: bool;
+  nulls_first: bool;
+}
+
+table RowGroup {
+  columns: [ColumnChunk];
+  total_byte_size: long;
+  num_rows: long;
+  sorting_columns: [SortingColumn];
+  file_offset: long;
+  total_compressed_size: long;
+  ordinal: short = null;
+}
+
+table FileMetaData {
+  version: int;
+  schema: [SchemaElement];
+  num_rows: long;
+  row_groups: [RowGroup];
+  kv: [KV];
+  created_by: string;
+  // column_orders: [ColumnOrder];  // moved to SchemaElement
+  // encryption_algorithm: [EncryptionAlgorithm];  // TODO
+  // footer_signing_key_metadata: binary;  // TODO
+}
+
+root_type FileMetaData;
