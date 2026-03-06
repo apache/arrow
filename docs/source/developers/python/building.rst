@@ -583,9 +583,9 @@ with ``ARROW_SIMD_LEVEL=NONE``, you can run
 
 On PyArrow 24.0.0 we migrated our Python build backend from setuptools to
 scikit-build-core, which is a CMake-based build system. Previous versions used
-``PYARROW_CMAKE_OPTIONS`` environment variable to pass CMake options in the form of
-``-D<OPTION>=<VALUE>``. This is no longer supported.
-Instead, use the ``-C cmake.args=-D<OPTION>=<VALUE>`` option as described above.
+``PYARROW_BUILD_TYPE`` and ``PYARROW_CMAKE_OPTIONS`` environment variables
+to customize the CMake invocation. This is no longer supported.
+Instead, use the ``-C cmake.build-type=<build_type>`` and ``-C cmake.args=-D<OPTION>=<VALUE>`` option as described above.
 
 To enable verbose output from the build tool, pass
 ``-C build.verbose=true`` to ``pip install`` or to ``python -m build``.
