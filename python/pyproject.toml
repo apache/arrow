@@ -18,8 +18,8 @@
 [build-system]
 requires = [
     "cython >= 3.1",
-    # Needed for build-time stub docstring extraction
-    "libcst>=1.8.6",
+    # Optional: enables stub docstring injection during build
+    # "libcst>=1.8.6",
     "numpy>=1.25",
     # configuring setuptools_scm in pyproject.toml requires
     # versions released after 2022
@@ -87,6 +87,7 @@ include-package-data=true
 
 [tool.setuptools.packages.find]
 include = ["pyarrow"]
+exclude = ["pyarrow._build_utils", "pyarrow._build_utils.*"]
 namespaces = false
 
 [tool.setuptools.package-data]
