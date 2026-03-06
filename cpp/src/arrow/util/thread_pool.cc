@@ -26,6 +26,8 @@
 #include <thread>
 #include <vector>
 
+#include "arrow/util/windows_compatibility.h"
+
 #include "arrow/util/atfork_internal.h"
 #include "arrow/util/config.h"
 #include "arrow/util/io_util.h"
@@ -630,9 +632,40 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
   state_->finished_workers_.clear();
 }
 
+// MinGW's __emutls implementation for C++ thread_local has known race conditions
+// during thread creation that can cause segfaults. Use native Win32 TLS instead.
+// See https://github.com/apache/arrow/issues/49272
+#ifdef __MINGW32__
+
+namespace {
+DWORD GetPoolTlsIndex() {
+  static DWORD index = [] {
+    DWORD i = TlsAlloc();
+    if (i == TLS_OUT_OF_INDEXES) {
+      ARROW_LOG(FATAL) << "TlsAlloc failed for thread pool TLS: "
+                       << WinErrorMessage(GetLastError());
+    }
+    return i;
+  }();
+  return index;
+}
+}  // namespace
+
+static ThreadPool* GetCurrentThreadPool() {
+  return static_cast<ThreadPool*>(TlsGetValue(GetPoolTlsIndex()));
+}
+
+static void SetCurrentThreadPool(ThreadPool* pool) {
+  TlsSetValue(GetPoolTlsIndex(), pool);
+}
+#else
 thread_local ThreadPool* current_thread_pool_ = nullptr;
 
-bool ThreadPool::OwnsThisThread() { return current_thread_pool_ == this; }
+static ThreadPool* GetCurrentThreadPool() { return current_thread_pool_; }
+static void SetCurrentThreadPool(ThreadPool* pool) { current_thread_pool_ = pool; }
+#endif
+
+bool ThreadPool::OwnsThisThread() { return GetCurrentThreadPool() == this; }
 
 void ThreadPool::LaunchWorkersUnlocked(int threads) {
   std::shared_ptr<State> state = sp_state_;
@@ -641,7 +674,7 @@ void ThreadPool::LaunchWorkersUnlocked(int threads) {
     state_->workers_.emplace_back();
     auto it = --(state_->workers_.end());
     *it = std::thread([this, state, it] {
-      current_thread_pool_ = this;
+      SetCurrentThreadPool(this);
       WorkerLoop(state, it);
     });
   }
