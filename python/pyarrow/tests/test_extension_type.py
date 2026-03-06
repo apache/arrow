@@ -1486,6 +1486,71 @@ def test_uuid_bytes_property_raises():
         pa.scalar(bad)
 
 
+def test_array_from_extension_scalars():
+    import datetime
+    from decimal import Decimal
+
+    builtin_cases = [
+        (pa.uuid(), [b"0123456789abcdef"]),
+        (pa.bool8(), [0, 1]),
+        (pa.json_(pa.string()), ['{"a":1}', '{"b":2}']),
+        (pa.opaque(pa.binary(), "t", "v"), [b"x", b"y"]),
+    ]
+    for ext_type, values in builtin_cases:
+        scalars = [pa.scalar(v, type=ext_type) for v in values]
+        result = pa.array(scalars, type=ext_type)
+        expected = pa.array(values, type=ext_type)
+        assert result.equals(expected)
+
+    # Custom extension types requiring registration
+    custom_cases = [
+        (TinyIntType(), [1, 2]),
+        (IntegerType(), [100, 200]),
+        (LabelType(), ["a", "b"]),
+        (MyStructType(), [{"left": 1, "right": 2}]),
+        (AnnotatedType(pa.timestamp("us"), "ts"),
+         [datetime.datetime(2023, 1, 1)]),
+        (AnnotatedType(pa.duration("s"), "dur"),
+         [datetime.timedelta(seconds=100)]),
+        (AnnotatedType(pa.date32(), "date"),
+         [datetime.date(2023, 1, 1)]),
+        (AnnotatedType(pa.float64(), "f"), [1.5, 2.5]),
+        (AnnotatedType(pa.bool_(), "b"), [True, False]),
+        (AnnotatedType(pa.binary(), "bin"), [b"x", b"y"]),
+        (AnnotatedType(pa.decimal128(10, 2), "dec"),
+         [Decimal("1.50"), Decimal("2.75")]),
+        (AnnotatedType(pa.large_string(), "lstr"), ["hello", "world"]),
+        (AnnotatedType(pa.large_binary(), "lbin"), [b"ab", b"cd"]),
+    ]
+    for ext_type, values in custom_cases:
+        with registered_extension_type(ext_type):
+            scalars = [pa.scalar(v, type=ext_type) for v in values]
+            result = pa.array(scalars, type=ext_type)
+            expected = pa.array(values, type=ext_type)
+            assert result.equals(expected)
+
+    # Null handling
+    uuid_type = pa.uuid()
+    scalars = [pa.scalar(b"0123456789abcdef", type=uuid_type),
+               pa.scalar(None, type=uuid_type)]
+    result = pa.array(scalars, type=uuid_type)
+    assert result[0].is_valid and not result[1].is_valid
+
+    # Type inference without explicit type
+    u = uuid4()
+    scalars = [pa.scalar(u, type=pa.uuid()), None]
+    result = pa.array(scalars)
+    assert result.type == pa.uuid()
+    assert result[0].as_py() == u
+    assert not result[1].is_valid
+
+    # Mixed extension scalars and raw Python objects
+    u1, u2 = uuid4(), uuid4()
+    result = pa.array([pa.scalar(u1, type=pa.uuid()), u2], type=pa.uuid())
+    expected = pa.array([u1, u2], type=pa.uuid())
+    assert result.equals(expected)
+
+
 def test_tensor_type():
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
