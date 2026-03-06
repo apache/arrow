@@ -578,7 +578,8 @@ using :func:`pyarrow.parquet.filters_to_expression`:
 
 .. code-block:: python
 
-    >>> dataset = ds.dataset(base / "parquet_dataset", format="parquet")
+    >>> dataset.to_table(columns=['a'])
+
     >>> filters = [("a", ">=", 5), ("c", "==", 2)]
     >>> filter_expr = pq.filters_to_expression(filters)
     >>> filter_expr
