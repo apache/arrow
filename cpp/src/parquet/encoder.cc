@@ -659,9 +659,9 @@ template <>
 void DictEncoderImpl<ByteArrayType>::WriteDict(uint8_t* buffer) const {
   memo_table_.VisitValues(0, [&buffer](::std::string_view v) {
     uint32_t len = static_cast<uint32_t>(v.length());
-    memcpy(buffer, &len, sizeof(len));
+    std::memcpy(buffer, &len, sizeof(len));
     buffer += sizeof(len);
-    memcpy(buffer, v.data(), len);
+    SafeMemcpy(buffer, v.data(), len);
     buffer += len;
   });
 }
@@ -670,7 +670,7 @@ template <>
 void DictEncoderImpl<FLBAType>::WriteDict(uint8_t* buffer) const {
   memo_table_.VisitValues(0, [&](::std::string_view v) {
     DCHECK_EQ(v.length(), static_cast<size_t>(type_length_));
-    memcpy(buffer, v.data(), type_length_);
+    std::memcpy(buffer, v.data(), type_length_);
     buffer += type_length_;
   });
 }
@@ -1226,8 +1226,8 @@ std::shared_ptr<Buffer> DeltaBitPackEncoder<DType>::FlushValues() {
   // and data was written immediately after. We now write the header data immediately
   // before the end of reserved space.
   const size_t offset_bytes = kMaxPageHeaderWriterSize - header_writer.bytes_written();
-  std::memcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
-              header_writer.bytes_written());
+  SafeMemcpy(buffer->mutable_data() + offset_bytes, header_buffer_,
+             header_writer.bytes_written());
 
   // Reset counter of cached values
   total_value_count_ = 0;
