@@ -49,24 +49,23 @@ namespace {
 /// For example, log_vector_size=10 means vector_size=1024.
 /// This allows representing any power-of-2 vector size up to 2^255 in a single byte.
 ///
-/// Header format (version 1):
+/// Header format (7 bytes):
 ///
 ///   +---------------------------------------------------+
-///   |  AlpHeader (8 bytes)                              |
+///   |  AlpHeader (7 bytes)                              |
 ///   +---------------------------------------------------+
 ///   |  Offset |  Field              |  Size             |
 ///   +---------+---------------------+-------------------+
-///   |    0    |  version            |  1 byte (uint8)   |
-///   |    1    |  compression_mode   |  1 byte (uint8)   |
-///   |    2    |  integer_encoding   |  1 byte (uint8)   |
-///   |    3    |  log_vector_size    |  1 byte (uint8)   |
-///   |    4    |  num_elements       |  4 bytes (uint32) |
+///   |    0    |  compression_mode   |  1 byte (uint8)   |
+///   |    1    |  integer_encoding   |  1 byte (uint8)   |
+///   |    2    |  log_vector_size    |  1 byte (uint8)   |
+///   |    3    |  num_elements       |  4 bytes (uint32) |
 ///   +---------------------------------------------------+
 ///
 /// Page-level layout (offset-based interleaved for O(1) random access):
 ///
 ///   +-------------------------------------------------------------------+
-///   |  [AlpHeader (8B)]                                                 |
+///   |  [AlpHeader (7B)]                                                 |
 ///   |  [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]       ← Vector offsets     |
 ///   |  [Vector₀][Vector₁]...[Vectorₙ₋₁]            ← Interleaved data   |
 ///   +-------------------------------------------------------------------+
@@ -75,12 +74,7 @@ namespace {
 /// This layout enables O(1) random access to any vector by:
 /// 1. Reading the offset for target vector (direct lookup)
 /// 2. Jumping to that offset to read metadata + data together
-///
-/// \note version must remain the first field to allow reading the rest
-///       of the header based on version number.
 struct AlpHeader {
-  /// Version number. Must remain the first field for version-based parsing.
-  uint8_t version = 0;
   /// Compression mode (currently only kAlp is supported).
   uint8_t compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   /// Integer encoding method used (currently only kForBitPack is supported).
@@ -92,23 +86,8 @@ struct AlpHeader {
   /// Per-vector element count is inferred: vector_size for all but the last vector.
   uint32_t num_elements = 0;
 
-  /// \brief Get the size in bytes of the AlpHeader for a version
-  ///
-  /// \param[in] v the version number
-  /// \return the size in bytes
-  static constexpr size_t GetSizeForVersion(uint8_t v) {
-    // Version 1 header is 8 bytes
-    return (v == 1) ? 8 : 0;
-  }
-
-  /// \brief Check whether the given version is valid
-  ///
-  /// \param[in] v the version to check
-  /// \return the version if valid, otherwise asserts
-  static uint8_t IsValidVersion(uint8_t v) {
-    ARROW_CHECK(v == 1) << "invalid_version: " << static_cast<int>(v);
-    return v;
-  }
+  /// Size of the serialized header in bytes.
+  static constexpr size_t kSize = 7;
 
   /// \brief Calculate the number of vectors from total elements and vector size
   ///
@@ -186,14 +165,10 @@ struct AlpWrapper<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
 template <typename T>
 typename AlpWrapper<T>::AlpHeader AlpWrapper<T>::LoadHeader(
     const char* comp, size_t comp_size) {
-  ARROW_CHECK(comp_size >= 1) << "alp_loadHeader_compSize_too_small_for_version";
-  uint8_t version;
-  std::memcpy(&version, comp, sizeof(version));
-  AlpHeader::IsValidVersion(version);
-  const size_t header_size = AlpHeader::GetSizeForVersion(version);
-  ARROW_CHECK(comp_size >= header_size) << "alp_loadHeader_compSize_too_small";
+  ARROW_CHECK(comp_size >= AlpHeader::kSize) << "alp_loadHeader_compSize_too_small";
   AlpHeader header{};
-  std::memcpy(&header, comp, header_size);
+  std::memcpy(&header.compression_mode, comp, 3);
+  std::memcpy(&header.num_elements, comp + 3, sizeof(header.num_elements));
   return header;
 }
 
@@ -213,28 +188,25 @@ void AlpWrapper<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* 
                                      size_t* comp_size, const AlpSamplerResult& preset) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
-  const uint8_t version =
-      AlpHeader::IsValidVersion(AlpConstants::kAlpVersion);
 
   // Make room to store header afterwards.
   char* encoded_header = comp;
-  const size_t header_size = AlpHeader::GetSizeForVersion(version);
-  comp += header_size;
-  const uint64_t remaining_compressed_size = *comp_size - header_size;
+  comp += AlpHeader::kSize;
+  const uint64_t remaining_compressed_size = *comp_size - AlpHeader::kSize;
 
   const CompressionProgress compression_progress =
       EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
                 preset.alp_preset);
 
   AlpHeader header{};
-  header.version = version;
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
   header.integer_encoding = static_cast<uint8_t>(AlpIntegerEncoding::kForBitPack);
   header.log_vector_size = AlpHeader::Log2(AlpConstants::kAlpVectorSize);
   header.num_elements = static_cast<uint32_t>(element_count);
 
-  std::memcpy(encoded_header, &header, header_size);
-  *comp_size = header_size + compression_progress.num_compressed_bytes_produced;
+  std::memcpy(encoded_header, &header.compression_mode, 3);
+  std::memcpy(encoded_header + 3, &header.num_elements, sizeof(header.num_elements));
+  *comp_size = AlpHeader::kSize + compression_progress.num_compressed_bytes_produced;
 }
 
 template <typename T>
@@ -254,9 +226,8 @@ void AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char
   ARROW_CHECK(vector_size == AlpConstants::kAlpVectorSize)
       << "unsupported_vector_size: " << vector_size;
 
-  const size_t header_size = AlpHeader::GetSizeForVersion(header.version);
-  const char* compression_body = comp + header_size;
-  const uint64_t compression_body_size = comp_size - header_size;
+  const char* compression_body = comp + AlpHeader::kSize;
+  const uint64_t compression_body_size = comp_size - AlpHeader::kSize;
 
   ARROW_CHECK(header.GetCompressionMode() == AlpMode::kAlp)
       << "alp_decode_unsupported_mode";
@@ -278,14 +249,12 @@ uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0)
       << "alp_decompressed_size_not_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
-  const uint8_t version =
-      AlpHeader::IsValidVersion(AlpConstants::kAlpVersion);
-  uint64_t max_alp_size = AlpHeader::GetSizeForVersion(version);
+  uint64_t max_alp_size = AlpHeader::kSize;
 
   const uint64_t vectors_count =
       static_cast<uint64_t>(std::ceil(static_cast<double>(element_count) / AlpConstants::kAlpVectorSize));
 
-  // Version 2: Add offsets section (4 bytes per vector)
+  // Add offsets section (4 bytes per vector)
   max_alp_size += vectors_count * sizeof(AlpConstants::OffsetType);
 
   // Add per-vector metadata sizes: AlpInfo (4 bytes) + ForInfo (5/9 bytes)
@@ -308,7 +277,7 @@ template <typename T>
 auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
                               size_t comp_size, const AlpEncodingPreset& combinations)
     -> CompressionProgress {
-  // VERSION 2: OFFSET-BASED LAYOUT
+  // OFFSET-BASED LAYOUT
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
   // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
   // [AlpInfo₁ | ForInfo₁ | Data₁]             ← Vector 1
