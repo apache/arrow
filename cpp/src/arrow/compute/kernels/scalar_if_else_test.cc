@@ -615,19 +615,17 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
   auto sliced = full_arr->Slice(1);
 
   auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
-  ASSERT_OK_AND_ASSIGN(
-      auto result_asa,
-      CallFunction("if_else", {cond_asa, MakeNullScalar(type), sliced}));
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), sliced}));
   ASSERT_OK(result_asa.make_array()->ValidateFull());
   auto expected = ArrayFromJSON(type, R"([null, "x", "x"])");
-  AssertArraysEqual(*expected, *result_asa.make_array(),true);
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
 
   auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
-  ASSERT_OK_AND_ASSIGN(
-      auto result_aas,
-      CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
   ASSERT_OK(result_aas.make_array()->ValidateFull());
-  AssertArraysEqual(*expected, *result_aas.make_array(),true);
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinary) {

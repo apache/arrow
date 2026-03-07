@@ -746,8 +746,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
 
       OffsetType base = right_offsets[0];
-      auto* out_offsets = reinterpret_cast<OffsetType*>(
-          out_data->buffers[1]->mutable_data());
+      auto* out_offsets =
+          reinterpret_cast<OffsetType*>(out_data->buffers[1]->mutable_data());
       for (int64_t i = 0; i <= cond.length; ++i) {
         out_offsets[i] = right_offsets[i] - base;
       }
@@ -794,8 +794,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
 
       OffsetType base = left_offsets[0];
-      auto* out_offsets = reinterpret_cast<OffsetType*>(
-          out_data->buffers[1]->mutable_data());
+      auto* out_offsets =
+          reinterpret_cast<OffsetType*>(out_data->buffers[1]->mutable_data());
       for (int64_t i = 0; i <= cond.length; ++i) {
         out_offsets[i] = left_offsets[i] - base;
       }
