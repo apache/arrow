@@ -25,6 +25,8 @@
 #include "gtest/gtest.h"
 
 #include <cstdint>
+#include <cstring>
+#include <fstream>
 #include <functional>
 #include <set>
 #include <sstream>
@@ -5309,6 +5311,112 @@ TEST(TestArrowReadDeltaEncoding, OptionalColumn) {
 }
 
 #endif
+
+// ALP encoding correctness tests — reads ALP-encoded parquet files and verifies
+// values match expected CSV data bit-exactly. Uses std::ifstream for CSV parsing
+// (no ARROW_CSV dependency).
+class TestArrowReadAlpEncoding : public ::testing::Test {
+ public:
+  void ReadTableFromParquetFile(const std::string& file_name,
+                                std::shared_ptr<Table>* out) {
+    auto file = test::get_data_file(file_name);
+    auto pool = ::arrow::default_memory_pool();
+    std::unique_ptr<FileReader> parquet_reader;
+    ASSERT_OK(FileReader::Make(pool, ParquetFileReader::OpenFile(file, false),
+                               &parquet_reader));
+    ASSERT_OK(parquet_reader->ReadTable(out));
+    ASSERT_OK((*out)->ValidateFull());
+  }
+
+  // Parse a CSV file with a header row into column names and a 2D vector of doubles.
+  void ReadDoublesFromCSV(const std::string& file_name,
+                          std::vector<std::string>* column_names,
+                          std::vector<std::vector<double>>* columns) {
+    auto file_path = test::get_data_file(file_name);
+    std::ifstream file(file_path);
+    ASSERT_TRUE(file.is_open()) << "Failed to open CSV: " << file_path;
+
+    // Parse header
+    std::string line;
+    ASSERT_TRUE(std::getline(file, line)) << "CSV has no header";
+    {
+      std::istringstream header_stream(line);
+      std::string col_name;
+      while (std::getline(header_stream, col_name, ',')) {
+        col_name.erase(0, col_name.find_first_not_of(" \t\r\n"));
+        col_name.erase(col_name.find_last_not_of(" \t\r\n") + 1);
+        column_names->push_back(col_name);
+      }
+    }
+    columns->resize(column_names->size());
+
+    // Parse data rows
+    while (std::getline(file, line)) {
+      if (line.empty()) continue;
+      std::istringstream row_stream(line);
+      std::string cell;
+      size_t col_idx = 0;
+      while (std::getline(row_stream, cell, ',') && col_idx < columns->size()) {
+        (*columns)[col_idx].push_back(std::stod(cell));
+        col_idx++;
+      }
+      ASSERT_EQ(col_idx, columns->size()) << "Row has wrong number of columns";
+    }
+  }
+
+  // Compare an Arrow table against expected double values bit-exactly.
+  void AssertTableMatchesCSV(const std::shared_ptr<Table>& table,
+                             const std::vector<std::string>& column_names,
+                             const std::vector<std::vector<double>>& expected_columns) {
+    ASSERT_EQ(table->num_columns(), static_cast<int64_t>(column_names.size()));
+    ASSERT_GT(expected_columns[0].size(), 0u);
+    ASSERT_EQ(table->num_rows(), static_cast<int64_t>(expected_columns[0].size()));
+
+    for (int col = 0; col < table->num_columns(); col++) {
+      ASSERT_EQ(table->field(col)->name(), column_names[col]);
+      auto chunked = table->column(col);
+      int64_t row = 0;
+      for (int chunk = 0; chunk < chunked->num_chunks(); chunk++) {
+        auto array =
+            std::static_pointer_cast<::arrow::DoubleArray>(chunked->chunk(chunk));
+        for (int64_t i = 0; i < array->length(); i++, row++) {
+          double actual = array->Value(i);
+          double expected = expected_columns[col][row];
+          // Bit-exact comparison
+          uint64_t actual_bits, expected_bits;
+          std::memcpy(&actual_bits, &actual, sizeof(double));
+          std::memcpy(&expected_bits, &expected, sizeof(double));
+          ASSERT_EQ(actual_bits, expected_bits)
+              << "Mismatch at column " << column_names[col] << " row " << row
+              << ": expected=" << expected << " actual=" << actual;
+        }
+      }
+      ASSERT_EQ(row, table->num_rows());
+    }
+  }
+};
+
+TEST_F(TestArrowReadAlpEncoding, AlpSpotify1) {
+  std::shared_ptr<::arrow::Table> table;
+  ReadTableFromParquetFile("alp_spotify1.parquet", &table);
+
+  std::vector<std::string> column_names;
+  std::vector<std::vector<double>> expected_columns;
+  ReadDoublesFromCSV("alp_spotify1_expect.csv", &column_names, &expected_columns);
+
+  AssertTableMatchesCSV(table, column_names, expected_columns);
+}
+
+TEST_F(TestArrowReadAlpEncoding, AlpArade) {
+  std::shared_ptr<::arrow::Table> table;
+  ReadTableFromParquetFile("alp_arade.parquet", &table);
+
+  std::vector<std::string> column_names;
+  std::vector<std::vector<double>> expected_columns;
+  ReadDoublesFromCSV("alp_arade_expect.csv", &column_names, &expected_columns);
+
+  AssertTableMatchesCSV(table, column_names, expected_columns);
+}
 
 struct NestedFilterTestCase {
   std::shared_ptr<::arrow::DataType> write_schema;
