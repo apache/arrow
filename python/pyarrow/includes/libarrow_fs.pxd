@@ -93,6 +93,8 @@ cdef extern from "arrow/filesystem/api.h" namespace "arrow::fs" nogil:
         "arrow::fs::FileSystemFromUriOrPath"(const c_string& uri,
                                              c_string* out_path)
 
+    c_bool CIsLikelyUri "arrow::fs::IsLikelyUri"(cpp_string_view path)
+
     cdef cppclass CFileSystemGlobalOptions \
             "arrow::fs::FileSystemGlobalOptions":
         c_string tls_ca_file_path
