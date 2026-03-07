@@ -5418,6 +5418,28 @@ TEST_F(TestArrowReadAlpEncoding, AlpArade) {
   AssertTableMatchesCSV(table, column_names, expected_columns);
 }
 
+TEST_F(TestArrowReadAlpEncoding, AlpJavaSpotify1) {
+  std::shared_ptr<::arrow::Table> table;
+  ReadTableFromParquetFile("alp_java_spotify1.parquet", &table);
+
+  std::vector<std::string> column_names;
+  std::vector<std::vector<double>> expected_columns;
+  ReadDoublesFromCSV("alp_spotify1_expect.csv", &column_names, &expected_columns);
+
+  AssertTableMatchesCSV(table, column_names, expected_columns);
+}
+
+TEST_F(TestArrowReadAlpEncoding, AlpJavaArade) {
+  std::shared_ptr<::arrow::Table> table;
+  ReadTableFromParquetFile("alp_java_arade.parquet", &table);
+
+  std::vector<std::string> column_names;
+  std::vector<std::vector<double>> expected_columns;
+  ReadDoublesFromCSV("alp_arade_expect.csv", &column_names, &expected_columns);
+
+  AssertTableMatchesCSV(table, column_names, expected_columns);
+}
+
 struct NestedFilterTestCase {
   std::shared_ptr<::arrow::DataType> write_schema;
   std::vector<int> indices_to_read;
