@@ -62,6 +62,7 @@ jobs:
             --x-feature=flight ^
             --x-feature=json ^
             --x-feature=gcs ^
+            --x-feature=opentelemetry ^
             --x-feature=orc ^
             --x-feature=parquet ^
             --x-feature=s3
