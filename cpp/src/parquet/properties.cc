@@ -67,6 +67,20 @@ std::shared_ptr<ArrowWriterProperties> default_arrow_writer_properties() {
   return default_writer_properties;
 }
 
+WriterProperties::Builder* WriterProperties::Builder::max_row_group_length(
+    int64_t max_row_group_length) {
+  ARROW_CHECK_GT(max_row_group_length, 0) << "max_row_group_length must be positive";
+  max_row_group_length_ = max_row_group_length;
+  return this;
+}
+
+WriterProperties::Builder* WriterProperties::Builder::max_row_group_bytes(
+    int64_t max_row_group_bytes) {
+  ARROW_CHECK_GT(max_row_group_bytes, 0) << "max_row_group_bytes must be positive";
+  max_row_group_bytes_ = max_row_group_bytes;
+  return this;
+}
+
 void WriterProperties::Builder::CopyColumnSpecificProperties(
     const WriterProperties& properties) {
   for (const auto& [col_path, col_props] : properties.column_properties_) {

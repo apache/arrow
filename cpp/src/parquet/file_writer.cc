@@ -69,6 +69,12 @@ int64_t RowGroupWriter::total_compressed_bytes_written() const {
   return contents_->total_compressed_bytes_written();
 }
 
+int64_t RowGroupWriter::EstimatedTotalCompressedBytes() const {
+  return contents_->total_compressed_bytes() +
+         contents_->total_compressed_bytes_written() +
+         contents_->EstimatedBufferedBytes();
+}
+
 bool RowGroupWriter::buffered() const { return contents_->buffered(); }
 
 int RowGroupWriter::current_column() { return contents_->current_column(); }
@@ -196,6 +202,21 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
       }
     }
     return total_compressed_bytes_written;
+  }
+
+  int64_t EstimatedBufferedBytes() const override {
+    if (closed_) {
+      return 0;
+    }
+    int64_t estimated_buffered_value_bytes = 0;
+    for (size_t i = 0; i < column_writers_.size(); i++) {
+      if (column_writers_[i]) {
+        estimated_buffered_value_bytes +=
+            column_writers_[i]->estimated_buffered_value_bytes() +
+            column_writers_[i]->EstimatedBufferedLevelsBytes();
+      }
+    }
+    return estimated_buffered_value_bytes;
   }
 
   bool buffered() const override { return buffered_row_group_; }
@@ -336,6 +357,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
       if (row_group_writer_) {
         num_rows_ += row_group_writer_->num_rows();
         row_group_writer_->Close();
+        written_compressed_bytes_ += row_group_writer_->total_compressed_bytes_written();
       }
       row_group_writer_.reset();
 
@@ -365,6 +387,8 @@ class FileSerializer : public ParquetFileWriter::Contents {
 
   int64_t num_rows() const override { return num_rows_; }
 
+  int64_t written_compressed_bytes() const override { return written_compressed_bytes_; }
+
   const std::shared_ptr<WriterProperties>& properties() const override {
     return properties_;
   }
@@ -373,6 +397,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
     if (row_group_writer_) {
       num_rows_ += row_group_writer_->num_rows();
       row_group_writer_->Close();
+      written_compressed_bytes_ += row_group_writer_->total_compressed_bytes_written();
     }
     int16_t row_group_ordinal = -1;  // row group ordinal not set
     if (file_encryptor_ != nullptr) {
@@ -431,6 +456,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
         properties_(std::move(properties)),
         num_row_groups_(0),
         num_rows_(0),
+        written_compressed_bytes_(0),
         metadata_(FileMetaDataBuilder::Make(&schema_, properties_)) {
     PARQUET_ASSIGN_OR_THROW(int64_t position, sink_->Tell());
     if (position == 0) {
@@ -498,6 +524,7 @@ class FileSerializer : public ParquetFileWriter::Contents {
   const std::shared_ptr<WriterProperties> properties_;
   int num_row_groups_;
   int64_t num_rows_;
+  int64_t written_compressed_bytes_;
   std::unique_ptr<FileMetaDataBuilder> metadata_;
   // Only one of the row group writers is active at a time
   std::unique_ptr<RowGroupWriter> row_group_writer_;
@@ -684,6 +711,29 @@ void ParquetFileWriter::AddKeyValueMetadata(
   } else {
     throw ParquetException("Cannot add key-value metadata to closed file");
   }
+}
+
+std::optional<double> ParquetFileWriter::EstimateCompressedBytesPerRow() const {
+  if (contents_ && contents_->num_rows() > 0) {
+    // Use written row groups to estimate.
+    return static_cast<double>(contents_->written_compressed_bytes()) /
+           contents_->num_rows();
+  }
+  if (file_metadata_) {
+    // Use closed file metadata to estimate.
+    int64_t total_compressed_bytes = 0;
+    int64_t total_rows = 0;
+    for (int i = 0; i < file_metadata_->num_row_groups(); i++) {
+      const auto row_group = file_metadata_->RowGroup(i);
+      total_compressed_bytes += row_group->total_compressed_size();
+      total_rows += row_group->num_rows();
+    }
+    if (total_compressed_bytes == 0 || total_rows == 0) {
+      return std::nullopt;
+    }
+    return static_cast<double>(total_compressed_bytes) / total_rows;
+  }
+  return std::nullopt;
 }
 
 const std::shared_ptr<WriterProperties>& ParquetFileWriter::properties() const {
