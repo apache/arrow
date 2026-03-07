@@ -23,6 +23,7 @@
 #include <iosfwd>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -528,6 +529,12 @@ class ARROW_EXPORT SlowFileSystem : public FileSystem {
 ///
 /// The user is responsible for synchronization of calls to this function.
 void EnsureFinalized();
+
+/// \brief Return whether a path string is likely a URI.
+///
+/// This heuristic is conservative and may return false for malformed URIs.
+ARROW_EXPORT
+bool IsLikelyUri(std::string_view path);
 
 /// \defgroup filesystem-factories Functions for creating FileSystem instances
 ///
