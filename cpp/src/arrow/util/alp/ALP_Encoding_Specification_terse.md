@@ -7,22 +7,21 @@
 ## 1. Layout (Offset-Based Interleaved)
 
 ```
-[Header(8B)] [Offset₀|Offset₁|...|Offₙ₋₁] [Vector₀][Vector₁]...[Vectorₙ₋₁]
+[Header(7B)] [Offset₀|Offset₁|...|Offₙ₋₁] [Vector₀][Vector₁]...[Vectorₙ₋₁]
              |<-- 4B per vector -------->|<-- Interleaved Vectors ------->|
 ```
 
 Each vector = `[AlpInfo(4B)|ForInfo(5/9B)|Data]` stored contiguously.
 Offsets enable O(1) random access to any vector.
 
-### Page Header (8 bytes)
+### Page Header (7 bytes)
 
 | Offset | Field | Size | Value |
 |--------|-------|------|-------|
-| 0 | version | 1B | 1 |
-| 1 | mode | 1B | 0 (ALP) |
-| 2 | integer_encoding | 1B | 0 (FOR+bit-pack) |
-| 3 | log_vector_size | 1B | 10 (meaning 2^10 = 1024) |
-| 4 | num_elements | 4B | total element count (uint32) |
+| 0 | mode | 1B | 0 (ALP) |
+| 1 | integer_encoding | 1B | 0 (FOR+bit-pack) |
+| 2 | log_vector_size | 1B | 10 (meaning 2^10 = 1024) |
+| 3 | num_elements | 4B | total element count (uint32) |
 
 **Notes:**
 - `log_vector_size` = log2(vector_size). Actual size = `2^log_vector_size`.
@@ -151,7 +150,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | bit_width | `ceil(log2(778))` | 10 |
 | packed_size | `ceil(4*10/8)` | 5B |
 
-**Output:** 8B(hdr) + 4B(off) + 4B(alp) + 5B(for) + 5B(pack) = **26B**
+**Output:** 7B(hdr) + 4B(off) + 4B(alp) + 5B(for) + 5B(pack) = **25B**
 
 ### Example 2: With Exceptions
 
@@ -165,13 +164,13 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | FOR=15 | `delta = [0, 0, 10, 0]` |
 | bit_width=4 | packed_size = 2B |
 
-**Output:** 8B(hdr) + 4B(off) + 4B(alp) + 5B(for) + 2B(pack) + 4B(pos) + 8B(val) = **35B**
+**Output:** 7B(hdr) + 4B(off) + 4B(alp) + 5B(for) + 2B(pack) + 4B(pos) + 8B(val) = **34B**
 
 ### Example 3: 3 Vectors (3072 float elements)
 
 | Component | Size |
 |-----------|------|
-| Header | 8B |
+| Header | 7B |
 | Offset Array | 3 × 4B = 12B |
 | Per-Vector Metadata | 3 × 9B = 27B |
 | Packed Values (bw=12) | 3 × ceil(1024×12/8) = 4608B |
@@ -184,7 +183,7 @@ value[exception_pos[j]] = exception_val[j]  // patch
 | Constant | Value |
 |----------|-------|
 | Default vector size | 1024 (configurable via log_vector_size) |
-| Version | 1 |
+| Header size | 7 bytes |
 | Max combinations | 5 |
 | Samples/vector | 256 |
 | Float max_e | 10 |
@@ -208,7 +207,7 @@ size = AlpInfo(4B) + ForInfo(5/9B) + ceil(n × bw / 8) + exc × (2 + sizeof(T))
 
 **Max compressed size:**
 ```
-max = 8                              // header
+max = 7                              // header
     + num_vectors × 4                // offsets
     + num_vectors × (4 + ForInfo)    // metadata per vector
     + n × sizeof(T) × 2              // worst case: all packed + all exceptions
@@ -233,13 +232,13 @@ max = 8                              // header
 ```
 Offset  Content
 ------  -------
-0-7     Header (version=1, mode=0, log_vs=10, n=3000)
-8-11    Offset₀ = 12 (first vector at byte 12 from offset array start)
-12-15   Offset₁ (computed after Vector₀)
-16-19   Offset₂ (computed after Vector₁)
-20-23   Vector₀ AlpInfo (e, f, num_exc)
-24-28   Vector₀ ForInfo (FOR, bw)
-29-...  Vector₀ Data (packed, exc_pos, exc_val)
+0-6     Header (mode=0, int_enc=0, log_vs=10, n=3000)
+7-10    Offset₀ = 12 (first vector at byte 12 from offset array start)
+11-14   Offset₁ (computed after Vector₀)
+15-18   Offset₂ (computed after Vector₁)
+19-22   Vector₀ AlpInfo (e, f, num_exc)
+23-27   Vector₀ ForInfo (FOR, bw)
+28-...  Vector₀ Data (packed, exc_pos, exc_val)
 ...     Vector₁ [AlpInfo|ForInfo|Data]
 ...     Vector₂ [AlpInfo|ForInfo|Data]
 ```

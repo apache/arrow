@@ -48,11 +48,6 @@ class AlpConstants {
   /// Number of sample vectors to collect per rowgroup.
   static constexpr uint64_t kSamplerSampleVectorsPerRowgroup = 8;
 
-  /// Version number for the ALP compression format.
-  /// Layout: [Header][Offsets...][Vector0][Vector1]...
-  ///         where each Vector = [AlpInfo|ForInfo|Data] (interleaved)
-  static constexpr uint8_t kAlpVersion = 1;
-
   /// Type used to store vector data offsets (supports pages up to 4GB)
   using OffsetType = uint32_t;
 
