@@ -33,6 +33,7 @@ from pyarrow._fs import (  # noqa
     PyFileSystem,
     _copy_files,
     _copy_files_selector,
+    _is_likely_uri,
 )
 
 # For backward compatibility.
@@ -80,32 +81,6 @@ def __getattr__(name):
     raise AttributeError(
         f"module 'pyarrow.fs' has no attribute '{name}'"
     )
-
-
-def _is_likely_uri(path):
-    """
-    Check if a string looks like a URI (has a valid scheme followed by ':').
-
-    This is a Python port of the C++ ``IsLikelyUri()`` heuristic in
-    ``cpp/src/arrow/filesystem/path_util.cc``.  It is intentionally
-    conservative: single-letter schemes are excluded (could be a Windows
-    drive letter) and the scheme must conform to RFC 3986.
-    """
-    if not path or path[0] == '/':
-        return False
-    colon_pos = path.find(':')
-    if colon_pos < 0:
-        return False
-    # One-letter URI schemes don't officially exist; may be a Windows drive
-    if colon_pos < 2:
-        return False
-    # The largest IANA-registered scheme is 36 characters
-    if colon_pos > 36:
-        return False
-    scheme = path[:colon_pos]
-    if not scheme[0].isalpha():
-        return False
-    return all(c.isalnum() or c in ('+', '-', '.') for c in scheme[1:])
 
 
 def _ensure_filesystem(filesystem, *, use_mmap=False):

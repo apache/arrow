@@ -27,6 +27,10 @@
 
 namespace arrow {
 namespace fs {
+
+// Declared in arrow/filesystem/filesystem.h, defined in path_util.cc.
+ARROW_EXPORT bool IsLikelyUri(std::string_view path);
+
 namespace internal {
 
 constexpr char kSep = '/';
@@ -159,8 +163,7 @@ std::string ToSlashes(std::string_view s);
 ARROW_EXPORT
 bool IsEmptyPath(std::string_view s);
 
-ARROW_EXPORT
-bool IsLikelyUri(std::string_view s);
+inline bool IsLikelyUri(std::string_view s) { return ::arrow::fs::IsLikelyUri(s); }
 
 class ARROW_EXPORT Globber {
  public:

@@ -1715,6 +1715,8 @@ def test_is_likely_uri():
     assert not _is_likely_uri("C:/Users/foo")
     assert not _is_likely_uri("3bucket://key")       # scheme starts with digit
     assert not _is_likely_uri("-scheme://key")        # scheme starts with dash
+    assert not _is_likely_uri("schéme://bucket/key")  # non-ASCII in scheme
+    assert not _is_likely_uri("漢字://bucket/key")     # non-ASCII in scheme
 
 
 def test_resolve_filesystem_and_path_uri_with_spaces():
