@@ -443,6 +443,10 @@ add_parquet_benchmark(column_reader_benchmark)
 add_parquet_benchmark(column_io_benchmark)
 add_parquet_benchmark(encoding_benchmark)
 add_parquet_benchmark(encoding_alp_benchmark)
+
+add_executable(generate-alp-parquet
+               ${PROJECT_SOURCE_DIR}/src/arrow/util/alp/generate_alp_parquet.cc)
+target_link_libraries(generate-alp-parquet parquet_shared arrow_shared)
 add_parquet_benchmark(level_conversion_benchmark)
 add_parquet_benchmark(metadata_benchmark)
 add_parquet_benchmark(page_index_benchmark SOURCES page_index_benchmark.cc
