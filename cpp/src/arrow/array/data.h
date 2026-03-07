@@ -21,6 +21,7 @@
 #include <cassert>
 #include <cstdint>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -31,9 +32,7 @@
 #include "arrow/type_fwd.h"
 #include "arrow/util/bit_util.h"
 #include "arrow/util/macros.h"
-#include "arrow/util/span.h"
 #include "arrow/util/visibility.h"
-
 namespace arrow {
 
 namespace internal {
@@ -577,11 +576,11 @@ struct ARROW_EXPORT ArraySpan {
   /// this array type
   /// \return A span<const T> of the requested length
   template <typename T>
-  util::span<const T> GetSpan(int i, int64_t length) const {
+  std::span<const T> GetSpan(int i, int64_t length) const {
     const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);
-    return util::span<const T>(buffers[i].data_as<T>() + this->offset, length);
+    return std::span<const T>(buffers[i].data_as<T>() + this->offset, length);
   }
 
   /// \brief Access a buffer's data as a span
@@ -593,11 +592,11 @@ struct ARROW_EXPORT ArraySpan {
   /// this array type
   /// \return A span<T> of the requested length
   template <typename T>
-  util::span<T> GetSpan(int i, int64_t length) {
+  std::span<T> GetSpan(int i, int64_t length) {
     const int64_t buffer_length = buffers[i].size / static_cast<int64_t>(sizeof(T));
     assert(i > 0 && length + offset <= buffer_length);
     ARROW_UNUSED(buffer_length);
-    return util::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
+    return std::span<T>(buffers[i].mutable_data_as<T>() + this->offset, length);
   }
 
   inline bool IsNull(int64_t i) const { return !IsValid(i); }
@@ -709,7 +708,7 @@ struct ARROW_EXPORT ArraySpan {
   /// sizeof(shared_ptr<Buffer>).
   ///
   /// \see HasVariadicBuffers
-  util::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
+  std::span<const std::shared_ptr<Buffer>> GetVariadicBuffers() const;
   bool HasVariadicBuffers() const;
 
  private:
