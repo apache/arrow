@@ -268,9 +268,14 @@ inline void ArrowTimestampToImpalaTimestamp(const int64_t time, Int96* impala_ti
   }
   impala_timestamp->value[2] = static_cast<uint32_t>(julian_days);
   uint64_t last_day_nanos = static_cast<uint64_t>(last_day_units) * NanosecondsPerUnit;
+#if ARROW_LITTLE_ENDIAN
   // impala_timestamp will be unaligned every other entry so do memcpy instead
   // of assign and reinterpret cast to avoid undefined behavior.
-  std::memcpy(impala_timestamp, &last_day_nanos, sizeof(uint64_t));
+  std::memcpy(impala_timestamp, &last_day_nanos, sizeof(int64_t));
+#else
+  (*impala_timestamp).value[0] = static_cast<uint32_t>(last_day_nanos);
+  (*impala_timestamp).value[1] = static_cast<uint32_t>(last_day_nanos >> 32);
+#endif
 }
 
 constexpr int64_t kSecondsInNanos = INT64_C(1000000000);
