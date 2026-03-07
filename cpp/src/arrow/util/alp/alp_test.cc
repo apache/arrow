@@ -42,7 +42,6 @@ TEST(AlpConstantsTest, SamplerConstants) {
   EXPECT_GT(AlpConstants::kSamplerVectorSize, 0);
   EXPECT_GT(AlpConstants::kSamplerRowgroupSize, 0);
   EXPECT_GT(AlpConstants::kSamplerSamplesPerVector, 0);
-  EXPECT_EQ(AlpConstants::kAlpVersion, 1);
 }
 
 // ============================================================================
@@ -1403,33 +1402,9 @@ TYPED_TEST(AlpWrapperTest, EmptyInput) {
 // These tests use EXPECT_DEATH_IF_SUPPORTED where applicable.
 
 #if GTEST_HAS_DEATH_TEST
-TEST(AlpRobustnessTest, InvalidVersion) {
-  // Create a valid compressed buffer, then corrupt the version
-  std::vector<double> input(100);
-  for (size_t i = 0; i < input.size(); ++i) {
-    input[i] = static_cast<double>(i) * 0.5;
-  }
-
-  uint64_t max_size = AlpWrapper<double>::GetMaxCompressedSize(input.size() * sizeof(double));
-  std::vector<char> buffer(max_size);
-  size_t comp_size = buffer.size();
-
-  AlpWrapper<double>::Encode(input.data(), input.size() * sizeof(double),
-                             buffer.data(), &comp_size);
-
-  // Corrupt version byte (first byte)
-  buffer[0] = 99;  // Invalid version
-
-  std::vector<double> output(input.size());
-  // Arrow uses ARROW_CHECK which aborts on failure
-  EXPECT_DEATH_IF_SUPPORTED(
-      AlpWrapper<double>::Decode(output.data(), input.size(), buffer.data(), comp_size),
-      "invalid_version");
-}
-
 TEST(AlpRobustnessTest, TruncatedHeader) {
   // Test with buffer too small for header
-  std::vector<char> tiny_buffer(5);  // Less than header size (8 bytes)
+  std::vector<char> tiny_buffer(5);  // Less than header size (7 bytes)
 
   std::vector<double> output(100);
   // Should abort due to ARROW_CHECK

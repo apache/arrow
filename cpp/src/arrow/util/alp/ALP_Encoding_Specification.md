@@ -32,7 +32,7 @@ The page uses an **offset-based interleaved** layout for O(1) random access.
 |                                    ALP PAGE                                        |
 +--------+-----------------------------------+--------------------------------------+
 | Header |         Offset Array              |        Interleaved Vectors           |
-| (8B)   | [Off₀|Off₁|Off₂|...|Offₙ₋₁]       | [Vec₀][Vec₁][Vec₂]...[Vecₙ₋₁]        |
+| (7B)   | [Off₀|Off₁|Off₂|...|Offₙ₋₁]       | [Vec₀][Vec₁][Vec₂]...[Vecₙ₋₁]        |
 +--------+-----------------------------------+--------------------------------------+
          |<---- 4 bytes per vector --------->|
          |                                   |
@@ -40,7 +40,7 @@ The page uses an **offset-based interleaved** layout for O(1) random access.
          |   compression body (after header) |
 ```
 
-Each offset is a **uint32** (4 bytes) that points to the start of the corresponding vector's data within the compression body. The offset is measured from the start of the compression body (i.e., after the 8-byte page header).
+Each offset is a **uint32** (4 bytes) that points to the start of the corresponding vector's data within the compression body. The offset is measured from the start of the compression body (i.e., after the 7-byte page header).
 
 ### 2.2 Interleaved Vector Structure
 
@@ -62,15 +62,14 @@ This interleaved layout provides:
 | **Parallel Decompression** | Each vector is self-contained; threads can decode independently |
 | **Storage Overhead** | 4 bytes per vector (~0.4% for typical 100KB pages) |
 
-### 2.3 Page Header (8 bytes, fixed)
+### 2.3 Page Header (7 bytes, fixed)
 
 | Offset | Field            | Size    | Type   | Description                        |
 |--------|------------------|---------|--------|------------------------------------|
-| 0      | version          | 1 byte  | uint8  | Format version (must be 1)         |
-| 1      | compression_mode | 1 byte  | uint8  | Compression mode (0 = ALP)         |
-| 2      | integer_encoding | 1 byte  | uint8  | Integer encoding method (0 = FOR+bit-pack) |
-| 3      | log_vector_size  | 1 byte  | uint8  | Log2 of vector size (10 = 1024)    |
-| 4      | num_elements     | 4 bytes | uint32 | Total element count in this page   |
+| 0      | compression_mode | 1 byte  | uint8  | Compression mode (0 = ALP)         |
+| 1      | integer_encoding | 1 byte  | uint8  | Integer encoding method (0 = FOR+bit-pack) |
+| 2      | log_vector_size  | 1 byte  | uint8  | Log2 of vector size (10 = 1024)    |
+| 3      | num_elements     | 4 bytes | uint32 | Total element count in this page   |
 
 **Notes:**
 - `log_vector_size` stores the base-2 logarithm of the vector size. The actual vector size is computed as `2^log_vector_size`. For example, 10 means 2^10 = 1024 elements per vector.
@@ -78,13 +77,13 @@ This interleaved layout provides:
 - Number of vectors is computed as: `num_vectors = ceil(num_elements / vector_size)`
 
 ```
-Page Header Layout (8 bytes)
-+---------+------------------+------------------+------------------+------------------+
-| version | compression_mode | integer_encoding | log_vector_size  |   num_elements   |
-| 1 byte  |     1 byte       |     1 byte       |     1 byte       |     4 bytes      |
-|  0x01   |      0x00        |      0x00        |      0x0A        |  (little-endian) |
-+---------+------------------+------------------+------------------+------------------+
-   Byte 0        Byte 1           Byte 2             Byte 3            Bytes 4-7
+Page Header Layout (7 bytes)
++------------------+------------------+------------------+------------------+
+| compression_mode | integer_encoding | log_vector_size  |   num_elements   |
+|     1 byte       |     1 byte       |     1 byte       |     4 bytes      |
+|      0x00        |      0x00        |      0x0A        |  (little-endian) |
++------------------+------------------+------------------+------------------+
+      Byte 0           Byte 1             Byte 2            Bytes 3-6
 ```
 
 ### 2.4 Offset Array (4 bytes × num_vectors)
@@ -215,7 +214,7 @@ Data Section Layout
                            ALP PAGE (Float, 3000 elements)
 +--------+-------+-------+-------+---------------------+---------------------+------------------+
 | Header | Off₀  | Off₁  | Off₂  |      Vector₀        |      Vector₁        |    Vector₂       |
-|  (8B)  | (4B)  | (4B)  | (4B)  |    1024 elements    |    1024 elements    |   952 elements   |
+|  (7B)  | (4B)  | (4B)  | (4B)  |    1024 elements    |    1024 elements    |   952 elements   |
 +--------+-------+-------+-------+---------------------+---------------------+------------------+
          |<-- Offset Array -->|  |<-------------- Interleaved Vectors ------------------->|
          |     12 bytes       |
@@ -236,7 +235,7 @@ Total Vector₀ size: 9 + 1536 + 10 + 20 = 1575 bytes
                            ALP PAGE (Double, 1500 elements)
 +--------+-------+-------+----------------------+----------------------+
 | Header | Off₀  | Off₁  |       Vector₀        |       Vector₁        |
-|  (8B)  | (4B)  | (4B)  |    1024 elements     |     476 elements     |
+|  (7B)  | (4B)  | (4B)  |    1024 elements     |     476 elements     |
 +--------+-------+-------+----------------------+----------------------+
          |<- 8B ->|      |<-------- Interleaved Vectors ------------>|
 
@@ -439,14 +438,14 @@ The offset-based layout enables efficient random access:
 ```
 function ReadVectorK(bytes[], k):
     // 1. Read header
-    header = ReadHeader(bytes[0:8])
+    header = ReadHeader(bytes[0:7])
     num_vectors = ceil(header.num_elements / header.vector_size)
     
     // 2. Read offset for vector K directly (O(1))
-    offset_k = ReadUInt32(bytes[8 + k*4 : 8 + k*4 + 4])
+    offset_k = ReadUInt32(bytes[7 + k*4 : 7 + k*4 + 4])
     
     // 3. Jump directly to vector K
-    vector_start = 8 + offset_k    // 8 = header size
+    vector_start = 7 + offset_k    // 7 = header size
     
     // 4. Decode vector K
     return DecodeVector(bytes[vector_start:], header, k)
@@ -500,14 +499,14 @@ Since we have 1 vector (4 elements < 1024), offset array has 1 entry:
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| Header             | version=1, mode=0, int_enc=0, log_vs=10, n=4 | 8 bytes |
+| Header             | mode=0, int_enc=0, log_vs=10, n=4 | 7 bytes |
 | Offset Array       | [Off₀ = 4]                           | 4 bytes  |
 | AlpInfo            | e=2, f=0, num_exc=0                  | 4 bytes  |
 | ForInfo            | FOR=12, bw=10                        | 5 bytes  |
 | Packed Values      | 111, 444, 777, 0 (10 bits each)      | 5 bytes  |
 | Exception Positions| (none)                               | 0 bytes  |
 | Exception Values   | (none)                               | 0 bytes  |
-| **TOTAL**          |                                      | **26 bytes** |
+| **TOTAL**          |                                      | **25 bytes** |
 
 ---
 
@@ -560,14 +559,14 @@ packed_size = ceil(4 × 4 / 8) = 2 bytes
 
 | Section            | Content                              | Size     |
 |--------------------|--------------------------------------|----------|
-| Header             | version=1, mode=0, int_enc=0, log_vs=10, n=4 | 8 bytes |
+| Header             | mode=0, int_enc=0, log_vs=10, n=4 | 7 bytes |
 | Offset Array       | [Off₀ = 4]                           | 4 bytes  |
 | AlpInfo            | e=1, f=0, num_exc=2                  | 4 bytes  |
 | ForInfo            | FOR=15, bw=4                         | 5 bytes  |
 | Packed Values      | 0, 0, 10, 0 (4 bits each)            | 2 bytes  |
 | Exception Positions| [1, 3]                               | 4 bytes  |
 | Exception Values   | [NaN, 0.333...]                      | 8 bytes  |
-| **TOTAL**          |                                      | **35 bytes** |
+| **TOTAL**          |                                      | **34 bytes** |
 
 ---
 
@@ -582,10 +581,10 @@ packed_size = ceil(4 × 4 / 8) = 2 bytes
 ```
 +--------+-------+-------+-------+-----------------+-----------------+-----------------+
 | Header | Off₀  | Off₁  | Off₂  |    Vector₀      |    Vector₁      |    Vector₂      |
-|  (8B)  | (4B)  | (4B)  | (4B)  |                 |                 |                 |
+|  (7B)  | (4B)  | (4B)  | (4B)  |                 |                 |                 |
 +--------+-------+-------+-------+-----------------+-----------------+-----------------+
 
-Offsets (measured from start of compression body, after 8-byte header):
+Offsets (measured from start of compression body, after 7-byte header):
 - Off₀ = 12           // 3 offsets × 4 bytes = 12 bytes
 - Off₁ = 12 + V₀_size // Right after Vector₀
 - Off₂ = Off₁ + V₁_size
@@ -595,7 +594,7 @@ Offsets (measured from start of compression body, after 8-byte header):
 
 | Component          | Formula                                      | Size       |
 |--------------------|----------------------------------------------|------------|
-| Header             | Fixed                                        | 8 bytes    |
+| Header             | Fixed                                        | 7 bytes    |
 | Offset Array       | 3 vectors × 4 bytes                          | 12 bytes   |
 | Per-Vector Metadata| 3 × (4 + 5) = 3 × 9 bytes                    | 27 bytes   |
 | Packed Values      | 3 × ceil(1024 × 12 / 8)                      | 4608 bytes |
@@ -605,7 +604,7 @@ Offsets (measured from start of compression body, after 8-byte header):
 
 **Compression Ratio:**
 - Input: 3072 × 4 bytes = 12,288 bytes
-- Output: 4,745 bytes
+- Output: 4,744 bytes
 - Ratio: 38.6% (61.4% reduction)
 
 ---
@@ -651,7 +650,7 @@ Offsets (measured from start of compression body, after 8-byte header):
 | Constant                        | Value  | Description                         |
 |---------------------------------|--------|-------------------------------------|
 | kAlpVectorSize                  | 1024   | Default elements per vector (configurable via log_vector_size) |
-| kAlpVersion                     | 1      | Current format version              |
+| kHeaderSize                     | 7      | Page header size in bytes           |
 | kMaxCombinations                | 5      | Max (e,f) pairs in preset           |
 | kSamplerSamplesPerVector        | 256    | Samples taken per vector            |
 | kSamplerSampleVectorsPerRowgroup| 8      | Sample vectors per rowgroup         |
@@ -676,7 +675,7 @@ vector_size = AlpInfo_size                     // 4 bytes (fixed)
 ### 9.2 Page Size Formula
 
 ```
-page_size = sizeof(Header)                     // 8 bytes
+page_size = sizeof(Header)                     // 7 bytes
           + num_vectors × sizeof(OffsetType)   // 4 bytes per vector (offset array)
           + sum(vector_sizes)                  // all vectors including metadata
 ```
@@ -684,7 +683,7 @@ page_size = sizeof(Header)                     // 8 bytes
 ### 9.3 Maximum Compressed Size
 
 ```
-max_size = sizeof(PageHeader)                  // 8 bytes
+max_size = sizeof(PageHeader)                  // 7 bytes
          + num_vectors × 4                     // offset array
          + num_vectors × (AlpInfo + ForInfo)   // 9 or 13 bytes each
          + num_elements × sizeof(T)            // worst case: all values packed at full width
@@ -732,16 +731,15 @@ The offset array overhead is approximately **0.1% of input size** (4 bytes per v
 
 ## Appendix A: Complete Byte Layout Diagram
 
-### A.1 Page Header (8 bytes)
+### A.1 Page Header (7 bytes)
 
 ```
 Byte Offset   Content
 -----------   -------------------------------------------------------
-0             version (uint8) = 0x01
-1             compression_mode (uint8) = 0x00 (ALP)
-2             integer_encoding (uint8) = 0x00 (FOR+BitPack)
-3             log_vector_size (uint8) = 0x0A (10, meaning 1024)
-4-7           num_elements (uint32, little-endian)
+0             compression_mode (uint8) = 0x00 (ALP)
+1             integer_encoding (uint8) = 0x00 (FOR+BitPack)
+2             log_vector_size (uint8) = 0x0A (10, meaning 1024)
+3-6           num_elements (uint32, little-endian)
 ```
 
 ### A.2 Offset Array (4 × num_vectors bytes)
@@ -749,12 +747,12 @@ Byte Offset   Content
 ```
 Byte Offset   Content
 -----------   -------------------------------------------------------
-8             offset_0 (uint32, little-endian) - offset to Vector₀
-12            offset_1 (uint32, little-endian) - offset to Vector₁
+7             offset_0 (uint32, little-endian) - offset to Vector₀
+11            offset_1 (uint32, little-endian) - offset to Vector₁
 ...           ...
-8+4*(n-1)     offset_{n-1} (uint32, little-endian) - offset to Vectorₙ₋₁
+7+4*(n-1)     offset_{n-1} (uint32, little-endian) - offset to Vectorₙ₋₁
 
-Note: Offsets are measured from byte 8 (start of compression body)
+Note: Offsets are measured from byte 7 (start of compression body)
 ```
 
 ### A.3 Complete Vector Serialization (Float)
@@ -820,16 +818,16 @@ to vector)
 ```
 Byte      Content                           Notes
 ------    --------------------------------  ---------------------------
-0-7       Header (8 bytes)                  version=1, n=3000
-8-11      Offset₀ = 12                      First vector at byte 12
-12-15     Offset₁ = 1587                    Second vector at byte 1587
-16-19     Offset₂ = 3162                    Third vector at byte 3162
-20-23     Vector₀ AlpInfo                   e=2, f=0, exc=5
-24-28     Vector₀ ForInfo                   FOR=100, bw=12
-29-1564   Vector₀ Packed (1536B)            1024 × 12 bits
-1565-1574 Vector₀ Exc Pos (10B)             5 × 2 bytes
-1575-1594 Vector₀ Exc Val (20B)             5 × 4 bytes
-1595-...  Vector₁ (similar structure)       1024 elements
+0-6       Header (7 bytes)                  mode=0, int_enc=0, log_vs=10, n=3000
+7-10      Offset₀ = 12                      First vector at byte 12
+11-14     Offset₁ = 1587                    Second vector at byte 1587
+15-18     Offset₂ = 3162                    Third vector at byte 3162
+19-22     Vector₀ AlpInfo                   e=2, f=0, exc=5
+23-27     Vector₀ ForInfo                   FOR=100, bw=12
+28-1563   Vector₀ Packed (1536B)            1024 × 12 bits
+1564-1573 Vector₀ Exc Pos (10B)             5 × 2 bytes
+1574-1593 Vector₀ Exc Val (20B)             5 × 4 bytes
+1594-...  Vector₁ (similar structure)       1024 elements
 ...       Vector₂ (similar structure)       952 elements (remainder)
 ```
 
@@ -849,7 +847,7 @@ function EncodeALP(values[], num_values):
     num_vectors = ceil(num_values / vector_size)
     
     // 3. Write header
-    output.write(Header{version=1, mode=0, int_enc=0, 
+    output.write(Header{mode=0, int_enc=0,
                         log_vs=10, num_elements=num_values})
     
     // 4. Reserve space for offset array
@@ -911,16 +909,16 @@ function EncodeALP(values[], num_values):
 ```
 function DecodeALP(bytes[], num_elements):
     // 1. Read header
-    header = ReadHeader(bytes[0:8])
+    header = ReadHeader(bytes[0:7])
     vector_size = 1 << header.log_vector_size
     num_vectors = ceil(header.num_elements / vector_size)
     
     // 2. Read offset array
     offsets = []
     for i = 0 to num_vectors - 1:
-        offsets.append(ReadUInt32(bytes[8 + i*4]))
+        offsets.append(ReadUInt32(bytes[7 + i*4]))
     
-    data_section_start = 8  // After header
+    data_section_start = 7  // After header
     output = []
     
     // 3. Decode each vector (can be parallelized!)
@@ -971,13 +969,13 @@ function DecodeALP(bytes[], num_elements):
 ```
 function DecodeVectorK(bytes[], k):
     // 1. Read header
-    header = ReadHeader(bytes[0:8])
+    header = ReadHeader(bytes[0:7])
     
     // 2. Read single offset (O(1))
-    offset_k = ReadUInt32(bytes[8 + k*4])
-    
+    offset_k = ReadUInt32(bytes[7 + k*4])
+
     // 3. Jump directly to vector K
-    vector_start = 8 + offset_k
+    vector_start = 7 + offset_k
     
     // 4. Decode single vector
     return DecodeSingleVector(bytes[vector_start:], header, k)
