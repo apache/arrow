@@ -1571,7 +1571,8 @@ cdef class ParquetReader(_Weakrefable):
              thrift_string_size_limit=None,
              thrift_container_size_limit=None,
              page_checksum_verification=False,
-             arrow_extensions_enabled=False):
+             arrow_extensions_enabled=False,
+             max_page_header_size=None):
         """
         Open a parquet file for reading.
 
@@ -1591,6 +1592,7 @@ cdef class ParquetReader(_Weakrefable):
         thrift_container_size_limit : int, optional
         page_checksum_verification : bool, default False
         arrow_extensions_enabled : bool, default False
+        max_page_header_size : int, default None
         """
         cdef:
             shared_ptr[CFileMetaData] c_metadata
@@ -1624,6 +1626,11 @@ cdef class ParquetReader(_Weakrefable):
                                  "must be larger than zero")
             properties.set_thrift_container_size_limit(
                 thrift_container_size_limit)
+        if max_page_header_size is not None:
+            if max_page_header_size <= 0:
+                raise ValueError("max_page_header_size "
+                                 "must be larger than zero")
+            properties.set_max_page_header_size(max_page_header_size)
 
         if decryption_properties is not None:
             properties.file_decryption_properties(
