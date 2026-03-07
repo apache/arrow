@@ -352,7 +352,21 @@ set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 
 # Write out compile-time configuration constants
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+if(CMAKE_BUILD_TYPE)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" UPPERCASE_PYBUILD_TYPE)
+else()
+  # For multi-config generators (XCode and Visual Studio),
+  # CMAKE_BUILD_TYPE is not set at configure time.
+  # scikit-build-core does the right thing with cmake.build-type and
+  # adds the corresponding --config but does not populate CMAKE_BUILD_TYPE
+  # for those. On this specific case, we set the default to "RELEASE"
+  # as it's the most common build type for users building from source.
+  # This is mainly relevant for our Windows wheels, which are built with
+  # Visual Studio and thus use a multi-config generator with Release.
+  # As a note this is only to populate config_internal.h.cmake.
+  set(UPPERCASE_PYBUILD_TYPE "RELEASE")
+endif()
+
 configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
                "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
 
@@ -1003,5 +1017,33 @@ if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
+  endif()
+endif()
+
+#
+# Type stubs with docstring injection
+#
+set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+  install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
+          DESTINATION "."
+          FILES_MATCHING
+          PATTERN "*.pyi")
+
+  if(DEFINED SKBUILD_STATE
+     AND SKBUILD_STATE STREQUAL "wheel"
+     AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    install(CODE "
+      execute_process(
+        COMMAND \"${Python3_EXECUTABLE}\"
+                \"${CMAKE_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+                \"${CMAKE_INSTALL_PREFIX}\"
+                \"${CMAKE_SOURCE_DIR}\"
+        RESULT_VARIABLE _pyarrow_stub_docstrings_result
+      )
+      if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
+        message(WARNING \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+      endif()
+    ")
   endif()
 endif()
