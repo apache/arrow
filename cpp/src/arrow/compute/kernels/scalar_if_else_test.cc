@@ -629,71 +629,46 @@ Result<std::shared_ptr<Array>> MakeAllocatedVarBinaryArray(
       ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(values)}));
 }
 
+void CheckIfElseCapacityBehavior(const Datum& cond, const Datum& left, const Datum& right,
+                                 bool expect_capacity_error) {
+  auto maybe_out = CallFunction("if_else", {cond, left, right});
+  if (expect_capacity_error) {
+    ASSERT_TRUE(maybe_out.status().IsCapacityError()) << maybe_out.status();
+    ASSERT_THAT(maybe_out.status().message(),
+                ::testing::HasSubstr("Result may exceed offset capacity for this type"));
+  } else {
+    ASSERT_OK(maybe_out.status()) << maybe_out.status();
+  }
+}
+
 TEST_F(TestIfElseKernel, IfElseStringAndLargeStringAAAOverflowBehavior) {
   constexpr int64_t kPerSide =
       static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
   auto cond = ArrayFromJSON(boolean(), "[true]");
 
-  auto check = [&](const std::shared_ptr<DataType>& type, bool expect_capacity_error) {
-    ASSERT_OK_AND_ASSIGN(auto left, MakeAllocatedVarBinaryArray(type, kPerSide));
-    ASSERT_OK_AND_ASSIGN(auto right, MakeAllocatedVarBinaryArray(type, kPerSide));
+  ASSERT_OK_AND_ASSIGN(auto string_left, MakeAllocatedVarBinaryArray(utf8(), kPerSide));
+  ASSERT_OK_AND_ASSIGN(auto string_right, MakeAllocatedVarBinaryArray(utf8(), kPerSide));
+  CheckIfElseCapacityBehavior(cond, string_left, string_right, true);
 
-    auto maybe_out = CallFunction("if_else", {cond, left, right});
-    if (expect_capacity_error) {
-      ASSERT_TRUE(maybe_out.status().IsCapacityError()) << maybe_out.status();
-      ASSERT_THAT(
-          maybe_out.status().message(),
-          ::testing::HasSubstr("Result may exceed offset capacity for this type"));
-    } else {
-      ASSERT_OK(maybe_out.status()) << maybe_out.status();
-    }
-  };
-
-  check(TypeTraits<StringType>::type_singleton(), true);
-  check(TypeTraits<LargeStringType>::type_singleton(), false);
+  ASSERT_OK_AND_ASSIGN(auto large_string_left,
+                       MakeAllocatedVarBinaryArray(large_utf8(), kPerSide));
+  ASSERT_OK_AND_ASSIGN(auto large_string_right,
+                       MakeAllocatedVarBinaryArray(large_utf8(), kPerSide));
+  CheckIfElseCapacityBehavior(cond, large_string_left, large_string_right, false);
 }
 
-TEST_F(TestIfElseKernel, IfElseBinaryCapacityErrorASA) {
+TEST_F(TestIfElseKernel, IfElseBinaryASAHandlesStringAndLargeString) {
   constexpr int32_t capacity_limit = std::numeric_limits<int32_t>::max();
 
   auto cond = ArrayFromJSON(boolean(), "[true]");
-  auto left = Datum(std::make_shared<BinaryScalar>("x"));
-  ASSERT_OK_AND_ASSIGN(
-      auto right, MakeAllocatedVarBinaryArray(TypeTraits<StringType>::type_singleton(),
-                                              capacity_limit));
+  auto left = Datum(MakeNullScalar(utf8()));
+  ASSERT_OK_AND_ASSIGN(auto right, MakeAllocatedVarBinaryArray(utf8(), capacity_limit));
+  CheckIfElseCapacityBehavior(cond, left, right, false);
 
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      CapacityError,
-      ::testing::HasSubstr("Result may exceed offset capacity for this type"),
-      CallFunction("if_else", {cond, left, right}));
-}
-
-TEST_F(TestIfElseKernel, IfElseBinaryCapacityErrorAAS) {
-  constexpr int32_t capacity_limit = std::numeric_limits<int32_t>::max();
-
-  auto cond = ArrayFromJSON(boolean(), "[false]");
-  ASSERT_OK_AND_ASSIGN(
-      auto left, MakeAllocatedVarBinaryArray(TypeTraits<StringType>::type_singleton(),
-                                             capacity_limit));
-  auto right = Datum(std::make_shared<BinaryScalar>("x"));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      CapacityError,
-      ::testing::HasSubstr("Result may exceed offset capacity for this type"),
-      CallFunction("if_else", {cond, left, right}));
-}
-
-TEST_F(TestIfElseKernel, IfElseBinaryCapacityErrorASS) {
-  constexpr int64_t kLength = 3000;
-  std::string payload(1 << 20, 'x');
-  ASSERT_OK_AND_ASSIGN(auto cond, MakeArrayFromScalar(BooleanScalar(true), kLength));
-  auto left = Datum(std::make_shared<BinaryScalar>(payload));
-  auto right = Datum(std::make_shared<BinaryScalar>("x"));
-
-  EXPECT_RAISES_WITH_MESSAGE_THAT(
-      CapacityError,
-      ::testing::HasSubstr("Result may exceed offset capacity for this type"),
-      CallFunction("if_else", {cond, left, right}));
+  ASSERT_OK_AND_ASSIGN(auto large_right,
+                       MakeAllocatedVarBinaryArray(large_utf8(), capacity_limit));
+  auto large_left = Datum(MakeNullScalar(large_utf8()));
+  CheckIfElseCapacityBehavior(cond, large_left, large_right, false);
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinary) {

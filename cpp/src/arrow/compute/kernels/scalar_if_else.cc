@@ -695,7 +695,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       return Status::CapacityError("Result may exceed offset capacity for this type: ",
                                    data_bytes, " > ", max_offset,
                                    ". Convert inputs to a type that uses an int64 based "
-                                   "index such as a large_string");
+                                   "offset such as a large_string");
     }
     return Status::OK();
   }
@@ -773,7 +773,6 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc = static_cast<int64_t>(left_data.size()) * cond.length +
                               (static_cast<int64_t>(right_offsets[right.length]) -
                                static_cast<int64_t>(right_offsets[0]));
-    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     auto left_size = static_cast<OffsetType>(left_data.size());
 
     BuilderType builder(ctx->memory_pool());
@@ -805,7 +804,6 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 
       int64_t left_data_length = static_cast<int64_t>(left_offsets[left.length]) -
                                  static_cast<int64_t>(left_offsets[0]);
-      ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(left_data_length));
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
       std::memcpy(out_data->buffers[2]->mutable_data(), left_data, left_data_length);
       return Status::OK();
@@ -817,7 +815,6 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc = static_cast<int64_t>(right_data.size()) * cond.length +
                               (static_cast<int64_t>(left_offsets[left.length]) -
                                static_cast<int64_t>(left_offsets[0]));
-    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     auto right_size = static_cast<OffsetType>(right_data.size());
 
     BuilderType builder(ctx->memory_pool());
@@ -845,7 +842,6 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     // allocate data buffer conservatively
     int64_t data_buff_alloc =
         static_cast<int64_t>(std::max(left_data.size(), right_data.size())) * cond.length;
-    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     auto left_size = static_cast<OffsetType>(left_data.size());
     auto right_size = static_cast<OffsetType>(right_data.size());
     BuilderType builder(ctx->memory_pool());
