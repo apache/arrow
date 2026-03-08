@@ -19,6 +19,7 @@
 
 #pragma once
 
+#include <optional>
 #include <vector>
 
 #include "arrow/util/alp/alp_constants.h"
