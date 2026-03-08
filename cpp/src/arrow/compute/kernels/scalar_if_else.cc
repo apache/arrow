@@ -757,8 +757,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 
       auto right_data_length = right_offsets[right.length] - right_offsets[0];
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
-      std::memcpy(out_data->buffers[2]->mutable_data(),
-                  right_data + right_offsets[0], right_data_length);
+      std::memcpy(out_data->buffers[2]->mutable_data(), right_data + right_offsets[0],
+                  right_data_length);
       return Status::OK();
     }
 
@@ -808,8 +808,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 
       auto left_data_length = left_offsets[left.length] - left_offsets[0];
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
-      std::memcpy(out_data->buffers[2]->mutable_data(),
-                  left_data + left_offsets[0], left_data_length);
+      std::memcpy(out_data->buffers[2]->mutable_data(), left_data + left_offsets[0],
+                  left_data_length);
       return Status::OK();
     }
 
