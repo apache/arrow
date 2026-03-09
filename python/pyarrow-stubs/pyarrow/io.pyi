@@ -15,8 +15,16 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Placeholder stub - complete annotations in future PR."""
+"""Placeholder stub - complete annotations in future PR.
+
+At runtime, these symbols are provided by the pyarrow.lib C extension.
+"""
 
 from typing import Any
+
+
+class Buffer:
+    ...
+
 
 def __getattr__(name: str) -> Any: ...
