@@ -92,6 +92,14 @@ classdef Field < matlab.mixin.CustomDisplay
     end
 
     methods (Access=protected)
+        function header = getHeader(obj)
+            import arrow.internal.display.getClassNameForDisplay
+
+            fullClassName = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            className = getClassNameForDisplay(fullClassName);
+            header = "  " + className + " with properties:" + newline;
+        end
+
         function groups = getPropertyGroups(~)
             targets = ["Name", "Type"];
             groups = matlab.mixin.util.PropertyGroup(targets);

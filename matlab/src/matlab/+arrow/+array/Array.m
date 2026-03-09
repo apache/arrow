@@ -82,13 +82,13 @@ classdef (Abstract) Array < matlab.mixin.CustomDisplay & ...
 
     methods (Access=protected)
         function header = getHeader(obj)
-            name = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            fullClassName = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
             numElements = obj.NumElements;
             % TODO: Add NumValid and NumNull as properties to Array to
             % avoid materializing the Valid property. This will improve
             % performance for large arrays.
             numNulls = nnz(~obj.Valid);
-            header = arrow.array.internal.display.getHeader(name, numElements, numNulls);
+            header = arrow.array.internal.display.getHeader(fullClassName, numElements, numNulls);
         end
 
         function displayScalarObject(obj)

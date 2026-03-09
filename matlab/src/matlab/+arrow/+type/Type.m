@@ -73,7 +73,42 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
 
     methods (Sealed, Access = protected)
         function header = getHeader(obj)
-            header = getHeader@matlab.mixin.CustomDisplay(obj);
+            import arrow.internal.display.getClassNameForDisplay
+            import arrow.internal.display.makeLinkString
+            import arrow.internal.display.makeDimensionString
+
+            if isempty(obj)
+                fullClassName = "arrow.type.Type";
+                typeLink = getClassNameForDisplay(fullClassName);
+                dimensionString = makeDimensionString(size(obj));
+                header = "  " + dimensionString + " " + typeLink + " array with properties:" + newline;
+            elseif isscalar(obj)
+                fullClassName = string(class(obj));
+                typeLink = getClassNameForDisplay(fullClassName);
+                header = "  " + typeLink + " with properties:" + newline;
+            else
+                dimensionString = makeDimensionString(size(obj));
+                classNames = arrayfun(@(x) string(class(x)), obj);
+                uniqueClasses = unique(classNames);
+                if numel(uniqueClasses) == 1
+                    typeLink = getClassNameForDisplay(uniqueClasses(1));
+                    header = "  " + dimensionString + " " + typeLink + " array with properties:" + newline;
+                else
+                    heterogeneousLink = makeLinkString(HelpTarget="matlab.mixin.Heterogeneous", Text="heterogeneous", BoldFont=false);
+                    baseClassName = string(class(obj));
+                    baseClassLink = getClassNameForDisplay(baseClassName, BoldFont=true);
+                    typeLinkParts = strings(size(uniqueClasses));
+                    for ii = 1:numel(uniqueClasses)
+                        c = uniqueClasses(ii);
+                        parts = split(c, ".");
+                        shortName = parts(end);
+                        typeLinkParts(ii) = makeLinkString(HelpTarget=c, Text=shortName, BoldFont=false);
+                    end
+                    typeLinksStr = join(typeLinkParts, ", ");
+                    header = "  " + dimensionString + " " + heterogeneousLink + " " + baseClassLink + ...
+                        " (" + typeLinksStr + ") array with properties:" + newline;
+                end
+            end
         end
  
         function groups = getPropertyGroups(obj)
