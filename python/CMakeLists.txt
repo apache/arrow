@@ -1025,3 +1025,31 @@ if(PYARROW_BUILD_PARQUET)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
 endif()
+
+#
+# Type stubs with docstring injection
+#
+set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+  install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
+          DESTINATION "."
+          FILES_MATCHING
+          PATTERN "*.pyi")
+
+  if(DEFINED SKBUILD_STATE
+     AND SKBUILD_STATE STREQUAL "wheel"
+     AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    install(CODE "
+      execute_process(
+        COMMAND \"${Python3_EXECUTABLE}\"
+                \"${CMAKE_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+                \"${CMAKE_INSTALL_PREFIX}\"
+                \"${CMAKE_SOURCE_DIR}\"
+        RESULT_VARIABLE _pyarrow_stub_docstrings_result
+      )
+      if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
+        message(WARNING \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+      endif()
+    ")
+  endif()
+endif()
