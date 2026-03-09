@@ -222,7 +222,7 @@ if [ "${ARROW_FUZZING}" == "ON" ]; then
     "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" arrow-ipc-tensor-stream/*-testcase-*
     if [ "${ARROW_PARQUET}" == "ON" ]; then
       "${binary_output_dir}/parquet-arrow-fuzz" parquet/fuzzing/*-testcase-*
-      # TODO replay encoding regression files when we have some
+      "${binary_output_dir}/parquet-encoding-fuzz" parquet/encoding-fuzzing/*-testcase-*
     fi
     "${binary_output_dir}/arrow-csv-fuzz" csv/fuzzing/*-testcase-*
     popd
