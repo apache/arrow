@@ -16,22 +16,18 @@
 # under the License.
 
 import datetime as dt  # noqa: F401
-import sys
 
 from collections.abc import Mapping, Sequence, Iterable, Iterator
 from decimal import Decimal  # noqa: F401
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
-
 from typing import Any, Generic, Literal
 
 import numpy as np
 import pandas as pd
 
-from pyarrow._stubs_typing import SupportArrowSchema
+from typing_extensions import Self, TypeVar, deprecated
+
+from pyarrow._stubs_typing import SupportArrowSchema, TimeUnit
+from pyarrow.io import Buffer
 from pyarrow.lib import (  # noqa: F401
     Array,
     ChunkedArray,
@@ -40,11 +36,7 @@ from pyarrow.lib import (  # noqa: F401
     MonthDayNano,
     Table,
 )
-from typing_extensions import TypeVar, deprecated
-
-from .io import Buffer
-from .scalar import ExtensionScalar
-from ._stubs_typing import TimeUnit
+from pyarrow.scalar import ExtensionScalar
 
 class _Weakrefable:
     ...
@@ -226,7 +218,12 @@ class DurationType(_BasicDataType[dt.timedelta], Generic[_Unit]):
     def unit(self) -> _Unit: ...
 
 
-class FixedSizeBinaryType(_BasicDataType[Decimal]):
+_FixedSizeBinaryAsPyType = TypeVar("_FixedSizeBinaryAsPyType", default=bytes)
+
+
+class FixedSizeBinaryType(
+    _BasicDataType[_FixedSizeBinaryAsPyType], Generic[_FixedSizeBinaryAsPyType]
+):
     ...
 
 
@@ -234,7 +231,7 @@ _Precision = TypeVar("_Precision", default=Any)
 _Scale = TypeVar("_Scale", default=Any)
 
 
-class Decimal32Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
+class Decimal32Type(FixedSizeBinaryType[Decimal], Generic[_Precision, _Scale]):
     @property
     def precision(self) -> _Precision: ...
 
@@ -242,7 +239,7 @@ class Decimal32Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
     def scale(self) -> _Scale: ...
 
 
-class Decimal64Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
+class Decimal64Type(FixedSizeBinaryType[Decimal], Generic[_Precision, _Scale]):
     @property
     def precision(self) -> _Precision: ...
 
@@ -250,7 +247,7 @@ class Decimal64Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
     def scale(self) -> _Scale: ...
 
 
-class Decimal128Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
+class Decimal128Type(FixedSizeBinaryType[Decimal], Generic[_Precision, _Scale]):
     @property
     def precision(self) -> _Precision: ...
 
@@ -258,7 +255,7 @@ class Decimal128Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
     def scale(self) -> _Scale: ...
 
 
-class Decimal256Type(FixedSizeBinaryType, Generic[_Precision, _Scale]):
+class Decimal256Type(FixedSizeBinaryType[Decimal], Generic[_Precision, _Scale]):
     @property
     def precision(self) -> _Precision: ...
 
@@ -491,7 +488,7 @@ def unregister_extension_type(type_name: str) -> None: ...
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
     def __init__(
         self, __arg0__: Mapping[str | bytes, str | bytes]
-        | Iterable[tuple[str, str]]
+        | Iterable[tuple[str | bytes, str | bytes]]
         | KeyValueMetadata
         | None = None, **kwargs: str
     ) -> None: ...
@@ -500,9 +497,9 @@ class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
 
     def __len__(self) -> int: ...
 
-    def __contains__(self, /, __key: object) -> bool: ...  # type: ignore[override]
+    def __contains__(self, /, __key: object) -> bool: ...
 
-    def __getitem__(self, /, __key: Any) -> Any: ...  # type: ignore[override]
+    def __getitem__(self, /, __key: Any) -> Any: ...
 
     def __iter__(self) -> Iterator[bytes]: ...
 
@@ -636,7 +633,7 @@ def unify_schemas(
 
 def field(
     name: SupportArrowSchema | str | Any, type: _DataTypeT | str | None = None,
-    nullable: bool = ...,
+    nullable: bool = True,
     metadata: dict[Any, Any] | None = None
 ) -> Field[_DataTypeT] | Field[Any]: ...
 
@@ -702,20 +699,20 @@ def float32() -> Float32Type: ...
 def float64() -> Float64Type: ...
 
 
-def decimal32(precision: _Precision, scale: _Scale |
-              None = None) -> Decimal32Type[_Precision, _Scale | Literal[0]]: ...
+def decimal32(precision: _Precision,
+              scale: _Scale | Literal[0] = 0) -> Decimal32Type[_Precision, _Scale | Literal[0]]: ...
 
 
-def decimal64(precision: _Precision, scale: _Scale |
-              None = None) -> Decimal64Type[_Precision, _Scale | Literal[0]]: ...
+def decimal64(precision: _Precision,
+              scale: _Scale | Literal[0] = 0) -> Decimal64Type[_Precision, _Scale | Literal[0]]: ...
 
 
-def decimal128(precision: _Precision, scale: _Scale |
-               None = None) -> Decimal128Type[_Precision, _Scale | Literal[0]]: ...
+def decimal128(precision: _Precision,
+               scale: _Scale | Literal[0] = 0) -> Decimal128Type[_Precision, _Scale | Literal[0]]: ...
 
 
-def decimal256(precision: _Precision, scale: _Scale |
-               None = None) -> Decimal256Type[_Precision, _Scale | Literal[0]]: ...
+def decimal256(precision: _Precision,
+               scale: _Scale | Literal[0] = 0) -> Decimal256Type[_Precision, _Scale | Literal[0]]: ...
 
 
 def string() -> StringType: ...
@@ -724,7 +721,7 @@ def string() -> StringType: ...
 utf8 = string
 
 
-def binary(length: Literal[-1] | int = ...) -> BinaryType | FixedSizeBinaryType: ...
+def binary(length: Literal[-1] | int = ...) -> BinaryType | FixedSizeBinaryType[bytes]: ...
 
 
 def large_binary() -> LargeBinaryType: ...
@@ -764,8 +761,8 @@ def large_list_view(
 def map_(
     key_type: _K | Field | str | None = None,
     item_type: _ValueT | Field | str | None = None,
-    keys_sorted: bool | None = None
-) -> MapType[_K, _ValueT, Literal[False]]: ...
+    keys_sorted: _Ordered | None = None
+) -> MapType[_K, _ValueT, _Ordered]: ...
 
 
 def dictionary(
