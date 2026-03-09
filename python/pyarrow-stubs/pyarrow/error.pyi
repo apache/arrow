@@ -15,12 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-import sys
-
-if sys.version_info >= (3, 11):
-    from typing import Self
-else:
-    from typing_extensions import Self
+from typing_extensions import Self
 
 
 class ArrowException(Exception):
@@ -80,7 +75,6 @@ have_signal_refcycle: bool
 class SignalStopHandler:
     def __enter__(self) -> Self: ...
     def __exit__(self, exc_type, exc_value, exc_tb) -> None: ...
-    def __dealloc__(self) -> None: ...
     @property
     def stop_token(self) -> StopToken: ...
 
