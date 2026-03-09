@@ -282,6 +282,11 @@ message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
 message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
 
 include(UseCython)
+
+if(CYTHON_VERSION VERSION_LESS "3.1")
+  message(FATAL_ERROR "Please update your Cython version. Supported Cython >= 3.1, found ${CYTHON_VERSION}"
+  )
+endif()
 message(STATUS "Found Cython version: ${CYTHON_VERSION}")
 
 # Arrow C++ and set default PyArrow build options
@@ -352,7 +357,19 @@ set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 
 # Write out compile-time configuration constants
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+if(CMAKE_BUILD_TYPE)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" UPPERCASE_PYBUILD_TYPE)
+else()
+  # For multi-config generators (XCode and Visual Studio),
+  # CMAKE_BUILD_TYPE is not set at configure time.
+  # scikit-build-core does the right thing with cmake.build-type and
+  # adds the corresponding --config but does not populate CMAKE_BUILD_TYPE
+  # for those. On this specific case, we set the default to "RELEASE".
+  # The actual build type is injected through target compile definitions
+  # for multi-config generators.
+  set(UPPERCASE_PYBUILD_TYPE "RELEASE")
+endif()
+
 configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
                "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
 
@@ -501,6 +518,9 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+if(CMAKE_CONFIGURATION_TYPES)
+  target_compile_definitions(arrow_python PRIVATE PYARROW_BUILD_TYPE="$<CONFIG>")
+endif()
 set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
                                               SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
