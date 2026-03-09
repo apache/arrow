@@ -148,6 +148,10 @@ constexpr bool IsSse2 = std::is_base_of_v<xsimd::sse2, Arch>;
 template <typename Arch>
 constexpr bool IsAvx2 = std::is_base_of_v<xsimd::avx2, Arch>;
 
+/// Whether we are compiling for the Neon or above in the arm64 family.
+template <typename Arch>
+constexpr bool IsNeon = std::is_base_of_v<xsimd::neon, Arch>;
+
 /// Wrapper around ``xsimd::bitwise_lshift`` with optimizations for non implemented sizes.
 //
 // We replace the variable left shift by a variable multiply with a power of two.
@@ -194,6 +198,15 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
     const auto shifted1 = left_shift(batch16 & 0xFF00, kShifts1);
 
     return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
+  }
+
+  // TODO(xsimd) bug fixed likely in xsimd>14.0.0
+  // https://github.com/xtensor-stack/xsimd/pull/1266
+  if constexpr (IsNeon<Arch>) {
+    using SInt = std::make_signed_t<Int>;
+    constexpr auto signed_shifts =
+        xsimd::batch_constant<SInt, Arch, static_cast<SInt>(kShifts)...>();
+    return xsimd::kernel::bitwise_lshift(batch, signed_shifts.as_batch(), Arch{});
   }
 
   return batch << shifts;
@@ -250,6 +263,15 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
         xsimd::make_batch_constant<Int, kMaxRShift, Arch>() - shifts;
 
     return xsimd::bitwise_rshift<kMaxRShift>(left_shift(batch, kLShifts));
+  }
+
+  // TODO(xsimd) bug fixed likely in xsimd>14.0.0
+  // https://github.com/xtensor-stack/xsimd/pull/1266
+  if constexpr (IsNeon<Arch>) {
+    using SInt = std::make_signed_t<Int>;
+    constexpr auto signed_shifts =
+        xsimd::batch_constant<SInt, Arch, static_cast<SInt>(kShifts)...>();
+    return xsimd::kernel::bitwise_rshift(batch, signed_shifts.as_batch(), Arch{});
   }
 
   return batch >> shifts;
