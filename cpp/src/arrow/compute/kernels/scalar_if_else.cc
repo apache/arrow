@@ -729,6 +729,7 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
                               (static_cast<int64_t>(right_offsets[right.length]) -
                                static_cast<int64_t>(right_offsets[0]));
 
+    // output a nicer error message if the heuristic overflows max capacity
     ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
@@ -773,6 +774,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc =
         left_size * cond.length + right_offsets[right.length] - right_offsets[0];
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -813,6 +816,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc =
         right_size * cond.length + left_offsets[left.length] - left_offsets[0];
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
