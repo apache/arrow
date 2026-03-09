@@ -62,6 +62,7 @@ FunctionHolderMakerRegistry::MakerMap FunctionHolderMakerRegistry::DefaultHolder
       {"to_date", HolderMaker<ToDateHolder>},
       {"random", HolderMaker<RandomGeneratorHolder>},
       {"rand", HolderMaker<RandomGeneratorHolder>},
+      {"rand_integer", HolderMaker<RandomIntegerGeneratorHolder>},
       {"regexp_replace", HolderMaker<ReplaceHolder>},
       {"regexp_extract", HolderMaker<ExtractHolder>},
       {"castintervalday", HolderMaker<IntervalDaysHolder>},
