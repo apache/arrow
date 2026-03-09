@@ -21,6 +21,8 @@
 #include <gmock/gmock.h>
 #include <gtest/gtest.h>
 
+#include <limits>
+
 #include "arrow/util/logging.h"
 #include "gandiva/execution_context.h"
 
@@ -525,6 +527,21 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
 
   out_str = gdv_fn_substring_index(ctx_ptr, "路学\\L", 8, "\\", 1, -1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "L");
+  EXPECT_FALSE(ctx.has_error());
+
+  // Large counts return full string when delimiter not found enough times
+  out_str = gdv_fn_substring_index(ctx_ptr, "a.b.c", 5, ".", 1, -1000, &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "a.b.c", 5, ".", 1,
+                                   std::numeric_limits<int32_t>::max(), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
+  EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "a.b.c", 5, ".", 1,
+                                   std::numeric_limits<int32_t>::min(), &out_len);
+  EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
   EXPECT_FALSE(ctx.has_error());
 }
 
