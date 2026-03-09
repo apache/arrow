@@ -25,6 +25,7 @@ import numpy as np
 
 from numpy.typing import NDArray
 
+from pyarrow import lib
 from pyarrow.lib import BooleanArray, IntegerArray, ChunkedArray
 
 ArrayLike: TypeAlias = Any
@@ -46,7 +47,6 @@ Compression: TypeAlias = Literal[
 NullEncoding: TypeAlias = Literal["mask", "encode"]
 NullSelectionBehavior: TypeAlias = Literal["drop", "emit_null"]
 TimeUnit: TypeAlias = Literal["s", "ms", "us", "ns"]
-from pyarrow import lib
 
 IntegerType: TypeAlias = (
     lib.Int8Type
@@ -82,23 +82,23 @@ SingleOrList: TypeAlias = list[_T] | _T
 
 
 class SupportEq(Protocol):
-    def __eq__(self, other) -> bool: ...
+    def __eq__(self, other: object) -> bool: ...
 
 
 class SupportLt(Protocol):
-    def __lt__(self, other) -> bool: ...
+    def __lt__(self, other: object) -> bool: ...
 
 
 class SupportGt(Protocol):
-    def __gt__(self, other) -> bool: ...
+    def __gt__(self, other: object) -> bool: ...
 
 
 class SupportLe(Protocol):
-    def __le__(self, other) -> bool: ...
+    def __le__(self, other: object) -> bool: ...
 
 
 class SupportGe(Protocol):
-    def __ge__(self, other) -> bool: ...
+    def __ge__(self, other: object) -> bool: ...
 
 
 FilterTuple: TypeAlias = (
@@ -140,7 +140,7 @@ class SupportArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> Any: ...
 
 
-class NullableCollection(Protocol[_V]):  # type: ignore[reportInvalidTypeVarUse]
+class NullableCollection(Protocol[_V]):
     def __iter__(self) -> Iterator[_V] | Iterator[_V | None]: ...
     def __len__(self) -> int: ...
     def __contains__(self, item: Any, /) -> bool: ...
