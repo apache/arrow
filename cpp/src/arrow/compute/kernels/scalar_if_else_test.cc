@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 
 #include <gtest/gtest.h>
@@ -606,6 +607,90 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
   CheckIfElseOutput(cond, left, right, expected_data);
+}
+
+Result<std::shared_ptr<Array>> MakeBinaryArrayWithData(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data_buffer) {
+  // Make a (large-)binary array with a single item backed by the given data
+  const auto data_length = data_buffer->size();
+  if (type->id() == Type::STRING || type->id() == Type::BINARY) {
+    if (data_length > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("data_length exceeds int32 offset range");
+    }
+    auto offsets =
+        Buffer::FromVector(std::vector<int32_t>{0, static_cast<int32_t>(data_length)});
+    return MakeArray(
+        ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(data_buffer)}));
+  }
+  if (type->id() != Type::LARGE_STRING && type->id() != Type::LARGE_BINARY) {
+    return Status::TypeError("unsupported var-binary type for helper: ", *type);
+  }
+  auto offsets = Buffer::FromVector(std::vector<int64_t>{0, data_length});
+  return MakeArray(
+      ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(data_buffer)}));
+}
+
+void CheckIfElseCapacityBehavior(const Datum& cond, const Datum& left, const Datum& right,
+                                 bool expect_capacity_error) {
+  auto maybe_out = CallFunction("if_else", {cond, left, right});
+  if (expect_capacity_error) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        CapacityError,
+        ::testing::HasSubstr("Result may exceed offset capacity for this type"),
+        maybe_out);
+  } else {
+    ASSERT_OK(maybe_out);
+  }
+}
+
+TEST_F(TestIfElseKernel, LARGE_MEMORY_TEST(IfElseBinaryAAANear2GB)) {
+  // See GH-49310.
+  // `kPerSide` is below the capacity limit for a single binary array,
+  // but trying to allocate twice `kPerSide` would overflow the capacity limit.
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> large_buffer, AllocateBuffer(kPerSide));
+
+  ASSERT_OK_AND_ASSIGN(auto binary_left, MakeBinaryArrayWithData(binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto binary_right,
+                       MakeBinaryArrayWithData(binary(), large_buffer));
+  // The if_else heuristic for preallocation is too crude and fails with
+  // a capacity error as it would like to pre-allocate more than 2GiB
+  // of binary data.
+  CheckIfElseCapacityBehavior(cond, binary_left, binary_right,
+                              /*expect_capacity_error=*/true);
+  ASSERT_OK_AND_ASSIGN(auto large_binary_left,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto large_binary_right,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, large_binary_left, large_binary_right,
+                              /*expect_capacity_error=*/false);
+}
+
+TEST_F(TestIfElseKernel, LARGE_MEMORY_TEST(IfElseBinaryASANear2GB)) {
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> large_buffer, AllocateBuffer(kPerSide));
+  ASSERT_OK_AND_ASSIGN(auto binary_array,
+                       MakeBinaryArrayWithData(binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto binary_scalar, MakeScalar(binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, binary_scalar, binary_array,
+                              /*expect_capacity_error=*/true);
+  CheckIfElseCapacityBehavior(cond, binary_array, binary_scalar,
+                              /*expect_capacity_error=*/true);
+
+  ASSERT_OK_AND_ASSIGN(auto large_binary_array,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto large_binary_scalar,
+                       MakeScalar(large_binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, large_binary_scalar, large_binary_array,
+                              /*expect_capacity_error=*/false);
+  CheckIfElseCapacityBehavior(cond, large_binary_array, large_binary_scalar,
+                              /*expect_capacity_error=*/false);
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinary) {
