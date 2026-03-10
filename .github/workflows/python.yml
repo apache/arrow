@@ -201,6 +201,12 @@ jobs:
           brew uninstall pkg-config@0.29.2 || :
           brew bundle --file=cpp/Brewfile
 
+          # protobuf@33 is keg-only, so make it visible to CMake and pkg-config.
+          export PROTOBUF_PREFIX="$(brew --prefix protobuf@33)"
+          echo "PKG_CONFIG_PATH=${PROTOBUF_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
+          echo "CMAKE_PREFIX_PATH=${PROTOBUF_PREFIX}:${ARROW_HOME}:${CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
+          echo "${PROTOBUF_PREFIX}/bin" >> "$GITHUB_PATH"
+
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt
