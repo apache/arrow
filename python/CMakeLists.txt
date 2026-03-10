@@ -1042,9 +1042,9 @@ if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
     install(CODE "
       execute_process(
         COMMAND \"${Python3_EXECUTABLE}\"
-                \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+                \"${CMAKE_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
                 \"${CMAKE_INSTALL_PREFIX}\"
-                \"${CMAKE_CURRENT_SOURCE_DIR}\"
+                \"${CMAKE_SOURCE_DIR}\"
         RESULT_VARIABLE _pyarrow_stub_docstrings_result
       )
       if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
