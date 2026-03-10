@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <span>
+
 #include "parquet/encryption/internal_file_decryptor.h"
 
 #include "arrow/util/logging.h"

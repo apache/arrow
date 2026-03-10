@@ -22,6 +22,7 @@
 #include <memory>
 #include <ostream>
 #include <random>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>

@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <span>
+
 #include "arrow/util/base64.h"
 #include "arrow/util/secure_string.h"
 

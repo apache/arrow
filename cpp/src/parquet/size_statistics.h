@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <iosfwd>
 #include <optional>
+#include <span>
 #include <vector>
 
 #include "parquet/platform.h"

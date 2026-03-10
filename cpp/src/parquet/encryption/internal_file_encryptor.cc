@@ -15,10 +15,12 @@
 // specific language governing permissions and limitations
 // under the License.
 
-#include "parquet/encryption/internal_file_encryptor.h"
+#include <span>
+
 #include "arrow/util/secure_string.h"
 #include "parquet/encryption/encryption.h"
 #include "parquet/encryption/encryption_internal.h"
+#include "parquet/encryption/internal_file_encryptor.h"
 
 using arrow::util::SecureString;
 

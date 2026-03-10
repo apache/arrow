@@ -21,6 +21,7 @@
 #include <array>
 #include <numeric>
 #include <ostream>
+#include <span>
 #include <string_view>
 #include <vector>
 

@@ -21,8 +21,8 @@
 
 #include <cstdint>
 #include <limits>
-
 #include <memory>
+#include <span>
 #include <sstream>
 #include <string>
 #include <type_traits>

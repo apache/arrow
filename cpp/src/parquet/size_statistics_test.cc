@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <ostream>
 #include <random>
-#include <span>
 
 #include "arrow/buffer.h"
 #include "arrow/table.h"

@@ -17,7 +17,6 @@
 
 #pragma once
 
-#include <span>
 #include <string_view>
 #include <utility>
 
