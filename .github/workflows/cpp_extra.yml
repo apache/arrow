@@ -110,7 +110,7 @@ jobs:
           - image: ubuntu-cpp
             run-options: >-
               -e ARROW_LARGE_MEMORY_TESTS=ON
-            runs-on: "runs-on=${{ github.run_id }}/family=x8i.xlarge/spot=capacity-optimized"
+            runs-on: "runs-on=${{ github.run_id }}/family=x8i.xlarge"
             title: AMD64 Ubuntu Large Memory Tests
           - image: conda-cpp
             run-options: >-
