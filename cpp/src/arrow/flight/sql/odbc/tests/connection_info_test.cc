@@ -33,6 +33,12 @@ class ConnectionInfoMockTest : public FlightSQLODBCMockTestBase {};
 using TestTypes = ::testing::Types<ConnectionInfoMockTest, FlightSQLODBCRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionInfoTest, TestTypes);
 
+template <typename T>
+class ConnectionInfoHandleTest : public T {};
+using TestTypesHandle = ::testing::Types<FlightSQLOdbcEnvConnHandleMockTestBase,
+                                         FlightSQLOdbcEnvConnHandleRemoteTestBase>;
+TYPED_TEST_SUITE(ConnectionInfoHandleTest, TestTypesHandle);
+
 namespace {
 // Helper Functions
 
@@ -583,14 +589,19 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAlterTable) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-#ifdef DISABLE_TEST
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogLocation) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoCatalogLocation) {
+  // GH-49482 TODO: resolve inconsitent return value for SQL_CATALOG_LOCATION and change
+  // test type to `ConnectionInfoTest`
+  this->ConnectWithString(this->GetConnectionString());
+
   SQLUSMALLINT value;
   GetInfo(conn, SQL_CATALOG_LOCATION, &value);
 
   EXPECT_EQ(static_cast<SQLUSMALLINT>(0), value);
+
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
-#endif
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoCatalogName) {
   SQLWCHAR value[kOdbcBufferSize] = L"";
@@ -711,21 +722,33 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
 }
 
-#ifdef DISABLE_TEST
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropSchema) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
+  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_SCHEMA and change test
+  // type to `ConnectionInfoTest`
+  this->ConnectWithString(this->GetConnectionString());
+
   SQLUINTEGER value;
   GetInfo(conn, SQL_DROP_SCHEMA, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
 
-TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTable) {
+TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropTable) {
+  // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_TABLE and change test
+  // type to `ConnectionInfoTest`
+  this->ConnectWithString(this->GetConnectionString());
+
   SQLUINTEGER value;
   GetInfo(conn, SQL_DROP_TABLE, &value);
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(0), value);
+
+  EXPECT_EQ(SQL_SUCCESS, SQLDisconnect(conn))
+      << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
 }
-#endif
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropTranslation) {
   SQLUINTEGER value;
