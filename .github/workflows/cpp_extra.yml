@@ -107,6 +107,11 @@ jobs:
           - image: alpine-linux-cpp
             runs-on: ubuntu-latest
             title: AMD64 Alpine Linux
+          - image: ubuntu-cpp
+            run-options: >-
+              -e ARROW_LARGE_MEMORY_TESTS=ON
+            runs-on: "runs-on=${{ github.run_id }}/family=x8i.xlarge/spot=capacity-optimized"
+            title: AMD64 Ubuntu Large Memory Tests
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
