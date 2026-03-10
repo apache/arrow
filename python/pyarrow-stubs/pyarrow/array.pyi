@@ -545,7 +545,8 @@ class ListViewArray(BaseListArray[ListViewScalar[_DataTypeT]]):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int32Array,
+        offsets: Int32Array | list[int] | list[int | None],
+        sizes: Int32Array | list[int] | list[int | None],
         values: Array[Scalar[_DataTypeT]] | Array,
         *,
         type: _DataTypeT | None = None,
@@ -567,7 +568,8 @@ class LargeListViewArray(BaseListArray[LargeListScalar[_DataTypeT]]):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int64Array,
+        offsets: Int64Array | list[int] | list[int | None],
+        sizes: Int64Array | list[int] | list[int | None],
         values: Array[Scalar[_DataTypeT]] | Array,
         *,
         type: _DataTypeT | None = None,
@@ -597,7 +599,7 @@ class FixedSizeListArray(BaseListArray[FixedSizeListScalar[_DataTypeT, _Size]]):
     ) -> FixedSizeListArray[_DataTypeT, _Size | None]: ...
 
     @property
-    def values(self) -> BaseListArray[ListScalar[_DataTypeT]]: ...
+    def values(self) -> Array: ...
 
 
 _MapKeyT = TypeVar("_MapKeyT", bound=_BasicDataType)
@@ -608,10 +610,9 @@ class MapArray(BaseListArray[MapScalar[_MapKeyT, _MapItemT]]):
     @classmethod
     def from_arrays(
         cls,
-        offsets: Int64Array | list[int] | None,
-        keys: Array[Scalar[_MapKeyT]] | np.ndarray | list | None = None,
-        items: Array[Scalar[_MapItemT]] | np.ndarray | list | None = None,
-        values: Array | DataType | None = None,
+        offsets: Int32Array | list[int] | list[int | None],
+        keys: Array[Scalar[_MapKeyT]] | np.ndarray | list,
+        items: Array[Scalar[_MapItemT]] | np.ndarray | list,
         *,
         type: DataType | None = None,
         pool: MemoryPool | None = None,
@@ -676,7 +677,7 @@ class LargeStringArray(Array[LargeStringScalar]):
         null_bitmap: Buffer | None = None,
         null_count: int | None = -1,
         offset: int | None = 0,
-    ) -> StringArray: ...
+    ) -> LargeStringArray: ...
 
 
 class StringViewArray(Array[StringViewScalar]):
