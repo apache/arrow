@@ -86,7 +86,8 @@ module WriterHelper
     when Arrow::FixedSizeBinaryDataType
       ArrowFormat::FixedSizeBinaryType.new(red_arrow_type.byte_width)
     when Arrow::MapDataType
-      ArrowFormat::MapType.new(convert_field(red_arrow_type.field))
+      ArrowFormat::MapType.new(convert_field(red_arrow_type.field),
+                               red_arrow_type.keys_sorted?)
     when Arrow::ListDataType
       ArrowFormat::ListType.new(convert_field(red_arrow_type.field))
     when Arrow::LargeListDataType
@@ -110,10 +111,14 @@ module WriterHelper
       end
       ArrowFormat::SparseUnionType.new(fields, red_arrow_type.type_codes)
     when Arrow::DictionaryDataType
+      @dictionary_id ||= 0
+      dictionary_id = @dictionary_id
+      @dictionary_id += 1
       index_type = convert_type(red_arrow_type.index_data_type)
-      type = convert_type(red_arrow_type.value_data_type)
-      ArrowFormat::DictionaryType.new(index_type,
-                                      type,
+      value_type = convert_type(red_arrow_type.value_data_type)
+      ArrowFormat::DictionaryType.new(dictionary_id,
+                                      index_type,
+                                      value_type,
                                       red_arrow_type.ordered?)
     else
       raise "Unsupported type: #{red_arrow_type.inspect}"
@@ -122,17 +127,9 @@ module WriterHelper
 
   def convert_field(red_arrow_field)
     type = convert_type(red_arrow_field.data_type)
-    if type.is_a?(ArrowFormat::DictionaryType)
-      @dictionary_id ||= 0
-      dictionary_id = @dictionary_id
-      @dictionary_id += 1
-    else
-      dictionary_id = nil
-    end
     ArrowFormat::Field.new(red_arrow_field.name,
                            type,
                            nullable: red_arrow_field.nullable?,
-                           dictionary_id: dictionary_id,
                            metadata: red_arrow_field.metadata)
   end
 
@@ -930,13 +927,13 @@ end
 module WriterDictionaryDeltaTests
   def build_schema(value_type)
     index_type = ArrowFormat::Int32Type.singleton
+    dictionary_id = 1
     ordered = false
-    type = ArrowFormat::DictionaryType.new(index_type,
+    type = ArrowFormat::DictionaryType.new(dictionary_id,
+                                           index_type,
                                            value_type,
                                            ordered)
-    field = ArrowFormat::Field.new("value",
-                                   type,
-                                   dictionary_id: 1)
+    field = ArrowFormat::Field.new("value", type)
     ArrowFormat::Schema.new([field])
   end
 

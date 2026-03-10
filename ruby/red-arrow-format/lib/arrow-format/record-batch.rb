@@ -22,11 +22,17 @@ module ArrowFormat
 
     attr_reader :schema
     attr_reader :n_rows
+    alias_method :size, :n_rows
+    alias_method :length, :n_rows
     attr_reader :columns
     def initialize(schema, n_rows, columns)
       @schema = schema
       @n_rows = n_rows
       @columns = columns
+    end
+
+    def empty?
+      @n_rows.zero?
     end
 
     def to_h

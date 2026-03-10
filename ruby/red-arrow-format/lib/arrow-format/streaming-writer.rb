@@ -40,9 +40,9 @@ module ArrowFormat
 
     def write_record_batch(record_batch)
       record_batch.schema.fields.each_with_index do |field, i|
-        next if field.dictionary_id.nil?
+        next unless field.type.is_a?(DictionaryType)
         dictionary_array = record_batch.columns[i]
-        write_dictionary(field.dictionary_id, dictionary_array)
+        write_dictionary(field.type.id, dictionary_array)
       end
 
       write_record_batch_based_message(record_batch,
