@@ -210,7 +210,6 @@ utility_test_srcs = [
     'reflection_test.cc',
     'rows_to_batches_test.cc',
     'small_vector_test.cc',
-    'span_test.cc',
     'stl_util_test.cc',
     'string_test.cc',
     'tdigest_test.cc',

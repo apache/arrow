@@ -44,8 +44,7 @@ class PARQUET_EXPORT Encryptor {
 
   [[nodiscard]] int32_t CiphertextLength(int64_t plaintext_len) const;
 
-  int32_t Encrypt(::arrow::util::span<const uint8_t> plaintext,
-                  ::arrow::util::span<uint8_t> ciphertext);
+  int32_t Encrypt(std::span<const uint8_t> plaintext, std::span<uint8_t> ciphertext);
 
   bool EncryptColumnMetaData(
       bool encrypted_footer,

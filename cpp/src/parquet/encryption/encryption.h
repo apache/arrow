@@ -95,7 +95,7 @@ class PARQUET_EXPORT KeyAccessDeniedException : public ParquetException {
       : ParquetException(columnPath.c_str()) {}
 };
 
-inline ::arrow::util::span<const uint8_t> str2span(const std::string& str) {
+inline std::span<const uint8_t> str2span(const std::string& str) {
   if (str.empty()) {
     return {};
   }
