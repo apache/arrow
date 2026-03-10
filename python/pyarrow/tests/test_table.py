@@ -1207,7 +1207,8 @@ def test_recordbatch_to_tensor_null():
         batch.to_tensor()
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
-    x = np.column_stack([arr1, arr2]).astype(np.float64, order="F")  # type: ignore[no-matching-overload]
+    x = np.column_stack([arr1, arr2]).astype(
+        np.float64, order="F")  # type: ignore[no-matching-overload]
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)
@@ -1241,7 +1242,8 @@ def test_recordbatch_to_tensor_null():
     )
 
     result = batch.to_tensor(null_to_nan=True, row_major=False)
-    x = np.column_stack([arr1, arr2]).astype(np.float32, order="F")  # type: ignore[no-matching-overload]
+    x = np.column_stack([arr1, arr2]).astype(
+        np.float32, order="F")  # type: ignore[no-matching-overload]
     expected = pa.Tensor.from_numpy(x)
 
     np.testing.assert_equal(result.to_numpy(), x)

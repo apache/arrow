@@ -325,11 +325,11 @@ def test_asarray():
 
     arr = pa.array(range(4))
 
-    # The iterator interface gives back an array of Int64Type's
+    # The iterator interface gives back an array of Int64Scalar's
     np_arr = np.asarray([_ for _ in arr])
     assert np_arr.tolist() == [0, 1, 2, 3]
     assert np_arr.dtype == np.dtype('O')
-    assert isinstance(np_arr[0], pa.lib.Int64Type)
+    assert isinstance(np_arr[0], pa.Int64Scalar)
 
     # Calling with the arrow array gives back an array with 'int64' dtype
     np_arr = np.asarray(arr)
