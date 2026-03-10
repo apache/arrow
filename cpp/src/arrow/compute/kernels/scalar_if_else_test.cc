@@ -26,6 +26,7 @@
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -626,6 +627,28 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
                        CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
   ASSERT_OK(result_aas.make_array()->ValidateFull());
   AssertArraysEqual(*expected, *result_aas.make_array(), true);
+
+  // edge case: offset=0 but offsets[0] != 0 (spec-valid, manually constructed)
+  using OffsetType = typename TypeTraits<TypeParam>::OffsetType::c_type;
+  std::vector<OffsetType> raw_offsets = {8, 8, 9, 10};
+  std::string raw_data(8, 'x');
+  raw_data += "xx";
+  auto offsets_buf = Buffer::Wrap(raw_offsets.data(), raw_offsets.size());
+  auto data_buf =
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(raw_data.data()),
+                               static_cast<int64_t>(raw_data.size()));
+  auto array_data = ArrayData::Make(type, /*length=*/3, {nullptr, offsets_buf, data_buf},
+                                    /*null_count=*/1, /*offset=*/0);
+  std::vector<uint8_t> validity_bytes = {0, 1, 1};
+  ASSERT_OK_AND_ASSIGN(
+      array_data->buffers[0],
+      arrow::internal::BytesToBits(validity_bytes, arrow::default_memory_pool()));
+  auto arr = MakeArray(array_data);
+  ASSERT_OK(arr->ValidateFull());
+  ASSERT_OK_AND_ASSIGN(auto result_nonzero,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), arr}));
+  ASSERT_OK(result_nonzero.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_nonzero.make_array(), true);
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinary) {
