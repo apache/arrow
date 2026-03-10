@@ -132,15 +132,17 @@ popd
 @rem Build and import pyarrow
 pushd !ARROW_SOURCE!\python
 
+pip install build || exit /B 1
 pip install -r requirements-test.txt || exit /B 1
 
-set PYARROW_CMAKE_GENERATOR=%GENERATOR%
+set CMAKE_GENERATOR=%GENERATOR%
 set PYARROW_WITH_FLIGHT=1
 set PYARROW_WITH_PARQUET=1
 set PYARROW_WITH_PARQUET_ENCRYPTION=1
 set PYARROW_WITH_DATASET=1
 set PYARROW_TEST_CYTHON=OFF
-python setup.py build_ext --inplace --bundle-arrow-cpp bdist_wheel || exit /B 1
+set PYARROW_BUNDLE_ARROW_CPP=ON
+python -m build --sdist --wheel . --no-isolation || exit /B 1
 pytest pyarrow -v -s --enable-parquet || exit /B 1
 
 popd

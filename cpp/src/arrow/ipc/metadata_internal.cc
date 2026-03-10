@@ -390,7 +390,20 @@ Status ConcreteTypeFromFlatbuffer(flatbuf::Type type, const void* type_data,
         return Status::Invalid("Map's keys must be non-nullable");
       } else {
         auto map = static_cast<const flatbuf::Map*>(type_data);
-        *out = std::make_shared<MapType>(children[0], map->keysSorted());
+        // We always use "key"/"value"/"entries" field names instead
+        // of field names in FlatBuffers because the specification
+        // defines them:
+        //
+        // https://github.com/apache/arrow/blob/apache-arrow-23.0.1/format/Schema.fbs#L127-L130
+        //
+        //   In a field with Map type, the field has a child Struct
+        //   field, which then has two children: the key type and the
+        //   value type. The names of the child fields may be
+        //   respectively "entries", "key", and "value", but this is
+        //   not enforced.
+        *out = std::make_shared<MapType>(children[0]->type()->field(0)->WithName("key"),
+                                         children[0]->type()->field(1)->WithName("value"),
+                                         map->keysSorted());
       }
       return Status::OK();
     case flatbuf::Type::Type_FixedSizeList:
