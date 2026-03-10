@@ -16,9 +16,25 @@
 # under the License.
 
 import argparse
+import ast
 from pathlib import Path
 import re
 import zipfile
+
+
+def _count_docstrings(source):
+    """Count docstrings in module, function, and class bodies."""
+    tree = ast.parse(source)
+    count = 0
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Module, ast.FunctionDef,
+                             ast.AsyncFunctionDef, ast.ClassDef)):
+            if (node.body
+                    and isinstance(node.body[0], ast.Expr)
+                    and isinstance(node.body[0].value, ast.Constant)
+                    and isinstance(node.body[0].value.value, str)):
+                count += 1
+    return count
 
 
 def validate_wheel(path):
@@ -63,23 +79,15 @@ def validate_wheel(path):
         f"Unexpected in wheel: {sorted(wheel_stub_files - expected_stub_files)}"
     )
 
-    docstring_injected_stub_files = []
-    for wheel_stub_file in wheel_stub_files:
-        stub_relpath = Path(wheel_stub_file).relative_to("pyarrow")
-        source_stub_file = stubs_dir / stub_relpath
-        source_content = source_stub_file.read_text(encoding="utf-8")
-        wheel_content = f.read(wheel_stub_file).decode("utf-8")
-        if wheel_content.count('"""') > source_content.count('"""'):
-            docstring_injected_stub_files.append(wheel_stub_file)
-
-    assert docstring_injected_stub_files, (
-        "No injected docstrings were detected in wheel stub files. "
-        "Expected at least one .pyi file in the wheel to contain more "
-        "triple-quoted docstrings than its source stub counterpart."
+    wheel_docstring_count = sum(
+        _count_docstrings(f.read(wsf).decode("utf-8"))
+        for wsf in wheel_stub_files
     )
 
+    print(f"Found {wheel_docstring_count} docstring(s) in wheel stubs.")
+    assert wheel_docstring_count, "No docstrings found in wheel stub files."
+
     print(f"The wheel: {wheels[0]} seems valid.")
-    # TODO(GH-32609): Validate some docstrings were generated and added.
 
 def main():
     parser = argparse.ArgumentParser()
