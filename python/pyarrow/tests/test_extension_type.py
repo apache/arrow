@@ -1485,7 +1485,10 @@ def test_uuid_bytes_property_raises():
     with pytest.raises(RuntimeError, match="broken"):
         pa.scalar(bad)
 
-
+def test_array_from_mismatched_extension_scalar_type():
+    scalar = pa.scalar(b"1" * 16, type=ExampleUuidType())
+    with pytest.raises(TypeError):
+        pa.array([scalar], type=ExampleUuidType2())
 def test_array_from_extension_scalars():
     import datetime
     from decimal import Decimal
@@ -1535,7 +1538,12 @@ def test_array_from_extension_scalars():
                pa.scalar(None, type=uuid_type)]
     result = pa.array(scalars, type=uuid_type)
     assert result[0].is_valid and not result[1].is_valid
-
+    scalars = [
+        pa.ExtensionScalar.from_storage(uuid_type, b"0123456789abcdef"),
+        pa.ExtensionScalar.from_storage(uuid_type, None),
+    ]
+    result = pa.array(scalars, type=uuid_type)
+    assert result.to_pylist() == [UUID(bytes=b"0123456789abcdef"), None]
     # Type inference without explicit type
     u = uuid4()
     scalars = [pa.scalar(u, type=pa.uuid()), None]

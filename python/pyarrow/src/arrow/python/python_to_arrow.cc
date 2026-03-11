@@ -585,13 +585,13 @@ class PyConverter : public Converter<PyObject*, PyConversionOptions> {
 };
 
 // Helper function to unwrap extension scalar to its storage scalar
-const Scalar& GetStorageScalar(const Scalar& scalar) {
-  if (scalar.type->id() == Type::EXTENSION) {
-    return *checked_cast<const ExtensionScalar&>(scalar).value;
+Result<const Scalar*> GetStorageScalar(const Scalar& scalar) {
+  if (scalar.type->id() != Type::EXTENSION) {
+    return &scalar;
   }
-  return scalar;
+  const auto& extension_scalar = checked_cast<const ExtensionScalar&>(scalar);
+  return extension_scalar.value.get();
 }
-
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 
@@ -671,8 +671,9 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
       ARROW_RETURN_NOT_OK(
-          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
+          this->primitive_builder_->AppendScalar(*storage_scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
