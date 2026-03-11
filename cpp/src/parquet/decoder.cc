@@ -759,7 +759,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
     // We're going to decode `num_values - null_count` PLAIN values,
     // and each value has a 4-byte length header that doesn't count for the
     // Arrow binary data length.
-    int64_t estimated_data_length = len_ - 4 * (num_values - null_count);
+    int64_t estimated_data_length =
+        len_ - 4 * static_cast<int64_t>(num_values - null_count);
     if (ARROW_PREDICT_FALSE(estimated_data_length < 0)) {
       return Status::Invalid("Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
     }
