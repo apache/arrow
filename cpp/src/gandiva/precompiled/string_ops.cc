@@ -1966,6 +1966,22 @@ gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 actual_text_
   return return_char_length;
 }
 
+// Fill a buffer with repeated fill_text using O(log n) doubling strategy
+FORCE_INLINE
+void fill_buffer_with_pattern(gdv_binary dest, gdv_int32 total_fill_bytes,
+                              const char* fill_text, gdv_int32 fill_text_len) {
+  gdv_int32 initial_copy = std::min(fill_text_len, total_fill_bytes);
+  memcpy(dest, fill_text, initial_copy);
+  gdv_int32 written = initial_copy;
+  while (written * 2 <= total_fill_bytes) {
+    memcpy(dest + written, dest, written);
+    written *= 2;
+  }
+  if (written < total_fill_bytes) {
+    memcpy(dest + written, dest, total_fill_bytes - written);
+  }
+}
+
 FORCE_INLINE
 const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
                                  gdv_int32 return_length, const char* fill_text,
@@ -2000,7 +2016,7 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   // FAST PATH: Single-byte fill (most common - space padding)
   if (fill_text_len == 1) {
     gdv_int32 out_len_bytes = chars_to_pad + text_len;
-    char* ret =
+    gdv_binary ret =
         reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, out_len_bytes));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
@@ -2017,7 +2033,7 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   // GENERAL PATH: Multi-byte fill - use evaluate_return_char_length for buffer size
   gdv_int32 return_char_length = evaluate_return_char_length(
       text_len, actual_text_len, return_length, fill_text, fill_text_len);
-  char* ret = reinterpret_cast<gdv_binary>(
+  gdv_binary ret = reinterpret_cast<gdv_binary>(
       gdv_fn_context_arena_malloc(context, return_char_length));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -2025,20 +2041,9 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     return "";
   }
 
-  // Fill using doubling strategy (O(log n) memcpy calls)
+  // Fill padding region using doubling strategy, then append text
   gdv_int32 total_fill_bytes = return_char_length - text_len;
-  // Copy only as much of fill_text as we need (may be less than fill_text_len)
-  gdv_int32 initial_copy = std::min(fill_text_len, total_fill_bytes);
-  memcpy(ret, fill_text, initial_copy);
-  gdv_int32 written = initial_copy;
-  while (written * 2 <= total_fill_bytes) {
-    memcpy(ret + written, ret, written);
-    written *= 2;
-  }
-  if (written < total_fill_bytes) {
-    memcpy(ret + written, ret, total_fill_bytes - written);
-  }
-
+  fill_buffer_with_pattern(ret, total_fill_bytes, fill_text, fill_text_len);
   memcpy(ret + total_fill_bytes, text, text_len);
   *out_len = return_char_length;
   return ret;
@@ -2078,7 +2083,7 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   // FAST PATH: Single-byte fill (most common - space padding)
   if (fill_text_len == 1) {
     gdv_int32 out_len_bytes = chars_to_pad + text_len;
-    char* ret =
+    gdv_binary ret =
         reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, out_len_bytes));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
@@ -2095,7 +2100,7 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
   // GENERAL PATH: Multi-byte fill - use evaluate_return_char_length for buffer size
   gdv_int32 return_char_length = evaluate_return_char_length(
       text_len, actual_text_len, return_length, fill_text, fill_text_len);
-  char* ret = reinterpret_cast<gdv_binary>(
+  gdv_binary ret = reinterpret_cast<gdv_binary>(
       gdv_fn_context_arena_malloc(context, return_char_length));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -2103,21 +2108,10 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     return "";
   }
 
-  // Copy text first, then fill using doubling strategy
+  // Copy text first, then fill padding region using doubling strategy
   memcpy(ret, text, text_len);
   gdv_int32 total_fill_bytes = return_char_length - text_len;
-  // Copy only as much of fill_text as we need (may be less than fill_text_len)
-  gdv_int32 initial_copy = std::min(fill_text_len, total_fill_bytes);
-  memcpy(ret + text_len, fill_text, initial_copy);
-  gdv_int32 written = initial_copy;
-  while (written * 2 <= total_fill_bytes) {
-    memcpy(ret + text_len + written, ret + text_len, written);
-    written *= 2;
-  }
-  if (written < total_fill_bytes) {
-    memcpy(ret + text_len + written, ret + text_len, total_fill_bytes - written);
-  }
-
+  fill_buffer_with_pattern(ret + text_len, total_fill_bytes, fill_text, fill_text_len);
   *out_len = return_char_length;
   return ret;
 }

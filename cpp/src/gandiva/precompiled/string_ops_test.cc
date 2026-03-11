@@ -1323,15 +1323,13 @@ TEST(TestStringOps, TestLpadString) {
   EXPECT_EQ(out_len, 65535 * 4 + 1);
   EXPECT_FALSE(ctx.has_error());
   EXPECT_EQ(out_str[out_len - 1], 'x');
-  EXPECT_EQ(static_cast<unsigned char>(out_str[0]), 0xF0);
-  EXPECT_EQ(static_cast<unsigned char>(out_str[1]), 0x9F);
-  EXPECT_EQ(static_cast<unsigned char>(out_str[2]), 0x98);
-  EXPECT_EQ(static_cast<unsigned char>(out_str[3]), 0x80);
+  EXPECT_EQ(std::string_view(out_str, 4), "😀");
 
   out_str = lpad_utf8_int32_utf8(ctx_ptr, "A", 1, 65536, "哈", 3, &out_len);
   EXPECT_EQ(out_len, 65535 * 3 + 1);
   EXPECT_FALSE(ctx.has_error());
   EXPECT_EQ(out_str[out_len - 1], 'A');
+  EXPECT_EQ(std::string_view(out_str, 3), "哈");
 
   out_str = lpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, ".", 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), ".X");
@@ -1496,15 +1494,13 @@ TEST(TestStringOps, TestRpadString) {
   EXPECT_EQ(out_len, 1 + 65535 * 4);
   EXPECT_FALSE(ctx.has_error());
   EXPECT_EQ(out_str[0], 'x');
-  EXPECT_EQ(static_cast<unsigned char>(out_str[out_len - 4]), 0xF0);
-  EXPECT_EQ(static_cast<unsigned char>(out_str[out_len - 3]), 0x9F);
-  EXPECT_EQ(static_cast<unsigned char>(out_str[out_len - 2]), 0x98);
-  EXPECT_EQ(static_cast<unsigned char>(out_str[out_len - 1]), 0x80);
+  EXPECT_EQ(std::string_view(out_str + out_len - 4, 4), "😀");
 
   out_str = rpad_utf8_int32_utf8(ctx_ptr, "A", 1, 65536, "哈", 3, &out_len);
   EXPECT_EQ(out_len, 1 + 65535 * 3);
   EXPECT_FALSE(ctx.has_error());
   EXPECT_EQ(out_str[0], 'A');
+  EXPECT_EQ(std::string_view(out_str + out_len - 3, 3), "哈");
 
   out_str = rpad_utf8_int32_utf8(ctx_ptr, "X", 1, 2, ".", 1, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "X.");
