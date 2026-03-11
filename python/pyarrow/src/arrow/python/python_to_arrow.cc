@@ -672,8 +672,7 @@ class PyPrimitiveConverter<
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
       ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
-      ARROW_RETURN_NOT_OK(
-          this->primitive_builder_->AppendScalar(*storage_scalar));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*storage_scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -694,8 +693,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(
-          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*storage_scalar));
     } else {
       ARROW_ASSIGN_OR_RAISE(
           auto converted, PyValue::Convert(this->primitive_type_, this->options_, value));
@@ -721,8 +720,8 @@ class PyPrimitiveConverter<T, enable_if_t<std::is_same<T, FixedSizeBinaryType>::
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(
-          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*storage_scalar));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -759,8 +758,8 @@ class PyPrimitiveConverter<
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      ARROW_RETURN_NOT_OK(
-          this->primitive_builder_->AppendScalar(GetStorageScalar(*scalar)));
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
+      ARROW_RETURN_NOT_OK(this->primitive_builder_->AppendScalar(*storage_scalar));
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->primitive_type_, this->options_, value, view_));
@@ -804,7 +803,8 @@ class PyDictionaryConverter<U, enable_if_has_c_type<U>>
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->value_builder_->AppendScalar(GetStorageScalar(*scalar), 1);
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
+      return this->value_builder_->AppendScalar(*storage_scalar, 1);
     } else {
       ARROW_ASSIGN_OR_RAISE(auto converted,
                             PyValue::Convert(this->value_type_, this->options_, value));
@@ -823,7 +823,8 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->value_builder_->AppendScalar(GetStorageScalar(*scalar), 1);
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
+      return this->value_builder_->AppendScalar(*storage_scalar, 1);
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
@@ -996,7 +997,8 @@ class PyStructConverter : public StructConverter<PyConverter, PyConverterTrait> 
     } else if (arrow::py::is_scalar(value)) {
       ARROW_ASSIGN_OR_RAISE(std::shared_ptr<Scalar> scalar,
                             arrow::py::unwrap_scalar(value));
-      return this->struct_builder_->AppendScalar(GetStorageScalar(*scalar));
+      ARROW_ASSIGN_OR_RAISE(const Scalar* storage_scalar, GetStorageScalar(*scalar));
+      return this->struct_builder_->AppendScalar(*storage_scalar);
     }
     switch (input_kind_) {
       case InputKind::DICT:

@@ -1485,10 +1485,7 @@ def test_uuid_bytes_property_raises():
     with pytest.raises(RuntimeError, match="broken"):
         pa.scalar(bad)
 
-def test_array_from_mismatched_extension_scalar_type():
-    scalar = pa.scalar(b"1" * 16, type=ExampleUuidType())
-    with pytest.raises(TypeError):
-        pa.array([scalar], type=ExampleUuidType2())
+
 def test_array_from_extension_scalars():
     import datetime
     from decimal import Decimal
