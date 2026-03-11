@@ -45,6 +45,7 @@ parquet_srcs = files(
     'level_comparison.cc',
     'level_conversion.cc',
     'metadata.cc',
+    'metadata3.cc',
     'page_index.cc',
     'platform.cc',
     'printer.cc',
@@ -88,7 +89,12 @@ if not thrift_dep.found()
     thrift_dep = thrift_proj.dependency('thrift')
 endif
 
-parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep]
+flatbuffers_incdir = include_directories(
+    '../../thirdparty/flatbuffers/include',
+)
+flatbuffers_dep = declare_dependency(include_directories: flatbuffers_incdir)
+
+parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep, flatbuffers_dep]
 
 if needs_parquet_encryption or get_option('parquet_require_encryption').auto()
     openssl_dep = dependency('openssl', required: needs_parquet_encryption)
@@ -152,6 +158,7 @@ install_headers(
         'level_conversion.h',
         'level_conversion_inc.h',
         'metadata.h',
+        'metadata3.h',
         'page_index.h',
         'platform.h',
         'printer.h',
@@ -199,6 +206,7 @@ parquet_tests = {
             'geospatial/statistics_test.cc',
             'geospatial/util_internal_test.cc',
             'metadata_test.cc',
+            'metadata3_test.cc',
             'page_index_test.cc',
             'properties_test.cc',
             'public_api_test.cc',
@@ -292,6 +300,7 @@ parquet_test_dep = [
     parquet_test_support_dep,
     arrow_test_dep,
     thrift_dep,
+    flatbuffers_dep,
 ]
 
 foreach key, val : parquet_tests
@@ -315,6 +324,7 @@ parquet_benchmarks = {
         'sources': files('level_conversion_benchmark.cc'),
     },
     'metadata_benchmark': {'sources': files('metadata_benchmark.cc')},
+    'metadata3_benchmark': {'sources': files('metadata3_benchmark.cc')},
     'page_index_benchmark': {
         'sources': files('benchmark_util.cc', 'page_index_benchmark.cc'),
     },
@@ -329,6 +339,7 @@ parquet_benchmark_dep = [
     parquet_test_support_dep,
     arrow_benchmark_dep,
     thrift_dep,
+    flatbuffers_dep,
 ]
 
 foreach key, val : parquet_benchmarks
