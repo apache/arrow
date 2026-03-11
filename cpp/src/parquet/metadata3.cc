@@ -381,9 +381,9 @@ struct ThriftConverter {
 
   auto To(format3::TimeUnit t) {
     format::TimeUnit out;
-    if (t == format3::TimeUnit::NS)
+    if (t == format3::TimeUnit::NANOS)
       out.__set_NANOS({});
-    else if (t == format3::TimeUnit::US)
+    else if (t == format3::TimeUnit::MICROS)
       out.__set_MICROS({});
     else
       out.__set_MILLIS({});
@@ -525,10 +525,10 @@ struct ThriftConverter {
     return out;
   }
 
-  auto To(const format3::KV* kv, uint32_t) {
+  auto To(const format3::KeyValue* kv, uint32_t) {
     format::KeyValue out;
     if (kv->key()->size() != 0) out.key = kv->key()->str();
-    if (flatbuffers::IsFieldPresent(kv, format3::KV::VT_VAL)) {
+    if (flatbuffers::IsFieldPresent(kv, format3::KeyValue::VT_VAL)) {
       out.__isset.value = true;
       out.value = kv->val()->str();
     }
@@ -592,13 +592,13 @@ struct ThriftConverter {
       out.__isset.statistics = true;
       out.statistics = To(cm->statistics(), rg_idx, col_idx);
     }
-    if (cm->bloom_filter_offset()) {
+    if (cm->bloom_filter()) {
       out.__isset.bloom_filter_offset = true;
-      out.bloom_filter_offset = *cm->bloom_filter_offset();
-    }
-    if (cm->bloom_filter_length()) {
-      out.__isset.bloom_filter_length = true;
-      out.bloom_filter_length = *cm->bloom_filter_length();
+      out.bloom_filter_offset = cm->bloom_filter()->offset();
+      if (cm->bloom_filter()->length() != 0) {
+        out.__isset.bloom_filter_length = true;
+        out.bloom_filter_length = cm->bloom_filter()->length();
+      }
     }
     if (cm->is_fully_dict_encoded()) {
       // Adding a fake encoding_stats with one dictionary page and one data page with
@@ -692,9 +692,9 @@ struct FlatbufferConverter {
   }
 
   auto To(format::TimeUnit t) {
-    if (t.__isset.NANOS) return format3::TimeUnit::NS;
-    if (t.__isset.MICROS) return format3::TimeUnit::US;
-    return format3::TimeUnit::MS;
+    if (t.__isset.NANOS) return format3::TimeUnit::NANOS;
+    if (t.__isset.MICROS) return format3::TimeUnit::MICROS;
+    return format3::TimeUnit::MILLIS;
   }
   auto To(format::Type::type t) { return static_cast<format3::Type>(t); }
   auto To(format::FieldRepetitionType::type t) {
@@ -722,21 +722,21 @@ struct FlatbufferConverter {
     } else if (t.__isset.DECIMAL) {
       return {
           format3::LogicalType::DecimalType,
-          format3::CreateDecimalOpts(root, t.DECIMAL.precision, t.DECIMAL.scale).Union()};
+          format3::CreateDecimalOptions(root, t.DECIMAL.precision, t.DECIMAL.scale).Union()};
     } else if (t.__isset.DATE) {
       return {format3::LogicalType::DateType, format3::CreateEmpty(root).Union()};
     } else if (t.__isset.TIME) {
       auto tu = To(t.TIME.unit);
       return {format3::LogicalType::TimeType,
-              format3::CreateTimeOpts(root, t.TIME.isAdjustedToUTC, tu).Union()};
+              format3::CreateTimeOptions(root, t.TIME.isAdjustedToUTC, tu).Union()};
     } else if (t.__isset.TIMESTAMP) {
       auto tu = To(t.TIMESTAMP.unit);
       return {format3::LogicalType::TimestampType,
-              format3::CreateTimeOpts(root, t.TIMESTAMP.isAdjustedToUTC, tu).Union()};
+              format3::CreateTimeOptions(root, t.TIMESTAMP.isAdjustedToUTC, tu).Union()};
     } else if (t.__isset.INTEGER) {
       return {
           format3::LogicalType::IntType,
-          format3::CreateIntOpts(root, t.INTEGER.bitWidth, t.INTEGER.isSigned).Union()};
+          format3::CreateIntOptions(root, t.INTEGER.bitWidth, t.INTEGER.isSigned).Union()};
     } else if (t.__isset.UNKNOWN) {
       return {format3::LogicalType::NullType, format3::CreateEmpty(root).Union()};
     } else if (t.__isset.JSON) {
@@ -773,45 +773,45 @@ struct FlatbufferConverter {
       return {format3::LogicalType::EnumType, format3::CreateEmpty(root).Union()};
     } else if (t == format::ConvertedType::DECIMAL) {
       return {format3::LogicalType::DecimalType,
-              format3::CreateDecimalOpts(root, e.precision, e.scale).Union()};
+              format3::CreateDecimalOptions(root, e.precision, e.scale).Union()};
     } else if (t == format::ConvertedType::DATE) {
       return {format3::LogicalType::DateType, format3::CreateEmpty(root).Union()};
     } else if (t == format::ConvertedType::TIME_MILLIS) {
       return {format3::LogicalType::TimeType,
-              format3::CreateTimeOpts(root, false, format3::TimeUnit::MS).Union()};
+              format3::CreateTimeOptions(root, false, format3::TimeUnit::MILLIS).Union()};
     } else if (t == format::ConvertedType::TIME_MICROS) {
       return {format3::LogicalType::TimeType,
-              format3::CreateTimeOpts(root, false, format3::TimeUnit::US).Union()};
+              format3::CreateTimeOptions(root, false, format3::TimeUnit::MICROS).Union()};
     } else if (t == format::ConvertedType::TIMESTAMP_MILLIS) {
       return {format3::LogicalType::TimestampType,
-              format3::CreateTimeOpts(root, false, format3::TimeUnit::MS).Union()};
+              format3::CreateTimeOptions(root, false, format3::TimeUnit::MILLIS).Union()};
     } else if (t == format::ConvertedType::TIMESTAMP_MICROS) {
       return {format3::LogicalType::TimestampType,
-              format3::CreateTimeOpts(root, false, format3::TimeUnit::US).Union()};
+              format3::CreateTimeOptions(root, false, format3::TimeUnit::MICROS).Union()};
     } else if (t == format::ConvertedType::INT_8) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 8, true).Union()};
+              format3::CreateIntOptions(root, 8, true).Union()};
     } else if (t == format::ConvertedType::INT_16) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 16, true).Union()};
+              format3::CreateIntOptions(root, 16, true).Union()};
     } else if (t == format::ConvertedType::INT_32) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 32, true).Union()};
+              format3::CreateIntOptions(root, 32, true).Union()};
     } else if (t == format::ConvertedType::INT_64) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 64, true).Union()};
+              format3::CreateIntOptions(root, 64, true).Union()};
     } else if (t == format::ConvertedType::UINT_8) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 8, false).Union()};
+              format3::CreateIntOptions(root, 8, false).Union()};
     } else if (t == format::ConvertedType::UINT_16) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 16, false).Union()};
+              format3::CreateIntOptions(root, 16, false).Union()};
     } else if (t == format::ConvertedType::UINT_32) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 32, false).Union()};
+              format3::CreateIntOptions(root, 32, false).Union()};
     } else if (t == format::ConvertedType::UINT_64) {
       return {format3::LogicalType::IntType,
-              format3::CreateIntOpts(root, 64, false).Union()};
+              format3::CreateIntOptions(root, 64, false).Union()};
     } else if (t == format::ConvertedType::JSON) {
       return {format3::LogicalType::JsonType, format3::CreateEmpty(root).Union()};
     } else if (t == format::ConvertedType::BSON) {
@@ -867,7 +867,7 @@ struct FlatbufferConverter {
     std::optional<::flatbuffers::Offset<::flatbuffers::String>> val;
     if (kv.__isset.value) val = root.CreateSharedString(kv.value);
 
-    format3::KVBuilder b(root);
+    format3::KeyValueBuilder b(root);
     b.add_key(key);
     if (val) b.add_val(*val);
     return b.Finish();
@@ -985,8 +985,12 @@ struct FlatbufferConverter {
     }
     if (statistics) b.add_statistics(*statistics);
     b.add_is_fully_dict_encoded(To(cm));
-    if (cm.__isset.bloom_filter_offset) b.add_bloom_filter_offset(cm.bloom_filter_offset);
-    if (cm.__isset.bloom_filter_length) b.add_bloom_filter_length(cm.bloom_filter_length);
+    if (cm.__isset.bloom_filter_offset) {
+      auto bloom_filter = format3::CreateBloomFilterInfo(
+          root, cm.bloom_filter_offset,
+          cm.__isset.bloom_filter_length ? cm.bloom_filter_length : 0);
+      b.add_bloom_filter(bloom_filter);
+    }
 
     ARROW_DCHECK_EQ(cm.path_in_schema, colmap.ToPath(md.schema, col_idx));
     return b.Finish();

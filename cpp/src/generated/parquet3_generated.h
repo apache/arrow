@@ -19,14 +19,17 @@ namespace format3 {
 struct Empty;
 struct EmptyBuilder;
 
-struct DecimalOpts;
-struct DecimalOptsBuilder;
+struct DecimalOptions;
+struct DecimalOptionsBuilder;
 
-struct TimeOpts;
-struct TimeOptsBuilder;
+struct TimeOptions;
+struct TimeOptionsBuilder;
 
-struct IntOpts;
-struct IntOptsBuilder;
+struct IntOptions;
+struct IntOptionsBuilder;
+
+struct VariantType;
+struct VariantTypeBuilder;
 
 struct GeometryType;
 struct GeometryTypeBuilder;
@@ -37,11 +40,20 @@ struct GeographyTypeBuilder;
 struct Statistics;
 struct StatisticsBuilder;
 
+struct BloomFilterInfo;
+struct BloomFilterInfoBuilder;
+
+struct AesGcmV1;
+struct AesGcmV1Builder;
+
+struct AesGcmCtrV1;
+struct AesGcmCtrV1Builder;
+
 struct SchemaElement;
 struct SchemaElementBuilder;
 
-struct KV;
-struct KVBuilder;
+struct KeyValue;
+struct KeyValueBuilder;
 
 struct ColumnMetadata;
 struct ColumnMetadataBuilder;
@@ -55,11 +67,12 @@ struct SortingColumnBuilder;
 struct RowGroup;
 struct RowGroupBuilder;
 
+struct FileCryptoMetaData;
+struct FileCryptoMetaDataBuilder;
+
 struct FileMetaData;
 struct FileMetaDataBuilder;
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
 enum class Type : int8_t {
   BOOLEAN = 0,
   INT32 = 1,
@@ -141,8 +154,6 @@ inline const char *EnumNameFieldRepetitionType(FieldRepetitionType e) {
   return EnumNamesFieldRepetitionType()[index];
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////////////////////////
 enum class Encoding : int8_t {
   PLAIN = 0,
   PLAIN_DICTIONARY = 2,
@@ -199,19 +210,21 @@ enum class CompressionCodec : int8_t {
   GZIP = 2,
   LZO = 3,
   BROTLI = 4,
+  LZ4 = 5,
   ZSTD = 6,
   LZ4_RAW = 7,
   MIN = UNCOMPRESSED,
   MAX = LZ4_RAW
 };
 
-inline const CompressionCodec (&EnumValuesCompressionCodec())[7] {
+inline const CompressionCodec (&EnumValuesCompressionCodec())[8] {
   static const CompressionCodec values[] = {
     CompressionCodec::UNCOMPRESSED,
     CompressionCodec::SNAPPY,
     CompressionCodec::GZIP,
     CompressionCodec::LZO,
     CompressionCodec::BROTLI,
+    CompressionCodec::LZ4,
     CompressionCodec::ZSTD,
     CompressionCodec::LZ4_RAW
   };
@@ -225,7 +238,7 @@ inline const char * const *EnumNamesCompressionCodec() {
     "GZIP",
     "LZO",
     "BROTLI",
-    "",
+    "LZ4",
     "ZSTD",
     "LZ4_RAW",
     nullptr
@@ -240,34 +253,34 @@ inline const char *EnumNameCompressionCodec(CompressionCodec e) {
 }
 
 enum class TimeUnit : int8_t {
-  MS = 0,
-  US = 1,
-  NS = 2,
-  MIN = MS,
-  MAX = NS
+  MILLIS = 0,
+  MICROS = 1,
+  NANOS = 2,
+  MIN = MILLIS,
+  MAX = NANOS
 };
 
 inline const TimeUnit (&EnumValuesTimeUnit())[3] {
   static const TimeUnit values[] = {
-    TimeUnit::MS,
-    TimeUnit::US,
-    TimeUnit::NS
+    TimeUnit::MILLIS,
+    TimeUnit::MICROS,
+    TimeUnit::NANOS
   };
   return values;
 }
 
 inline const char * const *EnumNamesTimeUnit() {
   static const char * const names[4] = {
-    "MS",
-    "US",
-    "NS",
+    "MILLIS",
+    "MICROS",
+    "NANOS",
     nullptr
   };
   return names;
 }
 
 inline const char *EnumNameTimeUnit(TimeUnit e) {
-  if (::flatbuffers::IsOutRange(e, TimeUnit::MS, TimeUnit::NS)) return "";
+  if (::flatbuffers::IsOutRange(e, TimeUnit::MILLIS, TimeUnit::NANOS)) return "";
   const size_t index = static_cast<size_t>(e);
   return EnumNamesTimeUnit()[index];
 }
@@ -392,6 +405,54 @@ inline const char *EnumNameLogicalType(LogicalType e) {
 bool VerifyLogicalType(::flatbuffers::Verifier &verifier, const void *obj, LogicalType type);
 bool VerifyLogicalTypeVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<LogicalType> *types);
 
+enum class EncryptionAlgorithm : uint8_t {
+  NONE = 0,
+  AesGcmV1 = 1,
+  AesGcmCtrV1 = 2,
+  MIN = NONE,
+  MAX = AesGcmCtrV1
+};
+
+inline const EncryptionAlgorithm (&EnumValuesEncryptionAlgorithm())[3] {
+  static const EncryptionAlgorithm values[] = {
+    EncryptionAlgorithm::NONE,
+    EncryptionAlgorithm::AesGcmV1,
+    EncryptionAlgorithm::AesGcmCtrV1
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesEncryptionAlgorithm() {
+  static const char * const names[4] = {
+    "NONE",
+    "AesGcmV1",
+    "AesGcmCtrV1",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameEncryptionAlgorithm(EncryptionAlgorithm e) {
+  if (::flatbuffers::IsOutRange(e, EncryptionAlgorithm::NONE, EncryptionAlgorithm::AesGcmCtrV1)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesEncryptionAlgorithm()[index];
+}
+
+template<typename T> struct EncryptionAlgorithmTraits {
+  static const EncryptionAlgorithm enum_value = EncryptionAlgorithm::NONE;
+};
+
+template<> struct EncryptionAlgorithmTraits<parquet::format3::AesGcmV1> {
+  static const EncryptionAlgorithm enum_value = EncryptionAlgorithm::AesGcmV1;
+};
+
+template<> struct EncryptionAlgorithmTraits<parquet::format3::AesGcmCtrV1> {
+  static const EncryptionAlgorithm enum_value = EncryptionAlgorithm::AesGcmCtrV1;
+};
+
+bool VerifyEncryptionAlgorithm(::flatbuffers::Verifier &verifier, const void *obj, EncryptionAlgorithm type);
+bool VerifyEncryptionAlgorithmVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<EncryptionAlgorithm> *types);
+
 enum class ColumnOrder : uint8_t {
   NONE = 0,
   TypeDefinedOrder = 1,
@@ -469,10 +530,49 @@ inline const char *EnumNamePageType(PageType e) {
   return EnumNamesPageType()[index];
 }
 
+enum class ColumnCryptoMetadata : uint8_t {
+  NONE = 0,
+  EncryptionWithFooterKey = 1,
+  EncryptionWithColumnKey = 2,
+  MIN = NONE,
+  MAX = EncryptionWithColumnKey
+};
+
+inline const ColumnCryptoMetadata (&EnumValuesColumnCryptoMetadata())[3] {
+  static const ColumnCryptoMetadata values[] = {
+    ColumnCryptoMetadata::NONE,
+    ColumnCryptoMetadata::EncryptionWithFooterKey,
+    ColumnCryptoMetadata::EncryptionWithColumnKey
+  };
+  return values;
+}
+
+inline const char * const *EnumNamesColumnCryptoMetadata() {
+  static const char * const names[4] = {
+    "NONE",
+    "EncryptionWithFooterKey",
+    "EncryptionWithColumnKey",
+    nullptr
+  };
+  return names;
+}
+
+inline const char *EnumNameColumnCryptoMetadata(ColumnCryptoMetadata e) {
+  if (::flatbuffers::IsOutRange(e, ColumnCryptoMetadata::NONE, ColumnCryptoMetadata::EncryptionWithColumnKey)) return "";
+  const size_t index = static_cast<size_t>(e);
+  return EnumNamesColumnCryptoMetadata()[index];
+}
+
+bool VerifyColumnCryptoMetadata(::flatbuffers::Verifier &verifier, const void *obj, ColumnCryptoMetadata type);
+bool VerifyColumnCryptoMetadataVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<ColumnCryptoMetadata> *types);
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 struct Empty FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef EmptyBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.Empty";
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
            verifier.EndTable();
@@ -500,8 +600,11 @@ inline ::flatbuffers::Offset<Empty> CreateEmpty(
   return builder_.Finish();
 }
 
-struct DecimalOpts FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef DecimalOptsBuilder Builder;
+struct DecimalOptions FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef DecimalOptionsBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.DecimalOptions";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_PRECISION = 4,
     VT_SCALE = 6
@@ -520,39 +623,42 @@ struct DecimalOpts FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
 };
 
-struct DecimalOptsBuilder {
-  typedef DecimalOpts Table;
+struct DecimalOptionsBuilder {
+  typedef DecimalOptions Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
   void add_precision(int32_t precision) {
-    fbb_.AddElement<int32_t>(DecimalOpts::VT_PRECISION, precision, 0);
+    fbb_.AddElement<int32_t>(DecimalOptions::VT_PRECISION, precision, 0);
   }
   void add_scale(int32_t scale) {
-    fbb_.AddElement<int32_t>(DecimalOpts::VT_SCALE, scale, 0);
+    fbb_.AddElement<int32_t>(DecimalOptions::VT_SCALE, scale, 0);
   }
-  explicit DecimalOptsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit DecimalOptionsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<DecimalOpts> Finish() {
+  ::flatbuffers::Offset<DecimalOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<DecimalOpts>(end);
+    auto o = ::flatbuffers::Offset<DecimalOptions>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<DecimalOpts> CreateDecimalOpts(
+inline ::flatbuffers::Offset<DecimalOptions> CreateDecimalOptions(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     int32_t precision = 0,
     int32_t scale = 0) {
-  DecimalOptsBuilder builder_(_fbb);
+  DecimalOptionsBuilder builder_(_fbb);
   builder_.add_scale(scale);
   builder_.add_precision(precision);
   return builder_.Finish();
 }
 
-struct TimeOpts FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef TimeOptsBuilder Builder;
+struct TimeOptions FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef TimeOptionsBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.TimeOptions";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_IS_ADJUSTED_TO_UTC = 4,
     VT_UNIT = 6
@@ -571,39 +677,42 @@ struct TimeOpts FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
 };
 
-struct TimeOptsBuilder {
-  typedef TimeOpts Table;
+struct TimeOptionsBuilder {
+  typedef TimeOptions Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
   void add_is_adjusted_to_utc(bool is_adjusted_to_utc) {
-    fbb_.AddElement<uint8_t>(TimeOpts::VT_IS_ADJUSTED_TO_UTC, static_cast<uint8_t>(is_adjusted_to_utc), 0);
+    fbb_.AddElement<uint8_t>(TimeOptions::VT_IS_ADJUSTED_TO_UTC, static_cast<uint8_t>(is_adjusted_to_utc), 0);
   }
   void add_unit(parquet::format3::TimeUnit unit) {
-    fbb_.AddElement<int8_t>(TimeOpts::VT_UNIT, static_cast<int8_t>(unit), 0);
+    fbb_.AddElement<int8_t>(TimeOptions::VT_UNIT, static_cast<int8_t>(unit), 0);
   }
-  explicit TimeOptsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit TimeOptionsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<TimeOpts> Finish() {
+  ::flatbuffers::Offset<TimeOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<TimeOpts>(end);
+    auto o = ::flatbuffers::Offset<TimeOptions>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<TimeOpts> CreateTimeOpts(
+inline ::flatbuffers::Offset<TimeOptions> CreateTimeOptions(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     bool is_adjusted_to_utc = false,
-    parquet::format3::TimeUnit unit = parquet::format3::TimeUnit::MS) {
-  TimeOptsBuilder builder_(_fbb);
+    parquet::format3::TimeUnit unit = parquet::format3::TimeUnit::MILLIS) {
+  TimeOptionsBuilder builder_(_fbb);
   builder_.add_unit(unit);
   builder_.add_is_adjusted_to_utc(is_adjusted_to_utc);
   return builder_.Finish();
 }
 
-struct IntOpts FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef IntOptsBuilder Builder;
+struct IntOptions FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef IntOptionsBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.IntOptions";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_BIT_WIDTH = 4,
     VT_IS_SIGNED = 6
@@ -622,39 +731,86 @@ struct IntOpts FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
 };
 
-struct IntOptsBuilder {
-  typedef IntOpts Table;
+struct IntOptionsBuilder {
+  typedef IntOptions Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
   void add_bit_width(int8_t bit_width) {
-    fbb_.AddElement<int8_t>(IntOpts::VT_BIT_WIDTH, bit_width, 8);
+    fbb_.AddElement<int8_t>(IntOptions::VT_BIT_WIDTH, bit_width, 8);
   }
   void add_is_signed(bool is_signed) {
-    fbb_.AddElement<uint8_t>(IntOpts::VT_IS_SIGNED, static_cast<uint8_t>(is_signed), 0);
+    fbb_.AddElement<uint8_t>(IntOptions::VT_IS_SIGNED, static_cast<uint8_t>(is_signed), 0);
   }
-  explicit IntOptsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit IntOptionsBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<IntOpts> Finish() {
+  ::flatbuffers::Offset<IntOptions> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<IntOpts>(end);
+    auto o = ::flatbuffers::Offset<IntOptions>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<IntOpts> CreateIntOpts(
+inline ::flatbuffers::Offset<IntOptions> CreateIntOptions(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     int8_t bit_width = 8,
     bool is_signed = false) {
-  IntOptsBuilder builder_(_fbb);
+  IntOptionsBuilder builder_(_fbb);
   builder_.add_is_signed(is_signed);
   builder_.add_bit_width(bit_width);
   return builder_.Finish();
 }
 
+struct VariantType FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef VariantTypeBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.VariantType";
+  }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_SPECIFICATION_VERSION = 4
+  };
+  ::flatbuffers::Optional<int8_t> specification_version() const {
+    return GetOptional<int8_t, int8_t>(VT_SPECIFICATION_VERSION);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int8_t>(verifier, VT_SPECIFICATION_VERSION, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct VariantTypeBuilder {
+  typedef VariantType Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_specification_version(int8_t specification_version) {
+    fbb_.AddElement<int8_t>(VariantType::VT_SPECIFICATION_VERSION, specification_version);
+  }
+  explicit VariantTypeBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<VariantType> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<VariantType>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<VariantType> CreateVariantType(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Optional<int8_t> specification_version = ::flatbuffers::nullopt) {
+  VariantTypeBuilder builder_(_fbb);
+  if(specification_version) { builder_.add_specification_version(*specification_version); }
+  return builder_.Finish();
+}
+
 struct GeometryType FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef GeometryTypeBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.GeometryType";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CRS = 4
   };
@@ -706,6 +862,9 @@ inline ::flatbuffers::Offset<GeometryType> CreateGeometryTypeDirect(
 
 struct GeographyType FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef GeographyTypeBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.GeographyType";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CRS = 4,
     VT_ALGORITHM = 6
@@ -769,6 +928,9 @@ inline ::flatbuffers::Offset<GeographyType> CreateGeographyTypeDirect(
 
 struct Statistics FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef StatisticsBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.Statistics";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NULL_COUNT = 4,
     VT_MIN_LO4 = 6,
@@ -926,8 +1088,225 @@ inline ::flatbuffers::Offset<Statistics> CreateStatisticsDirect(
       prefix__);
 }
 
+struct BloomFilterInfo FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef BloomFilterInfoBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.BloomFilterInfo";
+  }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_OFFSET = 4,
+    VT_LENGTH = 6
+  };
+  int64_t offset() const {
+    return GetField<int64_t>(VT_OFFSET, 0);
+  }
+  int32_t length() const {
+    return GetField<int32_t>(VT_LENGTH, 0);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<int64_t>(verifier, VT_OFFSET, 8) &&
+           VerifyField<int32_t>(verifier, VT_LENGTH, 4) &&
+           verifier.EndTable();
+  }
+};
+
+struct BloomFilterInfoBuilder {
+  typedef BloomFilterInfo Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_offset(int64_t offset) {
+    fbb_.AddElement<int64_t>(BloomFilterInfo::VT_OFFSET, offset, 0);
+  }
+  void add_length(int32_t length) {
+    fbb_.AddElement<int32_t>(BloomFilterInfo::VT_LENGTH, length, 0);
+  }
+  explicit BloomFilterInfoBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<BloomFilterInfo> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<BloomFilterInfo>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<BloomFilterInfo> CreateBloomFilterInfo(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    int64_t offset = 0,
+    int32_t length = 0) {
+  BloomFilterInfoBuilder builder_(_fbb);
+  builder_.add_offset(offset);
+  builder_.add_length(length);
+  return builder_.Finish();
+}
+
+struct AesGcmV1 FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AesGcmV1Builder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.AesGcmV1";
+  }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AAD_PREFIX = 4,
+    VT_AAD_FILE_UNIQUE = 6,
+    VT_SUPPLY_AAD_PREFIX = 8
+  };
+  const ::flatbuffers::Vector<int8_t> *aad_prefix() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_AAD_PREFIX);
+  }
+  const ::flatbuffers::Vector<int8_t> *aad_file_unique() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_AAD_FILE_UNIQUE);
+  }
+  bool supply_aad_prefix() const {
+    return GetField<uint8_t>(VT_SUPPLY_AAD_PREFIX, 0) != 0;
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_AAD_PREFIX) &&
+           verifier.VerifyVector(aad_prefix()) &&
+           VerifyOffset(verifier, VT_AAD_FILE_UNIQUE) &&
+           verifier.VerifyVector(aad_file_unique()) &&
+           VerifyField<uint8_t>(verifier, VT_SUPPLY_AAD_PREFIX, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct AesGcmV1Builder {
+  typedef AesGcmV1 Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_aad_prefix(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_prefix) {
+    fbb_.AddOffset(AesGcmV1::VT_AAD_PREFIX, aad_prefix);
+  }
+  void add_aad_file_unique(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_file_unique) {
+    fbb_.AddOffset(AesGcmV1::VT_AAD_FILE_UNIQUE, aad_file_unique);
+  }
+  void add_supply_aad_prefix(bool supply_aad_prefix) {
+    fbb_.AddElement<uint8_t>(AesGcmV1::VT_SUPPLY_AAD_PREFIX, static_cast<uint8_t>(supply_aad_prefix), 0);
+  }
+  explicit AesGcmV1Builder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AesGcmV1> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AesGcmV1>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AesGcmV1> CreateAesGcmV1(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_prefix = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_file_unique = 0,
+    bool supply_aad_prefix = false) {
+  AesGcmV1Builder builder_(_fbb);
+  builder_.add_aad_file_unique(aad_file_unique);
+  builder_.add_aad_prefix(aad_prefix);
+  builder_.add_supply_aad_prefix(supply_aad_prefix);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<AesGcmV1> CreateAesGcmV1Direct(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<int8_t> *aad_prefix = nullptr,
+    const std::vector<int8_t> *aad_file_unique = nullptr,
+    bool supply_aad_prefix = false) {
+  auto aad_prefix__ = aad_prefix ? _fbb.CreateVector<int8_t>(*aad_prefix) : 0;
+  auto aad_file_unique__ = aad_file_unique ? _fbb.CreateVector<int8_t>(*aad_file_unique) : 0;
+  return parquet::format3::CreateAesGcmV1(
+      _fbb,
+      aad_prefix__,
+      aad_file_unique__,
+      supply_aad_prefix);
+}
+
+struct AesGcmCtrV1 FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef AesGcmCtrV1Builder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.AesGcmCtrV1";
+  }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_AAD_PREFIX = 4,
+    VT_AAD_FILE_UNIQUE = 6,
+    VT_SUPPLY_AAD_PREFIX = 8
+  };
+  const ::flatbuffers::Vector<int8_t> *aad_prefix() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_AAD_PREFIX);
+  }
+  const ::flatbuffers::Vector<int8_t> *aad_file_unique() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_AAD_FILE_UNIQUE);
+  }
+  bool supply_aad_prefix() const {
+    return GetField<uint8_t>(VT_SUPPLY_AAD_PREFIX, 0) != 0;
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyOffset(verifier, VT_AAD_PREFIX) &&
+           verifier.VerifyVector(aad_prefix()) &&
+           VerifyOffset(verifier, VT_AAD_FILE_UNIQUE) &&
+           verifier.VerifyVector(aad_file_unique()) &&
+           VerifyField<uint8_t>(verifier, VT_SUPPLY_AAD_PREFIX, 1) &&
+           verifier.EndTable();
+  }
+};
+
+struct AesGcmCtrV1Builder {
+  typedef AesGcmCtrV1 Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_aad_prefix(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_prefix) {
+    fbb_.AddOffset(AesGcmCtrV1::VT_AAD_PREFIX, aad_prefix);
+  }
+  void add_aad_file_unique(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_file_unique) {
+    fbb_.AddOffset(AesGcmCtrV1::VT_AAD_FILE_UNIQUE, aad_file_unique);
+  }
+  void add_supply_aad_prefix(bool supply_aad_prefix) {
+    fbb_.AddElement<uint8_t>(AesGcmCtrV1::VT_SUPPLY_AAD_PREFIX, static_cast<uint8_t>(supply_aad_prefix), 0);
+  }
+  explicit AesGcmCtrV1Builder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<AesGcmCtrV1> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<AesGcmCtrV1>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<AesGcmCtrV1> CreateAesGcmCtrV1(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_prefix = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> aad_file_unique = 0,
+    bool supply_aad_prefix = false) {
+  AesGcmCtrV1Builder builder_(_fbb);
+  builder_.add_aad_file_unique(aad_file_unique);
+  builder_.add_aad_prefix(aad_prefix);
+  builder_.add_supply_aad_prefix(supply_aad_prefix);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<AesGcmCtrV1> CreateAesGcmCtrV1Direct(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    const std::vector<int8_t> *aad_prefix = nullptr,
+    const std::vector<int8_t> *aad_file_unique = nullptr,
+    bool supply_aad_prefix = false) {
+  auto aad_prefix__ = aad_prefix ? _fbb.CreateVector<int8_t>(*aad_prefix) : 0;
+  auto aad_file_unique__ = aad_file_unique ? _fbb.CreateVector<int8_t>(*aad_file_unique) : 0;
+  return parquet::format3::CreateAesGcmCtrV1(
+      _fbb,
+      aad_prefix__,
+      aad_file_unique__,
+      supply_aad_prefix);
+}
+
 struct SchemaElement FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef SchemaElementBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.SchemaElement";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_NAME = 4,
     VT_TYPE = 6,
@@ -967,20 +1346,20 @@ struct SchemaElement FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const parquet::format3::Empty *logical_type_as_EnumType() const {
     return logical_type_type() == parquet::format3::LogicalType::EnumType ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
   }
-  const parquet::format3::DecimalOpts *logical_type_as_DecimalType() const {
-    return logical_type_type() == parquet::format3::LogicalType::DecimalType ? static_cast<const parquet::format3::DecimalOpts *>(logical_type()) : nullptr;
+  const parquet::format3::DecimalOptions *logical_type_as_DecimalType() const {
+    return logical_type_type() == parquet::format3::LogicalType::DecimalType ? static_cast<const parquet::format3::DecimalOptions *>(logical_type()) : nullptr;
   }
   const parquet::format3::Empty *logical_type_as_DateType() const {
     return logical_type_type() == parquet::format3::LogicalType::DateType ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
   }
-  const parquet::format3::TimeOpts *logical_type_as_TimeType() const {
-    return logical_type_type() == parquet::format3::LogicalType::TimeType ? static_cast<const parquet::format3::TimeOpts *>(logical_type()) : nullptr;
+  const parquet::format3::TimeOptions *logical_type_as_TimeType() const {
+    return logical_type_type() == parquet::format3::LogicalType::TimeType ? static_cast<const parquet::format3::TimeOptions *>(logical_type()) : nullptr;
   }
-  const parquet::format3::TimeOpts *logical_type_as_TimestampType() const {
-    return logical_type_type() == parquet::format3::LogicalType::TimestampType ? static_cast<const parquet::format3::TimeOpts *>(logical_type()) : nullptr;
+  const parquet::format3::TimeOptions *logical_type_as_TimestampType() const {
+    return logical_type_type() == parquet::format3::LogicalType::TimestampType ? static_cast<const parquet::format3::TimeOptions *>(logical_type()) : nullptr;
   }
-  const parquet::format3::IntOpts *logical_type_as_IntType() const {
-    return logical_type_type() == parquet::format3::LogicalType::IntType ? static_cast<const parquet::format3::IntOpts *>(logical_type()) : nullptr;
+  const parquet::format3::IntOptions *logical_type_as_IntType() const {
+    return logical_type_type() == parquet::format3::LogicalType::IntType ? static_cast<const parquet::format3::IntOptions *>(logical_type()) : nullptr;
   }
   const parquet::format3::Empty *logical_type_as_NullType() const {
     return logical_type_type() == parquet::format3::LogicalType::NullType ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
@@ -997,8 +1376,8 @@ struct SchemaElement FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const parquet::format3::Empty *logical_type_as_Float16Type() const {
     return logical_type_type() == parquet::format3::LogicalType::Float16Type ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
   }
-  const parquet::format3::Empty *logical_type_as_VariantType() const {
-    return logical_type_type() == parquet::format3::LogicalType::VariantType ? static_cast<const parquet::format3::Empty *>(logical_type()) : nullptr;
+  const parquet::format3::VariantType *logical_type_as_VariantType() const {
+    return logical_type_type() == parquet::format3::LogicalType::VariantType ? static_cast<const parquet::format3::VariantType *>(logical_type()) : nullptr;
   }
   const parquet::format3::GeometryType *logical_type_as_GeometryType() const {
     return logical_type_type() == parquet::format3::LogicalType::GeometryType ? static_cast<const parquet::format3::GeometryType *>(logical_type()) : nullptr;
@@ -1146,8 +1525,11 @@ inline ::flatbuffers::Offset<SchemaElement> CreateSchemaElementDirect(
       column_order);
 }
 
-struct KV FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
-  typedef KVBuilder Builder;
+struct KeyValue FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef KeyValueBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.KeyValue";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_KEY = 4,
     VT_VAL = 6
@@ -1168,44 +1550,44 @@ struct KV FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   }
 };
 
-struct KVBuilder {
-  typedef KV Table;
+struct KeyValueBuilder {
+  typedef KeyValue Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
   void add_key(::flatbuffers::Offset<::flatbuffers::String> key) {
-    fbb_.AddOffset(KV::VT_KEY, key);
+    fbb_.AddOffset(KeyValue::VT_KEY, key);
   }
   void add_val(::flatbuffers::Offset<::flatbuffers::String> val) {
-    fbb_.AddOffset(KV::VT_VAL, val);
+    fbb_.AddOffset(KeyValue::VT_VAL, val);
   }
-  explicit KVBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+  explicit KeyValueBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
     start_ = fbb_.StartTable();
   }
-  ::flatbuffers::Offset<KV> Finish() {
+  ::flatbuffers::Offset<KeyValue> Finish() {
     const auto end = fbb_.EndTable(start_);
-    auto o = ::flatbuffers::Offset<KV>(end);
+    auto o = ::flatbuffers::Offset<KeyValue>(end);
     return o;
   }
 };
 
-inline ::flatbuffers::Offset<KV> CreateKV(
+inline ::flatbuffers::Offset<KeyValue> CreateKeyValue(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     ::flatbuffers::Offset<::flatbuffers::String> key = 0,
     ::flatbuffers::Offset<::flatbuffers::String> val = 0) {
-  KVBuilder builder_(_fbb);
+  KeyValueBuilder builder_(_fbb);
   builder_.add_val(val);
   builder_.add_key(key);
   return builder_.Finish();
 }
 
-inline ::flatbuffers::Offset<KV> CreateKVDirect(
+inline ::flatbuffers::Offset<KeyValue> CreateKeyValueDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
     const char *key = nullptr,
     const char *val = nullptr) {
   auto key__ = key ? _fbb.CreateString(key) : 0;
   auto val__ = val ? _fbb.CreateString(val) : 0;
-  return parquet::format3::CreateKV(
+  return parquet::format3::CreateKeyValue(
       _fbb,
       key__,
       val__);
@@ -1213,6 +1595,9 @@ inline ::flatbuffers::Offset<KV> CreateKVDirect(
 
 struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ColumnMetadataBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.ColumnMetadata";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_CODEC = 4,
     VT_NUM_VALUES = 6,
@@ -1224,8 +1609,7 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
     VT_DICTIONARY_PAGE_OFFSET = 18,
     VT_STATISTICS = 20,
     VT_IS_FULLY_DICT_ENCODED = 22,
-    VT_BLOOM_FILTER_OFFSET = 24,
-    VT_BLOOM_FILTER_LENGTH = 26
+    VT_BLOOM_FILTER = 24
   };
   parquet::format3::CompressionCodec codec() const {
     return static_cast<parquet::format3::CompressionCodec>(GetField<int8_t>(VT_CODEC, 0));
@@ -1239,8 +1623,8 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   int64_t total_compressed_size() const {
     return GetField<int64_t>(VT_TOTAL_COMPRESSED_SIZE, 0);
   }
-  const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *key_value_metadata() const {
-    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *>(VT_KEY_VALUE_METADATA);
+  const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>> *key_value_metadata() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>> *>(VT_KEY_VALUE_METADATA);
   }
   int64_t data_page_offset() const {
     return GetField<int64_t>(VT_DATA_PAGE_OFFSET, 0);
@@ -1257,11 +1641,8 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   bool is_fully_dict_encoded() const {
     return GetField<uint8_t>(VT_IS_FULLY_DICT_ENCODED, 0) != 0;
   }
-  ::flatbuffers::Optional<int64_t> bloom_filter_offset() const {
-    return GetOptional<int64_t, int64_t>(VT_BLOOM_FILTER_OFFSET);
-  }
-  ::flatbuffers::Optional<int32_t> bloom_filter_length() const {
-    return GetOptional<int32_t, int32_t>(VT_BLOOM_FILTER_LENGTH);
+  const parquet::format3::BloomFilterInfo *bloom_filter() const {
+    return GetPointer<const parquet::format3::BloomFilterInfo *>(VT_BLOOM_FILTER);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1278,8 +1659,8 @@ struct ColumnMetadata FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            VerifyOffset(verifier, VT_STATISTICS) &&
            verifier.VerifyTable(statistics()) &&
            VerifyField<uint8_t>(verifier, VT_IS_FULLY_DICT_ENCODED, 1) &&
-           VerifyField<int64_t>(verifier, VT_BLOOM_FILTER_OFFSET, 8) &&
-           VerifyField<int32_t>(verifier, VT_BLOOM_FILTER_LENGTH, 4) &&
+           VerifyOffset(verifier, VT_BLOOM_FILTER) &&
+           verifier.VerifyTable(bloom_filter()) &&
            verifier.EndTable();
   }
 };
@@ -1300,7 +1681,7 @@ struct ColumnMetadataBuilder {
   void add_total_compressed_size(int64_t total_compressed_size) {
     fbb_.AddElement<int64_t>(ColumnMetadata::VT_TOTAL_COMPRESSED_SIZE, total_compressed_size, 0);
   }
-  void add_key_value_metadata(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> key_value_metadata) {
+  void add_key_value_metadata(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>>> key_value_metadata) {
     fbb_.AddOffset(ColumnMetadata::VT_KEY_VALUE_METADATA, key_value_metadata);
   }
   void add_data_page_offset(int64_t data_page_offset) {
@@ -1318,11 +1699,8 @@ struct ColumnMetadataBuilder {
   void add_is_fully_dict_encoded(bool is_fully_dict_encoded) {
     fbb_.AddElement<uint8_t>(ColumnMetadata::VT_IS_FULLY_DICT_ENCODED, static_cast<uint8_t>(is_fully_dict_encoded), 0);
   }
-  void add_bloom_filter_offset(int64_t bloom_filter_offset) {
-    fbb_.AddElement<int64_t>(ColumnMetadata::VT_BLOOM_FILTER_OFFSET, bloom_filter_offset);
-  }
-  void add_bloom_filter_length(int32_t bloom_filter_length) {
-    fbb_.AddElement<int32_t>(ColumnMetadata::VT_BLOOM_FILTER_LENGTH, bloom_filter_length);
+  void add_bloom_filter(::flatbuffers::Offset<parquet::format3::BloomFilterInfo> bloom_filter) {
+    fbb_.AddOffset(ColumnMetadata::VT_BLOOM_FILTER, bloom_filter);
   }
   explicit ColumnMetadataBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1341,23 +1719,21 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadata(
     ::flatbuffers::Optional<int64_t> num_values = ::flatbuffers::nullopt,
     int64_t total_uncompressed_size = 0,
     int64_t total_compressed_size = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> key_value_metadata = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>>> key_value_metadata = 0,
     int64_t data_page_offset = 0,
     ::flatbuffers::Optional<int64_t> index_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int64_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
     bool is_fully_dict_encoded = false,
-    ::flatbuffers::Optional<int64_t> bloom_filter_offset = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
+    ::flatbuffers::Offset<parquet::format3::BloomFilterInfo> bloom_filter = 0) {
   ColumnMetadataBuilder builder_(_fbb);
-  if(bloom_filter_offset) { builder_.add_bloom_filter_offset(*bloom_filter_offset); }
   if(dictionary_page_offset) { builder_.add_dictionary_page_offset(*dictionary_page_offset); }
   if(index_page_offset) { builder_.add_index_page_offset(*index_page_offset); }
   builder_.add_data_page_offset(data_page_offset);
   builder_.add_total_compressed_size(total_compressed_size);
   builder_.add_total_uncompressed_size(total_uncompressed_size);
   if(num_values) { builder_.add_num_values(*num_values); }
-  if(bloom_filter_length) { builder_.add_bloom_filter_length(*bloom_filter_length); }
+  builder_.add_bloom_filter(bloom_filter);
   builder_.add_statistics(statistics);
   builder_.add_key_value_metadata(key_value_metadata);
   builder_.add_is_fully_dict_encoded(is_fully_dict_encoded);
@@ -1371,15 +1747,14 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
     ::flatbuffers::Optional<int64_t> num_values = ::flatbuffers::nullopt,
     int64_t total_uncompressed_size = 0,
     int64_t total_compressed_size = 0,
-    const std::vector<::flatbuffers::Offset<parquet::format3::KV>> *key_value_metadata = nullptr,
+    const std::vector<::flatbuffers::Offset<parquet::format3::KeyValue>> *key_value_metadata = nullptr,
     int64_t data_page_offset = 0,
     ::flatbuffers::Optional<int64_t> index_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Optional<int64_t> dictionary_page_offset = ::flatbuffers::nullopt,
     ::flatbuffers::Offset<parquet::format3::Statistics> statistics = 0,
     bool is_fully_dict_encoded = false,
-    ::flatbuffers::Optional<int64_t> bloom_filter_offset = ::flatbuffers::nullopt,
-    ::flatbuffers::Optional<int32_t> bloom_filter_length = ::flatbuffers::nullopt) {
-  auto key_value_metadata__ = key_value_metadata ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KV>>(*key_value_metadata) : 0;
+    ::flatbuffers::Offset<parquet::format3::BloomFilterInfo> bloom_filter = 0) {
+  auto key_value_metadata__ = key_value_metadata ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KeyValue>>(*key_value_metadata) : 0;
   return parquet::format3::CreateColumnMetadata(
       _fbb,
       codec,
@@ -1392,28 +1767,47 @@ inline ::flatbuffers::Offset<ColumnMetadata> CreateColumnMetadataDirect(
       dictionary_page_offset,
       statistics,
       is_fully_dict_encoded,
-      bloom_filter_offset,
-      bloom_filter_length);
+      bloom_filter);
 }
 
 struct ColumnChunk FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef ColumnChunkBuilder Builder;
-  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
-    VT_FILE_PATH = 4,
-    VT_META_DATA = 6
-  };
-  const ::flatbuffers::String *file_path() const {
-    return GetPointer<const ::flatbuffers::String *>(VT_FILE_PATH);
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.ColumnChunk";
   }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_META_DATA = 4,
+    VT_CRYPTO_METADATA_TYPE = 6,
+    VT_CRYPTO_METADATA = 8,
+    VT_ENCRYPTED_COLUMN_METADATA = 10
+  };
   const parquet::format3::ColumnMetadata *meta_data() const {
     return GetPointer<const parquet::format3::ColumnMetadata *>(VT_META_DATA);
   }
+  parquet::format3::ColumnCryptoMetadata crypto_metadata_type() const {
+    return static_cast<parquet::format3::ColumnCryptoMetadata>(GetField<uint8_t>(VT_CRYPTO_METADATA_TYPE, 0));
+  }
+  const void *crypto_metadata() const {
+    return GetPointer<const void *>(VT_CRYPTO_METADATA);
+  }
+  const parquet::format3::Empty *crypto_metadata_as_EncryptionWithFooterKey() const {
+    return crypto_metadata_type() == parquet::format3::ColumnCryptoMetadata::EncryptionWithFooterKey ? static_cast<const parquet::format3::Empty *>(crypto_metadata()) : nullptr;
+  }
+  const parquet::format3::Empty *crypto_metadata_as_EncryptionWithColumnKey() const {
+    return crypto_metadata_type() == parquet::format3::ColumnCryptoMetadata::EncryptionWithColumnKey ? static_cast<const parquet::format3::Empty *>(crypto_metadata()) : nullptr;
+  }
+  const ::flatbuffers::Vector<int8_t> *encrypted_column_metadata() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_ENCRYPTED_COLUMN_METADATA);
+  }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
-           VerifyOffset(verifier, VT_FILE_PATH) &&
-           verifier.VerifyString(file_path()) &&
            VerifyOffset(verifier, VT_META_DATA) &&
            verifier.VerifyTable(meta_data()) &&
+           VerifyField<uint8_t>(verifier, VT_CRYPTO_METADATA_TYPE, 1) &&
+           VerifyOffset(verifier, VT_CRYPTO_METADATA) &&
+           VerifyColumnCryptoMetadata(verifier, crypto_metadata(), crypto_metadata_type()) &&
+           VerifyOffset(verifier, VT_ENCRYPTED_COLUMN_METADATA) &&
+           verifier.VerifyVector(encrypted_column_metadata()) &&
            verifier.EndTable();
   }
 };
@@ -1422,11 +1816,17 @@ struct ColumnChunkBuilder {
   typedef ColumnChunk Table;
   ::flatbuffers::FlatBufferBuilder &fbb_;
   ::flatbuffers::uoffset_t start_;
-  void add_file_path(::flatbuffers::Offset<::flatbuffers::String> file_path) {
-    fbb_.AddOffset(ColumnChunk::VT_FILE_PATH, file_path);
-  }
   void add_meta_data(::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data) {
     fbb_.AddOffset(ColumnChunk::VT_META_DATA, meta_data);
+  }
+  void add_crypto_metadata_type(parquet::format3::ColumnCryptoMetadata crypto_metadata_type) {
+    fbb_.AddElement<uint8_t>(ColumnChunk::VT_CRYPTO_METADATA_TYPE, static_cast<uint8_t>(crypto_metadata_type), 0);
+  }
+  void add_crypto_metadata(::flatbuffers::Offset<void> crypto_metadata) {
+    fbb_.AddOffset(ColumnChunk::VT_CRYPTO_METADATA, crypto_metadata);
+  }
+  void add_encrypted_column_metadata(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> encrypted_column_metadata) {
+    fbb_.AddOffset(ColumnChunk::VT_ENCRYPTED_COLUMN_METADATA, encrypted_column_metadata);
   }
   explicit ColumnChunkBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1441,27 +1841,38 @@ struct ColumnChunkBuilder {
 
 inline ::flatbuffers::Offset<ColumnChunk> CreateColumnChunk(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    ::flatbuffers::Offset<::flatbuffers::String> file_path = 0,
-    ::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data = 0) {
+    ::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data = 0,
+    parquet::format3::ColumnCryptoMetadata crypto_metadata_type = parquet::format3::ColumnCryptoMetadata::NONE,
+    ::flatbuffers::Offset<void> crypto_metadata = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> encrypted_column_metadata = 0) {
   ColumnChunkBuilder builder_(_fbb);
+  builder_.add_encrypted_column_metadata(encrypted_column_metadata);
+  builder_.add_crypto_metadata(crypto_metadata);
   builder_.add_meta_data(meta_data);
-  builder_.add_file_path(file_path);
+  builder_.add_crypto_metadata_type(crypto_metadata_type);
   return builder_.Finish();
 }
 
 inline ::flatbuffers::Offset<ColumnChunk> CreateColumnChunkDirect(
     ::flatbuffers::FlatBufferBuilder &_fbb,
-    const char *file_path = nullptr,
-    ::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data = 0) {
-  auto file_path__ = file_path ? _fbb.CreateString(file_path) : 0;
+    ::flatbuffers::Offset<parquet::format3::ColumnMetadata> meta_data = 0,
+    parquet::format3::ColumnCryptoMetadata crypto_metadata_type = parquet::format3::ColumnCryptoMetadata::NONE,
+    ::flatbuffers::Offset<void> crypto_metadata = 0,
+    const std::vector<int8_t> *encrypted_column_metadata = nullptr) {
+  auto encrypted_column_metadata__ = encrypted_column_metadata ? _fbb.CreateVector<int8_t>(*encrypted_column_metadata) : 0;
   return parquet::format3::CreateColumnChunk(
       _fbb,
-      file_path__,
-      meta_data);
+      meta_data,
+      crypto_metadata_type,
+      crypto_metadata,
+      encrypted_column_metadata__);
 }
 
 struct SortingColumn FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef SortingColumnBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.SortingColumn";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COLUMN_IDX = 4,
     VT_DESCENDING = 6,
@@ -1523,6 +1934,9 @@ inline ::flatbuffers::Offset<SortingColumn> CreateSortingColumn(
 
 struct RowGroup FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef RowGroupBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.RowGroup";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_COLUMNS = 4,
     VT_TOTAL_BYTE_SIZE = 6,
@@ -1648,15 +2062,115 @@ inline ::flatbuffers::Offset<RowGroup> CreateRowGroupDirect(
       ordinal);
 }
 
+struct FileCryptoMetaData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
+  typedef FileCryptoMetaDataBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.FileCryptoMetaData";
+  }
+  enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
+    VT_ENCRYPTION_ALGORITHM_TYPE = 4,
+    VT_ENCRYPTION_ALGORITHM = 6,
+    VT_KEY_METADATA = 8
+  };
+  parquet::format3::EncryptionAlgorithm encryption_algorithm_type() const {
+    return static_cast<parquet::format3::EncryptionAlgorithm>(GetField<uint8_t>(VT_ENCRYPTION_ALGORITHM_TYPE, 0));
+  }
+  const void *encryption_algorithm() const {
+    return GetPointer<const void *>(VT_ENCRYPTION_ALGORITHM);
+  }
+  template<typename T> const T *encryption_algorithm_as() const;
+  const parquet::format3::AesGcmV1 *encryption_algorithm_as_AesGcmV1() const {
+    return encryption_algorithm_type() == parquet::format3::EncryptionAlgorithm::AesGcmV1 ? static_cast<const parquet::format3::AesGcmV1 *>(encryption_algorithm()) : nullptr;
+  }
+  const parquet::format3::AesGcmCtrV1 *encryption_algorithm_as_AesGcmCtrV1() const {
+    return encryption_algorithm_type() == parquet::format3::EncryptionAlgorithm::AesGcmCtrV1 ? static_cast<const parquet::format3::AesGcmCtrV1 *>(encryption_algorithm()) : nullptr;
+  }
+  const ::flatbuffers::Vector<int8_t> *key_metadata() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_KEY_METADATA);
+  }
+  bool Verify(::flatbuffers::Verifier &verifier) const {
+    return VerifyTableStart(verifier) &&
+           VerifyField<uint8_t>(verifier, VT_ENCRYPTION_ALGORITHM_TYPE, 1) &&
+           VerifyOffset(verifier, VT_ENCRYPTION_ALGORITHM) &&
+           VerifyEncryptionAlgorithm(verifier, encryption_algorithm(), encryption_algorithm_type()) &&
+           VerifyOffset(verifier, VT_KEY_METADATA) &&
+           verifier.VerifyVector(key_metadata()) &&
+           verifier.EndTable();
+  }
+};
+
+template<> inline const parquet::format3::AesGcmV1 *FileCryptoMetaData::encryption_algorithm_as<parquet::format3::AesGcmV1>() const {
+  return encryption_algorithm_as_AesGcmV1();
+}
+
+template<> inline const parquet::format3::AesGcmCtrV1 *FileCryptoMetaData::encryption_algorithm_as<parquet::format3::AesGcmCtrV1>() const {
+  return encryption_algorithm_as_AesGcmCtrV1();
+}
+
+struct FileCryptoMetaDataBuilder {
+  typedef FileCryptoMetaData Table;
+  ::flatbuffers::FlatBufferBuilder &fbb_;
+  ::flatbuffers::uoffset_t start_;
+  void add_encryption_algorithm_type(parquet::format3::EncryptionAlgorithm encryption_algorithm_type) {
+    fbb_.AddElement<uint8_t>(FileCryptoMetaData::VT_ENCRYPTION_ALGORITHM_TYPE, static_cast<uint8_t>(encryption_algorithm_type), 0);
+  }
+  void add_encryption_algorithm(::flatbuffers::Offset<void> encryption_algorithm) {
+    fbb_.AddOffset(FileCryptoMetaData::VT_ENCRYPTION_ALGORITHM, encryption_algorithm);
+  }
+  void add_key_metadata(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> key_metadata) {
+    fbb_.AddOffset(FileCryptoMetaData::VT_KEY_METADATA, key_metadata);
+  }
+  explicit FileCryptoMetaDataBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
+        : fbb_(_fbb) {
+    start_ = fbb_.StartTable();
+  }
+  ::flatbuffers::Offset<FileCryptoMetaData> Finish() {
+    const auto end = fbb_.EndTable(start_);
+    auto o = ::flatbuffers::Offset<FileCryptoMetaData>(end);
+    return o;
+  }
+};
+
+inline ::flatbuffers::Offset<FileCryptoMetaData> CreateFileCryptoMetaData(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    parquet::format3::EncryptionAlgorithm encryption_algorithm_type = parquet::format3::EncryptionAlgorithm::NONE,
+    ::flatbuffers::Offset<void> encryption_algorithm = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> key_metadata = 0) {
+  FileCryptoMetaDataBuilder builder_(_fbb);
+  builder_.add_key_metadata(key_metadata);
+  builder_.add_encryption_algorithm(encryption_algorithm);
+  builder_.add_encryption_algorithm_type(encryption_algorithm_type);
+  return builder_.Finish();
+}
+
+inline ::flatbuffers::Offset<FileCryptoMetaData> CreateFileCryptoMetaDataDirect(
+    ::flatbuffers::FlatBufferBuilder &_fbb,
+    parquet::format3::EncryptionAlgorithm encryption_algorithm_type = parquet::format3::EncryptionAlgorithm::NONE,
+    ::flatbuffers::Offset<void> encryption_algorithm = 0,
+    const std::vector<int8_t> *key_metadata = nullptr) {
+  auto key_metadata__ = key_metadata ? _fbb.CreateVector<int8_t>(*key_metadata) : 0;
+  return parquet::format3::CreateFileCryptoMetaData(
+      _fbb,
+      encryption_algorithm_type,
+      encryption_algorithm,
+      key_metadata__);
+}
+
 struct FileMetaData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   typedef FileMetaDataBuilder Builder;
+  static FLATBUFFERS_CONSTEXPR_CPP11 const char *GetFullyQualifiedName() {
+    return "parquet.format3.FileMetaData";
+  }
   enum FlatBuffersVTableOffset FLATBUFFERS_VTABLE_UNDERLYING_TYPE {
     VT_VERSION = 4,
     VT_SCHEMA = 6,
     VT_NUM_ROWS = 8,
     VT_ROW_GROUPS = 10,
     VT_KV = 12,
-    VT_CREATED_BY = 14
+    VT_CREATED_BY = 14,
+    VT_ENCRYPTION_ALGORITHM_TYPE = 16,
+    VT_ENCRYPTION_ALGORITHM = 18,
+    VT_FOOTER_SIGNING_KEY_METADATA = 20
   };
   int32_t version() const {
     return GetField<int32_t>(VT_VERSION, 0);
@@ -1670,11 +2184,27 @@ struct FileMetaData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
   const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::RowGroup>> *row_groups() const {
     return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::RowGroup>> *>(VT_ROW_GROUPS);
   }
-  const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *kv() const {
-    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>> *>(VT_KV);
+  const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>> *kv() const {
+    return GetPointer<const ::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>> *>(VT_KV);
   }
   const ::flatbuffers::String *created_by() const {
     return GetPointer<const ::flatbuffers::String *>(VT_CREATED_BY);
+  }
+  parquet::format3::EncryptionAlgorithm encryption_algorithm_type() const {
+    return static_cast<parquet::format3::EncryptionAlgorithm>(GetField<uint8_t>(VT_ENCRYPTION_ALGORITHM_TYPE, 0));
+  }
+  const void *encryption_algorithm() const {
+    return GetPointer<const void *>(VT_ENCRYPTION_ALGORITHM);
+  }
+  template<typename T> const T *encryption_algorithm_as() const;
+  const parquet::format3::AesGcmV1 *encryption_algorithm_as_AesGcmV1() const {
+    return encryption_algorithm_type() == parquet::format3::EncryptionAlgorithm::AesGcmV1 ? static_cast<const parquet::format3::AesGcmV1 *>(encryption_algorithm()) : nullptr;
+  }
+  const parquet::format3::AesGcmCtrV1 *encryption_algorithm_as_AesGcmCtrV1() const {
+    return encryption_algorithm_type() == parquet::format3::EncryptionAlgorithm::AesGcmCtrV1 ? static_cast<const parquet::format3::AesGcmCtrV1 *>(encryption_algorithm()) : nullptr;
+  }
+  const ::flatbuffers::Vector<int8_t> *footer_signing_key_metadata() const {
+    return GetPointer<const ::flatbuffers::Vector<int8_t> *>(VT_FOOTER_SIGNING_KEY_METADATA);
   }
   bool Verify(::flatbuffers::Verifier &verifier) const {
     return VerifyTableStart(verifier) &&
@@ -1691,9 +2221,22 @@ struct FileMetaData FLATBUFFERS_FINAL_CLASS : private ::flatbuffers::Table {
            verifier.VerifyVectorOfTables(kv()) &&
            VerifyOffset(verifier, VT_CREATED_BY) &&
            verifier.VerifyString(created_by()) &&
+           VerifyField<uint8_t>(verifier, VT_ENCRYPTION_ALGORITHM_TYPE, 1) &&
+           VerifyOffset(verifier, VT_ENCRYPTION_ALGORITHM) &&
+           VerifyEncryptionAlgorithm(verifier, encryption_algorithm(), encryption_algorithm_type()) &&
+           VerifyOffset(verifier, VT_FOOTER_SIGNING_KEY_METADATA) &&
+           verifier.VerifyVector(footer_signing_key_metadata()) &&
            verifier.EndTable();
   }
 };
+
+template<> inline const parquet::format3::AesGcmV1 *FileMetaData::encryption_algorithm_as<parquet::format3::AesGcmV1>() const {
+  return encryption_algorithm_as_AesGcmV1();
+}
+
+template<> inline const parquet::format3::AesGcmCtrV1 *FileMetaData::encryption_algorithm_as<parquet::format3::AesGcmCtrV1>() const {
+  return encryption_algorithm_as_AesGcmCtrV1();
+}
 
 struct FileMetaDataBuilder {
   typedef FileMetaData Table;
@@ -1711,11 +2254,20 @@ struct FileMetaDataBuilder {
   void add_row_groups(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::RowGroup>>> row_groups) {
     fbb_.AddOffset(FileMetaData::VT_ROW_GROUPS, row_groups);
   }
-  void add_kv(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> kv) {
+  void add_kv(::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>>> kv) {
     fbb_.AddOffset(FileMetaData::VT_KV, kv);
   }
   void add_created_by(::flatbuffers::Offset<::flatbuffers::String> created_by) {
     fbb_.AddOffset(FileMetaData::VT_CREATED_BY, created_by);
+  }
+  void add_encryption_algorithm_type(parquet::format3::EncryptionAlgorithm encryption_algorithm_type) {
+    fbb_.AddElement<uint8_t>(FileMetaData::VT_ENCRYPTION_ALGORITHM_TYPE, static_cast<uint8_t>(encryption_algorithm_type), 0);
+  }
+  void add_encryption_algorithm(::flatbuffers::Offset<void> encryption_algorithm) {
+    fbb_.AddOffset(FileMetaData::VT_ENCRYPTION_ALGORITHM, encryption_algorithm);
+  }
+  void add_footer_signing_key_metadata(::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> footer_signing_key_metadata) {
+    fbb_.AddOffset(FileMetaData::VT_FOOTER_SIGNING_KEY_METADATA, footer_signing_key_metadata);
   }
   explicit FileMetaDataBuilder(::flatbuffers::FlatBufferBuilder &_fbb)
         : fbb_(_fbb) {
@@ -1734,15 +2286,21 @@ inline ::flatbuffers::Offset<FileMetaData> CreateFileMetaData(
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::SchemaElement>>> schema = 0,
     int64_t num_rows = 0,
     ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::RowGroup>>> row_groups = 0,
-    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KV>>> kv = 0,
-    ::flatbuffers::Offset<::flatbuffers::String> created_by = 0) {
+    ::flatbuffers::Offset<::flatbuffers::Vector<::flatbuffers::Offset<parquet::format3::KeyValue>>> kv = 0,
+    ::flatbuffers::Offset<::flatbuffers::String> created_by = 0,
+    parquet::format3::EncryptionAlgorithm encryption_algorithm_type = parquet::format3::EncryptionAlgorithm::NONE,
+    ::flatbuffers::Offset<void> encryption_algorithm = 0,
+    ::flatbuffers::Offset<::flatbuffers::Vector<int8_t>> footer_signing_key_metadata = 0) {
   FileMetaDataBuilder builder_(_fbb);
   builder_.add_num_rows(num_rows);
+  builder_.add_footer_signing_key_metadata(footer_signing_key_metadata);
+  builder_.add_encryption_algorithm(encryption_algorithm);
   builder_.add_created_by(created_by);
   builder_.add_kv(kv);
   builder_.add_row_groups(row_groups);
   builder_.add_schema(schema);
   builder_.add_version(version);
+  builder_.add_encryption_algorithm_type(encryption_algorithm_type);
   return builder_.Finish();
 }
 
@@ -1752,12 +2310,16 @@ inline ::flatbuffers::Offset<FileMetaData> CreateFileMetaDataDirect(
     const std::vector<::flatbuffers::Offset<parquet::format3::SchemaElement>> *schema = nullptr,
     int64_t num_rows = 0,
     const std::vector<::flatbuffers::Offset<parquet::format3::RowGroup>> *row_groups = nullptr,
-    const std::vector<::flatbuffers::Offset<parquet::format3::KV>> *kv = nullptr,
-    const char *created_by = nullptr) {
+    const std::vector<::flatbuffers::Offset<parquet::format3::KeyValue>> *kv = nullptr,
+    const char *created_by = nullptr,
+    parquet::format3::EncryptionAlgorithm encryption_algorithm_type = parquet::format3::EncryptionAlgorithm::NONE,
+    ::flatbuffers::Offset<void> encryption_algorithm = 0,
+    const std::vector<int8_t> *footer_signing_key_metadata = nullptr) {
   auto schema__ = schema ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::SchemaElement>>(*schema) : 0;
   auto row_groups__ = row_groups ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::RowGroup>>(*row_groups) : 0;
-  auto kv__ = kv ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KV>>(*kv) : 0;
+  auto kv__ = kv ? _fbb.CreateVector<::flatbuffers::Offset<parquet::format3::KeyValue>>(*kv) : 0;
   auto created_by__ = created_by ? _fbb.CreateString(created_by) : 0;
+  auto footer_signing_key_metadata__ = footer_signing_key_metadata ? _fbb.CreateVector<int8_t>(*footer_signing_key_metadata) : 0;
   return parquet::format3::CreateFileMetaData(
       _fbb,
       version,
@@ -1765,7 +2327,10 @@ inline ::flatbuffers::Offset<FileMetaData> CreateFileMetaDataDirect(
       num_rows,
       row_groups__,
       kv__,
-      created_by__);
+      created_by__,
+      encryption_algorithm_type,
+      encryption_algorithm,
+      footer_signing_key_metadata__);
 }
 
 inline bool VerifyLogicalType(::flatbuffers::Verifier &verifier, const void *obj, LogicalType type) {
@@ -1790,7 +2355,7 @@ inline bool VerifyLogicalType(::flatbuffers::Verifier &verifier, const void *obj
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::DecimalType: {
-      auto ptr = reinterpret_cast<const parquet::format3::DecimalOpts *>(obj);
+      auto ptr = reinterpret_cast<const parquet::format3::DecimalOptions *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::DateType: {
@@ -1798,15 +2363,15 @@ inline bool VerifyLogicalType(::flatbuffers::Verifier &verifier, const void *obj
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::TimeType: {
-      auto ptr = reinterpret_cast<const parquet::format3::TimeOpts *>(obj);
+      auto ptr = reinterpret_cast<const parquet::format3::TimeOptions *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::TimestampType: {
-      auto ptr = reinterpret_cast<const parquet::format3::TimeOpts *>(obj);
+      auto ptr = reinterpret_cast<const parquet::format3::TimeOptions *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::IntType: {
-      auto ptr = reinterpret_cast<const parquet::format3::IntOpts *>(obj);
+      auto ptr = reinterpret_cast<const parquet::format3::IntOptions *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::NullType: {
@@ -1830,7 +2395,7 @@ inline bool VerifyLogicalType(::flatbuffers::Verifier &verifier, const void *obj
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::VariantType: {
-      auto ptr = reinterpret_cast<const parquet::format3::Empty *>(obj);
+      auto ptr = reinterpret_cast<const parquet::format3::VariantType *>(obj);
       return verifier.VerifyTable(ptr);
     }
     case LogicalType::GeometryType: {
@@ -1857,6 +2422,35 @@ inline bool VerifyLogicalTypeVector(::flatbuffers::Verifier &verifier, const ::f
   return true;
 }
 
+inline bool VerifyEncryptionAlgorithm(::flatbuffers::Verifier &verifier, const void *obj, EncryptionAlgorithm type) {
+  switch (type) {
+    case EncryptionAlgorithm::NONE: {
+      return true;
+    }
+    case EncryptionAlgorithm::AesGcmV1: {
+      auto ptr = reinterpret_cast<const parquet::format3::AesGcmV1 *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case EncryptionAlgorithm::AesGcmCtrV1: {
+      auto ptr = reinterpret_cast<const parquet::format3::AesGcmCtrV1 *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyEncryptionAlgorithmVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<EncryptionAlgorithm> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyEncryptionAlgorithm(
+        verifier,  values->Get(i), types->GetEnum<EncryptionAlgorithm>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
 inline bool VerifyColumnOrder(::flatbuffers::Verifier &verifier, const void *obj, ColumnOrder type) {
   switch (type) {
     case ColumnOrder::NONE: {
@@ -1876,6 +2470,35 @@ inline bool VerifyColumnOrderVector(::flatbuffers::Verifier &verifier, const ::f
   for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
     if (!VerifyColumnOrder(
         verifier,  values->Get(i), types->GetEnum<ColumnOrder>(i))) {
+      return false;
+    }
+  }
+  return true;
+}
+
+inline bool VerifyColumnCryptoMetadata(::flatbuffers::Verifier &verifier, const void *obj, ColumnCryptoMetadata type) {
+  switch (type) {
+    case ColumnCryptoMetadata::NONE: {
+      return true;
+    }
+    case ColumnCryptoMetadata::EncryptionWithFooterKey: {
+      auto ptr = reinterpret_cast<const parquet::format3::Empty *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    case ColumnCryptoMetadata::EncryptionWithColumnKey: {
+      auto ptr = reinterpret_cast<const parquet::format3::Empty *>(obj);
+      return verifier.VerifyTable(ptr);
+    }
+    default: return true;
+  }
+}
+
+inline bool VerifyColumnCryptoMetadataVector(::flatbuffers::Verifier &verifier, const ::flatbuffers::Vector<::flatbuffers::Offset<void>> *values, const ::flatbuffers::Vector<ColumnCryptoMetadata> *types) {
+  if (!values || !types) return !values && !types;
+  if (values->size() != types->size()) return false;
+  for (::flatbuffers::uoffset_t i = 0; i < values->size(); ++i) {
+    if (!VerifyColumnCryptoMetadata(
+        verifier,  values->Get(i), types->GetEnum<ColumnCryptoMetadata>(i))) {
       return false;
     }
   }

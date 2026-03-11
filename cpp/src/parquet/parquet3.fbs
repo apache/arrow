@@ -1,82 +1,165 @@
-// Licensed to the Apache Software Foundation (ASF) under one
-// or more contributor license agreements.  See the NOTICE file
-// distributed with this work for additional information
-// regarding copyright ownership.  The ASF licenses this file
-// to you under the Apache License, Version 2.0 (the
-// "License"); you may not use this file except in compliance
-// with the License.  You may obtain a copy of the License at
-//
-//   http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing,
-// software distributed under the License is distributed on an
-// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
-// KIND, either express or implied.  See the License for the
-// specific language governing permissions and limitations
-// under the License.
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
 
 namespace parquet.format3;
 
-// Optimization notes
-// 1. Statistics are stored in integral types if their size is fixed, otherwise prefix + suffix
-// 2. ColumnMetaData.encoding_stats are removed, they are replaced with
+// The FlatBuffers footer preserves the same information as the Thrift Parquet footer,
+// while removing duplicated fields, unused details, and inefficient encodings that
+// waste space and memory.
+// It can currently be attached as a footer extension, and may fully replace the
+// Thrift footer in the future.
+//
+// Optimization notes:
+// 1. Statistics use fixed-width integral types when possible; otherwise they are
+//    encoded as prefix + suffix.
+// 2. ColumnChunk file_path and file_offset are removed since they are unused.
+// 3. ColumnMetaData.encoding_stats are removed and replaced by
 //    ColumnMetaData.is_fully_dict_encoded.
-// 3. RowGroups are limited to 2GB in size, so we can use int for sizes.
-// 4. ColumnChunk/ColumnMetaData offsets are now relative to the start of the row group, so we can
-//    use int for offsets.
-// 5. Remove ordinal.
-// 6. Restrict RowGroups to 2^31-1 rows.
-// 7. Remove offset/column indexes, they are small and just their offsets are of similar size.
+// 4. ColumnMetaData.path_in_schema is removed since it can be derived from the schema.
+// 5. ConvertedType is fully dropped as it is superseded by LogicalType.
+// 6. Offset and column indexes are removed since they are small and their offsets
+//    alone take comparable space.
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Physical types.
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
+/**
+ * Types supported by Parquet. These types are intended to be used in combination
+ * with the encodings to control the on disk storage format.
+ * For example INT16 is not included as a type since a good encoding of INT32
+ * would handle this.
+ */
 enum Type : byte {
   BOOLEAN = 0,
   INT32 = 1,
   INT64 = 2,
-  INT96 = 3,
+  INT96 = 3,  // deprecated, new Parquet writers should not write data in INT96
   FLOAT = 4,
   DOUBLE = 5,
   BYTE_ARRAY = 6,
   FIXED_LEN_BYTE_ARRAY = 7,
 }
 
+/**
+ * Representation of Schemas
+ */
 enum FieldRepetitionType : byte {
+  /** This field is required (can not be null) and each row has exactly 1 value. */
   REQUIRED = 0,
+
+  /** The field is optional (can be null) and each row has 0 or 1 values. */
   OPTIONAL = 1,
+
+  /** The field is repeated and can contain 0 or more values */
   REPEATED = 2,
 }
 
-///////////////////////////////////////////////////////////////////////////////////////////////////
-// Encodings.
-///////////////////////////////////////////////////////////////////////////////////////////////////
-
-// Note: Match the thrift enum values so that we can cast between them.
+/**
+ * Encodings supported by Parquet. Not all encodings are valid for all types. These
+ * enums are also used to specify the encoding of definition and repetition levels.
+ * See the accompanying doc for the details of the more complicated encodings.
+ * Note: Match the thrift enum values so that we can cast between them.
+ */
 enum Encoding : byte {
+  /** Default encoding.
+   * BOOLEAN - 1 bit per value. 0 is false; 1 is true.
+   * INT32 - 4 bytes per value. Stored as little-endian.
+   * INT64 - 8 bytes per value. Stored as little-endian.
+   * FLOAT - 4 bytes per value. IEEE. Stored as little-endian.
+   * DOUBLE - 8 bytes per value. IEEE. Stored as little-endian.
+   * BYTE_ARRAY - 4 byte length stored as little endian, followed by bytes.
+   * FIXED_LEN_BYTE_ARRAY - Just the bytes.
+   */
   PLAIN = 0,
+
+  /** Group VarInt encoding for INT32/INT64.
+   * This encoding is deprecated. It was never used
+   */
   // GROUP_VAR_INT = 1,
+
+  /**
+   * Deprecated: Dictionary encoding. The values in the dictionary are encoded in the
+   * plain type.
+   * in a data page use RLE_DICTIONARY instead.
+   * in a Dictionary page use PLAIN instead
+   */
   PLAIN_DICTIONARY = 2,
+
+  /** Group packed run length encoding. Usable for definition/repetition levels
+   * encoding and Booleans (on one bit: 0 is false; 1 is true.)
+   */
   RLE = 3,
+
+  /** Bit packed encoding. This can only be used if the data has a known max
+   * width. Usable for definition/repetition levels encoding.
+   * This encoding is deprecated and is replaced by the RLE/bit-packing hybrid encoding. 
+   */
   // BIT_PACKED = 4,
+
+  /** Delta encoding for integers. This can be used for int columns and works best
+   * on sorted data
+   */
   DELTA_BINARY_PACKED = 5,
+
+  /** Encoding for byte arrays to separate the length values and the data. The lengths
+   * are encoded using DELTA_BINARY_PACKED
+   */
   DELTA_LENGTH_BYTE_ARRAY = 6,
+
+  /** Incremental-encoded byte array. Prefix lengths are encoded using DELTA_BINARY_PACKED.
+   * Suffixes are stored as delta length byte arrays.
+   */
   DELTA_BYTE_ARRAY = 7,
+
+  /** Dictionary encoding: the ids are encoded using the RLE encoding
+   */
   RLE_DICTIONARY = 8,
+
+  /** Encoding for fixed-width data (FLOAT, DOUBLE, INT32, INT64, FIXED_LEN_BYTE_ARRAY).
+      K byte-streams are created where K is the size in bytes of the data type.
+      The individual bytes of a value are scattered to the corresponding stream and
+      the streams are concatenated.
+      This itself does not reduce the size of the data but can lead to better compression
+      afterwards.
+
+      Added in 2.8 for FLOAT and DOUBLE.
+      Support for INT32, INT64 and FIXED_LEN_BYTE_ARRAY added in 2.11.
+   */
   BYTE_STREAM_SPLIT = 9,
 }
 
-// Note: Match the thrift enum values so that we can cast between them.
+/**
+ * Supported compression algorithms.
+ *
+ * Codecs added in format version X.Y can be read by readers based on X.Y and later.
+ * Codec support may vary between readers based on the format version and
+ * libraries available at runtime.
+ *
+ * See Compression.md for a detailed specification of these algorithms.
+ * Note: Match the thrift enum values so that we can cast between them.
+ */
 enum CompressionCodec : byte {
   UNCOMPRESSED = 0,
   SNAPPY = 1,
   GZIP = 2,
   LZO = 3,
-  BROTLI = 4,
-  // LZ4 = 5,
-  ZSTD = 6,
-  LZ4_RAW = 7,
+  BROTLI = 4,  // Added in 2.4
+  LZ4 = 5,     // DEPRECATED (Added in 2.4)
+  ZSTD = 6,    // Added in 2.4
+  LZ4_RAW = 7, // Added in 2.9
 }
 
 ///////////////////////////////////////////////////////////////////////////////////////////////////
@@ -84,26 +167,62 @@ enum CompressionCodec : byte {
 ///////////////////////////////////////////////////////////////////////////////////////////////////
 
 table Empty {}
-table DecimalOpts {
+
+/**
+ * Decimal logical type annotation
+ *
+ * Scale must be zero or a positive integer less than or equal to the precision.
+ * Precision must be a non-zero positive integer.
+ *
+ * To maintain forward-compatibility in v1, implementations using this logical
+ * type must also set scale and precision on the annotated SchemaElement.
+ *
+ * Allowed for physical types: INT32, INT64, FIXED_LEN_BYTE_ARRAY, and BYTE_ARRAY.
+ */
+table DecimalOptions {
   precision: int;
   scale: int;
 }
+
+/** Time units for logical types */
 enum TimeUnit : byte {
-  MS = 0,
-  US = 1,
-  NS = 2,
+  MILLIS = 0,
+  MICROS = 1,
+  NANOS = 2,
 }
-table TimeOpts {
+
+/**
+ * Timestamp logical type annotation
+ *
+ * Allowed for physical types: INT64
+ */
+table TimeOptions {
   is_adjusted_to_utc: bool;
   unit: TimeUnit;
 }
-table IntOpts {
+
+/**
+ * Integer logical type annotation
+ *
+ * bitWidth must be 8, 16, 32, or 64.
+ *
+ * Allowed for physical types: INT32, INT64
+ */
+table IntOptions {
   bit_width: byte = 8;
   is_signed: bool;
 }
-table GeometryType {
-  crs: string;
+
+/**
+ * Embedded Variant logical type annotation
+ */
+table VariantType {
+  // The version of the variant specification that the variant was
+  // written with.
+  specification_version: byte = null;
 }
+
+/** Edge interpolation algorithm for Geography logical type */
 enum EdgeInterpolationAlgorithm : byte {
   SPHERICAL = 0,
   VINCENTY = 1,
@@ -111,45 +230,97 @@ enum EdgeInterpolationAlgorithm : byte {
   ANDOYER = 3,
   KARNEY = 4,
 }
+
+/**
+ * Embedded Geometry logical type annotation
+ *
+ * Geospatial features in the Well-Known Binary (WKB) format and edges interpolation
+ * is always linear/planar.
+ *
+ * A custom CRS can be set by the crs field. If unset, it defaults to "OGC:CRS84",
+ * which means that the geometries must be stored in longitude, latitude based on
+ * the WGS84 datum.
+ *
+ * Allowed for physical type: BYTE_ARRAY.
+ *
+ * See Geospatial.md for details.
+ */
+table GeometryType {
+  crs: string;
+}
+
+/**
+ * Embedded Geography logical type annotation
+ *
+ * Geospatial features in the WKB format with an explicit (non-linear/non-planar)
+ * edges interpolation algorithm.
+ *
+ * A custom geographic CRS can be set by the crs field, where longitudes are
+ * bound by [-180, 180] and latitudes are bound by [-90, 90]. If unset, the CRS
+ * defaults to "OGC:CRS84".
+ *
+ * An optional algorithm can be set to correctly interpret edges interpolation
+ * of the geometries. If unset, the algorithm defaults to SPHERICAL.
+ *
+ * Allowed for physical type: BYTE_ARRAY.
+ *
+ * See Geospatial.md for details.
+ */
 table GeographyType {
   crs: string;
   algorithm: EdgeInterpolationAlgorithm;
 }
+
+/**
+ * LogicalType annotations to replace ConvertedType.
+ */
 union LogicalType {
-  StringType:Empty,
+  StringType:Empty, 
   MapType:Empty,
   ListType:Empty,
   EnumType:Empty,
-  DecimalType:DecimalOpts,
+  DecimalType:DecimalOptions,
   DateType:Empty,
-  TimeType:TimeOpts,
-  TimestampType:TimeOpts,
-  IntType:IntOpts,
+  TimeType:TimeOptions,
+  TimestampType:TimeOptions,
+  IntType:IntOptions,
   NullType:Empty,
   JsonType:Empty,
   BsonType:Empty,
   UUIDType:Empty,
   Float16Type:Empty,
-  VariantType:Empty,
+  VariantType:VariantType,
   GeometryType:GeometryType,
   GeographyType:GeographyType,
 }
 
 table Statistics {
   null_count: int = null;
-  // Store min/max values fixed sized entities depending on the physical type. If len is present
-  // then the min/max value is present.
+  // Store min/max values as fixed-width entities depending on the physical type.
+  // If min_len/max_len is present then the corresponding min/max value is present.
   //
   // - BOOLEAN: none
-  // - INT32/FLOAT: lo4 (little-endian)
-  // - INT64/DOUBLE: lo8 (little-endian)
-  // - INT96: lo4+lo8 (little-endian)
+  // - INT32/FLOAT: min_lo4/max_lo4 (little-endian, 4 bytes)
+  // - INT64/DOUBLE: min_lo8/max_lo8 (little-endian, 8 bytes)
+  // - INT96: lo4 contains the low 4 bytes, lo8 contains the high 8 bytes (little-endian, 12 bytes total)
   // - FIXED_LEN_BYTE_ARRAY:
   // - BYTE_ARRAY:
-  //   prefix: the longest common prefix of min/max
-  //   lo8+hi8 zero padded 16 bytes (big-endian) of the suffix
-  //   len: the length for the suffix of the value after removing the prefix. If > 16 then the
-  //        value is inexact
+  //   prefix: the longest common prefix of min and max values
+  //   lo8+hi8: zero-padded 16 bytes (big-endian) of the suffix after removing the prefix
+  //   min_len/max_len: the length of the suffix of the original value after removing the prefix.
+  //        If > 16 then the value stored in lo8+hi8 is a truncated approximation (inexact).
+  //        If <= 16 then the value is exact.
+  //
+  // Example for BYTE_ARRAY with min="apple" and max="application":
+  //   prefix = "appl"  (longest common prefix)
+  //   min suffix = "e" (1 byte), max suffix = "ication" (7 bytes)
+  //   min_lo8 = big-endian encoding of "e" zero-padded to 16 bytes
+  //   min_len = 1 (exact, since 1 <= 16)
+  //   max_lo8 = big-endian encoding of "ication" zero-padded to 16 bytes
+  //   max_len = 7 (exact, since 7 <= 16)
+  //
+  // Example for INT32 with min=42:
+  //   min_lo4 = 0x2A000000 (42 in little-endian)
   min_lo4: uint;
   min_lo8: ulong;
   min_hi8: ulong;
@@ -161,17 +332,90 @@ table Statistics {
   prefix: string;
 }
 
+/**
+ * Bloom filter metadata for a column chunk.
+ */
+table BloomFilterInfo {
+  /** Byte offset from beginning of file to Bloom filter data. **/
+  offset: long;
+
+  /** Size of Bloom filter data including the serialized header, in bytes.
+   * Writers should write this field so readers can read the bloom filter
+   * in a single I/O.
+   */
+  length: int;
+}
+
+table AesGcmV1 {
+  /** AAD prefix **/
+  aad_prefix: [byte];
+
+  /** Unique file identifier part of AAD suffix **/
+  aad_file_unique: [byte];
+
+  /** In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix **/
+  supply_aad_prefix: bool;
+}
+
+table AesGcmCtrV1 {
+  /** AAD prefix **/
+  aad_prefix: [byte];
+
+  /** Unique file identifier part of AAD suffix **/
+  aad_file_unique: [byte];
+
+  /** In files encrypted with AAD prefix without storing it,
+   * readers must supply the prefix **/
+  supply_aad_prefix: bool;
+}
+
+union EncryptionAlgorithm {
+  AesGcmV1:AesGcmV1,
+  AesGcmCtrV1:AesGcmCtrV1,
+}
+
 union ColumnOrder {
   TypeDefinedOrder:Empty,
 }
 
+/**
+ * Represents a element inside a schema definition.
+ *  - if it is a group (inner node) then type is undefined and num_children is defined
+ *  - if it is a primitive type (leaf) then type is defined and num_children is undefined
+ * the nodes are listed in depth first traversal order.
+ */
 table SchemaElement {
+  /** Name of the field in the schema */
   name: string;
+
+  /** Data type for this field. Not set if the current element is a non-leaf node */
   type: Type = null;
+
+  /** repetition of the field. The root of the schema does not have a repetition_type.
+   * All other nodes must have one */
   repetition_type: FieldRepetitionType;
+
+  /** The logical type of this SchemaElement */
   logical_type: LogicalType;
+
+  /** If type is FIXED_LEN_BYTE_ARRAY, this is the byte length of the values.
+   * Otherwise, if specified, this is the maximum bit length to store any of the values.
+   * (e.g. a low cardinality INT col could have this set to 3).  Note that this is
+   * in the schema, and therefore fixed for the entire file.
+   */
   type_length: int = null;
+
+  /** Nested fields.  Since thrift does not support nested fields,
+   * the nesting is flattened to a single list by a depth-first traversal.
+   * The children count is used to construct the nested relationship.
+   * This field is not set when the element is a primitive type
+   */
   num_children: int = 0;
+
+  /** When the original schema supports field ids, this will save the
+   * original field id in the parquet schema
+   */
   field_id: int = null;
   column_order: ColumnOrder;  // only present for leaf nodes
 }
@@ -183,59 +427,178 @@ enum PageType : byte {
   DATA_PAGE_V2 = 3,
 }
 
-table KV {
+table KeyValue {
   key: string;
   val: string;
 }
 
+/**
+ * Description for column metadata
+ */
 table ColumnMetadata {
+  /** Compression codec **/
   codec: CompressionCodec;
-  num_values: long = null;  // only present if not equal to rg.num_rows
+
+  /** Number of values in this column, only present if not equal to rg.num_rows **/
+  num_values: long = null;
+
+  /** total byte size of all uncompressed pages in this column chunk (including the headers) **/
   total_uncompressed_size: long;
+
+  /** total byte size of all compressed, and potentially encrypted, pages 
+   * in this column chunk (including the headers) **/
   total_compressed_size: long;
-  key_value_metadata: [KV];
+
+  /** Optional key/value metadata **/
+  key_value_metadata: [KeyValue];
+
+  /** Byte offset from beginning of file to first data page **/
   data_page_offset: long;
+
+  /** Byte offset from beginning of file to root index page **/
   index_page_offset: long = null;
+
+  /** Byte offset from the beginning of file to first (only) dictionary page **/
   dictionary_page_offset: long = null;
+
+  /** optional statistics for this column chunk */
   statistics: Statistics;
+
+  /** Indicates whether the column chunk pages are fully dictionary encoded. */
   is_fully_dict_encoded: bool;
-  bloom_filter_offset: long = null;
-  bloom_filter_length: int = null;
+
+  /** Optional Bloom filter information for this column chunk */
+  bloom_filter: BloomFilterInfo;
+}
+
+union ColumnCryptoMetadata {
+  EncryptionWithFooterKey:Empty,
+  EncryptionWithColumnKey:Empty,
 }
 
 table ColumnChunk {
-  file_path: string;
+  /** Column metadata for this chunk.
+   * Note: while marked as optional, this field is in fact required by most major
+   * Parquet implementations. As such, writers MUST populate this field.
+   **/
   meta_data: ColumnMetadata;
-  // crypto_metadata: ColumnCryptoMetadata;  // TODO
-  // encrypted_column_metadata: [byte];  // TODO
+
+  /** Crypto metadata of encrypted columns **/
+  crypto_metadata: ColumnCryptoMetadata;
+
+  /** Encrypted column metadata for this chunk **/
+  encrypted_column_metadata: [byte];
 }
 
+/**
+ * Sort order within a RowGroup of a leaf column
+ */
 table SortingColumn {
+  /** The ordinal position of the column (in this row group) **/
   column_idx: int;
+
+  /** If true, indicates this column is sorted in descending order. **/
   descending: bool;
+
+  /** If true, nulls will come before non-null values, otherwise,
+   * nulls go at the end. */
   nulls_first: bool;
 }
 
 table RowGroup {
+  /** Metadata for each column chunk in this row group.
+   * This list must have the same order as the SchemaElement list in FileMetaData.
+   **/
   columns: [ColumnChunk];
+
+  /** Total byte size of all the uncompressed column data in this row group **/
   total_byte_size: long;
+
+  /** Number of rows in this row group **/
   num_rows: long;
+
+  /** If set, specifies a sort ordering of the rows in this RowGroup.
+   * The sorting columns can be a subset of all the columns.
+   */
   sorting_columns: [SortingColumn];
+
+  /** Byte offset from beginning of file to first page (data or dictionary)
+   * in this row group **/
   file_offset: long;
+
+  /** Total byte size of all compressed (and potentially encrypted) column data 
+   * in this row group **/
   total_compressed_size: long;
+
+  /** Row group ordinal in the file **/
   ordinal: short = null;
 }
 
+/**
+ * Crypto metadata for files with encrypted footer.
+ */
+table FileCryptoMetaData {
+  /** 
+   * Encryption algorithm. This field is only used for files
+   * with encrypted footer. Files with plaintext footer store algorithm id
+   * inside footer (FileMetaData structure).
+   */
+  encryption_algorithm: EncryptionAlgorithm;
+    
+  /** Retrieval metadata of key used for encryption of footer, 
+   * and (possibly) columns **/
+  key_metadata: [byte];
+}
+
+/**
+ * Description for file metadata
+ */
 table FileMetaData {
+  /** Version of this file 
+    * 
+    * As of December 2025, there is no agreed upon consensus of what constitutes 
+    * version 2 of the file. For maximum compatibility with readers, writers should 
+    * always populate "1" for version. For maximum compatibility with writers, 
+    * readers should accept "1" and "2" interchangeably. All other versions are 
+    * reserved for potential future use-cases.
+    */
   version: int;
+
+  /** Parquet schema for this file. This schema contains metadata for all the columns.
+   * The schema is represented as a tree with a single root. The nodes of the tree
+   * are flattened to a list by doing a depth-first traversal.
+   * The column metadata contains the path in the schema for that column which can be
+   * used to map columns to nodes in the schema.
+   * The first element is the root **/
   schema: [SchemaElement];
+
+  /** Number of rows in this file **/
   num_rows: long;
+
+  /** Row groups in this file **/
   row_groups: [RowGroup];
-  kv: [KV];
+
+  /** Optional key/value metadata **/
+  kv: [KeyValue];
+
+  /** String for application that wrote this file. This should be in the format
+   * <Application> version <App Version> (build <App Build Hash>).
+   * e.g. impala version 1.0 (build 6cf94d29b2b7115df4de2c06e2ab4326d721eb55)
+   **/
   created_by: string;
-  // column_orders: [ColumnOrder];  // moved to SchemaElement
-  // encryption_algorithm: [EncryptionAlgorithm];  // TODO
-  // footer_signing_key_metadata: binary;  // TODO
+
+  /** 
+   * Encryption algorithm. This field is set only in encrypted files
+   * with plaintext footer. Files with encrypted footer store algorithm id
+   * in FileCryptoMetaData structure.
+   */
+  encryption_algorithm: EncryptionAlgorithm;
+
+  /** 
+   * Retrieval metadata of key used for signing the footer. 
+   * Used only in encrypted files with plaintext footer. 
+   */ 
+  footer_signing_key_metadata: [byte];
 }
 
 root_type FileMetaData;
