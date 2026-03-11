@@ -1396,7 +1396,8 @@ class BaseCSVTableRead(BaseTestCSV):
     def test_default_column_type(self):
         rows = b"a,b,c,d\n001,2.5,hello,true\n4,3.14,world,false\n"
 
-        # Test with default_column_type only - all columns should use the specified type.
+        # Test with default_column_type only -
+        # all columns should use the specified type.
         opts = ConvertOptions(default_column_type=pa.string())
         table = self.read_bytes(rows, convert_options=opts)
         schema = pa.schema([('a', pa.string()),
