@@ -537,7 +537,13 @@ arrow::Result<std::string> CreateStatementQueryTicket(
   ticket_statement_query.set_statement_handle(statement_handle);
 
   google::protobuf::Any ticket;
+#if PROTOBUF_VERSION >= 3015000
+  if (!ticket.PackFrom(ticket_statement_query)) {
+    return Status::IOError("Failed to pack ticket");
+  }
+#else
   ticket.PackFrom(ticket_statement_query);
+#endif
 
   std::string ticket_string;
 
