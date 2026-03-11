@@ -587,6 +587,10 @@ std::unique_ptr<ParquetFileWriter> ParquetFileWriter::Open(
   return result;
 }
 
+void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink) {
+  WriteFileMetaData(file_metadata, sink, /*use_metadata3=*/false);
+}
+
 void WriteFileMetaData(const FileMetaData& file_metadata, ArrowOutputStream* sink,
                        bool use_metadata3) {
   // Write MetaData

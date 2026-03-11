@@ -110,8 +110,12 @@ class PARQUET_EXPORT RowGroupWriter {
 };
 
 PARQUET_EXPORT
+void WriteFileMetaData(const FileMetaData& file_metadata,
+                       ::arrow::io::OutputStream* sink);
+
+PARQUET_EXPORT
 void WriteFileMetaData(const FileMetaData& file_metadata, ::arrow::io::OutputStream* sink,
-                       bool use_metadata3 = false);
+                       bool use_metadata3);
 
 PARQUET_EXPORT
 void WriteMetaDataFile(const FileMetaData& file_metadata,

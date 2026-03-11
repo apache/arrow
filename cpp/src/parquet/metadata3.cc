@@ -18,6 +18,7 @@
 
 #include <cassert>
 #include <cstring>
+#include <limits>
 #include <string>
 #include <vector>
 
@@ -91,6 +92,7 @@ static_assert(IsEnumEq(format::PageType::DICTIONARY_PAGE,
                        format3::PageType::DICTIONARY_PAGE));
 
 constexpr double kMinCompressionRatio = 1.2;
+constexpr uint32_t kMaxRawMetadata3Len = 128U * 1024U * 1024U;
 
 constexpr uint8_t kExtUUID[16] = {0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef,
                                   0xde, 0xad, 0xbe, 0xef, 0xde, 0xad, 0xbe, 0xef};
@@ -238,24 +240,24 @@ void StoreBE64(uint64_t v, void* p) {
   std::memcpy(p, &v, sizeof(v));
 }
 
-MinMax Pack(format::Type::type type, const std::string& min, bool is_min_exact,
-            const std::string& max, bool is_max_exact) {
+std::optional<MinMax> Pack(format::Type::type type, const std::string& min,
+                           bool is_min_exact, const std::string& max, bool is_max_exact) {
   switch (type) {
     case format::Type::BOOLEAN:
-      return {};
+      return MinMax{};
     case format::Type::INT32:
     case format::Type::FLOAT: {
       auto load = [](std::string_view v, bool is_exact) -> MinMax::Packed {
         return {.lo4 = LoadLE32(v.data()), .len = static_cast<int8_t>(is_exact ? 4 : -4)};
       };
-      return {load(min, is_min_exact), load(max, is_max_exact), ""};
+      return MinMax{load(min, is_min_exact), load(max, is_max_exact), ""};
     }
     case format::Type::INT64:
     case format::Type::DOUBLE: {
       auto load = [](std::string_view v, bool is_exact) -> MinMax::Packed {
         return {.lo8 = LoadLE64(v.data()), .len = static_cast<int8_t>(is_exact ? 8 : -8)};
       };
-      return {load(min, is_min_exact), load(max, is_max_exact), ""};
+      return MinMax{load(min, is_min_exact), load(max, is_max_exact), ""};
     }
     case format::Type::INT96: {
       auto load = [](std::string_view v, bool is_exact) -> MinMax::Packed {
@@ -263,7 +265,7 @@ MinMax Pack(format::Type::type type, const std::string& min, bool is_min_exact,
                 .lo8 = LoadLE64(v.data() + 4),
                 .len = static_cast<int8_t>(is_exact ? 12 : -12)};
       };
-      return {load(min, is_min_exact), load(max, is_max_exact), ""};
+      return MinMax{load(min, is_min_exact), load(max, is_max_exact), ""};
     }
     case format::Type::FIXED_LEN_BYTE_ARRAY: {
       // Special case for decimal16.
@@ -272,26 +274,38 @@ MinMax Pack(format::Type::type type, const std::string& min, bool is_min_exact,
           return {
               .lo8 = LoadBE64(v.data() + 8), .hi8 = LoadBE64(v.data() + 0), .len = 16};
         };
-        return {load(min), load(max), ""};
+        return MinMax{load(min), load(max), ""};
       }
       [[fallthrough]];
     }
     case format::Type::BYTE_ARRAY: {
-      auto load = [](std::string_view v, bool is_exact, bool is_max) -> MinMax::Packed {
+      auto load = [](std::string_view v, bool is_exact,
+                     bool is_max) -> std::optional<MinMax::Packed> {
         if (v.size() <= 4) {
           char buf[4] = {};
           memcpy(buf, v.data(), v.size());
-          return {.lo4 = LoadBE32(buf),
-                  .len = static_cast<int8_t>(is_exact ? v.size()
-                                                      : -static_cast<int>(v.size()))};
+          return MinMax::Packed{.lo4 = LoadBE32(buf),
+                                .len = static_cast<int8_t>(
+                                    is_exact ? v.size() : -static_cast<int>(v.size()))};
         }
-        return {.lo4 = LoadBE32(v.data()) + (is_max ? 1 : -1), .len = -4};
+        const uint32_t lo4 = LoadBE32(v.data());
+        if (is_max) {
+          if (lo4 == std::numeric_limits<uint32_t>::max()) return std::nullopt;
+          return MinMax::Packed{.lo4 = lo4 + 1, .len = -4};
+        }
+        if (lo4 == 0) return std::nullopt;
+        return MinMax::Packed{.lo4 = lo4 - 1, .len = -4};
       };
       auto [e1, e2] = std::mismatch(max.begin(), max.end(), min.begin(), min.end());
       size_t prefix_len = e1 - max.begin();
-      return {
-          load(std::string_view(min).substr(prefix_len), is_min_exact, false),
-          load(std::string_view(max).substr(prefix_len), is_max_exact, true),
+      auto min_packed =
+          load(std::string_view(min).substr(prefix_len), is_min_exact, false);
+      auto max_packed =
+          load(std::string_view(max).substr(prefix_len), is_max_exact, true);
+      if (!min_packed || !max_packed) return std::nullopt;
+      return MinMax{
+          *min_packed,
+          *max_packed,
           std::string_view(max).substr(0, prefix_len),
       };
     }
@@ -720,9 +734,9 @@ struct FlatbufferConverter {
     } else if (t.__isset.ENUM) {
       return {format3::LogicalType::EnumType, format3::CreateEmpty(root).Union()};
     } else if (t.__isset.DECIMAL) {
-      return {
-          format3::LogicalType::DecimalType,
-          format3::CreateDecimalOptions(root, t.DECIMAL.precision, t.DECIMAL.scale).Union()};
+      return {format3::LogicalType::DecimalType,
+              format3::CreateDecimalOptions(root, t.DECIMAL.precision, t.DECIMAL.scale)
+                  .Union()};
     } else if (t.__isset.DATE) {
       return {format3::LogicalType::DateType, format3::CreateEmpty(root).Union()};
     } else if (t.__isset.TIME) {
@@ -734,9 +748,9 @@ struct FlatbufferConverter {
       return {format3::LogicalType::TimestampType,
               format3::CreateTimeOptions(root, t.TIMESTAMP.isAdjustedToUTC, tu).Union()};
     } else if (t.__isset.INTEGER) {
-      return {
-          format3::LogicalType::IntType,
-          format3::CreateIntOptions(root, t.INTEGER.bitWidth, t.INTEGER.isSigned).Union()};
+      return {format3::LogicalType::IntType,
+              format3::CreateIntOptions(root, t.INTEGER.bitWidth, t.INTEGER.isSigned)
+                  .Union()};
     } else if (t.__isset.UNKNOWN) {
       return {format3::LogicalType::NullType, format3::CreateEmpty(root).Union()};
     } else if (t.__isset.JSON) {
@@ -1230,10 +1244,21 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
   uint32_t raw_len = LoadLE32(p + 9);
   uint32_t len_crc32 = LoadLE32(p + 13);
 
+  if (compressed_len > std::numeric_limits<uint32_t>::max() - 42) {
+    return ::arrow::Status::Invalid("Extended metadata compressed_len overflow");
+  }
+  uint32_t required_or_consumed = compressed_len + 42;
+  if (static_cast<uint64_t>(required_or_consumed) > static_cast<uint64_t>(buf->size())) {
+    return required_or_consumed;
+  }
+
   // Verify length CRC
   uint32_t expected_len_crc = ::arrow::internal::crc32(0, p + 5, 8);
   if (len_crc32 != expected_len_crc) {
     return ::arrow::Status::Invalid("Extended metadata length CRC mismatch");
+  }
+  if (raw_len > kMaxRawMetadata3Len) {
+    return ::arrow::Status::Invalid("Extended metadata raw_len exceeds maximum");
   }
 
   // Verify data CRC
@@ -1282,7 +1307,7 @@ void AppendFlatbuffer(std::string flatbuffer, std::string* thrift) {
   out_flatbuffer->assign(reinterpret_cast<const char*>(decompressed_data.data()),
                          raw_len);
 
-  return compressed_len + 42;
+  return required_or_consumed;
 }
 
 }  // namespace parquet

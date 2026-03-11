@@ -18,11 +18,14 @@
 #include "parquet/metadata3.h"
 
 #include <gtest/gtest.h>
+#include <cstring>
 #include <fstream>
+#include <limits>
 
 #include "arrow/io/memory.h"
 #include "arrow/testing/gtest_compat.h"
 #include "arrow/util/config.h"
+#include "arrow/util/crc32.h"
 #include "flatbuffers/flatbuffers.h"
 #include "generated/parquet3_generated.h"
 #include "parquet/column_writer.h"
@@ -92,6 +95,18 @@ class TestMetadata3RoundTrip : public ::testing::Test {
                   conv_col.__isset.dictionary_page_offset);
         if (orig_col.__isset.dictionary_page_offset) {
           ASSERT_EQ(orig_col.dictionary_page_offset, conv_col.dictionary_page_offset);
+        }
+
+        // Compare bloom filter metadata
+        ASSERT_EQ(orig_col.__isset.bloom_filter_offset,
+                  conv_col.__isset.bloom_filter_offset);
+        if (orig_col.__isset.bloom_filter_offset) {
+          ASSERT_EQ(orig_col.bloom_filter_offset, conv_col.bloom_filter_offset);
+        }
+        ASSERT_EQ(orig_col.__isset.bloom_filter_length,
+                  conv_col.__isset.bloom_filter_length);
+        if (orig_col.__isset.bloom_filter_length) {
+          ASSERT_EQ(orig_col.bloom_filter_length, conv_col.bloom_filter_length);
         }
 
         // Compare statistics
@@ -836,6 +851,248 @@ TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferInvalidMagic) {
   ASSERT_TRUE(result.ok()) << result.status();
   EXPECT_EQ(*result, 0);
   EXPECT_TRUE(extracted_flatbuf.empty());
+}
+
+TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferNeedsMoreBytes) {
+  format::FileMetaData thrift_md;
+  thrift_md.__set_version(1);
+  thrift_md.__set_num_rows(100);
+  thrift_md.__set_created_by("test_creator");
+
+  format::SchemaElement root;
+  root.__set_name("test_schema");
+  root.__set_repetition_type(format::FieldRepetitionType::REQUIRED);
+  root.__set_num_children(0);
+  thrift_md.schema.push_back(root);
+
+  ThriftSerializer serializer;
+  uint32_t len;
+  uint8_t* thrift_buffer;
+  serializer.SerializeToBuffer(&thrift_md, &len, &thrift_buffer);
+  std::string thrift_str(reinterpret_cast<const char*>(thrift_buffer), len);
+
+  std::string flatbuf;
+  ASSERT_TRUE(ToFlatbuffer(&thrift_md, &flatbuf));
+  AppendFlatbuffer(flatbuf, &thrift_str);
+
+  uint32_t metadata_len = static_cast<uint32_t>(thrift_str.size());
+  char footer[8];
+  *reinterpret_cast<uint32_t*>(footer) = ::arrow::bit_util::ToLittleEndian(metadata_len);
+  std::memcpy(footer + 4, "PAR1", 4);
+  thrift_str.append(footer, 8);
+
+  auto full_buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(thrift_str.data()), thrift_str.size());
+  std::string full_extract;
+  auto full_result = ExtractFlatbuffer(full_buffer, &full_extract);
+  ASSERT_TRUE(full_result.ok()) << full_result.status();
+  ASSERT_GT(*full_result, 42);
+
+  std::string short_tail(thrift_str.end() - 42, thrift_str.end());
+  auto short_buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(short_tail.data()), short_tail.size());
+  std::string extracted_flatbuf;
+  auto result = ExtractFlatbuffer(short_buffer, &extracted_flatbuf);
+  ASSERT_TRUE(result.ok()) << result.status();
+  EXPECT_EQ(*result, *full_result);
+}
+
+TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferCompressedLengthOverflow) {
+  format::FileMetaData thrift_md;
+  thrift_md.__set_version(1);
+  thrift_md.__set_num_rows(100);
+  thrift_md.__set_created_by("test_creator");
+
+  format::SchemaElement root;
+  root.__set_name("test_schema");
+  root.__set_repetition_type(format::FieldRepetitionType::REQUIRED);
+  root.__set_num_children(0);
+  thrift_md.schema.push_back(root);
+
+  ThriftSerializer serializer;
+  uint32_t len;
+  uint8_t* thrift_buffer;
+  serializer.SerializeToBuffer(&thrift_md, &len, &thrift_buffer);
+  std::string thrift_str(reinterpret_cast<const char*>(thrift_buffer), len);
+
+  std::string flatbuf;
+  ASSERT_TRUE(ToFlatbuffer(&thrift_md, &flatbuf));
+  AppendFlatbuffer(flatbuf, &thrift_str);
+
+  uint32_t metadata_len = static_cast<uint32_t>(thrift_str.size());
+  char footer[8];
+  *reinterpret_cast<uint32_t*>(footer) = ::arrow::bit_util::ToLittleEndian(metadata_len);
+  std::memcpy(footer + 4, "PAR1", 4);
+  thrift_str.append(footer, 8);
+
+  auto store_le32 = [](uint32_t v, uint8_t* out) {
+    v = ::arrow::bit_util::ToLittleEndian(v);
+    std::memcpy(out, &v, sizeof(v));
+  };
+  uint8_t* ext = reinterpret_cast<uint8_t*>(thrift_str.data()) + thrift_str.size() - 42;
+  store_le32(std::numeric_limits<uint32_t>::max(), ext + 5);
+  uint32_t len_crc32 = ::arrow::internal::crc32(0, ext + 5, 8);
+  store_le32(len_crc32, ext + 13);
+
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(thrift_str.data()), thrift_str.size());
+  std::string extracted_flatbuf;
+  auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
+  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsInvalid());
+  EXPECT_NE(result.status().message().find("compressed_len overflow"), std::string::npos);
+}
+
+TEST_F(TestMetadata3RoundTrip, ExtractFlatbufferRawLengthTooLarge) {
+  format::FileMetaData thrift_md;
+  thrift_md.__set_version(1);
+  thrift_md.__set_num_rows(100);
+  thrift_md.__set_created_by("test_creator");
+
+  format::SchemaElement root;
+  root.__set_name("test_schema");
+  root.__set_repetition_type(format::FieldRepetitionType::REQUIRED);
+  root.__set_num_children(0);
+  thrift_md.schema.push_back(root);
+
+  ThriftSerializer serializer;
+  uint32_t len;
+  uint8_t* thrift_buffer;
+  serializer.SerializeToBuffer(&thrift_md, &len, &thrift_buffer);
+  std::string thrift_str(reinterpret_cast<const char*>(thrift_buffer), len);
+
+  std::string flatbuf;
+  ASSERT_TRUE(ToFlatbuffer(&thrift_md, &flatbuf));
+  AppendFlatbuffer(flatbuf, &thrift_str);
+
+  uint32_t metadata_len = static_cast<uint32_t>(thrift_str.size());
+  char footer[8];
+  *reinterpret_cast<uint32_t*>(footer) = ::arrow::bit_util::ToLittleEndian(metadata_len);
+  std::memcpy(footer + 4, "PAR1", 4);
+  thrift_str.append(footer, 8);
+
+  auto store_le32 = [](uint32_t v, uint8_t* out) {
+    v = ::arrow::bit_util::ToLittleEndian(v);
+    std::memcpy(out, &v, sizeof(v));
+  };
+  uint8_t* ext = reinterpret_cast<uint8_t*>(thrift_str.data()) + thrift_str.size() - 42;
+  constexpr uint32_t kTooLargeRawLen = 200U * 1024U * 1024U;
+  store_le32(kTooLargeRawLen, ext + 9);
+  uint32_t len_crc32 = ::arrow::internal::crc32(0, ext + 5, 8);
+  store_le32(len_crc32, ext + 13);
+
+  auto buffer = std::make_shared<Buffer>(
+      reinterpret_cast<const uint8_t*>(thrift_str.data()), thrift_str.size());
+  std::string extracted_flatbuf;
+  auto result = ExtractFlatbuffer(buffer, &extracted_flatbuf);
+  ASSERT_FALSE(result.ok());
+  ASSERT_TRUE(result.status().IsInvalid());
+  EXPECT_NE(result.status().message().find("raw_len exceeds maximum"), std::string::npos);
+}
+
+TEST_F(TestMetadata3RoundTrip, ByteArrayStatsOverflowDropsUnsafeBounds) {
+  auto schema = MakeSchema({Type::BYTE_ARRAY}, {"byte_array_col"});
+  auto buffer = WriteParquetFile(schema, /*num_rowgroups=*/1, /*rows_per_rowgroup=*/100);
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto metadata = file_reader->metadata();
+
+  std::string thrift_serialized = metadata->SerializeToString();
+  auto reader_props = default_reader_properties();
+  ThriftDeserializer deserializer(reader_props);
+  format::FileMetaData original_md;
+  uint32_t len = static_cast<uint32_t>(thrift_serialized.size());
+  deserializer.DeserializeMessage(
+      reinterpret_cast<const uint8_t*>(thrift_serialized.data()), &len, &original_md);
+
+  auto& stats = original_md.row_groups[0].columns[0].meta_data.statistics;
+  stats.__isset.min_value = true;
+  stats.__isset.max_value = true;
+  stats.__isset.is_min_value_exact = true;
+  stats.__isset.is_max_value_exact = true;
+  stats.min_value = std::string("\x00\x00\x00\x01tail", 8);
+  stats.max_value = std::string("\xFF\xFF\xFF\xFFtail", 8);
+  stats.is_min_value_exact = true;
+  stats.is_max_value_exact = true;
+
+  std::string flatbuf;
+  ASSERT_TRUE(ToFlatbuffer(&original_md, &flatbuf));
+
+  auto fmd = format3::GetFileMetaData(flatbuf.data());
+  format::FileMetaData converted_md = FromFlatbuffer(fmd);
+  const auto& converted_stats =
+      converted_md.row_groups[0].columns[0].meta_data.statistics;
+  ASSERT_FALSE(converted_stats.__isset.min_value);
+  ASSERT_FALSE(converted_stats.__isset.max_value);
+}
+
+TEST_F(TestMetadata3RoundTrip, BloomFilterOffsetRoundTripWithoutLength) {
+  auto schema = MakeSchema({Type::INT32}, {"col1"});
+  auto buffer = WriteParquetFile(schema, /*num_rowgroups=*/1, /*rows_per_rowgroup=*/100);
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto metadata = file_reader->metadata();
+
+  std::string thrift_serialized = metadata->SerializeToString();
+  auto reader_props = default_reader_properties();
+  ThriftDeserializer deserializer(reader_props);
+  format::FileMetaData original_md;
+  uint32_t len = static_cast<uint32_t>(thrift_serialized.size());
+  deserializer.DeserializeMessage(
+      reinterpret_cast<const uint8_t*>(thrift_serialized.data()), &len, &original_md);
+
+  auto& col = original_md.row_groups[0].columns[0].meta_data;
+  col.__isset.bloom_filter_offset = true;
+  col.bloom_filter_offset = 4096;
+  col.__isset.bloom_filter_length = false;
+
+  std::string flatbuf;
+  ASSERT_TRUE(ToFlatbuffer(&original_md, &flatbuf));
+  auto fmd = format3::GetFileMetaData(flatbuf.data());
+  format::FileMetaData converted_md = FromFlatbuffer(fmd);
+
+  AssertFileMetadataLogicallyEqual(original_md, converted_md);
+  const auto& converted_col = converted_md.row_groups[0].columns[0].meta_data;
+  ASSERT_TRUE(converted_col.__isset.bloom_filter_offset);
+  ASSERT_EQ(converted_col.bloom_filter_offset, 4096);
+  ASSERT_FALSE(converted_col.__isset.bloom_filter_length);
+}
+
+TEST_F(TestMetadata3RoundTrip, BloomFilterOffsetRoundTripWithLength) {
+  auto schema = MakeSchema({Type::INT32}, {"col1"});
+  auto buffer = WriteParquetFile(schema, /*num_rowgroups=*/1, /*rows_per_rowgroup=*/100);
+
+  auto source = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(source);
+  auto metadata = file_reader->metadata();
+
+  std::string thrift_serialized = metadata->SerializeToString();
+  auto reader_props = default_reader_properties();
+  ThriftDeserializer deserializer(reader_props);
+  format::FileMetaData original_md;
+  uint32_t len = static_cast<uint32_t>(thrift_serialized.size());
+  deserializer.DeserializeMessage(
+      reinterpret_cast<const uint8_t*>(thrift_serialized.data()), &len, &original_md);
+
+  auto& col = original_md.row_groups[0].columns[0].meta_data;
+  col.__isset.bloom_filter_offset = true;
+  col.bloom_filter_offset = 4096;
+  col.__isset.bloom_filter_length = true;
+  col.bloom_filter_length = 1024;
+
+  std::string flatbuf;
+  ASSERT_TRUE(ToFlatbuffer(&original_md, &flatbuf));
+  auto fmd = format3::GetFileMetaData(flatbuf.data());
+  format::FileMetaData converted_md = FromFlatbuffer(fmd);
+
+  AssertFileMetadataLogicallyEqual(original_md, converted_md);
+  const auto& converted_col = converted_md.row_groups[0].columns[0].meta_data;
+  ASSERT_TRUE(converted_col.__isset.bloom_filter_offset);
+  ASSERT_EQ(converted_col.bloom_filter_offset, 4096);
+  ASSERT_TRUE(converted_col.__isset.bloom_filter_length);
+  ASSERT_EQ(converted_col.bloom_filter_length, 1024);
 }
 
 // Test with large number of row groups
