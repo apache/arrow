@@ -6,7 +6,7 @@
 \alias{LocalFileSystem}
 \alias{S3FileSystem}
 \alias{GcsFileSystem}
-\alias{AzureBlobFileSystem}
+\alias{AzureFileSystem}
 \alias{SubTreeFileSystem}
 \title{FileSystem classes}
 \description{

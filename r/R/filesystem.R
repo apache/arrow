@@ -650,13 +650,13 @@ GcsFileSystem$create <- function(anonymous = FALSE, retry_limit_seconds = 15, ..
 #' @rdname FileSystem
 #' @importFrom utils modifyList
 #' @export
-AzureBlobFileSystem <- R6Class(
-  "AzureBlobFileSystem",
+AzureFileSystem <- R6Class(
+  "AzureFileSystem",
   inherit = FileSystem
 )
 
 # TODO:
-AzureBlobFileSystem$create <- function(...) {
+AzureFileSystem$create <- function(...) {
   fs___AzureFileSystem__Make(...)
 }
 
