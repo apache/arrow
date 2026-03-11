@@ -17,16 +17,17 @@
 
 [build-system]
 requires = [
+    "scikit-build-core",
     "cython >= 3.1",
     # Needed for build-time stub docstring extraction
     "libcst>=1.8.6",
     "numpy>=1.25",
-    # configuring setuptools_scm in pyproject.toml requires
-    # versions released after 2022
     "setuptools_scm[toml]>=8",
-    "setuptools>=77",
 ]
-build-backend = "setuptools.build_meta"
+# We use a really simple build backend wrapper over scikit-build-core
+# to solve licenses to work around links not being included in sdists.
+build-backend = "_build_backend"
+backend-path = ["."]
 
 [project]
 name = "pyarrow"
@@ -81,16 +82,18 @@ exclude = [
     '\._.*$',
 ]
 
-[tool.setuptools]
-zip-safe=false
-include-package-data=true
+[tool.scikit-build]
+cmake.build-type = "Release"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+sdist.include = ["pyarrow/_generated_version.py", "cmake_modules/"]
+wheel.packages = ["pyarrow"]
+wheel.install-dir = "pyarrow"
 
-[tool.setuptools.packages.find]
-include = ["pyarrow"]
-namespaces = false
-
-[tool.setuptools.package-data]
-pyarrow = ["*.pxd", "*.pyi", "*.pyx", "includes/*.pxd", "py.typed"]
+[tool.scikit-build.cmake.define]
+PYARROW_BUNDLE_ARROW_CPP = {env = "PYARROW_BUNDLE_ARROW_CPP", default = "OFF"}
+PYARROW_BUNDLE_CYTHON_CPP = {env = "PYARROW_BUNDLE_CYTHON_CPP", default = "OFF"}
+PYARROW_GENERATE_COVERAGE = {env = "PYARROW_GENERATE_COVERAGE", default = "OFF"}
+PYARROW_CXXFLAGS = {env = "PYARROW_CXXFLAGS", default = ""}
 
 [tool.setuptools_scm]
 root = '..'

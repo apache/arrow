@@ -292,7 +292,8 @@ TEST(ReaderTest, MultipleChunksParallel) {
 
 // Regression test for intermittent threading crashes on MinGW.
 // Run this test multiple times manually to stress-test:
-//   while build/debug/arrow-json-test --gtest_filter=ReaderTest.MultipleChunksParallelRegression; do :; done
+//   while build/debug/arrow-json-test \
+//       --gtest_filter=ReaderTest.MultipleChunksParallelRegression; do :; done
 // See https://github.com/apache/arrow/issues/49272
 TEST(ReaderTest, MultipleChunksParallelRegression) {
   int64_t count = 1 << 10;

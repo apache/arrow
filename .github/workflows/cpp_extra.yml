@@ -338,7 +338,7 @@ jobs:
 
   odbc-macos:
     needs: check-labels
-    name: ODBC ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
+    name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -349,14 +349,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - architecture: AMD64
-            macos-version: "15-intel"
-          - architecture: ARM64
-            macos-version: "14"
+          - { architecture: AMD64, macos-version: "15-intel", build-type : debug }
+          - { architecture: AMD64, macos-version: "15-intel", build-type : release }
+          - { architecture: ARM64, macos-version: "14", build-type : debug }
+          - { architecture: ARM64, macos-version: "14", build-type : release }
     env:
       ARROW_BUILD_TESTS: ON
+      ARROW_BUILD_TYPE: ${{ matrix.build-type }}
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_HOME: /tmp/local
+      ARROW_MIMALLOC: OFF
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6.0.1
@@ -366,6 +370,22 @@ jobs:
       - name: Install Dependencies
         run: |
           brew bundle --file=cpp/Brewfile
+          
+          # We want to use bundled RE2 for static linking. If
+          # Homebrew's RE2 is installed, its header file may be used.
+          # We uninstall Homebrew's RE2 to ensure using bundled RE2.
+          brew uninstall grpc || : # gRPC depends on RE2
+          brew uninstall grpc@1.54 || : # gRPC 1.54 may be installed too
+          brew uninstall re2
+
+          # We want to use bundled Protobuf for static linking. If
+          # Homebrew's Protobuf is installed, its library file may be
+          # used on test  We uninstall Homebrew's Protobuf to ensure using
+          # bundled Protobuf.
+          brew uninstall protobuf
+
+          # We want to use bundled Boost for static linking.
+          brew uninstall boost
       - name: Setup ccache
         run: |
           ci/scripts/ccache_setup.sh
@@ -377,8 +397,8 @@ jobs:
         uses: actions/cache@v5.0.2
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-
+          key: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-${{ hashFiles('cpp/**') }}
+          restore-keys: cpp-odbc-ccache-macos-${{ matrix.macos-version }}-${{ matrix.build-type }}-
       - name: Build
         run: |
           # Homebrew uses /usr/local as prefix. So packages
@@ -395,9 +415,27 @@ jobs:
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery
+      - name: Check ODBC Dependency
+        run: |
+          # ODBC dependency should not include other Arrow or third party libraries
+          archery linking check-dependencies \
+            --allow CoreFoundation \
+            --allow libSystem \
+            --allow libarrow_flight_sql_odbc \
+            --allow libc++ \
+            --allow libiconv \
+            --allow libresolv \
+            --allow libz \
+            "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
       - name: Register Flight SQL ODBC Driver
         run: |
-          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/debug/libarrow_flight_sql_odbc.dylib
+          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
       - name: Test
         shell: bash
         run: |
@@ -530,7 +568,7 @@ jobs:
           cd build/cpp
           cpack
       - name: Upload the artifacts to the job
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: flight-sql-odbc-msi-installer
           path: build/cpp/Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
@@ -578,7 +616,7 @@ jobs:
     if: github.event_name == 'schedule' && github.repository == 'apache/arrow'
     steps:
       - name: Download the artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: flight-sql-odbc-msi-installer
       - name: Prepare ODBC installer for sync
@@ -632,7 +670,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Download the artifacts
-        uses: actions/download-artifact@v7
+        uses: actions/download-artifact@v8
         with:
           name: flight-sql-odbc-msi-installer
       - name: Wait for creating GitHub Release

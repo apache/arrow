@@ -116,9 +116,9 @@ class EncoderImpl : virtual public Encoder {
   const Encoding::type encoding_;
   MemoryPool* pool_;
 
-  /// Type length from descr
+  // Type length from descr
   const int type_length_;
-  /// Number of unencoded bytes written to the encoder. Used for ByteArray type only.
+  // Number of unencoded bytes written to the encoder. Used for ByteArray type only.
   int64_t unencoded_byte_array_data_bytes_ = 0;
 };
 
@@ -1036,6 +1036,8 @@ template <typename DType>
 class DeltaBitPackEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
   // Maximum possible header size
   static constexpr uint32_t kMaxPageHeaderWriterSize = 32;
+  // If these constants are changed, then the corresponding values in
+  // TestDeltaBitPackEncoding (in `encoding_test.cc`) should be updated too.
   static constexpr uint32_t kValuesPerBlock =
       std::is_same_v<int32_t, typename DType::c_type> ? 128 : 256;
   static constexpr uint32_t kMiniBlocksPerBlock = 4;
@@ -1165,8 +1167,15 @@ void DeltaBitPackEncoder<DType>::FlushBlock() {
 
     // The minimum number of bits required to write any of values in deltas_ vector.
     // See overflow comment above.
+    // TODO: We can remove this condition once CRAN upgrades its macOS
+    // SDK from 11.3.
+#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
+    const auto bit_width = bit_width_data[i] =
+        std::log2p1(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#else
     const auto bit_width = bit_width_data[i] =
         std::bit_width(static_cast<UT>(max_delta) - static_cast<UT>(min_delta));
+#endif
 
     for (uint32_t j = start; j < start + values_current_mini_block; j++) {
       // Convert delta to frame of reference. See overflow comment above.

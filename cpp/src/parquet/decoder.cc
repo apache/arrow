@@ -759,7 +759,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
     // We're going to decode `num_values - null_count` PLAIN values,
     // and each value has a 4-byte length header that doesn't count for the
     // Arrow binary data length.
-    int64_t estimated_data_length = len_ - 4 * (num_values - null_count);
+    int64_t estimated_data_length =
+        len_ - 4 * static_cast<int64_t>(num_values - null_count);
     if (ARROW_PREDICT_FALSE(estimated_data_length < 0)) {
       return Status::Invalid("Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
     }
@@ -1619,16 +1620,27 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
 
       int values_decode = std::min(values_remaining_current_mini_block_,
                                    static_cast<uint32_t>(max_values - i));
-      if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
-          values_decode) {
-        ParquetException::EofException();
-      }
-      for (int j = 0; j < values_decode; ++j) {
-        // Addition between min_delta, packed int and last_value should be treated as
-        // unsigned addition. Overflow is as expected.
-        buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
-                        static_cast<UT>(last_value_);
-        last_value_ = buffer[i + j];
+      if (delta_bit_width_ == 0) {
+        // Fast path that avoids a back-to-back dependency between two consecutive
+        // computations: we know all deltas decode to zero. We actually don't
+        // even need to decode them.
+        for (int j = 0; j < values_decode; ++j) {
+          buffer[i + j] = static_cast<UT>(last_value_) +
+                          static_cast<UT>(j + 1) * static_cast<UT>(min_delta_);
+        }
+        last_value_ += static_cast<UT>(values_decode) * static_cast<UT>(min_delta_);
+      } else {
+        if (decoder_->GetBatch(delta_bit_width_, buffer + i, values_decode) !=
+            values_decode) {
+          ParquetException::EofException();
+        }
+        for (int j = 0; j < values_decode; ++j) {
+          // Addition between min_delta, packed int and last_value should be treated as
+          // unsigned addition. Overflow is as expected.
+          buffer[i + j] = static_cast<UT>(min_delta_) + static_cast<UT>(buffer[i + j]) +
+                          static_cast<UT>(last_value_);
+          last_value_ = buffer[i + j];
+        }
       }
       values_remaining_current_mini_block_ -= values_decode;
       i += values_decode;
@@ -2436,4 +2448,28 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
+
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return {Encoding::PLAIN, Encoding::RLE};
+    case Type::INT32:
+    case Type::INT64:
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
+              Encoding::BYTE_STREAM_SPLIT};
+    case Type::INT96:
+      return {Encoding::PLAIN};
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
+    case Type::BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
+              Encoding::DELTA_BYTE_ARRAY};
+    default:
+      throw ParquetException("Invalid physical type");
+  }
+}
+
 }  // namespace parquet

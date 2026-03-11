@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstring>
+#include <limits>
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
@@ -688,6 +689,17 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
+  static Status ValidateCapacityForOffsetType(int64_t data_bytes) {
+    int64_t max_offset = static_cast<int64_t>(std::numeric_limits<OffsetType>::max());
+    if (data_bytes > max_offset) {
+      return Status::CapacityError("Result may exceed offset capacity for this type: ",
+                                   data_bytes, " > ", max_offset,
+                                   ". Convert inputs to a type that uses an int64 based "
+                                   "offset such as a large_string");
+    }
+    return Status::OK();
+  }
+
   // A - Array, S - Scalar, X = Array/Scalar
 
   // SXX
@@ -712,9 +724,13 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const uint8_t* right_data = right.buffers[2].data;
 
     // allocate data buffer conservatively
-    int64_t data_buff_alloc = left_offsets[left.length] - left_offsets[0] +
-                              right_offsets[right.length] - right_offsets[0];
+    int64_t data_buff_alloc = (static_cast<int64_t>(left_offsets[left.length]) -
+                               static_cast<int64_t>(left_offsets[0])) +
+                              (static_cast<int64_t>(right_offsets[right.length]) -
+                               static_cast<int64_t>(right_offsets[0]));
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -758,6 +774,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc =
         left_size * cond.length + right_offsets[right.length] - right_offsets[0];
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -798,6 +816,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc =
         right_size * cond.length + left_offsets[left.length] - left_offsets[0];
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));

@@ -24,8 +24,10 @@
 #include <memory>
 
 #include "arrow/io/file.h"
+#include "arrow/io/memory.h"
 #include "arrow/util/decimal.h"
 #include "parquet/exception.h"
+#include "parquet/file_writer.h"
 #include "parquet/test_util.h"
 
 namespace parquet {
@@ -249,6 +251,22 @@ TEST_F(TestStreamReader, DefaultConstructed) {
   //
   EXPECT_EQ(0, os.SkipColumns(100));
   EXPECT_EQ(0, os.SkipRows(100));
+}
+
+TEST(StreamReaderEmptySchema, ThrowsOnConstruction) {
+  PARQUET_ASSIGN_OR_THROW(auto buffer_os, ::arrow::io::BufferOutputStream::Create());
+
+  auto empty_schema = std::static_pointer_cast<schema::GroupNode>(
+      schema::GroupNode::Make("schema", Repetition::REQUIRED, schema::NodeVector{}));
+
+  auto file_writer = ParquetFileWriter::Open(buffer_os, empty_schema);
+  file_writer->Close();
+
+  PARQUET_ASSIGN_OR_THROW(auto buffer, buffer_os->Finish());
+  auto buffer_reader = std::make_shared<::arrow::io::BufferReader>(buffer);
+  auto file_reader = ParquetFileReader::Open(buffer_reader);
+
+  EXPECT_THROW(StreamReader{std::move(file_reader)}, ParquetException);
 }
 
 TEST_F(TestStreamReader, TypeChecking) {

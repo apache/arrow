@@ -16,22 +16,79 @@
 # under the License.
 
 module ReaderTests
-  def roundtrip(array)
+  def roundtrip(data)
     Dir.mktmpdir do |tmp_dir|
-      table = Arrow::Table.new(value: array)
+      case data
+      when Arrow::Array
+        table = Arrow::Table.new(value: data)
+      when Arrow::RecordBatch
+        table = data.to_table
+      else
+        table = data
+      end
       path = File.join(tmp_dir, "data.#{file_extension}")
       table.save(path)
       File.open(path, "rb") do |input|
         reader = reader_class.new(input)
-        values = []
-        reader.each do |record_batch|
-          values.concat(record_batch.columns[0].to_a)
+        case data
+        when Arrow::Array
+          values = []
+          reader.each do |record_batch|
+            values.concat(record_batch.columns[0].to_a)
+          end
+          [reader.schema.fields[0].type, values]
+        else
+          record_batches = reader.collect do |record_batch|
+            record_batch.to_h.tap do |hash|
+              hash.each do |key, value|
+                hash[key] = value.to_a
+              end
+            end
+          end
+          [reader.schema, record_batches]
         end
-        [reader.schema.fields[0].type, values]
       end
     ensure
       GC.start
     end
+  end
+
+  def test_custom_metadata_field
+    field =
+      Arrow::Field.new("value", :boolean)
+        .with_metadata("key1" => "value1",
+                       "key2" => "value2")
+    schema = Arrow::Schema.new([field])
+    values = [true, nil, false]
+    record_batch = Arrow::RecordBatch.new(schema, {"value" => values})
+    schema, record_batches = roundtrip(record_batch)
+    assert_equal([
+                   {
+                     "key1" => "value1",
+                     "key2" => "value2",
+                   },
+                   [{"value" => values}],
+                 ],
+                 [schema.fields[0].metadata, record_batches])
+  end
+
+  def test_custom_metadata_schema
+    field = Arrow::Field.new("value", :boolean)
+    schema =
+      Arrow::Schema.new([field])
+        .with_metadata("key1" => "value1",
+                       "key2" => "value2")
+    values = [true, nil, false]
+    record_batch = Arrow::RecordBatch.new(schema, {"value" => values})
+    schema, record_batches = roundtrip(record_batch)
+    assert_equal([
+                   {
+                     "key1" => "value1",
+                     "key2" => "value2",
+                   },
+                   [{"value" => values}],
+                 ],
+                 [schema.metadata, record_batches])
   end
 
   def test_null
@@ -504,6 +561,26 @@ module ReaderTests
                  [type.to_s, values])
   end
 
+  def test_fixed_size_list
+    data_type = Arrow::FixedSizeListDataType.new({
+                                                   name: "count",
+                                                   type: :int8,
+                                                 },
+                                                 2)
+    array = Arrow::FixedSizeListArray.new(data_type,
+                                          [[-128, 127], nil, [-1, 1]])
+    type, values = roundtrip(array)
+    assert_equal([
+                   "FixedSizeList<count: Int8>(2)",
+                   [
+                     [-128, 127],
+                     nil,
+                     [-1, 1],
+                   ],
+                 ],
+                 [type.to_s, values])
+  end
+
   def test_struct
     data_type = Arrow::StructDataType.new(count: :int8,
                                           visible: :boolean)
@@ -593,7 +670,7 @@ module ReaderTests
     array = string_array.dictionary_encode
     type, values = roundtrip(array)
     assert_equal([
-                   "Dictionary<index=Int32, value=UTF8, ordered=false>",
+                   "Dictionary<id=0, index=Int32, value=UTF8, ordered=false>",
                    ["a", "b", "c", nil, "a"],
                  ],
                  [type.to_s, values])

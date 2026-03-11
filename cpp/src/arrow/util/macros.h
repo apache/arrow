@@ -183,28 +183,18 @@
 #endif
 
 // ----------------------------------------------------------------------
+// Macros to enforce struct member packing
 
-// macros to disable padding
-// these macros are portable across different compilers and platforms
-//[https://github.com/google/flatbuffers/blob/master/include/flatbuffers/flatbuffers.h#L1355]
-#if !defined(MANUALLY_ALIGNED_STRUCT)
-#  if defined(_MSC_VER)
-#    define MANUALLY_ALIGNED_STRUCT(alignment) \
-      __pragma(pack(1));                       \
-      struct __declspec(align(alignment))
-#    define STRUCT_END(name, size) \
-      __pragma(pack());            \
-      static_assert(sizeof(name) == size, "compiler breaks packing rules")
-#  elif defined(__GNUC__) || defined(__clang__)
-#    define MANUALLY_ALIGNED_STRUCT(alignment) \
-      _Pragma("pack(1)") struct __attribute__((aligned(alignment)))
-#    define STRUCT_END(name, size)                          \
-      _Pragma("pack()") static_assert(sizeof(name) == size, \
-                                      "compiler breaks packing rules")
-#  else
-#    error Unknown compiler, please define structure alignment macros
-#  endif
-#endif  // !defined(MANUALLY_ALIGNED_STRUCT)
+#if defined(__GNUC__)
+#  define ARROW_PACKED_START(KEYWORD, ...) KEYWORD [[gnu::packed]] __VA_ARGS__
+#  define ARROW_PACKED_END
+#elif defined(_MSC_VER)
+#  define ARROW_PACKED_START(KEYWORD, ...) _Pragma("pack(push, 1)") KEYWORD __VA_ARGS__
+#  define ARROW_PACKED_END _Pragma("pack(pop)")
+#else
+#  define ARROW_PACKED_START(KEYWORD, ...) KEYWORD __VA_ARGS__
+#  define ARROW_PACKED_END
+#endif
 
 // ----------------------------------------------------------------------
 // Convenience macro disabling a particular UBSan check in a function

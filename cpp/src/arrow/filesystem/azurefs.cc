@@ -248,13 +248,17 @@ Result<AzureOptions> AzureOptions::FromUri(const std::string& uri_string,
 }
 
 bool AzureOptions::Equals(const AzureOptions& other) const {
-  const bool equals = blob_storage_authority == other.blob_storage_authority &&
-                      dfs_storage_authority == other.dfs_storage_authority &&
-                      blob_storage_scheme == other.blob_storage_scheme &&
-                      dfs_storage_scheme == other.dfs_storage_scheme &&
-                      default_metadata == other.default_metadata &&
-                      account_name == other.account_name &&
-                      credential_kind_ == other.credential_kind_;
+  const bool equals =
+      account_name == other.account_name &&
+      blob_storage_authority == other.blob_storage_authority &&
+      dfs_storage_authority == other.dfs_storage_authority &&
+      blob_storage_scheme == other.blob_storage_scheme &&
+      dfs_storage_scheme == other.dfs_storage_scheme &&
+      default_metadata == other.default_metadata &&
+      background_writes == other.background_writes &&
+      credential_kind_ == other.credential_kind_ && account_key_ == other.account_key_ &&
+      sas_token_ == other.sas_token_ && tenant_id_ == other.tenant_id_ &&
+      client_id_ == other.client_id_ && client_secret_ == other.client_secret_;
   if (!equals) {
     return false;
   }
@@ -318,39 +322,59 @@ std::string AzureOptions::AccountDfsUrl(const std::string& account_name) const {
   return BuildBaseUrl(dfs_storage_scheme, dfs_storage_authority, account_name);
 }
 
+void AzureOptions::ClearCredentials() {
+  credential_kind_ = CredentialKind::kDefault;
+  storage_shared_key_credential_ = nullptr;
+  account_key_.clear();
+  sas_token_.clear();
+  tenant_id_.clear();
+  client_id_.clear();
+  client_secret_.clear();
+  token_credential_ = nullptr;
+}
+
 Status AzureOptions::ConfigureDefaultCredential() {
+  ClearCredentials();
   credential_kind_ = CredentialKind::kDefault;
   token_credential_ = std::make_shared<Azure::Identity::DefaultAzureCredential>();
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureAnonymousCredential() {
+  ClearCredentials();
   credential_kind_ = CredentialKind::kAnonymous;
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureAccountKeyCredential(const std::string& account_key) {
+  ClearCredentials();
   credential_kind_ = CredentialKind::kStorageSharedKey;
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
+  account_key_ = account_key;
   storage_shared_key_credential_ =
       std::make_shared<Storage::StorageSharedKeyCredential>(account_name, account_key);
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureSASCredential(const std::string& sas_token) {
-  credential_kind_ = CredentialKind::kSASToken;
+  ClearCredentials();
   if (account_name.empty()) {
     return Status::Invalid("AzureOptions doesn't contain a valid account name");
   }
   sas_token_ = sas_token;
+  credential_kind_ = CredentialKind::kSASToken;
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_id,
                                                      const std::string& client_id,
                                                      const std::string& client_secret) {
+  ClearCredentials();
+  tenant_id_ = tenant_id;
+  client_id_ = client_id;
+  client_secret_ = client_secret;
   credential_kind_ = CredentialKind::kClientSecret;
   token_credential_ = std::make_shared<Azure::Identity::ClientSecretCredential>(
       tenant_id, client_id, client_secret);
@@ -358,6 +382,8 @@ Status AzureOptions::ConfigureClientSecretCredential(const std::string& tenant_i
 }
 
 Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& client_id) {
+  ClearCredentials();
+  client_id_ = client_id;
   credential_kind_ = CredentialKind::kManagedIdentity;
   token_credential_ =
       std::make_shared<Azure::Identity::ManagedIdentityCredential>(client_id);
@@ -365,18 +391,21 @@ Status AzureOptions::ConfigureManagedIdentityCredential(const std::string& clien
 }
 
 Status AzureOptions::ConfigureCLICredential() {
+  ClearCredentials();
   credential_kind_ = CredentialKind::kCLI;
   token_credential_ = std::make_shared<Azure::Identity::AzureCliCredential>();
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureWorkloadIdentityCredential() {
+  ClearCredentials();
   credential_kind_ = CredentialKind::kWorkloadIdentity;
   token_credential_ = std::make_shared<Azure::Identity::WorkloadIdentityCredential>();
   return Status::OK();
 }
 
 Status AzureOptions::ConfigureEnvironmentCredential() {
+  ClearCredentials();
   credential_kind_ = CredentialKind::kEnvironment;
   token_credential_ = std::make_shared<Azure::Identity::EnvironmentCredential>();
   return Status::OK();

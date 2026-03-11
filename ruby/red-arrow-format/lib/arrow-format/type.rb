@@ -856,6 +856,34 @@ module ArrowFormat
     end
   end
 
+  class FixedSizeListType < Type
+    attr_reader :child
+    attr_reader :size
+    def initialize(child, size)
+      super()
+      @child = child
+      @size = size
+    end
+
+    def name
+      "FixedSizeList"
+    end
+
+    def to_s
+      "#{super}<#{child.name}: #{child.type}>(#{@size})"
+    end
+
+    def build_array(size, validity_buffer, child)
+      FixedSizeListArray.new(self, size, validity_buffer, child)
+    end
+
+    def to_flatbuffers
+      fb_type = FB::FixedSizeList::Data.new
+      fb_type.list_size = @size
+      fb_type
+    end
+  end
+
   class StructType < Type
     attr_reader :children
     def initialize(children)
@@ -884,7 +912,7 @@ module ArrowFormat
   end
 
   class MapType < VariableSizeListType
-    def initialize(child)
+    def initialize(child, keys_sorted)
       if child.nullable?
         raise TypeError.new("Map entry field must not be nullable: " +
                             child.inspect)
@@ -902,10 +930,15 @@ module ArrowFormat
                             type.children[0].inspect)
       end
       super(child)
+      @keys_sorted = keys_sorted
     end
 
     def name
       "Map"
+    end
+
+    def keys_sorted?
+      @keys_sorted
     end
 
     def offset_buffer_type
@@ -965,6 +998,10 @@ module ArrowFormat
       "DenseUnion"
     end
 
+    def offset_buffer_type
+      :s32
+    end
+
     def build_array(size, types_buffer, offsets_buffer, children)
       DenseUnionArray.new(self, size, types_buffer, offsets_buffer, children)
     end
@@ -985,10 +1022,12 @@ module ArrowFormat
   end
 
   class DictionaryType < Type
+    attr_reader :id
     attr_reader :index_type
     attr_reader :value_type
-    def initialize(index_type, value_type, ordered)
+    def initialize(id, index_type, value_type, ordered)
       super()
+      @id = id
       @index_type = index_type
       @value_type = value_type
       @ordered = ordered
@@ -1010,22 +1049,21 @@ module ArrowFormat
                           dictionaries)
     end
 
-    def build_fb_field(fb_field, field)
+    def build_fb_field(fb_field)
       fb_dictionary_encoding = FB::DictionaryEncoding::Data.new
-      fb_dictionary_encoding.id = field.dictionary_id
+      fb_dictionary_encoding.id = @id
       fb_int = FB::Int::Data.new
       fb_int.bit_width = @index_type.bit_width
       fb_int.signed = @index_type.signed?
       fb_dictionary_encoding.index_type = fb_int
       fb_dictionary_encoding.ordered = @ordered
-      fb_dictionary_encoding.dictionary_kind =
-        FB::DictionaryKind::DENSE_ARRAY
+      fb_dictionary_encoding.dictionary_kind = FB::DictionaryKind::DENSE_ARRAY
       fb_field.type = @value_type.to_flatbuffers
       fb_field.dictionary = fb_dictionary_encoding
     end
 
     def to_s
-      "#{super}<index=#{@index_type}, value=#{@value_type}, " +
+      "#{super}<id=#{@id}, index=#{@index_type}, value=#{@value_type}, " +
         "ordered=#{@ordered}>"
     end
   end
