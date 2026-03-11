@@ -510,15 +510,37 @@ cpp11::list fs___GcsFileSystem__options(const std::shared_ptr<fs::GcsFileSystem>
 // [[azure::export]]
 std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list options) {
   fs::AzureOptions azure_opts;
-  
+
   // Set account name
   if (!Rf_isNull(options["account_name"])) {
     azure_opts.account_name = cpp11::as_cpp<std::string>(options["account_name"]);
   }
 
+  if (!Rf_isNull(options["blob_storage_authority"])) {
+    azure_opts.blob_storage_authority = cpp11::as_cpp<std::string>(options["blob_storage_authority"]);
+  }
+  if (!Rf_isNull(options["dfs_storage_authority"])) {
+    azure_opts.dfs_storage_authority = cpp11::as_cpp<std::string>(options["dfs_storage_authority"]);
+  }
+  if (!Rf_isNull(options["blob_storage_schema"])) {
+    azure_opts.blob_storage_schema = cpp11::as_cpp<std::string>(options["blob_storage_schema"]);
+  }
+  if (!Rf_isNull(options["dfs_storage_schema"])) {
+    azure_opts.dfs_storage_schema = cpp11::as_cpp<std::string>(options["dfs_storage_schema"]);
+  }
+
+  // TODO: Deal with different combinations of tenant id/client id/client secret.
+  if (!Rf_isNull(options["account_key"])) {
+    azure_opts.ConfigureAccountKeyCredential(cpp11::as_cpp<std::string>(options["account_key"]));
+  } else if (!Rf_isNull(options["sas_token"])) {
+    azure_opts.ConfigureSASCredential(cpp11::as_cpp<std::string>(options["sas_token"]));
+  } else {
+    azure_opts.ConfigureDefaultCredential();
+  }
+
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
   return ValueOrStop(fs::AzureFileSystem::Make(azure_opts, io_context));
-  
+
 }
 
 #endif

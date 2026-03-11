@@ -657,10 +657,41 @@ AzureFileSystem <- R6Class(
 
 # TODO:
 AzureFileSystem$create <- function(...) {
+  options <- list(...)
+  valid_opts <- c(
+    "account_name",
+    "account_key",
+    "blob_storage_authority",
+    "blob_storage_scheme",
+    "client_id",
+    "client_secret",
+    "dfs_storage_authority",
+    "dfs_storage_scheme",
+    "sas_token",
+    "tenant_id"
+  )
+
+  invalid_opts <- setdiff(names(options), valid_opts)
+  if (length(invalid_opts)) {
+    stop(
+      "Invalid options for AzureFileSystem: ",
+      oxford_paste(invalid_opts),
+      call. = FALSE
+    )
+  }
+  if (!is.null(options$account_key) && !is.null(options$sas_token)) {
+    stop(
+      "Cannot specify both `account_key` and `sas_token`",
+      call. = FALSE
+    )
+  }
+  # TODO: Validate combinations of tenant id/client id/client secret before
+  # handing off to C++.
+
   fs___AzureFileSystem__Make(...)
 }
 
-# TODO:
+# TODO: Probably shouldn't be called bucket.
 az_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
   args <- list2(...)
