@@ -107,13 +107,13 @@ cdef class ReadOptions(_Weakrefable):
 
     def __repr__(self):
         return (f"""<pyarrow.json.ReadOptions>(
-use_threads={self.use_threads}
-block_size={self.block_size})""")
+    use_threads={self.use_threads},
+    block_size={self.block_size})""")
 
     def __str__(self):
         return (f"""ReadOptions(
-use_threads={self.use_threads}
-block_size={self.block_size})""")
+    use_threads={self.use_threads},
+    block_size={self.block_size})""")
 
     @staticmethod
     cdef ReadOptions wrap(CJSONReadOptions options):
@@ -256,9 +256,9 @@ cdef class ParseOptions(_Weakrefable):
 
     def _repr_base(self):
         return (f"""
-explicit_schema={self.explicit_schema}
-newlines_in_values={self.newlines_in_values}
-unexpected_field_behavior='{self.unexpected_field_behavior}'""")
+    explicit_schema={self.explicit_schema},
+    newlines_in_values={self.newlines_in_values},
+    unexpected_field_behavior={self.unexpected_field_behavior!r}""")
 
     def __repr__(self):
         return (f"<pyarrow.json.ParseOptions>({self._repr_base()})")

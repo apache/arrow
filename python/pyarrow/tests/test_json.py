@@ -81,8 +81,8 @@ def test_read_options(pickle_module):
     assert opts.use_threads is False
 
     expected_repr_inner = """
-use_threads=False
-block_size=1234"""
+    use_threads=False,
+    block_size=1234"""
 
     assert repr(opts) == f"<pyarrow.json.ReadOptions>({expected_repr_inner})"
     assert str(opts) == f"ReadOptions({expected_repr_inner})"
@@ -102,9 +102,9 @@ def test_parse_options(pickle_module):
     assert opts.newlines_in_values is True
 
     expected_repr_inner = """
-explicit_schema=None
-newlines_in_values=True
-unexpected_field_behavior='infer'"""
+    explicit_schema=None,
+    newlines_in_values=True,
+    unexpected_field_behavior='infer'"""
 
     assert repr(opts) == f"<pyarrow.json.ParseOptions>({expected_repr_inner})"
     assert str(opts) == f"ParseOptions({expected_repr_inner})"
