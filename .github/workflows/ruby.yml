@@ -148,8 +148,6 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
-      Protobuf_SOURCE: BUNDLED
-      gRPC_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow
         uses: actions/checkout@v6
@@ -164,16 +162,6 @@ jobs:
           brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
-
-          # protobuf@33 workaround: unlink v34 (pulled by grpc) and make
-          # keg-only protobuf@33 visible to CMake and pkg-config.
-          # Remove after gRPC problem is fixed.
-          # See https://github.com/grpc/grpc/issues/41755
-          brew unlink protobuf
-          export PROTOBUF_PREFIX="$(brew --prefix protobuf@33)"
-          echo "PKG_CONFIG_PATH=${PROTOBUF_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=${PROTOBUF_PREFIX}:${ARROW_HOME}:${CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
-          echo "${PROTOBUF_PREFIX}/bin" >> "$GITHUB_PATH"
 
           # For Meson.
           # See also: https://github.com/mesonbuild/meson/issues/7701
