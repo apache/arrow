@@ -108,12 +108,12 @@ jobs:
             runs-on: ubuntu-latest
             title: AMD64 Alpine Linux
           - image: ubuntu-cpp
-            # Use Release to speed up large memory tests that take a long time and
-            # increase timeout because some tests take more than 20 minutes.
             run-options: >-
-              -e ARROW_BUILD_TYPE=Release
-              -e ARROW_CTEST_TIMEOUT=2400
+              -e ARROW_CTEST_TIMEOUT=900
+              -e ARROW_C_FLAGS_DEBUG="-O1"
+              -e ARROW_CXX_FLAGS_DEBUG="-O1"
               -e ARROW_LARGE_MEMORY_TESTS=ON
+              -e BUILD_WARNING_LEVEL=PRODUCTION
             runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/spot=capacity-optimized"
             title: AMD64 Ubuntu Large Memory Tests
           - image: conda-cpp
