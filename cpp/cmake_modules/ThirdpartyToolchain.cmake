@@ -1114,6 +1114,22 @@ function(build_boost)
   else()
     list(APPEND BOOST_EXCLUDE_LIBRARIES uuid)
   endif()
+  if(ARROW_FLIGHT_SQL_ODBC)
+    # GH-49244: Replace boost beast with alternatives in ODBC
+    # GH-49243: Replace boost variant with std::variant in ODBC
+    # GH-49245: Replace boost xpressive with alternatives in ODBC
+    list(APPEND
+         BOOST_INCLUDE_LIBRARIES
+         beast
+         variant
+         xpressive)
+  else()
+    list(APPEND
+         BOOST_EXCLUDE_LIBRARIES
+         beast
+         variant
+         xpressive)
+  endif()
   set(BOOST_SKIP_INSTALL_RULES ON)
   if(NOT ARROW_ENABLE_THREADING)
     set(BOOST_UUID_LINK_LIBATOMIC OFF)
@@ -3025,8 +3041,7 @@ function(build_cares)
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
     find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv REQUIRED)
-    set_target_properties(c-ares::cares PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                   "${LIBRESOLV_LIBRARY}")
+    target_link_libraries(c-ares INTERFACE ${LIBRESOLV_LIBRARY})
   endif()
 
   set(ARROW_BUNDLED_STATIC_LIBS

@@ -17,6 +17,7 @@
 
 import contextlib
 import io
+import os
 import random
 import socket
 import subprocess
@@ -137,7 +138,13 @@ def run_cmd(cmd, **kwargs):
     except subprocess.CalledProcessError as e:
         # this avoids hiding the stdout / stderr of failed processes
         sio = io.StringIO()
-        print('Command failed:', " ".join(cmd), file=sio)
+        command_line_string = ''
+        env = kwargs.get('env', {})
+        for key in env.keys() - os.environ.keys():
+            value = env[key]
+            command_line_string += f'{key}={value} '
+        command_line_string += ' '.join(cmd)
+        print(f'Command failed: {command_line_string}', file=sio)
         print('With output:', file=sio)
         print('--------------', file=sio)
         print(frombytes(e.output), file=sio)

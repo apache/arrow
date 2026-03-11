@@ -100,11 +100,23 @@ module ArrowFormat
     private
     def consume_initial(target)
       continuation = target.get_value(CONTINUATION_TYPE, 0)
-      unless continuation == CONTINUATION_INT32
+      if continuation == CONTINUATION_INT32
+        @state = :metadata_length
+      elsif continuation < 0
         raise ReadError.new("Invalid continuation token: " +
                             continuation.inspect)
+      else
+        # For backward compatibility of data produced prior to version
+        # 0.15.0. It doesn't have continuation token. Ignore it and
+        # re-read it as metadata length.
+        metadata_length = continuation
+        if metadata_length == 0
+          @state = :eos
+        else
+          @metadata_length = metadata_length
+          @state = :metadata
+        end
       end
-      @state = :metadata_length
     end
 
     def consume_metadata_length(target)
@@ -204,7 +216,7 @@ module ArrowFormat
       @dictionary_fields = {}
       @schema.fields.each do |field|
         next unless field.type.is_a?(DictionaryType)
-        @dictionary_fields[field.dictionary_id] = field
+        @dictionary_fields[field.type.id] = field
       end
       if @dictionaries.size < @dictionary_fields.size
         @state = :initial_dictionaries
@@ -222,8 +234,11 @@ module ArrowFormat
       end
       field = @dictionary_fields[header.id]
       value_type = field.type.value_type
-      schema = Schema.new([Field.new("dummy", value_type, true, nil)])
-      record_batch = read_record_batch(header.data, schema, body)
+      schema = Schema.new([Field.new("dummy", value_type)])
+      record_batch = read_record_batch(message.version,
+                                       header.data,
+                                       schema,
+                                       body)
       if header.delta?
         @dictionaries[header.id] << record_batch.columns[0]
       else
@@ -237,7 +252,7 @@ module ArrowFormat
 
     def process_record_batch_message(message, body)
       header = message.header
-      @on_read.call(read_record_batch(header, @schema, body))
+      @on_read.call(read_record_batch(message.version, header, @schema, body))
     end
   end
 end

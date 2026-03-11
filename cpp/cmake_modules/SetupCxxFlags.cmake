@@ -74,7 +74,12 @@ if(ARROW_CPU_FLAG STREQUAL "x86")
   if(CMAKE_SIZEOF_VOID_P EQUAL 8)
     # Check for AVX extensions on 64-bit systems only, as 32-bit support seems iffy
     list(JOIN ARROW_AVX2_FLAGS " " ARROW_AVX2_FLAGS_COMMAND_LINE)
-    check_cxx_compiler_flag("${ARROW_AVX2_FLAGS_COMMAND_LINE}" CXX_SUPPORTS_AVX2)
+    if(MINGW AND CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+      # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+      message(STATUS "Disable AVX2 support on gcc / MINGW for now")
+    else()
+      check_cxx_compiler_flag("${ARROW_AVX2_FLAGS_COMMAND_LINE}" CXX_SUPPORTS_AVX2)
+    endif()
     if(MINGW)
       # https://gcc.gnu.org/bugzilla/show_bug.cgi?id=65782
       message(STATUS "Disable AVX512 support on MINGW for now")

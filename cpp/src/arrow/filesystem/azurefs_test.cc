@@ -493,6 +493,11 @@ TEST(AzureFileSystem, InitializeWithDefaultCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureDefaultCredential());
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -509,6 +514,23 @@ TEST(AzureFileSystem, InitializeWithAnonymousCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureAnonymousCredential());
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
+  EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
+}
+
+TEST(AzureFileSystem, InitializeWithAccountKeyCredential) {
+  AzureOptions options;
+  options.account_name = "dummy-account-name";
+  ARROW_EXPECT_OK(options.ConfigureAccountKeyCredential("account_key"));
+  ASSERT_EQ(options.AccountKey(), "account_key");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -517,6 +539,11 @@ TEST(AzureFileSystem, InitializeWithClientSecretCredential) {
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(
       options.ConfigureClientSecretCredential("tenant_id", "client_id", "client_secret"));
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "tenant_id");
+  ASSERT_EQ(options.ClientId(), "client_id");
+  ASSERT_EQ(options.ClientSecret(), "client_secret");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -524,9 +551,19 @@ TEST(AzureFileSystem, InitializeWithManagedIdentityCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential());
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 
   ARROW_EXPECT_OK(options.ConfigureManagedIdentityCredential("specific-client-id"));
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "specific-client-id");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(fs, AzureFileSystem::Make(options));
 }
 
@@ -534,6 +571,11 @@ TEST(AzureFileSystem, InitializeWithCLICredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureCLICredential());
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -541,6 +583,11 @@ TEST(AzureFileSystem, InitializeWithWorkloadIdentityCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureWorkloadIdentityCredential());
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
@@ -548,12 +595,42 @@ TEST(AzureFileSystem, InitializeWithEnvironmentCredential) {
   AzureOptions options;
   options.account_name = "dummy-account-name";
   ARROW_EXPECT_OK(options.ConfigureEnvironmentCredential());
+  ASSERT_EQ(options.AccountKey(), "");
+  ASSERT_EQ(options.SasToken(), "");
+  ASSERT_EQ(options.TenantId(), "");
+  ASSERT_EQ(options.ClientId(), "");
+  ASSERT_EQ(options.ClientSecret(), "");
   EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 }
 
 TEST(AzureFileSystem, OptionsCompare) {
-  AzureOptions options;
-  EXPECT_TRUE(options.Equals(options));
+  AzureOptions options0;
+  EXPECT_TRUE(options0.Equals(options0));
+
+  AzureOptions options1;
+  options1.account_name = "account_name";
+  EXPECT_FALSE(options1.Equals(options0));
+
+  AzureOptions options2;
+  options2.account_name = "account_name";
+  ASSERT_OK(options2.ConfigureAccountKeyCredential("fake_account_key"));
+  EXPECT_FALSE(options2.Equals(options1));
+
+  AzureOptions options3;
+  options3.account_name = "account_name";
+  ASSERT_OK(options3.ConfigureAccountKeyCredential("different_fake_account_key"));
+  EXPECT_FALSE(options3.Equals(options2));
+
+  AzureOptions options4;
+  options4.account_name = "account_name";
+  ASSERT_OK(options4.ConfigureSASCredential("fake_sas_token"));
+  EXPECT_FALSE(options4.Equals(options3));
+
+  AzureOptions options5;
+  options5.account_name = "account_name";
+  ASSERT_OK(options5.ConfigureClientSecretCredential("fake_tenant_id", "fake_client_id",
+                                                     "fake_client_secret"));
+  EXPECT_FALSE(options5.Equals(options4));
 }
 
 class TestAzureOptions : public ::testing::Test {
@@ -1679,9 +1756,14 @@ class TestAzureFileSystem : public ::testing::Test {
                                  env->account_name(), env->account_key())));
     // AzureOptions::FromUri will not cut off extra query parameters that it consumes, so
     // make sure these don't cause problems.
-    ARROW_EXPECT_OK(options.ConfigureSASCredential(
-        "?blob_storage_authority=dummy_value0&" + sas_token.substr(1) +
-        "&credential_kind=dummy-value1"));
+    auto polluted_sas_token = "?blob_storage_authority=dummy_value0&" +
+                              sas_token.substr(1) + "&credential_kind=dummy-value1";
+    ARROW_EXPECT_OK(options.ConfigureSASCredential(polluted_sas_token));
+    ASSERT_EQ(options.AccountKey(), "");
+    ASSERT_EQ(options.SasToken(), polluted_sas_token);
+    ASSERT_EQ(options.TenantId(), "");
+    ASSERT_EQ(options.ClientId(), "");
+    ASSERT_EQ(options.ClientSecret(), "");
     EXPECT_OK_AND_ASSIGN(auto fs, AzureFileSystem::Make(options));
 
     AssertFileInfo(fs.get(), data.ObjectPath(), FileType::File);

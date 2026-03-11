@@ -47,7 +47,7 @@ module ArrowFormat
 
       validate
       @footer = read_footer
-      @record_batch_blocks = @footer.record_batches
+      @record_batch_blocks = @footer.record_batches || []
       @schema = read_schema(@footer.schema)
       @dictionaries = read_dictionaries
     end
@@ -64,7 +64,7 @@ module ArrowFormat
                                 "Not a record batch message: #{i}: " +
                                 fb_header.class.name)
       end
-      read_record_batch(fb_header, @schema, body)
+      read_record_batch(fb_message.version, fb_header, @schema, body)
     end
 
     def each
@@ -108,11 +108,14 @@ module ArrowFormat
     def read_block(block, type, i)
       offset = block.offset
 
-      # If we can report property error information, we can use
+      # If we can report error information correctly, we can use
       # MessagePullReader here.
       #
       # message_pull_reader = MessagePullReader.new do |message, body|
-      #   return read_record_batch(message.header, @schema, body)
+      #   return read_record_batch(message.version,
+      #                            message.header,
+      #                            @schema,
+      #                            body)
       # end
       # chunk = @buffer.slice(offset,
       #                       MessagePullReader::CONTINUATION_SIZE +
@@ -123,12 +126,18 @@ module ArrowFormat
 
       continuation_size = CONTINUATION_BUFFER.size
       continuation = @buffer.slice(offset, continuation_size)
-      unless continuation == CONTINUATION_BUFFER
+      if continuation == CONTINUATION_BUFFER
+        offset += continuation_size
+      elsif continuation.get_value(MessagePullReader::CONTINUATION_TYPE, 0) < 0
         raise FileReadError.new(@buffer,
                                 "Invalid continuation: #{type}: #{i}: " +
                                 continuation.inspect)
+      else
+        # For backward compatibility of data produced prior to version
+        # 0.15.0. It doesn't have continuation token. Ignore it and
+        # re-read it as metadata length.
+        continuation_size = 0
       end
-      offset += continuation_size
 
       metadata_length_type = MessagePullReader::METADATA_LENGTH_TYPE
       metadata_length_size = MessagePullReader::METADATA_LENGTH_SIZE
@@ -161,7 +170,7 @@ module ArrowFormat
       dictionary_fields = {}
       @schema.fields.each do |field|
         next unless field.type.is_a?(DictionaryType)
-        dictionary_fields[field.dictionary_id] = field
+        dictionary_fields[field.type.id] = field
       end
 
       dictionaries = {}
@@ -193,8 +202,11 @@ module ArrowFormat
         end
 
         value_type = dictionary_fields[id].type.value_type
-        schema = Schema.new([Field.new("dummy", value_type, true, nil)])
-        record_batch = read_record_batch(fb_header.data, schema, body)
+        schema = Schema.new([Field.new("dummy", value_type)])
+        record_batch = read_record_batch(fb_message.version,
+                                         fb_header.data,
+                                         schema,
+                                         body)
         if fb_header.delta?
           dictionaries[id] << record_batch.columns[0]
         else
