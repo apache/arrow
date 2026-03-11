@@ -135,13 +135,13 @@ def _repack_wheel(wheel_path, extracted_dir):
     )
     record_lines = []
     for f in all_files:
-        rel = f.relative_to(extracted_dir)
+        rel = f.relative_to(extracted_dir).as_posix()
         data = f.read_bytes()
         digest = base64.urlsafe_b64encode(
             hashlib.sha256(data).digest()
         ).rstrip(b"=").decode()
         record_lines.append(f"{rel},sha256={digest},{len(data)}")
-    record_lines.append(f"{record_rel},,")
+    record_lines.append(f"{record_rel.as_posix()},,")
     record_path.write_text("\n".join(record_lines) + "\n")
 
     # Overwrite the original wheel file
