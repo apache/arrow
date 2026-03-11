@@ -148,6 +148,7 @@ jobs:
       ARROW_WITH_SNAPPY: ON
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
+      Protobuf_SOURCE: BUNDLED
       gRPC_SOURCE: BUNDLED
     steps:
       - name: Checkout Arrow

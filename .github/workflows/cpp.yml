@@ -238,6 +238,7 @@ jobs:
           echo "PKG_CONFIG_PATH=${PROTOBUF_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
           echo "CMAKE_PREFIX_PATH=${PROTOBUF_PREFIX}:${ARROW_HOME}:${CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
           echo "${PROTOBUF_PREFIX}/bin" >> "$GITHUB_PATH"
+
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
