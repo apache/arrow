@@ -89,9 +89,7 @@ if not thrift_dep.found()
     thrift_dep = thrift_proj.dependency('thrift')
 endif
 
-flatbuffers_incdir = include_directories(
-    '../../thirdparty/flatbuffers/include',
-)
+flatbuffers_incdir = include_directories('../../thirdparty/flatbuffers/include')
 flatbuffers_dep = declare_dependency(include_directories: flatbuffers_incdir)
 
 parquet_deps = [arrow_dep, rapidjson_dep, thrift_dep, flatbuffers_dep]
@@ -205,8 +203,8 @@ parquet_tests = {
             'encoding_test.cc',
             'geospatial/statistics_test.cc',
             'geospatial/util_internal_test.cc',
-            'metadata_test.cc',
             'metadata3_test.cc',
+            'metadata_test.cc',
             'page_index_test.cc',
             'properties_test.cc',
             'public_api_test.cc',
@@ -323,7 +321,6 @@ parquet_benchmarks = {
     'level_conversion_benchmark': {
         'sources': files('level_conversion_benchmark.cc'),
     },
-    'metadata_benchmark': {'sources': files('metadata_benchmark.cc')},
     'metadata3_benchmark': {'sources': files('metadata3_benchmark.cc')},
     'page_index_benchmark': {
         'sources': files('benchmark_util.cc', 'page_index_benchmark.cc'),
