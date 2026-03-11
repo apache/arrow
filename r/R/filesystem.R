@@ -655,7 +655,6 @@ AzureFileSystem <- R6Class(
   inherit = FileSystem
 )
 
-# TODO:
 AzureFileSystem$create <- function(...) {
   options <- list(...)
   valid_opts <- c(
@@ -679,19 +678,36 @@ AzureFileSystem$create <- function(...) {
       call. = FALSE
     )
   }
-  if (!is.null(options$account_key) && !is.null(options$sas_token)) {
+  if (is.null(options$account_name)) {
+    stop("Missing `account_name`", call. = FALSE)
+  }
+  if (!is.null(options$tenant_id) || !is.null(options$client_id) || !is.null(options$client_secret)) {
+    if (is.null(options$client_id)) {
+      stop(
+        "`client_id` must be given with `tenant_id` and `client_secret`",
+        call. = FALSE
+      )
+    }
+    if (sum(is.null(options$tenant_id), is.null(options$client_secret)) == 1) {
+      stop(
+        "Provide only `client_id` to authenticate with ",
+        "Managed Identity Credential, or provide `client_id`, `tenant_id`, ",
+        "and`client_secret` to authenticate with Client Secret Credential",
+        call. = FALSE
+      )
+    }
+  } else if (!is.null(options$account_key) && !is.null(options$sas_token)) {
     stop(
       "Cannot specify both `account_key` and `sas_token`",
       call. = FALSE
     )
   }
-  # TODO: Validate combinations of tenant id/client id/client secret before
-  # handing off to C++.
 
-  fs___AzureFileSystem__Make(...)
+  fs___AzureFileSystem__Make(options)
 }
 
 # TODO: Probably shouldn't be called bucket.
+# TODO: Add documentation.
 az_bucket <- function(bucket, ...) {
   assert_that(is.string(bucket))
   args <- list2(...)
