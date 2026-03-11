@@ -981,6 +981,14 @@ struct FlatbufferConverter {
     std::optional<decltype(To(cm.statistics, rg_idx, col_idx))> statistics;
     if (cm.__isset.statistics) statistics = To(cm.statistics, rg_idx, col_idx);
 
+    // Create sub-objects before starting the builder (FlatBuffers requirement).
+    flatbuffers::Offset<format3::BloomFilterInfo> bloom_filter;
+    if (cm.__isset.bloom_filter_offset) {
+      bloom_filter = format3::CreateBloomFilterInfo(
+          root, cm.bloom_filter_offset,
+          cm.__isset.bloom_filter_length ? cm.bloom_filter_length : 0);
+    }
+
     // All offsets are relative to the row group.
     const auto& rg = md.row_groups[rg_idx];
 
@@ -1000,9 +1008,6 @@ struct FlatbufferConverter {
     if (statistics) b.add_statistics(*statistics);
     b.add_is_fully_dict_encoded(To(cm));
     if (cm.__isset.bloom_filter_offset) {
-      auto bloom_filter = format3::CreateBloomFilterInfo(
-          root, cm.bloom_filter_offset,
-          cm.__isset.bloom_filter_length ? cm.bloom_filter_length : 0);
       b.add_bloom_filter(bloom_filter);
     }
 
