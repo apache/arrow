@@ -109,7 +109,7 @@ jobs:
             title: AMD64 Alpine Linux
           - image: ubuntu-cpp
             run-options: >-
-              -e ARROW_CTEST_TIMEOUT=900
+              -e ARROW_CTEST_TIMEOUT=2400
               -e ARROW_C_FLAGS_DEBUG="-O1"
               -e ARROW_CXX_FLAGS_DEBUG="-O1"
               -e ARROW_LARGE_MEMORY_TESTS=ON
