@@ -161,7 +161,7 @@ struct TypedFuzzEncoding {
       std::conditional_t<kType == Type::BOOLEAN, BooleanSlot, typename DType::c_type>;
   using EncoderType = typename EncodingTraits<DType>::Encoder;
   using DecoderType = typename EncodingTraits<DType>::Decoder;
-  using Accumulator = EncodingTraits<DType>::Accumulator;
+  using Accumulator = typename EncodingTraits<DType>::Accumulator;
 
   TypedFuzzEncoding(Encoding::type source_encoding, Encoding::type roundtrip_encoding,
                     const ColumnDescriptor* descr, int num_values,
