@@ -162,7 +162,6 @@ jobs:
           brew update
           brew bundle --file=cpp/Brewfile
           brew bundle --file=c_glib/Brewfile
-
           # For Meson.
           # See also: https://github.com/mesonbuild/meson/issues/7701
           echo "PKG_CONFIG=$(brew --prefix pkgconf)/bin/pkgconf" >> $GITHUB_ENV

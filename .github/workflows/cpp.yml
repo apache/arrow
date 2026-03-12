@@ -229,16 +229,10 @@ jobs:
           # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
+          # Workaround for https://github.com/grpc/grpc/issues/41755
+          # Remove once the runner ships a newer Homebrew.
+          brew update
           brew bundle --file=cpp/Brewfile
-
-          # protobuf@33 is keg-only, so make it visible to CMake and pkg-config.
-          # Remove this workaround after the gRPC problem is fixed.
-          # See https://github.com/grpc/grpc/issues/41755
-          export PROTOBUF_PREFIX="$(brew --prefix protobuf@33)"
-          echo "PKG_CONFIG_PATH=${PROTOBUF_PREFIX}/lib/pkgconfig:${PKG_CONFIG_PATH}" >> "$GITHUB_ENV"
-          echo "CMAKE_PREFIX_PATH=${PROTOBUF_PREFIX}:${ARROW_HOME}:${CMAKE_PREFIX_PATH}" >> "$GITHUB_ENV"
-          echo "${PROTOBUF_PREFIX}/bin" >> "$GITHUB_PATH"
-
       - name: Install MinIO
         run: |
           $(brew --prefix bash)/bin/bash \
