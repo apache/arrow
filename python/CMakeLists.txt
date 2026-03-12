@@ -1047,9 +1047,7 @@ if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
           FILES_MATCHING
           PATTERN "*.pyi")
 
-  if(DEFINED SKBUILD_STATE
-     AND SKBUILD_STATE STREQUAL "wheel"
-     AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
     install(CODE "
       execute_process(
         COMMAND \"${Python3_EXECUTABLE}\"
