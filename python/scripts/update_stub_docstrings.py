@@ -181,7 +181,7 @@ def add_docstrings_to_stubs(stubs_dir):
 
     pyarrow = importlib.import_module("pyarrow")
 
-    for stub_file in stubs_dir.rglob('*.pyi'):
+    for stub_file in sorted(stubs_dir.rglob('*.pyi')):
         if stub_file.name == "_stubs_typing.pyi":
             continue
 
@@ -197,12 +197,14 @@ def add_docstrings_to_stubs(stubs_dir):
             namespace = module_name
 
         print(f"  {stub_file.name} -> {namespace or '(root)'}")
-        tree = libcst.parse_module(stub_file.read_text())
+        tree = libcst.parse_module(stub_file.read_text(encoding="utf-8"))
         modified = tree.visit(DocstringInserter(pyarrow, namespace))
-        stub_file.write_text(modified.code)
+        stub_file.write_text(modified.code, encoding="utf-8")
 
 
 def _link_or_copy(source, destination):
+    # Prefer symlinks (faster, no disk use) but fall back to copying when the
+    # filesystem doesn't support them (e.g. Docker volumes, network mounts).
     if sys.platform != "win32":
         try:
             os.symlink(source, destination)
@@ -220,22 +222,22 @@ def _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir):
     """
     Assemble an importable pyarrow package inside a temporary directory.
 
-    During wheel builds the .py sources and compiled extensions (.so/.pyd/.dylib)
-    live in separate trees (source checkout vs CMake install prefix). This
-    function symlinks (or copies) both into *pyarrow_pkg* folder so that a plain
+    During wheel builds the .py sources and compiled binary artifacts live in
+    separate trees (source checkout vs CMake install prefix). This function
+    symlinks (or copies) both into pyarrow_pkg folder so that a plain
     ``import pyarrow`` works and docstrings can be extracted at build time.
     """
     source_pyarrow = source_dir / "pyarrow"
     if not source_pyarrow.exists():
         raise FileNotFoundError(f"PyArrow source package not found: {source_pyarrow}")
 
-    for source_path in source_pyarrow.iterdir():
+    for source_path in sorted(source_pyarrow.iterdir()):
         if source_path.suffix == ".py":
             _link_or_copy(source_path, pyarrow_pkg / source_path.name)
         elif source_path.is_dir() and not source_path.name.startswith((".", "__")):
             _link_or_copy(source_path, pyarrow_pkg / source_path.name)
 
-    for artifact in install_pyarrow_dir.iterdir():
+    for artifact in sorted(install_pyarrow_dir.iterdir()):
         if not artifact.is_file() or artifact.suffix == ".pyi":
             continue
 
