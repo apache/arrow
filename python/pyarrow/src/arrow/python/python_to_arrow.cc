@@ -592,6 +592,7 @@ Result<const Scalar*> GetStorageScalar(const Scalar& scalar) {
   const auto& extension_scalar = checked_cast<const ExtensionScalar&>(scalar);
   return extension_scalar.value.get();
 }
+
 template <typename T, typename Enable = void>
 class PyPrimitiveConverter;
 

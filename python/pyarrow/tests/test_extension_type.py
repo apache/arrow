@@ -1535,12 +1535,15 @@ def test_array_from_extension_scalars():
                pa.scalar(None, type=uuid_type)]
     result = pa.array(scalars, type=uuid_type)
     assert result[0].is_valid and not result[1].is_valid
+
     scalars = [
         pa.ExtensionScalar.from_storage(uuid_type, b"0123456789abcdef"),
         pa.ExtensionScalar.from_storage(uuid_type, None),
     ]
     result = pa.array(scalars, type=uuid_type)
-    assert result.to_pylist() == [UUID(bytes=b"0123456789abcdef"), None]
+    expected = pa.array([b"0123456789abcdef", None], type=uuid_type)
+    assert result.equals(expected)
+
     # Type inference without explicit type
     u = uuid4()
     scalars = [pa.scalar(u, type=pa.uuid()), None]
