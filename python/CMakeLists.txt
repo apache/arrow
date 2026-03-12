@@ -1048,7 +1048,7 @@ if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
         RESULT_VARIABLE _pyarrow_stub_docstrings_result
       )
       if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
-        message(${_stub_error_level} \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+        message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
       endif()
     ")
   endif()

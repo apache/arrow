@@ -28,7 +28,6 @@ import inspect
 import os
 import shutil
 import sys
-import sysconfig
 import tempfile
 from pathlib import Path
 from textwrap import indent
@@ -226,9 +225,6 @@ def _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir):
     function symlinks (or copies) both into *pyarrow_pkg* folder so that a plain
     ``import pyarrow`` works and docstrings can be extracted at build time.
     """
-    # Platform-specific suffix for Python extension modules
-    # (e.g. ".cpython-313-x86_64-linux-gnu.so")
-    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
     source_pyarrow = source_dir / "pyarrow"
     if not source_pyarrow.exists():
         raise FileNotFoundError(f"PyArrow source package not found: {source_pyarrow}")
@@ -240,18 +236,11 @@ def _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir):
             _link_or_copy(source_path, pyarrow_pkg / source_path.name)
 
     for artifact in install_pyarrow_dir.iterdir():
-        if not artifact.is_file():
+        if not artifact.is_file() or artifact.suffix == ".pyi":
             continue
 
         destination = pyarrow_pkg / artifact.name
-        if destination.exists():
-            continue
-
-        is_extension = ext_suffix in artifact.name or artifact.suffix == ".pyd"
-        is_shared_library = (
-            ".so" in artifact.name or artifact.suffix in (".dylib", ".dll")
-        )
-        if is_extension or is_shared_library:
+        if not destination.exists():
             _link_or_copy(artifact, destination)
 
 
