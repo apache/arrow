@@ -648,7 +648,7 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryNonZeroFirst) {
   auto arr = MakeArray(array_data);
   ASSERT_OK(arr->ValidateFull());
   auto expected = ArrayFromJSON(type, R"([null, "a", "b"])");
-  
+
   auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
   ASSERT_OK_AND_ASSIGN(auto result_asa,
                        CallFunction("if_else", {cond_asa, MakeNullScalar(type), arr}));
