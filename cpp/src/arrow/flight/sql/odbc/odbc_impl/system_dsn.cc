@@ -20,6 +20,7 @@
 #include "arrow/result.h"
 #include "arrow/util/utf8.h"
 
+#include <boost/algorithm/string/predicate.hpp>
 #include <sstream>
 
 namespace arrow::flight::sql::odbc {
@@ -38,7 +39,7 @@ void PostArrowUtilError(arrow::Status error_status) {
   std::wstring werror_msg = arrow::util::UTF8ToWideString(error_msg).ValueOr(
       L"Error during utf8 to wide string conversion");
 
-  PostError(ODBC_ERROR_GENERAL_ERR, (LPWSTR)werror_msg.c_str());
+  PostError(ODBC_ERROR_GENERAL_ERR, const_cast<LPWSTR>(werror_msg.c_str()));
 }
 
 void PostLastInstallerError() {
@@ -51,7 +52,7 @@ void PostLastInstallerError() {
   buf << L"Message: \"" << msg << L"\", Code: " << code;
   std::wstring error_msg = buf.str();
 
-  PostError(code, (LPWSTR)error_msg.c_str());
+  PostError(code, const_cast<LPWSTR>(error_msg.c_str()));
 }
 
 /**

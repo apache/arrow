@@ -1769,7 +1769,7 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTime) {
 #ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
 #else
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
