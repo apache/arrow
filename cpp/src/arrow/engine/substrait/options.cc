@@ -68,17 +68,35 @@ class DefaultExtensionProvider : public BaseExtensionProvider {
                                   const ExtensionSet& ext_set) override {
     if (rel.Is<substrait_ext::AsOfJoinRel>()) {
       substrait_ext::AsOfJoinRel as_of_join_rel;
+#if PROTOBUF_VERSION >= 3015000
+      if (!rel.UnpackTo(&as_of_join_rel)) {
+        return Status::IOError("Failed to unpack AsOfJoinRel");
+      }
+#else
       rel.UnpackTo(&as_of_join_rel);
+#endif
       return MakeAsOfJoinRel(inputs, as_of_join_rel, ext_set);
     }
     if (rel.Is<substrait_ext::NamedTapRel>()) {
       substrait_ext::NamedTapRel named_tap_rel;
+#if PROTOBUF_VERSION >= 3015000
+      if (!rel.UnpackTo(&named_tap_rel)) {
+        return Status::IOError("Failed to unpack NamedTapRel");
+      }
+#else
       rel.UnpackTo(&named_tap_rel);
+#endif
       return MakeNamedTapRel(conv_opts, inputs, named_tap_rel, ext_set);
     }
     if (rel.Is<substrait_ext::SegmentedAggregateRel>()) {
       substrait_ext::SegmentedAggregateRel seg_agg_rel;
+#if PROTOBUF_VERSION >= 3015000
+      if (!rel.UnpackTo(&seg_agg_rel)) {
+        return Status::IOError("Failed to unpack SegmentedAggregateRel");
+      }
+#else
       rel.UnpackTo(&seg_agg_rel);
+#endif
       return MakeSegmentedAggregateRel(conv_opts, inputs, seg_agg_rel, ext_set);
     }
     return Status::NotImplemented("Unrecognized extension in Substrait plan: ",
