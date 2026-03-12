@@ -219,9 +219,15 @@ def _link_or_copy(source, destination):
 
 def _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir):
     """
-    Populate pyarrow_pkg with source Python modules and installed binary artifacts
-    so that pyarrow can be imported from the parent directory of pyarrow_pkg.
+    Assemble an importable pyarrow package inside a temporary directory.
+
+    During wheel builds the .py sources and compiled extensions (.so/.pyd/.dylib)
+    live in separate trees (source checkout vs CMake install prefix). This
+    function symlinks (or copies) both into *pyarrow_pkg* folder so that a plain
+    ``import pyarrow`` works and docstrings can be extracted at build time.
     """
+    # Platform-specific suffix for Python extension modules
+    # (e.g. ".cpython-313-x86_64-linux-gnu.so")
     ext_suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
     source_pyarrow = source_dir / "pyarrow"
     if not source_pyarrow.exists():

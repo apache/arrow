@@ -1031,15 +1031,6 @@ endif()
 #
 # Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
 # alongside the package so type checkers can find them (PEP 561).
-set(PYARROW_REQUIRE_STUB_DOCSTRINGS OFF)
-if(DEFINED SKBUILD_STATE
-   AND SKBUILD_STATE STREQUAL "wheel"
-   AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten"
-   AND DEFINED ENV{CI}
-   AND NOT "$ENV{CI}" STREQUAL "")
-  set(PYARROW_REQUIRE_STUB_DOCSTRINGS ON)
-endif()
-
 set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
 if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
@@ -1057,11 +1048,7 @@ if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
         RESULT_VARIABLE _pyarrow_stub_docstrings_result
       )
       if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
-        if(${PYARROW_REQUIRE_STUB_DOCSTRINGS})
-          message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
-        else()
-          message(WARNING \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
-        endif()
+        message(${_stub_error_level} \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
       endif()
     ")
   endif()
