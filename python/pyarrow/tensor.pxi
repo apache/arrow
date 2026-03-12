@@ -411,6 +411,18 @@ shape: {self.shape}"""
             Shape of the tensor.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0, 3.0], dtype=np.float32)
+        >>> coords = np.array([[0, 1], [1, 0], [1, 2]], dtype=np.int64)
+        >>> sparse_coo = pa.SparseCOOTensor.from_numpy(data, coords, shape=(2, 3))
+        >>> sparse_coo
+        <pyarrow.SparseCOOTensor>
+        type: float
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCOOTensor] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -735,6 +747,20 @@ shape: {self.shape}"""
             Shape of the matrix.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0, 3.0], dtype=np.float64)
+        >>> indptr = np.array([0, 2, 3], dtype=np.int64)
+        >>> indices = np.array([0, 2, 1], dtype=np.int64)
+        >>> sparse_csr = pa.SparseCSRMatrix.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3))
+        >>> sparse_csr
+        <pyarrow.SparseCSRMatrix>
+        type: double
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCSRMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -992,6 +1018,20 @@ shape: {self.shape}"""
             Shape of the matrix.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 3.0, 2.0], dtype=np.float64)
+        >>> indptr = np.array([0, 1, 2, 3], dtype=np.int64)
+        >>> indices = np.array([0, 1, 0], dtype=np.int64)
+        >>> sparse_csc = pa.SparseCSCMatrix.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3))
+        >>> sparse_csc
+        <pyarrow.SparseCSCMatrix>
+        type: double
+        shape: (2, 3)
         """
         cdef shared_ptr[CSparseCSCMatrix] csparse_tensor
         cdef vector[int64_t] c_shape
@@ -1265,6 +1305,27 @@ shape: {self.shape}"""
             produce the prefix tree.
         dim_names : list, optional
             Names of the dimensions.
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> data = np.array([1.0, 2.0], dtype=np.float32)
+        >>> indptr = [
+        ...     np.array([0, 1, 2], dtype=np.int64),
+        ...     np.array([0, 1, 2], dtype=np.int64),
+        ... ]
+        >>> indices = [
+        ...     np.array([0, 1], dtype=np.int64),
+        ...     np.array([1, 2], dtype=np.int64),
+        ...     np.array([0, 1], dtype=np.int64),
+        ... ]
+        >>> sparse_csf = pa.SparseCSFTensor.from_numpy(
+        ...     data, indptr, indices, shape=(2, 3, 2))
+        >>> sparse_csf
+        <pyarrow.SparseCSFTensor>
+        type: float
+        shape: (2, 3, 2)
         """
         cdef shared_ptr[CSparseCSFTensor] csparse_tensor
         cdef vector[int64_t] c_axis_order
