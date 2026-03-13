@@ -38,13 +38,21 @@ cmake \
   -DARROW_AZURE=ON \
   ..
 
+cmake --build . --target install -j8
+
+
+R -e 'install.packages("remotes"); remotes::install_deps(dependencies = TRUE)'
+
+R CMD INSTALL --no-multiarch .
+
+# ----------------------
+
 
 # Try building from source via R with the relevant env vars set for feature flags.
 
 # Core Build Settings
 export LIBARROW_MINIMAL=false
 export FORCE_BUNDLED_BUILD=true
-export ARROW_HOME=$ARROW_HOME
 export BOOST_SOURCE=BUNDLED
 
 # Feature Toggles
