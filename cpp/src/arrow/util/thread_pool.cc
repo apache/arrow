@@ -634,7 +634,7 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
 // MinGW's __emutls implementation for C++ thread_local has known race conditions
 // during thread creation that can cause segfaults. Use native Win32 TLS instead.
 // See https://github.com/apache/arrow/issues/49272
-#ifdef __MINGW32__
+#  ifdef __MINGW32__
 
 namespace {
 DWORD GetPoolTlsIndex() {
@@ -657,12 +657,12 @@ static ThreadPool* GetCurrentThreadPool() {
 static void SetCurrentThreadPool(ThreadPool* pool) {
   TlsSetValue(GetPoolTlsIndex(), pool);
 }
-#else
+#  else
 thread_local ThreadPool* current_thread_pool_ = nullptr;
 
 static ThreadPool* GetCurrentThreadPool() { return current_thread_pool_; }
 static void SetCurrentThreadPool(ThreadPool* pool) { current_thread_pool_ = pool; }
-#endif
+#  endif
 
 bool ThreadPool::OwnsThisThread() { return GetCurrentThreadPool() == this; }
 
@@ -870,5 +870,3 @@ Status SetCpuThreadPoolCapacity(int threads) {
 }
 
 }  // namespace arrow
-
-
