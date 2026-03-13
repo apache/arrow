@@ -1056,8 +1056,5 @@ else()
   if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
     message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
                         "cannot build wheel without .pyi files.")
-  else()
-    message(WARNING "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
-                    "PyArrow will be built without .pyi files.")
   endif()
 endif()
