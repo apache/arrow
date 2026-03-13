@@ -416,8 +416,8 @@ const char* gdv_fn_substring_index(int64_t context, const char* txt, int32_t txt
     *out_len = occ[cnt - 1];
     return out;
   } else if (abs_cnt <= occ_size && cnt < 0) {
-    int32_t sz = static_cast<int32_t>(occ.size());
-    int32_t temp = static_cast<int32_t>(abs_cnt);
+    int64_t sz = occ_size;
+    int64_t temp = abs_cnt;
 
     memcpy(out, txt + occ[sz - temp] + pat_len, txt_len - occ[sz - temp] - pat_len);
     *out_len = txt_len - occ[sz - temp] - pat_len;
