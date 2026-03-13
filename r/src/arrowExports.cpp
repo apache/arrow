@@ -3668,7 +3668,7 @@ extern "C" SEXP _arrow_fs___GcsFileSystem__options(SEXP fs_sexp){
 #endif
 
 // filesystem.cpp
-#if defined(ARROW_R_WITH_AZUREFS)
+#if defined(ARROW_R_WITH_AZURE)
 std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list options);
 extern "C" SEXP _arrow_fs___AzureFileSystem__Make(SEXP options_sexp){
 BEGIN_CPP11
@@ -5733,7 +5733,7 @@ return Rf_ScalarLogical(
 }
 extern "C" SEXP _azure_available() {
 return Rf_ScalarLogical(
-#if defined(ARROW_R_WITH_AZUREFS)
+#if defined(ARROW_R_WITH_AZURE)
   TRUE
 #else
   FALSE
