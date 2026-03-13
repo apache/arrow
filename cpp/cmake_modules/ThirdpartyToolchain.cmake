@@ -3232,7 +3232,8 @@ function(build_grpc)
 endfunction()
 
 if(ARROW_WITH_GOOGLE_CLOUD_CPP OR ARROW_WITH_GRPC)
-  set(ARROW_ABSL_REQUIRED_VERSION 20211102)
+  # Abseil 20230125 released CRC32C which is necessary for GCS builds
+  set(ARROW_ABSL_REQUIRED_VERSION 20230125)
   # Google Cloud C++ SDK and gRPC require Google Abseil
   if(ARROW_WITH_GOOGLE_CLOUD_CPP)
     set(ARROW_ABSL_CMAKE_PACKAGE_NAME Arrow)
