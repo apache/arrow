@@ -187,7 +187,6 @@ Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 /// The first buffer contains the protobuf wire format header. Subsequent
 /// buffers are zero-copy references to the IPC body buffers, with padding
 /// buffers inserted as needed for 8-byte alignment.
-ARROW_FLIGHT_EXPORT
 arrow::Result<arrow::BufferVector> SerializePayloadToBuffers(
     const FlightPayload& payload);
 
