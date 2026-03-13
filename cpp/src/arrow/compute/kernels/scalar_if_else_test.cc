@@ -27,6 +27,7 @@
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -607,6 +608,58 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
   CheckIfElseOutput(cond, left, right, expected_data);
+}
+
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  auto full_arr = ArrayFromJSON(type, R"(["not used", null, "x", "x"])");
+  auto sliced = full_arr->Slice(1);
+  auto expected = ArrayFromJSON(type, R"([null, "x", "x"])");
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), sliced}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
+}
+
+// array offset=0 but offsets[0] != 0
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryNonZeroFirst) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  using OffsetType = typename TypeTraits<TypeParam>::OffsetType::c_type;
+
+  std::vector<OffsetType> raw_offsets = {8, 8, 9, 10};
+  std::string raw_data(8, 'p');
+  raw_data += "ab";
+  auto offsets_buf = Buffer::Wrap(raw_offsets.data(), raw_offsets.size());
+  auto data_buf = Buffer::Wrap(raw_data.data(), raw_data.size());
+  auto array_data = ArrayData::Make(type, /*length=*/3, {nullptr, offsets_buf, data_buf},
+                                    /*null_count=*/1, /*offset=*/0);
+  std::vector<uint8_t> validity_bytes = {0, 1, 1};
+  ASSERT_OK_AND_ASSIGN(array_data->buffers[0],
+                       internal::BytesToBits(validity_bytes, default_memory_pool()));
+  auto arr = MakeArray(array_data);
+  ASSERT_OK(arr->ValidateFull());
+  auto expected = ArrayFromJSON(type, R"([null, "a", "b"])");
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), arr}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, arr, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
 }
 
 Result<std::shared_ptr<Array>> MakeBinaryArrayWithData(
