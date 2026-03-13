@@ -136,11 +136,22 @@ repos:
       - id: flake8
         alias: python
         name: Python Lint
+        additional_dependencies:
+          - flake8-pyi
         args:
           - "--config"
           - "python/setup.cfg"
+          - "--extend-select"
+          - "Y"
+          - "--per-file-ignores"
+          - "python/pyarrow-stubs/pyarrow/*.pyi:E301,E302,E305,E701"
         files: >-
           ^(c_glib|dev|python)/
+        types:
+          - file
+        types_or:
+          - python
+          - pyi
         exclude: >-
           (
           ?^python/pyarrow/vendored/|
