@@ -3307,7 +3307,7 @@ if(ARROW_WITH_GRPC)
 endif()
 
 # ----------------------------------------------------------------------
-# GCS and dependencies
+# OpenTelemetry C++ and dependencies
 
 function(build_nlohmann_json)
   list(APPEND CMAKE_MESSAGE_INDENT "nlohmann-json: ")
@@ -3342,24 +3342,134 @@ if(ARROW_WITH_NLOHMANN_JSON)
   message(STATUS "Found nlohmann_json headers: ${nlohmann_json_INCLUDE_DIR}")
 endif()
 
+function(build_opentelemetry)
+  list(APPEND CMAKE_MESSAGE_INDENT "OpenTelemetry: ")
+  message(STATUS "Building OpenTelemetry from source using FetchContent")
+
+  if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
+    message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
+                        "Protobuf is version ${Protobuf_VERSION}")
+  endif()
+
+  set(OPENTELEMETRY_VENDORED
+      TRUE
+      PARENT_SCOPE)
+
+  fetchcontent_declare(opentelemetry_proto
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
+  )
+
+  # Use FetchContent_Populate instead of MakeAvailable because opentelemetry-proto
+  # has no CMakeLists.txt.
+  cmake_policy(PUSH)
+  if(POLICY CMP0169)
+    cmake_policy(SET CMP0169 OLD)
+  endif()
+  fetchcontent_populate(opentelemetry_proto)
+  cmake_policy(POP)
+
+  fetchcontent_declare(opentelemetry_cpp
+                       ${FC_DECLARE_COMMON_OPTIONS}
+                       URL ${OPENTELEMETRY_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
+
+  prepare_fetchcontent()
+
+  # Unity build causes symbol redefinition errors in protobuf-generated code
+  set(CMAKE_UNITY_BUILD FALSE)
+  set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
+  set(WITH_EXAMPLES OFF)
+  set(WITH_OTLP_HTTP ON)
+  set(WITH_OTLP_GRPC OFF)
+  set(WITH_FUNC_TESTS OFF)
+  # These options are slated for removal in v1.14 and their features are deemed stable
+  # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
+  # finicky - resulting in build failures or ABI-related runtime errors during HTTP
+  # client initialization. There may still be a solution, but we disable them for now.
+  set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
+  set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
+
+  fetchcontent_makeavailable(opentelemetry_cpp)
+
+  if(CMAKE_VERSION VERSION_LESS 3.28)
+    set_property(DIRECTORY ${opentelemetry_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
+  endif()
+
+  # Remove unused directories to save build directory storage
+  file(REMOVE_RECURSE "${opentelemetry_cpp_SOURCE_DIR}/ci")
+
+  # OpenTelemetry creates its own targets. We need to add them to bundled static libs.
+  # The targets created by OpenTelemetry's CMakeLists.txt use the opentelemetry:: namespace.
+  # List of libraries that we actually need and want to bundle.
+  set(_OPENTELEMETRY_BUNDLED_LIBS
+      opentelemetry-cpp::common
+      opentelemetry-cpp::http_client_curl
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_client
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::otlp_http_exporter
+      opentelemetry-cpp::otlp_recordable
+      opentelemetry-cpp::proto
+      opentelemetry-cpp::resources
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::version)
+
+  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
+  set(ARROW_BUNDLED_STATIC_LIBS
+      "${ARROW_BUNDLED_STATIC_LIBS}"
+      PARENT_SCOPE)
+
+  list(POP_BACK CMAKE_MESSAGE_INDENT)
+endfunction()
+
+if(ARROW_WITH_OPENTELEMETRY)
+  if(NOT ARROW_ENABLE_THREADING)
+    message(FATAL_ERROR "Can't use OpenTelemetry with ARROW_ENABLE_THREADING=OFF")
+  endif()
+
+  # cURL is required whether we build from source or use an existing installation
+  # (OTel's cmake files do not call find_curl for you)
+  find_curl()
+  resolve_dependency(opentelemetry-cpp)
+  set(ARROW_OPENTELEMETRY_LIBS
+      opentelemetry-cpp::trace
+      opentelemetry-cpp::logs
+      opentelemetry-cpp::otlp_http_log_record_exporter
+      opentelemetry-cpp::ostream_log_record_exporter
+      opentelemetry-cpp::ostream_span_exporter
+      opentelemetry-cpp::otlp_http_exporter)
+  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
+                      INTERFACE_INCLUDE_DIRECTORIES)
+  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
+endif()
+
+# ----------------------------------------------------------------------
+# GCS and dependencies
+
 function(build_google_cloud_cpp_storage)
   list(APPEND CMAKE_MESSAGE_INDENT "google-cloud-cpp: ")
   message(STATUS "Building google-cloud-cpp from source using FetchContent")
+  if(NOT ARROW_WITH_OPENTELEMETRY)
+    message(FATAL_ERROR "Building google-cloud-cpp from source requires OpenTelemetry")
+  endif()
   set(GOOGLE_CLOUD_CPP_VENDORED
       TRUE
       PARENT_SCOPE)
 
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
-                       GIT_REPOSITORY https://github.com/googleapis/google-cloud-cpp.git
-                       GIT_TAG 2b9130f6b28457d9f92eb2e1a98d6aa5d730303f # prepare-for-v3.0.0 branch
-  )
+                       URL ${google_cloud_cpp_storage_SOURCE_URL}
+                       URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
   prepare_fetchcontent()
 
   message(STATUS "Only building the google-cloud-cpp::storage component")
   # Disable auto-added features (monitoring, trace, opentelemetry, universe_domain)
-  # that require gRPC - storage only needs REST/curl
+  # that require gRPC - storage only needs REST/curl.
   set(GOOGLE_CLOUD_CPP_ENABLE
       "storage;-monitoring;-trace;-opentelemetry;-universe_domain")
   # We need this to build with OpenSSL 3.0.
@@ -3373,6 +3483,18 @@ function(build_google_cloud_cpp_storage)
   set(CMAKE_UNITY_BUILD FALSE)
 
   fetchcontent_makeavailable(google_cloud_cpp)
+
+  # In google-cloud-cpp v3+, google_cloud_cpp_common unconditionally compiles
+  # internal/opentelemetry.cc which #includes opentelemetry-cpp API headers.
+  # We disable the opentelemetry feature (to avoid pulling in gRPC), but we
+  # still need to provide the OTel API include path. We add it directly
+  # (instead of linking opentelemetry-cpp::api) to avoid export set issues.
+  if(TARGET opentelemetry-cpp::api AND TARGET google_cloud_cpp_common)
+    get_target_property(_otel_api_includes opentelemetry-cpp::api
+                        INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(google_cloud_cpp_common SYSTEM
+                               PUBLIC ${_otel_api_includes})
+  endif()
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
     set_property(DIRECTORY ${google_cloud_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
@@ -3672,114 +3794,6 @@ if(ARROW_ORC)
     message(STATUS "Found ORC static library: ${ORC_STATIC_LIB}")
     message(STATUS "Found ORC headers: ${ORC_INCLUDE_DIR}")
   endif()
-endif()
-
-# ----------------------------------------------------------------------
-# OpenTelemetry C++
-
-function(build_opentelemetry)
-  list(APPEND CMAKE_MESSAGE_INDENT "OpenTelemetry: ")
-  message(STATUS "Building OpenTelemetry from source using FetchContent")
-
-  if(Protobuf_VERSION VERSION_GREATER_EQUAL 3.22)
-    message(FATAL_ERROR "GH-36013: Can't use bundled OpenTelemetry with Protobuf 3.22 or later. "
-                        "Protobuf is version ${Protobuf_VERSION}")
-  endif()
-
-  set(OPENTELEMETRY_VENDORED
-      TRUE
-      PARENT_SCOPE)
-
-  fetchcontent_declare(opentelemetry_proto
-                       ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${OPENTELEMETRY_PROTO_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
-  )
-
-  # Use FetchContent_Populate instead of MakeAvailable because opentelemetry-proto
-  # has no CMakeLists.txt.
-  cmake_policy(PUSH)
-  if(POLICY CMP0169)
-    cmake_policy(SET CMP0169 OLD)
-  endif()
-  fetchcontent_populate(opentelemetry_proto)
-  cmake_policy(POP)
-
-  fetchcontent_declare(opentelemetry_cpp
-                       ${FC_DECLARE_COMMON_OPTIONS}
-                       URL ${OPENTELEMETRY_SOURCE_URL}
-                       URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
-
-  prepare_fetchcontent()
-
-  # Unity build causes symbol redefinition errors in protobuf-generated code
-  set(CMAKE_UNITY_BUILD FALSE)
-  set(OTELCPP_PROTO_PATH "${opentelemetry_proto_SOURCE_DIR}")
-  set(WITH_EXAMPLES OFF)
-  set(WITH_OTLP_HTTP ON)
-  set(WITH_OTLP_GRPC OFF)
-  set(WITH_FUNC_TESTS OFF)
-  # These options are slated for removal in v1.14 and their features are deemed stable
-  # as of v1.13. However, setting their corresponding ENABLE_* macros in headers seems
-  # finicky - resulting in build failures or ABI-related runtime errors during HTTP
-  # client initialization. There may still be a solution, but we disable them for now.
-  set(WITH_OTLP_HTTP_SSL_PREVIEW OFF)
-  set(WITH_OTLP_HTTP_SSL_TLS_PREVIEW OFF)
-
-  fetchcontent_makeavailable(opentelemetry_cpp)
-
-  if(CMAKE_VERSION VERSION_LESS 3.28)
-    set_property(DIRECTORY ${opentelemetry_cpp_SOURCE_DIR} PROPERTY EXCLUDE_FROM_ALL TRUE)
-  endif()
-
-  # Remove unused directories to save build directory storage
-  file(REMOVE_RECURSE "${opentelemetry_cpp_SOURCE_DIR}/ci")
-
-  # OpenTelemetry creates its own targets. We need to add them to bundled static libs.
-  # The targets created by OpenTelemetry's CMakeLists.txt use the opentelemetry:: namespace.
-  # List of libraries that we actually need and want to bundle.
-  set(_OPENTELEMETRY_BUNDLED_LIBS
-      opentelemetry-cpp::common
-      opentelemetry-cpp::http_client_curl
-      opentelemetry-cpp::logs
-      opentelemetry-cpp::ostream_log_record_exporter
-      opentelemetry-cpp::ostream_span_exporter
-      opentelemetry-cpp::otlp_http_client
-      opentelemetry-cpp::otlp_http_log_record_exporter
-      opentelemetry-cpp::otlp_http_exporter
-      opentelemetry-cpp::otlp_recordable
-      opentelemetry-cpp::proto
-      opentelemetry-cpp::resources
-      opentelemetry-cpp::trace
-      opentelemetry-cpp::version)
-
-  list(APPEND ARROW_BUNDLED_STATIC_LIBS ${_OPENTELEMETRY_BUNDLED_LIBS})
-  set(ARROW_BUNDLED_STATIC_LIBS
-      "${ARROW_BUNDLED_STATIC_LIBS}"
-      PARENT_SCOPE)
-
-  list(POP_BACK CMAKE_MESSAGE_INDENT)
-endfunction()
-
-if(ARROW_WITH_OPENTELEMETRY)
-  if(NOT ARROW_ENABLE_THREADING)
-    message(FATAL_ERROR "Can't use OpenTelemetry with ARROW_ENABLE_THREADING=OFF")
-  endif()
-
-  # cURL is required whether we build from source or use an existing installation
-  # (OTel's cmake files do not call find_curl for you)
-  find_curl()
-  resolve_dependency(opentelemetry-cpp)
-  set(ARROW_OPENTELEMETRY_LIBS
-      opentelemetry-cpp::trace
-      opentelemetry-cpp::logs
-      opentelemetry-cpp::otlp_http_log_record_exporter
-      opentelemetry-cpp::ostream_log_record_exporter
-      opentelemetry-cpp::ostream_span_exporter
-      opentelemetry-cpp::otlp_http_exporter)
-  get_target_property(OPENTELEMETRY_INCLUDE_DIR opentelemetry-cpp::api
-                      INTERFACE_INCLUDE_DIRECTORIES)
-  message(STATUS "Found OpenTelemetry headers: ${OPENTELEMETRY_INCLUDE_DIR}")
 endif()
 
 # ----------------------------------------------------------------------
