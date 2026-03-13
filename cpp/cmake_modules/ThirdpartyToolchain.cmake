@@ -3455,9 +3455,9 @@ endif()
 function(build_google_cloud_cpp_storage)
   list(APPEND CMAKE_MESSAGE_INDENT "google-cloud-cpp: ")
   message(STATUS "Building google-cloud-cpp from source using FetchContent")
-  if(NOT ARROW_WITH_OPENTELEMETRY)
-    message(FATAL_ERROR "Building google-cloud-cpp from source requires OpenTelemetry")
-  endif()
+  #if(NOT ARROW_WITH_OPENTELEMETRY)
+  #  message(FATAL_ERROR "Building google-cloud-cpp from source requires OpenTelemetry")
+  #endif()
   set(GOOGLE_CLOUD_CPP_VENDORED
       TRUE
       PARENT_SCOPE)
