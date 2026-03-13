@@ -139,6 +139,11 @@ pushd C:\arrow\python
     -C cmake.build-type=%CMAKE_BUILD_TYPE% ^
     -C cmake.args="-DCMAKE_INTERPROCEDURAL_OPTIMIZATION=%CMAKE_INTERPROCEDURAL_OPTIMIZATION%" || exit /B 1
 
+@REM We first populate stub docstrings and then build the wheel
+%PYTHON_CMD% setup.py build_ext --inplace
+%PYTHON_CMD% -m pip install griffe libcst
+%PYTHON_CMD% ..\dev\update_stub_docstrings.py pyarrow-stubs
+
 @REM Repair the wheel with delvewheel
 @REM
 @REM Since we bundled the Arrow C++ libraries ourselves, we only need to
