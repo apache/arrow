@@ -110,39 +110,24 @@ const char* gdv_fn_regexp_extract_utf8_utf8_int32(int64_t ptr, int64_t holder_pt
       return "";                                                                 \
     }
 
-// Macro for integer types (int32/int64). Uses optimized digit-pair conversion
-// directly into a small arena allocation (11 bytes for int32, 20 for int64).
-#define GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(IN_TYPE, CAST_NAME, ARROW_TYPE)          \
-  GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                                       \
-  constexpr int32_t max_len = std::numeric_limits<gdv_##IN_TYPE>::digits10 + 2;       \
-  GDV_FN_CAST_VARLEN_ALLOC(max_len)                                                   \
-  char* end = ret + max_len;                                                          \
-  char* p = end;                                                                      \
-  auto uval = value < 0                                                               \
-                  ? static_cast<std::make_unsigned_t<gdv_##IN_TYPE>>(                 \
-                        ~static_cast<std::make_unsigned_t<gdv_##IN_TYPE>>(value) + 1) \
-                  : static_cast<std::make_unsigned_t<gdv_##IN_TYPE>>(value);          \
-  const char* pairs = arrow::internal::detail::digit_pairs;                           \
-  while (uval >= 100) {                                                               \
-    auto idx = (uval % 100) * 2;                                                      \
-    uval /= 100;                                                                      \
-    *--p = pairs[idx + 1];                                                            \
-    *--p = pairs[idx];                                                                \
-  }                                                                                   \
-  if (uval >= 10) {                                                                   \
-    auto idx = uval * 2;                                                              \
-    *--p = pairs[idx + 1];                                                            \
-    *--p = pairs[idx];                                                                \
-  } else {                                                                            \
-    *--p = '0' + static_cast<char>(uval);                                             \
-  }                                                                                   \
-  if (value < 0) {                                                                    \
-    *--p = '-';                                                                       \
-  }                                                                                   \
-  int32_t slen = static_cast<int32_t>(end - p);                                       \
-  *out_len = static_cast<int32_t>(len < slen ? len : slen);                           \
-  memmove(ret, p, *out_len);                                                          \
-  return ret;                                                                         \
+// Macro for integer types (int32/int64). Uses arrow::internal::detail::FormatAllDigits
+// to convert digits right-to-left into a small arena allocation (11 bytes for int32,
+// 20 for int64).
+#define GDV_FN_CAST_VARLEN_TYPE_FROM_INTEGER(IN_TYPE, CAST_NAME, ARROW_TYPE)    \
+  GDV_FN_CAST_VARLEN_PREFIX(IN_TYPE, CAST_NAME)                                 \
+  constexpr int32_t max_len = std::numeric_limits<gdv_##IN_TYPE>::digits10 + 2; \
+  GDV_FN_CAST_VARLEN_ALLOC(max_len)                                             \
+  char* end = ret + max_len;                                                    \
+  char* cursor = end;                                                           \
+  auto uval = arrow::internal::detail::Abs(value);                              \
+  arrow::internal::detail::FormatAllDigits(uval, &cursor);                      \
+  if (value < 0) {                                                              \
+    arrow::internal::detail::FormatOneChar('-', &cursor);                       \
+  }                                                                             \
+  int32_t slen = static_cast<int32_t>(end - cursor);                            \
+  *out_len = static_cast<int32_t>(len < slen ? len : slen);                     \
+  memmove(ret, cursor, *out_len);                                               \
+  return ret;                                                                   \
   }
 
 // Helper: invoke formatter callback, copy result to ret, handle errors.
