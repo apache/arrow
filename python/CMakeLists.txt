@@ -1058,6 +1058,6 @@ else()
                         "cannot build wheel without .pyi files.")
   else()
     message(WARNING "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
-                    "wheel will be built without .pyi files.")
+                    "PyArrow will be built without .pyi files.")
   endif()
 endif()
