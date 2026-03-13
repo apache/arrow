@@ -246,8 +246,7 @@ def pytest_ignore_collect(collection_path, config):
                 return True
 
         if 'pyarrow/cuda' in str(collection_path):
-            if not _cuda_is_available():
-                return True
+            return not _cuda_is_available()
 
         if 'pyarrow/fs' in str(collection_path):
             try:
