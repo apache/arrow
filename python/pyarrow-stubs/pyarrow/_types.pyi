@@ -125,9 +125,7 @@ class DurationType(_BasicDataType[dt.timedelta], Generic[_Unit]):
 
 _FixedSizeBinaryAsPyType = TypeVar("_FixedSizeBinaryAsPyType", default=bytes)
 
-class FixedSizeBinaryType(
-    _BasicDataType[_FixedSizeBinaryAsPyType]
-): ...
+class FixedSizeBinaryType(_BasicDataType[_FixedSizeBinaryAsPyType]): ...
 
 _Precision = TypeVar("_Precision", default=Any)
 _Scale = TypeVar("_Scale", default=Any)
