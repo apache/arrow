@@ -1903,6 +1903,9 @@ function(build_absl)
 
   prepare_fetchcontent()
 
+  # Unity build causes symbol redefinition errors (e.g. kDigits in
+  # time_zone_fixed.cc and time_zone_posix.cc anonymous namespaces).
+  set(CMAKE_UNITY_BUILD OFF)
   # We have to enable Abseil install to add Abseil targets to an export set.
   # But we don't install Abseil by EXCLUDE_FROM_ALL.
   set(ABSL_ENABLE_INSTALL ON)
