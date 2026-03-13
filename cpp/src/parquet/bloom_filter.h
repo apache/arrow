@@ -23,13 +23,12 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/hasher.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
 
 namespace parquet {
-
-class Decryptor;
 
 // A Bloom filter is a compact structure to indicate whether an item is not in a set or
 // probably in a set. The Bloom filter usually consists of a bit set that represents a
