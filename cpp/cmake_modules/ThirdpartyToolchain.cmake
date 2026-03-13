@@ -3143,7 +3143,9 @@ function(build_grpc)
 
   set(gRPC_SSL_PROVIDER "none")
   set(_gRPC_SSL_LIBRARIES "OpenSSL::SSL;OpenSSL::Crypto")
-  set(gRPC_ZLIB_PROVIDER "package")
+  set(gRPC_ZLIB_PROVIDER
+      "package"
+      CACHE STRING "" FORCE)
   set(gRPC_INSTALL OFF)
   set(gRPC_BUILD_TESTS OFF)
 
