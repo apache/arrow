@@ -3458,9 +3458,6 @@ endif()
 function(build_google_cloud_cpp_storage)
   list(APPEND CMAKE_MESSAGE_INDENT "google-cloud-cpp: ")
   message(STATUS "Building google-cloud-cpp from source using FetchContent")
-  #if(NOT ARROW_WITH_OPENTELEMETRY)
-  #  message(FATAL_ERROR "Building google-cloud-cpp from source requires OpenTelemetry")
-  #endif()
   set(GOOGLE_CLOUD_CPP_VENDORED
       TRUE
       PARENT_SCOPE)
@@ -3494,9 +3491,21 @@ function(build_google_cloud_cpp_storage)
   # We disable the opentelemetry feature (to avoid pulling in gRPC), but we
   # still need to provide the OTel API include path. We add it directly
   # (instead of linking opentelemetry-cpp::api) to avoid export set issues.
-  if(TARGET opentelemetry-cpp::api AND TARGET google_cloud_cpp_common)
-    get_target_property(_otel_api_includes opentelemetry-cpp::api
-                        INTERFACE_INCLUDE_DIRECTORIES)
+  if(TARGET google_cloud_cpp_common)
+    if(TARGET opentelemetry-cpp::api)
+      get_target_property(_otel_api_includes opentelemetry-cpp::api
+                          INTERFACE_INCLUDE_DIRECTORIES)
+    else()
+      # OpenTelemetry is not available (ARROW_WITH_OPENTELEMETRY=OFF), but we
+      # still need the header-only API for google-cloud-cpp v3+. Fetch just
+      # the source to get the headers without building anything.
+      fetchcontent_declare(opentelemetry_cpp
+                           ${FC_DECLARE_COMMON_OPTIONS}
+                           URL ${OPENTELEMETRY_SOURCE_URL}
+                           URL_HASH "SHA256=${ARROW_OPENTELEMETRY_BUILD_SHA256_CHECKSUM}")
+      fetchcontent_populate(opentelemetry_cpp)
+      set(_otel_api_includes "${opentelemetry_cpp_SOURCE_DIR}/api/include")
+    endif()
     target_include_directories(google_cloud_cpp_common SYSTEM
                                PUBLIC ${_otel_api_includes})
   endif()
