@@ -1967,9 +1967,10 @@ gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 actual_text_
 }
 
 // Fill a buffer with repeated fill_text using O(log n) doubling strategy
-FORCE_INLINE
-void fill_buffer_with_pattern(gdv_binary dest, gdv_int32 total_fill_bytes,
-                              const char* fill_text, gdv_int32 fill_text_len) {
+static FORCE_INLINE void fill_buffer_with_pattern(gdv_binary dest,
+                                                  gdv_int32 total_fill_bytes,
+                                                  const char* fill_text,
+                                                  gdv_int32 fill_text_len) {
   gdv_int32 initial_copy = std::min(fill_text_len, total_fill_bytes);
   memcpy(dest, fill_text, initial_copy);
   gdv_int32 written = initial_copy;
