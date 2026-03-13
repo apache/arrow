@@ -3507,7 +3507,7 @@ function(build_google_cloud_cpp_storage)
       set(_otel_api_includes "${opentelemetry_cpp_SOURCE_DIR}/api/include")
     endif()
     target_include_directories(google_cloud_cpp_common SYSTEM
-                               PUBLIC ${_otel_api_includes})
+                               PUBLIC $<BUILD_INTERFACE:${_otel_api_includes}>)
   endif()
 
   if(CMAKE_VERSION VERSION_LESS 3.28)
