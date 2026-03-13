@@ -261,8 +261,7 @@ def pytest_ignore_collect(collection_path, config):
         if "/pyarrow/_parquet_encryption" in str(collection_path):
             return True
         if "/pyarrow/_cuda" in str(collection_path):
-            if not _cuda_is_available():
-                return True
+            return not _cuda_is_available()
 
     return False
 
