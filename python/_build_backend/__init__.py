@@ -31,17 +31,23 @@ scikit_build_core.build.build_sdist so that the sdist contains the real file con
 The symlinks are restored afterwards to keep the git working tree clean.
 """
 
+import base64
 from contextlib import contextmanager
+import hashlib
 import os
 from pathlib import Path
 import shutil
 import sys
+import tempfile
+import zipfile
 
 from scikit_build_core.build import *  # noqa: F401,F403
 from scikit_build_core.build import build_sdist as scikit_build_sdist
+from scikit_build_core.build import build_wheel as scikit_build_wheel
 
 LICENSE_FILES = ("LICENSE.txt", "NOTICE.txt")
 PYTHON_DIR = Path(__file__).resolve().parent.parent
+PYTHON_STUBS_DIR = PYTHON_DIR / "pyarrow-stubs" / "pyarrow"
 
 
 @contextmanager
@@ -66,3 +72,82 @@ def prepare_licenses():
 def build_sdist(sdist_directory, config_settings=None):
     with prepare_licenses():
         return scikit_build_sdist(sdist_directory, config_settings)
+
+
+def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+    wheel_name = scikit_build_wheel(
+        wheel_directory, config_settings, metadata_directory
+    )
+    wheel_path = Path(wheel_directory) / wheel_name
+    _inject_stub_docstrings(wheel_path)
+    return wheel_name
+
+
+def _inject_stub_docstrings(wheel_path):
+    """Extract wheel, copy stubs, inject docstrings from runtime, repack."""
+    if not PYTHON_STUBS_DIR.exists():
+        return
+
+    if os.environ.get("PYARROW_SKIP_STUB_DOCSTRINGS", "0") == "1":
+        print("-- Skipping stub docstring injection (PYARROW_SKIP_STUB_DOCSTRINGS=1)")
+        return
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+
+        # Extract wheel into temp dir
+        with zipfile.ZipFile(wheel_path, "r") as whl:
+            whl.extractall(tmp_path)
+
+        # Copy .pyi stubs alongside the built pyarrow package
+        pyarrow_dir = tmp_path / "pyarrow"
+        for stub_file in PYTHON_STUBS_DIR.rglob("*.pyi"):
+            rel = stub_file.relative_to(PYTHON_STUBS_DIR)
+            dest = pyarrow_dir / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(stub_file, dest)
+
+        # Inject docstrings extracted from the built pyarrow runtime
+        try:
+            from pyarrow._build_utils.update_stub_docstrings import (
+                add_docstrings_from_build,
+            )
+            add_docstrings_from_build(pyarrow_dir, tmp_path)
+        except ImportError as e:
+            print(f"-- Skipping stub docstring injection ({e})")
+
+        # Repack the modified contents back into the wheel file
+        _repack_wheel(wheel_path, tmp_path)
+
+
+def _repack_wheel(wheel_path, extracted_dir):
+    """Repack a wheel from an extracted directory, regenerating RECORD checksums."""
+    dist_info_dirs = list(extracted_dir.glob("*.dist-info"))
+    if not dist_info_dirs:
+        raise RuntimeError("No .dist-info directory found in extracted wheel")
+    record_path = dist_info_dirs[0] / "RECORD"
+    record_rel = record_path.relative_to(extracted_dir)
+
+    # Compute hashes for all files except RECORD itself
+    all_files = sorted(
+        f for f in extracted_dir.rglob("*")
+        if f.is_file() and f != record_path
+    )
+    record_lines = []
+    for f in all_files:
+        rel = f.relative_to(extracted_dir).as_posix()
+        data = f.read_bytes()
+        digest = base64.urlsafe_b64encode(
+            hashlib.sha256(data).digest()
+        ).rstrip(b"=").decode()
+        record_lines.append(f"{rel},sha256={digest},{len(data)}")
+    record_lines.append(f"{record_rel.as_posix()},,")
+    record_path.write_text("\n".join(record_lines) + "\n")
+
+    # Overwrite the original wheel file
+    tmp = wheel_path.with_suffix(".tmp")
+    with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED) as whl:
+        for f in sorted(extracted_dir.rglob("*")):
+            if f.is_file():
+                whl.write(f, f.relative_to(extracted_dir))
+    tmp.replace(wheel_path)
