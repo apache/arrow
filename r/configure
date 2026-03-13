@@ -359,7 +359,7 @@ add_feature_flags () {
     if arrow_built_with ARROW_S3; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_S3"
     fi
-    if arrow_built_with ARROW_AZURE || [ "$ARROW_R_WITH_AZUREFS" = "true" ]; then
+    if arrow_built_with ARROW_AZURE; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_AZUREFS"
     fi
     if arrow_built_with ARROW_GCS; then
