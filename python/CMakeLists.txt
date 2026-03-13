@@ -1025,3 +1025,54 @@ if(PYARROW_BUILD_PARQUET)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
   endif()
 endif()
+
+#
+# Type stubs with docstring injection
+#
+# Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
+# alongside the package so type checkers can find them (PEP 561).
+set(PYARROW_REQUIRE_STUB_DOCSTRINGS OFF)
+if(DEFINED SKBUILD_STATE
+   AND SKBUILD_STATE STREQUAL "wheel"
+   AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten"
+   AND DEFINED ENV{CI}
+   AND NOT "$ENV{CI}" STREQUAL "")
+  set(PYARROW_REQUIRE_STUB_DOCSTRINGS ON)
+endif()
+
+set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+  install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
+          DESTINATION "."
+          FILES_MATCHING
+          PATTERN "*.pyi")
+
+  if(DEFINED SKBUILD_STATE
+     AND SKBUILD_STATE STREQUAL "wheel"
+     AND NOT CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+    install(CODE "
+      execute_process(
+        COMMAND \"${Python3_EXECUTABLE}\"
+                \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+                \"${CMAKE_INSTALL_PREFIX}\"
+                \"${CMAKE_CURRENT_SOURCE_DIR}\"
+        RESULT_VARIABLE _pyarrow_stub_docstrings_result
+      )
+      if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
+        if(${PYARROW_REQUIRE_STUB_DOCSTRINGS})
+          message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+        else()
+          message(WARNING \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+        endif()
+      endif()
+    ")
+  endif()
+else()
+  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+    message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
+                        "cannot build CI wheel without .pyi files.")
+  else()
+    message(WARNING "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
+                    "wheel will be built without .pyi files.")
+  endif()
+endif()

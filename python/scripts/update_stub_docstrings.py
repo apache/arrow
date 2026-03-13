@@ -18,14 +18,18 @@
 """
 Extract docstrings from pyarrow runtime and insert them into stub files.
 
-Usage (from python/ directory with pyarrow built):
-    python scripts/update_stub_docstrings.py pyarrow-stubs
+Usage:
+    python scripts/update_stub_docstrings.py <install_prefix> <source_dir>
 """
 
 import argparse
 import importlib
 import inspect
+import os
+import shutil
 import sys
+import sysconfig
+import tempfile
 from pathlib import Path
 from textwrap import indent
 
@@ -186,7 +190,8 @@ def add_docstrings_to_stubs(stubs_dir):
         if module_name in LIB_MODULES:
             namespace = "lib"
         elif stub_file.parent.name in ("parquet", "interchange"):
-            namespace = f"{stub_file.parent.name}.{module_name}"
+            namespace = (stub_file.parent.name if module_name == "__init__"
+                         else f"{stub_file.parent.name}.{module_name}")
         elif module_name == "__init__":
             namespace = ""
         else:
@@ -198,31 +203,77 @@ def add_docstrings_to_stubs(stubs_dir):
         stub_file.write_text(modified.code)
 
 
-def add_docstrings_from_build(stubs_dir, build_lib):
-    """
-    Entry point for setup.py: update docstrings using pyarrow from build directory.
+def _link_or_copy(source, destination):
+    if sys.platform != "win32":
+        try:
+            os.symlink(source, destination)
+            return
+        except OSError:
+            pass
 
-    During the build process, pyarrow is not installed in the system Python.
-    We need to temporarily add the build directory to sys.path so we can
-    import pyarrow and extract docstrings from it.
-    """
-    stubs_dir, build_lib = Path(stubs_dir), Path(build_lib)
+    if source.is_dir():
+        shutil.copytree(source, destination, symlinks=(sys.platform != "win32"))
+    else:
+        shutil.copy2(source, destination)
 
-    sys.path.insert(0, str(build_lib))
-    try:
-        add_docstrings_to_stubs(stubs_dir)
-    finally:
-        sys.path.pop(0)
+
+def _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir):
+    """
+    Populate pyarrow_pkg with source Python modules and installed binary artifacts
+    so that pyarrow can be imported from the parent directory of pyarrow_pkg.
+    """
+    ext_suffix = sysconfig.get_config_var("EXT_SUFFIX") or ".so"
+    source_pyarrow = source_dir / "pyarrow"
+    if not source_pyarrow.exists():
+        raise FileNotFoundError(f"PyArrow source package not found: {source_pyarrow}")
+
+    for source_path in source_pyarrow.iterdir():
+        if source_path.suffix == ".py":
+            _link_or_copy(source_path, pyarrow_pkg / source_path.name)
+        elif source_path.is_dir() and not source_path.name.startswith((".", "__")):
+            _link_or_copy(source_path, pyarrow_pkg / source_path.name)
+
+    for artifact in install_pyarrow_dir.iterdir():
+        if not artifact.is_file():
+            continue
+
+        destination = pyarrow_pkg / artifact.name
+        if destination.exists():
+            continue
+
+        is_extension = ext_suffix in artifact.name or artifact.suffix == ".pyd"
+        is_shared_library = (
+            ".so" in artifact.name or artifact.suffix in (".dylib", ".dll")
+        )
+        if is_extension or is_shared_library:
+            _link_or_copy(artifact, destination)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("stubs_dir", type=Path, help="Path to pyarrow-stubs folder")
+    parser.add_argument("install_prefix", type=Path,
+                        help="CMAKE_INSTALL_PREFIX used by wheel build")
+    parser.add_argument("source_dir", type=Path,
+                        help="PyArrow source directory")
     args = parser.parse_args()
 
-    # Add the directory containing this script's parent (python/) to sys.path
-    # so pyarrow can be imported when running from the python/ directory
-    script_dir = Path(__file__).resolve().parent
-    python_dir = script_dir.parent
-    sys.path.insert(0, str(python_dir))
-    add_docstrings_to_stubs(args.stubs_dir.resolve())
+    install_prefix = args.install_prefix.resolve()
+    source_dir = args.source_dir.resolve()
+    install_pyarrow_dir = install_prefix / "pyarrow"
+    if not install_pyarrow_dir.exists():
+        install_pyarrow_dir = install_prefix
+
+    if not any(install_pyarrow_dir.rglob("*.pyi")):
+        print("No .pyi files found in install tree, skipping docstring injection")
+        sys.exit(0)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        pyarrow_pkg = Path(tmpdir) / "pyarrow"
+        pyarrow_pkg.mkdir()
+        _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir)
+
+        sys.path.insert(0, tmpdir)
+        try:
+            add_docstrings_to_stubs(install_pyarrow_dir)
+        finally:
+            sys.path.pop(0)
