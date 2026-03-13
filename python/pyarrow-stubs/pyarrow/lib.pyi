@@ -15,10 +15,8 @@
 # specific language governing permissions and limitations
 # under the License.
 
-"""Placeholder stub for pyarrow.lib C extension module.
-
-Complete type annotations will be added in subsequent PRs.
-"""
+# Placeholder stub for pyarrow.lib C extension module.
+# Complete type annotations will be added in subsequent PRs.
 
 from typing import Any
 

@@ -26,7 +26,7 @@ import numpy as np
 from numpy.typing import NDArray
 
 from pyarrow import lib
-from pyarrow.lib import BooleanArray, IntegerArray, ChunkedArray
+from pyarrow.lib import ChunkedArray
 
 ArrayLike: TypeAlias = Any
 ScalarLike: TypeAlias = Any
@@ -72,34 +72,38 @@ Indices: TypeAlias = (
     | ChunkedArray[Any]
 )
 
-PyScalar: TypeAlias = (bool | int | float | Decimal | str | bytes |
-                       dt.date | dt.datetime | dt.time | dt.timedelta)
+PyScalar: TypeAlias = (
+    bool
+    | int
+    | float
+    | Decimal
+    | str
+    | bytes
+    | dt.date
+    | dt.datetime
+    | dt.time
+    | dt.timedelta
+)
 
 _T = TypeVar("_T")
 _V = TypeVar("_V", covariant=True)
 
 SingleOrList: TypeAlias = list[_T] | _T
 
-
 class SupportEq(Protocol):
-    def __eq__(self, other: object) -> bool: ...
-
+    def __eq__(self, other: object, /) -> bool: ...
 
 class SupportLt(Protocol):
-    def __lt__(self, other: object) -> bool: ...
-
+    def __lt__(self, other: object, /) -> bool: ...
 
 class SupportGt(Protocol):
-    def __gt__(self, other: object) -> bool: ...
-
+    def __gt__(self, other: object, /) -> bool: ...
 
 class SupportLe(Protocol):
-    def __le__(self, other: object) -> bool: ...
-
+    def __le__(self, other: object, /) -> bool: ...
 
 class SupportGe(Protocol):
-    def __ge__(self, other: object) -> bool: ...
-
+    def __ge__(self, other: object, /) -> bool: ...
 
 FilterTuple: TypeAlias = (
     tuple[str, Literal["=", "==", "!="], SupportEq]
@@ -111,34 +115,23 @@ FilterTuple: TypeAlias = (
     | tuple[str, str, Any]  # Allow general str for operator to avoid type errors
 )
 
-
-class Buffer(Protocol):
-    ...
-
-
-class SupportPyBuffer(Protocol):
-    ...
-
+class Buffer(Protocol): ...
+class SupportPyBuffer(Protocol): ...
 
 class SupportArrowStream(Protocol):
-    def __arrow_c_stream__(self, requested_schema=None) -> Any: ...
-
+    def __arrow_c_stream__(self, requested_schema=None, /) -> Any: ...
 
 class SupportPyArrowArray(Protocol):
-    def __arrow_array__(self, type=None) -> Any: ...
-
+    def __arrow_array__(self, type=None, /) -> Any: ...
 
 class SupportArrowArray(Protocol):
-    def __arrow_c_array__(self, requested_schema=None) -> Any: ...
-
+    def __arrow_c_array__(self, requested_schema=None, /) -> Any: ...
 
 class SupportArrowDeviceArray(Protocol):
-    def __arrow_c_device_array__(self, requested_schema=None, **kwargs) -> Any: ...
-
+    def __arrow_c_device_array__(self, requested_schema=None, /, **kwargs) -> Any: ...
 
 class SupportArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> Any: ...
-
 
 class NullableCollection(Protocol[_V]):
     def __iter__(self) -> Iterator[_V] | Iterator[_V | None]: ...
