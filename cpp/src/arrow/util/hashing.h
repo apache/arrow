@@ -534,13 +534,16 @@ class ScalarMemoTable : public MemoTable {
   // Merge entries from `other_table` into `this->hash_table_`.
   Status MergeTable(const ScalarMemoTable& other_table) {
     const HashTableType& other_hashtable = other_table.hash_table_;
+    Status status = Status::OK();
 
-    other_hashtable.VisitEntries([this](const HashTableEntry* other_entry) {
+    other_hashtable.VisitEntries([this, &status](const HashTableEntry* other_entry) {
+      if (ARROW_PREDICT_FALSE(!status.ok())) {
+        return;
+      }
       int32_t unused;
-      ARROW_DCHECK_OK(this->GetOrInsert(other_entry->payload.value, &unused));
+      status = this->GetOrInsert(other_entry->payload.value, &unused);
     });
-    // TODO: ARROW-17074 - implement proper error handling
-    return Status::OK();
+    return status;
   }
 };
 
@@ -899,11 +902,15 @@ class BinaryMemoTable : public MemoTable {
 
  public:
   Status MergeTable(const BinaryMemoTable& other_table) {
-    other_table.VisitValues(0, [this](std::string_view other_value) {
+    Status status = Status::OK();
+    other_table.VisitValues(0, [this, &status](std::string_view other_value) {
+      if (ARROW_PREDICT_FALSE(!status.ok())) {
+        return;
+      }
       int32_t unused;
-      ARROW_DCHECK_OK(this->GetOrInsert(other_value, &unused));
+      status = this->GetOrInsert(other_value, &unused);
     });
-    return Status::OK();
+    return status;
   }
 };
 
