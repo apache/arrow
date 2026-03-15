@@ -21,7 +21,7 @@ skip_if_not_available("azure")
 library(dplyr)
 
 # TODO: Add local azurite install to setup script
-# skip_if_not(nzchar(Sys.which("azurite")), message = "azurite is not installed.")
+skip_if_not(nzchar(Sys.which("azurite")), message = "azurite is not installed.")
 
 # TODO: Start azurite from the test code instead of relying on it to be already running externally.
 
@@ -30,7 +30,7 @@ library(dplyr)
 azurite_account_name <- "devstoreaccount1"
 # Note that this is a well-known default credential for local development on Azurite.
 azurite_account_key <- "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
-azurite_blob_host <- "host.docker.internal"
+azurite_blob_host <- "127.0.0.1"
 azurite_blob_port <- "10000"
 azurite_blob_storage_authority <- sprintf("%s:%s",azurite_blob_host, azurite_blob_port)
 azurite_blob_storage_scheme <- "http"
