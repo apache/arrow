@@ -30,7 +30,7 @@ azurite_account_name <- "devstoreaccount1"
 azurite_account_key <- "Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw=="
 azurite_blob_host <- "127.0.0.1"
 azurite_blob_port <- "10000"
-azurite_blob_storage_authority <- sprintf("%s:%s",azurite_blob_host, azurite_blob_port)
+azurite_blob_storage_authority <- sprintf("%s:%s", azurite_blob_host, azurite_blob_port)
 azurite_blob_storage_scheme <- "http"
 
 pid_azurite <- sys::exec_background(
@@ -56,10 +56,10 @@ azure_path <- function(...) {
 }
 
 fs <- AzureFileSystem$create(
-  account_name=azurite_account_name,
-  account_key=azurite_account_key,
-  blob_storage_authority=azurite_blob_storage_authority,
-  blob_storage_scheme=azurite_blob_storage_scheme
+  account_name = azurite_account_name,
+  account_key = azurite_account_key,
+  blob_storage_authority = azurite_blob_storage_authority,
+  blob_storage_scheme = azurite_blob_storage_scheme
 )
 
 # (1) CreateDir and DeleteDir work correctly
@@ -102,11 +102,11 @@ write_feather(example_data, fs$path(azure_path("openmulti/dataset1.feather")))
 write_feather(example_data, fs$path(azure_path("openmulti/dataset2.feather")))
 
 open_multi_fs = arrow:::az_container(
-  bucket=azure_path("openmulti"),
-  account_name=azurite_account_name,
-  account_key=azurite_account_key,
-  blob_storage_authority=azurite_blob_storage_authority,
-  blob_storage_scheme=azurite_blob_storage_scheme
+  bucket = azure_path("openmulti"),
+  account_name = azurite_account_name,
+  account_key = azurite_account_key,
+  blob_storage_authority = azurite_blob_storage_authority,
+  blob_storage_scheme = azurite_blob_storage_scheme
 )
 
 test_that("open_dataset with AzureFileSystem folder", {
@@ -120,6 +120,3 @@ test_that("open_dataset with AzureFileSystem folder", {
     rbind(example_data, example_data) |> arrange(int)
   )
 })
-
-
-
