@@ -706,9 +706,8 @@ AzureFileSystem$create <- function(...) {
   fs___AzureFileSystem__Make(options)
 }
 
-# TODO: Probably shouldn't be called bucket.
 # TODO: Add documentation.
-az_bucket <- function(bucket, ...) {
+az_container <- function(bucket, ...) {
   assert_that(is.string(bucket))
   args <- list2(...)
 
