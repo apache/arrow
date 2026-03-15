@@ -25,12 +25,18 @@
 #' returns a URI containing the filesystem scheme (e.g. 's3://', 'gs://'), the
 #' absolute path, and any necessary connection options as URL query parameters.
 test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
-  # NOTE: it's important that we label these tests with name of filesystem so
+  # NOTE 1: it's important that we label these tests with name of filesystem so
   # that we can differentiate the different calls to these test in the output.
-  test_that(sprintf("read/write Feather on %s using URIs", name), {
-    write_feather(example_data, uri_formatter("test.feather"))
-    expect_identical(read_feather(uri_formatter("test.feather")), example_data)
-  })
+  
+  # NOTE 2: as far as I can tell, Azure doesn't support passing a URI directly
+  # like we can do in S3/GCS. Skipping any tests that rely on this feature
+  # for name == "azure".
+  if (name != "azure") {
+    test_that(sprintf("read/write Feather on %s using URIs", name), {
+      write_feather(example_data, uri_formatter("test.feather"))
+      expect_identical(read_feather(uri_formatter("test.feather")), example_data)
+    })
+  }
 
   test_that(sprintf("read/write Feather on %s using Filesystem", name), {
     write_feather(example_data, fs$path(path_formatter("test2.feather")))
@@ -71,12 +77,14 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       example_data
     )
   })
-
-  test_that(sprintf("read/write Parquet on %s", name), {
-    skip_if_not_available("parquet")
-    write_parquet(example_data, fs$path(path_formatter("test.parquet")))
-    expect_identical(read_parquet(uri_formatter("test.parquet")), example_data)
-  })
+  
+  if (name != "azure") {
+    test_that(sprintf("read/write Parquet on %s", name), {
+      skip_if_not_available("parquet")
+      write_parquet(example_data, fs$path(path_formatter("test.parquet")))
+      expect_identical(read_parquet(uri_formatter("test.parquet")), example_data)
+    })
+  }
 
   if (arrow_with_dataset()) {
     make_temp_dir <- function() {
@@ -85,39 +93,41 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       normalizePath(path, winslash = "/")
     }
 
-    test_that(sprintf("open_dataset with an %s file (not directory) URI", name), {
-      skip_if_not_available("parquet")
-      expect_identical(
-        open_dataset(uri_formatter("test.parquet")) |> collect() |> arrange(int),
-        example_data |> arrange(int)
-      )
-    })
+    if (name != "azure") {
+      test_that(sprintf("open_dataset with an %s file (not directory) URI", name), {
+        skip_if_not_available("parquet")
+        expect_identical(
+          open_dataset(uri_formatter("test.parquet")) |> collect() |> arrange(int),
+          example_data |> arrange(int)
+        )
+      })
 
-    test_that(sprintf("open_dataset with vector of %s file URIs", name), {
-      expect_identical(
-        open_dataset(
-          c(uri_formatter("test.feather"), uri_formatter("test2.feather")),
-          format = "feather"
-        ) |>
-          arrange(int) |>
-          collect(),
-        rbind(example_data, example_data) |> arrange(int)
-      )
-    })
+      test_that(sprintf("open_dataset with vector of %s file URIs", name), {
+        expect_identical(
+          open_dataset(
+            c(uri_formatter("test.feather"), uri_formatter("test2.feather")),
+            format = "feather"
+          ) |>
+            arrange(int) |>
+            collect(),
+          rbind(example_data, example_data) |> arrange(int)
+        )
+      })
 
-    test_that(sprintf("open_dataset errors if passed URIs mixing %s and local fs", name), {
-      td <- make_temp_dir()
-      expect_error(
-        open_dataset(
-          c(
-            uri_formatter("test.feather"),
-            paste0("file://", file.path(td, "fake.feather"))
+      test_that(sprintf("open_dataset errors if passed URIs mixing %s and local fs", name), {
+        td <- make_temp_dir()
+        expect_error(
+          open_dataset(
+            c(
+              uri_formatter("test.feather"),
+              paste0("file://", file.path(td, "fake.feather"))
+            ),
+            format = "feather"
           ),
-          format = "feather"
-        ),
-        "Vectors of URIs for different file systems are not supported"
-      )
-    })
+          "Vectors of URIs for different file systems are not supported"
+        )
+      })
+    }
 
     # Dataset test setup, cf. test-dataset.R
     first_date <- lubridate::ymd_hms("2015-04-29 03:12:39")
@@ -167,24 +177,27 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       write_dataset(ds, fs$path(path_formatter("new_dataset_dir")))
       expect_length(fs$ls(path_formatter("new_dataset_dir")), 1)
     })
-
+    if (name != "azure") {
+      test_that(sprintf("copy files with %s", name), {
+        td <- make_temp_dir()
+        copy_files(uri_formatter("hive_dir"), td)
+        expect_length(dir(td), 2)
+        ds <- open_dataset(td)
+        expect_identical(
+          ds |> select(int, dbl, lgl) |> collect() |> arrange(int),
+          rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
+        )
+      })
+    }
     test_that(sprintf("copy files with %s", name), {
-      td <- make_temp_dir()
-      copy_files(uri_formatter("hive_dir"), td)
-      expect_length(dir(td), 2)
-      ds <- open_dataset(td)
-      expect_identical(
-        ds |> select(int, dbl, lgl) |> collect() |> arrange(int),
-        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
-      )
-
-      # Let's copy the other way and use a SubTreeFileSystem rather than URI
-      copy_files(td, fs$path(path_formatter("hive_dir2")))
-      ds2 <- open_dataset(fs$path(path_formatter("hive_dir2")))
-      expect_identical(
-        ds2 |> select(int, dbl, lgl) |> collect() |> arrange(int),
-        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
-      )
-    })
+        td <- make_temp_dir()
+        copy_files(fs$path(path_formatter("hive_dir")), td)
+        copy_files(td, fs$path(path_formatter("hive_dir2")))
+        ds2 <- open_dataset(fs$path(path_formatter("hive_dir2")))
+        expect_identical(
+          ds2 |> select(int, dbl, lgl) |> collect() |> arrange(int),
+          rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
+        )
+      })
   } # if(arrow_with_dataset())
 }
