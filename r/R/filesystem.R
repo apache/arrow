@@ -706,14 +706,34 @@ AzureFileSystem$create <- function(...) {
   fs___AzureFileSystem__Make(options)
 }
 
-# TODO: Add documentation.
-az_container <- function(bucket, ...) {
-  assert_that(is.string(bucket))
+#' Connect to an Azure Blob Storage container
+#' 
+#' `az_conainer` is a convenience function to create an `AzureFileSystem` object
+#' that provides a file system interface for blob storage containers in an Azure
+#' Storage Account.
+#' 
+#' @param container_path string Container name or path
+#' @param ... Additional connection options, passed to `AzureFileSystem$create()`
+#' 
+#' @return A `SubTreeFileSystem` containing an `AzureFileSystem` and the container's
+#' relative path. Note that this function's success does not guarantee that you
+#' are authorized to access the container's contents.
+#' @examplesIf FALSE
+#' container_fs <- az_container(
+#'   container_path = "arrow-datasets",
+#'   account_name = azurite_account_name,
+#'   account_key = azurite_account_key,
+#'   blob_storage_authority = azurite_blob_storage_authority,
+#'   blob_storage_scheme = azurite_blob_storage_scheme
+#' )
+#' @export
+az_container <- function(container_path, ...) {
+  assert_that(is.string(container_path))
   args <- list2(...)
 
   fs <- exec(AzureFileSystem$create, !!!args)
 
-  SubTreeFileSystem$create(bucket, fs)
+  SubTreeFileSystem$create(container_path, fs)
 }
 
 #' @usage NULL
