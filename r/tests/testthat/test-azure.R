@@ -94,7 +94,7 @@ test_that("read/write Parquet on azure", {
 write_feather(example_data, fs$path(azure_path("openmulti/dataset1.feather")))
 write_feather(example_data, fs$path(azure_path("openmulti/dataset2.feather")))
 
-open_multi_fs = arrow:::az_bucket(
+open_multi_fs = arrow:::az_container(
   bucket=azure_path("openmulti"),
   account_name=azurite_account_name,
   account_key=azurite_account_key,
