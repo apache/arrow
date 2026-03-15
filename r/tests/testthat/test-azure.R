@@ -14,7 +14,7 @@
 # KIND, either express or implied.  See the License for the
 # specific language governing permissions and limitations
 # under the License.
-library(arrow)
+
 skip_if_not_available("azure")
 
 # test_filesystem requires dplyr
