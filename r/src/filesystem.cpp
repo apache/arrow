@@ -253,7 +253,7 @@ std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
 // [[arrow::export]]
 std::string fs___SubTreeFileSystem__base_path(
     const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
-  // return file_system->base_path();
+  return file_system->base_path();
 }
 
 // Forward declaration - defined in the ARROW_R_WITH_S3 block below.
