@@ -20,10 +20,8 @@ skip_if_not_available("azure")
 # test_filesystem requires dplyr
 library(dplyr)
 
-# TODO: Add local azurite install to setup script
+# This test script depends on ./ci/scripts/install_azurite.sh
 skip_if_not(nzchar(Sys.which("azurite")), message = "azurite is not installed.")
-
-# TODO: Start azurite from the test code instead of relying on it to be already running externally.
 
 # Use default azurite credentials,
 # see https://learn.microsoft.com/en-us/azure/storage/common/storage-connect-azurite?tabs=blob-storage
@@ -34,6 +32,14 @@ azurite_blob_host <- "127.0.0.1"
 azurite_blob_port <- "10000"
 azurite_blob_storage_authority <- sprintf("%s:%s",azurite_blob_host, azurite_blob_port)
 azurite_blob_storage_scheme <- "http"
+
+pid_azurite <- sys::exec_background(
+  "azurite",
+  c("azurite", "--inMemoryPersistence", "--blobHost", azurite_blob_host),
+  std_out = FALSE
+)
+# Kill azurite background process once tests have finished running.
+withr::defer(tools::pskill(pid_azurite))
 
 # Helper functions for Azure URIs and paths
 azure_uri <- function(...) {
@@ -64,9 +70,10 @@ withr::defer(fs$DeleteDir(dir))
 
 # (2) Run default filesystem tests on azure filesystem
 
-# TODO: As far as I can tell, there is no way to pass an Azurite URI to write_feather,
-# so some of the test_filesystem tests can't be run with AzureFilesystem. Some tests
-# below cover some of the skipped cases in test_filesystem.
+# TODO: As far as I can tell, there is no way to pass an Azurite URI to write_feather
+# (or any other read/write helper), so some of the test_filesystem tests can't be run
+# with AzureFilesystem. Some tests below cover some of the skipped cases in
+# test_filesystem.
 test_filesystem("azure", fs, azure_path, azure_uri)
 
 # (3) Test write/read parquet
