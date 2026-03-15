@@ -195,6 +195,16 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+.. note::
+
+   When running doctests for ``.pxi`` files, they are actually tested via
+   ``lib.pyx``. Use the following command pattern::
+
+      $ python -m pytest --doctest-cython path/to/lib.pyx
+
+   Any doctest errors in ``.pxi`` files will surface under ``lib.pyx`` in
+   the test output, not under the original ``.pxi`` filename.
+
 Testing Documentation Examples
 -------------------------------
 
