@@ -27,7 +27,7 @@
 test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
   # NOTE 1: it's important that we label these tests with name of filesystem so
   # that we can differentiate the different calls to these test in the output.
-  
+
   # NOTE 2: as far as I can tell, Azure doesn't support passing a URI directly
   # like we can do in S3/GCS. Skipping any tests that rely on this feature
   # for name == "azure".
@@ -77,7 +77,7 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       example_data
     )
   })
-  
+
   if (name != "azure") {
     test_that(sprintf("read/write Parquet on %s", name), {
       skip_if_not_available("parquet")
@@ -190,14 +190,14 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       })
     }
     test_that(sprintf("copy files with %s", name), {
-        td <- make_temp_dir()
-        copy_files(fs$path(path_formatter("hive_dir")), td)
-        copy_files(td, fs$path(path_formatter("hive_dir2")))
-        ds2 <- open_dataset(fs$path(path_formatter("hive_dir2")))
-        expect_identical(
-          ds2 |> select(int, dbl, lgl) |> collect() |> arrange(int),
-          rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
-        )
-      })
+      td <- make_temp_dir()
+      copy_files(fs$path(path_formatter("hive_dir")), td)
+      copy_files(td, fs$path(path_formatter("hive_dir2")))
+      ds2 <- open_dataset(fs$path(path_formatter("hive_dir2")))
+      expect_identical(
+        ds2 |> select(int, dbl, lgl) |> collect() |> arrange(int),
+        rbind(df1[, c("int", "dbl", "lgl")], df2[, c("int", "dbl", "lgl")]) |> arrange(int)
+      )
+    })
   } # if(arrow_with_dataset())
 }
