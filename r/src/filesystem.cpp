@@ -253,7 +253,7 @@ std::shared_ptr<fs::FileSystem> fs___SubTreeFileSystem__base_fs(
 // [[arrow::export]]
 std::string fs___SubTreeFileSystem__base_path(
     const std::shared_ptr<fs::SubTreeFileSystem>& file_system) {
-  // return file_system->base_path();
+  return file_system->base_path();
 }
 
 // [[arrow::export]]
