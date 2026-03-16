@@ -17,7 +17,7 @@
 
 import datetime as dt
 
-from collections.abc import Collection, Iterator, Sequence
+from collections.abc import Collection, Container, Iterator, Sequence, Sized
 from decimal import Decimal
 from typing import Any, Literal, Protocol, TypeAlias, TypeVar
 
@@ -90,49 +90,65 @@ _V = TypeVar("_V", covariant=True)
 
 SingleOrList: TypeAlias = list[_T] | _T
 
-class SupportEq(Protocol):
+
+class SupportsEq(Protocol):
     def __eq__(self, other: object, /) -> bool: ...
 
-class SupportLt(Protocol):
+
+class SupportsLt(Protocol):
     def __lt__(self, other: object, /) -> bool: ...
 
-class SupportGt(Protocol):
+
+class SupportsGt(Protocol):
     def __gt__(self, other: object, /) -> bool: ...
 
-class SupportLe(Protocol):
+
+class SupportsLe(Protocol):
     def __le__(self, other: object, /) -> bool: ...
 
-class SupportGe(Protocol):
+
+class SupportsGe(Protocol):
     def __ge__(self, other: object, /) -> bool: ...
 
+
 FilterTuple: TypeAlias = (
-    tuple[str, Literal["=", "==", "!="], SupportEq]
-    | tuple[str, Literal["<"], SupportLt]
-    | tuple[str, Literal[">"], SupportGt]
-    | tuple[str, Literal["<="], SupportLe]
-    | tuple[str, Literal[">="], SupportGe]
+    tuple[str, Literal["=", "==", "!="], SupportsEq]
+    | tuple[str, Literal["<"], SupportsLt]
+    | tuple[str, Literal[">"], SupportsGt]
+    | tuple[str, Literal["<="], SupportsLe]
+    | tuple[str, Literal[">="], SupportsGe]
     | tuple[str, Literal["in", "not in"], Collection]
     | tuple[str, str, Any]  # Allow general str for operator to avoid type errors
 )
 
-class Buffer(Protocol): ...
-class SupportPyBuffer(Protocol): ...
 
-class SupportArrowStream(Protocol):
+class Buffer(Protocol): ...
+
+
+class SupportsPyBuffer(Protocol): ...
+
+
+class SupportsArrowStream(Protocol):
     def __arrow_c_stream__(self, requested_schema=None, /) -> Any: ...
 
-class SupportPyArrowArray(Protocol):
+
+class SupportsPyArrowArray(Protocol):
     def __arrow_array__(self, type=None, /) -> Any: ...
 
-class SupportArrowArray(Protocol):
+
+class SupportsArrowArray(Protocol):
     def __arrow_c_array__(self, requested_schema=None, /) -> Any: ...
 
-class SupportArrowDeviceArray(Protocol):
+
+class SupportsArrowDeviceArray(Protocol):
     def __arrow_c_device_array__(self, requested_schema=None, /, **kwargs) -> Any: ...
 
-class SupportArrowSchema(Protocol):
+
+class SupportsArrowSchema(Protocol):
     def __arrow_c_schema__(self) -> Any: ...
 
-from collections.abc import Container, Sized
+
 class NullableCollection(Sized, Container[_V], Protocol[_V]):
     def __iter__(self) -> Iterator[_V] | Iterator[_V | None]: ...
+    def __len__(self) -> int: ...
+    def __contains__(self, item: Any, /) -> bool: ...

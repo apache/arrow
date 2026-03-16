@@ -17,16 +17,16 @@
 
 import datetime as dt  # noqa: F401
 
-from collections.abc import Mapping, Sequence, Iterable, Iterator
+from collections.abc import Iterable, Iterator, Mapping, Sequence
 from decimal import Decimal  # noqa: F401
-from typing import Any, Generic, Literal
+from typing import Any, Generic, Literal, Protocol, TypeAlias
 
 import numpy as np
 import pandas as pd
 
 from typing_extensions import Self, TypeVar, deprecated
 
-from pyarrow._stubs_typing import SupportArrowSchema, TimeUnit
+from pyarrow._stubs_typing import SupportsArrowSchema, TimeUnit
 from pyarrow.io import Buffer
 from pyarrow.lib import (  # noqa: F401
     Array,
@@ -73,7 +73,7 @@ class DataType(_Weakrefable):
 
 _AsPyType = TypeVar("_AsPyType")
 _DataTypeT = TypeVar("_DataTypeT", bound=DataType)
-_DataTypeT_co = TypeVar("_DataTypeT", bound=DataType, covariant=True)
+_DataTypeT_co = TypeVar("_DataTypeT_co", bound=DataType, covariant=True)
 
 class _BasicDataType(DataType, Generic[_AsPyType]): ...
 class NullType(_BasicDataType[None]): ...
@@ -128,10 +128,8 @@ _FixedSizeBinaryAsPyType = TypeVar("_FixedSizeBinaryAsPyType", default=bytes)
 
 class FixedSizeBinaryType(_BasicDataType[_FixedSizeBinaryAsPyType]): ...
 
-from typing import Protocol
-
-_Precision = TypeVar("_Precision", default=Any , covariant=True)
-_Scale = TypeVar("_Scale", default=Any , covariant=True)
+_Precision = TypeVar("_Precision", default=Any, covariant=True)
+_Scale = TypeVar("_Scale", default=Any, covariant=True)
 
 class _HasPrecisionScale(Protocol[_Precision, _Scale]):
     @property
@@ -139,43 +137,51 @@ class _HasPrecisionScale(Protocol[_Precision, _Scale]):
     @property
     def scale(self) -> _Scale: ...
 
-class Decimal32Type(FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]): ...
+class Decimal32Type(
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+): ...
 
-class Decimal64Type(FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]): ...
+class Decimal64Type(
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+): ...
 
-class Decimal128Type(FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]): ...
+class Decimal128Type(
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+): ...
 
-class Decimal256Type(FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]): ...
+class Decimal256Type(
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+): ...
 
-class ListType(DataType, Generic[_DataTypeT]):
+class ListType(DataType, Generic[_DataTypeT_co]):
     @property
-    def value_field(self) -> Field[_DataTypeT]: ...
+    def value_field(self) -> Field[_DataTypeT_co]: ...
     @property
-    def value_type(self) -> _DataTypeT: ...
+    def value_type(self) -> _DataTypeT_co: ...
 
-class LargeListType(DataType, Generic[_DataTypeT]):
+class LargeListType(DataType, Generic[_DataTypeT_co]):
     @property
-    def value_field(self) -> Field[_DataTypeT]: ...
+    def value_field(self) -> Field[_DataTypeT_co]: ...
     @property
-    def value_type(self) -> _DataTypeT: ...
+    def value_type(self) -> _DataTypeT_co: ...
 
-class ListViewType(DataType, Generic[_DataTypeT]):
+class ListViewType(DataType, Generic[_DataTypeT_co]):
     @property
-    def value_field(self) -> Field[_DataTypeT]: ...
+    def value_field(self) -> Field[_DataTypeT_co]: ...
     @property
-    def value_type(self) -> _DataTypeT: ...
+    def value_type(self) -> _DataTypeT_co: ...
 
-class LargeListViewType(DataType, Generic[_DataTypeT]):
+class LargeListViewType(DataType, Generic[_DataTypeT_co]):
     @property
-    def value_field(self) -> Field[_DataTypeT]: ...
+    def value_field(self) -> Field[_DataTypeT_co]: ...
     @property
-    def value_type(self) -> _DataTypeT: ...
+    def value_type(self) -> _DataTypeT_co: ...
 
-class FixedSizeListType(DataType, Generic[_DataTypeT, _Size]):
+class FixedSizeListType(DataType, Generic[_DataTypeT_co, _Size]):
     @property
-    def value_field(self) -> Field[_DataTypeT]: ...
+    def value_field(self) -> Field[_DataTypeT_co]: ...
     @property
-    def value_type(self) -> _DataTypeT: ...
+    def value_type(self) -> _DataTypeT_co: ...
     @property
     def list_size(self) -> int: ...
 
@@ -305,13 +311,22 @@ class UnknownExtensionType(ExtensionType):
 def register_extension_type(ext_type: ExtensionType) -> None: ...
 def unregister_extension_type(type_name: str) -> None: ...
 
+_StrOrBytes: TypeAlias = str | bytes
+_MetadataMapping: TypeAlias = Mapping[_StrOrBytes, _StrOrBytes]
+_MetadataIterable: TypeAlias = Iterable[tuple[_StrOrBytes, _StrOrBytes]]
+_KeyValueMetadataInput: TypeAlias = _MetadataMapping | _MetadataIterable | None
+_FieldTypeInput: TypeAlias = DataType | str | None
+_SchemaMetadataInput: TypeAlias = (
+    Mapping[bytes, bytes]
+    | Mapping[str, str]
+    | Mapping[bytes, str]
+    | Mapping[str, bytes]
+)
+
 class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
     def __init__(
         self,
-        __arg0__: Mapping[str | bytes, str | bytes]
-        | Iterable[tuple[str | bytes, str | bytes]]
-        | KeyValueMetadata
-        | None = None,
+        __arg0__: _KeyValueMetadataInput | KeyValueMetadata = None,
         **kwargs: str,
     ) -> None: ...
     def equals(self, other: KeyValueMetadata) -> bool: ...
@@ -322,7 +337,7 @@ class KeyValueMetadata(_Metadata, Mapping[bytes, bytes]):
     def get_all(self, key: str) -> list[bytes]: ...
     def to_dict(self) -> dict[bytes, bytes]: ...
 
-class Field(_Weakrefable, Generic[_DataTypeT]):
+class Field(_Weakrefable, Generic[_DataTypeT_co]):
     def equals(self, other: Field, check_metadata: bool = False) -> bool: ...
     def __hash__(self) -> int: ...
     @property
@@ -332,17 +347,15 @@ class Field(_Weakrefable, Generic[_DataTypeT]):
     @property
     def metadata(self) -> dict[bytes, bytes] | None: ...
     @property
-    def type(self) -> _DataTypeT: ...
+    def type(self) -> _DataTypeT_co: ...
     def with_metadata(
         self,
-        metadata: dict[bytes | str, bytes | str]
-        | Mapping[bytes | str, bytes | str]
-        | Any,
+        metadata: _MetadataMapping | Any,
     ) -> Self: ...
     def remove_metadata(self) -> Self: ...
     def with_type(self, new_type: DataType) -> Field: ...
     def with_name(self, name: str) -> Self: ...
-    def with_nullable(self, nullable: bool) -> Field[_DataTypeT]: ...
+    def with_nullable(self, nullable: bool) -> Field[_DataTypeT_co]: ...
     def flatten(self) -> list[Field]: ...
     def _export_to_c(self, out_ptr: int) -> None: ...
     @classmethod
@@ -350,6 +363,14 @@ class Field(_Weakrefable, Generic[_DataTypeT]):
     def __arrow_c_schema__(self) -> Any: ...
     @classmethod
     def _import_from_c_capsule(cls, schema) -> Self: ...
+
+_StructFieldTuple: TypeAlias = (
+    tuple[str, Field[Any] | None] | tuple[str, _FieldTypeInput]
+)
+_StructFieldsInput: TypeAlias = (
+    Iterable[Field[Any] | _StructFieldTuple]
+    | Mapping[str, Field[Any] | DataType | str | None]
+)
 
 class Schema(_Weakrefable):
     def __len__(self) -> int: ...
@@ -407,10 +428,10 @@ def unify_schemas(
     promote_options: Literal["default", "permissive"] = "default",
 ) -> Schema: ...
 def field(
-    name: SupportArrowSchema | str | Any,
+    name: SupportsArrowSchema | str | bytes,
     type: _DataTypeT | str | None = None,
     nullable: bool = True,
-    metadata: dict[Any, Any] | None = None,
+    metadata: _MetadataMapping | None = None,
 ) -> Field[_DataTypeT] | Field[Any]: ...
 def null() -> NullType: ...
 def bool_() -> BoolType: ...
@@ -484,10 +505,7 @@ def dictionary(
     ordered: _Ordered | None = None,
 ) -> DictionaryType[_IndexT, _BasicValueT, _Ordered]: ...
 def struct(
-    fields: Iterable[
-        Field[Any] | tuple[str, Field[Any] | None] | tuple[str, DataType | None]
-    ]
-    | Mapping[str, Field[Any] | DataType | None],
+    fields: _StructFieldsInput,
 ) -> StructType: ...
 def sparse_union(
     child_fields: list[Field[Any]], type_codes: list[int] | None = None
@@ -520,11 +538,7 @@ def schema(
         | Iterable[tuple[str, DataType | str | None]]
         | Mapping[Any, DataType | str | None]
     ),
-    metadata: Mapping[bytes, bytes]
-    | Mapping[str, str]
-    | Mapping[bytes, str]
-    | Mapping[str, bytes]
-    | None = None,
+    metadata: _SchemaMetadataInput | None = None,
 ) -> Schema: ...
 def from_numpy_dtype(dtype: np.dtype[Any] | type | str) -> DataType: ...
 
