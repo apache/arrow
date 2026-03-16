@@ -195,6 +195,18 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+Note that ``.pxi`` files (such as ``array.pxi``) are included in ``lib.pyx``
+and doctests in ``.pxi`` files are tested via ``lib.pyx``. This means that
+to run doctests for ``.pxi`` files, you should run the doctests on
+``lib.pyx`` instead of on individual ``.pxi`` files:
+
+.. code-block::
+
+   $ python -m pytest --doctest-cython pyarrow/lib.pyx
+
+or to test a specific ``.pxi`` file, you can run all doctests on ``lib.pyx``
+and the doctests from the included ``.pxi`` files will be tested as well.
+
 Testing Documentation Examples
 -------------------------------
 
