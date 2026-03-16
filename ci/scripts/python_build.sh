@@ -106,9 +106,6 @@ if [ "${BUILD_DOCS_PYTHON}" == "ON" ]; then
   rm -rf "${python_build_dir}/cpp/examples"
   mkdir -p "${python_build_dir}/cpp"
   cp -a "${arrow_dir}/cpp/examples" "${python_build_dir}/cpp/"
-  rm -rf "${python_build_dir}/python/examples"
-  mkdir -p "${python_build_dir}/python"
-  cp -a "${arrow_dir}/python/examples" "${python_build_dir}/python/"
   rm -rf "${python_build_dir}/ci"
   cp -a "${arrow_dir}/ci/" "${python_build_dir}/"
   export ARROW_CPP_DOXYGEN_XML=${build_dir}/cpp/apidoc/xml
