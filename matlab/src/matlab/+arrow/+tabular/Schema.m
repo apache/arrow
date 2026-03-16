@@ -103,7 +103,7 @@ classdef Schema < matlab.mixin.CustomDisplay & ...
             import arrow.internal.display.getClassNameForDisplay
             import arrow.internal.display.getNumString
 
-            fullClassName = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            fullClassName = string(class(obj));
             className = getClassNameForDisplay(fullClassName);
             numFields = obj.NumFields;
             numFieldsString = getNumString(numFields);

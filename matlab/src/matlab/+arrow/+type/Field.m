@@ -95,7 +95,7 @@ classdef Field < matlab.mixin.CustomDisplay
         function header = getHeader(obj)
             import arrow.internal.display.getClassNameForDisplay
 
-            fullClassName = matlab.mixin.CustomDisplay.getClassNameForHeader(obj);
+            fullClassName = string(class(obj));
             className = getClassNameForDisplay(fullClassName);
             header = "  " + className + " with properties:" + newline;
         end
