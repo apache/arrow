@@ -128,29 +128,31 @@ _FixedSizeBinaryAsPyType = TypeVar("_FixedSizeBinaryAsPyType", default=bytes)
 
 class FixedSizeBinaryType(_BasicDataType[_FixedSizeBinaryAsPyType]): ...
 
-_Precision = TypeVar("_Precision", default=Any, covariant=True)
-_Scale = TypeVar("_Scale", default=Any, covariant=True)
+_Precision = TypeVar("_Precision", default=Any)
+_Scale = TypeVar("_Scale", default=Any)
+_Precision_co = TypeVar("_Precision_co", default=Any, covariant=True)
+_Scale_co = TypeVar("_Scale_co", default=Any, covariant=True)
 
-class _HasPrecisionScale(Protocol[_Precision, _Scale]):
+class _HasPrecisionScale(Protocol[_Precision_co, _Scale_co]):
     @property
-    def precision(self) -> _Precision: ...
+    def precision(self) -> _Precision_co: ...
     @property
-    def scale(self) -> _Scale: ...
+    def scale(self) -> _Scale_co: ...
 
 class Decimal32Type(
-    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision_co, _Scale_co]
 ): ...
 
 class Decimal64Type(
-    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision_co, _Scale_co]
 ): ...
 
 class Decimal128Type(
-    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision_co, _Scale_co]
 ): ...
 
 class Decimal256Type(
-    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision, _Scale]
+    FixedSizeBinaryType[Decimal], _HasPrecisionScale[_Precision_co, _Scale_co]
 ): ...
 
 class ListType(DataType, Generic[_DataTypeT_co]):
