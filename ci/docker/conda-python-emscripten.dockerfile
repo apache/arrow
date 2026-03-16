@@ -20,7 +20,7 @@ ARG arch
 ARG python="3.12"
 FROM ${repo}:${arch}-conda-python-${python}
 
-ARG selenium_version="4.15.2"
+ARG selenium_version="4.41.0"
 ARG pyodide_version="0.26.0"
 ARG chrome_version="latest"
 ARG required_python_min="(3,12)"
