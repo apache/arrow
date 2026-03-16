@@ -859,6 +859,7 @@ use_compliant_nested_type : bool, default True
                 <element-repetition> <element-type> item;
             }
         }
+
 encryption_properties : FileEncryptionProperties, default None
     File encryption properties for Parquet Modular Encryption.
     If None, no encryption will be done.

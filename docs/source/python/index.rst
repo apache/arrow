@@ -67,5 +67,5 @@ files into Arrow structures.
    env_vars
    api
    getting_involved
-   benchmarks
+   ../developers/benchmarks
    Python cookbook <https://arrow.apache.org/cookbook/py/>
