@@ -50,7 +50,8 @@ else()
                                            ${ARROW_TEST_SHARED_LINK_LIBS})
 endif()
 
-set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBC_LIBRARIES} ${ODBCINST} ${SQLite3_LIBRARIES})
+# On macOS, link `ODBCINST` first to ensure iodbc take precedence over unixodbc
+set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBRARIES})
 
 # On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
 # On unix systems, static linking ODBC is supported, thus tests link libraries statically.

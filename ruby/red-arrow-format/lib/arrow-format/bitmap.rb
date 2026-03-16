@@ -36,7 +36,7 @@ module ArrowFormat
       current = -1
       n_bytes = (@offset + @n_values) / 8
       @buffer.each(:U8, 0, n_bytes) do |offset, value|
-        7.times do |i|
+        8.times do |i|
           current += 1
           next if current < @offset
           yield((value & (1 << (i % 8))) > 0)

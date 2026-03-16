@@ -39,5 +39,6 @@ install_headers(
         'opaque.h',
         'parquet_variant.h',
         'uuid.h',
+        'variable_shape_tensor.h',
     ],
 )

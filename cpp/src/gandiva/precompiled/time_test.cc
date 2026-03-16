@@ -904,6 +904,24 @@ TEST(TestTime, castVarcharTimestamp) {
   ts = StringToTimestamp("2-5-1 00:00:04");
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
+
+  // StringToTimestamp doesn't parse milliseconds, so we add them manually
+  ts = StringToTimestamp("67-5-1 00:00:04") + 920;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0067-05-01 00:00:04.920");
+
+  ts = StringToTimestamp("107-10-17 12:20:03") + 900;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0107-10-17 12:20:03.900");
+
+  // Test pre-epoch timestamps with 4-digit years
+  ts = StringToTimestamp("1969-12-31 23:59:59") + 920;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1969-12-31 23:59:59.920");
+
+  ts = StringToTimestamp("1899-12-31 23:59:59") + 123;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1899-12-31 23:59:59.123");
 }
 
 TEST(TestTime, TestCastTimestampToDate) {

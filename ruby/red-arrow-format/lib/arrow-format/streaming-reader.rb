@@ -21,29 +21,49 @@ module ArrowFormat
   class StreamingReader
     include Enumerable
 
-    attr_reader :schema
     def initialize(input)
       @input = input
-      @schema = nil
+      @on_read = nil
+      @pull_reader = StreamingPullReader.new do |record_batch|
+        @on_read.call(record_batch) if @on_read
+      end
+      @buffer = "".b
+      ensure_schema
     end
 
-    def each
+    def schema
+      @pull_reader.schema
+    end
+
+    def each(&block)
       return to_enum(__method__) unless block_given?
 
-      reader = StreamingPullReader.new do |record_batch|
-        @schema ||= reader.schema
-        yield(record_batch)
+      @on_read = block
+      begin
+        loop do
+          break unless consume
+        end
+      ensure
+        @on_read = nil
       end
+    end
 
-      buffer = "".b
+    private
+    def consume
+      next_size = @pull_reader.next_required_size
+      return false if next_size.zero?
+
+      next_chunk = @input.read(next_size, @buffer)
+      return false if next_chunk.nil?
+
+      @pull_reader.consume(IO::Buffer.for(next_chunk))
+      true
+    end
+
+    def ensure_schema
       loop do
-        next_size = reader.next_required_size
-        break if next_size.zero?
-
-        next_chunk = @input.read(next_size, buffer)
-        break if next_chunk.nil?
-
-        reader.consume(IO::Buffer.for(next_chunk))
+        break unless consume
+        break if @pull_reader.schema
       end
     end
   end

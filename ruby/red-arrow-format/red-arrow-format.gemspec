@@ -44,9 +44,10 @@ Gem::Specification.new do |spec|
   spec.files = ["README.md", "Rakefile", "Gemfile", "#{spec.name}.gemspec"]
   spec.files += ["LICENSE.txt", "NOTICE.txt"]
   spec.files += Dir.glob("lib/**/*.rb")
+  spec.files -= Dir.glob("lib/arrow-format/integration/**/*.rb")
   spec.files += Dir.glob("doc/text/*")
 
-  spec.add_runtime_dependency("red-flatbuffers", ">=0.0.6")
+  spec.add_runtime_dependency("red-flatbuffers", ">=0.0.8")
 
   github_url = "https://github.com/apache/arrow"
   spec.metadata = {

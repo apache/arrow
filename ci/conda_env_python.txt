@@ -29,5 +29,5 @@ numpy>=1.16.6
 pytest
 pytest-faulthandler
 s3fs>=2023.10.0
-setuptools>=77
+scikit-build-core
 setuptools_scm>=8

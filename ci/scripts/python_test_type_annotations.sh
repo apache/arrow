@@ -34,5 +34,5 @@ pip install mypy pyright ty
 # Run type checkers
 cd "${pyarrow_dir}"
 mypy
-pyright
-ty check
+pyright --stats
+ty check --verbose --output-format concise
