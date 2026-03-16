@@ -199,8 +199,10 @@ jobs:
           # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
+          # Workaround for https://github.com/grpc/grpc/issues/41755
+          # Remove once the runner ships a newer Homebrew.
+          brew update
           brew bundle --file=cpp/Brewfile
-
           python -m pip install \
             -r python/requirements-build.txt \
             -r python/requirements-test.txt

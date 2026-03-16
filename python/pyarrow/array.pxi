@@ -1304,7 +1304,7 @@ cdef class Array(_PandasConvertible):
             The value type of the array.
         length : int
             The number of values in the array.
-        buffers : List[Buffer]
+        buffers : List[Buffer | None]
             The buffers backing this array.
         null_count : int, default -1
             The number of null entries in the array. Negative value means that
@@ -4013,7 +4013,7 @@ cdef class DictionaryArray(Array):
         type : pyarrow.DataType
         length : int
             The number of values in the array.
-        buffers : List[Buffer]
+        buffers : List[Buffer | None]
             The buffers backing the indices array.
         dictionary : pyarrow.Array, ndarray or pandas.Series
             The array of values referenced by the indices.

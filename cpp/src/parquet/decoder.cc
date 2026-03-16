@@ -759,7 +759,8 @@ class PlainByteArrayDecoder : public PlainDecoder<ByteArrayType> {
     // We're going to decode `num_values - null_count` PLAIN values,
     // and each value has a 4-byte length header that doesn't count for the
     // Arrow binary data length.
-    int64_t estimated_data_length = len_ - 4 * (num_values - null_count);
+    int64_t estimated_data_length =
+        len_ - 4 * static_cast<int64_t>(num_values - null_count);
     if (ARROW_PREDICT_FALSE(estimated_data_length < 0)) {
       return Status::Invalid("Invalid or truncated PLAIN-encoded BYTE_ARRAY data");
     }
@@ -2447,4 +2448,28 @@ std::unique_ptr<Decoder> MakeDictDecoder(Type::type type_num,
 }
 
 }  // namespace detail
+
+std::vector<Encoding::type> SupportedEncodings(Type::type physical_type) {
+  switch (physical_type) {
+    case Type::BOOLEAN:
+      return {Encoding::PLAIN, Encoding::RLE};
+    case Type::INT32:
+    case Type::INT64:
+      return {Encoding::PLAIN, Encoding::DELTA_BINARY_PACKED,
+              Encoding::BYTE_STREAM_SPLIT};
+    case Type::INT96:
+      return {Encoding::PLAIN};
+    case Type::FLOAT:
+    case Type::DOUBLE:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT};
+    case Type::FIXED_LEN_BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::BYTE_STREAM_SPLIT, Encoding::DELTA_BYTE_ARRAY};
+    case Type::BYTE_ARRAY:
+      return {Encoding::PLAIN, Encoding::DELTA_LENGTH_BYTE_ARRAY,
+              Encoding::DELTA_BYTE_ARRAY};
+    default:
+      throw ParquetException("Invalid physical type");
+  }
+}
+
 }  // namespace parquet
