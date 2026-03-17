@@ -7,9 +7,9 @@
 \alias{arrow-dplyr}
 \title{Functions available in Arrow dplyr queries}
 \description{
-The \code{arrow} package contains methods for 38 \code{dplyr} table functions, many of
+The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 226 R functions to the corresponding
+The package also has mappings of 224 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -32,7 +32,6 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} returns a non-missing value if present, only returning missing values if all are missing.
 \item \code{\link[dplyr:explain]{explain()}}
 \item \code{\link[dplyr:filter]{filter()}}
-\item \code{\link[dplyr:filter]{filter_out()}}
 \item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:glimpse]{glimpse()}}
 \item \code{\link[dplyr:group_by]{group_by()}}
@@ -207,8 +206,6 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[dplyr:if_else]{if_else()}}
 \item \code{\link[dplyr:context]{n()}}
 \item \code{\link[dplyr:n_distinct]{n_distinct()}}
-\item \code{\link[dplyr:when-any-all]{when_all()}}
-\item \code{\link[dplyr:when-any-all]{when_any()}}
 }
 }
 

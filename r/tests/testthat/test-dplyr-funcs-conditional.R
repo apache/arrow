@@ -599,3 +599,135 @@ test_that("when_all()", {
     class = "arrow_not_supported"
   )
 })
+
+test_that("replace_when()", {
+  # replaces matching values, keeps original otherwise
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, int > 5 ~ 100L)) |>
+      collect(),
+    tbl
+  )
+
+  # multiple conditions
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, int > 7 ~ 100L, int < 3 ~ 0L)) |>
+      collect(),
+    tbl
+  )
+
+  # no formulas returns x unchanged
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int)) |>
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    replace_when(int, TRUE),
+    "Each argument to replace_when\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_when(int, 0L ~ 100L),
+    "Left side of each formula in replace_when\\(\\) must be a logical expression",
+    class = "validation_error"
+  )
+})
+
+test_that("replace_values()", {
+  # formula interface
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, "a" ~ "A", "b" ~ "B")) |>
+      collect(),
+    tbl
+  )
+
+  # from/to interface
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = c("a", "b"), to = c("A", "B"))) |>
+      collect(),
+    tbl
+  )
+
+  # unmatched values kept
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, "a" ~ "A")) |>
+      collect(),
+    tbl
+  )
+
+  # no replacements returns x unchanged
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr)) |>
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    replace_values(chr, "a" ~ "A", from = "b"),
+    "Can't use both `...` and `from`/`to` in replace_values\\(\\)",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_values(chr, from = "a"),
+    "`to` must be provided when using `from`",
+    class = "validation_error"
+  )
+})
+
+test_that("recode_values()", {
+  # formula interface with default NA
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, "a" ~ "A", "b" ~ "B")) |>
+      collect(),
+    tbl
+  )
+
+  # from/to interface
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, from = c("a", "b"), to = c("A", "B"))) |>
+      collect(),
+    tbl
+  )
+
+  # custom default
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, "a" ~ "A", default = "other")) |>
+      collect(),
+    tbl
+  )
+
+  # validation errors
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", from = "b"),
+    "Can't use both `...` and `from`/`to` in recode_values\\(\\)",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, from = "a"),
+    "`to` must be provided when using `from`",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", ptype = character()),
+    "`recode_values\\(\\)` with `ptype` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "a" ~ "A", unmatched = "error"),
+    "`recode_values\\(\\)` with `unmatched = \"error\"` not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+})
