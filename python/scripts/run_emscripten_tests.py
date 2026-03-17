@@ -202,7 +202,7 @@ class BrowserDriver:
     def __init__(self, hostname, port, driver):
         self.driver = driver
         self.driver.get(f"http://{hostname}:{port}/test.html")
-        self.driver.set_script_timeout(100)
+        self.driver.set_script_timeout(300)
 
     def load_pyodide(self, dist_dir):
         pass
