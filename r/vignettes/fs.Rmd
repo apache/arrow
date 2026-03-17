@@ -1,29 +1,30 @@
 ---
-title: "Using cloud storage (S3, GCS)"
+title: "Using cloud storage (S3, GCS, Azure)"
 description: >
   Learn how to work with data sets stored in an 
-  Amazon S3 bucket or on Google Cloud Storage 
+  Amazon S3 bucket, on Google Cloud Storage, or on Azure 
 output: rmarkdown::html_vignette
 ---
 
-Working with data stored in cloud storage systems like [Amazon Simple Storage Service](https://docs.aws.amazon.com/s3/) (S3) and [Google Cloud Storage](https://cloud.google.com/storage/docs) (GCS) is a very common task. Because of this, the Arrow C++ library provides a toolkit aimed to make it as simple to work with cloud storage as it is to work with the local filesystem.
+Working with data stored in cloud storage systems like [Amazon Simple Storage Service](https://docs.aws.amazon.com/s3/) (S3), [Google Cloud Storage](https://cloud.google.com/storage/docs) (GCS), and [Microsoft Azure](https://azure.microsoft.com) is a very common task. Because of this, the Arrow C++ library provides a toolkit aimed to make it as simple to work with cloud storage as it is to work with the local filesystem.
 
-To make this work, the Arrow C++ library contains a general-purpose interface for file systems, and the arrow package exposes this interface to R users. For instance, if you want to you can create a `LocalFileSystem` object that allows you to interact with the local file system in the usual ways: copying, moving, and deleting files, obtaining information about files and folders, and so on (see `help("FileSystem", package = "arrow")` for details). In general you probably don't need this functionality because you already have tools for working with your local file system, but this interface becomes much more useful in the context of remote file systems. Currently there is a specific implementation for Amazon S3 provided by the `S3FileSystem` class, and another one for Google Cloud Storage provided by `GcsFileSystem`.
+To make this work, the Arrow C++ library contains a general-purpose interface for file systems, and the arrow package exposes this interface to R users. For instance, if you want to you can create a `LocalFileSystem` object that allows you to interact with the local file system in the usual ways: copying, moving, and deleting files, obtaining information about files and folders, and so on (see `help("FileSystem", package = "arrow")` for details). In general you probably don't need this functionality because you already have tools for working with your local file system, but this interface becomes much more useful in the context of remote file systems. Currently there is a specific implementation for Amazon S3 provided by the `S3FileSystem` class, one for Google Cloud Storage provided by `GcsFileSystem`, and another for Microsoft Azure provided by the `AzureFileSystem` class.
 
-This article provides an overview of working with both S3 and GCS data using the Arrow toolkit. 
+This article provides an overview of working with S3, GCS, and Azure data using the Arrow toolkit. 
 
-## S3 and GCS support
+## S3, GCS, and Azure support
 
-Before you start, make sure that your arrow installation has support for S3 and/or GCS enabled. You can check whether support is enabled via helper functions:
+Before you start, make sure that your arrow installation has support for S3, GCS, and/or Azure enabled. You can check whether support is enabled via helper functions:
 
 ```r
 arrow_with_s3()
 arrow_with_gcs()
+arrow_with_azure()
 ```
 
 If these return `TRUE` then the relevant support is enabled.
 
-CRAN builds of arrow include S3 support but not GCS support. If you need GCS support, you can install arrow with full features using one of the following methods:
+CRAN builds of arrow include S3 and Azure support but not GCS support. If you need GCS support, you can install arrow with full features using one of the following methods:
 
 ```r
 # Option 1: Install from R-universe
@@ -36,15 +37,15 @@ Sys.setenv("NOT_CRAN" = "true")
 install.packages("arrow", type = "source")
 ```
 
-On Linux, S3 and GCS support is not always enabled by default when installing from source, and there are additional system requirements involved. See the [installation article](./install.html) for details.
+On Linux, S3, GCS, and Azure support is not always enabled by default when installing from source, and there are additional system requirements involved. See the [installation article](./install.html) for details.
 
 ## Connecting to cloud storage
 
 One way of working with filesystems is to create `?FileSystem` objects. 
 `?S3FileSystem` objects can be created with the `s3_bucket()` function, which
 automatically detects the bucket's AWS region. Similarly, `?GcsFileSystem` objects
-can be created with the `gs_bucket()` function. The resulting
-`FileSystem` will consider paths relative to the bucket's path (so for example
+can be created with the `gs_bucket()` function and `?AzureFileSystem` objects can be created with the `az_container()` function. The resulting
+`FileSystem` will consider paths relative to the bucket/container's path (so for example
 you don't need to prefix the bucket path when listing a directory).
 
 With a `FileSystem` object, you can point to specific files in it with the `$path()` method
@@ -52,7 +53,7 @@ and pass the result to file readers and writers (`read_parquet()`, `write_feathe
 
 Often the reason users work with cloud storage in real world analysis is to access large data sets. An example of this is discussed in the [datasets article](./dataset.html), but new users may prefer to work with a much smaller data set while learning how the arrow cloud storage interface works. To that end, the examples in this article rely on a multi-file Parquet dataset that stores a copy of the `diamonds` data made available through the [`ggplot2`](https://ggplot2.tidyverse.org/) package, documented in `help("diamonds", package = "ggplot2")`. The cloud storage version of this data set consists of 5 Parquet files totaling less than 1MB in size.
 
-The diamonds data set is hosted on both S3 and GCS, in a bucket named `arrow-datasets`. To create an S3FileSystem object that refers to that bucket, use the following command:
+The diamonds data set is hosted on both S3 and GCS, in a bucket named `arrow-datasets`. To create an `S3FileSystem` object that refers to that bucket, use the following command:
 
 ```r
 bucket <- s3_bucket("arrow-datasets")
@@ -147,7 +148,7 @@ june2019 <- SubTreeFileSystem$create("s3://arrow-datasets/nyc-taxi/year=2019/mon
 
 ## Connecting directly with a URI
 
-In most use cases, the easiest and most natural way to connect to cloud storage in arrow is to use the FileSystem objects returned by `s3_bucket()` and `gs_bucket()`, especially when multiple file operations are required. However, in some cases you may want to download a file directly by specifying the URI. This is permitted by arrow, and functions like `read_parquet()`, `write_feather()`, `open_dataset()` etc will all accept URIs to cloud resources hosted on S3 or GCS. The format of an S3 URI is as follows:
+In most use cases, the easiest and most natural way to connect to cloud storage in arrow is to use the FileSystem objects returned by `s3_bucket()`, `gs_bucket()`, and `az_container()`, especially when multiple file operations are required. However, in some cases you may want to download a file directly by specifying the URI. This is permitted by arrow, and functions like `read_parquet()`, `write_feather()`, `open_dataset()` etc will all accept URIs to cloud resources hosted on S3, GCS, or Azure. The format of an S3 URI is as follows:
 
 ```
 s3://[access_key:secret_key@]bucket/path[?region=]
@@ -158,6 +159,12 @@ For GCS, the URI format looks like this:
 ```
 gs://[access_key:secret_key@]bucket/path
 gs://anonymous@bucket/path
+```
+
+For Azure, the URI format looks like this:
+
+```
+abfs://container@account_name.dfs.core.windows.net/path
 ```
 
 For example, the Parquet file storing the "good cut" diamonds that we downloaded earlier in the article is available on both S3 and CGS. The relevant URIs are as follows:
@@ -258,6 +265,21 @@ df <- read_parquet("gs://anonymous@arrow-datasets/diamonds/cut=Good/part-0.parqu
 <!-- TODO(ARROW-16880): Describe what credentials to use for particular use cases
 and how to integrate with gargle library. -->
 
+### Azure Authentication
+
+By default, `AzureFileSystem$create()` and `az_container()` use the [DefaultAzureCredential]( https://github.com/Azure/azure-sdk-for-cpp/blob/main/sdk/identity/azure-identity/README.md#defaultazurecredential) for authentication. This will try several different types of authentication, using the first one that succeeds. Like with GCS, a simple way to authenticate with Azure is to first use [Azure CLI](https://learn.microsoft.com/en-us/cli/azure/?view=azure-cli-latest) to login and setup default credentials:
+
+```
+az login
+```
+
+It is possible to use other forms of authentication with Azure when calling `AzureFileSystem$create()` and `az_container()`.
+
+- Passing `client_id` on its own will use [`ManagedIdentityCredential`](https://learn.microsoft.com/en-us/entra/identity/managed-identities-azure-resources/overview) to authenticate.
+- Passing `client_id` with `tenant_id` and `client_secret` will use [`ClientSecretCredential`](https://learn.microsoft.com/en-us/entra/identity-platform/app-objects-and-service-principals?tabs=browser) to authenticate.
+- Passing `sas_token` will use a shared access signature (SAS) token for the storage account.
+- Passing `account_key` will use the account key for the storage account.
+
 ## Using a proxy server
 
 If you need to use a proxy server to connect to an S3 bucket, you can provide
@@ -329,10 +351,8 @@ variables, you can set environment variable `AWS_EC2_METADATA_DISABLED` to
 Sys.setenv(AWS_EC2_METADATA_DISABLED = TRUE)
 ```
 
-
 ## Further reading
 
-- To learn more about `FileSystem` classes, including `S3FileSystem` and `GcsFileSystem`, see `help("FileSystem", package = "arrow")`.
+- To learn more about `FileSystem` classes, including `S3FileSystem`, `GcsFileSystem`, and `AzureFileSystem`, see `help("FileSystem", package = "arrow")`.
+
 - To see a data analysis example that relies on data hosted on cloud storage, see the [dataset article](./dataset.html).
-
-
