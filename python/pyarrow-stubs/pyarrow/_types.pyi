@@ -56,9 +56,6 @@ class DataType(_Weakrefable):
     @property
     def has_variadic_buffers(self) -> bool: ...
 
-    # Properties that exist on specific subtypes but accessed generically
-    @property
-    def list_size(self) -> int: ...
     def __hash__(self) -> int: ...
     def equals(
         self, other: DataType | str, *, check_metadata: bool = False
@@ -200,8 +197,9 @@ _IndexT = TypeVar(
     UInt64Type,
     Int64Type,
 )
-_BasicValueT = TypeVar("_BasicValueT", bound=_BasicDataType)
-_ValueT = TypeVar("_ValueT", bound=DataType)
+_BasicValueT = TypeVar("_BasicValueT", bound=_BasicDataType, default=_BasicDataType)
+_ValueT = TypeVar("_ValueT", bound=DataType, default=DataType)
+_K = TypeVar("_K", bound=DataType, default=DataType)
 _Ordered = TypeVar("_Ordered", Literal[True], Literal[False], default=Literal[False])
 
 class DictionaryType(DataType, Generic[_IndexT, _BasicValueT, _Ordered]):
@@ -211,8 +209,6 @@ class DictionaryType(DataType, Generic[_IndexT, _BasicValueT, _Ordered]):
     def index_type(self) -> _IndexT: ...
     @property
     def value_type(self) -> _BasicValueT: ...
-
-_K = TypeVar("_K", bound=DataType)
 
 class MapType(DataType, Generic[_K, _ValueT, _Ordered]):
     @property
@@ -317,7 +313,66 @@ _StrOrBytes: TypeAlias = str | bytes
 _MetadataMapping: TypeAlias = Mapping[_StrOrBytes, _StrOrBytes]
 _MetadataIterable: TypeAlias = Iterable[tuple[_StrOrBytes, _StrOrBytes]]
 _KeyValueMetadataInput: TypeAlias = _MetadataMapping | _MetadataIterable | None
-_FieldTypeInput: TypeAlias = DataType | str | None
+_DataTypeAlias: TypeAlias = Literal[
+    "null",
+    "bool",
+    "boolean",
+    "i1",
+    "int8",
+    "i2",
+    "int16",
+    "i4",
+    "int32",
+    "i8",
+    "int64",
+    "u1",
+    "uint8",
+    "u2",
+    "uint16",
+    "u4",
+    "uint32",
+    "u8",
+    "uint64",
+    "f2",
+    "halffloat",
+    "float16",
+    "f4",
+    "float",
+    "float32",
+    "f8",
+    "double",
+    "float64",
+    "string",
+    "str",
+    "utf8",
+    "binary",
+    "large_string",
+    "large_str",
+    "large_utf8",
+    "large_binary",
+    "binary_view",
+    "string_view",
+    "date32",
+    "date64",
+    "date32[day]",
+    "date64[ms]",
+    "time32[s]",
+    "time32[ms]",
+    "time64[us]",
+    "time64[ns]",
+    "timestamp[s]",
+    "timestamp[ms]",
+    "timestamp[us]",
+    "timestamp[ns]",
+    "duration[s]",
+    "duration[ms]",
+    "duration[us]",
+    "duration[ns]",
+    "month_day_nano_interval",
+]
+_DataTypeAliasInput: TypeAlias = _DataTypeAlias | str
+_DataTypeLike: TypeAlias = DataType | _DataTypeAliasInput
+_FieldTypeInput: TypeAlias = _DataTypeLike | None
 _SchemaMetadataInput: TypeAlias = (
     Mapping[bytes, bytes]
     | Mapping[str, str]
@@ -371,7 +426,7 @@ _StructFieldTuple: TypeAlias = (
 )
 _StructFieldsInput: TypeAlias = (
     Iterable[Field[Any] | _StructFieldTuple]
-    | Mapping[str, Field[Any] | DataType | str | None]
+    | Mapping[str, Field[Any] | _FieldTypeInput]
 )
 
 class Schema(_Weakrefable):
@@ -406,8 +461,8 @@ class Schema(_Weakrefable):
     def remove(self, i: int) -> Schema: ...
     def set(self, i: int, field: Field) -> Schema: ...
     @deprecated("Use 'with_metadata' instead")
-    def add_metadata(self, metadata: dict) -> Schema: ...
-    def with_metadata(self, metadata: dict) -> Schema: ...
+    def add_metadata(self, metadata: _MetadataMapping) -> Schema: ...
+    def with_metadata(self, metadata: _MetadataMapping) -> Schema: ...
     def serialize(self, memory_pool: MemoryPool | None = None) -> Buffer: ...
     def remove_metadata(self) -> Schema: ...
     def to_string(
@@ -431,7 +486,7 @@ def unify_schemas(
 ) -> Schema: ...
 def field(
     name: SupportsArrowSchema | str | bytes,
-    type: _DataTypeT | str | None = None,
+    type: _DataTypeT | _DataTypeAliasInput | None = None,
     nullable: bool = True,
     metadata: _MetadataMapping | None = None,
 ) -> Field[_DataTypeT] | Field[Any]: ...
@@ -497,13 +552,13 @@ def large_list_view(
     value_type: _DataTypeT | Field[_DataTypeT] | None = None,
 ) -> LargeListViewType[_DataTypeT]: ...
 def map_(
-    key_type: _K | Field | str | None = None,
-    item_type: _ValueT | Field | str | None = None,
+    key_type: _K | Field | _FieldTypeInput = None,
+    item_type: _ValueT | Field | _FieldTypeInput = None,
     keys_sorted: _Ordered | None = None,
 ) -> MapType[_K, _ValueT, _Ordered]: ...
 def dictionary(
-    index_type: _IndexT | str,
-    value_type: _BasicValueT | str,
+    index_type: _IndexT | _DataTypeAliasInput,
+    value_type: _BasicValueT | _DataTypeAliasInput,
     ordered: _Ordered | None = None,
 ) -> DictionaryType[_IndexT, _BasicValueT, _Ordered]: ...
 def struct(
@@ -521,7 +576,8 @@ def union(
     type_codes: list[int] | None = None,
 ) -> SparseUnionType | DenseUnionType: ...
 def run_end_encoded(
-    run_end_type: _RunEndType | str | None, value_type: _BasicValueT | str | None
+    run_end_type: _RunEndType | _DataTypeAliasInput | None,
+    value_type: _BasicValueT | _DataTypeAliasInput | None,
 ) -> RunEndEncodedType[_RunEndType, _BasicValueT]: ...
 def json_(storage_type: DataType = ...) -> JsonType: ...
 def uuid() -> UuidType: ...
@@ -537,8 +593,8 @@ def type_for_alias(name: Any) -> DataType: ...
 def schema(
     fields: (
         Iterable[Field[Any]]
-        | Iterable[tuple[str, DataType | str | None]]
-        | Mapping[Any, DataType | str | None]
+        | Iterable[tuple[str, _FieldTypeInput]]
+        | Mapping[Any, _FieldTypeInput]
     ),
     metadata: _SchemaMetadataInput | None = None,
 ) -> Schema: ...
