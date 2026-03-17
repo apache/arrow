@@ -7,9 +7,9 @@
 az_container(container_path, ...)
 }
 \arguments{
-\item{container_path}{string Container name or path}
+\item{container_path}{string Container name or path.}
 
-\item{...}{Additional connection options, passed to \code{AzureFileSystem$create()}}
+\item{...}{Additional connection options, passed to \code{AzureFileSystem$create()}.}
 }
 \value{
 A \code{SubTreeFileSystem} containing an \code{AzureFileSystem} and the container's
