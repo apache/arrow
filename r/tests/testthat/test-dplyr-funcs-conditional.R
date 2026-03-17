@@ -517,3 +517,69 @@ test_that("external objects are found when they're not in the global environment
     tibble(x = c("a", "b"), x2 = c("foo", NA))
   )
 })
+
+test_that("when_any()", {
+  # combines with OR
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_any(lgl, false)) |>
+      collect(),
+    tbl
+  )
+
+  # na_rm=TRUE treats NA as FALSE
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_any(lgl, false, na_rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+
+  # works in filter()
+  compare_dplyr_binding(
+    .input |>
+      filter(when_any(int > 5, dbl > 3)) |>
+      collect(),
+    tbl
+  )
+
+  # size not supported
+  expect_arrow_eval_error(
+    when_any(lgl, false, size = 10),
+    "`when_any\\(\\)` with `size` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+})
+
+test_that("when_all()", {
+  # combines with AND
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_all(lgl, false)) |>
+      collect(),
+    tbl
+  )
+
+  # na_rm=TRUE treats NA as TRUE
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_all(lgl, false, na_rm = TRUE)) |>
+      collect(),
+    tbl
+  )
+
+  # works in filter()
+  compare_dplyr_binding(
+    .input |>
+      filter(when_all(int > 5, dbl > 3)) |>
+      collect(),
+    tbl
+  )
+
+  # size not supported
+  expect_arrow_eval_error(
+    when_all(lgl, false, size = 10),
+    "`when_all\\(\\)` with `size` specified not supported in Arrow",
+    class = "arrow_not_supported"
+  )
+})
