@@ -204,6 +204,7 @@ Windows tab under the :ref:`pyarrow_build_section` section.
 
          $ export ARROW_HOME=$(pwd)/dist
          $ export LD_LIBRARY_PATH=$(pwd)/dist/lib:$LD_LIBRARY_PATH
+         $ export DYLD_LIBRARY_PATH=$(pwd)/dist/lib:$DYLD_LIBRARY_PATH
          $ export CMAKE_PREFIX_PATH=$ARROW_HOME:$CMAKE_PREFIX_PATH
 
    .. tab-item:: Windows
