@@ -27,16 +27,16 @@ import pandas as pd
 from typing_extensions import Self, TypeVar, deprecated
 
 from pyarrow._stubs_typing import SupportsArrowSchema, TimeUnit
-from pyarrow.io import Buffer
 from pyarrow.lib import (  # noqa: F401
     Array,
+    Buffer,
     ChunkedArray,
     ExtensionArray,
+    ExtensionScalar,
     MemoryPool,
     MonthDayNano,
     Table,
 )
-from pyarrow.scalar import ExtensionScalar
 
 class _Weakrefable: ...
 class _Metadata(_Weakrefable): ...
