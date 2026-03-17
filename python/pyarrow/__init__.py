@@ -305,7 +305,11 @@ def get_include():
     Return absolute path to directory containing Arrow C++ include
     headers. Similar to numpy.get_include
     """
-    return _os.path.join(_os.path.dirname(__file__), 'include')
+    # Use pyarrow.lib location instead of just __file__. That works
+    # for both editable and non-editable builds as it points
+    # to the actual location of the compiled C++ extension.
+    from pyarrow import lib as _lib
+    return _os.path.join(_os.path.dirname(_lib.__file__), 'include')
 
 
 def _get_pkg_config_executable():
@@ -388,7 +392,11 @@ def get_library_dirs():
     Return lists of directories likely to contain Arrow C++ libraries for
     linking C or Cython extensions using pyarrow
     """
-    package_cwd = _os.path.dirname(__file__)
+    # Use pyarrow.lib location instead of just __file__. That works
+    # for both editable and non-editable builds as it points
+    # to the actual location of the compiled C++ extension.
+    from pyarrow import lib as _lib
+    package_cwd = _os.path.dirname(_lib.__file__)
     library_dirs = [package_cwd]
 
     def append_library_dir(library_dir):
