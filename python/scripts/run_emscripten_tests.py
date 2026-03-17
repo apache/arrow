@@ -35,7 +35,9 @@ from selenium import webdriver
 
 class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
     def log_request(self, code="-", size="-"):
-        # don't log successful requests
+        # don't log successful requests but log errors
+        if isinstance(code, int) and code >= 400:
+            sys.stderr.write(f"HTTP {code} for {self.path}\n")
         return
 
     def do_GET(self) -> bytes | None:
