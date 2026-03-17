@@ -91,32 +91,32 @@ _V = TypeVar("_V", covariant=True)
 SingleOrList: TypeAlias = list[_T] | _T
 
 
-class SupportsEq(Protocol):
+class SupportsDunderEQ(Protocol):
     def __eq__(self, other: object, /) -> bool: ...
 
 
-class SupportsLt(Protocol):
+class SupportsDunderLT(Protocol):
     def __lt__(self, other: object, /) -> bool: ...
 
 
-class SupportsGt(Protocol):
+class SupportsDunderGT(Protocol):
     def __gt__(self, other: object, /) -> bool: ...
 
 
-class SupportsLe(Protocol):
+class SupportsDunderLE(Protocol):
     def __le__(self, other: object, /) -> bool: ...
 
 
-class SupportsGe(Protocol):
+class SupportsDunderGE(Protocol):
     def __ge__(self, other: object, /) -> bool: ...
 
 
 FilterTuple: TypeAlias = (
-    tuple[str, Literal["=", "==", "!="], SupportsEq]
-    | tuple[str, Literal["<"], SupportsLt]
-    | tuple[str, Literal[">"], SupportsGt]
-    | tuple[str, Literal["<="], SupportsLe]
-    | tuple[str, Literal[">="], SupportsGe]
+    tuple[str, Literal["=", "==", "!="], SupportsDunderEQ]
+    | tuple[str, Literal["<"], SupportsDunderLT]
+    | tuple[str, Literal[">"], SupportsDunderGT]
+    | tuple[str, Literal["<="], SupportsDunderLE]
+    | tuple[str, Literal[">="], SupportsDunderGE]
     | tuple[str, Literal["in", "not in"], Collection]
     | tuple[str, str, Any]  # Allow general str for operator to avoid type errors
 )

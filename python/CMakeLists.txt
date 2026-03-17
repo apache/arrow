@@ -973,7 +973,9 @@ foreach(module ${CYTHON_EXTENSIONS})
         continue()
       endif()
     endif()
-    if(PYARROW_EDITABLE_BUILD AND module_name STREQUAL "lib" AND output STREQUAL "lib.h")
+    if(PYARROW_EDITABLE_BUILD
+       AND module_name STREQUAL "lib"
+       AND output STREQUAL "lib.h")
       continue()
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
@@ -1041,11 +1043,13 @@ endif()
 # alongside the package so type checkers can find them (PEP 561).
 set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
 if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
-  set(PYARROW_STUB_INSTALL_ARGS
-      FILES_MATCHING
-      PATTERN "*.pyi")
+  set(PYARROW_STUB_INSTALL_ARGS FILES_MATCHING PATTERN "*.pyi")
   if(PYARROW_EDITABLE_BUILD)
-    list(APPEND PYARROW_STUB_INSTALL_ARGS PATTERN "lib.pyi" EXCLUDE)
+    list(APPEND
+         PYARROW_STUB_INSTALL_ARGS
+         PATTERN
+         "lib.pyi"
+         EXCLUDE)
   endif()
   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
           DESTINATION "."
