@@ -261,7 +261,9 @@ class ChromeDriver(BrowserDriver):
         options = Options()
         options.add_argument("--headless")
         options.add_argument("--no-sandbox")
-        super().__init__(hostname, port, webdriver.Chrome(options=options))
+        driver = webdriver.Chrome(options=options)
+        driver.command_executor._client_config.timeout = 300
+        super().__init__(hostname, port, driver)
 
 
 class FirefoxDriver(BrowserDriver):
