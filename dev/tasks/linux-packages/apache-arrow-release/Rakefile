@@ -50,6 +50,8 @@ class ApacheArrowReleasePackageTask < PackageTask
           # "rpmkeys --import" reports error for these keys.
           # It seems that a subkey of this key may be related. (Is SHA1 bad?)
           "8CAAD602",
+          # Another KEY that seems bad: https://github.com/apache/arrow/issues/49521
+          "1AA8CF92D409A73393D0B736BFF2EE42C8282E76",
           # https://github.com/apache/arrow/issues/15007
           # It seems that a subkey of this key may be related.
           "B90EB64A3AF15545EC8A7B8803F0D5EA3790810C",
