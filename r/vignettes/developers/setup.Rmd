@@ -155,6 +155,7 @@ To enable optional features including: S3 support, an alternative memory allocat
   -DARROW_GCS=ON \
   -DARROW_MIMALLOC=ON \
   -DARROW_S3=ON \
+  -DARROW_AZURE=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
@@ -228,6 +229,7 @@ cmake \
   -DARROW_MIMALLOC=ON \
   -DARROW_PARQUET=ON \
   -DARROW_S3=ON \
+  -DARROW_AZURE=ON \
   -DARROW_WITH_BROTLI=ON \
   -DARROW_WITH_BZ2=ON \
   -DARROW_WITH_LZ4=ON \
