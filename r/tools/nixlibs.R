@@ -800,6 +800,7 @@ turn_off_all_optional_features <- function(env_var_list) {
     "ARROW_DATASET" = "OFF", # depends on parquet
     "ARROW_S3" = "OFF",
     "ARROW_GCS" = "OFF",
+    "ARROW_AZURE" = "OFF",
     "ARROW_WITH_GOOGLE_CLOUD_CPP" = "OFF",
     "ARROW_WITH_NLOHMANN_JSON" = "OFF",
     "ARROW_SUBSTRAIT" = "OFF",
@@ -887,13 +888,15 @@ is_feature_requested <- function(env_varname, env_var_list, default = env_is("LI
 with_cloud_support <- function(env_var_list) {
   arrow_s3 <- is_feature_requested("ARROW_S3", env_var_list)
   arrow_gcs <- is_feature_requested("ARROW_GCS", env_var_list)
+  arrow_azure <- is_feature_requested("ARROW_AZURE", env_var_list)
 
-  if (arrow_s3 || arrow_gcs) {
-    # User wants S3 or GCS support.
+  if (arrow_s3 || arrow_gcs || arrow_azure) {
+    # User wants S3 or GCS or Azure support.
     # Make sure that we have curl and openssl system libs
     feats <- c(
       if (arrow_s3) "S3",
       if (arrow_gcs) "GCS"
+      if (arrow_azure) "AZURE"
     )
     start_msg <- paste(feats, collapse = "/")
     off_flags <- paste("ARROW_", feats, "=OFF", sep = "", collapse = " and ")
@@ -908,16 +911,19 @@ with_cloud_support <- function(env_var_list) {
       print_warning("requires libcurl-devel (rpm) or libcurl4-openssl-dev (deb)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
+      arrow_azure <- FALSE
     } else if (!cmake_find_package("OpenSSL", "1.0.2", env_var_list)) {
       print_warning("requires version >= 1.0.2 of openssl-devel (rpm), libssl-dev (deb), or openssl (brew)")
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
+      arrow_azure <- FALSE
     }
   }
 
   # Update the build flags
   env_var_list <- replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
   replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
+  replace(env_var_list, "ARROW_AZURE", ifelse(arrow_azure, "ON", "OFF"))
 }
 
 cmake_find_package <- function(pkg, version = NULL, env_var_list) {
