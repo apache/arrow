@@ -78,6 +78,59 @@ A :class:`DataType` can be created by consuming the schema-compatible object
 using :func:`pyarrow.field` and then accessing the ``.type`` of the resulting
 Field.
 
+The PyCapsule Interface has been adopted by a number of libraries in the Python
+ecosystem. The following table provides an overview of the current implementation
+status (see `the tracking issue <https://github.com/apache/arrow/issues/39195>`__
+for the latest updates):
+
+.. list-table:: PyCapsule Interface Implementation Status
+   :header-rows: 1
+
+   * - Library
+     - Status
+   * - `pandas <https://pandas.pydata.org/>`__
+     - Implemented
+   * - `Polars <https://pola.rs/>`__
+     - Implemented
+   * - `PyArrow <https://arrow.apache.org/docs/python/>`__
+     - Implemented
+   * - `nanoarrow <https://arrow.apache.org/nanoarrow/>`__
+     - Implemented
+   * - `DuckDB <https://duckdb.org/>`__
+     - Implemented
+   * - `PySpark <https://spark.apache.org/docs/latest/api/python/>`__
+     - Implemented
+   * - `DataFusion <https://datafusion.apache.org/python/>`__
+     - Implemented
+   * - `ibis <https://ibis-project.org/>`__
+     - Implemented
+   * - `GDAL/OGR <https://gdal.org/>`__
+     - Implemented
+   * - `GeoPandas <https://geopandas.org/>`__
+     - Implemented
+   * - `pyogrio <https://pyogrio.readthedocs.io/>`__
+     - Implemented
+   * - `narwhals <https://narwhals-dev.github.io/narwhals/>`__
+     - Implemented
+   * - `cuDF <https://docs.rapids.ai/api/cudf/stable/>`__
+     - Implemented
+   * - `arro3 <https://github.com/kylebarron/arro3>`__
+     - Implemented
+   * - `Pillow <https://python-pillow.org/>`__
+     - Implemented
+   * - `VegaFusion <https://vegafusion.io/>`__
+     - Implemented
+   * - `fastexcel <https://github.com/ToucanToco/fastexcel>`__
+     - Implemented
+   * - `pantab <https://github.com/innobi/pantab>`__
+     - Implemented
+   * - `h3ronpy <https://github.com/nmandery/h3ronpy>`__
+     - Implemented
+   * - `lonboard <https://github.com/developmentseed/lonboard>`__
+     - Implemented
+   * - `quak <https://github.com/manzt/quak>`__
+     - Implemented
+
 .. _arrow_array_protocol:
 
 Controlling conversion to ``pyarrow.Array`` with the ``__arrow_array__`` protocol
