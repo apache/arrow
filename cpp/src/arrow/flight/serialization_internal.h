@@ -182,6 +182,14 @@ ARROW_FLIGHT_EXPORT Status ToProto(const CloseSessionResult& result,
 
 Status ToPayload(const FlightDescriptor& descr, std::shared_ptr<Buffer>* out);
 
+/// \brief Serialize a FlightPayload to a vector of buffers.
+ARROW_FLIGHT_EXPORT
+arrow::Result<arrow::BufferVector> SerializePayloadToBuffers(const FlightPayload& msg);
+
+/// \brief Deserialize FlightData from a contiguous buffer.
+arrow::Result<internal::FlightData> DeserializeFlightData(
+    const std::shared_ptr<arrow::Buffer>& buffer);
+
 // We want to reuse RecordBatchStreamReader's implementation while
 // (1) Adapting it to the Flight message format
 // (2) Allowing pure-metadata messages before data is sent

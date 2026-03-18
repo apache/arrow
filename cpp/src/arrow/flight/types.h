@@ -904,6 +904,9 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 
   /// \brief Check that the payload can be written to the wire.
   Status Validate() const;
+
+  /// \brief Serialize this payload to a vector of buffers.
+  arrow::Result<BufferVector> SerializeToBuffers() const;
 };
 
 // A wrapper around arrow.flight.protocol.PutResult is not defined
