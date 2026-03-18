@@ -26,9 +26,7 @@ module ReaderTests
       else
         table = data
       end
-      path = File.join(tmp_dir, "data.#{file_extension}")
-      table.save(path)
-      File.open(path, "rb") do |input|
+      open_input(table, tmp_dir) do |input|
         reader = reader_class.new(input)
         case data
         when Arrow::Array
@@ -677,8 +675,42 @@ module ReaderTests
   end
 end
 
-class TestFileReader < Test::Unit::TestCase
+module FileInput
+  def open_input(table, tmp_dir, &block)
+    path = File.join(tmp_dir, "data.#{file_extension}")
+    table.save(path)
+    File.open(path, "rb", &block)
+  end
+end
+
+module PipeInput
+  def open_input(table, tmp_dir, &block)
+    buffer = Arrow::ResizableBuffer.new(4096)
+    table.save(buffer, format: format)
+    IO.pipe do |input, output|
+      write_thread = Thread.new do
+        output.write(buffer.data.to_s)
+      end
+      begin
+        yield(input)
+      ensure
+        write_thread.join
+      end
+    end
+  end
+end
+
+module StringInput
+  def open_input(table, tmp_dir)
+    buffer = Arrow::ResizableBuffer.new(4096)
+    table.save(buffer, format: format)
+    yield(buffer.data.to_s)
+  end
+end
+
+class TestFileReaderFileInput < Test::Unit::TestCase
   include ReaderTests
+  include FileInput
 
   def file_extension
     "arrow"
@@ -689,11 +721,51 @@ class TestFileReader < Test::Unit::TestCase
   end
 end
 
-class TestStreamingReader < Test::Unit::TestCase
+class TestFileReaderStringInput < Test::Unit::TestCase
   include ReaderTests
+  include StringInput
+
+  def format
+    :arrow_file
+  end
+
+  def reader_class
+    ArrowFormat::FileReader
+  end
+end
+
+class TestStreamingReaderFileInupt < Test::Unit::TestCase
+  include ReaderTests
+  include FileInput
 
   def file_extension
     "arrows"
+  end
+
+  def reader_class
+    ArrowFormat::StreamingReader
+  end
+end
+
+class TestStreamingReaderPipeInupt < Test::Unit::TestCase
+  include ReaderTests
+  include PipeInput
+
+  def format
+    :arrow_streaming
+  end
+
+  def reader_class
+    ArrowFormat::StreamingReader
+  end
+end
+
+class TestStreamingReaderStringInupt < Test::Unit::TestCase
+  include ReaderTests
+  include StringInput
+
+  def format
+    :arrow_streaming
   end
 
   def reader_class
