@@ -23,7 +23,7 @@ jobs:
   build:
     name: "Build wheel for Windows ARM64"
     runs-on: "{{ runs_on }}"
-    timeout-minutes: 240
+    timeout-minutes: 300
     env:
       PYTHON_CMD: "py -{{ python_version }}{% if python_abi_tag.endswith('t') %}t{% endif %}-arm64"
       CMAKE_BUILD_TYPE: release
