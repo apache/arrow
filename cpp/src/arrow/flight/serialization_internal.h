@@ -187,6 +187,7 @@ ARROW_FLIGHT_EXPORT
 arrow::Result<arrow::BufferVector> SerializePayloadToBuffers(const FlightPayload& msg);
 
 /// \brief Deserialize FlightData from a contiguous buffer.
+ARROW_FLIGHT_EXPORT
 arrow::Result<internal::FlightData> DeserializeFlightData(
     const std::shared_ptr<arrow::Buffer>& buffer);
 
