@@ -115,6 +115,8 @@ list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_modules")
 # vcpkg (ab)uses CMAKE_TOOLCHAIN_FILE to inject its logic into CMake
 if(ARROW_DEPENDENCY_SOURCE STREQUAL "VCPKG")
   include(Usevcpkg)
+elseif(ARROW_PACKAGE_KIND STREQUAL "vcpkg")
+  set(ARROW_VCPKG ON)
 endif()
 
 project(arrow VERSION "${ARROW_BASE_VERSION}")
