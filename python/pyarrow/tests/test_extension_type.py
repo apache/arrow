@@ -16,6 +16,7 @@
 # under the License.
 
 import contextlib
+import datetime
 import os
 import shutil
 import subprocess
@@ -1487,8 +1488,6 @@ def test_uuid_bytes_property_raises():
 
 
 def test_array_from_extension_scalars():
-    import datetime
-
     # One case per C++ converter: FixedSizeBinary, Binary/String
     builtin_cases = [
         (pa.uuid(), [b"0123456789abcdef"]),
