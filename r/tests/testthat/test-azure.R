@@ -101,7 +101,7 @@ test_that("read/write Parquet on azure", {
 write_feather(example_data, fs$path(azure_path("openmulti/dataset1.feather")))
 write_feather(example_data, fs$path(azure_path("openmulti/dataset2.feather")))
 
-open_multi_fs = arrow:::az_container(
+open_multi_fs <- arrow:::az_container(
   container_path = azure_path("openmulti"),
   account_name = azurite_account_name,
   account_key = azurite_account_key,
@@ -118,5 +118,126 @@ test_that("open_dataset with AzureFileSystem folder", {
       arrange(int) |>
       collect(),
     rbind(example_data, example_data) |> arrange(int)
+  )
+})
+
+# (5) Check that multiple valid combinations of options can be used to
+# instantiate AzureFileSystem.
+
+fs1 <- AzureFileSystem$create(account_name = "fake-account-name")
+expect_s3_class(fs1, "AzureFileSystem")
+
+fs2 <- AzureFileSystem$create(account_name = "fake-account-name", account_key = "fakeaccountkey")
+expect_s3_class(fs2, "AzureFileSystem")
+
+
+fs3 <- AzureFileSystem$create(
+  account_name = "fake-account", account_key = "fakeaccount",
+  blob_storage_authority = "fake-blob-authority",
+  dfs_storage_authority = "fake-dfs-authority",
+  blob_storage_scheme = "https",
+  dfs_storage_scheme = "https"
+)
+expect_s3_class(fs3, "AzureFileSystem")
+
+fs4 <- AzureFileSystem$create(
+  account_name = "fake-account-name",
+  sas_token = "fakesastoken"
+)
+expect_s3_class(fs4, "AzureFileSystem")
+
+fs5 <- AzureFileSystem$create(
+  account_name = "fake-account-name",
+  tenant_id = "fake-tenant-id",
+  client_id = "fake-client-id",
+  client_secret = "fake-client-secret"
+)
+expect_s3_class(fs5, "AzureFileSystem")
+
+fs6 <- AzureFileSystem$create(
+  account_name = "fake-account-name",
+  client_id = "fake-client-id"
+)
+expect_s3_class(fs6, "AzureFileSystem")
+
+# (6) Check that invalid argument combinations are caught upfront
+# with appropriate error message.
+
+error_msg_1 <- "`client_id` must be given with `tenant_id` and `client_secret`"
+error_msg_2 <- "Provide only `client_id` to authenticate with Managed Identity Credential, or provide `client_id`, `tenant_id`, and`client_secret` to authenticate with Client Secret Credential"
+
+test_that("client_id must be specified with account_name and tenant_id", {
+  expect_error(
+    AzureFileSystem$create(
+      account_name = "fake-account-name",
+      tenant_id = "fake-tenant-id"
+    ),
+    error_msg_1,
+    fixed = TRUE
+  )
+})
+
+test_that("client_id must be specified with account_name and client_secret", {
+  expect_error(
+    AzureFileSystem$create(
+      account_name = "fake-account-name",
+      client_secret = "fake-client-secret"
+    ),
+    error_msg_1,
+    fixed = TRUE
+  )
+})
+
+test_that("client_secret must not be provided with client_id", {
+  expect_error(
+    AzureFileSystem$create(
+      account_name = "fake-account-name",
+      client_id = "fake-client-id",
+      client_secret = "fake-client-secret"
+    ),
+    error_msg_2,
+    fixed = TRUE
+  )
+})
+
+test_that("client_id must be specified with account_name, tenant_id, and client_secret", {
+  expect_error(
+    AzureFileSystem$create(
+      account_name = "fake-account-name",
+      tenant_id = "fake-tenant-id",
+      client_secret = "fake-client-secret"
+    ),
+    error_msg_1,
+    fixed = TRUE
+  )
+})
+
+
+test_that("client_id must be provided alone or with tenant_id and client_secret", {
+  expect_error(
+    AzureFileSystem$create(
+      account_name = "fake-account-name",
+      tenant_id = "fake-tenant-id",
+      client_id = "fake-client-id"
+    ),
+    error_msg_2,
+    fixed = TRUE
+  )
+})
+
+test_that("cannot specify both account_key and sas_token", {
+  expect_error(
+    AzureFileSystem$create(account_name='fake-account-name', account_key='fakeaccount',
+                sas_token='fakesastoken'),
+    "Cannot specify both `account_key` and `sas_token`",
+    fixed = TRUE
+  )
+})
+
+test_that("at a minimum account_name must be passed", {
+  expect_error(
+    AzureFileSystem$create(),
+    "Missing `account_name`",
+    fixed = TRUE
   )
 })
