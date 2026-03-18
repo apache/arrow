@@ -391,7 +391,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow/python
-         $ pip install --no-build-isolation --editable -vv .
+         $ pip install --no-build-isolation --editable . -vv
          $ popd
 
    .. tab-item:: Windows
@@ -400,7 +400,7 @@ To build PyArrow run:
       .. code-block::
 
          $ pushd arrow\python
-         $ pip install --no-build-isolation --editable -vv .
+         $ pip install --no-build-isolation --editable . -vv
          $ popd
 
       .. note::
@@ -429,7 +429,7 @@ To build PyArrow run:
          .. code-block::
 
             $ set PYARROW_BUNDLE_ARROW_CPP=ON
-            $ pip install --no-build-isolation --editable -vv .
+            $ pip install --no-build-isolation --editable . -vv
 
          Note that bundled Arrow C++ libraries will not be automatically
          updated when rebuilding Arrow C++.
