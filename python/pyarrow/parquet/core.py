@@ -859,6 +859,7 @@ use_compliant_nested_type : bool, default True
                 <element-repetition> <element-type> item;
             }
         }
+
 encryption_properties : FileEncryptionProperties, default None
     File encryption properties for Parquet Modular Encryption.
     If None, no encryption will be done.
@@ -898,6 +899,7 @@ sorting_columns : Sequence of SortingColumn, default None
 store_decimal_as_integer : bool, default False
     Allow decimals with 1 <= precision <= 18 to be stored as integers.
     In Parquet, DECIMAL can be stored in any of the following physical types:
+
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: precision is limited by the array size.
@@ -907,6 +909,7 @@ store_decimal_as_integer : bool, default False
 
     By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
     When enabled, the writer will use the following physical types to store decimals:
+
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: for precision > 18.
@@ -927,6 +930,7 @@ use_content_defined_chunking : bool or dict, default False
     before any Parquet encodings).
 
     A `dict` can be passed to adjust the chunker parameters with the following keys:
+
     - `min_chunk_size`: minimum chunk size in bytes, default 256 KiB
       The rolling hash will not be updated until this size is reached for each chunk.
       Note that all data sent through the hash function is counted towards the chunk
@@ -945,6 +949,7 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+
 write_time_adjusted_to_utc : bool, default False
     Set the value of isAdjustedTOUTC when writing a TIME column.
     If True, this tells the Parquet reader that the TIME columns

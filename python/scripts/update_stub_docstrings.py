@@ -264,7 +264,7 @@ if __name__ == "__main__":
         print("No .pyi files found in install tree, skipping docstring injection")
         sys.exit(0)
 
-    with tempfile.TemporaryDirectory() as tmpdir:
+    with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as tmpdir:
         pyarrow_pkg = Path(tmpdir) / "pyarrow"
         pyarrow_pkg.mkdir()
         _create_importable_pyarrow(pyarrow_pkg, source_dir, install_pyarrow_dir)

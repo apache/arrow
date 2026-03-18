@@ -590,4 +590,10 @@ Arrow extension types for representing vector geometries. It is well known
 within the Arrow geospatial subcommunity. The GeoArrow specification is not yet
 finalized.
 
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   CanonicalExtensions/Examples
+
 .. _rfc8259: https://datatracker.ietf.org/doc/html/rfc8259
