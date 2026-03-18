@@ -69,8 +69,8 @@ int64_t RowGroupWriter::total_compressed_bytes_written() const {
   return contents_->total_compressed_bytes_written();
 }
 
-int64_t RowGroupWriter::total_buffered_bytes() const {
-  return contents_->EstimatedBufferedBytes();
+BufferedStats RowGroupWriter::estimated_buffered_stats() const {
+  return contents_->EstimatedBufferedStats();
 }
 
 bool RowGroupWriter::buffered() const { return contents_->buffered(); }
@@ -202,19 +202,20 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     return total_compressed_bytes_written;
   }
 
-  int64_t EstimatedBufferedBytes() const override {
+  BufferedStats EstimatedBufferedStats() const override {
+    BufferedStats stats;
     if (closed_) {
-      return 0;
+      return stats;
     }
-    int64_t estimated_buffered_value_bytes = 0;
     for (size_t i = 0; i < column_writers_.size(); i++) {
       if (column_writers_[i]) {
-        estimated_buffered_value_bytes +=
-            column_writers_[i]->estimated_buffered_value_bytes() +
-            column_writers_[i]->EstimatedBufferedLevelsBytes();
+        stats.def_level_bytes += column_writers_[i]->estimated_buffered_def_level_bytes();
+        stats.rep_level_bytes += column_writers_[i]->estimated_buffered_rep_level_bytes();
+        stats.value_bytes += column_writers_[i]->estimated_buffered_value_bytes();
+        stats.dict_bytes += column_writers_[i]->estimated_buffered_dict_bytes();
       }
     }
-    return estimated_buffered_value_bytes;
+    return stats;
   }
 
   bool buffered() const override { return buffered_row_group_; }
