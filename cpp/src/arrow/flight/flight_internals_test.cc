@@ -775,8 +775,9 @@ TEST(FlightSerialization, RoundtripPayloadWithBody) {
   ASSERT_OK_AND_ASSIGN(auto message, data.OpenMessage());
   ASSERT_NE(message, nullptr);
   // Also verify the RecordBatch roundtrips correctly
+  ipc::DictionaryMemo dict_memo;
   ASSERT_OK_AND_ASSIGN(auto result_batch,
-                       ipc::ReadRecordBatch(*message, schema, /*dictionaries=*/nullptr,
+                       ipc::ReadRecordBatch(*message, schema, &dict_memo,
                                             ipc::IpcReadOptions::Defaults()));
   ASSERT_TRUE(result_batch->Equals(*batch));
 }
