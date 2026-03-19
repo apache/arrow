@@ -81,18 +81,18 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
                 fullClassName = "arrow.type.Type";
                 typeLink = getClassNameForDisplay(fullClassName);
                 dimensionString = makeDimensionString(size(obj));
-                header = "  " + dimensionString + " " + typeLink + " array with properties:" + newline;
+                header = "  " + dimensionString + " " + typeLink + " array with properties:";
             elseif isscalar(obj)
                 fullClassName = string(class(obj));
                 typeLink = getClassNameForDisplay(fullClassName);
-                header = "  " + typeLink + " with properties:" + newline;
+                header = "  " + typeLink + " with properties:";
             else
                 dimensionString = makeDimensionString(size(obj));
                 classNames = arrayfun(@(x) string(class(x)), obj);
                 uniqueClasses = unique(classNames);
                 if numel(uniqueClasses) == 1
                     typeLink = getClassNameForDisplay(uniqueClasses(1));
-                    header = "  " + dimensionString + " " + typeLink + " array with properties:" + newline;
+                    header = "  " + dimensionString + " " + typeLink + " array with properties:";
                 else
                     heterogeneousLink = makeLinkString(HelpTarget="matlab.mixin.Heterogeneous", Text="heterogeneous", BoldFont=false);
                     baseClassName = string(class(obj));
@@ -106,7 +106,7 @@ classdef (Abstract) Type < matlab.mixin.CustomDisplay & ...
                     end
                     typeLinksStr = join(typeLinkParts, ", ");
                     header = "  " + dimensionString + " " + heterogeneousLink + " " + baseClassLink + ...
-                        " (" + typeLinksStr + ") array with properties:" + newline;
+                        " (" + typeLinksStr + ") array with properties:";
                 end
             end
         end
