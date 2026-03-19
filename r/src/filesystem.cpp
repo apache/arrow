@@ -531,21 +531,21 @@ std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list opti
 
   if (!Rf_isNull(options["client_id"])) {
     if (Rf_isNull(options["tenant_id"]) && Rf_isNull(options["client_secret"])) {
-      azure_opts.ConfigureManagedIdentityCredential(
-          cpp11::as_cpp<std::string>(options["client_id"]));
+      StopIfNotOk(azure_opts.ConfigureManagedIdentityCredential(
+          cpp11::as_cpp<std::string>(options["client_id"])));
     } else if (!Rf_isNull(options["tenant_id"]) && !Rf_isNull(options["client_secret"])) {
-      azure_opts.ConfigureClientSecretCredential(
+      StopIfNotOk(azure_opts.ConfigureClientSecretCredential(
           cpp11::as_cpp<std::string>(options["tenant_id"]),
           cpp11::as_cpp<std::string>(options["client_id"]),
-          cpp11::as_cpp<std::string>(options["client_secret"]));
+          cpp11::as_cpp<std::string>(options["client_secret"])));
     }
   } else if (!Rf_isNull(options["account_key"])) {
-    azure_opts.ConfigureAccountKeyCredential(
-        cpp11::as_cpp<std::string>(options["account_key"]));
+    StopIfNotOk(azure_opts.ConfigureAccountKeyCredential(
+        cpp11::as_cpp<std::string>(options["account_key"])));
   } else if (!Rf_isNull(options["sas_token"])) {
-    azure_opts.ConfigureSASCredential(cpp11::as_cpp<std::string>(options["sas_token"]));
+    StopIfNotOk(azure_opts.ConfigureSASCredential(cpp11::as_cpp<std::string>(options["sas_token"])));
   } else {
-    azure_opts.ConfigureDefaultCredential();
+    StopIfNotOk(azure_opts.ConfigureDefaultCredential());
   }
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
