@@ -513,30 +513,35 @@ std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list opti
   azure_opts.account_name = cpp11::as_cpp<std::string>(options["account_name"]);
 
   if (!Rf_isNull(options["blob_storage_authority"])) {
-    azure_opts.blob_storage_authority = cpp11::as_cpp<std::string>(options["blob_storage_authority"]);
+    azure_opts.blob_storage_authority =
+        cpp11::as_cpp<std::string>(options["blob_storage_authority"]);
   }
   if (!Rf_isNull(options["dfs_storage_authority"])) {
-    azure_opts.dfs_storage_authority = cpp11::as_cpp<std::string>(options["dfs_storage_authority"]);
+    azure_opts.dfs_storage_authority =
+        cpp11::as_cpp<std::string>(options["dfs_storage_authority"]);
   }
   if (!Rf_isNull(options["blob_storage_scheme"])) {
-    azure_opts.blob_storage_scheme = cpp11::as_cpp<std::string>(options["blob_storage_scheme"]);
+    azure_opts.blob_storage_scheme =
+        cpp11::as_cpp<std::string>(options["blob_storage_scheme"]);
   }
   if (!Rf_isNull(options["dfs_storage_scheme"])) {
-    azure_opts.dfs_storage_scheme = cpp11::as_cpp<std::string>(options["dfs_storage_scheme"]);
+    azure_opts.dfs_storage_scheme =
+        cpp11::as_cpp<std::string>(options["dfs_storage_scheme"]);
   }
 
   if (!Rf_isNull(options["client_id"])) {
     if (Rf_isNull(options["tenant_id"]) && Rf_isNull(options["client_secret"])) {
-      azure_opts.ConfigureManagedIdentityCredential(cpp11::as_cpp<std::string>(options["client_id"]));
+      azure_opts.ConfigureManagedIdentityCredential(
+          cpp11::as_cpp<std::string>(options["client_id"]));
     } else if (!Rf_isNull(options["tenant_id"]) && !Rf_isNull(options["client_secret"])) {
       azure_opts.ConfigureClientSecretCredential(
-        cpp11::as_cpp<std::string>(options["tenant_id"]),
-        cpp11::as_cpp<std::string>(options["client_id"]),
-        cpp11::as_cpp<std::string>(options["client_secret"])
-      );
+          cpp11::as_cpp<std::string>(options["tenant_id"]),
+          cpp11::as_cpp<std::string>(options["client_id"]),
+          cpp11::as_cpp<std::string>(options["client_secret"]));
     }
   } else if (!Rf_isNull(options["account_key"])) {
-    azure_opts.ConfigureAccountKeyCredential(cpp11::as_cpp<std::string>(options["account_key"]));
+    azure_opts.ConfigureAccountKeyCredential(
+        cpp11::as_cpp<std::string>(options["account_key"]));
   } else if (!Rf_isNull(options["sas_token"])) {
     azure_opts.ConfigureSASCredential(cpp11::as_cpp<std::string>(options["sas_token"]));
   } else {
@@ -545,7 +550,6 @@ std::shared_ptr<fs::AzureFileSystem> fs___AzureFileSystem__Make(cpp11::list opti
 
   auto io_context = MainRThread::GetInstance().CancellableIOContext();
   return ValueOrStop(fs::AzureFileSystem::Make(azure_opts, io_context));
-
 }
 
 #endif

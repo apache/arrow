@@ -895,7 +895,7 @@ with_cloud_support <- function(env_var_list) {
     # Make sure that we have curl and openssl system libs
     feats <- c(
       if (arrow_s3) "S3",
-      if (arrow_gcs) "GCS"
+      if (arrow_gcs) "GCS",
       if (arrow_azure) "AZURE"
     )
     start_msg <- paste(feats, collapse = "/")

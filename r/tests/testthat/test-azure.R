@@ -132,7 +132,8 @@ expect_s3_class(fs2, "AzureFileSystem")
 
 
 fs3 <- AzureFileSystem$create(
-  account_name = "fake-account", account_key = "fakeaccount",
+  account_name = "fake-account",
+  account_key = "fakeaccount",
   blob_storage_authority = "fake-blob-authority",
   dfs_storage_authority = "fake-dfs-authority",
   blob_storage_scheme = "https",
@@ -164,7 +165,7 @@ expect_s3_class(fs6, "AzureFileSystem")
 # with appropriate error message.
 
 error_msg_1 <- "`client_id` must be given with `tenant_id` and `client_secret`"
-error_msg_2 <- "Provide only `client_id` to authenticate with Managed Identity Credential, or provide `client_id`, `tenant_id`, and`client_secret` to authenticate with Client Secret Credential"
+error_msg_2 <- "Provide only `client_id` to authenticate with Managed Identity Credential, or provide `client_id`, `tenant_id`, and`client_secret` to authenticate with Client Secret Credential" # nolint
 
 test_that("client_id must be specified with account_name and tenant_id", {
   expect_error(
@@ -227,8 +228,11 @@ test_that("client_id must be provided alone or with tenant_id and client_secret"
 
 test_that("cannot specify both account_key and sas_token", {
   expect_error(
-    AzureFileSystem$create(account_name='fake-account-name', account_key='fakeaccount',
-                sas_token='fakesastoken'),
+    AzureFileSystem$create(
+      account_name = "fake-account-name",
+      account_key = "fakeaccount",
+      sas_token = "fakesastoken"
+    ),
     "Cannot specify both `account_key` and `sas_token`",
     fixed = TRUE
   )
