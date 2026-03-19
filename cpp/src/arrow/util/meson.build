@@ -159,7 +159,6 @@ install_headers(
         'rows_to_batches.h',
         'simd.h',
         'small_vector.h',
-        'span.h',
         'string_util.h',
         'string.h',
         'task_group.h',
