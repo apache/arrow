@@ -545,4 +545,47 @@ INSTANTIATE_TEST_SUITE_P(
                       MakeWKBPointTestCase{{30, 10, 40, 300}, false, true},
                       MakeWKBPointTestCase{{30, 10, 40, 300}, true, true}));
 
+TEST(TestGeometryUtil, TestWKBBounderErrorForDeepNesting) {
+  // Construct a nested GeometryCollection with 200 levels
+  std::vector<uint8_t> nested_wkb;
+  int num_levels = 200;
+
+  for (int i = 0; i < num_levels; i++) {
+    nested_wkb.push_back(0x01); // little endian
+    nested_wkb.push_back(0x07); // geometry collection
+    nested_wkb.push_back(0x00);
+    nested_wkb.push_back(0x00);
+    nested_wkb.push_back(0x00);
+
+    nested_wkb.push_back(0x01); // 1 part
+    nested_wkb.push_back(0x00);
+    nested_wkb.push_back(0x00);
+    nested_wkb.push_back(0x00);
+  }
+
+  // Final part is an empty geometry collection
+  nested_wkb.push_back(0x01); // little endian
+  nested_wkb.push_back(0x07); // geometry collection
+  nested_wkb.push_back(0x00);
+  nested_wkb.push_back(0x00);
+  nested_wkb.push_back(0x00);
+
+  nested_wkb.push_back(0x00); // 0 parts
+  nested_wkb.push_back(0x00);
+  nested_wkb.push_back(0x00);
+  nested_wkb.push_back(0x00);
+
+  WKBGeometryBounder bounder;
+  EXPECT_THROW(
+      {
+        try {
+          bounder.MergeGeometry(nested_wkb);
+        } catch (const ParquetException& e) {
+          EXPECT_THAT(e.what(), ::testing::HasSubstr("too many levels of nesting"));
+          throw;
+        }
+      },
+      ParquetException);
+}
+
 }  // namespace parquet::geospatial
