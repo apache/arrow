@@ -241,7 +241,7 @@ test_that("cannot specify both account_key and sas_token", {
 test_that("at a minimum account_name must be passed", {
   expect_error(
     AzureFileSystem$create(),
-    "Missing `account_name`",
+    'argument "account_name" is missing, with no default',
     fixed = TRUE
   )
 })
