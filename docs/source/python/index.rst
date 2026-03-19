@@ -41,30 +41,13 @@ libraries that add additional functionality such as reading Apache Parquet
 files into Arrow structures.
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
-   install
-   getstarted
-   data
-   compute
-   memory
-   ipc
-   filesystems
-   numpy
-   pandas
-   interchange_protocol
-   dlpack
-   timestamps
-   orc
-   csv
-   feather
-   json
-   parquet
-   dataset
-   flight
-   extending_types
+   getting_started_guide
+   data_and_compute
+   file_formats
+   data_interchange
    integration
-   env_vars
-   api
+   reference
    getting_involved
    Python cookbook <https://arrow.apache.org/cookbook/py/>
