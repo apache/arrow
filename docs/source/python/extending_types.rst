@@ -88,48 +88,62 @@ for the latest updates):
 
    * - Library
      - Status
+   * - `altair <https://github.com/vega/altair/issues/3568>`__
+     - Not yet implemented
    * - `arro3 <https://github.com/kylebarron/arro3>`__
      - Implemented
-   * - `cuDF <https://docs.rapids.ai/api/cudf/stable/>`__
+   * - `cuDF <https://github.com/rapidsai/cudf/pull/18402>`__
      - Implemented
-   * - `DataFusion <https://datafusion.apache.org/python/>`__
+   * - `daft <https://github.com/Eventual-Inc/Daft/issues/2504>`__
+     - Not yet implemented
+   * - `DataFusion <https://github.com/apache/datafusion-python/pull/825>`__
      - Implemented
-   * - `DuckDB <https://duckdb.org/>`__
+   * - `DuckDB <https://github.com/duckdb/duckdb/pull/13386>`__
      - Implemented
-   * - `fastexcel <https://github.com/ToucanToco/fastexcel>`__
+   * - `fastexcel <https://github.com/ToucanToco/fastexcel/pull/361>`__
      - Implemented
-   * - `GDAL/OGR <https://gdal.org/>`__
+   * - `GDAL/OGR <https://github.com/OSGeo/gdal/pull/9133>`__
      - Implemented
-   * - `GeoPandas <https://geopandas.org/>`__
+   * - `GeoPandas <https://github.com/geopandas/geopandas/pull/3219>`__
      - Implemented
-   * - `h3ronpy <https://github.com/nmandery/h3ronpy>`__
+   * - `h3ronpy <https://github.com/nmandery/h3ronpy/pull/64>`__
      - Implemented
-   * - `ibis <https://ibis-project.org/>`__
+   * - `ibis <https://github.com/ibis-project/ibis/pull/9143>`__
      - Implemented
+   * - `iceberg-python <https://github.com/apache/iceberg-python/issues/1655>`__
+     - Not yet implemented
+   * - `lance <https://github.com/lancedb/lance/issues/2630>`__
+     - Not yet implemented
+   * - `LightGBM <https://github.com/microsoft/LightGBM/issues/6204#issuecomment-2256015538>`__
+     - Not yet implemented
    * - `lonboard <https://github.com/developmentseed/lonboard>`__
      - Implemented
    * - `nanoarrow <https://arrow.apache.org/nanoarrow/>`__
      - Implemented
-   * - `narwhals <https://narwhals-dev.github.io/narwhals/>`__
+   * - `narwhals <https://github.com/narwhals-dev/narwhals/pull/786>`__
      - Implemented
-   * - `pandas <https://pandas.pydata.org/>`__
+   * - `pandas <https://github.com/pandas-dev/pandas/pull/56587>`__
      - Implemented
    * - `pantab <https://github.com/innobi/pantab>`__
      - Implemented
-   * - `Pillow <https://python-pillow.org/>`__
+   * - `Pillow <https://github.com/python-pillow/Pillow/pull/8330>`__
      - Implemented
-   * - `Polars <https://pola.rs/>`__
+   * - `Polars <https://github.com/pola-rs/polars/pull/17676>`__
      - Implemented
-   * - `PyArrow <https://arrow.apache.org/docs/python/>`__
+   * - `PyArrow <https://github.com/apache/arrow/pull/37797>`__
      - Implemented
    * - `pyogrio <https://pyogrio.readthedocs.io/>`__
      - Implemented
-   * - `PySpark <https://spark.apache.org/docs/latest/api/python/>`__
+   * - `PySpark <https://github.com/apache/spark/pull/53391>`__
      - Implemented
-   * - `quak <https://github.com/manzt/quak>`__
+   * - `quak <https://github.com/manzt/quak/pull/23>`__
      - Implemented
-   * - `VegaFusion <https://vegafusion.io/>`__
+   * - `seaborn <https://github.com/mwaskom/seaborn/issues/3756>`__
+     - Not yet implemented
+   * - `VegaFusion <https://github.com/vega/vegafusion/pull/517>`__
      - Implemented
+   * - `vortex <https://github.com/vortex-data/vortex/pull/4161>`__
+     - Not yet implemented
 
 .. _arrow_array_protocol:
 
