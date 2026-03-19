@@ -88,47 +88,47 @@ for the latest updates):
 
    * - Library
      - Status
-   * - `pandas <https://pandas.pydata.org/>`__
+   * - `arro3 <https://github.com/kylebarron/arro3>`__
      - Implemented
-   * - `Polars <https://pola.rs/>`__
-     - Implemented
-   * - `PyArrow <https://arrow.apache.org/docs/python/>`__
-     - Implemented
-   * - `nanoarrow <https://arrow.apache.org/nanoarrow/>`__
-     - Implemented
-   * - `DuckDB <https://duckdb.org/>`__
-     - Implemented
-   * - `PySpark <https://spark.apache.org/docs/latest/api/python/>`__
+   * - `cuDF <https://docs.rapids.ai/api/cudf/stable/>`__
      - Implemented
    * - `DataFusion <https://datafusion.apache.org/python/>`__
      - Implemented
-   * - `ibis <https://ibis-project.org/>`__
+   * - `DuckDB <https://duckdb.org/>`__
+     - Implemented
+   * - `fastexcel <https://github.com/ToucanToco/fastexcel>`__
      - Implemented
    * - `GDAL/OGR <https://gdal.org/>`__
      - Implemented
    * - `GeoPandas <https://geopandas.org/>`__
      - Implemented
-   * - `pyogrio <https://pyogrio.readthedocs.io/>`__
-     - Implemented
-   * - `narwhals <https://narwhals-dev.github.io/narwhals/>`__
-     - Implemented
-   * - `cuDF <https://docs.rapids.ai/api/cudf/stable/>`__
-     - Implemented
-   * - `arro3 <https://github.com/kylebarron/arro3>`__
-     - Implemented
-   * - `Pillow <https://python-pillow.org/>`__
-     - Implemented
-   * - `VegaFusion <https://vegafusion.io/>`__
-     - Implemented
-   * - `fastexcel <https://github.com/ToucanToco/fastexcel>`__
-     - Implemented
-   * - `pantab <https://github.com/innobi/pantab>`__
-     - Implemented
    * - `h3ronpy <https://github.com/nmandery/h3ronpy>`__
+     - Implemented
+   * - `ibis <https://ibis-project.org/>`__
      - Implemented
    * - `lonboard <https://github.com/developmentseed/lonboard>`__
      - Implemented
+   * - `nanoarrow <https://arrow.apache.org/nanoarrow/>`__
+     - Implemented
+   * - `narwhals <https://narwhals-dev.github.io/narwhals/>`__
+     - Implemented
+   * - `pandas <https://pandas.pydata.org/>`__
+     - Implemented
+   * - `pantab <https://github.com/innobi/pantab>`__
+     - Implemented
+   * - `Pillow <https://python-pillow.org/>`__
+     - Implemented
+   * - `Polars <https://pola.rs/>`__
+     - Implemented
+   * - `PyArrow <https://arrow.apache.org/docs/python/>`__
+     - Implemented
+   * - `pyogrio <https://pyogrio.readthedocs.io/>`__
+     - Implemented
+   * - `PySpark <https://spark.apache.org/docs/latest/api/python/>`__
+     - Implemented
    * - `quak <https://github.com/manzt/quak>`__
+     - Implemented
+   * - `VegaFusion <https://vegafusion.io/>`__
      - Implemented
 
 .. _arrow_array_protocol:
