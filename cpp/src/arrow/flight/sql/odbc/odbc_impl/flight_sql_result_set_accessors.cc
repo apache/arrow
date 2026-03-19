@@ -29,6 +29,13 @@
 #include "arrow/flight/sql/odbc/odbc_impl/accessors/timestamp_array_accessor.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
+// Workaround for ODBC `BOOL` def conflict on Linux
+#ifdef __linux__
+#  ifdef BOOL
+#    undef BOOL
+#  endif  // BOOL
+#endif    // __linux__
+
 namespace arrow::flight::sql::odbc {
 
 typedef std::pair<Type::type, CDataType> SourceAndTargetPair;

@@ -81,7 +81,7 @@ size_t FlightSqlResultSet::Move(size_t rows, size_t bind_offset, size_t bind_typ
   }
 
   // Reset GetData value offsets.
-  if (num_binding_ != get_data_offsets_.size() && reset_get_data_) {
+  if (static_cast<size_t>(num_binding_) != get_data_offsets_.size() && reset_get_data_) {
     std::fill(get_data_offsets_.begin(), get_data_offsets_.end(), 0);
   }
 

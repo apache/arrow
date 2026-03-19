@@ -494,7 +494,6 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorEnvErrorFromDriverManager) {
   EXPECT_FALSE(std::wstring(message).empty());
 }
 
-// TODO: verify that `SQLGetConnectOption` is not required by Excel.
 #ifndef __APPLE__
 TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorConnError) {
   // Test ODBC 2.0 API SQLError with ODBC ver 2.

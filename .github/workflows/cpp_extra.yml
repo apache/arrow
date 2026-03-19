@@ -336,6 +336,64 @@ jobs:
           cd cpp/examples/minimal_build
           ../minimal_build.build/arrow-example
 
+  odbc-linux:
+    needs: check-labels
+    name: ODBC Linux
+    runs-on: ubuntu-latest
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+    env:
+      ARCH: amd64
+      ARCHERY_DEBUG: 1
+      ARROW_ENABLE_TIMING_TESTS: OFF
+      CLANG_TOOLS: 18
+      DOCKER_VOLUME_PREFIX: ".docker/"
+      LLVM: 18
+      UBUNTU: 24.04
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@v5
+        with:
+          path: .docker
+          key: ubuntu-cpp-odbc-${{ hashFiles('cpp/**') }}
+          restore-keys: ubuntu-cpp-odbc-
+      - name: Setup Python on hosted runner
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Execute Docker Build
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run ubuntu-cpp-odbc
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push ubuntu-cpp-odbc
+
   odbc-macos:
     needs: check-labels
     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
@@ -435,7 +493,7 @@ jobs:
             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
       - name: Register Flight SQL ODBC Driver
         run: |
-          sudo cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
+          sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
       - name: Test
         shell: bash
         run: |
@@ -698,6 +756,7 @@ jobs:
       - jni-linux
       - jni-macos
       - msvc-arm64
+      - odbc-linux
       - odbc-macos
       - odbc-msvc
       - odbc-nightly

@@ -40,7 +40,16 @@ if [ ! -f "$ODBC_64BIT" ]; then
   exit 1
 fi
 
-USER_ODBCINST_FILE="$HOME/Library/ODBC/odbcinst.ini"
+case "$(uname)" in
+  Linux)
+    USER_ODBCINST_FILE="/etc/odbcinst.ini"
+    ;;
+  *)
+    # macOS
+    USER_ODBCINST_FILE="$HOME/Library/ODBC/odbcinst.ini"
+    ;;
+esac
+
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
 
 mkdir -p "$HOME"/Library/ODBC
