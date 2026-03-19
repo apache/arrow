@@ -271,8 +271,7 @@ set_pkg_vars_with_pc () {
   PKG_CFLAGS="`${PKG_CONFIG} --cflags  ${pkg_config_names}` $PKG_CFLAGS"
   PKG_CFLAGS="$PKG_CFLAGS $PKG_CFLAGS_FEATURES"
   PKG_LIBS=`${PKG_CONFIG} --libs-only-l --libs-only-other ${pkg_config_names}`
-  # TODO: Figure out how to pass these link flags properly, need this temporarily to get R to link properly.
-  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES -lcurl -lxml2 -lssl"
+  PKG_LIBS="$PKG_LIBS $PKG_LIBS_FEATURES"
   PKG_DIRS=`${PKG_CONFIG} --libs-only-L  ${pkg_config_names}`
 }
 
@@ -362,6 +361,7 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_AZURE; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_AZURE"
+      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES -lcurl -lxml2 -lssl"
     fi
     if arrow_built_with ARROW_GCS; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
