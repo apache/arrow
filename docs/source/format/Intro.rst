@@ -296,6 +296,13 @@ key is the field name and the child array its values. The field (key) is
 saved in the schema and the values of a specific field (key) are saved in
 the child array.
 
+Since child arrays are independent, Arrow does not enforce physical
+consistency between the struct's validity bitmap and those of it's children.
+Logically, a struct row is only valid if both the parent and the child
+bitmaps have a value of 1 for that slot (a logical AND operation).
+This allows for "hidden" data to exist in child arrays at null struct
+positions (see ``alice`` below).
+
 .. figure:: ./images/struct-diagram.svg
    :alt: Diagram is showing the difference between the struct data type
          presented in a Table and the data actually stored in computer
