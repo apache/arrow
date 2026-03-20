@@ -84,12 +84,10 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
     }
   }
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-  std::unique_ptr<Decryptor> header_decryptor =
-      InternalFileDecryptor::GetColumnMetaDecryptorFactory(file_decryptor_.get(),
-                                                           crypto_metadata.get())();
-  std::unique_ptr<Decryptor> bitset_decryptor =
-      InternalFileDecryptor::GetColumnMetaDecryptorFactory(file_decryptor_.get(),
-                                                           crypto_metadata.get())();
+  auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
+      file_decryptor_.get(), crypto_metadata.get());
+  std::unique_ptr<Decryptor> header_decryptor = meta_decryptor_factory();
+  std::unique_ptr<Decryptor> bitset_decryptor = meta_decryptor_factory();
   if (header_decryptor != nullptr || bitset_decryptor != nullptr) {
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
