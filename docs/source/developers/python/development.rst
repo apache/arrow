@@ -198,13 +198,13 @@ install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 .. note::
    Cython ``.pxi`` files are included in ``.pyx`` files at compile time,
    so ``--doctest-cython`` cannot be run directly on ``.pxi`` files.
-   Instead, run doctests on the ``.pyx`` file they are included in, for
-   example ``lib.pyx``::
+   In PyArrow, all ``.pxi`` files are included into ``lib.pyx``, so run
+   doctests on that file::
 
       $ python -m pytest --doctest-cython pyarrow/lib.pyx
 
    Any doctest errors originating from ``.pxi`` files will appear under
-   the corresponding ``.pyx`` file, not the original ``.pxi`` filename.
+   ``lib.pyx``, not the original ``.pxi`` filename.
 
 Testing Documentation Examples
 -------------------------------
