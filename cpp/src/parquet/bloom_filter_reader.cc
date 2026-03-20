@@ -17,7 +17,6 @@
 
 #include "parquet/bloom_filter_reader.h"
 #include "parquet/bloom_filter.h"
-#include "parquet/encryption/encryption_internal.h"
 #include "parquet/encryption/internal_file_decryptor.h"
 #include "parquet/exception.h"
 #include "parquet/metadata.h"
@@ -83,12 +82,12 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
           "bloom filter length + bloom filter offset greater than file size");
     }
   }
+
   std::unique_ptr<ColumnCryptoMetaData> crypto_metadata = col_chunk->crypto_metadata();
-  auto meta_decryptor_factory = InternalFileDecryptor::GetColumnMetaDecryptorFactory(
-      file_decryptor_.get(), crypto_metadata.get());
-  std::unique_ptr<Decryptor> header_decryptor = meta_decryptor_factory();
-  std::unique_ptr<Decryptor> bitset_decryptor = meta_decryptor_factory();
-  if (header_decryptor != nullptr || bitset_decryptor != nullptr) {
+  std::unique_ptr<Decryptor> decryptor =
+      InternalFileDecryptor::GetColumnMetaDecryptorFactory(file_decryptor_.get(),
+                                                           crypto_metadata.get())();
+  if (decryptor != nullptr) {
     constexpr auto kEncryptedOrdinalLimit = 32767;
     if (ARROW_PREDICT_FALSE(row_group_ordinal_ > kEncryptedOrdinalLimit)) {
       throw ParquetException("Encrypted files cannot contain more than 32767 row groups");
@@ -98,22 +97,17 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
     }
   }
 
-  if (header_decryptor != nullptr) {
-    UpdateDecryptor(header_decryptor.get(), row_group_ordinal_, static_cast<int16_t>(i),
-                    encryption::kBloomFilterHeader);
-  }
-  if (bitset_decryptor != nullptr) {
-    UpdateDecryptor(bitset_decryptor.get(), row_group_ordinal_, static_cast<int16_t>(i),
-                    encryption::kBloomFilterBitset);
-  }
-
   const int64_t stream_length =
       bloom_filter_length ? *bloom_filter_length : file_size - *bloom_filter_offset;
   auto stream = ::arrow::io::RandomAccessFile::GetStream(input_, *bloom_filter_offset,
                                                          stream_length);
   auto bloom_filter =
-      BlockSplitBloomFilter::Deserialize(properties_, stream->get(), bloom_filter_length,
-                                         header_decryptor.get(), bitset_decryptor.get());
+      decryptor != nullptr
+          ? BlockSplitBloomFilter::DeserializeEncrypted(
+                properties_, stream->get(), bloom_filter_length, decryptor.get(),
+                static_cast<int16_t>(row_group_ordinal_), static_cast<int16_t>(i))
+          : BlockSplitBloomFilter::Deserialize(properties_, stream->get(),
+                                               bloom_filter_length);
   return std::make_unique<BlockSplitBloomFilter>(std::move(bloom_filter));
 }
 
