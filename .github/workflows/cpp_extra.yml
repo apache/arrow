@@ -414,6 +414,12 @@ jobs:
           ODBC_INCLUDE_DIR=$LIBIODBC_DIR/include
           export ARROW_CMAKE_ARGS="-DODBC_INCLUDE_DIR=$ODBC_INCLUDE_DIR"
           export CXXFLAGS="$CXXFLAGS -I$ODBC_INCLUDE_DIR"
+
+          if [ "${{ matrix.macos-version }}" = "15-intel" ]; then
+            # GH-49563 Explicitly set llvm path to avoid linking to libunwind
+            export CLANG_TOOLS_PATH=/usr/local/opt/llvm@18/bin
+          fi
+          
           ci/scripts/cpp_build.sh $(pwd) $(pwd)/build
       - name: Setup Python
         uses: actions/setup-python@v6
