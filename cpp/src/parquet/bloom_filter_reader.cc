@@ -88,7 +88,7 @@ std::unique_ptr<BloomFilter> RowGroupBloomFilterReaderImpl::GetColumnBloomFilter
       InternalFileDecryptor::GetColumnMetaDecryptorFactory(file_decryptor_.get(),
                                                            crypto_metadata.get())();
   std::unique_ptr<Decryptor> bitset_decryptor =
-      InternalFileDecryptor::GetColumnDataDecryptorFactory(file_decryptor_.get(),
+      InternalFileDecryptor::GetColumnMetaDecryptorFactory(file_decryptor_.get(),
                                                            crypto_metadata.get())();
   if (header_decryptor != nullptr || bitset_decryptor != nullptr) {
     constexpr auto kEncryptedOrdinalLimit = 32767;
