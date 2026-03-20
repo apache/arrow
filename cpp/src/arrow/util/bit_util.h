@@ -141,15 +141,8 @@ static inline int Log2(uint64_t x) {
 
 // TODO: We can remove this condition once CRAN upgrades its macOS
 // SDK from 11.3.
-// On Clang 15.0.7 newer libc++ removed log2p1 but __cpp_lib_bitops isn't defined
-// We check the libcpp version to validate whether it's there or not.
-// Commit reference landed on 12.0.0:
-// https://github.com/llvm/llvm-project/commit/1a036e9cc82a7f6d6f4675d631fa5eecd8748784
-// _LIBCPP_VERSION might not be defined in some environments that's why we keep the
-// check for __cpp_lib_bitops as well.
-#if defined(_LIBCPP_VERSION) && _LIBCPP_VERSION >= 12000
-  return std::bit_width(x - 1);
-#elif defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
+// __apple_build_version__ should be defined only on Apple clang
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
   return std::log2p1(x - 1);
 #else
   return std::bit_width(x - 1);
