@@ -551,26 +551,26 @@ TEST(TestGeometryUtil, TestWKBBounderErrorForDeepNesting) {
   int num_levels = 200;
 
   for (int i = 0; i < num_levels; i++) {
-    nested_wkb.push_back(0x01); // little endian
-    nested_wkb.push_back(0x07); // geometry collection
+    nested_wkb.push_back(0x01);  // little endian
+    nested_wkb.push_back(0x07);  // geometry collection
     nested_wkb.push_back(0x00);
     nested_wkb.push_back(0x00);
     nested_wkb.push_back(0x00);
 
-    nested_wkb.push_back(0x01); // 1 part
+    nested_wkb.push_back(0x01);  // 1 part
     nested_wkb.push_back(0x00);
     nested_wkb.push_back(0x00);
     nested_wkb.push_back(0x00);
   }
 
   // Final part is an empty geometry collection
-  nested_wkb.push_back(0x01); // little endian
-  nested_wkb.push_back(0x07); // geometry collection
+  nested_wkb.push_back(0x01);  // little endian
+  nested_wkb.push_back(0x07);  // geometry collection
   nested_wkb.push_back(0x00);
   nested_wkb.push_back(0x00);
   nested_wkb.push_back(0x00);
 
-  nested_wkb.push_back(0x00); // 0 parts
+  nested_wkb.push_back(0x00);  // 0 parts
   nested_wkb.push_back(0x00);
   nested_wkb.push_back(0x00);
   nested_wkb.push_back(0x00);
