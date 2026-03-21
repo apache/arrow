@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <concepts>
 #include <cstdint>
 #include <cstring>
 #include <memory>
@@ -123,11 +124,11 @@ struct KernelStateFromFunctionOptions : public KernelState {
 // ----------------------------------------------------------------------
 // Input and output value type definitions
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct GetViewType;
 
-template <typename Type>
-struct GetViewType<Type, enable_if_has_c_type<Type>> {
+template <arrow_has_c_type Type>
+struct GetViewType<Type> {
   using T = typename Type::c_type;
   using PhysicalType = T;
 
@@ -143,9 +144,9 @@ struct GetViewType<HalfFloatType> {
 };
 
 template <typename Type>
-struct GetViewType<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                     is_fixed_size_binary_type<Type>::value ||
-                                     is_binary_view_like_type<Type>::value>> {
+  requires(arrow_base_binary<Type> || arrow_fixed_size_binary<Type> ||
+           arrow_binary_view_like<Type>)
+struct GetViewType<Type> {
   using T = std::string_view;
   using PhysicalType = T;
 
@@ -200,11 +201,11 @@ struct GetViewType<Decimal256Type> {
   static T LogicalValue(T value) { return value; }
 };
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct GetOutputType;
 
-template <typename Type>
-struct GetOutputType<Type, enable_if_has_c_type<Type>> {
+template <arrow_has_c_type Type>
+struct GetOutputType<Type> {
   using T = typename Type::c_type;
 };
 
@@ -213,8 +214,8 @@ struct GetOutputType<HalfFloatType> {
   using T = Float16;
 };
 
-template <typename Type>
-struct GetOutputType<Type, enable_if_t<is_string_like_type<Type>::value>> {
+template <arrow_string_like Type>
+struct GetOutputType<Type> {
   using T = std::string;
 };
 
@@ -239,7 +240,7 @@ struct GetOutputType<Decimal256Type> {
 };
 
 // ----------------------------------------------------------------------
-// enable_if helpers for C types
+// Local concepts for value-category and callback dispatch
 
 template <typename T>
 using is_unsigned_integer_value =
@@ -255,6 +256,8 @@ using is_integer_value =
     std::integral_constant<bool, is_signed_integer_value<T>::value ||
                                      is_unsigned_integer_value<T>::value>;
 
+// Keep these local aliases for compatibility with neighboring kernel .cc files
+// that still depend on codegen_internal.h for value-category SFINAE helpers.
 template <typename T, typename R = T>
 using enable_if_signed_integer_value = enable_if_t<is_signed_integer_value<T>::value, R>;
 
@@ -290,13 +293,26 @@ template <typename T, typename R = void>
 using enable_if_c_number_or_decimal = enable_if_t<
     (has_c_type<T>::value && !is_boolean_type<T>::value) || is_decimal_type<T>::value, R>;
 
+template <typename T>
+concept codegen_c_number_or_decimal =
+    (arrow_has_c_type<T> && !arrow_boolean<T>) || arrow_decimal<T>;
+
+template <typename VisitFunc, typename Arg>
+concept codegen_visit_returns_void =
+    std::same_as<void, std::invoke_result_t<VisitFunc&, Arg>>;
+
+template <typename VisitFunc, typename Arg>
+concept codegen_visit_returns_status =
+    std::same_as<Status, std::invoke_result_t<VisitFunc&, Arg>>;
+
 // Iterator over various input array types, yielding a GetViewType<Type>
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct ArrayIterator;
 
 template <typename Type>
-struct ArrayIterator<Type, enable_if_c_number_or_decimal<Type>> {
+  requires codegen_c_number_or_decimal<Type>
+struct ArrayIterator<Type> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
   const T* values;
 
@@ -313,8 +329,8 @@ struct ArrayIterator<HalfFloatType> {
   T operator()() { return *values++; }
 };
 
-template <typename Type>
-struct ArrayIterator<Type, enable_if_boolean<Type>> {
+template <arrow_boolean Type>
+struct ArrayIterator<Type> {
   BitmapReader reader;
 
   explicit ArrayIterator(const ArraySpan& arr)
@@ -326,8 +342,8 @@ struct ArrayIterator<Type, enable_if_boolean<Type>> {
   }
 };
 
-template <typename Type>
-struct ArrayIterator<Type, enable_if_base_binary<Type>> {
+template <arrow_base_binary Type>
+struct ArrayIterator<Type> {
   using offset_type = typename Type::offset_type;
   const ArraySpan& arr;
   const offset_type* offsets;
@@ -372,11 +388,12 @@ struct ArrayIterator<FixedSizeBinaryType> {
 
 // Iterator over various output array types, taking a GetOutputType<Type>
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct OutputArrayWriter;
 
 template <typename Type>
-struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
+  requires codegen_c_number_or_decimal<Type>
+struct OutputArrayWriter<Type> {
   using T = typename TypeTraits<Type>::ScalarType::ValueType;
   T* values;
 
@@ -395,11 +412,11 @@ struct OutputArrayWriter<Type, enable_if_c_number_or_decimal<Type>> {
 
 // (Un)box Scalar to / from C++ value
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct UnboxScalar;
 
-template <typename Type>
-struct UnboxScalar<Type, enable_if_has_c_type<Type>> {
+template <arrow_has_c_type Type>
+struct UnboxScalar<Type> {
   using T = typename Type::c_type;
   static T Unbox(const Scalar& val) {
     std::string_view view =
@@ -417,8 +434,8 @@ struct UnboxScalar<HalfFloatType> {
   }
 };
 
-template <typename Type>
-struct UnboxScalar<Type, enable_if_has_string_view<Type>> {
+template <arrow_has_string_view Type>
+struct UnboxScalar<Type> {
   using T = std::string_view;
   static T Unbox(const Scalar& val) {
     if (!val.is_valid) return std::string_view();
@@ -462,9 +479,9 @@ struct UnboxScalar<Decimal256Type> {
 // values, such as Decimal128 rather than std::string_view.
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, void>::type
-VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                       NullFunc&& null_func) {
+  requires codegen_visit_returns_void<VisitFunc, typename GetViewType<T>::T>
+static void VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                                   NullFunc&& null_func) {
   VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -474,9 +491,9 @@ VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
 }
 
 template <typename T, typename VisitFunc, typename NullFunc>
-static typename ::arrow::internal::call_traits::enable_if_return<VisitFunc, Status>::type
-VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
-                       NullFunc&& null_func) {
+  requires codegen_visit_returns_status<VisitFunc, typename GetViewType<T>::T>
+static Status VisitArrayValuesInline(const ArraySpan& arr, VisitFunc&& valid_func,
+                                     NullFunc&& null_func) {
   return VisitArraySpanInline<T>(
       arr,
       [&](typename GetViewType<T>::PhysicalType v) {
@@ -582,11 +599,11 @@ static Status SimpleBinary(KernelContext* ctx, const ExecSpan& batch, ExecResult
 // of output values to write into output memory. Boolean and primitive outputs
 // are currently implemented, and the validity bitmap is presumed to be handled
 // at a higher level, so this writes into every output slot, null or not.
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct OutputAdapter;
 
-template <typename Type>
-struct OutputAdapter<Type, enable_if_boolean<Type>> {
+template <arrow_boolean Type>
+struct OutputAdapter<Type> {
   template <typename Generator>
   static Status Write(KernelContext*, ArraySpan* out, Generator&& generator) {
     GenerateBitsUnrolled(out->buffers[1].data, out->offset, out->length,
@@ -596,7 +613,8 @@ struct OutputAdapter<Type, enable_if_boolean<Type>> {
 };
 
 template <typename Type>
-struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
+  requires codegen_c_number_or_decimal<Type>
+struct OutputAdapter<Type> {
   using T = std::conditional_t<std::is_same_v<Type, HalfFloatType>, Float16,
                                typename TypeTraits<Type>::ScalarType::ValueType>;
 
@@ -611,8 +629,8 @@ struct OutputAdapter<Type, enable_if_c_number_or_decimal<Type>> {
   }
 };
 
-template <typename Type>
-struct OutputAdapter<Type, enable_if_base_binary<Type>> {
+template <arrow_base_binary Type>
+struct OutputAdapter<Type> {
   template <typename Generator>
   static Status Write(KernelContext* ctx, ArraySpan* out, Generator&& generator) {
     return Status::NotImplemented("NYI");
@@ -668,7 +686,7 @@ struct ScalarUnaryNotNullStateful {
 
   // NOTE: In ArrayExec<Type>, Type is really OutputType
 
-  template <typename Type, typename Enable = void>
+  template <typename Type>
   struct ArrayExec {
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ExecSpan& batch,
                        ExecResult* out) {
@@ -679,7 +697,11 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
-  struct ArrayExec<Type, enable_if_c_number_or_decimal<Type>> {
+    requires codegen_c_number_or_decimal<Type>
+  struct ArrayExec<Type> {
+    using OutValue = typename GetOutputType<OutType>::T;
+    using Arg0Value = typename GetViewType<Arg0Type>::T;
+
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();
@@ -698,7 +720,11 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
-  struct ArrayExec<Type, enable_if_base_binary<Type>> {
+    requires arrow_base_binary<Type>
+  struct ArrayExec<Type> {
+    using OutValue = typename GetOutputType<OutType>::T;
+    using Arg0Value = typename GetViewType<Arg0Type>::T;
+
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       // NOTE: This code is not currently used by any kernels and has
@@ -720,7 +746,11 @@ struct ScalarUnaryNotNullStateful {
   };
 
   template <typename Type>
-  struct ArrayExec<Type, enable_if_t<is_boolean_type<Type>::value>> {
+    requires arrow_boolean<Type>
+  struct ArrayExec<Type> {
+    using OutValue = typename GetOutputType<OutType>::T;
+    using Arg0Value = typename GetViewType<Arg0Type>::T;
+
     static Status Exec(const ThisType& functor, KernelContext* ctx, const ArraySpan& arg0,
                        ExecResult* out) {
       Status st = Status::OK();

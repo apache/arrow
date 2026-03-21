@@ -18,6 +18,7 @@
 #pragma once
 
 #include <cmath>
+#include <concepts>
 #include <initializer_list>
 
 #include "arrow/compute/kernels/util_internal.h"
@@ -30,52 +31,52 @@
 namespace arrow::compute::internal {
 
 // Find the largest compatible primitive type for a primitive type.
-template <typename I, typename Enable = void>
+template <typename I>
 struct FindAccumulatorType {};
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_boolean<I>> {
+template <arrow_boolean I>
+struct FindAccumulatorType<I> {
   using Type = UInt64Type;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_signed_integer<I>> {
+template <arrow_signed_integer I>
+struct FindAccumulatorType<I> {
   using Type = Int64Type;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_unsigned_integer<I>> {
+template <arrow_unsigned_integer I>
+struct FindAccumulatorType<I> {
   using Type = UInt64Type;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_floating_point<I>> {
+template <arrow_floating_point I>
+struct FindAccumulatorType<I> {
   using Type = DoubleType;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_decimal32<I>> {
+template <arrow_decimal32 I>
+struct FindAccumulatorType<I> {
   using Type = Decimal32Type;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_decimal64<I>> {
+template <arrow_decimal64 I>
+struct FindAccumulatorType<I> {
   using Type = Decimal64Type;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_decimal128<I>> {
+template <arrow_decimal128 I>
+struct FindAccumulatorType<I> {
   using Type = Decimal128Type;
 };
 
-template <typename I>
-struct FindAccumulatorType<I, enable_if_decimal256<I>> {
+template <arrow_decimal256 I>
+struct FindAccumulatorType<I> {
   using Type = Decimal256Type;
 };
 
 // Helpers for implementing aggregations on decimals
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct MultiplyTraits {
   using CType = typename TypeTraits<Type>::CType;
 
@@ -86,8 +87,8 @@ struct MultiplyTraits {
   }
 };
 
-template <typename Type>
-struct MultiplyTraits<Type, enable_if_decimal<Type>> {
+template <arrow_decimal Type>
+struct MultiplyTraits<Type> {
   using CType = typename TypeTraits<Type>::CType;
 
   constexpr static CType one(const DataType& ty) {
@@ -129,21 +130,21 @@ void AddAggKernel(std::shared_ptr<KernelSignature> sig, KernelInit init,
 
 using arrow::internal::VisitSetBitRunsVoid;
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct GetSumType;
 
-template <typename T>
-struct GetSumType<T, enable_if_floating_point<T>> {
+template <arrow_floating_point T>
+struct GetSumType<T> {
   using SumType = double;
 };
 
-template <typename T>
-struct GetSumType<T, enable_if_integer<T>> {
+template <arrow_integer T>
+struct GetSumType<T> {
   using SumType = arrow::internal::int128_t;
 };
 
-template <typename T>
-struct GetSumType<T, enable_if_decimal<T>> {
+template <arrow_decimal T>
+struct GetSumType<T> {
   using SumType = typename TypeTraits<T>::CType;
 };
 
@@ -156,8 +157,8 @@ struct GetSumType<T, enable_if_decimal<T>> {
 // https://en.wikipedia.org/wiki/Pairwise_summation
 template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
-enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
-    const ArraySpan& data, ValueFunc&& func) {
+  requires std::floating_point<SumType>
+SumType SumArray(const ArraySpan& data, ValueFunc&& func) {
   using arrow::internal::VisitSetBitRunsVoid;
 
   const int64_t data_size = data.length - data.GetNullCount();
@@ -234,8 +235,8 @@ enable_if_t<std::is_floating_point<SumType>::value, SumType> SumArray(
 // naive summation for integers and decimals
 template <typename ValueType, typename SumType, SimdLevel::type SimdLevel,
           typename ValueFunc>
-enable_if_t<!std::is_floating_point<SumType>::value, SumType> SumArray(
-    const ArraySpan& data, ValueFunc&& func) {
+  requires(!std::floating_point<SumType>)
+SumType SumArray(const ArraySpan& data, ValueFunc&& func) {
   using arrow::internal::VisitSetBitRunsVoid;
 
   SumType sum = 0;
