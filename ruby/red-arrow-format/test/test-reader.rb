@@ -675,18 +675,36 @@ module ReaderTests
   end
 end
 
+module FileReaderTests
+  def test_custom_metadata_footer
+    Dir.mktmpdir do |tmp_dir|
+      table = Arrow::Table.new(value: Arrow::Int8Array.new([1, 2, 3]))
+      metadata = {
+        "key1" => "value1",
+        "key2" => "value2",
+      }
+      open_input(table, tmp_dir, metadata: metadata) do |input|
+        reader = reader_class.new(input)
+        assert_equal(metadata, reader.metadata)
+      end
+    ensure
+      GC.start
+    end
+  end
+end
+
 module FileInput
-  def open_input(table, tmp_dir, &block)
+  def open_input(table, tmp_dir, **options, &block)
     path = File.join(tmp_dir, "data.#{file_extension}")
-    table.save(path)
+    table.save(path, **options)
     File.open(path, "rb", &block)
   end
 end
 
 module PipeInput
-  def open_input(table, tmp_dir, &block)
+  def open_input(table, tmp_dir, **options)
     buffer = Arrow::ResizableBuffer.new(4096)
-    table.save(buffer, format: format)
+    table.save(buffer, format: format, **options)
     IO.pipe do |input, output|
       write_thread = Thread.new do
         output.write(buffer.data.to_s)
@@ -701,15 +719,16 @@ module PipeInput
 end
 
 module StringInput
-  def open_input(table, tmp_dir)
+  def open_input(table, tmp_dir, **options)
     buffer = Arrow::ResizableBuffer.new(4096)
-    table.save(buffer, format: format)
+    table.save(buffer, format: format, **options)
     yield(buffer.data.to_s)
   end
 end
 
 class TestFileReaderFileInput < Test::Unit::TestCase
   include ReaderTests
+  include FileReaderTests
   include FileInput
 
   def file_extension
@@ -723,6 +742,7 @@ end
 
 class TestFileReaderStringInput < Test::Unit::TestCase
   include ReaderTests
+  include FileReaderTests
   include StringInput
 
   def format

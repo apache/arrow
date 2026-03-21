@@ -26,5 +26,6 @@ gem "red-arrow", path: "../red-arrow"
 group :development do
   gem "benchmark-driver"
   gem "rake"
+  gem "stringio"
   gem "test-unit"
 end

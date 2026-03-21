@@ -924,6 +924,26 @@ module WriterTests
   end
 end
 
+module FileWriterTests
+  def test_custom_metadata_footer
+    output = StringIO.new(+"".b)
+    writer = writer_class.new(output)
+    field = ArrowFormat::Field.new("value", ArrowFormat::BooleanType.new)
+    schema = ArrowFormat::Schema.new([field])
+    writer.start(schema)
+    metadata = {
+      "key1" => "value1",
+      "key2" => "value2",
+    }
+    writer.finish(metadata)
+    buffer = Arrow::Buffer.new(output.string)
+    Arrow::BufferInputStream.open(buffer) do |input|
+      reader = Arrow::RecordBatchFileReader.new(input)
+      assert_equal(metadata, reader.metadata)
+    end
+  end
+end
+
 module WriterDictionaryDeltaTests
   def build_schema(value_type)
     index_type = ArrowFormat::Int32Type.singleton
@@ -1513,6 +1533,7 @@ class TestFileWriter < Test::Unit::TestCase
 
   sub_test_case("Basic") do
     include WriterTests
+    include FileWriterTests
   end
 
   sub_test_case("Dictionary: delta") do
