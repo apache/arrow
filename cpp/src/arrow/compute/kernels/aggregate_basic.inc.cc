@@ -188,8 +188,8 @@ struct SumLikeInit {
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
+  template <arrow_number Type>
+  Status Visit(const Type&) {
     auto ty = TypeTraits<typename KernelClass<Type>::SumType>::type_singleton();
     state.reset(new KernelClass<Type>(ty, options));
     return Status::OK();
@@ -197,8 +197,8 @@ struct SumLikeInit {
 
   // By default, we widen the decimal to max precision for SumLikes
   // However, this may not be the desired behaviour (see, e.g., MeanKernelInit)
-  template <typename Type>
-  enable_if_decimal<Type, Status> Visit(const Type&) {
+  template <arrow_decimal Type>
+  Status Visit(const Type&) {
     if (PromoteDecimal()) {
       ARROW_ASSIGN_OR_RAISE(auto ty, WidenDecimalToMaxPrecision(type));
       state.reset(new KernelClass<Type>(ty, options));
@@ -223,12 +223,12 @@ struct SumLikeInit {
 // ----------------------------------------------------------------------
 // Mean implementation
 
-template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
+template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MeanImpl;
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
-    : public SumImpl<ArrowType, SimdLevel> {
+  requires arrow_decimal<ArrowType>
+struct MeanImpl<ArrowType, SimdLevel> : public SumImpl<ArrowType, SimdLevel> {
   using SumImpl<ArrowType, SimdLevel>::SumImpl;
   using SumImpl<ArrowType, SimdLevel>::options;
   using SumCType = typename SumImpl<ArrowType, SimdLevel>::SumCType;
@@ -260,8 +260,8 @@ struct MeanImpl<ArrowType, SimdLevel, enable_if_decimal<ArrowType>>
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MeanImpl<ArrowType, SimdLevel,
-                std::enable_if_t<!is_decimal_type<ArrowType>::value>>
+  requires(!arrow_decimal<ArrowType>)
+struct MeanImpl<ArrowType, SimdLevel>
     // Override the ResultType of SumImpl because we need to use double for intermediate
     // sum to prevent integer overflows
     : public SumImpl<ArrowType, SimdLevel, DoubleType> {
@@ -302,11 +302,11 @@ struct MeanKernelInit : public SumLikeInit<KernelClass> {
 // ----------------------------------------------------------------------
 // FirstLast implementation
 
-template <typename ArrowType, typename Enable = void>
+template <typename ArrowType>
 struct FirstLastState {};
 
-template <typename ArrowType>
-struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
+template <arrow_boolean ArrowType>
+struct FirstLastState<ArrowType> {
   using ThisType = FirstLastState<ArrowType>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
@@ -337,8 +337,8 @@ struct FirstLastState<ArrowType, enable_if_boolean<ArrowType>> {
   bool has_any_values = false;
 };
 
-template <typename ArrowType>
-struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
+template <arrow_physical_integer ArrowType>
+struct FirstLastState<ArrowType> {
   using ThisType = FirstLastState<ArrowType>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
@@ -377,8 +377,8 @@ struct FirstLastState<ArrowType, enable_if_physical_integer<ArrowType>> {
   bool has_any_values = false;
 };
 
-template <typename ArrowType>
-struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
+template <arrow_floating_point ArrowType>
+struct FirstLastState<ArrowType> {
   using ThisType = FirstLastState<ArrowType>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
@@ -410,9 +410,8 @@ struct FirstLastState<ArrowType, enable_if_floating_point<ArrowType>> {
 };
 
 template <typename ArrowType>
-struct FirstLastState<ArrowType,
-                      enable_if_t<is_base_binary_type<ArrowType>::value ||
-                                  std::is_same<ArrowType, FixedSizeBinaryType>::value>> {
+  requires(arrow_base_binary<ArrowType> || std::same_as<ArrowType, FixedSizeBinaryType>)
+struct FirstLastState<ArrowType> {
   using ThisType = FirstLastState<ArrowType>;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
@@ -593,28 +592,29 @@ struct FirstLastInitState {
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_physical_integer<Type, Status> Visit(const Type&) {
+  template <arrow_physical_integer Type>
+  Status Visit(const Type&) {
     using PhysicalType = typename Type::PhysicalType;
     state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_physical_floating_point<Type, Status> Visit(const Type&) {
+  template <arrow_physical_floating_point Type>
+  Status Visit(const Type&) {
     using PhysicalType = typename Type::PhysicalType;
     state.reset(new FirstLastImpl<PhysicalType>(out_type, options));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
+  template <arrow_base_binary Type>
+  Status Visit(const Type&) {
     state.reset(new FirstLastImpl<Type>(out_type, options));
     return Status::OK();
   }
 
   template <typename Type>
-  enable_if_t<std::is_same<Type, FixedSizeBinaryType>::value, Status> Visit(const Type&) {
+    requires std::same_as<Type, FixedSizeBinaryType>
+  Status Visit(const Type&) {
     state.reset(new FirstLastImpl<Type>(out_type, options));
     return Status::OK();
   }
@@ -628,11 +628,11 @@ struct FirstLastInitState {
 // ----------------------------------------------------------------------
 // MinMax implementation
 
-template <typename ArrowType, SimdLevel::type SimdLevel, typename Enable = void>
+template <typename ArrowType, SimdLevel::type SimdLevel>
 struct MinMaxState {};
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MinMaxState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
+template <arrow_boolean ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
 
@@ -653,8 +653,8 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_boolean<ArrowType>> {
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MinMaxState<ArrowType, SimdLevel, enable_if_integer<ArrowType>> {
+template <arrow_integer ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
@@ -676,8 +676,8 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_integer<ArrowType>> {
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
+template <arrow_floating_point ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename ArrowType::c_type;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
@@ -699,8 +699,8 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_floating_point<ArrowType>> {
   bool has_nulls = false;
 };
 
-template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
+template <arrow_decimal ArrowType, SimdLevel::type SimdLevel>
+struct MinMaxState<ArrowType, SimdLevel> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using T = typename TypeTraits<ArrowType>::CType;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
@@ -729,9 +729,8 @@ struct MinMaxState<ArrowType, SimdLevel, enable_if_decimal<ArrowType>> {
 };
 
 template <typename ArrowType, SimdLevel::type SimdLevel>
-struct MinMaxState<ArrowType, SimdLevel,
-                   enable_if_t<is_base_binary_type<ArrowType>::value ||
-                               std::is_same<ArrowType, FixedSizeBinaryType>::value>> {
+  requires(arrow_base_binary<ArrowType> || std::same_as<ArrowType, FixedSizeBinaryType>)
+struct MinMaxState<ArrowType, SimdLevel> {
   using ThisType = MinMaxState<ArrowType, SimdLevel>;
   using ScalarType = typename TypeTraits<ArrowType>::ScalarType;
 
@@ -1009,27 +1008,27 @@ struct MinMaxInitState {
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_physical_integer<Type, Status> Visit(const Type&) {
+  template <arrow_physical_integer Type>
+  Status Visit(const Type&) {
     using PhysicalType = typename Type::PhysicalType;
     state.reset(new MinMaxImpl<PhysicalType, SimdLevel>(out_type, options));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_floating_point<Type, Status> Visit(const Type&) {
+  template <arrow_floating_point Type>
+  Status Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
+  template <arrow_base_binary Type>
+  Status Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_fixed_size_binary<Type, Status> Visit(const Type&) {
+  template <arrow_fixed_size_binary Type>
+  Status Visit(const Type&) {
     state.reset(new MinMaxImpl<Type, SimdLevel>(out_type, options));
     return Status::OK();
   }

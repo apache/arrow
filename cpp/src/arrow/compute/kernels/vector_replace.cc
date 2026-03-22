@@ -114,12 +114,12 @@ int64_t ReplaceMaskArrayImpl(const ArraySpan& array, const ArraySpan& mask,
   return replacements_offset;
 }
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct ReplaceMaskImpl {};
 
 template <typename Type>
-struct ReplaceMaskImpl<
-    Type, enable_if_t<!(is_base_binary_type<Type>::value || is_null_type<Type>::value)>> {
+  requires(!arrow_base_binary<Type> && !arrow_null<Type>)
+struct ReplaceMaskImpl<Type> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
@@ -212,8 +212,8 @@ struct ReplaceMaskImpl<
   }
 };
 
-template <typename Type>
-struct ReplaceMaskImpl<Type, enable_if_null<Type>> {
+template <arrow_null Type>
+struct ReplaceMaskImpl<Type> {
   static Result<int64_t> ExecScalarMask(KernelContext* ctx, const ArraySpan& array,
                                         const BooleanScalar& mask, ExecValue replacements,
                                         int64_t replacements_offset, ExecResult* out) {
@@ -229,8 +229,8 @@ struct ReplaceMaskImpl<Type, enable_if_null<Type>> {
   }
 };
 
-template <typename Type>
-struct ReplaceMaskImpl<Type, enable_if_base_binary<Type>> {
+template <arrow_base_binary Type>
+struct ReplaceMaskImpl<Type> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
@@ -518,15 +518,13 @@ void FillNullInDirectionImpl(const ArraySpan& current_chunk, const uint8_t* null
   out_arr->null_count = kUnknownNullCount;
 }
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct FillNullImpl {};
 
 template <typename Type>
-struct FillNullImpl<
-    Type,
-    enable_if_t<is_number_type<Type>::value || is_boolean_type<Type>::value ||
-                is_boolean_type<Type>::value || is_fixed_size_binary_type<Type>::value ||
-                std::is_same<Type, MonthDayNanoIntervalType>::value>> {
+  requires(arrow_number<Type> || arrow_boolean<Type> || arrow_fixed_size_binary<Type> ||
+           std::is_same_v<Type, MonthDayNanoIntervalType>)
+struct FillNullImpl<Type> {
   static Status Exec(KernelContext* ctx, const ArraySpan& array,
                      const uint8_t* reversed_bitmap, ExecResult* out, int8_t direction,
                      const ArraySpan& last_valid_value_chunk,
@@ -537,8 +535,8 @@ struct FillNullImpl<
   }
 };
 
-template <typename Type>
-struct FillNullImpl<Type, enable_if_base_binary<Type>> {
+template <arrow_base_binary Type>
+struct FillNullImpl<Type> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
@@ -628,8 +626,8 @@ struct FillNullImpl<Type, enable_if_base_binary<Type>> {
   }
 };
 
-template <typename Type>
-struct FillNullImpl<Type, enable_if_null<Type>> {
+template <arrow_null Type>
+struct FillNullImpl<Type> {
   static Status Exec(KernelContext* ctx, const ArraySpan& array,
                      const uint8_t* reversed_bitmap, ExecResult* out, int8_t direction,
                      const ArraySpan& last_valid_value_chunk,

@@ -105,8 +105,8 @@ struct ShiftLeft {
 // See SEI CERT C Coding Standard rule INT34-C
 struct ShiftLeftChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_unsigned_integer_value<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
-                                                  Status* st) {
+    requires is_unsigned_integer_value<T>::value
+  static T Call(KernelContext*, Arg0 lhs, Arg1 rhs, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
       *st = Status::Invalid("shift amount must be >= 0 and less than precision of type");
@@ -116,8 +116,8 @@ struct ShiftLeftChecked {
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_signed_integer_value<T> Call(KernelContext*, Arg0 lhs, Arg1 rhs,
-                                                Status* st) {
+    requires is_signed_integer_value<T>::value
+  static T Call(KernelContext*, Arg0 lhs, Arg1 rhs, Status* st) {
     using Unsigned = typename std::make_unsigned<Arg0>::type;
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(rhs < 0 || rhs >= std::numeric_limits<Arg0>::digits)) {
@@ -162,7 +162,8 @@ struct ShiftRightChecked {
 
 struct Sin {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::sin(val);
   }
@@ -170,7 +171,8 @@ struct Sin {
 
 struct SinChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(std::isinf(val))) {
       *st = Status::Invalid("domain error");
@@ -182,7 +184,8 @@ struct SinChecked {
 
 struct Sinh {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::sinh(val);
   }
@@ -190,7 +193,8 @@ struct Sinh {
 
 struct Cos {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::cos(val);
   }
@@ -198,7 +202,8 @@ struct Cos {
 
 struct CosChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(std::isinf(val))) {
       *st = Status::Invalid("domain error");
@@ -210,7 +215,8 @@ struct CosChecked {
 
 struct Cosh {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::cosh(val);
   }
@@ -218,7 +224,8 @@ struct Cosh {
 
 struct Tan {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::tan(val);
   }
@@ -226,7 +233,8 @@ struct Tan {
 
 struct TanChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(std::isinf(val))) {
       *st = Status::Invalid("domain error");
@@ -239,7 +247,8 @@ struct TanChecked {
 
 struct Tanh {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::tanh(val);
   }
@@ -247,7 +256,8 @@ struct Tanh {
 
 struct Asin {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(val < -1.0 || val > 1.0)) {
       return std::numeric_limits<T>::quiet_NaN();
@@ -258,7 +268,8 @@ struct Asin {
 
 struct AsinChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(val < -1.0 || val > 1.0)) {
       *st = Status::Invalid("domain error");
@@ -270,7 +281,8 @@ struct AsinChecked {
 
 struct Asinh {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::asinh(val);
   }
@@ -278,7 +290,8 @@ struct Asinh {
 
 struct Acos {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
       return std::numeric_limits<T>::quiet_NaN();
@@ -289,7 +302,8 @@ struct Acos {
 
 struct AcosChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
       *st = Status::Invalid("domain error");
@@ -301,7 +315,8 @@ struct AcosChecked {
 
 struct Acosh {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(val < 1.0)) {
       return std::numeric_limits<T>::quiet_NaN();
@@ -312,7 +327,8 @@ struct Acosh {
 
 struct AcoshChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE(val < 1.0)) {
       *st = Status::Invalid("domain error");
@@ -324,7 +340,8 @@ struct AcoshChecked {
 
 struct Atan {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     return std::atan(val);
   }
@@ -332,7 +349,8 @@ struct Atan {
 
 struct Atanh {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val < -1.0 || val > 1.0))) {
       // N.B. This predicate does *not* match the predicate in AtanhChecked. In
@@ -346,7 +364,8 @@ struct Atanh {
 
 struct AtanhChecked {
   template <typename T, typename Arg0>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 val, Status* st) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 val, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     if (ARROW_PREDICT_FALSE((val <= -1.0 || val >= 1.0))) {
       // N.B. This predicate does *not* match the predicate in Atanh. In GH-44630 it was
@@ -361,7 +380,8 @@ struct AtanhChecked {
 
 struct Atan2 {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<Arg0, T> Call(KernelContext*, Arg0 y, Arg1 x, Status*) {
+    requires std::is_floating_point_v<Arg0>
+  static T Call(KernelContext*, Arg0 y, Arg1 x, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     return std::atan2(y, x);
@@ -370,7 +390,8 @@ struct Atan2 {
 
 struct LogNatural {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       return -std::numeric_limits<T>::infinity();
@@ -383,7 +404,8 @@ struct LogNatural {
 
 struct LogNaturalChecked {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       *st = Status::Invalid("logarithm of zero");
@@ -398,7 +420,8 @@ struct LogNaturalChecked {
 
 struct Log10 {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       return -std::numeric_limits<T>::infinity();
@@ -411,7 +434,8 @@ struct Log10 {
 
 struct Log10Checked {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0) {
       *st = Status::Invalid("logarithm of zero");
@@ -426,7 +450,8 @@ struct Log10Checked {
 
 struct Log2 {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       return -std::numeric_limits<T>::infinity();
@@ -439,7 +464,8 @@ struct Log2 {
 
 struct Log2Checked {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == 0.0) {
       *st = Status::Invalid("logarithm of zero");
@@ -454,7 +480,8 @@ struct Log2Checked {
 
 struct Log1p {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status*) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == -1) {
       return -std::numeric_limits<T>::infinity();
@@ -467,7 +494,8 @@ struct Log1p {
 
 struct Log1pChecked {
   template <typename T, typename Arg>
-  static enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg, Status* st) {
+    requires std::is_floating_point_v<Arg>
+  static T Call(KernelContext*, Arg arg, Status* st) {
     static_assert(std::is_same<T, Arg>::value, "");
     if (arg == -1) {
       *st = Status::Invalid("logarithm of zero");
@@ -482,7 +510,8 @@ struct Log1pChecked {
 
 struct Logb {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
+    requires std::is_floating_point_v<T>
+  static T Call(KernelContext*, Arg0 x, Arg1 base, Status*) {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     if (x == 0.0) {
@@ -500,7 +529,8 @@ struct Logb {
 
 struct LogbChecked {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
+    requires std::is_floating_point_v<T>
+  static T Call(KernelContext*, Arg0 x, Arg1 base, Status* st) {
     static_assert(std::is_same<T, Arg0>::value, "");
     static_assert(std::is_same<Arg0, Arg1>::value, "");
     if (x == 0.0 || base == 0.0) {

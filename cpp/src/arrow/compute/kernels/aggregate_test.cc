@@ -2260,9 +2260,8 @@ struct MinMaxResult {
   bool is_valid = false;
 };
 
-template <typename ArrowType>
-static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
-    const Array& array) {
+template <arrow_integer ArrowType>
+static MinMaxResult<ArrowType> NaiveMinMax(const Array& array) {
   using T = typename ArrowType::c_type;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
@@ -2299,9 +2298,8 @@ static enable_if_integer<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
   return result;
 }
 
-template <typename ArrowType>
-static enable_if_floating_point<ArrowType, MinMaxResult<ArrowType>> NaiveMinMax(
-    const Array& array) {
+template <arrow_floating_point ArrowType>
+static MinMaxResult<ArrowType> NaiveMinMax(const Array& array) {
   using T = typename ArrowType::c_type;
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 

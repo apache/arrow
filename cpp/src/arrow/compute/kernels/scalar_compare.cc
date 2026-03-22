@@ -39,6 +39,11 @@ namespace internal {
 
 namespace {
 
+template <typename T>
+concept decimal_compare_value =
+    std::same_as<T, Decimal32> || std::same_as<T, Decimal64> ||
+    std::same_as<T, Decimal128> || std::same_as<T, Decimal256>;
+
 struct Equal {
   template <typename T, typename Arg0, typename Arg1>
   static constexpr T Call(KernelContext*, const Arg0& left, const Arg1& right, Status*) {
@@ -73,19 +78,22 @@ struct GreaterEqual {
 
 struct Minimum {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(Arg0 left, Arg1 right) {
+    requires std::is_floating_point_v<T>
+  static T Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmin(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
+    requires is_integer_value<T>::value
+  static T Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::min(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(Arg0 left, Arg1 right) {
+    requires decimal_compare_value<T>
+  static T Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::min(left, right);
   }
@@ -95,41 +103,48 @@ struct Minimum {
   }
 
   template <typename T>
-  static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
+    requires std::is_same_v<float, T>
+  static constexpr T antiextreme() {
     return std::nanf("");
   }
 
   template <typename T>
-  static constexpr enable_if_t<std::is_same<double, T>::value, T> antiextreme() {
+    requires std::is_same_v<double, T>
+  static constexpr T antiextreme() {
     return std::nan("");
   }
 
   template <typename T>
-  static constexpr enable_if_integer_value<T> antiextreme() {
+    requires is_integer_value<T>::value
+  static constexpr T antiextreme() {
     return std::numeric_limits<T>::max();
   }
 
   template <typename T>
-  static constexpr enable_if_decimal_value<T> antiextreme() {
+    requires decimal_compare_value<T>
+  static constexpr T antiextreme() {
     return T::GetMaxSentinel();
   }
 };
 
 struct Maximum {
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_floating_value<T> Call(Arg0 left, Arg1 right) {
+    requires std::is_floating_point_v<T>
+  static T Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::fmax(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_integer_value<T> Call(Arg0 left, Arg1 right) {
+    requires is_integer_value<T>::value
+  static T Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
 
   template <typename T, typename Arg0, typename Arg1>
-  static enable_if_decimal_value<T> Call(Arg0 left, Arg1 right) {
+    requires decimal_compare_value<T>
+  static T Call(Arg0 left, Arg1 right) {
     static_assert(std::is_same<T, Arg0>::value && std::is_same<Arg0, Arg1>::value, "");
     return std::max(left, right);
   }
@@ -139,22 +154,26 @@ struct Maximum {
   }
 
   template <typename T>
-  static constexpr enable_if_t<std::is_same<float, T>::value, T> antiextreme() {
+    requires std::is_same_v<float, T>
+  static constexpr T antiextreme() {
     return std::nanf("");
   }
 
   template <typename T>
-  static constexpr enable_if_t<std::is_same<double, T>::value, T> antiextreme() {
+    requires std::is_same_v<double, T>
+  static constexpr T antiextreme() {
     return std::nan("");
   }
 
   template <typename T>
-  static constexpr enable_if_integer_value<T> antiextreme() {
+    requires is_integer_value<T>::value
+  static constexpr T antiextreme() {
     return std::numeric_limits<T>::min();
   }
 
   template <typename T>
-  static constexpr enable_if_decimal_value<T> antiextreme() {
+    requires decimal_compare_value<T>
+  static constexpr T antiextreme() {
     return T::GetMinSentinel();
   }
 };

@@ -293,7 +293,8 @@ struct BooleanToNumber {
 };
 
 template <typename O>
-struct CastFunctor<O, BooleanType, enable_if_number<O>> {
+  requires arrow_number<O>
+struct CastFunctor<O, BooleanType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnary<O, BooleanType, BooleanToNumber>::Exec(ctx, batch,
                                                                           out);
@@ -317,17 +318,15 @@ struct ParseString {
 };
 
 template <typename O, typename I>
-struct CastFunctor<
-    O, I,
-    enable_if_t<(is_number_type<O>::value && (is_base_binary_type<I>::value ||
-                                              is_binary_view_like_type<I>::value))>> {
+  requires(arrow_number<O> && (arrow_base_binary<I> || arrow_binary_view_like<I>))
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseString<O>>::Exec(ctx, batch, out);
   }
 };
 
 template <>
-struct CastFunctor<HalfFloatType, StringType, enable_if_t<true>> {
+struct CastFunctor<HalfFloatType, StringType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<HalfFloatType, StringType,
                                           ParseString<HalfFloatType>>::Exec(ctx, batch,
@@ -393,8 +392,8 @@ struct SafeRescaleDecimalToInteger : public DecimalToIntegerMixin {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_integer_type<O>::value && is_decimal_type<I>::value>> {
+  requires(arrow_integer<O> && arrow_decimal<I>)
+struct CastFunctor<O, I> {
   using out_type = typename O::c_type;
 
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -442,8 +441,8 @@ struct IntegerToDecimal {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_decimal_type<O>::value && is_integer_type<I>::value>> {
+  requires(arrow_decimal<O> && arrow_integer<I>)
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& out_type = checked_cast<const O&>(*out->type());
     const auto out_scale = out_type.scale();
@@ -593,8 +592,8 @@ struct SafeRescaleDecimal {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_decimal_type<O>::value && is_decimal_type<I>::value>> {
+  requires(arrow_decimal<O> && arrow_decimal<I>)
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
 
@@ -647,8 +646,8 @@ struct RealToDecimal {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_decimal_type<O>::value && is_floating_type<I>::value>> {
+  requires(arrow_decimal<O> && arrow_floating_point<I>)
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& options = checked_cast<const CastState*>(ctx->state())->options;
     const auto& out_type = checked_cast<const O&>(*out->type());
@@ -716,28 +715,20 @@ struct DecimalCastFunctor {
 };
 
 template <typename I>
-struct CastFunctor<
-    Decimal32Type, I,
-    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
-    : public DecimalCastFunctor<Decimal32Type, I> {};
+  requires(arrow_base_binary<I> || arrow_binary_view_like<I>)
+struct CastFunctor<Decimal32Type, I> : public DecimalCastFunctor<Decimal32Type, I> {};
 
 template <typename I>
-struct CastFunctor<
-    Decimal64Type, I,
-    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
-    : public DecimalCastFunctor<Decimal64Type, I> {};
+  requires(arrow_base_binary<I> || arrow_binary_view_like<I>)
+struct CastFunctor<Decimal64Type, I> : public DecimalCastFunctor<Decimal64Type, I> {};
 
 template <typename I>
-struct CastFunctor<
-    Decimal128Type, I,
-    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
-    : public DecimalCastFunctor<Decimal128Type, I> {};
+  requires(arrow_base_binary<I> || arrow_binary_view_like<I>)
+struct CastFunctor<Decimal128Type, I> : public DecimalCastFunctor<Decimal128Type, I> {};
 
 template <typename I>
-struct CastFunctor<
-    Decimal256Type, I,
-    enable_if_t<is_base_binary_type<I>::value || is_binary_view_like_type<I>::value>>
-    : public DecimalCastFunctor<Decimal256Type, I> {};
+  requires(arrow_base_binary<I> || arrow_binary_view_like<I>)
+struct CastFunctor<Decimal256Type, I> : public DecimalCastFunctor<Decimal256Type, I> {};
 
 // ----------------------------------------------------------------------
 // Decimal to real
@@ -752,8 +743,8 @@ struct DecimalToReal {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<is_floating_type<O>::value && is_decimal_type<I>::value>> {
+  requires(arrow_floating_point<O> && arrow_decimal<I>)
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto in_scale = in_type.scale();

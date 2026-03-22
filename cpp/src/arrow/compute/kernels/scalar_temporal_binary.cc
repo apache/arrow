@@ -80,11 +80,9 @@ Status CheckTimezones(const ExecSpan& batch) {
 template <template <typename...> class Op, typename Duration, typename InType,
           typename OutType>
 struct TemporalBinary {
-  template <typename OptionsType, typename T = InType>
-  static enable_if_timestamp<T, Status> ExecWithOptions(KernelContext* ctx,
-                                                        const OptionsType* options,
-                                                        const ExecSpan& batch,
-                                                        ExecResult* out) {
+  template <typename OptionsType, arrow_timestamp T = InType>
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckTimezones(batch));
 
     const auto& timezone = GetInputTimezone(*batch[0].type());
@@ -105,9 +103,9 @@ struct TemporalBinary {
   }
 
   template <typename OptionsType, typename T = InType>
-  static enable_if_t<!is_timestamp_type<T>::value, Status> ExecWithOptions(
-      KernelContext* ctx, const OptionsType* options, const ExecSpan& batch,
-      ExecResult* out) {
+    requires(!arrow_timestamp<T>)
+  static Status ExecWithOptions(KernelContext* ctx, const OptionsType* options,
+                                const ExecSpan& batch, ExecResult* out) {
     using ExecTemplate = Op<Duration, NonZonedLocalizer>;
     auto op = ExecTemplate(options, NonZonedLocalizer());
     applicator::ScalarBinaryNotNullStatefulEqualTypes<OutType, T, ExecTemplate> kernel{

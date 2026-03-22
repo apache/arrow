@@ -416,15 +416,15 @@ struct ProductInit {
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
+  template <arrow_number Type>
+  Status Visit(const Type&) {
     auto ty = TypeTraits<typename ProductImpl<Type>::AccType>::type_singleton();
     state.reset(new ProductImpl<Type>(ty, options));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_decimal<Type, Status> Visit(const Type&) {
+  template <arrow_decimal Type>
+  Status Visit(const Type&) {
     state.reset(new ProductImpl<Type>(type, options));
     return Status::OK();
   }
@@ -777,14 +777,14 @@ struct IndexInit {
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
+  template <arrow_number Type>
+  Status Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
+  template <arrow_base_binary Type>
+  Status Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
@@ -794,26 +794,26 @@ struct IndexInit {
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_decimal<Type, Status> Visit(const Type&) {
+  template <arrow_decimal Type>
+  Status Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_date<Type, Status> Visit(const Type&) {
+  template <arrow_date Type>
+  Status Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_time<Type, Status> Visit(const Type&) {
+  template <arrow_time Type>
+  Status Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_timestamp<Type, Status> Visit(const Type&) {
+  template <arrow_timestamp Type>
+  Status Visit(const Type&) {
     state.reset(new IndexImpl<Type>(options, ctx->state()));
     return Status::OK();
   }

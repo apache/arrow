@@ -419,16 +419,15 @@ Status RunIfElseScalar(const BooleanScalar& cond, const ExecValue& left,
   }
 }
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct IfElseFunctor {};
 
 // only number types needs to be handled for Fixed sized primitive data types because,
 // internal::GenerateTypeAgnosticPrimitive forwards types to the corresponding unsigned
 // int type
 template <typename Type>
-struct IfElseFunctor<Type,
-                     enable_if_t<is_number_type<Type>::value ||
-                                 std::is_same<Type, MonthDayNanoIntervalType>::value>> {
+  requires(is_number_type<Type>::value || std::is_same_v<Type, MonthDayNanoIntervalType>)
+struct IfElseFunctor<Type> {
   using T = typename TypeTraits<Type>::CType;
   // A - Array, S - Scalar, X = Array/Scalar
 
@@ -535,7 +534,8 @@ struct IfElseFunctor<Type,
 };
 
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_boolean<Type>> {
+  requires arrow_boolean<Type>
+struct IfElseFunctor<Type> {
   // A - Array, S - Scalar, X = Array/Scalar
 
   // SXX
@@ -684,7 +684,8 @@ static Status IfElseGenericSXXCall(KernelContext* ctx, const BooleanScalar& cond
 }
 
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
+  requires arrow_base_binary<Type>
+struct IfElseFunctor<Type> {
   using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
@@ -905,7 +906,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type>
-struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
+  requires arrow_fixed_size_binary<Type>
+struct IfElseFunctor<Type> {
   // A - Array, S - Scalar, X = Array/Scalar
 
   // SXX
@@ -1040,8 +1042,9 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, Result<int32_t>> GetByteWidth(
-      const DataType& left_type, const DataType& right_type) {
+    requires(!is_decimal_type<T>::value)
+  static Result<int32_t> GetByteWidth(const DataType& left_type,
+                                      const DataType& right_type) {
     const int32_t width =
         checked_cast<const FixedSizeBinaryType&>(left_type).byte_width();
     DCHECK_EQ(width, checked_cast<const FixedSizeBinaryType&>(right_type).byte_width());
@@ -1049,8 +1052,9 @@ struct IfElseFunctor<Type, enable_if_fixed_size_binary<Type>> {
   }
 
   template <typename T = Type>
-  static enable_if_decimal<T, Result<int32_t>> GetByteWidth(const DataType& left_type,
-                                                            const DataType& right_type) {
+    requires is_decimal_type<T>::value
+  static Result<int32_t> GetByteWidth(const DataType& left_type,
+                                      const DataType& right_type) {
     const auto& left = checked_cast<const T&>(left_type);
     const auto& right = checked_cast<const T&>(right_type);
     DCHECK_EQ(left.precision(), right.precision());
@@ -1687,7 +1691,7 @@ Status ExecArrayCaseWhen(KernelContext* ctx, const ExecSpan& batch, ExecResult* 
   return Status::OK();
 }
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct CaseWhenFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (batch.values[0].is_array()) {
@@ -1806,7 +1810,8 @@ static Status ExecVarWidthArrayCaseWhen(
 }
 
 template <typename Type>
-struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
+  requires arrow_base_binary<Type>
+struct CaseWhenFunctor<Type> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1853,7 +1858,8 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type>
-struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
+  requires arrow_var_length_list<Type>
+struct CaseWhenFunctor<Type> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1894,7 +1900,8 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
 
 // TODO(GH-41453): a more efficient implementation for list-views is possible
 template <typename Type>
-struct CaseWhenFunctor<Type, enable_if_list_view<Type>> {
+  requires arrow_list_view<Type>
+struct CaseWhenFunctor<Type> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
@@ -1998,7 +2005,8 @@ struct CaseWhenFunctor<FixedSizeListType> {
 };
 
 template <typename Type>
-struct CaseWhenFunctor<Type, enable_if_union<Type>> {
+  requires arrow_union<Type>
+struct CaseWhenFunctor<Type> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
@@ -2378,7 +2386,7 @@ static Status ExecVarWidthCoalesce(KernelContext* ctx, const ExecSpan& batch,
                                   });
 }
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct CoalesceFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (!TypeTraits<Type>::is_parameter_free) {
@@ -2400,7 +2408,8 @@ struct CoalesceFunctor<NullType> {
 };
 
 template <typename Type>
-struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
+  requires arrow_base_binary<Type>
+struct CoalesceFunctor<Type> {
   using offset_type = typename Type::offset_type;
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
@@ -2471,9 +2480,9 @@ struct CoalesceFunctor<Type, enable_if_base_binary<Type>> {
 };
 
 template <typename Type>
-struct CoalesceFunctor<
-    Type, enable_if_t<(is_nested_type<Type>::value || is_dictionary_type<Type>::value) &&
-                      !is_union_type<Type>::value>> {
+  requires((is_nested_type<Type>::value || is_dictionary_type<Type>::value) &&
+           !is_union_type<Type>::value)
+struct CoalesceFunctor<Type> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.num_values()));
     return ExecArray(ctx, batch, out);
@@ -2494,7 +2503,8 @@ const Scalar& GetUnionScalar(const SparseUnionType&, const Scalar& value) {
 }
 
 template <typename Type>
-struct CoalesceFunctor<Type, enable_if_union<Type>> {
+  requires arrow_union<Type>
+struct CoalesceFunctor<Type> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     // Unions don't have top-level nulls, so a specialized implementation is needed
     RETURN_NOT_OK(CheckIdenticalTypes(&batch.values[0], batch.num_values()));
@@ -2619,7 +2629,7 @@ Status ExecArrayChoose(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
       });
 }
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct ChooseFunctor {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     if (batch.values[0].is_scalar()) {
@@ -2637,7 +2647,8 @@ struct ChooseFunctor<NullType> {
 };
 
 template <typename Type>
-struct ChooseFunctor<Type, enable_if_base_binary<Type>> {
+  requires arrow_base_binary<Type>
+struct ChooseFunctor<Type> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 

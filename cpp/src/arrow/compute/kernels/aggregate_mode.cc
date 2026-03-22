@@ -260,13 +260,14 @@ struct SortModer {
   using CType = typename TypeTraits<T>::CType;
   using Allocator = arrow::stl::allocator<CType>;
 
-  template <typename Type = T>
-  static enable_if_floating_point<Type, CType> GetNan() {
+  template <arrow_floating_point Type = T>
+  static CType GetNan() {
     return static_cast<CType>(NAN);
   }
 
   template <typename Type = T>
-  static enable_if_t<!is_floating_type<Type>::value, CType> GetNan() {
+    requires(!arrow_floating_point<Type>)
+  static CType GetNan() {
     DCHECK(false);
     return static_cast<CType>(0);
   }
@@ -381,7 +382,7 @@ struct CountOrSortModer {
   }
 };
 
-template <typename InType, typename Enable = void>
+template <typename InType>
 struct Moder;
 
 template <>
@@ -402,18 +403,18 @@ struct Moder<BooleanType> {
 };
 
 template <typename InType>
-struct Moder<InType, enable_if_t<(is_integer_type<InType>::value &&
-                                  (sizeof(typename InType::c_type) > 1))>> {
+  requires(arrow_integer<InType> && (sizeof(typename InType::c_type) > 1))
+struct Moder<InType> {
   CountOrSortModer<InType> impl;
 };
 
-template <typename InType>
-struct Moder<InType, enable_if_floating_point<InType>> {
+template <arrow_floating_point InType>
+struct Moder<InType> {
   SortModer<InType> impl;
 };
 
-template <typename InType>
-struct Moder<InType, enable_if_decimal<InType>> {
+template <arrow_decimal InType>
+struct Moder<InType> {
   SortModer<InType> impl;
 };
 

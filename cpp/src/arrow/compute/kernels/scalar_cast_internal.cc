@@ -37,7 +37,7 @@ namespace internal {
 
 namespace {
 
-template <typename OutType, typename InType, typename Enable = void>
+template <typename OutType, typename InType>
 struct CastPrimitive {
   ARROW_DISABLE_UBSAN("float-cast-overflow")
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
@@ -53,7 +53,8 @@ struct CastPrimitive {
 
 // Converting floating types to half float.
 template <typename InType>
-struct CastPrimitive<HalfFloatType, InType, enable_if_physical_floating_point<InType>> {
+  requires arrow_physical_floating_point<InType>
+struct CastPrimitive<HalfFloatType, InType> {
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using InT = typename InType::c_type;
     const InT* in_values = arr.GetValues<InT>(1);
@@ -66,7 +67,7 @@ struct CastPrimitive<HalfFloatType, InType, enable_if_physical_floating_point<In
 
 // Converting from half float to other floating types.
 template <>
-struct CastPrimitive<FloatType, HalfFloatType, enable_if_t<true>> {
+struct CastPrimitive<FloatType, HalfFloatType> {
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     const uint16_t* in_values = arr.GetValues<uint16_t>(1);
     float* out_values = out->GetValues<float>(1);
@@ -77,7 +78,7 @@ struct CastPrimitive<FloatType, HalfFloatType, enable_if_t<true>> {
 };
 
 template <>
-struct CastPrimitive<DoubleType, HalfFloatType, enable_if_t<true>> {
+struct CastPrimitive<DoubleType, HalfFloatType> {
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     const uint16_t* in_values = arr.GetValues<uint16_t>(1);
     double* out_values = out->GetValues<double>(1);
@@ -87,18 +88,19 @@ struct CastPrimitive<DoubleType, HalfFloatType, enable_if_t<true>> {
   }
 };
 
-template <typename OutType, typename InType>
-struct CastPrimitive<OutType, InType, enable_if_t<std::is_same<OutType, InType>::value>> {
+template <typename Type>
+struct CastPrimitive<Type, Type> {
   // memcpy output
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
-    using T = typename InType::c_type;
+    using T = typename Type::c_type;
     std::memcpy(out->GetValues<T>(1), arr.GetValues<T>(1), arr.length * sizeof(T));
   }
 };
 
 // Cast int to half float
 template <typename InType>
-struct CastPrimitive<HalfFloatType, InType, enable_if_integer<InType>> {
+  requires arrow_integer<InType>
+struct CastPrimitive<HalfFloatType, InType> {
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using InT = typename InType::c_type;
     const InT* in_values = arr.GetValues<InT>(1);
@@ -112,7 +114,8 @@ struct CastPrimitive<HalfFloatType, InType, enable_if_integer<InType>> {
 
 // Cast half float to int
 template <typename OutType>
-struct CastPrimitive<OutType, HalfFloatType, enable_if_integer<OutType>> {
+  requires arrow_integer<OutType>
+struct CastPrimitive<OutType, HalfFloatType> {
   static void Exec(const ArraySpan& arr, ArraySpan* out) {
     using OutT = typename OutType::c_type;
     const uint16_t* in_values = arr.GetValues<uint16_t>(1);

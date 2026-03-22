@@ -40,13 +40,13 @@ namespace internal {
 namespace ree_util {
 
 template <typename ArrowType, bool in_has_validity_buffer,
-          bool out_has_validity_buffer = in_has_validity_buffer, typename Enable = void>
+          bool out_has_validity_buffer = in_has_validity_buffer>
 struct ReadWriteValue {};
 
 // Numeric and primitive C-compatible types
 template <typename ArrowType, bool in_has_validity_buffer, bool out_has_validity_buffer>
-class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
-                     enable_if_has_c_type<ArrowType>> {
+  requires arrow_has_c_type<ArrowType>
+class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer> {
  public:
   using ValueRepr = typename ArrowType::c_type;
 
@@ -141,8 +141,8 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
 // FixedSizeBinary, Decimal128
 template <typename ArrowType, bool in_has_validity_buffer, bool out_has_validity_buffer>
-class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
-                     enable_if_fixed_size_binary<ArrowType>> {
+  requires arrow_fixed_size_binary<ArrowType>
+class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer> {
  public:
   // Every value is represented as a pointer to byte_width_ bytes
   using ValueRepr = const uint8_t*;
@@ -224,8 +224,8 @@ class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
 
 // Binary, String...
 template <typename ArrowType, bool in_has_validity_buffer, bool out_has_validity_buffer>
-class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer,
-                     enable_if_base_binary<ArrowType>> {
+  requires arrow_base_binary<ArrowType>
+class ReadWriteValue<ArrowType, in_has_validity_buffer, out_has_validity_buffer> {
  public:
   using ValueRepr = std::string_view;
   using offset_type = typename ArrowType::offset_type;

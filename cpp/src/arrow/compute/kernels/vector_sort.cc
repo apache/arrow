@@ -533,7 +533,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
   }
 
   template <typename Type>
-  enable_if_t<!is_null_type<Type>::value, Status> SortInternal() {
+    requires(!arrow_null<Type>)
+  Status SortInternal() {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     using GetView = GetViewType<Type>;
 
@@ -566,8 +567,8 @@ class MultipleKeyRecordBatchSorter : public TypeVisitor {
     return comparator_.status();
   }
 
-  template <typename Type>
-  enable_if_null<Type, Status> SortInternal() {
+  template <arrow_null Type>
+  Status SortInternal() {
     std::stable_sort(indices_begin_, indices_end_, [&](uint64_t left, uint64_t right) {
       return comparator_.Compare(left, right, 1);
     });
@@ -832,9 +833,11 @@ class TableSorter {
   // Merge rows with a non-null in the first sort key
   //
   template <typename ArrowType>
-  enable_if_t<!is_null_type<ArrowType>::value> MergeNonNulls(
-      CompressedChunkLocation* range_begin, CompressedChunkLocation* range_middle,
-      CompressedChunkLocation* range_end, CompressedChunkLocation* temp_indices) {
+    requires(!arrow_null<ArrowType>)
+  void MergeNonNulls(CompressedChunkLocation* range_begin,
+                     CompressedChunkLocation* range_middle,
+                     CompressedChunkLocation* range_end,
+                     CompressedChunkLocation* temp_indices) {
     auto& comparator = comparator_;
     const auto& first_sort_key = sort_keys_[0];
 
@@ -868,11 +871,11 @@ class TableSorter {
     std::copy(temp_indices, temp_indices + (range_end - range_begin), range_begin);
   }
 
-  template <typename ArrowType>
-  enable_if_null<ArrowType> MergeNonNulls(CompressedChunkLocation* range_begin,
-                                          CompressedChunkLocation* range_middle,
-                                          CompressedChunkLocation* range_end,
-                                          CompressedChunkLocation* temp_indices) {
+  template <arrow_null ArrowType>
+  void MergeNonNulls(CompressedChunkLocation* range_begin,
+                     CompressedChunkLocation* range_middle,
+                     CompressedChunkLocation* range_end,
+                     CompressedChunkLocation* temp_indices) {
     const int64_t null_count = range_end - range_begin;
     MergeNullsOnly(range_begin, range_middle, range_end, temp_indices, null_count);
   }

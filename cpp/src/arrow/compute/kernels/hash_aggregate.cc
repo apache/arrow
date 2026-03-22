@@ -328,7 +328,7 @@ struct MinMaxOp<CType> {
   static constexpr CType max(CType a, CType b) { return std::fmax(a, b); }
 };
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct GroupedMinMaxImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
@@ -434,10 +434,8 @@ struct GroupedMinMaxImpl final : public GroupedAggregator {
 // For binary-like types
 // In principle, FixedSizeBinary could use base implementation
 template <typename Type>
-struct GroupedMinMaxImpl<Type,
-                         enable_if_t<is_base_binary_type<Type>::value ||
-                                     std::is_same<Type, FixedSizeBinaryType>::value>>
-    final : public GroupedAggregator {
+  requires(arrow_base_binary<Type> || std::same_as<Type, FixedSizeBinaryType>)
+struct GroupedMinMaxImpl<Type> final : public GroupedAggregator {
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
@@ -526,8 +524,9 @@ struct GroupedMinMaxImpl<Type,
   }
 
   template <typename T = Type>
-  enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires arrow_base_binary<T>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -567,8 +566,9 @@ struct GroupedMinMaxImpl<Type,
   }
 
   template <typename T = Type>
-  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires std::same_as<T, FixedSizeBinaryType>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -667,8 +667,8 @@ HashAggregateKernel MakeMinOrMaxKernel(HashAggregateFunction* min_max_func) {
 }
 
 struct GroupedMinMaxFactory {
-  template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  template <arrow_physical_integer T>
+  Status Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), MinMaxInit<PhysicalType>);
     return Status::OK();
@@ -686,14 +686,14 @@ struct GroupedMinMaxFactory {
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
+  template <arrow_decimal T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  template <arrow_base_binary T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), MinMaxInit<T>);
     return Status::OK();
   }
@@ -736,7 +736,7 @@ struct GroupedMinMaxFactory {
 // ----------------------------------------------------------------------
 // FirstLast implementation
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct GroupedFirstLastImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
@@ -926,10 +926,8 @@ struct GroupedFirstLastImpl final : public GroupedAggregator {
 };
 
 template <typename Type>
-struct GroupedFirstLastImpl<Type,
-                            enable_if_t<is_base_binary_type<Type>::value ||
-                                        std::is_same<Type, FixedSizeBinaryType>::value>>
-    final : public GroupedAggregator {
+  requires(arrow_base_binary<Type> || std::same_as<Type, FixedSizeBinaryType>)
+struct GroupedFirstLastImpl<Type> final : public GroupedAggregator {
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
@@ -1059,8 +1057,9 @@ struct GroupedFirstLastImpl<Type,
   }
 
   template <typename T = Type>
-  enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires arrow_base_binary<T>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -1100,8 +1099,9 @@ struct GroupedFirstLastImpl<Type,
   }
 
   template <typename T = Type>
-  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires std::same_as<T, FixedSizeBinaryType>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -1172,8 +1172,8 @@ HashAggregateKernel MakeFirstOrLastKernel(HashAggregateFunction* first_last_func
 }
 
 struct GroupedFirstLastFactory {
-  template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  template <arrow_physical_integer T>
+  Status Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), FirstLastInit<PhysicalType>,
                         /*ordered*/ true);
@@ -1192,8 +1192,8 @@ struct GroupedFirstLastFactory {
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  template <arrow_base_binary T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), FirstLastInit<T>);
     return Status::OK();
   }
@@ -1556,7 +1556,7 @@ Result<std::unique_ptr<KernelState>> GroupedDistinctInit(KernelContext* ctx,
 // ----------------------------------------------------------------------
 // One implementation
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct GroupedOneImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
@@ -1652,9 +1652,8 @@ struct GroupedNullOneImpl : public GroupedAggregator {
 };
 
 template <typename Type>
-struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                        std::is_same<Type, FixedSizeBinaryType>::value>>
-    final : public GroupedAggregator {
+  requires(arrow_base_binary<Type> || std::same_as<Type, FixedSizeBinaryType>)
+struct GroupedOneImpl<Type> final : public GroupedAggregator {
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
 
@@ -1713,8 +1712,9 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   template <typename T = Type>
-  enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires arrow_base_binary<T>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -1754,8 +1754,9 @@ struct GroupedOneImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   template <typename T = Type>
-  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires std::same_as<T, FixedSizeBinaryType>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -1796,27 +1797,27 @@ Result<std::unique_ptr<KernelState>> GroupedOneInit(KernelContext* ctx,
 }
 
 struct GroupedOneFactory {
-  template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  template <arrow_physical_integer T>
+  Status Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), GroupedOneInit<PhysicalType>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_floating_point<T, Status> Visit(const T&) {
+  template <arrow_floating_point T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
+  template <arrow_decimal T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  template <arrow_base_binary T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), GroupedOneInit<T>);
     return Status::OK();
   }
@@ -1858,7 +1859,7 @@ struct GroupedOneFactory {
 // ----------------------------------------------------------------------
 // List implementation
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct GroupedListImpl final : public GroupedAggregator {
   using CType = typename TypeTraits<Type>::CType;
   using GetSet = GroupedValueTraits<Type>;
@@ -1964,9 +1965,8 @@ struct GroupedListImpl final : public GroupedAggregator {
 };
 
 template <typename Type>
-struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
-                                         std::is_same<Type, FixedSizeBinaryType>::value>>
-    final : public GroupedAggregator {
+  requires(arrow_base_binary<Type> || std::same_as<Type, FixedSizeBinaryType>)
+struct GroupedListImpl<Type> final : public GroupedAggregator {
   using Allocator = arrow::stl::allocator<char>;
   using StringType = std::basic_string<char, std::char_traits<char>, Allocator>;
   using GetSet = GroupedValueTraits<Type>;
@@ -2052,8 +2052,9 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   template <typename T = Type>
-  enable_if_base_binary<T, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires arrow_base_binary<T>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     using offset_type = typename T::offset_type;
     ARROW_ASSIGN_OR_RAISE(
         auto raw_offsets,
@@ -2093,8 +2094,9 @@ struct GroupedListImpl<Type, enable_if_t<is_base_binary_type<Type>::value ||
   }
 
   template <typename T = Type>
-  enable_if_same<T, FixedSizeBinaryType, Status> MakeOffsetsValues(
-      ArrayData* array, const std::vector<std::optional<StringType>>& values) {
+    requires std::same_as<T, FixedSizeBinaryType>
+  Status MakeOffsetsValues(ArrayData* array,
+                           const std::vector<std::optional<StringType>>& values) {
     const uint8_t* null_bitmap = array->buffers[0]->data();
     const int32_t slot_width =
         checked_cast<const FixedSizeBinaryType&>(*array->type).byte_width();
@@ -2194,27 +2196,27 @@ Result<std::unique_ptr<KernelState>> GroupedListInit(KernelContext* ctx,
 }
 
 struct GroupedListFactory {
-  template <typename T>
-  enable_if_physical_integer<T, Status> Visit(const T&) {
+  template <arrow_physical_integer T>
+  Status Visit(const T&) {
     using PhysicalType = typename T::PhysicalType;
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<PhysicalType>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_floating_point<T, Status> Visit(const T&) {
+  template <arrow_floating_point T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
+  template <arrow_decimal T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+  template <arrow_base_binary T>
+  Status Visit(const T&) {
     kernel = MakeKernel(std::move(argument_type), GroupedListInit<T>);
     return Status::OK();
   }

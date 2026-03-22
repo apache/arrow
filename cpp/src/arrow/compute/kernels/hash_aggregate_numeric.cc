@@ -155,14 +155,13 @@ struct GroupedReducingAggregator : public GroupedAggregator {
   std::shared_ptr<DataType> out_type() const override { return out_type_; }
 
   template <typename T = Type>
-  enable_if_t<!is_decimal_type<T>::value, Result<std::shared_ptr<DataType>>> GetOutType(
-      const std::shared_ptr<DataType>& in_type) {
+    requires(!arrow_decimal<T>)
+  Result<std::shared_ptr<DataType>> GetOutType(const std::shared_ptr<DataType>& in_type) {
     return TypeTraits<AccType>::type_singleton();
   }
 
-  template <typename T = Type>
-  enable_if_decimal<T, Result<std::shared_ptr<DataType>>> GetOutType(
-      const std::shared_ptr<DataType>& in_type) {
+  template <arrow_decimal T = Type>
+  Result<std::shared_ptr<DataType>> GetOutType(const std::shared_ptr<DataType>& in_type) {
     if (PromoteDecimal()) {
       return WidenDecimalToMaxPrecision(in_type);
     } else {
@@ -280,9 +279,8 @@ struct GroupedSumImpl : public GroupedReducingAggregator<Type, GroupedSumImpl<Ty
   // Default value for a group
   static CType NullValue(const DataType&) { return CType(0); }
 
-  template <typename T = Type>
-  static enable_if_number<T, CType> Reduce(const DataType&, const CType u,
-                                           const InputCType v) {
+  template <arrow_number T = Type>
+  static CType Reduce(const DataType&, const CType u, const InputCType v) {
     return static_cast<CType>(to_unsigned(u) + to_unsigned(static_cast<CType>(v)));
   }
 
@@ -320,9 +318,8 @@ struct GroupedProductImpl final
     return MultiplyTraits<AccType>::one(out_type);
   }
 
-  template <typename T = Type>
-  static enable_if_number<T, CType> Reduce(const DataType& out_type, const CType u,
-                                           const InputCType v) {
+  template <arrow_number T = Type>
+  static CType Reduce(const DataType& out_type, const CType u, const InputCType v) {
     return MultiplyTraits<AccType>::Multiply(out_type, u, static_cast<CType>(v));
   }
 
@@ -369,9 +366,8 @@ struct GroupedMeanImpl
 
   static CType NullValue(const DataType&) { return CType(0); }
 
-  template <typename T = Type>
-  static enable_if_number<T, CType> Reduce(const DataType&, const CType u,
-                                           const InputCType v) {
+  template <arrow_number T = Type>
+  static CType Reduce(const DataType&, const CType u, const InputCType v) {
     return static_cast<CType>(u) + static_cast<CType>(v);
   }
 
@@ -379,8 +375,8 @@ struct GroupedMeanImpl
     return static_cast<CType>(to_unsigned(u) + to_unsigned(v));
   }
 
-  template <typename T = Type>
-  static enable_if_decimal<T, Result<MeanType>> DoMean(CType reduced, int64_t count) {
+  template <arrow_decimal T = Type>
+  static Result<MeanType> DoMean(CType reduced, int64_t count) {
     static_assert(std::is_same<MeanType, CType>::value, "");
     CType quotient, remainder;
     ARROW_ASSIGN_OR_RAISE(std::tie(quotient, remainder), reduced.Divide(count));
@@ -397,8 +393,8 @@ struct GroupedMeanImpl
   }
 
   template <typename T = Type>
-  static enable_if_t<!is_decimal_type<T>::value, Result<MeanType>> DoMean(CType reduced,
-                                                                          int64_t count) {
+    requires(!arrow_decimal<T>)
+  static Result<MeanType> DoMean(CType reduced, int64_t count) {
     return static_cast<MeanType>(reduced) / count;
   }
 
@@ -868,14 +864,14 @@ using GroupedKurtosisImpl =
 template <template <typename Type> typename GroupedImpl>
 struct GroupedStatisticKernelFactory {
   // Supporting all number types except float16
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T& type) {
+  template <arrow_number T>
+  Status Visit(const T& type) {
     out = MakeKernel(InputType(T::type_id), HashAggregateInit<GroupedImpl<T>>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_decimal<T, Status> Visit(const T& type) {
+  template <arrow_decimal T>
+  Status Visit(const T& type) {
     out = MakeKernel(InputType(T::type_id), HashAggregateInit<GroupedImpl<T>>);
     return Status::OK();
   }
@@ -1045,15 +1041,15 @@ struct GroupedTDigestImpl : public GroupedAggregator {
 };
 
 struct GroupedTDigestFactory {
-  template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+  template <arrow_number T>
+  Status Visit(const T&) {
     kernel =
         MakeKernel(std::move(argument_type), HashAggregateInit<GroupedTDigestImpl<T>>);
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
+  template <arrow_decimal T>
+  Status Visit(const T&) {
     kernel =
         MakeKernel(std::move(argument_type), HashAggregateInit<GroupedTDigestImpl<T>>);
     return Status::OK();

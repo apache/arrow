@@ -86,10 +86,16 @@ bool IsPositive(const Scalar& scalar) {
   return visitor.result;
 }
 
+template <typename T>
+concept decimal_value_type =
+    std::is_same_v<T, Decimal32> || std::is_same_v<T, Decimal64> ||
+    std::is_same_v<T, Decimal128> || std::is_same_v<T, Decimal256>;
+
 struct RoundUtil {
   // Calculate powers of ten with arbitrary integer exponent
   template <typename T>
-  static enable_if_floating_value<T> Pow10(int64_t power) {
+    requires std::is_floating_point_v<T>
+  static T Pow10(int64_t power) {
     static constexpr T lut[] = {1e0F, 1e1F, 1e2F,  1e3F,  1e4F,  1e5F,  1e6F,  1e7F,
                                 1e8F, 1e9F, 1e10F, 1e11F, 1e12F, 1e13F, 1e14F, 1e15F};
     int64_t lut_size = (sizeof(lut) / sizeof(*lut));
@@ -103,7 +109,8 @@ struct RoundUtil {
 
   // Calculate powers of ten with arbitrary integer exponent
   template <typename T>
-  static enable_if_integer_value<T> Pow10(int64_t power) {
+    requires is_integer_value<T>::value
+  static T Pow10(int64_t power) {
     DCHECK_GE(power, 0);
     DCHECK_LE(power, std::numeric_limits<T>::digits10);
     static constexpr uint64_t lut[] = {
@@ -145,13 +152,14 @@ struct RoundImpl;
 template <typename Type>
 struct RoundImpl<Type, RoundMode::DOWN> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return std::floor(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     (*val) -= remainder;
     if (remainder.Sign() < 0) {
       (*val) -= pow10;
@@ -159,8 +167,8 @@ struct RoundImpl<Type, RoundMode::DOWN> {
   }
 
   template <typename T = Type>
-  static enable_if_integer_value<T> Round(const T val, const T floor, const T multiple,
-                                          Status* st) {
+    requires is_integer_value<T>::value
+  static T Round(const T val, const T floor, const T multiple, Status* st) {
     if constexpr (is_signed_integer_value<T>::value) {
       if (ARROW_PREDICT_FALSE(val < 0 &&
                               std::numeric_limits<T>::min() + multiple > floor)) {
@@ -177,13 +185,14 @@ struct RoundImpl<Type, RoundMode::DOWN> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::UP> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return std::ceil(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     (*val) -= remainder;
     if (remainder.Sign() > 0 && remainder != 0) {
       (*val) += pow10;
@@ -191,8 +200,8 @@ struct RoundImpl<Type, RoundMode::UP> {
   }
 
   template <typename T = Type>
-  static enable_if_integer_value<T> Round(const T val, const T floor, const T multiple,
-                                          Status* st) {
+    requires is_integer_value<T>::value
+  static T Round(const T val, const T floor, const T multiple, Status* st) {
     if (ARROW_PREDICT_FALSE(val > 0 &&
                             std::numeric_limits<T>::max() - multiple < floor)) {
       *st = Status::Invalid("Rounding ", val, " up to multiple of ", multiple,
@@ -206,19 +215,20 @@ struct RoundImpl<Type, RoundMode::UP> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::TOWARDS_ZERO> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return std::trunc(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     (*val) -= remainder;
   }
 
   template <typename T = Type>
-  static enable_if_integer_value<T> Round(const T val, const T floor, const T pow10,
-                                          Status* st) {
+    requires is_integer_value<T>::value
+  static T Round(const T val, const T floor, const T pow10, Status* st) {
     return floor;
   }
 };
@@ -226,13 +236,14 @@ struct RoundImpl<Type, RoundMode::TOWARDS_ZERO> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::TOWARDS_INFINITY> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return std::signbit(val) ? std::floor(val) : std::ceil(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     (*val) -= remainder;
     if (remainder.Sign() < 0) {
       (*val) -= pow10;
@@ -242,8 +253,8 @@ struct RoundImpl<Type, RoundMode::TOWARDS_INFINITY> {
   }
 
   template <typename T = Type>
-  static enable_if_integer_value<T> Round(const T val, const T floor, const T multiple,
-                                          Status* st) {
+    requires is_integer_value<T>::value
+  static T Round(const T val, const T floor, const T multiple, Status* st) {
     if constexpr (is_signed_integer_value<T>::value) {
       if (ARROW_PREDICT_FALSE(val < 0 &&
                               std::numeric_limits<T>::min() + multiple > floor)) {
@@ -275,19 +286,20 @@ struct RoundImpl<Type, RoundMode::TOWARDS_INFINITY> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_DOWN> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return RoundImpl<T, RoundMode::DOWN>::Round(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     RoundImpl<T, RoundMode::DOWN>::Round(val, remainder, pow10, scale);
   }
 
   template <typename T = Type>
-  static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
-                                                    const T multiple, Status* st) {
+    requires is_integer_value<T>::value
+  static constexpr T Round(const T val, const T floor, const T multiple, Status* st) {
     return RoundImpl<T, RoundMode::DOWN>::Round(val, floor, multiple, st);
   }
 };
@@ -295,19 +307,20 @@ struct RoundImpl<Type, RoundMode::HALF_DOWN> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_UP> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return RoundImpl<T, RoundMode::UP>::Round(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     RoundImpl<T, RoundMode::UP>::Round(val, remainder, pow10, scale);
   }
 
   template <typename T = Type>
-  static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
-                                                    const T multiple, Status* st) {
+    requires is_integer_value<T>::value
+  static constexpr T Round(const T val, const T floor, const T multiple, Status* st) {
     return RoundImpl<T, RoundMode::UP>::Round(val, floor, multiple, st);
   }
 };
@@ -315,19 +328,20 @@ struct RoundImpl<Type, RoundMode::HALF_UP> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TOWARDS_ZERO> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(val, remainder, pow10, scale);
   }
 
   template <typename T = Type>
-  static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
-                                                    const T multiple, Status* st) {
+    requires is_integer_value<T>::value
+  static constexpr T Round(const T val, const T floor, const T multiple, Status* st) {
     return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(val, floor, multiple, st);
   }
 };
@@ -335,19 +349,20 @@ struct RoundImpl<Type, RoundMode::HALF_TOWARDS_ZERO> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TOWARDS_INFINITY> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val);
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& multiple, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& multiple, const int32_t scale) {
     RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val, remainder, multiple, scale);
   }
 
   template <typename T = Type>
-  static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
-                                                    const T multiple, Status* st) {
+    requires is_integer_value<T>::value
+  static constexpr T Round(const T val, const T floor, const T multiple, Status* st) {
     return RoundImpl<T, RoundMode::TOWARDS_INFINITY>::Round(val, floor, multiple, st);
   }
 };
@@ -355,13 +370,14 @@ struct RoundImpl<Type, RoundMode::HALF_TOWARDS_INFINITY> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TO_EVEN> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return std::round(val * T(0.5)) * 2;
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     auto scaled = val->ReduceScaleBy(scale, /*round=*/false);
     if (scaled.low_bits() % 2 != 0) {
       scaled += remainder.Sign() >= 0 ? 1 : -1;
@@ -370,8 +386,8 @@ struct RoundImpl<Type, RoundMode::HALF_TO_EVEN> {
   }
 
   template <typename T = Type>
-  static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
-                                                    const T multiple, Status* st) {
+    requires is_integer_value<T>::value
+  static constexpr T Round(const T val, const T floor, const T multiple, Status* st) {
     if ((floor / multiple) % 2 == 0) {
       return floor;
     }
@@ -382,13 +398,14 @@ struct RoundImpl<Type, RoundMode::HALF_TO_EVEN> {
 template <typename Type>
 struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
   template <typename T = Type>
-  static constexpr enable_if_floating_value<T> Round(const T val) {
+    requires std::is_floating_point_v<T>
+  static constexpr T Round(const T val) {
     return std::floor(val * T(0.5)) + std::ceil(val * T(0.5));
   }
 
   template <typename T = Type>
-  static enable_if_decimal_value<T, void> Round(T* val, const T& remainder,
-                                                const T& pow10, const int32_t scale) {
+    requires decimal_value_type<T>
+  static void Round(T* val, const T& remainder, const T& pow10, const int32_t scale) {
     auto scaled = val->ReduceScaleBy(scale, /*round=*/false);
     if (scaled.low_bits() % 2 == 0) {
       scaled += remainder.Sign() ? 1 : -1;
@@ -397,8 +414,8 @@ struct RoundImpl<Type, RoundMode::HALF_TO_ODD> {
   }
 
   template <typename T = Type>
-  static constexpr enable_if_integer_value<T> Round(const T val, const T floor,
-                                                    const T multiple, Status* st) {
+    requires is_integer_value<T>::value
+  static constexpr T Round(const T val, const T floor, const T multiple, Status* st) {
     if ((floor / multiple) % 2 != 0) {
       return floor;
     }
@@ -502,21 +519,24 @@ struct RoundOptionsWrapper<RoundToMultipleOptions, CType>
   }
 };
 
-template <typename ArrowType, typename Enable = void>
+template <typename ArrowType>
 struct RoundOptionsTrait;
 
 template <typename ArrowType>
-struct RoundOptionsTrait<ArrowType, enable_if_floating_point<ArrowType>> {
+  requires arrow_floating_point<ArrowType>
+struct RoundOptionsTrait<ArrowType> {
   using CType = double;
 };
 
 template <typename ArrowType>
-struct RoundOptionsTrait<ArrowType, enable_if_decimal<ArrowType>> {
+  requires arrow_decimal<ArrowType>
+struct RoundOptionsTrait<ArrowType> {
   using CType = double;
 };
 
 template <typename ArrowType>
-struct RoundOptionsTrait<ArrowType, enable_if_integer<ArrowType>> {
+  requires arrow_integer<ArrowType>
+struct RoundOptionsTrait<ArrowType> {
   using CType = typename ArrowType::c_type;
 };
 
@@ -524,7 +544,7 @@ struct RoundOptionsTrait<ArrowType, enable_if_integer<ArrowType>> {
 // ----------------------------------------------------------------------
 // Begin round op implementations
 
-template <typename ArrowType, RoundMode kRoundMode, typename Enable = void>
+template <typename ArrowType, RoundMode kRoundMode>
 struct RoundToMultiple {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundToMultipleOptions,
@@ -541,7 +561,8 @@ struct RoundToMultiple {
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    requires std::is_floating_point_v<CType>
+  CType Call(KernelContext* ctx, CType arg, Status* st) const {
     // Do not process Inf or NaN because they will trigger the overflow error at end of
     // function.
     if (!std::isfinite(arg)) {
@@ -570,7 +591,8 @@ struct RoundToMultiple {
 };
 
 template <typename ArrowType, RoundMode kRoundMode>
-struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
+  requires arrow_decimal<ArrowType>
+struct RoundToMultiple<ArrowType, kRoundMode> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundToMultipleOptions, double>;
   const ArrowType& ty;
@@ -590,7 +612,8 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    requires decimal_value_type<CType>
+  CType Call(KernelContext* ctx, CType arg, Status* st) const {
     std::pair<CType, CType> pair;
     *st = arg.Divide(multiple).Value(&pair);
     if (!st->ok()) return arg;
@@ -670,7 +693,8 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 };
 
 template <typename ArrowType, RoundMode kRoundMode>
-struct RoundToMultiple<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
+  requires arrow_integer<ArrowType>
+struct RoundToMultiple<ArrowType, kRoundMode> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundToMultipleOptions, CType>;
   CType multiple;
@@ -687,7 +711,8 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
       : multiple(multiple) {}
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_integer_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    requires is_integer_value<CType>::value
+  CType Call(KernelContext* ctx, CType arg, Status* st) const {
     CType floor = arg / multiple * multiple;
     CType remainder = arg > floor ? arg - floor : floor - arg;
 
@@ -722,7 +747,7 @@ struct RoundToMultiple<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
   }
 };
 
-template <typename ArrowType, RoundMode RndMode, typename Enable = void>
+template <typename ArrowType, RoundMode RndMode>
 struct Round {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State =
@@ -734,7 +759,8 @@ struct Round {
       : pow10(static_cast<CType>(state.pow10)), ndigits(state.options.ndigits) {}
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_floating_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    requires std::is_floating_point_v<CType>
+  CType Call(KernelContext* ctx, CType arg, Status* st) const {
     // Do not process Inf or NaN because they will trigger the overflow error at end of
     // function.
     if (!std::isfinite(arg)) {
@@ -765,7 +791,8 @@ struct Round {
 };
 
 template <typename ArrowType, RoundMode kRoundMode>
-struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
+  requires arrow_decimal<ArrowType>
+struct Round<ArrowType, kRoundMode> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundOptions, double>;
   const ArrowType& ty;
@@ -791,7 +818,8 @@ struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
   }
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_decimal_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    requires decimal_value_type<CType>
+  CType Call(KernelContext* ctx, CType arg, Status* st) const {
     if (pow >= ty.precision()) {
       *st = Status::Invalid("Rounding to ", ndigits,
                             " digits will not fit in precision of ", ty);
@@ -837,7 +865,8 @@ struct Round<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 };
 
 template <typename ArrowType, RoundMode kRoundMode>
-struct Round<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
+  requires arrow_integer<ArrowType>
+struct Round<ArrowType, kRoundMode> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundOptions, CType>;
   CType pow10;
@@ -850,7 +879,8 @@ struct Round<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
         out_ty(out_ty) {}
 
   template <typename T = ArrowType, typename CType = typename TypeTraits<T>::CType>
-  enable_if_integer_value<CType> Call(KernelContext* ctx, CType arg, Status* st) const {
+    requires is_integer_value<CType>::value
+  CType Call(KernelContext* ctx, CType arg, Status* st) const {
     // no-op if ndigits is non-negative
     if (ndigits >= 0) {
       return arg;
@@ -862,7 +892,7 @@ struct Round<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
   }
 };
 
-template <typename ArrowType, RoundMode RndMode, typename Enable = void>
+template <typename ArrowType, RoundMode RndMode>
 struct RoundBinary {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundBinaryOptions,
@@ -872,8 +902,8 @@ struct RoundBinary {
 
   template <typename T = ArrowType, typename CType0 = typename TypeTraits<T>::CType0,
             typename CType1 = typename TypeTraits<T>::CType1>
-  enable_if_floating_value<CType> Call(KernelContext* ctx, CType0 arg0, CType1 arg1,
-                                       Status* st) const {
+    requires std::is_floating_point_v<CType>
+  CType Call(KernelContext* ctx, CType0 arg0, CType1 arg1, Status* st) const {
     // Do not process Inf or NaN because they will trigger the overflow error at end of
     // function.
     if (!std::isfinite(arg0)) {
@@ -911,7 +941,8 @@ struct RoundBinary {
 };
 
 template <typename ArrowType, RoundMode kRoundMode>
-struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
+  requires arrow_decimal<ArrowType>
+struct RoundBinary<ArrowType, kRoundMode> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundBinaryOptions, double>;
   const ArrowType& ty;
@@ -935,8 +966,8 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 
   template <typename T = ArrowType, typename CType0 = typename TypeTraits<T>::CType0,
             typename CType1 = typename TypeTraits<T>::CType1>
-  enable_if_decimal_value<CType> Call(KernelContext* ctx, CType0 arg0, CType1 arg1,
-                                      Status* st) const {
+    requires decimal_value_type<CType>
+  CType Call(KernelContext* ctx, CType0 arg0, CType1 arg1, Status* st) const {
     if (pow - arg1 >= ty.precision()) {
       *st = Status::Invalid("Rounding to ", arg1, " digits will not fit in precision of ",
                             ty);
@@ -984,7 +1015,8 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_decimal<ArrowType>> {
 };
 
 template <typename ArrowType, RoundMode kRoundMode>
-struct RoundBinary<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
+  requires arrow_integer<ArrowType>
+struct RoundBinary<ArrowType, kRoundMode> {
   using CType = typename TypeTraits<ArrowType>::CType;
   using State = RoundOptionsWrapper<RoundBinaryOptions, CType>;
 
@@ -993,8 +1025,8 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
 
   template <typename T = ArrowType, typename CType0 = typename TypeTraits<T>::CType0,
             typename CType1 = typename TypeTraits<T>::CType1>
-  enable_if_integer_value<CType> Call(KernelContext* ctx, CType0 arg0, CType1 arg1,
-                                      Status* st) const {
+    requires is_integer_value<CType>::value
+  CType Call(KernelContext* ctx, CType0 arg0, CType1 arg1, Status* st) const {
     // ndigits >= 0 is a no-op
     if (arg1 >= 0) {
       return arg0;
@@ -1016,8 +1048,8 @@ struct RoundBinary<ArrowType, kRoundMode, enable_if_integer<ArrowType>> {
 
 struct Floor {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
+    requires std::is_floating_point_v<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value);
     return RoundImpl<T, RoundMode::DOWN>::Round(arg);
   }
@@ -1025,8 +1057,8 @@ struct Floor {
 
 struct Ceil {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
+    requires std::is_floating_point_v<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value);
     return RoundImpl<T, RoundMode::UP>::Round(arg);
   }
@@ -1034,8 +1066,8 @@ struct Ceil {
 
 struct Trunc {
   template <typename T, typename Arg>
-  static constexpr enable_if_floating_value<Arg, T> Call(KernelContext*, Arg arg,
-                                                         Status*) {
+    requires std::is_floating_point_v<Arg>
+  static constexpr T Call(KernelContext*, Arg arg, Status*) {
     static_assert(std::is_same<T, Arg>::value);
     return RoundImpl<T, RoundMode::TOWARDS_ZERO>::Round(arg);
   }

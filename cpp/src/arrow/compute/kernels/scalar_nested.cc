@@ -893,23 +893,23 @@ struct ResolveMapLookup {
     return MapLookupFunctor<KeyType>::Exec(ctx, batch, out);
   }
 
-  template <typename KeyType>
-  enable_if_physical_integer<KeyType, Status> Visit(const KeyType& type) {
+  template <arrow_physical_integer KeyType>
+  Status Visit(const KeyType& type) {
     return Execute<KeyType>();
   }
 
-  template <typename KeyType>
-  enable_if_decimal<KeyType, Status> Visit(const KeyType& type) {
+  template <arrow_decimal KeyType>
+  Status Visit(const KeyType& type) {
     return Execute<KeyType>();
   }
 
-  template <typename KeyType>
-  enable_if_base_binary<KeyType, Status> Visit(const KeyType& type) {
+  template <arrow_base_binary KeyType>
+  Status Visit(const KeyType& type) {
     return Execute<KeyType>();
   }
 
-  template <typename KeyType>
-  enable_if_boolean<KeyType, Status> Visit(const KeyType& type) {
+  template <arrow_boolean KeyType>
+  Status Visit(const KeyType& type) {
     return Execute<KeyType>();
   }
 

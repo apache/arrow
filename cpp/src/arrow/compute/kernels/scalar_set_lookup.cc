@@ -185,21 +185,20 @@ struct InitStateVisitor {
 
   Status Visit(const DataType&) { return Init<NullType>(); }
 
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
+  template <arrow_boolean Type>
+  Status Visit(const Type&) {
     return Init<BooleanType>();
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
-                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
-              Status>
-  Visit(const Type&) {
+    requires(arrow_has_c_type<Type> && !arrow_boolean<Type> &&
+             !std::is_same_v<Type, MonthDayNanoIntervalType>)
+  Status Visit(const Type&) {
     return Init<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
+  template <arrow_base_binary Type>
+  Status Visit(const Type&) {
     return Init<typename Type::PhysicalType>();
   }
 
@@ -356,22 +355,21 @@ struct IndexInVisitor {
     return ProcessIndexIn(state, data);
   }
 
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
+  template <arrow_boolean Type>
+  Status Visit(const Type&) {
     return ProcessIndexIn<BooleanType>();
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
-                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
-              Status>
-  Visit(const Type&) {
+    requires(arrow_has_c_type<Type> && !arrow_boolean<Type> &&
+             !std::is_same_v<Type, MonthDayNanoIntervalType>)
+  Status Visit(const Type&) {
     return ProcessIndexIn<
         typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
+  template <arrow_base_binary Type>
+  Status Visit(const Type&) {
     return ProcessIndexIn<typename Type::PhysicalType>();
   }
 
@@ -498,21 +496,20 @@ struct IsInVisitor {
     return ProcessIsIn(state, data);
   }
 
-  template <typename Type>
-  enable_if_boolean<Type, Status> Visit(const Type&) {
+  template <arrow_boolean Type>
+  Status Visit(const Type&) {
     return ProcessIsIn<BooleanType>();
   }
 
   template <typename Type>
-  enable_if_t<has_c_type<Type>::value && !is_boolean_type<Type>::value &&
-                  !std::is_same<Type, MonthDayNanoIntervalType>::value,
-              Status>
-  Visit(const Type&) {
+    requires(arrow_has_c_type<Type> && !arrow_boolean<Type> &&
+             !std::is_same_v<Type, MonthDayNanoIntervalType>)
+  Status Visit(const Type&) {
     return ProcessIsIn<typename UnsignedIntType<sizeof(typename Type::c_type)>::Type>();
   }
 
-  template <typename Type>
-  enable_if_base_binary<Type, Status> Visit(const Type&) {
+  template <arrow_base_binary Type>
+  Status Visit(const Type&) {
     return ProcessIsIn<typename Type::PhysicalType>();
   }
 

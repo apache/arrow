@@ -276,8 +276,8 @@ struct CumulativeStatefulKernelFactory {
     kernel.init = CumulativeOptionsWrapper<OptionsType>::Init;
   }
 
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type& type) {
+  template <arrow_number Type>
+  Status Visit(const Type& type) {
     kernel.signature = KernelSignature::Make(
         {type.GetSharedPtr()},
         OutputType(TypeTraits<typename State<Type>::OutType>::type_singleton()));

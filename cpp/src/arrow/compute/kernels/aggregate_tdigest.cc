@@ -147,14 +147,14 @@ struct TDigestInitState {
     return Status::NotImplemented("No tdigest implemented");
   }
 
-  template <typename Type>
-  enable_if_number<Type, Status> Visit(const Type&) {
+  template <arrow_number Type>
+  Status Visit(const Type&) {
     state.reset(new TDigestImpl<Type>(options, in_type));
     return Status::OK();
   }
 
-  template <typename Type>
-  enable_if_decimal<Type, Status> Visit(const Type&) {
+  template <arrow_decimal Type>
+  Status Visit(const Type&) {
     state.reset(new TDigestImpl<Type>(options, in_type));
     return Status::OK();
   }
