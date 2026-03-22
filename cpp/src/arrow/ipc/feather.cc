@@ -537,24 +537,19 @@ struct ArrayWriterV1 {
   }
 
   template <typename T>
-  typename std::enable_if<
-      is_nested_type<T>::value || is_null_type<T>::value || is_decimal_type<T>::value ||
-          std::is_same<DictionaryType, T>::value || is_duration_type<T>::value ||
-          is_interval_type<T>::value || is_fixed_size_binary_type<T>::value ||
-          is_binary_view_like_type<T>::value || std::is_same<Date64Type, T>::value ||
-          std::is_same<Time64Type, T>::value || std::is_same<ExtensionType, T>::value,
-      Status>::type
-  Visit(const T& type) {
+    requires(arrow_nested<T> || arrow_null<T> || arrow_decimal<T> ||
+             std::is_same_v<DictionaryType, T> || arrow_duration<T> ||
+             arrow_interval<T> || arrow_fixed_size_binary<T> ||
+             arrow_binary_view_like<T> || std::is_same_v<Date64Type, T> ||
+             std::is_same_v<Time64Type, T> || std::is_same_v<ExtensionType, T>)
+  Status Visit(const T& type) {
     return Status::NotImplemented(type.ToString());
   }
 
   template <typename T>
-  typename std::enable_if<is_number_type<T>::value ||
-                              std::is_same<Date32Type, T>::value ||
-                              std::is_same<Time32Type, T>::value ||
-                              is_timestamp_type<T>::value || is_boolean_type<T>::value,
-                          Status>::type
-  Visit(const T&) {
+    requires(arrow_number<T> || std::is_same_v<Date32Type, T> ||
+             std::is_same_v<Time32Type, T> || arrow_timestamp<T> || arrow_boolean<T>)
+  Status Visit(const T&) {
     const auto& prim_values = checked_cast<const PrimitiveArray&>(values);
     const auto& fw_type = checked_cast<const FixedWidthType&>(*values.type());
 
@@ -572,7 +567,8 @@ struct ArrayWriterV1 {
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+    requires arrow_base_binary<T>
+  Status Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     const auto& ty_values = checked_cast<const ArrayType&>(values);
 

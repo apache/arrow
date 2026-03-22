@@ -166,8 +166,9 @@ class UnmaterializedCompositeTable {
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_boolean<Type, Status> static BuilderAppend(
-      Builder& builder, const std::shared_ptr<ArrayData>& source, uint64_t row) {
+    requires arrow_boolean<Type>
+  static Status BuilderAppend(Builder& builder, const std::shared_ptr<ArrayData>& source,
+                              uint64_t row) {
     if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
@@ -177,10 +178,9 @@ class UnmaterializedCompositeTable {
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_t<is_fixed_width_type<Type>::value && !is_boolean_type<Type>::value,
-              Status> static BuilderAppend(Builder& builder,
-                                           const std::shared_ptr<ArrayData>& source,
-                                           uint64_t row) {
+    requires(arrow_fixed_width<Type> && !arrow_boolean<Type>)
+  static Status BuilderAppend(Builder& builder, const std::shared_ptr<ArrayData>& source,
+                              uint64_t row) {
     if (source->IsNull(row)) {
       builder.UnsafeAppendNull();
       return Status::OK();
@@ -191,8 +191,9 @@ class UnmaterializedCompositeTable {
   }
 
   template <class Type, class Builder = typename TypeTraits<Type>::BuilderType>
-  enable_if_base_binary<Type, Status> static BuilderAppend(
-      Builder& builder, const std::shared_ptr<ArrayData>& source, uint64_t row) {
+    requires arrow_base_binary<Type>
+  static Status BuilderAppend(Builder& builder, const std::shared_ptr<ArrayData>& source,
+                              uint64_t row) {
     if (source->IsNull(row)) {
       return builder.AppendNull();
     }

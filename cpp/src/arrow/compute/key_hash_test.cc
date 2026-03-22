@@ -27,6 +27,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/cpu_info.h"
 #include "arrow/util/pcg_random.h"
 
@@ -47,10 +48,10 @@ std::vector<int64_t> HardwareFlagsForTesting() {
 
 class TestVectorHash {
  private:
-  template <typename Type, typename ArrayType = typename TypeTraits<Type>::ArrayType>
-  static enable_if_base_binary<Type, Result<std::shared_ptr<ArrayType>>>
-  GenerateUniqueRandomBinary(random::pcg32_fast* random, int num, int min_length,
-                             int max_length) {
+  template <arrow_base_binary Type,
+            typename ArrayType = typename TypeTraits<Type>::ArrayType>
+  static Result<std::shared_ptr<ArrayType>> GenerateUniqueRandomBinary(
+      random::pcg32_fast* random, int num, int min_length, int max_length) {
     using BuilderType = typename TypeTraits<Type>::BuilderType;
     BuilderType builder;
     std::unordered_set<std::string> unique_key_strings;

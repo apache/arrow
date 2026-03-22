@@ -42,7 +42,7 @@ namespace arrow {
 namespace internal {
 
 /// \brief The entry point for conversion to strings.
-template <typename ARROW_TYPE, typename Enable = void>
+template <typename ARROW_TYPE>
 class StringFormatter;
 
 template <typename T>
@@ -546,8 +546,8 @@ class StringFormatter<TimestampType> {
   std::string timezone_;
 };
 
-template <typename T>
-class StringFormatter<T, enable_if_time<T>> {
+template <arrow_time T>
+class StringFormatter<T> {
  public:
   using value_type = typename T::c_type;
 

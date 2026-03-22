@@ -95,12 +95,12 @@ struct ScalarHelperBase {
   }
 };
 
-template <typename Scalar, uint64_t AlgNum = 0, typename Enable = void>
+template <typename Scalar, uint64_t AlgNum = 0>
 struct ScalarHelper : public ScalarHelperBase<Scalar, AlgNum> {};
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>>
-    : public ScalarHelperBase<Scalar, AlgNum> {
+  requires std::is_integral_v<Scalar>
+struct ScalarHelper<Scalar, AlgNum> : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for integers
 
   static hash_t ComputeHash(const Scalar& value) {
@@ -120,9 +120,8 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_integral<Scalar>::value>
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    enable_if_t<std::is_same<std::string_view, Scalar>::value>>
-    : public ScalarHelperBase<Scalar, AlgNum> {
+  requires std::is_same_v<std::string_view, Scalar>
+struct ScalarHelper<Scalar, AlgNum> : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for std::string_view
 
   static hash_t ComputeHash(std::string_view value) {
@@ -131,8 +130,8 @@ struct ScalarHelper<Scalar, AlgNum,
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::value>>
-    : public ScalarHelperBase<Scalar, AlgNum> {
+  requires std::is_floating_point_v<Scalar>
+struct ScalarHelper<Scalar, AlgNum> : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for reals
 
   static bool CompareScalars(Scalar u, Scalar v) {
@@ -145,9 +144,8 @@ struct ScalarHelper<Scalar, AlgNum, enable_if_t<std::is_floating_point<Scalar>::
 };
 
 template <typename Scalar, uint64_t AlgNum>
-struct ScalarHelper<Scalar, AlgNum,
-                    enable_if_t<std::is_same_v<Scalar, ::arrow::util::Float16>>>
-    : public ScalarHelperBase<Scalar, AlgNum> {
+  requires std::is_same_v<Scalar, ::arrow::util::Float16>
+struct ScalarHelper<Scalar, AlgNum> : public ScalarHelperBase<Scalar, AlgNum> {
   // ScalarHelper specialization for Float16
 
   static bool CompareScalars(Scalar u, Scalar v) {
@@ -547,7 +545,7 @@ class ScalarMemoTable : public MemoTable {
 // ----------------------------------------------------------------------
 // A memoization table for small scalar values, using direct indexing
 
-template <typename Scalar, typename Enable = void>
+template <typename Scalar>
 struct SmallScalarTraits {};
 
 template <>
@@ -558,7 +556,8 @@ struct SmallScalarTraits<bool> {
 };
 
 template <typename Scalar>
-struct SmallScalarTraits<Scalar, enable_if_t<std::is_integral<Scalar>::value>> {
+  requires std::is_integral_v<Scalar>
+struct SmallScalarTraits<Scalar> {
   using Unsigned = typename std::make_unsigned<Scalar>::type;
 
   static constexpr int32_t cardinality = 1U + std::numeric_limits<Unsigned>::max();
@@ -907,7 +906,7 @@ class BinaryMemoTable : public MemoTable {
   }
 };
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct HashTraits {};
 
 template <>
@@ -916,13 +915,15 @@ struct HashTraits<BooleanType> {
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_8bit_int<T>> {
+  requires is_8bit_int<T>::value
+struct HashTraits<T> {
   using c_type = typename T::c_type;
   using MemoTableType = SmallScalarMemoTable<typename T::c_type>;
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_t<has_c_type<T>::value && !is_8bit_int<T>::value>> {
+  requires(has_c_type<T>::value && !is_8bit_int<T>::value)
+struct HashTraits<T> {
   using c_type = typename T::c_type;
   using MemoTableType = ScalarMemoTable<c_type, HashTable>;
 };
@@ -933,18 +934,20 @@ struct HashTraits<HalfFloatType> {
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_t<has_string_view<T>::value &&
-                                 !std::is_base_of<LargeBinaryType, T>::value>> {
+  requires(has_string_view<T>::value && !std::is_base_of_v<LargeBinaryType, T>)
+struct HashTraits<T> {
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_decimal<T>> {
+  requires is_decimal_type<T>::value
+struct HashTraits<T> {
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };
 
 template <typename T>
-struct HashTraits<T, enable_if_t<std::is_base_of<LargeBinaryType, T>::value>> {
+  requires std::is_base_of_v<LargeBinaryType, T>
+struct HashTraits<T> {
   using MemoTableType = BinaryMemoTable<LargeBinaryBuilder>;
 };
 

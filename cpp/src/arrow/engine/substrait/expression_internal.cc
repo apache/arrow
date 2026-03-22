@@ -55,6 +55,7 @@
 #include "arrow/scalar.h"
 #include "arrow/status.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
@@ -945,7 +946,8 @@ struct ScalarToProtoImpl {
   Status Visit(const DayTimeIntervalScalar& s) { return NotImplemented(s); }
 
   template <typename T, typename TypeClass = typename T::TypeClass>
-  enable_if_decimal<TypeClass, Status> Visit(const T& s) {
+    requires arrow_decimal<TypeClass>
+  Status Visit(const T& s) {
     using ValueType = typename T::ValueType;
 
     auto decimal = std::make_unique<Lit::Decimal>();

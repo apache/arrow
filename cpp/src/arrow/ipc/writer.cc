@@ -440,11 +440,10 @@ class RecordBatchSerializer {
   Status Visit(const NullArray& array) { return Status::OK(); }
 
   template <typename T>
-  typename std::enable_if<is_number_type<typename T::TypeClass>::value ||
-                              is_temporal_type<typename T::TypeClass>::value ||
-                              is_fixed_size_binary_type<typename T::TypeClass>::value,
-                          Status>::type
-  Visit(const T& array) {
+    requires(arrow_number<typename T::TypeClass> ||
+             arrow_temporal<typename T::TypeClass> ||
+             arrow_fixed_size_binary<typename T::TypeClass>)
+  Status Visit(const T& array) {
     std::shared_ptr<Buffer> data = array.values();
 
     const int64_t type_width = array.type()->byte_width();
@@ -465,7 +464,8 @@ class RecordBatchSerializer {
   }
 
   template <typename T>
-  enable_if_base_binary<typename T::TypeClass, Status> Visit(const T& array) {
+    requires arrow_base_binary<typename T::TypeClass>
+  Status Visit(const T& array) {
     using offset_type = typename T::offset_type;
 
     std::shared_ptr<Buffer> value_offsets;
@@ -508,7 +508,8 @@ class RecordBatchSerializer {
   }
 
   template <typename T>
-  enable_if_var_size_list<typename T::TypeClass, Status> Visit(const T& array) {
+    requires arrow_var_length_list<typename T::TypeClass>
+  Status Visit(const T& array) {
     using offset_type = typename T::offset_type;
 
     std::shared_ptr<Buffer> value_offsets;
@@ -542,7 +543,8 @@ class RecordBatchSerializer {
   }
 
   template <typename T>
-  enable_if_list_view<typename T::TypeClass, Status> Visit(const T& array) {
+    requires arrow_list_view<typename T::TypeClass>
+  Status Visit(const T& array) {
     using offset_type = typename T::offset_type;
 
     offset_type min_offset = 0;

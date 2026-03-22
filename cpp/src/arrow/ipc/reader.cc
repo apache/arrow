@@ -413,16 +413,16 @@ class ArrayLoader {
   }
 
   template <typename T>
-  enable_if_t<std::is_base_of<FixedWidthType, T>::value &&
-                  !std::is_base_of<FixedSizeBinaryType, T>::value &&
-                  !std::is_base_of<DictionaryType, T>::value,
-              Status>
-  Visit(const T& type) {
+    requires(std::is_base_of_v<FixedWidthType, T> &&
+             !std::is_base_of_v<FixedSizeBinaryType, T> &&
+             !std::is_base_of_v<DictionaryType, T>)
+  Status Visit(const T& type) {
     return LoadPrimitive<T>(type.id());
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T& type) {
+    requires arrow_base_binary<T>
+  Status Visit(const T& type) {
     return LoadBinary(type.id());
   }
 
@@ -443,12 +443,14 @@ class ArrayLoader {
   }
 
   template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& type) {
+    requires arrow_var_length_list<T>
+  Status Visit(const T& type) {
     return LoadList(type);
   }
 
   template <typename T>
-  enable_if_list_view<T, Status> Visit(const T& type) {
+    requires arrow_list_view<T>
+  Status Visit(const T& type) {
     return LoadListView(type);
   }
 

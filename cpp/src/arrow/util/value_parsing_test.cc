@@ -25,6 +25,7 @@
 
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/float16.h"
 #include "arrow/util/value_parsing.h"
 
@@ -37,8 +38,8 @@ namespace internal {
 template <typename T, typename E = void>
 struct ConversionValueTrait;
 
-template <typename T>
-struct ConversionValueTrait<T, enable_if_has_c_type<T>> {
+template <arrow_has_c_type T>
+struct ConversionValueTrait<T, void> {
   using Type = typename T::c_type;
 };
 

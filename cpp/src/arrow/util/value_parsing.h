@@ -75,7 +75,7 @@ namespace internal {
 ///   `Convert` returns truthy for successful parses and assigns the parsed values to
 ///   `*out`. Parameters required for parsing (for example a timestamp's TimeUnit)
 ///   are acquired from the type parameter `t`.
-template <typename ARROW_TYPE, typename Enable = void>
+template <typename ARROW_TYPE>
 struct StringConverter;
 
 template <typename T>
@@ -856,7 +856,8 @@ struct StringConverter<DurationType>
 };
 
 template <typename DATE_TYPE>
-struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
+  requires arrow_date<DATE_TYPE>
+struct StringConverter<DATE_TYPE> {
   using value_type = typename DATE_TYPE::c_type;
 
   using duration_type =
@@ -880,7 +881,8 @@ struct StringConverter<DATE_TYPE, enable_if_date<DATE_TYPE>> {
 };
 
 template <typename TIME_TYPE>
-struct StringConverter<TIME_TYPE, enable_if_time<TIME_TYPE>> {
+  requires arrow_time<TIME_TYPE>
+struct StringConverter<TIME_TYPE> {
   using value_type = typename TIME_TYPE::c_type;
 
   // We allow the following formats for all units:
@@ -955,8 +957,9 @@ bool ParseValue(const T& type, const char* s, size_t length,
 }
 
 template <typename T>
-enable_if_parameter_free<T, bool> ParseValue(
-    const char* s, size_t length, typename StringConverter<T>::value_type* out) {
+  requires arrow_parameter_free<T>
+bool ParseValue(const char* s, size_t length,
+                typename StringConverter<T>::value_type* out) {
   static T type;
   return StringConverter<T>{}.Convert(type, s, length, out);
 }

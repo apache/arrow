@@ -109,14 +109,14 @@ struct GenerateOptions {
   }
 
   template <typename V>
-  typename std::enable_if<!std::is_floating_point_v<V> && !kIsHalfFloat>::type
-  GenerateTypedData(V* data, size_t n) {
+    requires(!std::is_floating_point_v<V> && !kIsHalfFloat)
+  void GenerateTypedData(V* data, size_t n) {
     GenerateTypedDataNoNan(data, n);
   }
 
   template <typename V>
-  typename std::enable_if<std::is_floating_point_v<V> || kIsHalfFloat>::type
-  GenerateTypedData(V* data, size_t n) {
+    requires(std::is_floating_point_v<V> || kIsHalfFloat)
+  void GenerateTypedData(V* data, size_t n) {
     if (nan_probability_ == 0.0) {
       GenerateTypedDataNoNan(data, n);
       return;
@@ -719,9 +719,8 @@ std::shared_ptr<Array> OffsetsFromLengthsArray(OffsetArrayType* lengths,
 // Helper for RandomArrayGenerator::ArrayOf: extract some C value from
 // a given metadata key.
 template <typename T, typename ArrowType = typename CTypeTraits<T>::ArrowType>
-enable_if_parameter_free<ArrowType, T> GetMetadata(const KeyValueMetadata* metadata,
-                                                   const std::string& key,
-                                                   T default_value) {
+  requires arrow_parameter_free<ArrowType>
+T GetMetadata(const KeyValueMetadata* metadata, const std::string& key, T default_value) {
   if (!metadata) return default_value;
   const auto index = metadata->FindKey(key);
   if (index < 0) return default_value;

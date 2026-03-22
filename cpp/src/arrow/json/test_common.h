@@ -35,6 +35,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/random.h"
 #include "arrow/type.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/visit_type_inline.h"
 
@@ -93,20 +94,20 @@ struct GenerateImpl {
     return OK(writer.Bool(std::uniform_int_distribution<uint16_t>{}(e) & 1));
   }
 
-  template <typename T>
-  enable_if_physical_unsigned_integer<T, Status> Visit(const T&) {
+  template <arrow_physical_unsigned_integer T>
+  Status Visit(const T&) {
     auto val = std::uniform_int_distribution<>{}(e);
     return OK(writer.Uint64(static_cast<typename T::c_type>(val)));
   }
 
-  template <typename T>
-  enable_if_physical_signed_integer<T, Status> Visit(const T&) {
+  template <arrow_physical_signed_integer T>
+  Status Visit(const T&) {
     auto val = std::uniform_int_distribution<>{}(e);
     return OK(writer.Int64(static_cast<typename T::c_type>(val)));
   }
 
-  template <typename T>
-  enable_if_physical_floating_point<T, Status> Visit(const T&) {
+  template <arrow_physical_floating_point T>
+  Status Visit(const T&) {
     auto val = std::normal_distribution<typename T::c_type>{0, 1 << 10}(e);
     return OK(writer.Double(val));
   }
@@ -118,15 +119,15 @@ struct GenerateImpl {
     return OK(writer.String(s));
   }
 
-  template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T& t) {
+  template <arrow_base_binary T>
+  Status Visit(const T& t) {
     return GenerateUtf8(t);
   }
 
   Status Visit(const BinaryViewType& t) { return GenerateUtf8(t); }
 
-  template <typename T>
-  enable_if_list_like<T, Status> Visit(const T& t) {
+  template <arrow_list_like T>
+  Status Visit(const T& t) {
     auto size = std::poisson_distribution<>{4}(e);
     writer.StartArray();
     for (int i = 0; i < size; ++i) {

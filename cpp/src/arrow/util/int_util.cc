@@ -477,8 +477,8 @@ struct TransposeIntsDest {
   int64_t length;
   const int32_t* transpose_map;
 
-  template <typename T>
-  enable_if_integer<T, Status> Visit(const T&) {
+  template <arrow_integer T>
+  Status Visit(const T&) {
     using DestType = typename T::c_type;
     TransposeInts(src, reinterpret_cast<DestType*>(dest) + dest_offset, length,
                   transpose_map);
@@ -501,8 +501,8 @@ struct TransposeIntsSrc {
   const int32_t* transpose_map;
   const DataType& dest_type;
 
-  template <typename T>
-  enable_if_integer<T, Status> Visit(const T&) {
+  template <arrow_integer T>
+  Status Visit(const T&) {
     using SrcType = typename T::c_type;
     return TransposeIntsDest<SrcType>{reinterpret_cast<const SrcType*>(src) + src_offset,
                                       dest, dest_offset, length,
@@ -711,14 +711,14 @@ Status CheckIntegersInRange(const ArraySpan& values, const Scalar& bound_lower,
 
 namespace {
 
-template <typename O, typename I, typename Enable = void>
+template <typename O, typename I>
 struct is_number_downcast {
   static constexpr bool value = false;
 };
 
 template <typename O, typename I>
-struct is_number_downcast<
-    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
+  requires(arrow_number<O> && arrow_number<I>)
+struct is_number_downcast<O, I> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -732,14 +732,14 @@ struct is_number_downcast<
        (sizeof(O_T) < sizeof(I_T)));
 };
 
-template <typename O, typename I, typename Enable = void>
+template <typename O, typename I>
 struct is_number_upcast {
   static constexpr bool value = false;
 };
 
 template <typename O, typename I>
-struct is_number_upcast<
-    O, I, enable_if_t<is_number_type<O>::value && is_number_type<I>::value>> {
+  requires(arrow_number<O> && arrow_number<I>)
+struct is_number_upcast<O, I> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -753,14 +753,14 @@ struct is_number_upcast<
        (sizeof(O_T) > sizeof(I_T)));
 };
 
-template <typename O, typename I, typename Enable = void>
+template <typename O, typename I>
 struct is_integral_signed_to_unsigned {
   static constexpr bool value = false;
 };
 
 template <typename O, typename I>
-struct is_integral_signed_to_unsigned<
-    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
+  requires(arrow_integer<O> && arrow_integer<I>)
+struct is_integral_signed_to_unsigned<O, I> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -769,14 +769,14 @@ struct is_integral_signed_to_unsigned<
        ((std::is_unsigned<O_T>::value && std::is_signed<I_T>::value)));
 };
 
-template <typename O, typename I, typename Enable = void>
+template <typename O, typename I>
 struct is_integral_unsigned_to_signed {
   static constexpr bool value = false;
 };
 
 template <typename O, typename I>
-struct is_integral_unsigned_to_signed<
-    O, I, enable_if_t<is_integer_type<O>::value && is_integer_type<I>::value>> {
+  requires(arrow_integer<O> && arrow_integer<I>)
+struct is_integral_unsigned_to_signed<O, I> {
   using O_T = typename O::c_type;
   using I_T = typename I::c_type;
 
@@ -785,63 +785,61 @@ struct is_integral_unsigned_to_signed<
        ((std::is_signed<O_T>::value && std::is_unsigned<I_T>::value)));
 };
 
-// This set of functions SafeMinimum/SafeMaximum would be simplified with
-// C++17 and `if constexpr`.
-
-// clang-format doesn't handle this construct properly. Thus the macro, but it
-// also improves readability.
-//
-// The effective return type of the function is always `I::c_type`, this is
-// just how enable_if works with functions.
-#define RET_TYPE(TRAIT) enable_if_t<TRAIT<O, I>::value, typename I::c_type>
-
 template <typename O, typename I>
-constexpr RET_TYPE(std::is_same) SafeMinimum() {
+  requires std::is_same_v<O, I>
+constexpr typename I::c_type SafeMinimum() {
   using out_type = typename O::c_type;
 
   return std::numeric_limits<out_type>::lowest();
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(std::is_same) SafeMaximum() {
+  requires std::is_same_v<O, I>
+constexpr typename I::c_type SafeMaximum() {
   using out_type = typename O::c_type;
 
   return std::numeric_limits<out_type>::max();
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_number_downcast) SafeMinimum() {
+  requires is_number_downcast<O, I>::value
+constexpr typename I::c_type SafeMinimum() {
   using out_type = typename O::c_type;
 
   return std::numeric_limits<out_type>::lowest();
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_number_downcast) SafeMaximum() {
+  requires is_number_downcast<O, I>::value
+constexpr typename I::c_type SafeMaximum() {
   using out_type = typename O::c_type;
 
   return std::numeric_limits<out_type>::max();
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_number_upcast) SafeMinimum() {
+  requires is_number_upcast<O, I>::value
+constexpr typename I::c_type SafeMinimum() {
   using in_type = typename I::c_type;
   return std::numeric_limits<in_type>::lowest();
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_number_upcast) SafeMaximum() {
+  requires is_number_upcast<O, I>::value
+constexpr typename I::c_type SafeMaximum() {
   using in_type = typename I::c_type;
   return std::numeric_limits<in_type>::max();
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMinimum() {
+  requires is_integral_unsigned_to_signed<O, I>::value
+constexpr typename I::c_type SafeMinimum() {
   return 0;
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMaximum() {
+  requires is_integral_unsigned_to_signed<O, I>::value
+constexpr typename I::c_type SafeMaximum() {
   using in_type = typename I::c_type;
   using out_type = typename O::c_type;
 
@@ -853,12 +851,14 @@ constexpr RET_TYPE(is_integral_unsigned_to_signed) SafeMaximum() {
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMinimum() {
+  requires is_integral_signed_to_unsigned<O, I>::value
+constexpr typename I::c_type SafeMinimum() {
   return 0;
 }
 
 template <typename O, typename I>
-constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
+  requires is_integral_signed_to_unsigned<O, I>::value
+constexpr typename I::c_type SafeMaximum() {
   using in_type = typename I::c_type;
   using out_type = typename O::c_type;
 
@@ -866,8 +866,6 @@ constexpr RET_TYPE(is_integral_signed_to_unsigned) SafeMaximum() {
                                   ? std::numeric_limits<in_type>::max()
                                   : std::numeric_limits<out_type>::max());
 }
-
-#undef RET_TYPE
 
 #define GET_MIN_MAX_CASE(TYPE, OUT_TYPE)    \
   case Type::TYPE:                          \

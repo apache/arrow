@@ -24,6 +24,7 @@
 #include "arrow/json/rapidjson_defs.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/testing/util.h"
+#include "arrow/type_traits.h"
 #include "arrow/util/logging_internal.h"
 
 #include "rapidjson/ostreamwrapper.h"
@@ -65,20 +66,20 @@ struct WriteVisitor {
               : Status::Invalid("Unexpected false return from JSON writer");
   }
 
-  template <typename T>
-  enable_if_physical_signed_integer<T, Status> Visit(const T*) {
+  template <arrow_physical_signed_integer T>
+  Status Visit(const T*) {
     const auto& scalar = checked_cast<const NumericScalar<T>&>(scalar_);
     return OK(writer_.Int64(scalar.value));
   }
 
-  template <typename T>
-  enable_if_physical_unsigned_integer<T, Status> Visit(const T*) {
+  template <arrow_physical_unsigned_integer T>
+  Status Visit(const T*) {
     const auto& scalar = checked_cast<const NumericScalar<T>&>(scalar_);
     return OK(writer_.Uint64(scalar.value));
   }
 
-  template <typename T>
-  enable_if_physical_floating_point<T, Status> Visit(const T*) {
+  template <arrow_physical_floating_point T>
+  Status Visit(const T*) {
     const auto& scalar = checked_cast<const NumericScalar<T>&>(scalar_);
     return OK(writer_.Double(scalar.value));
   }

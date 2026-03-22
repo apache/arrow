@@ -533,8 +533,8 @@ class FieldToFlatbufferVisitor {
     return Status::OK();
   }
 
-  template <typename T>
-  enable_if_integer<T, Status> Visit(const T& type) {
+  template <arrow_integer T>
+  Status Visit(const T& type) {
     constexpr bool is_signed = is_signed_integer_type<T>::value;
     return Visit<sizeof(typename T::c_type) * 8, is_signed>(type);
   }

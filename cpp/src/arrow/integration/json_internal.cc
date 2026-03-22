@@ -233,11 +233,10 @@ class SchemaWriter {
   Status VisitType(const DataType& type);
 
   template <typename T>
-  enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-              is_base_binary_type<T>::value || is_binary_view_like_type<T>::value ||
-              is_var_length_list_type<T>::value || is_struct_type<T>::value ||
-              is_run_end_encoded_type<T>::value || is_list_view_type<T>::value>
-  WriteTypeMetadata(const T& type) {}
+    requires(arrow_null<T> || arrow_primitive_ctype<T> || arrow_base_binary<T> ||
+             arrow_binary_view_like<T> || arrow_var_length_list<T> || arrow_struct<T> ||
+             arrow_run_end_encoded<T> || arrow_list_view<T>)
+  void WriteTypeMetadata(const T& type) {}
 
   void WriteTypeMetadata(const MapType& type) {
     writer_->Key("keysSorted");
@@ -497,9 +496,8 @@ class ArrayWriter {
 
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
             typename CType = typename TypeClass::c_type>
-  enable_if_t<is_physical_integer_type<TypeClass>::value &&
-              sizeof(CType) != sizeof(int64_t)>
-  WriteDataValues(const ArrayType& arr) {
+    requires(arrow_physical_integer<TypeClass> && sizeof(CType) != sizeof(int64_t))
+  void WriteDataValues(const ArrayType& arr) {
     static const std::string null_string = "0";
     for (int64_t i = 0; i < arr.length(); ++i) {
       if (arr.IsValid(i)) {
@@ -512,9 +510,8 @@ class ArrayWriter {
 
   template <typename ArrayType, typename TypeClass = typename ArrayType::TypeClass,
             typename CType = typename TypeClass::c_type>
-  enable_if_t<is_physical_integer_type<TypeClass>::value &&
-              sizeof(CType) == sizeof(int64_t)>
-  WriteDataValues(const ArrayType& arr) {
+    requires(arrow_physical_integer<TypeClass> && sizeof(CType) == sizeof(int64_t))
+  void WriteDataValues(const ArrayType& arr) {
     ::arrow::internal::StringFormatter<typename CTypeTraits<CType>::ArrowType> fmt;
 
     static const std::string null_string = "0";
@@ -531,8 +528,8 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_physical_floating_point<typename ArrayType::TypeClass> WriteDataValues(
-      const ArrayType& arr) {
+    requires arrow_physical_floating_point<typename ArrayType::TypeClass>
+  void WriteDataValues(const ArrayType& arr) {
     static const std::string null_string = "0";
     const auto data = arr.raw_values();
     for (int64_t i = 0; i < arr.length(); ++i) {
@@ -545,9 +542,8 @@ class ArrayWriter {
   }
 
   template <typename ArrayType, typename Type = typename ArrayType::TypeClass>
-  std::enable_if_t<is_base_binary_type<Type>::value ||
-                   is_fixed_size_binary_type<Type>::value>
-  WriteDataValues(const ArrayType& arr) {
+    requires(arrow_base_binary<Type> || arrow_fixed_size_binary<Type>)
+  void WriteDataValues(const ArrayType& arr) {
     for (int64_t i = 0; i < arr.length(); ++i) {
       if constexpr (Type::is_utf8) {
         // UTF8 string, write as is
@@ -763,10 +759,9 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_t<std::is_base_of<PrimitiveArray, ArrayType>::value &&
-                  !is_binary_view_like_type<typename ArrayType::TypeClass>::value,
-              Status>
-  Visit(const ArrayType& array) {
+    requires(std::is_base_of_v<PrimitiveArray, ArrayType> &&
+             !arrow_binary_view_like<typename ArrayType::TypeClass>)
+  Status Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteDataField(array);
     SetNoChildren();
@@ -774,8 +769,8 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_base_binary<typename ArrayType::TypeClass, Status> Visit(
-      const ArrayType& array) {
+    requires arrow_base_binary<typename ArrayType::TypeClass>
+  Status Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     WriteDataField(array);
@@ -784,8 +779,8 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_binary_view_like<typename ArrayType::TypeClass, Status> Visit(
-      const ArrayType& array) {
+    requires arrow_binary_view_like<typename ArrayType::TypeClass>
+  Status Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteBinaryViewField(array);
     WriteVariadicBuffersField(array);
@@ -799,16 +794,16 @@ class ArrayWriter {
   }
 
   template <typename ArrayType>
-  enable_if_var_size_list<typename ArrayType::TypeClass, Status> Visit(
-      const ArrayType& array) {
+    requires arrow_var_length_list<typename ArrayType::TypeClass>
+  Status Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length() + 1);
     return WriteChildren(array.type()->fields(), {array.values()});
   }
 
   template <typename ArrayType>
-  enable_if_list_view<typename ArrayType::TypeClass, Status> Visit(
-      const ArrayType& array) {
+    requires arrow_list_view<typename ArrayType::TypeClass>
+  Status Visit(const ArrayType& array) {
     WriteValidityField(array);
     WriteIntegerField("OFFSET", array.raw_value_offsets(), array.length());
     WriteIntegerField("SIZE", array.raw_value_sizes(), array.length());
@@ -1323,22 +1318,22 @@ Result<std::shared_ptr<Field>> GetField(const rj::Value& obj, FieldPosition fiel
   return field;
 }
 
-template <typename T>
-enable_if_boolean<T, bool> UnboxValue(const rj::Value& val) {
+template <arrow_boolean T>
+bool UnboxValue(const rj::Value& val) {
   DCHECK(val.IsBool());
   return val.GetBool();
 }
 
 template <typename T, typename CType = typename T::c_type>
-enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) != sizeof(int64_t), CType>
-UnboxValue(const rj::Value& val) {
+  requires(arrow_physical_integer<T> && sizeof(CType) != sizeof(int64_t))
+CType UnboxValue(const rj::Value& val) {
   DCHECK(val.IsInt64());
   return static_cast<CType>(val.GetInt64());
 }
 
 template <typename T, typename CType = typename T::c_type>
-enable_if_t<is_physical_integer_type<T>::value && sizeof(CType) == sizeof(int64_t), CType>
-UnboxValue(const rj::Value& val) {
+  requires(arrow_physical_integer<T> && sizeof(CType) == sizeof(int64_t))
+CType UnboxValue(const rj::Value& val) {
   DCHECK(val.IsString());
 
   CType out;
@@ -1350,8 +1345,8 @@ UnboxValue(const rj::Value& val) {
 }
 
 template <typename T>
-enable_if_physical_floating_point<T, typename T::c_type> UnboxValue(
-    const rj::Value& val) {
+  requires arrow_physical_floating_point<T>
+typename T::c_type UnboxValue(const rj::Value& val) {
   DCHECK(val.IsFloat());
   return static_cast<typename T::c_type>(val.GetDouble());
 }
@@ -1380,7 +1375,8 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_has_c_type<T, Status> Visit(const T& type) {
+    requires arrow_has_c_type<T>
+  Status Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
@@ -1401,7 +1397,8 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T& type) {
+    requires arrow_base_binary<T>
+  Status Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(pool_);
     using offset_type = typename T::offset_type;
 
@@ -1455,7 +1452,8 @@ class ArrayReader {
   }
 
   template <typename ViewType>
-  enable_if_binary_view_like<ViewType, Status> Visit(const ViewType& type) {
+    requires arrow_binary_view_like<ViewType>
+  Status Visit(const ViewType& type) {
     ARROW_ASSIGN_OR_RAISE(const auto json_views, GetDataArray(obj_, "VIEWS"));
     ARROW_ASSIGN_OR_RAISE(const auto json_variadic_bufs,
                           GetMemberArray(obj_, "VARIADIC_DATA_BUFFERS"));
@@ -1585,8 +1583,8 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_t<is_fixed_size_binary_type<T>::value && !is_decimal_type<T>::value, Status>
-  Visit(const T& type) {
+    requires(arrow_fixed_size_binary<T> && !arrow_decimal<T>)
+  Status Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
@@ -1620,7 +1618,8 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_decimal<T, Status> Visit(const T& type) {
+    requires arrow_decimal<T>
+  Status Visit(const T& type) {
     typename TypeTraits<T>::BuilderType builder(type_, pool_);
 
     ARROW_ASSIGN_OR_RAISE(const auto json_data_arr, GetDataArray(obj_));
@@ -1701,7 +1700,8 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& type) {
+    requires arrow_var_length_list<T>
+  Status Visit(const T& type) {
     return CreateList<T>(type_);
   }
 
@@ -1721,7 +1721,8 @@ class ArrayReader {
   }
 
   template <typename T>
-  enable_if_list_view<T, Status> Visit(const T& type) {
+    requires arrow_list_view<T>
+  Status Visit(const T& type) {
     return CreateListView<T>(type_);
   }
 

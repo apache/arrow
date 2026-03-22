@@ -213,10 +213,9 @@ class BooleanConverter final : public ConcreteConverter<BooleanConverter> {
 // Helpers for numeric converters
 
 // Convert single signed integer value (also {Date,Time}{32,64} and Timestamp)
-template <typename T>
-enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                           const DataType& type,
-                                                           typename T::c_type* out) {
+template <arrow_physical_signed_integer T>
+Status ConvertNumber(const rj::Value& json_obj, const DataType& type,
+                     typename T::c_type* out) {
   if (json_obj.IsInt64()) {
     int64_t v64 = json_obj.GetInt64();
     *out = static_cast<typename T::c_type>(v64);
@@ -232,10 +231,9 @@ enable_if_physical_signed_integer<T, Status> ConvertNumber(const rj::Value& json
 }
 
 // Convert single unsigned integer value
-template <typename T>
-enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                    const DataType& type,
-                                                    typename T::c_type* out) {
+template <arrow_unsigned_integer T>
+Status ConvertNumber(const rj::Value& json_obj, const DataType& type,
+                     typename T::c_type* out) {
   if (json_obj.IsUint64()) {
     uint64_t v64 = json_obj.GetUint64();
     *out = static_cast<typename T::c_type>(v64);
@@ -251,9 +249,8 @@ enable_if_unsigned_integer<T, Status> ConvertNumber(const rj::Value& json_obj,
 }
 
 // Convert float16/HalfFloatType
-template <typename T>
-enable_if_half_float<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                              const DataType& type, uint16_t* out) {
+template <arrow_half_float T>
+Status ConvertNumber(const rj::Value& json_obj, const DataType& type, uint16_t* out) {
   if (json_obj.IsDouble()) {
     double f64 = json_obj.GetDouble();
     *out = Float16(f64).bits();
@@ -275,10 +272,9 @@ enable_if_half_float<T, Status> ConvertNumber(const rj::Value& json_obj,
 }
 
 // Convert single floating point value
-template <typename T>
-enable_if_physical_floating_point<T, Status> ConvertNumber(const rj::Value& json_obj,
-                                                           const DataType& type,
-                                                           typename T::c_type* out) {
+template <arrow_physical_floating_point T>
+Status ConvertNumber(const rj::Value& json_obj, const DataType& type,
+                     typename T::c_type* out) {
   if (json_obj.IsNumber()) {
     *out = static_cast<typename T::c_type>(json_obj.GetDouble());
     return Status::OK();
