@@ -69,7 +69,7 @@ int64_t RowGroupWriter::total_compressed_bytes_written() const {
   return contents_->total_compressed_bytes_written();
 }
 
-BufferedStats RowGroupWriter::estimated_buffered_stats() const {
+RowGroupWriter::BufferedStats RowGroupWriter::estimated_buffered_stats() const {
   return contents_->EstimatedBufferedStats();
 }
 
@@ -202,8 +202,8 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     return total_compressed_bytes_written;
   }
 
-  BufferedStats EstimatedBufferedStats() const override {
-    BufferedStats stats;
+  RowGroupWriter::BufferedStats EstimatedBufferedStats() const override {
+    RowGroupWriter::BufferedStats stats;
     if (closed_) {
       return stats;
     }

@@ -34,15 +34,17 @@ class ColumnWriter;
 static constexpr uint8_t kParquetMagic[4] = {'P', 'A', 'R', '1'};
 static constexpr uint8_t kParquetEMagic[4] = {'P', 'A', 'R', 'E'};
 
-struct PARQUET_EXPORT BufferedStats {
-  int64_t def_level_bytes = 0;
-  int64_t rep_level_bytes = 0;
-  int64_t value_bytes = 0;
-  int64_t dict_bytes = 0;
-};
-
 class PARQUET_EXPORT RowGroupWriter {
  public:
+  // Estimated uncompressed byte sizes of data buffered by column writers
+  // that have not yet been serialized into data pages.
+  struct BufferedStats {
+    int64_t def_level_bytes = 0;
+    int64_t rep_level_bytes = 0;
+    int64_t value_bytes = 0;
+    int64_t dict_bytes = 0;
+  };
+
   // Forward declare a virtual class 'Contents' to aid dependency injection and more
   // easily create test fixtures
   // An implementation of the Contents class is defined in the .cc file
