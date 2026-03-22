@@ -97,8 +97,8 @@ class NumericArray : public PrimitiveArray {
   // Only enable this constructor without a type argument for types without additional
   // metadata
   template <typename T1 = TYPE>
-  NumericArray(enable_if_parameter_free<T1, int64_t> length,
-               const std::shared_ptr<Buffer>& data,
+    requires arrow_parameter_free<T1>
+  NumericArray(int64_t length, const std::shared_ptr<Buffer>& data,
                const std::shared_ptr<Buffer>& null_bitmap = NULLPTR,
                int64_t null_count = kUnknownNullCount, int64_t offset = 0) {
     NumericArray::SetData(ArrayData::Make(TypeTraits<T1>::type_singleton(), length,

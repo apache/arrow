@@ -76,8 +76,8 @@ struct Slice {
   bool operator!=(const Slice& other) const { return !(*this == other); }
 };
 
-template <typename ArrayType, typename T = typename ArrayType::TypeClass,
-          typename = enable_if_list_like<T>>
+template <typename ArrayType, typename T = typename ArrayType::TypeClass>
+  requires arrow_list_like<T>
 static Slice GetView(const ArrayType& array, int64_t index) {
   return Slice{array.values().get(), array.value_offset(index),
                array.value_length(index)};
@@ -614,7 +614,8 @@ class MakeFormatterImpl {
 
   // format Numerics with std::ostream defaults
   template <typename T>
-  enable_if_number<T, Status> Visit(const T&) {
+    requires arrow_number<T>
+  Status Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& numeric = checked_cast<const NumericArray<T>&>(array);
       if (sizeof(decltype(numeric.Value(index))) == sizeof(char)) {
@@ -629,7 +630,8 @@ class MakeFormatterImpl {
   }
 
   template <typename T>
-  enable_if_date<T, Status> Visit(const T&) {
+    requires arrow_date<T>
+  Status Visit(const T&) {
     using unit = typename std::conditional<std::is_same<T, Date32Type>::value,
                                            arrow_vendored::date::days,
                                            std::chrono::milliseconds>::type;
@@ -644,7 +646,8 @@ class MakeFormatterImpl {
   }
 
   template <typename T>
-  enable_if_time<T, Status> Visit(const T&) {
+    requires arrow_time<T>
+  Status Visit(const T&) {
     impl_ = MakeTimeFormatter<T, false>("%T");
     return Status::OK();
   }
@@ -673,7 +676,8 @@ class MakeFormatterImpl {
   }
 
   template <typename T>
-  enable_if_has_string_view<T, Status> Visit(const T&) {
+    requires arrow_has_string_view<T>
+  Status Visit(const T&) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       std::string_view view = checked_cast<const ArrayType&>(array).GetView(index);
@@ -690,7 +694,8 @@ class MakeFormatterImpl {
 
   // format Decimals with Decimal___Array::FormatValue
   template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
+    requires arrow_decimal<T>
+  Status Visit(const T&) {
     impl_ = [](const Array& array, int64_t index, std::ostream* os) {
       const auto& decimal_array =
           checked_cast<const typename TypeTraits<T>::ArrayType&>(array);
@@ -700,7 +705,8 @@ class MakeFormatterImpl {
   }
 
   template <typename T>
-  enable_if_list_like<T, Status> Visit(const T& t) {
+    requires arrow_list_like<T>
+  Status Visit(const T& t) {
     struct ListImpl {
       explicit ListImpl(Formatter f) : values_formatter_(std::move(f)) {}
 

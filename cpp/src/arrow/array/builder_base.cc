@@ -114,7 +114,8 @@ struct AppendScalarImpl {
   }
 
   template <typename T>
-  enable_if_t<has_c_type<T>::value, Status> Visit(const T& t) {
+    requires arrow_has_c_type<T>
+  Status Visit(const T& t) {
     return HandleFixedWidth(t);
   }
 
@@ -125,7 +126,8 @@ struct AppendScalarImpl {
   Status Visit(const Decimal256Type& t) { return HandleFixedWidth(t); }
 
   template <typename T>
-  enable_if_has_string_view<T, Status> Visit(const T&) {
+    requires arrow_has_string_view<T>
+  Status Visit(const T&) {
     int64_t data_size = 0;
     for (auto it = scalars_begin_; it != scalars_end_; ++it) {
       const auto& scalar = checked_cast<const typename TypeTraits<T>::ScalarType&>(*it);
@@ -152,8 +154,8 @@ struct AppendScalarImpl {
   }
 
   template <typename T>
-  enable_if_t<is_list_view_type<T>::value || is_list_like_type<T>::value, Status> Visit(
-      const T&) {
+    requires(arrow_list_view<T> || arrow_list_like<T>)
+  Status Visit(const T&) {
     auto builder = checked_cast<typename TypeTraits<T>::BuilderType*>(builder_);
     int64_t num_children = 0;
     for (auto it = scalars_begin_; it != scalars_end_; ++it) {

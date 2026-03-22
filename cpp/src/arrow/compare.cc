@@ -240,12 +240,14 @@ class RangeDataEqualsImpl {
   Status Visit(const NullType&) { return Status::OK(); }
 
   template <typename TypeClass>
-  enable_if_primitive_ctype<TypeClass, Status> Visit(const TypeClass& type) {
+    requires arrow_primitive_ctype<TypeClass>
+  Status Visit(const TypeClass& type) {
     return ComparePrimitive(type);
   }
 
   template <typename TypeClass>
-  enable_if_t<is_temporal_type<TypeClass>::value, Status> Visit(const TypeClass& type) {
+    requires arrow_temporal<TypeClass>
+  Status Visit(const TypeClass& type) {
     return ComparePrimitive(type);
   }
 
@@ -739,10 +741,8 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_null_type<T>::value || is_primitive_ctype<T>::value ||
-                  is_base_binary_type<T>::value,
-              Status>
-  Visit(const T&) {
+    requires(arrow_null<T> || arrow_primitive_ctype<T> || arrow_base_binary<T>)
+  Status Visit(const T&) {
     result_ = true;
     return Status::OK();
   }
@@ -753,17 +753,16 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_interval<T, Status> Visit(const T& left) {
+    requires arrow_interval<T>
+  Status Visit(const T& left) {
     const auto& right = checked_cast<const IntervalType&>(right_);
     result_ = right.interval_type() == left.interval_type();
     return Status::OK();
   }
 
   template <typename T>
-  enable_if_t<is_time_type<T>::value || is_date_type<T>::value ||
-                  is_duration_type<T>::value,
-              Status>
-  Visit(const T& left) {
+    requires(arrow_time<T> || arrow_date<T> || arrow_duration<T>)
+  Status Visit(const T& left) {
     const auto& right = checked_cast<const T&>(right_);
     result_ = left.unit() == right.unit();
     return Status::OK();
@@ -789,8 +788,8 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_list_type<T>::value || is_list_view_type<T>::value, Status> Visit(
-      const T& left) {
+    requires(arrow_list<T> || arrow_list_view<T>)
+  Status Visit(const T& left) {
     std::shared_ptr<Field> left_field = left.field(0);
     std::shared_ptr<Field> right_field = checked_cast<const T&>(right_).field(0);
     bool equal_names = !check_metadata_ || (left_field->name() == right_field->name());
@@ -804,7 +803,8 @@ class TypeEqualsVisitor {
   }
 
   template <typename T>
-  enable_if_t<is_struct_type<T>::value, Status> Visit(const T& left) {
+    requires arrow_struct<T>
+  Status Visit(const T& left) {
     return VisitChildren(left);
   }
 
@@ -904,10 +904,9 @@ class ScalarEqualsVisitor {
   }
 
   template <typename T>
-  typename std::enable_if<(is_primitive_ctype<typename T::TypeClass>::value ||
-                           is_temporal_type<typename T::TypeClass>::value),
-                          Status>::type
-  Visit(const T& left_) {
+    requires(arrow_primitive_ctype<typename T::TypeClass> ||
+             arrow_temporal<typename T::TypeClass>)
+  Status Visit(const T& left_) {
     const auto& right = checked_cast<const T&>(right_);
     result_ = right.value == left_.value;
     return Status::OK();
@@ -920,7 +919,8 @@ class ScalarEqualsVisitor {
   Status Visit(const HalfFloatScalar& left) { return CompareFloating(left); }
 
   template <typename T>
-  enable_if_t<std::is_base_of<BaseBinaryScalar, T>::value, Status> Visit(const T& left) {
+    requires std::is_base_of_v<BaseBinaryScalar, T>
+  Status Visit(const T& left) {
     const auto& right = checked_cast<const BaseBinaryScalar&>(right_);
     result_ = internal::SharedPtrEquals(left.value, right.value);
     return Status::OK();

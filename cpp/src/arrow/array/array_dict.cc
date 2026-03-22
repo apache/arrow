@@ -289,7 +289,8 @@ struct CompactTransposeMapVisitor {
   }
 
   template <typename Type>
-  enable_if_integer<Type, Status> Visit(const Type&) {
+    requires arrow_integer<Type>
+  Status Visit(const Type&) {
     return CompactTransposeMapImpl<Type>();
   }
 
@@ -435,14 +436,16 @@ struct MakeUnifier {
       : pool(pool), value_type(std::move(value_type)) {}
 
   template <typename T>
-  enable_if_no_memoize<T, Status> Visit(const T&) {
+    requires dictionary_has_no_memo_table<T>
+  Status Visit(const T&) {
     // Default implementation for non-dictionary-supported datatypes
     return Status::NotImplemented("Unification of ", *value_type,
                                   " dictionaries is not implemented");
   }
 
   template <typename T>
-  enable_if_memoize<T, Status> Visit(const T&) {
+    requires dictionary_has_memo_table<T>
+  Status Visit(const T&) {
     result.reset(new DictionaryUnifierImpl<T>(pool, value_type));
     return Status::OK();
   }

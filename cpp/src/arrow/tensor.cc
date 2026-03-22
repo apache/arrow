@@ -523,7 +523,8 @@ struct NonZeroCounter {
   explicit NonZeroCounter(const Tensor& tensor) : tensor_(tensor) {}
 
   template <typename TYPE>
-  enable_if_number<TYPE, Status> Visit(const TYPE& type) {
+    requires arrow_number<TYPE>
+  Status Visit(const TYPE& type) {
     result = TensorCountNonZero<TYPE>(tensor_);
     return Status::OK();
   }

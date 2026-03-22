@@ -44,13 +44,15 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
     std::unique_ptr<MemoTable>* memo_table_;
 
     template <typename T>
-    enable_if_no_memoize<T, Status> Visit(const T&) {
+      requires dictionary_has_no_memo_table<T>
+    Status Visit(const T&) {
       return Status::NotImplemented("Initialization of ", value_type_->ToString(),
                                     " memo table is not implemented");
     }
 
     template <typename T>
-    enable_if_memoize<T, Status> Visit(const T&) {
+      requires dictionary_has_memo_table<T>
+    Status Visit(const T&) {
       using MemoTable = typename DictionaryTraits<T>::MemoTableType;
       memo_table_->reset(new MemoTable(pool_, 0));
       return Status::OK();
@@ -70,13 +72,15 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
 
    private:
     template <typename T, typename ArrayType>
-    enable_if_no_memoize<T, Status> InsertValues(const T& type, const ArrayType&) {
+      requires dictionary_has_no_memo_table<T>
+    Status InsertValues(const T& type, const ArrayType&) {
       return Status::NotImplemented("Inserting array values of ", type,
                                     " is not implemented");
     }
 
     template <typename T, typename ArrayType>
-    enable_if_memoize<T, Status> InsertValues(const T&, const ArrayType& array) {
+      requires dictionary_has_memo_table<T>
+    Status InsertValues(const T&, const ArrayType& array) {
       if (array.null_count() > 0) {
         return Status::Invalid("Cannot insert dictionary values containing nulls");
       }
@@ -97,13 +101,15 @@ class DictionaryMemoTable::DictionaryMemoTableImpl {
     std::shared_ptr<ArrayData>* out_;
 
     template <typename T>
-    enable_if_no_memoize<T, Status> Visit(const T&) {
+      requires dictionary_has_no_memo_table<T>
+    Status Visit(const T&) {
       return Status::NotImplemented("Getting array data of ", value_type_,
                                     " is not implemented");
     }
 
     template <typename T>
-    enable_if_memoize<T, Status> Visit(const T&) {
+      requires dictionary_has_memo_table<T>
+    Status Visit(const T&) {
       using ConcreteMemoTable = typename DictionaryTraits<T>::MemoTableType;
       auto memo_table = checked_cast<ConcreteMemoTable*>(memo_table_);
       ARROW_ASSIGN_OR_RAISE(*out_, DictionaryTraits<T>::GetDictionaryArrayData(

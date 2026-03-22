@@ -46,28 +46,28 @@ namespace arrow {
 
 namespace internal {
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct DictionaryValue {
   using type = typename T::c_type;
   using PhysicalType = T;
 };
 
-template <typename T>
-struct DictionaryValue<T, enable_if_base_binary<T>> {
+template <arrow_base_binary T>
+struct DictionaryValue<T> {
   using type = std::string_view;
   using PhysicalType =
       typename std::conditional<std::is_same<typename T::offset_type, int32_t>::value,
                                 BinaryType, LargeBinaryType>::type;
 };
 
-template <typename T>
-struct DictionaryValue<T, enable_if_binary_view_like<T>> {
+template <arrow_binary_view_like T>
+struct DictionaryValue<T> {
   using type = std::string_view;
   using PhysicalType = BinaryViewType;
 };
 
-template <typename T>
-struct DictionaryValue<T, enable_if_fixed_size_binary<T>> {
+template <arrow_fixed_size_binary T>
+struct DictionaryValue<T> {
   using type = std::string_view;
   using PhysicalType = BinaryType;
 };
@@ -148,11 +148,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
   // WARNING: the type given below is the value type, not the DictionaryType.
   // The DictionaryType is instantiated on the Finish() call.
   template <typename B = BuilderType, typename T1 = T>
+    requires(std::is_base_of_v<AdaptiveIntBuilderBase, B> && !arrow_fixed_size_binary<T1>)
   DictionaryBuilderBase(uint8_t start_int_size,
-                        enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value &&
-                                        !is_fixed_size_binary_type<T1>::value,
-                                    const std::shared_ptr<DataType>&>
-                            value_type,
+                        const std::shared_ptr<DataType>& value_type,
                         MemoryPool* pool = default_memory_pool(),
                         int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
@@ -163,11 +161,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilderBase(
-      enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
-          value_type,
-      MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+    requires(!arrow_fixed_size_binary<T1>)
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
@@ -176,12 +173,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilderBase(
-      const std::shared_ptr<DataType>& index_type,
-      enable_if_t<!is_fixed_size_binary_type<T1>::value, const std::shared_ptr<DataType>&>
-          value_type,
-      MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+    requires(!arrow_fixed_size_binary<T1>)
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& index_type,
+                                 const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
@@ -190,11 +186,9 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename B = BuilderType, typename T1 = T>
+    requires(std::is_base_of_v<AdaptiveIntBuilderBase, B> && arrow_fixed_size_binary<T1>)
   DictionaryBuilderBase(uint8_t start_int_size,
-                        enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value &&
-                                        is_fixed_size_binary_type<T1>::value,
-                                    const std::shared_ptr<DataType>&>
-                            value_type,
+                        const std::shared_ptr<DataType>& value_type,
                         MemoryPool* pool = default_memory_pool(),
                         int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
@@ -205,10 +199,10 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilderBase(
-      enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
-      MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+    requires arrow_fixed_size_binary<T1>
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
@@ -217,11 +211,11 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilderBase(
-      const std::shared_ptr<DataType>& index_type,
-      enable_if_fixed_size_binary<T1, const std::shared_ptr<DataType>&> value_type,
-      MemoryPool* pool = default_memory_pool(),
-      int64_t alignment = kDefaultBufferAlignment)
+    requires arrow_fixed_size_binary<T1>
+  explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& index_type,
+                                 const std::shared_ptr<DataType>& value_type,
+                                 MemoryPool* pool = default_memory_pool(),
+                                 int64_t alignment = kDefaultBufferAlignment)
       : ArrayBuilder(pool, alignment),
         memo_table_(new internal::DictionaryMemoTable(pool, value_type)),
         delta_offset_(0),
@@ -230,8 +224,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
         value_type_(value_type) {}
 
   template <typename T1 = T>
-  explicit DictionaryBuilderBase(
-      enable_if_parameter_free<T1, MemoryPool*> pool = default_memory_pool())
+    requires arrow_parameter_free<T1>
+  explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())
       : DictionaryBuilderBase<BuilderType, T1>(TypeTraits<T1>::type_singleton(), pool) {}
 
   // This constructor doesn't check for errors. Use InsertMemoValues instead.
@@ -252,7 +246,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief The value byte width (for FixedSizeBinaryType)
   template <typename T1 = T>
-  enable_if_fixed_size_binary<T1, int32_t> byte_width() const {
+    requires arrow_fixed_size_binary<T1>
+  int32_t byte_width() const {
     return byte_width_;
   }
 
@@ -270,37 +265,43 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
-  enable_if_fixed_size_binary<T1, Status> Append(const uint8_t* value) {
+    requires arrow_fixed_size_binary<T1>
+  Status Append(const uint8_t* value) {
     return Append(std::string_view(reinterpret_cast<const char*>(value), byte_width_));
   }
 
   /// \brief Append a fixed-width string (only for FixedSizeBinaryType)
   template <typename T1 = T>
-  enable_if_fixed_size_binary<T1, Status> Append(const char* value) {
+    requires arrow_fixed_size_binary<T1>
+  Status Append(const char* value) {
     return Append(std::string_view(value, byte_width_));
   }
 
   /// \brief Append a string (only for binary types)
   template <typename T1 = T>
-  enable_if_binary_like<T1, Status> Append(const uint8_t* value, int32_t length) {
+    requires arrow_binary_like<T1>
+  Status Append(const uint8_t* value, int32_t length) {
     return Append(reinterpret_cast<const char*>(value), length);
   }
 
   /// \brief Append a string (only for binary types)
   template <typename T1 = T>
-  enable_if_binary_like<T1, Status> Append(const char* value, int32_t length) {
+    requires arrow_binary_like<T1>
+  Status Append(const char* value, int32_t length) {
     return Append(std::string_view(value, length));
   }
 
   /// \brief Append a string (only for string types)
   template <typename T1 = T>
-  enable_if_string_like<T1, Status> Append(const char* value, int32_t length) {
+    requires arrow_string_like<T1>
+  Status Append(const char* value, int32_t length) {
     return Append(std::string_view(value, length));
   }
 
   /// \brief Append a decimal (only for Decimal32/64/128/256 Type)
   template <typename T1 = T, typename CType = typename TypeTraits<T1>::CType>
-  enable_if_decimal<T1, Status> Append(const CType& value) {
+    requires arrow_decimal<T1>
+  Status Append(const CType& value) {
     auto bytes = value.ToBytes();
     return Append(bytes.data(), static_cast<int32_t>(bytes.size()));
   }
@@ -411,8 +412,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
 
   /// \brief Append a whole dense array to the builder
   template <typename T1 = T>
-  enable_if_t<!is_fixed_size_binary_type<T1>::value, Status> AppendArray(
-      const Array& array) {
+    requires(!arrow_fixed_size_binary<T1>)
+  Status AppendArray(const Array& array) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
 
 #ifndef NDEBUG
@@ -432,7 +433,8 @@ class DictionaryBuilderBase : public ArrayBuilder {
   }
 
   template <typename T1 = T>
-  enable_if_fixed_size_binary<T1, Status> AppendArray(const Array& array) {
+    requires arrow_fixed_size_binary<T1>
+  Status AppendArray(const Array& array) {
 #ifndef NDEBUG
     ARROW_RETURN_NOT_OK(ArrayBuilder::CheckArrayType(
         value_type_, array, "Wrong value type of array to be appended"));
@@ -567,11 +569,10 @@ template <typename BuilderType>
 class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
  public:
   template <typename B = BuilderType>
-  DictionaryBuilderBase(
-      enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value, uint8_t>
-          start_int_size,
-      const std::shared_ptr<DataType>& value_type,
-      MemoryPool* pool = default_memory_pool())
+    requires std::is_base_of_v<AdaptiveIntBuilderBase, B>
+  DictionaryBuilderBase(uint8_t start_int_size,
+                        const std::shared_ptr<DataType>& value_type,
+                        MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
 
   explicit DictionaryBuilderBase(const std::shared_ptr<DataType>& value_type,
@@ -584,10 +585,9 @@ class DictionaryBuilderBase<BuilderType, NullType> : public ArrayBuilder {
       : ArrayBuilder(pool), indices_builder_(index_type, pool) {}
 
   template <typename B = BuilderType>
-  explicit DictionaryBuilderBase(
-      enable_if_t<std::is_base_of<AdaptiveIntBuilderBase, B>::value, uint8_t>
-          start_int_size,
-      MemoryPool* pool = default_memory_pool())
+    requires std::is_base_of_v<AdaptiveIntBuilderBase, B>
+  explicit DictionaryBuilderBase(uint8_t start_int_size,
+                                 MemoryPool* pool = default_memory_pool())
       : ArrayBuilder(pool), indices_builder_(start_int_size, pool) {}
 
   explicit DictionaryBuilderBase(MemoryPool* pool = default_memory_pool())

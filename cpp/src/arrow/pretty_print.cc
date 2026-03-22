@@ -235,12 +235,14 @@ class ArrayPrinter : public PrettyPrinter {
   //
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_has_c_type<T, Status> WriteDataValues(const ArrayType& array) {
+    requires arrow_has_c_type<T>
+  Status WriteDataValues(const ArrayType& array) {
     return WritePrimitiveValues(array);
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_has_string_view<T, Status> WriteDataValues(const ArrayType& array) {
+    requires arrow_has_string_view<T>
+  Status WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
       if constexpr (T::is_utf8) {
         (*sink_) << "\"";
@@ -254,7 +256,8 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_decimal<T, Status> WriteDataValues(const ArrayType& array) {
+    requires arrow_decimal<T>
+  Status WriteDataValues(const ArrayType& array) {
     return WriteValues(array, [&](int64_t i) {
       this->Write(array.FormatValue(i));
       return Status::OK();
@@ -262,8 +265,8 @@ class ArrayPrinter : public PrettyPrinter {
   }
 
   template <typename ArrayType, typename T = typename ArrayType::TypeClass>
-  enable_if_t<is_list_like_type<T>::value || is_list_view_type<T>::value, Status>
-  WriteDataValues(const ArrayType& array) {
+    requires(arrow_list_like<T> || arrow_list_view<T>)
+  Status WriteDataValues(const ArrayType& array) {
     const auto values = array.values();
     const auto child_options = ChildOptions();
     ArrayPrinter values_printer(child_options, sink_);
@@ -307,19 +310,16 @@ class ArrayPrinter : public PrettyPrinter {
 
  public:
   template <typename T>
-  enable_if_t<std::is_base_of<PrimitiveArray, T>::value ||
-                  std::is_base_of<FixedSizeBinaryArray, T>::value ||
-                  std::is_base_of<BinaryArray, T>::value ||
-                  std::is_base_of<LargeBinaryArray, T>::value ||
-                  std::is_base_of<BinaryViewArray, T>::value ||
-                  std::is_base_of<ListArray, T>::value ||
-                  std::is_base_of<LargeListArray, T>::value ||
-                  std::is_base_of<ListViewArray, T>::value ||
-                  std::is_base_of<LargeListViewArray, T>::value ||
-                  std::is_base_of<MapArray, T>::value ||
-                  std::is_base_of<FixedSizeListArray, T>::value,
-              Status>
-  Visit(const T& array) {
+    requires(std::is_base_of_v<PrimitiveArray, T> ||
+             std::is_base_of_v<FixedSizeBinaryArray, T> ||
+             std::is_base_of_v<BinaryArray, T> ||
+             std::is_base_of_v<LargeBinaryArray, T> ||
+             std::is_base_of_v<BinaryViewArray, T> || std::is_base_of_v<ListArray, T> ||
+             std::is_base_of_v<LargeListArray, T> ||
+             std::is_base_of_v<ListViewArray, T> ||
+             std::is_base_of_v<LargeListViewArray, T> || std::is_base_of_v<MapArray, T> ||
+             std::is_base_of_v<FixedSizeListArray, T>)
+  Status Visit(const T& array) {
     Status st = array.Validate();
     if (!st.ok()) {
       (*sink_) << "<Invalid array: " << st.message() << ">";

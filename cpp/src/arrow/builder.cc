@@ -195,7 +195,8 @@ struct DictionaryBuilderCase {
 
 struct MakeBuilderImpl {
   template <typename T>
-  enable_if_not_nested<T, Status> Visit(const T& t) {
+    requires(!arrow_nested<T>)
+  Status Visit(const T& t) {
     out.reset(new typename TypeTraits<T>::BuilderType(type, pool));
     return Status::OK();
   }

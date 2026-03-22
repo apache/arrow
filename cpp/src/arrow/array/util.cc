@@ -141,11 +141,8 @@ class ArrayDataEndianSwapper {
   }
 
   template <typename T>
-  enable_if_t<std::is_base_of<FixedWidthType, T>::value &&
-                  !std::is_base_of<FixedSizeBinaryType, T>::value &&
-                  !std::is_base_of<DictionaryType, T>::value,
-              Status>
-  Visit(const T& type) {
+    requires(arrow_fixed_width<T> && !arrow_fixed_size_binary<T> && !arrow_dictionary<T>)
+  Status Visit(const T& type) {
     using value_type = typename T::c_type;
     ARROW_ASSIGN_OR_RAISE(out_->buffers[1],
                           ByteSwapBuffer<value_type>(data_->buffers[1]));
@@ -153,7 +150,8 @@ class ArrayDataEndianSwapper {
   }
 
   template <typename T>
-  enable_if_decimal<T, Status> Visit(const T& type) {
+    requires arrow_decimal<T>
+  Status Visit(const T& type) {
     using value_type = typename TypeTraits<T>::CType;
     auto data = data_->buffers[1]->span_as<value_type>();
     ARROW_ASSIGN_OR_RAISE(auto new_buffer,
@@ -219,19 +217,16 @@ class ArrayDataEndianSwapper {
   }
 
   template <typename T>
-  enable_if_t<std::is_same<BinaryType, T>::value || std::is_same<StringType, T>::value,
-              Status>
-  Visit(const T& type) {
+    requires(std::is_same_v<BinaryType, T> || std::is_same_v<StringType, T>)
+  Status Visit(const T& type) {
     RETURN_NOT_OK(SwapOffsets<int32_t>(1));
     out_->buffers[2] = data_->buffers[2];
     return Status::OK();
   }
 
   template <typename T>
-  enable_if_t<std::is_same<LargeBinaryType, T>::value ||
-                  std::is_same<LargeStringType, T>::value,
-              Status>
-  Visit(const T& type) {
+    requires(std::is_same_v<LargeBinaryType, T> || std::is_same_v<LargeStringType, T>)
+  Status Visit(const T& type) {
     RETURN_NOT_OK(SwapOffsets<int64_t>(1));
     out_->buffers[2] = data_->buffers[2];
     return Status::OK();
@@ -350,7 +345,8 @@ class NullArrayFactory {
     }
 
     template <typename T>
-    enable_if_var_size_list<T, Status> Visit(const T& type) {
+      requires arrow_var_length_list<T>
+    Status Visit(const T& type) {
       // values array may be empty, but there must be at least one offset of 0
       RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * (length_ + 1)));
       RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), /*length=*/0)));
@@ -358,14 +354,16 @@ class NullArrayFactory {
     }
 
     template <typename T>
-    enable_if_list_view<T, Status> Visit(const T& type) {
+      requires arrow_list_view<T>
+    Status Visit(const T& type) {
       RETURN_NOT_OK(MaxOf(sizeof(typename T::offset_type) * length_));
       RETURN_NOT_OK(MaxOf(GetBufferLength(type.value_type(), /*length=*/0)));
       return Status::OK();
     }
 
     template <typename T>
-    enable_if_base_binary<T, Status> Visit(const T&) {
+      requires arrow_base_binary<T>
+    Status Visit(const T&) {
       // values buffer may be empty, but there must be at least one offset of 0
       return MaxOf(sizeof(typename T::offset_type) * (length_ + 1));
     }
@@ -488,7 +486,8 @@ class NullArrayFactory {
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+    requires arrow_base_binary<T>
+  Status Visit(const T&) {
     out_->buffers.resize(3, buffer_);
     return Status::OK();
   }
@@ -499,7 +498,8 @@ class NullArrayFactory {
   }
 
   template <typename T>
-  enable_if_var_length_list_like<T, Status> Visit(const T& type) {
+    requires arrow_var_length_list_like<T>
+  Status Visit(const T& type) {
     out_->buffers.resize(is_list_view(T::type_id) ? 3 : 2, buffer_);
     ARROW_ASSIGN_OR_RAISE(out_->child_data[0], CreateChild(type, 0, /*length=*/0));
     return Status::OK();
@@ -624,8 +624,8 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_t<is_number_type<T>::value || is_temporal_type<T>::value, Status> Visit(
-      const T&) {
+    requires(arrow_number<T> || arrow_temporal<T>)
+  Status Visit(const T&) {
     auto value = scalar<T>().value;
     return FinishFixedWidth(&value, sizeof(value));
   }
@@ -636,7 +636,8 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_decimal<T, Status> Visit(const T&) {
+    requires arrow_decimal<T>
+  Status Visit(const T&) {
     auto value = scalar<T>().value.ToBytes();
     return FinishFixedWidth(value.data(), value.size());
   }
@@ -647,7 +648,8 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_base_binary<T, Status> Visit(const T&) {
+    requires arrow_base_binary<T>
+  Status Visit(const T&) {
     const std::shared_ptr<Buffer>& value = scalar<T>().value;
     std::shared_ptr<Buffer> values_buffer, offsets_buffer;
     RETURN_NOT_OK(CreateBufferOf(value->data(), value->size(), &values_buffer));
@@ -659,7 +661,8 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_binary_view_like<T, Status> Visit(const T& type) {
+    requires arrow_binary_view_like<T>
+  Status Visit(const T& type) {
     std::string_view value{*scalar<T>().value};
     auto s = util::ToBinaryView(value, 0, 0);
     RETURN_NOT_OK(FinishFixedWidth(&s, sizeof(s)));
@@ -670,7 +673,8 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_var_size_list<T, Status> Visit(const T& type) {
+    requires arrow_var_length_list<T>
+  Status Visit(const T& type) {
     using ArrayType = typename TypeTraits<T>::ArrayType;
 
     ArrayVector values(length_, scalar<T>().value);
@@ -685,7 +689,8 @@ class RepeatedArrayFactory {
   }
 
   template <typename T>
-  enable_if_list_view<T, Status> Visit(const T& type) {
+    requires arrow_list_view<T>
+  Status Visit(const T& type) {
     using ScalarType = typename TypeTraits<T>::ScalarType;
     using ArrayType = typename TypeTraits<T>::ArrayType;
 

@@ -19,6 +19,7 @@
 
 #include "arrow/array/builder_dict.h"
 
+#include <concepts>
 #include <cstdint>
 #include <limits>
 #include <memory>
@@ -40,22 +41,27 @@
 namespace arrow {
 namespace internal {
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct DictionaryTraits {
   using MemoTableType = void;
 };
 
 }  // namespace internal
 
+template <typename T>
+concept dictionary_has_memo_table =
+    !std::same_as<typename internal::DictionaryTraits<T>::MemoTableType, void>;
+
+template <typename T>
+concept dictionary_has_no_memo_table =
+    std::same_as<typename internal::DictionaryTraits<T>::MemoTableType, void>;
+
+// Keep compatibility aliases while downstream files are migrated.
 template <typename T, typename Out = void>
-using enable_if_memoize = enable_if_t<
-    !std::is_same<typename internal::DictionaryTraits<T>::MemoTableType, void>::value,
-    Out>;
+using enable_if_memoize = enable_if_t<dictionary_has_memo_table<T>, Out>;
 
 template <typename T, typename Out = void>
-using enable_if_no_memoize = enable_if_t<
-    std::is_same<typename internal::DictionaryTraits<T>::MemoTableType, void>::value,
-    Out>;
+using enable_if_no_memoize = enable_if_t<dictionary_has_no_memo_table<T>, Out>;
 
 namespace internal {
 
@@ -87,8 +93,8 @@ struct DictionaryTraits<BooleanType> {
   }
 };  // namespace internal
 
-template <typename T>
-struct DictionaryTraits<T, enable_if_has_c_type<T>> {
+template <arrow_has_c_type T>
+struct DictionaryTraits<T> {
   using c_type = typename T::c_type;
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
@@ -115,8 +121,8 @@ struct DictionaryTraits<T, enable_if_has_c_type<T>> {
   }
 };
 
-template <typename T>
-struct DictionaryTraits<T, enable_if_base_binary<T>> {
+template <arrow_base_binary T>
+struct DictionaryTraits<T> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
   static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(
@@ -150,8 +156,8 @@ struct DictionaryTraits<T, enable_if_base_binary<T>> {
   }
 };
 
-template <typename T>
-struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
+template <arrow_binary_view_like T>
+struct DictionaryTraits<T> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
   static_assert(std::is_same_v<MemoTableType, BinaryMemoTable<BinaryBuilder>>);
@@ -176,8 +182,8 @@ struct DictionaryTraits<T, enable_if_binary_view_like<T>> {
   }
 };
 
-template <typename T>
-struct DictionaryTraits<T, enable_if_fixed_size_binary<T>> {
+template <arrow_fixed_size_binary T>
+struct DictionaryTraits<T> {
   using MemoTableType = typename HashTraits<T>::MemoTableType;
 
   static Result<std::shared_ptr<ArrayData>> GetDictionaryArrayData(

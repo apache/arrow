@@ -17,7 +17,9 @@
 
 #pragma once
 
+#include <concepts>
 #include <string_view>
+#include <type_traits>
 
 #include "arrow/array.h"
 #include "arrow/status.h"
@@ -32,12 +34,12 @@
 namespace arrow {
 namespace internal {
 
-template <typename T, typename Enable = void>
+template <typename T>
 struct ArraySpanInlineVisitor {};
 
 // Numeric and primitive C-compatible types
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
+template <arrow_has_c_type T>
+struct ArraySpanInlineVisitor<T> {
   using c_type = typename T::c_type;
 
   template <typename ValidFunc, typename NullFunc>
@@ -78,8 +80,8 @@ struct ArraySpanInlineVisitor<T, enable_if_has_c_type<T>> {
 };
 
 // Binary, String...
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
+template <arrow_base_binary T>
+struct ArraySpanInlineVisitor<T> {
   using c_type = std::string_view;
 
   template <typename ValidFunc, typename NullFunc>
@@ -146,8 +148,8 @@ struct ArraySpanInlineVisitor<T, enable_if_base_binary<T>> {
 };
 
 // BinaryView, StringView...
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
+template <arrow_binary_view_like T>
+struct ArraySpanInlineVisitor<T> {
   using c_type = std::string_view;
 
   template <typename ValidFunc, typename NullFunc>
@@ -182,8 +184,8 @@ struct ArraySpanInlineVisitor<T, enable_if_binary_view_like<T>> {
 };
 
 // FixedSizeBinary, Decimal128
-template <typename T>
-struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
+template <arrow_fixed_size_binary T>
+struct ArraySpanInlineVisitor<T> {
   using c_type = std::string_view;
 
   template <typename ValidFunc, typename NullFunc>
@@ -227,15 +229,21 @@ struct ArraySpanInlineVisitor<T, enable_if_fixed_size_binary<T>> {
 }  // namespace internal
 
 template <typename T, typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, Status>::type
-VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
+  requires std::same_as<
+      Status, std::invoke_result_t<ValidFunc&,
+                                   typename internal::ArraySpanInlineVisitor<T>::c_type>>
+Status VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func,
+                            NullFunc&& null_func) {
   return internal::ArraySpanInlineVisitor<T>::VisitStatus(
       arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
 }
 
 template <typename T, typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, void>::type
-VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func, NullFunc&& null_func) {
+  requires std::same_as<
+      void, std::invoke_result_t<ValidFunc&,
+                                 typename internal::ArraySpanInlineVisitor<T>::c_type>>
+void VisitArraySpanInline(const ArraySpan& arr, ValidFunc&& valid_func,
+                          NullFunc&& null_func) {
   return internal::ArraySpanInlineVisitor<T>::VisitVoid(
       arr, std::forward<ValidFunc>(valid_func), std::forward<NullFunc>(null_func));
 }
@@ -274,10 +282,10 @@ struct ArraySpanVisitor {
 // The `NullFunc` should have the same return type as `ValidFunc`.
 
 template <typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, Status>::type
-VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
-                      int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
-                      NullFunc&& null_func) {
+  requires std::same_as<Status, std::invoke_result_t<ValidFunc&>>
+Status VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
+                             int64_t num_values, int64_t null_count,
+                             ValidFunc&& valid_func, NullFunc&& null_func) {
   internal::OptionalBitBlockCounter bit_counter(null_count == 0 ? NULLPTR : valid_bits,
                                                 valid_bits_offset, num_values);
   int64_t position = 0;
@@ -306,10 +314,10 @@ VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
 }
 
 template <typename ValidFunc, typename NullFunc>
-typename internal::call_traits::enable_if_return<ValidFunc, void>::type
-VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
-                      int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
-                      NullFunc&& null_func) {
+  requires std::same_as<void, std::invoke_result_t<ValidFunc&>>
+void VisitNullBitmapInline(const uint8_t* valid_bits, int64_t valid_bits_offset,
+                           int64_t num_values, int64_t null_count, ValidFunc&& valid_func,
+                           NullFunc&& null_func) {
   internal::OptionalBitBlockCounter bit_counter(null_count == 0 ? NULLPTR : valid_bits,
                                                 valid_bits_offset, num_values);
   int64_t position = 0;

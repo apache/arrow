@@ -500,7 +500,8 @@ class ConcatenateImpl {
   }
 
   template <typename T>
-  enable_if_list_view<T, Status> Visit(const T& type) {
+    requires arrow_list_view<T>
+  Status Visit(const T& type) {
     using offset_type = typename T::offset_type;
     out_->buffers.resize(3);
     out_->child_data.resize(1);

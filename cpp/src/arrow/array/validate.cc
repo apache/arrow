@@ -81,7 +81,8 @@ struct BoundsChecker {
   }
 
   template <typename IntegerType>
-  enable_if_integer<IntegerType, Status> Visit(const IntegerType&) {
+    requires arrow_integer<IntegerType>
+  Status Visit(const IntegerType&) {
     using c_type = typename IntegerType::c_type;
 
     int64_t i = 0;

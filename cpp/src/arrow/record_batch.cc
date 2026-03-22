@@ -626,9 +626,8 @@ Status EnumerateStatistics(const RecordBatch& record_batch, OnStatistics on_stat
 }
 struct StringBuilderVisitor {
   template <typename DataType>
-  enable_if_has_string_view<DataType, Status> Visit(const DataType&,
-                                                    ArrayBuilder* raw_builder,
-                                                    const std::string& value) {
+    requires arrow_has_string_view<DataType>
+  Status Visit(const DataType&, ArrayBuilder* raw_builder, const std::string& value) {
     using Builder = typename TypeTraits<DataType>::BuilderType;
     auto builder = static_cast<Builder*>(raw_builder);
     return builder->Append(value);
