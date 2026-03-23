@@ -1216,20 +1216,22 @@ TEST(TestAdapterRead, GetColumnStatisticsInteger) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col1_stats, reader->GetColumnStatistics(1));
-  EXPECT_EQ(col1_stats.num_values, row_count);
-  EXPECT_TRUE(col1_stats.has_min_max);
-  ASSERT_NE(col1_stats.min, nullptr);
-  ASSERT_NE(col1_stats.max, nullptr);
-  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col1_stats.min)->value, 0);
-  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col1_stats.max)->value, 999);
+  ASSERT_OK_AND_ASSIGN(auto col1_scalars, adapters::orc::OrcStatisticsAsScalars(col1_stats));
+  EXPECT_EQ(col1_scalars.num_values, row_count);
+  EXPECT_TRUE(col1_scalars.has_min_max);
+  ASSERT_NE(col1_scalars.min, nullptr);
+  ASSERT_NE(col1_scalars.max, nullptr);
+  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col1_scalars.min)->value, 0);
+  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col1_scalars.max)->value, 999);
 
   ASSERT_OK_AND_ASSIGN(auto col2_stats, reader->GetColumnStatistics(2));
-  EXPECT_EQ(col2_stats.num_values, row_count);
-  EXPECT_TRUE(col2_stats.has_min_max);
-  ASSERT_NE(col2_stats.min, nullptr);
-  ASSERT_NE(col2_stats.max, nullptr);
-  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col2_stats.min)->value, 1000);
-  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col2_stats.max)->value, 1999);
+  ASSERT_OK_AND_ASSIGN(auto col2_scalars, adapters::orc::OrcStatisticsAsScalars(col2_stats));
+  EXPECT_EQ(col2_scalars.num_values, row_count);
+  EXPECT_TRUE(col2_scalars.has_min_max);
+  ASSERT_NE(col2_scalars.min, nullptr);
+  ASSERT_NE(col2_scalars.max, nullptr);
+  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col2_scalars.min)->value, 1000);
+  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col2_scalars.max)->value, 1999);
 }
 
 TEST(TestAdapterRead, GetStripeColumnStatistics) {
@@ -1262,9 +1264,11 @@ TEST(TestAdapterRead, GetStripeColumnStatistics) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto stripe0_stats, reader->GetStripeColumnStatistics(0, 1));
-  EXPECT_TRUE(stripe0_stats.has_min_max);
-  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(stripe0_stats.min)->value, 100);
-  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(stripe0_stats.max)->value, 599);
+  ASSERT_OK_AND_ASSIGN(auto stripe0_scalars,
+                       adapters::orc::OrcStatisticsAsScalars(stripe0_stats));
+  EXPECT_TRUE(stripe0_scalars.has_min_max);
+  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(stripe0_scalars.min)->value, 100);
+  EXPECT_EQ(checked_pointer_cast<Int64Scalar>(stripe0_scalars.max)->value, 599);
 }
 
 TEST(TestAdapterRead, GetColumnStatisticsString) {
@@ -1306,12 +1310,13 @@ TEST(TestAdapterRead, GetColumnStatisticsString) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
-  EXPECT_EQ(col_stats.num_values, row_count);
-  EXPECT_TRUE(col_stats.has_min_max);
-  ASSERT_NE(col_stats.min, nullptr);
-  ASSERT_NE(col_stats.max, nullptr);
-  EXPECT_EQ(checked_pointer_cast<StringScalar>(col_stats.min)->ToString(), "apple");
-  EXPECT_EQ(checked_pointer_cast<StringScalar>(col_stats.max)->ToString(), "elderberry");
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
+  EXPECT_EQ(col_scalars.num_values, row_count);
+  EXPECT_TRUE(col_scalars.has_min_max);
+  ASSERT_NE(col_scalars.min, nullptr);
+  ASSERT_NE(col_scalars.max, nullptr);
+  EXPECT_EQ(checked_pointer_cast<StringScalar>(col_scalars.min)->ToString(), "apple");
+  EXPECT_EQ(checked_pointer_cast<StringScalar>(col_scalars.max)->ToString(), "elderberry");
 }
 
 TEST(TestAdapterRead, GetColumnStatisticsOutOfRange) {
@@ -1382,8 +1387,9 @@ TEST(TestAdapterRead, GetColumnStatisticsWithNulls) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
-  EXPECT_TRUE(col_stats.has_null);
-  EXPECT_TRUE(col_stats.has_min_max);
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
+  EXPECT_TRUE(col_stats.has_null());
+  EXPECT_TRUE(col_scalars.has_min_max);
 }
 
 TEST(TestAdapterRead, GetColumnStatisticsBoolean) {
@@ -1417,10 +1423,11 @@ TEST(TestAdapterRead, GetColumnStatisticsBoolean) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
-  EXPECT_EQ(col_stats.num_values, row_count);
-  EXPECT_FALSE(col_stats.has_min_max);  // Boolean types don't have min/max
-  EXPECT_EQ(col_stats.min, nullptr);
-  EXPECT_EQ(col_stats.max, nullptr);
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
+  EXPECT_EQ(col_scalars.num_values, row_count);
+  EXPECT_FALSE(col_scalars.has_min_max);  // Boolean types don't have min/max
+  EXPECT_EQ(col_scalars.min, nullptr);
+  EXPECT_EQ(col_scalars.max, nullptr);
 }
 
 TEST(TestAdapterRead, GetColumnStatisticsDate) {
@@ -1454,12 +1461,13 @@ TEST(TestAdapterRead, GetColumnStatisticsDate) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
-  EXPECT_EQ(col_stats.num_values, row_count);
-  EXPECT_TRUE(col_stats.has_min_max);
-  ASSERT_NE(col_stats.min, nullptr);
-  ASSERT_NE(col_stats.max, nullptr);
-  EXPECT_EQ(checked_pointer_cast<Date32Scalar>(col_stats.min)->value, 0);
-  EXPECT_EQ(checked_pointer_cast<Date32Scalar>(col_stats.max)->value, 9);
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
+  EXPECT_EQ(col_scalars.num_values, row_count);
+  EXPECT_TRUE(col_scalars.has_min_max);
+  ASSERT_NE(col_scalars.min, nullptr);
+  ASSERT_NE(col_scalars.max, nullptr);
+  EXPECT_EQ(checked_pointer_cast<Date32Scalar>(col_scalars.min)->value, 0);
+  EXPECT_EQ(checked_pointer_cast<Date32Scalar>(col_scalars.max)->value, 9);
 }
 
 TEST(TestAdapterRead, GetColumnStatisticsTimestamp) {
@@ -1494,10 +1502,11 @@ TEST(TestAdapterRead, GetColumnStatisticsTimestamp) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
-  EXPECT_EQ(col_stats.num_values, row_count);
-  EXPECT_TRUE(col_stats.has_min_max);
-  ASSERT_NE(col_stats.min, nullptr);
-  ASSERT_NE(col_stats.max, nullptr);
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
+  EXPECT_EQ(col_scalars.num_values, row_count);
+  EXPECT_TRUE(col_scalars.has_min_max);
+  ASSERT_NE(col_scalars.min, nullptr);
+  ASSERT_NE(col_scalars.max, nullptr);
 
   // Verify the timestamps are TimestampScalar with correct nanosecond values.
   // Written: data[i] = i*1000 seconds, nanoseconds[i] = i*100 sub-second nanos.
@@ -1505,8 +1514,8 @@ TEST(TestAdapterRead, GetColumnStatisticsTimestamp) {
   // Max (i=9): 9000s + 900ns = 9000 * 1,000,000,000 + 900 = 9,000,000,000,900 ns.
   // Statistics store millis + sub-ms-nanos (last 6 digits of ns).
   // Conversion: millis * 1,000,000 + sub_ms_nanos = total nanoseconds.
-  auto min_ts = checked_pointer_cast<TimestampScalar>(col_stats.min);
-  auto max_ts = checked_pointer_cast<TimestampScalar>(col_stats.max);
+  auto min_ts = checked_pointer_cast<TimestampScalar>(col_scalars.min);
+  auto max_ts = checked_pointer_cast<TimestampScalar>(col_scalars.max);
   EXPECT_TRUE(min_ts->is_valid);
   EXPECT_TRUE(max_ts->is_valid);
   EXPECT_EQ(min_ts->value, 0);
@@ -1784,12 +1793,13 @@ TEST(TestAdapterRead, GetColumnStatisticsDoubleNaN) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   // When NaN values are present, ORC may report NaN as min or max.
   // Our guard should detect this and set has_min_max = false.
-  if (col_stats.has_min_max) {
+  if (col_scalars.has_min_max) {
     // If ORC writer filtered NaN from statistics, min/max should be valid (non-NaN)
-    auto min_val = checked_pointer_cast<DoubleScalar>(col_stats.min);
-    auto max_val = checked_pointer_cast<DoubleScalar>(col_stats.max);
+    auto min_val = checked_pointer_cast<DoubleScalar>(col_scalars.min);
+    auto max_val = checked_pointer_cast<DoubleScalar>(col_scalars.max);
     EXPECT_FALSE(std::isnan(min_val->value));
     EXPECT_FALSE(std::isnan(max_val->value));
   }
@@ -1883,12 +1893,16 @@ TEST(TestAdapterRead, GetStripeStatisticsBulk) {
   for (size_t i = 0; i < column_indices.size(); ++i) {
     ASSERT_OK_AND_ASSIGN(auto individual_stats,
                          reader->GetStripeColumnStatistics(0, column_indices[i]));
-    EXPECT_EQ(bulk_stats[i].has_null, individual_stats.has_null);
-    EXPECT_EQ(bulk_stats[i].num_values, individual_stats.num_values);
-    EXPECT_EQ(bulk_stats[i].has_min_max, individual_stats.has_min_max);
-    if (bulk_stats[i].has_min_max && individual_stats.has_min_max) {
-      EXPECT_TRUE(bulk_stats[i].min->Equals(*individual_stats.min));
-      EXPECT_TRUE(bulk_stats[i].max->Equals(*individual_stats.max));
+    ASSERT_OK_AND_ASSIGN(auto bulk_scalars,
+                         adapters::orc::OrcStatisticsAsScalars(bulk_stats[i]));
+    ASSERT_OK_AND_ASSIGN(auto individual_scalars,
+                         adapters::orc::OrcStatisticsAsScalars(individual_stats));
+    EXPECT_EQ(bulk_stats[i].has_null(), individual_stats.has_null());
+    EXPECT_EQ(bulk_scalars.num_values, individual_scalars.num_values);
+    EXPECT_EQ(bulk_scalars.has_min_max, individual_scalars.has_min_max);
+    if (bulk_scalars.has_min_max && individual_scalars.has_min_max) {
+      EXPECT_TRUE(bulk_scalars.min->Equals(*individual_scalars.min));
+      EXPECT_TRUE(bulk_scalars.max->Equals(*individual_scalars.max));
     }
   }
 
@@ -2070,15 +2084,16 @@ TEST(TestAdapterRead, GetColumnStatisticsDecimal) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
-  EXPECT_EQ(col_stats.num_values, row_count);
-  EXPECT_FALSE(col_stats.has_null);
-  EXPECT_TRUE(col_stats.has_min_max);
-  ASSERT_NE(col_stats.min, nullptr);
-  ASSERT_NE(col_stats.max, nullptr);
+  ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
+  EXPECT_EQ(col_scalars.num_values, row_count);
+  EXPECT_FALSE(col_stats.has_null());
+  EXPECT_TRUE(col_scalars.has_min_max);
+  ASSERT_NE(col_scalars.min, nullptr);
+  ASSERT_NE(col_scalars.max, nullptr);
 
   // Verify Decimal128Scalar values (unscaled integers with scale 2)
-  auto min_dec = checked_pointer_cast<Decimal128Scalar>(col_stats.min);
-  auto max_dec = checked_pointer_cast<Decimal128Scalar>(col_stats.max);
+  auto min_dec = checked_pointer_cast<Decimal128Scalar>(col_scalars.min);
+  auto max_dec = checked_pointer_cast<Decimal128Scalar>(col_scalars.max);
   EXPECT_EQ(min_dec->value, Decimal128(101));   // 1.01 unscaled
   EXPECT_EQ(max_dec->value, Decimal128(509));   // 5.09 unscaled
 

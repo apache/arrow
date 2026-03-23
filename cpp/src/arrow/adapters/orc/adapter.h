@@ -22,11 +22,11 @@
 #include <vector>
 
 #include "arrow/adapters/orc/options.h"
+#include "arrow/adapters/orc/statistics.h"
 #include "arrow/io/interfaces.h"
 #include "arrow/memory_pool.h"
 #include "arrow/record_batch.h"
 #include "arrow/status.h"
-#include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/macros.h"
 #include "arrow/util/visibility.h"
@@ -38,20 +38,6 @@ class Type;
 namespace arrow {
 namespace adapters {
 namespace orc {
-
-/// \brief Column statistics from an ORC file
-struct OrcColumnStatistics {
-  /// \brief Whether the column contains null values
-  bool has_null;
-  /// \brief Total number of values in the column
-  int64_t num_values;
-  /// \brief Whether min/max statistics are available
-  bool has_min_max;
-  /// \brief Minimum value (nullptr if not available)
-  std::shared_ptr<Scalar> min;
-  /// \brief Maximum value (nullptr if not available)
-  std::shared_ptr<Scalar> max;
-};
 
 /// \brief Information about an ORC stripe
 struct StripeInformation {
@@ -312,15 +298,14 @@ class ARROW_EXPORT ORCFileReader {
   ///
   /// \param[in] column_index the column index (0-based)
   /// \return the column statistics
-  Result<OrcColumnStatistics> GetColumnStatistics(int column_index);
+  Result<Statistics> GetColumnStatistics(int column_index);
 
   /// \brief Get stripe-level statistics for a column.
   ///
   /// \param[in] stripe_index the stripe index (0-based)
   /// \param[in] column_index the column index (0-based)
   /// \return the column statistics for the specified stripe
-  Result<OrcColumnStatistics> GetStripeColumnStatistics(int64_t stripe_index,
-                                                        int column_index);
+  Result<Statistics> GetStripeColumnStatistics(int64_t stripe_index, int column_index);
 
   /// \brief Get stripe-level statistics for multiple columns at once.
   ///
@@ -330,8 +315,8 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] stripe_index the stripe index (0-based)
   /// \param[in] column_indices the column indices to retrieve statistics for
   /// \return vector of column statistics, one per requested column index
-  Result<std::vector<OrcColumnStatistics>> GetStripeStatistics(
-      int64_t stripe_index, const std::vector<int>& column_indices);
+  Result<std::vector<Statistics>> GetStripeStatistics(int64_t stripe_index,
+                                                      const std::vector<int>& column_indices);
 
   /// \brief Get the ORC type tree for column ID mapping.
   ///
