@@ -20,6 +20,7 @@
 #pragma once
 
 #include <arrow-glib/array.h>
+#include <arrow-glib/ipc-options.h>
 #include <arrow-glib/record-batch.h>
 #include <arrow-glib/schema.h>
 
@@ -93,6 +94,14 @@ GArrowRecordBatchFileWriter *
 garrow_record_batch_file_writer_new(GArrowOutputStream *sink,
                                     GArrowSchema *schema,
                                     GError **error);
+
+GARROW_AVAILABLE_IN_24_0
+GArrowRecordBatchFileWriter *
+garrow_record_batch_file_writer_new_full(GArrowOutputStream *sink,
+                                         GArrowSchema *schema,
+                                         GArrowWriteOptions *options,
+                                         GHashTable *metadata,
+                                         GError **error);
 
 /**
  * GArrowCSVQuotingStyle:

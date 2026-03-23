@@ -88,4 +88,36 @@ class TestFileWriter < Test::Unit::TestCase
       input.close
     end
   end
+
+  def test_footer_custom_metadata
+    tempfile = Tempfile.open("arrow-ipc-file-writer")
+    output = Arrow::FileOutputStream.new(tempfile.path, false)
+
+    array = build_boolean_array([true, false, true])
+    field = Arrow::Field.new("enabled", Arrow::BooleanDataType.new)
+    schema = Arrow::Schema.new([field])
+
+    options = Arrow::WriteOptions.new
+    metadata = {"key1" => "value1", "key2" => "value2"}
+    begin
+      file_writer = Arrow::RecordBatchFileWriter.new(output,
+                                                     schema,
+                                                     options,
+                                                     metadata)
+      file_writer.close
+      assert do
+        file_writer.closed?
+      end
+    ensure
+      output.close
+    end
+
+    input = Arrow::MemoryMappedInputStream.new(tempfile.path)
+    begin
+      file_reader = Arrow::RecordBatchFileReader.new(input)
+      assert_equal(metadata, file_reader.metadata)
+    ensure
+      input.close
+    end
+  end
 end

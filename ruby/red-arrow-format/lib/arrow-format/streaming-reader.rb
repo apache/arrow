@@ -22,7 +22,17 @@ module ArrowFormat
     include Enumerable
 
     def initialize(input)
-      @input = input
+      case input
+      when File
+        @input = IO::Buffer.map(input, nil, 0, IO::Buffer::READONLY)
+        @offset = 0
+      when String
+        @input = IO::Buffer.for(input)
+        @offset = 0
+      else
+        @input = input
+      end
+
       @on_read = nil
       @pull_reader = StreamingPullReader.new do |record_batch|
         @on_read.call(record_batch) if @on_read
@@ -53,11 +63,18 @@ module ArrowFormat
       next_size = @pull_reader.next_required_size
       return false if next_size.zero?
 
-      next_chunk = @input.read(next_size, @buffer)
-      return false if next_chunk.nil?
+      if @input.is_a?(IO::Buffer)
+        next_chunk = @input.slice(@offset, next_size)
+        @offset += next_size
+        @pull_reader.consume(next_chunk)
+        true
+      else
+        next_chunk = @input.read(next_size, @buffer)
+        return false if next_chunk.nil?
 
-      @pull_reader.consume(IO::Buffer.for(next_chunk))
-      true
+        @pull_reader.consume(IO::Buffer.for(next_chunk))
+        true
+      end
     end
 
     def ensure_schema

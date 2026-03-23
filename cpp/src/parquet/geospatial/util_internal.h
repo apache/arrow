@@ -216,7 +216,7 @@ class PARQUET_EXPORT WKBGeometryBounder {
   BoundingBox box_;
   std::unordered_set<int32_t> geospatial_types_;
 
-  void MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type);
+  void MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type, int depth = 0);
 
   void MergeSequence(WKBBuffer* src, Dimensions dimensions, uint32_t n_coords, bool swap);
 };

@@ -35,6 +35,7 @@ module ArrowFormat
     FOOTER_SIZE_SIZE = IO::Buffer.size_of(FOOTER_SIZE_FORMAT)
 
     attr_reader :schema
+    attr_reader :metadata
     def initialize(input)
       case input
       when IO
@@ -47,6 +48,7 @@ module ArrowFormat
 
       validate
       @footer = read_footer
+      @metadata = read_custom_metadata(@footer.custom_metadata)
       @record_batch_blocks = @footer.record_batches || []
       @schema = read_schema(@footer.schema)
       @dictionaries = read_dictionaries
