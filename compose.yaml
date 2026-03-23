@@ -134,6 +134,7 @@ x-hierarchy:
   - debian-cpp:
     - debian-c-glib:
       - debian-ruby
+    - debian-cpp-odbc
     - debian-python:
       - debian-docs
   - fedora-cpp:
@@ -369,6 +370,54 @@ services:
     command: &cpp-command >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+
+  debian-cpp-odbc:
+    # Usage:
+    #   docker compose build debian-cpp-odbc
+    #   docker compose run --rm debian-cpp-odbc
+    # Parameters:
+    #   ARCH: amd64, arm64v8, ...
+    #   DEBIAN: 12, experimental
+    image: ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
+    build:
+      context: .
+      dockerfile: ci/docker/debian-${DEBIAN}-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-debian-${DEBIAN}-cpp
+      args:
+        arch: ${ARCH}
+        gcc: ${GCC}
+        llvm: ${LLVM}
+    shm_size: *shm-size
+    ulimits: *ulimits
+    environment:
+      <<: [*common, *ccache, *sccache, *cpp]
+      ARROW_ACERO: "OFF"
+      ARROW_AZURE: "OFF"
+      ARROW_BUILD_TYPE: RELEASE
+      ARROW_CSV: "OFF"
+      ARROW_DATASET: "OFF"
+      ARROW_ENABLE_TIMING_TESTS:  # inherit
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_DEPENDENCY_USE_SHARED: "OFF"
+      ARROW_FILESYSTEM: "OFF"
+      ARROW_FLIGHT_SQL_ODBC: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_HDFS: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+    volumes: &debian-volumes
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}debian-ccache:/ccache:delegated
+    # Register ODBC before running tests
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        sudo /arrow/cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /usr/local/lib/libarrow_flight_sql_odbc.so &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp:

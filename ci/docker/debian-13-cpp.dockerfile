@@ -88,8 +88,10 @@ RUN apt-get update -y -q && \
         rapidjson-dev \
         rsync \
         rustc \
+        sudo \
         tzdata \
         tzdata-legacy \
+        unixodbc-dev \
         zlib1g-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
