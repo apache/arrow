@@ -432,7 +432,14 @@ def test_dataset(dataset, dataset_reader):
     assert isinstance(dataset, ds.Dataset)
     assert isinstance(dataset.schema, pa.Schema)
 
-    # TODO(kszucs): test non-boolean Exprs for filter do raise
+    non_boolean_expr = ds.field('i64')
+    with pytest.raises(TypeError, match="must evaluate to bool"):
+        dataset.to_table(filter=non_boolean_expr)
+
+    non_boolean_expr2 = ds.field('i64') + 1
+    with pytest.raises(TypeError, match="must evaluate to bool"):
+        dataset.to_table(filter=non_boolean_expr2)
+
     expected_i64 = pa.array([0, 1, 2, 3, 4], type=pa.int64())
     expected_f64 = pa.array([0, 1, 2, 3, 4], type=pa.float64())
 
@@ -3433,13 +3440,13 @@ def test_orc_scan_options(tempdir, dataset_reader):
     assert len(result) == 1
     assert result[0].num_rows == 3
     assert result[0].equals(table.to_batches()[0])
-    # TODO batch_size is not yet supported (ARROW-14153)
-    # result = list(dataset_reader.to_batches(dataset, batch_size=2))
-    # assert len(result) == 2
-    # assert result[0].num_rows == 2
-    # assert result[0].equals(table.slice(0, 2).to_batches()[0])
-    # assert result[1].num_rows == 1
-    # assert result[1].equals(table.slice(2, 1).to_batches()[0])
+
+    result = list(dataset_reader.to_batches(dataset, batch_size=2))
+    assert len(result) == 2
+    assert result[0].num_rows == 2
+    assert result[0].equals(table.slice(0, 2).to_batches()[0])
+    assert result[1].num_rows == 1
+    assert result[1].equals(table.slice(2, 1).to_batches()[0])
 
 
 def test_orc_format_not_supported():
@@ -4225,12 +4232,12 @@ def test_write_dataset(tempdir):
     expected_files = [target / "part-0.arrow"]
     _check_dataset_roundtrip(dataset, target, expected_files, 'a', target)
 
-    # TODO
-    # # relative path
-    # target = tempdir / 'single-file-target3'
-    # expected_files = [target / "part-0.ipc"]
-    # _check_dataset_roundtrip(
-    #     dataset, './single-file-target3', expected_files, target)
+    # relative path
+    target = tempdir / 'single-file-target3'
+    expected_files = [target / "part-0.arrow"]
+    with change_cwd(tempdir):
+        _check_dataset_roundtrip(
+            dataset, './single-file-target3', expected_files, 'a', target)
 
     # Directory of files
     directory = tempdir / 'single-directory'

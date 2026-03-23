@@ -192,17 +192,12 @@ download_binary <- function(lib) {
 # of action based on the current system. Other values you can set it to:
 # * "FALSE" (not case-sensitive), to skip this option altogether
 # * "TRUE" (not case-sensitive), to try to discover your current OS, or
-# * Some other string: a "linux-openssl-${OPENSSL_VERSION}" that corresponds to
-#   a binary that is available, to override what this function may discover by
-#   default.
+# * Some other string: a binary identifier that corresponds to a binary that is
+#   available, to override what this function may discover by default.
 #   Possible values are:
-#    * "linux-x86_64-openssl-1.0" (OpenSSL 1.0)
-#    * "linux-x86_64-openssl-1.1" (OpenSSL 1.1)
-#    * "linux-x86_64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-arm64-openssl-1.1" (OpenSSL 1.1)
-#    * "macos-arm64-openssl-3.0" (OpenSSL 3.0)
-#    * "macos-x86_64-openssl-1.1" (OpenSSL 1.1)
-#    * "macos-x86_64-openssl-3.0" (OpenSSL 3.0)
+#    * "linux-x86_64"
+#    * "darwin-arm64"
+#    * "darwin-x86_64"
 #    * "windows-x86_64"
 #   These string values, along with `NULL`, are the potential return values of
 #   this function.
@@ -228,6 +223,17 @@ identify_binary <- function(lib = Sys.getenv("LIBARROW_BINARY"), info = distro()
     # Env var provided an os-version to use, to override our logic.
     # We don't validate that this exists. If it doesn't, the download will fail
     # and the build will fall back to building from source
+    if (grepl("openssl-1", lib)) {
+      stop(
+        "OpenSSL 1.x binaries are no longer provided. Use LIBARROW_BINARY='",
+        sub("-openssl-1.*$", "", lib),
+        "'"
+      )
+    }
+    if (grepl("openssl-3", lib)) {
+      lib <- sub("-openssl-3.*$", "", lib)
+      lg("OpenSSL suffix deprecated in LIBARROW_BINARY, using '%s'", lib)
+    }
   } else {
     # See if we can find a suitable binary
     lib <- select_binary()
@@ -249,23 +255,30 @@ check_allowlist <- function(
   any(grepl(paste(allowlist, collapse = "|"), os))
 }
 
+normalise_arch <- function(arch) {
+  if (arch %in% c("aarch64", "arm64")) {
+    return("arm64")
+  }
+  arch
+}
+
 select_binary <- function(
   os = tolower(Sys.info()[["sysname"]]),
   arch = tolower(Sys.info()[["machine"]]),
   test_program = test_for_curl_and_openssl
 ) {
-  if (identical(os, "darwin") || (identical(os, "linux") && identical(arch, "x86_64"))) {
-    # We only host x86 linux binaries and x86 & arm64 macos today
+  arch <- normalise_arch(arch)
+
+  if (identical(os, "darwin") || identical(os, "linux")) {
     binary <- tryCatch(
       # Somehow the test program system2 call errors on the sanitizer builds
       # so globally handle the possibility that this could fail
       {
         errs <- compile_test_program(test_program)
-        openssl_version <- determine_binary_from_stderr(errs)
-        if (is.null(openssl_version)) {
-          NULL
+        if (has_binary_sysreqs(errs)) {
+          paste0(os, "-", arch)
         } else {
-          paste0(os, "-", arch, "-", openssl_version)
+          NULL
         }
       },
       error = function(e) {
@@ -293,14 +306,8 @@ test_for_curl_and_openssl <- "
 
 #include <curl/curl.h>
 #include <openssl/opensslv.h>
-#if OPENSSL_VERSION_NUMBER < 0x10002000L
-#error OpenSSL version too old
-#endif
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-#error Using OpenSSL version 1.0
-#endif
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-#error Using OpenSSL version 3
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#error OpenSSL version must be 3.0 or greater
 #endif
 "
 
@@ -311,11 +318,11 @@ compile_test_program <- function(code) {
     openssl_dir <- paste0("-I", openssl_root_dir, "/include")
   }
   runner <- paste(
-    R_CMD_config("CXX17"),
+    R_CMD_config("CXX20"),
     openssl_dir,
     R_CMD_config("CPPFLAGS"),
-    R_CMD_config("CXX17FLAGS"),
-    R_CMD_config("CXX17STD"),
+    R_CMD_config("CXX20FLAGS"),
+    R_CMD_config("CXX20STD"),
     "-E",
     "-xc++"
   )
@@ -339,40 +346,27 @@ get_macos_openssl_dir <- function() {
   openssl_root_dir
 }
 
-# (built with newer devtoolset but older glibc (2.17) for broader compatibility, like manylinux2014)
-determine_binary_from_stderr <- function(errs) {
-  if (is.null(attr(errs, "status"))) {
-    # There was no error in compiling: so we found libcurl and OpenSSL >= 1.1,
-    # openssl is < 3.0
-    lg("Found libcurl and OpenSSL >= 1.1")
-    return("openssl-1.1")
-    # Else, check for dealbreakers:
-  } else if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
+has_binary_sysreqs <- function(errs) {
+  # Check for dealbreakers:
+  if (!on_macos && any(grepl("Using libc++", errs, fixed = TRUE))) {
     # Our linux binaries are all built with GNU stdlib so they fail with libc++
     lg("Linux binaries incompatible with libc++")
-    return(NULL)
+    return(FALSE)
   } else if (header_not_found("curl/curl", errs)) {
     lg("libcurl not found")
-    return(NULL)
+    return(FALSE)
   } else if (header_not_found("openssl/opensslv", errs)) {
     lg("OpenSSL not found")
-    return(NULL)
-  } else if (any(grepl("OpenSSL version too old", errs))) {
-    lg("OpenSSL found but version >= 1.0.2 is required for some features")
-    return(NULL)
-    # Else, determine which other binary will work
-  } else if (any(grepl("Using OpenSSL version 1.0", errs))) {
-    if (on_macos) {
-      lg("OpenSSL 1.0 is not supported on macOS")
-      return(NULL)
-    }
-    lg("Found libcurl and OpenSSL < 1.1")
-    return("openssl-1.0")
-  } else if (any(grepl("Using OpenSSL version 3", errs))) {
-    lg("Found libcurl and OpenSSL >= 3.0.0")
-    return("openssl-3.0")
+    return(FALSE)
+  } else if (any(grepl("OpenSSL version must be 3.0 or greater", errs))) {
+    lg("OpenSSL found but version >= 3.0 is required")
+    return(FALSE)
+  } else if (is.null(attr(errs, "status"))) {
+    # Successful compile = OpenSSL >= 3.0 found
+    lg("Found libcurl and OpenSSL >= 3.0")
+    return(TRUE)
   }
-  NULL
+  FALSE
 }
 
 header_not_found <- function(header, errs) {
@@ -540,6 +534,12 @@ build_libarrow <- function(src_dir, dst_dir) {
   if (makeflags == "") {
     makeflags <- sprintf("-j%s", ncores)
     Sys.setenv(MAKEFLAGS = makeflags)
+  } else {
+    # Extract -j value from existing MAKEFLAGS if present
+    j_match <- regmatches(makeflags, regexpr("-j\\s*([0-9]+)", makeflags, perl = TRUE))
+    if (length(j_match) > 0) {
+      ncores <- as.integer(sub("-j\\s*", "", j_match, perl = TRUE))
+    }
   }
   if (!quietly) {
     lg("Building with MAKEFLAGS=%s", makeflags)
@@ -573,8 +573,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     # is found, it will be used by the libarrow build, and this does
     # not affect how R compiles the arrow bindings.
     CC = sub("^.*ccache", "", R_CMD_config("CC")),
-    CXX = paste(sub("^.*ccache", "", R_CMD_config("CXX17")), R_CMD_config("CXX17STD")),
-    # CXXFLAGS = R_CMD_config("CXX17FLAGS"), # We don't want the same debug symbols
+    CXX = paste(
+      sub("^.*ccache", "", R_CMD_config("CXX20")),
+      R_CMD_config("CXX20STD")
+    ),
+    # CXXFLAGS = R_CMD_config("CXX20FLAGS"), # We don't want the same debug symbols
     LDFLAGS = R_CMD_config("LDFLAGS"),
     N_JOBS = ncores
   )
@@ -602,7 +605,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(
       env_var_list,
       ARROW_S3 = Sys.getenv("ARROW_S3", "ON"),
-      ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
+      # ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
       ARROW_WITH_ZSTD = Sys.getenv("ARROW_WITH_ZSTD", "ON")
     )
   }

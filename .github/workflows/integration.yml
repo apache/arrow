@@ -33,6 +33,7 @@ on:
       - 'integration/**'
       - 'cpp/**'
       - 'format/**'
+      - 'ruby/red-arrow-format/**'
   pull_request:
     paths:
       - '.dockerignore'
@@ -43,6 +44,7 @@ on:
       - 'integration/**'
       - 'cpp/**'
       - 'format/**'
+      - 'ruby/red-arrow-format/**'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -102,7 +104,7 @@ jobs:
         run: |
           ci/scripts/util_free_space.sh
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: conda-${{ hashFiles('cpp/**') }}

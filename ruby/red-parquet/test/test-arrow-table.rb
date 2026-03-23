@@ -50,6 +50,7 @@ class TestArrowTable < Test::Unit::TestCase
     begin
       yield(@output)
     ensure
+      GC.start # Ensure freeing Arrow::Table that refers @output.path.
       @output.close!
     end
   end

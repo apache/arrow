@@ -81,24 +81,24 @@ jobs:
       matrix:
         include:
           - arch: amd64
-            clang-tools: 14
+            clang-tools: 18
             image: conda-cpp
-            llvm: 14
+            llvm: 18
             runs-on: ubuntu-latest
             simd-level: AVX2
             title: AMD64 Conda C++ AVX2
             ubuntu: 22.04
           - arch: amd64
-            clang-tools: 14
+            clang-tools: 18
             image: ubuntu-cpp-sanitizer
-            llvm: 14
+            llvm: 18
             runs-on: ubuntu-latest
             title: AMD64 Ubuntu 24.04 C++ ASAN UBSAN
             ubuntu: 24.04
           - arch: arm64v8
-            clang-tools: 14
+            clang-tools: 18
             image: ubuntu-cpp
-            llvm: 14
+            llvm: 18
             runs-on: ubuntu-24.04-arm
             title: ARM64 Ubuntu 22.04 C++
             ubuntu: 22.04
@@ -115,7 +115,7 @@ jobs:
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
@@ -229,6 +229,9 @@ jobs:
           # pkg-config formula is removed from GitHub Actions runner.
           brew uninstall pkg-config || :
           brew uninstall pkg-config@0.29.2 || :
+          # Workaround for https://github.com/grpc/grpc/issues/41755
+          # Remove once the runner ships a newer Homebrew.
+          brew update
           brew bundle --file=cpp/Brewfile
       - name: Install MinIO
         run: |
@@ -250,7 +253,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-macos-${{ matrix.macos-version }}-${{ hashFiles('cpp/**') }}
@@ -356,7 +359,7 @@ jobs:
         shell: msys2 {0}
         run: ci/scripts/msys2_setup.sh cpp
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ccache
           key: cpp-ccache-${{ matrix.msystem_lower}}-${{ hashFiles('cpp/**') }}
@@ -367,8 +370,13 @@ jobs:
           export CMAKE_BUILD_PARALLEL_LEVEL=$NUMBER_OF_PROCESSORS
           ci/scripts/cpp_build.sh "$(pwd)" "$(pwd)/build"
       - name: Download Timezone Database
+        if: matrix.msystem_upper == 'CLANG64'
         shell: bash
-        run: ci/scripts/download_tz_database.sh
+        run: |
+          # TODO(GH-48593): msys2 clang64 uses libc++ and vendored date.h library
+          # which needs tzdata database to build Arrow with time zone support.
+          # https://github.com/apache/arrow/issues/48593
+          ci/scripts/download_tz_database.sh
       - name: Download MinIO
         shell: msys2 {0}
         run: |

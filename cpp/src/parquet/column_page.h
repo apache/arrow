@@ -44,6 +44,8 @@ class Page {
   Page(const std::shared_ptr<Buffer>& buffer, PageType::type type)
       : buffer_(buffer), type_(type) {}
 
+  virtual ~Page() = default;
+
   PageType::type type() const { return type_; }
 
   std::shared_ptr<Buffer> buffer() const { return buffer_; }

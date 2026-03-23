@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //File.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Footer (//File.fbs)
 
@@ -12,6 +12,14 @@ module ArrowFormat
       module Arrow
         module Flatbuf
           class Block < ::FlatBuffers::Struct
+            FIELDS = {
+              offset: ::FlatBuffers::Field.new(:offset, 0, 0, :long, 0),
+              meta_data_length: ::FlatBuffers::Field.new(:meta_data_length, 1, 8, :int, 4),
+              body_length: ::FlatBuffers::Field.new(:body_length, 2, 16, :long, 0),
+            }
+
+            Data = define_data_class
+
             # Length of the data (this is aligned so there can be a gap between this and
             # the metadata).
             def body_length
@@ -25,7 +33,7 @@ module ArrowFormat
               @view.unpack_int(field_offset)
             end
 
-            # Index to the start of the RecordBlock (note this is past the Message header)
+            # Index to the start of the RecordBatch (note this is past the Message header)
             def offset
               field_offset = 0
               @view.unpack_long(field_offset)

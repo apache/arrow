@@ -1096,7 +1096,8 @@ EXCLUDE_PATTERNS       = *-test.cc \
                          *_generated.h \
                          *-benchmark.cc \
                          *_codegen.py \
-                         *internal*
+                         *internal* \
+                         *.md
 
 # The EXCLUDE_SYMBOLS tag can be used to specify one or more symbol names
 # (namespaces, classes, functions, etc.) that should be excluded from the
@@ -2475,6 +2476,7 @@ PREDEFINED             = __attribute__(x)= \
                          __declspec(x)= \
                          ARROW_ACERO_EXPORT= \
                          ARROW_ARG_UNUSED(x)=x \
+                         ARROW_CUDA_EXPORT= \
                          ARROW_DEPRECATED(x)= \
                          ARROW_DS_EXPORT= \
                          ARROW_ENGINE_EXPORT= \

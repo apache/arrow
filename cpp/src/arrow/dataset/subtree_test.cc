@@ -31,8 +31,6 @@
 
 namespace arrow {
 
-using internal::StartsWith;
-
 using compute::field_ref;
 using compute::literal;
 
@@ -112,7 +110,7 @@ bool IsAncestorOf(std::string_view ancestor, std::string_view descendant) {
   ancestor = RemoveTrailingSlash(ancestor);
   if (ancestor == "") return true;
   descendant = RemoveTrailingSlash(descendant);
-  if (!StartsWith(descendant, ancestor)) return false;
+  if (!descendant.starts_with(ancestor)) return false;
   descendant.remove_prefix(ancestor.size());
   if (descendant.empty()) return true;
   return descendant.front() == '/';

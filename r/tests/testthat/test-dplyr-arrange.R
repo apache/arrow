@@ -245,3 +245,11 @@ test_that("Can use across() within arrange()", {
     example_data
   )
 })
+
+test_that("arrange() with aggregation expressions errors", {
+  tab <- arrow_table(tbl)
+  expect_warning(
+    tab |> arrange(int < mean(int)),
+    "not supported in arrange"
+  )
+})

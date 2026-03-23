@@ -33,17 +33,22 @@ on:
         required: true
         type: string
 
+permissions:
+  contents: read
+
 jobs:
   windows:
     runs-on: ${{ inputs.os }}
     timeout-minutes: 60
     env:
+      ARROW_AZURE: ON
       ARROW_BOOST_USE_SHARED: OFF
       ARROW_BUILD_BENCHMARKS: ON
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
       ARROW_DATASET: ON
+      ARROW_FILESYSTEM: ON
       ARROW_FLIGHT: OFF
       ARROW_HDFS: ON
       ARROW_HOME: /usr
@@ -63,7 +68,7 @@ jobs:
       ARROW_WITH_ZLIB: ON
       ARROW_WITH_ZSTD: ON
       BOOST_SOURCE: BUNDLED
-      CMAKE_CXX_STANDARD: "17"
+      CMAKE_CXX_STANDARD: "20"
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
@@ -81,9 +86,6 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
       - name: Install msys2 (for tzdata for ORC tests)
         uses: msys2/setup-msys2@v2
         id: setup-msys2
@@ -105,7 +107,7 @@ jobs:
         run: |
           echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ${{ steps.ccache-info.outputs.cache-dir }}
           key: cpp-ccache-windows-${{ inputs.arch }}-${{ hashFiles('cpp/**') }}

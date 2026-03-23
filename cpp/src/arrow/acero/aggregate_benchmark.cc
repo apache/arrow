@@ -17,6 +17,7 @@
 
 #include "benchmark/benchmark.h"
 
+#include <bit>
 #include <cassert>
 #include <cmath>
 #include <iostream>
@@ -269,7 +270,7 @@ struct SumBitmapVectorizeUnroll : public Summer<T> {
         local.total += SUM_SHIFT(5);
         local.total += SUM_SHIFT(6);
         local.total += SUM_SHIFT(7);
-        local.valid_count += bit_util::kBytePopcount[valid_byte];
+        local.valid_count += std::popcount(valid_byte);
       } else {
         // No nulls
         local.total += values[i + 0] + values[i + 1] + values[i + 2] + values[i + 3] +

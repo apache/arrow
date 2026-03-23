@@ -248,8 +248,8 @@ Variable shape tensor
   This means the logical tensor has names [z, x, y] and shape [30, 10, 20].
 
 .. note::
-   Values inside each **data** tensor element are stored in row-major/C-contiguous
-   order according to the corresponding **shape**.
+   Elements in a variable shape tensor extension array are stored
+   in row-major/C-contiguous order.
 
 .. _json_extension:
 
@@ -284,6 +284,8 @@ UUID
 .. note::
    A specific UUID version is not required or guaranteed. This extension represents
    UUIDs as FixedSizeBinary(16) with big-endian notation and does not interpret the bytes in any way.
+
+.. _opaque_extension:
 
 Opaque
 ======
@@ -587,5 +589,11 @@ GeoArrow
 Arrow extension types for representing vector geometries. It is well known
 within the Arrow geospatial subcommunity. The GeoArrow specification is not yet
 finalized.
+
+.. toctree::
+   :maxdepth: 1
+   :hidden:
+
+   CanonicalExtensions/Examples
 
 .. _rfc8259: https://datatracker.ietf.org/doc/html/rfc8259

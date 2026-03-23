@@ -220,7 +220,8 @@ def test_download_tzdata_on_windows():
     # Download timezone database and remove data in case it already exists
     if (os.path.exists(tzdata_path)):
         shutil.rmtree(tzdata_path)
-    download_tzdata_on_windows()
+    with pytest.warns(FutureWarning, match="deprecated"):
+        download_tzdata_on_windows()
 
     # Inspect the folder
     assert os.path.exists(tzdata_path)

@@ -41,12 +41,16 @@ Usage
 
 CSV reading and writing functionality is available through the
 :mod:`pyarrow.csv` module.  In many cases, you will simply call the
-:func:`read_csv` function with the file path you want to read from::
+:func:`read_csv` function with the file path you want to read from:
+
+.. code-block:: python
 
    >>> from pyarrow import csv
-   >>> fn = 'tips.csv.gz'
-   >>> table = csv.read_csv(fn)
-   >>> table
+   >>> import pyarrow as pa
+   >>> import pandas as pd
+   >>> fn = 'tips.csv.gz'  # doctest: +SKIP
+   >>> table = csv.read_csv(fn)  # doctest: +SKIP
+   >>> table  # doctest: +SKIP
    pyarrow.Table
    total_bill: double
    tip: double
@@ -55,10 +59,10 @@ CSV reading and writing functionality is available through the
    day: string
    time: string
    size: int64
-   >>> len(table)
+   >>> len(table)  # doctest: +SKIP
    244
-   >>> df = table.to_pandas()
-   >>> df.head()
+   >>> df = table.to_pandas()  # doctest: +SKIP
+   >>> df.head()  # doctest: +SKIP
       total_bill   tip     sex smoker  day    time  size
    0       16.99  1.01  Female     No  Sun  Dinner     2
    1       10.34  1.66    Male     No  Sun  Dinner     3
@@ -68,10 +72,11 @@ CSV reading and writing functionality is available through the
 
 To write CSV files, just call :func:`write_csv` with a
 :class:`pyarrow.RecordBatch` or :class:`pyarrow.Table` and a path or
-file-like object::
+file-like object:
 
-  >>> import pyarrow as pa
-  >>> import pyarrow.csv as csv
+.. code-block:: python
+
+  >>> table = pa.table({'col1': [1, 2, 3], 'col2': ['a', 'b', 'c']})
   >>> csv.write_csv(table, "tips.csv")
   >>> with pa.CompressedOutputStream("tips.csv.gz", "gzip") as out:
   ...     csv.write_csv(table, out)
@@ -83,15 +88,21 @@ Customized parsing
 
 To alter the default parsing settings in case of reading CSV files with an
 unusual structure, you should create a :class:`ParseOptions` instance
-and pass it to :func:`read_csv`::
+and pass it to :func:`read_csv`:
 
-    import pyarrow as pa
-    import pyarrow.csv as csv
+.. code-block:: python
 
-    table = csv.read_csv('tips.csv.gz', parse_options=csv.ParseOptions(
-       delimiter=";",
-       invalid_row_handler=skip_handler
-    ))
+    >>> def skip_handler(row):
+    ...     pass
+    >>> table = csv.read_csv('tips.csv.gz', parse_options=csv.ParseOptions(
+    ...    delimiter=";",
+    ...    invalid_row_handler=skip_handler
+    ... ))
+    >>> table
+    pyarrow.Table
+    col1,"col2": string
+    ----
+    col1,"col2": [["1,"a"","2,"b"","3,"c""]]
 
 Available parsing options are:
 
@@ -113,17 +124,23 @@ Customized conversion
 ---------------------
 
 To alter how CSV data is converted to Arrow types and data, you should create
-a :class:`ConvertOptions` instance and pass it to :func:`read_csv`::
+a :class:`ConvertOptions` instance and pass it to :func:`read_csv`:
 
-   import pyarrow as pa
-   import pyarrow.csv as csv
+.. code-block:: python
 
-   table = csv.read_csv('tips.csv.gz', convert_options=csv.ConvertOptions(
-       column_types={
-           'total_bill': pa.decimal128(precision=10, scale=2),
-           'tip': pa.decimal128(precision=10, scale=2),
-       }
-   ))
+   >>> table = csv.read_csv('tips.csv.gz', convert_options=csv.ConvertOptions(
+   ...     column_types={
+   ...         'total_bill': pa.decimal128(precision=10, scale=2),
+   ...         'tip': pa.decimal128(precision=10, scale=2),
+   ...     }
+   ... ))
+   >>> table
+   pyarrow.Table
+   col1: int64
+   col2: string
+   ----
+   col1: [[1,2,3]]
+   col2: [["a","b","c"]]
 
 .. note::
    To assign a column as ``duration``, the CSV values must be numeric strings
@@ -173,15 +190,21 @@ Character encoding
 
 By default, CSV files are expected to be encoded in UTF8.  Non-UTF8 data
 is accepted for ``binary`` columns.  The encoding can be changed using
-the :class:`ReadOptions` class::
+the :class:`ReadOptions` class:
 
-    import pyarrow as pa
-    import pyarrow.csv as csv
+.. code-block:: python
 
-    table = csv.read_csv('tips.csv.gz', read_options=csv.ReadOptions(
-       column_names=["animals", "n_legs", "entry"],
-       skip_rows=1
-    ))
+   >>> table = csv.read_csv('tips.csv.gz', read_options=csv.ReadOptions(
+   ...    column_names=["n_legs", "entry"],
+   ...    skip_rows=1
+   ... ))
+   >>> table
+   pyarrow.Table
+   n_legs: int64
+   entry: string
+   ----
+   n_legs: [[1,2,3]]
+   entry: [["a","b","c"]]
 
 Available read options are:
 
@@ -204,10 +227,10 @@ Customized writing
 
 To alter the default write settings in case of writing CSV files with
 different conventions, you can create a :class:`WriteOptions` instance and
-pass it to :func:`write_csv`::
+pass it to :func:`write_csv`:
 
-  >>> import pyarrow as pa
-  >>> import pyarrow.csv as csv
+.. code-block:: python
+
   >>> # Omit the header row (include_header=True is the default)
   >>> options = csv.WriteOptions(include_header=False)
   >>> csv.write_csv(table, "data.csv", options)
@@ -217,12 +240,12 @@ Incremental writing
 
 To write CSV files one batch at a time, create a :class:`CSVWriter`. This
 requires the output (a path or file-like object), the schema of the data to
-be written, and optionally write options as described above::
+be written, and optionally write options as described above:
 
-  >>> import pyarrow as pa
-  >>> import pyarrow.csv as csv
+.. code-block:: python
+
   >>> with csv.CSVWriter("data.csv", table.schema) as writer:
-  >>>     writer.write_table(table)
+  ...     writer.write_table(table)
 
 Performance
 -----------

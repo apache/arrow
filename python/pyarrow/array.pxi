@@ -1304,7 +1304,7 @@ cdef class Array(_PandasConvertible):
             The value type of the array.
         length : int
             The number of values in the array.
-        buffers : List[Buffer]
+        buffers : List[Buffer | None]
             The buffers backing this array.
         null_count : int, default -1
             The number of null entries in the array. Negative value means that
@@ -1464,22 +1464,6 @@ cdef class Array(_PandasConvertible):
             )
 
         return frombytes(result, safe=True)
-
-    def format(self, **kwargs):
-        """
-        DEPRECATED, use pyarrow.Array.to_string
-
-        Parameters
-        ----------
-        **kwargs : dict
-
-        Returns
-        -------
-        str
-        """
-        import warnings
-        warnings.warn('Array.format is deprecated, use Array.to_string')
-        return self.to_string(**kwargs)
 
     def __str__(self):
         return self.to_string()
@@ -2573,6 +2557,7 @@ cdef class BaseListArray(Array):
         --------
 
         Basic logical list-array's flatten
+
         >>> import pyarrow as pa
         >>> values = [1, 2, 3, 4]
         >>> offsets = [2, 1, 0]
@@ -4029,7 +4014,7 @@ cdef class DictionaryArray(Array):
         type : pyarrow.DataType
         length : int
             The number of values in the array.
-        buffers : List[Buffer]
+        buffers : List[Buffer | None]
             The buffers backing the indices array.
         dictionary : pyarrow.Array, ndarray or pandas.Series
             The array of values referenced by the indices.
@@ -4856,7 +4841,7 @@ cdef class Bool8Array(ExtensionArray):
     def from_numpy(obj):
         """
         Convert numpy array to a bool8 extension array without making a copy.
-        The input array must be 1-dimensional, with either bool_ or int8 dtype.
+        The input array must be 1-dimensional, with either ``bool_`` or ``int8`` dtype.
 
         Parameters
         ----------

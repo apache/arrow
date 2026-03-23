@@ -32,12 +32,10 @@ github:
     main: {}
 
   collaborators:
-    - anjakefala
+    - alinaliBQ
+    - EnricoMi
     - hiroyuki-sato
-    - jbonofre
-    - js8544
-    - vibhatha
-    - ZhangHuiGui
+    - HyukjinKwon
 
 notifications:
   commits:      commits@arrow.apache.org

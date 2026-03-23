@@ -46,6 +46,7 @@ jobs:
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
+      {{ macros.github_free_space()|indent }}
       {{ macros.github_install_archery()|indent }}
       {{ macros.github_login_dockerhub()|indent }}
 

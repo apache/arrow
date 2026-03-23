@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -12,6 +12,12 @@ module ArrowFormat
       module Arrow
         module Flatbuf
           class FixedSizeBinary < ::FlatBuffers::Table
+            FIELDS = {
+              byte_width: ::FlatBuffers::Field.new(:byte_width, 0, 4, :int, 0),
+            }
+
+            Data = define_data_class
+
             # Number of bytes per value
             def byte_width
               field_offset = @view.unpack_virtual_offset(4)

@@ -130,9 +130,9 @@ module Arrow
       end
     end
 
-    def save_raw(writer_class)
+    def save_raw(writer_class, *args)
       open_output_stream do |output|
-        writer_class.open(output, @table.schema) do |writer|
+        writer_class.open(output, @table.schema, *args) do |writer|
           writer.write_table(@table)
         end
       end
@@ -144,7 +144,7 @@ module Arrow
 
     # @since 1.0.0
     def save_as_arrow_file
-      save_raw(RecordBatchFileWriter)
+      save_raw(RecordBatchFileWriter, nil, @options[:metadata])
     end
 
     # @deprecated Use `format: :arrow_batch` instead.

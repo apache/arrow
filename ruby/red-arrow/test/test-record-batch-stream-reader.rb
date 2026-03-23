@@ -16,6 +16,10 @@
 # under the License.
 
 class RecordBatchStreamReaderTest < Test::Unit::TestCase
+  def teardown
+    GC.start # Ensure freeing Arrow::RecordBatch that refers tempfile.path.
+  end
+
   test("write/read") do
     fields = [
       Arrow::Field.new("uint8",  :uint8),

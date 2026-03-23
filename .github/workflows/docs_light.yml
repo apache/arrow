@@ -21,7 +21,6 @@ on:
   pull_request:
     paths:
       - '.dockerignore'
-      - 'docs/**'
       - '.github/workflows/docs_light.yml'
       - 'ci/docker/conda.dockerfile'
       - 'ci/docker/conda-cpp.dockerfile'
@@ -29,6 +28,8 @@ on:
       - 'ci/scripts/cpp_build.sh'
       - 'ci/scripts/python_build.sh'
       - 'compose.yaml'
+      - 'cpp/apidoc/**'
+      - 'docs/**'
 
 permissions:
   contents: read
@@ -53,7 +54,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Cache Docker Volumes
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .docker
           key: conda-docs-${{ hashFiles('cpp/**') }}

@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -21,6 +21,13 @@ module ArrowFormat
           # would have {length: 5, null_count: 2} for its List node, and {length: 6,
           # null_count: 0} for its Int16 node, as separate FieldNode structs
           class FieldNode < ::FlatBuffers::Struct
+            FIELDS = {
+              length: ::FlatBuffers::Field.new(:length, 0, 0, :long, 0),
+              null_count: ::FlatBuffers::Field.new(:null_count, 1, 8, :long, 0),
+            }
+
+            Data = define_data_class
+
             # The number of value slots in the Arrow array at this level of a nested
             # tree
             def length

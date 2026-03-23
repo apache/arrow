@@ -42,4 +42,4 @@ RUN %PYTHON_CMD% -m pip install -U pip setuptools
 COPY python/requirements-wheel-test.txt C:/arrow/python/
 RUN %PYTHON_CMD% -m pip install -r C:/arrow/python/requirements-wheel-test.txt
 
-ENV PYTHON=$python
+ENV PYTHON=${python}

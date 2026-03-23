@@ -17,4 +17,4 @@ Using parquet-cpp with the arrow interface
 
 This folder contains an example project that shows how to setup a CMake project
 that consumes `parquet-cpp` as a library as well as how you can use the
-`parquet/arrow` interface to reading and write Apache Parquet files.
+`parquet/arrow` interface to read and write Apache Parquet files.

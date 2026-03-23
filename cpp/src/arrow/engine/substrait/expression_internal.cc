@@ -804,7 +804,13 @@ struct ScalarToProtoImpl {
     auto user_defined = std::make_unique<Lit::UserDefined>();
     user_defined->set_type_reference(anchor);
     auto value_any = std::make_unique<google::protobuf::Any>();
+#if PROTOBUF_VERSION >= 3015000
+    if (!value_any->PackFrom(value)) {
+      return Status::IOError("Failed to pack user-defined type value");
+    }
+#else
     value_any->PackFrom(value);
+#endif
     user_defined->set_allocated_value(value_any.release());
     lit_->set_allocated_user_defined(user_defined.release());
     return Status::OK();

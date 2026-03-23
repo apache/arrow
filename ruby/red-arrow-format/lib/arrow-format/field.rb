@@ -18,14 +18,44 @@ module ArrowFormat
   class Field
     attr_reader :name
     attr_reader :type
-    def initialize(name, type, nullable)
+    attr_reader :metadata
+    def initialize(name,
+                   type,
+                   nullable: true,
+                   metadata: nil)
       @name = name
       @type = type
       @nullable = nullable
+      @metadata = metadata
     end
 
     def nullable?
       @nullable
+    end
+
+    def to_flatbuffers
+      fb_field = FB::Field::Data.new
+      fb_field.name = @name
+      fb_field.nullable = @nullable
+      if @type.respond_to?(:build_fb_field)
+        @type.build_fb_field(fb_field)
+      else
+        fb_field.type = @type.to_flatbuffers
+      end
+      if @type.respond_to?(:child)
+        fb_field.children = [@type.child.to_flatbuffers]
+      elsif @type.respond_to?(:children)
+        fb_field.children = @type.children.collect(&:to_flatbuffers)
+      end
+      if @metadata
+        fb_field.custom_metadata = @metadata.collect do |key, value|
+          fb_key_value = FB::KeyValue::Data.new
+          fb_key_value.key = key
+          fb_key_value.value = value
+          fb_key_value
+        end
+      end
+      fb_field
     end
   end
 end

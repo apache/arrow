@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#pragma once
+
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/utf8.h"
@@ -39,6 +41,16 @@
 static constexpr std::string_view kTestConnectStr = "ARROW_FLIGHT_SQL_ODBC_CONN";
 static constexpr std::string_view kTestDsn = "Apache Arrow Flight SQL Test DSN";
 
+inline SQLHENV env = 0;
+inline SQLHDBC conn = 0;
+inline SQLHSTMT stmt = 0;
+
+inline bool skipping_test = false;
+inline bool connected = false;
+
+inline std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> mock_server;
+inline int mock_server_port = 0;
+
 namespace arrow::flight::sql::odbc {
 
 /// \brief Base test fixture for running tests against a remote server.
@@ -46,41 +58,32 @@ namespace arrow::flight::sql::odbc {
 /// in the ARROW_FLIGHT_SQL_ODBC_CONN environment variable.
 /// Note that this fixture does not handle the driver's connection/disconnection
 /// during SetUp/Teardown.
-class ODBCRemoteTestBase : public ::testing::Test {
+class ODBCTestBase : public ::testing::Test {
  public:
   /// \brief Allocate environment and connection handles
-  void AllocEnvConnHandles(SQLINTEGER odbc_ver = SQL_OV_ODBC3);
+  static void AllocEnvConnHandles(SQLINTEGER odbc_ver = SQL_OV_ODBC3);
   /// \brief Free environment and connection handles
-  void FreeEnvConnHandles();
+  static void FreeEnvConnHandles();
   /// \brief Connect to Arrow Flight SQL server using connection string defined in
   /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN", allocate statement handle.
   /// Connects using ODBC Ver 3 by default
-  void Connect(SQLINTEGER odbc_ver = SQL_OV_ODBC3);
+  static void Connect(std::string connect_str, SQLINTEGER odbc_ver = SQL_OV_ODBC3);
   /// \brief Connect to Arrow Flight SQL server using connection string
-  void ConnectWithString(std::string connection_str);
+  static void ConnectWithString(std::string connection_str);
   /// \brief Disconnect from server
-  void Disconnect();
+  static void Disconnect();
   /// \brief Get connection string from environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
-  std::string virtual GetConnectionString();
+  static std::string GetConnectionString();
   /// \brief Get invalid connection string based on connection string defined in
   /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
-  std::string virtual GetInvalidConnectionString();
+  static std::string GetInvalidConnectionString();
   /// \brief Return a SQL query that selects all data types
-  std::wstring virtual GetQueryAllDataTypes();
-
-  /** ODBC Environment. */
-  SQLHENV env = 0;
-
-  /** ODBC Connect. */
-  SQLHDBC conn = 0;
-
-  /** ODBC Statement. */
-  SQLHSTMT stmt = 0;
+  static std::wstring GetQueryAllDataTypes();
 
  protected:
   void SetUp() override;
-
-  bool skipping_test_ = false;
+  void TearDown() override;
+  static void TearDownTestSuite();
 };
 
 /// \brief Base test fixture for running tests against a remote server.
@@ -88,13 +91,12 @@ class ODBCRemoteTestBase : public ::testing::Test {
 /// fixture inheriting from this base fixture.
 /// The connection string for connecting to this server is defined
 /// in the ARROW_FLIGHT_SQL_ODBC_CONN environment variable.
-class FlightSQLODBCRemoteTestBase : public ODBCRemoteTestBase {
+class FlightSQLODBCRemoteTestBase : public ODBCTestBase {
+ public:
+  static void CheckForRemoteTest();
+
  protected:
-  void SetUp() override;
-
-  void TearDown() override;
-
-  bool connected_ = false;
+  static void SetUpTestSuite();
 };
 
 /// \brief Base test fixture for running ODBC V2 tests against a remote server.
@@ -102,15 +104,13 @@ class FlightSQLODBCRemoteTestBase : public ODBCRemoteTestBase {
 /// fixture inheriting from this base fixture.
 class FlightSQLOdbcV2RemoteTestBase : public FlightSQLODBCRemoteTestBase {
  protected:
-  void SetUp() override;
+  static void SetUpTestSuite();
 };
 
-class FlightSQLOdbcHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
+class FlightSQLOdbcEnvConnHandleRemoteTestBase : public FlightSQLODBCRemoteTestBase {
  protected:
-  void SetUp() override;
-  void TearDown() override;
-
-  bool allocated_ = false;
+  static void SetUpTestSuite();
+  static void TearDownTestSuite();
 };
 
 static constexpr std::string_view kAuthorizationHeader = "authorization";
@@ -151,32 +151,33 @@ class MockServerMiddlewareFactory : public ServerMiddlewareFactory {
 };
 
 /// \brief Base test fixture for running tests against a mock server.
-class ODBCMockTestBase : public FlightSQLODBCRemoteTestBase {
+class ODBCMockTestBase : public ODBCTestBase {
   // Sets up a mock server for each test case
  public:
   /// \brief Get connection string for mock server
-  std::string GetConnectionString() override;
+  static std::string GetConnectionString();
   /// \brief Get invalid connection string for mock server
-  std::string GetInvalidConnectionString() override;
+  static std::string GetInvalidConnectionString();
   /// \brief Return a SQL query that selects all data types
-  std::wstring GetQueryAllDataTypes() override;
+  static std::wstring GetQueryAllDataTypes();
 
   /// \brief Run a SQL query to create default table for table test cases
-  void CreateTestTables();
+  static void CreateTestTable();
+  /// \brief Run a SQL query to drop default table for table test cases
+  static void DropTestTable();
 
   /// \brief run a SQL query to create a table with all data types
-  void CreateTableAllDataType();
-  /// \brief run a SQL query to create a table with unicode name
-  void CreateUnicodeTable();
+  static void CreateAllDataTypeTable();
+  /// \brief run a SQL query to drop a table with all data types
+  static void DropAllDataTypeTable();
 
-  int port;
+  /// \brief run a SQL query to create a table with unicode name
+  static void CreateUnicodeTable();
+  /// \brief run a SQL query to drop a table with unicode name
+  static void DropUnicodeTable();
 
  protected:
-  void SetUp() override;
-
-  void TearDown() override;
-
-  std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> server_;
+  static void SetUpTestSuite();
 };
 
 /// \brief Base test fixture for running tests against a mock server.
@@ -184,9 +185,7 @@ class ODBCMockTestBase : public FlightSQLODBCRemoteTestBase {
 /// fixture inheriting from this base fixture.
 class FlightSQLODBCMockTestBase : public ODBCMockTestBase {
  protected:
-  void SetUp() override;
-
-  void TearDown() override;
+  static void SetUpTestSuite();
 };
 
 /// \brief Base test fixture for running ODBC V2 tests against a mock server.
@@ -194,17 +193,23 @@ class FlightSQLODBCMockTestBase : public ODBCMockTestBase {
 /// fixture inheriting from this base fixture.
 class FlightSQLOdbcV2MockTestBase : public FlightSQLODBCMockTestBase {
  protected:
-  void SetUp() override;
+  static void SetUpTestSuite();
 };
 
-class FlightSQLOdbcHandleMockTestBase : public FlightSQLODBCMockTestBase {
+class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase {
  protected:
-  void SetUp() override;
-  void TearDown() override;
+  static void SetUpTestSuite();
+  static void TearDownTestSuite();
 };
 
 /** ODBC read buffer size. */
+#ifdef __APPLE__
+// iODBC driver manager may crash with smaller buffer sizes
+// so we use a larger buffer on MacOS
+static constexpr int kOdbcBufferSize = 2048;
+#else
 static constexpr int kOdbcBufferSize = 1024;
+#endif  // __APPLE__
 
 /// Compare ConnPropertyMap, key value is case-insensitive
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
@@ -214,8 +219,8 @@ bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
 std::string GetOdbcErrorMessage(SQLSMALLINT handle_type, SQLHANDLE handle);
 
 static constexpr std::string_view kErrorState01004 = "01004";
-static constexpr std::string_view kErrorState01S07 = "01S07";
 static constexpr std::string_view kErrorState01S02 = "01S02";
+static constexpr std::string_view kErrorState01S07 = "01S07";
 static constexpr std::string_view kErrorState07009 = "07009";
 static constexpr std::string_view kErrorState08003 = "08003";
 static constexpr std::string_view kErrorState22002 = "22002";
@@ -234,7 +239,13 @@ static constexpr std::string_view kErrorStateHY106 = "HY106";
 static constexpr std::string_view kErrorStateHY114 = "HY114";
 static constexpr std::string_view kErrorStateHY118 = "HY118";
 static constexpr std::string_view kErrorStateHYC00 = "HYC00";
+static constexpr std::string_view kErrorStateIM001 = "IM001";
+static constexpr std::string_view kErrorStateS1000 = "S1000";
+static constexpr std::string_view kErrorStateS1002 = "S1002";
 static constexpr std::string_view kErrorStateS1004 = "S1004";
+static constexpr std::string_view kErrorStateS1010 = "S1010";
+static constexpr std::string_view kErrorStateS1090 = "S1090";
+static constexpr std::string_view kErrorStateS1C00 = "S1C00";
 
 /// Verify ODBC Error State
 void VerifyOdbcErrorState(SQLSMALLINT handle_type, SQLHANDLE handle,
@@ -249,6 +260,12 @@ bool WriteDSN(std::string connection_str);
 /// \param[in] properties map.
 /// \return true on success
 bool WriteDSN(Connection::ConnPropertyMap properties);
+
+/// \brief Get wide string column.
+/// \param[in] stmt Statement.
+/// \param[in] col_id Column ID to check.
+/// \return wstring
+std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id);
 
 /// \brief Check wide char vector and convert into wstring
 /// \param[in] str_val Vector of SQLWCHAR.

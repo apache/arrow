@@ -278,6 +278,8 @@ class PackageTask
       # "ubuntu-jammy-arm64",
       "ubuntu-noble",
       # "ubuntu-noble-arm64",
+      "ubuntu-resolute",
+      # "ubuntu-resolute-arm64",
     ]
   end
 
@@ -422,8 +424,6 @@ VERSION=#{@deb_upstream_version}
       # "amazon-linux-2023-arch64",
       "centos-9-stream",
       # "centos-9-stream-aarch64",
-      "centos-7",
-      # "centos-7-aarch64",
     ]
   end
 

@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Message.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 

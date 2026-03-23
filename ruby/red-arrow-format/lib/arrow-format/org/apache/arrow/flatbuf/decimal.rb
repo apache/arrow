@@ -1,6 +1,6 @@
 # Automatically generated. Don't modify manually.
 #
-# Red FlatBuffers version: 0.0.3
+# Red FlatBuffers version: 0.0.4
 # Declared by:             //Schema.fbs
 # Rooting type:            org.apache.arrow.flatbuf.Message (//Message.fbs)
 
@@ -16,6 +16,14 @@ module ArrowFormat
           # 128-bit (16-byte) and 256-bit (32-byte) integers are used.
           # The representation uses the endianness indicated in the Schema.
           class Decimal < ::FlatBuffers::Table
+            FIELDS = {
+              precision: ::FlatBuffers::Field.new(:precision, 0, 4, :int, 0),
+              scale: ::FlatBuffers::Field.new(:scale, 1, 6, :int, 0),
+              bit_width: ::FlatBuffers::Field.new(:bit_width, 2, 8, :int, 0),
+            }
+
+            Data = define_data_class
+
             # Number of bits per value. The accepted widths are 32, 64, 128 and 256.
             # We use bitWidth for consistency with Int::bitWidth.
             def bit_width
