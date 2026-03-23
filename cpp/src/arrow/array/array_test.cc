@@ -4237,4 +4237,53 @@ TEST_F(TestHalfFloatBuilder, TestBulkAppend) {
   }
 }
 
+TEST_F(TestArray, ArangeOverflowAndInvalidInputs) {
+  // step == 0 is always invalid
+  ASSERT_RAISES(Invalid, Arange(0, 10, 0, pool_));
+
+  // step == INT64_MIN: abs() overflows
+  ASSERT_RAISES(Invalid, Arange(10, 0, INT64_MIN, pool_));
+
+  // Positive step: (stop - start) overflows int64
+  ASSERT_RAISES(Invalid, Arange(INT64_MIN, INT64_MAX, 1, pool_));
+
+  // Positive step: size computation overflows
+  ASSERT_RAISES(Invalid, Arange(0, INT64_MAX, 1, pool_));
+
+  // Negative step: (start - stop) overflows int64
+  ASSERT_RAISES(Invalid, Arange(INT64_MAX, INT64_MIN, -1, pool_));
+
+  // Negative step: size computation overflows
+  ASSERT_RAISES(Invalid, Arange(0, INT64_MIN, -1, pool_));
+}
+
+TEST_F(TestArray, ArangeBasicPositiveStep) {
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(0, 10, 1, pool_));
+  ASSERT_EQ(result->length(), 10);
+
+  auto arr = checked_pointer_cast<Int64Array>(result);
+  ASSERT_EQ(arr->Value(0), 0);
+  ASSERT_EQ(arr->Value(9), 9);
+}
+
+TEST_F(TestArray, ArangeBasicNegativeStep) {
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(10, 0, -1, pool_));
+  ASSERT_EQ(result->length(), 10);
+
+  auto arr = checked_pointer_cast<Int64Array>(result);
+  ASSERT_EQ(arr->Value(0), 10);
+  ASSERT_EQ(arr->Value(9), 1);
+}
+
+TEST_F(TestArray, ArangeEmptyRanges) {
+  ASSERT_OK_AND_ASSIGN(auto result, Arange(10, 5, 1, pool_));
+  ASSERT_EQ(result->length(), 0);
+
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, 10, -1, pool_));
+  ASSERT_EQ(result->length(), 0);
+
+  ASSERT_OK_AND_ASSIGN(result, Arange(5, 5, 1, pool_));
+  ASSERT_EQ(result->length(), 0);
+}
+
 }  // namespace arrow

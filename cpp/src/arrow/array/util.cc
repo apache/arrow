@@ -47,6 +47,7 @@
 #include "arrow/util/span.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
+#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 
@@ -930,14 +931,44 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
 Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
                                       MemoryPool* pool) {
   if (step == 0) {
-    return Status::Invalid("arange: step cannot be zero");
+    return Status::Invalid("Arange step cannot be zero");
   }
+
+  auto error = [&]() {
+    return Status::Invalid("Arange: range [", start, ", ", stop, ") with step ",
+                           step, " would produce an array that is too large");
+  };
 
   int64_t size;
   if (step > 0 && stop > start) {
-    size = (stop - start + step - 1) / step;
+    // size = (stop - start + step - 1) / step
+    int64_t range;
+    if (internal::SubtractWithOverflow(stop, start, &range)) {
+      return error();
+    }
+    int64_t range_adjusted;
+    if (internal::AddWithOverflow(range, step, &range_adjusted) ||
+        internal::SubtractWithOverflow(range_adjusted, 1, &range_adjusted)) {
+      return error();
+    }
+    size = range_adjusted / step;
+
   } else if (step < 0 && stop < start) {
-    size = (start - stop - step - 1) / (-step);
+    if (step == INT64_MIN) {
+      return Status::Invalid("Arange step cannot be INT64_MIN");
+    }
+    // size = (start - stop - step - 1) / -step
+    int64_t range;
+    if (internal::SubtractWithOverflow(start, stop, &range)) {
+      return error();
+    }
+    int64_t range_adjusted;
+    if (internal::SubtractWithOverflow(range, step, &range_adjusted) ||
+        internal::SubtractWithOverflow(range_adjusted, 1, &range_adjusted)) {
+      return error();
+    }
+    size = range_adjusted / -step;
+
   } else {
     return MakeEmptyArray(int64(), pool);
   }
