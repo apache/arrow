@@ -292,8 +292,9 @@ Status CastBinaryToBinaryOffsets<int64_t, int32_t>(KernelContext* ctx,
 
 // Offset String -> Offset String
 template <typename O, typename I>
-enable_if_t<is_base_binary_type<I>::value && is_base_binary_type<O>::value, Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_base_binary<I> && arrow_base_binary<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
@@ -338,8 +339,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // String View -> Offset String
 template <typename O, typename I>
-enable_if_t<is_binary_view_like_type<I>::value && is_base_binary_type<O>::value, Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_binary_view_like<I> && arrow_base_binary<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   using offset_type = typename O::offset_type;
   using DataBuilder = TypedBufferBuilder<uint8_t>;
   using OffsetBuilder = TypedBufferBuilder<offset_type>;
@@ -390,8 +392,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // Offset String -> String View
 template <typename O, typename I>
-enable_if_t<is_base_binary_type<I>::value && is_binary_view_like_type<O>::value, Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_base_binary<I> && arrow_binary_view_like<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   using offset_type = typename I::offset_type;
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
@@ -470,9 +473,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // String View -> String View
 template <typename O, typename I>
-enable_if_t<is_binary_view_like_type<I>::value && is_binary_view_like_type<O>::value,
-            Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_binary_view_like<I> && arrow_binary_view_like<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
@@ -490,10 +493,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // Fixed -> String View
 template <typename O, typename I>
-enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
-                is_binary_view_like_type<O>::value,
-            Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_fixed_size_binary<I> && arrow_binary_view_like<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
@@ -567,9 +569,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // Fixed -> Offset String
 template <typename O, typename I>
-enable_if_t<std::is_same<I, FixedSizeBinaryType>::value && is_base_binary_type<O>::value,
-            Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_fixed_size_binary<I> && arrow_base_binary<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const ArraySpan& input = batch[0].array;
 
@@ -642,10 +644,9 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // Fixed -> Fixed
 template <typename O, typename I>
-enable_if_t<std::is_same<I, FixedSizeBinaryType>::value &&
-                std::is_same<O, FixedSizeBinaryType>::value,
-            Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires(arrow_fixed_size_binary<I> && arrow_fixed_size_binary<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   const int32_t in_width = batch[0].type()->byte_width();
   const int32_t out_width =
@@ -659,10 +660,10 @@ BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // Offset String | String View -> Fixed
 template <typename O, typename I>
-enable_if_t<(is_base_binary_type<I>::value || is_binary_view_like_type<I>::value) &&
-                std::is_same<O, FixedSizeBinaryType>::value,
-            Status>
-BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
+  requires((arrow_base_binary<I> || arrow_binary_view_like<I>) &&
+           arrow_fixed_size_binary<O>)
+Status BinaryToBinaryCastExec(KernelContext* ctx, const ExecSpan& batch,
+                              ExecResult* out) {
   const CastOptions& options = checked_cast<const CastState&>(*ctx->state()).options;
   FixedSizeBinaryBuilder builder(options.to_type.GetSharedPtr(), ctx->memory_pool());
   const ArraySpan& input = batch[0].array;

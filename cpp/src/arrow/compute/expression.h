@@ -161,8 +161,8 @@ ARROW_EXPORT
 Expression call(std::string function, std::vector<Expression> arguments,
                 std::shared_ptr<FunctionOptions> options = NULLPTR);
 
-template <typename Options, typename = typename std::enable_if<
-                                std::is_base_of<FunctionOptions, Options>::value>::type>
+template <typename Options>
+  requires std::is_base_of_v<FunctionOptions, Options>
 Expression call(std::string function, std::vector<Expression> arguments,
                 Options options) {
   return call(std::move(function), std::move(arguments),

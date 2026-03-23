@@ -148,10 +148,9 @@ Status ExtractTemporal(KernelContext* ctx, const ExecSpan& batch, ExecResult* ou
 
 // <TimestampType, TimestampType> and <DurationType, DurationType>
 template <typename O, typename I>
-struct CastFunctor<
-    O, I,
-    enable_if_t<(is_timestamp_type<O>::value && is_timestamp_type<I>::value) ||
-                (is_duration_type<O>::value && is_duration_type<I>::value)>> {
+  requires((arrow_timestamp<O> && arrow_timestamp<I>) ||
+           (arrow_duration<O> && arrow_duration<I>))
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& in_type = checked_cast<const I&>(*batch[0].type());
     const auto& out_type = checked_cast<const O&>(*out->type());
@@ -346,7 +345,8 @@ struct CastFunctor<Time64Type, TimestampType> {
 // From one time32 or time64 to another
 
 template <typename O, typename I>
-struct CastFunctor<O, I, enable_if_t<is_time_type<I>::value && is_time_type<O>::value>> {
+  requires(arrow_time<I> && arrow_time<O>)
+struct CastFunctor<O, I> {
   using in_t = typename I::c_type;
   using out_t = typename O::c_type;
 
@@ -448,7 +448,8 @@ struct ParseTimestamp {
 };
 
 template <typename I>
-struct CastFunctor<TimestampType, I, enable_if_t<is_base_binary_type<I>::value>> {
+  requires arrow_base_binary<I>
+struct CastFunctor<TimestampType, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     const auto& out_type = checked_cast<const TimestampType&>(*out->type());
     applicator::ScalarUnaryNotNullStateful<TimestampType, I, ParseTimestamp> kernel(
@@ -488,8 +489,8 @@ struct ParseDate {
 };
 
 template <typename O, typename I>
-struct CastFunctor<O, I,
-                   enable_if_t<(is_date_type<O>::value && is_string_type<I>::value)>> {
+  requires(arrow_date<O> && arrow_string<I>)
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
     return applicator::ScalarUnaryNotNull<O, I, ParseDate<O>>::Exec(ctx, batch, out);
   }

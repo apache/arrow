@@ -235,10 +235,8 @@ struct NonZeroVisitor {
   Status Visit(const DataType& type) { return Status::NotImplemented(type.ToString()); }
 
   template <typename Type>
-  enable_if_t<is_decimal_type<Type>::value || is_primitive_ctype<Type>::value ||
-                  is_boolean_type<Type>::value,
-              Status>
-  Visit(const Type&) {
+    requires(arrow_decimal<Type> || arrow_primitive_ctype<Type> || arrow_boolean<Type>)
+  Status Visit(const Type&) {
     using T = typename GetOutputType<Type>::T;
     const T zero{};
     uint64_t index = 0;

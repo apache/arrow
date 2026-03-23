@@ -1174,24 +1174,22 @@ void FillRandomData(CValueType* data, size_t n, CValueType min, CValueType max,
 }
 
 template <typename CValueType, typename SeedType>
-enable_if_t<std::is_integral<CValueType>::value && std::is_signed<CValueType>::value,
-            void>
-FillRandomData(CValueType* data, size_t n, SeedType seed) {
+  requires(std::integral<CValueType> && std::signed_integral<CValueType>)
+void FillRandomData(CValueType* data, size_t n, SeedType seed) {
   FillRandomData<CValueType, SeedType, std::uniform_int_distribution<CValueType>>(
       data, n, -1000, 1000, seed);
 }
 
 template <typename CValueType, typename SeedType>
-enable_if_t<std::is_integral<CValueType>::value && std::is_unsigned<CValueType>::value,
-            void>
-FillRandomData(CValueType* data, size_t n, SeedType seed) {
+  requires(std::integral<CValueType> && std::unsigned_integral<CValueType>)
+void FillRandomData(CValueType* data, size_t n, SeedType seed) {
   FillRandomData<CValueType, SeedType, std::uniform_int_distribution<CValueType>>(
       data, n, 0, 1000, seed);
 }
 
 template <typename CValueType, typename SeedType>
-enable_if_t<std::is_floating_point<CValueType>::value, void> FillRandomData(
-    CValueType* data, size_t n, SeedType seed) {
+  requires std::floating_point<CValueType>
+void FillRandomData(CValueType* data, size_t n, SeedType seed) {
   FillRandomData<CValueType, SeedType, std::uniform_real_distribution<CValueType>>(
       data, n, -1000, 1000, seed);
 }

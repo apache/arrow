@@ -48,22 +48,12 @@ namespace stl {
 
 namespace internal {
 
-template <typename T, typename = void>
-struct is_optional_like : public std::false_type {};
-
-template <typename T, typename = void>
-struct is_dereferencable : public std::false_type {};
+template <typename T>
+concept dereferencable = (requires(T t) { *t; });
 
 template <typename T>
-struct is_dereferencable<T, arrow::internal::void_t<decltype(*std::declval<T>())>>
-    : public std::true_type {};
-
-template <typename T>
-struct is_optional_like<
-    T, typename std::enable_if<
-           std::is_constructible<bool, T>::value && is_dereferencable<T>::value &&
-           !std::is_array<typename std::remove_reference<T>::type>::value>::type>
-    : public std::true_type {};
+concept optional_like = std::is_constructible_v<bool, T> && dereferencable<T> &&
+                        !std::is_array_v<std::remove_reference_t<T>>;
 
 template <size_t N, typename Tuple>
 using BareTupleElement =
@@ -71,12 +61,8 @@ using BareTupleElement =
 
 }  // namespace internal
 
-template <typename T, typename R = void>
-using enable_if_optional_like =
-    typename std::enable_if<internal::is_optional_like<T>::value, R>::type;
-
 /// Traits meta class to map standard C/C++ types to equivalent Arrow types.
-template <typename T, typename Enable = void>
+template <typename T>
 struct ConversionTraits {};
 
 /// Returns builder type for given standard C/C++ type.
@@ -217,7 +203,8 @@ struct ConversionTraits<std::array<ValueCType, N>>
 };
 
 template <typename Optional>
-struct ConversionTraits<Optional, enable_if_optional_like<Optional>>
+  requires internal::optional_like<Optional>
+struct ConversionTraits<Optional>
     : public CTypeTraits<typename std::decay<decltype(*std::declval<Optional>())>::type> {
   using OptionalInnerType =
       typename std::decay<decltype(*std::declval<Optional>())>::type;
@@ -252,7 +239,7 @@ struct SchemaFromTuple {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursion(names);
     auto type = ConversionTraits<Element>::type_singleton();
-    ret.push_back(field(names[N - 1], type, internal::is_optional_like<Element>::value));
+    ret.push_back(field(names[N - 1], type, internal::optional_like<Element>));
     return ret;
   }
 
@@ -283,8 +270,7 @@ struct SchemaFromTuple {
     std::vector<std::shared_ptr<Field>> ret =
         SchemaFromTuple<Tuple, N - 1>::MakeSchemaRecursionT(names);
     std::shared_ptr<DataType> type = ConversionTraits<Element>::type_singleton();
-    ret.push_back(
-        field(get<N - 1>(names), type, internal::is_optional_like<Element>::value));
+    ret.push_back(field(get<N - 1>(names), type, internal::optional_like<Element>));
     return ret;
   }
 

@@ -22,7 +22,8 @@
 
 namespace arrow::acero {
 
-template <typename T, enable_if_t<std::is_integral<T>::value, bool>>
+template <typename T>
+  requires std::is_integral_v<T>
 inline uint64_t NormalizeTime(T t) {
   uint64_t bias =
       std::is_signed<T>::value ? static_cast<uint64_t>(1) << (8 * sizeof(T) - 1) : 0;

@@ -1678,7 +1678,8 @@ class NestedSelector {
   }
 
   template <typename OStream, typename U = T>
-  std::enable_if_t<std::is_same_v<U, Field>> Summarize(OStream* os) const {
+    requires std::same_as<U, Field>
+  void Summarize(OStream* os) const {
     const FieldVector* fields = get_children();
     if (!fields && get_parent()) {
       fields = &get_parent()->type()->fields();
@@ -1693,7 +1694,8 @@ class NestedSelector {
   }
 
   template <typename OStream, typename U = T>
-  std::enable_if_t<!std::is_same_v<U, Field>> Summarize(OStream* os) const {
+    requires(!std::same_as<U, Field>)
+  void Summarize(OStream* os) const {
     *os << "column types: { ";
     if (auto children = get_children()) {
       for (const auto& child : *children) {

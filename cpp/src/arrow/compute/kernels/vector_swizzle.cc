@@ -86,7 +86,8 @@ struct InversePermutationImpl {
   }
 
   template <typename Type>
-  enable_if_t<is_integer_type<Type>::value, Status> Visit(const Type& output_type) {
+    requires arrow_integer<Type>
+  Status Visit(const Type& output_type) {
     using OutputCType = typename Type::c_type;
 
     RETURN_NOT_OK(CheckInput(output_type));

@@ -223,14 +223,13 @@ class ARROW_EXPORT BufferBuilder {
   int64_t alignment_;
 };
 
-template <typename T, typename Enable = void>
+template <typename T>
 class TypedBufferBuilder;
 
 /// \brief A BufferBuilder for building a buffer of arithmetic elements
 template <typename T>
-class TypedBufferBuilder<
-    T, typename std::enable_if<std::is_arithmetic<T>::value ||
-                               std::is_standard_layout<T>::value>::type> {
+  requires(std::is_arithmetic_v<T> || std::is_standard_layout_v<T>)
+class TypedBufferBuilder<T> {
  public:
   explicit TypedBufferBuilder(MemoryPool* pool = default_memory_pool(),
                               int64_t alignment = kDefaultBufferAlignment)

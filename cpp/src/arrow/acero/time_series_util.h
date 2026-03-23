@@ -23,7 +23,8 @@
 namespace arrow::acero {
 
 // normalize the value to unsigned 64-bits while preserving ordering of values
-template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
+template <typename T>
+  requires std::is_integral_v<T>
 uint64_t NormalizeTime(T t);
 
 uint64_t GetTime(const RecordBatch* batch, Type::type time_type, int col, uint64_t row);

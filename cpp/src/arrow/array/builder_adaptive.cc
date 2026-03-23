@@ -64,14 +64,14 @@ Status AdaptiveIntBuilderBase::Resize(int64_t capacity) {
 }
 
 template <typename new_type, typename old_type>
-typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
+  requires(sizeof(old_type) >= sizeof(new_type))
+Status AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
   return Status::OK();
 }
 
 template <typename new_type, typename old_type>
-typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
+  requires(sizeof(old_type) < sizeof(new_type))
+Status AdaptiveIntBuilderBase::ExpandIntSizeInternal() {
   int_size_ = sizeof(new_type);
   RETURN_NOT_OK(Resize(data_->size() / sizeof(old_type)));
 

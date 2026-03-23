@@ -23,7 +23,7 @@ namespace arrow {
 namespace compute {
 namespace internal {
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct CopyDataUtils {};
 
 template <>
@@ -83,8 +83,8 @@ struct CopyDataUtils<FixedSizeBinaryType> {
 };
 
 template <typename Type>
-struct CopyDataUtils<
-    Type, enable_if_t<is_number_type<Type>::value || is_interval_type<Type>::value>> {
+  requires(arrow_number<Type> || arrow_interval<Type>)
+struct CopyDataUtils<Type> {
   using CType = typename TypeTraits<Type>::CType;
 
   static void CopyData(const DataType&, const Scalar& in, const int64_t in_offset,

@@ -300,7 +300,8 @@ class RegularHashKernel : public HashKernel {
   std::shared_ptr<DataType> value_type() const override { return type_; }
 
   template <bool HasError = with_error_status>
-  enable_if_t<!HasError, Status> DoAppend(const ArraySpan& arr) {
+    requires(!HasError)
+  Status DoAppend(const ArraySpan& arr) {
     return VisitArraySpanInline<Type>(
         arr,
         [this](Scalar v) {
@@ -332,7 +333,8 @@ class RegularHashKernel : public HashKernel {
   }
 
   template <bool HasError = with_error_status>
-  enable_if_t<HasError, Status> DoAppend(const ArraySpan& arr) {
+    requires HasError
+  Status DoAppend(const ArraySpan& arr) {
     return VisitArraySpanInline<Type>(
         arr,
         [this](Scalar v) {
@@ -389,7 +391,8 @@ class NullHashKernel : public HashKernel {
   Status Append(const ArraySpan& arr) override { return DoAppend(arr); }
 
   template <bool HasError = with_error_status>
-  enable_if_t<!HasError, Status> DoAppend(const ArraySpan& arr) {
+    requires(!HasError)
+  Status DoAppend(const ArraySpan& arr) {
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {
       if (i == 0) {
@@ -403,7 +406,8 @@ class NullHashKernel : public HashKernel {
   }
 
   template <bool HasError = with_error_status>
-  enable_if_t<HasError, Status> DoAppend(const ArraySpan& arr) {
+    requires HasError
+  Status DoAppend(const ArraySpan& arr) {
     Status s = Status::OK();
     RETURN_NOT_OK(action_.Reserve(arr.length));
     for (int64_t i = 0; i < arr.length; ++i) {

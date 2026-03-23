@@ -202,9 +202,8 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// `T` must be implicitly constructible from `const U &`.
   ///
   /// \param other The value to copy from.
-  template <typename U, typename E = typename std::enable_if<
-                            std::is_constructible<T, const U&>::value &&
-                            std::is_convertible<U, T>::value>::type>
+  template <typename U>
+    requires(std::is_constructible_v<T, const U&> && std::is_convertible_v<U, T>)
   Result(const Result<U>& other) noexcept : status_(other.status_) {
     if (ARROW_PREDICT_TRUE(status_.ok())) {
       ConstructValue(other.ValueUnsafe());
@@ -235,9 +234,8 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// error code.
   ///
   /// \param other The Result object to move from and set to a non-OK status.
-  template <typename U,
-            typename E = typename std::enable_if<std::is_constructible<T, U&&>::value &&
-                                                 std::is_convertible<U, T>::value>::type>
+  template <typename U>
+    requires(std::is_constructible_v<T, U &&> && std::is_convertible_v<U, T>)
   Result(Result<U>&& other) noexcept {
     if (ARROW_PREDICT_TRUE(other.status_.ok())) {
       status_ = std::move(other.status_);
@@ -359,8 +357,8 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
   /// equivalent Result returning functions. For example:
   ///
   /// Status GetInt(int *out) { return GetInt().Value(out); }
-  template <typename U, typename E = typename std::enable_if<
-                            std::is_constructible<U, T>::value>::type>
+  template <typename U>
+    requires std::is_constructible_v<U, T>
   Status Value(U* out) && {
     if (!ok()) {
       return std::move(*this).status();
@@ -419,8 +417,8 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
 
   /// Cast the internally stored value to produce a new result or propagate the stored
   /// error.
-  template <typename U, typename E = typename std::enable_if<
-                            std::is_constructible<U, T>::value>::type>
+  template <typename U>
+    requires std::is_constructible_v<U, T>
   Result<U> As() && {
     if (!ok()) {
       return std::move(*this).status();
@@ -430,8 +428,8 @@ class [[nodiscard]] Result : public util::EqualityComparable<Result<T>> {
 
   /// Cast the internally stored value to produce a new result or propagate the stored
   /// error.
-  template <typename U, typename E = typename std::enable_if<
-                            std::is_constructible<U, const T&>::value>::type>
+  template <typename U>
+    requires std::is_constructible_v<U, const T&>
   Result<U> As() const& {
     if (!ok()) {
       return status();

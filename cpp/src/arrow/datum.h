@@ -114,8 +114,8 @@ struct ARROW_EXPORT Datum {
 
   /// \brief Cast from concrete subtypes of Array or Scalar to Datum
   template <typename T, bool IsArray = std::is_base_of_v<Array, T>,
-            bool IsScalar = std::is_base_of_v<Scalar, T>,
-            typename = enable_if_t<IsArray || IsScalar>>
+            bool IsScalar = std::is_base_of_v<Scalar, T>>
+    requires(IsArray || IsScalar)
   Datum(std::shared_ptr<T> value)  // NOLINT implicit conversion
       : Datum(std::shared_ptr<typename std::conditional<IsArray, Array, Scalar>::type>(
             std::move(value))) {}
@@ -123,15 +123,16 @@ struct ARROW_EXPORT Datum {
   /// \brief Cast from concrete subtypes of Array or Scalar to Datum
   template <typename T, typename TV = typename std::remove_reference_t<T>,
             bool IsArray = std::is_base_of_v<Array, T>,
-            bool IsScalar = std::is_base_of_v<Scalar, T>,
-            typename = enable_if_t<IsArray || IsScalar>>
+            bool IsScalar = std::is_base_of_v<Scalar, T>>
+    requires(IsArray || IsScalar)
   Datum(T&& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<TV>(std::forward<T>(value))) {}
 
   /// \brief Copy from concrete subtypes of Scalar.
   ///
   /// The concrete scalar type must be copyable (not all of them are).
-  template <typename T, typename = enable_if_t<std::is_base_of_v<Scalar, T>>>
+  template <typename T>
+    requires std::is_base_of_v<Scalar, T>
   Datum(const T& value)  // NOLINT implicit conversion
       : Datum(std::make_shared<T>(value)) {}
 

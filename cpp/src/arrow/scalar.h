@@ -900,8 +900,8 @@ struct ARROW_EXPORT ExtensionScalar : public Scalar {
                   bool is_valid = true)
       : Scalar(std::move(type), is_valid), value(std::move(storage)) {}
 
-  template <typename Storage,
-            typename = enable_if_t<std::is_base_of<Scalar, Storage>::value>>
+  template <typename Storage>
+    requires std::is_base_of_v<Scalar, Storage>
   ExtensionScalar(Storage&& storage, std::shared_ptr<DataType> type, bool is_valid = true)
       : ExtensionScalar(std::make_shared<Storage>(std::move(storage)), std::move(type),
                         is_valid) {}
@@ -963,11 +963,9 @@ inline std::shared_ptr<Scalar> MakeScalar(const std::shared_ptr<Scalar>& scalar)
 template <typename ValueRef>
 struct MakeScalarImpl {
   template <typename T, typename ScalarType = typename TypeTraits<T>::ScalarType,
-            typename ValueType = typename ScalarType::ValueType,
-            typename Enable = typename std::enable_if<
-                std::is_constructible<ScalarType, ValueType,
-                                      std::shared_ptr<DataType>>::value &&
-                std::is_convertible<ValueRef, ValueType>::value>::type>
+            typename ValueType = typename ScalarType::ValueType>
+    requires(std::is_constructible_v<ScalarType, ValueType, std::shared_ptr<DataType>> &&
+             std::is_convertible_v<ValueRef, ValueType>)
   Status Visit(const T& t) {
     ARROW_RETURN_NOT_OK(internal::CheckBufferLength(&t, &value_));
     // `static_cast<ValueRef>` makes a rvalue if ValueRef is `ValueType&&`
@@ -979,10 +977,8 @@ struct MakeScalarImpl {
   // This isn't captured by the generic case above because `util::Float16` isn't implicity
   // convertible to `uint16_t` (HalfFloat's ValueType)
   template <typename T>
-  std::enable_if_t<std::is_same_v<std::decay_t<ValueRef>, util::Float16> &&
-                       is_half_float_type<T>::value,
-                   Status>
-  Visit(const T& t) {
+    requires(std::is_same_v<std::decay_t<ValueRef>, util::Float16> && arrow_half_float<T>)
+  Status Visit(const T& t) {
     out_ = std::make_shared<HalfFloatScalar>(static_cast<ValueRef>(value_),
                                              std::move(type_));
     return Status::OK();
@@ -997,11 +993,9 @@ struct MakeScalarImpl {
 
   // Enable constructing string/binary scalars (but not decimal, etc) from std::string
   template <typename T>
-  enable_if_t<
-      std::is_same<typename std::remove_reference<ValueRef>::type, std::string>::value &&
-          (is_base_binary_type<T>::value || std::is_same<T, FixedSizeBinaryType>::value),
-      Status>
-  Visit(const T& t) {
+    requires(std::is_same_v<std::remove_reference_t<ValueRef>, std::string> &&
+             (arrow_base_binary<T> || std::same_as<T, FixedSizeBinaryType>))
+  Status Visit(const T& t) {
     using ScalarType = typename TypeTraits<T>::ScalarType;
     out_ = std::make_shared<ScalarType>(Buffer::FromString(std::move(value_)),
                                         std::move(type_));

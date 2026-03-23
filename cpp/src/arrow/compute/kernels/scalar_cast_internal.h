@@ -30,13 +30,13 @@ using internal::checked_cast;
 namespace compute {
 namespace internal {
 
-template <typename OutType, typename InType, typename Enable = void>
+template <typename OutType, typename InType>
 struct CastFunctor {};
 
 // No-op functor for identity casts
 template <typename O, typename I>
-struct CastFunctor<
-    O, I, enable_if_t<std::is_same<O, I>::value && is_parameter_free_type<I>::value>> {
+  requires(std::is_same_v<O, I> && arrow_parameter_free<I>)
+struct CastFunctor<O, I> {
   static Status Exec(KernelContext*, const ExecSpan&, ExecResult*) {
     return Status::OK();
   }

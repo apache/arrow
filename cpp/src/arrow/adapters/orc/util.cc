@@ -488,21 +488,17 @@ Result<std::shared_ptr<Array>> NormalizeArray(const std::shared_ptr<Array>& arra
   }
 }
 
-template <class DataType, class BatchType, typename Enable = void>
+template <class DataType, class BatchType>
 struct Appender {};
 
 // Types for long/double-like Appender, that is, numeric, boolean or date32
 template <typename T>
-using is_generic_type =
-    std::integral_constant<bool, is_number_type<T>::value ||
-                                     std::is_same<Date32Type, T>::value ||
-                                     is_boolean_type<T>::value>;
-template <typename T, typename R = void>
-using enable_if_generic = enable_if_t<is_generic_type<T>::value, R>;
+concept generic_type = arrow_number<T> || std::same_as<Date32Type, T> || arrow_boolean<T>;
 
 // Number-like
 template <class DataType, class BatchType>
-struct Appender<DataType, BatchType, enable_if_generic<DataType>> {
+  requires generic_type<DataType>
+struct Appender<DataType, BatchType> {
   using ArrayType = typename TypeTraits<DataType>::ArrayType;
   using ValueType = typename TypeTraits<DataType>::CType;
   Status VisitNull() {

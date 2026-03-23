@@ -168,7 +168,7 @@ struct SortQuantiler {
       CopyNonNullValues(container, in_buffer->data());
 
       // drop nan
-      if (is_floating_type<InType>::value) {
+      if constexpr (arrow_floating_point<InType>) {
         const auto& it = std::remove_if(in_buffer->begin(), in_buffer->end(),
                                         [](CType v) { return v != v; });
         in_buffer->resize(it - in_buffer->begin());
@@ -448,7 +448,7 @@ struct CountOrSortQuantiler {
   }
 };
 
-template <typename InType, typename Enable = void>
+template <typename InType>
 struct ExactQuantiler;
 
 template <>
@@ -464,18 +464,20 @@ struct ExactQuantiler<Int8Type> {
 };
 
 template <typename InType>
-struct ExactQuantiler<InType, enable_if_t<(is_integer_type<InType>::value &&
-                                           (sizeof(typename InType::c_type) > 1))>> {
+  requires(arrow_integer<InType> && (sizeof(typename InType::c_type) > 1))
+struct ExactQuantiler<InType> {
   CountOrSortQuantiler<InType> impl;
 };
 
 template <typename InType>
-struct ExactQuantiler<InType, enable_if_t<is_floating_type<InType>::value>> {
+  requires arrow_floating_point<InType>
+struct ExactQuantiler<InType> {
   SortQuantiler<InType> impl;
 };
 
 template <typename InType>
-struct ExactQuantiler<InType, enable_if_t<is_decimal_type<InType>::value>> {
+  requires arrow_decimal<InType>
+struct ExactQuantiler<InType> {
   SortQuantiler<InType> impl;
 };
 

@@ -113,11 +113,11 @@ class ARROW_EXPORT AdaptiveIntBuilderBase : public ArrayBuilder {
   virtual Status CommitPendingData() = 0;
 
   template <typename new_type, typename old_type>
-  typename std::enable_if<sizeof(old_type) >= sizeof(new_type), Status>::type
-  ExpandIntSizeInternal();
+    requires(sizeof(old_type) >= sizeof(new_type))
+  Status ExpandIntSizeInternal();
   template <typename new_type, typename old_type>
-  typename std::enable_if<(sizeof(old_type) < sizeof(new_type)), Status>::type
-  ExpandIntSizeInternal();
+    requires(sizeof(old_type) < sizeof(new_type))
+  Status ExpandIntSizeInternal();
 
   std::shared_ptr<ResizableBuffer> data_;
   uint8_t* raw_data_ = NULLPTR;

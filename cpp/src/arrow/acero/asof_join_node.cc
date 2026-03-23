@@ -130,7 +130,8 @@ typedef uint64_t row_index_t;
 typedef int col_index_t;
 
 // indicates normalization of a key value
-template <typename T, enable_if_t<std::is_integral<T>::value, bool> = true>
+template <typename T>
+  requires std::is_integral_v<T>
 static inline uint64_t key_value(T t) {
   return static_cast<uint64_t>(t);
 }

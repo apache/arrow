@@ -473,7 +473,7 @@ class ArrayNullSorter {
 // Generic Array sort dispatcher for physical types
 //
 
-template <typename Type, typename Enable = void>
+template <typename Type>
 struct ArraySorter {};
 
 template <>
@@ -499,17 +499,16 @@ struct ArraySorter<Int8Type> {
 };
 
 template <typename Type>
-struct ArraySorter<Type, enable_if_t<is_integer_type<Type>::value &&
-                                     (sizeof(typename Type::c_type) > 1)>> {
+  requires(arrow_integer<Type> && (sizeof(typename Type::c_type) > 1))
+struct ArraySorter<Type> {
   static constexpr bool is_supported = true;
   ArrayCountOrCompareSorter<Type> impl;
 };
 
 template <typename Type>
-struct ArraySorter<
-    Type, enable_if_t<is_floating_type<Type>::value || is_base_binary_type<Type>::value ||
-                      is_fixed_size_binary_type<Type>::value ||
-                      is_dictionary_type<Type>::value || is_struct_type<Type>::value>> {
+  requires(arrow_floating_point<Type> || arrow_base_binary<Type> ||
+           arrow_fixed_size_binary<Type> || arrow_dictionary<Type> || arrow_struct<Type>)
+struct ArraySorter<Type> {
   ArrayCompareSorter<Type> impl;
 };
 
