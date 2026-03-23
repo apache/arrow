@@ -42,12 +42,12 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/util/span.h"
 #include "arrow/visit_data_inline.h"
 #include "arrow/visit_type_inline.h"
-#include "arrow/util/int_util_overflow.h"
 
 namespace arrow {
 
@@ -935,8 +935,8 @@ Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
   }
 
   auto error = [&]() {
-    return Status::Invalid("Arange: range [", start, ", ", stop, ") with step ",
-                           step, " would produce an array that is too large");
+    return Status::Invalid("Arange: range [", start, ", ", stop, ") with step ", step,
+                           " would produce an array that is too large");
   };
 
   int64_t size;
