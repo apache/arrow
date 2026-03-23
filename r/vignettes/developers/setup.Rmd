@@ -354,9 +354,6 @@ sudo apt install -y -V libarrow-dev
 MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ```
 
-```{bash, save=run & !sys_install & ubuntu}
-MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
-```
 ```{bash, save=run & !sys_install}
 MAKEFLAGS="LDFLAGS=" R CMD INSTALL .
 ## `rpath` issues
