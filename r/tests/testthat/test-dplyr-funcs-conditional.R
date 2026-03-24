@@ -519,10 +519,10 @@ test_that("external objects are found when they're not in the global environment
 })
 
 test_that("when_any()", {
-  # combines with OR
+  # combines with OR (3 inputs)
   compare_dplyr_binding(
     .input |>
-      mutate(result = when_any(lgl, false)) |>
+      mutate(result = when_any(lgl, false, int > 5)) |>
       collect(),
     tbl
   )
@@ -543,6 +543,14 @@ test_that("when_any()", {
     tbl
   )
 
+  # single input
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_any(lgl)) |>
+      collect(),
+    tbl
+  )
+
   # size not supported
   expect_arrow_eval_error(
     when_any(lgl, false, size = 10),
@@ -552,10 +560,10 @@ test_that("when_any()", {
 })
 
 test_that("when_all()", {
-  # combines with AND
+  # combines with AND (3 inputs)
   compare_dplyr_binding(
     .input |>
-      mutate(result = when_all(lgl, false)) |>
+      mutate(result = when_all(lgl, int > 0, dbl > 1)) |>
       collect(),
     tbl
   )
@@ -572,6 +580,14 @@ test_that("when_all()", {
   compare_dplyr_binding(
     .input |>
       filter(when_all(int > 5, dbl > 3)) |>
+      collect(),
+    tbl
+  )
+
+  # single input
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = when_all(lgl)) |>
       collect(),
     tbl
   )
