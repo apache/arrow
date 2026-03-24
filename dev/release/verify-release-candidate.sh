@@ -570,7 +570,7 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python -m pip install --no-build-isolation --editable .
+  python -m pip install --no-build-isolation .
 
   # Check mandatory and optional imports
   python -c "
