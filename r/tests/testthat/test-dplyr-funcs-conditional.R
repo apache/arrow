@@ -695,6 +695,14 @@ test_that("replace_values()", {
     tbl
   )
 
+  # multiple values on LHS matches any
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, c("a", "b") ~ "AB")) |>
+      collect(),
+    tbl
+  )
+
   # no replacements returns x unchanged
   compare_dplyr_binding(
     .input |>
@@ -757,7 +765,20 @@ test_that("recode_values()", {
     tbl
   )
 
+  # multiple values on LHS matches any
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, c("a", "b") ~ "AB", default = "other")) |>
+      collect(),
+    tbl
+  )
+
   # validation errors
+  expect_arrow_eval_error(
+    recode_values(chr),
+    "`\\.\\.\\.` can't be empty",
+    class = "validation_error"
+  )
   expect_arrow_eval_error(
     recode_values(chr, "a" ~ "A", from = "b"),
     "Can't use both `...` and `from`/`to` in recode_values\\(\\)",
