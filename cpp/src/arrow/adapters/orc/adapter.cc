@@ -587,60 +587,22 @@ class ORCFileReader::Impl {
     return NextStripeReader(batch_size, empty_vec);
   }
 
-  Result<Statistics> GetColumnStatistics(int column_index) {
+  Result<FileStatistics> GetFileStatistics() {
     ORC_BEGIN_CATCH_NOT_OK
     auto file_stats =
         std::shared_ptr<const liborc::Statistics>(reader_->getStatistics().release());
-    if (column_index < 0 ||
-        static_cast<uint32_t>(column_index) >= file_stats->getNumberOfColumns()) {
-      return Status::Invalid("Column index ", column_index, " out of range [0, ",
-                             file_stats->getNumberOfColumns(), ")");
-    }
-    const liborc::ColumnStatistics* col_stats =
-        file_stats->getColumnStatistics(static_cast<uint32_t>(column_index));
-    return Statistics(std::move(file_stats), col_stats);
+    return FileStatistics(std::move(file_stats));
     ORC_END_CATCH_NOT_OK
   }
 
-  Result<Statistics> GetStripeColumnStatistics(int64_t stripe_index, int column_index) {
+  Result<StripeStatistics> GetStripeStatistics(int64_t stripe_index) {
     ORC_BEGIN_CATCH_NOT_OK
     if (stripe_index < 0 || stripe_index >= static_cast<int64_t>(stripes_.size())) {
       return Status::Invalid("Stripe index ", stripe_index, " out of range");
     }
     auto stripe_stats = std::shared_ptr<const liborc::Statistics>(
         reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index)).release());
-    if (column_index < 0 ||
-        static_cast<uint32_t>(column_index) >= stripe_stats->getNumberOfColumns()) {
-      return Status::Invalid("Column index ", column_index, " out of range [0, ",
-                             stripe_stats->getNumberOfColumns(), ")");
-    }
-    const liborc::ColumnStatistics* col_stats =
-        stripe_stats->getColumnStatistics(static_cast<uint32_t>(column_index));
-    return Statistics(std::move(stripe_stats), col_stats);
-    ORC_END_CATCH_NOT_OK
-  }
-
-  Result<std::vector<Statistics>> GetStripeStatistics(
-      int64_t stripe_index, const std::vector<int>& column_indices) {
-    ORC_BEGIN_CATCH_NOT_OK
-    if (stripe_index < 0 || stripe_index >= static_cast<int64_t>(stripes_.size())) {
-      return Status::Invalid("Stripe index ", stripe_index, " out of range");
-    }
-    auto stripe_stats = std::shared_ptr<const liborc::Statistics>(
-        reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index)).release());
-    std::vector<Statistics> results;
-    results.reserve(column_indices.size());
-    for (int col_idx : column_indices) {
-      if (col_idx < 0 ||
-          static_cast<uint32_t>(col_idx) >= stripe_stats->getNumberOfColumns()) {
-        return Status::Invalid("Column index ", col_idx, " out of range [0, ",
-                               stripe_stats->getNumberOfColumns(), ")");
-      }
-      const liborc::ColumnStatistics* col_stats =
-          stripe_stats->getColumnStatistics(static_cast<uint32_t>(col_idx));
-      results.emplace_back(stripe_stats, col_stats);
-    }
-    return results;
+    return StripeStatistics(stripe_index, std::move(stripe_stats));
     ORC_END_CATCH_NOT_OK
   }
 
@@ -787,18 +749,12 @@ std::string ORCFileReader::GetSerializedFileTail() {
   return impl_->GetSerializedFileTail();
 }
 
-Result<Statistics> ORCFileReader::GetColumnStatistics(int column_index) {
-  return impl_->GetColumnStatistics(column_index);
+Result<FileStatistics> ORCFileReader::GetFileStatistics() {
+  return impl_->GetFileStatistics();
 }
 
-Result<Statistics> ORCFileReader::GetStripeColumnStatistics(int64_t stripe_index,
-                                                            int column_index) {
-  return impl_->GetStripeColumnStatistics(stripe_index, column_index);
-}
-
-Result<std::vector<Statistics>> ORCFileReader::GetStripeStatistics(
-    int64_t stripe_index, const std::vector<int>& column_indices) {
-  return impl_->GetStripeStatistics(stripe_index, column_indices);
+Result<StripeStatistics> ORCFileReader::GetStripeStatistics(int64_t stripe_index) {
+  return impl_->GetStripeStatistics(stripe_index);
 }
 
 const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }

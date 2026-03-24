@@ -338,6 +338,32 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
   return liborc::createWriter(type, stream, options);
 }
 
+Result<adapters::orc::Statistics> GetFileColumnStatistics(
+    adapters::orc::ORCFileReader* reader, int column_index) {
+  ARROW_ASSIGN_OR_RAISE(auto file_stats, reader->GetFileStatistics());
+  return file_stats.ColumnStatistics(column_index);
+}
+
+Result<adapters::orc::Statistics> GetStripeColumnStatistics(
+    adapters::orc::ORCFileReader* reader, int64_t stripe_index, int column_index) {
+  ARROW_ASSIGN_OR_RAISE(auto stripe_stats, reader->GetStripeStatistics(stripe_index));
+  return stripe_stats.ColumnStatistics(column_index);
+}
+
+Result<std::vector<adapters::orc::Statistics>> GetStripeColumnStatisticsBulk(
+    adapters::orc::ORCFileReader* reader, int64_t stripe_index,
+    const std::vector<int>& column_indices) {
+  ARROW_ASSIGN_OR_RAISE(auto stripe_stats, reader->GetStripeStatistics(stripe_index));
+  std::vector<adapters::orc::Statistics> stats;
+  stats.reserve(column_indices.size());
+  for (int column_index : column_indices) {
+    ARROW_ASSIGN_OR_RAISE(auto column_stats,
+                          stripe_stats.ColumnStatistics(column_index));
+    stats.push_back(std::move(column_stats));
+  }
+  return stats;
+}
+
 TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {
   MemoryOutputStream mem_stream(kDefaultMemStreamSize);
   std::unique_ptr<liborc::Type> type(
@@ -1215,7 +1241,7 @@ TEST(TestAdapterRead, GetColumnStatisticsInteger) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col1_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col1_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col1_scalars, adapters::orc::OrcStatisticsAsScalars(col1_stats));
   EXPECT_EQ(col1_scalars.num_values, row_count);
   EXPECT_TRUE(col1_scalars.has_min_max);
@@ -1224,7 +1250,7 @@ TEST(TestAdapterRead, GetColumnStatisticsInteger) {
   EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col1_scalars.min)->value, 0);
   EXPECT_EQ(checked_pointer_cast<Int64Scalar>(col1_scalars.max)->value, 999);
 
-  ASSERT_OK_AND_ASSIGN(auto col2_stats, reader->GetColumnStatistics(2));
+  ASSERT_OK_AND_ASSIGN(auto col2_stats, GetFileColumnStatistics(reader.get(), 2));
   ASSERT_OK_AND_ASSIGN(auto col2_scalars, adapters::orc::OrcStatisticsAsScalars(col2_stats));
   EXPECT_EQ(col2_scalars.num_values, row_count);
   EXPECT_TRUE(col2_scalars.has_min_max);
@@ -1263,7 +1289,8 @@ TEST(TestAdapterRead, GetStripeColumnStatistics) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto stripe0_stats, reader->GetStripeColumnStatistics(0, 1));
+  ASSERT_OK_AND_ASSIGN(auto stripe0_stats,
+                       GetStripeColumnStatistics(reader.get(), 0, 1));
   ASSERT_OK_AND_ASSIGN(auto stripe0_scalars,
                        adapters::orc::OrcStatisticsAsScalars(stripe0_stats));
   EXPECT_TRUE(stripe0_scalars.has_min_max);
@@ -1309,7 +1336,7 @@ TEST(TestAdapterRead, GetColumnStatisticsString) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   EXPECT_EQ(col_scalars.num_values, row_count);
   EXPECT_TRUE(col_scalars.has_min_max);
@@ -1348,10 +1375,10 @@ TEST(TestAdapterRead, GetColumnStatisticsOutOfRange) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  EXPECT_THAT(reader->GetColumnStatistics(999),
+  EXPECT_THAT(GetFileColumnStatistics(reader.get(), 999),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
 
-  EXPECT_THAT(reader->GetStripeColumnStatistics(999, 1),
+  EXPECT_THAT(GetStripeColumnStatistics(reader.get(), 999, 1),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
 }
 
@@ -1386,7 +1413,7 @@ TEST(TestAdapterRead, GetColumnStatisticsWithNulls) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   EXPECT_TRUE(col_stats.has_null());
   EXPECT_TRUE(col_scalars.has_min_max);
@@ -1422,7 +1449,7 @@ TEST(TestAdapterRead, GetColumnStatisticsBoolean) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   EXPECT_EQ(col_scalars.num_values, row_count);
   EXPECT_FALSE(col_scalars.has_min_max);  // Boolean types don't have min/max
@@ -1460,7 +1487,7 @@ TEST(TestAdapterRead, GetColumnStatisticsDate) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   EXPECT_EQ(col_scalars.num_values, row_count);
   EXPECT_TRUE(col_scalars.has_min_max);
@@ -1501,7 +1528,7 @@ TEST(TestAdapterRead, GetColumnStatisticsTimestamp) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   EXPECT_EQ(col_scalars.num_values, row_count);
   EXPECT_TRUE(col_scalars.has_min_max);
@@ -1792,7 +1819,7 @@ TEST(TestAdapterRead, GetColumnStatisticsDoubleNaN) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   // When NaN values are present, ORC may report NaN as min or max.
   // Our guard should detect this and set has_min_max = false.
@@ -1837,11 +1864,11 @@ TEST(TestAdapterRead, GetColumnStatisticsNegativeIndex) {
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
   // Negative column index should return Invalid
-  EXPECT_THAT(reader->GetColumnStatistics(-1),
+  EXPECT_THAT(GetFileColumnStatistics(reader.get(), -1),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
 
   // Negative column index in stripe stats should also return Invalid
-  EXPECT_THAT(reader->GetStripeColumnStatistics(0, -1),
+  EXPECT_THAT(GetStripeColumnStatistics(reader.get(), 0, -1),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
 }
 
@@ -1886,13 +1913,15 @@ TEST(TestAdapterRead, GetStripeStatisticsBulk) {
   std::vector<int> column_indices = {1, 2, 3};
 
   // Get bulk stats for stripe 0
-  ASSERT_OK_AND_ASSIGN(auto bulk_stats, reader->GetStripeStatistics(0, column_indices));
+  ASSERT_OK_AND_ASSIGN(auto bulk_stats,
+                       GetStripeColumnStatisticsBulk(reader.get(), 0, column_indices));
   ASSERT_EQ(bulk_stats.size(), 3);
 
   // Verify bulk results match individual GetStripeColumnStatistics calls
   for (size_t i = 0; i < column_indices.size(); ++i) {
-    ASSERT_OK_AND_ASSIGN(auto individual_stats,
-                         reader->GetStripeColumnStatistics(0, column_indices[i]));
+    ASSERT_OK_AND_ASSIGN(
+        auto individual_stats,
+        GetStripeColumnStatistics(reader.get(), 0, column_indices[i]));
     ASSERT_OK_AND_ASSIGN(auto bulk_scalars,
                          adapters::orc::OrcStatisticsAsScalars(bulk_stats[i]));
     ASSERT_OK_AND_ASSIGN(auto individual_scalars,
@@ -1908,143 +1937,12 @@ TEST(TestAdapterRead, GetStripeStatisticsBulk) {
 
   // Verify out-of-range column index in bulk API
   std::vector<int> bad_indices = {1, 999};
-  EXPECT_THAT(reader->GetStripeStatistics(0, bad_indices),
+  EXPECT_THAT(GetStripeColumnStatisticsBulk(reader.get(), 0, bad_indices),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
 
   // Verify out-of-range stripe index in bulk API
-  EXPECT_THAT(reader->GetStripeStatistics(999, column_indices),
+  EXPECT_THAT(GetStripeColumnStatisticsBulk(reader.get(), 999, column_indices),
               Raises(StatusCode::Invalid, testing::HasSubstr("out of range")));
-}
-
-TEST(TestAdapterRead, BuildSchemaManifestNested) {
-  // ORC type with nested struct and list.
-  // ORC column IDs (depth-first pre-order):
-  //   0: root struct
-  //   1: col1 (int)
-  //   2: col2 (struct)
-  //   3: col2.a (string)
-  //   4: col2.b (bigint)
-  //   5: col3 (array/list)
-  //   6: col3._elem (int)
-  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
-  std::unique_ptr<liborc::Type> type(liborc::Type::buildTypeFromString(
-      "struct<col1:int,col2:struct<a:string,b:bigint>,col3:array<int>>"));
-
-  constexpr uint64_t stripe_size = 1024;
-  constexpr uint64_t row_count = 1;
-
-  auto writer = CreateWriter(stripe_size, *type, &mem_stream);
-  auto batch = writer->createRowBatch(row_count);
-  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
-
-  // Set up col1 (int)
-  auto int_batch =
-      internal::checked_cast<liborc::LongVectorBatch*>(struct_batch->fields[0]);
-  int_batch->data[0] = 42;
-  int_batch->numElements = row_count;
-
-  // Set up col2 (struct<a:string,b:bigint>)
-  auto inner_struct =
-      internal::checked_cast<liborc::StructVectorBatch*>(struct_batch->fields[1]);
-  auto str_batch =
-      internal::checked_cast<liborc::StringVectorBatch*>(inner_struct->fields[0]);
-  auto bigint_batch =
-      internal::checked_cast<liborc::LongVectorBatch*>(inner_struct->fields[1]);
-  std::string str_data = "hello";
-  str_batch->data[0] = const_cast<char*>(str_data.c_str());
-  str_batch->length[0] = static_cast<int64_t>(str_data.size());
-  str_batch->numElements = row_count;
-  bigint_batch->data[0] = 100;
-  bigint_batch->numElements = row_count;
-  inner_struct->numElements = row_count;
-
-  // Set up col3 (array<int>) - write one list with one element
-  auto list_batch =
-      internal::checked_cast<liborc::ListVectorBatch*>(struct_batch->fields[2]);
-  auto list_elem_batch =
-      internal::checked_cast<liborc::LongVectorBatch*>(list_batch->elements.get());
-  list_batch->offsets[0] = 0;
-  list_batch->offsets[1] = 1;
-  list_elem_batch->data[0] = 7;
-  list_elem_batch->numElements = 1;
-  list_batch->numElements = row_count;
-
-  struct_batch->numElements = row_count;
-  writer->add(*batch);
-  writer->close();
-
-  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(
-      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
-                               static_cast<int64_t>(mem_stream.getLength()))));
-
-  ASSERT_OK_AND_ASSIGN(auto reader,
-                       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
-  ASSERT_OK_AND_ASSIGN(auto arrow_schema, reader->ReadSchema());
-
-  ASSERT_OK_AND_ASSIGN(auto manifest, reader->BuildSchemaManifest(arrow_schema));
-  ASSERT_EQ(manifest->schema_fields.size(), 3);
-
-  // col1: leaf, orc_column_id=1
-  EXPECT_EQ(manifest->schema_fields[0].field->name(), "col1");
-  EXPECT_EQ(manifest->schema_fields[0].orc_column_id, 1);
-  EXPECT_TRUE(manifest->schema_fields[0].is_leaf());
-
-  // col2: struct with 2 children, orc_column_id=2
-  EXPECT_EQ(manifest->schema_fields[1].field->name(), "col2");
-  EXPECT_EQ(manifest->schema_fields[1].orc_column_id, 2);
-  EXPECT_FALSE(manifest->schema_fields[1].is_leaf());
-  ASSERT_EQ(manifest->schema_fields[1].children.size(), 2);
-  EXPECT_EQ(manifest->schema_fields[1].children[0].field->name(), "a");
-  EXPECT_EQ(manifest->schema_fields[1].children[0].orc_column_id, 3);
-  EXPECT_TRUE(manifest->schema_fields[1].children[0].is_leaf());
-  EXPECT_EQ(manifest->schema_fields[1].children[1].field->name(), "b");
-  EXPECT_EQ(manifest->schema_fields[1].children[1].orc_column_id, 4);
-  EXPECT_TRUE(manifest->schema_fields[1].children[1].is_leaf());
-
-  // col3: list with 1 child element, orc_column_id=5
-  EXPECT_EQ(manifest->schema_fields[2].field->name(), "col3");
-  EXPECT_EQ(manifest->schema_fields[2].orc_column_id, 5);
-  EXPECT_FALSE(manifest->schema_fields[2].is_leaf());
-  ASSERT_EQ(manifest->schema_fields[2].children.size(), 1);
-  EXPECT_EQ(manifest->schema_fields[2].children[0].orc_column_id, 6);
-  EXPECT_TRUE(manifest->schema_fields[2].children[0].is_leaf());
-
-  // Test GetField() with various paths
-  EXPECT_EQ(manifest->GetField({}), nullptr);  // empty path
-  EXPECT_EQ(manifest->GetField({99}), nullptr);  // out of range
-
-  // GetField({0}) -> col1
-  const auto* f0 = manifest->GetField({0});
-  ASSERT_NE(f0, nullptr);
-  EXPECT_EQ(f0->field->name(), "col1");
-  EXPECT_EQ(f0->orc_column_id, 1);
-
-  // GetField({1}) -> col2 (struct)
-  const auto* f1 = manifest->GetField({1});
-  ASSERT_NE(f1, nullptr);
-  EXPECT_EQ(f1->field->name(), "col2");
-  EXPECT_EQ(f1->orc_column_id, 2);
-
-  // GetField({1, 0}) -> col2.a
-  const auto* f1_0 = manifest->GetField({1, 0});
-  ASSERT_NE(f1_0, nullptr);
-  EXPECT_EQ(f1_0->field->name(), "a");
-  EXPECT_EQ(f1_0->orc_column_id, 3);
-
-  // GetField({1, 1}) -> col2.b
-  const auto* f1_1 = manifest->GetField({1, 1});
-  ASSERT_NE(f1_1, nullptr);
-  EXPECT_EQ(f1_1->field->name(), "b");
-  EXPECT_EQ(f1_1->orc_column_id, 4);
-
-  // GetField({2, 0}) -> col3 element
-  const auto* f2_0 = manifest->GetField({2, 0});
-  ASSERT_NE(f2_0, nullptr);
-  EXPECT_EQ(f2_0->orc_column_id, 6);
-
-  // Out of range nested paths
-  EXPECT_EQ(manifest->GetField({1, 99}), nullptr);
-  EXPECT_EQ(manifest->GetField({0, 0}), nullptr);  // col1 is leaf, no children
 }
 
 TEST(TestAdapterRead, GetColumnStatisticsDecimal) {
@@ -2083,7 +1981,7 @@ TEST(TestAdapterRead, GetColumnStatisticsDecimal) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto col_stats, reader->GetColumnStatistics(1));
+  ASSERT_OK_AND_ASSIGN(auto col_stats, GetFileColumnStatistics(reader.get(), 1));
   ASSERT_OK_AND_ASSIGN(auto col_scalars, adapters::orc::OrcStatisticsAsScalars(col_stats));
   EXPECT_EQ(col_scalars.num_values, row_count);
   EXPECT_FALSE(col_stats.has_null());

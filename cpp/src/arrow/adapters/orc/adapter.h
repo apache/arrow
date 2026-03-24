@@ -294,29 +294,14 @@ class ARROW_EXPORT ORCFileReader {
   /// \return A KeyValueMetadata object containing the ORC metadata
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
-  /// \brief Get file-level statistics for a column.
-  ///
-  /// \param[in] column_index the column index (0-based)
-  /// \return the column statistics
-  Result<Statistics> GetColumnStatistics(int column_index);
+  /// \brief Get file-level column statistics metadata.
+  Result<FileStatistics> GetFileStatistics();
 
-  /// \brief Get stripe-level statistics for a column.
+  /// \brief Get stripe-level column statistics metadata.
   ///
   /// \param[in] stripe_index the stripe index (0-based)
-  /// \param[in] column_index the column index (0-based)
-  /// \return the column statistics for the specified stripe
-  Result<Statistics> GetStripeColumnStatistics(int64_t stripe_index, int column_index);
-
-  /// \brief Get stripe-level statistics for multiple columns at once.
-  ///
-  /// More efficient than calling GetStripeColumnStatistics() in a loop
-  /// because it parses the stripe's statistics object only once.
-  ///
-  /// \param[in] stripe_index the stripe index (0-based)
-  /// \param[in] column_indices the column indices to retrieve statistics for
-  /// \return vector of column statistics, one per requested column index
-  Result<std::vector<Statistics>> GetStripeStatistics(int64_t stripe_index,
-                                                      const std::vector<int>& column_indices);
+  /// \return the stripe statistics container
+  Result<StripeStatistics> GetStripeStatistics(int64_t stripe_index);
 
   /// \brief Get the ORC type tree for column ID mapping.
   ///

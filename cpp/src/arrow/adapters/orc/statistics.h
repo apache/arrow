@@ -41,6 +41,8 @@ namespace arrow {
 namespace adapters {
 namespace orc {
 
+class Statistics;
+
 /// \brief Scalar materialization of ORC column statistics.
 struct ARROW_EXPORT OrcColumnStatisticsAsScalars {
   /// \brief Whether the column contains null values.
@@ -53,6 +55,39 @@ struct ARROW_EXPORT OrcColumnStatisticsAsScalars {
   std::shared_ptr<Scalar> min;
   /// \brief Maximum value (nullptr if unavailable).
   std::shared_ptr<Scalar> max;
+};
+
+/// \brief File-level ORC column statistics container.
+class ARROW_EXPORT FileStatistics {
+ public:
+  FileStatistics() = default;
+  explicit FileStatistics(std::shared_ptr<const ::orc::Statistics> file_statistics)
+      : file_statistics_(std::move(file_statistics)) {}
+
+  bool valid() const { return file_statistics_ != nullptr; }
+  int num_columns() const;
+  Result<Statistics> ColumnStatistics(int column_index) const;
+
+ private:
+  std::shared_ptr<const ::orc::Statistics> file_statistics_;
+};
+
+/// \brief Stripe-level ORC column statistics container.
+class ARROW_EXPORT StripeStatistics {
+ public:
+  StripeStatistics() = default;
+  StripeStatistics(int64_t stripe_index,
+                   std::shared_ptr<const ::orc::Statistics> stripe_statistics)
+      : stripe_index_(stripe_index), stripe_statistics_(std::move(stripe_statistics)) {}
+
+  bool valid() const { return stripe_statistics_ != nullptr; }
+  int64_t stripe_index() const { return stripe_index_; }
+  int num_columns() const;
+  Result<Statistics> ColumnStatistics(int column_index) const;
+
+ private:
+  int64_t stripe_index_ = -1;
+  std::shared_ptr<const ::orc::Statistics> stripe_statistics_;
 };
 
 /// \brief Thin wrapper over liborc column statistics.

@@ -44,6 +44,44 @@ bool MillisFitInNanos(int64_t millis) {
 
 bool Statistics::has_null() const { return column_statistics_->hasNull(); }
 
+int FileStatistics::num_columns() const {
+  return static_cast<int>(file_statistics_->getNumberOfColumns());
+}
+
+Result<Statistics> FileStatistics::ColumnStatistics(int column_index) const {
+  if (!valid()) {
+    return Status::Invalid("ORC file statistics are not initialized");
+  }
+  if (column_index < 0 || static_cast<uint32_t>(column_index) >=
+                              file_statistics_->getNumberOfColumns()) {
+    return Status::Invalid("Column index ", column_index, " out of range [0, ",
+                           file_statistics_->getNumberOfColumns(), ")");
+  }
+
+  const liborc::ColumnStatistics* col_stats =
+      file_statistics_->getColumnStatistics(static_cast<uint32_t>(column_index));
+  return Statistics(file_statistics_, col_stats);
+}
+
+int StripeStatistics::num_columns() const {
+  return static_cast<int>(stripe_statistics_->getNumberOfColumns());
+}
+
+Result<Statistics> StripeStatistics::ColumnStatistics(int column_index) const {
+  if (!valid()) {
+    return Status::Invalid("ORC stripe statistics are not initialized");
+  }
+  if (column_index < 0 || static_cast<uint32_t>(column_index) >=
+                              stripe_statistics_->getNumberOfColumns()) {
+    return Status::Invalid("Column index ", column_index, " out of range [0, ",
+                           stripe_statistics_->getNumberOfColumns(), ")");
+  }
+
+  const liborc::ColumnStatistics* col_stats =
+      stripe_statistics_->getColumnStatistics(static_cast<uint32_t>(column_index));
+  return Statistics(stripe_statistics_, col_stats);
+}
+
 std::optional<int64_t> Statistics::null_count() const {
   // liborc doesn't expose null_count on ColumnStatistics.
   return std::nullopt;
