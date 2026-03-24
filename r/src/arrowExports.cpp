@@ -1084,8 +1084,8 @@ extern "C" SEXP _arrow_ExecNode_Scan(SEXP plan_sexp, SEXP dataset_sexp, SEXP fil
 
 // compute-exec.cpp
 #if defined(ARROW_R_WITH_DATASET)
-void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group, bool create_directory);
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp){
+void ExecPlan_Write(const std::shared_ptr<acero::ExecPlan>& plan, const std::shared_ptr<acero::ExecNode>& final_node, const std::shared_ptr<arrow::Schema>& schema, const std::shared_ptr<ds::FileWriteOptions>& file_write_options, const std::shared_ptr<fs::FileSystem>& filesystem, std::string base_dir, const std::shared_ptr<ds::Partitioning>& partitioning, std::string basename_template, arrow::dataset::ExistingDataBehavior existing_data_behavior, int max_partitions, uint32_t max_open_files, uint64_t max_rows_per_file, uint64_t min_rows_per_group, uint64_t max_rows_per_group, bool create_directory, bool preserve_order);
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp, SEXP preserve_order_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<acero::ExecPlan>&>::type plan(plan_sexp);
 	arrow::r::Input<const std::shared_ptr<acero::ExecNode>&>::type final_node(final_node_sexp);
@@ -1102,12 +1102,13 @@ BEGIN_CPP11
 	arrow::r::Input<uint64_t>::type min_rows_per_group(min_rows_per_group_sexp);
 	arrow::r::Input<uint64_t>::type max_rows_per_group(max_rows_per_group_sexp);
 	arrow::r::Input<bool>::type create_directory(create_directory_sexp);
-	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory);
+	arrow::r::Input<bool>::type preserve_order(preserve_order_sexp);
+	ExecPlan_Write(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order);
 	return R_NilValue;
 END_CPP11
 }
 #else
-extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp){
+extern "C" SEXP _arrow_ExecPlan_Write(SEXP plan_sexp, SEXP final_node_sexp, SEXP schema_sexp, SEXP file_write_options_sexp, SEXP filesystem_sexp, SEXP base_dir_sexp, SEXP partitioning_sexp, SEXP basename_template_sexp, SEXP existing_data_behavior_sexp, SEXP max_partitions_sexp, SEXP max_open_files_sexp, SEXP max_rows_per_file_sexp, SEXP min_rows_per_group_sexp, SEXP max_rows_per_group_sexp, SEXP create_directory_sexp, SEXP preserve_order_sexp){
 	Rf_error("Cannot call ExecPlan_Write(). See https://arrow.apache.org/docs/r/articles/install.html for help installing Arrow C++ libraries. ");
 }
 #endif
@@ -1380,15 +1381,6 @@ std::vector<std::string> runtime_info();
 extern "C" SEXP _arrow_runtime_info(){
 BEGIN_CPP11
 	return cpp11::as_sexp(runtime_info());
-END_CPP11
-}
-// config.cpp
-void set_timezone_database(cpp11::strings path);
-extern "C" SEXP _arrow_set_timezone_database(SEXP path_sexp){
-BEGIN_CPP11
-	arrow::r::Input<cpp11::strings>::type path(path_sexp);
-	set_timezone_database(path);
-	return R_NilValue;
 END_CPP11
 }
 // csv.cpp
@@ -5824,7 +5816,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_ExecNode_output_schema", (DL_FUNC) &_arrow_ExecNode_output_schema, 1}, 
 		{ "_arrow_ExecNode_has_ordered_batches", (DL_FUNC) &_arrow_ExecNode_has_ordered_batches, 1}, 
 		{ "_arrow_ExecNode_Scan", (DL_FUNC) &_arrow_ExecNode_Scan, 4}, 
-		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 15}, 
+		{ "_arrow_ExecPlan_Write", (DL_FUNC) &_arrow_ExecPlan_Write, 16}, 
 		{ "_arrow_ExecNode_Filter", (DL_FUNC) &_arrow_ExecNode_Filter, 2}, 
 		{ "_arrow_ExecNode_Project", (DL_FUNC) &_arrow_ExecNode_Project, 3}, 
 		{ "_arrow_ExecNode_Aggregate", (DL_FUNC) &_arrow_ExecNode_Aggregate, 3}, 
@@ -5843,9 +5835,8 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_compute__GetFunctionNames", (DL_FUNC) &_arrow_compute__GetFunctionNames, 0}, 
 		{ "_arrow_compute__Initialize", (DL_FUNC) &_arrow_compute__Initialize, 0}, 
 		{ "_arrow_RegisterScalarUDF", (DL_FUNC) &_arrow_RegisterScalarUDF, 2}, 
-		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0}, 
-		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0}, 
-		{ "_arrow_set_timezone_database", (DL_FUNC) &_arrow_set_timezone_database, 1}, 
+		{ "_arrow_build_info", (DL_FUNC) &_arrow_build_info, 0},
+		{ "_arrow_runtime_info", (DL_FUNC) &_arrow_runtime_info, 0},
 		{ "_arrow_csv___WriteOptions__initialize", (DL_FUNC) &_arrow_csv___WriteOptions__initialize, 1}, 
 		{ "_arrow_csv___ReadOptions__initialize", (DL_FUNC) &_arrow_csv___ReadOptions__initialize, 1}, 
 		{ "_arrow_csv___ParseOptions__initialize", (DL_FUNC) &_arrow_csv___ParseOptions__initialize, 1}, 
@@ -6259,9 +6250,7 @@ extern "C" void R_init_arrow(DllInfo* dll){
   R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
   R_useDynamicSymbols(dll, FALSE);
 
-  #if defined(HAS_ALTREP)
   arrow::r::altrep::Init_Altrep_classes(dll);
-  #endif
 
   _arrow_compute__Initialize();
 }

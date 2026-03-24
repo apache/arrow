@@ -293,7 +293,7 @@ message FlightInfo {
    * represent partitioned data.
    *
    * If the returned data has an ordering, an application can use
-   * "FlightInfo.ordered = true" or should return the all data in a
+   * "FlightInfo.ordered = true" or should return all data in a
    * single endpoint. Otherwise, there is no ordering defined on
    * endpoints or the data within.
    *
@@ -306,7 +306,7 @@ message FlightInfo {
    *
    * * An application requires that all clients must read data in
    *   returned endpoints order.
-   * * An application must return the all data in a single endpoint.
+   * * An application must return all data in a single endpoint.
    */
   repeated FlightEndpoint endpoint = 3;
 
@@ -649,7 +649,7 @@ message GetSessionOptionsResult {
 /*
  * Request message for the "Close Session" action.
  *
- * The exiting session is referenced via a cookie header.
+ * The existing session is referenced via a cookie header.
  */
 message CloseSessionRequest {
 }

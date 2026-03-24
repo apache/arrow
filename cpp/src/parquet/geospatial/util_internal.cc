@@ -160,7 +160,12 @@ void WKBGeometryBounder::MergeGeometry(::arrow::util::span<const uint8_t> bytes_
   }
 }
 
-void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type) {
+void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_type,
+                                               int depth) {
+  if (depth > 128) {
+    throw ParquetException("WKB geometry has too many levels of nesting");
+  }
+
   uint8_t endian = src->ReadUInt8();
 #if ARROW_LITTLE_ENDIAN
   bool swap = endian != 0x01;
@@ -208,7 +213,7 @@ void WKBGeometryBounder::MergeGeometryInternal(WKBBuffer* src, bool record_wkb_t
     case GeometryType::kGeometryCollection: {
       uint32_t n_parts = src->ReadUInt32(swap);
       for (uint32_t i = 0; i < n_parts; i++) {
-        MergeGeometryInternal(src, /*record_wkb_type*/ false);
+        MergeGeometryInternal(src, /*record_wkb_type*/ false, depth + 1);
       }
       break;
     }

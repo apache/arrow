@@ -1,0 +1,136 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+name: CUDA Extra
+
+on:
+  push:
+    tags:
+      - '**'
+  pull_request:
+    types:
+      - labeled
+      - opened
+      - reopened
+      - synchronize
+  schedule:
+    - cron: |
+        0 6 * * *
+
+concurrency:
+  group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
+  cancel-in-progress: true
+
+permissions:
+  actions: read
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-labels:
+    if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
+    uses: ./.github/workflows/check_labels.yml
+    secrets: inherit
+    with:
+      parent-workflow: cuda_extra
+
+  docker:
+    needs: check-labels
+    name: ${{ matrix.title }}
+    runs-on: "runs-on=${{ github.run_id }}/family=g4dn.xlarge/image=ubuntu24-gpu-x64/spot=capacity-optimized"
+    if: >-
+      needs.check-labels.outputs.force == 'true' ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: CUDA')
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - cuda: 12.9.0
+            ubuntu: 24.04
+            image: ubuntu-cuda-cpp
+            title: AMD64 Ubuntu 24 CUDA 12.9.0
+          - cuda: 11.7.1
+            ubuntu: 22.04
+            image: ubuntu-cuda-cpp
+            title: AMD64 Ubuntu 22 CUDA 11.7.1
+          - cuda: 12.9.0
+            ubuntu: 24.04
+            image: ubuntu-cuda-python
+            title: AMD64 Ubuntu 24 CUDA 12.9.0 Python
+          - cuda: 11.7.1
+            ubuntu: 22.04
+            image: ubuntu-cuda-python
+            title: AMD64 Ubuntu 22 CUDA 11.7.1 Python
+    env:
+      ARCHERY_DEBUG: 1
+      ARROW_ENABLE_TIMING_TESTS: OFF
+      DOCKER_VOLUME_PREFIX: ".docker/"
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Cache Docker Volumes
+        uses: actions/cache@v5
+        with:
+          path: .docker
+          key: extra-${{ matrix.image }}-${{ hashFiles('cpp/**') }}
+          restore-keys: extra-${{ matrix.image }}-
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: 3
+      - name: Setup Archery
+        run: python3 -m pip install -e dev/archery[docker]
+      - name: Display NVIDIA SMI details
+        run: |
+          nvidia-smi
+          nvidia-smi -L
+          nvidia-smi -q -d Memory
+      - name: Execute Docker Build
+        continue-on-error: ${{ matrix.continue-on-error || false }}
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          CUDA: ${{ matrix.cuda }}
+          UBUNTU: ${{ matrix.ubuntu }}
+        run: |
+          # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
+          sudo sysctl -w vm.mmap_rnd_bits=28
+          source ci/scripts/util_enable_core_dumps.sh
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Docker Push
+        if: >-
+          success() &&
+          github.event_name == 'push' &&
+          github.repository == 'apache/arrow' &&
+          github.ref_name == 'main'
+        env:
+          ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
+          ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+        continue-on-error: true
+        run: archery docker push ${{ matrix.image }}
+
+  report-extra-cpp:
+    if: github.event_name == 'schedule' && always()
+    needs:
+      - docker
+    uses: ./.github/workflows/report_ci.yml
+    secrets: inherit

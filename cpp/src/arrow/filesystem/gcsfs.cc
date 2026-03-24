@@ -17,9 +17,10 @@
 
 #include "arrow/filesystem/gcsfs.h"
 
-#include <google/cloud/storage/client.h>
 #include <algorithm>
 #include <chrono>
+
+#include <google/cloud/storage/client.h>
 
 #include "arrow/buffer.h"
 #include "arrow/filesystem/gcsfs_internal.h"

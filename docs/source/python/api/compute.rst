@@ -532,8 +532,8 @@ Selections
    drop_null
    filter
    inverse_permutation
-   take
    scatter
+   take
 
 Sorts and Partitions
 --------------------
@@ -606,6 +606,7 @@ Compute Options
    ExtractRegexSpanOptions
    FilterOptions
    IndexOptions
+   InversePermutationOptions
    JoinOptions
    ListFlattenOptions
    ListSliceOptions
@@ -630,6 +631,7 @@ Compute Options
    RoundToMultipleOptions
    RunEndEncodeOptions
    ScalarAggregateOptions
+   ScatterOptions
    SelectKOptions
    SetLookupOptions
    SkewOptions

@@ -122,15 +122,26 @@ TEST(TestTime, TestCastTimestamp) {
             "Not a valid time for timestamp value 2000-01-01 00:00:100");
   context.Reset();
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid millis for timestamp value 2000-01-01 00:00:00.0001");
-  context.Reset();
+  // Test truncation of subseconds to 3 digits (milliseconds)
+  // "2000-01-01 00:00:00.0001" should truncate to "2000-01-01 00:00:00.000"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.0001", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.000", 23));
 
-  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24), 0);
-  EXPECT_EQ(context.get_error(),
-            "Invalid millis for timestamp value 2000-01-01 00:00:00.1000");
-  context.Reset();
+  // "2000-01-01 00:00:00.1000" should truncate to "2000-01-01 00:00:00.100"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1000", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.100", 23));
+
+  // "2000-01-01 00:00:00.123456789" should truncate to "2000-01-01 00:00:00.123"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.123456789", 29),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.123", 23));
+
+  // "2000-01-01 00:00:00.1999" should truncate to "2000-01-01 00:00:00.199"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1999", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.199", 23));
+
+  // "2000-01-01 00:00:00.1994" should truncate to "2000-01-01 00:00:00.199"
+  EXPECT_EQ(castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.1994", 24),
+            castTIMESTAMP_utf8(context_ptr, "2000-01-01 00:00:00.199", 23));
 }
 
 TEST(TestTime, TestCastTimeUtf8) {
@@ -166,13 +177,26 @@ TEST(TestTime, TestCastTimeUtf8) {
   EXPECT_EQ(context.get_error(), "Not a valid time value 00:00:100");
   context.Reset();
 
-  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.0001", 13), 0);
-  EXPECT_EQ(context.get_error(), "Invalid millis for time value 00:00:00.0001");
-  context.Reset();
+  // Test truncation of subseconds to 3 digits (milliseconds)
+  // "00:00:00.0001" should truncate to "00:00:00.000"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.0001", 13),
+            castTIME_utf8(context_ptr, "00:00:00.000", 12));
 
-  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1000", 13), 0);
-  EXPECT_EQ(context.get_error(), "Invalid millis for time value 00:00:00.1000");
-  context.Reset();
+  // "00:00:00.1000" should truncate to "00:00:00.100"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1000", 13),
+            castTIME_utf8(context_ptr, "00:00:00.100", 12));
+
+  // "9:45:30.123456789" should truncate to "9:45:30.123"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "9:45:30.123456789", 17),
+            castTIME_utf8(context_ptr, "9:45:30.123", 11));
+
+  // "00:00:00.1999" should truncate to "00:00:00.199"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1999", 13),
+            castTIME_utf8(context_ptr, "00:00:00.199", 12));
+
+  // "00:00:00.1994" should truncate to "00:00:00.199"
+  EXPECT_EQ(castTIME_utf8(context_ptr, "00:00:00.1994", 13),
+            castTIME_utf8(context_ptr, "00:00:00.199", 12));
 }
 
 #ifndef _WIN32
@@ -880,6 +904,24 @@ TEST(TestTime, castVarcharTimestamp) {
   ts = StringToTimestamp("2-5-1 00:00:04");
   out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
   EXPECT_EQ(std::string(out, out_len), "0002-05-01 00:00:04.000");
+
+  // StringToTimestamp doesn't parse milliseconds, so we add them manually
+  ts = StringToTimestamp("67-5-1 00:00:04") + 920;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0067-05-01 00:00:04.920");
+
+  ts = StringToTimestamp("107-10-17 12:20:03") + 900;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "0107-10-17 12:20:03.900");
+
+  // Test pre-epoch timestamps with 4-digit years
+  ts = StringToTimestamp("1969-12-31 23:59:59") + 920;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1969-12-31 23:59:59.920");
+
+  ts = StringToTimestamp("1899-12-31 23:59:59") + 123;
+  out = castVARCHAR_timestamp_int64(context_ptr, ts, 24L, &out_len);
+  EXPECT_EQ(std::string(out, out_len), "1899-12-31 23:59:59.123");
 }
 
 TEST(TestTime, TestCastTimestampToDate) {

@@ -31,7 +31,7 @@ constexpr int64_t kFuzzingMemoryLimit = 2200LL * 1000 * 1000;
 /// Return a memory pool that will not allocate more than kFuzzingMemoryLimit bytes.
 ARROW_EXPORT MemoryPool* fuzzing_memory_pool();
 
-// Optionally log the outcome of fuzzing an input
+/// Optionally log the outcome of fuzzing an input
 ARROW_EXPORT void LogFuzzStatus(const Status&, const uint8_t* data, int64_t size);
 
 }  // namespace arrow::internal

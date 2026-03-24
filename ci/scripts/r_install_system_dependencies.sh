@@ -28,6 +28,8 @@ elif [ "`which yum`" ]; then
   PACKAGE_MANAGER=yum
 elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
+elif [ "`which apk`" ]; then
+  PACKAGE_MANAGER=apk
 else
   PACKAGE_MANAGER=apt-get
   apt-get update
@@ -38,6 +40,9 @@ fi
 case "$PACKAGE_MANAGER" in
   apt-get)
     apt-get install -y libcurl4-openssl-dev libssl-dev
+    ;;
+  apk)
+    $PACKAGE_MANAGER add curl-dev openssl-dev
     ;;
   *)
     $PACKAGE_MANAGER install -y libcurl-devel openssl-devel
@@ -58,6 +63,11 @@ if [ "$ARROW_S3" == "ON" ] || [ "$ARROW_GCS" == "ON" ] || [ "$ARROW_R_DEV" == "T
         $PACKAGE_MANAGER install -y python310-pip
         ln -s /usr/bin/python3.10 /usr/local/bin/python
         ln -s /usr/bin/pip3.10 /usr/local/bin/pip
+        ;;
+      apk)
+        $PACKAGE_MANAGER add py3-pip
+        ln -s /usr/bin/python3 /usr/local/bin/python
+        ln -s /usr/bin/pip3 /usr/local/bin/pip
         ;;
       *)
         $PACKAGE_MANAGER install -y python3-pip

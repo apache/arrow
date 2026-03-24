@@ -582,11 +582,13 @@ const char* castVARCHAR_bool_int64(gdv_int64 context, gdv_boolean value,
     *out_length = 0;
     return "";
   }
-  const char* out =
-      reinterpret_cast<const char*>(gdv_fn_context_arena_malloc(context, 5));
-  out = value ? "true" : "false";
-  *out_length = value ? ((len > 4) ? 4 : len) : ((len > 5) ? 5 : len);
-  return out;
+  if (value) {
+    *out_length = (len > 4) ? 4 : len;
+    return "true";
+  } else {
+    *out_length = (len > 5) ? 5 : len;
+    return "false";
+  }
 }
 
 // Truncates the string to given length
@@ -841,7 +843,12 @@ const char* repeat_utf8_int32(gdv_int64 context, const char* in, gdv_int32 in_le
     *out_len = 0;
     return "";
   }
-  *out_len = repeat_number * in_len;
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::MultiplyWithOverflow(repeat_number, in_len, out_len))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return "";
+  }
   char* ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
@@ -1961,6 +1968,23 @@ gdv_int32 evaluate_return_char_length(gdv_int32 text_len, gdv_int32 actual_text_
   return return_char_length;
 }
 
+// Fill a buffer with repeated fill_text using O(log n) doubling strategy
+static FORCE_INLINE void fill_buffer_with_pattern(gdv_binary dest,
+                                                  gdv_int32 total_fill_bytes,
+                                                  const char* fill_text,
+                                                  gdv_int32 fill_text_len) {
+  gdv_int32 initial_copy = std::min(fill_text_len, total_fill_bytes);
+  memcpy(dest, fill_text, initial_copy);
+  gdv_int32 written = initial_copy;
+  while (written * 2 <= total_fill_bytes) {
+    memcpy(dest + written, dest, written);
+    written *= 2;
+  }
+  if (written < total_fill_bytes) {
+    memcpy(dest + written, dest, total_fill_bytes - written);
+  }
+}
+
 FORCE_INLINE
 const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 text_len,
                                  gdv_int32 return_length, const char* fill_text,
@@ -1983,48 +2007,49 @@ const char* lpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // fill into text but "fill_text" is empty, then return text directly.
     *out_len = text_len;
     return text;
-  } else if (return_length < actual_text_len) {
+  }
+  if (return_length < actual_text_len) {
     // case where it truncates the result on return length.
     *out_len = utf8_byte_pos(context, text, text_len, return_length);
     return text;
-  } else {
-    // case (return_length > actual_text_len)
-    // case where it needs to copy "fill_text" on the string left. The total number
-    // of chars to copy is given by (return_length -  actual_text_len)
-    gdv_int32 return_char_length = evaluate_return_char_length(
-        text_len, actual_text_len, return_length, fill_text, fill_text_len);
-    char* ret = reinterpret_cast<gdv_binary>(
-        gdv_fn_context_arena_malloc(context, return_char_length));
+  }
+
+  gdv_int32 chars_to_pad = return_length - actual_text_len;
+
+  // FAST PATH: Single-byte fill (most common - space padding)
+  if (fill_text_len == 1) {
+    gdv_int32 out_len_bytes = chars_to_pad + text_len;
+    gdv_binary ret =
+        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, out_len_bytes));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
       *out_len = 0;
       return "";
     }
-    // try to fulfill the return string with the "fill_text" continuously
-    int32_t copied_chars_count = 0;
-    int32_t copied_chars_position = 0;
-    while (copied_chars_count < return_length - actual_text_len) {
-      int32_t char_len;
-      int32_t fill_index;
-      // for each char, evaluate its length to consider it when mem copying
-      for (fill_index = 0; fill_index < fill_text_len; fill_index += char_len) {
-        if (copied_chars_count >= return_length - actual_text_len) {
-          break;
-        }
-        char_len = utf8_char_length(fill_text[fill_index]);
-        // ignore invalid char on the fill text, considering it as size 1
-        if (char_len == 0) char_len += 1;
-        copied_chars_count++;
-      }
-      memcpy(ret + copied_chars_position, fill_text, fill_index);
-      copied_chars_position += fill_index;
-    }
-    // after fulfilling the text, copy the main string
-    memcpy(ret + copied_chars_position, text, text_len);
-    *out_len = copied_chars_position + text_len;
+    memset(ret, fill_text[0], chars_to_pad);
+    memcpy(ret + chars_to_pad, text, text_len);
+    *out_len = out_len_bytes;
     return ret;
   }
+
+  // GENERAL PATH: Multi-byte fill - use evaluate_return_char_length for buffer size
+  gdv_int32 return_char_length = evaluate_return_char_length(
+      text_len, actual_text_len, return_length, fill_text, fill_text_len);
+  gdv_binary ret = reinterpret_cast<gdv_binary>(
+      gdv_fn_context_arena_malloc(context, return_char_length));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  // Fill padding region using doubling strategy, then append text
+  gdv_int32 total_fill_bytes = return_char_length - text_len;
+  fill_buffer_with_pattern(ret, total_fill_bytes, fill_text, fill_text_len);
+  memcpy(ret + total_fill_bytes, text, text_len);
+  *out_len = return_char_length;
+  return ret;
 }
 
 FORCE_INLINE
@@ -2049,47 +2074,49 @@ const char* rpad_utf8_int32_utf8(gdv_int64 context, const char* text, gdv_int32 
     // fill into text but "fill_text" is empty, then return text directly.
     *out_len = text_len;
     return text;
-  } else if (return_length < actual_text_len) {
+  }
+  if (return_length < actual_text_len) {
     // case where it truncates the result on return length.
     *out_len = utf8_byte_pos(context, text, text_len, return_length);
     return text;
-  } else {
-    // case (return_length > actual_text_len)
-    // case where it needs to copy "fill_text" on the string right
-    gdv_int32 return_char_length = evaluate_return_char_length(
-        text_len, actual_text_len, return_length, fill_text, fill_text_len);
-    char* ret = reinterpret_cast<gdv_binary>(
-        gdv_fn_context_arena_malloc(context, return_char_length));
+  }
+
+  gdv_int32 chars_to_pad = return_length - actual_text_len;
+
+  // FAST PATH: Single-byte fill (most common - space padding)
+  if (fill_text_len == 1) {
+    gdv_int32 out_len_bytes = chars_to_pad + text_len;
+    gdv_binary ret =
+        reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, out_len_bytes));
     if (ret == nullptr) {
       gdv_fn_context_set_error_msg(context,
                                    "Could not allocate memory for output string");
       *out_len = 0;
       return "";
     }
-    // fulfill the initial text copying the main input string
     memcpy(ret, text, text_len);
-    // try to fulfill the return string with the "fill_text" continuously
-    int32_t copied_chars_count = 0;
-    int32_t copied_chars_position = 0;
-    while (actual_text_len + copied_chars_count < return_length) {
-      int32_t char_len;
-      int32_t fill_length;
-      // for each char, evaluate its length to consider it when mem copying
-      for (fill_length = 0; fill_length < fill_text_len; fill_length += char_len) {
-        if (actual_text_len + copied_chars_count >= return_length) {
-          break;
-        }
-        char_len = utf8_char_length(fill_text[fill_length]);
-        // ignore invalid char on the fill text, considering it as size 1
-        if (char_len == 0) char_len += 1;
-        copied_chars_count++;
-      }
-      memcpy(ret + text_len + copied_chars_position, fill_text, fill_length);
-      copied_chars_position += fill_length;
-    }
-    *out_len = copied_chars_position + text_len;
+    memset(ret + text_len, fill_text[0], chars_to_pad);
+    *out_len = out_len_bytes;
     return ret;
   }
+
+  // GENERAL PATH: Multi-byte fill - use evaluate_return_char_length for buffer size
+  gdv_int32 return_char_length = evaluate_return_char_length(
+      text_len, actual_text_len, return_length, fill_text, fill_text_len);
+  gdv_binary ret = reinterpret_cast<gdv_binary>(
+      gdv_fn_context_arena_malloc(context, return_char_length));
+  if (ret == nullptr) {
+    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
+    *out_len = 0;
+    return "";
+  }
+
+  // Copy text first, then fill padding region using doubling strategy
+  memcpy(ret, text, text_len);
+  gdv_int32 total_fill_bytes = return_char_length - text_len;
+  fill_buffer_with_pattern(ret + text_len, total_fill_bytes, fill_text, fill_text_len);
+  *out_len = return_char_length;
+  return ret;
 }
 
 FORCE_INLINE
@@ -2252,16 +2279,16 @@ const char* right_utf8_int32(gdv_int64 context, const char* text, gdv_int32 text
 FORCE_INLINE
 const char* binary_string(gdv_int64 context, const char* text, gdv_int32 text_len,
                           gdv_int32* out_len) {
+  if (text_len == 0) {
+    *out_len = 0;
+    return "";
+  }
+
   gdv_binary ret =
       reinterpret_cast<gdv_binary>(gdv_fn_context_arena_malloc(context, text_len));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    return "";
-  }
-
-  if (text_len == 0) {
     *out_len = 0;
     return "";
   }

@@ -19,11 +19,12 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
 #include "arrow/flight/sql/odbc/odbc_impl/config/configuration.h"
+#include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 #include "arrow/status.h"
 
-namespace arrow::flight::sql::odbc {
+#include <odbcinst.h>
 
-using config::Configuration;
+namespace arrow::flight::sql::odbc {
 
 #if defined _WIN32
 /**
@@ -33,7 +34,7 @@ using config::Configuration;
  * @param config Output configuration.
  * @return True on success and false on fail.
  */
-bool DisplayConnectionWindow(void* window_parent, Configuration& config);
+bool DisplayConnectionWindow(void* window_parent, config::Configuration& config);
 
 /**
  * For SQLDriverConnect.
@@ -45,7 +46,7 @@ bool DisplayConnectionWindow(void* window_parent, Configuration& config);
  * @param properties Output properties.
  * @return True on success and false on fail.
  */
-bool DisplayConnectionWindow(void* window_parent, Configuration& config,
+bool DisplayConnectionWindow(void* window_parent, config::Configuration& config,
                              Connection::ConnPropertyMap& properties);
 #endif
 
@@ -56,7 +57,7 @@ bool DisplayConnectionWindow(void* window_parent, Configuration& config,
  * @param driver Driver.
  * @return True on success and false on fail.
  */
-bool RegisterDsn(const Configuration& config, LPCWSTR driver);
+bool RegisterDsn(const config::Configuration& config, LPCWSTR driver);
 
 /**
  * Unregister specified DSN.
@@ -66,7 +67,7 @@ bool RegisterDsn(const Configuration& config, LPCWSTR driver);
  */
 bool UnregisterDsn(const std::wstring& dsn);
 
-void PostError(DWORD error_code, LPCWSTR error_msg);
+void PostError(DWORD error_code, LPWSTR error_msg);
 
 void PostArrowUtilError(arrow::Status error_status);
 }  // namespace arrow::flight::sql::odbc

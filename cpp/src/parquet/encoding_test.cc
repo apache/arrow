@@ -20,7 +20,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <limits>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -55,6 +57,50 @@ using arrow::util::span;
 namespace bit_util = arrow::bit_util;
 
 namespace parquet::test {
+
+// Validate that `func` succeeds on supported (Type, Encoding) combinations, and
+// raises on unsupported ones.
+void TestSupportedEncodingsConsistentWith(
+    std::function<void(Type::type, Encoding::type, const ColumnDescriptor&)> func) {
+  // Try all possible types and encodings
+  for (int int_type = 0; int_type < static_cast<int>(Type::UNDEFINED); ++int_type) {
+    const auto type = static_cast<Type::type>(int_type);
+    const auto supported_encodings = SupportedEncodings(type);
+    ARROW_SCOPED_TRACE("Type = ", TypeToString(type));
+    const auto descr =
+        ColumnDescriptor(schema::PrimitiveNode::Make("col", Repetition::REQUIRED, type,
+                                                     ConvertedType::NONE, /*length=*/2),
+                         /*max_definition_level=*/0, /*max_repetition_level=*/0);
+
+    for (int int_encoding = 0; int_encoding < static_cast<int>(Encoding::UNDEFINED);
+         ++int_encoding) {
+      const auto encoding = static_cast<Encoding::type>(int_encoding);
+      ARROW_SCOPED_TRACE("Encoding = ", EncodingToString(encoding));
+      if (std::find(supported_encodings.begin(), supported_encodings.end(), encoding) !=
+          supported_encodings.end()) {
+        ASSERT_NO_THROW(func(type, encoding, descr));
+      } else {
+        ASSERT_THROW(func(type, encoding, descr), ParquetException);
+      }
+    }
+  }
+}
+
+TEST(SupportedEncodings, TestMakeDecoder) {
+  auto make_decoder = [](Type::type type, Encoding::type encoding,
+                         const ColumnDescriptor& descr) {
+    ARROW_UNUSED(MakeDecoder(type, encoding, &descr));
+  };
+  TestSupportedEncodingsConsistentWith(make_decoder);
+}
+
+TEST(SupportedEncodings, TestMakeEncoder) {
+  auto make_encoder = [](Type::type type, Encoding::type encoding,
+                         const ColumnDescriptor& descr) {
+    ARROW_UNUSED(MakeEncoder(type, encoding, /*use_dictionary=*/false, &descr));
+  };
+  TestSupportedEncodingsConsistentWith(make_encoder);
+}
 
 TEST(VectorBooleanTest, TestEncodeBoolDecode) {
   // PARQUET-454
@@ -119,14 +165,14 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
 }
 
 template <typename T>
-void VerifyResults(T* result, T* expected, int num_values) {
+void VerifyResults(const T* result, const T* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(expected[i], result[i]) << i;
   }
 }
 
 template <typename T>
-void VerifyResultsSpaced(T* result, T* expected, int num_values,
+void VerifyResultsSpaced(const T* result, const T* expected, int num_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -136,14 +182,14 @@ void VerifyResultsSpaced(T* result, T* expected, int num_values,
 }
 
 template <>
-void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
+void VerifyResults<FLBA>(const FLBA* result, const FLBA* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
   }
 }
 
 template <>
-void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
+void VerifyResultsSpaced<FLBA>(const FLBA* result, const FLBA* expected, int num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -1738,33 +1784,43 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
-  void CheckDecoding() {
+  void CheckDecoding() { CheckDecoding(std::span(draws_, num_values_)); }
+
+  void CheckDecoding(std::span<const c_type> expected_values) {
+    const auto num_values = static_cast<int>(expected_values.size());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
     auto read_batch_sizes = kReadBatchSizes;
-    read_batch_sizes.push_back(num_values_);
+    read_batch_sizes.push_back(num_values);
     // Exercise different batch sizes
     for (const int read_batch_size : read_batch_sizes) {
-      decoder->SetData(num_values_, encode_buffer_->data(),
+      decoder->SetData(num_values, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
 
+      std::vector<c_type> decoded_values(num_values);
       int values_decoded = 0;
-      while (values_decoded < num_values_) {
-        values_decoded += decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
+      while (values_decoded < num_values) {
+        values_decoded +=
+            decoder->Decode(decoded_values.data() + values_decoded, read_batch_size);
       }
-      ASSERT_EQ(num_values_, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+      ASSERT_EQ(num_values, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decoded_values.data(),
+                                                    expected_values.data(), num_values));
     }
   }
 
-  void CheckRoundtrip() override {
+  void CheckRoundtripWithValues(std::span<const c_type> values) {
     auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
                                           /*use_dictionary=*/false, descr_.get());
     // Encode a number of times to exercise the flush logic
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
-      encoder->Put(draws_, num_values_);
+      encoder->Put(values.data(), static_cast<int>(values.size()));
       encode_buffer_ = encoder->FlushValues();
-      CheckDecoding();
+      CheckDecoding(values);
     }
+  }
+
+  void CheckRoundtrip() override {
+    CheckRoundtripWithValues(std::span(draws_, num_values_));
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits,
@@ -1923,24 +1979,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedWrapping) {
                                1,
                                -1,
                                1};
-  const int num_values = static_cast<int>(int_values.size());
-
-  const auto encoder = MakeTypedEncoder<TypeParam>(
-      Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
-  encoder->Put(int_values, num_values);
-  const auto encoded = encoder->FlushValues();
-
-  const auto decoder =
-      MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, this->descr_.get());
-
-  std::vector<T> decoded(num_values);
-  decoder->SetData(num_values, encoded->data(), static_cast<int>(encoded->size()));
-
-  const int values_decoded = decoder->Decode(decoded.data(), num_values);
-
-  ASSERT_EQ(num_values, values_decoded);
-  ASSERT_NO_FATAL_FAILURE(
-      VerifyResults<T>(decoded.data(), int_values.data(), num_values));
+  this->CheckRoundtripWithValues(int_values);
 }
 
 // Test that the DELTA_BINARY_PACKED encoding does not use more bits to encode than
@@ -1968,6 +2007,29 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedSize) {
   const auto encoded = encoder->FlushValues();
 
   ASSERT_EQ(encoded->size(), encoded_size);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, ZeroDeltaBitWidth) {
+  // Exercise ranges of zero deltas interspersed between ranges of non-zero deltas.
+  // This checks that the zero bit-width optimization in GH-49266 doesn't mess
+  // decoder state.
+  using T = typename TypeParam::c_type;
+
+  // At least the size of a block
+  constexpr int kRangeSize = 256;
+
+  std::vector<T> int_values;
+  for (int i = 0; i < kRangeSize; ++i) {
+    int_values.push_back((i * 7) % 11);
+  }
+  // Range of equal values, should emit zero-width deltas
+  for (int i = 0; i < kRangeSize * 2; ++i) {
+    int_values.push_back(42);
+  }
+  for (int i = 0; i < kRangeSize; ++i) {
+    int_values.push_back((i * 5) % 7);
+  }
+  this->CheckRoundtripWithValues(int_values);
 }
 
 // ----------------------------------------------------------------------

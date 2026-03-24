@@ -99,7 +99,7 @@ InternalFileEncryptor::InternalFileEncryptor::GetColumnEncryptor(
     }
   }
   auto column_prop = properties_->column_encryption_properties(column_path);
-  if (column_prop == nullptr) {
+  if (column_prop == nullptr || !column_prop->is_encrypted()) {
     return nullptr;
   }
 

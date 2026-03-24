@@ -54,3 +54,204 @@ function_doc_additions["mode"] = """
     >>> modes[1]
     <pyarrow.StructScalar: [('mode', 1), ('count', 2)]>
     """
+
+function_doc_additions["min"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.min(arr1)
+    <pyarrow.Int64Scalar: 1>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+    >>> pc.min(arr2)
+    <pyarrow.DoubleScalar: 1.0>
+    >>> pc.min(arr2, skip_nulls=False)
+    <pyarrow.DoubleScalar: None>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.min(arr3)
+    <pyarrow.DoubleScalar: 1.0>
+    >>> pc.min(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+    <pyarrow.DoubleScalar: 1.0>
+    >>> pc.min(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+    <pyarrow.DoubleScalar: None>
+
+    This function also works with string values.
+
+    >>> arr4 = pa.array(["z", None, "y", "x"])
+    >>> pc.min(arr4)
+    <pyarrow.StringScalar: 'x'>
+    """
+
+function_doc_additions["max"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.max(arr1)
+    <pyarrow.Int64Scalar: 3>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+    >>> pc.max(arr2)
+    <pyarrow.DoubleScalar: 3.0>
+    >>> pc.max(arr2, skip_nulls=False)
+    <pyarrow.DoubleScalar: None>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.max(arr3)
+    <pyarrow.DoubleScalar: 3.0>
+    >>> pc.max(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+    <pyarrow.DoubleScalar: 3.0>
+    >>> pc.max(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+    <pyarrow.DoubleScalar: None>
+
+    This function also works with string values.
+
+    >>> arr4 = pa.array(["z", None, "y", "x"])
+    >>> pc.max(arr4)
+    <pyarrow.StringScalar: 'z'>
+    """
+
+function_doc_additions["min_max"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.min_max(arr1)
+    <pyarrow.StructScalar: [('min', 1), ('max', 3)]>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([1.0, None, 2.0, 3.0])
+    >>> pc.min_max(arr2)
+    <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+    >>> pc.min_max(arr2, skip_nulls=False)
+    <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.min_max(arr3)
+    <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+    >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+    <pyarrow.StructScalar: [('min', 1.0), ('max', 3.0)]>
+    >>> pc.min_max(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+    <pyarrow.StructScalar: [('min', None), ('max', None)]>
+
+    This function also works with string values.
+
+    >>> arr4 = pa.array(["z", None, "y", "x"])
+    >>> pc.min_max(arr4)
+    <pyarrow.StructScalar: [('min', 'x'), ('max', 'z')]>
+    """
+
+function_doc_additions["first"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.first(arr1)
+    <pyarrow.Int64Scalar: 1>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([None, 1.0, 2.0, 3.0])
+    >>> pc.first(arr2)
+    <pyarrow.DoubleScalar: 1.0>
+    >>> pc.first(arr2, skip_nulls=False)
+    <pyarrow.DoubleScalar: None>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.first(arr3)
+    <pyarrow.DoubleScalar: 1.0>
+    >>> pc.first(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+    <pyarrow.DoubleScalar: 1.0>
+    >>> pc.first(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+    <pyarrow.DoubleScalar: None>
+
+    See Also
+    --------
+    pyarrow.compute.first_last
+    pyarrow.compute.last
+    """
+
+function_doc_additions["last"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.last(arr1)
+    <pyarrow.Int64Scalar: 2>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([1.0, 2.0, 3.0, None])
+    >>> pc.last(arr2)
+    <pyarrow.DoubleScalar: 3.0>
+    >>> pc.last(arr2, skip_nulls=False)
+    <pyarrow.DoubleScalar: None>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.last(arr3)
+    <pyarrow.DoubleScalar: 3.0>
+    >>> pc.last(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+    <pyarrow.DoubleScalar: 3.0>
+    >>> pc.last(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+    <pyarrow.DoubleScalar: None>
+
+    See Also
+    --------
+    pyarrow.compute.first
+    pyarrow.compute.first_last
+    """
+
+function_doc_additions["first_last"] = """
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.compute as pc
+    >>> arr1 = pa.array([1, 1, 2, 2, 3, 2, 2, 2])
+    >>> pc.first_last(arr1)
+    <pyarrow.StructScalar: [('first', 1), ('last', 2)]>
+
+    Using ``skip_nulls`` to handle null values.
+
+    >>> arr2 = pa.array([None, 2.0, 3.0, None])
+    >>> pc.first_last(arr2)
+    <pyarrow.StructScalar: [('first', 2.0), ('last', 3.0)]>
+    >>> pc.first_last(arr2, skip_nulls=False)
+    <pyarrow.StructScalar: [('first', None), ('last', None)]>
+
+    Using ``ScalarAggregateOptions`` to control minimum number of non-null values.
+
+    >>> arr3 = pa.array([1.0, None, float("nan"), 3.0])
+    >>> pc.first_last(arr3)
+    <pyarrow.StructScalar: [('first', 1.0), ('last', 3.0)]>
+    >>> pc.first_last(arr3, options=pc.ScalarAggregateOptions(min_count=3))
+    <pyarrow.StructScalar: [('first', 1.0), ('last', 3.0)]>
+    >>> pc.first_last(arr3, options=pc.ScalarAggregateOptions(min_count=4))
+    <pyarrow.StructScalar: [('first', None), ('last', None)]>
+
+    See Also
+    --------
+    pyarrow.compute.first
+    pyarrow.compute.last
+    """

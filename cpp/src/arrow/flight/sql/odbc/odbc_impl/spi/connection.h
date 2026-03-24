@@ -18,14 +18,15 @@
 #pragma once
 
 #include <boost/algorithm/string.hpp>
-#include <boost/optional.hpp>
 #include <boost/variant.hpp>
 #include <functional>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
 #include "arrow/flight/sql/odbc/odbc_impl/diagnostics.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 #include "arrow/flight/sql/odbc/odbc_impl/types.h"
 
 namespace arrow::flight::sql::odbc {
@@ -41,8 +42,6 @@ struct CaseInsensitiveComparator {
 
 // PropertyMap is case-insensitive for keys.
 typedef std::map<std::string, std::string, CaseInsensitiveComparator> PropertyMap;
-
-class Statement;
 
 /// \brief High-level representation of an ODBC connection.
 class Connection {
@@ -88,7 +87,7 @@ class Connection {
 
   /// \brief Retrieve a connection attribute
   /// \param attribute [in] Attribute to be retrieved.
-  virtual boost::optional<Connection::Attribute> GetAttribute(
+  virtual std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) = 0;
 
   /// \brief Retrieves info from the database (see ODBC's SQLGetInfo).

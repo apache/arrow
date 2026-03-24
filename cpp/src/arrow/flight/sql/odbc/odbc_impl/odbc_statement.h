@@ -18,20 +18,14 @@
 #pragma once
 
 #include "arrow/flight/sql/odbc/odbc_impl/odbc_handle.h"
+#include "arrow/flight/sql/odbc/odbc_impl/type_fwd.h"
 
 #include <arrow/flight/sql/odbc/odbc_impl/platform.h>
 #include <sql.h>
 #include <memory>
 #include <string>
 
-namespace arrow::flight::sql::odbc {
-class Statement;
-class ResultSet;
-}  // namespace arrow::flight::sql::odbc
-
 namespace ODBC {
-class ODBCConnection;
-class ODBCDescriptor;
 
 /**
  * @brief An abstraction over an ODBC connection handle. This also wraps an SPI
@@ -58,10 +52,12 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void ExecutePrepared();
   void ExecuteDirect(const std::string& query);
 
-  /**
-   * @brief Returns true if the number of rows fetch was greater than zero.
-   */
-  bool Fetch(size_t rows);
+  /// \brief Return true if the number of rows fetch was greater than zero.
+  ///
+  /// row_count_ptr and row_status_array are optional arguments, they are only needed for
+  /// SQLExtendedFetch
+  bool Fetch(size_t rows, SQLULEN* row_count_ptr = 0, SQLUSMALLINT* row_status_array = 0);
+
   bool IsPrepared() const;
 
   void GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER output,
@@ -69,6 +65,9 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
   void SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value,
                    SQLINTEGER buffer_size, bool is_unicode);
 
+  /// \brief Revert back to implicitly allocated internal descriptors.
+  /// isApd as True indicates APD descritor is to be reverted.
+  /// isApd as False indicates ARD descritor is to be reverted.
   void RevertAppDescriptor(bool is_apd);
 
   inline ODBCDescriptor* GetIRD() { return ird_.get(); }
@@ -77,18 +76,24 @@ class ODBCStatement : public ODBCHandle<ODBCStatement> {
 
   inline SQLULEN GetRowsetSize() { return rowset_size_; }
 
-  bool GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
-               SQLLEN buffer_length, SQLLEN* indicator_ptr);
+  SQLRETURN GetData(SQLSMALLINT record_number, SQLSMALLINT c_type, SQLPOINTER data_ptr,
+                    SQLLEN buffer_length, SQLLEN* indicator_ptr);
 
-  /**
-   * @brief Closes the cursor. This does _not_ un-prepare the statement or change
-   * bindings.
-   */
+  SQLRETURN GetMoreResults();
+
+  /// \brief Return number of columns from data set
+  void GetColumnCount(SQLSMALLINT* column_count_ptr);
+
+  /// \brief Return number of rows affected by an UPDATE, INSERT, or DELETE statement\
+  ///
+  ///  -1 is returned as driver only supports SELECT statement
+  void GetRowCount(SQLLEN* row_count_ptr);
+
+  /// \brief Closes the cursor. This does _not_ un-prepare the statement or change
+  /// bindings.
   void CloseCursor(bool suppress_errors);
 
-  /**
-   * @brief Releases this statement from memory.
-   */
+  /// \brief Releases this statement from memory.
   void ReleaseStatement();
 
   void GetTables(const std::string* catalog, const std::string* schema,

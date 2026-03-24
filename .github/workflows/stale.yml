@@ -22,54 +22,111 @@ on:
   workflow_dispatch:
 
 jobs:
+  mark-stale-prs:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v10
+        with:
+          stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this PR will be closed in 14 days.  Feel free to re-open this if it has been closed in error. If you do not have repository permissions to reopen the PR, please tag a maintainer."
+          stale-pr-label: "Status: stale-warning"
+          days-before-pr-stale: 365
+          days-before-pr-close: -1
+          exempt-pr-labels: "Status: stale-warning"
+          # exclude issues
+          days-before-issue-stale: -1
+          days-before-issue-close: -1
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
   close-stale-prs:
     runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
-          stale-pr-message: "Thank you for your contribution. Unfortunately, this pull request has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this PR will be closed in 14 days.  Feel free to re-open this if it has been closed in error. If you do not have repository permissions to reopen the PR, please tag a maintainer."
           stale-pr-label: "Status: stale-warning"
+          only-pr-labels: "Status: stale-warning"
           days-before-pr-stale: 365
           days-before-pr-close: 14
           # exclude issues
           days-before-issue-stale: -1
           days-before-issue-close: -1
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
+  mark-stale-issues-usage:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v10
+        with:
+          # exclude PRs
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          only-issue-labels: "Type: usage"
+          exempt-issue-labels: "Status: stale-warning"
+          stale-issue-message: "This issue has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this issue will be closed in 14 days. If this usage question has evolved into a feature request or docs update, please remove the 'Type: usage' label and add the 'Type: enhancement' label instead."
+          stale-issue-label: "Status: stale-warning"
+          days-before-issue-stale: 365
+          days-before-issue-close: -1
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
   close-stale-issues-usage:
     runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           # exclude PRs
           days-before-pr-stale: -1
           days-before-pr-close: -1
-          only-issue-labels: "Type: usage"
-          stale-issue-message: "This issue has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this issue will be closed in 14 days. If this usage question has evolved into a feature request or docs update, please remove the 'Type: usage' label and add the 'Type: enhancement' label instead."
+          only-issue-labels: "Type: usage, Status: stale-warning"
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
+  mark-stale-issues-enhancement:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/stale@v10
+        with:
+          # exclude PRs
+          days-before-pr-stale: -1
+          days-before-pr-close: -1
+          only-issue-labels: "Type: enhancement"
+          exempt-issue-labels: "Status: stale-warning, Status: needs champion"
+          stale-issue-message: "This issue has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this issue will be closed in 14 days. If this improvement is still desired but has no current owner, please add the 'Status: needs champion' label."
+          stale-issue-label: "Status: stale-warning"
+          days-before-issue-stale: 365
+          days-before-issue-close: -1
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true
   close-stale-issues-enhancement:
     runs-on: ubuntu-latest
     permissions:
       issues: write
       pull-requests: write
     steps:
-      - uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008  #v10.1.0
+      - uses: actions/stale@v10
         with:
           # exclude PRs
           days-before-pr-stale: -1
           days-before-pr-close: -1
-          only-issue-labels: "Type: enhancement"
+          only-issue-labels: "Type: enhancement, Status: stale-warning"
           exempt-issue-labels: "Status: needs champion"
-          stale-issue-message: "This issue has been marked as stale because it has had no activity in the past 365 days. Please remove the stale label or comment below, or this issue will be closed in 14 days. If this improvement is still desired but has no current owner, please add the 'Status: needs champion' label."
           stale-issue-label: "Status: stale-warning"
           days-before-issue-stale: 365
           days-before-issue-close: 14
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+          ascending: true

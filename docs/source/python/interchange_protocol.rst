@@ -29,7 +29,6 @@ data type. The protocol also has missing data support and
 it supports chunking, meaning accessing the
 data in “batches” of rows.
 
-
 The Python dataframe interchange protocol is designed by the
 `Consortium for Python Data API Standards <https://data-apis.org/>`_
 in order to enable data interchange between dataframe
@@ -43,7 +42,7 @@ From PyArrow to other libraries: ``__dataframe__()`` method
 The ``__dataframe__()`` method creates a new exchange object that
 the consumer library can take and construct an object of it's own.
 
-.. code-block::
+.. code-block:: python
 
     >>> import pyarrow as pa
     >>> table = pa.table({"n_attendees": [100, 10, 1]})
@@ -65,7 +64,7 @@ protocol.
 We can for example take a pandas dataframe and construct a
 PyArrow table with the use of the interchange protocol:
 
-.. code-block::
+.. code-block:: python
 
     >>> import pyarrow
     >>> from pyarrow.interchange import from_dataframe
@@ -90,18 +89,18 @@ PyArrow table with the use of the interchange protocol:
 
 We can do the same with a polars dataframe:
 
-.. code-block::
+.. code-block:: python
 
-    >>> import polars as pl
-    >>> from datetime import datetime
-    >>> arr = [datetime(2023, 5, 20, 10, 0),
+    >>> import polars as pl  # doctest: +SKIP
+    >>> from datetime import datetime  # doctest: +SKIP
+    >>> arr = [datetime(2023, 5, 20, 10, 0),  # doctest: +SKIP
     ...        datetime(2023, 5, 20, 11, 0),
     ...        datetime(2023, 5, 20, 13, 30)]
-    >>> df = pl.DataFrame({
+    >>> df = pl.DataFrame({  # doctest: +SKIP
     ...          'Talk': ['About Polars','Intro into PyArrow','Coding in Rust'],
     ...          'Time': arr,
     ...      })
-    >>> df
+    >>> df  # doctest: +SKIP
     shape: (3, 2)
     ┌────────────────────┬─────────────────────┐
     │ Talk               ┆ Time                │
@@ -112,7 +111,7 @@ We can do the same with a polars dataframe:
     │ Intro into PyArrow ┆ 2023-05-20 11:00:00 │
     │ Coding in Rust     ┆ 2023-05-20 13:30:00 │
     └────────────────────┴─────────────────────┘
-    >>> from_dataframe(df)
+    >>> from_dataframe(df)  # doctest: +SKIP
     pyarrow.Table
     Talk: large_string
     Time: timestamp[us]

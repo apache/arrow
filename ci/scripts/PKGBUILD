@@ -18,7 +18,7 @@
 _realname=arrow
 pkgbase=mingw-w64-${_realname}
 pkgname="${MINGW_PACKAGE_PREFIX}-${_realname}"
-pkgver=22.0.0.9000
+pkgver=23.0.1.9000
 pkgrel=8000
 pkgdesc="Apache Arrow is a cross-language development platform for in-memory data (mingw-w64)"
 arch=("any")
@@ -50,7 +50,6 @@ source_dir="$ARROW_HOME"
 # Append `#commit=54b1b2f688e5e84b4c664b1e12a95f93b94ab2f3` to the URL to select a revision
 # source=("${source_dir}"::"git+https://github.com/apache/arrow")
 # sha256sums=("SKIP")
-# source_dir="${APPVEYOR_BUILD_FOLDER}/${source_dir}"
 
 cpp_build_dir=build-${CARCH}-cpp
 

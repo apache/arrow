@@ -22,9 +22,6 @@ try:
 except ImportError:
     pytestmark = pytest.mark.numpy
 
-pytest.skip("Numba integration tests broken by Numba API changes, see GH-48265",
-            allow_module_level=True)
-
 dtypes = ['uint8', 'int16', 'float32']
 cuda = pytest.importorskip("pyarrow.cuda")
 nb_cuda = pytest.importorskip("numba.cuda")

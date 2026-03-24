@@ -41,6 +41,12 @@ class ARROW_FLIGHT_EXPORT CaseInsensitiveComparator {
   bool operator()(const std::string& t1, const std::string& t2) const;
 };
 
+/// \brief Case insensitive equality comparator for use by unordered cookie map.
+class ARROW_FLIGHT_EXPORT CaseInsensitiveEqual {
+ public:
+  bool operator()(const std::string& lhs, const std::string& rhs) const;
+};
+
 /// \brief Case insensitive hasher for use by cookie caching map. Cookies are not
 /// case-sensitive.
 class ARROW_FLIGHT_EXPORT CaseInsensitiveHash {
@@ -117,7 +123,7 @@ class ARROW_FLIGHT_EXPORT CookieCache {
 
   // Mutex must be used to protect cookie cache.
   std::mutex mutex_;
-  std::unordered_map<std::string, Cookie, CaseInsensitiveHash, CaseInsensitiveComparator>
+  std::unordered_map<std::string, Cookie, CaseInsensitiveHash, CaseInsensitiveEqual>
       cookies;
 };
 

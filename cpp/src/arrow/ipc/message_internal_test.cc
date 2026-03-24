@@ -23,6 +23,7 @@
 #include "arrow/ipc/dictionary.h"
 #include "arrow/ipc/metadata_internal.h"
 #include "arrow/ipc/options.h"
+#include "arrow/ipc/reader.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/key_value_metadata.h"
 
@@ -38,8 +39,6 @@ using FBB = flatbuffers::FlatBufferBuilder;
 // lead to unnecessary platform- or toolchain-specific differences in
 // serialization.
 TEST(TestMessageInternal, TestByteIdentical) {
-  FBB fbb;
-  flatbuffers::Offset<org::apache::arrow::flatbuf::Schema> fb_schema;
   DictionaryFieldMapper mapper;
 
   // Create a simple Schema with just two metadata KVPs
@@ -48,7 +47,7 @@ TEST(TestMessageInternal, TestByteIdentical) {
   std::vector<std::shared_ptr<Field>> fields = {f0, f1};
   std::shared_ptr<KeyValueMetadata> metadata =
       KeyValueMetadata::Make({"key_1", "key_2"}, {"key_1_value", "key_2_value"});
-  auto schema = ::arrow::schema({f0}, metadata);
+  auto schema = ::arrow::schema({f0}, Endianness::Little, metadata);
 
   // Serialize the Schema to a Buffer
   std::shared_ptr<Buffer> out_buffer;
@@ -74,8 +73,34 @@ TEST(TestMessageInternal, TestByteIdentical) {
       0x00, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x66, 0x30, 0x00, 0x00, 0x08, 0x00,
       0x0C, 0x00, 0x08, 0x00, 0x07, 0x00, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01,
       0x40, 0x00, 0x00, 0x00};
+
   Buffer expected_buffer(expected, sizeof(expected));
 
   AssertBufferEqual(expected_buffer, *out_buffer);
 }
+
+TEST(TestMessageInternal, TestEndiannessRoundtrip) {
+  DictionaryFieldMapper mapper;
+
+  for (const auto endianness : {Endianness::Little, Endianness::Big}) {
+    // Create a simple Schema with just two metadata KVPs
+    auto f0 = field("f0", int64());
+    auto f1 = field("f1", int64());
+    std::vector<std::shared_ptr<Field>> fields = {f0, f1};
+    std::shared_ptr<KeyValueMetadata> metadata =
+        KeyValueMetadata::Make({"key_1", "key_2"}, {"key_1_value", "key_2_value"});
+    auto schema = ::arrow::schema({f0}, endianness, metadata);
+
+    // Serialize the Schema to a Buffer
+    std::shared_ptr<Buffer> out_buffer;
+    ASSERT_OK(
+        WriteSchemaMessage(*schema, mapper, IpcWriteOptions::Defaults(), &out_buffer));
+
+    // Re-open to a new Message and parse Schema
+    ASSERT_OK_AND_ASSIGN(auto message, Message::Open(out_buffer, /*body=*/nullptr));
+    ASSERT_OK_AND_ASSIGN(auto parsed_schema, ReadSchema(*message, nullptr));
+    AssertSchemaEqual(*schema, *parsed_schema, /*check_metadata=*/true);
+  }
+}
+
 }  // namespace arrow::ipc::internal

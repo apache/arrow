@@ -19,6 +19,7 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/spi/connection.h"
 
+#include <optional>
 #include <vector>
 #include "arrow/flight/api.h"
 #include "arrow/flight/sql/api.h"
@@ -84,7 +85,7 @@ class FlightSqlConnection : public Connection {
 
   bool SetAttribute(AttributeId attribute, const Attribute& value) override;
 
-  boost::optional<Connection::Attribute> GetAttribute(
+  std::optional<Connection::Attribute> GetAttribute(
       Connection::AttributeId attribute) override;
 
   Info GetInfo(uint16_t info_type) override;
@@ -111,8 +112,7 @@ class FlightSqlConnection : public Connection {
   /// \note Visible for testing
   void SetClosed(bool is_closed);
 
-  boost::optional<int32_t> GetStringColumnLength(
-      const ConnPropertyMap& conn_property_map);
+  std::optional<int32_t> GetStringColumnLength(const ConnPropertyMap& conn_property_map);
 
   bool GetUseWideChar(const ConnPropertyMap& conn_property_map);
 

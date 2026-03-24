@@ -218,4 +218,12 @@ test_that("n <-> prop conversion when nrow is not known", {
   )
 })
 
-# TODO: handle edge case where prop = 1, do nothing?
+test_that("slice_sample with prop = 1 returns all data", {
+  # When prop = 1, no filtering should occur and all data should be returned
+  tab <- arrow_table(tbl)
+  result <- tab |>
+    slice_sample(prop = 1) |>
+    collect()
+  expect_equal(nrow(result), nrow(tbl))
+  expect_setequal(result$int, tbl$int)
+})

@@ -338,10 +338,9 @@ SharedExclusiveChecker::SharedExclusiveChecker() : impl_(new Impl) {}
 
 void SharedExclusiveChecker::LockShared() {
   std::lock_guard<std::mutex> lock(impl_->mutex);
-  // XXX The error message doesn't really describe the actual situation
-  // (e.g. ReadAt() called while Read() call in progress)
   ARROW_CHECK_EQ(impl_->n_exclusive, 0)
-      << "Attempted to take shared lock while locked exclusive";
+      << "Cannot perform position-independent I/O (ReadAt/GetSize) while an "
+         "exclusive operation (Read/Seek/Tell/Peek/Close/Abort) is in progress";
   ++impl_->n_shared;
 }
 
@@ -354,9 +353,11 @@ void SharedExclusiveChecker::UnlockShared() {
 void SharedExclusiveChecker::LockExclusive() {
   std::lock_guard<std::mutex> lock(impl_->mutex);
   ARROW_CHECK_EQ(impl_->n_shared, 0)
-      << "Attempted to take exclusive lock while locked shared";
+      << "Cannot perform exclusive I/O operation (Read/Seek/Tell/Peek/Close/Abort) while "
+         "position-independent operations (ReadAt/GetSize) are in progress";
   ARROW_CHECK_EQ(impl_->n_exclusive, 0)
-      << "Attempted to take exclusive lock while already locked exclusive";
+      << "Cannot perform exclusive I/O operation (Read/Seek/Tell/Peek/Close/Abort) while "
+         "another exclusive operation is already in progress";
   ++impl_->n_exclusive;
 }
 
@@ -389,23 +390,15 @@ namespace {
 constexpr int kDefaultNumIoThreads = 8;
 
 std::shared_ptr<ThreadPool> MakeIOThreadPool() {
-  int threads = 0;
-  auto maybe_env_var = ::arrow::internal::GetEnvVar("ARROW_IO_THREADS");
-  if (maybe_env_var.ok()) {
-    auto str = *std::move(maybe_env_var);
-    if (!str.empty()) {
-      try {
-        threads = std::stoi(str);
-      } catch (...) {
-      }
-      if (threads <= 0) {
-        ARROW_LOG(WARNING)
-            << "ARROW_IO_THREADS does not contain a valid number of threads "
-               "(should be an integer > 0)";
-      }
-    }
+  int threads = kDefaultNumIoThreads;
+  auto maybe_num_threads = ::arrow::internal::GetEnvVarInteger(
+      "ARROW_IO_THREADS", /*min_value=*/1, /*max_value=*/std::numeric_limits<int>::max());
+  if (maybe_num_threads.ok()) {
+    threads = static_cast<int>(*maybe_num_threads);
+  } else if (!maybe_num_threads.status().IsKeyError()) {
+    maybe_num_threads.status().Warn();
   }
-  auto maybe_pool = ThreadPool::MakeEternal(threads > 0 ? threads : kDefaultNumIoThreads);
+  auto maybe_pool = ThreadPool::MakeEternal(threads);
   if (!maybe_pool.ok()) {
     maybe_pool.status().Abort("Failed to create global IO thread pool");
   }

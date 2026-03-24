@@ -1167,7 +1167,7 @@ std::string TransportStatusDetail::ToString() const {
     repr += "{\"";
     repr += key;
     repr += "\", ";
-    if (arrow::internal::EndsWith(key, "-bin")) {
+    if (key.ends_with("-bin")) {
       repr += arrow::util::base64_encode(value);
     } else {
       repr += "\"";

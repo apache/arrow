@@ -145,7 +145,8 @@ if [ "${ARROW_USE_MESON:-OFF}" = "OFF" ] && \
       ;;
   esac
   if [ -n "${VCPKG_ROOT}" ] && [ -n "${VCPKG_DEFAULT_TRIPLET}" ]; then
-    CMAKE_PREFIX_PATH+=";${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET}"
+    # Search vcpkg before <prefix>/lib/cmake.
+    CMAKE_PREFIX_PATH="${VCPKG_ROOT}/installed/${VCPKG_DEFAULT_TRIPLET};${CMAKE_PREFIX_PATH}"
   fi
   cmake \
     -S "${source_dir}/examples/minimal_build" \
@@ -178,17 +179,52 @@ fi
 
 if [ "${ARROW_FUZZING}" == "ON" ]; then
     # Fuzzing regression tests
+
+    # This will display any errors generated during fuzzing. These errors are
+    # usually not bugs (most fuzz files are invalid and hence generate errors
+    # when trying to read them), which is why they are hidden by default when
+    # fuzzing.
+    export ARROW_FUZZING_VERBOSITY=1
     # Some fuzz regression files may trigger huge memory allocations,
     # let the allocator return null instead of aborting.
     export ASAN_OPTIONS="$ASAN_OPTIONS allocator_may_return_null=1"
-    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/crash-*
-    "${binary_output_dir}/arrow-ipc-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-stream/*-testcase-*
-    "${binary_output_dir}/arrow-ipc-file-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-file/*-testcase-*
-    "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" "${ARROW_TEST_DATA}"/arrow-ipc-tensor-stream/*-testcase-*
+
+    # 1. Generate seed corpuses
+    # For IPC fuzz targets, these will include the golden IPC integration files.
+    "${source_dir}/build-support/fuzzing/generate_corpuses.sh" "${binary_output_dir}"
+
+    # 2. Run fuzz targets on seed corpus entries
+    function run_fuzz_target_on_seed_corpus() {
+      fuzz_target_basename=$1
+      corpus_dir=${binary_output_dir}/${fuzz_target_basename}_seed_corpus
+      mkdir -p "${corpus_dir}"
+      pushd "${corpus_dir}"
+      unzip -q "${binary_output_dir}"/"${fuzz_target_basename}"_seed_corpus.zip -d .
+      "${binary_output_dir}"/"${fuzz_target_basename}" -rss_limit_mb=4000 ./*
+      popd
+      rm -rf "${corpus_dir}"
+    }
+    run_fuzz_target_on_seed_corpus arrow-csv-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-file-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-stream-fuzz
+    run_fuzz_target_on_seed_corpus arrow-ipc-tensor-stream-fuzz
     if [ "${ARROW_PARQUET}" == "ON" ]; then
-      "${binary_output_dir}/parquet-arrow-fuzz" "${ARROW_TEST_DATA}"/parquet/fuzzing/*-testcase-*
+      run_fuzz_target_on_seed_corpus parquet-arrow-fuzz
+      run_fuzz_target_on_seed_corpus parquet-encoding-fuzz
     fi
-    "${binary_output_dir}/arrow-csv-fuzz" "${ARROW_TEST_DATA}"/csv/fuzzing/*-testcase-*
+
+    # 3. Run fuzz targets on regression files from arrow-testing
+    pushd "${ARROW_TEST_DATA}"
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" arrow-ipc-stream/crash-*
+    "${binary_output_dir}/arrow-ipc-stream-fuzz" arrow-ipc-stream/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-file-fuzz" arrow-ipc-file/*-testcase-*
+    "${binary_output_dir}/arrow-ipc-tensor-stream-fuzz" arrow-ipc-tensor-stream/*-testcase-*
+    if [ "${ARROW_PARQUET}" == "ON" ]; then
+      "${binary_output_dir}/parquet-arrow-fuzz" parquet/fuzzing/*-testcase-*
+      "${binary_output_dir}/parquet-encoding-fuzz" parquet/encoding-fuzzing/*-testcase-*
+    fi
+    "${binary_output_dir}/arrow-csv-fuzz" csv/fuzzing/*-testcase-*
+    popd
 fi
 
 popd

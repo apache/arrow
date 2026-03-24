@@ -218,7 +218,8 @@ test_apt() {
                     "debian:trixie" \
                     "debian:forky" \
                     "ubuntu:jammy" \
-                    "ubuntu:noble"; do \
+                    "ubuntu:noble" \
+                    "ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/x86_64 \
                --rm \
@@ -238,7 +239,8 @@ test_apt() {
                     "arm64v8/debian:trixie" \
                     "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
-                    "arm64v8/ubuntu:noble"; do \
+                    "arm64v8/ubuntu:noble" \
+                    "arm64v8/ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/arm64 \
                --rm \
@@ -270,8 +272,7 @@ test_yum() {
                     "almalinux:9" \
                     "almalinux:8" \
                     "amazonlinux:2023" \
-                    "quay.io/centos/centos:stream9" \
-                    "centos:7"; do
+                    "quay.io/centos/centos:stream9"; do
         if ! docker run \
                --platform linux/x86_64 \
                --rm \
@@ -544,7 +545,7 @@ test_python() {
     CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   fi
 
-  export PYARROW_PARALLEL=$NPROC
+  export CMAKE_BUILD_PARALLEL_LEVEL=$NPROC
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_HDFS=1
   export PYARROW_WITH_ORC=1

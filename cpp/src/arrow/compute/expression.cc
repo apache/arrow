@@ -47,7 +47,6 @@ namespace arrow {
 
 using internal::checked_cast;
 using internal::checked_pointer_cast;
-using internal::EndsWith;
 using internal::ToChars;
 
 namespace compute {
@@ -180,7 +179,7 @@ std::string Expression::ToString() const {
   }
 
   constexpr std::string_view kleene = "_kleene";
-  if (EndsWith(call->function_name, kleene)) {
+  if (call->function_name.ends_with(kleene)) {
     auto op = call->function_name.substr(0, call->function_name.size() - kleene.size());
     return binary(std::move(op));
   }

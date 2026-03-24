@@ -2358,15 +2358,7 @@ constexpr char kTimestampSecondsJson[] =
 constexpr char kTimestampExtremeJson[] =
     R"(["1677-09-20T00:00:59.123456", "2262-04-13T23:23:23.999999"])";
 
-class CastTimezone : public ::testing::Test {
- protected:
-  void SetUp() override {
-#ifdef _WIN32
-    // Initialize timezone database on Windows
-    ASSERT_OK(InitTestTimezoneDatabase());
-#endif
-  }
-};
+class CastTimezone : public ::testing::Test {};
 
 TEST(Cast, TimestampToDate) {
   // See scalar_temporal_test.cc
@@ -2595,6 +2587,11 @@ TEST(Cast, TimestampToTime) {
 }
 
 TEST_F(CastTimezone, ZonedTimestampToTime) {
+  // TODO(GH-48743): GCC libstdc++ has a bug with DST transitions
+  // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=116110
+#if defined(_WIN32) && defined(__GNUC__) && !defined(__clang__)
+  GTEST_SKIP() << "Test triggers GCC libstdc++ bug (GH-48743).";
+#endif
   CheckCast(ArrayFromJSON(timestamp(TimeUnit::NANO, "Pacific/Marquesas"), kTimestampJson),
             ArrayFromJSON(time64(TimeUnit::NANO), R"([
           52259123456789, 50003999999999, 56480001001001, 65000000000000,
@@ -3396,6 +3393,46 @@ TEST(Cast, StringToString) {
       CheckCast(ArrayFromJSON(from_type, long_input), ArrayFromJSON(to_type, long_input));
       CheckCast(ArrayFromJSON(from_type, combine_input),
                 ArrayFromJSON(to_type, combine_input));
+    }
+  }
+}
+
+TEST(Cast, StringToStringWithOffset) {
+  // GH-43660: Check casting String Arrays with nonzero offset
+  std::vector<int64_t> offsets = {3, 8, 10, 12};
+  std::vector<int64_t> lengths = {5, 2, 1, 0};
+
+  for (auto from_type : {utf8(), large_utf8()}) {
+    for (auto to_type : {utf8(), large_utf8()}) {
+      for (size_t i = 0; i < offsets.size(); ++i) {
+        auto offset = offsets[i];
+        auto length = lengths[i];
+
+        auto input_with_nulls = R"([
+          "foo", null, "bar", null, "quu", "foo", "baz", "bar",
+          null, "bar", "baz", null
+          ])";
+
+        auto input_arr_with_nulls = ArrayFromJSON(from_type, input_with_nulls);
+        auto output_arr_with_nulls = ArrayFromJSON(to_type, input_with_nulls);
+        CheckCast(input_arr_with_nulls->Slice(offset),
+                  output_arr_with_nulls->Slice(offset));
+        // Slice with length
+        CheckCast(input_arr_with_nulls->Slice(offset, length),
+                  output_arr_with_nulls->Slice(offset, length));
+
+        auto input_no_nulls = R"([
+            "foo", "aa", "bar", "bb", "quu", "foo", "baz", "bar",
+            "cc", "bar", "baz", "foo"
+            ])";
+
+        auto input_arr_no_nulls = ArrayFromJSON(from_type, input_no_nulls);
+        auto output_arr_no_nulls = ArrayFromJSON(to_type, input_no_nulls);
+        CheckCast(input_arr_no_nulls->Slice(offset), output_arr_no_nulls->Slice(offset));
+        // Slice with length
+        CheckCast(input_arr_no_nulls->Slice(offset, length),
+                  output_arr_no_nulls->Slice(offset, length));
+      }
     }
   }
 }

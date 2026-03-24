@@ -39,6 +39,8 @@ elif [ "`which yum`" ]; then
   PACKAGE_MANAGER=yum
 elif [ "`which zypper`" ]; then
   PACKAGE_MANAGER=zypper
+elif [ "`which apk`" ]; then
+  PACKAGE_MANAGER=apk
 else
   PACKAGE_MANAGER=apt-get
   apt-get update --allow-releaseinfo-change # flag needed for when debian version changes
@@ -49,8 +51,12 @@ fi
 R_CUSTOM_CCACHE=`echo $R_CUSTOM_CCACHE | tr '[:upper:]' '[:lower:]'`
 if [ ${R_CUSTOM_CCACHE} = "true" ]; then
   # install ccache
-  $PACKAGE_MANAGER install -y epel-release || true
-  $PACKAGE_MANAGER install -y ccache
+  if [ "$PACKAGE_MANAGER" = "apk" ]; then
+    $PACKAGE_MANAGER add ccache
+  else
+    $PACKAGE_MANAGER install -y epel-release || true
+    $PACKAGE_MANAGER install -y ccache
+  fi
 
   mkdir -p ~/.R
   echo "VER=
@@ -73,7 +79,11 @@ fi
 
 # Install rsync for bundling cpp source and curl to make sure it is installed on all images,
 # cmake is now a listed sys req.
-$PACKAGE_MANAGER install -y rsync cmake curl
+if [ "$PACKAGE_MANAGER" = "apk" ]; then
+  $PACKAGE_MANAGER add rsync cmake curl
+else
+  $PACKAGE_MANAGER install -y rsync cmake curl
+fi
 
 # Update clang version to latest available.
 # This is only for rhub/clang20. If we change the base image from rhub/clang20,

@@ -16,6 +16,7 @@
 // under the License.
 
 #include <cstring>
+#include <limits>
 #include "arrow/array/builder_nested.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/builder_time.h"
@@ -688,6 +689,17 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
   using ArrayType = typename TypeTraits<Type>::ArrayType;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
 
+  static Status ValidateCapacityForOffsetType(int64_t data_bytes) {
+    int64_t max_offset = static_cast<int64_t>(std::numeric_limits<OffsetType>::max());
+    if (data_bytes > max_offset) {
+      return Status::CapacityError("Result may exceed offset capacity for this type: ",
+                                   data_bytes, " > ", max_offset,
+                                   ". Convert inputs to a type that uses an int64 based "
+                                   "offset such as a large_string");
+    }
+    return Status::OK();
+  }
+
   // A - Array, S - Scalar, X = Array/Scalar
 
   // SXX
@@ -712,9 +724,13 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     const uint8_t* right_data = right.buffers[2].data;
 
     // allocate data buffer conservatively
-    int64_t data_buff_alloc = left_offsets[left.length] - left_offsets[0] +
-                              right_offsets[right.length] - right_offsets[0];
+    int64_t data_buff_alloc = (static_cast<int64_t>(left_offsets[left.length]) -
+                               static_cast<int64_t>(left_offsets[0])) +
+                              (static_cast<int64_t>(right_offsets[right.length]) -
+                               static_cast<int64_t>(right_offsets[0]));
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -743,11 +759,22 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       auto* out_data = out->array_data().get();
       auto offset_length = (cond.length + 1) * sizeof(OffsetType);
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
-      std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
+
+      if (right_offsets[0] == 0) {
+        std::memcpy(out_data->buffers[1]->mutable_data(), right_offsets, offset_length);
+      } else {
+        OffsetType base = right_offsets[0];
+        auto* out_offsets =
+            reinterpret_cast<OffsetType*>(out_data->buffers[1]->mutable_data());
+        for (int64_t i = 0; i <= cond.length; ++i) {
+          out_offsets[i] = right_offsets[i] - base;
+        }
+      }
 
       auto right_data_length = right_offsets[right.length] - right_offsets[0];
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(right_data_length));
-      std::memcpy(out_data->buffers[2]->mutable_data(), right_data, right_data_length);
+      std::memcpy(out_data->buffers[2]->mutable_data(), right_data + right_offsets[0],
+                  right_data_length);
       return Status::OK();
     }
 
@@ -758,6 +785,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc =
         left_size * cond.length + right_offsets[right.length] - right_offsets[0];
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -783,11 +812,22 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
       auto* out_data = out->array_data().get();
       auto offset_length = (cond.length + 1) * sizeof(OffsetType);
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[1], ctx->Allocate(offset_length));
-      std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
+
+      if (left_offsets[0] == 0) {
+        std::memcpy(out_data->buffers[1]->mutable_data(), left_offsets, offset_length);
+      } else {
+        OffsetType base = left_offsets[0];
+        auto* out_offsets =
+            reinterpret_cast<OffsetType*>(out_data->buffers[1]->mutable_data());
+        for (int64_t i = 0; i <= cond.length; ++i) {
+          out_offsets[i] = left_offsets[i] - base;
+        }
+      }
 
       auto left_data_length = left_offsets[left.length] - left_offsets[0];
       ARROW_ASSIGN_OR_RAISE(out_data->buffers[2], ctx->Allocate(left_data_length));
-      std::memcpy(out_data->buffers[2]->mutable_data(), left_data, left_data_length);
+      std::memcpy(out_data->buffers[2]->mutable_data(), left_data + left_offsets[0],
+                  left_data_length);
       return Status::OK();
     }
 
@@ -798,6 +838,8 @@ struct IfElseFunctor<Type, enable_if_base_binary<Type>> {
     int64_t data_buff_alloc =
         right_size * cond.length + left_offsets[left.length] - left_offsets[0];
 
+    // output a nicer error message if the heuristic overflows max capacity
+    ARROW_RETURN_NOT_OK(ValidateCapacityForOffsetType(data_buff_alloc));
     BuilderType builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(cond.length + 1));
     ARROW_RETURN_NOT_OK(builder.ReserveData(data_buff_alloc));
@@ -1768,7 +1810,6 @@ struct CaseWhenFunctor<Type, enable_if_base_binary<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1816,7 +1857,6 @@ struct CaseWhenFunctor<Type, enable_if_var_size_list<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1858,7 +1898,6 @@ struct CaseWhenFunctor<Type, enable_if_list_view<Type>> {
   using offset_type = typename Type::offset_type;
   using BuilderType = typename TypeTraits<Type>::BuilderType;
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1900,7 +1939,6 @@ Status ReserveNoData(ArrayBuilder*) { return Status::OK(); }
 template <>
 struct CaseWhenFunctor<MapType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1918,7 +1956,6 @@ struct CaseWhenFunctor<MapType> {
 template <>
 struct CaseWhenFunctor<StructType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1936,7 +1973,6 @@ struct CaseWhenFunctor<StructType> {
 template <>
 struct CaseWhenFunctor<FixedSizeListType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1964,7 +2000,6 @@ struct CaseWhenFunctor<FixedSizeListType> {
 template <typename Type>
 struct CaseWhenFunctor<Type, enable_if_union<Type>> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }
@@ -1978,7 +2013,6 @@ struct CaseWhenFunctor<Type, enable_if_union<Type>> {
 template <>
 struct CaseWhenFunctor<DictionaryType> {
   static Status Exec(KernelContext* ctx, const ExecSpan& batch, ExecResult* out) {
-    /// TODO(wesm): should this be a DCHECK? Or checked elsewhere
     if (batch[0].null_count() > 0) {
       return Status::Invalid("cond struct must not have outer nulls");
     }

@@ -29,7 +29,7 @@
 class ApacheArrow < Formula
   desc "Columnar in-memory analytics layer designed to accelerate big data"
   homepage "https://arrow.apache.org/"
-  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-23.0.0-SNAPSHOT/apache-arrow-23.0.0-SNAPSHOT.tar.gz"
+  url "https://www.apache.org/dyn/closer.lua?path=arrow/arrow-24.0.0-SNAPSHOT/apache-arrow-24.0.0-SNAPSHOT.tar.gz"
   sha256 "9948ddb6d4798b51552d0dca3252dd6e3a7d0f9702714fc6f5a1b59397ce1d28"
   license "Apache-2.0"
   head "https://github.com/apache/arrow.git", branch: "main"
@@ -121,7 +121,7 @@ class ApacheArrow < Formula
         return 0;
       }
     CPP
-    system ENV.cxx, "test.cpp", "-std=c++17", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
+    system ENV.cxx, "test.cpp", "-std=c++20", "-I#{include}", "-L#{lib}", "-larrow", "-o", "test"
     system "./test"
   end
 end

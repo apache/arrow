@@ -130,71 +130,53 @@ std::shared_ptr<parquet::arrow::FileReader> parquet___arrow___FileReader__OpenFi
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader) {
-  std::shared_ptr<arrow::Table> table;
-  auto result =
-      RunWithCapturedRIfPossibleVoid([&]() { return reader->ReadTable(&table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadTable(); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadTable2(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& column_indices) {
-  std::shared_ptr<arrow::Table> table;
-  auto result = RunWithCapturedRIfPossibleVoid(
-      [&]() { return reader->ReadTable(column_indices, &table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadTable(column_indices); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader, int i) {
-  std::shared_ptr<arrow::Table> table;
-  auto result =
-      RunWithCapturedRIfPossibleVoid([&]() { return reader->ReadRowGroup(i, &table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadRowGroup(i); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroup2(
     const std::shared_ptr<parquet::arrow::FileReader>& reader, int i,
     const std::vector<int>& column_indices) {
-  std::shared_ptr<arrow::Table> table;
-  auto result = RunWithCapturedRIfPossibleVoid(
-      [&]() { return reader->ReadRowGroup(i, column_indices, &table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadRowGroup(i, column_indices); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups1(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& row_groups) {
-  std::shared_ptr<arrow::Table> table;
-  auto result = RunWithCapturedRIfPossibleVoid(
-      [&]() { return reader->ReadRowGroups(row_groups, &table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadRowGroups(row_groups); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]
 std::shared_ptr<arrow::Table> parquet___arrow___FileReader__ReadRowGroups2(
     const std::shared_ptr<parquet::arrow::FileReader>& reader,
     const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
-  std::shared_ptr<arrow::Table> table;
-  auto result = RunWithCapturedRIfPossibleVoid(
-      [&]() { return reader->ReadRowGroups(row_groups, column_indices, &table); });
-
-  StopIfNotOk(result);
-  return table;
+  auto result = RunWithCapturedRIfPossible<std::shared_ptr<arrow::Table>>(
+      [&]() { return reader->ReadRowGroups(row_groups, column_indices); });
+  return ValueOrStop(result);
 }
 
 // [[parquet::export]]

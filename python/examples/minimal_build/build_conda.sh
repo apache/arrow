@@ -21,10 +21,10 @@ set -e
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
 
-HOME=
-MINICONDA=$HOME/miniconda-for-arrow
-LIBRARY_INSTALL_DIR=$HOME/local-libs
-CPP_BUILD_DIR=$HOME/arrow-cpp-build
+WORKDIR=${WORKDIR:-$HOME}
+MINICONDA=$WORKDIR/miniconda-for-arrow
+LIBRARY_INSTALL_DIR=$WORKDIR/local-libs
+CPP_BUILD_DIR=$WORKDIR/arrow-cpp-build
 ARROW_ROOT=/arrow
 PYTHON=3.10
 
@@ -94,11 +94,10 @@ pushd $ARROW_ROOT/python
 rm -rf build/  # remove any pesky preexisting build directory
 
 export CMAKE_PREFIX_PATH=${ARROW_HOME}${CMAKE_PREFIX_PATH:+:${CMAKE_PREFIX_PATH}}
-export PYARROW_BUILD_TYPE=Debug
-export PYARROW_CMAKE_GENERATOR=Ninja
+export CMAKE_GENERATOR=Ninja
 
 # Use the same command that we use on python_build.sh
-python -m pip install --no-deps --no-build-isolation -vv .
+python -m pip install --no-deps --no-build-isolation -vv -C cmake.build-type=Debug .
 popd
 
 pytest -vv -r s ${PYTEST_ARGS} --pyargs pyarrow

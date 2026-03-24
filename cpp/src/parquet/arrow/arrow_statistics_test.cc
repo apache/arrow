@@ -202,9 +202,9 @@ namespace {
 
   auto reader =
       ParquetFileReader::Open(std::make_shared<::arrow::io::BufferReader>(buffer));
-  std::unique_ptr<FileReader> file_reader;
-  ARROW_RETURN_NOT_OK(FileReader::Make(::arrow::default_memory_pool(), std::move(reader),
-                                       reader_properties, &file_reader));
+  ARROW_ASSIGN_OR_RAISE(auto file_reader,
+                        FileReader::Make(::arrow::default_memory_pool(),
+                                         std::move(reader), reader_properties));
   std::shared_ptr<::arrow::ChunkedArray> chunked_array;
   ARROW_RETURN_NOT_OK(file_reader->ReadColumn(0, &chunked_array));
   return chunked_array->chunk(0);

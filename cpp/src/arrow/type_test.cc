@@ -33,6 +33,7 @@
 #include "arrow/memory_pool.h"
 #include "arrow/table.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/testing/matchers.h"
 #include "arrow/testing/random.h"
 #include "arrow/testing/util.h"
 #include "arrow/type.h"
@@ -48,6 +49,29 @@ using internal::checked_pointer_cast;
 TEST(TestTypeId, AllTypeIds) {
   const auto all_ids = AllTypeIds();
   ASSERT_EQ(static_cast<int>(all_ids.size()), Type::MAX_ID);
+}
+
+TEST(TestTypeSingleton, ParameterFreeTypes) {
+  // Test successful cases - parameter-free types (sample a few)
+  std::vector<std::pair<Type::type, std::shared_ptr<DataType>>> cases = {
+      {Type::NA, null()},     {Type::BOOL, boolean()},  {Type::INT32, int32()},
+      {Type::STRING, utf8()}, {Type::DATE32, date32()},
+  };
+
+  for (const auto& test_case : cases) {
+    ARROW_SCOPED_TRACE("Testing type: ", internal::ToString(test_case.first));
+    auto result = type_singleton(test_case.first);
+    ASSERT_OK_AND_ASSIGN(auto type, result);
+    AssertTypeEqual(*type, *test_case.second);
+  }
+}
+
+TEST(TestTypeSingleton, ParameterizedTypes) {
+  // Test error cases - parameterized types (test one representative)
+  auto result = type_singleton(Type::TIMESTAMP);
+  ASSERT_RAISES(TypeError, result);
+  EXPECT_THAT(result.status().message(),
+              testing::HasSubstr("is not a parameter-free type"));
 }
 
 template <typename ReprFunc>
