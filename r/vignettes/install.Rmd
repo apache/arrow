@@ -37,6 +37,7 @@ Google Cloud Storage (GCS), and Azure--requires additional system dependencies:
 
 * CURL: install `libcurl-devel` (rpm) or `libcurl4-openssl-dev` (deb)
 * OpenSSL >= 3.0: install `openssl-devel` (rpm) or `libssl-dev` (deb)
+* libxml2 (Azure only): install `libxml2-devel` (rpm) or `libxml2-dev` (deb)
 
 The prebuilt binaries come with S3, GCS, and Azure support enabled, so you will need to meet these system requirements in order to use them. If you're building everything from source, the install script will check for the presence of these dependencies and turn off S3, GCS, and Azure support in the build if the prerequisites are not met--installation will succeed but without S3, GCS, or Azure functionality. If afterwards you install the missing system requirements, you'll need to reinstall the package in order to enable S3, GCS, and Azure support.
 
@@ -100,7 +101,7 @@ install.packages("arrow")
 This installs the source version of the R package, but during the installation process will check for compatible libarrow binaries that we host and use those if available. If no binary is available or can't be found, then this option falls back onto method 2 below (full source build), but setting the environment variable results in a more fully-featured build than default.
 
 The libarrow binaries include support for AWS S3, GCS, and Azure, so they require the
-libcurl and openssl libraries installed separately, as noted above.
+libcurl and openssl libraries installed separately (along with libxml2 for Azure), as noted above.
 If you don't have these installed, the libarrow binary won't be used, and you will fall back to the full source build (with S3, GCS, and Azure support disabled).
 
 If the internet access of your computer doesn't allow downloading the libarrow binaries (e.g. if access is limited to CRAN), you can first identify the right source and version by trying to install on the offline computer:
