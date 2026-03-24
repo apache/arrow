@@ -587,6 +587,16 @@ import pyarrow.parquet
     python -c "import pyarrow.cuda"
   fi
   if [ "${ARROW_FLIGHT}" == "ON" ]; then
+   python -c "
+import pyarrow
+print(pyarrow.__file__)
+import os, sysconfig
+ext = sysconfig.get_config_var('EXT_SUFFIX')
+flight_so = os.path.join(os.path.dirname(pyarrow.__file__), f'_flight{ext}')
+print('exists:', os.path.exists(flight_so))
+os.system(f'otool -L {flight_so}')
+os.system(f'otool -L {os.path.dirname(pyarrow.__file__)}/libarrow_flight.2400.dylib')
+"
     python -c "import pyarrow.flight"
   fi
   if [ "${ARROW_GANDIVA}" == "ON" ]; then
