@@ -38,17 +38,6 @@
 #define ARROW_R_DCHECK(EXPR)
 #endif
 
-#if (R_VERSION < R_Version(3, 5, 0))
-#define LOGICAL_RO(x) ((const int*)LOGICAL(x))
-#define INTEGER_RO(x) ((const int*)INTEGER(x))
-#define REAL_RO(x) ((const double*)REAL(x))
-#define COMPLEX_RO(x) ((const Rcomplex*)COMPLEX(x))
-#define STRING_PTR_RO(x) ((const SEXP*)STRING_PTR(x))
-#define RAW_RO(x) ((const Rbyte*)RAW(x))
-#define DATAPTR_RO(x) ((const void*)STRING_PTR(x))
-#define DATAPTR(x) (void*)STRING_PTR(x)
-#endif
-
 // R_altrep_class_name and R_altrep_class_package don't exist before R 4.6
 #if R_VERSION < R_Version(4, 6, 0)
 inline SEXP R_altrep_class_name(SEXP x) {
@@ -219,8 +208,12 @@ Pointer r6_to_pointer(SEXP self) {
     cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
   }
 
+#if R_VERSION >= R_Version(4, 5, 0)
+  SEXP xp = R_getVarEx(arrow::r::symbols::xp, self, FALSE, R_UnboundValue);
+#else
   SEXP xp = Rf_findVarInFrame(self, arrow::r::symbols::xp);
-  if (xp == R_NilValue) {
+#endif
+  if (xp == R_UnboundValue || xp == R_NilValue) {
     cpp11::stop("Invalid: self$`.:xp:.` is NULL");
   }
 
@@ -234,7 +227,11 @@ Pointer r6_to_pointer(SEXP self) {
 
 template <typename T>
 void r6_reset_pointer(SEXP r6) {
+#if R_VERSION >= R_Version(4, 5, 0)
+  SEXP xp = R_getVarEx(arrow::r::symbols::xp, r6, FALSE, R_UnboundValue);
+#else
   SEXP xp = Rf_findVarInFrame(r6, arrow::r::symbols::xp);
+#endif
   void* p = R_ExternalPtrAddr(xp);
   if (p != nullptr) {
     delete reinterpret_cast<const std::shared_ptr<T>*>(p);
