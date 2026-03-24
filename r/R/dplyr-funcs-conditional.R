@@ -38,7 +38,7 @@ parse_condition_formulas <- function(formulas, mask, fn) {
   # Process each formula: condition ~ value
   for (i in seq_len(n)) {
     f <- formulas[[i]]
-    if (!inherits(f, "formula")) {
+    if (!is_formula(f, lhs = TRUE)) {
       validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
     }
     # f[[2]] is LHS (logical condition), f[[3]] is RHS (value when TRUE)
@@ -95,7 +95,17 @@ parse_from_to_mapping <- function(x, from, to) {
       query[[i]] <- call_binding("is.na", x)
     } else if (length(from_i) > 1) {
       # Multiple values: use %in% to match any
-      query[[i]] <- call_binding("%in%", x, from_i)
+      # If NA is in the vector, also match NA using is.na()
+      if (any(is.na(from_i))) {
+        non_na_values <- from_i[!is.na(from_i)]
+        if (length(non_na_values) > 0) {
+          query[[i]] <- call_binding("%in%", x, non_na_values) | call_binding("is.na", x)
+        } else {
+          query[[i]] <- call_binding("is.na", x)
+        }
+      } else {
+        query[[i]] <- call_binding("%in%", x, from_i)
+      }
     } else {
       query[[i]] <- x == from_i
     }
@@ -123,7 +133,7 @@ parse_formula_mapping <- function(x, formulas, mask, fn) {
   value <- vector("list", n)
   for (i in seq_len(n)) {
     f <- formulas[[i]]
-    if (!inherits(f, "formula")) {
+    if (!is_formula(f, lhs = TRUE)) {
       validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
     }
     # f[[2]] is LHS (value to match), f[[3]] is RHS (replacement)
@@ -138,7 +148,17 @@ parse_formula_mapping <- function(x, formulas, mask, fn) {
       query[[i]] <- call_binding("is.na", x)
     } else if (!inherits(lhs, "Expression") && length(lhs) > 1) {
       # Vector LHS: c("a", "b") ~ "X" matches any value in the vector
-      query[[i]] <- call_binding("%in%", x, lhs)
+      # If NA is in the vector, also match NA using is.na()
+      if (any(is.na(lhs))) {
+        non_na_values <- lhs[!is.na(lhs)]
+        if (length(non_na_values) > 0) {
+          query[[i]] <- call_binding("%in%", x, non_na_values) | call_binding("is.na", x)
+        } else {
+          query[[i]] <- call_binding("is.na", x)
+        }
+      } else {
+        query[[i]] <- call_binding("%in%", x, lhs)
+      }
     } else {
       query[[i]] <- x == lhs
     }

@@ -640,6 +640,11 @@ test_that("replace_when()", {
     class = "validation_error"
   )
   expect_arrow_eval_error(
+    replace_when(int, ~ 100L),
+    "Each argument to replace_when\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
     replace_when(int, 0L ~ 100L),
     "Left side of each formula in replace_when\\(\\) must be a logical expression",
     class = "validation_error"
@@ -711,6 +716,22 @@ test_that("replace_values()", {
     tbl
   )
 
+  # multiple values on LHS including NA matches any including NA
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, c(NA, "a") ~ "matched")) |>
+      collect(),
+    tbl
+  )
+
+  # from/to with list containing NA matches NA too
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = list(c(NA, "a"), "b"), to = c("matched", "B"))) |>
+      collect(),
+    tbl
+  )
+
   # no replacements returns x unchanged
   compare_dplyr_binding(
     .input |>
@@ -722,6 +743,11 @@ test_that("replace_values()", {
   # validation errors
   expect_arrow_eval_error(
     replace_values(chr, "A"),
+    "Each argument to replace_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    replace_values(chr, ~ "A"),
     "Each argument to replace_values\\(\\) must be a two-sided formula",
     class = "validation_error"
   )
@@ -802,6 +828,11 @@ test_that("recode_values()", {
   )
   expect_arrow_eval_error(
     recode_values(chr, "A"),
+    "Each argument to recode_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, ~ "A"),
     "Each argument to recode_values\\(\\) must be a two-sided formula",
     class = "validation_error"
   )
