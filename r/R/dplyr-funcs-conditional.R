@@ -73,6 +73,9 @@ build_case_when_expr <- function(query, value) {
 # @param from Vector of values to match.
 # @param to Vector of replacement values (recycled to length of `from`).
 # @return list(query, value) for use with build_case_when_expr().
+# @examples
+# x_expr <- Expression$field_ref("x")
+# parse_from_to_mapping(x_expr, from = c("a", "b"), to = c("A", "B"))
 # @keywords internal
 parse_from_to_mapping <- function(x, from, to) {
   n <- length(from)
@@ -98,6 +101,10 @@ parse_from_to_mapping <- function(x, from, to) {
 # @param mask Data mask for evaluating formula expressions.
 # @param fn Calling function name (for error messages).
 # @return list(query, value) for use with build_case_when_expr().
+# @examples
+# x_expr <- Expression$field_ref("x")
+# mask <- rlang::new_data_mask(rlang::current_env())
+# parse_formula_mapping(x_expr, list("a" ~ "A", "b" ~ "B"), mask, "replace_values")
 # @keywords internal
 parse_formula_mapping <- function(x, formulas, mask, fn) {
   n <- length(formulas)
