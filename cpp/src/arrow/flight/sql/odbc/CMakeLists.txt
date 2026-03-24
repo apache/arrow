@@ -70,10 +70,8 @@ set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 if(WIN32)
   set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES arrow_flight_sql)
-  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared arrow_odbc_spi_impl)
+  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
   set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
-  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
-       ArrowFlight::arrow_flight_sql_shared)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
        ArrowFlight::arrow_flight_sql_static)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
@@ -135,15 +133,11 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   # GH-47876 TODO: set up `arrow_flight_sql_odbc` component for macOS Installer
   # GH-47877 TODO: set up `arrow_flight_sql_odbc` component for Linux Installer
   if(WIN32)
-    # Install ODBC and its Arrow dependencies
+    # Install ODBC driver
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
             DESTINATION bin
             COMPONENT arrow_flight_sql_odbc)
-    install(TARGETS arrow_shared
-                    arrow_compute_shared
-                    arrow_flight_shared
-                    arrow_flight_sql_shared
-                    arrow_flight_sql_odbc_shared
+    install(TARGETS arrow_flight_sql_odbc_shared
                     RUNTIME_DEPENDENCIES
                     PRE_EXCLUDE_REGEXES
                     "api-ms-.*"
