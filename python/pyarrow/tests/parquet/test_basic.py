@@ -655,12 +655,14 @@ def test_bloom_filter_options():
 
     # wrong type for ndv
     buf = io.BytesIO()
-    with pytest.raises(TypeError, match="'ndv' for column 'a' must be an int"):
+    expect = "'bloom_filter_options:ndv' for column 'a' must be an int"
+    with pytest.raises(TypeError, match=expect):
         _write_table(table, buf, bloom_filter_options={
                      'a': {'ndv': '100', 'fpp': 0.05}})
 
     # wrong type for fpp
-    with pytest.raises(TypeError, match="'fpp' for column 'a' must be a float"):
+    expect = "'bloom_filter_options:fpp' for column 'a' must be a float"
+    with pytest.raises(TypeError, match=expect):
         _write_table(table, buf, bloom_filter_options={
                      'a': {'ndv': 100, 'fpp': '0.05'}})
 
@@ -669,18 +671,19 @@ def test_bloom_filter_options():
         _write_table(table, buf, bloom_filter_options=True)
 
     # invalid ndv value
-    with pytest.raises(ValueError,
-                       match="'ndv' for column 'a' must be positive, got -10"):
+    expect = \
+        "'bloom_filter_options:ndv' for column 'a' must be greater than zero, got -10"
+    with pytest.raises(ValueError, match=expect):
         _write_table(table, buf, bloom_filter_options={
                      'a': {'ndv': -10}})
 
     # invalid fpp values
-    with pytest.raises(ValueError, match=re.escape(
-            "'fpp' for column 'a' must be in (0.0, 1,0), got 2.0")):
+    expect = "'bloom_filter_options:fpp' for column 'a' must be in (0.0, 1.0), got 2.0"
+    with pytest.raises(ValueError, match=re.escape(expect)):
         _write_table(table, buf, bloom_filter_options={
                      'a': {'fpp': 2.0}})
-    with pytest.raises(ValueError, match=re.escape(
-            "'fpp' for column 'a' must be in (0.0, 1,0), got -0.5")):
+    expect = "'bloom_filter_options:fpp' for column 'a' must be in (0.0, 1.0), got -0.5"
+    with pytest.raises(ValueError, match=re.escape(expect)):
         _write_table(table, buf, bloom_filter_options={
                      'a': {'fpp': -0.5}})
 
