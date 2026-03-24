@@ -663,6 +663,14 @@ test_that("replace_values()", {
     tbl
   )
 
+  # from/to with list of vectors - multiple values map to single replacement
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = list(c("a", "b"), "c"), to = c("AB", "C"))) |>
+      collect(),
+    tbl
+  )
+
   # unmatched values kept
   compare_dplyr_binding(
     .input |>
@@ -713,6 +721,11 @@ test_that("replace_values()", {
 
   # validation errors
   expect_arrow_eval_error(
+    replace_values(chr, "A"),
+    "Each argument to replace_values\\(\\) must be a two-sided formula",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
     replace_values(chr, "a" ~ "A", from = "b"),
     "Can't use both `...` and `from`/`to` in replace_values\\(\\)",
     class = "validation_error"
@@ -737,6 +750,14 @@ test_that("recode_values()", {
   compare_dplyr_binding(
     .input |>
       mutate(result = recode_values(chr, from = c("a", "b"), to = c("A", "B"))) |>
+      collect(),
+    tbl
+  )
+
+  # from/to with list of vectors - multiple values map to single replacement
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, from = list(c("a", "b"), "c"), to = c("AB", "C"))) |>
       collect(),
     tbl
   )
@@ -777,6 +798,11 @@ test_that("recode_values()", {
   expect_arrow_eval_error(
     recode_values(chr),
     "`\\.\\.\\.` can't be empty",
+    class = "validation_error"
+  )
+  expect_arrow_eval_error(
+    recode_values(chr, "A"),
+    "Each argument to recode_values\\(\\) must be a two-sided formula",
     class = "validation_error"
   )
   expect_arrow_eval_error(

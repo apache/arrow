@@ -89,11 +89,15 @@ parse_from_to_mapping <- function(x, from, to) {
   query <- vector("list", n)
   value <- vector("list", n)
   for (i in seq_len(n)) {
+    from_i <- from[[i]]
     # Handle NA specially: use is.na() since x == NA returns NA in Arrow
-    if (is.na(from[[i]])) {
+    if (length(from_i) == 1 && is.na(from_i)) {
       query[[i]] <- call_binding("is.na", x)
+    } else if (length(from_i) > 1) {
+      # Multiple values: use %in% to match any
+      query[[i]] <- call_binding("%in%", x, from_i)
     } else {
-      query[[i]] <- x == from[[i]]
+      query[[i]] <- x == from_i
     }
     value[[i]] <- Expression$scalar(to[[i]])
   }
