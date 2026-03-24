@@ -294,21 +294,22 @@ class ARROW_EXPORT ORCFileReader {
   /// \return A KeyValueMetadata object containing the ORC metadata
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
-  /// \brief Get file-level column statistics metadata.
+  /// \brief Get file-level metadata view.
   Result<FileMetaData> GetFileMetaData();
 
-  /// \brief Get stripe-level column statistics metadata.
+  /// \brief Build a schema manifest mapping Arrow fields to ORC column IDs.
   ///
-  /// \param[in] stripe_index the stripe index (0-based)
-  /// \return the stripe statistics container
-  Result<StripeMetaData> GetStripeMetaData(int64_t stripe_index);
+  /// Walks the ORC type tree paired with the Arrow schema to build a mapping
+  /// from Arrow field paths to ORC physical column indices, which are needed
+  /// for statistics lookup. ORC uses depth-first pre-order numbering where
+  /// column 0 is the root struct.
+  ///
+  /// \param[in] arrow_schema the Arrow schema (from ReadSchema())
+  /// \return the built manifest or an error
+  Result<std::shared_ptr<OrcSchemaManifest>> BuildSchemaManifest(
+      const std::shared_ptr<Schema>& arrow_schema) const;
 
   /// \brief Get the ORC type tree for column ID mapping.
-  ///
-  /// This is needed for building schema manifests that map Arrow schema fields
-  /// to ORC physical column indices. The ORC type tree uses depth-first pre-order
-  /// numbering where column 0 is the root struct, column 1 is the first top-level
-  /// field, etc.
   ///
   /// \return reference to the root ORC Type (STRUCT), owned by the reader.
   const ::orc::Type& GetORCType();

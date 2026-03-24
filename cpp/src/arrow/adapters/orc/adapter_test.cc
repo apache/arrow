@@ -341,26 +341,87 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
 Result<adapters::orc::Statistics> GetFileColumnStatistics(
     adapters::orc::ORCFileReader* reader, int column_index) {
   ARROW_ASSIGN_OR_RAISE(auto file_meta, reader->GetFileMetaData());
-  return file_meta.Column(column_index);
+  ARROW_ASSIGN_OR_RAISE(auto column_meta, file_meta.Column(column_index));
+  return column_meta.statistics();
 }
 
 Result<adapters::orc::Statistics> GetStripeColumnStatistics(
     adapters::orc::ORCFileReader* reader, int64_t stripe_index, int column_index) {
-  ARROW_ASSIGN_OR_RAISE(auto stripe_meta, reader->GetStripeMetaData(stripe_index));
-  return stripe_meta.Column(column_index);
+  ARROW_ASSIGN_OR_RAISE(auto file_meta, reader->GetFileMetaData());
+  ARROW_ASSIGN_OR_RAISE(auto stripe_meta, file_meta.Stripe(static_cast<int>(stripe_index)));
+  ARROW_ASSIGN_OR_RAISE(auto column_meta, stripe_meta.Column(column_index));
+  return column_meta.statistics();
 }
 
 Result<std::vector<adapters::orc::Statistics>> GetStripeColumnStatisticsBulk(
     adapters::orc::ORCFileReader* reader, int64_t stripe_index,
     const std::vector<int>& column_indices) {
-  ARROW_ASSIGN_OR_RAISE(auto stripe_meta, reader->GetStripeMetaData(stripe_index));
+  ARROW_ASSIGN_OR_RAISE(auto file_meta, reader->GetFileMetaData());
+  ARROW_ASSIGN_OR_RAISE(auto stripe_meta, file_meta.Stripe(static_cast<int>(stripe_index)));
   std::vector<adapters::orc::Statistics> stats;
   stats.reserve(column_indices.size());
   for (int column_index : column_indices) {
-    ARROW_ASSIGN_OR_RAISE(auto column_stats, stripe_meta.Column(column_index));
+    ARROW_ASSIGN_OR_RAISE(auto column_meta, stripe_meta.Column(column_index));
+    ARROW_ASSIGN_OR_RAISE(auto column_stats, column_meta.statistics());
     stats.push_back(std::move(column_stats));
   }
   return stats;
+}
+
+TEST(TestAdapterRead, FileMetaDataViewAccessors) {
+  MemoryOutputStream mem_stream(kDefaultMemStreamSize);
+  std::unique_ptr<liborc::Type> type(
+      liborc::Type::buildTypeFromString("struct<col1:int,col2:string>"));
+  constexpr uint64_t stripe_size = 1024;
+  constexpr uint64_t row_count = 256;
+
+  auto writer = CreateWriter(stripe_size, *type, &mem_stream);
+  auto batch = writer->createRowBatch(row_count);
+  auto struct_batch = internal::checked_cast<liborc::StructVectorBatch*>(batch.get());
+  auto long_batch =
+      internal::checked_cast<liborc::LongVectorBatch*>(struct_batch->fields[0]);
+  auto str_batch =
+      internal::checked_cast<liborc::StringVectorBatch*>(struct_batch->fields[1]);
+
+  std::string data_buffer(row_count * 5, '\0');
+  uint64_t offset = 0;
+  for (uint64_t i = 0; i < row_count; ++i) {
+    std::string str_data = std::to_string(i % 100);
+    long_batch->data[i] = static_cast<int64_t>(i);
+    str_batch->data[i] = &data_buffer[offset];
+    str_batch->length[i] = static_cast<int64_t>(str_data.size());
+    memcpy(&data_buffer[offset], str_data.c_str(), str_data.size());
+    offset += str_data.size();
+  }
+  struct_batch->numElements = row_count;
+  long_batch->numElements = row_count;
+  str_batch->numElements = row_count;
+  writer->add(*batch);
+  writer->close();
+
+  std::shared_ptr<io::RandomAccessFile> in_stream(new io::BufferReader(
+      std::make_shared<Buffer>(reinterpret_cast<const uint8_t*>(mem_stream.getData()),
+                               static_cast<int64_t>(mem_stream.getLength()))));
+  ASSERT_OK_AND_ASSIGN(auto reader,
+                       adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
+
+  ASSERT_OK_AND_ASSIGN(auto file_meta, reader->GetFileMetaData());
+  EXPECT_TRUE(file_meta.valid());
+  EXPECT_EQ(file_meta.num_stripes(), reader->NumberOfStripes());
+  EXPECT_EQ(file_meta.num_rows(), reader->NumberOfRows());
+  ASSERT_OK_AND_ASSIGN(auto metadata, file_meta.key_value_metadata());
+  ASSERT_NE(metadata, nullptr);
+  EXPECT_EQ(file_meta.schema_root().getKind(), liborc::STRUCT);
+
+  ASSERT_OK_AND_ASSIGN(auto stripe_meta, file_meta.Stripe(0));
+  EXPECT_TRUE(stripe_meta.valid());
+  EXPECT_EQ(stripe_meta.stripe_index(), 0);
+  EXPECT_GT(stripe_meta.num_rows(), 0);
+  ASSERT_OK_AND_ASSIGN(auto column_meta, stripe_meta.Column(1));
+  EXPECT_TRUE(column_meta.valid());
+  EXPECT_EQ(column_meta.column_index(), 1);
+  ASSERT_OK_AND_ASSIGN(auto column_stats, column_meta.statistics());
+  EXPECT_TRUE(column_stats.valid());
 }
 
 TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {

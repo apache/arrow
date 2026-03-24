@@ -218,7 +218,7 @@ class ORCFileReader::Impl {
     std::unique_ptr<liborc::Reader> liborc_reader;
     ORC_CATCH_NOT_OK(liborc_reader = createReader(std::move(io_wrapper), options));
     pool_ = pool;
-    reader_ = std::move(liborc_reader);
+    reader_ = std::shared_ptr<liborc::Reader>(liborc_reader.release());
     current_row_ = 0;
 
     return Init();
@@ -591,18 +591,7 @@ class ORCFileReader::Impl {
     ORC_BEGIN_CATCH_NOT_OK
     auto file_stats =
         std::shared_ptr<const liborc::Statistics>(reader_->getStatistics().release());
-    return FileMetaData(std::move(file_stats));
-    ORC_END_CATCH_NOT_OK
-  }
-
-  Result<StripeMetaData> GetStripeMetaData(int64_t stripe_index) {
-    ORC_BEGIN_CATCH_NOT_OK
-    if (stripe_index < 0 || stripe_index >= static_cast<int64_t>(stripes_.size())) {
-      return Status::Invalid("Stripe index ", stripe_index, " out of range");
-    }
-    auto stripe_stats = std::shared_ptr<const liborc::Statistics>(
-        reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index)).release());
-    return StripeMetaData(stripe_index, std::move(stripe_stats));
+    return FileMetaData(reader_, std::move(file_stats));
     ORC_END_CATCH_NOT_OK
   }
 
@@ -610,7 +599,7 @@ class ORCFileReader::Impl {
 
  private:
   MemoryPool* pool_;
-  std::unique_ptr<liborc::Reader> reader_;
+  std::shared_ptr<liborc::Reader> reader_;
   std::vector<StripeInformation> stripes_;
   int64_t current_row_;
 };
@@ -751,8 +740,10 @@ std::string ORCFileReader::GetSerializedFileTail() {
 
 Result<FileMetaData> ORCFileReader::GetFileMetaData() { return impl_->GetFileMetaData(); }
 
-Result<StripeMetaData> ORCFileReader::GetStripeMetaData(int64_t stripe_index) {
-  return impl_->GetStripeMetaData(stripe_index);
+const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }
+Result<std::shared_ptr<OrcSchemaManifest>> ORCFileReader::BuildSchemaManifest(
+    const std::shared_ptr<Schema>& arrow_schema) const {
+  return impl_->BuildSchemaManifest(arrow_schema);
 }
 
 const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }

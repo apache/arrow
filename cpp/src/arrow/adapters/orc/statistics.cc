@@ -24,6 +24,8 @@
 #include "arrow/type.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
+#include "arrow/util/key_value_metadata.h"
+#include "orc/Reader.hh"
 #include "orc/Statistics.hh"
 
 namespace liborc = orc;
@@ -48,9 +50,33 @@ int FileMetaData::num_columns() const {
   return static_cast<int>(file_statistics_->getNumberOfColumns());
 }
 
-Result<Statistics> FileMetaData::Column(int column_index) const {
+int FileMetaData::num_stripes() const {
+  return static_cast<int>(reader_->getNumberOfStripes());
+}
+
+int64_t FileMetaData::num_rows() const {
+  return static_cast<int64_t>(reader_->getNumberOfRows());
+}
+
+Result<StripeMetaData> FileMetaData::Stripe(int stripe_index) const {
   if (!valid()) {
-    return Status::Invalid("ORC file statistics are not initialized");
+    return Status::Invalid("ORC file metadata is not initialized");
+  }
+  if (stripe_index < 0 || stripe_index >= num_stripes()) {
+    return Status::Invalid("Stripe index ", stripe_index, " out of range [0, ",
+                           num_stripes(), ")");
+  }
+
+  auto stripe_stats = std::shared_ptr<const liborc::Statistics>(
+      reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index)).release());
+  auto stripe_info = reader_->getStripe(static_cast<uint64_t>(stripe_index));
+  return StripeMetaData(stripe_index, static_cast<int64_t>(stripe_info->getNumberOfRows()),
+                        std::move(stripe_stats));
+}
+
+Result<ColumnMetaData> FileMetaData::Column(int column_index) const {
+  if (!valid()) {
+    return Status::Invalid("ORC file metadata is not initialized");
   }
   if (column_index < 0 || static_cast<uint32_t>(column_index) >=
                               file_statistics_->getNumberOfColumns()) {
@@ -60,16 +86,38 @@ Result<Statistics> FileMetaData::Column(int column_index) const {
 
   const liborc::ColumnStatistics* col_stats =
       file_statistics_->getColumnStatistics(static_cast<uint32_t>(column_index));
-  return Statistics(file_statistics_, col_stats);
+  return ColumnMetaData(column_index, Statistics(file_statistics_, col_stats));
+}
+
+Result<std::shared_ptr<const KeyValueMetadata>> FileMetaData::key_value_metadata() const {
+  if (!valid()) {
+    return Status::Invalid("ORC file metadata is not initialized");
+  }
+
+  auto metadata = std::make_shared<KeyValueMetadata>();
+  const std::list<std::string> keys = reader_->getMetadataKeys();
+  for (const auto& key : keys) {
+    metadata->Append(key, reader_->getMetadataValue(key));
+  }
+  return std::const_pointer_cast<const KeyValueMetadata>(metadata);
+}
+
+const ::orc::Type& FileMetaData::schema_root() const { return reader_->getType(); }
+
+Result<Statistics> ColumnMetaData::statistics() const {
+  if (!valid()) {
+    return Status::Invalid("ORC column metadata is not initialized");
+  }
+  return statistics_;
 }
 
 int StripeMetaData::num_columns() const {
   return static_cast<int>(stripe_statistics_->getNumberOfColumns());
 }
 
-Result<Statistics> StripeMetaData::Column(int column_index) const {
+Result<ColumnMetaData> StripeMetaData::Column(int column_index) const {
   if (!valid()) {
-    return Status::Invalid("ORC stripe statistics are not initialized");
+    return Status::Invalid("ORC stripe metadata is not initialized");
   }
   if (column_index < 0 || static_cast<uint32_t>(column_index) >=
                               stripe_statistics_->getNumberOfColumns()) {
@@ -79,7 +127,7 @@ Result<Statistics> StripeMetaData::Column(int column_index) const {
 
   const liborc::ColumnStatistics* col_stats =
       stripe_statistics_->getColumnStatistics(static_cast<uint32_t>(column_index));
-  return Statistics(stripe_statistics_, col_stats);
+  return ColumnMetaData(column_index, Statistics(stripe_statistics_, col_stats));
 }
 
 std::optional<int64_t> Statistics::null_count() const {

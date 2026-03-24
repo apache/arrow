@@ -32,16 +32,22 @@ class DateColumnStatistics;
 class DecimalColumnStatistics;
 class DoubleColumnStatistics;
 class IntegerColumnStatistics;
+class Reader;
 class Statistics;
 class StringColumnStatistics;
 class TimestampColumnStatistics;
+class Type;
 }  // namespace orc
 
 namespace arrow {
+class KeyValueMetadata;
+
 namespace adapters {
 namespace orc {
 
 class Statistics;
+class ColumnMetaData;
+class StripeMetaData;
 
 /// \brief Scalar materialization of ORC column statistics.
 struct ARROW_EXPORT ColumnStatisticsAsScalars {
@@ -57,36 +63,48 @@ struct ARROW_EXPORT ColumnStatisticsAsScalars {
   std::shared_ptr<Scalar> max;
 };
 
-/// \brief File-level ORC column statistics container.
+/// \brief File-level ORC metadata container.
 class ARROW_EXPORT FileMetaData {
  public:
   FileMetaData() = default;
-  explicit FileMetaData(std::shared_ptr<const ::orc::Statistics> file_statistics)
-      : file_statistics_(std::move(file_statistics)) {}
+  FileMetaData(std::shared_ptr<const ::orc::Reader> reader,
+               std::shared_ptr<const ::orc::Statistics> file_statistics)
+      : reader_(std::move(reader)), file_statistics_(std::move(file_statistics)) {}
 
-  bool valid() const { return file_statistics_ != nullptr; }
+  bool valid() const { return reader_ != nullptr && file_statistics_ != nullptr; }
   int num_columns() const;
-  Result<Statistics> Column(int column_index) const;
+  int num_stripes() const;
+  int64_t num_rows() const;
+  Result<StripeMetaData> Stripe(int stripe_index) const;
+  Result<ColumnMetaData> Column(int column_index) const;
+  Result<std::shared_ptr<const KeyValueMetadata>> key_value_metadata() const;
+  const ::orc::Type& schema_root() const;
 
  private:
+  std::shared_ptr<const ::orc::Reader> reader_;
   std::shared_ptr<const ::orc::Statistics> file_statistics_;
 };
 
-/// \brief Stripe-level ORC column statistics container.
+/// \brief Stripe-level ORC metadata container.
 class ARROW_EXPORT StripeMetaData {
  public:
   StripeMetaData() = default;
   StripeMetaData(int64_t stripe_index,
+                 int64_t num_rows,
                  std::shared_ptr<const ::orc::Statistics> stripe_statistics)
-      : stripe_index_(stripe_index), stripe_statistics_(std::move(stripe_statistics)) {}
+      : stripe_index_(stripe_index),
+        num_rows_(num_rows),
+        stripe_statistics_(std::move(stripe_statistics)) {}
 
   bool valid() const { return stripe_statistics_ != nullptr; }
   int64_t stripe_index() const { return stripe_index_; }
+  int64_t num_rows() const { return num_rows_; }
   int num_columns() const;
-  Result<Statistics> Column(int column_index) const;
+  Result<ColumnMetaData> Column(int column_index) const;
 
  private:
   int64_t stripe_index_ = -1;
+  int64_t num_rows_ = 0;
   std::shared_ptr<const ::orc::Statistics> stripe_statistics_;
 };
 
@@ -120,6 +138,22 @@ class ARROW_EXPORT Statistics {
  private:
   std::shared_ptr<const ::orc::Statistics> owner_;
   const ::orc::ColumnStatistics* column_statistics_ = nullptr;
+};
+
+/// \brief Column-level metadata container exposing statistics.
+class ARROW_EXPORT ColumnMetaData {
+ public:
+  ColumnMetaData() = default;
+  ColumnMetaData(int column_index, Statistics statistics)
+      : column_index_(column_index), statistics_(std::move(statistics)) {}
+
+  bool valid() const { return statistics_.valid(); }
+  int column_index() const { return column_index_; }
+  Result<Statistics> statistics() const;
+
+ private:
+  int column_index_ = -1;
+  Statistics statistics_;
 };
 
 ARROW_EXPORT Result<ColumnStatisticsAsScalars> StatisticsAsScalars(
