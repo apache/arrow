@@ -215,12 +215,10 @@ register_bindings_conditional <- function() {
 
       parsed <- parse_value_mapping(x, list2(...), from, to, caller_env(), "recode_values")
       if (is.null(parsed)) {
-        query <- list()
-        value <- list()
-      } else {
-        query <- parsed$query
-        value <- parsed$value
+        validation_error("`...` can't be empty")
       }
+      query <- parsed$query
+      value <- parsed$value
 
       if (!is.null(default)) {
         n <- length(query)
