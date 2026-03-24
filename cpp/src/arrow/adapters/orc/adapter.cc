@@ -746,8 +746,6 @@ Result<std::shared_ptr<OrcSchemaManifest>> ORCFileReader::BuildSchemaManifest(
   return impl_->BuildSchemaManifest(arrow_schema);
 }
 
-const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }
-
 namespace {
 
 class ArrowOutputStream : public liborc::OutputStream {
