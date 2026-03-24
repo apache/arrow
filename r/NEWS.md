@@ -17,9 +17,17 @@
   under the License.
 -->
 
+# arrow 23.0.1.2
+
+## Minor improvements and fixes
+
+- Update use of internal function for non-API call CRAN requirements (#49530)
+
 # arrow 23.0.1.1
 
-- More robust against malignant libtools
+## Minor improvements and fixes
+
+- Refine checks for ensuring building with macOS libtool instead of GNU libtool (#49370)
 
 # arrow 23.0.1
 
