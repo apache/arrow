@@ -93,21 +93,21 @@ build_case_when_expr <- function(query, value) {
 #' mask <- rlang::new_data_mask(rlang::current_env())
 #'
 #' # Formula interface
-#' parse_value_mapping(x_expr, list("a" ~ "A", "b" ~ "B"), NULL, NULL,
-#'                     mask, "replace_values")
+#' parse_value_mapping(x_expr, list("a" ~ "A", "b" ~ "B"), mask = mask,
+#'                     fn = "replace_values")
 #'
 #' # from/to interface
-#' parse_value_mapping(x_expr, list(), c("a", "b"), c("A", "B"),
-#'                     mask, "replace_values")
+#' parse_value_mapping(x_expr, from = c("a", "b"), to = c("A", "B"),
+#'                     mask = mask, fn = "replace_values")
 #'
 #' # NA matching uses is.na() internally
-#' parse_value_mapping(x_expr, list(NA ~ "missing"), NULL, NULL,
-#'                     mask, "replace_values")
+#' parse_value_mapping(x_expr, list(NA ~ "missing"), mask = mask,
+#'                     fn = "replace_values")
 #' }
 #'
 #' @keywords internal
 #' @noRd
-parse_value_mapping <- function(x, formulas, from, to, mask, fn) {
+parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, mask, fn) {
   # Mutually exclusive interfaces
   if (length(formulas) > 0 && !is.null(from)) {
     validation_error(paste0("Can't use both `...` and `from`/`to` in ", fn, "()"))
