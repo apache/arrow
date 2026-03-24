@@ -107,6 +107,54 @@ build_case_when_expr <- function(query, value) {
 #'
 #' @keywords internal
 #' @noRd
+# Build query/value lists from parallel from/to vectors.
+# NA values in `from` use is.na() for matching.
+parse_from_to_mapping <- function(x, from, to) {
+  n <- length(from)
+  to <- vctrs::vec_recycle(to, n)
+  query <- vector("list", n)
+  value <- vector("list", n)
+  for (i in seq_len(n)) {
+    # Handle NA specially: use is.na() since x == NA returns NA in Arrow
+    if (is.na(from[[i]])) {
+      query[[i]] <- call_binding("is.na", x)
+    } else {
+      query[[i]] <- x == from[[i]]
+    }
+    value[[i]] <- Expression$scalar(to[[i]])
+  }
+  list(query = query, value = value)
+}
+
+# Build query/value lists from value ~ replacement formulas.
+# NA values on LHS use is.na() for matching.
+parse_formula_mapping <- function(x, formulas, mask, fn) {
+  n <- length(formulas)
+  query <- vector("list", n)
+  value <- vector("list", n)
+  for (i in seq_len(n)) {
+    f <- formulas[[i]]
+    if (!inherits(f, "formula")) {
+      validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
+    }
+    # f[[2]] is LHS (value to match), f[[3]] is RHS (replacement)
+    lhs <- arrow_eval(f[[2]], mask)
+    rhs <- arrow_eval(f[[3]], mask)
+    # Handle NA specially: use is.na() since x == NA returns NA in Arrow
+    if (inherits(lhs, "Expression") && lhs$type_id() == Type[["NA"]]) {
+      # NA evaluated to an Arrow NA Expression
+      query[[i]] <- call_binding("is.na", x)
+    } else if (!inherits(lhs, "Expression") && is.na(lhs)) {
+      # NA is a bare R value
+      query[[i]] <- call_binding("is.na", x)
+    } else {
+      query[[i]] <- x == lhs
+    }
+    value[[i]] <- rhs
+  }
+  list(query = query, value = value)
+}
+
 parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, mask, fn) {
   # Mutually exclusive interfaces
   if (length(formulas) > 0 && !is.null(from)) {
@@ -114,50 +162,12 @@ parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, ma
   }
 
   if (length(formulas) > 0) {
-    # Formula interface: "a" ~ "A", "b" ~ "B"
-    n <- length(formulas)
-    query <- vector("list", n)
-    value <- vector("list", n)
-    for (i in seq_len(n)) {
-      f <- formulas[[i]]
-      if (!inherits(f, "formula")) {
-        validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
-      }
-      # f[[2]] is LHS (value to match), f[[3]] is RHS (replacement)
-      lhs <- arrow_eval(f[[2]], mask)
-      rhs <- arrow_eval(f[[3]], mask)
-      # Handle NA specially: use is.na() since x == NA returns NA in Arrow
-      if (inherits(lhs, "Expression") && lhs$type_id() == Type[["NA"]]) {
-        # NA evaluated to an Arrow NA Expression
-        query[[i]] <- call_binding("is.na", x)
-      } else if (!inherits(lhs, "Expression") && is.na(lhs)) {
-        # NA is a bare R value
-        query[[i]] <- call_binding("is.na", x)
-      } else {
-        query[[i]] <- x == lhs
-      }
-      value[[i]] <- rhs
-    }
-    list(query = query, value = value)
+    parse_formula_mapping(x, formulas, mask, fn)
   } else if (!is.null(from)) {
-    # from/to interface: from = c("a", "b"), to = c("A", "B")
     if (is.null(to)) {
       validation_error("`to` must be provided when using `from`")
     }
-    n <- length(from)
-    to <- vctrs::vec_recycle(to, n)
-    query <- vector("list", n)
-    value <- vector("list", n)
-    for (i in seq_len(n)) {
-      # Handle NA specially: use is.na() since x == NA returns NA in Arrow
-      if (is.na(from[[i]])) {
-        query[[i]] <- call_binding("is.na", x)
-      } else {
-        query[[i]] <- x == from[[i]]
-      }
-      value[[i]] <- Expression$scalar(to[[i]])
-    }
-    list(query = query, value = value)
+    parse_from_to_mapping(x, from, to)
   } else {
     # No mappings provided
     NULL
