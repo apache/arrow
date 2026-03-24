@@ -917,12 +917,15 @@ with_cloud_support <- function(env_var_list) {
       arrow_s3 <- FALSE
       arrow_gcs <- FALSE
       arrow_azure <- FALSE
+    } else if (!cmake_find_package("libxml2", NULL, env_var_list)) {
+      print_warning("requires libxml2-devel (rpm), or libxml2-dev (deb), libxml2 (brew)")
+      arrow_azure <- FALSE
     }
   }
 
   # Update the build flags
   env_var_list <- replace(env_var_list, "ARROW_S3", ifelse(arrow_s3, "ON", "OFF"))
-  replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
+  env_var_list <- replace(env_var_list, "ARROW_GCS", ifelse(arrow_gcs, "ON", "OFF"))
   replace(env_var_list, "ARROW_AZURE", ifelse(arrow_azure, "ON", "OFF"))
 }
 

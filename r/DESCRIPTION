@@ -28,7 +28,8 @@ URL: https://github.com/apache/arrow/, https://arrow.apache.org/docs/r/
 BugReports: https://github.com/apache/arrow/issues
 Encoding: UTF-8
 Language: en-US
-SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl (optional);
+SystemRequirements: C++20; for AWS S3 support on Linux, libcurl and openssl, and
+    libxml2 for Azure (optional);
     cmake >= 3.26 (build-time only, and only for full source build)
 Biarch: true
 Imports:
