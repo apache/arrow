@@ -572,6 +572,8 @@ test_python() {
   # Build pyarrow
   python -m pip install --no-build-isolation .
 
+  popd
+
   # Check mandatory and optional imports
   python -c "
 import pyarrow
@@ -611,12 +613,10 @@ os.system(f'otool -L {os.path.dirname(pyarrow.__file__)}/libarrow_flight.2400.dy
 
 
   # Install test dependencies
-  pip install -r requirements-test.txt
+  pip install -r python/requirements-test.txt
 
   # Execute pyarrow unittests
-  pytest pyarrow -v
-
-  popd
+  pytest --pyargs pyarrow -v
 }
 
 test_glib() {
