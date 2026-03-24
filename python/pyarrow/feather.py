@@ -18,6 +18,7 @@
 
 from collections.abc import Sequence
 import os
+import warnings
 
 from pyarrow.pandas_compat import _pandas_api  # noqa
 from pyarrow.lib import (Codec, Table,  # noqa
@@ -31,6 +32,9 @@ class FeatherDataset:
     """
     Encapsulates details of reading a list of Feather files.
 
+    .. deprecated:: 24.0.0
+       Use :func:`pyarrow.dataset.dataset` with ``format='ipc'`` instead.
+
     Parameters
     ----------
     path_or_paths : List[str]
@@ -40,6 +44,12 @@ class FeatherDataset:
     """
 
     def __init__(self, path_or_paths, validate_schema=True):
+        warnings.warn(
+            "pyarrow.feather.FeatherDataset is deprecated as of 24.0.0. "
+            "Use pyarrow.dataset.dataset() with format='ipc' instead.",
+            FutureWarning,
+            stacklevel=2
+        )
         self.paths = path_or_paths
         self.validate_schema = validate_schema
 
@@ -57,12 +67,12 @@ class FeatherDataset:
         pyarrow.Table
             Content of the file as a table (of columns)
         """
-        _fil = read_table(self.paths[0], columns=columns)
+        _fil = _read_table_internal(self.paths[0], columns=columns)
         self._tables = [_fil]
         self.schema = _fil.schema
 
         for path in self.paths[1:]:
-            table = read_table(path, columns=columns)
+            table = _read_table_internal(path, columns=columns)
             if self.validate_schema:
                 self.validate_schemas(path, table)
             self._tables.append(table)
@@ -117,6 +127,11 @@ def write_feather(df, dest, compression=None, compression_level=None,
     """
     Write a pandas.DataFrame to Feather format.
 
+    .. deprecated:: 24.0.0
+       Use :func:`pyarrow.ipc.new_file` /
+       :class:`pyarrow.ipc.RecordBatchFileWriter` instead.
+       Feather V2 is the Arrow IPC file format.
+
     Parameters
     ----------
     df : pandas.DataFrame or pyarrow.Table
@@ -137,6 +152,13 @@ def write_feather(df, dest, compression=None, compression_level=None,
         Feather file version. Version 2 is the current. Version 1 is the more
         limited legacy format
     """
+    warnings.warn(
+        "pyarrow.feather.write_feather is deprecated as of 24.0.0. "
+        "Use pyarrow.ipc.new_file() / RecordBatchFileWriter instead. "
+        "Feather V2 is the Arrow IPC file format.",
+        FutureWarning,
+        stacklevel=2
+    )
     if _pandas_api.have_pandas:
         if (_pandas_api.has_sparse and
                 isinstance(df, _pandas_api.pd.SparseDataFrame)):
@@ -201,6 +223,11 @@ def read_feather(source, columns=None, use_threads=True,
     Read a pandas.DataFrame from Feather format. To read as pyarrow.Table use
     feather.read_table.
 
+    .. deprecated:: 24.0.0
+       Use :func:`pyarrow.ipc.open_file` /
+       :class:`pyarrow.ipc.RecordBatchFileReader` instead.
+       Feather V2 is the Arrow IPC file format.
+
     Parameters
     ----------
     source : str file path, or file-like object
@@ -222,31 +249,23 @@ def read_feather(source, columns=None, use_threads=True,
     df : pandas.DataFrame
         The contents of the Feather file as a pandas.DataFrame
     """
-    return (read_table(
+    warnings.warn(
+        "pyarrow.feather.read_feather is deprecated as of 24.0.0. "
+        "Use pyarrow.ipc.open_file() / RecordBatchFileReader instead. "
+        "Feather V2 is the Arrow IPC file format.",
+        FutureWarning,
+        stacklevel=2
+    )
+    return (_read_table_internal(
         source, columns=columns, memory_map=memory_map,
         use_threads=use_threads).to_pandas(use_threads=use_threads, **kwargs))
 
 
-def read_table(source, columns=None, memory_map=False, use_threads=True):
+def _read_table_internal(source, columns=None, memory_map=False,
+                         use_threads=True):
     """
-    Read a pyarrow.Table from Feather format
-
-    Parameters
-    ----------
-    source : str file path, or file-like object
-        You can use MemoryMappedFile as source, for explicitly use memory map.
-    columns : sequence, optional
-        Only read a specific set of columns. If not provided, all columns are
-        read.
-    memory_map : boolean, default False
-        Use memory mapping when opening file on disk, when source is a str
-    use_threads : bool, default True
-        Whether to parallelize reading using multiple threads.
-
-    Returns
-    -------
-    table : pyarrow.Table
-        The contents of the Feather file as a pyarrow.Table
+    Internal implementation for reading a Feather file as a pyarrow.Table.
+    Does not emit deprecation warnings.
     """
     reader = _feather.FeatherReader(
         source, use_memory_map=memory_map, use_threads=use_threads)
@@ -277,3 +296,41 @@ def read_table(source, columns=None, memory_map=False, use_threads=True):
     else:
         # follow exact order / selection of names
         return table.select(columns)
+
+
+def read_table(source, columns=None, memory_map=False, use_threads=True):
+    """
+    Read a pyarrow.Table from Feather format
+
+    .. deprecated:: 24.0.0
+       Use :func:`pyarrow.ipc.open_file` /
+       :class:`pyarrow.ipc.RecordBatchFileReader` instead.
+       Feather V2 is the Arrow IPC file format.
+
+    Parameters
+    ----------
+    source : str file path, or file-like object
+        You can use MemoryMappedFile as source, for explicitly use memory map.
+    columns : sequence, optional
+        Only read a specific set of columns. If not provided, all columns are
+        read.
+    memory_map : boolean, default False
+        Use memory mapping when opening file on disk, when source is a str
+    use_threads : bool, default True
+        Whether to parallelize reading using multiple threads.
+
+    Returns
+    -------
+    table : pyarrow.Table
+        The contents of the Feather file as a pyarrow.Table
+    """
+    warnings.warn(
+        "pyarrow.feather.read_table is deprecated as of 24.0.0. "
+        "Use pyarrow.ipc.open_file() / RecordBatchFileReader instead. "
+        "Feather V2 is the Arrow IPC file format.",
+        FutureWarning,
+        stacklevel=2
+    )
+    return _read_table_internal(source, columns=columns,
+                                memory_map=memory_map,
+                                use_threads=use_threads)

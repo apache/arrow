@@ -22,6 +22,10 @@
 Feather File Format
 ===================
 
+.. deprecated:: 24.0.0
+   The ``pyarrow.feather`` module is deprecated. Feather V2 is the Arrow IPC
+   file format. Use :mod:`pyarrow.ipc` instead. See :ref:`ipc` for details.
+
 Feather is a portable file format for storing Arrow tables or data frames (from
 languages like Python or R) that utilizes the :ref:`Arrow IPC format <ipc>`
 internally. Feather was created early in the Arrow project as a proof of
@@ -107,3 +111,27 @@ Writing Version 1 (V1) Files
 For compatibility with libraries without support for Version 2 files, you can
 write the version 1 format by passing ``version=1`` to ``write_feather``. We
 intend to maintain read support for V1 for the foreseeable future.
+
+Migration to IPC
+----------------
+
+Since Feather V2 is the Arrow IPC file format, you can use the
+:mod:`pyarrow.ipc` module as a direct replacement:
+
+.. code-block:: python
+
+   import pyarrow as pa
+   import pyarrow.ipc
+
+   table = pa.table({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
+
+   # Writing (replaces feather.write_feather)
+   with pa.ipc.new_file("data.arrow", table.schema) as writer:
+       writer.write_table(table)
+
+   # Reading (replaces feather.read_table)
+   with pa.ipc.open_file("data.arrow") as reader:
+       result = reader.read_all()
+
+For reading multiple files, use the :mod:`pyarrow.dataset` module with
+``format='ipc'`` instead of :class:`~pyarrow.feather.FeatherDataset`.

@@ -19,6 +19,7 @@ import io
 import os
 import sys
 import tempfile
+import warnings
 import pytest
 import hypothesis as h
 import hypothesis.strategies as st
@@ -39,6 +40,12 @@ try:
     import pyarrow.pandas_compat
 except ImportError:
     pass
+
+# Suppress deprecation warnings for existing tests since pyarrow.feather
+# is deprecated as of 24.0.0
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:pyarrow.feather:FutureWarning"
+)
 
 
 @pytest.fixture(scope='module')
@@ -882,3 +889,58 @@ def test_feather_datetime_resolution_arrow_to_pandas(tempdir):
 
     assert expected_0 == result['date'][0]
     assert expected_1 == result['date'][1]
+
+
+# --- Deprecation warning tests ---
+
+@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+def test_write_feather_deprecated():
+    table = pa.table({"a": [1, 2, 3]})
+    with pytest.warns(FutureWarning, match="write_feather is deprecated"):
+        write_feather(table, random_path())
+
+
+@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+def test_read_table_deprecated(tempdir):
+    table = pa.table({"a": [1, 2, 3]})
+    path = str(tempdir / "test.feather")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        write_feather(table, path)
+    with pytest.warns(FutureWarning, match="read_table is deprecated"):
+        read_table(path)
+
+
+@pytest.mark.pandas
+@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+def test_read_feather_deprecated(tempdir):
+    table = pa.table({"a": [1, 2, 3]})
+    path = str(tempdir / "test.feather")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        write_feather(table, path)
+    with pytest.warns(FutureWarning, match="read_feather is deprecated"):
+        read_feather(path)
+
+
+@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+def test_feather_dataset_deprecated():
+    with pytest.warns(FutureWarning, match="FeatherDataset is deprecated"):
+        FeatherDataset([])
+
+
+@pytest.mark.pandas
+@pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
+def test_read_feather_no_double_warning(tempdir):
+    """Verify read_feather emits exactly one FutureWarning, not two."""
+    table = pa.table({"a": [1, 2, 3]})
+    path = str(tempdir / "test.feather")
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        write_feather(table, path)
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        read_feather(path)
+        future_warnings = [x for x in w if issubclass(x.category,
+                                                      FutureWarning)]
+        assert len(future_warnings) == 1
