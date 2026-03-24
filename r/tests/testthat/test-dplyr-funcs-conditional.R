@@ -617,6 +617,14 @@ test_that("replace_when()", {
     tbl
   )
 
+  # overlapping conditions - first match wins
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, int > 3 ~ 100L, int > 5 ~ 200L)) |>
+      collect(),
+    tbl
+  )
+
   # no formulas returns x unchanged
   compare_dplyr_binding(
     .input |>
@@ -663,6 +671,14 @@ test_that("replace_values()", {
     tbl
   )
 
+  # works with numeric values
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(int, 1L ~ 100L, 2L ~ 200L)) |>
+      collect(),
+    tbl
+  )
+
   # no replacements returns x unchanged
   compare_dplyr_binding(
     .input |>
@@ -705,6 +721,22 @@ test_that("recode_values()", {
   compare_dplyr_binding(
     .input |>
       mutate(result = recode_values(chr, "a" ~ "A", default = "other")) |>
+      collect(),
+    tbl
+  )
+
+  # works with numeric values
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(int, 1L ~ 100L, 2L ~ 200L)) |>
+      collect(),
+    tbl
+  )
+
+  # NA input with default - NA also becomes default
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = recode_values(chr, "a" ~ "A", "b" ~ "B", default = "other")) |>
       collect(),
     tbl
   )
