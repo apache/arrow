@@ -15,7 +15,155 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# nolint start: cyclocomp_linter.
+#' Parse logical condition formulas
+#'
+#' Converts condition ~ value formulas into Arrow expressions. Unlike
+#' [parse_value_mapping()], the LHS must be a logical expression (not a value
+#' to match against).
+#'
+#' @param formulas A list of two-sided formulas where LHS is a logical condition
+#'   and RHS is the value to use when TRUE (e.g., `x > 5 ~ "high"`).
+#' @param mask The data mask for evaluating formula expressions.
+#' @param fn Name of the calling function (for error messages).
+#'
+#' @return A list with `query` (list of logical expressions) and `value`
+#'   (list of replacement expressions).
+#'
+#' @keywords internal
+#' @noRd
+parse_condition_formulas <- function(formulas, mask, fn) {
+  n <- length(formulas)
+  query <- vector("list", n)
+  value <- vector("list", n)
+  # Process each formula: condition ~ value
+  for (i in seq_len(n)) {
+    f <- formulas[[i]]
+    if (!inherits(f, "formula")) {
+      validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
+    }
+    # f[[2]] is LHS (logical condition), f[[3]] is RHS (value when TRUE)
+    query[[i]] <- arrow_eval(f[[2]], mask)
+    value[[i]] <- arrow_eval(f[[3]], mask)
+    # Validate LHS is logical (unlike parse_value_mapping which does equality matching)
+    if (!call_binding("is.logical", query[[i]])) {
+      validation_error(paste0("Left side of each formula in ", fn, "() must be a logical expression"))
+    }
+  }
+  list(query = query, value = value)
+}
+
+# Create case_when Expression from query/value lists
+build_case_when_expr <- function(query, value) {
+  Expression$create(
+    "case_when",
+    args = c(
+      Expression$create(
+        "make_struct",
+        args = query,
+        options = list(field_names = as.character(seq_along(query)))
+      ),
+      value
+    )
+  )
+}
+
+#' Parse value mapping formulas or from/to vectors
+#'
+#' Converts formula-based or vector-based value mappings into Arrow expressions.
+#'
+#' @param x An Arrow Expression representing the column to match against.
+#' @param formulas A list of two-sided formulas where LHS is the value to match
+#'   and RHS is the replacement (e.g., `"a" ~ "A"`).
+#' @param from Vector of values to match (alternative to formulas).
+#' @param to Vector of replacement values (used with `from`).
+#' @param mask The environment for evaluating formula expressions.
+#' @param fn Name of the calling function (for error messages).
+#'
+#' @return A list with `query` (list of match expressions) and `value`
+#'   (list of replacement expressions), or NULL if no mappings provided.
+#'
+#' @details
+#' NA values on the LHS are handled specially: since Arrow uses SQL-style
+#' NULL semantics where `x == NA` returns NA (not TRUE), we use `is.na(x)`
+#' for the match condition instead.
+#'
+#' @examples
+#' \dontrun{
+#' x_expr <- Expression$field_ref("x")
+#' mask <- rlang::new_data_mask(rlang::current_env())
+#'
+#' # Formula interface
+#' parse_value_mapping(x_expr, list("a" ~ "A", "b" ~ "B"), NULL, NULL,
+#'                     mask, "replace_values")
+#'
+#' # from/to interface
+#' parse_value_mapping(x_expr, list(), c("a", "b"), c("A", "B"),
+#'                     mask, "replace_values")
+#'
+#' # NA matching uses is.na() internally
+#' parse_value_mapping(x_expr, list(NA ~ "missing"), NULL, NULL,
+#'                     mask, "replace_values")
+#' }
+#'
+#' @keywords internal
+#' @noRd
+parse_value_mapping <- function(x, formulas, from, to, mask, fn) {
+  # Mutually exclusive interfaces
+  if (length(formulas) > 0 && !is.null(from)) {
+    validation_error(paste0("Can't use both `...` and `from`/`to` in ", fn, "()"))
+  }
+
+  if (length(formulas) > 0) {
+    # Formula interface: "a" ~ "A", "b" ~ "B"
+    n <- length(formulas)
+    query <- vector("list", n)
+    value <- vector("list", n)
+    for (i in seq_len(n)) {
+      f <- formulas[[i]]
+      if (!inherits(f, "formula")) {
+        validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
+      }
+      # f[[2]] is LHS (value to match), f[[3]] is RHS (replacement)
+      lhs <- arrow_eval(f[[2]], mask)
+      rhs <- arrow_eval(f[[3]], mask)
+      # Handle NA specially: use is.na() since x == NA returns NA in Arrow
+      if (inherits(lhs, "Expression") && lhs$type_id() == Type[["NA"]]) {
+        # NA evaluated to an Arrow NA Expression
+        query[[i]] <- call_binding("is.na", x)
+      } else if (!inherits(lhs, "Expression") && is.na(lhs)) {
+        # NA is a bare R value
+        query[[i]] <- call_binding("is.na", x)
+      } else {
+        query[[i]] <- x == lhs
+      }
+      value[[i]] <- rhs
+    }
+    list(query = query, value = value)
+  } else if (!is.null(from)) {
+    # from/to interface: from = c("a", "b"), to = c("A", "B")
+    if (is.null(to)) {
+      validation_error("`to` must be provided when using `from`")
+    }
+    n <- length(from)
+    to <- vctrs::vec_recycle(to, n)
+    query <- vector("list", n)
+    value <- vector("list", n)
+    for (i in seq_len(n)) {
+      # Handle NA specially: use is.na() since x == NA returns NA in Arrow
+      if (is.na(from[[i]])) {
+        query[[i]] <- call_binding("is.na", x)
+      } else {
+        query[[i]] <- x == from[[i]]
+      }
+      value[[i]] <- Expression$scalar(to[[i]])
+    }
+    list(query = query, value = value)
+  } else {
+    # No mappings provided
+    NULL
+  }
+}
+
 register_bindings_conditional <- function() {
   register_binding("%in%", function(x, table) {
     # We use `is_in` here, unlike with Arrays, which use `is_in_meta_binary`
@@ -134,29 +282,17 @@ register_bindings_conditional <- function() {
       }
 
       formulas <- list2(...)
-      n <- length(formulas)
-      if (n == 0) {
+      if (length(formulas) == 0) {
         validation_error("No cases provided")
       }
-      query <- vector("list", n)
-      value <- vector("list", n)
-      mask <- caller_env()
-      for (i in seq_len(n)) {
-        f <- formulas[[i]]
-        if (!inherits(f, "formula")) {
-          validation_error("Each argument to case_when() must be a two-sided formula")
-        }
-        query[[i]] <- arrow_eval(f[[2]], mask)
-        value[[i]] <- arrow_eval(f[[3]], mask)
-        if (!call_binding("is.logical", query[[i]])) {
-          validation_error("Left side of each formula in case_when() must be a logical expression")
-        }
-      }
+      parsed <- parse_condition_formulas(formulas, caller_env(), "case_when")
+      query <- parsed$query
+      value <- parsed$value
       if (!is.null(.default)) {
         if (length(.default) != 1) {
           validation_error(paste0("`.default` must have size 1, not size ", length(.default), "."))
         }
-
+        n <- length(query)
         query[[n + 1]] <- TRUE
         value[[n + 1]] <- .default
       }
@@ -167,24 +303,13 @@ register_bindings_conditional <- function() {
 
   register_binding("dplyr::replace_when", function(x, ...) {
     formulas <- list2(...)
-    n <- length(formulas)
-    if (n == 0) {
+    if (length(formulas) == 0) {
       return(x)
     }
-    query <- vector("list", n + 1)
-    value <- vector("list", n + 1)
-    mask <- caller_env()
-    for (i in seq_len(n)) {
-      f <- formulas[[i]]
-      if (!inherits(f, "formula")) {
-        validation_error("Each argument to replace_when() must be a two-sided formula")
-      }
-      query[[i]] <- arrow_eval(f[[2]], mask)
-      value[[i]] <- arrow_eval(f[[3]], mask)
-      if (!call_binding("is.logical", query[[i]])) {
-        validation_error("Left side of each formula in replace_when() must be a logical expression")
-      }
-    }
+    parsed <- parse_condition_formulas(formulas, caller_env(), "replace_when")
+    query <- parsed$query
+    value <- parsed$value
+    n <- length(query)
     query[[n + 1]] <- TRUE
     value[[n + 1]] <- x
     build_case_when_expr(query, value)
@@ -230,71 +355,4 @@ register_bindings_conditional <- function() {
     notes = "`ptype` argument and `unmatched = \"error\"` not supported"
   )
 
-  # Create case_when Expression from query/value lists
-  build_case_when_expr <- function(query, value) {
-    Expression$create(
-      "case_when",
-      args = c(
-        Expression$create(
-          "make_struct",
-          args = query,
-          options = list(field_names = as.character(seq_along(query)))
-        ),
-        value
-      )
-    )
-  }
-
-  # Parse value ~ replacement formulas or from/to vectors into query/value lists
-  # Used by replace_values and recode_values
-  parse_value_mapping <- function(x, formulas, from, to, mask, fn) {
-    if (length(formulas) > 0 && !is.null(from)) {
-      validation_error(paste0("Can't use both `...` and `from`/`to` in ", fn, "()"))
-    }
-
-    if (length(formulas) > 0) {
-      n <- length(formulas)
-      query <- vector("list", n)
-      value <- vector("list", n)
-      for (i in seq_len(n)) {
-        f <- formulas[[i]]
-        if (!inherits(f, "formula")) {
-          validation_error(paste0("Each argument to ", fn, "() must be a two-sided formula"))
-        }
-        lhs <- arrow_eval(f[[2]], mask)
-        rhs <- arrow_eval(f[[3]], mask)
-        # Use is.na() for NA matching since x == NA returns NA in Arrow
-        if (inherits(lhs, "Expression") && lhs$type_id() == Type[["NA"]]) {
-          query[[i]] <- call_binding("is.na", x)
-        } else if (!inherits(lhs, "Expression") && is.na(lhs)) {
-          query[[i]] <- call_binding("is.na", x)
-        } else {
-          query[[i]] <- x == lhs
-        }
-        value[[i]] <- rhs
-      }
-      list(query = query, value = value)
-    } else if (!is.null(from)) {
-      if (is.null(to)) {
-        validation_error("`to` must be provided when using `from`")
-      }
-      n <- length(from)
-      to <- vctrs::vec_recycle(to, n)
-      query <- vector("list", n)
-      value <- vector("list", n)
-      for (i in seq_len(n)) {
-        # Use is.na() for NA matching since x == NA returns NA in Arrow
-        if (is.na(from[[i]])) {
-          query[[i]] <- call_binding("is.na", x)
-        } else {
-          query[[i]] <- x == from[[i]]
-        }
-        value[[i]] <- Expression$scalar(to[[i]])
-      }
-      list(query = query, value = value)
-    } else {
-      NULL
-    }
-  }
 }
-# nolint end.
