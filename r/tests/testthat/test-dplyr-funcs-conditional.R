@@ -633,6 +633,15 @@ test_that("replace_when()", {
     tbl
   )
 
+  # NULL formulas are compacted out (allows conditional formulas)
+  condition <- FALSE
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_when(int, if (condition) int > 5 ~ 100L, int < 3 ~ 0L)) |>
+      collect(),
+    tbl
+  )
+
   # validation errors
   expect_arrow_eval_error(
     replace_when(int, TRUE),

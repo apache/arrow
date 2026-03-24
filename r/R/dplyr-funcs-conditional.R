@@ -32,6 +32,8 @@
 #' @keywords internal
 #' @noRd
 parse_condition_formulas <- function(formulas, mask, fn) {
+  # Compact NULL entries (allows conditional formulas like: if (cond) x ~ y)
+  formulas <- compact(formulas)
   n <- length(formulas)
   query <- vector("list", n)
   value <- vector("list", n)
@@ -128,6 +130,8 @@ parse_from_to_mapping <- function(x, from, to) {
 #' @keywords internal
 #' @noRd
 parse_formula_mapping <- function(x, formulas, mask, fn) {
+  # Compact NULL entries (allows conditional formulas like: if (cond) x ~ y)
+  formulas <- compact(formulas)
   n <- length(formulas)
   query <- vector("list", n)
   value <- vector("list", n)
