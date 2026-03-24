@@ -16,6 +16,7 @@
 // under the License.
 
 #include <gtest/gtest.h>
+#include <span>
 
 #include "parquet/encryption/encryption_internal.h"
 
@@ -97,8 +98,7 @@ class TestAesEncryption : public ::testing::Test {
     int32_t expected_plaintext_length = decryptor.PlaintextLength(ciphertext_length);
     std::vector<uint8_t> decrypted_text(expected_plaintext_length, '\0');
 
-    ::arrow::util::span<uint8_t> truncated_ciphertext(ciphertext.data(),
-                                                      ciphertext_length - 1);
+    std::span<uint8_t> truncated_ciphertext(ciphertext.data(), ciphertext_length - 1);
     EXPECT_THROW(decryptor.Decrypt(truncated_ciphertext, str2span(key_), str2span(aad_),
                                    decrypted_text),
                  ParquetException);
