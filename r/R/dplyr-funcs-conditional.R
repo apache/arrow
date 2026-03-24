@@ -67,48 +67,13 @@ build_case_when_expr <- function(query, value) {
   )
 }
 
-#' Parse value mapping formulas or from/to vectors
-#'
-#' Converts formula-based or vector-based value mappings into Arrow expressions.
-#'
-#' @param x An Arrow Expression representing the column to match against.
-#' @param formulas A list of two-sided formulas where LHS is the value to match
-#'   and RHS is the replacement (e.g., `"a" ~ "A"`).
-#' @param from Vector of values to match (alternative to formulas).
-#' @param to Vector of replacement values (used with `from`).
-#' @param mask The environment for evaluating formula expressions.
-#' @param fn Name of the calling function (for error messages).
-#'
-#' @return A list with `query` (list of match expressions) and `value`
-#'   (list of replacement expressions), or NULL if no mappings provided.
-#'
-#' @details
-#' NA values on the LHS are handled specially: since Arrow uses SQL-style
-#' NULL semantics where `x == NA` returns NA (not TRUE), we use `is.na(x)`
-#' for the match condition instead.
-#'
-#' @examples
-#' \dontrun{
-#' x_expr <- Expression$field_ref("x")
-#' mask <- rlang::new_data_mask(rlang::current_env())
-#'
-#' # Formula interface
-#' parse_value_mapping(x_expr, list("a" ~ "A", "b" ~ "B"), mask = mask,
-#'                     fn = "replace_values")
-#'
-#' # from/to interface
-#' parse_value_mapping(x_expr, from = c("a", "b"), to = c("A", "B"),
-#'                     mask = mask, fn = "replace_values")
-#'
-#' # NA matching uses is.na() internally
-#' parse_value_mapping(x_expr, list(NA ~ "missing"), mask = mask,
-#'                     fn = "replace_values")
-#' }
-#'
-#' @keywords internal
-#' @noRd
 # Build query/value lists from parallel from/to vectors.
 # NA values in `from` use is.na() for matching.
+# @param x Arrow Expression for the column to match against.
+# @param from Vector of values to match.
+# @param to Vector of replacement values (recycled to length of `from`).
+# @return list(query, value) for use with build_case_when_expr().
+# @keywords internal
 parse_from_to_mapping <- function(x, from, to) {
   n <- length(from)
   to <- vctrs::vec_recycle(to, n)
@@ -128,6 +93,12 @@ parse_from_to_mapping <- function(x, from, to) {
 
 # Build query/value lists from value ~ replacement formulas.
 # NA values on LHS use is.na() for matching.
+# @param x Arrow Expression for the column to match against.
+# @param formulas List of two-sided formulas (value ~ replacement).
+# @param mask Data mask for evaluating formula expressions.
+# @param fn Calling function name (for error messages).
+# @return list(query, value) for use with build_case_when_expr().
+# @keywords internal
 parse_formula_mapping <- function(x, formulas, mask, fn) {
   n <- length(formulas)
   query <- vector("list", n)
@@ -155,6 +126,15 @@ parse_formula_mapping <- function(x, formulas, mask, fn) {
   list(query = query, value = value)
 }
 
+# Dispatch to formula or from/to parser based on which args are provided.
+# Returns list(query, value) or NULL if no mappings.
+# @param x Arrow Expression for the column to match against.
+# @param formulas List of two-sided formulas (value ~ replacement).
+# @param from Vector of values to match (alternative to formulas).
+# @param to Vector of replacement values (used with `from`).
+# @param mask Data mask for evaluating formula expressions.
+# @param fn Calling function name (for error messages).
+# @keywords internal
 parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, mask, fn) {
   # Mutually exclusive interfaces
   if (length(formulas) > 0 && !is.null(from)) {
