@@ -32,7 +32,7 @@ std::vector<const Array*> GetArrayPointers(const ArrayVector& arrays) {
 }
 
 std::vector<int64_t> ChunkedIndexMapper::GetChunkLengths(
-    util::span<const Array* const> chunks) {
+    std::span<const Array* const> chunks) {
   std::vector<int64_t> chunk_lengths(chunks.size());
   for (int64_t i = 0; i < static_cast<int64_t>(chunks.size()); ++i) {
     chunk_lengths[i] = chunks[i]->length();

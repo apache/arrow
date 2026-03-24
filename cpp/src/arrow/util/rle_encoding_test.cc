@@ -21,6 +21,7 @@
 #include <cstdint>
 #include <cstring>
 #include <random>
+#include <span>
 #include <vector>
 
 #include <gtest/gtest.h>
@@ -36,8 +37,6 @@
 #include "arrow/util/bit_util.h"
 #include "arrow/util/io_util.h"
 #include "arrow/util/rle_encoding_internal.h"
-#include "arrow/util/span.h"
-
 namespace arrow::util {
 
 const int MAX_WIDTH = 32;

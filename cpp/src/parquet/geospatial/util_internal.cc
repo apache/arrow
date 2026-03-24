@@ -147,11 +147,11 @@ std::vector<int32_t> WKBGeometryBounder::GeometryTypes() const {
 }
 
 void WKBGeometryBounder::MergeGeometry(std::string_view bytes_wkb) {
-  MergeGeometry(::arrow::util::span(reinterpret_cast<const uint8_t*>(bytes_wkb.data()),
+  MergeGeometry(std::span(reinterpret_cast<const uint8_t*>(bytes_wkb.data()),
                                     bytes_wkb.size()));
 }
 
-void WKBGeometryBounder::MergeGeometry(::arrow::util::span<const uint8_t> bytes_wkb) {
+void WKBGeometryBounder::MergeGeometry(std::span<const uint8_t> bytes_wkb) {
   WKBBuffer src{bytes_wkb.data(), static_cast<int64_t>(bytes_wkb.size())};
   MergeGeometryInternal(&src, /*record_wkb_type=*/true);
   if (src.size() != 0) {
