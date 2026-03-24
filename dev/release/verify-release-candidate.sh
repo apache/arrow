@@ -538,7 +538,7 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv
+  maybe_setup_virtualenv -r python/requirements-build.txt
   maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
