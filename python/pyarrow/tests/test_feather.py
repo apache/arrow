@@ -894,10 +894,10 @@ def test_feather_datetime_resolution_arrow_to_pandas(tempdir):
 # --- Deprecation warning tests ---
 
 @pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")
-def test_write_feather_deprecated():
+def test_write_feather_deprecated(tempdir):
     table = pa.table({"a": [1, 2, 3]})
     with pytest.warns(FutureWarning, match="write_feather is deprecated"):
-        write_feather(table, random_path())
+        write_feather(table, str(tempdir / "test.feather"))
 
 
 @pytest.mark.filterwarnings("default:pyarrow.feather:FutureWarning")

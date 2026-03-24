@@ -5058,6 +5058,7 @@ def test_write_dataset_arrow_schema_metadata(tempdir):
     assert result["a"].type.tz == "Europe/Brussels"
 
 
+@pytest.mark.filterwarnings("ignore:pyarrow.feather:FutureWarning")
 def test_write_dataset_schema_metadata(tempdir):
     # ensure that schema metadata gets written
     from pyarrow import feather

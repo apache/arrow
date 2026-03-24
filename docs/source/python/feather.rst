@@ -126,12 +126,20 @@ Since Feather V2 is the Arrow IPC file format, you can use the
    table = pa.table({"col1": [1, 2, 3], "col2": ["a", "b", "c"]})
 
    # Writing (replaces feather.write_feather)
-   with pa.ipc.new_file("data.arrow", table.schema) as writer:
+   options = pa.ipc.IpcWriteOptions(compression='lz4')
+   with pa.ipc.new_file("data.arrow", table.schema, options=options) as writer:
        writer.write_table(table)
 
    # Reading (replaces feather.read_table)
    with pa.ipc.open_file("data.arrow") as reader:
        result = reader.read_all()
+
+.. note::
+
+   ``feather.write_feather`` defaults to LZ4 compression, while
+   ``ipc.new_file`` does not compress by default. To preserve the same
+   behavior, pass ``compression='lz4'`` via
+   :class:`~pyarrow.ipc.IpcWriteOptions` as shown above.
 
 For reading multiple files, use the :mod:`pyarrow.dataset` module with
 ``format='ipc'`` instead of :class:`~pyarrow.feather.FeatherDataset`.
