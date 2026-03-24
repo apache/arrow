@@ -612,7 +612,7 @@ if os.path.isdir(arrow_lib):
     print('Arrow libs:', [f for f in os.listdir(arrow_lib) if 'flight' in f])
 print('DYLD_LIBRARY_PATH:', os.environ.get('DYLD_LIBRARY_PATH', 'NOT SET'))
 "
-    python -c "import pyarrow.flight"
+    python -X faulthandler -c "import pyarrow.flight"
   fi
   if [ "${ARROW_GANDIVA}" == "ON" ]; then
     python -c "import pyarrow.gandiva"
