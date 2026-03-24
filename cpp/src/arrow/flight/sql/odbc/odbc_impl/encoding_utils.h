@@ -31,6 +31,7 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 namespace ODBC {
+using arrow::flight::sql::odbc::WcsToUtf8;
 
 // Return the number of bytes required for the conversion.
 template <typename CHAR_TYPE>
@@ -95,6 +96,24 @@ inline std::string SqlWcharToString(SQLWCHAR* wchar_msg, SQLINTEGER msg_len = SQ
   } else {
     arrow::flight::sql::odbc::WcsToUtf8((void*)wchar_msg, msg_len, &utf8_str);
   }
+
+  return std::string(utf8_str.begin(), utf8_str.end());
+}
+
+/// \brief Convert vector of SqlWchar to standard string
+/// \param[in] wchar_vec SqlWchar vector to convert
+/// \return wchar_vec in std::string format
+inline std::string SqlWcharToString(const std::vector<SQLWCHAR>& wchar_vec) {
+  if (wchar_vec.empty() || wchar_vec[0] == 0) {
+    return {};
+  }
+
+  auto end = std::find(wchar_vec.begin(), wchar_vec.end(), 0);
+  size_t actual_len = std::distance(wchar_vec.begin(), end);
+
+  thread_local std::vector<uint8_t> utf8_str;
+
+  WcsToUtf8((void*)wchar_vec.data(), static_cast<SQLINTEGER>(actual_len), &utf8_str);
 
   return std::string(utf8_str.begin(), utf8_str.end());
 }

@@ -401,11 +401,10 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtError) {
   // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
   // DM passes 512 as buffer length to SQLError.
 
-  std::wstring wsql = L"1";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  SQLWCHAR wsql[] = L"1";
+  SQLINTEGER wsql_len = std::wcslen(wsql);
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_ERROR, SQLExecDirect(stmt, wsql, wsql_len));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
@@ -428,11 +427,10 @@ TYPED_TEST(ErrorsTest, TestSQLErrorStmtError) {
 TYPED_TEST(ErrorsTest, TestSQLErrorStmtWarning) {
   // Test ODBC 2.0 API SQLError.
 
-  std::wstring wsql = L"SELECT 'VERY LONG STRING here' AS string_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  SQLWCHAR wsql[] = L"SELECT 'VERY LONG STRING here' AS string_col;";
+  SQLINTEGER wsql_len = std::wcslen(wsql);
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
@@ -534,11 +532,10 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
   // When application passes buffer length greater than SQL_MAX_MESSAGE_LENGTH (512),
   // DM passes 512 as buffer length to SQLError.
 
-  std::wstring wsql = L"SELECT * from non_existent_table;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  SQLWCHAR wsql[] = L"SELECT * from non_existent_table;";
+  SQLINTEGER wsql_len = std::wcslen(wsql);
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_ERROR, SQLExecDirect(stmt, wsql, wsql_len));
 
   SQLWCHAR sql_state[6] = {0};
   SQLINTEGER native_error = 0;
@@ -559,11 +556,10 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtError) {
 TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorStmtWarning) {
   // Test ODBC 2.0 API SQLError.
 
-  std::wstring wsql = L"SELECT 'VERY LONG STRING here' AS string_col;";
-  std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
+  SQLWCHAR wsql[] = L"SELECT 'VERY LONG STRING here' AS string_col;";
+  SQLINTEGER wsql_len = std::wcslen(wsql);
 
-  ASSERT_EQ(SQL_SUCCESS,
-            SQLExecDirect(stmt, &sql0[0], static_cast<SQLINTEGER>(sql0.size())));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
