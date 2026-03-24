@@ -44,7 +44,7 @@ namespace orc {
 class Statistics;
 
 /// \brief Scalar materialization of ORC column statistics.
-struct ARROW_EXPORT OrcColumnStatisticsAsScalars {
+struct ARROW_EXPORT ColumnStatisticsAsScalars {
   /// \brief Whether the column contains null values.
   bool has_null;
   /// \brief Number of non-null values in the column.
@@ -58,32 +58,32 @@ struct ARROW_EXPORT OrcColumnStatisticsAsScalars {
 };
 
 /// \brief File-level ORC column statistics container.
-class ARROW_EXPORT FileStatistics {
+class ARROW_EXPORT FileMetaData {
  public:
-  FileStatistics() = default;
-  explicit FileStatistics(std::shared_ptr<const ::orc::Statistics> file_statistics)
+  FileMetaData() = default;
+  explicit FileMetaData(std::shared_ptr<const ::orc::Statistics> file_statistics)
       : file_statistics_(std::move(file_statistics)) {}
 
   bool valid() const { return file_statistics_ != nullptr; }
   int num_columns() const;
-  Result<Statistics> ColumnStatistics(int column_index) const;
+  Result<Statistics> Column(int column_index) const;
 
  private:
   std::shared_ptr<const ::orc::Statistics> file_statistics_;
 };
 
 /// \brief Stripe-level ORC column statistics container.
-class ARROW_EXPORT StripeStatistics {
+class ARROW_EXPORT StripeMetaData {
  public:
-  StripeStatistics() = default;
-  StripeStatistics(int64_t stripe_index,
-                   std::shared_ptr<const ::orc::Statistics> stripe_statistics)
+  StripeMetaData() = default;
+  StripeMetaData(int64_t stripe_index,
+                 std::shared_ptr<const ::orc::Statistics> stripe_statistics)
       : stripe_index_(stripe_index), stripe_statistics_(std::move(stripe_statistics)) {}
 
   bool valid() const { return stripe_statistics_ != nullptr; }
   int64_t stripe_index() const { return stripe_index_; }
   int num_columns() const;
-  Result<Statistics> ColumnStatistics(int column_index) const;
+  Result<Statistics> Column(int column_index) const;
 
  private:
   int64_t stripe_index_ = -1;
@@ -122,7 +122,7 @@ class ARROW_EXPORT Statistics {
   const ::orc::ColumnStatistics* column_statistics_ = nullptr;
 };
 
-ARROW_EXPORT Result<OrcColumnStatisticsAsScalars> OrcStatisticsAsScalars(
+ARROW_EXPORT Result<ColumnStatisticsAsScalars> StatisticsAsScalars(
     const Statistics& statistics);
 
 }  // namespace orc

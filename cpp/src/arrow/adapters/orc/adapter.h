@@ -295,13 +295,13 @@ class ARROW_EXPORT ORCFileReader {
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
   /// \brief Get file-level column statistics metadata.
-  Result<FileStatistics> GetFileStatistics();
+  Result<FileMetaData> GetFileMetaData();
 
   /// \brief Get stripe-level column statistics metadata.
   ///
   /// \param[in] stripe_index the stripe index (0-based)
   /// \return the stripe statistics container
-  Result<StripeStatistics> GetStripeStatistics(int64_t stripe_index);
+  Result<StripeMetaData> GetStripeMetaData(int64_t stripe_index);
 
   /// \brief Get the ORC type tree for column ID mapping.
   ///

@@ -44,11 +44,11 @@ bool MillisFitInNanos(int64_t millis) {
 
 bool Statistics::has_null() const { return column_statistics_->hasNull(); }
 
-int FileStatistics::num_columns() const {
+int FileMetaData::num_columns() const {
   return static_cast<int>(file_statistics_->getNumberOfColumns());
 }
 
-Result<Statistics> FileStatistics::ColumnStatistics(int column_index) const {
+Result<Statistics> FileMetaData::Column(int column_index) const {
   if (!valid()) {
     return Status::Invalid("ORC file statistics are not initialized");
   }
@@ -63,11 +63,11 @@ Result<Statistics> FileStatistics::ColumnStatistics(int column_index) const {
   return Statistics(file_statistics_, col_stats);
 }
 
-int StripeStatistics::num_columns() const {
+int StripeMetaData::num_columns() const {
   return static_cast<int>(stripe_statistics_->getNumberOfColumns());
 }
 
-Result<Statistics> StripeStatistics::ColumnStatistics(int column_index) const {
+Result<Statistics> StripeMetaData::Column(int column_index) const {
   if (!valid()) {
     return Status::Invalid("ORC stripe statistics are not initialized");
   }
@@ -153,13 +153,12 @@ bool Statistics::HasMinMax() const {
   return false;
 }
 
-Result<OrcColumnStatisticsAsScalars> OrcStatisticsAsScalars(
-    const Statistics& statistics) {
+Result<ColumnStatisticsAsScalars> StatisticsAsScalars(const Statistics& statistics) {
   if (!statistics.valid()) {
     return Status::Invalid("ORC statistics wrapper is not initialized");
   }
 
-  OrcColumnStatisticsAsScalars converted;
+  ColumnStatisticsAsScalars converted;
   converted.has_null = statistics.has_null();
   converted.num_values = statistics.num_values();
   converted.has_min_max = false;

@@ -587,22 +587,22 @@ class ORCFileReader::Impl {
     return NextStripeReader(batch_size, empty_vec);
   }
 
-  Result<FileStatistics> GetFileStatistics() {
+  Result<FileMetaData> GetFileMetaData() {
     ORC_BEGIN_CATCH_NOT_OK
     auto file_stats =
         std::shared_ptr<const liborc::Statistics>(reader_->getStatistics().release());
-    return FileStatistics(std::move(file_stats));
+    return FileMetaData(std::move(file_stats));
     ORC_END_CATCH_NOT_OK
   }
 
-  Result<StripeStatistics> GetStripeStatistics(int64_t stripe_index) {
+  Result<StripeMetaData> GetStripeMetaData(int64_t stripe_index) {
     ORC_BEGIN_CATCH_NOT_OK
     if (stripe_index < 0 || stripe_index >= static_cast<int64_t>(stripes_.size())) {
       return Status::Invalid("Stripe index ", stripe_index, " out of range");
     }
     auto stripe_stats = std::shared_ptr<const liborc::Statistics>(
         reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index)).release());
-    return StripeStatistics(stripe_index, std::move(stripe_stats));
+    return StripeMetaData(stripe_index, std::move(stripe_stats));
     ORC_END_CATCH_NOT_OK
   }
 
@@ -749,12 +749,10 @@ std::string ORCFileReader::GetSerializedFileTail() {
   return impl_->GetSerializedFileTail();
 }
 
-Result<FileStatistics> ORCFileReader::GetFileStatistics() {
-  return impl_->GetFileStatistics();
-}
+Result<FileMetaData> ORCFileReader::GetFileMetaData() { return impl_->GetFileMetaData(); }
 
-Result<StripeStatistics> ORCFileReader::GetStripeStatistics(int64_t stripe_index) {
-  return impl_->GetStripeStatistics(stripe_index);
+Result<StripeMetaData> ORCFileReader::GetStripeMetaData(int64_t stripe_index) {
+  return impl_->GetStripeMetaData(stripe_index);
 }
 
 const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }
