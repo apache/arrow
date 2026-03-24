@@ -679,6 +679,22 @@ test_that("replace_values()", {
     tbl
   )
 
+  # explicit NA matching with formula
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, "a" ~ "A", NA ~ "missing")) |>
+      collect(),
+    tbl
+  )
+
+  # explicit NA matching with from/to
+  compare_dplyr_binding(
+    .input |>
+      mutate(result = replace_values(chr, from = c("a", NA), to = c("A", "missing"))) |>
+      collect(),
+    tbl
+  )
+
   # no replacements returns x unchanged
   compare_dplyr_binding(
     .input |>

@@ -263,7 +263,14 @@ register_bindings_conditional <- function() {
         }
         lhs <- arrow_eval(f[[2]], mask)
         rhs <- arrow_eval(f[[3]], mask)
-        query[[i]] <- x == lhs
+        # Use is.na() for NA matching since x == NA returns NA in Arrow
+        if (inherits(lhs, "Expression") && lhs$type_id() == Type[["NA"]]) {
+          query[[i]] <- call_binding("is.na", x)
+        } else if (!inherits(lhs, "Expression") && is.na(lhs)) {
+          query[[i]] <- call_binding("is.na", x)
+        } else {
+          query[[i]] <- x == lhs
+        }
         value[[i]] <- rhs
       }
       list(query = query, value = value)
@@ -276,7 +283,12 @@ register_bindings_conditional <- function() {
       query <- vector("list", n)
       value <- vector("list", n)
       for (i in seq_len(n)) {
-        query[[i]] <- x == from[[i]]
+        # Use is.na() for NA matching since x == NA returns NA in Arrow
+        if (is.na(from[[i]])) {
+          query[[i]] <- call_binding("is.na", x)
+        } else {
+          query[[i]] <- x == from[[i]]
+        }
         value[[i]] <- Expression$scalar(to[[i]])
       }
       list(query = query, value = value)
