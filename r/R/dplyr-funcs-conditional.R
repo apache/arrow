@@ -24,14 +24,14 @@
 #' @param formulas A list of two-sided formulas where LHS is a logical condition
 #'   and RHS is the value to use when TRUE (e.g., `x > 5 ~ "high"`).
 #' @param mask The data mask for evaluating formula expressions.
-#' @param fn Name of the calling function (for error messages).
 #'
 #' @return A list with `query` (list of logical expressions) and `value`
 #'   (list of replacement expressions).
 #'
 #' @keywords internal
 #' @noRd
-parse_condition_formulas <- function(formulas, mask, fn) {
+parse_condition_formulas <- function(formulas, mask) {
+  fn <- call_name(rlang::caller_call())
   # Compact NULL entries (allows conditional formulas like: if (cond) x ~ y)
   formulas <- compact(formulas)
   n <- length(formulas)
@@ -178,10 +178,10 @@ parse_formula_mapping <- function(x, formulas, mask, fn) {
 #' @param from Vector of values to match (alternative to formulas).
 #' @param to Vector of replacement values (used with `from`).
 #' @param mask Data mask for evaluating formula expressions.
-#' @param fn Calling function name (for error messages).
 #' @keywords internal
 #' @noRd
-parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, mask, fn) {
+parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, mask) {
+  fn <- call_name(rlang::caller_call())
   # Mutually exclusive interfaces
   if (length(formulas) > 0 && !is.null(from)) {
     validation_error(paste0("Can't use both `...` and `from`/`to` in ", fn, "()"))
@@ -321,7 +321,7 @@ register_bindings_conditional <- function() {
       if (length(formulas) == 0) {
         validation_error("No cases provided")
       }
-      parsed <- parse_condition_formulas(formulas, caller_env(), "case_when")
+      parsed <- parse_condition_formulas(formulas, caller_env())
       query <- parsed$query
       value <- parsed$value
       if (!is.null(.default)) {
@@ -342,7 +342,7 @@ register_bindings_conditional <- function() {
     if (length(formulas) == 0) {
       return(x)
     }
-    parsed <- parse_condition_formulas(formulas, caller_env(), "replace_when")
+    parsed <- parse_condition_formulas(formulas, caller_env())
     query <- parsed$query
     value <- parsed$value
     n <- length(query)
@@ -352,7 +352,7 @@ register_bindings_conditional <- function() {
   })
 
   register_binding("dplyr::replace_values", function(x, ..., from = NULL, to = NULL) {
-    parsed <- parse_value_mapping(x, list2(...), from, to, caller_env(), "replace_values")
+    parsed <- parse_value_mapping(x, list2(...), from, to, caller_env())
     if (is.null(parsed)) {
       return(x)
     }
@@ -374,7 +374,7 @@ register_bindings_conditional <- function() {
         arrow_not_supported("`recode_values()` with `unmatched = \"error\"`")
       }
 
-      parsed <- parse_value_mapping(x, list2(...), from, to, caller_env(), "recode_values")
+      parsed <- parse_value_mapping(x, list2(...), from, to, caller_env())
       if (is.null(parsed)) {
         validation_error("`...` can't be empty")
       }
