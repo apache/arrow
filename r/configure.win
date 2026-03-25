@@ -67,6 +67,7 @@ function configure_binaries() {
   # pkg-config --libs libcurl
   GCS_LIBS="-lcurl -lnormaliz -lssh2 -lgdi32 -lssl -lcrypto -lcrypt32 -lwldap32 \
             -lz -lws2_32 -lnghttp2 -ldbghelp"
+  AZURE_LIBS="-lcurl -lssl -lxml2"
 
   # Set the right flags to point to and enable arrow/parquet
   if [ -d "windows/r-libarrow-windows-x86_64-$VERSION" ]; then
@@ -94,8 +95,8 @@ function configure_binaries() {
   # S3, GCS, and re2 support only for Rtools40 (i.e. R >= 4.0)
   "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e 'R.version$major >= 4' | grep TRUE >/dev/null 2>&1
   if [ $? -eq 0 ]; then
-    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_R_WITH_GCS"
-    PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS}"
+    PKG_CFLAGS="${PKG_CFLAGS} -DARROW_R_WITH_S3 -DARROW_R_WITH_GCS -DARROW_R_WITH_AZURE"
+    PKG_LIBS="${PKG_LIBS} -lre2 ${AWS_LIBS} ${GCS_LIBS} ${AZURE_LIBS}"
   else
     # It seems that order matters
     PKG_LIBS="${PKG_LIBS} -lws2_32"
@@ -189,6 +190,7 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_AZURE; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_AZURE"
+      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES -lxml2"
     fi
     if arrow_built_with ARROW_GCS; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
@@ -293,6 +295,10 @@ function configure_dev() {
 
   if [ $(cmake_option ARROW_GCS) -eq 1 ]; then
     PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_GCS"
+  fi
+
+  if [ $(cmake_option ARROW_AZURE) -eq 1 ]; then
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_AZUREf"
   fi
 
   if [ $(cmake_option ARROW_JSON) -eq 1 ]; then
