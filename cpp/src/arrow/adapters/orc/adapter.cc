@@ -587,12 +587,14 @@ class ORCFileReader::Impl {
     return NextStripeReader(batch_size, empty_vec);
   }
 
-  Result<FileMetaData> GetFileMetaData() {
-    ORC_BEGIN_CATCH_NOT_OK
-    auto file_stats =
-        std::shared_ptr<const liborc::Statistics>(reader_->getStatistics().release());
-    return FileMetaData(reader_, std::move(file_stats));
-    ORC_END_CATCH_NOT_OK
+  std::shared_ptr<FileMetaData> GetFileMetaData() {
+    try {
+      auto file_stats =
+          std::shared_ptr<const liborc::Statistics>(reader_->getStatistics().release());
+      return std::make_shared<FileMetaData>(reader_, std::move(file_stats));
+    } catch (...) {
+      return nullptr;
+    }
   }
 
   const liborc::Type& GetORCType() { return reader_->getType(); }
@@ -738,7 +740,9 @@ std::string ORCFileReader::GetSerializedFileTail() {
   return impl_->GetSerializedFileTail();
 }
 
-Result<FileMetaData> ORCFileReader::GetFileMetaData() { return impl_->GetFileMetaData(); }
+std::shared_ptr<FileMetaData> ORCFileReader::GetFileMetaData() {
+  return impl_->GetFileMetaData();
+}
 
 const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }
 

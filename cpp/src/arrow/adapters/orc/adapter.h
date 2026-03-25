@@ -295,7 +295,7 @@ class ARROW_EXPORT ORCFileReader {
   Result<std::shared_ptr<const KeyValueMetadata>> ReadMetadata();
 
   /// \brief Get file-level metadata view.
-  Result<FileMetaData> GetFileMetaData();
+  std::shared_ptr<FileMetaData> GetFileMetaData();
 
   /// \brief Get the ORC type tree for column ID mapping.
   ///

@@ -340,30 +340,80 @@ std::unique_ptr<liborc::Writer> CreateWriter(uint64_t stripe_size,
 
 Result<adapters::orc::Statistics> GetFileColumnStatistics(
     adapters::orc::ORCFileReader* reader, int column_index) {
-  ARROW_ASSIGN_OR_RAISE(auto file_meta, reader->GetFileMetaData());
-  ARROW_ASSIGN_OR_RAISE(auto column_meta, file_meta.Column(column_index));
-  return column_meta.statistics();
+  auto file_meta = reader->GetFileMetaData();
+  if (file_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC file metadata");
+  }
+  if (column_index < 0 || column_index >= file_meta->num_columns()) {
+    return Status::Invalid("Column index ", column_index, " out of range");
+  }
+  auto column_meta = file_meta->Column(column_index);
+  if (column_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC file column metadata");
+  }
+  auto column_stats = column_meta->statistics();
+  if (column_stats == nullptr) {
+    return Status::Invalid("Failed to read ORC file column statistics");
+  }
+  return *column_stats;
 }
 
 Result<adapters::orc::Statistics> GetStripeColumnStatistics(
     adapters::orc::ORCFileReader* reader, int64_t stripe_index, int column_index) {
-  ARROW_ASSIGN_OR_RAISE(auto file_meta, reader->GetFileMetaData());
-  ARROW_ASSIGN_OR_RAISE(auto stripe_meta, file_meta.Stripe(static_cast<int>(stripe_index)));
-  ARROW_ASSIGN_OR_RAISE(auto column_meta, stripe_meta.Column(column_index));
-  return column_meta.statistics();
+  auto file_meta = reader->GetFileMetaData();
+  if (file_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC file metadata");
+  }
+  if (stripe_index < 0 || stripe_index >= file_meta->num_stripes()) {
+    return Status::Invalid("Stripe index ", stripe_index, " out of range");
+  }
+  auto stripe_meta = file_meta->Stripe(static_cast<int>(stripe_index));
+  if (stripe_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC stripe metadata");
+  }
+  if (column_index < 0 || column_index >= stripe_meta->num_columns()) {
+    return Status::Invalid("Column index ", column_index, " out of range");
+  }
+  auto column_meta = stripe_meta->Column(column_index);
+  if (column_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC stripe column metadata");
+  }
+  auto column_stats = column_meta->statistics();
+  if (column_stats == nullptr) {
+    return Status::Invalid("Failed to read ORC stripe column statistics");
+  }
+  return *column_stats;
 }
 
 Result<std::vector<adapters::orc::Statistics>> GetStripeColumnStatisticsBulk(
     adapters::orc::ORCFileReader* reader, int64_t stripe_index,
     const std::vector<int>& column_indices) {
-  ARROW_ASSIGN_OR_RAISE(auto file_meta, reader->GetFileMetaData());
-  ARROW_ASSIGN_OR_RAISE(auto stripe_meta, file_meta.Stripe(static_cast<int>(stripe_index)));
+  auto file_meta = reader->GetFileMetaData();
+  if (file_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC file metadata");
+  }
+  if (stripe_index < 0 || stripe_index >= file_meta->num_stripes()) {
+    return Status::Invalid("Stripe index ", stripe_index, " out of range");
+  }
+  auto stripe_meta = file_meta->Stripe(static_cast<int>(stripe_index));
+  if (stripe_meta == nullptr) {
+    return Status::Invalid("Failed to read ORC stripe metadata");
+  }
   std::vector<adapters::orc::Statistics> stats;
   stats.reserve(column_indices.size());
   for (int column_index : column_indices) {
-    ARROW_ASSIGN_OR_RAISE(auto column_meta, stripe_meta.Column(column_index));
-    ARROW_ASSIGN_OR_RAISE(auto column_stats, column_meta.statistics());
-    stats.push_back(std::move(column_stats));
+    if (column_index < 0 || column_index >= stripe_meta->num_columns()) {
+      return Status::Invalid("Column index ", column_index, " out of range");
+    }
+    auto column_meta = stripe_meta->Column(column_index);
+    if (column_meta == nullptr) {
+      return Status::Invalid("Failed to read ORC stripe column metadata");
+    }
+    auto column_stats = column_meta->statistics();
+    if (column_stats == nullptr) {
+      return Status::Invalid("Failed to read ORC stripe column statistics");
+    }
+    stats.push_back(std::move(*column_stats));
   }
   return stats;
 }
@@ -422,23 +472,27 @@ TEST(TestAdapterRead, FileMetaDataViewAccessors) {
   ASSERT_OK_AND_ASSIGN(auto reader,
                        adapters::orc::ORCFileReader::Open(in_stream, default_memory_pool()));
 
-  ASSERT_OK_AND_ASSIGN(auto file_meta, reader->GetFileMetaData());
-  EXPECT_TRUE(file_meta.valid());
-  EXPECT_EQ(file_meta.num_stripes(), reader->NumberOfStripes());
-  EXPECT_EQ(file_meta.num_rows(), reader->NumberOfRows());
-  ASSERT_OK_AND_ASSIGN(auto metadata, file_meta.key_value_metadata());
+  auto file_meta = reader->GetFileMetaData();
+  ASSERT_NE(file_meta, nullptr);
+  EXPECT_TRUE(file_meta->valid());
+  EXPECT_EQ(file_meta->num_stripes(), reader->NumberOfStripes());
+  EXPECT_EQ(file_meta->num_rows(), reader->NumberOfRows());
+  auto metadata = file_meta->key_value_metadata();
   ASSERT_NE(metadata, nullptr);
-  EXPECT_EQ(file_meta.schema_root().getKind(), liborc::STRUCT);
+  EXPECT_EQ(file_meta->schema_root().getKind(), liborc::STRUCT);
 
-  ASSERT_OK_AND_ASSIGN(auto stripe_meta, file_meta.Stripe(0));
-  EXPECT_TRUE(stripe_meta.valid());
-  EXPECT_EQ(stripe_meta.stripe_index(), 0);
-  EXPECT_GT(stripe_meta.num_rows(), 0);
-  ASSERT_OK_AND_ASSIGN(auto column_meta, stripe_meta.Column(1));
-  EXPECT_TRUE(column_meta.valid());
-  EXPECT_EQ(column_meta.column_index(), 1);
-  ASSERT_OK_AND_ASSIGN(auto column_stats, column_meta.statistics());
-  EXPECT_TRUE(column_stats.valid());
+  auto stripe_meta = file_meta->Stripe(0);
+  ASSERT_NE(stripe_meta, nullptr);
+  EXPECT_TRUE(stripe_meta->valid());
+  EXPECT_EQ(stripe_meta->stripe_index(), 0);
+  EXPECT_GT(stripe_meta->num_rows(), 0);
+  auto column_meta = stripe_meta->Column(1);
+  ASSERT_NE(column_meta, nullptr);
+  EXPECT_TRUE(column_meta->valid());
+  EXPECT_EQ(column_meta->column_index(), 1);
+  auto column_stats = column_meta->statistics();
+  ASSERT_NE(column_stats, nullptr);
+  EXPECT_TRUE(column_stats->valid());
 }
 
 TEST(TestAdapterRead, ReadIntAndStringFileMultipleStripes) {

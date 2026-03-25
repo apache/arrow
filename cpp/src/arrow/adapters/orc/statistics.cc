@@ -25,6 +25,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/logging.h"
 #include "orc/Reader.hh"
 #include "orc/Statistics.hh"
 
@@ -58,40 +59,40 @@ int64_t FileMetaData::num_rows() const {
   return static_cast<int64_t>(reader_->getNumberOfRows());
 }
 
-Result<StripeMetaData> FileMetaData::Stripe(int stripe_index) const {
+std::unique_ptr<StripeMetaData> FileMetaData::Stripe(int stripe_index) const {
   if (!valid()) {
-    return Status::Invalid("ORC file metadata is not initialized");
+    return nullptr;
   }
   if (stripe_index < 0 || stripe_index >= num_stripes()) {
-    return Status::Invalid("Stripe index ", stripe_index, " out of range [0, ",
-                           num_stripes(), ")");
+    return nullptr;
   }
 
   auto stripe_stats = std::shared_ptr<const liborc::Statistics>(
       reader_->getStripeStatistics(static_cast<uint64_t>(stripe_index)).release());
   auto stripe_info = reader_->getStripe(static_cast<uint64_t>(stripe_index));
-  return StripeMetaData(stripe_index, static_cast<int64_t>(stripe_info->getNumberOfRows()),
-                        std::move(stripe_stats));
+  return std::make_unique<StripeMetaData>(
+      stripe_index, static_cast<int64_t>(stripe_info->getNumberOfRows()),
+      std::move(stripe_stats));
 }
 
-Result<ColumnMetaData> FileMetaData::Column(int column_index) const {
+std::unique_ptr<ColumnMetaData> FileMetaData::Column(int column_index) const {
   if (!valid()) {
-    return Status::Invalid("ORC file metadata is not initialized");
+    return nullptr;
   }
   if (column_index < 0 || static_cast<uint32_t>(column_index) >=
                               file_statistics_->getNumberOfColumns()) {
-    return Status::Invalid("Column index ", column_index, " out of range [0, ",
-                           file_statistics_->getNumberOfColumns(), ")");
+    return nullptr;
   }
 
   const liborc::ColumnStatistics* col_stats =
       file_statistics_->getColumnStatistics(static_cast<uint32_t>(column_index));
-  return ColumnMetaData(column_index, Statistics(file_statistics_, col_stats));
+  return std::make_unique<ColumnMetaData>(
+      column_index, Statistics(file_statistics_, col_stats));
 }
 
-Result<std::shared_ptr<const KeyValueMetadata>> FileMetaData::key_value_metadata() const {
+std::shared_ptr<const KeyValueMetadata> FileMetaData::key_value_metadata() const {
   if (!valid()) {
-    return Status::Invalid("ORC file metadata is not initialized");
+    return nullptr;
   }
 
   auto metadata = std::make_shared<KeyValueMetadata>();
@@ -104,35 +105,37 @@ Result<std::shared_ptr<const KeyValueMetadata>> FileMetaData::key_value_metadata
 
 const ::orc::Type& FileMetaData::schema_root() const { return reader_->getType(); }
 
-Result<Statistics> ColumnMetaData::statistics() const {
+std::shared_ptr<Statistics> ColumnMetaData::statistics() const {
   if (!valid()) {
-    return Status::Invalid("ORC column metadata is not initialized");
+    return nullptr;
   }
-  return statistics_;
+  return std::make_shared<Statistics>(statistics_);
 }
 
 int StripeMetaData::num_columns() const {
   return static_cast<int>(stripe_statistics_->getNumberOfColumns());
 }
 
-Result<ColumnMetaData> StripeMetaData::Column(int column_index) const {
+std::unique_ptr<ColumnMetaData> StripeMetaData::Column(int column_index) const {
   if (!valid()) {
-    return Status::Invalid("ORC stripe metadata is not initialized");
+    return nullptr;
   }
   if (column_index < 0 || static_cast<uint32_t>(column_index) >=
                               stripe_statistics_->getNumberOfColumns()) {
-    return Status::Invalid("Column index ", column_index, " out of range [0, ",
-                           stripe_statistics_->getNumberOfColumns(), ")");
+    return nullptr;
   }
 
   const liborc::ColumnStatistics* col_stats =
       stripe_statistics_->getColumnStatistics(static_cast<uint32_t>(column_index));
-  return ColumnMetaData(column_index, Statistics(stripe_statistics_, col_stats));
+  return std::make_unique<ColumnMetaData>(
+      column_index, Statistics(stripe_statistics_, col_stats));
 }
 
-std::optional<int64_t> Statistics::null_count() const {
-  // liborc doesn't expose null_count on ColumnStatistics.
-  return std::nullopt;
+int64_t Statistics::null_count() const {
+  ARROW_DCHECK(HasNullCount());
+  // liborc doesn't expose null_count on ColumnStatistics; callers must treat
+  // this as a preconditioned API guarded by HasNullCount().
+  return 0;
 }
 
 int64_t Statistics::num_values() const {

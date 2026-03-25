@@ -19,7 +19,6 @@
 
 #include <cstdint>
 #include <memory>
-#include <optional>
 
 #include "arrow/result.h"
 #include "arrow/scalar.h"
@@ -62,9 +61,9 @@ class ARROW_EXPORT FileMetaData {
   int num_columns() const;
   int num_stripes() const;
   int64_t num_rows() const;
-  Result<StripeMetaData> Stripe(int stripe_index) const;
-  Result<ColumnMetaData> Column(int column_index) const;
-  Result<std::shared_ptr<const KeyValueMetadata>> key_value_metadata() const;
+  std::unique_ptr<StripeMetaData> Stripe(int stripe_index) const;
+  std::unique_ptr<ColumnMetaData> Column(int column_index) const;
+  std::shared_ptr<const KeyValueMetadata> key_value_metadata() const;
   const ::orc::Type& schema_root() const;
 
  private:
@@ -87,7 +86,7 @@ class ARROW_EXPORT StripeMetaData {
   int64_t stripe_index() const { return stripe_index_; }
   int64_t num_rows() const { return num_rows_; }
   int num_columns() const;
-  Result<ColumnMetaData> Column(int column_index) const;
+  std::unique_ptr<ColumnMetaData> Column(int column_index) const;
 
  private:
   int64_t stripe_index_ = -1;
@@ -110,7 +109,7 @@ class ARROW_EXPORT Statistics {
 
   bool valid() const { return column_statistics_ != nullptr; }
   bool HasNullCount() const;
-  std::optional<int64_t> null_count() const;
+  int64_t null_count() const;
   int64_t num_values() const;
   bool HasMinMax() const;
 
@@ -136,7 +135,7 @@ class ARROW_EXPORT ColumnMetaData {
 
   bool valid() const { return statistics_.valid(); }
   int column_index() const { return column_index_; }
-  Result<Statistics> statistics() const;
+  std::shared_ptr<Statistics> statistics() const;
 
  private:
   int column_index_ = -1;
