@@ -533,6 +533,8 @@ jobs:
       ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
+      ARROW_TEST_LINKAGE: static
+      ARROW_CMAKE_ARGS: -DVCPKG_TARGET_TRIPLET=x64-windows-static-md
       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
@@ -546,7 +548,6 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
-      VCPKG_DEFAULT_TRIPLET: x64-windows-static-md
     steps:
       - name: Disable Crash Dialogs
         run: |
