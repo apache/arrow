@@ -434,6 +434,11 @@ To build PyArrow run:
          Note that bundled Arrow C++ libraries will not be automatically
          updated when rebuilding Arrow C++.
 
+This creates an *editable install*, meaning changes to the Python source code
+will be reflected immediately without needing to reinstall the package.
+The ``--no-build-isolation`` flag ensures that the build uses your current
+environment's dependencies instead of creating an isolated one.
+
 To set the number of threads used to compile PyArrow's C++/Cython components,
 set the ``CMAKE_BUILD_PARALLEL_LEVEL`` environment variable.
 
@@ -450,7 +455,7 @@ A ``relwithdebinfo`` build can be created similarly.
 Self-Contained Wheel
 ^^^^^^^^^^^^^^^^^^^^
 
-If you're preparing a PyArrow wheel for distribution (e.g., for PyPI), you’ll
+If you're preparing a PyArrow wheel for distribution (e.g., for PyPI), you'll
 need to build a self-contained wheel (including the Arrow and Parquet C++
 libraries). This ensures that all necessary native libraries are bundled inside
 the wheel, so users can install it without needing to have Arrow or Parquet
@@ -466,22 +471,6 @@ To do this, set the ``PYARROW_BUNDLE_ARROW_CPP`` environment variable before bui
 
 This option is typically only needed for releases or distribution scenarios,
 not for local development.
-
-Editable install
-^^^^^^^^^^^^^^^^
-
-To install an editable PyArrow build, run the following command from the
-``arrow/python`` directory:
-
-.. code-block::
-
-   pip install -e . --no-build-isolation
-
-This creates an *editable install*, meaning changes to the Python source code
-will be reflected immediately without needing to reinstall the package.
-The ``--no-build-isolation`` flag ensures that the build uses your current
-environment's dependencies instead of creating an isolated one. This is
-especially useful during development and debugging.
 
 .. _stale_artifacts:
 

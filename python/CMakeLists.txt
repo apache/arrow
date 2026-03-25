@@ -293,6 +293,15 @@ message(STATUS "Found Cython version: ${CYTHON_VERSION}")
 include(GNUInstallDirs)
 find_package(Arrow REQUIRED)
 
+# When not bundling Arrow C++ libraries on macOS, add the Arrow library
+# directory to the RPATH so that the extensions can find libarrow at runtime.
+if(APPLE
+   AND NOT PYARROW_BUNDLE_ARROW_CPP
+   AND ARROW_SHARED_LIB)
+  get_filename_component(_arrow_lib_dir "${ARROW_SHARED_LIB}" DIRECTORY)
+  list(APPEND CMAKE_INSTALL_RPATH "${_arrow_lib_dir}")
+endif()
+
 macro(define_option name description arrow_option)
   set("PYARROW_${name}"
       "AUTO"
@@ -967,6 +976,9 @@ foreach(module ${CYTHON_EXTENSIONS})
       if(NOT PYARROW_BUNDLE_CYTHON_CPP)
         continue()
       endif()
+    endif()
+    if(output MATCHES "\\.h$")
+      continue()
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
   endforeach()

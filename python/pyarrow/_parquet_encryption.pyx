@@ -297,7 +297,10 @@ cdef class KmsConnectionConfig(_Weakrefable):
     @staticmethod
     cdef wrap(const CKmsConnectionConfig& config):
         result = KmsConnectionConfig()
-        result.configuration = make_shared[CKmsConnectionConfig](move(config))
+        # We require a copy of the config because the input is
+        # a const reference owned by C++.
+        cdef CKmsConnectionConfig config_copy = config
+        result.configuration = make_shared[CKmsConnectionConfig](move(config_copy))
         return result
 
 
