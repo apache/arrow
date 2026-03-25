@@ -649,7 +649,7 @@ test_that("replace_when()", {
     class = "validation_error"
   )
   expect_arrow_eval_error(
-    replace_when(int, ~ 100L),
+    replace_when(int, ~100L),
     "Each argument to replace_when\\(\\) must be a two-sided formula",
     class = "validation_error"
   )
@@ -756,7 +756,7 @@ test_that("replace_values()", {
     class = "validation_error"
   )
   expect_arrow_eval_error(
-    replace_values(chr, ~ "A"),
+    replace_values(chr, ~"A"),
     "Each argument to replace_values\\(\\) must be a two-sided formula",
     class = "validation_error"
   )
@@ -841,7 +841,7 @@ test_that("recode_values()", {
     class = "validation_error"
   )
   expect_arrow_eval_error(
-    recode_values(chr, ~ "A"),
+    recode_values(chr, ~"A"),
     "Each argument to recode_values\\(\\) must be a two-sided formula",
     class = "validation_error"
   )

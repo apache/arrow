@@ -390,5 +390,4 @@ register_bindings_conditional <- function() {
     },
     notes = "`ptype` argument and `unmatched = \"error\"` not supported"
   )
-
 }
