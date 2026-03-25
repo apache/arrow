@@ -49,9 +49,8 @@ def test_pyarrow_include():
     # created. Either with PyArrow C++ header files or with
     # Arrow C++ and PyArrow C++ header files together
 
-    source = os.path.dirname(os.path.abspath(__file__))
-    pyarrow_dir = pjoin(source, '..')
-    pyarrow_include = pjoin(pyarrow_dir, 'include')
+    import pyarrow
+    pyarrow_include = pyarrow.get_include()
     pyarrow_cpp_include = pjoin(pyarrow_include, 'arrow', 'python')
 
     assert os.path.exists(pyarrow_include)
