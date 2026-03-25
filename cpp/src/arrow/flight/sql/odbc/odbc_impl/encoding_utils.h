@@ -19,8 +19,8 @@
 #include "arrow/flight/sql/odbc/odbc_impl/encoding.h"
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 
-#include <sql.h>
-#include <sqlext.h>
+#include "arrow/flight/sql/odbc/odbc_impl/odbc_includes.h"
+
 #include <algorithm>
 #include <codecvt>
 #include <cstring>
@@ -28,12 +28,6 @@
 #include <memory>
 #include <string>
 
-// Workaround for ODBC `BOOL` def conflict on Linux
-#ifdef __linux__
-#  ifdef BOOL
-#    undef BOOL
-#  endif  // BOOL
-#endif    // __linux__
 // Include fwd.h headers after ODBC headers
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 
