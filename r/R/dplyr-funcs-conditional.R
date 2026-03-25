@@ -74,45 +74,55 @@ build_case_when_expr <- function(query, value) {
   )
 }
 
+#' Build a match expression for x against a value (scalar, NA, or vector).
+#' @param x Arrow Expression for the column to match against.
+#' @param match_value Value to match - R scalar, vector, or NA. Expressions
+#'   are compared with equality.
+#' @return Arrow Expression that is TRUE when x matches match_value.
+#' @keywords internal
+#' @noRd
+build_match_expr <- function(x, match_value) {
+  # Expressions: use equality directly
+  if (inherits(match_value, "Expression")) {
+    return(x == match_value)
+  }
+
+  # R scalar NA requires is.na() since x == NA returns NA in Arrow
+  if (length(match_value) == 1 && is.na(match_value)) {
+    return(call_binding("is.na", x))
+  }
+
+  # R scalar: simple equality
+  if (length(match_value) == 1) {
+    return(x == match_value)
+  }
+
+  # R vector: use %in%, handling NA separately if present
+  has_na <- any(is.na(match_value))
+  non_na_values <- match_value[!is.na(match_value)]
+
+  if (length(non_na_values) == 0) {
+    call_binding("is.na", x)
+  } else if (has_na) {
+    call_binding("%in%", x, non_na_values) | call_binding("is.na", x)
+  } else {
+    call_binding("%in%", x, match_value)
+  }
+}
+
 #' Build query/value lists from parallel from/to vectors.
 #' NA values in `from` use is.na() for matching.
 #' @param x Arrow Expression for the column to match against.
 #' @param from Vector of values to match.
 #' @param to Vector of replacement values (recycled to length of `from`).
 #' @return list(query, value) for use with build_case_when_expr().
-#' @examples
-#' x_expr <- Expression$field_ref("x")
-#' parse_from_to_mapping(x_expr, from = c("a", "b"), to = c("A", "B"))
 #' @keywords internal
 #' @noRd
 parse_from_to_mapping <- function(x, from, to) {
   n <- length(from)
   to <- vctrs::vec_recycle(to, n)
-  query <- vector("list", n)
-  value <- vector("list", n)
-  for (i in seq_len(n)) {
-    from_i <- from[[i]]
-    # Handle NA specially: use is.na() since x == NA returns NA in Arrow
-    if (length(from_i) == 1 && is.na(from_i)) {
-      query[[i]] <- call_binding("is.na", x)
-    } else if (length(from_i) > 1) {
-      # Multiple values: use %in% to match any
-      # If NA is in the vector, also match NA using is.na()
-      if (any(is.na(from_i))) {
-        non_na_values <- from_i[!is.na(from_i)]
-        if (length(non_na_values) > 0) {
-          query[[i]] <- call_binding("%in%", x, non_na_values) | call_binding("is.na", x)
-        } else {
-          query[[i]] <- call_binding("is.na", x)
-        }
-      } else {
-        query[[i]] <- call_binding("%in%", x, from_i)
-      }
-    } else {
-      query[[i]] <- x == from_i
-    }
-    value[[i]] <- Expression$scalar(to[[i]])
-  }
+  query <- map(from, ~ build_match_expr(x, .x))
+  value <- map(to, Expression$scalar)
   list(query = query, value = value)
 }
 
@@ -123,10 +133,6 @@ parse_from_to_mapping <- function(x, from, to) {
 #' @param mask Data mask for evaluating formula expressions.
 #' @param fn Calling function name (for error messages).
 #' @return list(query, value) for use with build_case_when_expr().
-#' @examples
-#' x_expr <- Expression$field_ref("x")
-#' mask <- rlang::new_data_mask(rlang::current_env())
-#' parse_formula_mapping(x_expr, list("a" ~ "A", "b" ~ "B"), mask, "replace_values")
 #' @keywords internal
 #' @noRd
 parse_formula_mapping <- function(x, formulas, mask, fn) {
@@ -142,31 +148,8 @@ parse_formula_mapping <- function(x, formulas, mask, fn) {
     }
     # f[[2]] is LHS (value to match), f[[3]] is RHS (replacement)
     lhs <- arrow_eval(f[[2]], mask)
-    rhs <- arrow_eval(f[[3]], mask)
-    # Handle NA specially: use is.na() since x == NA returns NA in Arrow
-    if (inherits(lhs, "Expression") && lhs$type_id() == Type[["NA"]]) {
-      # NA evaluated to an Arrow NA Expression
-      query[[i]] <- call_binding("is.na", x)
-    } else if (!inherits(lhs, "Expression") && length(lhs) == 1 && is.na(lhs)) {
-      # NA is a bare R value
-      query[[i]] <- call_binding("is.na", x)
-    } else if (!inherits(lhs, "Expression") && length(lhs) > 1) {
-      # Vector LHS: c("a", "b") ~ "X" matches any value in the vector
-      # If NA is in the vector, also match NA using is.na()
-      if (any(is.na(lhs))) {
-        non_na_values <- lhs[!is.na(lhs)]
-        if (length(non_na_values) > 0) {
-          query[[i]] <- call_binding("%in%", x, non_na_values) | call_binding("is.na", x)
-        } else {
-          query[[i]] <- call_binding("is.na", x)
-        }
-      } else {
-        query[[i]] <- call_binding("%in%", x, lhs)
-      }
-    } else {
-      query[[i]] <- x == lhs
-    }
-    value[[i]] <- rhs
+    query[[i]] <- build_match_expr(x, lhs)
+    value[[i]] <- arrow_eval(f[[3]], mask)
   }
   list(query = query, value = value)
 }
