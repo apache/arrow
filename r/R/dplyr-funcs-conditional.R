@@ -105,9 +105,9 @@ register_bindings_conditional <- function() {
     }
     args <- list2(...)
     if (na_rm) {
-      args <- lapply(args, function(x) call_binding("coalesce", x, FALSE))
+      args <- map(args, ~ call_binding("coalesce", .x, FALSE))
     }
-    Reduce("|", args)
+    reduce(args, `|`)
   })
 
   register_binding("dplyr::when_all", function(..., na_rm = FALSE, size = NULL) {
@@ -116,9 +116,9 @@ register_bindings_conditional <- function() {
     }
     args <- list2(...)
     if (na_rm) {
-      args <- lapply(args, function(x) call_binding("coalesce", x, TRUE))
+      args <- map(args, ~ call_binding("coalesce", .x, TRUE))
     }
-    Reduce("&", args)
+    reduce(args, `&`)
   })
 
   register_binding(
