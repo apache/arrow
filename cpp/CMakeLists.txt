@@ -226,11 +226,6 @@ set(PYTHON_EXECUTABLE ${Python3_EXECUTABLE})
 # cmake options
 include(DefineOptions)
 
-# Set MSVC runtime library (CMP0091 NEW policy)
-if(MSVC AND ARROW_USE_STATIC_CRT)
-  set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif()
-
 if(ARROW_BUILD_SHARED AND NOT ARROW_POSITION_INDEPENDENT_CODE)
   message(WARNING "Can't disable position-independent code to build shared libraries, enabling"
   )
