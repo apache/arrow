@@ -298,7 +298,7 @@ function configure_dev() {
   fi
 
   if [ $(cmake_option ARROW_AZURE) -eq 1 ]; then
-    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_AZUREf"
+    PKG_CFLAGS="$PKG_CFLAGS -DARROW_R_WITH_AZURE"
   fi
 
   if [ $(cmake_option ARROW_JSON) -eq 1 ]; then
