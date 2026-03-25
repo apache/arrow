@@ -529,23 +529,24 @@ jobs:
     permissions:
       packages: write
     env:
-      ARROW_BUILD_SHARED: OFF
+      ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI. 
+      # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
       ARROW_CSV: OFF
       ARROW_DEPENDENCY_SOURCE: VCPKG
+      ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
       ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /usr
       ARROW_MIMALLOC: OFF
-      ARROW_USE_STATIC_CRT: ON
+      ARROW_USE_STATIC_CRT: OFF
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
-      VCPKG_DEFAULT_TRIPLET: x64-windows-static
+      VCPKG_DEFAULT_TRIPLET: x64-windows-static-md
     steps:
       - name: Disable Crash Dialogs
         run: |
