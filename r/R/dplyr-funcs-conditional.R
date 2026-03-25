@@ -82,19 +82,14 @@ build_case_when_expr <- function(query, value) {
 #' @keywords internal
 #' @noRd
 build_match_expr <- function(x, match_value) {
-  # Expressions: use equality directly
-  if (inherits(match_value, "Expression")) {
+  # Expressions or length-1 non-NA: use equality directly
+  if (inherits(match_value, "Expression") || length(match_value) == 1 && !is.na(match_value)) {
     return(x == match_value)
   }
 
   # R scalar NA requires is.na() since x == NA returns NA in Arrow
-  if (length(match_value) == 1 && is.na(match_value)) {
-    return(call_binding("is.na", x))
-  }
-
-  # R scalar: simple equality
   if (length(match_value) == 1) {
-    return(x == match_value)
+    return(call_binding("is.na", x))
   }
 
   # R vector: use %in%, handling NA separately if present
