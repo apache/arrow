@@ -44,7 +44,7 @@ bool MillisFitInNanos(int64_t millis) {
 
 }  // namespace
 
-bool Statistics::has_null() const { return column_statistics_->hasNull(); }
+bool Statistics::HasNullCount() const { return column_statistics_->hasNull(); }
 
 int FileMetaData::num_columns() const {
   return static_cast<int>(file_statistics_->getNumberOfColumns());
@@ -201,50 +201,49 @@ bool Statistics::HasMinMax() const {
   return false;
 }
 
-Result<ColumnStatisticsAsScalars> StatisticsAsScalars(const Statistics& statistics) {
+Status StatisticsAsScalars(const Statistics& statistics, std::shared_ptr<Scalar>* min,
+                           std::shared_ptr<Scalar>* max) {
+  if (min == nullptr || max == nullptr) {
+    return Status::Invalid("Output pointers for min and max cannot be null");
+  }
   if (!statistics.valid()) {
     return Status::Invalid("ORC statistics wrapper is not initialized");
   }
 
-  ColumnStatisticsAsScalars converted;
-  converted.has_null = statistics.has_null();
-  converted.num_values = statistics.num_values();
-  converted.has_min_max = false;
-  converted.min = nullptr;
-  converted.max = nullptr;
+  *min = nullptr;
+  *max = nullptr;
 
   if (!statistics.HasMinMax()) {
-    return converted;
+    return Status::OK();
   }
 
-  converted.has_min_max = true;
   if (const auto* int_stats = statistics.integer()) {
-    converted.min = std::make_shared<Int64Scalar>(int_stats->getMinimum());
-    converted.max = std::make_shared<Int64Scalar>(int_stats->getMaximum());
-    return converted;
+    *min = std::make_shared<Int64Scalar>(int_stats->getMinimum());
+    *max = std::make_shared<Int64Scalar>(int_stats->getMaximum());
+    return Status::OK();
   }
   if (const auto* double_stats = statistics.floating_point()) {
-    converted.min = std::make_shared<DoubleScalar>(double_stats->getMinimum());
-    converted.max = std::make_shared<DoubleScalar>(double_stats->getMaximum());
-    return converted;
+    *min = std::make_shared<DoubleScalar>(double_stats->getMinimum());
+    *max = std::make_shared<DoubleScalar>(double_stats->getMaximum());
+    return Status::OK();
   }
   if (const auto* string_stats = statistics.string()) {
-    converted.min = std::make_shared<StringScalar>(string_stats->getMinimum());
-    converted.max = std::make_shared<StringScalar>(string_stats->getMaximum());
-    return converted;
+    *min = std::make_shared<StringScalar>(string_stats->getMinimum());
+    *max = std::make_shared<StringScalar>(string_stats->getMaximum());
+    return Status::OK();
   }
   if (const auto* date_stats = statistics.date()) {
-    converted.min = std::make_shared<Date32Scalar>(date_stats->getMinimum());
-    converted.max = std::make_shared<Date32Scalar>(date_stats->getMaximum());
-    return converted;
+    *min = std::make_shared<Date32Scalar>(date_stats->getMinimum());
+    *max = std::make_shared<Date32Scalar>(date_stats->getMaximum());
+    return Status::OK();
   }
   if (const auto* ts_stats = statistics.timestamp()) {
     auto ts_type = timestamp(TimeUnit::NANO);
-    converted.min = std::make_shared<TimestampScalar>(
+    *min = std::make_shared<TimestampScalar>(
         ts_stats->getMinimum() * 1000000LL + ts_stats->getMinimumNanos(), ts_type);
-    converted.max = std::make_shared<TimestampScalar>(
+    *max = std::make_shared<TimestampScalar>(
         ts_stats->getMaximum() * 1000000LL + ts_stats->getMaximumNanos(), ts_type);
-    return converted;
+    return Status::OK();
   }
   if (const auto* decimal_stats = statistics.decimal()) {
     liborc::Decimal min_dec = decimal_stats->getMinimum();
@@ -254,15 +253,12 @@ Result<ColumnStatisticsAsScalars> StatisticsAsScalars(const Statistics& statisti
     Decimal128 max_d128(max_dec.value.getHighBits(), max_dec.value.getLowBits());
     auto dec_type = decimal128(38, min_dec.scale);
 
-    converted.min = std::make_shared<Decimal128Scalar>(min_d128, dec_type);
-    converted.max = std::make_shared<Decimal128Scalar>(max_d128, dec_type);
-    return converted;
+    *min = std::make_shared<Decimal128Scalar>(min_d128, dec_type);
+    *max = std::make_shared<Decimal128Scalar>(max_d128, dec_type);
+    return Status::OK();
   }
 
-  converted.has_min_max = false;
-  converted.min = nullptr;
-  converted.max = nullptr;
-  return converted;
+  return Status::OK();
 }
 
 }  // namespace orc

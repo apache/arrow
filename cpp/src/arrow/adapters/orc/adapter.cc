@@ -565,7 +565,7 @@ class ORCFileReader::Impl {
                                              pool_);
   }
 
-  Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+  Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
       int64_t batch_size, const std::vector<std::string>& include_names) {
     liborc::RowReaderOptions opts = DefaultRowReaderOptions();
     if (!include_names.empty()) {
@@ -578,7 +578,7 @@ class ORCFileReader::Impl {
     row_reader = reader_->createRowReader(opts);
     ORC_END_CATCH_NOT_OK
 
-    return std::make_shared<OrcStripeReader>(std::move(row_reader), schema, batch_size,
+    return std::make_unique<OrcStripeReader>(std::move(row_reader), schema, batch_size,
                                              pool_);
   }
 
@@ -680,7 +680,7 @@ Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::NextStripeReader(
   return impl_->NextStripeReader(batch_size);
 }
 
-Result<std::shared_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReader(
+Result<std::unique_ptr<RecordBatchReader>> ORCFileReader::GetRecordBatchReader(
     int64_t batch_size, const std::vector<std::string>& include_names) {
   return impl_->GetRecordBatchReader(batch_size, include_names);
 }
@@ -741,10 +741,6 @@ std::string ORCFileReader::GetSerializedFileTail() {
 Result<FileMetaData> ORCFileReader::GetFileMetaData() { return impl_->GetFileMetaData(); }
 
 const ::orc::Type& ORCFileReader::GetORCType() { return impl_->GetORCType(); }
-Result<std::shared_ptr<OrcSchemaManifest>> ORCFileReader::BuildSchemaManifest(
-    const std::shared_ptr<Schema>& arrow_schema) const {
-  return impl_->BuildSchemaManifest(arrow_schema);
-}
 
 namespace {
 

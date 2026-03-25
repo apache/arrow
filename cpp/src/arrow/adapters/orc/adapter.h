@@ -198,7 +198,7 @@ class ARROW_EXPORT ORCFileReader {
   /// \param[in] include_names the selected field names to read, if not empty
   /// (otherwise all fields are read)
   /// \return the record batch iterator
-  Result<std::shared_ptr<RecordBatchReader>> GetRecordBatchReader(
+  Result<std::unique_ptr<RecordBatchReader>> GetRecordBatchReader(
       int64_t batch_size, const std::vector<std::string>& include_names);
 
   /// \brief The number of stripes in the file
@@ -296,18 +296,6 @@ class ARROW_EXPORT ORCFileReader {
 
   /// \brief Get file-level metadata view.
   Result<FileMetaData> GetFileMetaData();
-
-  /// \brief Build a schema manifest mapping Arrow fields to ORC column IDs.
-  ///
-  /// Walks the ORC type tree paired with the Arrow schema to build a mapping
-  /// from Arrow field paths to ORC physical column indices, which are needed
-  /// for statistics lookup. ORC uses depth-first pre-order numbering where
-  /// column 0 is the root struct.
-  ///
-  /// \param[in] arrow_schema the Arrow schema (from ReadSchema())
-  /// \return the built manifest or an error
-  Result<std::shared_ptr<OrcSchemaManifest>> BuildSchemaManifest(
-      const std::shared_ptr<Schema>& arrow_schema) const;
 
   /// \brief Get the ORC type tree for column ID mapping.
   ///

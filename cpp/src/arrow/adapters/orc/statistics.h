@@ -23,6 +23,7 @@
 
 #include "arrow/result.h"
 #include "arrow/scalar.h"
+#include "arrow/status.h"
 #include "arrow/type_fwd.h"
 #include "arrow/util/visibility.h"
 
@@ -48,20 +49,6 @@ namespace orc {
 class Statistics;
 class ColumnMetaData;
 class StripeMetaData;
-
-/// \brief Scalar materialization of ORC column statistics.
-struct ARROW_EXPORT ColumnStatisticsAsScalars {
-  /// \brief Whether the column contains null values.
-  bool has_null;
-  /// \brief Number of non-null values in the column.
-  int64_t num_values;
-  /// \brief Whether min/max statistics are available and valid.
-  bool has_min_max;
-  /// \brief Minimum value (nullptr if unavailable).
-  std::shared_ptr<Scalar> min;
-  /// \brief Maximum value (nullptr if unavailable).
-  std::shared_ptr<Scalar> max;
-};
 
 /// \brief File-level ORC metadata container.
 class ARROW_EXPORT FileMetaData {
@@ -122,7 +109,7 @@ class ARROW_EXPORT Statistics {
       : column_statistics_(column_statistics) {}
 
   bool valid() const { return column_statistics_ != nullptr; }
-  bool has_null() const;
+  bool HasNullCount() const;
   std::optional<int64_t> null_count() const;
   int64_t num_values() const;
   bool HasMinMax() const;
@@ -156,8 +143,9 @@ class ARROW_EXPORT ColumnMetaData {
   Statistics statistics_;
 };
 
-ARROW_EXPORT Result<ColumnStatisticsAsScalars> StatisticsAsScalars(
-    const Statistics& statistics);
+ARROW_EXPORT Status StatisticsAsScalars(const Statistics& statistics,
+                                        std::shared_ptr<Scalar>* min,
+                                        std::shared_ptr<Scalar>* max);
 
 }  // namespace orc
 }  // namespace adapters

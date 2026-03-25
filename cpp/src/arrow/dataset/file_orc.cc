@@ -85,7 +85,7 @@ class OrcScanTask {
           included_fields.push_back(schema->field(match.indices()[0])->name());
         }
 
-        std::shared_ptr<RecordBatchReader> record_batch_reader;
+        std::unique_ptr<RecordBatchReader> record_batch_reader;
         ARROW_ASSIGN_OR_RAISE(
             record_batch_reader,
             reader->GetRecordBatchReader(scan_options.batch_size, included_fields));
@@ -99,7 +99,7 @@ class OrcScanTask {
         return batch;
       }
 
-      std::shared_ptr<RecordBatchReader> record_batch_reader_;
+      std::unique_ptr<RecordBatchReader> record_batch_reader_;
     };
 
     return Impl::Make(fragment_->source(),
