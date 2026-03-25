@@ -51,10 +51,6 @@ cimport cpython as cp
 _DEFAULT_ROW_GROUP_SIZE = 1024*1024
 _MAX_ROW_GROUP_SIZE = 64*1024*1024
 
-# from definition of BloomFilterOptions struct
-_DEFAULT_BLOOM_FILTER_NDV = 1024*1024
-_DEFAULT_BLOOM_FILTER_FPP = 0.05
-
 
 cdef Type _unwrap_list_type(obj) except *:
     if obj is ListType:
@@ -1977,6 +1973,60 @@ cdef vector[CSortingColumn] _convert_sorting_columns(sorting_columns) except *:
 
     return c_sorting_columns
 
+cdef void _set_bloom_opts_for_column(
+        WriterProperties.Builder* props,
+        column,
+        column_bloom_opts) except *:
+    """Set Bloom filter options for a single column"""
+    cdef:
+        BloomFilterOptions bloom_opts
+
+    if isinstance(column_bloom_opts, dict):
+        if "ndv" in column_bloom_opts:
+            ndv = column_bloom_opts["ndv"]
+            if isinstance(ndv, int):
+                if ndv <= 0:
+                    raise ValueError(
+                        f"'bloom_filter_options:ndv' for column '{column}' must be greater than zero, got {ndv}")
+                bloom_opts.ndv = ndv
+            else:
+                raise TypeError(
+                    f"'bloom_filter_options:ndv' for column '{column}' must be an int")
+        if "fpp" in column_bloom_opts:
+            fpp = column_bloom_opts["fpp"]
+            if isinstance(fpp, float):
+                if fpp <= 0.0 or fpp >= 1.0:
+                    raise ValueError(
+                        f"'bloom_filter_options:fpp' for column '{column}' must be in (0.0, 1.0), got {fpp}")
+                bloom_opts.fpp = fpp
+            else:
+                raise TypeError(
+                    f"'bloom_filter_options:fpp' for column '{column}' must be a float")
+    elif isinstance(column_bloom_opts, bool):
+        # if True then use the defaults set above, if False then disable
+        if not column_bloom_opts:
+            props.disable_bloom_filter(tobytes(column))
+            return
+    else:
+        raise TypeError(
+            f"'bloom_filter_options:{column}' must be a boolean or a dictionary")
+
+    props.enable_bloom_filter(tobytes(column), bloom_opts)
+
+
+cdef void _set_bloom_filter_opts(
+        WriterProperties.Builder* props,
+        bloom_filter_options) except *:
+    """Set Bloom filter options for all columns"""
+    if bloom_filter_options is not None:
+        if isinstance(bloom_filter_options, dict):
+            # for each entry in bloom_filter_options, {"path": {"ndv": ndv, "fpp", fpp}}
+            # convert (ndv,fpp) to BloomFilterOptions struct and pass to props
+            for column, _bloom_opts in bloom_filter_options.items():
+                _set_bloom_opts_for_column(props, column, _bloom_opts)
+        else:
+            raise TypeError("'bloom_filter_options' must be a dictionary")
+
 
 cdef shared_ptr[WriterProperties] _create_writer_properties(
         use_dictionary=None,
@@ -2004,7 +2054,6 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
         shared_ptr[WriterProperties] properties
         WriterProperties.Builder props
         CdcOptions cdc_options
-        BloomFilterOptions bloom_opts
 
     # data_page_version
 
@@ -2129,47 +2178,7 @@ cdef shared_ptr[WriterProperties] _create_writer_properties(
                 "'column_encoding' should be a dictionary or a string")
 
     # bloom filters
-    if bloom_filter_options is not None:
-        if isinstance(bloom_filter_options, dict):
-            # for each entry in bloom_filter_options, {"path": {"ndv": ndv, "fpp", fpp}}
-            # convert (ndv,fpp) to BloomFilterOptions struct and pass to props
-            for column, _bloom_opts in bloom_filter_options.items():
-                # set defaults
-                bloom_opts.ndv = _DEFAULT_BLOOM_FILTER_NDV
-                bloom_opts.fpp = _DEFAULT_BLOOM_FILTER_FPP
-                if isinstance(_bloom_opts, dict):
-                    if "ndv" in _bloom_opts:
-                        ndv = _bloom_opts["ndv"]
-                        if isinstance(ndv, int):
-                            if ndv <= 0:
-                                raise ValueError(
-                                    f"'bloom_filter_options:ndv' for column '{column}' must be greater than zero, got {ndv}")
-                            bloom_opts.ndv = ndv
-                        else:
-                            raise TypeError(
-                                f"'bloom_filter_options:ndv' for column '{column}' must be an int")
-                    if "fpp" in _bloom_opts:
-                        fpp = _bloom_opts["fpp"]
-                        if isinstance(fpp, float):
-                            if fpp <= 0.0 or fpp >= 1.0:
-                                raise ValueError(
-                                    f"'bloom_filter_options:fpp' for column '{column}' must be in (0.0, 1.0), got {fpp}")
-                            bloom_opts.fpp = fpp
-                        else:
-                            raise TypeError(
-                                f"'bloom_filter_options:fpp' for column '{column}' must be a float")
-                elif isinstance(_bloom_opts, bool):
-                    # if True then use the defaults set above, if False then disable
-                    if not _bloom_opts:
-                        props.disable_bloom_filter(tobytes(column))
-                        continue
-                else:
-                    raise TypeError(
-                        f"'bloom_filter_options:{column}' must be a boolean or a dictionary")
-
-                props.enable_bloom_filter(tobytes(column), bloom_opts)
-        else:
-            raise TypeError("'bloom_filter_options' must be a dictionary")
+    _set_bloom_filter_opts(&props, bloom_filter_options)
 
     # size limits
     if data_page_size is not None:
