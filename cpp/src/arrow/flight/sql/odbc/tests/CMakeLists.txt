@@ -59,8 +59,14 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBR
 # On unix systems, static linking ODBC is supported, thus tests link libraries statically.
 set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
-if(WIN32)
-  # arrow_odbc_spi_impl is required on Windows due to dynamic linking
+if(WIN32 AND ARROW_TEST_LINKAGE STREQUAL "static")
+  # Static Windows tests
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
+       arrow_odbc_spi_impl
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+elseif(WIN32)
+  # Dynamic Windows tests (current behavior)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
 else()

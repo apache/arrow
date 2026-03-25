@@ -65,7 +65,17 @@ set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS "")
 set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
-if(WIN32)
+if(WIN32 AND ARROW_BUILD_STATIC)
+  # Static Arrow deps on Windows — self-contained ODBC DLL
+  set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static arrow_odbc_spi_impl)
+  set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
+       ArrowFlight::arrow_flight_sql_static)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
+       ArrowFlight::arrow_flight_sql_static)
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS ODBC::ODBC ${ODBCINST})
+elseif(WIN32)
+  # Dynamic Arrow deps on Windows (current behavior)
   set(ARROW_FLIGHT_SQL_ODBC_DEPENDENCIES arrow_flight_sql)
   set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_odbc_spi_impl)
   set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
@@ -128,7 +138,6 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   set(CPACK_PACKAGE_CONTACT "dev@arrow.apache.org")
 
   if(WIN32)
-    # Install ODBC driver
     install(PROGRAMS ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
             DESTINATION bin
             COMPONENT ArrowFlightSQLODBC)
