@@ -927,6 +927,11 @@ if(CYTHON_VERSION VERSION_GREATER_EQUAL "3.1.0a0")
   list(APPEND CYTHON_FLAGS "-Xfreethreading_compatible=True")
 endif()
 
+set(PYARROW_EDITABLE_BUILD OFF)
+if(SKBUILD_STATE STREQUAL "editable")
+  set(PYARROW_EDITABLE_BUILD ON)
+endif()
+
 foreach(module ${CYTHON_EXTENSIONS})
   string(REPLACE "." ";" directories ${module})
   list(GET directories -1 module_name)
@@ -967,6 +972,11 @@ foreach(module ${CYTHON_EXTENSIONS})
       if(NOT PYARROW_BUNDLE_CYTHON_CPP)
         continue()
       endif()
+    endif()
+    if(PYARROW_EDITABLE_BUILD
+       AND module_name STREQUAL "lib"
+       AND output STREQUAL "lib.h")
+      continue()
     endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
   endforeach()
@@ -1033,10 +1043,17 @@ endif()
 # alongside the package so type checkers can find them (PEP 561).
 set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
 if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+  set(PYARROW_STUB_INSTALL_ARGS FILES_MATCHING PATTERN "*.pyi")
+  if(PYARROW_EDITABLE_BUILD)
+    list(APPEND
+         PYARROW_STUB_INSTALL_ARGS
+         PATTERN
+         "lib.pyi"
+         EXCLUDE)
+  endif()
   install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
           DESTINATION "."
-          FILES_MATCHING
-          PATTERN "*.pyi")
+          ${PYARROW_STUB_INSTALL_ARGS})
 
   if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
     install(CODE "
