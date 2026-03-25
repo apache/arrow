@@ -361,7 +361,7 @@ add_feature_flags () {
     fi
     if arrow_built_with ARROW_AZURE; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_AZURE"
-      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES -lcurl -lxml2 -lssl"
+      PKG_LIBS_FEATURES="$PKG_LIBS_FEATURES -lxml2"
     fi
     if arrow_built_with ARROW_GCS; then
       PKG_CFLAGS_FEATURES="$PKG_CFLAGS_FEATURES -DARROW_R_WITH_GCS"
