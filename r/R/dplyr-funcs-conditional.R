@@ -160,7 +160,7 @@ parse_formula_mapping <- function(x, formulas, mask, fn) {
 #' @param formulas List of two-sided formulas (value ~ replacement).
 #' @param from Vector of values to match (alternative to formulas).
 #' @param to Vector of replacement values (used with `from`).
-#' @param mask Data mask for evaluating formula expressions.
+#' @param mask The data mask for evaluating formula expressions.
 #' @keywords internal
 #' @noRd
 parse_value_mapping <- function(x, formulas = list(), from = NULL, to = NULL, mask) {
