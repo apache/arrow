@@ -37,7 +37,7 @@ static constexpr uint8_t kParquetEMagic[4] = {'P', 'A', 'R', 'E'};
 class PARQUET_EXPORT RowGroupWriter {
  public:
   // Estimated uncompressed byte sizes of data buffered by column writers
-  // that have not yet been serialized into data pages.
+  // that have not yet been serialized into pages.
   struct BufferedStats {
     int64_t def_level_bytes = 0;
     int64_t rep_level_bytes = 0;
