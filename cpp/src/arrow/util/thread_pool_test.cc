@@ -44,6 +44,7 @@
 #include "arrow/util/macros.h"
 #include "arrow/util/test_common.h"
 #include "arrow/util/thread_pool.h"
+#include "arrow/util/windows_compatibility.h"
 
 namespace arrow {
 namespace internal {
