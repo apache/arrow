@@ -1018,15 +1018,7 @@ if(ARROW_ORC)
   arrow_add_object_library(ARROW_ORC adapters/orc/adapter.cc adapters/orc/options.cc
                            adapters/orc/util.cc)
   foreach(ARROW_ORC_TARGET ${ARROW_ORC_TARGETS})
-    # Link ORC as PUBLIC so that orc.lib and its dependencies (protobuf)
-    # propagate to the consuming target (arrow_shared). PRIVATE deps of
-    # OBJECT libraries are not propagated on MSVC, which causes unresolved
-    # protobuf symbols when linking arrow.dll.
-    if(MSVC)
-      target_link_libraries(${ARROW_ORC_TARGET} PUBLIC orc::orc)
-    else()
-      target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
-    endif()
+    target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
     if(ARROW_ORC_VERSION VERSION_LESS "2.0.0")
       target_compile_definitions(${ARROW_ORC_TARGET}
                                  PRIVATE ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK)

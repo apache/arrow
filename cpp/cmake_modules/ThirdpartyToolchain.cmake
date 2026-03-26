@@ -1975,6 +1975,11 @@ function(build_protobuf)
   string(REPLACE "-ffat-lto-objects" "" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
   set(protobuf_BUILD_TESTS OFF)
+  # Always build protobuf as a static library regardless of BUILD_SHARED_LIBS.
+  # Without this, FetchContent inherits BUILD_SHARED_LIBS from the parent
+  # project and may build protobuf as a DLL, causing unresolved symbols
+  # when linking arrow.dll on MSVC.
+  set(protobuf_BUILD_SHARED_LIBS OFF)
   if(MSVC AND NOT ARROW_USE_STATIC_CRT)
     set(protobuf_MSVC_STATIC_RUNTIME OFF)
   endif()
