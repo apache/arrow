@@ -207,12 +207,12 @@ class RowGroupSerializer : public RowGroupWriter::Contents {
     if (closed_) {
       return stats;
     }
-    for (size_t i = 0; i < column_writers_.size(); i++) {
-      if (column_writers_[i]) {
-        stats.def_level_bytes += column_writers_[i]->estimated_buffered_def_level_bytes();
-        stats.rep_level_bytes += column_writers_[i]->estimated_buffered_rep_level_bytes();
-        stats.value_bytes += column_writers_[i]->estimated_buffered_value_bytes();
-        stats.dict_bytes += column_writers_[i]->estimated_buffered_dict_bytes();
+    for (const auto& column_writer : column_writers_) {
+      if (column_writer) {
+        stats.def_level_bytes += column_writer->estimated_buffered_def_level_bytes();
+        stats.rep_level_bytes += column_writer->estimated_buffered_rep_level_bytes();
+        stats.value_bytes += column_writer->estimated_buffered_value_bytes();
+        stats.dict_bytes += column_writer->estimated_buffered_dict_bytes();
       }
     }
     return stats;
