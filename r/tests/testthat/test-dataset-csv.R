@@ -726,6 +726,6 @@ test_that("more informative error when column inferred as null due to sparse dat
       read_options = csv_read_options(block_size = 100L)
     ) |>
       collect(),
-    "column type inferred as"
+    "column type being inferred as"
   )
 })
