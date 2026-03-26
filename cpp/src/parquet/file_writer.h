@@ -112,7 +112,7 @@ class PARQUET_EXPORT RowGroupWriter {
   /// \brief total compressed bytes written by the page writer
   int64_t total_compressed_bytes_written() const;
   /// \brief Estimated sizes of buffered data (levels, values, dict) not yet
-  /// written to a page.
+  /// written to pages.
   BufferedStats estimated_buffered_stats() const;
 
   /// Returns whether the current RowGroupWriter is in the buffered mode and is created
