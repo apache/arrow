@@ -3715,6 +3715,12 @@ function(build_orc)
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_PROTOBUF_ROOT "${ORC_PROTOBUF_ROOT}" DIRECTORY)
 
+    # Protobuf >= v22 headers transitively include Abseil headers.
+    # ORC build needs the Abseil include directory if we're using a bundled Abseil.
+    if(absl_SOURCE_DIR)
+      set(ORC_ABSL_INCLUDE_DIR "${absl_SOURCE_DIR}")
+    endif()
+
     get_target_property(ORC_SNAPPY_INCLUDE_DIR ${Snappy_TARGET}
                         INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_SNAPPY_ROOT "${ORC_SNAPPY_INCLUDE_DIR}" DIRECTORY)
@@ -3725,8 +3731,14 @@ function(build_orc)
     get_target_property(ORC_ZLIB_ROOT ZLIB::ZLIB INTERFACE_INCLUDE_DIRECTORIES)
     get_filename_component(ORC_ZLIB_ROOT "${ORC_ZLIB_ROOT}" DIRECTORY)
 
+    if(ORC_ABSL_INCLUDE_DIR)
+      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS} -isystem ${ORC_ABSL_INCLUDE_DIR}")
+    else()
+      set(ORC_CXX_FLAGS "${EP_CXX_FLAGS}")
+    endif()
     set(ORC_CMAKE_ARGS
         ${EP_COMMON_CMAKE_ARGS}
+        "-DCMAKE_CXX_FLAGS=${ORC_CXX_FLAGS}"
         "-DCMAKE_INSTALL_PREFIX=${ORC_PREFIX}"
         -DSTOP_BUILD_ON_WARNING=OFF
         -DBUILD_LIBHDFSPP=OFF
