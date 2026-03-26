@@ -413,8 +413,8 @@ struct MockDatasetBuilder {
   MockFragmentScanner* active_fragment = nullptr;
 };
 
-template <typename TYPE,
-          typename = typename std::enable_if<arrow::is_integer_type<TYPE>::value>::type>
+template <typename TYPE>
+  requires arrow::arrow_integer<TYPE>
 std::shared_ptr<Array> ArrayFromRange(int start, int end, bool add_nulls) {
   using ArrowBuilderType = typename arrow::TypeTraits<TYPE>::BuilderType;
   ArrowBuilderType builder;

@@ -1218,9 +1218,8 @@ TEST_F(TestRecordBatch, ToTensorUnsupportedMixedFloat16) {
 }
 
 namespace {
-template <typename ArrowType,
-          typename = std::enable_if_t<is_boolean_type<ArrowType>::value ||
-                                      is_number_type<ArrowType>::value>>
+template <typename ArrowType>
+  requires(arrow_boolean<ArrowType> || arrow_number<ArrowType>)
 Result<std::shared_ptr<Array>> BuildArray(
     const std::vector<typename TypeTraits<ArrowType>::CType>& values) {
   using BuilderType = typename TypeTraits<ArrowType>::BuilderType;
@@ -1232,9 +1231,9 @@ Result<std::shared_ptr<Array>> BuildArray(
 }
 struct StringBuilderVisitor {
   template <typename DataType>
-  enable_if_t<has_string_view<DataType>::value, Status> Visit(
-      const DataType&, ArrayBuilder* raw_builder,
-      const std::vector<std::string>& values) {
+    requires arrow_has_string_view<DataType>
+  Status Visit(const DataType&, ArrayBuilder* raw_builder,
+               const std::vector<std::string>& values) {
     using Builder = typename TypeTraits<DataType>::BuilderType;
     auto builder = static_cast<Builder*>(raw_builder);
     for (const auto& value : values) {
@@ -1268,8 +1267,8 @@ std::vector<RawType> StatisticsValuesToRawValues(
   return raw_values;
 }
 
-template <typename ValueType, typename = std::enable_if_t<std::is_same<
-                                  ArrayStatistics::ValueType, ValueType>::value>>
+template <typename ValueType>
+  requires std::same_as<ArrayStatistics::ValueType, ValueType>
 Result<std::shared_ptr<Array>> BuildArray(const std::vector<ValueType>& values,
                                           const std::shared_ptr<DataType>& array_type) {
   struct Builder {

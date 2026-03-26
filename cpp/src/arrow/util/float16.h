@@ -44,8 +44,8 @@ class ARROW_EXPORT Float16 {
   Float16() = default;
   explicit Float16(float f) : Float16(FromFloat(f)) {}
   explicit Float16(double d) : Float16(FromDouble(d)) {}
-  template <typename T,
-            typename std::enable_if_t<std::is_convertible_v<T, double>>* = NULLPTR>
+  template <typename T>
+    requires std::is_convertible_v<T, double>
   explicit Float16(T v) : Float16(static_cast<double>(v)) {}
 
   /// \brief Create a `Float16` from its exact binary representation

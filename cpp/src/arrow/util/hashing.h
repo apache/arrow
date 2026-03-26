@@ -940,7 +940,7 @@ struct HashTraits<T> {
 };
 
 template <typename T>
-  requires is_decimal_type<T>::value
+  requires arrow_decimal<T>
 struct HashTraits<T> {
   using MemoTableType = BinaryMemoTable<BinaryBuilder>;
 };

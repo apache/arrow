@@ -120,9 +120,8 @@ class TestBaseArithmetic : public ::testing::Test {
     GTEST_SKIP() << "Unsupported on half-float"; \
   }
 
-template <typename T, typename R = void>
-using enable_if_numeric_value =
-    std::enable_if_t<std::is_arithmetic_v<T> || std::is_same_v<T, Float16>, R>;
+template <typename T>
+concept numeric_value = std::is_arithmetic_v<T> || std::same_as<T, Float16>;
 
 template <typename T, typename OptionsType>
 class TestBaseUnaryArithmetic : public TestBaseArithmetic<T> {
@@ -134,8 +133,8 @@ class TestBaseUnaryArithmetic : public TestBaseArithmetic<T> {
       std::function<Result<Datum>(const Datum&, OptionsType, ExecContext*)>;
 
   // (CScalar, CScalar)
-  template <typename V>
-  enable_if_numeric_value<V> AssertUnaryOp(UnaryFunction func, V argument, V expected) {
+  template <numeric_value V>
+  void AssertUnaryOp(UnaryFunction func, V argument, V expected) {
     auto arg = this->MakeScalar(argument);
     auto exp = this->MakeScalar(expected);
     ASSERT_OK_AND_ASSIGN(auto actual, func(arg, options_, nullptr));
@@ -188,9 +187,9 @@ class TestBaseUnaryArithmetic : public TestBaseArithmetic<T> {
   }
 
   // (CScalar, CScalar)
-  template <typename V>
-  enable_if_numeric_value<V> AssertUnaryOpRaises(UnaryFunction func, V argument,
-                                                 const std::string& expected_msg) {
+  template <numeric_value V>
+  void AssertUnaryOpRaises(UnaryFunction func, V argument,
+                           const std::string& expected_msg) {
     auto arg = this->MakeScalar(argument);
     EXPECT_RAISES_WITH_MESSAGE_THAT(Invalid, ::testing::HasSubstr(expected_msg),
                                     func(arg, options_, nullptr));
@@ -304,8 +303,8 @@ class TestBinaryArithmetic : public TestBaseArithmetic<T> {
   void SetUp() override { options_.check_overflow = false; }
 
   // (Scalar, Scalar)
-  template <typename V>
-  enable_if_numeric_value<V> AssertBinop(BinaryFunction func, V lhs, V rhs, V expected) {
+  template <numeric_value V>
+  void AssertBinop(BinaryFunction func, V lhs, V rhs, V expected) {
     auto left = this->MakeScalar(lhs);
     auto right = this->MakeScalar(rhs);
     auto exp = this->MakeScalar(expected);
@@ -315,10 +314,9 @@ class TestBinaryArithmetic : public TestBaseArithmetic<T> {
   }
 
   // (Scalar, Array)
-  template <typename V>
-  enable_if_numeric_value<V> AssertBinop(BinaryFunction func, V lhs,
-                                         const std::string& rhs,
-                                         const std::string& expected) {
+  template <numeric_value V>
+  void AssertBinop(BinaryFunction func, V lhs, const std::string& rhs,
+                   const std::string& expected) {
     auto left = this->MakeScalar(lhs);
     AssertBinop(func, left, rhs, expected);
   }
@@ -334,9 +332,9 @@ class TestBinaryArithmetic : public TestBaseArithmetic<T> {
   }
 
   // (Array, Scalar)
-  template <typename V>
-  enable_if_numeric_value<V> AssertBinop(BinaryFunction func, const std::string& lhs,
-                                         V rhs, const std::string& expected) {
+  template <numeric_value V>
+  void AssertBinop(BinaryFunction func, const std::string& lhs, V rhs,
+                   const std::string& expected) {
     auto right = this->MakeScalar(rhs);
     AssertBinop(func, lhs, right, expected);
   }

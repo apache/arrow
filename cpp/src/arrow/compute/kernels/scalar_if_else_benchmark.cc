@@ -52,14 +52,16 @@ struct GetBytesProcessedVisitor {
   }
 
   template <typename Type>
-  std::enable_if_t<is_number_type<Type>::value, Status> Visit(const Type& type) {
+    requires arrow_number<Type>
+  Status Visit(const Type& type) {
     using CType = typename Type::c_type;
     total_bytes += arr->length() * sizeof(CType);
     return Status::OK();
   }
 
   template <typename Type>
-  std::enable_if_t<is_base_binary_type<Type>::value, Status> Visit(const Type& type) {
+    requires arrow_base_binary<Type>
+  Status Visit(const Type& type) {
     using ArrayType = typename TypeTraits<Type>::ArrayType;
     using OffsetType = typename TypeTraits<Type>::OffsetType::c_type;
     total_bytes += arr->length() * sizeof(OffsetType) +
@@ -68,7 +70,8 @@ struct GetBytesProcessedVisitor {
   }
 
   template <typename ArrowType>
-  enable_if_var_length_list_like<ArrowType, Status> Visit(const ArrowType& type) {
+    requires arrow_var_length_list_like<ArrowType>
+  Status Visit(const ArrowType& type) {
     using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
     using OffsetType = typename TypeTraits<ArrowType>::OffsetType::c_type;
 

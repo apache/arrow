@@ -50,7 +50,8 @@ writing code which would break when it is replaced by std::span.)");
   span(const span&) = default;
   span& operator=(const span&) = default;
 
-  template <typename M, typename = std::enable_if_t<std::is_same_v<T, const M>>>
+  template <typename M>
+    requires std::is_same_v<T, const M>
   // NOLINTNEXTLINE runtime/explicit
   constexpr span(span<M> mut) : span{mut.data(), mut.size()} {}
 
@@ -60,9 +61,8 @@ writing code which would break when it is replaced by std::span.)");
       : data_{begin}, size_{static_cast<size_t>(end - begin)} {}
 
   template <typename R, typename RD = decltype(std::data(std::declval<R>())),
-            typename RS = decltype(std::size(std::declval<R>())),
-            typename E = std::enable_if_t<std::is_constructible_v<T*, RD> &&
-                                          std::is_constructible_v<size_t, RS>>>
+            typename RS = decltype(std::size(std::declval<R>()))>
+    requires(std::is_constructible_v<T*, RD> && std::is_constructible_v<size_t, RS>)
   // NOLINTNEXTLINE runtime/explicit, non-const reference
   constexpr span(R&& range) : data_{std::data(range)}, size_{std::size(range)} {}
 

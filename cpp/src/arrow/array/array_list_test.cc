@@ -330,7 +330,8 @@ class TestListArray : public ::testing::Test {
   }
 
   template <bool IsList = !kTypeClassIsListView>
-  std::enable_if_t<IsList, void> TestFromArraysWithSlicedOffsets() {
+    requires IsList
+  void TestFromArraysWithSlicedOffsets() {
     std::vector<offset_type> offsets = {-1, -1, 0, 1, 2, 4};
 
     std::shared_ptr<Array> offsets_wo_nulls;
@@ -356,7 +357,8 @@ class TestListArray : public ::testing::Test {
   }
 
   template <bool IsList = !kTypeClassIsListView>
-  std::enable_if_t<IsList, void> TestFromArraysWithSlicedNullOffsets() {
+    requires IsList
+  void TestFromArraysWithSlicedNullOffsets() {
     std::vector<offset_type> offsets = {-1, -1, 0, 1, 1, 3};
     std::vector<bool> offsets_w_nulls_is_valid = {true, true, true, false, true, true};
 
@@ -479,7 +481,8 @@ class TestListArray : public ::testing::Test {
   }
 
   template <bool IsListView = kTypeClassIsListView>
-  std::enable_if_t<IsListView, void> DoTestListViewFromArrays() {
+    requires IsListView
+  void DoTestListViewFromArrays() {
     std::shared_ptr<Array> offsets1, offsets2;
     std::shared_ptr<Array> sizes1, sizes2, sizes3, sizes4, sizes5;
     std::shared_ptr<Array> values;

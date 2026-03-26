@@ -123,15 +123,6 @@ using VectorIntLikeParams =
 
 template <typename Param>
 class TestSmallStaticVector : public ::testing::Test {
-  template <bool B, typename T = void>
-  using enable_if_t = typename std::enable_if<B, T>::type;
-
-  template <typename P>
-  using enable_if_move_only = enable_if_t<P::IsMoveOnly(), int>;
-
-  template <typename P>
-  using enable_if_not_move_only = enable_if_t<!P::IsMoveOnly(), int>;
-
  public:
   using Traits = typename Param::Traits;
   using IntLike = typename Param::IntLike;
@@ -247,7 +238,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructFromCount(enable_if_t<!IsMoveOnly>* = 0) {
+    requires(!IsMoveOnly)
+  void TestConstructFromCount() {
     constexpr size_t N = Traits::TestSizeFor(4);
     {
       const IntVectorType<N> ints(3);
@@ -261,7 +253,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructFromCount(enable_if_t<IsMoveOnly>* = 0) {
+    requires IsMoveOnly
+  void TestConstructFromCount() {
     GTEST_SKIP() << "Cannot construct vector of move-only type with value count";
   }
 
@@ -285,13 +278,15 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructFromValues(enable_if_t<!IsMoveOnly>* = 0) {
+    requires(!IsMoveOnly)
+  void TestConstructFromValues() {
     CheckConstructFromValues<Traits::TestSizeFor(4)>();
     CheckConstructFromValues<5>();
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestConstructFromValues(enable_if_t<IsMoveOnly>* = 0) {
+    requires IsMoveOnly
+  void TestConstructFromValues() {
     GTEST_SKIP() << "Cannot construct vector of move-only type with explicit values";
   }
 
@@ -316,7 +311,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void CheckConstructFromCopiedStdVector(enable_if_t<!IsMoveOnly>* = 0) {
+    requires(!IsMoveOnly)
+  void CheckConstructFromCopiedStdVector() {
     constexpr size_t N = Traits::TestSizeFor(6);
     {
       const std::vector<IntLike> src;
@@ -338,7 +334,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void CheckConstructFromCopiedStdVector(enable_if_t<IsMoveOnly>* = 0) {}
+    requires IsMoveOnly
+  void CheckConstructFromCopiedStdVector() {}
 
   void TestConstructFromStdVector() {
     CheckConstructFromMovedStdVector();
@@ -368,7 +365,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void CheckAssignFromCopiedStdVector(enable_if_t<!IsMoveOnly>* = 0) {
+    requires(!IsMoveOnly)
+  void CheckAssignFromCopiedStdVector() {
     constexpr size_t N = Traits::TestSizeFor(6);
     {
       const std::vector<IntLike> src;
@@ -392,7 +390,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void CheckAssignFromCopiedStdVector(enable_if_t<IsMoveOnly>* = 0) {}
+    requires IsMoveOnly
+  void CheckAssignFromCopiedStdVector() {}
 
   void TestAssignFromStdVector() {
     CheckAssignFromMovedStdVector();
@@ -454,18 +453,21 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestCopy(enable_if_t<!IsMoveOnly>* = 0) {
+    requires(!IsMoveOnly)
+  void TestCopy() {
     CheckCopy<Traits::TestSizeFor(5)>(/*expect_overflow=*/Traits::CanOverflow());
     CheckCopy<5>(/*expect_overflow=*/false);
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestCopy(enable_if_t<IsMoveOnly>* = 0) {
+    requires IsMoveOnly
+  void TestCopy() {
     GTEST_SKIP() << "Cannot copy vector of move-only type";
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestResize(enable_if_t<!IsMoveOnly>* = 0) {
+    requires(!IsMoveOnly)
+  void TestResize() {
     constexpr size_t N = Traits::TestSizeFor(8);
     {
       IntVectorType<N> ints;
@@ -520,7 +522,8 @@ class TestSmallStaticVector : public ::testing::Test {
   }
 
   template <bool IsMoveOnly = Param::IsMoveOnly()>
-  void TestResize(enable_if_t<IsMoveOnly>* = 0) {
+    requires IsMoveOnly
+  void TestResize() {
     GTEST_SKIP() << "Cannot resize vector of move-only type";
   }
 
