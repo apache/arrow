@@ -118,6 +118,14 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Debug link command
+        if: failure()
+        shell: bash
+        run: |
+          echo "=== arrow_shared.rsp ==="
+          cat build/cpp/src/arrow/CMakeFiles/arrow_shared.dir/linkLibs.rsp 2>/dev/null || true
+          cat build/cpp/CMakeFiles/arrow_shared.rsp 2>/dev/null || true
+          find build/cpp -name "*.rsp" -path "*arrow_shared*" 2>/dev/null -exec echo "--- {} ---" \; -exec cat {} \;
       - name: Test
         shell: cmd
         run: |
