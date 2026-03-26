@@ -118,6 +118,17 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
+      - name: Debug symbols
+        if: failure()
+        shell: cmd
+        run: |
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %ARCH%
+          echo === Symbols in libprotobufd.lib containing fixed_address ===
+          dumpbin /symbols build\cpp\_deps\protobuf-build\libprotobufd.lib | findstr "fixed_address_empty_string"
+          echo === Symbols in orc.lib containing fixed_address ===
+          dumpbin /symbols build\cpp\_deps\orc-build\c++\src\orc.lib | findstr "fixed_address_empty_string"
+        env:
+          ARCH: ${{ inputs.arch }}
       - name: Test
         shell: cmd
         run: |
