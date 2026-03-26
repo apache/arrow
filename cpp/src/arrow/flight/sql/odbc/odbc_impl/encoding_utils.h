@@ -34,13 +34,11 @@
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING
 
 #ifdef __linux__
-#  define GET_SQWCHAR_PTR(wstring_var) (ODBC::ToSqlWCharVector(wstring_var).data())
+#  define ODBC_INI reinterpret_cast<LPCWSTR>(u"ODBC.INI")
 #else
 // Windows and macOS
-#  define GET_SQWCHAR_PTR(wstring_var) (wstring_var.c_str())
+#  define ODBC_INI reinterpret_cast<LPCWSTR>(L"ODBC.INI")
 #endif
-
-#define ODBC_INI reinterpret_cast<LPCWSTR>(GET_SQWCHAR_PTR(std::wstring(L"ODBC.INI")))
 
 namespace ODBC {
 

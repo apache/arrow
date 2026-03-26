@@ -59,10 +59,10 @@ void PostError(DWORD error_code, LPWSTR error_msg) {
 
 void PostArrowUtilError(arrow::Status error_status) {
   std::string error_msg = error_status.message();
-  std::wstring werror_msg = arrow::util::UTF8ToWideString(error_msg).ValueOr(
-      L"Error during utf8 to wide string conversion");
+  CONVERT_SQLWCHAR_STR(werror_msg, error_msg);
 
-  PostError(ODBC_ERROR_GENERAL_ERR, const_cast<LPWSTR>(GET_SQWCHAR_PTR(werror_msg)));
+  PostError(ODBC_ERROR_GENERAL_ERR,
+            const_cast<LPWSTR>(reinterpret_cast<LPCWSTR>(werror_msg.c_str())));
 }
 
 void PostLastInstallerError() {
@@ -94,7 +94,14 @@ void PostLastInstallerError() {
  * @return True on success and false on fail.
  */
 bool UnregisterDsn(const std::wstring& dsn) {
-  if (SQLRemoveDSNFromIni(GET_SQWCHAR_PTR(dsn))) {
+#ifdef __linux__
+  auto dsn_vec = ODBC::ToSqlWCharVector(dsn);
+  const SQLWCHAR* dsn_arr = dsn_vec.data();
+#else
+  // Windows and macOS
+  const SQLWCHAR* dsn_arr = dsn.c_str();
+#endif
+  if (SQLRemoveDSNFromIni(dsn_arr)) {
     return true;
   }
 
