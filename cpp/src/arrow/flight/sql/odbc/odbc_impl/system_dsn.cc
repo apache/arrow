@@ -25,30 +25,25 @@
 
 #include "arrow/flight/sql/odbc/odbc_impl/encoding_utils.h"
 
-#ifdef __linux__
-// Linux driver manager uses utf16string
-#  define CONVERT_UTF8_TO_SQLWCHAR_OR_RETURN(wvar, var)       \
-    auto wvar##_result = arrow::util::UTF8StringToUTF16(var); \
-    if (!wvar##_result.status().ok()) {                       \
-      PostArrowUtilError(wvar##_result.status());             \
-      return false;                                           \
-    }                                                         \
-    std::u16string wvar = wvar##_result.ValueOrDie();
-
-#else
-// Windows and macOS
-#  define CONVERT_UTF8_TO_SQLWCHAR_OR_RETURN(wvar, var)      \
-    auto wvar##_result = arrow::util::UTF8ToWideString(var); \
-    if (!wvar##_result.status().ok()) {                      \
-      PostArrowUtilError(wvar##_result.status());            \
-      return false;                                          \
-    }                                                        \
-    std::wstring wvar = wvar##_result.ValueOrDie();
-#endif  // __linux__
-
 namespace arrow::flight::sql::odbc {
 
 using config::Configuration;
+
+#ifdef __linux__
+// Linux driver manager uses utf16string
+std::u16string ConvertToSQLWCHAR(const std::string_view var) {
+  auto result = arrow::util::UTF8StringToUTF16(var);
+#else
+std::wstring ConvertToSQLWCHAR(const std::string_view var) {
+  // Windows and macOS
+  auto result = arrow::util::UTF8ToWideString(var);
+#endif
+  if (!result.status().ok()) {
+    PostArrowUtilError(result.status());
+    return {};  // return empty string on error
+  }
+  return result.ValueOrDie();
+}
 
 void PostError(DWORD error_code, LPWSTR error_msg) {
 #if defined _WIN32
@@ -118,7 +113,7 @@ bool UnregisterDsn(const std::wstring& dsn) {
  */
 bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
   const std::string& dsn = config.Get(FlightSqlConnection::DSN);
-  CONVERT_UTF8_TO_SQLWCHAR_OR_RETURN(wdsn, dsn);
+  auto wdsn = ConvertToSQLWCHAR(dsn);
 
   if (!SQLWriteDSNToIni(reinterpret_cast<LPCWSTR>(wdsn.c_str()), driver)) {
     PostLastInstallerError();
@@ -133,8 +128,8 @@ bool RegisterDsn(const Configuration& config, LPCWSTR driver) {
       continue;
     }
 
-    CONVERT_UTF8_TO_SQLWCHAR_OR_RETURN(wkey, key);
-    CONVERT_UTF8_TO_SQLWCHAR_OR_RETURN(wvalue, it->second);
+    auto wkey = ConvertToSQLWCHAR(key);
+    auto wvalue = ConvertToSQLWCHAR(it->second);
 
     if (!SQLWritePrivateProfileString(reinterpret_cast<LPCWSTR>(wdsn.c_str()),
                                       reinterpret_cast<LPCWSTR>(wkey.c_str()),

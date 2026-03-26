@@ -47,12 +47,11 @@ case "$(uname)" in
   *)
     # macOS
     USER_ODBCINST_FILE="$HOME/Library/ODBC/odbcinst.ini"
+    mkdir -p "$HOME"/Library/ODBC
     ;;
 esac
 
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
-
-mkdir -p "$HOME"/Library/ODBC
 
 touch "$USER_ODBCINST_FILE"
 
