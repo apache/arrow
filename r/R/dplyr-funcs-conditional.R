@@ -304,7 +304,7 @@ register_bindings_conditional <- function() {
       value <- parsed$value
       if (!is.null(.default)) {
         if (length(.default) != 1) {
-          validation_error(paste0("`.default` must have size 1, not size ", length(.default), "."))
+          arrow_not_supported("`case_when()` with vectorized `.default`")
         }
         n <- length(query)
         query[[n + 1]] <- TRUE
@@ -348,6 +348,9 @@ register_bindings_conditional <- function() {
       if (!is.null(ptype)) {
         arrow_not_supported("`recode_values()` with `ptype` specified")
       }
+      if (!unmatched %in% c("default", "error")) {
+        validation_error('`unmatched` must be either "default" or "error"')
+      }
       if (unmatched == "error") {
         arrow_not_supported("`recode_values()` with `unmatched = \"error\"`")
       }
@@ -360,6 +363,9 @@ register_bindings_conditional <- function() {
       value <- parsed$value
 
       if (!is.null(default)) {
+        if (length(default) != 1) {
+          arrow_not_supported("`recode_values()` with vectorized `default`")
+        }
         n <- length(query)
         query[[n + 1]] <- TRUE
         value[[n + 1]] <- Expression$scalar(default)
