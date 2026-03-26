@@ -3638,6 +3638,12 @@ function(build_orc)
 
     set(CMAKE_UNITY_BUILD FALSE)
 
+    # ORC's CMakeLists.txt unconditionally adds /std:c++17 on MSVC via
+    # add_compile_options, which overrides CMAKE_CXX_STANDARD and causes
+    # ABI mismatches with protobuf. Prevent this by pre-setting the check
+    # result so the flag is not added.
+    set(CPP17_FLAG_SUPPORTED OFF)
+
     set(ORC_PREFER_STATIC_LZ4 OFF)
     set(LZ4_HOME "${ORC_LZ4_ROOT}")
     set(LZ4_INCLUDE_DIR "${ORC_LZ4_INCLUDE_DIR}")
