@@ -3684,6 +3684,7 @@ function(build_orc)
 
     add_library(orc::orc INTERFACE IMPORTED)
     target_link_libraries(orc::orc INTERFACE orc)
+    target_link_libraries(orc::orc INTERFACE ${ARROW_PROTOBUF_LIBPROTOBUF})
 
     # ar -M rejects paths with "c++/" because "+" is a line continuation
     # character in MRI scripts, so we have to create a copy of the static lib
