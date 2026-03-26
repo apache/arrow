@@ -1024,6 +1024,12 @@ if(ARROW_ORC)
                                  PRIVATE ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK)
     endif()
   endforeach()
+  # On Windows (MSVC), ORC links protobuf PRIVATE so protobuf symbols
+  # don't propagate through the OBJECT library chain to arrow.dll.
+  # Add protobuf directly to ensure it appears on the link line.
+  if(MSVC)
+    list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
 else()
   set(ARROW_ORC_TARGET_SHARED)
   set(ARROW_ORC_TARGET_STATIC)
