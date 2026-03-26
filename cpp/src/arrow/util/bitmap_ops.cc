@@ -61,10 +61,10 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
     // Unroll the loop for better performance
     for (int64_t i = 0; i < words_rounded; i += kCountUnrollFactor) {
       // (hand-unrolled as some gcc versions would unnest a nested `for` loop)
-      count_unroll[0] += bit_util::PopCount(u64_data[0]);
-      count_unroll[1] += bit_util::PopCount(u64_data[1]);
-      count_unroll[2] += bit_util::PopCount(u64_data[2]);
-      count_unroll[3] += bit_util::PopCount(u64_data[3]);
+      count_unroll[0] += std::popcount(u64_data[0]);
+      count_unroll[1] += std::popcount(u64_data[1]);
+      count_unroll[2] += std::popcount(u64_data[2]);
+      count_unroll[3] += std::popcount(u64_data[3]);
       u64_data += kCountUnrollFactor;
     }
     for (int64_t k = 0; k < kCountUnrollFactor; k++) {
@@ -73,7 +73,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 
     // The trailing part
     for (; u64_data < end; ++u64_data) {
-      count += bit_util::PopCount(*u64_data);
+      count += std::popcount(*u64_data);
     }
   }
 

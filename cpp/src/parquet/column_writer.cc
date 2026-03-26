@@ -22,6 +22,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -1791,7 +1792,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     }
 
     auto add_levels = [](std::vector<int64_t>& level_histogram,
-                         ::arrow::util::span<const int16_t> levels, int16_t max_level) {
+                         std::span<const int16_t> levels, int16_t max_level) {
       if (max_level == 0) {
         return;
       }

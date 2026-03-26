@@ -366,6 +366,7 @@ set(ARROW_SRCS
     extension_type.cc
     extension/bool8.cc
     extension/json.cc
+    extension/parquet_variant.cc
     extension/uuid.cc
     pretty_print.cc
     record_batch.cc
@@ -994,6 +995,8 @@ if(ARROW_JSON)
   arrow_add_object_library(ARROW_JSON
                            extension/fixed_shape_tensor.cc
                            extension/opaque.cc
+                           extension/tensor_internal.cc
+                           extension/variable_shape_tensor.cc
                            json/options.cc
                            json/chunked_builder.cc
                            json/chunker.cc

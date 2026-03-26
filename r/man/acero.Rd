@@ -7,7 +7,7 @@
 \alias{arrow-dplyr}
 \title{Functions available in Arrow dplyr queries}
 \description{
-The \code{arrow} package contains methods for 37 \code{dplyr} table functions, many of
+The \code{arrow} package contains methods for 38 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
 The package also has mappings of 224 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
@@ -32,6 +32,7 @@ Table into an R \code{tibble}.
 \item \code{\link[dplyr:distinct]{distinct()}}: \code{.keep_all = TRUE} returns a non-missing value if present, only returning missing values if all are missing.
 \item \code{\link[dplyr:explain]{explain()}}
 \item \code{\link[dplyr:filter]{filter()}}
+\item \code{\link[dplyr:filter]{filter_out()}}
 \item \code{\link[dplyr:mutate-joins]{full_join()}}: the \code{copy} argument is ignored
 \item \code{\link[dplyr:glimpse]{glimpse()}}
 \item \code{\link[dplyr:group_by]{group_by()}}
@@ -198,7 +199,7 @@ Valid values are "s", "ms" (default), "us", "ns".
 \itemize{
 \item \code{\link[dplyr:across]{across()}}
 \item \code{\link[dplyr:between]{between()}}
-\item \code{\link[dplyr:case_when]{case_when()}}: \code{.ptype} and \code{.size} arguments not supported
+\item \code{\link[dplyr:case-and-replace-when]{case_when()}}: \code{.ptype} and \code{.size} arguments not supported
 \item \code{\link[dplyr:coalesce]{coalesce()}}
 \item \code{\link[dplyr:desc]{desc()}}
 \item \code{\link[dplyr:across]{if_all()}}

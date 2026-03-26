@@ -813,6 +813,13 @@ else()
   )
 endif()
 
+if(DEFINED ENV{ARROW_WIL_URL})
+  set(ARROW_WIL_URL "$ENV{ARROW_WIL_URL}")
+else()
+  set_urls(ARROW_WIL_URL
+           "https://github.com/microsoft/wil/archive/${ARROW_WIL_BUILD_VERSION}.tar.gz")
+endif()
+
 if(DEFINED ENV{ARROW_XSIMD_URL})
   set(XSIMD_SOURCE_URL "$ENV{ARROW_XSIMD_URL}")
 else()
@@ -1106,6 +1113,22 @@ function(build_boost)
     list(APPEND BOOST_INCLUDE_LIBRARIES uuid)
   else()
     list(APPEND BOOST_EXCLUDE_LIBRARIES uuid)
+  endif()
+  if(ARROW_FLIGHT_SQL_ODBC)
+    # GH-49244: Replace boost beast with alternatives in ODBC
+    # GH-49243: Replace boost variant with std::variant in ODBC
+    # GH-49245: Replace boost xpressive with alternatives in ODBC
+    list(APPEND
+         BOOST_INCLUDE_LIBRARIES
+         beast
+         variant
+         xpressive)
+  else()
+    list(APPEND
+         BOOST_EXCLUDE_LIBRARIES
+         beast
+         variant
+         xpressive)
   endif()
   set(BOOST_SKIP_INSTALL_RULES ON)
   if(NOT ARROW_ENABLE_THREADING)
@@ -1660,7 +1683,8 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_USE_GLOG)
+   OR ARROW_USE_GLOG
+   OR (ARROW_FLIGHT_SQL AND ARROW_BUILD_EXAMPLES))
   set(ARROW_NEED_GFLAGS TRUE)
 else()
   set(ARROW_NEED_GFLAGS FALSE)
@@ -1826,6 +1850,8 @@ function(build_thrift)
   if(BOOST_VENDORED)
     target_link_libraries(thrift PUBLIC $<BUILD_LOCAL_INTERFACE:Boost::headers>)
     target_link_libraries(thrift PRIVATE $<BUILD_LOCAL_INTERFACE:arrow::Boost::locale>)
+  else()
+    target_link_libraries(thrift INTERFACE Boost::headers)
   endif()
 
   add_library(thrift::thrift INTERFACE IMPORTED)
@@ -2642,7 +2668,7 @@ if(ARROW_USE_XSIMD)
                      IS_RUNTIME_DEPENDENCY
                      FALSE
                      REQUIRED_VERSION
-                     "13.0.0")
+                     "14.0.0")
 
   if(xsimd_SOURCE STREQUAL "BUNDLED")
     set(ARROW_XSIMD arrow::xsimd)
@@ -3016,8 +3042,7 @@ function(build_cares)
   if(APPLE)
     # libresolv must be linked from c-ares version 1.16.1
     find_library(LIBRESOLV_LIBRARY NAMES resolv libresolv REQUIRED)
-    set_target_properties(c-ares::cares PROPERTIES INTERFACE_LINK_LIBRARIES
-                                                   "${LIBRESOLV_LIBRARY}")
+    target_link_libraries(c-ares INTERFACE ${LIBRESOLV_LIBRARY})
   endif()
 
   set(ARROW_BUNDLED_STATIC_LIBS
@@ -4052,6 +4077,21 @@ endif()
 
 function(build_azure_sdk)
   message(STATUS "Building Azure SDK for C++ from source")
+
+  # On Windows, Azure SDK's WinHTTP transport requires WIL (Windows Implementation Libraries).
+  # Fetch WIL before Azure SDK so the WIL::WIL target is available.
+  if(WIN32)
+    message(STATUS "Fetching WIL (Windows Implementation Libraries) for Azure SDK")
+    fetchcontent_declare(wil
+                         ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                         URL ${ARROW_WIL_URL}
+                         URL_HASH "SHA256=${ARROW_WIL_BUILD_SHA256_CHECKSUM}")
+    prepare_fetchcontent()
+    set(WIL_BUILD_PACKAGING OFF)
+    set(WIL_BUILD_TESTS OFF)
+    fetchcontent_makeavailable(wil)
+  endif()
+
   fetchcontent_declare(azure_sdk
                        ${FC_DECLARE_COMMON_OPTIONS}
                        URL ${ARROW_AZURE_SDK_URL}

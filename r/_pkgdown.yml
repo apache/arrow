@@ -150,6 +150,7 @@ articles:
       - developers/docker
       - developers/install_details
       - developers/data_object_layout
+      - developers/binary_features
 
 reference:
 - title: Read datasets

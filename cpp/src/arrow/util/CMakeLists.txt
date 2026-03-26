@@ -74,7 +74,6 @@ add_arrow_test(utility-test
                rows_to_batches_test.cc
                secure_string_test.cc
                small_vector_test.cc
-               span_test.cc
                stl_util_test.cc
                string_test.cc
                tdigest_test.cc

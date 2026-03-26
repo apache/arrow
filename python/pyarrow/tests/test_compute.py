@@ -2362,6 +2362,26 @@ def test_strptime():
     assert got == pa.array([None, None, None], type=pa.timestamp('s'))
 
 
+def _compare_strftime_strings_on_windows(result, expected):
+    # TODO(GH-48767): On Windows, std::chrono returns GMT offset
+    # instead of timezone abbreviations (e.g. "CET")
+    # https://github.com/apache/arrow/issues/48767
+
+    # Match timezone suffixes (UTC), offsets (GMT+1), or abbreviations (CET)
+    p = "(UTC|GMT[+-]?[0-9]*|[A-Z]{2,5})$"
+
+    ends_with_tz = pc.match_substring_regex(result, p)
+    all_end_with_tz = pc.all(ends_with_tz, skip_nulls=True).as_py()
+    assert all_end_with_tz, "All timezone values should be GMT offset format, "\
+                            f"UTC, or timezone abbreviation\nActual: {result}"
+
+    result_substring = pc.replace_substring_regex(result, pattern=p, replacement="")
+    expected_substring = pc.replace_substring_regex(expected, pattern=p, replacement="")
+    assert result_substring.equals(expected_substring), \
+        f"Expected: {expected}, \nActual: {result} " \
+        "\nNote: tz suffix is not being compared"
+
+
 @pytest.mark.pandas
 @pytest.mark.timezone_data
 def test_strftime():
@@ -2383,7 +2403,10 @@ def test_strftime():
                 result = pc.strftime(tsa, options=options)
                 # cast to the same type as result to ignore string vs large_string
                 expected = pa.array(ts.strftime(fmt)).cast(result.type)
-                assert result.equals(expected)
+                if sys.platform == "win32" and fmt == "%Z":
+                    _compare_strftime_strings_on_windows(result, expected)
+                else:
+                    assert result.equals(expected)
 
         fmt = "%Y-%m-%dT%H:%M:%S"
 
@@ -2397,7 +2420,10 @@ def test_strftime():
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
         result = pc.strftime(tsa, options=pc.StrftimeOptions(fmt + "%Z"))
         expected = pa.array(ts.strftime(fmt + "%Z")).cast(result.type)
-        assert result.equals(expected)
+        if sys.platform == "win32":
+            _compare_strftime_strings_on_windows(result, expected)
+        else:
+            assert result.equals(expected)
 
         # Pandas %S is equivalent to %S in arrow for unit="s"
         tsa = pa.array(ts, type=pa.timestamp("s", timezone))
@@ -2614,7 +2640,9 @@ def test_assume_timezone():
             pc.assume_timezone(ta_zoned, options=options)
 
     invalid_options = pc.AssumeTimezoneOptions("Europe/Brusselsss")
-    with pytest.raises(ValueError, match="not found in timezone database"):
+    with pytest.raises(ValueError,
+                       match="not found in timezone database|"
+                             "unable to locate time_zone"):
         pc.assume_timezone(ta, options=invalid_options)
 
     timezone = "Europe/Brussels"
@@ -2789,6 +2817,14 @@ def test_round_temporal(unit):
         "1992-01-01 00:00:00.100000000",
         "1999-12-04 05:55:34.794991104",
         "2026-10-26 08:39:00.316686848"]
+
+    # Windows timezone database appears to disagree with IANA timezone database on
+    # some historical timestamps. We exclude those timestamps from testing on Windows.
+    # Specifically removing:
+    # "1941-05-27 11:46:43.822831872" and "1943-12-14 07:32:05.424766464"
+    if sys.platform == "win32":
+        timestamps = timestamps[:3] + timestamps[5:]
+
     ts = pd.Series([pd.Timestamp(x, unit="ns") for x in timestamps])
     _check_temporal_rounding(ts, values, unit)
 
@@ -3930,7 +3966,8 @@ def test_list_slice_output_fixed(start, stop, step, expected, value_type,
     (0, 1,),
     (0, 2,),
     (1, 2,),
-    (2, 4,)
+    (2, 4,),
+    (0, 0,)
 ))
 @pytest.mark.parametrize("step", (1, 2))
 @pytest.mark.parametrize("value_type", (pa.string, pa.int16, pa.float64))
@@ -3978,18 +4015,17 @@ def test_list_slice_field_names_retained(return_fixed_size, type):
 
 def test_list_slice_bad_parameters():
     arr = pa.array([[1]], pa.list_(pa.int8(), 1))
-    msg = r"`start`(.*) should be greater than 0 and smaller than `stop`(.*)"
+    msg = (
+        r"`start`(.*) should be greater than or equal to 0 "
+        r"and not greater than `stop`(.*)"
+    )
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, -1, 1)  # negative start?
     with pytest.raises(pa.ArrowInvalid, match=msg):
         pc.list_slice(arr, 2, 1)  # start > stop?
 
-    # TODO(ARROW-18281): start==stop -> empty lists
-    with pytest.raises(pa.ArrowInvalid, match=msg):
-        pc.list_slice(arr, 0, 0)  # start == stop?
-
     # Step not >= 1
-    msg = "`step` must be >= 1, got: "
+    msg = "`step` must be greater than or equal to 1, got: "
     with pytest.raises(pa.ArrowInvalid, match=msg + "0"):
         pc.list_slice(arr, 0, 1, step=0)
     with pytest.raises(pa.ArrowInvalid, match=msg + "-1"):

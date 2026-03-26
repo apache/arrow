@@ -22,7 +22,7 @@ FROM ${repo}:${arch}-conda-cpp
 ARG arch=amd64
 # We need to synchronize the following values with the values in .env
 # and services.conda-integration in compose.yaml.
-ARG maven=3.8.7
+ARG maven=3.9.9
 ARG node=20
 ARG yarn=1.22
 ARG jdk=17
@@ -42,6 +42,7 @@ RUN mamba install -q -y \
         nodejs=${node} \
         yarn=${yarn} \
         openjdk=${jdk} \
+        ruby \
         zstd && \
     mamba clean --yes --all --force-pkgs-dirs
 

@@ -282,11 +282,25 @@ message(STATUS "Found NumPy version: ${Python3_NumPy_VERSION}")
 message(STATUS "NumPy include dir: ${NUMPY_INCLUDE_DIRS}")
 
 include(UseCython)
+
+if(CYTHON_VERSION VERSION_LESS "3.1")
+  message(FATAL_ERROR "Please update your Cython version. Supported Cython >= 3.1, found ${CYTHON_VERSION}"
+  )
+endif()
 message(STATUS "Found Cython version: ${CYTHON_VERSION}")
 
 # Arrow C++ and set default PyArrow build options
 include(GNUInstallDirs)
 find_package(Arrow REQUIRED)
+
+# When not bundling Arrow C++ libraries on macOS, add the Arrow library
+# directory to the RPATH so that the extensions can find libarrow at runtime.
+if(APPLE
+   AND NOT PYARROW_BUNDLE_ARROW_CPP
+   AND ARROW_SHARED_LIB)
+  get_filename_component(_arrow_lib_dir "${ARROW_SHARED_LIB}" DIRECTORY)
+  list(APPEND CMAKE_INSTALL_RPATH "${_arrow_lib_dir}")
+endif()
 
 macro(define_option name description arrow_option)
   set("PYARROW_${name}"
@@ -352,7 +366,19 @@ set(PYARROW_CPP_ROOT_DIR pyarrow/src)
 set(PYARROW_CPP_SOURCE_DIR ${PYARROW_CPP_ROOT_DIR}/arrow/python)
 
 # Write out compile-time configuration constants
-string(TOUPPER ${CMAKE_BUILD_TYPE} UPPERCASE_PYBUILD_TYPE)
+if(CMAKE_BUILD_TYPE)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" UPPERCASE_PYBUILD_TYPE)
+else()
+  # For multi-config generators (XCode and Visual Studio),
+  # CMAKE_BUILD_TYPE is not set at configure time.
+  # scikit-build-core does the right thing with cmake.build-type and
+  # adds the corresponding --config but does not populate CMAKE_BUILD_TYPE
+  # for those. On this specific case, we set the default to "RELEASE".
+  # The actual build type is injected through target compile definitions
+  # for multi-config generators.
+  set(UPPERCASE_PYBUILD_TYPE "RELEASE")
+endif()
+
 configure_file("${PYARROW_CPP_SOURCE_DIR}/config_internal.h.cmake"
                "${PYARROW_CPP_SOURCE_DIR}/config_internal.h" ESCAPE_QUOTES)
 
@@ -501,6 +527,9 @@ else()
 endif()
 target_link_libraries(arrow_python PUBLIC Python3::NumPy)
 target_compile_definitions(arrow_python PRIVATE ARROW_PYTHON_EXPORTING)
+if(CMAKE_CONFIGURATION_TYPES)
+  target_compile_definitions(arrow_python PRIVATE PYARROW_BUILD_TYPE="$<CONFIG>")
+endif()
 set_target_properties(arrow_python PROPERTIES VERSION "${PYARROW_FULL_SO_VERSION}"
                                               SOVERSION "${PYARROW_SO_VERSION}")
 install(TARGETS arrow_python
@@ -948,6 +977,9 @@ foreach(module ${CYTHON_EXTENSIONS})
         continue()
       endif()
     endif()
+    if(output MATCHES "\\.h$")
+      continue()
+    endif()
     install(FILES ${CMAKE_CURRENT_BINARY_DIR}/${output} DESTINATION ".")
   endforeach()
 endforeach()
@@ -1003,5 +1035,38 @@ if(PYARROW_BUILD_PARQUET)
   target_link_libraries(_parquet PRIVATE ${PARQUET_LINK_LIBS})
   if(PYARROW_BUILD_PARQUET_ENCRYPTION)
     target_link_libraries(_parquet_encryption PRIVATE arrow_python_parquet_encryption)
+  endif()
+endif()
+
+#
+# Type stubs with docstring injection
+#
+# Stubs live in pyarrow-stubs/pyarrow/ during development but are installed
+# alongside the package so type checkers can find them (PEP 561).
+set(PYARROW_STUBS_SOURCE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/pyarrow-stubs/pyarrow")
+if(EXISTS "${PYARROW_STUBS_SOURCE_DIR}")
+  install(DIRECTORY "${PYARROW_STUBS_SOURCE_DIR}/"
+          DESTINATION "."
+          FILES_MATCHING
+          PATTERN "*.pyi")
+
+  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+    install(CODE "
+      execute_process(
+        COMMAND \"${Python3_EXECUTABLE}\"
+                \"${CMAKE_CURRENT_SOURCE_DIR}/scripts/update_stub_docstrings.py\"
+                \"${CMAKE_INSTALL_PREFIX}\"
+                \"${CMAKE_CURRENT_SOURCE_DIR}\"
+        RESULT_VARIABLE _pyarrow_stub_docstrings_result
+      )
+      if(NOT _pyarrow_stub_docstrings_result EQUAL 0)
+        message(FATAL_ERROR \"Stub docstring injection failed (exit code: \${_pyarrow_stub_docstrings_result})\")
+      endif()
+    ")
+  endif()
+else()
+  if(PYARROW_REQUIRE_STUB_DOCSTRINGS)
+    message(FATAL_ERROR "PyArrow stub source directory not found at ${PYARROW_STUBS_SOURCE_DIR}; "
+                        "cannot build wheel without .pyi files.")
   endif()
 endif()

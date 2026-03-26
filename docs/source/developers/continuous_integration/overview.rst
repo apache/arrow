@@ -26,7 +26,6 @@ Some files central to Arrow CI are:
 
 - ``compose.yaml`` - here we define docker services which can be configured using either environment variables, or the default values for these variables.
 - ``.env`` - here we define default values to configure the services in ``compose.yaml``
-- ``appveyor.yml`` - here we define workflows that run on Appveyor
 
 We use :ref:`Docker<docker-builds>` in order to have portable and reproducible Linux builds, as well as running Windows builds in Windows containers.  We use :ref:`Archery<Archery>` and :ref:`Crossbow<Crossbow>` to help coordinate the various CI tasks.
 
@@ -55,10 +54,6 @@ The ``.yml`` files in ``.github/workflows`` are workflows which are run on GitHu
   - ``@github-actions rebase`` - rebases the PR onto the main branch
 - ``dev.yml`` - runs any time there is activity on a PR, or a PR is merged; it runs the linter and tests that the PR can be merged
 - ``dev_pr.yml`` - runs any time a PR is opened or updated; checks the formatting of the PR title, adds assignee to the appropriate GitHub issue if needed (or adds a comment requesting the user to include the issue id in the title), and adds any relevant GitHub labels
-
-There are two other files which define action-triggered builds:
-
-- ``appveyor.yml`` - runs on commits related to Python or C++
 
 Extended builds
 -----------------------

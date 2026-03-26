@@ -381,6 +381,17 @@ Description: Apache Arrow is a data processing library for analysis
  .
  This package provides GLib based library files for CUDA support.
 
+Package: libarrow-cuda-glib-doc
+Section: doc
+Architecture: @CUDA_ARCHITECTURE@
+Multi-Arch: foreign
+Depends:
+  ${misc:Depends}
+Recommends: libarrow-glib-doc
+Description: Apache Arrow is a data processing library for analysis
+ .
+ This package provides documentations for CUDA support.
+
 Package: gir1.2-arrow-cuda-24.0
 Section: introspection
 Architecture: @CUDA_ARCHITECTURE@

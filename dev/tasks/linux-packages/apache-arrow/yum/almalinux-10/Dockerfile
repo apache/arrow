@@ -62,6 +62,5 @@ RUN \
     utf8proc-devel \
     vala \
     which \
-    xsimd-devel \
     zlib-devel && \
   dnf clean ${quiet} all

@@ -116,7 +116,7 @@ class TemplateOverrider(http.server.SimpleHTTPRequestHandler):
 def run_server_thread(dist_dir, q):
     global _SERVER_ADDRESS
     os.chdir(dist_dir)
-    server = http.server.HTTPServer(("", 0), TemplateOverrider)
+    server = http.server.HTTPServer(("127.0.0.1", 0), TemplateOverrider)
     q.put(server.server_address)
     print(f"Starting server for {dist_dir} at: {server.server_address}")
     server.serve_forever()
@@ -280,6 +280,7 @@ import micropip
 if "pyarrow" not in sys.modules:
     await micropip.install("hypothesis")
     import pyodide_js as pjs
+    await pjs.loadPackage("tzdata")
     await pjs.loadPackage("numpy")
     await pjs.loadPackage("pandas")
     import pytest

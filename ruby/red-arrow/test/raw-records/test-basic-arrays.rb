@@ -406,6 +406,46 @@ module RawRecordsBasicArraysTests
     target = build({column: :month_day_nano_interval}, records)
     assert_equal(records, actual_records(target))
   end
+
+  def test_duration_second
+    records = [
+      [0],
+      [nil],
+      [100],
+    ]
+    target = build({column: {type: :duration, unit: :second}}, records)
+    assert_equal(records, actual_records(target))
+  end
+
+  def test_duration_milli
+    records = [
+      [0],
+      [nil],
+      [100],
+    ]
+    target = build({column: {type: :duration, unit: :milli}}, records)
+    assert_equal(records, actual_records(target))
+  end
+
+  def test_duration_micro
+    records = [
+      [0],
+      [nil],
+      [100],
+    ]
+    target = build({column: {type: :duration, unit: :micro}}, records)
+    assert_equal(records, actual_records(target))
+  end
+
+  def test_duration_nano
+    records = [
+      [0],
+      [nil],
+      [100],
+    ]
+    target = build({column: {type: :duration, unit: :nano}}, records)
+    assert_equal(records, actual_records(target))
+  end
 end
 
 class EachRawRecordRecordBatchBasicArraysTest < Test::Unit::TestCase

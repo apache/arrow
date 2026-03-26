@@ -47,7 +47,7 @@ should show as an available ODBC driver in the x64 ODBC Driver Manager.
 3. `cd` to `build` folder.
 4. Run `cpack`. 
 
-If the generation is successful, you will find `Apache Arrow Flight SQL ODBC-<version>-win64.msi` generated under the `build` folder.
+If the generation is successful, you will find `Apache-Arrow-Flight-SQL-ODBC-<version>-win64.msi` generated under the `build` folder.
 
 
 ## Steps to Enable Logging
@@ -124,3 +124,8 @@ After ODBC has been registered, you can run the ODBC tests. It is recommended to
       ```
       .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
       ```
+
+## Known Limitations
+
+- Conversion from timestamp data type with specified time zone value to strings is not supported at the moment. This doesn't impact driver's usage of retrieving timestamp data from Power BI on Windows, and Excel on macOS and Windows. See GH-47504 for more context.
+- Conversion from strings to big int data type has a limit range of -9007199254740992 to 9007199254740992.

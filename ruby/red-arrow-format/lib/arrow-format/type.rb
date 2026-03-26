@@ -16,6 +16,9 @@
 
 module ArrowFormat
   class Type
+    def to_s
+      name
+    end
   end
 
   class NullType < Type
@@ -305,6 +308,10 @@ module ArrowFormat
       "Float32"
     end
 
+    def buffer_type
+      :f32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Float32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -323,6 +330,10 @@ module ArrowFormat
 
     def name
       "Float64"
+    end
+
+    def buffer_type
+      :f64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -362,6 +373,10 @@ module ArrowFormat
       "Date32"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Date32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -382,6 +397,10 @@ module ArrowFormat
       "Date64"
     end
 
+    def buffer_type
+      :s64
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Date64Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -394,6 +413,10 @@ module ArrowFormat
       super()
       @bit_width = bit_width
       @unit = unit
+    end
+
+    def to_s
+      "#{super}(#{unit})"
     end
 
     def to_flatbuffers
@@ -413,6 +436,10 @@ module ArrowFormat
       "Time32"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       Time32Array.new(self, size, validity_buffer, values_buffer)
     end
@@ -425,6 +452,10 @@ module ArrowFormat
 
     def name
       "Time64"
+    end
+
+    def buffer_type
+      :s64
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -445,8 +476,18 @@ module ArrowFormat
       "Timestamp"
     end
 
+    def buffer_type
+      :s64
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       TimestampArray.new(self, size, validity_buffer, values_buffer)
+    end
+
+    def to_s
+      options = [@unit]
+      options << @time_zone if @time_zone
+      "#{super}(#{options.join(", ")})"
     end
 
     def to_flatbuffers
@@ -486,6 +527,10 @@ module ArrowFormat
       "YearMonthInterval"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       YearMonthIntervalArray.new(self, size, validity_buffer, values_buffer)
     end
@@ -500,6 +545,10 @@ module ArrowFormat
       "DayTimeInterval"
     end
 
+    def buffer_type
+      :s32
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       DayTimeIntervalArray.new(self, size, validity_buffer, values_buffer)
     end
@@ -512,6 +561,10 @@ module ArrowFormat
 
     def name
       "MonthDayNanoInterval"
+    end
+
+    def buffer_types
+      @buffer_types ||= [:s32, :s32, :s64]
     end
 
     def build_array(size, validity_buffer, values_buffer)
@@ -533,8 +586,22 @@ module ArrowFormat
       "Duration"
     end
 
+    def buffer_type
+      :s64
+    end
+
     def build_array(size, validity_buffer, values_buffer)
       DurationArray.new(self, size, validity_buffer, values_buffer)
+    end
+
+    def to_s
+      "#{super}(#{@unit})"
+    end
+
+    def to_flatbuffers
+      fb_type = FB::Duration::Data.new
+      fb_type.unit = FB::TimeUnit.try_convert(@unit.to_s.upcase)
+      fb_type
     end
   end
 
@@ -550,6 +617,14 @@ module ArrowFormat
 
     def name
       "Binary"
+    end
+
+    def offset_buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -576,6 +651,14 @@ module ArrowFormat
       "LargeBinary"
     end
 
+    def offset_buffer_type
+      :s64 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::ASCII_8BIT
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       LargeBinaryArray.new(self,
                            size,
@@ -600,6 +683,14 @@ module ArrowFormat
       "UTF8"
     end
 
+    def offset_buffer_type
+      :s32 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::UTF_8
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
       UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
     end
@@ -618,6 +709,14 @@ module ArrowFormat
 
     def name
       "LargeUTF8"
+    end
+
+    def offset_buffer_type
+      :s64 # TODO: big endian support
+    end
+
+    def encoding
+      Encoding::UTF_8
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
@@ -648,6 +747,10 @@ module ArrowFormat
       FixedSizeBinaryArray.new(self, size, validity_buffer, values_buffer)
     end
 
+    def to_s
+      "#{super}(#{@byte_width})"
+    end
+
     def to_flatbuffers
       fb_type = FB::FixedSizeBinary::Data.new
       fb_type.byte_width = @byte_width
@@ -662,6 +765,10 @@ module ArrowFormat
       super(byte_width)
       @precision = precision
       @scale = scale
+    end
+
+    def to_s
+      "#{name}(#{@precision}, #{@scale})"
     end
 
     def to_flatbuffers
@@ -707,11 +814,19 @@ module ArrowFormat
       super()
       @child = child
     end
+
+    def to_s
+      "#{super}<#{child.name}: #{child.type}>"
+    end
   end
 
   class ListType < VariableSizeListType
     def name
       "List"
+    end
+
+    def offset_buffer_type
+      :s32 # TODO: big endian support
     end
 
     def build_array(size, validity_buffer, offsets_buffer, child)
@@ -728,12 +843,44 @@ module ArrowFormat
       "LargeList"
     end
 
+    def offset_buffer_type
+      :s64 # TODO: big endian support
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, child)
       LargeListArray.new(self, size, validity_buffer, offsets_buffer, child)
     end
 
     def to_flatbuffers
       FB::LargeList::Data.new
+    end
+  end
+
+  class FixedSizeListType < Type
+    attr_reader :child
+    attr_reader :size
+    def initialize(child, size)
+      super()
+      @child = child
+      @size = size
+    end
+
+    def name
+      "FixedSizeList"
+    end
+
+    def to_s
+      "#{super}<#{child.name}: #{child.type}>(#{@size})"
+    end
+
+    def build_array(size, validity_buffer, child)
+      FixedSizeListArray.new(self, size, validity_buffer, child)
+    end
+
+    def to_flatbuffers
+      fb_type = FB::FixedSizeList::Data.new
+      fb_type.list_size = @size
+      fb_type
     end
   end
 
@@ -751,10 +898,21 @@ module ArrowFormat
     def build_array(size, validity_buffer, children)
       StructArray.new(self, size, validity_buffer, children)
     end
+
+    def to_s
+      fields = children.collect do |child|
+        "#{child.name}: #{child.type}"
+      end
+      "#{super}<#{fields.join(", ")}>"
+    end
+
+    def to_flatbuffers
+      FB::Struct::Data.new
+    end
   end
 
   class MapType < VariableSizeListType
-    def initialize(child)
+    def initialize(child, keys_sorted)
       if child.nullable?
         raise TypeError.new("Map entry field must not be nullable: " +
                             child.inspect)
@@ -772,22 +930,41 @@ module ArrowFormat
                             type.children[0].inspect)
       end
       super(child)
+      @keys_sorted = keys_sorted
     end
 
     def name
       "Map"
     end
 
+    def keys_sorted?
+      @keys_sorted
+    end
+
+    def offset_buffer_type
+      :s32 # TODO: big endian support
+    end
+
     def build_array(size, validity_buffer, offsets_buffer, child)
       MapArray.new(self, size, validity_buffer, offsets_buffer, child)
+    end
+
+    def to_s
+      key, value, = child.type.children
+      "#{name}<#{key.type}, #{value.type}>"
+    end
+
+    def to_flatbuffers
+      FB::Map::Data.new
     end
   end
 
   class UnionType < Type
     attr_reader :children
     attr_reader :type_ids
-    def initialize(children, type_ids)
+    def initialize(mode, children, type_ids)
       super()
+      @mode = mode
       @children = children
       @type_ids = type_ids
       @type_indexes = {}
@@ -796,11 +973,33 @@ module ArrowFormat
     def resolve_type_index(type)
       @type_indexes[type] ||= @type_ids.index(type)
     end
+
+    def to_s
+      children = @children.collect.with_index do |child, i|
+        "#{child.name}: #{child.type}=#{@type_ids[i]}"
+      end
+      "#{super}<#{children.join(", ")}>"
+    end
+
+    def to_flatbuffers
+      fb_type = FB::Union::Data.new
+      fb_type.mode = FB::UnionMode.try_convert(@mode.to_s.capitalize)
+      fb_type.type_ids = @type_ids
+      fb_type
+    end
   end
 
   class DenseUnionType < UnionType
+    def initialize(children, type_ids)
+      super(:dense, children, type_ids)
+    end
+
     def name
       "DenseUnion"
+    end
+
+    def offset_buffer_type
+      :s32
     end
 
     def build_array(size, types_buffer, offsets_buffer, children)
@@ -809,6 +1008,10 @@ module ArrowFormat
   end
 
   class SparseUnionType < UnionType
+    def initialize(children, type_ids)
+      super(:sparse, children, type_ids)
+    end
+
     def name
       "SparseUnion"
     end
@@ -819,10 +1022,12 @@ module ArrowFormat
   end
 
   class DictionaryType < Type
+    attr_reader :id
     attr_reader :index_type
     attr_reader :value_type
-    def initialize(index_type, value_type, ordered)
+    def initialize(id, index_type, value_type, ordered)
       super()
+      @id = id
       @index_type = index_type
       @value_type = value_type
       @ordered = ordered
@@ -836,12 +1041,30 @@ module ArrowFormat
       "Dictionary"
     end
 
-    def build_array(size, validity_buffer, indices_buffer, dictionary)
+    def build_array(size, validity_buffer, indices_buffer, dictionaries)
       DictionaryArray.new(self,
                           size,
                           validity_buffer,
                           indices_buffer,
-                          dictionary)
+                          dictionaries)
+    end
+
+    def build_fb_field(fb_field)
+      fb_dictionary_encoding = FB::DictionaryEncoding::Data.new
+      fb_dictionary_encoding.id = @id
+      fb_int = FB::Int::Data.new
+      fb_int.bit_width = @index_type.bit_width
+      fb_int.signed = @index_type.signed?
+      fb_dictionary_encoding.index_type = fb_int
+      fb_dictionary_encoding.ordered = @ordered
+      fb_dictionary_encoding.dictionary_kind = FB::DictionaryKind::DENSE_ARRAY
+      fb_field.type = @value_type.to_flatbuffers
+      fb_field.dictionary = fb_dictionary_encoding
+    end
+
+    def to_s
+      "#{super}<id=#{@id}, index=#{@index_type}, value=#{@value_type}, " +
+        "ordered=#{@ordered}>"
     end
   end
 end

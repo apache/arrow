@@ -612,6 +612,14 @@ def test_compression_level():
                          compression_level=level)
 
 
+def test_lz4_raw_compression_alias():
+    # GH-41863: lz4_raw should be accepted as a compression name alias
+    arr = pa.array(list(map(int, range(1000))))
+    table = pa.Table.from_arrays([arr, arr], names=['a', 'b'])
+    _check_roundtrip(table, expected=table, compression="lz4_raw")
+    _check_roundtrip(table, expected=table, compression="LZ4_RAW")
+
+
 def test_sanitized_spark_field_names():
     a0 = pa.array([0, 1, 2, 3, 4])
     name = 'prohib; ,\t{}'
@@ -728,6 +736,7 @@ def test_parquet_file_too_small(tempdir):
 @pytest.mark.fastparquet
 @pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
 @pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
+@pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 
@@ -751,17 +760,19 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    tm.assert_frame_equal(df, df_fp)
+    # pandas 3 defaults to StringDtype for strings, fastparquet still returns object
+    # TODO: remove astype casts once fastparquet supports pandas 3 StringDtype
+    tm.assert_frame_equal(df_fp, df.astype({"a": object}))
 
     # Fastparquet -> arrow
     file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
-    fp.write(file_fastparquet, df)
+    # fastparquet doesn't support writing pandas 3 StringDtype yet
+    fp.write(file_fastparquet, df.astype({"a": object}))
 
     table_fp = pq.read_pandas(file_fastparquet)
     # for fastparquet written file, categoricals comes back as strings
     # (no arrow schema in parquet metadata)
-    df['f'] = df['f'].astype(object)
-    tm.assert_frame_equal(table_fp.to_pandas(), df)
+    tm.assert_frame_equal(table_fp.to_pandas(), df.astype({"f": object}))
 
 
 @pytest.mark.parametrize('array_factory', [

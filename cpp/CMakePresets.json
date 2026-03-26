@@ -132,6 +132,14 @@
       }
     },
     {
+      "name": "features-opentelemetry",
+      "inherits": "features-basic",
+      "hidden": true,
+      "cacheVariables": {
+        "ARROW_WITH_OPENTELEMETRY": "ON"
+      }
+    },
+    {
       "name": "features-python-minimal",
       "inherits": [
         "features-minimal"
@@ -162,6 +170,7 @@
         "features-filesystems",
         "features-flight-sql",
         "features-gandiva",
+        "features-opentelemetry",
         "features-python"
       ],
       "hidden": true,
@@ -314,6 +323,17 @@
       ],
       "displayName": "Debug build with tests and Flight SQL",
       "cacheVariables": {}
+    },
+    {
+      "name": "ninja-debug-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql",
+        "base-debug"
+      ],
+      "displayName": "Debug build with tests and Flight SQL ODBC",
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
     },
     {
       "name": "ninja-debug-gandiva",
@@ -510,6 +530,17 @@
       ],
       "displayName": "Release build with Flight SQL",
       "cacheVariables": {}
+    },
+    {
+      "name": "ninja-release-flight-sql-odbc",
+      "inherits": [
+        "features-flight-sql",
+        "base-release"
+      ],
+      "displayName": "Release build with Flight SQL ODBC",
+      "cacheVariables": {
+        "ARROW_FLIGHT_SQL_ODBC": "ON"
+      }
     },
     {
       "name": "ninja-release-gandiva",

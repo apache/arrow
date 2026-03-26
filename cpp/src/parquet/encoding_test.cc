@@ -20,7 +20,9 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <functional>
 #include <limits>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -39,7 +41,6 @@
 #include "arrow/util/bitmap_writer.h"
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/endian.h"
-#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "parquet/encoding.h"
 #include "parquet/platform.h"
@@ -50,11 +51,54 @@
 using arrow::default_memory_pool;
 using arrow::MemoryPool;
 using arrow::internal::checked_cast;
-using arrow::util::span;
 
 namespace bit_util = arrow::bit_util;
 
 namespace parquet::test {
+
+// Validate that `func` succeeds on supported (Type, Encoding) combinations, and
+// raises on unsupported ones.
+void TestSupportedEncodingsConsistentWith(
+    std::function<void(Type::type, Encoding::type, const ColumnDescriptor&)> func) {
+  // Try all possible types and encodings
+  for (int int_type = 0; int_type < static_cast<int>(Type::UNDEFINED); ++int_type) {
+    const auto type = static_cast<Type::type>(int_type);
+    const auto supported_encodings = SupportedEncodings(type);
+    ARROW_SCOPED_TRACE("Type = ", TypeToString(type));
+    const auto descr =
+        ColumnDescriptor(schema::PrimitiveNode::Make("col", Repetition::REQUIRED, type,
+                                                     ConvertedType::NONE, /*length=*/2),
+                         /*max_definition_level=*/0, /*max_repetition_level=*/0);
+
+    for (int int_encoding = 0; int_encoding < static_cast<int>(Encoding::UNDEFINED);
+         ++int_encoding) {
+      const auto encoding = static_cast<Encoding::type>(int_encoding);
+      ARROW_SCOPED_TRACE("Encoding = ", EncodingToString(encoding));
+      if (std::find(supported_encodings.begin(), supported_encodings.end(), encoding) !=
+          supported_encodings.end()) {
+        ASSERT_NO_THROW(func(type, encoding, descr));
+      } else {
+        ASSERT_THROW(func(type, encoding, descr), ParquetException);
+      }
+    }
+  }
+}
+
+TEST(SupportedEncodings, TestMakeDecoder) {
+  auto make_decoder = [](Type::type type, Encoding::type encoding,
+                         const ColumnDescriptor& descr) {
+    ARROW_UNUSED(MakeDecoder(type, encoding, &descr));
+  };
+  TestSupportedEncodingsConsistentWith(make_decoder);
+}
+
+TEST(SupportedEncodings, TestMakeEncoder) {
+  auto make_encoder = [](Type::type type, Encoding::type encoding,
+                         const ColumnDescriptor& descr) {
+    ARROW_UNUSED(MakeEncoder(type, encoding, /*use_dictionary=*/false, &descr));
+  };
+  TestSupportedEncodingsConsistentWith(make_encoder);
+}
 
 TEST(VectorBooleanTest, TestEncodeBoolDecode) {
   // PARQUET-454
@@ -119,14 +163,14 @@ TEST(VectorBooleanTest, TestEncodeIntDecode) {
 }
 
 template <typename T>
-void VerifyResults(T* result, T* expected, int num_values) {
+void VerifyResults(const T* result, const T* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(expected[i], result[i]) << i;
   }
 }
 
 template <typename T>
-void VerifyResultsSpaced(T* result, T* expected, int num_values,
+void VerifyResultsSpaced(const T* result, const T* expected, int num_values,
                          const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -136,14 +180,14 @@ void VerifyResultsSpaced(T* result, T* expected, int num_values,
 }
 
 template <>
-void VerifyResults<FLBA>(FLBA* result, FLBA* expected, int num_values) {
+void VerifyResults<FLBA>(const FLBA* result, const FLBA* expected, int num_values) {
   for (int i = 0; i < num_values; ++i) {
     ASSERT_EQ(0, memcmp(expected[i].ptr, result[i].ptr, kGenerateDataFLBALength)) << i;
   }
 }
 
 template <>
-void VerifyResultsSpaced<FLBA>(FLBA* result, FLBA* expected, int num_values,
+void VerifyResultsSpaced<FLBA>(const FLBA* result, const FLBA* expected, int num_values,
                                const uint8_t* valid_bits, int64_t valid_bits_offset) {
   for (auto i = 0; i < num_values; ++i) {
     if (bit_util::GetBit(valid_bits, valid_bits_offset + i)) {
@@ -1461,7 +1505,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   USING_BASE_MEMBERS();
 
   template <typename U>
-  void CheckDecode(span<const uint8_t> encoded_data, span<const U> expected_decoded_data,
+  void CheckDecode(std::span<const uint8_t> encoded_data,
+                   std::span<const U> expected_decoded_data,
                    const ColumnDescriptor* descr = nullptr) {
     static_assert(sizeof(U) == sizeof(c_type));
     static_assert(std::is_same_v<U, FLBA> == std::is_same_v<c_type, FLBA>);
@@ -1479,8 +1524,9 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
     if constexpr (std::is_same_v<c_type, FLBA>) {
       auto type_length = descr->type_length();
       for (int i = 0; i < num_elements; ++i) {
-        ASSERT_EQ(span<const uint8_t>(expected_decoded_data[i].ptr, type_length),
-                  span<const uint8_t>(decoded_data[i].ptr, type_length));
+        ASSERT_TRUE(std::ranges::equal(
+            std::span<const uint8_t>(expected_decoded_data[i].ptr, type_length),
+            std::span<const uint8_t>(decoded_data[i].ptr, type_length)));
       }
     } else {
       for (int i = 0; i < num_elements; ++i) {
@@ -1491,7 +1537,8 @@ class TestByteStreamSplitEncoding : public TestEncodingBase<Type> {
   }
 
   template <typename U>
-  void CheckEncode(span<const U> data, span<const uint8_t> expected_encoded_data,
+  void CheckEncode(std::span<const U> data,
+                   std::span<const uint8_t> expected_encoded_data,
                    const ColumnDescriptor* descr = nullptr) {
     static_assert(sizeof(U) == sizeof(c_type));
     static_assert(std::is_same_v<U, FLBA> == std::is_same_v<c_type, FLBA>);
@@ -1544,7 +1591,8 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
       const std::vector<FLBA> expected_output{
           FLBA{&raw_expected_output[0]}, FLBA{&raw_expected_output[3]},
           FLBA{&raw_expected_output[6]}, FLBA{&raw_expected_output[9]}};
-      CheckDecode(span{data}, span{expected_output}, FLBAColumnDescriptor(3).get());
+      CheckDecode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(3).get());
     }
     // - type_length = 1
     {
@@ -1553,7 +1601,8 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
       const std::vector<FLBA> expected_output{FLBA{&raw_expected_output[0]},
                                               FLBA{&raw_expected_output[1]},
                                               FLBA{&raw_expected_output[2]}};
-      CheckDecode(span{data}, span{expected_output}, FLBAColumnDescriptor(1).get());
+      CheckDecode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(1).get());
     }
   } else if constexpr (sizeof(c_type) == 4) {
     // INT32, FLOAT
@@ -1561,14 +1610,14 @@ void TestByteStreamSplitEncoding<Type>::CheckDecode() {
                                     0x77, 0x88, 0x99, 0xAA, 0xBB, 0xCC};
     const auto expected_output =
         ToLittleEndian<uint32_t>({0xAA774411U, 0xBB885522U, 0xCC996633U});
-    CheckDecode(span{data}, span{expected_output});
+    CheckDecode(std::span{data}, std::span{expected_output});
   } else {
     // INT64, DOUBLE
     const std::vector<uint8_t> data{0xDE, 0xC0, 0x37, 0x13, 0x11, 0x22, 0x33, 0x44,
                                     0xAA, 0xBB, 0xCC, 0xDD, 0x55, 0x66, 0x77, 0x88};
     const auto expected_output =
         ToLittleEndian<uint64_t>({0x7755CCAA331137DEULL, 0x8866DDBB442213C0ULL});
-    CheckDecode(span{data}, span{expected_output});
+    CheckDecode(std::span{data}, std::span{expected_output});
   }
 }
 
@@ -1584,7 +1633,8 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
                                    FLBA{&raw_data[6]}, FLBA{&raw_data[9]}};
       const std::vector<uint8_t> expected_output{0x11, 0x44, 0x77, 0xAA, 0x22, 0x55,
                                                  0x88, 0xBB, 0x33, 0x66, 0x99, 0xCC};
-      CheckEncode(span{data}, span{expected_output}, FLBAColumnDescriptor(3).get());
+      CheckEncode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(3).get());
     }
     // - type_length = 1
     {
@@ -1592,14 +1642,15 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
       const std::vector<FLBA> data{FLBA{&raw_data[0]}, FLBA{&raw_data[1]},
                                    FLBA{&raw_data[2]}};
       const std::vector<uint8_t> expected_output{0x11, 0x22, 0x33};
-      CheckEncode(span{data}, span{expected_output}, FLBAColumnDescriptor(1).get());
+      CheckEncode(std::span{data}, std::span{expected_output},
+                  FLBAColumnDescriptor(1).get());
     }
   } else if constexpr (sizeof(c_type) == 4) {
     // INT32, FLOAT
     const auto data = ToLittleEndian<uint32_t>({0xaabbccddUL, 0x11223344UL});
     const std::vector<uint8_t> expected_output{0xdd, 0x44, 0xcc, 0x33,
                                                0xbb, 0x22, 0xaa, 0x11};
-    CheckEncode(span{data}, span{expected_output});
+    CheckEncode(std::span{data}, std::span{expected_output});
   } else {
     // INT64, DOUBLE
     const auto data = ToLittleEndian<uint64_t>(
@@ -1608,7 +1659,7 @@ void TestByteStreamSplitEncoding<Type>::CheckEncode() {
         0x48, 0x08, 0xb8, 0x47, 0x07, 0xb7, 0x46, 0x06, 0xb6, 0x45, 0x05, 0xb5,
         0x44, 0x04, 0xb4, 0x43, 0x03, 0xb3, 0x42, 0x02, 0xb2, 0x41, 0x01, 0xb1,
     };
-    CheckEncode(span{data}, span{expected_output});
+    CheckEncode(std::span{data}, std::span{expected_output});
   }
 }
 
@@ -1735,33 +1786,43 @@ class TestDeltaBitPackEncoding : public TestEncodingBase<Type> {
     CheckRoundtripSpaced(valid_bits, valid_bits_offset);
   }
 
-  void CheckDecoding() {
+  void CheckDecoding() { CheckDecoding(std::span(draws_, num_values_)); }
+
+  void CheckDecoding(std::span<const c_type> expected_values) {
+    const auto num_values = static_cast<int>(expected_values.size());
     auto decoder = MakeTypedDecoder<Type>(Encoding::DELTA_BINARY_PACKED, descr_.get());
     auto read_batch_sizes = kReadBatchSizes;
-    read_batch_sizes.push_back(num_values_);
+    read_batch_sizes.push_back(num_values);
     // Exercise different batch sizes
     for (const int read_batch_size : read_batch_sizes) {
-      decoder->SetData(num_values_, encode_buffer_->data(),
+      decoder->SetData(num_values, encode_buffer_->data(),
                        static_cast<int>(encode_buffer_->size()));
 
+      std::vector<c_type> decoded_values(num_values);
       int values_decoded = 0;
-      while (values_decoded < num_values_) {
-        values_decoded += decoder->Decode(decode_buf_ + values_decoded, read_batch_size);
+      while (values_decoded < num_values) {
+        values_decoded +=
+            decoder->Decode(decoded_values.data() + values_decoded, read_batch_size);
       }
-      ASSERT_EQ(num_values_, values_decoded);
-      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decode_buf_, draws_, num_values_));
+      ASSERT_EQ(num_values, values_decoded);
+      ASSERT_NO_FATAL_FAILURE(VerifyResults<c_type>(decoded_values.data(),
+                                                    expected_values.data(), num_values));
     }
   }
 
-  void CheckRoundtrip() override {
+  void CheckRoundtripWithValues(std::span<const c_type> values) {
     auto encoder = MakeTypedEncoder<Type>(Encoding::DELTA_BINARY_PACKED,
                                           /*use_dictionary=*/false, descr_.get());
     // Encode a number of times to exercise the flush logic
     for (size_t i = 0; i < kNumRoundTrips; ++i) {
-      encoder->Put(draws_, num_values_);
+      encoder->Put(values.data(), static_cast<int>(values.size()));
       encode_buffer_ = encoder->FlushValues();
-      CheckDecoding();
+      CheckDecoding(values);
     }
+  }
+
+  void CheckRoundtrip() override {
+    CheckRoundtripWithValues(std::span(draws_, num_values_));
   }
 
   void CheckRoundtripSpaced(const uint8_t* valid_bits,
@@ -1920,24 +1981,7 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedWrapping) {
                                1,
                                -1,
                                1};
-  const int num_values = static_cast<int>(int_values.size());
-
-  const auto encoder = MakeTypedEncoder<TypeParam>(
-      Encoding::DELTA_BINARY_PACKED, /*use_dictionary=*/false, this->descr_.get());
-  encoder->Put(int_values, num_values);
-  const auto encoded = encoder->FlushValues();
-
-  const auto decoder =
-      MakeTypedDecoder<TypeParam>(Encoding::DELTA_BINARY_PACKED, this->descr_.get());
-
-  std::vector<T> decoded(num_values);
-  decoder->SetData(num_values, encoded->data(), static_cast<int>(encoded->size()));
-
-  const int values_decoded = decoder->Decode(decoded.data(), num_values);
-
-  ASSERT_EQ(num_values, values_decoded);
-  ASSERT_NO_FATAL_FAILURE(
-      VerifyResults<T>(decoded.data(), int_values.data(), num_values));
+  this->CheckRoundtripWithValues(int_values);
 }
 
 // Test that the DELTA_BINARY_PACKED encoding does not use more bits to encode than
@@ -1965,6 +2009,29 @@ TYPED_TEST(TestDeltaBitPackEncoding, DeltaBitPackedSize) {
   const auto encoded = encoder->FlushValues();
 
   ASSERT_EQ(encoded->size(), encoded_size);
+}
+
+TYPED_TEST(TestDeltaBitPackEncoding, ZeroDeltaBitWidth) {
+  // Exercise ranges of zero deltas interspersed between ranges of non-zero deltas.
+  // This checks that the zero bit-width optimization in GH-49266 doesn't mess
+  // decoder state.
+  using T = typename TypeParam::c_type;
+
+  // At least the size of a block
+  constexpr int kRangeSize = 256;
+
+  std::vector<T> int_values;
+  for (int i = 0; i < kRangeSize; ++i) {
+    int_values.push_back((i * 7) % 11);
+  }
+  // Range of equal values, should emit zero-width deltas
+  for (int i = 0; i < kRangeSize * 2; ++i) {
+    int_values.push_back(42);
+  }
+  for (int i = 0; i < kRangeSize; ++i) {
+    int_values.push_back((i * 5) % 7);
+  }
+  this->CheckRoundtripWithValues(int_values);
 }
 
 // ----------------------------------------------------------------------
@@ -2111,7 +2178,7 @@ std::shared_ptr<Buffer> DeltaEncode(std::vector<int32_t> lengths) {
   return encoder->FlushValues();
 }
 
-std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) {
+std::shared_ptr<Buffer> DeltaEncode(std::span<const int32_t> lengths) {
   auto encoder = MakeTypedEncoder<Int32Type>(Encoding::DELTA_BINARY_PACKED);
   encoder->Put(lengths.data(), static_cast<int>(lengths.size()));
   return encoder->FlushValues();
@@ -2119,8 +2186,8 @@ std::shared_ptr<Buffer> DeltaEncode(::arrow::util::span<const int32_t> lengths) 
 
 std::shared_ptr<Buffer> DeltaEncode(std::shared_ptr<::arrow::Array>& lengths) {
   auto data = ::arrow::internal::checked_pointer_cast<const ::arrow::Int32Array>(lengths);
-  auto span = ::arrow::util::span<const int32_t>{data->raw_values(),
-                                                 static_cast<size_t>(lengths->length())};
+  auto span = std::span<const int32_t>{data->raw_values(),
+                                       static_cast<size_t>(lengths->length())};
   return DeltaEncode(span);
 }
 

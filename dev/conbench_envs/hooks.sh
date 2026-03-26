@@ -28,7 +28,8 @@ create_conda_env_for_benchmark_build() {
     --file ci/conda_env_unix.txt \
     compilers \
     python="${PYTHON_VERSION}" \
-    pandas
+    pandas \
+    r
 }
 
 activate_conda_env_for_benchmark_build() {
@@ -56,17 +57,27 @@ build_arrow_python() {
   ci/scripts/python_build.sh $(pwd) /tmp/arrow
 }
 
-install_r() {
-  if ! command -v R &> /dev/null; then
-    curl -Ls https://github.com/r-lib/rig/releases/download/latest/rig-linux-latest.tar.gz | sudo tar xz -C /usr/local
-    sudo rig add release
-    sudo rig default release
-  fi
-}
-
 build_arrow_r() {
-  install_r
-  cat ci/etc/rprofile | sudo tee -a $(R RHOME)/etc/Rprofile.site > /dev/null
+  cat ci/etc/rprofile >> $(R RHOME)/etc/Rprofile.site
+
+  # Ensure CXX20 is configured in R's Makeconf.
+  # conda-forge's R may have empty CXX20 entries even though the compiler supports it.
+  # Arrow requires C++20, so we need to add these settings if missing.
+  MAKECONF="$(R RHOME)/etc/Makeconf"
+  if [ -z "$(R CMD config CXX20)" ]; then
+    echo "*** CXX20 not configured in R, adding it to Makeconf"
+    cat >> "$MAKECONF" << 'EOF'
+
+# Added for Arrow C++20 support
+CXX20 = g++
+CXX20FLAGS = -g -O2 $(LTO)
+CXX20PICFLAGS = -fpic
+CXX20STD = -std=gnu++20
+SHLIB_CXX20LD = $(CXX20) $(CXX20STD)
+SHLIB_CXX20LDFLAGS = -shared
+EOF
+  fi
+
   ci/scripts/r_deps.sh $(pwd) $(pwd)
   (cd r; R CMD INSTALL .;)
 }

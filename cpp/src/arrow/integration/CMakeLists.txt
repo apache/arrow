@@ -33,7 +33,9 @@ elseif(ARROW_BUILD_INTEGRATION)
 
   add_dependencies(arrow-json-integration-test arrow arrow_testing)
   add_dependencies(arrow-integration arrow-json-integration-test)
+endif()
 
+if(ARROW_BUILD_INTEGRATION)
   add_arrow_lib(arrow_c_data_integration
                 SOURCES
                 c_data_integration_internal.cc

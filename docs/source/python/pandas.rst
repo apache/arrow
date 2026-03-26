@@ -170,7 +170,7 @@ number of possible values.
 
    >>> df = pd.DataFrame({"cat": pd.Categorical(["a", "b", "c", "a", "b", "c"])})
    >>> df.cat.dtype.categories
-   Index(['a', 'b', 'c'], dtype='object')
+   Index(['a', 'b', 'c'], dtype='str')
    >>> df
      cat
    0   a
@@ -182,7 +182,7 @@ number of possible values.
    >>> table = pa.Table.from_pandas(df)
    >>> table
    pyarrow.Table
-   cat: dictionary<values=string, indices=int8, ordered=0>
+   cat: dictionary<values=large_string, indices=int8, ordered=0>
    ----
    cat: [  -- dictionary:
    ["a","b","c"]  -- indices:
@@ -196,7 +196,7 @@ same categories of the Pandas DataFrame.
    >>> column = table[0]
    >>> chunk = column.chunk(0)
    >>> chunk.dictionary
-   <pyarrow.lib.StringArray object at ...>
+   <pyarrow.lib.LargeStringArray object at ...>
    [
      "a",
      "b",
@@ -224,7 +224,7 @@ use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
 
    >>> df = pd.DataFrame({"datetime": pd.date_range("2020-01-01T00:00:00Z", freq="h", periods=3)})
    >>> df.dtypes
-   datetime    datetime64[ns, UTC]
+   datetime    datetime64[us, UTC]
    dtype: object
    >>> df
                       datetime
@@ -234,9 +234,9 @@ use the ``datetime64[ns]`` type in Pandas and are converted to an Arrow
    >>> table = pa.Table.from_pandas(df)
    >>> table
    pyarrow.Table
-   datetime: timestamp[ns, tz=UTC]
+   datetime: timestamp[us, tz=UTC]
    ----
-   datetime: [[2020-01-01 00:00:00.000000000Z,...,2020-01-01 02:00:00.000000000Z]]
+   datetime: [[2020-01-01 00:00:00.000000Z,2020-01-01 01:00:00.000000Z,2020-01-01 02:00:00.000000Z]]
 
 In this example the Pandas Timestamp is time zone aware
 (``UTC`` on this case), and this information is used to create the Arrow

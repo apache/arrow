@@ -42,6 +42,7 @@ RUN apt-get update -y -q && \
     apt-get update -y -q && \
     apt-get install -y -q --no-install-recommends \
         autoconf \
+        cargo \
         ccache \
         clang-${llvm} \
         cmake \
@@ -71,7 +72,6 @@ RUN apt-get update -y -q && \
         libthrift-dev \
         libutf8proc-dev \
         libxml2-dev \
-        libxsimd-dev \
         libzstd-dev \
         llvm-${llvm}-dev \
         make \
@@ -87,6 +87,7 @@ RUN apt-get update -y -q && \
         python3-venv \
         rapidjson-dev \
         rsync \
+        rustc \
         tzdata \
         tzdata-legacy \
         zlib1g-dev && \
@@ -135,4 +136,5 @@ ENV ARROW_ACERO=ON \
     google_cloud_cpp_storage_SOURCE=BUNDLED \
     ORC_SOURCE=BUNDLED \
     PATH=/usr/lib/ccache/:$PATH \
-    PYTHON=python3
+    PYTHON=python3 \
+    xsimd_SOURCE=BUNDLED

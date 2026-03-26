@@ -1937,6 +1937,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('nanoarrow')
+        .skip_tester('Ruby')
         .skip_tester('Rust')
         .skip_tester('Go'),
 
@@ -1944,6 +1945,7 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('Java')
         .skip_tester('JS')
         .skip_tester('nanoarrow')
+        .skip_tester('Ruby')
         .skip_tester('Rust')
         .skip_tester('Go'),
 
@@ -1993,19 +1995,22 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('nanoarrow')
         .skip_tester('Java')  # TODO(ARROW-7779)
         # TODO(https://github.com/apache/arrow/issues/38045)
-        .skip_format(SKIP_FLIGHT, '.NET'),
+        .skip_format(SKIP_FLIGHT, '.NET')
+        .skip_tester('Ruby'),
 
         generate_run_end_encoded_case()
         .skip_tester('.NET')
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
+        .skip_tester('Ruby')
         .skip_tester('Rust'),
 
         generate_binary_view_case()
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
+        .skip_tester('Ruby')
         .skip_tester('Rust'),
 
         generate_list_view_case()
@@ -2013,12 +2018,14 @@ def get_generated_json_files(tempdir=None):
         .skip_tester('JS')
         # TODO(https://github.com/apache/arrow-nanoarrow/issues/618)
         .skip_tester('nanoarrow')
+        .skip_tester('Ruby')
         .skip_tester('Rust'),
 
         generate_extension_case()
         .skip_tester('nanoarrow')
         # TODO(https://github.com/apache/arrow/issues/38045)
-        .skip_format(SKIP_FLIGHT, '.NET'),
+        .skip_format(SKIP_FLIGHT, '.NET')
+        .skip_tester('Ruby'),
     ]
 
     generated_paths = []

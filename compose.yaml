@@ -441,7 +441,9 @@ services:
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
-      ARROW_MIMALLOC: "ON"
+      # explicitly enable GCS when we build libarrow so that binary libarrow
+      # users get more fully-featured builds
+      ARROW_GCS: "ON"
     volumes: *ubuntu-volumes
     command: &cpp-static-command
       /bin/bash -c "
@@ -1537,7 +1539,8 @@ services:
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
 
   conda-python-dask:
     # Possible $DASK parameters:
@@ -1664,7 +1667,6 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
-        r_update_clang: ${R_UPDATE_CLANG}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
@@ -1747,7 +1749,7 @@ services:
       cache_from:
         - ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
       args:
-        base: rstudio/r-base:4.2-focal
+        base: posit/r-base:4.2-focal
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
     shm_size: *shm-size
