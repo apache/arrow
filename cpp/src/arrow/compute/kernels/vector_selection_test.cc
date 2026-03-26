@@ -27,6 +27,7 @@
 #include "arrow/array/concatenate.h"
 #include "arrow/chunked_array.h"
 #include "arrow/compute/api.h"
+#include "arrow/compute/kernels/gather_internal.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/scalar.h"
 #include "arrow/table.h"
@@ -103,6 +104,18 @@ void CheckTakeIndicesCase(const std::string& filter_json, const std::string& ind
 }
 
 }  // namespace
+
+// GH-49392: Fixed-width gather byte offsets must be computed in int64_t.
+TEST(GatherInternal, FixedWidthByteOffsetUses64BitArithmetic) {
+  constexpr int64_t kByteWidth = 8;
+  constexpr uint32_t kIndex = std::numeric_limits<uint32_t>::max() / kByteWidth + 1;
+  constexpr int64_t kExpectedByteOffset =
+      static_cast<int64_t>(std::numeric_limits<uint32_t>::max()) + 1;
+
+  const int64_t byte_offset = ::arrow::internal::FixedWidthByteOffset(kIndex, kByteWidth);
+  ASSERT_EQ(byte_offset, kExpectedByteOffset);
+  ASSERT_GT(byte_offset, std::numeric_limits<uint32_t>::max());
+}
 
 // ----------------------------------------------------------------------
 
