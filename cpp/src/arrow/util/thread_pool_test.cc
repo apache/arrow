@@ -660,6 +660,34 @@ TEST_F(TestThreadPool, OwnsCurrentThread) {
   ASSERT_FALSE(one_failed);
 }
 
+#ifdef _WIN32
+TEST_F(TestThreadPool, OwnsThisThreadPreservesLastError) {
+#  ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#  endif
+  auto pool = this->MakeThreadPool(4);
+
+  // Verify from outside the pool: OwnsThisThread() must not clobber
+  // the calling thread's last-error state.
+  ::SetLastError(ERROR_FILE_NOT_FOUND);
+  ASSERT_FALSE(pool->OwnsThisThread());
+  ASSERT_EQ(::GetLastError(), static_cast<DWORD>(ERROR_FILE_NOT_FOUND));
+
+  // Verify from inside a pool thread.
+  std::atomic<bool> error_preserved{true};
+  ASSERT_OK(pool->Spawn([&] {
+    ::SetLastError(ERROR_ACCESS_DENIED);
+    ASSERT_TRUE(pool->OwnsThisThread());
+    if (::GetLastError() != ERROR_ACCESS_DENIED) {
+      error_preserved = false;
+    }
+  }));
+
+  ASSERT_OK(pool->Shutdown());
+  ASSERT_TRUE(error_preserved.load());
+}
+#endif
+
 TEST_F(TestThreadPool, StressSpawnThreaded) {
 #ifndef ARROW_ENABLE_THREADING
   GTEST_SKIP() << "Test requires threading support";

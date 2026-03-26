@@ -651,7 +651,11 @@ DWORD GetPoolTlsIndex() {
 }  // namespace
 
 static ThreadPool* GetCurrentThreadPool() {
-  return static_cast<ThreadPool*>(TlsGetValue(GetPoolTlsIndex()));
+  // TlsGetValue() clears the calling thread's last-error state on success.
+  DWORD last_error = GetLastError();
+  auto* pool = static_cast<ThreadPool*>(TlsGetValue(GetPoolTlsIndex()));
+  SetLastError(last_error);
+  return pool;
 }
 
 static void SetCurrentThreadPool(ThreadPool* pool) {
