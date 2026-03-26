@@ -395,17 +395,6 @@ function(ADD_ARROW_LIB LIB_NAME)
                           PUBLIC "$<BUILD_INTERFACE:${ARG_SHARED_LINK_LIBS}>"
                                  "$<INSTALL_INTERFACE:${ARG_SHARED_INSTALL_INTERFACE_LIBS}>"
                           PRIVATE ${ARG_SHARED_PRIVATE_LINK_LIBS})
-    message(STATUS "DEBUG ${LIB_NAME}_shared PRIVATE link libs: ${ARG_SHARED_PRIVATE_LINK_LIBS}"
-    )
-    get_target_property(_link_libs ${LIB_NAME}_shared LINK_LIBRARIES)
-    message(STATUS "DEBUG ${LIB_NAME}_shared LINK_LIBRARIES: ${_link_libs}")
-    if(TARGET protobuf::libprotobuf)
-      get_target_property(_pb_type protobuf::libprotobuf TYPE)
-      get_target_property(_pb_loc protobuf::libprotobuf IMPORTED_LOCATION)
-      get_target_property(_pb_loc2 protobuf::libprotobuf LOCATION)
-      message(STATUS "DEBUG protobuf::libprotobuf TYPE=${_pb_type} IMPORTED_LOCATION=${_pb_loc} LOCATION=${_pb_loc2}"
-      )
-    endif()
 
     if(USE_OBJLIB)
       # Ensure that dependencies are built before compilation of objects in

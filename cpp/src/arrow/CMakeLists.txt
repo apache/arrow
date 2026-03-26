@@ -1018,22 +1018,20 @@ if(ARROW_ORC)
   arrow_add_object_library(ARROW_ORC adapters/orc/adapter.cc adapters/orc/options.cc
                            adapters/orc/util.cc)
   foreach(ARROW_ORC_TARGET ${ARROW_ORC_TARGETS})
-    target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
+    # Link ORC as PUBLIC so that orc.lib and its dependencies (protobuf)
+    # propagate to the consuming target (arrow_shared). PRIVATE deps of
+    # OBJECT libraries are not propagated on MSVC, which causes unresolved
+    # protobuf symbols when linking arrow.dll.
+    if(MSVC)
+      target_link_libraries(${ARROW_ORC_TARGET} PUBLIC orc::orc)
+    else()
+      target_link_libraries(${ARROW_ORC_TARGET} PRIVATE orc::orc)
+    endif()
     if(ARROW_ORC_VERSION VERSION_LESS "2.0.0")
       target_compile_definitions(${ARROW_ORC_TARGET}
                                  PRIVATE ARROW_ORC_NEED_TIME_ZONE_DATABASE_CHECK)
     endif()
   endforeach()
-  # On Windows (MSVC), ORC links protobuf PRIVATE so protobuf symbols
-  # don't propagate through the OBJECT library chain to arrow.dll.
-  # Add protobuf directly to ensure it appears on the link line.
-  if(MSVC)
-    list(APPEND ARROW_SHARED_PRIVATE_LINK_LIBS ${ARROW_PROTOBUF_LIBPROTOBUF})
-  endif()
-  message(STATUS "DEBUG ORC: MSVC=${MSVC}")
-  message(STATUS "DEBUG ORC: ARROW_PROTOBUF_LIBPROTOBUF=${ARROW_PROTOBUF_LIBPROTOBUF}")
-  message(STATUS "DEBUG ORC: ARROW_SHARED_PRIVATE_LINK_LIBS=${ARROW_SHARED_PRIVATE_LINK_LIBS}"
-  )
 else()
   set(ARROW_ORC_TARGET_SHARED)
   set(ARROW_ORC_TARGET_STATIC)
@@ -1106,9 +1104,6 @@ else()
   set(ARROW_PC_REQUIRES "")
 endif()
 
-message(STATUS "DEBUG ARROW_LIB: ARROW_SHARED_PRIVATE_LINK_LIBS=${ARROW_SHARED_PRIVATE_LINK_LIBS}"
-)
-message(STATUS "DEBUG ARROW_LIB: ARROW_ORC_TARGET_SHARED=${ARROW_ORC_TARGET_SHARED}")
 add_arrow_lib(arrow
               CMAKE_PACKAGE_NAME
               Arrow
