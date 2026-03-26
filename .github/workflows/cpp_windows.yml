@@ -72,7 +72,6 @@ jobs:
       CMAKE_GENERATOR: Ninja
       CMAKE_INSTALL_PREFIX: /usr
       CMAKE_UNITY_BUILD: ON
-      CMAKE_VERBOSE_MAKEFILE: ON
     steps:
       - name: Disable Crash Dialogs
         run: |
@@ -119,27 +118,6 @@ jobs:
         run: |
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - name: Debug symbols
-        if: failure()
-        shell: cmd
-        run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %ARCH%
-          echo === Symbols in libprotobufd.lib containing fixed_address ===
-          dumpbin /symbols build\cpp\_deps\protobuf-build\libprotobufd.lib | findstr "fixed_address_empty_string"
-          echo === Symbols in orc.lib containing fixed_address ===
-          dumpbin /symbols build\cpp\_deps\orc-build\c++\src\orc.lib | findstr "fixed_address_empty_string"
-        env:
-          ARCH: ${{ inputs.arch }}
-      - name: Debug compile commands
-        if: failure()
-        shell: bash
-        run: |
-          echo "=== ORC orc-proto-wrapper compile command ==="
-          grep -r "orc-proto-wrapper" build/cpp/build.ninja 2>/dev/null | head -20
-          echo "=== ORC include dirs ==="
-          grep -A5 "orc-proto-wrapper" build/cpp/build.ninja 2>/dev/null | grep "INCLUDES\|FLAGS" | head -5
-          echo "=== Protobuf port.cc compile command ==="
-          grep -r "port\.cc" build/cpp/build.ninja 2>/dev/null | grep "protobuf" | head -5
       - name: Test
         shell: cmd
         run: |
