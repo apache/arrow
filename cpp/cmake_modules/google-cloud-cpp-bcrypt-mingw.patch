@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
- a/google/cloud/internal/win32/sign_using_sha256.cc b/google/cloud/internal/win32/sign_using_sha256.cc
+diff --git a/google/cloud/internal/win32/sign_using_sha256.cc b/google/cloud/internal/win32/sign_using_sha256.cc
 index 15ecc6e6f9..60b6b7057e 100644
 --- a/google/cloud/internal/win32/sign_using_sha256.cc
 +++ b/google/cloud/internal/win32/sign_using_sha256.cc
@@ -26,8 +26,40 @@ index 15ecc6e6f9..60b6b7057e 100644
 +  // Workaround missing macros in MinGW-w64:
 +  //     https://github.com/mingw-w64/mingw-w64/issues/49
 +  #ifndef BCRYPT_RSA_ALG_HANDLE
-+  #define BCRYPT_RSA_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x000000e1)
++  #define BCRYPT_RSA_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x0000000A)
 +  #endif
    if (BCryptImportKeyPair(BCRYPT_RSA_ALG_HANDLE, nullptr,
                            BCRYPT_RSAPRIVATE_BLOB, &key_handle, buffer.data(),
                            static_cast<DWORD>(buffer.size()),
+diff --git a/google/cloud/storage/internal/md5hash.cc b/google/cloud/storage/internal/md5hash.cc
+index 00c72e0e5d..7fbd04507f 100644
+--- a/google/cloud/storage/internal/md5hash.cc
++++ b/google/cloud/storage/internal/md5hash.cc
+@@ -31,6 +31,11 @@ GOOGLE_CLOUD_CPP_INLINE_NAMESPACE_BEGIN
+ std::vector<std::uint8_t> MD5Hash(absl::string_view payload) {
+ #ifdef _WIN32
+   std::vector<unsigned char> digest(16);
++  // Workaround missing macros in MinGW-w64:
++  //     https://github.com/mingw-w64/mingw-w64/issues/49
++  #ifndef BCRYPT_MD5_ALG_HANDLE
++  #define BCRYPT_MD5_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x00000021)
++  #endif
+   BCryptHash(BCRYPT_MD5_ALG_HANDLE, nullptr, 0,
+              reinterpret_cast<PUCHAR>(const_cast<char*>(payload.data())),
+              static_cast<ULONG>(payload.size()), digest.data(),
+diff --git a/google/cloud/storage/internal/win32/hash_function_impl.cc b/google/cloud/storage/internal/win32/hash_function_impl.cc
+index 655c9f0991..07b2937c94 100644
+--- a/google/cloud/storage/internal/win32/hash_function_impl.cc
++++ b/google/cloud/storage/internal/win32/hash_function_impl.cc
+@@ -33,6 +33,11 @@ using ContextPtr =
+ 
+ ContextPtr CreateMD5HashCtx() {
+   BCRYPT_HASH_HANDLE hHash = nullptr;
++  // Workaround missing macros in MinGW-w64:
++  //     https://github.com/mingw-w64/mingw-w64/issues/49
++  #ifndef BCRYPT_MD5_ALG_HANDLE
++  #define BCRYPT_MD5_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x00000021)
++  #endif
+   BCryptCreateHash(BCRYPT_MD5_ALG_HANDLE, &hHash, nullptr, 0, nullptr, 0, 0);
+   return ContextPtr(hHash);
+ }
