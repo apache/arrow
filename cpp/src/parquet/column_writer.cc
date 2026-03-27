@@ -1489,6 +1489,10 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return current_encoder_->EstimatedDataEncodedSize();
   }
 
+  int64_t EstimatedBufferedLevelsBytes() const override {
+    return definition_levels_sink_.length() + repetition_levels_sink_.length();
+  }
+
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
