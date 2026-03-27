@@ -3893,13 +3893,13 @@ function(build_awssdk)
   set(MINIMIZE_SIZE ON)
   set(USE_OPENSSL ON)
 
-  # For aws-c-common
+  # For aws-c-common and google-cloud-cpp
   if(MINGW)
-    # PPROCESSOR_NUMBER requires Windows 7 or later.
+    # PPROCESSOR_NUMBER requires Windows 10 or later.
     #
-    # 0x0601 == _WIN32_WINNT_WIN7
-    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
-    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
+    # 0x0A01 == _WIN32_WINNT_WIN10
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0A01")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0A01")
   endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     string(APPEND CMAKE_C_FLAGS " -Wno-implicit-fallthrough")
