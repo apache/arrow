@@ -659,7 +659,11 @@ static ThreadPool* GetCurrentThreadPool() {
 }
 
 static void SetCurrentThreadPool(ThreadPool* pool) {
-  TlsSetValue(GetPoolTlsIndex(), pool);
+  BOOL ok = TlsSetValue(GetPoolTlsIndex(), pool);
+  if (!ok) {
+    ARROW_LOG(FATAL) << "TlsSetValue failed for thread pool TLS: "
+                     << WinErrorMessage(GetLastError());
+  }
 }
 #  else
 thread_local ThreadPool* current_thread_pool_ = nullptr;
