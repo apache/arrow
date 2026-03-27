@@ -37,7 +37,7 @@ if(ARROW_TESTING)
   target_link_libraries(arrow_compute_core_testing PUBLIC ${ARROW_GTEST_GMOCK})
   # When using static test linkage, define ARROW_STATIC so test_util_internal.cc doesn't expect DLL imports
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    target_compile_definitions(arrow_compute_core_testing PRIVATE ARROW_STATIC)
+    target_compile_definitions(arrow_compute_core_testing PRIVATE ARROW_STATIC ARROW_COMPUTE_STATIC)
   endif()
 endif()
 
@@ -52,7 +52,7 @@ if(ARROW_TESTING AND ARROW_COMPUTE)
                         PUBLIC ${ARROW_GTEST_GTEST})
   # When using static test linkage, define ARROW_STATIC so test_env.cc doesn't expect DLL imports
   if(ARROW_TEST_LINKAGE STREQUAL "static")
-    target_compile_definitions(arrow_compute_testing PRIVATE ARROW_STATIC)
+    target_compile_definitions(arrow_compute_testing PRIVATE ARROW_STATIC ARROW_COMPUTE_STATIC)
   endif()
 endif()
 
