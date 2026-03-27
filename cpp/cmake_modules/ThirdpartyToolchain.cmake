@@ -3468,8 +3468,26 @@ function(build_google_cloud_cpp_storage)
       TRUE
       PARENT_SCOPE)
 
+  # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
+  # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
+  set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
+  if(MINGW)
+    find_program(PATCH patch)
+    if(PATCH)
+      set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+          ${PATCH} -p1 -i ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
+            ${GIT} apply ${CMAKE_CURRENT_LIST_DIR}/google-cloud-cpp-bcrypt-mingw.patch)
+      endif()
+    endif()
+  endif()
+
   fetchcontent_declare(google_cloud_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
+                       PATCH_COMMAND ${GOOGLE_CLOUD_CPP_PATCH_COMMAND}
                        URL ${google_cloud_cpp_storage_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_GOOGLE_CLOUD_CPP_BUILD_SHA256_CHECKSUM}")
 
