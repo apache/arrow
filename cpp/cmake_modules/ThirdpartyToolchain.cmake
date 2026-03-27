@@ -3570,6 +3570,10 @@ function(build_google_cloud_cpp_storage)
          absl::cordz_functions
          absl::cordz_info
          absl::cordz_handle
+         absl::crc32c
+         absl::crc_internal
+         absl::crc_cord_state
+         absl::crc_cpu_detect
          absl::debugging_internal
          absl::demangle_internal
          absl::exponential_biased
