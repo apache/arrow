@@ -23,6 +23,7 @@
 
 #include "arrow/util/bit_util.h"
 #include "arrow/util/logging.h"
+#include "parquet/encryption/type_fwd.h"
 #include "parquet/hasher.h"
 #include "parquet/platform.h"
 #include "parquet/types.h"
@@ -327,6 +328,24 @@ class PARQUET_EXPORT BlockSplitBloomFilter : public BloomFilter {
   static BlockSplitBloomFilter Deserialize(
       const ReaderProperties& properties, ArrowInputStream* input_stream,
       std::optional<int64_t> bloom_filter_length = std::nullopt);
+
+  /// Deserialize an encrypted Bloom filter from an input stream.
+  ///
+  /// The same metadata decryptor is used for both the serialized header and bitset,
+  /// while switching module AADs between the two encrypted modules.
+  ///
+  /// @param properties The parquet reader properties.
+  /// @param input_stream The input stream from which to construct the bloom filter.
+  /// @param bloom_filter_length The length of the serialized bloom filter including
+  /// header.
+  /// @param decryptor Decryptor for encrypted Bloom filter modules.
+  /// @param row_group_ordinal Ordinal of the row group containing this Bloom filter.
+  /// @param column_ordinal Ordinal of the column containing this Bloom filter.
+  /// @return The BlockSplitBloomFilter.
+  static BlockSplitBloomFilter DeserializeEncrypted(
+      const ReaderProperties& properties, ArrowInputStream* input_stream,
+      std::optional<int64_t> bloom_filter_length, Decryptor* decryptor,
+      int16_t row_group_ordinal, int16_t column_ordinal);
 
  private:
   inline void InsertHashImpl(uint64_t hash);
