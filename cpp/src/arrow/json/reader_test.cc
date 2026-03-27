@@ -308,11 +308,8 @@ TEST(ReaderTest, MultipleChunksParallelRegression) {
     json += "{\"a\":" + std::to_string(i) + "}\n";
   }
 
-  std::shared_ptr<io::InputStream> input;
-  ASSERT_OK(MakeStream(json, &input));
-  ASSERT_OK_AND_ASSIGN(auto reader, TableReader::Make(default_memory_pool(), input,
-                                                      read_options, parse_options));
-  ASSERT_OK_AND_ASSIGN(auto table, reader->Read());
+  ASSERT_OK_AND_ASSIGN(auto table,
+                       ReadToTable(std::move(json), read_options, parse_options));
   ASSERT_EQ(table->num_rows(), count);
 }
 
