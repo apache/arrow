@@ -162,6 +162,9 @@ class BloomFilterBuilderImpl : public BloomFilterBuilder {
 
   BloomFilter* CreateBloomFilter(int32_t column_ordinal) override;
 
+  void InsertBloomFilter(int32_t column_ordinal,
+                         std::unique_ptr<BloomFilter> bloom_filter) override;
+
   IndexLocations WriteTo(::arrow::io::OutputStream* sink) override;
 
  private:
@@ -217,6 +220,26 @@ BloomFilter* BloomFilterBuilderImpl::CreateBloomFilter(int32_t column_ordinal) {
   auto bf = std::make_unique<BlockSplitBloomFilter>(properties_->memory_pool());
   bf->Init(BlockSplitBloomFilter::OptimalNumOfBytes(opts->ndv, opts->fpp));
   return curr_rg_bfs.emplace(column_ordinal, std::move(bf)).first->second.get();
+}
+
+void BloomFilterBuilderImpl::InsertBloomFilter(
+    int32_t column_ordinal, std::unique_ptr<BloomFilter> bloom_filter) {
+  auto opts = properties_->bloom_filter_options(schema_->Column(column_ordinal)->path());
+  if (!opts.has_value() || bloom_filter == nullptr) {
+    return;
+  }
+
+  CheckState(column_ordinal);
+
+  auto& curr_rg_bfs = *bloom_filters_.rbegin();
+  if (curr_rg_bfs.find(column_ordinal) != curr_rg_bfs.cend()) {
+    std::stringstream ss;
+    ss << "Bloom filter already exists for column: " << column_ordinal
+       << ", row group: " << (bloom_filters_.size() - 1);
+    throw ParquetException(ss.str());
+  }
+
+  curr_rg_bfs.emplace(column_ordinal, std::move(bloom_filter));
 }
 
 IndexLocations BloomFilterBuilderImpl::WriteTo(::arrow::io::OutputStream* sink) {
