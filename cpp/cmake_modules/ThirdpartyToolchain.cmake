@@ -3475,6 +3475,12 @@ function(build_google_cloud_cpp_storage)
 
   prepare_fetchcontent()
 
+  # google-cloud-cpp v3+ uses BCryptHash() which requires Windows 10+
+  if(MINGW)
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0A01")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0A01")
+  endif()
+
   message(STATUS "Only building the google-cloud-cpp::storage component")
   # Disable auto-added features (monitoring, trace, opentelemetry, universe_domain)
   # that require gRPC - storage only needs REST/curl.
@@ -3893,13 +3899,13 @@ function(build_awssdk)
   set(MINIMIZE_SIZE ON)
   set(USE_OPENSSL ON)
 
-  # For aws-c-common and google-cloud-cpp
+  # For aws-c-common
   if(MINGW)
-    # PPROCESSOR_NUMBER requires Windows 10 or later.
+    # PPROCESSOR_NUMBER requires Windows 7 or later.
     #
-    # 0x0A01 == _WIN32_WINNT_WIN10
-    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0A01")
-    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0A01")
+    # 0x0601 == _WIN32_WINNT_WIN7
+    string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
+    string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
   endif()
   if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     string(APPEND CMAKE_C_FLAGS " -Wno-implicit-fallthrough")
