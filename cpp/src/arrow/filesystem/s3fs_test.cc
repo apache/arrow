@@ -432,9 +432,10 @@ TEST_F(S3RegionResolutionTest, PublicBucket) {
 }
 
 TEST_F(S3RegionResolutionTest, RestrictedBucket) {
-  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("ursa-labs-r-test"));
+  // usgs-landsat requires authentication but still returns region in error headers
+  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("usgs-landsat"));
   // Same again, cached
-  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("ursa-labs-r-test"));
+  ASSERT_OK_AND_EQ("us-west-2", ResolveS3BucketRegion("usgs-landsat"));
 }
 
 TEST_F(S3RegionResolutionTest, NonExistentBucket) {
