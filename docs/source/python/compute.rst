@@ -512,3 +512,46 @@ For example, the "numpy_gcd" function that we've been using as an example above 
 function to use in a projection.  A "cumulative sum" function would not be a valid function
 since the result of each input row depends on the rows that came before.  A "drop nulls"
 function would also be invalid because it doesn't emit a value for some rows.
+
+
+Standard Python Operators
+=========================
+
+PyArrow supports standard Python operators for element-wise operations for arrays and scalars.
+Currently, the support is limited to some of the standard compute functions, i.e.
+arithmetic (``+``, ``-``, ``/``, ``%``, ``**``),
+bitwise (``&``, ``|``, ``^``, ``>>``, ``<<``) and others.
+
+The aforementioned operators use checked version of underlying kernels wherever possible
+and have the same respective constraints, e.g. you cannot add two arrays of strings.
+
+You can use the operators as following:
+
+.. code-block:: python
+
+   >>> import pyarrow as pa
+   >>> arr = pa.array([-1, 2, -3])
+   >>> val = pa.scalar(42.7)
+   >>> arr + val
+   <pyarrow.lib.DoubleArray object at ...>
+   [
+     41.7,
+     44.7,
+     39.7
+   ]
+
+   >>> val ** arr
+   <pyarrow.lib.DoubleArray object at ...>
+   [
+     0.023419203747072598,
+     1823.2900000000002,
+     0.000012844475506953143
+   ]
+
+   >>> arr << 2
+   <pyarrow.lib.Int64Array object at ...>
+   [
+     -4,
+     8,
+     -12
+   ]
