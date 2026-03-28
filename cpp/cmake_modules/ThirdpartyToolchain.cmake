@@ -3882,6 +3882,10 @@ function(build_awssdk)
     string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
     string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
   endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    string(APPEND CMAKE_C_FLAGS " -Wno-implicit-fallthrough")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-implicit-fallthrough")
+  endif()
 
   # For aws-lc
   set(DISABLE_GO ON)
