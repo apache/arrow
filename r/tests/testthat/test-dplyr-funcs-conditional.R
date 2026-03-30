@@ -862,13 +862,13 @@ test_that("recode_values()", {
   )
   expect_arrow_eval_error(
     recode_values(chr, "a" ~ "A", unmatched = "error"),
-    "`recode_values\\(\\)` with `unmatched = \"error\"` not supported in Arrow",
+    "`recode_values\\(\\)` with `unmatched` other than \"default\" not supported in Arrow",
     class = "arrow_not_supported"
   )
   expect_arrow_eval_error(
     recode_values(chr, "a" ~ "A", unmatched = "wat"),
-    '`unmatched` must be either "default" or "error"',
-    class = "validation_error"
+    "`recode_values\\(\\)` with `unmatched` other than \"default\" not supported in Arrow",
+    class = "arrow_not_supported"
   )
   expect_arrow_eval_error(
     recode_values(chr, "a" ~ "A", default = c("x", "y")),
