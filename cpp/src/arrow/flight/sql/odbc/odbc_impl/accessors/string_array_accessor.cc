@@ -18,6 +18,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/accessors/string_array_accessor.h"
 
 #include <boost/locale.hpp>
+#include <cstring>
 #include "arrow/array.h"
 #include "arrow/flight/sql/odbc/odbc_impl/encoding.h"
 
@@ -79,7 +80,7 @@ inline RowStatus MoveSingleCellToCharBuffer(
 
   auto* byte_buffer = static_cast<char*>(binding->buffer) + i * binding->buffer_length;
   auto* char_buffer = (CHAR_TYPE*)byte_buffer;
-  memcpy(char_buffer, ((char*)value) + value_offset, value_length);
+  std::memcpy(char_buffer, ((char*)value) + value_offset, value_length);
 
   // Write a NUL terminator
   if (binding->buffer_length >= remaining_length + sizeof(CHAR_TYPE)) {

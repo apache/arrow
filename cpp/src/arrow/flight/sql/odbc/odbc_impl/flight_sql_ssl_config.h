@@ -17,9 +17,9 @@
 
 #pragma once
 
-#include <arrow/flight/types.h>
-#include <arrow/status.h>
 #include <string>
+#include "arrow/flight/types.h"
+#include "arrow/status.h"
 
 namespace arrow::flight::sql::odbc {
 

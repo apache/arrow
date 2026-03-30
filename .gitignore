@@ -32,6 +32,7 @@ dependency-reduced-pom.xml
 MANIFEST
 compile_commands.json
 build.ninja
+build*/
 
 # Generated Visual Studio files
 *.vcxproj

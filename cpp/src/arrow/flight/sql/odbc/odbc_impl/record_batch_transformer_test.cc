@@ -20,7 +20,8 @@
 #include "arrow/flight/sql/odbc/odbc_impl/platform.h"
 #include "arrow/record_batch.h"
 #include "arrow/testing/builder.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 namespace {

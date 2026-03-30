@@ -34,7 +34,6 @@
 #include <sql.h>
 #include <sqlext.h>
 #include <sqltypes.h>
-#include <boost/variant.hpp>
 #include <optional>
 #include <utility>
 
@@ -255,7 +254,7 @@ void ODBCStatement::CopyAttributesFromConnection(ODBCConnection& connection) {
   ODBCStatement& tracking_statement = connection.GetTrackingStatement();
 
   // Get abstraction attributes and copy to this spi_statement_.
-  // Possible ODBC attributes are below, but many of these are not supported by warpdrive
+  // Possible ODBC attributes are below, but many of these are not supported by Arrow ODBC
   // or ODBCAbstaction:
   // SQL_ATTR_ASYNC_ENABLE:
   // SQL_ATTR_METADATA_ID:
@@ -333,7 +332,7 @@ bool ODBCStatement::Fetch(size_t rows, SQLULEN* row_count_ptr,
   }
 
   if (current_ard_->HaveBindingsChanged()) {
-    // TODO: Deal handle when offset != buffer_length.
+    // GH-47871 TODO: handle when offset != buffer_length.
 
     // Wipe out all bindings in the ResultSet.
     // Note that the number of ARD records can both be more or less
@@ -541,7 +540,7 @@ void ODBCStatement::GetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER outpu
   }
 
   if (spi_attribute) {
-    GetAttribute(static_cast<SQLULEN>(boost::get<size_t>(*spi_attribute)), output,
+    GetAttribute(static_cast<SQLULEN>(std::get<size_t>(*spi_attribute)), output,
                  buffer_size, str_len_ptr);
     return;
   }
@@ -625,6 +624,7 @@ void ODBCStatement::SetStmtAttr(SQLINTEGER statement_attribute, SQLPOINTER value
       return;
 
     case SQL_ATTR_ASYNC_ENABLE:
+      throw DriverException("Unsupported attribute", "HYC00");
 #ifdef SQL_ATTR_ASYNC_STMT_EVENT
     case SQL_ATTR_ASYNC_STMT_EVENT:
       throw DriverException("Unsupported attribute", "HYC00");

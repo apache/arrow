@@ -158,19 +158,27 @@ size_t FlightSqlResultSetMetadata::GetLength(int column_position) {
 }
 
 std::string FlightSqlResultSetMetadata::GetLiteralPrefix(int column_position) {
-  // TODO: Flight SQL column metadata does not have this, should we add to the spec?
+  // GH-47853 TODO: use `ColumnMetadata` to get literal prefix after Flight SQL protocol
+  // adds support for it
+
+  // Flight SQL column metadata does not have literal prefix, empty string is returned
   return "";
 }
 
 std::string FlightSqlResultSetMetadata::GetLiteralSuffix(int column_position) {
-  // TODO: Flight SQL column metadata does not have this, should we add to the spec?
+  // GH-47853 TODO: use `ColumnMetadata` to get literal suffix after Flight SQL protocol
+  // adds support for it
+
+  // Flight SQL column metadata does not have literal suffix, empty string is returned
   return "";
 }
 
 std::string FlightSqlResultSetMetadata::GetLocalTypeName(int column_position) {
   ColumnMetadata metadata = GetMetadata(schema_->field(column_position - 1));
 
-  // TODO: Is local type name the same as type name?
+  // Local type name is for display purpose only.
+  // Return type name as local type name as Flight SQL protocol doesn't have support for
+  // local type name.
   return metadata.GetTypeName().ValueOrElse([] { return ""; });
 }
 
@@ -193,7 +201,7 @@ size_t FlightSqlResultSetMetadata::GetOctetLength(int column_position) {
 
   // Workaround to get the precision for Decimal and Numeric types, since server doesn't
   // return it currently.
-  // TODO: Use the server precision when its fixed.
+  // GH-47854 TODO: Use the server precision when its fixed.
   std::shared_ptr<DataType> arrow_type = field->type();
   if (arrow_type->id() == Type::DECIMAL128) {
     int32_t precision = util::GetDecimalTypePrecision(arrow_type);
