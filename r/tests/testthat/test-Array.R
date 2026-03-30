@@ -324,12 +324,12 @@ test_that("array uses local timezone for POSIXct without timezone", {
   })
 })
 
-test_that("zero-length POSIXct with empty tzone attribute can be converted (GH-48832)", {
-  # In R 4.5.2, zero-length POSIXct vectors can have a zero-length tzone attribute
-  x <- as.POSIXct(character(0))
-  attr(x, "tzone") <- character(0)
+test_that("zero-length POSIXct can be converted (GH-48832)", {
+  # In R 4.5.2+, zero-length POSIXct vectors are integer type, not double
+  x <- as.POSIXct(x = NULL)
 
   expect_equal(infer_type(x), timestamp("us", Sys.timezone()))
+  expect_equal(Array$create(x), Array$create(timestamp(), timestamp("us", Sys.timezone())))
 })
 
 test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
