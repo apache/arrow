@@ -2353,9 +2353,9 @@ struct SerializeFunctor<Int64Type, ::arrow::TimestampType> {
 
     auto MultiplyBy = [&](const int64_t factor) {
       for (int64_t i = 0; i < array.length(); i++) {
-        if (ARROW_PREDICT_FALSE(::arrow::internal::MultiplyWithOverflowGeneric(
-                values[i], factor, &out[i])) &&
-            array.IsValid(i)) {
+        if (array.IsValid(i) &&
+            ARROW_PREDICT_FALSE(::arrow::internal::MultiplyWithOverflowGeneric(
+                values[i], factor, &out[i]))) {
           return Status::Invalid("Integer overflow when casting timestamp value ",
                                  values[i], " from ", source_type.ToString(), " to ",
                                  target_type->ToString());

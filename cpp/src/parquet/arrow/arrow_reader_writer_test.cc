@@ -2194,26 +2194,16 @@ TEST(TestArrowReadWrite, TimestampCoercionOverflow) {
   auto s = schema({field("timestamp", t_s)});
   auto table = Table::Make(s, {a_s});
 
-  ASSERT_RAISES(Invalid, WriteTable(*table, ::arrow::default_memory_pool(),
+  ASSERT_RAISES(Invalid, WriteTable(*table, default_memory_pool(),
                                     CreateOutputStream(), table->num_rows()));
 
-  auto coerce_millis =
-      ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MILLI)->build();
-  ASSERT_RAISES(Invalid,
-                WriteTable(*table, ::arrow::default_memory_pool(), CreateOutputStream(),
-                           table->num_rows(), default_writer_properties(), coerce_millis));
-
-  auto coerce_micros =
-      ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::MICRO)->build();
-  ASSERT_RAISES(Invalid,
-                WriteTable(*table, ::arrow::default_memory_pool(), CreateOutputStream(),
-                           table->num_rows(), default_writer_properties(), coerce_micros));
-
-  auto coerce_nanos =
-      ArrowWriterProperties::Builder().coerce_timestamps(TimeUnit::NANO)->build();
-  ASSERT_RAISES(Invalid,
-                WriteTable(*table, ::arrow::default_memory_pool(), CreateOutputStream(),
-                           table->num_rows(), default_writer_properties(), coerce_nanos));
+  for (auto unit : {TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+    auto coerce_props =
+        ArrowWriterProperties::Builder().coerce_timestamps(unit)->build();
+    ASSERT_RAISES(Invalid,
+                  WriteTable(*table, default_memory_pool(), CreateOutputStream(),
+                             table->num_rows(), default_writer_properties(), coerce_props));
+  }
 
   std::vector<int64_t> null_overflow_values = {9223372036854776LL};
   std::vector<bool> null_valid = {false};
@@ -2221,7 +2211,7 @@ TEST(TestArrowReadWrite, TimestampCoercionOverflow) {
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, null_valid, null_overflow_values,
                                                    &a_null);
   auto null_table = Table::Make(s, {a_null});
-  ASSERT_OK_NO_THROW(WriteTable(*null_table, ::arrow::default_memory_pool(),
+  ASSERT_OK_NO_THROW(WriteTable(*null_table, default_memory_pool(),
                                 CreateOutputStream(), null_table->num_rows()));
 }
 
