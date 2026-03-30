@@ -295,21 +295,31 @@ TEST(ReaderTest, MultipleChunksParallel) {
 //   while build/debug/arrow-json-test \
 //       --gtest_filter=ReaderTest.MultipleChunksParallelRegression; do :; done
 // See https://github.com/apache/arrow/issues/49272
+
+// Helper used by multiple-chunk parallel tests to build the JSON input,
+// configure read options and read the resulting table.
+static Result<std::shared_ptr<Table>> ReadMultipleChunksParallelTable(
+    int64_t count, bool use_threads, const ParseOptions& parse_options) {
+  ReadOptions read_options;
+  read_options.block_size = static_cast<int>(count / 2);
+  read_options.use_threads = use_threads;
+
+  std::string json;
+  json.reserve(static_cast<size_t>(count) * 16);  // rough reserve to avoid reallocations
+  for (int64_t i = 0; i < count; ++i) {
+    json += "{\"a\":" + std::to_string(i) + "}\n";
+  }
+
+  return ReadToTable(std::move(json), read_options, parse_options);
+}
+
 TEST(ReaderTest, MultipleChunksParallelRegression) {
   int64_t count = 1 << 10;
   ParseOptions parse_options;
   parse_options.unexpected_field_behavior = UnexpectedFieldBehavior::InferType;
-  ReadOptions read_options;
-  read_options.block_size = static_cast<int>(count / 2);
-  read_options.use_threads = true;
 
-  std::string json;
-  for (int i = 0; i < count; ++i) {
-    json += "{\"a\":" + std::to_string(i) + "}\n";
-  }
-
-  ASSERT_OK_AND_ASSIGN(auto table,
-                       ReadToTable(std::move(json), read_options, parse_options));
+  ASSERT_OK_AND_ASSIGN(auto table, ReadMultipleChunksParallelTable(
+                                       count, /*use_threads=*/true, parse_options));
   ASSERT_EQ(table->num_rows(), count);
 }
 
