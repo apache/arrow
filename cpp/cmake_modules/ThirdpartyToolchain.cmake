@@ -1954,8 +1954,25 @@ function(build_protobuf)
       "${PROTOBUF_INCLUDE_DIR}"
       PARENT_SCOPE)
 
+  set(PROTOBUF_PATCH_COMMAND)
+  if(EMSCRIPTEN)
+    find_program(PATCH patch)
+    if(PATCH)
+      set(PROTOBUF_PATCH_COMMAND ${PATCH} -p1 -i)
+    else()
+      find_program(GIT git)
+      if(GIT)
+        set(PROTOBUF_PATCH_COMMAND ${GIT} apply)
+      endif()
+    endif()
+    if(PROTOBUF_PATCH_COMMAND)
+      list(APPEND PROTOBUF_PATCH_COMMAND
+           ${CMAKE_CURRENT_LIST_DIR}/protobuf-emscripten.patch)
+    endif()
+  endif()
   fetchcontent_declare(protobuf
                        ${FC_DECLARE_COMMON_OPTIONS} OVERRIDE_FIND_PACKAGE
+                       PATCH_COMMAND ${PROTOBUF_PATCH_COMMAND}
                        URL ${PROTOBUF_SOURCE_URL}
                        URL_HASH "SHA256=${ARROW_PROTOBUF_BUILD_SHA256_CHECKSUM}")
 
