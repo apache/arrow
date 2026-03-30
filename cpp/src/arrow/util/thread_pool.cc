@@ -651,10 +651,20 @@ DWORD GetPoolTlsIndex() {
 }  // namespace
 
 static ThreadPool* GetCurrentThreadPool() {
-  // TlsGetValue() clears the calling thread's last-error state on success.
-  DWORD last_error = GetLastError();
+  // Preserve the caller's last-error value while also detecting TLS failures.
+  DWORD original_error = GetLastError();
+  // Ensure a successful TlsGetValue() leaves GetLastError() == 0.
+  SetLastError(0);
   auto* pool = static_cast<ThreadPool*>(TlsGetValue(GetPoolTlsIndex()));
-  SetLastError(last_error);
+  DWORD tls_error = GetLastError();
+  if (tls_error != 0) {
+    // Restore the original error before logging a fatal TLS failure.
+    SetLastError(original_error);
+    ARROW_LOG(FATAL) << "TlsGetValue failed for thread pool TLS: "
+                     << WinErrorMessage(tls_error);
+  }
+  // No TLS error: restore the caller's last-error value and return the pool.
+  SetLastError(original_error);
   return pool;
 }
 
