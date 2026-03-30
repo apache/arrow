@@ -588,7 +588,6 @@ SQLRETURN SQLGetDiagRec(SQLSMALLINT handle_type, SQLHANDLE handle, SQLSMALLINT r
                    << ", message_text: " << static_cast<const void*>(message_text)
                    << ", buffer_length: " << buffer_length
                    << ", text_length_ptr: " << static_cast<const void*>(text_length_ptr);
-  using arrow::flight::sql::odbc::Diagnostics;
   using ODBC::GetStringAttribute;
   using ODBC::ODBCConnection;
   using ODBC::ODBCDescriptor;
@@ -1435,7 +1434,7 @@ SQLRETURN SQLColAttribute(SQLHSTMT stmt, SQLUSMALLINT record_number,
 }
 
 SQLRETURN SQLGetTypeInfo(SQLHSTMT stmt, SQLSMALLINT data_type) {
-  // GH-47237 TODO: return SQL_PRED_CHAR and SQL_PRED_BASIC for
+  // GH-47237 return SQL_PRED_CHAR and SQL_PRED_BASIC for
   // appropriate data types in `SEARCHABLE` field
   ARROW_LOG(DEBUG) << "SQLGetTypeInfoW called with stmt: " << stmt
                    << " data_type: " << data_type;
