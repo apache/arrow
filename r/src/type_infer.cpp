@@ -69,7 +69,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<INTSXP>(SEXP x) {
     return date32();
   } else if (Rf_inherits(x, "POSIXct")) {
     auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
-    if (Rf_isNull(tzone_sexp)) {
+    if (Rf_isNull(tzone_sexp) || XLENGTH(tzone_sexp) == 0) {
       auto systzone_sexp = cpp11::package("base")["Sys.timezone"];
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(systzone_sexp(), 0)));
     } else {
@@ -86,7 +86,7 @@ std::shared_ptr<arrow::DataType> InferArrowTypeFromVector<REALSXP>(SEXP x) {
   }
   if (Rf_inherits(x, "POSIXct")) {
     auto tzone_sexp = Rf_getAttrib(x, symbols::tzone);
-    if (Rf_isNull(tzone_sexp)) {
+    if (Rf_isNull(tzone_sexp) || XLENGTH(tzone_sexp) == 0) {
       auto systzone_sexp = cpp11::package("base")["Sys.timezone"];
       return timestamp(TimeUnit::MICRO, CHAR(STRING_ELT(systzone_sexp(), 0)));
     } else {

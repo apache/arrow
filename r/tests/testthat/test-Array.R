@@ -324,6 +324,14 @@ test_that("array uses local timezone for POSIXct without timezone", {
   })
 })
 
+test_that("zero-length POSIXct with empty tzone attribute can be converted (GH-48832)", {
+  # In R 4.5.2, zero-length POSIXct vectors can have a zero-length tzone attribute
+  x <- as.POSIXct(character(0))
+  attr(x, "tzone") <- character(0)
+
+  expect_equal(infer_type(x), timestamp("us", Sys.timezone()))
+})
+
 test_that("Timezone handling in Arrow roundtrip (ARROW-3543)", {
   # Write a feather file as that's what the initial bug report used
   df <- tibble::tibble(

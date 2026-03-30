@@ -129,6 +129,19 @@ test_that("write_parquet() can truncate timestamps", {
   expect_equal(as.data.frame(tab), as.data.frame(new))
 })
 
+test_that("write_parquet() works with zero-length POSIXct with empty tzone (GH-48832)", {
+  # In R 4.5.2, zero-length POSIXct vectors can have a zero-length tzone attribute
+  x <- as.POSIXct(character(0))
+  attr(x, "tzone") <- character(0)
+
+  tf <- tempfile()
+  on.exit(unlink(tf))
+
+  expect_no_error(write_parquet(data.frame(x = x), tf))
+  result <- read_parquet(tf)
+  expect_equal(nrow(result), 0)
+})
+
 test_that("make_valid_parquet_version()", {
   expect_equal(
     make_valid_parquet_version("1.0"),
