@@ -348,11 +348,8 @@ register_bindings_conditional <- function() {
       if (!is.null(ptype)) {
         arrow_not_supported("`recode_values()` with `ptype` specified")
       }
-      if (!unmatched %in% c("default", "error")) {
-        validation_error('`unmatched` must be either "default" or "error"')
-      }
-      if (unmatched == "error") {
-        arrow_not_supported("`recode_values()` with `unmatched = \"error\"`")
+      if (unmatched != "default") {
+        arrow_not_supported('`recode_values()` with `unmatched` other than "default"')
       }
 
       parsed <- parse_value_mapping(x, list2(...), from, to, caller_env())
