@@ -481,6 +481,7 @@ struct ARROW_EXPORT ArrayData {
   std::shared_ptr<ArrayStatistics> statistics;
 };
 
+/// \class BufferSpan
 /// \brief A non-owning Buffer reference
 struct ARROW_EXPORT BufferSpan {
   // It is the user of this class's responsibility to ensure that
@@ -501,6 +502,7 @@ struct ARROW_EXPORT BufferSpan {
   }
 };
 
+/// \class ArraySpan
 /// \brief EXPERIMENTAL: A non-owning array data container
 ///
 /// Unlike ArrayData, this class doesn't own its referenced data type nor data buffers.
