@@ -19,9 +19,9 @@
 
 #' Functions available in Arrow dplyr queries
 #'
-#' The `arrow` package contains methods for 37 `dplyr` table functions, many of
+#' The `arrow` package contains methods for 38 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 224 R functions to the corresponding
+#' The package also has mappings of 229 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -45,6 +45,7 @@
 #' * [`distinct()`][dplyr::distinct()]: `.keep_all = TRUE` returns a non-missing value if present, only returning missing values if all are missing.
 #' * [`explain()`][dplyr::explain()]
 #' * [`filter()`][dplyr::filter()]
+#' * [`filter_out()`][dplyr::filter_out()]
 #' * [`full_join()`][dplyr::full_join()]: the `copy` argument is ignored
 #' * [`glimpse()`][dplyr::glimpse()]
 #' * [`group_by()`][dplyr::group_by()]
@@ -213,6 +214,11 @@
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
+#' * [`recode_values()`][dplyr::recode_values()]: `ptype` argument and `unmatched = "error"` not supported
+#' * [`replace_values()`][dplyr::replace_values()]
+#' * [`replace_when()`][dplyr::replace_when()]
+#' * [`when_all()`][dplyr::when_all()]
+#' * [`when_any()`][dplyr::when_any()]
 #'
 #' ## hms
 #'
