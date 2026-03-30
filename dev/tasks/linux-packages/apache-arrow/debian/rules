@@ -30,7 +30,8 @@ override_dh_auto_configure:
 	else							\
 	  ARROW_CUDA=OFF;					\
 	fi;							\
-	if [ "$(VERSION_CODENAME)" = "bookworm" ]; then	\
+	if [ "$(VERSION_CODENAME)" = "bookworm" ] ||		\
+	   [ "$(VERSION_CODENAME)" = "noble" ]; then		\
 	  : "System Abseil is too old for GCS v3";		\
 	  absl_SOURCE=BUNDLED;					\
 	else							\
