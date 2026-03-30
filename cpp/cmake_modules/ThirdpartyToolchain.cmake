@@ -3155,6 +3155,7 @@ function(build_grpc)
       CACHE STRING "" FORCE)
   set(gRPC_INSTALL OFF)
   set(gRPC_BUILD_TESTS OFF)
+  set(gRPC_DOWNLOAD_ARCHIVES OFF)
 
   # Add warning suppression flags for gRPC build.
   if(NOT MSVC)
