@@ -40,7 +40,8 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     type_info_test.cc
     # Enable Protobuf cleanup after test execution
     # GH-46889: move protobuf_test_util to a more common location
-    ../../../../engine/substrait/protobuf_test_util.cc)
+    #../../../../engine/substrait/protobuf_test_util.cc)
+)
 
 # GH-49651 Link ODBC tests statically on Linux and dynamically on macOS/Windows
 if(WIN32 OR APPLE)
