@@ -2200,9 +2200,11 @@ TEST(TestArrowReadWrite, TimestampCoercionOverflow) {
   for (auto unit : {TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
     auto coerce_props =
         ArrowWriterProperties::Builder().coerce_timestamps(unit)->build();
-    ASSERT_RAISES(Invalid,
-                  WriteTable(*table, default_memory_pool(), CreateOutputStream(),
-                             table->num_rows(), default_writer_properties(), coerce_props));
+    ASSERT_RAISES(
+        Invalid,
+        WriteTable(*table, default_memory_pool(), CreateOutputStream(),
+                   table->num_rows(), default_writer_properties(),
+                   coerce_props));
   }
 
   std::vector<int64_t> null_overflow_values = {9223372036854776LL};
