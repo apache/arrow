@@ -24,6 +24,33 @@ from collections.abc import Sequence, Mapping
 cdef class Scalar(_Weakrefable):
     """
     The base class for scalars.
+
+    Notes
+    -----
+    This class supports Python's standard operators
+    for element-wise operations, i.e. arithmetic (`+`, `-`, `/`, `%`, `**`),
+    bitwise (`&`, `|`, `^`, `>>`, `<<`) and others.
+    They can be used directly instead of calling underlying
+    `pyarrow.compute` functions explicitly.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> pa.scalar(42) + pa.scalar(17)
+    <pyarrow.Int64Scalar: 59>
+
+    >>> pa.scalar(6) ** 3
+    <pyarrow.Int64Scalar: 216>
+
+    >>> arr = pa.array([1, 2, 3], type=pa.int8())
+    >>> val = pa.scalar(42)
+    >>> val - arr
+    <pyarrow.lib.Int64Array object at ...>
+    [
+      41,
+      40,
+      39
+    ]
     """
 
     def __init__(self):
@@ -167,6 +194,42 @@ cdef class Scalar(_Weakrefable):
             If 'strict', this instead results in an exception being raised when detected.
         """
         raise NotImplementedError()
+
+    def __abs__(self):
+        return _pc().call_function('abs_checked', [self])
+
+    def __add__(self, object other):
+        return _pc().call_function('add_checked', [self, other])
+
+    def __truediv__(self, object other):
+        return _pc().call_function('divide_checked', [self, other])
+
+    def __mul__(self, object other):
+        return _pc().call_function('multiply_checked', [self, other])
+
+    def __neg__(self):
+        return _pc().call_function('negate_checked', [self])
+
+    def __pow__(self, object other):
+        return _pc().call_function('power_checked', [self, other])
+
+    def __sub__(self, object other):
+        return _pc().call_function('subtract_checked', [self, other])
+
+    def __and__(self, object other):
+        return _pc().call_function('bit_wise_and', [self, other])
+
+    def __or__(self, object other):
+        return _pc().call_function('bit_wise_or', [self, other])
+
+    def __xor__(self, object other):
+        return _pc().call_function('bit_wise_xor', [self, other])
+
+    def __lshift__(self, object other):
+        return _pc().call_function('shift_left_checked', [self, other])
+
+    def __rshift__(self, object other):
+        return _pc().call_function('shift_right_checked', [self, other])
 
 
 _NULL = NA = None

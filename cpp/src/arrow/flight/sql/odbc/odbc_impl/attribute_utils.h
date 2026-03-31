@@ -158,11 +158,21 @@ inline void SetAttributeSQLWCHAR(SQLPOINTER new_value, SQLINTEGER input_length_i
   thread_local std::vector<uint8_t> utf8_str;
   if (input_length_in_bytes == SQL_NTS) {
     arrow::flight::sql::odbc::WcsToUtf8(new_value, &utf8_str);
+  } else if (input_length_in_bytes <= 0) {
+    // empty string
+    attribute_to_write.clear();
+    return;
   } else {
     arrow::flight::sql::odbc::WcsToUtf8(
         new_value, input_length_in_bytes / arrow::flight::sql::odbc::GetSqlWCharSize(),
         &utf8_str);
   }
+
+  // add null-terminator
+  if (utf8_str.back() != '\0') {
+    utf8_str.push_back('\0');
+  }
+
   attribute_to_write.assign((char*)utf8_str.data());
 }
 

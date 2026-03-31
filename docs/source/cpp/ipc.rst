@@ -33,6 +33,8 @@ lower level input/output, handled through the :doc:`IO interfaces <io>`.
 For reading, there is also an event-driven API that enables feeding
 arbitrary data into the IPC decoding layer asynchronously.
 
+.. _cpp-ipc-reading:
+
 Reading IPC streams and files
 =============================
 

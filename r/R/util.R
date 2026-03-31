@@ -196,6 +196,20 @@ repeat_value_as_array <- function(object, n) {
 }
 
 handle_csv_read_error <- function(msg, call, schema) {
+  # Dataset collection passes empty schema() when no explicit
+  # CSV schema from the original call is available in this error path.
+  if (grepl("conversion error to null", msg) && is_empty_schema(schema)) {
+    msg <- c(
+      msg,
+      i = paste(
+        "If you have not specified the schema, this error may be due to the column type being",
+        "inferred as `null` because the first block of data contained only missing values.",
+        "See `?csv_read_options` for how to set a larger value or specify a schema if you know the correct types."
+      )
+    )
+    abort(msg, call = call)
+  }
+
   if (grepl("conversion error", msg) && inherits(schema, "Schema")) {
     msg <- c(
       msg,
@@ -289,4 +303,8 @@ col_type_from_compact <- function(x, y) {
     "?" = NULL,
     abort(paste0("Unsupported compact specification: '", x, "' for column '", y, "'"))
   )
+}
+
+is_empty_schema <- function(x) {
+  x == schema()
 }

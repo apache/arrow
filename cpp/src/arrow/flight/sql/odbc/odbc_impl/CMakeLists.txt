@@ -130,7 +130,14 @@ if(WIN32)
                          win_system_dsn.cc)
 endif()
 
-if(APPLE)
+if(WIN32)
+  find_package(ODBC REQUIRED)
+  target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
+  target_link_libraries(arrow_odbc_spi_impl
+                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
+                               ${ODBCINST})
+else()
+  # Unix
   target_include_directories(arrow_odbc_spi_impl SYSTEM BEFORE PUBLIC ${ODBC_INCLUDE_DIR})
   target_link_libraries(arrow_odbc_spi_impl
                         PUBLIC arrow_flight_sql_static
@@ -138,12 +145,11 @@ if(APPLE)
                                Boost::locale
                                Boost::headers
                                RapidJSON)
-else()
-  find_package(ODBC REQUIRED)
-  target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
-  target_link_libraries(arrow_odbc_spi_impl
-                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
-                               ${ODBCINST})
+
+  if(NOT APPLE)
+    # Explicitly link to unix-odbc on Linux
+    target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
+  endif()
 endif()
 
 # CLI

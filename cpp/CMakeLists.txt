@@ -211,17 +211,6 @@ else()
   set(MSVC_TOOLCHAIN FALSE)
 endif()
 
-find_package(ClangTools)
-find_package(InferTools)
-if("$ENV{CMAKE_EXPORT_COMPILE_COMMANDS}" STREQUAL "1"
-   OR CLANG_TIDY_FOUND
-   OR INFER_FOUND)
-  # Generate a Clang compile_commands.json "compilation database" file for use
-  # with various development tools, such as Vim's YouCompleteMe plugin.
-  # See http://clang.llvm.org/docs/JSONCompilationDatabase.html
-  set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
-endif()
-
 # Needed for Gandiva.
 # Use the first Python installation on PATH, not the newest one
 set(Python3_FIND_STRATEGY "LOCATION")
@@ -648,22 +637,6 @@ if(UNIX)
                     -b
                     VERBATIM)
 endif(UNIX)
-
-#
-# "make infer" target
-#
-
-if(${INFER_FOUND})
-  # runs infer capture
-  add_custom_target(infer ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
-                          ${CMAKE_BINARY_DIR}/compile_commands.json 1)
-  # runs infer analyze
-  add_custom_target(infer-analyze ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
-                                  ${CMAKE_BINARY_DIR}/compile_commands.json 2)
-  # runs infer report
-  add_custom_target(infer-report ${BUILD_SUPPORT_DIR}/run-infer.sh ${INFER_BIN}
-                                 ${CMAKE_BINARY_DIR}/compile_commands.json 3)
-endif()
 
 #
 # Link targets
