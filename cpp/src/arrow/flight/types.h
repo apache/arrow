@@ -904,6 +904,13 @@ struct ARROW_FLIGHT_EXPORT FlightPayload {
 
   /// \brief Check that the payload can be written to the wire.
   Status Validate() const;
+
+  /// \brief Serialize this payload to a vector of buffers.
+  ///
+  /// The first buffer contains the protobuf wire format header. Subsequent
+  /// buffers are zero-copy references to the IPC body buffers, with padding
+  /// buffers inserted as needed for 8-byte alignment.
+  arrow::Result<arrow::BufferVector> SerializeToBuffers() const;
 };
 
 // A wrapper around arrow.flight.protocol.PutResult is not defined
