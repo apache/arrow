@@ -76,7 +76,7 @@ class FlightStatusDetail;
 namespace internal {
 
 /// Internal, not user-visible type used for memory-efficient reads
-struct FlightData {
+struct ARROW_FLIGHT_EXPORT FlightData {
   /// Used only for puts, may be null
   std::unique_ptr<FlightDescriptor> descriptor;
 
