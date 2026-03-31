@@ -533,7 +533,7 @@ jobs:
       ARROW_BUILD_STATIC: ON
       ARROW_BUILD_TESTS: ON
       ARROW_BUILD_TYPE: release
-      ARROW_TEST_LINKAGE: static
+      ARROW_TEST_LINKAGE: shared
       ARROW_CMAKE_ARGS: -DVCPKG_TARGET_TRIPLET=x64-windows-static-md
       # Turn Arrow CSV off to disable `find_package(Arrow)` check on MSVC CI.
       # GH-49050 TODO: enable `find_package(Arrow)` check on MSVC CI.
