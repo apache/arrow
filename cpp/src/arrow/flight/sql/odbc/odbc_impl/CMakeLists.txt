@@ -171,7 +171,7 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # On Windows, dynamic linking ODBC is supported.
 # On unix systems, static linking ODBC is supported, thus the library linking is static.
-if(WIN32 AND ARROW_TEST_LINKAGE STREQUAL "static")
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ODBC_SPI_IMPL_TEST_LINK_LIBS arrow_flight_testing_static)
 elseif(WIN32)
   set(ODBC_SPI_IMPL_TEST_LINK_LIBS arrow_flight_testing_shared)
