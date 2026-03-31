@@ -26,7 +26,7 @@ index 15ecc6e6f9..9595ed9eb3 100644
 +  // Workaround missing macros in MinGW-w64:
 +  //     https://github.com/mingw-w64/mingw-w64/issues/49
 +  #ifndef BCRYPT_RSA_ALG_HANDLE
-+  #define BCRYPT_RSA_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x000000e1)
++  #define BCRYPT_RSA_ALG_HANDLE (static_cast<BCRYPT_ALG_HANDLE>(0x000000e1))
 +  #endif
    if (BCryptImportKeyPair(BCRYPT_RSA_ALG_HANDLE, nullptr,
                            BCRYPT_RSAPRIVATE_BLOB, &key_handle, buffer.data(),
@@ -42,7 +42,7 @@ index 00c72e0e5d..7fbd04507f 100644
 +  // Workaround missing macros in MinGW-w64:
 +  //     https://github.com/mingw-w64/mingw-w64/issues/49
 +  #ifndef BCRYPT_MD5_ALG_HANDLE
-+  #define BCRYPT_MD5_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x00000021)
++  #define BCRYPT_MD5_ALG_HANDLE (static_cast<BCRYPT_ALG_HANDLE>(0x00000021))
 +  #endif
    BCryptHash(BCRYPT_MD5_ALG_HANDLE, nullptr, 0,
               reinterpret_cast<PUCHAR>(const_cast<char*>(payload.data())),
@@ -58,7 +58,7 @@ index 655c9f0991..07b2937c94 100644
 +  // Workaround missing macros in MinGW-w64:
 +  //     https://github.com/mingw-w64/mingw-w64/issues/49
 +  #ifndef BCRYPT_MD5_ALG_HANDLE
-+  #define BCRYPT_MD5_ALG_HANDLE ((BCRYPT_ALG_HANDLE)0x00000021)
++  #define BCRYPT_MD5_ALG_HANDLE (static_cast<BCRYPT_ALG_HANDLE>(0x00000021))
 +  #endif
    BCryptCreateHash(BCRYPT_MD5_ALG_HANDLE, &hHash, nullptr, 0, nullptr, 0, 0);
    return ContextPtr(hHash);

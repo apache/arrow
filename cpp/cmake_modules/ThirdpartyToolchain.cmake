@@ -1921,9 +1921,7 @@ function(build_absl)
     find_library(CoreFoundation CoreFoundation)
     # When ABSL_ENABLE_INSTALL is ON, the real target is "time" not "absl_time"
     # Cannot use set_property on alias targets (absl::time is an alias)
-    set_property(TARGET time
-                 APPEND
-                 PROPERTY INTERFACE_LINK_LIBRARIES ${CoreFoundation})
+    target_link_libraries(time INTERFACE ${CoreFoundation})
   endif()
   list(POP_BACK CMAKE_MESSAGE_INDENT)
 endfunction()
