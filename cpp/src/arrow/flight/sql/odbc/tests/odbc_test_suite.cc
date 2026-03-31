@@ -181,7 +181,22 @@ void ODBCTestBase::TearDown() {
 
 void ODBCTestBase::TearDownTestSuite() {
   if (connected) {
-    Disconnect();
+    // WORKAROUND GH-49585: Skip Disconnect() to avoid segfault when run through CTest
+    //
+    // When tests are run through CTest (but NOT when run directly from cmd.exe),
+    // SQLFreeHandle(SQL_HANDLE_ENV) crashes during cleanup. The crash occurs only with
+    // static linkage (ARROW_TEST_LINKAGE=static) and happens while freeing the ODBC
+    // environment handle, which triggers cleanup of statically-linked gRPC/Flight resources.
+    //
+    // Root cause appears to be CTest's process management (signal handling, I/O redirection,
+    // or environment differences) interfering with gRPC cleanup during static destruction.
+    //
+    // This workaround leaks the ODBC handles but allows tests to complete successfully.
+    // A proper fix would require ensuring gRPC is kept alive until all ODBC handles are freed,
+    // or switching to dynamic linkage for tests.
+    //
+    // Disconnect();
+    std::cerr << "[TEARDOWN] Skipping Disconnect() to avoid CTest-specific crash" << std::endl;
     connected = false;
   }
 }
