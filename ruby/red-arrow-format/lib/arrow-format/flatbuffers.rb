@@ -51,4 +51,17 @@ require_relative "org/apache/arrow/flatbuf/utf8"
 
 module ArrowFormat
   FB = Org::Apache::Arrow::Flatbuf
+
+  class << FB
+    def build_custom_metadata(custom_metadata)
+      return nil if custom_metadata.nil?
+
+      custom_metadata.collect do |key, value|
+        fb_key_value = FB::KeyValue::Data.new
+        fb_key_value.key = key
+        fb_key_value.value = value
+        fb_key_value
+      end
+    end
+  end
 end

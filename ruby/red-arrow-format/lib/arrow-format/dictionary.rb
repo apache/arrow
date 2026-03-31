@@ -1,3 +1,4 @@
+# Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
 # regarding copyright ownership.  The ASF licenses this file
@@ -15,23 +16,14 @@
 # under the License.
 
 module ArrowFormat
-  class Schema
-    attr_reader :fields
-    attr_reader :metadata
+  class Dictionary
+    attr_reader :id
+    attr_reader :array
     attr_reader :message_metadata
-    def initialize(fields, metadata: nil, message_metadata: nil)
-      @fields = fields
-      @metadata = metadata
+    def initialize(id, array, message_metadata: nil)
+      @id = id
+      @array = array
       @message_metadata = message_metadata
-    end
-
-    def to_flatbuffers
-      fb_schema = FB::Schema::Data.new
-      fb_schema.endianness = FB::Endianness::LITTLE
-      fb_schema.fields = fields.collect(&:to_flatbuffers)
-      fb_schema.custom_metadata = FB.build_custom_metadata(@metadata)
-      # fb_schema.features = @features
-      fb_schema
     end
   end
 end
