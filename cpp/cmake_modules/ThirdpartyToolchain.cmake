@@ -3387,14 +3387,7 @@ function(build_opentelemetry)
                        URL_HASH "SHA256=${ARROW_OPENTELEMETRY_PROTO_BUILD_SHA256_CHECKSUM}"
   )
 
-  # Use FetchContent_Populate instead of MakeAvailable because opentelemetry-proto
-  # has no CMakeLists.txt.
-  cmake_policy(PUSH)
-  if(POLICY CMP0169)
-    cmake_policy(SET CMP0169 OLD)
-  endif()
-  fetchcontent_populate(opentelemetry_proto)
-  cmake_policy(POP)
+  fetchcontent_makeavailable(opentelemetry_proto)
 
   fetchcontent_declare(opentelemetry_cpp
                        ${FC_DECLARE_COMMON_OPTIONS}
