@@ -147,6 +147,7 @@ python -m build --sdist --wheel . --no-isolation || exit /B 1
 for %%f in (dist\*.whl) do pip install %%f || exit /B 1
 popd
 
-pytest --pyargs pyarrow -v -s --enable-parquet || exit /B 1
+set PYARROW_TEST_PARQUET=ON
+pytest --pyargs pyarrow -v -s || exit /B 1
 
 call deactivate
