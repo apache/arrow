@@ -364,7 +364,6 @@ void GetSQLColAttributeNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMAL
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  SQLLEN num_val = 0;
   ASSERT_EQ(SQL_SUCCESS,
             SQLColAttribute(stmt, idx, field_identifier, 0, 0, nullptr, value));
 }
@@ -379,7 +378,6 @@ void GetSQLColAttributesNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMA
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
-  SQLLEN num_val = 0;
   ASSERT_EQ(SQL_SUCCESS,
             SQLColAttributes(stmt, idx, field_identifier, 0, 0, nullptr, value));
 }
@@ -387,10 +385,10 @@ void GetSQLColAttributesNumeric(SQLHSTMT stmt, const std::wstring& wsql, SQLUSMA
 }  // namespace
 
 TYPED_TEST(ColumnsTest, SQLColumnsTestInputData) {
-  SQLWCHAR catalog_name[] = L"";
-  SQLWCHAR schema_name[] = L"";
-  SQLWCHAR table_name[] = L"";
-  SQLWCHAR column_name[] = L"";
+  SQLWCHAR catalog_name[] = {0};
+  SQLWCHAR schema_name[] = {0};
+  SQLWCHAR table_name[] = {0};
+  SQLWCHAR column_name[] = {0};
 
   // All values populated
   EXPECT_EQ(SQL_SUCCESS, SQLColumns(stmt, catalog_name, sizeof(catalog_name), schema_name,
@@ -421,8 +419,8 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
   // Check table pattern and column pattern returns all columns
 
   // Attempt to get all columns
-  SQLWCHAR table_pattern[] = L"%";
-  SQLWCHAR column_pattern[] = L"%";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"%");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"%");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -446,7 +444,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -467,7 +465,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       0,   // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_WVARCHAR,           // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       0,                      // expected_octet_char_length
                       2,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -487,7 +485,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       3,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -507,7 +505,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -528,7 +526,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       0,   // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_WVARCHAR,           // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       0,                      // expected_octet_char_length
                       2,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -548,7 +546,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       3,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -568,7 +566,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllColumns) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       4,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -583,8 +581,8 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllTypes) {
   CreateAllDataTypeTable();
 
   // Attempt to get all columns from AllTypesTable
-  SQLWCHAR table_pattern[] = L"AllTypesTable";
-  SQLWCHAR column_pattern[] = L"%";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"AllTypesTable");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"%");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -606,7 +604,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllTypes) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -627,7 +625,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllTypes) {
                       0,   // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_WVARCHAR,           // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       0,                      // expected_octet_char_length
                       2,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -648,7 +646,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllTypes) {
                       0,   // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BINARY,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       0,                      // expected_octet_char_length
                       3,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -668,7 +666,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsAllTypes) {
                       2,                               // expected_num_prec_radix
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_DOUBLE,                      // expected_sql_data_type
-                      NULL,                            // expected_date_time_sub
+                      0,                               // expected_date_time_sub
                       8,                               // expected_octet_char_length
                       4,                               // expected_ordinal_position
                       std::wstring(L"YES"));           // expected_is_nullable
@@ -686,8 +684,8 @@ TEST_F(ColumnsMockTest, TestSQLColumnsUnicode) {
   CreateUnicodeTable();
 
   // Attempt to get all columns
-  SQLWCHAR table_pattern[] = L"数据";
-  SQLWCHAR column_pattern[] = L"%";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"数据");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"%");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -708,7 +706,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsUnicode) {
                       0,   // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_WVARCHAR,           // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       0,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -723,8 +721,8 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
   // GH-47159 TODO: Return NUM_PREC_RADIX based on whether COLUMN_SIZE contains number of
   // digits or bits
 
-  SQLWCHAR table_pattern[] = L"ODBCTest";
-  SQLWCHAR column_pattern[] = L"%";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"ODBCTest");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"%");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -745,7 +743,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
       10,            // expected_num_prec_radix
       SQL_NULLABLE,  // expected_nullable
       SQL_INTEGER,   // expected_sql_data_type
-      NULL,          // expected_date_time_sub
+      0,             // expected_date_time_sub
       4,             // expected_octet_char_length
       1,             // expected_ordinal_position
       std::wstring(L"YES"));  // expected_is_nullable
@@ -766,7 +764,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
       10,            // expected_num_prec_radix
       SQL_NULLABLE,  // expected_nullable
       SQL_BIGINT,    // expected_sql_data_type
-      NULL,          // expected_date_time_sub
+      0,             // expected_date_time_sub
       8,             // expected_octet_char_length
       2,             // expected_ordinal_position
       std::wstring(L"YES"));  // expected_is_nullable
@@ -786,7 +784,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
                         10,                                 // expected_num_prec_radix
                         SQL_NULLABLE,                       // expected_nullable
                         SQL_DECIMAL,                        // expected_sql_data_type
-                        NULL,                               // expected_date_time_sub
+                        0,                                  // expected_date_time_sub
                         2,                                  // expected_octet_char_length
                         3,                                  // expected_ordinal_position
                         std::wstring(L"YES"));              // expected_is_nullable
@@ -806,7 +804,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
                         2,   // expected_num_prec_radix
                         SQL_NULLABLE,           // expected_nullable
                         SQL_FLOAT,              // expected_sql_data_type
-                        NULL,                   // expected_date_time_sub
+                        0,                      // expected_date_time_sub
                         8,                      // expected_octet_char_length
                         4,                      // expected_ordinal_position
                         std::wstring(L"YES"));  // expected_is_nullable
@@ -826,7 +824,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
                         2,   // expected_num_prec_radix
                         SQL_NULLABLE,           // expected_nullable
                         SQL_DOUBLE,             // expected_sql_data_type
-                        NULL,                   // expected_date_time_sub
+                        0,                      // expected_date_time_sub
                         8,                      // expected_octet_char_length
                         5,                      // expected_ordinal_position
                         std::wstring(L"YES"));  // expected_is_nullable
@@ -847,7 +845,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColumnsAllTypes) {
                         0,  // expected_num_prec_radix
                         SQL_NULLABLE,           // expected_nullable
                         SQL_BIT,                // expected_sql_data_type
-                        NULL,                   // expected_date_time_sub
+                        0,                      // expected_date_time_sub
                         1,                      // expected_octet_char_length
                         6,                      // expected_ordinal_position
                         std::wstring(L"YES"));  // expected_is_nullable
@@ -926,8 +924,8 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
   // GH-47159 TODO: Return NUM_PREC_RADIX based on whether COLUMN_SIZE contains number of
   // digits or bits
 
-  SQLWCHAR table_pattern[] = L"ODBCTest";
-  SQLWCHAR column_pattern[] = L"%";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"ODBCTest");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"%");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -948,7 +946,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
       10,            // expected_num_prec_radix
       SQL_NULLABLE,  // expected_nullable
       SQL_INTEGER,   // expected_sql_data_type
-      NULL,          // expected_date_time_sub
+      0,             // expected_date_time_sub
       4,             // expected_octet_char_length
       1,             // expected_ordinal_position
       std::wstring(L"YES"));  // expected_is_nullable
@@ -969,7 +967,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
       10,            // expected_num_prec_radix
       SQL_NULLABLE,  // expected_nullable
       SQL_BIGINT,    // expected_sql_data_type
-      NULL,          // expected_date_time_sub
+      0,             // expected_date_time_sub
       8,             // expected_octet_char_length
       2,             // expected_ordinal_position
       std::wstring(L"YES"));  // expected_is_nullable
@@ -989,7 +987,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
                         10,                                 // expected_num_prec_radix
                         SQL_NULLABLE,                       // expected_nullable
                         SQL_DECIMAL,                        // expected_sql_data_type
-                        NULL,                               // expected_date_time_sub
+                        0,                                  // expected_date_time_sub
                         2,                                  // expected_octet_char_length
                         3,                                  // expected_ordinal_position
                         std::wstring(L"YES"));              // expected_is_nullable
@@ -1009,7 +1007,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
                         2,   // expected_num_prec_radix
                         SQL_NULLABLE,           // expected_nullable
                         SQL_FLOAT,              // expected_sql_data_type
-                        NULL,                   // expected_date_time_sub
+                        0,                      // expected_date_time_sub
                         8,                      // expected_octet_char_length
                         4,                      // expected_ordinal_position
                         std::wstring(L"YES"));  // expected_is_nullable
@@ -1029,7 +1027,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
                         2,   // expected_num_prec_radix
                         SQL_NULLABLE,           // expected_nullable
                         SQL_DOUBLE,             // expected_sql_data_type
-                        NULL,                   // expected_date_time_sub
+                        0,                      // expected_date_time_sub
                         8,                      // expected_octet_char_length
                         5,                      // expected_ordinal_position
                         std::wstring(L"YES"));  // expected_is_nullable
@@ -1050,7 +1048,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColumnsAllTypesODBCVer2) {
                         0,  // expected_num_prec_radix
                         SQL_NULLABLE,           // expected_nullable
                         SQL_BIT,                // expected_sql_data_type
-                        NULL,                   // expected_date_time_sub
+                        0,                      // expected_date_time_sub
                         1,                      // expected_octet_char_length
                         6,                      // expected_ordinal_position
                         std::wstring(L"YES"));  // expected_is_nullable
@@ -1128,8 +1126,8 @@ TEST_F(ColumnsMockTest, TestSQLColumnsColumnPattern) {
   // Checks filtering table with column name pattern.
   // Only check table and column name
 
-  SQLWCHAR table_pattern[] = L"%";
-  SQLWCHAR column_pattern[] = L"id";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"%");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"id");
 
   EXPECT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -1149,7 +1147,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsColumnPattern) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -1169,7 +1167,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsColumnPattern) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -1182,8 +1180,8 @@ TEST_F(ColumnsMockTest, TestSQLColumnsTableColumnPattern) {
   // Checks filtering table with table and column name pattern.
   // Only check table and column name
 
-  SQLWCHAR table_pattern[] = L"foreignTable";
-  SQLWCHAR column_pattern[] = L"id";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"foreignTable");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"id");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -1203,7 +1201,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsTableColumnPattern) {
                       10,  // expected_num_prec_radix
                       SQL_NULLABLE,           // expected_nullable
                       SQL_BIGINT,             // expected_sql_data_type
-                      NULL,                   // expected_date_time_sub
+                      0,                      // expected_date_time_sub
                       8,                      // expected_octet_char_length
                       1,                      // expected_ordinal_position
                       std::wstring(L"YES"));  // expected_is_nullable
@@ -1213,8 +1211,8 @@ TEST_F(ColumnsMockTest, TestSQLColumnsTableColumnPattern) {
 }
 
 TEST_F(ColumnsMockTest, TestSQLColumnsInvalidTablePattern) {
-  SQLWCHAR table_pattern[] = L"non-existent-table";
-  SQLWCHAR column_pattern[] = L"%";
+  ASSIGN_SQLWCHAR_ARR(table_pattern, L"non-existent-table");
+  ASSIGN_SQLWCHAR_ARR(column_pattern, L"%");
 
   ASSERT_EQ(SQL_SUCCESS, SQLColumns(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                     table_pattern, SQL_NTS, column_pattern, SQL_NTS));
@@ -1224,8 +1222,7 @@ TEST_F(ColumnsMockTest, TestSQLColumnsInvalidTablePattern) {
 }
 
 TYPED_TEST(ColumnsTest, SQLColAttributeTestInputData) {
-  SQLWCHAR wsql[] = L"SELECT 1 as col1;";
-  SQLSMALLINT wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1 as col1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len))
       << GetOdbcErrorMessage(SQL_HANDLE_DBC, conn);
@@ -1238,9 +1235,8 @@ TYPED_TEST(ColumnsTest, SQLColAttributeTestInputData) {
   SQLLEN numeric_attr = 0;
 
   // All character values populated
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLColAttribute(stmt, idx, SQL_DESC_NAME, character_attr,
-                            std::wcslen(character_attr), &character_attr_len, nullptr));
+  EXPECT_EQ(SQL_SUCCESS, SQLColAttribute(stmt, idx, SQL_DESC_NAME, character_attr,
+                                         kOdbcBufferSize, &character_attr_len, nullptr));
 
   // All numeric values populated
   EXPECT_EQ(SQL_SUCCESS,
@@ -1255,8 +1251,7 @@ TYPED_TEST(ColumnsTest, SQLColAttributeTestInputData) {
 }
 
 TYPED_TEST(ColumnsTest, SQLColAttributeGetCharacterLen) {
-  SQLWCHAR wsql[] = L"SELECT 1 as col1;";
-  SQLSMALLINT wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1 as col1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1271,8 +1266,7 @@ TYPED_TEST(ColumnsTest, SQLColAttributeGetCharacterLen) {
 }
 
 TYPED_TEST(ColumnsTest, SQLColAttributeInvalidFieldId) {
-  SQLWCHAR wsql[] = L"SELECT 1 as col1;";
-  SQLSMALLINT wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1 as col1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1282,18 +1276,15 @@ TYPED_TEST(ColumnsTest, SQLColAttributeInvalidFieldId) {
   SQLUSMALLINT idx = 1;
   SQLWCHAR character_attr[kOdbcBufferSize];
   SQLSMALLINT character_attr_len = 0;
-  SQLLEN numeric_attr = 0;
 
-  ASSERT_EQ(SQL_ERROR,
-            SQLColAttribute(stmt, idx, invalid_field_id, character_attr,
-                            std::wcslen(character_attr), &character_attr_len, nullptr));
+  ASSERT_EQ(SQL_ERROR, SQLColAttribute(stmt, idx, invalid_field_id, character_attr,
+                                       kOdbcBufferSize, &character_attr_len, nullptr));
   // Verify invalid descriptor field identifier error state is returned
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateHY091);
 }
 
 TYPED_TEST(ColumnsTest, SQLColAttributeInvalidColId) {
-  SQLWCHAR wsql[] = L"SELECT 1 as col1;";
-  SQLSMALLINT wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1 as col1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1304,7 +1295,7 @@ TYPED_TEST(ColumnsTest, SQLColAttributeInvalidColId) {
   SQLSMALLINT character_attr_len = 0;
 
   ASSERT_EQ(SQL_ERROR, SQLColAttribute(stmt, invalid_col_id, SQL_DESC_BASE_COLUMN_NAME,
-                                       character_attr, std::wcslen(character_attr),
+                                       character_attr, kOdbcBufferSize,
                                        &character_attr_len, nullptr));
   // Verify invalid descriptor index error state is returned
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorState07009);
@@ -1313,8 +1304,7 @@ TYPED_TEST(ColumnsTest, SQLColAttributeInvalidColId) {
 TEST_F(ColumnsMockTest, TestSQLColAttributeAllTypes) {
   CreateAllDataTypeTable();
 
-  SQLWCHAR wsql[] = L"SELECT * from AllTypesTable;";
-  SQLINTEGER wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT * from AllTypesTable;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1397,8 +1387,7 @@ TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAllTypes) {
   // Tests ODBC 2.0 API SQLColAttributes
   CreateAllDataTypeTable();
 
-  SQLWCHAR wsql[] = L"SELECT * from AllTypesTable;";
-  SQLSMALLINT wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT * from AllTypesTable;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1458,8 +1447,7 @@ TEST_F(ColumnsOdbcV2MockTest, TestSQLColAttributesAllTypes) {
 TEST_F(ColumnsRemoteTest, TestSQLColAttributeAllTypes) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
 
-  SQLWCHAR wsql[] = L"SELECT * from $scratch.ODBCTest;";
-  SQLINTEGER wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT * from $scratch.ODBCTest;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1623,8 +1611,7 @@ TEST_F(ColumnsRemoteTest, TestSQLColAttributeAllTypes) {
 #ifndef __APPLE__
 TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributeAllTypes) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
-  SQLWCHAR wsql[] = L"SELECT * from $scratch.ODBCTest;";
-  SQLSMALLINT wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT * from $scratch.ODBCTest;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -1788,8 +1775,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributeAllTypes) {
 TEST_F(ColumnsOdbcV2RemoteTest, TestSQLColAttributesAllTypes) {
   // Tests ODBC 2.0 API SQLColAttributes
   // Test assumes there is a table $scratch.ODBCTest in remote server
-  SQLWCHAR wsql[] = L"SELECT * from $scratch.ODBCTest;";
-  SQLINTEGER wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT * from $scratch.ODBCTest;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -2239,22 +2225,20 @@ TYPED_TEST(ColumnsOdbcV2Test, TestSQLColAttributesUpdatable) {
 TEST_F(ColumnsMockTest, SQLDescribeColValidateInput) {
   CreateTestTable();
 
-  SQLWCHAR sql_query[] = L"SELECT * FROM TestTable LIMIT 1;";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * FROM TestTable LIMIT 1;");
 
   SQLUSMALLINT bookmark_column = 0;
   SQLUSMALLINT out_of_range_column = 4;
   SQLUSMALLINT negative_column = -1;
   SQLWCHAR column_name[1024] = {0};
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT data_type = 0;
   SQLULEN column_size = 0;
   SQLSMALLINT decimal_digits = 0;
   SQLSMALLINT nullable = 0;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
@@ -2289,8 +2273,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColQueryAllDataTypesMetadata) {
   // from SELECT AS queries
 
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2301,38 +2284,15 @@ TEST_F(ColumnsMockTest, SQLDescribeColQueryAllDataTypesMetadata) {
   std::wstring wsql = this->GetQueryAllDataTypes();
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"stiny_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"stiny_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"utiny_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"utiny_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"ssmall_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"ssmall_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"usmall_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"usmall_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"sinteger_min"),
-                                    static_cast<const SQLWCHAR*>(L"sinteger_max"),
-                                    static_cast<const SQLWCHAR*>(L"uinteger_min"),
-                                    static_cast<const SQLWCHAR*>(L"uinteger_max"),
-                                    static_cast<const SQLWCHAR*>(L"sbigint_min"),
-                                    static_cast<const SQLWCHAR*>(L"sbigint_max"),
-                                    static_cast<const SQLWCHAR*>(L"ubigint_min"),
-                                    static_cast<const SQLWCHAR*>(L"ubigint_max"),
-                                    static_cast<const SQLWCHAR*>(L"decimal_negative"),
-                                    static_cast<const SQLWCHAR*>(L"decimal_positive"),
-                                    static_cast<const SQLWCHAR*>(L"float_min"),
-                                    static_cast<const SQLWCHAR*>(L"float_max"),
-                                    static_cast<const SQLWCHAR*>(L"double_min"),
-                                    static_cast<const SQLWCHAR*>(L"double_max"),
-                                    static_cast<const SQLWCHAR*>(L"bit_false"),
-                                    static_cast<const SQLWCHAR*>(L"bit_true"),
-                                    static_cast<const SQLWCHAR*>(L"c_char"),
-                                    static_cast<const SQLWCHAR*>(L"c_wchar"),
-                                    static_cast<const SQLWCHAR*>(L"c_wvarchar"),
-                                    static_cast<const SQLWCHAR*>(L"c_varchar"),
-                                    static_cast<const SQLWCHAR*>(L"date_min"),
-                                    static_cast<const SQLWCHAR*>(L"date_max"),
-                                    static_cast<const SQLWCHAR*>(L"timestamp_min"),
-                                    static_cast<const SQLWCHAR*>(L"timestamp_max")};
+  const std::wstring column_names[] = {
+      L"stiny_int_min",    L"stiny_int_max",    L"utiny_int_min",  L"utiny_int_max",
+      L"ssmall_int_min",   L"ssmall_int_max",   L"usmall_int_min", L"usmall_int_max",
+      L"sinteger_min",     L"sinteger_max",     L"uinteger_min",   L"uinteger_max",
+      L"sbigint_min",      L"sbigint_max",      L"ubigint_min",    L"ubigint_max",
+      L"decimal_negative", L"decimal_positive", L"float_min",      L"float_max",
+      L"double_min",       L"double_max",       L"bit_false",      L"bit_true",
+      L"c_char",           L"c_wchar",          L"c_wvarchar",     L"c_varchar",
+      L"date_min",         L"date_max",         L"timestamp_min",  L"timestamp_max"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR,
       SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR,
@@ -2352,7 +2312,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColQueryAllDataTypesMetadata) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
@@ -2371,8 +2331,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColQueryAllDataTypesMetadata) {
 
 TEST_F(ColumnsRemoteTest, SQLDescribeColQueryAllDataTypesMetadata) {
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2383,38 +2342,15 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColQueryAllDataTypesMetadata) {
   std::wstring wsql = this->GetQueryAllDataTypes();
   std::vector<SQLWCHAR> sql0(wsql.begin(), wsql.end());
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"stiny_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"stiny_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"utiny_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"utiny_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"ssmall_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"ssmall_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"usmall_int_min"),
-                                    static_cast<const SQLWCHAR*>(L"usmall_int_max"),
-                                    static_cast<const SQLWCHAR*>(L"sinteger_min"),
-                                    static_cast<const SQLWCHAR*>(L"sinteger_max"),
-                                    static_cast<const SQLWCHAR*>(L"uinteger_min"),
-                                    static_cast<const SQLWCHAR*>(L"uinteger_max"),
-                                    static_cast<const SQLWCHAR*>(L"sbigint_min"),
-                                    static_cast<const SQLWCHAR*>(L"sbigint_max"),
-                                    static_cast<const SQLWCHAR*>(L"ubigint_min"),
-                                    static_cast<const SQLWCHAR*>(L"ubigint_max"),
-                                    static_cast<const SQLWCHAR*>(L"decimal_negative"),
-                                    static_cast<const SQLWCHAR*>(L"decimal_positive"),
-                                    static_cast<const SQLWCHAR*>(L"float_min"),
-                                    static_cast<const SQLWCHAR*>(L"float_max"),
-                                    static_cast<const SQLWCHAR*>(L"double_min"),
-                                    static_cast<const SQLWCHAR*>(L"double_max"),
-                                    static_cast<const SQLWCHAR*>(L"bit_false"),
-                                    static_cast<const SQLWCHAR*>(L"bit_true"),
-                                    static_cast<const SQLWCHAR*>(L"c_char"),
-                                    static_cast<const SQLWCHAR*>(L"c_wchar"),
-                                    static_cast<const SQLWCHAR*>(L"c_wvarchar"),
-                                    static_cast<const SQLWCHAR*>(L"c_varchar"),
-                                    static_cast<const SQLWCHAR*>(L"date_min"),
-                                    static_cast<const SQLWCHAR*>(L"date_max"),
-                                    static_cast<const SQLWCHAR*>(L"timestamp_min"),
-                                    static_cast<const SQLWCHAR*>(L"timestamp_max")};
+  const std::wstring column_names[] = {
+      L"stiny_int_min",    L"stiny_int_max",    L"utiny_int_min",  L"utiny_int_max",
+      L"ssmall_int_min",   L"ssmall_int_max",   L"usmall_int_min", L"usmall_int_max",
+      L"sinteger_min",     L"sinteger_max",     L"uinteger_min",   L"uinteger_max",
+      L"sbigint_min",      L"sbigint_max",      L"ubigint_min",    L"ubigint_max",
+      L"decimal_negative", L"decimal_positive", L"float_min",      L"float_max",
+      L"double_min",       L"double_max",       L"bit_false",      L"bit_true",
+      L"c_char",           L"c_wchar",          L"c_wvarchar",     L"c_varchar",
+      L"date_min",         L"date_max",         L"timestamp_min",  L"timestamp_max"};
   SQLSMALLINT column_data_types[] = {
       SQL_INTEGER,        SQL_INTEGER,       SQL_INTEGER,  SQL_INTEGER,   SQL_INTEGER,
       SQL_INTEGER,        SQL_INTEGER,       SQL_INTEGER,  SQL_INTEGER,   SQL_INTEGER,
@@ -2441,7 +2377,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColQueryAllDataTypesMetadata) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
@@ -2462,8 +2398,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
 
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2471,25 +2406,19 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
   SQLSMALLINT nullable = 0;
   size_t column_index = 0;
 
-  SQLWCHAR sql_query[] = L"SELECT * from $scratch.ODBCTest LIMIT 1;";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * from $scratch.ODBCTest LIMIT 1;");
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"sinteger_max"),
-                                    static_cast<const SQLWCHAR*>(L"sbigint_max"),
-                                    static_cast<const SQLWCHAR*>(L"decimal_positive"),
-                                    static_cast<const SQLWCHAR*>(L"float_max"),
-                                    static_cast<const SQLWCHAR*>(L"double_max"),
-                                    static_cast<const SQLWCHAR*>(L"bit_true"),
-                                    static_cast<const SQLWCHAR*>(L"date_max"),
-                                    static_cast<const SQLWCHAR*>(L"time_max"),
-                                    static_cast<const SQLWCHAR*>(L"timestamp_max")};
+  const std::wstring column_names[] = {
+      L"sinteger_max", L"sbigint_max", L"decimal_positive",
+      L"float_max",    L"double_max",  L"bit_true",
+      L"date_max",     L"time_max",    L"timestamp_max"};
   SQLSMALLINT column_data_types[] = {SQL_INTEGER,   SQL_BIGINT,    SQL_DECIMAL,
                                      SQL_FLOAT,     SQL_DOUBLE,    SQL_BIT,
                                      SQL_TYPE_DATE, SQL_TYPE_TIME, SQL_TYPE_TIMESTAMP};
   SQLULEN column_sizes[] = {4, 8, 19, 8, 8, 1, 10, 12, 23};
   SQLULEN columndecimal_digits[] = {0, 0, 0, 0, 0, 0, 10, 12, 23};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
@@ -2500,7 +2429,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
@@ -2520,8 +2449,7 @@ TEST_F(ColumnsRemoteTest, SQLDescribeColODBCTestTableMetadata) {
 TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
   // Test assumes there is a table $scratch.ODBCTest in remote server
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2529,25 +2457,19 @@ TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
   SQLSMALLINT nullable = 0;
   size_t column_index = 0;
 
-  SQLWCHAR sql_query[] = L"SELECT * from $scratch.ODBCTest LIMIT 1;";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * from $scratch.ODBCTest LIMIT 1;");
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"sinteger_max"),
-                                    static_cast<const SQLWCHAR*>(L"sbigint_max"),
-                                    static_cast<const SQLWCHAR*>(L"decimal_positive"),
-                                    static_cast<const SQLWCHAR*>(L"float_max"),
-                                    static_cast<const SQLWCHAR*>(L"double_max"),
-                                    static_cast<const SQLWCHAR*>(L"bit_true"),
-                                    static_cast<const SQLWCHAR*>(L"date_max"),
-                                    static_cast<const SQLWCHAR*>(L"time_max"),
-                                    static_cast<const SQLWCHAR*>(L"timestamp_max")};
+  const std::wstring column_names[] = {
+      L"sinteger_max", L"sbigint_max", L"decimal_positive",
+      L"float_max",    L"double_max",  L"bit_true",
+      L"date_max",     L"time_max",    L"timestamp_max"};
   SQLSMALLINT column_data_types[] = {SQL_INTEGER, SQL_BIGINT, SQL_DECIMAL,
                                      SQL_FLOAT,   SQL_DOUBLE, SQL_BIT,
                                      SQL_DATE,    SQL_TIME,   SQL_TIMESTAMP};
   SQLULEN column_sizes[] = {4, 8, 19, 8, 8, 1, 10, 12, 23};
   SQLULEN columndecimal_digits[] = {0, 0, 0, 0, 0, 0, 10, 12, 23};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
@@ -2558,7 +2480,7 @@ TEST_F(ColumnsOdbcV2RemoteTest, SQLDescribeColODBCTestTableMetadataODBCVer2) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
@@ -2579,8 +2501,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColAllTypesTableMetadata) {
   CreateAllDataTypeTable();
 
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2588,17 +2509,14 @@ TEST_F(ColumnsMockTest, SQLDescribeColAllTypesTableMetadata) {
   SQLSMALLINT nullable = 0;
   size_t column_index = 0;
 
-  SQLWCHAR sql_query[] = L"SELECT * from AllTypesTable LIMIT 1;";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * from AllTypesTable LIMIT 1;");
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"bigint_col"),
-                                    static_cast<const SQLWCHAR*>(L"char_col"),
-                                    static_cast<const SQLWCHAR*>(L"varbinary_col"),
-                                    static_cast<const SQLWCHAR*>(L"double_col")};
+  const std::wstring column_names[] = {L"bigint_col", L"char_col", L"varbinary_col",
+                                       L"double_col"};
   SQLSMALLINT column_data_types[] = {SQL_BIGINT, SQL_WVARCHAR, SQL_BINARY, SQL_DOUBLE};
   SQLULEN column_sizes[] = {8, 0, 0, 8};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
@@ -2609,7 +2527,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColAllTypesTableMetadata) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
@@ -2632,8 +2550,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
   CreateUnicodeTable();
 
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2641,14 +2558,13 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
   SQLSMALLINT nullable = 0;
   size_t column_index = 1;
 
-  SQLWCHAR sql_query[] = L"SELECT * from 数据 LIMIT 1;";
-  SQLINTEGER query_length = static_cast<SQLINTEGER>(wcslen(sql_query));
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(sql_query, L"SELECT * from 数据 LIMIT 1;");
 
-  SQLWCHAR expected_column_name[] = L"资料";
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(expected_column_name, L"资料");
   SQLSMALLINT expected_column_data_type = SQL_WVARCHAR;
   SQLULEN expected_column_size = 0;
 
-  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, query_length));
+  ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, sql_query, sql_query_len));
 
   ASSERT_EQ(SQL_SUCCESS, SQLFetch(stmt));
 
@@ -2656,12 +2572,13 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
             SQLDescribeCol(stmt, column_index, column_name, buf_char_len, &name_length,
                            &column_data_type, &column_size, &decimal_digits, &nullable));
 
-  EXPECT_EQ(name_length, wcslen(expected_column_name));
+  EXPECT_EQ(name_length, expected_column_name_len);
 
   std::wstring returned(column_name, column_name + name_length);
-  EXPECT_EQ(returned, expected_column_name);
-  EXPECT_EQ(column_data_type, expected_column_data_type);
-  EXPECT_EQ(column_size, expected_column_size);
+  std::wstring expected_col_name_str = ConvertToWString(expected_column_name);
+  EXPECT_EQ(expected_col_name_str, returned);
+  EXPECT_EQ(expected_column_data_type, column_data_type);
+  EXPECT_EQ(expected_column_size, column_size);
   EXPECT_EQ(0, decimal_digits);
   EXPECT_EQ(SQL_NULLABLE, nullable);
 
@@ -2670,8 +2587,7 @@ TEST_F(ColumnsMockTest, SQLDescribeColUnicodeTableMetadata) {
 
 TYPED_TEST(ColumnsTest, SQLColumnsGetMetadataBySQLDescribeCol) {
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2679,24 +2595,12 @@ TYPED_TEST(ColumnsTest, SQLColumnsGetMetadataBySQLDescribeCol) {
   SQLSMALLINT nullable = 0;
   size_t column_index = 0;
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TABLE_CAT"),
-                                    static_cast<const SQLWCHAR*>(L"TABLE_SCHEM"),
-                                    static_cast<const SQLWCHAR*>(L"TABLE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_SIZE"),
-                                    static_cast<const SQLWCHAR*>(L"BUFFER_LENGTH"),
-                                    static_cast<const SQLWCHAR*>(L"DECIMAL_DIGITS"),
-                                    static_cast<const SQLWCHAR*>(L"NUM_PREC_RADIX"),
-                                    static_cast<const SQLWCHAR*>(L"NULLABLE"),
-                                    static_cast<const SQLWCHAR*>(L"REMARKS"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_DEF"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATETIME_SUB"),
-                                    static_cast<const SQLWCHAR*>(L"CHAR_OCTET_LENGTH"),
-                                    static_cast<const SQLWCHAR*>(L"ORDINAL_POSITION"),
-                                    static_cast<const SQLWCHAR*>(L"IS_NULLABLE")};
+  const std::wstring column_names[] = {
+      L"TABLE_CAT",        L"TABLE_SCHEM",    L"TABLE_NAME",       L"COLUMN_NAME",
+      L"DATA_TYPE",        L"TYPE_NAME",      L"COLUMN_SIZE",      L"BUFFER_LENGTH",
+      L"DECIMAL_DIGITS",   L"NUM_PREC_RADIX", L"NULLABLE",         L"REMARKS",
+      L"COLUMN_DEF",       L"SQL_DATA_TYPE",  L"SQL_DATETIME_SUB", L"CHAR_OCTET_LENGTH",
+      L"ORDINAL_POSITION", L"IS_NULLABLE"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_SMALLINT, SQL_WVARCHAR,
       SQL_INTEGER,  SQL_INTEGER,  SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT, SQL_WVARCHAR,
@@ -2714,7 +2618,7 @@ TYPED_TEST(ColumnsTest, SQLColumnsGetMetadataBySQLDescribeCol) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
@@ -2733,8 +2637,7 @@ TYPED_TEST(ColumnsTest, SQLColumnsGetMetadataBySQLDescribeCol) {
 
 TYPED_TEST(ColumnsOdbcV2Test, SQLColumnsGetMetadataBySQLDescribeColODBCVer2) {
   SQLWCHAR column_name[1024];
-  SQLSMALLINT buf_char_len =
-      static_cast<SQLSMALLINT>(sizeof(column_name) / GetSqlWCharSize());
+  SQLSMALLINT buf_char_len = sizeof(column_name) / GetSqlWCharSize();
   SQLSMALLINT name_length = 0;
   SQLSMALLINT column_data_type = 0;
   SQLULEN column_size = 0;
@@ -2742,24 +2645,24 @@ TYPED_TEST(ColumnsOdbcV2Test, SQLColumnsGetMetadataBySQLDescribeColODBCVer2) {
   SQLSMALLINT nullable = 0;
   size_t column_index = 0;
 
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TABLE_QUALIFIER"),
-                                    static_cast<const SQLWCHAR*>(L"TABLE_OWNER"),
-                                    static_cast<const SQLWCHAR*>(L"TABLE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"PRECISION"),
-                                    static_cast<const SQLWCHAR*>(L"LENGTH"),
-                                    static_cast<const SQLWCHAR*>(L"SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"RADIX"),
-                                    static_cast<const SQLWCHAR*>(L"NULLABLE"),
-                                    static_cast<const SQLWCHAR*>(L"REMARKS"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_DEF"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATETIME_SUB"),
-                                    static_cast<const SQLWCHAR*>(L"CHAR_OCTET_LENGTH"),
-                                    static_cast<const SQLWCHAR*>(L"ORDINAL_POSITION"),
-                                    static_cast<const SQLWCHAR*>(L"IS_NULLABLE")};
+  const std::wstring column_names[] = {L"TABLE_QUALIFIER",
+                                       L"TABLE_OWNER",
+                                       L"TABLE_NAME",
+                                       L"COLUMN_NAME",
+                                       L"DATA_TYPE",
+                                       L"TYPE_NAME",
+                                       L"PRECISION",
+                                       L"LENGTH",
+                                       L"SCALE",
+                                       L"RADIX",
+                                       L"NULLABLE",
+                                       L"REMARKS",
+                                       L"COLUMN_DEF",
+                                       L"SQL_DATA_TYPE",
+                                       L"SQL_DATETIME_SUB",
+                                       L"CHAR_OCTET_LENGTH",
+                                       L"ORDINAL_POSITION",
+                                       L"IS_NULLABLE"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_WVARCHAR, SQL_SMALLINT, SQL_WVARCHAR,
       SQL_INTEGER,  SQL_INTEGER,  SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT, SQL_WVARCHAR,
@@ -2777,7 +2680,7 @@ TYPED_TEST(ColumnsOdbcV2Test, SQLColumnsGetMetadataBySQLDescribeColODBCVer2) {
                                           &name_length, &column_data_type, &column_size,
                                           &decimal_digits, &nullable));
 
-    EXPECT_EQ(wcslen(column_names[i]), name_length);
+    EXPECT_EQ(column_names[i].length(), name_length);
 
     std::wstring returned(column_name, column_name + name_length);
     EXPECT_EQ(column_names[i], returned);
