@@ -1484,6 +1484,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
     }
     std::vector<T> values(num_values);
     int decoded_count = GetInternal(values.data(), num_values);
+    if (decoded_count < num_values) {
+      ParquetException::EofException("Not enough values in data page");
+    }
     PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
     return decoded_count;
   }
@@ -1497,6 +1500,9 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
     }
     std::vector<T> values(num_values);
     int decoded_count = GetInternal(values.data(), num_values);
+    if (decoded_count < num_values) {
+      ParquetException::EofException("Not enough values in data page");
+    }
     PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
     for (int i = 0; i < decoded_count; ++i) {
       PARQUET_THROW_NOT_OK(out->Append(values[i]));

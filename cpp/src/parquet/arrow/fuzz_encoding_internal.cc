@@ -236,6 +236,7 @@ struct TypedFuzzEncoding {
     auto decoder = MakeDecoder(encoding);
     decoder->SetData(num_values_, encoded_data.data(),
                      static_cast<int>(encoded_data.size()));
+    std::shared_ptr<Array> output;
 
     if constexpr (kType == Type::BYTE_ARRAY) {
       Accumulator acc;
@@ -244,14 +245,18 @@ struct TypedFuzzEncoding {
       decoder->DecodeArrowNonNull(num_values_, &acc);
       END_PARQUET_CATCH_EXCEPTIONS
       ARROW_CHECK_EQ(acc.chunks.size(), 0);
-      return acc.builder->Finish();
+      ARROW_ASSIGN_OR_RAISE(output, acc.builder->Finish());
     } else {
       Accumulator builder(arrow_type, pool());
       BEGIN_PARQUET_CATCH_EXCEPTIONS
       decoder->DecodeArrowNonNull(num_values_, &builder);
       END_PARQUET_CATCH_EXCEPTIONS
-      return builder.Finish();
+      ARROW_ASSIGN_OR_RAISE(output, builder.Finish());
     }
+    // DecodeArrow* methods should emit as many values as requested, or error out
+    // if there are not enough remaining values to decode.
+    ARROW_DCHECK_EQ(output->length(), num_values_) << "Read less values than expected";
+    return output;
   }
 
   Status Fuzz() {
