@@ -3480,9 +3480,8 @@ function(build_google_cloud_cpp_storage)
   # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
   # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-    # This is for RTools 40. We can remove this after we dropped
-    # support for R < 4.2.
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "11")
+    # This is for RTools 40.
     find_program(PATCH patch)
     if(PATCH)
       set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
