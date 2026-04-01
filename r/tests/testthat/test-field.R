@@ -63,3 +63,30 @@ test_that("Field to C-interface", {
   # must clean up the pointer or we leak
   delete_arrow_schema(ptr)
 })
+
+test_that("Field metadata", {
+  x <- field("x", int32())
+  expect_false(x$HasMetadata)
+  expect_null(x$metadata)
+
+  x_meta <- field("x", int32(), metadata = list(key = "value"))
+  expect_true(x_meta$HasMetadata)
+  expect_identical(x_meta$metadata, list(key = "value"))
+
+  x_meta2 <- x$WithMetadata(list(key = "value"))
+  expect_true(x_meta2$HasMetadata)
+  expect_identical(x_meta2$metadata, list(key = "value"))
+
+  x_no_meta <- x_meta$RemoveMetadata()
+  expect_false(x_no_meta$HasMetadata)
+  expect_null(x_no_meta$metadata)
+})
+
+test_that("Field$Equals with check_metadata", {
+  x <- field("x", int32())
+  x_meta <- field("x", int32(), metadata = list(key = "value"))
+
+  expect_true(x$Equals(x_meta))
+  expect_false(x$Equals(x_meta, check_metadata = TRUE))
+  expect_true(x == x_meta)
+})
