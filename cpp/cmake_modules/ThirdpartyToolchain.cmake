@@ -1908,6 +1908,7 @@ function(build_absl)
   set(CMAKE_UNITY_BUILD OFF)
   # We have to enable Abseil install to add Abseil targets to an export set.
   # But we don't install Abseil by EXCLUDE_FROM_ALL.
+  # This is necessary for bundled Protobuf otherwise it fails on configure.
   set(ABSL_ENABLE_INSTALL ON)
   fetchcontent_makeavailable(absl)
 
@@ -3479,7 +3480,9 @@ function(build_google_cloud_cpp_storage)
   # Workaround missing BCRYPT_RSA_ALG_HANDLE macro in older MinGW-w64 headers.
   # google-cloud-cpp v3+ uses it without guards in sign_using_sha256.cc.
   set(GOOGLE_CLOUD_CPP_PATCH_COMMAND)
-  if(MINGW)
+  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
+    # This is for RTools 40. We can remove this after we dropped
+    # support for R < 4.2.
     find_program(PATCH patch)
     if(PATCH)
       set(GOOGLE_CLOUD_CPP_PATCH_COMMAND
