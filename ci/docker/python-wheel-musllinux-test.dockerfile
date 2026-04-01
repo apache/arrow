@@ -32,6 +32,12 @@ RUN cp /usr/share/zoneinfo/Etc/UTC /etc/localtime
 # pandas doesn't provide wheel for aarch64 yet, so cache the compiled
 # test dependencies in a docker image
 COPY python/requirements-wheel-test.txt /arrow/python/
+# Pandas 2.0.3 is the last version to support numpy 1.21.x which is
+# the lowest version we support for Python 3.10.
+# Pandas 2.0.3 doesn't have wheels for Python 3.10 so we need to build from source,
+# which requires setuptools < 80.
+RUN if [ "${python_image_tag}" = "3.10" ]; then pip install 'setuptools<80'; \
+    fi
 RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 # Install the GCS testbench with the system Python
