@@ -20,8 +20,12 @@ import pytest
 
 import pyarrow as pa
 
+pytestmark = [
+    pytest.mark.gandiva,
+    pytest.mark.filterwarnings("ignore:pyarrow.gandiva is deprecated"),
+    ]
 
-@pytest.mark.gandiva
+
 def test_tree_exp_builder():
     import pyarrow.gandiva as gandiva
 
@@ -63,7 +67,6 @@ def test_tree_exp_builder():
     assert r.equals(e)
 
 
-@pytest.mark.gandiva
 def test_table():
     import pyarrow.gandiva as gandiva
 
@@ -90,7 +93,6 @@ def test_table():
     assert r.equals(e)
 
 
-@pytest.mark.gandiva
 def test_filter():
     import pyarrow.gandiva as gandiva
 
@@ -114,7 +116,6 @@ def test_filter():
     assert result.to_array().equals(pa.array(range(1000), type=pa.uint32()))
 
 
-@pytest.mark.gandiva
 def test_in_expr():
     import pyarrow.gandiva as gandiva
 
@@ -225,7 +226,6 @@ def test_in_expr_todo():
     assert list(result.to_array()) == [1]
 
 
-@pytest.mark.gandiva
 def test_boolean():
     import pyarrow.gandiva as gandiva
 
@@ -252,7 +252,6 @@ def test_boolean():
     assert result.to_array().equals(pa.array([0, 2, 5], type=pa.uint32()))
 
 
-@pytest.mark.gandiva
 def test_literals():
     import pyarrow.gandiva as gandiva
 
@@ -292,7 +291,6 @@ def test_literals():
         builder.make_literal(True, None)
 
 
-@pytest.mark.gandiva
 def test_regex():
     import pyarrow.gandiva as gandiva
 
@@ -316,7 +314,6 @@ def test_regex():
     assert r.equals(b)
 
 
-@pytest.mark.gandiva
 def test_get_registered_function_signatures():
     import pyarrow.gandiva as gandiva
     signatures = gandiva.get_registered_function_signatures()
@@ -326,7 +323,6 @@ def test_get_registered_function_signatures():
     assert hasattr(signatures[0], "name")
 
 
-@pytest.mark.gandiva
 def test_filter_project():
     import pyarrow.gandiva as gandiva
     mpool = pa.default_memory_pool()
@@ -373,7 +369,6 @@ def test_filter_project():
     assert r.equals(exp)
 
 
-@pytest.mark.gandiva
 def test_to_string():
     import pyarrow.gandiva as gandiva
     builder = gandiva.TreeExprBuilder()
@@ -393,7 +388,6 @@ def test_to_string():
     assert str(and_node) == 'bool not((bool) z) && (bool) y'
 
 
-@pytest.mark.gandiva
 def test_rejects_none():
     import pyarrow.gandiva as gandiva
 
