@@ -3245,7 +3245,7 @@ class TestConvertMisc:
         arr = pa.array([], type=pa.string())
         if Version(pd.__version__) >= Version("3.0.0"):
             # PyArrow backed string dtype are set by default
-            empty_str = pd.Series(np.array([], dtype=str))
+            empty_str = pd.Series([], dtype=str)
             tm.assert_series_equal(arr.to_pandas(), empty_str)
         else:
             tm.assert_series_equal(arr.to_pandas(), empty_objects)
