@@ -40,9 +40,13 @@ COPY python/requirements-wheel-test.txt /arrow/python/
 # the lowest version we support for Python 3.10.
 # Pandas 2.0.3 doesn't have wheels for Python 3.10 so we need to build from source,
 # which requires setuptools < 80.
-RUN if [ "${python_image_tag}" = "3.10" ]; then pip install 'setuptools<80'; \
+RUN if [ "${python_image_tag}" = "3.10" ]; then \
+        echo 'setuptools<80' > /tmp/setuptools-constraint.txt; \
+        PIP_CONSTRAINT=/tmp/setuptools-constraint.txt \
+        pip install -r /arrow/python/requirements-wheel-test.txt; \
+    else \
+        pip install -r /arrow/python/requirements-wheel-test.txt; \
     fi
-RUN pip install -r /arrow/python/requirements-wheel-test.txt
 
 # Install the GCS testbench with the system Python
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/
