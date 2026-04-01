@@ -104,8 +104,7 @@ def test_offset_of_sliced_array():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 @pytest.mark.parametrize(
@@ -151,8 +150,7 @@ def test_pandas_roundtrip(uint, int, float, np_float_str):
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_pandas_roundtrip_string():
@@ -184,8 +182,7 @@ def test_pandas_roundtrip_string():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_pandas_roundtrip_large_string():
@@ -225,8 +222,7 @@ def test_pandas_roundtrip_large_string():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_pandas_roundtrip_string_with_missing():
@@ -261,8 +257,7 @@ def test_pandas_roundtrip_string_with_missing():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_pandas_roundtrip_categorical():
@@ -313,8 +308,7 @@ def test_pandas_roundtrip_categorical():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
@@ -353,8 +347,7 @@ def test_pandas_roundtrip_datetime(unit):
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 @pytest.mark.parametrize(
@@ -382,8 +375,7 @@ def test_pandas_to_pyarrow_with_missing(np_float_str):
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_float16_with_missing():
@@ -509,8 +501,7 @@ def test_nan_as_null():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_allow_copy_false():
@@ -532,8 +523,7 @@ def test_allow_copy_false():
 
 
 @pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol "
-    "is deprecated:pandas.errors.Pandas4Warning"
+    "ignore:The Dataframe Interchange Protocol is deprecated."
 )
 @pytest.mark.pandas
 def test_allow_copy_false_bool_categorical():
