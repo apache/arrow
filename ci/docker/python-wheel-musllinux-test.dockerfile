@@ -19,6 +19,10 @@ ARG alpine_linux
 ARG python_image_tag
 FROM python:${python_image_tag}-alpine${alpine_linux}
 
+# Re-define python_image_tag argument to be used in the next stage.
+# This is needed because the argument is not preserved after the FROM statement.
+ARG python_image_tag
+
 RUN apk add --no-cache \
     bash \
     g++ \
