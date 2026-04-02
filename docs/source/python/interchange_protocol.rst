@@ -36,6 +36,12 @@ libraries in the Python ecosystem. See more about the
 standard in the
 `protocol documentation <https://data-apis.org/dataframe-protocol/latest/index.html>`_.
 
+.. note::
+
+   The recommended way to convert between dataframe libraries is through
+   the :ref:`arrow-pycapsule-interface`, for example by calling ``pa.table(df)``
+   on a dataframe object that implements it.
+
 From PyArrow to other libraries: ``__dataframe__()`` method
 -----------------------------------------------------------
 
