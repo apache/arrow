@@ -795,6 +795,7 @@ if(ARROW_COMPUTE)
        compute/kernels/vector_rank.cc
        compute/kernels/vector_replace.cc
        compute/kernels/vector_run_end_encode.cc
+      compute/kernels/vector_search_sorted.cc
        compute/kernels/vector_select_k.cc
        compute/kernels/vector_sort.cc
        compute/kernels/vector_statistics.cc

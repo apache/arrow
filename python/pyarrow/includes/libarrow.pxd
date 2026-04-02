@@ -2781,6 +2781,16 @@ cdef extern from "arrow/compute/api.h" namespace "arrow::compute" nogil:
         CSortOrder order
         CNullPlacement null_placement
 
+    cdef enum CSearchSortedSide \
+            "arrow::compute::SearchSortedOptions::Side":
+        CSearchSortedSide_Left "arrow::compute::SearchSortedOptions::Left"
+        CSearchSortedSide_Right "arrow::compute::SearchSortedOptions::Right"
+
+    cdef cppclass CSearchSortedOptions \
+            "arrow::compute::SearchSortedOptions"(CFunctionOptions):
+        CSearchSortedOptions(CSearchSortedSide side)
+        CSearchSortedSide side
+
     cdef cppclass CSortKey" arrow::compute::SortKey":
         CSortKey(CFieldRef target, CSortOrder order)
         CFieldRef target

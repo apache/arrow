@@ -50,6 +50,7 @@ using compute::FilterOptions;
 using compute::NullPlacement;
 using compute::RankOptions;
 using compute::RankQuantileOptions;
+using compute::SearchSortedOptions;
 
 template <>
 struct EnumTraits<FilterOptions::NullSelectionBehavior>
@@ -96,6 +97,21 @@ struct EnumTraits<NullPlacement>
   }
 };
 template <>
+struct EnumTraits<SearchSortedOptions::Side>
+    : BasicEnumTraits<SearchSortedOptions::Side, SearchSortedOptions::Left,
+                      SearchSortedOptions::Right> {
+  static std::string name() { return "SearchSortedOptions::Side"; }
+  static std::string value_name(SearchSortedOptions::Side value) {
+    switch (value) {
+      case SearchSortedOptions::Left:
+        return "Left";
+      case SearchSortedOptions::Right:
+        return "Right";
+    }
+    return "<INVALID>";
+  }
+};
+template <>
 struct EnumTraits<RankOptions::Tiebreaker>
     : BasicEnumTraits<RankOptions::Tiebreaker, RankOptions::Min, RankOptions::Max,
                       RankOptions::First, RankOptions::Dense> {
@@ -137,6 +153,8 @@ static auto kRunEndEncodeOptionsType = GetFunctionOptionsType<RunEndEncodeOption
 static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
+static auto kSearchSortedOptionsType = GetFunctionOptionsType<SearchSortedOptions>(
+  DataMember("side", &SearchSortedOptions::side));
 static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
     DataMember("sort_keys", &SortOptions::sort_keys),
     DataMember("null_placement", &SortOptions::null_placement));
@@ -195,6 +213,10 @@ ArraySortOptions::ArraySortOptions(SortOrder order, NullPlacement null_placement
       order(order),
       null_placement(null_placement) {}
 constexpr char ArraySortOptions::kTypeName[];
+
+SearchSortedOptions::SearchSortedOptions(SearchSortedOptions::Side side)
+    : FunctionOptions(internal::kSearchSortedOptionsType), side(side) {}
+constexpr char SearchSortedOptions::kTypeName[];
 
 SortOptions::SortOptions(std::vector<SortKey> sort_keys, NullPlacement null_placement)
     : FunctionOptions(internal::kSortOptionsType),
@@ -274,6 +296,7 @@ void RegisterVectorOptions(FunctionRegistry* registry) {
   DCHECK_OK(registry->AddFunctionOptionsType(kDictionaryEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kRunEndEncodeOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kArraySortOptionsType));
+  DCHECK_OK(registry->AddFunctionOptionsType(kSearchSortedOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSortOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kPartitionNthOptionsType));
   DCHECK_OK(registry->AddFunctionOptionsType(kSelectKOptionsType));
@@ -313,6 +336,11 @@ Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
   ARROW_ASSIGN_OR_RAISE(Datum result,
                         CallFunction("select_k_unstable", {datum}, &options, ctx));
   return result.make_array();
+}
+
+Result<Datum> SearchSorted(const Datum& values, const Datum& needles,
+                           const SearchSortedOptions& options, ExecContext* ctx) {
+  return CallFunction("search_sorted", {values, needles}, &options, ctx);
 }
 
 Result<Datum> ReplaceWithMask(const Datum& values, const Datum& mask,

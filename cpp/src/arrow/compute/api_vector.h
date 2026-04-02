@@ -102,6 +102,21 @@ class ARROW_EXPORT ArraySortOptions : public FunctionOptions {
   NullPlacement null_placement;
 };
 
+class ARROW_EXPORT SearchSortedOptions : public FunctionOptions {
+ public:
+  enum Side {
+    Left,
+    Right,
+  };
+
+  explicit SearchSortedOptions(Side side = Side::Left);
+  static constexpr const char kTypeName[] = "SearchSortedOptions";
+  static SearchSortedOptions Defaults() { return SearchSortedOptions(); }
+
+  /// Whether to return the leftmost or rightmost insertion point.
+  Side side;
+};
+
 class ARROW_EXPORT SortOptions : public FunctionOptions {
  public:
   explicit SortOptions(std::vector<SortKey> sort_keys = {},
@@ -514,6 +529,27 @@ ARROW_EXPORT
 Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
                                                const SelectKOptions& options,
                                                ExecContext* ctx = NULLPTR);
+
+/// \brief Find insertion indices that preserve sorted order.
+///
+/// The `values` datum must be a plain array or run-end encoded array sorted in
+/// ascending order. `needles` may be a scalar, plain array, or run-end encoded
+/// array whose logical value type matches `values`.
+///
+/// Nulls in `values` are supported when clustered entirely at the start or the
+/// end of the sorted array. Non-null needles are matched only against the
+/// non-null portion of `values`. Null needles yield null outputs.
+///
+/// \param[in] values sorted array to search within
+/// \param[in] needles scalar or array-like values to search for
+/// \param[in] options selects left or right insertion semantics
+/// \param[in] ctx the function execution context, optional
+/// \return insertion indices as uint64 scalar or array
+ARROW_EXPORT
+Result<Datum> SearchSorted(
+  const Datum& values, const Datum& needles,
+  const SearchSortedOptions& options = SearchSortedOptions::Defaults(),
+  ExecContext* ctx = NULLPTR);
 
 /// \brief Return the indices that would sort an array.
 ///
