@@ -43,7 +43,7 @@ COPY python/requirements-wheel-test.txt /arrow/python/
 RUN if [ "${python_image_tag}" = "3.10" ]; then \
         echo 'setuptools<80' > /tmp/setuptools-constraint.txt; \
         PIP_CONSTRAINT=/tmp/setuptools-constraint.txt \
-        pip install -r /arrow/python/requirements-wheel-test.txt; \
+            pip install -r /arrow/python/requirements-wheel-test.txt; \
     else \
         pip install -r /arrow/python/requirements-wheel-test.txt; \
     fi
