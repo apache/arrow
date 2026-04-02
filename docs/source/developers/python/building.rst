@@ -621,7 +621,7 @@ certain components to be built):
    * - ``ARROW_ORC``
      - ``PYARROW_WITH_ORC``
    * - ``ARROW_GANDIVA``
-     - ``PYARROW_WITH_GANDIVA``
+     - ``PYARROW_WITH_GANDIVA`` (deprecated since version 24.0.0)
 
 Installing Nightly Packages
 ===========================

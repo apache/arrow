@@ -75,6 +75,14 @@ from pyarrow.includes.libgandiva cimport (
     GetRegisteredFunctionSignatures)
 
 
+import warnings
+warnings.warn(
+    "pyarrow.gandiva is deprecated as of 24.0.0 and will be removed in a future version.",
+    FutureWarning,
+    stacklevel=2,
+)
+
+
 cdef class Node(_Weakrefable):
     cdef:
         shared_ptr[CNode] node
