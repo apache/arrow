@@ -129,7 +129,6 @@ x-hierarchy:
         - conda-python-no-numpy
         - conda-python-spark
   - conda-verify-rc
-  - conan
   - cpp-jni
   - debian-cpp:
     - debian-c-glib:
@@ -756,30 +755,6 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
     command: *cpp-command
-
-  conan:
-    # Base service for Conan.
-    #
-    # Usage:
-    #   docker compose run --rm conan
-    # Parameters:
-    #   CONAN_BASE: gcc11-ubuntu16.04, ...
-    #   CONAN_VERSION: 2.12.1, ...
-    #   See https://github.com/conan-io/conan-docker-tools#readme for
-    #   available images.
-    image: conanio/${CONAN_BASE}:${CONAN_VERSION}
-    user: root:root
-    shm_size: *shm-size
-    ulimits: *ulimits
-    environment:
-      <<: [*common, *sccache]
-    volumes:
-      - .:/arrow:delegated
-    command: >-
-      /bin/bash -c "
-        sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
-        /arrow/ci/scripts/conan_setup.sh &&
-        /arrow/ci/scripts/conan_build.sh /arrow /build"
 
   cpp-jni:
     # Test for the build configuration for JNI.
