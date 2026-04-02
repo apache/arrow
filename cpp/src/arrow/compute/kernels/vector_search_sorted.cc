@@ -64,6 +64,88 @@ const FunctionDoc search_sorted_doc(
      "portion of the searched array. Null needles emit nulls in the output."),
     {"values", "needles"}, "SearchSortedOptions");
 
+// This file implements search_sorted as a small pipeline that first normalizes
+// Arrow input shapes and then runs one typed binary-search core on logical
+// values.
+//
+// Plain arrays, run-end encoded arrays, and scalar needles are all
+// adapted into the same accessor and visitor model so the search logic does
+// not care about physical layout.
+//
+// After validation, the kernel isolates the contiguous non-null window of the searched
+// values, because nulls are only supported when clustered at one end.
+// Needles are then visited either as single values or as logical runs, and each non-null
+// needle is resolved with a lower-bound or upper-bound binary search over the sorted
+// non-null range.
+//
+// Output materialization is split by null handling: non-null-only needles write directly
+// into a preallocated uint64 buffer, while nullable needles append null and non-null
+// spans through a UInt64Builder. That builder path is optimized for repeated runs by
+// bulk-filling reserved memory instead of appending one insertion index at a time.
+//
+// High-level flow:
+//
+//   values datum
+//       |
+//       +--> ValidateSortedValuesInput
+//       |
+//       +--> LogicalType / FindNonNullValuesRange
+//       |
+//       +--> VisitValuesAccessor
+//             |
+//             +--> PlainArrayAccessor
+//             |
+//             `--> RunEndEncodedValuesAccessor
+//
+//   needles datum
+//       |
+//       +--> ValidateNeedleInput
+//       |
+//       +--> DatumHasNulls
+//       |
+//       `--> VisitNeedles
+//             |
+//             +--> scalar needle -> one logical span
+//             |
+//             +--> plain array   -> one span per element
+//             |
+//             `--> REE array     -> one span per logical run
+//
+//   normalized values accessor + normalized needle spans
+//       |
+//       `--> FindInsertionPoint<T>
+//             |
+//             +--> side = left  -> lower_bound semantics
+//             |
+//             `--> side = right -> upper_bound semantics
+//
+//   result materialization
+//       |
+//       +--> no needle nulls
+//       |     `--> MakeMutableUInt64Array
+//       |           `--> fill output buffer directly
+//       |
+//       `--> nullable needles
+//             `--> UInt64Builder
+//                   +--> AppendNulls for null runs
+//                   `--> bulk fill + UnsafeAdvance for repeated indices
+//
+// A rough map of the file:
+//
+//   [validation + type helpers]
+//           |
+//   [value accessors]
+//           |
+//   [needle visitors]
+//           |
+//   [typed search + output helpers]
+//           |
+//   [meta-function dispatch]
+//
+// The file follows that layout: validation and type helpers first, then value
+// accessors, then needle visitors, then typed search and output helpers, and
+// finally the meta-function dispatch that selects the Arrow type and accessor.
+
 #define VISIT_SEARCH_SORTED_TYPES(VISIT) \
   VISIT(BooleanType)                     \
   VISIT(Int8Type)                        \
