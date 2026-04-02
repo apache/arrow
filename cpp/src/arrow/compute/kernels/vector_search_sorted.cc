@@ -111,7 +111,8 @@ class PlainArrayAccessor {
   using ValueType = SearchValue<ArrowType>;
 
   /// Build a typed accessor over a plain array payload.
-  explicit PlainArrayAccessor(const Array& array) : array_(array.data()) {}
+  explicit PlainArrayAccessor(const std::shared_ptr<ArrayData>& array_data)
+      : array_(array_data) {}
 
   /// Return the logical length of the searched values.
   int64_t length() const { return array_.length(); }
@@ -186,8 +187,8 @@ class NonNullValuesAccessor {
 };
 
 /// Return the logical type of an array, unwrapping run-end encoding when present.
-inline const DataType& LogicalType(const Array& array) {
-  const auto& type = *array.type();
+inline const DataType& LogicalType(const ArrayData& array) {
+  const auto& type = *array.type;
   if (type.id() == Type::RUN_END_ENCODED) {
     return *checked_cast<const RunEndEncodedType&>(type).value_type();
   }
@@ -199,7 +200,7 @@ inline const DataType& LogicalType(const Datum& datum) {
   if (datum.is_scalar()) {
     return *datum.scalar()->type;
   }
-  return LogicalType(*datum.make_array());
+  return LogicalType(*datum.array());
 }
 
 /// Return whether a scalar or array needle input contains any logical nulls.
@@ -208,10 +209,10 @@ inline bool DatumHasNulls(const Datum& datum) {
     return !datum.scalar()->is_valid;
   }
 
-  auto array = datum.make_array();
-  const bool has_nulls = array->null_count() > 0;
-  if (array->type_id() == Type::RUN_END_ENCODED) {
-    RunEndEncodedArray run_end_encoded(array->data());
+  const auto& array_data = datum.array();
+  const bool has_nulls = array_data->GetNullCount() > 0;
+  if (array_data->type->id() == Type::RUN_END_ENCODED) {
+    RunEndEncodedArray run_end_encoded(array_data);
     return run_end_encoded.values()->null_count() != 0 || has_nulls;
   }
   return has_nulls;
@@ -230,21 +231,21 @@ inline Status ValidateRunEndEncodedLogicalValueType(const DataType& type,
 
 /// Compute the contiguous non-null window of the searched values.
 ///
-inline Result<NonNullValuesRange> FindNonNullValuesRange(const Array& values) {
-  NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length()};
+inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values) {
+  NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length};
 
-  const auto null_count = values.null_count();
+  const auto null_count = values.GetNullCount();
   if (null_count == 0) {
     return non_null_values_range;
   }
 
   int64_t leading_null_count = 0;
-  while (leading_null_count < values.length() && values.IsNull(leading_null_count)) {
+  while (leading_null_count < values.length && values.IsNull(leading_null_count)) {
     ++leading_null_count;
   }
 
-  if (leading_null_count == values.length()) {
-    non_null_values_range.offset = values.length();
+  if (leading_null_count == values.length) {
+    non_null_values_range.offset = values.length;
     non_null_values_range.length = 0;
     return non_null_values_range;
   }
@@ -255,13 +256,13 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const Array& values) {
           "search_sorted values with nulls must be clustered at the start or end");
     }
     non_null_values_range.offset = leading_null_count;
-    non_null_values_range.length = values.length() - leading_null_count;
+    non_null_values_range.length = values.length - leading_null_count;
     return non_null_values_range;
   }
 
   int64_t trailing_null_count = 0;
-  while (trailing_null_count < values.length() &&
-         values.IsNull(values.length() - 1 - trailing_null_count)) {
+  while (trailing_null_count < values.length &&
+         values.IsNull(values.length - 1 - trailing_null_count)) {
     ++trailing_null_count;
   }
 
@@ -270,7 +271,7 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const Array& values) {
         "search_sorted values with nulls must be clustered at the start or end");
   }
 
-  non_null_values_range.length = values.length() - trailing_null_count;
+  non_null_values_range.length = values.length - trailing_null_count;
   return non_null_values_range;
 }
 
@@ -400,10 +401,11 @@ VisitedNeedle<ArrowType, EmitNulls> ReadVisitedNeedle(const ArrayType& array,
 
 /// Visit each plain-array needle as a single-value logical span.
 template <typename ArrowType, bool EmitNulls, typename Visitor>
-Status VisitArrayNeedles(const Array& needles, Visitor&& visitor) {
+Status VisitArrayNeedles(const std::shared_ptr<ArrayData>& needles_data,
+                         Visitor&& visitor) {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
-  ArrayType array(needles.data());
+  ArrayType array(needles_data);
   for (int64_t index = 0; index < array.length(); ++index) {
     RETURN_NOT_OK(
         visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(array, index), index, index + 1));
@@ -444,9 +446,9 @@ Status VisitNeedles(const Datum& needles, Visitor&& visitor) {
                    0, 1);
   }
 
-  auto needle_array = needles.make_array();
-  if (needle_array->type_id() == Type::RUN_END_ENCODED) {
-    RunEndEncodedArray ree(needle_array->data());
+  const auto& needle_data = needles.array();
+  if (needle_data->type->id() == Type::RUN_END_ENCODED) {
+    RunEndEncodedArray ree(needle_data);
     return DispatchRunEndEncodedByRunEndType<Status>(
         ree, "needles",
         [&]<typename RunEndCType>(const RunEndEncodedArray& run_end_encoded_needles) {
@@ -455,7 +457,7 @@ Status VisitNeedles(const Datum& needles, Visitor&& visitor) {
         });
   }
 
-  return VisitArrayNeedles<ArrowType, EmitNulls>(*needle_array, visitor);
+  return VisitArrayNeedles<ArrowType, EmitNulls>(needle_data, visitor);
 }
 
 /// Search all needle values and write insertion indices into the preallocated output.
@@ -554,9 +556,10 @@ Result<Datum> SearchWithAccessor(const ValuesAccessor& values_accessor,
 
 // Meta-function implementation for the search_sorted public compute entrypoint.
 template <typename ArrowType, typename Visitor>
-Result<Datum> VisitValuesAccessor(const Array& values, Visitor&& visitor) {
-  if (values.type_id() == Type::RUN_END_ENCODED) {
-    RunEndEncodedArray ree(values.data());
+Result<Datum> VisitValuesAccessor(const std::shared_ptr<ArrayData>& values_data,
+                                  Visitor&& visitor) {
+  if (values_data->type->id() == Type::RUN_END_ENCODED) {
+    RunEndEncodedArray ree(values_data);
     return DispatchRunEndEncodedByRunEndType<Result<Datum>>(
         ree, "values",
         [&]<typename RunEndCType>(const RunEndEncodedArray& run_end_encoded_values) {
@@ -566,7 +569,7 @@ Result<Datum> VisitValuesAccessor(const Array& values, Visitor&& visitor) {
         });
   }
 
-  PlainArrayAccessor<ArrowType> values_accessor(values);
+  PlainArrayAccessor<ArrowType> values_accessor(values_data);
   return visitor(values_accessor);
 }
 
@@ -593,17 +596,17 @@ class SearchSortedMetaFunction : public MetaFunction {
           values_type.ToString(), " and ", needles_type.ToString());
     }
 
-    auto values_array = args[0].make_array();
+    const auto& values_array = args[0].array();
     ARROW_ASSIGN_OR_RAISE(auto non_null_values_range,
-                FindNonNullValuesRange(*values_array));
-    auto result = DispatchByType(*values_array, non_null_values_range, args[1],
+                          FindNonNullValuesRange(*values_array));
+    auto result = DispatchByType(values_array, non_null_values_range, args[1],
                                  static_cast<const SearchSortedOptions&>(*options), ctx);
     return result;
   }
 
  private:
   /// Dispatch the logical value type to the matching template specialization.
-  Result<Datum> DispatchByType(const Array& values,
+  Result<Datum> DispatchByType(const std::shared_ptr<ArrayData>& values,
                                const NonNullValuesRange& non_null_values_range,
                                const Datum& needles, const SearchSortedOptions& options,
                                ExecContext* ctx) const {
@@ -623,7 +626,7 @@ class SearchSortedMetaFunction : public MetaFunction {
 
   /// Dispatch the physical representation of the searched values.
   template <typename ArrowType>
-  Result<Datum> DispatchHaystack(const Array& values,
+  Result<Datum> DispatchHaystack(const std::shared_ptr<ArrayData>& values,
                                  const NonNullValuesRange& non_null_values_range,
                                  const Datum& needles, SearchSortedOptions::Side side,
                                  ExecContext* ctx) const {
