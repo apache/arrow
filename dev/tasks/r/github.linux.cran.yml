@@ -59,7 +59,7 @@ jobs:
         run: |
           if grep -q "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log; then
             echo "Found R CMD check NOTE(s) in output:"
-            grep -n "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log
+            grep -n -A8 "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log
             exit 1
           fi
       - name: Save the test output
