@@ -48,18 +48,18 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
-        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} r
+        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} -e _R_CHECK_CRAN_INCOMING_=false r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
       - name: Dump test logs
         run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
         if: always()
-      - name: Check for non-API calls
+      - name: Check for R CMD check NOTES
         run: |
-          if grep -q "non-API" arrow/r/check/arrow.Rcheck/00check.log; then
-            echo "Found non-API calls in R CMD check output:"
-            grep -A2 "non-API" arrow/r/check/arrow.Rcheck/00check.log
+          if grep -q "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log; then
+            echo "Found R CMD check NOTE(s) in output:"
+            grep -n "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log
             exit 1
           fi
       - name: Save the test output
