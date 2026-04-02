@@ -2182,39 +2182,35 @@ TEST(TestArrowReadWrite, TimestampCoercionOverflow) {
   using ::arrow::ArrayFromVector;
   using ::arrow::field;
   using ::arrow::schema;
-
   auto t_s = ::arrow::timestamp(TimeUnit::SECOND);
-
   std::vector<int64_t> overflow_values = {9223372036854776LL};
   std::vector<bool> is_valid = {true};
-
   std::shared_ptr<Array> a_s;
   ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, is_valid, overflow_values, &a_s);
 
   auto s = schema({field("timestamp", t_s)});
   auto table = Table::Make(s, {a_s});
 
-  ASSERT_RAISES(Invalid, WriteTable(*table, default_memory_pool(),
-                                    CreateOutputStream(), table->num_rows()));
-
-  for (auto unit : {TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
-    auto coerce_props =
-        ArrowWriterProperties::Builder().coerce_timestamps(unit)->build();
-    ASSERT_RAISES(
-        Invalid,
-        WriteTable(*table, default_memory_pool(), CreateOutputStream(),
-                   table->num_rows(), default_writer_properties(),
-                   coerce_props));
+  for (auto unit : {TimeUnit::SECOND, TimeUnit::MILLI, TimeUnit::MICRO, TimeUnit::NANO}) {
+    if (unit == TimeUnit::SECOND) {
+      ASSERT_RAISES(Invalid, WriteTable(*table, default_memory_pool(),
+                                        CreateOutputStream(), table->num_rows()));
+    } else {
+      auto coerce_props =
+          ArrowWriterProperties::Builder().coerce_timestamps(unit)->build();
+      ASSERT_RAISES(Invalid, WriteTable(*table, default_memory_pool(),
+                                        CreateOutputStream(), table->num_rows(),
+                                        default_writer_properties(), coerce_props));
+    }
   }
 
-  std::vector<int64_t> null_overflow_values = {9223372036854776LL};
   std::vector<bool> null_valid = {false};
   std::shared_ptr<Array> a_null;
-  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, null_valid, null_overflow_values,
+  ArrayFromVector<::arrow::TimestampType, int64_t>(t_s, null_valid, overflow_values,
                                                    &a_null);
   auto null_table = Table::Make(s, {a_null});
-  ASSERT_OK_NO_THROW(WriteTable(*null_table, default_memory_pool(),
-                                CreateOutputStream(), null_table->num_rows()));
+  ASSERT_OK_NO_THROW(WriteTable(*null_table, default_memory_pool(), CreateOutputStream(),
+                                null_table->num_rows()));
 }
 
 TEST(TestArrowReadWrite, ParquetVersionTimestampDifferences) {
