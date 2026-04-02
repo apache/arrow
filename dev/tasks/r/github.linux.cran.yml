@@ -55,6 +55,13 @@ jobs:
       - name: Dump test logs
         run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
         if: always()
+      - name: Check for non-API calls
+        run: |
+          if grep -q "non-API" arrow/r/check/arrow.Rcheck/00check.log; then
+            echo "Found non-API calls in R CMD check output:"
+            grep -A2 "non-API" arrow/r/check/arrow.Rcheck/00check.log
+            exit 1
+          fi
       - name: Save the test output
         if: always()
         uses: actions/upload-artifact@v4
