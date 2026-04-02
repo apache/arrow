@@ -1873,6 +1873,8 @@ in the respective option classes.
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 | sort_indices          | Unary      | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SortOptions`         | \(1) \(6)      |
 +-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
+| search_sorted         | Binary     | Boolean, Numeric, Temporal, Binary- and String-like     | UInt64            | :struct:`SearchSortedOptions` | \(8)           |
++-----------------------+------------+---------------------------------------------------------+-------------------+-------------------------------+----------------+
 
 
 * \(1) The output is an array of indices into the input, that define a
@@ -1900,6 +1902,13 @@ in the respective option classes.
 
 * \(7) The output is an array of indices into the input, that define a
   non-stable sort of the input.
+
+* \(8) The first argument must be sorted in ascending order. If it contains
+  nulls, they must be clustered entirely at the start or the end, and non-null
+  needles are matched only against the non-null portion. The second argument
+  may be a scalar, array, or run-end encoded array. Null needles yield null
+  outputs. Both arguments must have the same logical type. A scalar needle
+  yields a UInt64 scalar; otherwise the result is a UInt64 array.
 
 .. _cpp-compute-vector-structural-transforms:
 
