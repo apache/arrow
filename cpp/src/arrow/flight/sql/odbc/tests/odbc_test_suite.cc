@@ -510,9 +510,20 @@ std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id) {
   return std::wstring(buf, buf + char_count);
 }
 
+size_t SqlWCharArrLen(const SQLWCHAR* str_val) {
+  if (!str_val) {
+    return 0;
+  }
+  const SQLWCHAR* p = str_val;
+  while (*p != 0) {
+    ++p;
+  }
+  return static_cast<size_t>(p - str_val);
+}
+
 std::wstring ConvertToWString(const SQLWCHAR* str_val) {
 #ifdef __linux__
-  size_t str_len = std::wcslen(reinterpret_cast<const wchar_t*>(str_val));
+  size_t str_len = SqlWCharArrLen(str_val);
 #else
   size_t str_len = std::wcslen(str_val);
 #endif

@@ -44,7 +44,7 @@
     SQLWCHAR* name = name##_vec.data();
 #  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_var) \
     ASSIGN_SQLWCHAR_ARR(name, wstring_var)               \
-    size_t name##_len = std::wcslen(reinterpret_cast<const wchar_t*>(name));
+    size_t name##_len = SqlWCharArrLen(name);
 #else
 #  define ASSIGN_SQLWCHAR_ARR(name, wstring_var) SQLWCHAR name[] = wstring_var;
 #  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_var) \
@@ -280,6 +280,11 @@ bool WriteDSN(Connection::ConnPropertyMap properties);
 /// \param[in] col_id Column ID to check.
 /// \return wstring
 std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id);
+
+/// \brief Get length of wide char array.
+/// \param[in] str_val Array of SQLWCHAR.
+/// \return number of wide characters in array
+size_t SqlWCharArrLen(const SQLWCHAR* str_val);
 
 /// \brief Check wide char array and convert into wstring
 /// \param[in] str_val Array of SQLWCHAR.
