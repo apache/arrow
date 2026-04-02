@@ -40,6 +40,7 @@ COPY python/requirements-wheel-test.txt /arrow/python/
 # the lowest version we support for Python 3.10.
 # Pandas 2.0.3 doesn't have wheels for Python 3.10 so we need to build from source,
 # which requires setuptools < 80.
+# Drop when bumping numpy from 1.21.x (GH-48473) or when dropping Python 3.10.
 RUN if [ "${python_image_tag}" = "3.10" ]; then \
         echo 'setuptools<80' > /tmp/setuptools-constraint.txt; \
         PIP_CONSTRAINT=/tmp/setuptools-constraint.txt \
