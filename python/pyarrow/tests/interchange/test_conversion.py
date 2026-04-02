@@ -40,6 +40,10 @@ except ImportError:
     pass
 
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The Dataframe Interchange Protocol is deprecated.")
+
+
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize("tz", ['', 'America/New_York', '+07:30', '-04:30'])
 def test_datetime(unit, tz):
@@ -103,9 +107,6 @@ def test_offset_of_sliced_array():
     #                        check_index=False, check_names=False)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 @pytest.mark.parametrize(
     "uint", [pa.uint8(), pa.uint16(), pa.uint32()]
@@ -149,9 +150,6 @@ def test_pandas_roundtrip(uint, int, float, np_float_str):
     assert table_protocol.column_names() == result_protocol.column_names()
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_pandas_roundtrip_string():
     # See https://github.com/pandas-dev/pandas/issues/50554
@@ -181,9 +179,6 @@ def test_pandas_roundtrip_string():
     assert table_protocol.column_names() == result_protocol.column_names()
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_pandas_roundtrip_large_string():
     # See https://github.com/pandas-dev/pandas/issues/50554
@@ -221,9 +216,6 @@ def test_pandas_roundtrip_large_string():
             pandas_from_dataframe(table)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_pandas_roundtrip_string_with_missing():
     # See https://github.com/pandas-dev/pandas/issues/50554
@@ -256,9 +248,6 @@ def test_pandas_roundtrip_string_with_missing():
             pandas_from_dataframe(table)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_pandas_roundtrip_categorical():
     if Version(pd.__version__) < Version("2.0.2"):
@@ -307,9 +296,6 @@ def test_pandas_roundtrip_categorical():
     assert isinstance(desc_cat_result["categories"]._col, pa.Array)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 def test_pandas_roundtrip_datetime(unit):
@@ -346,9 +332,6 @@ def test_pandas_roundtrip_datetime(unit):
     assert expected_protocol.column_names() == result_protocol.column_names()
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 @pytest.mark.parametrize(
     "np_float_str", ["float32", "float64"]
@@ -374,9 +357,6 @@ def test_pandas_to_pyarrow_with_missing(np_float_str):
     assert result.equals(expected)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_pandas_to_pyarrow_float16_with_missing():
     if Version(pd.__version__) < Version("1.5.0"):
@@ -500,9 +480,6 @@ def test_nan_as_null():
         table.__dataframe__(nan_as_null=True)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_allow_copy_false():
     if Version(pd.__version__) < Version("1.5.0"):
@@ -522,9 +499,6 @@ def test_allow_copy_false():
         pi.from_dataframe(df, allow_copy=False)
 
 
-@pytest.mark.filterwarnings(
-    "ignore:The Dataframe Interchange Protocol is deprecated."
-)
 @pytest.mark.pandas
 def test_allow_copy_false_bool_categorical():
     if Version(pd.__version__) < Version("1.5.0"):
