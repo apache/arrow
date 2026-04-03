@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <span>
 #include <type_traits>
 #include <utility>
@@ -295,7 +296,7 @@ inline bool DatumHasNulls(const Datum& datum) {
   const bool has_nulls = array_data->GetNullCount() > 0;
   if (array_data->type->id() == Type::RUN_END_ENCODED) {
     RunEndEncodedArray run_end_encoded(array_data);
-    return run_end_encoded.values()->null_count() != 0 || has_nulls;
+    return has_nulls || (run_end_encoded.values()->null_count() != 0);
   }
   return has_nulls;
 }
@@ -321,10 +322,12 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return non_null_values_range;
   }
 
-  int64_t leading_null_count = 0;
-  while (leading_null_count < values.length && values.IsNull(leading_null_count)) {
-    ++leading_null_count;
-  }
+  const int64_t leading_null_count = [&] {
+    auto indices = std::ranges::views::iota(int64_t{0}, values.length);
+    auto it =
+        std::ranges::find_if_not(indices, [&](int64_t i) { return values.IsNull(i); });
+    return it == indices.end() ? values.length : *it;
+  }();
 
   if (leading_null_count == values.length) {
     non_null_values_range.offset = values.length;
@@ -342,13 +345,14 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return non_null_values_range;
   }
 
-  int64_t trailing_null_count = 0;
-  while (trailing_null_count < values.length &&
-         values.IsNull(values.length - 1 - trailing_null_count)) {
-    ++trailing_null_count;
-  }
+  const int64_t trailing_null_count = [&] {
+    auto indices = std::ranges::views::iota(int64_t{0}, values.length);
+    auto it = std::ranges::find_if_not(
+        indices, [&](int64_t i) { return values.IsNull(values.length - 1 - i); });
+    return it == indices.end() ? values.length : *it;
+  }();
 
-  if (trailing_null_count == 0 || trailing_null_count != null_count) {
+  if (trailing_null_count == 0 || (trailing_null_count != null_count)) {
     return Status::Invalid(
         "search_sorted values with nulls must be clustered at the start or end");
   }
@@ -372,6 +376,8 @@ inline Status ValidateSortedValuesInput(const Datum& datum) {
 }
 
 /// Validate the needles input shape and supported encoding.
+/// Needles can be either a scalar or an array, but if an array is provided it must not
+/// have nested run-end encoding since that is not currently supported.
 inline Status ValidateNeedleInput(const Datum& datum) {
   if (!(datum.is_array() || datum.is_scalar())) {
     return Status::TypeError("search_sorted needles must be a scalar or array");
@@ -506,9 +512,9 @@ Status VisitRunEndEncodedNeedleRuns(const RunEndEncodedArray& needles,
   ::arrow::ree_util::RunEndEncodedArraySpan<RunEndCType> span(array_span);
 
   for (auto it = span.begin(); !it.is_end(span); ++it) {
-    const auto physical_index = it.index_into_array();
-    RETURN_NOT_OK(visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(values, physical_index),
-                          it.logical_position(), it.run_end()));
+    RETURN_NOT_OK(
+        visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(values, it.index_into_array()),
+                it.logical_position(), it.run_end()));
   }
   return Status::OK();
 }
@@ -587,14 +593,15 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
                                       const Datum& needles,
                                       SearchSortedOptions::Side side,
                                       uint64_t insertion_offset, ExecContext* ctx) {
-  if (needles.is_scalar() && !needles.scalar()->is_valid) {
-    return Datum(std::make_shared<UInt64Scalar>());
-  }
-
   if (needles.is_scalar()) {
+    auto scalar = needles.scalar();
+    if (!scalar->is_valid) {
+      return Datum(std::make_shared<UInt64Scalar>());
+    }
+
     const auto insertion_index =
-        FindInsertionPoint<ArrowType>(
-            sorted_values, ExtractScalarValue<ArrowType>(*needles.scalar()), side) +
+        FindInsertionPoint<ArrowType>(sorted_values,
+                                      ExtractScalarValue<ArrowType>(*scalar), side) +
         insertion_offset;
     return Datum(std::make_shared<UInt64Scalar>(insertion_index));
   }
@@ -656,6 +663,8 @@ Result<Datum> VisitValuesAccessor(const std::shared_ptr<ArrayData>& values_data,
 }
 
 /// Meta-function implementation for the search_sorted public compute entrypoint.
+/// Validates input shapes and types, normalizes to logical value accessors, and
+/// dispatches to the typed search implementation.
 class SearchSortedMetaFunction : public MetaFunction {
  public:
   /// Construct the registry entry with default options and documentation.
