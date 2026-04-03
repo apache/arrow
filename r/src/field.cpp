@@ -70,7 +70,8 @@ std::shared_ptr<arrow::Field> Field__WithMetadata(
     const std::shared_ptr<arrow::Field>& field, cpp11::strings metadata) {
   auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
   auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
-  auto kv = std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+  auto kv =
+    std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
   return field->WithMetadata(std::move(kv));
 }
 
