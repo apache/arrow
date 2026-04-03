@@ -24,6 +24,7 @@
 #include <limits>
 #include <sstream>
 #include <string>
+#include <string_view>
 #include <utility>
 #include <vector>
 
@@ -826,7 +827,17 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
-      return this->value_builder_->Append(view_.bytes, static_cast<typename U::offset_type>(view_.size));
+      // return this->value_builder_->Append(view_.bytes, static_cast<typename U::offset_type>(view_.size));
+
+      // if constexpr (
+      //   std::is_same<U, arrow::LargeStringType>::value ||
+      //   std::is_same<U, arrow::LargeBinaryType>::value) {
+      //     return this->value_builder_->Append(view_.bytes, static_cast<int64_t>(view_.size));
+      //   } else {
+      //     return this->value_builder_->Append(view_.bytes, static_cast<int32_t>(view_.size));
+      //   }
+
+      return this->value_builder_->Append(std::string_view(view_.bytes, view_.size));
     }
   }
 
