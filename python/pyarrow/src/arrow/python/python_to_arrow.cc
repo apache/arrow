@@ -826,7 +826,7 @@ class PyDictionaryConverter<U, enable_if_has_string_view<U>>
     } else {
       ARROW_RETURN_NOT_OK(
           PyValue::Convert(this->value_type_, this->options_, value, view_));
-      return this->value_builder_->Append(view_.bytes, static_cast<int32_t>(view_.size));
+      return this->value_builder_->Append(view_.bytes, static_cast<typename U::offset_type>(view_.size));
     }
   }
 

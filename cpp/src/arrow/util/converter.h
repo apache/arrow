@@ -238,7 +238,9 @@ struct MakeConverterImpl {
       DICTIONARY_CASE(FloatType);
       DICTIONARY_CASE(DoubleType);
       DICTIONARY_CASE(BinaryType);
+      DICTIONARY_CASE(LargeBinaryType);
       DICTIONARY_CASE(StringType);
+      DICTIONARY_CASE(LargeStringType);
       DICTIONARY_CASE(FixedSizeBinaryType);
 #undef DICTIONARY_CASE
       default:
