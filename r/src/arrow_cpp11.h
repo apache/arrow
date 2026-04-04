@@ -210,10 +210,10 @@ Pointer r6_to_pointer(SEXP self) {
 
 // R_UnboundValue and Rf_findVarInFrame are non-API as of R 4.6
 #if R_VERSION >= R_Version(4, 6, 0)
-  if (!R_existsVarInFrame(self, arrow::r::symbols::xp)) {
-    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
+  SEXP xp = R_NilValue;
+  if (R_existsVarInFrame(self, arrow::r::symbols::xp)) {
+    xp = R_getVar(arrow::r::symbols::xp, self, FALSE);
   }
-  SEXP xp = R_getVar(arrow::r::symbols::xp, self, FALSE);
   if (xp == R_NilValue) {
     cpp11::stop("Invalid: self$`.:xp:.` is NULL");
   }
@@ -412,8 +412,8 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
   SEXP r6_class = Rf_install(r6_class_name);
 
-// Rf_findVarInFrame3 and R_UnboundValue are non-API as of R 4.6.
-// R_existsVarInFrame doesn't exist before R 4.2.
+// R_existsVarInFrame doesn't exist before R 4.2, so we need to fall back to
+// Rf_findVarInFrame3 if it is not defined.
 #if R_VERSION >= R_Version(4, 2, 0)
   if (!R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
     cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
