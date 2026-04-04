@@ -21,6 +21,7 @@
 #include <string_view>
 
 #include "arrow/util/visibility.h"
+#include "arrow/result.h"
 
 namespace arrow {
 namespace util {
@@ -29,7 +30,7 @@ ARROW_EXPORT
 std::string base64_encode(std::string_view s);
 
 ARROW_EXPORT
-std::string base64_decode(std::string_view s);
+arrow::Result<std::string> base64_decode(std::string_view s);
 
 }  // namespace util
 }  // namespace arrow

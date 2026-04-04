@@ -28,6 +28,7 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/regex.h"
 #include "arrow/util/string.h"
+#include "arrow/util/base64.h"
 
 namespace arrow {
 namespace internal {
@@ -236,6 +237,48 @@ TEST(ToChars, FloatingPoint) {
     result = ToChars(0.25);
     ASSERT_TRUE(result.starts_with("0.25")) << result;
   }
+}
+
+TEST(Base64DecodeTest, ValidInputs) {
+  ASSERT_OK_AND_ASSIGN(auto two_paddings, arrow::util::base64_decode("Zg=="));
+  EXPECT_EQ(two_paddings, "f");
+
+  ASSERT_OK_AND_ASSIGN(auto one_padding, arrow::util::base64_decode("Zm8="));
+  EXPECT_EQ(one_padding, "fo");
+
+  ASSERT_OK_AND_ASSIGN(auto no_padding, arrow::util::base64_decode("Zm9v"));
+  EXPECT_EQ(no_padding, "foo");
+
+  ASSERT_OK_AND_ASSIGN(auto single_char, arrow::util::base64_decode("TQ=="));
+  EXPECT_EQ(single_char, "M");
+}
+
+TEST(Base64DecodeTest, InvalidLength) {
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode("abc"));
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode("abcde"));
+}
+
+TEST(Base64DecodeTest, InvalidCharacters) {
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode("ab$="));
+}
+
+TEST(Base64DecodeTest, InvalidPadding) {
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode("ab=c"));
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode("===="));
+}
+
+TEST(Base64DecodeTest, EdgeCases) {
+  ASSERT_OK_AND_ASSIGN(auto empty, arrow::util::base64_decode(""));
+  EXPECT_EQ(empty, "");
+}
+
+TEST(Base64DecodeTest, NonAsciiInput) {
+  std::string input = std::string("abc") + static_cast<char>(0xFF);
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode(input));
+}
+
+TEST(Base64DecodeTest, PartialCorruption) {
+  ASSERT_RAISES(Invalid, arrow::util::base64_decode("aGVs$G8gd29ybGQ="));
 }
 
 #if !defined(_WIN32) || defined(NDEBUG)

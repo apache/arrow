@@ -30,7 +30,9 @@
 */
 
 #include "arrow/util/base64.h"
+#include "arrow/result.h"
 #include <iostream>
+#include <cctype>
 
 namespace arrow {
 namespace util {
@@ -39,11 +41,6 @@ static const std::string base64_chars =
              "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
              "abcdefghijklmnopqrstuvwxyz"
              "0123456789+/";
-
-
-static inline bool is_base64(unsigned char c) {
-  return (isalnum(c) || (c == '+') || (c == '/'));
-}
 
 static std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
   std::string ret;
@@ -93,7 +90,7 @@ std::string base64_encode(std::string_view string_to_encode) {
   return base64_encode(bytes_to_encode, in_len);
 }
 
-std::string base64_decode(std::string_view encoded_string) {
+Result<std::string> base64_decode(std::string_view encoded_string) {
   size_t in_len = encoded_string.size();
   int i = 0;
   int j = 0;
@@ -101,10 +98,36 @@ std::string base64_decode(std::string_view encoded_string) {
   unsigned char char_array_4[4], char_array_3[3];
   std::string ret;
 
-  while (in_len-- && ( encoded_string[in_] != '=') && is_base64(encoded_string[in_])) {
-    char_array_4[i++] = encoded_string[in_]; in_++;
-    if (i ==4) {
-      for (i = 0; i <4; i++)
+  if (encoded_string.size() % 4 != 0) {
+    return Status::Invalid("Invalid base64 input: length is not a multiple of 4");
+  }
+
+  size_t padding_start = encoded_string.find('=');
+  if (padding_start != std::string_view::npos) {
+    size_t padding_count = encoded_string.size() - padding_start;
+    if (padding_count > 2) {
+      return Status::Invalid("Invalid base64 input: too many padding characters");
+    }
+
+    for (size_t i = padding_start; i < encoded_string.size(); ++i) {
+      if (encoded_string[i] != '=') {
+        return Status::Invalid("Invalid base64 input: padding characters must be at the end");
+      }
+    }
+  }
+
+  while (in_len-- && encoded_string[in_] != '=') {
+    unsigned char c = encoded_string[in_];
+
+    if (base64_chars.find(c) == std::string::npos) {
+      return Status::Invalid("Invalid base64 input: contains non-base64 byte at position " + std::to_string(in_));
+    }
+
+    char_array_4[i++] = c;
+    in_++;
+
+    if (i == 4) {
+      for (i = 0; i < 4; i++)
         char_array_4[i] = base64_chars.find(char_array_4[i]) & 0xff;
 
       char_array_3[0] = ( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4);
