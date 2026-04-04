@@ -549,30 +549,6 @@ jobs:
       CMAKE_INSTALL_PREFIX: /usr
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
     steps:
-      - name: Configure Crash Dumps
-        run: |
-          # Disable crash dialog UI but enable dump collection
-          reg add `
-            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
-            /v DontShowUI `
-            /t REG_DWORD `
-            /d 1 `
-            /f
-          # Enable local crash dumps
-          reg add `
-            "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps" `
-            /v DumpFolder `
-            /t REG_EXPAND_SZ `
-            /d "%LOCALAPPDATA%\CrashDumps" `
-            /f
-          reg add `
-            "HKLM\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps" `
-            /v DumpType `
-            /t REG_DWORD `
-            /d 2 `
-            /f
-          # Create dumps directory
-          New-Item -ItemType Directory -Force -Path "$env:LOCALAPPDATA\CrashDumps" | Out-Null
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
@@ -636,24 +612,10 @@ jobs:
           call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
           set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - name: List vcpkg packages for debugging
-        shell: bash
-        run: |
-          echo "=== Installed vcpkg packages (protobuf, grpc, abseil) ==="
-          vcpkg list | grep -E 'protobuf|grpc|abseil' || echo "No matching packages found"
       - name: Register Flight SQL ODBC Driver
         shell: cmd
         run: |
           call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
-      - name: Upload test executable and dependencies for debugging
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: arrow-flight-sql-odbc-test-debug
-          path: |
-            build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow-flight-sql-odbc-test.exe
-            build/cpp/${{ env.ARROW_BUILD_TYPE }}/*.dll
-          if-no-files-found: warn
       - name: Test
         shell: cmd
         run: |
@@ -663,22 +625,6 @@ jobs:
           # Convert VCPKG Windows path to MSYS path
           for /f "usebackq delims=" %%I in (`bash -c "cygpath -u \"$VCPKG_ROOT_KEEP\""` ) do set VCPKG_ROOT=%%I
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
-      - name: Collect crash dumps
-        if: failure()
-        shell: bash
-        run: |
-          echo "=== Collecting crash dumps from Windows Error Reporting ==="
-          mkdir -p crash-dumps
-          # Windows dumps go to %LOCALAPPDATA%\CrashDumps
-          cp "$LOCALAPPDATA/CrashDumps/"*.dmp crash-dumps/ 2>/dev/null || echo "No crash dumps found"
-          ls -lh crash-dumps/ || echo "Crash dumps directory is empty"
-      - name: Upload crash dumps
-        if: failure()
-        uses: actions/upload-artifact@v7
-        with:
-          name: arrow-flight-sql-odbc-crash-dumps
-          path: crash-dumps/
-          if-no-files-found: warn
       - name: Install WiX Toolset
         shell: pwsh
         run: |
