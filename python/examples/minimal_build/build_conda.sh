@@ -21,10 +21,10 @@ set -e
 #----------------------------------------------------------------------
 # Change this to whatever makes sense for your system
 
-HOME=
-MINICONDA=$HOME/miniconda-for-arrow
-LIBRARY_INSTALL_DIR=$HOME/local-libs
-CPP_BUILD_DIR=$HOME/arrow-cpp-build
+WORKDIR=${WORKDIR:-$HOME}
+MINICONDA=$WORKDIR/miniconda-for-arrow
+LIBRARY_INSTALL_DIR=$WORKDIR/local-libs
+CPP_BUILD_DIR=$WORKDIR/arrow-cpp-build
 ARROW_ROOT=/arrow
 PYTHON=3.10
 

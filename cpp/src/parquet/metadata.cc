@@ -22,6 +22,7 @@
 #include <memory>
 #include <ostream>
 #include <random>
+#include <span>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -809,12 +810,11 @@ class FileMetaData::FileMetaDataImpl {
     uint32_t serialized_len = metadata_len_;
     ThriftSerializer serializer;
     serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
-    ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
-                                                            serialized_len);
+    std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
 
     // encrypt with nonce
-    ::arrow::util::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
-                                             encryption::kNonceLength);
+    std::span<const uint8_t> nonce(reinterpret_cast<const uint8_t*>(signature),
+                                   encryption::kNonceLength);
     auto tag = reinterpret_cast<const uint8_t*>(signature) + encryption::kNonceLength;
 
     const SecureString& key = file_decryptor_->GetFooterKey();
@@ -867,8 +867,7 @@ class FileMetaData::FileMetaDataImpl {
       uint8_t* serialized_data;
       uint32_t serialized_len;
       serializer.SerializeToBuffer(metadata_.get(), &serialized_len, &serialized_data);
-      ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
-                                                              serialized_len);
+      std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
 
       // encrypt the footer key
       std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
@@ -1773,8 +1772,7 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
 
         serializer.SerializeToBuffer(&column_chunk_->meta_data, &serialized_len,
                                      &serialized_data);
-        ::arrow::util::span<const uint8_t> serialized_data_span(serialized_data,
-                                                                serialized_len);
+        std::span<const uint8_t> serialized_data_span(serialized_data, serialized_len);
 
         std::vector<uint8_t> encrypted_data(encryptor->CiphertextLength(serialized_len));
         int32_t encrypted_len = encryptor->Encrypt(serialized_data_span, encrypted_data);

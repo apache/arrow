@@ -155,7 +155,7 @@ Building other Arrow libraries
 
       .. code:: console
 
-         $ pip install --no-build-isolation --editable -vv .
+         $ pip install --no-build-isolation --editable . -vv
 
       **Recompiling C++**
 

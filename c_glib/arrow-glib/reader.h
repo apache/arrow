@@ -166,6 +166,10 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
                                                   guint i,
                                                   GError **error);
 
+GARROW_AVAILABLE_IN_24_0
+GHashTable *
+garrow_record_batch_file_reader_get_metadata(GArrowRecordBatchFileReader *reader);
+
 #define GARROW_TYPE_FEATHER_FILE_READER (garrow_feather_file_reader_get_type())
 GARROW_AVAILABLE_IN_ALL
 G_DECLARE_DERIVABLE_TYPE(GArrowFeatherFileReader,

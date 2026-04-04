@@ -139,9 +139,10 @@ static inline uint64_t TrailingBits(uint64_t v, int num_bits) {
 static inline int Log2(uint64_t x) {
   // DCHECK_GT(x, 0);
 
-  // TODO: We can remove this condition once CRAN upgrades its macOS
-  // SDK from 11.3.
-#if defined(__clang__) && !defined(__cpp_lib_bitops) && !defined(__EMSCRIPTEN__)
+// TODO: We can remove this condition once CRAN upgrades its macOS
+// SDK from 11.3.
+// __apple_build_version__ should be defined only on Apple clang
+#if defined(__apple_build_version__) && !defined(__cpp_lib_bitops)
   return std::log2p1(x - 1);
 #else
   return std::bit_width(x - 1);

@@ -29,26 +29,26 @@ module ArrowFormat
       super
     end
 
-    def finish
-      super
-      write_footer
+    def finish(metadata=nil)
+      super()
+      write_footer(metadata)
       write_data(MAGIC)
       @output
     end
 
     private
-    def build_footer
+    def build_footer(metadata)
       fb_footer = FB::Footer::Data.new
       fb_footer.version = FB::MetadataVersion::V5
       fb_footer.schema = @fb_schema
       fb_footer.dictionaries = @fb_dictionary_blocks
       fb_footer.record_batches = @fb_record_batch_blocks
-      # fb_footer.custom_metadata = ... # TODO
+      fb_footer.custom_metadata = FB.build_custom_metadata(metadata)
       FB::Footer.serialize(fb_footer)
     end
 
-    def write_footer
-      footer = build_footer
+    def write_footer(metadata)
+      footer = build_footer(metadata)
       write_data(footer)
       write_data([footer.bytesize].pack("l<"))
     end

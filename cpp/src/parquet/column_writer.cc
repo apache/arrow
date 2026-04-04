@@ -22,6 +22,7 @@
 #include <cstring>
 #include <map>
 #include <memory>
+#include <span>
 #include <utility>
 #include <vector>
 
@@ -1488,6 +1489,21 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     return current_encoder_->EstimatedDataEncodedSize();
   }
 
+  int64_t estimated_buffered_def_level_bytes() const override {
+    return definition_levels_sink_.length();
+  }
+
+  int64_t estimated_buffered_rep_level_bytes() const override {
+    return repetition_levels_sink_.length();
+  }
+
+  int64_t estimated_buffered_dict_bytes() const override {
+    if (current_dict_encoder_) {
+      return current_dict_encoder_->dict_encoded_size();
+    }
+    return 0;
+  }
+
  protected:
   std::shared_ptr<Buffer> GetValuesBuffer() override {
     return current_encoder_->FlushValues();
@@ -1791,7 +1807,7 @@ class TypedColumnWriterImpl : public ColumnWriterImpl,
     }
 
     auto add_levels = [](std::vector<int64_t>& level_histogram,
-                         ::arrow::util::span<const int16_t> levels, int16_t max_level) {
+                         std::span<const int16_t> levels, int16_t max_level) {
       if (max_level == 0) {
         return;
       }

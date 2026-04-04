@@ -19,6 +19,10 @@ ARG alpine_linux
 ARG python_image_tag
 FROM python:${python_image_tag}-alpine${alpine_linux}
 
+# Re-define python_image_tag argument to be used in the next stage.
+# This is needed because the argument is not preserved after the FROM statement.
+ARG python_image_tag
+
 RUN apk add --no-cache \
     bash \
     g++ \
@@ -32,7 +36,18 @@ RUN cp /usr/share/zoneinfo/Etc/UTC /etc/localtime
 # pandas doesn't provide wheel for aarch64 yet, so cache the compiled
 # test dependencies in a docker image
 COPY python/requirements-wheel-test.txt /arrow/python/
-RUN pip install -r /arrow/python/requirements-wheel-test.txt
+# Pandas 2.0.3 is the last version to support numpy 1.21.x which is
+# the lowest version we support for Python 3.10.
+# Pandas 2.0.3 doesn't have wheels for Python 3.10 so we need to build from source,
+# which requires setuptools < 80.
+# Drop when bumping numpy from 1.21.x (GH-48473) or when dropping Python 3.10.
+RUN if [ "${python_image_tag}" = "3.10" ]; then \
+        echo 'setuptools<80' > /tmp/setuptools-constraint.txt; \
+        PIP_CONSTRAINT=/tmp/setuptools-constraint.txt \
+            pip install -r /arrow/python/requirements-wheel-test.txt; \
+    else \
+        pip install -r /arrow/python/requirements-wheel-test.txt; \
+    fi
 
 # Install the GCS testbench with the system Python
 COPY ci/scripts/install_gcs_testbench.sh /arrow/ci/scripts/

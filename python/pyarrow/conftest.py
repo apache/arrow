@@ -215,6 +215,13 @@ except ImportError:
 
 # Doctest should ignore files for the modules that are not built
 def pytest_ignore_collect(collection_path, config):
+    def _cuda_is_available():
+        try:
+            import pyarrow.cuda  # noqa
+            return True
+        except ImportError:
+            return False
+
     if config.option.doctestmodules:
         # don't try to run doctests on the /tests directory
         if "/pyarrow/tests/" in str(collection_path):
@@ -239,11 +246,7 @@ def pytest_ignore_collect(collection_path, config):
                 return True
 
         if 'pyarrow/cuda' in str(collection_path):
-            try:
-                import pyarrow.cuda  # noqa
-                return False
-            except ImportError:
-                return True
+            return not _cuda_is_available()
 
         if 'pyarrow/fs' in str(collection_path):
             try:
@@ -257,6 +260,8 @@ def pytest_ignore_collect(collection_path, config):
             return True
         if "/pyarrow/_parquet_encryption" in str(collection_path):
             return True
+        if "/pyarrow/_cuda" in str(collection_path):
+            return not _cuda_is_available()
 
     return False
 

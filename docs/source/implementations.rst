@@ -113,7 +113,7 @@ The source files for the Cookbook are maintained in the
    C++ <cpp/index>
    C GLib <c_glib/index>
    Go <https://arrow.apache.org/go/>
-   Java <java/index>
+   Java <https://arrow.apache.org/java/current/>
    JavaScript <https://arrow.apache.org/js/current/>
    Julia <https://arrow.apache.org/julia/>
    MATLAB <https://github.com/apache/arrow/blob/main/matlab/README.md>

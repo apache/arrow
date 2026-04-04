@@ -668,6 +668,35 @@ garrow_record_batch_file_reader_read_record_batch(GArrowRecordBatchFileReader *r
   }
 }
 
+/**
+ * garrow_record_batch_file_reader_get_metadata:
+ * @reader: A #GArrowRecordBatchFileReader.
+ *
+ * Returns: (nullable) (element-type utf8 utf8) (transfer full):
+ *   The metadata in the footer.
+ *
+ * Since: 24.0.0
+ */
+GHashTable *
+garrow_record_batch_file_reader_get_metadata(GArrowRecordBatchFileReader *reader)
+{
+  auto arrow_reader = garrow_record_batch_file_reader_get_raw(reader);
+  auto arrow_metadata = arrow_reader->metadata();
+
+  if (!arrow_metadata) {
+    return nullptr;
+  }
+
+  auto metadata = g_hash_table_new(g_str_hash, g_str_equal);
+  const auto n = arrow_metadata->size();
+  for (int64_t i = 0; i < n; ++i) {
+    g_hash_table_insert(metadata,
+                        const_cast<gchar *>(arrow_metadata->key(i).c_str()),
+                        const_cast<gchar *>(arrow_metadata->value(i).c_str()));
+  }
+  return metadata;
+}
+
 struct GArrowFeatherFileReaderPrivate
 {
   std::shared_ptr<arrow::ipc::feather::Reader> feather_reader;

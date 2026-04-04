@@ -153,14 +153,15 @@ template <typename Arch>
 constexpr bool IsNeon = std::is_base_of_v<xsimd::neon, Arch>;
 
 /// Wrapper around ``xsimd::bitwise_lshift`` with optimizations for non implemented sizes.
-//
-// We replace the variable left shift by a variable multiply with a power of two.
-//
-// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
-// integers per second through vectorization, Software Practice & Experience 45 (1), 2015.
-// http://arxiv.org/abs/1209.2137
-//
+///
+/// We replace the variable left shift by a variable multiply with a power of two.
+///
+/// This trick is borrowed from Daniel Lemire and Leonid Boytsov, Decoding billions of
+/// integers per second through vectorization, Software Practice & Experience 45 (1),
+/// 2015. http://arxiv.org/abs/1209.2137
+///
 /// TODO(xsimd) Tracking in https://github.com/xtensor-stack/xsimd/pull/1220
+/// When migrating, be sure to use batch_constant overload, and not the batch one.
 template <typename Arch, typename Int, Int... kShifts>
 auto left_shift(const xsimd::batch<Int, Arch>& batch,
                 xsimd::batch_constant<Int, Arch, kShifts...> shifts)
@@ -200,14 +201,16 @@ auto left_shift(const xsimd::batch<Int, Arch>& batch,
     return xsimd::bitwise_cast<Int>(shifted0 | shifted1);
   }
 
-  // TODO(xsimd) bug fixed likely in xsimd>14.0.0
+  // TODO(xsimd) bug fixed in xsimd 14.1.0
   // https://github.com/xtensor-stack/xsimd/pull/1266
+#if XSIMD_VERSION_MAJOR < 14 || ((XSIMD_VERSION_MAJOR == 14) && XSIMD_VERSION_MINOR == 0)
   if constexpr (IsNeon<Arch>) {
     using SInt = std::make_signed_t<Int>;
     constexpr auto signed_shifts =
         xsimd::batch_constant<SInt, Arch, static_cast<SInt>(kShifts)...>();
     return xsimd::kernel::bitwise_lshift(batch, signed_shifts.as_batch(), Arch{});
   }
+#endif
 
   return batch << shifts;
 }
@@ -237,7 +240,8 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
   constexpr auto IntSize = sizeof(Int);
 
   // Architecture for which there is no variable right shift but a larger fallback exists.
-  /// TODO(xsimd) Tracking for Avx2 in https://github.com/xtensor-stack/xsimd/pull/1220
+  // TODO(xsimd) Tracking for Avx2 in https://github.com/xtensor-stack/xsimd/pull/1220
+  // When migrating, be sure to use batch_constant overload, and not the batch one.
   if constexpr (kIsAvx2 && (IntSize == sizeof(uint8_t) || IntSize == sizeof(uint16_t))) {
     using twice_uint = SizedUint<2 * IntSize>;
 
@@ -265,14 +269,16 @@ auto right_shift_by_excess(const xsimd::batch<Int, Arch>& batch,
     return xsimd::bitwise_rshift<kMaxRShift>(left_shift(batch, kLShifts));
   }
 
-  // TODO(xsimd) bug fixed likely in xsimd>14.0.0
+  // TODO(xsimd) bug fixed in xsimd 14.1.0
   // https://github.com/xtensor-stack/xsimd/pull/1266
+#if XSIMD_VERSION_MAJOR < 14 || ((XSIMD_VERSION_MAJOR == 14) && XSIMD_VERSION_MINOR == 0)
   if constexpr (IsNeon<Arch>) {
     using SInt = std::make_signed_t<Int>;
     constexpr auto signed_shifts =
         xsimd::batch_constant<SInt, Arch, static_cast<SInt>(kShifts)...>();
     return xsimd::kernel::bitwise_rshift(batch, signed_shifts.as_batch(), Arch{});
   }
+#endif
 
   return batch >> shifts;
 }

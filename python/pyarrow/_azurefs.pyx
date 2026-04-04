@@ -59,6 +59,7 @@ cdef class AzureFileSystem(FileSystem):
     client_id : str, default None
         The client ID (Application ID) for Azure Active Directory authentication.
         Its interpretation depends on the credential type being used:
+
         - For `ClientSecretCredential`: It is the Application (client) ID of your
           registered Azure AD application (Service Principal). It must be provided
           together with `tenant_id` and `client_secret` to use ClientSecretCredential.
@@ -67,6 +68,7 @@ cdef class AzureFileSystem(FileSystem):
           user-assigned managed identity and need to explicitly specify which one
           (e.g., if the resource has multiple user-assigned identities). For
           system-assigned managed identities, this parameter is typically not required.
+
     client_secret : str, default None
         Client secret for Azure Active Directory authentication. Must be provided together
         with `tenant_id` and `client_id` to use ClientSecretCredential.

@@ -3629,7 +3629,7 @@ cdef class RecordBatch(_Tabular):
         b: [10,20,30,40,null]
 
         Convert a RecordBatch to row-major Tensor with null values
-        written as ``NaN``s
+        written as NaN values
 
         >>> batch.to_tensor(null_to_nan=True)
         <pyarrow.Tensor>
@@ -5779,7 +5779,7 @@ cdef class Table(_Tabular):
         -------
         Table
 
-        Example
+        Examples
         --------
         >>> import pyarrow as pa
         >>> t1 = pa.table({'id': [1, 3, 2, 3, 3],

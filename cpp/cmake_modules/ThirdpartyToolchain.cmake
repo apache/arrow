@@ -1090,7 +1090,7 @@ function(build_boost)
     set(ARROW_BOOST_NEED_MULTIPRECISION FALSE)
   endif()
   if(ARROW_ENABLE_THREADING)
-    if(ARROW_WITH_THRIFT OR (ARROW_FLIGHT_SQL_ODBC AND MSVC))
+    if(ARROW_WITH_THRIFT OR ARROW_FLIGHT_SQL_ODBC)
       list(APPEND BOOST_INCLUDE_LIBRARIES locale)
     endif()
     if(ARROW_BOOST_NEED_MULTIPRECISION)
@@ -1683,7 +1683,8 @@ endif()
 if(ARROW_BUILD_TESTS
    OR ARROW_BUILD_BENCHMARKS
    OR ARROW_BUILD_INTEGRATION
-   OR ARROW_USE_GLOG)
+   OR ARROW_USE_GLOG
+   OR (ARROW_FLIGHT_SQL AND ARROW_BUILD_EXAMPLES))
   set(ARROW_NEED_GFLAGS TRUE)
 else()
   set(ARROW_NEED_GFLAGS FALSE)
@@ -3881,6 +3882,10 @@ function(build_awssdk)
     string(APPEND CMAKE_C_FLAGS " -D_WIN32_WINNT=0x0601")
     string(APPEND CMAKE_CXX_FLAGS " -D_WIN32_WINNT=0x0601")
   endif()
+  if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+    string(APPEND CMAKE_C_FLAGS " -Wno-implicit-fallthrough")
+    string(APPEND CMAKE_CXX_FLAGS " -Wno-implicit-fallthrough")
+  endif()
 
   # For aws-lc
   set(DISABLE_GO ON)
@@ -3896,35 +3901,6 @@ function(build_awssdk)
   # Link time optimization is causing trouble like GH-34349
   string(REPLACE "-flto=auto" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
   string(REPLACE "-ffat-lto-objects" "" CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-
-  # For aws-c-io
-  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-    # This is for RTools 40. We can remove this after we dropped
-    # support for R < 4.2. schannel.h in RTools 40 is old.
-
-    # For schannel.h
-    #
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/schannel/ns-schannel-schannel_cred
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_SERVER=0x00000040")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_0_CLIENT=0x00000080")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_SERVER=0x00000100")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_1_CLIENT=0x00000200")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_SERVER=0x00000400")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_2_CLIENT=0x00000800")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_SERVER=0x00001000")
-    string(APPEND CMAKE_C_FLAGS " -DSP_PROT_TLS1_3_CLIENT=0x00002000")
-    string(APPEND CMAKE_C_FLAGS " -DSCH_USE_STRONG_CRYPTO=0x00400000")
-
-    # For sspi.h
-    #
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ne-sspi-sec_application_protocol_negotiation_ext
-    string(APPEND CMAKE_C_FLAGS " -DSecApplicationProtocolNegotiationExt_ALPN=2")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/sspi/ns-sspi-secbuffer
-    string(APPEND CMAKE_C_FLAGS " -DSECBUFFER_ALERT=17")
-  endif()
 
   # For aws-sdk-cpp
   #
@@ -3964,29 +3940,6 @@ function(build_awssdk)
           "$<TARGET_FILE:ZLIB::ZLIB>"
           CACHE STRING "" FORCE)
     endif()
-  endif()
-  if(MINGW AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS "9")
-    # This is for RTools 40. We can remove this after we dropped
-    # support for R < 4.2. schannel.h in RTools 40 is old.
-
-    # For winhttp.h
-    #
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/winhttp/error-messages
-    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_UNHANDLED_SCRIPT_TYPE=12176")
-    string(APPEND CMAKE_CXX_FLAGS " -DERROR_WINHTTP_SCRIPT_EXECUTION_ERROR=12177")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/ns-winhttp-winhttp_async_result
-    string(APPEND CMAKE_CXX_FLAGS " -DAPI_GET_PROXY_FOR_URL=6")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/api/winhttp/nc-winhttp-winhttp_status_callback
-    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_CALLBACK_STATUS_CLOSE_COMPLETE=0x02000000")
-    string(APPEND CMAKE_CXX_FLAGS
-           " -DWINHTTP_CALLBACK_STATUS_SHUTDOWN_COMPLETE=0x04000000")
-    # See also:
-    # https://learn.microsoft.com/en-us/windows/win32/winhttp/option-flags
-    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_FLAG_SECURE_PROTOCOL_TLS1_2=0x00000800")
-    string(APPEND CMAKE_CXX_FLAGS " -DWINHTTP_NO_CLIENT_CERT_CONTEXT=0")
   endif()
 
   set(AWSSDK_LINK_LIBRARIES)

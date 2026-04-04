@@ -16,6 +16,7 @@
 # under the License.
 
 import contextlib
+import datetime
 import os
 import shutil
 import subprocess
@@ -1484,6 +1485,60 @@ def test_uuid_bytes_property_raises():
         pa.array([bad])
     with pytest.raises(RuntimeError, match="broken"):
         pa.scalar(bad)
+
+
+def test_array_from_extension_scalars():
+    # One case per C++ converter: FixedSizeBinary, Binary/String
+    builtin_cases = [
+        (pa.uuid(), [b"0123456789abcdef"]),
+        (pa.opaque(pa.binary(), "t", "v"), [b"x", b"y"]),
+    ]
+    for ext_type, values in builtin_cases:
+        scalars = [pa.scalar(v, type=ext_type) for v in values]
+        result = pa.array(scalars, type=ext_type)
+        assert result.equals(pa.array(values, type=ext_type))
+
+    # One case per C++ converter: Numeric, Timestamp/Duration, Struct
+    custom_cases = [
+        (IntegerType(), [100, 200]),
+        (AnnotatedType(pa.timestamp("us"), "ts"),
+         [datetime.datetime(2023, 1, 1)]),
+        (MyStructType(), [{"left": 1, "right": 2}]),
+    ]
+    for ext_type, values in custom_cases:
+        with registered_extension_type(ext_type):
+            scalars = [pa.scalar(v, type=ext_type) for v in values]
+            result = pa.array(scalars, type=ext_type)
+            assert result.equals(pa.array(values, type=ext_type))
+
+    # Null handling
+    uuid_type = pa.uuid()
+    scalars = [pa.scalar(b"0123456789abcdef", type=uuid_type),
+               pa.scalar(None, type=uuid_type)]
+    result = pa.array(scalars, type=uuid_type)
+    assert result[0].is_valid and not result[1].is_valid
+
+    # ExtensionScalar.from_storage path
+    scalars = [
+        pa.ExtensionScalar.from_storage(uuid_type, b"0123456789abcdef"),
+        pa.ExtensionScalar.from_storage(uuid_type, None),
+    ]
+    result = pa.array(scalars, type=uuid_type)
+    expected = pa.array([b"0123456789abcdef", None], type=uuid_type)
+    assert result.equals(expected)
+
+    # Type inference without explicit type
+    u = uuid4()
+    scalars = [pa.scalar(u, type=pa.uuid()), None]
+    result = pa.array(scalars)
+    assert result.type == pa.uuid()
+    assert result[0].as_py() == u
+    assert not result[1].is_valid
+
+    # Mixed extension scalars and raw Python objects
+    u1, u2 = uuid4(), uuid4()
+    result = pa.array([pa.scalar(u1, type=pa.uuid()), u2], type=pa.uuid())
+    assert result.equals(pa.array([u1, u2], type=pa.uuid()))
 
 
 def test_tensor_type():

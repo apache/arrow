@@ -99,6 +99,28 @@ register_bindings_conditional <- function() {
     out
   })
 
+  register_binding("dplyr::when_any", function(..., na_rm = FALSE, size = NULL) {
+    if (!is.null(size)) {
+      arrow_not_supported("`when_any()` with `size` specified")
+    }
+    args <- list2(...)
+    if (na_rm) {
+      args <- map(args, ~ call_binding("coalesce", .x, FALSE))
+    }
+    reduce(args, `|`)
+  })
+
+  register_binding("dplyr::when_all", function(..., na_rm = FALSE, size = NULL) {
+    if (!is.null(size)) {
+      arrow_not_supported("`when_all()` with `size` specified")
+    }
+    args <- list2(...)
+    if (na_rm) {
+      args <- map(args, ~ call_binding("coalesce", .x, TRUE))
+    }
+    reduce(args, `&`)
+  })
+
   register_binding(
     "dplyr::case_when",
     function(..., .default = NULL, .ptype = NULL, .size = NULL) {

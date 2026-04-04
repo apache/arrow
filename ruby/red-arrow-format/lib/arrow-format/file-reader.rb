@@ -35,6 +35,7 @@ module ArrowFormat
     FOOTER_SIZE_SIZE = IO::Buffer.size_of(FOOTER_SIZE_FORMAT)
 
     attr_reader :schema
+    attr_reader :metadata
     def initialize(input)
       case input
       when IO
@@ -47,6 +48,7 @@ module ArrowFormat
 
       validate
       @footer = read_footer
+      @metadata = read_custom_metadata(@footer.custom_metadata)
       @record_batch_blocks = @footer.record_batches || []
       @schema = read_schema(@footer.schema)
       @dictionaries = read_dictionaries
@@ -64,7 +66,11 @@ module ArrowFormat
                                 "Not a record batch message: #{i}: " +
                                 fb_header.class.name)
       end
-      read_record_batch(fb_message.version, fb_header, @schema, body)
+      read_record_batch(fb_message.version,
+                        fb_header,
+                        fb_message.custom_metadata,
+                        @schema,
+                        body)
     end
 
     def each
@@ -114,6 +120,7 @@ module ArrowFormat
       # message_pull_reader = MessagePullReader.new do |message, body|
       #   return read_record_batch(message.version,
       #                            message.header,
+      #                            message.custom_metadata,
       #                            @schema,
       #                            body)
       # end
@@ -205,12 +212,17 @@ module ArrowFormat
         schema = Schema.new([Field.new("dummy", value_type)])
         record_batch = read_record_batch(fb_message.version,
                                          fb_header.data,
+                                         nil,
                                          schema,
                                          body)
+        message_metadata = read_custom_metadata(fb_message.custom_metadata)
+        dictionary = Dictionary.new(fb_header.id,
+                                    record_batch.columns[0],
+                                    message_metadata: message_metadata)
         if fb_header.delta?
-          dictionaries[id] << record_batch.columns[0]
+          dictionaries[id] << dictionary
         else
-          dictionaries[id] = [record_batch.columns[0]]
+          dictionaries[id] = [dictionary]
         end
       end
       dictionaries

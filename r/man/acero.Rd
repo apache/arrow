@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 38 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 224 R functions to the corresponding
+The package also has mappings of 226 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -207,6 +207,8 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[dplyr:if_else]{if_else()}}
 \item \code{\link[dplyr:context]{n()}}
 \item \code{\link[dplyr:n_distinct]{n_distinct()}}
+\item \code{\link[dplyr:when-any-all]{when_all()}}
+\item \code{\link[dplyr:when-any-all]{when_any()}}
 }
 }
 

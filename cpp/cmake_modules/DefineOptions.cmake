@@ -107,10 +107,6 @@ macro(tsort_bool_option_dependencies)
 endmacro()
 
 macro(resolve_option_dependencies)
-  # Arrow Flight SQL ODBC is available only for Windows and macOS for now.
-  if(NOT WIN32 AND NOT APPLE)
-    set(ARROW_FLIGHT_SQL_ODBC OFF)
-  endif()
   if(MSVC_TOOLCHAIN)
     set(ARROW_USE_GLOG OFF)
   endif()

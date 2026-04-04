@@ -738,7 +738,7 @@ module ArrowFormat
 
       values = []
       @dictionaries.each do |dictionary|
-        values.concat(dictionary.to_a)
+        values.concat(dictionary.array.to_a)
       end
       indices.collect do |index|
         if index.nil?

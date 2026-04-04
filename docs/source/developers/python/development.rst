@@ -90,7 +90,7 @@ The test groups currently include:
 
 * ``dataset``: Apache Arrow Dataset tests
 * ``flight``: Flight RPC tests
-* ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
+* ``gandiva``: tests for Gandiva expression compiler (uses LLVM, deprecated since version 24.0.0)
 * ``hdfs``: tests that use libhdfs to access the Hadoop filesystem
 * ``hypothesis``: tests that use the ``hypothesis`` module for generating
   random test cases. Note that ``--hypothesis`` doesn't work due to a quirk
@@ -194,6 +194,17 @@ for ``.py`` files or
 
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
+
+.. note::
+   Cython ``.pxi`` files are included in ``.pyx`` files at compile time,
+   so ``--doctest-cython`` cannot be run directly on ``.pxi`` files.
+   In PyArrow, all ``.pxi`` files are included into ``lib.pyx``, so run
+   doctests on that file::
+
+      $ python -m pytest --doctest-cython path/to/lib.pyx
+
+   Any doctest errors originating from ``.pxi`` files will appear under
+   ``lib.pyx``, not the original ``.pxi`` filename.
 
 Testing Documentation Examples
 -------------------------------
