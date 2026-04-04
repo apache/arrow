@@ -208,14 +208,26 @@ Pointer r6_to_pointer(SEXP self) {
     cpp11::stop("Invalid R object for %s, must be an ArrowObject", type_name.c_str());
   }
 
-#if R_VERSION >= R_Version(4, 5, 0)
+// R_UnboundValue and Rf_findVarInFrame are non-API as of R 4.6
+#if R_VERSION >= R_Version(4, 6, 0)
+  if (!R_existsVarInFrame(self, arrow::r::symbols::xp)) {
+    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
+  }
+  SEXP xp = R_getVar(arrow::r::symbols::xp, self, FALSE);
+  if (xp == R_NilValue) {
+    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
+  }
+#elif R_VERSION >= R_Version(4, 5, 0)
   SEXP xp = R_getVarEx(arrow::r::symbols::xp, self, FALSE, R_UnboundValue);
-#else
-  SEXP xp = Rf_findVarInFrame(self, arrow::r::symbols::xp);
-#endif
   if (xp == R_UnboundValue || xp == R_NilValue) {
     cpp11::stop("Invalid: self$`.:xp:.` is NULL");
   }
+#else
+  SEXP xp = Rf_findVarInFrame(self, arrow::r::symbols::xp);
+  if (xp == R_UnboundValue || xp == R_NilValue) {
+    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
+  }
+#endif
 
   void* p = R_ExternalPtrAddr(xp);
   if (p == nullptr) {
@@ -227,10 +239,22 @@ Pointer r6_to_pointer(SEXP self) {
 
 template <typename T>
 void r6_reset_pointer(SEXP r6) {
-#if R_VERSION >= R_Version(4, 5, 0)
+// R_UnboundValue and Rf_findVarInFrame are non-API as of R 4.6
+#if R_VERSION >= R_Version(4, 6, 0)
+  if (!R_existsVarInFrame(r6, arrow::r::symbols::xp)) {
+    return;
+  }
+  SEXP xp = R_getVar(arrow::r::symbols::xp, r6, FALSE);
+#elif R_VERSION >= R_Version(4, 5, 0)
   SEXP xp = R_getVarEx(arrow::r::symbols::xp, r6, FALSE, R_UnboundValue);
+  if (xp == R_UnboundValue) {
+    return;
+  }
 #else
   SEXP xp = Rf_findVarInFrame(r6, arrow::r::symbols::xp);
+  if (xp == R_UnboundValue) {
+    return;
+  }
 #endif
   void* p = R_ExternalPtrAddr(xp);
   if (p != nullptr) {
@@ -388,8 +412,8 @@ SEXP to_r6(const std::shared_ptr<T>& ptr, const char* r6_class_name) {
   cpp11::external_pointer<std::shared_ptr<T>> xp(new std::shared_ptr<T>(ptr));
   SEXP r6_class = Rf_install(r6_class_name);
 
-// R_existsVarInFrame doesn't exist before R 4.2, so we need to fall back to
-// Rf_findVarInFrame3 if it is not defined.
+// Rf_findVarInFrame3 and R_UnboundValue are non-API as of R 4.6.
+// R_existsVarInFrame doesn't exist before R 4.2.
 #if R_VERSION >= R_Version(4, 2, 0)
   if (!R_existsVarInFrame(arrow::r::ns::arrow, r6_class)) {
     cpp11::stop("No arrow R6 class named '%s'", r6_class_name);
