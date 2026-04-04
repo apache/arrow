@@ -195,7 +195,7 @@ void ODBCTestBase::TearDownTestSuite() {
     // A proper fix would require ensuring gRPC is kept alive until all ODBC handles are freed,
     // or switching to dynamic linkage for tests.
     //
-    // Disconnect();
+    Disconnect();
     std::cerr << "[TEARDOWN] Skipping Disconnect() to avoid CTest-specific crash" << std::endl;
     connected = false;
   }
