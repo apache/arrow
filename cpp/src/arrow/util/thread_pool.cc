@@ -632,8 +632,17 @@ void ThreadPool::CollectFinishedWorkersUnlocked() {
 }
 
 // MinGW's __emutls implementation for C++ thread_local has known race conditions
-// during thread creation that can cause segfaults. Use native Win32 TLS instead.
-// See https://github.com/apache/arrow/issues/49272
+// during thread creation. When a new worker thread is spawned and immediately
+// writes to a thread_local variable (here: current_thread_pool_), __emutls may
+// not have finished initializing TLS for that thread, causing it to dereference
+// a stale/invalid pointer and segfault. This is a known upstream GCC/MinGW bug:
+// https://gcc.gnu.org/bugzilla/show_bug.cgi?id=78605
+// The crash surfaces specifically in arrow-json-test (ReaderTest.MultipleChunksParallel)
+// because that test creates a fresh ThreadPool and immediately dispatches work,
+// hitting the narrow startup race before __emutls can initialize. Other tests
+// that rely on the already-warmed global thread pool do not trigger this window.
+// Use native Win32 TLS (TlsAlloc/TlsGetValue/TlsSetValue) to bypass __emutls.
+// See also: https://github.com/apache/arrow/issues/49272
 #  ifdef __MINGW32__
 
 namespace {
