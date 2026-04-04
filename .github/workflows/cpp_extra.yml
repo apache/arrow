@@ -609,6 +609,14 @@ jobs:
       VCPKG_DEFAULT_TRIPLET: amd64-windows-no-absl-sync-release
       VCPKG_OVERLAY_TRIPLETS: ${{ github.workspace }}/ci/vcpkg
     steps:
+      - name: Disable Crash Dialogs
+        run: |
+          reg add `
+            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
+            /v DontShowUI `
+            /t REG_DWORD `
+            /d 1 `
+            /f
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
