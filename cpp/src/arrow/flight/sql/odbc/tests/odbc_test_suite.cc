@@ -186,8 +186,6 @@ void ODBCTestBase::TearDownTestSuite() {
     // is run directly. This only happens under static test linkage.
     //
     //  Disconnect();
-    std::cerr << "[TEARDOWN] Skipping Disconnect() to avoid CTest-specific crash"
-              << std::endl;
     connected = false;
   }
 }
