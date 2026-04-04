@@ -217,13 +217,12 @@ Pointer r6_to_pointer(SEXP self) {
   if (xp == R_NilValue) {
     cpp11::stop("Invalid: self$`.:xp:.` is NULL");
   }
-#elif R_VERSION >= R_Version(4, 5, 0)
+#else
+#if R_VERSION >= R_Version(4, 5, 0)
   SEXP xp = R_getVarEx(arrow::r::symbols::xp, self, FALSE, R_UnboundValue);
-  if (xp == R_UnboundValue || xp == R_NilValue) {
-    cpp11::stop("Invalid: self$`.:xp:.` is NULL");
-  }
 #else
   SEXP xp = Rf_findVarInFrame(self, arrow::r::symbols::xp);
+#endif
   if (xp == R_UnboundValue || xp == R_NilValue) {
     cpp11::stop("Invalid: self$`.:xp:.` is NULL");
   }
@@ -245,16 +244,12 @@ void r6_reset_pointer(SEXP r6) {
     return;
   }
   SEXP xp = R_getVar(arrow::r::symbols::xp, r6, FALSE);
-#elif R_VERSION >= R_Version(4, 5, 0)
+#else
+#if R_VERSION >= R_Version(4, 5, 0)
   SEXP xp = R_getVarEx(arrow::r::symbols::xp, r6, FALSE, R_UnboundValue);
-  if (xp == R_UnboundValue) {
-    return;
-  }
 #else
   SEXP xp = Rf_findVarInFrame(r6, arrow::r::symbols::xp);
-  if (xp == R_UnboundValue) {
-    return;
-  }
+#endif
 #endif
   void* p = R_ExternalPtrAddr(xp);
   if (p != nullptr) {
