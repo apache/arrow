@@ -263,7 +263,8 @@ from pyarrow.lib import (NativeFile, PythonFile,
 
 from pyarrow.lib import (ChunkedArray, RecordBatch, Table, table,
                          concat_arrays, concat_tables, TableGroupBy,
-                         RecordBatchReader, concat_batches)
+                         RecordBatchReader, AsyncRecordBatchReader,
+                         concat_batches)
 
 # Exceptions
 from pyarrow.lib import (ArrowCancelled,

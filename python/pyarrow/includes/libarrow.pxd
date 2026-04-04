@@ -3179,6 +3179,9 @@ cdef extern from "arrow/c/abi.h":
         int64_t device_id
         int32_t device_type
 
+    cdef struct ArrowAsyncDeviceStreamHandler:
+        void (*release)(ArrowAsyncDeviceStreamHandler*) noexcept nogil
+
 cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
     CStatus ExportType(CDataType&, ArrowSchema* out)
     CResult[shared_ptr[CDataType]] ImportType(ArrowSchema*)
@@ -3224,6 +3227,42 @@ cdef extern from "arrow/c/bridge.h" namespace "arrow" nogil:
         ArrowDeviceArray*, shared_ptr[CSchema])
     CResult[shared_ptr[CRecordBatch]] ImportDeviceRecordBatch(
         ArrowDeviceArray*, ArrowSchema*)
+
+    # Opaque type for the async generator callable
+    cdef cppclass CAsyncRecordBatchGenerator_Generator \
+            "arrow::AsyncGenerator<arrow::RecordBatchWithMetadata>":
+        pass
+
+    cdef cppclass CAsyncRecordBatchGenerator \
+            "arrow::AsyncRecordBatchGenerator":
+        shared_ptr[CSchema] schema
+        CDeviceAllocationType device_type
+        CAsyncRecordBatchGenerator_Generator generator
+
+    CFuture[CAsyncRecordBatchGenerator] CreateAsyncDeviceStreamHandler(
+        ArrowAsyncDeviceStreamHandler* handler,
+        CExecutor* executor,
+        uint64_t queue_size)
+
+    CFuture[CAsyncRecordBatchGenerator] CreateAsyncDeviceStreamHandler(
+        ArrowAsyncDeviceStreamHandler* handler,
+        CExecutor* executor)
+
+
+cdef extern from "arrow/python/async_stream.h" namespace "arrow::py" nogil:
+    CFuture[CRecordBatchWithMetadata] CallAsyncGenerator(
+        CAsyncRecordBatchGenerator_Generator& generator)
+
+    CFuture[CAsyncRecordBatchGenerator] RoundtripAsyncBatches(
+        shared_ptr[CSchema] schema,
+        vector[shared_ptr[CRecordBatch]] batches,
+        CExecutor* executor,
+        uint64_t queue_size)
+
+    CFuture[CAsyncRecordBatchGenerator] RoundtripAsyncBatches(
+        shared_ptr[CSchema] schema,
+        vector[shared_ptr[CRecordBatch]] batches,
+        CExecutor* executor)
 
 
 cdef extern from "arrow/util/byte_size.h" namespace "arrow::util" nogil:
