@@ -18,6 +18,8 @@
 #include <chrono>
 #include <cstdint>
 #include <iostream>
+#include <thread>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -93,6 +95,27 @@ TEST(ArrowCheck, PayloadEvaluatedOnFailure) {
   // isn't called (which is good except for this test).
   ARROW_CHECK_OR_LOG(cond, WARNING) << "Some message" << tracer;
   ASSERT_TRUE(tracer.was_printed);
+}
+
+TEST(ArrowLog, MultiThreadedLogging) {
+  constexpr int kNumThreads = 10;
+  constexpr int kNumMessges = 10;
+  std::vector<std::thread> threads;
+
+  threads.reserve(kNumThreads);
+
+  for (int i = 0; i < kNumThreads; ++i) {
+    threads.emplace_back([i]() {
+      for (int j = 0; j < kNumMessges; ++j) {
+        ARROW_LOG(INFO) << "Thread" << i << " message " << j
+                        << " - testing thread safety.";
+      }
+    });
+  }
+
+  for (auto& thread : threads) {
+    thread.join();
+  }
 }
 
 }  // namespace util
