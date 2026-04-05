@@ -34,6 +34,12 @@ class Status;
 
 namespace flight {
 
+#define GRPC_CPP_VERSION_CHECK(major, minor, patch)                             \
+  ((GRPC_CPP_VERSION_MAJOR > (major) ||                                         \
+    (GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR > (minor)) ||  \
+    ((GRPC_CPP_VERSION_MAJOR == (major) && GRPC_CPP_VERSION_MINOR == (minor) && \
+      GRPC_CPP_VERSION_PATCH >= (patch)))))
+
 #define GRPC_RETURN_NOT_OK(expr)                                 \
   do {                                                           \
     ::arrow::Status _s = (expr);                                 \
@@ -90,6 +96,12 @@ ARROW_FLIGHT_EXPORT
 ::grpc::Status ToGrpcStatus(const Status& arrow_status,
                             ::grpc::ServerContext* ctx = nullptr);
 
+// gRPC 1.80.0 or later use absl::Status.
+#if GRPC_CPP_VERSION_CHECK(1, 80, 0)
+/// Convert an Abseil status to an Arrow status.
+ARROW_FLIGHT_EXPORT
+Status FromAbslStatus(const ::absl::Status& absl_status);
+#endif
 }  // namespace grpc
 }  // namespace transport
 }  // namespace flight
