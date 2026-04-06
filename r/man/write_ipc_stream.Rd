@@ -11,16 +11,14 @@ write_ipc_stream(x, sink, ...)
 
 \item{sink}{A string file path, connection, URI, or \link{OutputStream}, or path in a file
 system (\code{SubTreeFileSystem})}
-
-\item{...}{extra parameters passed to \code{write_feather()}.}
 }
 \value{
 \code{x}, invisibly.
 }
 \description{
 Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
-a "stream" format and a "file" format, known as Feather. \code{write_ipc_stream()}
-and \code{\link[=write_feather]{write_feather()}} write those formats, respectively.
+a "stream" format and a "file" format. \code{write_ipc_stream()}
+and \code{\link[=write_ipc_file]{write_ipc_file()}} write those formats, respectively.
 }
 \examples{
 tf <- tempfile()
@@ -28,7 +26,7 @@ on.exit(unlink(tf))
 write_ipc_stream(mtcars, tf)
 }
 \seealso{
-\code{\link[=write_feather]{write_feather()}} for writing IPC files. \code{\link[=write_to_raw]{write_to_raw()}} to
+\code{\link[=write_ipc_file]{write_ipc_file()}} for writing IPC files. \code{\link[=write_to_raw]{write_to_raw()}} to
 serialize data to a buffer.
 \link{RecordBatchWriter} for a lower-level interface.
 }
