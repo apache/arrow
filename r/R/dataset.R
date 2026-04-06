@@ -107,8 +107,8 @@
 #' the files in `x`. This argument is ignored when `sources` is a list of `Dataset` objects.
 #' Currently supported values:
 #' * "parquet"
-#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-#'   only version 2 files are supported
+#' * "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+#'   this is deprecated)
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`
@@ -119,7 +119,7 @@
 #' @param ... additional arguments passed to `dataset_factory()` when `sources`
 #' is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 #' These may include `format` to indicate the file format, or other
-#' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_feather()] on how to specify these).
+#' format-specific options (see [read_csv_arrow()], [read_parquet()] and [read_ipc_file()] on how to specify these).
 #' @inheritParams dataset_factory
 #' @return A [Dataset] R6 object. Use `dplyr` methods on it to query the data,
 #' or call [`$NewScan()`][Scanner] to construct a query directly.
@@ -481,7 +481,7 @@ FileSystemDataset <- R6Class(
       file_type <- self$format$type
       pretty_file_type <- list(
         parquet = "Parquet",
-        ipc = "Feather"
+        ipc = "IPC"
       )[[file_type]]
 
       paste(

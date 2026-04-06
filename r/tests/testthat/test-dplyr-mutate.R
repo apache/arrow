@@ -584,11 +584,11 @@ test_that("mutate and write_dataset", {
   stacked |>
     mutate(twice = int * 2) |>
     group_by(int) |>
-    write_dataset(dst_dir, format = "feather")
+    write_dataset(dst_dir, format = "ipc")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "ipc")
 
   expect_equal(
     new_ds |>

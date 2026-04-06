@@ -20,14 +20,13 @@
 #' Apache Arrow defines two formats for [serializing data for interprocess
 #' communication
 #' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
-#' a "stream" format and a "file" format, known as Feather. `write_ipc_stream()`
-#' and [write_feather()] write those formats, respectively.
+#' a "stream" format and a "file" format. `write_ipc_stream()`
+#' and [write_ipc_file()] write those formats, respectively.
 #'
-#' @inheritParams write_feather
-#' @param ... extra parameters passed to `write_feather()`.
+#' @inheritParams write_ipc_file
 #'
 #' @return `x`, invisibly.
-#' @seealso [write_feather()] for writing IPC files. [write_to_raw()] to
+#' @seealso [write_ipc_file()] for writing IPC files. [write_to_raw()] to
 #' serialize data to a buffer.
 #' [RecordBatchWriter] for a lower-level interface.
 #' @export
@@ -53,11 +52,11 @@ write_ipc_stream <- function(x, sink, ...) {
 
 #' Write Arrow data to a raw vector
 #'
-#' [write_ipc_stream()] and [write_feather()] write data to a sink and return
+#' [write_ipc_stream()] and [write_ipc_file()] write data to a sink and return
 #' the data (`data.frame`, `RecordBatch`, or `Table`) they were given.
 #' This function wraps those so that you can serialize data to a buffer and
 #' access that buffer as a `raw` vector in R.
-#' @inheritParams write_feather
+#' @inheritParams write_ipc_file
 #' @param format one of `c("stream", "file")`, indicating the IPC format to use
 #' @return A `raw` vector containing the bytes of the IPC serialized data.
 #' @examples
@@ -69,7 +68,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
   if (match.arg(format) == "stream") {
     write_ipc_stream(x, sink)
   } else {
-    write_feather(x, sink)
+    write_ipc_file(x, sink)
   }
   as.raw(buffer(sink))
 }
@@ -79,8 +78,8 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' Apache Arrow defines two formats for [serializing data for interprocess
 #' communication
 #' (IPC)](https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc):
-#' a "stream" format and a "file" format, known as Feather. `read_ipc_stream()`
-#' and [read_feather()] read those formats, respectively.
+#' a "stream" format and a "file" format. `read_ipc_stream()`
+#' and [read_ipc_file()] read those formats, respectively.
 #'
 #' @param file A character file name or URI, connection, `raw` vector, an
 #' Arrow input stream, or a `FileSystem` with path (`SubTreeFileSystem`).
@@ -89,11 +88,10 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' open.
 #' @param as_data_frame Should the function return a `tibble` (default) or
 #' an Arrow [Table]?
-#' @param ... extra parameters passed to `read_feather()`.
 #'
 #' @return A `tibble` if `as_data_frame` is `TRUE` (the default), or an
 #' Arrow [Table] otherwise
-#' @seealso [write_feather()] for writing IPC files. [RecordBatchReader] for a
+#' @seealso [write_ipc_file()] for writing IPC files. [RecordBatchReader] for a
 #' lower-level interface.
 #' @section Untrusted data:
 #' If reading from an untrusted source, you can validate the data by reading
