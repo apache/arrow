@@ -4,7 +4,7 @@
 \alias{write_ipc_stream}
 \title{Write Arrow IPC stream format}
 \usage{
-write_ipc_stream(x, sink, ...)
+write_ipc_stream(x, sink)
 }
 \arguments{
 \item{x}{\code{data.frame}, \link{RecordBatch}, or \link{Table}}
