@@ -69,8 +69,8 @@ the files in \code{x}. This argument is ignored when \code{sources} is a list of
 Currently supported values:
 \itemize{
 \item "parquet"
-\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-only version 2 files are supported
+\item "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+this is deprecated)
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}
@@ -104,7 +104,7 @@ yourself).
 \item{...}{additional arguments passed to \code{dataset_factory()} when \code{sources}
 is a directory path/URI or vector of file paths/URIs, otherwise ignored.
 These may include \code{format} to indicate the file format, or other
-format-specific options (see \code{\link[=read_csv_arrow]{read_csv_arrow()}}, \code{\link[=read_parquet]{read_parquet()}} and \code{\link[=read_feather]{read_feather()}} on how to specify these).}
+format-specific options (see \code{\link[=read_csv_arrow]{read_csv_arrow()}}, \code{\link[=read_parquet]{read_parquet()}} and \code{\link[=read_ipc_file]{read_ipc_file()}} on how to specify these).}
 }
 \value{
 A \link{Dataset} R6 object. Use \code{dplyr} methods on it to query the data,
