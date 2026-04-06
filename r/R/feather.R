@@ -23,9 +23,9 @@
 #'
 #' Column-oriented file format designed for fast reading and writing
 #' of data frames. Feather V2 is the Arrow IPC file format.
-#' Feather V1 was a legacy format available starting in 2016 and lacks many
+#' Feather V1 is a legacy format available starting in 2016 that lacks many
 #' features, such as the ability to store all Arrow data types, and compression
-#' support. The Feather V1 format is no longer supported.
+#' support. Feather V1 is deprecated; use [write_ipc_file()] for new files.
 #'
 #' @inheritParams write_ipc_file
 #' @param version integer Feather file version, Version 1 or Version 2. Version 2 is the default.
@@ -43,27 +43,14 @@ write_feather <- function(
   compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
   compression_level = NULL
 ) {
-  if (version == 2) {
-    .Deprecated(
-      "write_ipc_file",
-      msg = "write_feather(version = 2) has been superseded by write_ipc_file()."
-    )
-  } else {
-    .Deprecated(
-      "write_ipc_file",
-      msg = paste(
-        "Feather V1 is no longer supported;",
-        "use `write_ipc_file()` to write Arrow IPC format (equivalent to Feather V2)."
-      )
-    )
-  }
   write_ipc_impl(
     x = x,
     sink = sink,
     version = version,
     chunk_size = chunk_size,
     compression = compression,
-    compression_level = compression_level
+    compression_level = compression_level,
+    deprecated = TRUE
   )
 }
 
@@ -73,11 +60,30 @@ write_ipc_impl <- function(
   version = 2,
   chunk_size = 65536L,
   compression = c("default", "lz4", "lz4_frame", "uncompressed", "zstd"),
-  compression_level = NULL
+  compression_level = NULL,
+  deprecated = FALSE
 ) {
   # Handle and validate options before touching data
   version <- as.integer(version)
   assert_that(version %in% 1:2)
+
+  # Emit deprecation warnings after validation (only for write_feather calls)
+  if (deprecated) {
+    if (version == 2) {
+      .Deprecated(
+        "write_ipc_file",
+        msg = "write_feather(version = 2) has been superseded by write_ipc_file()."
+      )
+    } else {
+      .Deprecated(
+        "write_ipc_file",
+        msg = paste(
+          "Feather V1 is deprecated;",
+          "use `write_ipc_file()` to write Arrow IPC format (equivalent to Feather V2)."
+        )
+      )
+    }
+  }
 
   if (isTRUE(compression)) {
     compression <- "default"
