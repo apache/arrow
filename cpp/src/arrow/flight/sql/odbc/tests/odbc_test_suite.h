@@ -38,6 +38,20 @@
 // For DSN registration
 #include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
 
+#ifdef __linux__
+#  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal)                         \
+    auto name##_vec = ODBC::ToSqlWCharVector(std::wstring(wstring_literal)); \
+    SQLWCHAR* name = name##_vec.data();
+#  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_literal) \
+    ASSIGN_SQLWCHAR_ARR(name, wstring_literal)               \
+    size_t name##_len = std::wstring(wstring_literal).length();
+#else  // Windows & Mac
+#  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal) SQLWCHAR name[] = wstring_literal;
+#  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_literal) \
+    ASSIGN_SQLWCHAR_ARR(name, wstring_literal)               \
+    size_t name##_len = std::wcslen(name);
+#endif
+
 static constexpr std::string_view kTestConnectStr = "ARROW_FLIGHT_SQL_ODBC_CONN";
 static constexpr std::string_view kTestDsn = "Apache Arrow Flight SQL Test DSN";
 
@@ -266,6 +280,17 @@ bool WriteDSN(Connection::ConnPropertyMap properties);
 /// \param[in] col_id Column ID to check.
 /// \return wstring
 std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id);
+
+/// \brief Get length of wide char array.
+/// \param[in] str_val Array of SQLWCHAR.
+/// \return number of wide characters in array
+size_t SqlWCharArrLen(const SQLWCHAR* str_val);
+
+/// \brief Check wide char array and convert into wstring
+/// \param[in] str_val Array of SQLWCHAR.
+/// \param[in] str_len length of string, in number of characters.
+/// \return wstring
+std::wstring ConvertToWString(const SQLWCHAR* str_val, SQLSMALLINT str_len = -1);
 
 /// \brief Check wide char vector and convert into wstring
 /// \param[in] str_val Vector of SQLWCHAR.
