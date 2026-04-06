@@ -332,8 +332,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
-  SQLWCHAR wsql[] = L"SELECT 1;";
-  SQLINTEGER wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
