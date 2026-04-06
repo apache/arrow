@@ -34,7 +34,7 @@
 #' tf <- tempfile()
 #' on.exit(unlink(tf))
 #' write_ipc_stream(mtcars, tf)
-write_ipc_stream <- function(x, sink, ...) {
+write_ipc_stream <- function(x, sink) {
   x_out <- x # So we can return the data we got
   x <- as_writable_table(x)
 
@@ -98,7 +98,7 @@ write_to_raw <- function(x, format = c("stream", "file")) {
 #' with `as_data_frame = FALSE` and calling `$ValidateFull()` on the Table
 #' before processing.
 #' @export
-read_ipc_stream <- function(file, as_data_frame = TRUE, ...) {
+read_ipc_stream <- function(file, as_data_frame = TRUE) {
   if (!inherits(file, "InputStream")) {
     file <- make_readable_file(file, random_access = FALSE)
     on.exit(file$close())
