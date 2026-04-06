@@ -424,7 +424,11 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtEventUnsupported) {
   // Driver does not support asynchronous notification
   ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0, SQL_ERROR,
+#  ifdef __linux__
+                               kErrorStateHYC00);
+#  else  // Windows & Mac
                                kErrorStateHY118);
+#  endif
 }
 #endif
 

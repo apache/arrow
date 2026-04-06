@@ -531,7 +531,7 @@ bool WriteDSN(Connection::ConnPropertyMap properties) {
   }
 
   std::string driver = config.Get(FlightSqlConnection::DRIVER);
-  std::wstring w_driver = arrow::util::UTF8ToWideString(driver).ValueOr(L"");
+  CONVERT_SQLWCHAR_STR(w_driver, driver);
   return RegisterDsn(config, reinterpret_cast<LPCWSTR>(w_driver.c_str()));
 }
 
@@ -562,30 +562,34 @@ size_t SqlWCharArrLen(const SQLWCHAR* str_val) {
   return static_cast<size_t>(p - str_val);
 }
 
-std::wstring ConvertToWString(const SQLWCHAR* str_val) {
+std::wstring ConvertToWString(const SQLWCHAR* str_val, SQLSMALLINT str_len,
+                              SQLSMALLINT buffer_size) {
+  if (str_len == -1) {
 #ifdef __linux__
-  size_t str_len = SqlWCharArrLen(str_val);
-#else
-  size_t str_len = std::wcslen(str_val);
+    str_len = SqlWCharArrLen(str_val);
+#else  // Windows & Mac
+    str_len = std::wcslen(str_val);
 #endif
+  }
   std::wstring attr_str;
   if (str_len == 0) {
     attr_str = L"";
   } else {
     assert(str_val != nullptr);
-    assert(str_len > 0 && str_len <= static_cast<SQLSMALLINT>(kOdbcBufferSize));
+    assert(str_len > 0 && str_len <= buffer_size);
     attr_str.assign(str_val, str_val + str_len);
   }
   return attr_str;
 }
 
-std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len) {
+std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len,
+                              SQLSMALLINT buffer_size) {
   std::wstring attr_str;
   if (str_len == 0) {
     attr_str = L"";
   } else {
     EXPECT_GT(str_len, 0);
-    EXPECT_LE(str_len, static_cast<SQLSMALLINT>(kOdbcBufferSize));
+    EXPECT_LE(str_len, buffer_size);
     attr_str =
         std::wstring(str_val.begin(), str_val.begin() + str_len / GetSqlWCharSize());
   }
