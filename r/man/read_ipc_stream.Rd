@@ -4,7 +4,7 @@
 \alias{read_ipc_stream}
 \title{Read Arrow IPC stream format}
 \usage{
-read_ipc_stream(file, as_data_frame = TRUE, ...)
+read_ipc_stream(file, as_data_frame = TRUE)
 }
 \arguments{
 \item{file}{A character file name or URI, connection, \code{raw} vector, an
