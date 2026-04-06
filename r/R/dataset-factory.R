@@ -165,8 +165,8 @@ handle_partitioning <- function(partitioning, path_and_fs, hive_style) {
 #' @param format A [FileFormat] object, or a string identifier of the format of
 #' the files in `x`. Currently supported values:
 #' * "parquet"
-#' * "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-#'   only version 2 files are supported
+#' * "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+#'   this is deprecated)
 #' * "csv"/"text", aliases for the same thing (because comma is the default
 #'   delimiter for text files
 #' * "tsv", equivalent to passing `format = "text", delimiter = "\t"`

@@ -96,8 +96,8 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
     test_that(sprintf("open_dataset with vector of %s file URIs", name), {
       expect_identical(
         open_dataset(
-          c(uri_formatter("test.feather"), uri_formatter("test2.feather")),
-          format = "feather"
+          c(uri_formatter("test.arrow"), uri_formatter("test2.arrow")),
+          format = "arrow"
         ) |>
           arrange(int) |>
           collect(),
@@ -110,10 +110,10 @@ test_filesystem <- function(name, fs, path_formatter, uri_formatter) {
       expect_error(
         open_dataset(
           c(
-            uri_formatter("test.feather"),
-            paste0("file://", file.path(td, "fake.feather"))
+            uri_formatter("test.arrow"),
+            paste0("file://", file.path(td, "fake.arrow"))
           ),
-          format = "feather"
+          format = "arrow"
         ),
         "Vectors of URIs for different file systems are not supported"
       )

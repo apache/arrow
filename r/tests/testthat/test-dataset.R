@@ -46,8 +46,8 @@ test_that("Setup (putting data in the dir)", {
   expect_length(dir(ipc_dir, recursive = TRUE), 2)
 })
 
-test_that("IPC/Feather format data", {
-  ds <- open_dataset(ipc_dir, partitioning = "part", format = "feather")
+test_that("IPC format data", {
+  ds <- open_dataset(ipc_dir, partitioning = "part", format = "ipc")
   expect_r6_class(ds$format, "IpcFileFormat")
   expect_r6_class(ds$filesystem, "LocalFileSystem")
   expect_named(ds, c(names(df1), "part"))
@@ -72,6 +72,13 @@ test_that("IPC/Feather format data", {
   )
 })
 
+test_that("format = 'feather' is deprecated", {
+  expect_warning(
+    open_dataset(ipc_dir, partitioning = "part", format = "feather"),
+    "deprecated"
+  )
+})
+
 expect_scan_result <- function(ds, schm) {
   sb <- ds$NewScan()
   expect_r6_class(sb, "ScannerBuilder")
@@ -93,7 +100,7 @@ expect_scan_result <- function(ds, schm) {
 
 test_that("URI-decoding with directory partitioning", {
   root <- make_temp_dir()
-  fmt <- FileFormat$create("feather")
+  fmt <- FileFormat$create("ipc")
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "2021-05-04 00%3A00%3A00", "%24")
@@ -173,7 +180,7 @@ test_that("URI-decoding with directory partitioning", {
 
 test_that("URI-decoding with hive partitioning", {
   root <- make_temp_dir()
-  fmt <- FileFormat$create("feather")
+  fmt <- FileFormat$create("ipc")
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "date=2021-05-04 00%3A00%3A00", "string=%24")
@@ -249,7 +256,7 @@ test_that("URI-decoding with hive partitioning", {
 
 test_that("URI-decoding with hive partitioning with key encoded", {
   root <- make_temp_dir()
-  fmt <- FileFormat$create("feather")
+  fmt <- FileFormat$create("ipc")
   fs <- LocalFileSystem$create()
   selector <- FileSelector$create(root, recursive = TRUE)
   dir1 <- file.path(root, "test%20key=2021-05-04 00%3A00%3A00", "test%20key1=%24")
@@ -1044,7 +1051,7 @@ test_that("Can delete filesystem dataset files after collection", {
 })
 
 test_that("Scanner$ScanBatches", {
-  ds <- open_dataset(ipc_dir, format = "feather")
+  ds <- open_dataset(ipc_dir, format = "ipc")
   batches <- ds$NewScan()$Finish()$ScanBatches()
   table <- Table$create(!!!batches)
   expect_equal_data_frame(table, rbind(df1, df2))
