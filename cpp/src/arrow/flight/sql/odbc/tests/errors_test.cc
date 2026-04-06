@@ -309,15 +309,20 @@ TYPED_TEST(ErrorsTest, TestSQLGetDiagRecInputData) {
   EXPECT_EQ(SQL_NO_DATA, SQLGetDiagRec(SQL_HANDLE_DBC, conn, 1, nullptr, nullptr, nullptr,
                                        0, nullptr));
 
-  // Invalid handle
 #ifdef __APPLE__
   // MacOS ODBC driver manager requires connection handle
   EXPECT_EQ(SQL_INVALID_HANDLE,
             SQLGetDiagRec(0, conn, 1, nullptr, nullptr, nullptr, 0, nullptr));
 #else
-  EXPECT_EQ(SQL_INVALID_HANDLE,
+  // Linux & Windows driver managers have different expected return values
+#  ifdef __linux__
+  SQLRETURN expected_rc = SQL_ERROR;
+#  else  // Windows
+  SQLRETURN expected_rc = SQL_INVALID_HANDLE;
+#  endif
+  EXPECT_EQ(expected_rc,
             SQLGetDiagRec(0, nullptr, 0, nullptr, nullptr, nullptr, 0, nullptr));
-#endif  // __APPLE__
+#endif
 }
 
 TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorInputData) {
@@ -485,13 +490,13 @@ TYPED_TEST(ErrorsOdbcV2Test, TestSQLErrorEnvErrorFromDriverManager) {
   EXPECT_EQ(0, native_error);
 
   // Function sequence error state from driver manager
-#ifdef _WIN32
-  // Windows Driver Manager returns S1010
-  EXPECT_EQ(kErrorStateS1010, SqlWcharToString(sql_state));
-#else
-  // unix Driver Manager returns HY010
+#ifdef __APPLE__
+  // MacOS Driver Manager returns HY010
   EXPECT_EQ(kErrorStateHY010, SqlWcharToString(sql_state));
-#endif  // _WIN32
+#else  // Linux & Windows
+  // Linux & Windows Driver Managers returns S1010
+  EXPECT_EQ(kErrorStateS1010, SqlWcharToString(sql_state));
+#endif
 
   std::string msg = SqlWcharToString(message);
   EXPECT_FALSE(msg.empty());

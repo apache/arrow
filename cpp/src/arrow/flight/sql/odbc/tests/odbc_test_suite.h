@@ -235,6 +235,7 @@ bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
 /// Get error message from ODBC driver using SQLGetDiagRec
 std::string GetOdbcErrorMessage(SQLSMALLINT handle_type, SQLHANDLE handle);
 
+static constexpr std::string_view kErrorState00000 = "00000";
 static constexpr std::string_view kErrorState01004 = "01004";
 static constexpr std::string_view kErrorState01S02 = "01S02";
 static constexpr std::string_view kErrorState01S07 = "01S07";

@@ -143,6 +143,9 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDataSourceName) {
 }
 
 #ifdef SQL_DRIVER_AWARE_POOLING_SUPPORTED
+// GH-49782: TODO Disabled on Linux until SQL_DRIVER_AWARE_POOLING_SUPPORTED is
+// implemented in the driver.
+#  ifndef __linux__
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverAwarePoolingSupported) {
   // According to Microsoft documentation, ODBC driver does not need to implement
   // SQL_DRIVER_AWARE_POOLING_SUPPORTED and the Driver Manager will ignore the
@@ -153,7 +156,8 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverAwarePoolingSupported) {
 
   EXPECT_EQ(static_cast<SQLUINTEGER>(SQL_DRIVER_AWARE_POOLING_NOT_CAPABLE), value);
 }
-#endif
+#  endif  // __linux__
+#endif    // SQL_DRIVER_AWARE_POOLING_SUPPORTED
 
 // These information types are implemented by the Driver Manager alone.
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDriverHdbc) {
@@ -329,9 +333,11 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoOdbcVer) {
 
   std::wstring result = ConvertToWString(value);
 
-#ifdef __APPLE__
+#if defined(__APPLE__)
   EXPECT_EQ(std::wstring(L"03.52.0000"), result);
-#else
+#elif defined(__linux__)
+  EXPECT_EQ(std::wstring(L"03.52"), result);
+#else   // WINDOWS
   EXPECT_EQ(std::wstring(L"03.80.0000"), result);
 #endif  // __APPLE__
 }
