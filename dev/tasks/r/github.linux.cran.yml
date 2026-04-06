@@ -53,7 +53,6 @@ jobs:
           -e ARROW_SOURCE_HOME=''
           -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }}
           -e _R_CHECK_CRAN_INCOMING_=false
-          -e _R_CHECK_COMPILATION_FLAGS_KNOWN_="-Werror=implicit-function-declaration -Wno-error=enum-constexpr-conversion -Wp,-D_FORTIFY_SOURCE=3 -Wno-missing-template-arg-list-after-template-kw"
           r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
