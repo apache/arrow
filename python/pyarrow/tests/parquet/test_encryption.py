@@ -722,3 +722,156 @@ def test_encrypted_parquet_read_table(tempdir, data_table, basic_encryption_conf
     result_table = pq.read_table(
         tempdir, decryption_properties=file_decryption_properties)
     assert data_table.equals(result_table)
+
+
+class TestDirectKeyEncryption:
+    """Tests for create_encryption_properties / create_decryption_properties."""
+
+    KEY_128 = b"0123456789abcdef"
+    KEY_192 = b"0123456789abcdef01234567"
+    KEY_256 = b"0123456789abcdef0123456789abcdef"
+    AAD_PREFIX = b"test_aad_prefix"
+
+    def test_roundtrip_aes128(self, tempdir, data_table):
+        path = tempdir / "direct_aes128.parquet"
+
+        enc_props = pe.create_encryption_properties(footer_key=self.KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(footer_key=self.KEY_128)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_roundtrip_aes256(self, tempdir, data_table):
+        path = tempdir / "direct_aes256.parquet"
+
+        enc_props = pe.create_encryption_properties(footer_key=self.KEY_256)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(footer_key=self.KEY_256)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_roundtrip_with_aad_prefix(self, tempdir, data_table):
+        path = tempdir / "direct_aad.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=self.KEY_128,
+            aad_prefix=self.AAD_PREFIX,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=self.KEY_128,
+            aad_prefix=self.AAD_PREFIX,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_roundtrip_aad_prefix_not_stored(self, tempdir, data_table):
+        """When store_aad_prefix=False, reader must supply aad_prefix."""
+        path = tempdir / "direct_aad_not_stored.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=self.KEY_128,
+            aad_prefix=self.AAD_PREFIX,
+            store_aad_prefix=False,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        # Reading without aad_prefix should fail
+        dec_props_no_aad = pe.create_decryption_properties(
+            footer_key=self.KEY_128,
+        )
+        with pytest.raises(IOError):
+            pq.read_table(path, decryption_properties=dec_props_no_aad)
+
+        # Reading with correct aad_prefix should succeed
+        dec_props = pe.create_decryption_properties(
+            footer_key=self.KEY_128,
+            aad_prefix=self.AAD_PREFIX,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_encrypted_file_has_pare_magic(self, tempdir, data_table):
+        path = tempdir / "direct_magic.parquet"
+
+        enc_props = pe.create_encryption_properties(footer_key=self.KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        with open(path, "rb") as f:
+            magic = f.read(4)
+        assert magic == b"PARE"
+
+    def test_plaintext_footer(self, tempdir, data_table):
+        path = tempdir / "direct_plaintext_footer.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=self.KEY_128,
+            plaintext_footer=True,
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(footer_key=self.KEY_128)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_aes_gcm_ctr_v1_algorithm(self, tempdir, data_table):
+        path = tempdir / "direct_ctr.parquet"
+
+        enc_props = pe.create_encryption_properties(
+            footer_key=self.KEY_128,
+            encryption_algorithm="AES_GCM_CTR_V1",
+        )
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        dec_props = pe.create_decryption_properties(footer_key=self.KEY_128)
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_wrong_key_fails(self, tempdir, data_table):
+        path = tempdir / "direct_wrong_key.parquet"
+
+        enc_props = pe.create_encryption_properties(footer_key=self.KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        wrong_key = b"fedcba9876543210"
+        dec_props = pe.create_decryption_properties(footer_key=wrong_key)
+        with pytest.raises(IOError):
+            pq.read_table(path, decryption_properties=dec_props)
+
+    def test_reading_without_decryption_fails(self, tempdir, data_table):
+        path = tempdir / "direct_no_decrypt.parquet"
+
+        enc_props = pe.create_encryption_properties(footer_key=self.KEY_128)
+        pq.write_table(data_table, path, encryption_properties=enc_props)
+
+        with pytest.raises(IOError):
+            pq.read_table(path)
+
+    def test_allow_plaintext_files(self, tempdir, data_table):
+        """Plaintext file reads should work when allow_plaintext_files=True."""
+        path = tempdir / "plaintext.parquet"
+        pq.write_table(data_table, path)
+
+        dec_props = pe.create_decryption_properties(
+            footer_key=self.KEY_128,
+            allow_plaintext_files=True,
+        )
+        result = pq.read_table(path, decryption_properties=dec_props)
+        assert data_table.equals(result)
+
+    def test_invalid_key_length_raises(self):
+        with pytest.raises(ValueError, match="16, 24, or 32 bytes"):
+            pe.create_encryption_properties(footer_key=b"short")
+
+        with pytest.raises(ValueError, match="16, 24, or 32 bytes"):
+            pe.create_decryption_properties(footer_key=b"short")
+
+    def test_invalid_algorithm_raises(self, tempdir):
+        with pytest.raises(ValueError):
+            pe.create_encryption_properties(
+                footer_key=self.KEY_128,
+                encryption_algorithm="INVALID",
+            )

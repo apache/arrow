@@ -430,13 +430,13 @@ cdef class CryptoFactory(_Weakrefable):
         parquet_file_path : str, pathlib.Path, or None, default None
             Path to the parquet file to be encrypted. Only required when the
             internal_key_material attribute of EncryptionConfiguration is set
-            to False. Used to derive the path for storing key material 
+            to False. Used to derive the path for storing key material
             specific to this parquet file.
 
         filesystem : FileSystem or None, default None
-            Used only when internal_key_material is set to False on 
+            Used only when internal_key_material is set to False on
             EncryptionConfiguration. If None, the file system will be inferred
-            based on parquet_file_path. 
+            based on parquet_file_path.
 
         Returns
         -------
@@ -491,7 +491,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
-            None, the file system will be inferred based on parquet_file_path. 
+            None, the file system will be inferred based on parquet_file_path.
 
         Returns
         -------
@@ -552,7 +552,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
-            None, the file system will be inferred based on parquet_file_path. 
+            None, the file system will be inferred based on parquet_file_path.
 
         double_wrapping : bool, default True
             In the single wrapping mode, encrypts data encryption keys with
@@ -665,7 +665,7 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
 
         filesystem : FileSystem, default None
             FileSystem where the parquet file is located. If None,
-            will be inferred based on parquet_file_path. 
+            will be inferred based on parquet_file_path.
 
         Returns
         -------
@@ -711,3 +711,173 @@ cdef shared_ptr[CDecryptionConfiguration] pyarrow_unwrap_decryptionconfig(object
     if isinstance(decryptionconfig, DecryptionConfiguration):
         return (<DecryptionConfiguration> decryptionconfig).unwrap()
     raise TypeError("Expected DecryptionConfiguration, got %s" % type(decryptionconfig))
+
+
+def create_decryption_properties(
+    footer_key,
+    *,
+    aad_prefix=None,
+    bint check_footer_integrity=True,
+    bint allow_plaintext_files=False,
+):
+    """
+    Create FileDecryptionProperties using a direct footer key.
+
+    This bypasses the KMS-based CryptoFactory API and directly constructs
+    decryption properties from a plaintext key.
+
+    Parameters
+    ----------
+    footer_key : bytes
+        The decryption key for the file footer (and all columns if
+        uniform encryption was used). Must be 16, 24, or 32 bytes
+        for AES-128, AES-192, or AES-256 respectively.
+    aad_prefix : bytes, optional
+        Additional Authenticated Data prefix. Must match the AAD prefix
+        that was used during encryption. Required if the file was written
+        with ``store_aad_prefix=False``.
+    check_footer_integrity : bool, default True
+        Whether to verify footer integrity using the signature stored
+        in the file. Set to False only for debugging.
+    allow_plaintext_files : bool, default False
+        Whether to allow reading plaintext (unencrypted) files with
+        these decryption properties without raising an error.
+
+    Returns
+    -------
+    FileDecryptionProperties
+        Properties that can be passed to :func:`read_table`,
+        :class:`ParquetFile`, or
+        :class:`~pyarrow.dataset.ParquetFragmentScanOptions`.
+
+    Examples
+    --------
+    >>> import pyarrow.parquet as pq
+    >>> import pyarrow.parquet.encryption as pe
+    >>> props = pe.create_decryption_properties(
+    ...     footer_key=b'0123456789abcdef',
+    ...     aad_prefix=b'table_id'
+    ... )
+    >>> table = pq.read_table('encrypted.parquet', decryption_properties=props)
+    """
+    cdef:
+        CSecureString c_footer_key
+        c_string c_aad_prefix
+        CFileDecryptionPropertiesBuilder* builder
+        shared_ptr[CFileDecryptionProperties] props
+
+    footer_key_bytes = tobytes(footer_key)
+    if len(footer_key_bytes) not in (16, 24, 32):
+        raise ValueError(
+            f"footer_key must be 16, 24, or 32 bytes, got {len(footer_key_bytes)}"
+        )
+
+    c_footer_key = CSecureString(<c_string>footer_key_bytes)
+    builder = new CFileDecryptionPropertiesBuilder()
+
+    try:
+        builder.footer_key(c_footer_key)
+
+        if aad_prefix is not None:
+            c_aad_prefix = tobytes(aad_prefix)
+            builder.aad_prefix(c_aad_prefix)
+
+        if not check_footer_integrity:
+            builder.disable_footer_signature_verification()
+
+        if allow_plaintext_files:
+            builder.plaintext_files_allowed()
+
+        props = builder.build()
+    finally:
+        del builder
+
+    return FileDecryptionProperties.wrap(props)
+
+
+def create_encryption_properties(
+    footer_key,
+    *,
+    aad_prefix=None,
+    bint store_aad_prefix=True,
+    encryption_algorithm="AES_GCM_V1",
+    bint plaintext_footer=False,
+):
+    """
+    Create FileEncryptionProperties using a direct footer key.
+
+    This bypasses the KMS-based CryptoFactory API and directly constructs
+    encryption properties from a plaintext key.
+
+    Parameters
+    ----------
+    footer_key : bytes
+        The encryption key for the file footer (and all columns unless
+        per-column keys are specified). Must be 16, 24, or 32 bytes
+        for AES-128, AES-192, or AES-256 respectively.
+    aad_prefix : bytes, optional
+        Additional Authenticated Data prefix for cryptographic binding.
+    store_aad_prefix : bool, default True
+        Whether to store the AAD prefix in the Parquet file metadata.
+        Set to False when the AAD prefix will be supplied externally
+        at read time.
+        Only meaningful when *aad_prefix* is provided.
+    encryption_algorithm : str, default "AES_GCM_V1"
+        Encryption algorithm. Either ``"AES_GCM_V1"`` or
+        ``"AES_GCM_CTR_V1"``.
+    plaintext_footer : bool, default False
+        Whether to leave the file footer unencrypted. When True, file
+        schema and column statistics are readable without a key.
+
+    Returns
+    -------
+    FileEncryptionProperties
+        Properties that can be passed to :func:`write_table` or
+        :class:`ParquetWriter`.
+
+    Examples
+    --------
+    >>> import pyarrow as pa
+    >>> import pyarrow.parquet as pq
+    >>> import pyarrow.parquet.encryption as pe
+    >>> props = pe.create_encryption_properties(
+    ...     footer_key=b'0123456789abcdef',
+    ...     aad_prefix=b'table_id',
+    ...     store_aad_prefix=False
+    ... )
+    >>> pq.write_table(table, 'encrypted.parquet', encryption_properties=props)
+    """
+    cdef:
+        CSecureString c_footer_key
+        c_string c_aad_prefix
+        CFileEncryptionPropertiesBuilder* builder
+        shared_ptr[CFileEncryptionProperties] props
+        ParquetCipher cipher
+
+    footer_key_bytes = tobytes(footer_key)
+    if len(footer_key_bytes) not in (16, 24, 32):
+        raise ValueError(
+            f"footer_key must be 16, 24, or 32 bytes, got {len(footer_key_bytes)}"
+        )
+
+    cipher = cipher_from_name(encryption_algorithm)
+    c_footer_key = CSecureString(<c_string>footer_key_bytes)
+    builder = new CFileEncryptionPropertiesBuilder(c_footer_key)
+
+    try:
+        builder.algorithm(cipher)
+
+        if aad_prefix is not None:
+            c_aad_prefix = tobytes(aad_prefix)
+            builder.aad_prefix(c_aad_prefix)
+            if not store_aad_prefix:
+                builder.disable_aad_prefix_storage()
+
+        if plaintext_footer:
+            builder.set_plaintext_footer()
+
+        props = builder.build()
+    finally:
+        del builder
+
+    return FileEncryptionProperties.wrap(props)
