@@ -40,6 +40,10 @@ except ImportError:
     pass
 
 
+pytestmark = pytest.mark.filterwarnings(
+    "ignore:The Dataframe Interchange Protocol is deprecated.")
+
+
 @pytest.mark.parametrize("unit", ['s', 'ms', 'us', 'ns'])
 @pytest.mark.parametrize("tz", ['', 'America/New_York', '+07:30', '-04:30'])
 def test_datetime(unit, tz):
