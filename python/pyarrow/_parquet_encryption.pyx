@@ -723,8 +723,14 @@ def create_decryption_properties(
     """
     Create FileDecryptionProperties using a direct footer key.
 
-    This bypasses the KMS-based CryptoFactory API and directly constructs
-    decryption properties from a plaintext key.
+    This bypasses the KMS-based :class:`CryptoFactory` API and directly
+    constructs decryption properties from a plaintext key. This is useful
+    when the caller manages key wrapping externally (e.g. via an
+    application-level envelope encryption scheme).
+
+    For most use cases, prefer the higher-level :class:`CryptoFactory`
+    with :class:`DecryptionConfiguration`, which handles envelope
+    encryption and key rotation automatically.
 
     Parameters
     ----------
@@ -806,8 +812,15 @@ def create_encryption_properties(
     """
     Create FileEncryptionProperties using a direct footer key.
 
-    This bypasses the KMS-based CryptoFactory API and directly constructs
-    encryption properties from a plaintext key.
+    This bypasses the KMS-based :class:`CryptoFactory` API and directly
+    constructs encryption properties from a plaintext key. This is useful
+    when the caller manages key wrapping externally (e.g. via an
+    application-level envelope encryption scheme).
+
+    For most use cases, prefer the higher-level :class:`CryptoFactory`
+    with :class:`EncryptionConfiguration`, which handles envelope
+    encryption, key rotation, and unique-per-file data keys
+    automatically.
 
     Parameters
     ----------
