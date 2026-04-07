@@ -17,8 +17,6 @@
 
 import asyncio
 
-import pytest
-
 import pyarrow as pa
 from pyarrow.lib import _test_roundtrip_async
 
