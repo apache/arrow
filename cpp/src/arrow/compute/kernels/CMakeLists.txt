@@ -26,10 +26,6 @@ if(ARROW_TESTING)
   # Even though this is still just an object library we still need to "link" our
   # dependencies so that include paths are configured correctly
   target_link_libraries(arrow_compute_kernels_testing PUBLIC ${ARROW_GTEST_GMOCK})
-  # When using static test linkage, define ARROW_STATIC so test_util_internal.cc doesn't expect DLL imports
-  # if(ARROW_TEST_LINKAGE STREQUAL "static")
-  #   target_compile_definitions(arrow_compute_kernels_testing PRIVATE ARROW_STATIC)
-  # endif()
 endif()
 
 add_arrow_test(scalar_cast_test
