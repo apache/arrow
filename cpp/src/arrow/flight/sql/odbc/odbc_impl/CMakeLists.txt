@@ -169,26 +169,15 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
 
-# On Windows, dynamic linking ODBC is supported.
-# On unix systems, static linking ODBC is supported, thus the library linking is static.
-# Use STATIC_LINK_LIBS when Flight tests require static linkage to avoid mixing static/shared Arrow
-if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  # Static linkage required - pass everything via STATIC_LINK_LIBS
+# Respect ARROW_FLIGHT_TEST_LINKAGE, default to shared
+if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl
                                      arrow_flight_testing_static
                                      ${ARROW_TEST_STATIC_LINK_LIBS})
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
-elseif(WIN32)
-  # Shared linkage - use EXTRA_LINK_LIBS
+else()
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS "")
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS arrow_odbc_spi_impl
-                                     arrow_flight_testing_shared)
-else()
-  # Unix - always static
-  set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl
-                                     arrow_flight_testing_static
-                                     ${ARROW_TEST_STATIC_LINK_LIBS})
-  set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
 endif()
 
 add_arrow_test(odbc_spi_impl_test
