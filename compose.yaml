@@ -565,6 +565,8 @@ services:
       ARROW_PARQUET: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
+      # GH-49651 Link ODBC tests statically on Linux to fix segfault
+      ARROW_TEST_LINKAGE: "static"
     # Register ODBC before running tests
     command: >
       /bin/bash -c "
