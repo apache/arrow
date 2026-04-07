@@ -110,11 +110,11 @@ RUN setx path "%path%;C:\Program Files\Git\usr\bin"
 # started to ship precompiled binaries for the vcpkg-tool.
 ARG vcpkg
 COPY ci/vcpkg/*.patch `
-  ci/vcpkg/*win*.cmake `
+  ci/vcpkg/*windows*.cmake `
   arrow/ci/vcpkg/
 COPY ci/scripts/install_vcpkg.sh arrow/ci/scripts/
-ENV VCPKG_ROOT=C:\\v
-RUN bash arrow/ci/scripts/install_vcpkg.sh /c/v %vcpkg% && `
+ENV VCPKG_ROOT=C:\\vcpkg
+RUN bash arrow/ci/scripts/install_vcpkg.sh /c/vcpkg %vcpkg% && `
   setx PATH "%PATH%;%VCPKG_ROOT%"
 
 # Configure vcpkg and install dependencies
@@ -125,11 +125,8 @@ RUN bash arrow/ci/scripts/install_vcpkg.sh /c/v %vcpkg% && `
 ARG build_type=release
 ENV CMAKE_BUILD_TYPE=${build_type} `
   VCPKG_OVERLAY_TRIPLETS=C:\\arrow\\ci\\vcpkg `
+  VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} `
   VCPKG_FEATURE_FLAGS="manifests"
-# Derive a short triplet name to keep paths short and avoid hitting the
-# hcsshim::ImportLayer MAX_PATH limit on Windows containers. GH-49676
-RUN if "%build_type%"=="release" (setx VCPKG_DEFAULT_TRIPLET x64-win-rel) `
-    else if "%build_type%"=="debug" (setx VCPKG_DEFAULT_TRIPLET x64-win-dbg)
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 
 # We split the dependencies installation into two steps to reduce the size
