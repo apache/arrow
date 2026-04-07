@@ -177,7 +177,7 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
 else()
   set(ODBC_SPI_IMPL_TEST_STATIC_LIBS "")
-  set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS arrow_odbc_spi_impl
+  set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS arrow_odbc_spi_impl)
 endif()
 
 add_arrow_test(odbc_spi_impl_test
