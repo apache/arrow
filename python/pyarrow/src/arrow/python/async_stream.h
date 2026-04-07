@@ -46,8 +46,7 @@ inline Future<RecordBatchWithMetadata> CallAsyncGenerator(
 /// Returns a Future that resolves to the AsyncRecordBatchGenerator once
 /// the schema is available.
 inline Future<AsyncRecordBatchGenerator> RoundtripAsyncBatches(
-    std::shared_ptr<Schema> schema,
-    std::vector<std::shared_ptr<RecordBatch>> batches,
+    std::shared_ptr<Schema> schema, std::vector<std::shared_ptr<RecordBatch>> batches,
     ::arrow::internal::Executor* executor, uint64_t queue_size = 5) {
   // Heap-allocate the handler so it outlives this function.
   auto* handler = new ArrowAsyncDeviceStreamHandler;
