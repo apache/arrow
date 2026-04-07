@@ -304,7 +304,7 @@ register_bindings_conditional <- function() {
       value <- parsed$value
       if (!is.null(.default)) {
         if (length(.default) != 1) {
-          arrow_not_supported("`case_when()` with vectorized `.default`")
+          arrow_not_supported("`.default` must be size 1; vectors of length > 1")
         }
         n <- length(query)
         query[[n + 1]] <- TRUE
@@ -361,7 +361,7 @@ register_bindings_conditional <- function() {
 
       if (!is.null(default)) {
         if (length(default) != 1) {
-          arrow_not_supported("`recode_values()` with vectorized `default`")
+          arrow_not_supported("`default` must be size 1; vectors of length > 1")
         }
         n <- length(query)
         query[[n + 1]] <- TRUE

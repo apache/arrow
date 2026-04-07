@@ -296,7 +296,7 @@ test_that("case_when()", {
   )
   expect_arrow_eval_error(
     case_when(int > 5 ~ 1, .default = c(0, 1)),
-    "`case_when\\(\\)` with vectorized `.default` not supported in Arrow",
+    "`.default` must be size 1; vectors of length > 1 not supported in Arrow",
     class = "arrow_not_supported"
   )
 
@@ -872,7 +872,7 @@ test_that("recode_values()", {
   )
   expect_arrow_eval_error(
     recode_values(chr, "a" ~ "A", default = c("x", "y")),
-    "`recode_values\\(\\)` with vectorized `default` not supported in Arrow",
+    "`default` must be size 1; vectors of length > 1 not supported in Arrow",
     class = "arrow_not_supported"
   )
 })
