@@ -633,7 +633,7 @@ test_that("replace_when()", {
     tbl
   )
 
-  # NULL formulas are compacted out (allows conditional formulas)
+  # Conditions on LHS of formulas are compacted out
   condition <- FALSE
   compare_dplyr_binding(
     .input |>
