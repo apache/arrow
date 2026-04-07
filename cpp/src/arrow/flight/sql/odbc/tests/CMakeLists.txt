@@ -40,8 +40,7 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     type_info_test.cc
     # Enable Protobuf cleanup after test execution
     # GH-46889: move protobuf_test_util to a more common location
-    ../../../../engine/substrait/protobuf_test_util.cc
-)
+    ../../../../engine/substrait/protobuf_test_util.cc)
 
 # ODBC tests must respect ARROW_FLIGHT_TEST_LINKAGE since they depend on Flight libraries
 # which may be forced to static linkage due to static gRPC/Protobuf
