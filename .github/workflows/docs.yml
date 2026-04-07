@@ -18,12 +18,17 @@
 name: Docs
 
 on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
   pull_request:
     paths:
       - '.github/workflows/docs.yml'
       - 'cpp/apidoc/**'
       - 'docs/**'
-  push:
 
 permissions:
   contents: read
