@@ -61,9 +61,9 @@ set CMAKE_INTERPROCEDURAL_OPTIMIZATION=ON
 set CMAKE_UNITY_BUILD=ON
 set CMAKE_GENERATOR=Visual Studio 17 2022
 set CMAKE_PLATFORM=x64
-set VCPKG_ROOT=C:\vcpkg
+set VCPKG_ROOT=C:\v
 set VCPKG_FEATURE_FLAGS=-manifests
-set VCPKG_TARGET_TRIPLET=amd64-windows-static-md-%CMAKE_BUILD_TYPE%
+if "%CMAKE_BUILD_TYPE%"=="release" (set VCPKG_TARGET_TRIPLET=x64-win-rel) else (set VCPKG_TARGET_TRIPLET=x64-win-dbg)
 
 mkdir C:\arrow-build
 pushd C:\arrow-build
