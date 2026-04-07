@@ -150,9 +150,3 @@ RUN vcpkg install `
   --x-feature=json `
   --x-feature=orc `
   --x-feature=parquet
-
-# Install Opentelemetry alone.
-RUN vcpkg install `
-  --clean-after-build `
-  --x-install-root=%VCPKG_ROOT%\installed `
-  --x-feature=opentelemetry `
