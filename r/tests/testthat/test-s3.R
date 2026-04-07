@@ -26,7 +26,7 @@ run_these <- tryCatch(
         !identical(Sys.getenv("AWS_SECRET_ACCESS_KEY"), "")
     ) {
       # See if we have access to the test bucket
-      bucket <- s3_bucket("arrow-datasets")
+      bucket <- s3_bucket("arrow-r-ci-test")
       bucket$GetFileInfo("")
       TRUE
     } else {
@@ -36,7 +36,7 @@ run_these <- tryCatch(
   error = function(e) FALSE
 )
 
-bucket_uri <- function(..., bucket = "s3://arrow-datasets/%s?region=us-east-1") {
+bucket_uri <- function(..., bucket = "s3://arrow-r-ci-test/%s?region=us-east-1") {
   segments <- paste(..., sep = "/")
   sprintf(bucket, segments)
 }

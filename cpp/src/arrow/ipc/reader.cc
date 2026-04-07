@@ -2807,6 +2807,7 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
         // EOS
         break;
       }
+      RETURN_NOT_OK(ValidateFuzzBatch(batch));
       batches.push_back(batch);
     }
     return IpcReadResult{batch_reader->schema(), batches};

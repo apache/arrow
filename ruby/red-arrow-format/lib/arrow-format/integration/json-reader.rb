@@ -384,7 +384,8 @@ module ArrowFormat
         when DictionaryType
           validity_buffer = read_bitmap(column["VALIDITY"])
           indices_buffer = read_values(column["DATA"], type.index_type)
-          dictionary = read_dictionary(type.id, type.value_type)
+          dictionary_array = read_dictionary(type.id, type.value_type)
+          dictionary = Dictionary.new(type.id, dictionary_array)
           type.build_array(length,
                            validity_buffer,
                            indices_buffer,

@@ -2349,6 +2349,13 @@ cdef _array_like_to_pandas(obj, options, types_mapper):
             dtype = original_type.to_pandas_dtype()
         except NotImplementedError:
             pass
+    elif pandas_api.uses_string_dtype() and not options["strings_to_categorical"] and (
+        original_type.id == _Type_STRING or
+        original_type.id == _Type_LARGE_STRING or
+        original_type.id == _Type_STRING_VIEW
+    ):
+        # for pandas 3.0+, use pandas' new default string dtype
+        dtype = pandas_api.pd.StringDtype(na_value=np.nan)
 
     # Only call __from_arrow__ for Arrow extension types or when explicitly
     # overridden via types_mapper

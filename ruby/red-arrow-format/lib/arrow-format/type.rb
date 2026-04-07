@@ -33,7 +33,7 @@ module ArrowFormat
     end
 
     def build_array(size)
-      NullArray.new(self, size)
+      NullArray.new(size)
     end
 
     def to_flatbuffers
@@ -56,7 +56,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      BooleanArray.new(self, size, validity_buffer, values_buffer)
+      BooleanArray.new(size, validity_buffer, values_buffer)
     end
 
     def to_flatbuffers
@@ -107,7 +107,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Int8Array.new(self, size, validity_buffer, values_buffer)
+      Int8Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -131,7 +131,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      UInt8Array.new(self, size, validity_buffer, values_buffer)
+      UInt8Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -155,7 +155,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Int16Array.new(self, size, validity_buffer, values_buffer)
+      Int16Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -179,7 +179,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      UInt16Array.new(self, size, validity_buffer, values_buffer)
+      UInt16Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -203,7 +203,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Int32Array.new(self, size, validity_buffer, values_buffer)
+      Int32Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -227,7 +227,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      UInt32Array.new(self, size, validity_buffer, values_buffer)
+      UInt32Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -251,7 +251,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Int64Array.new(self, size, validity_buffer, values_buffer)
+      Int64Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -275,7 +275,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      UInt64Array.new(self, size, validity_buffer, values_buffer)
+      UInt64Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -313,7 +313,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Float32Array.new(self, size, validity_buffer, values_buffer)
+      Float32Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -337,7 +337,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Float64Array.new(self, size, validity_buffer, values_buffer)
+      Float64Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -378,7 +378,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Date32Array.new(self, size, validity_buffer, values_buffer)
+      Date32Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -402,7 +402,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, values_buffer)
-      Date64Array.new(self, size, validity_buffer, values_buffer)
+      Date64Array.new(size, validity_buffer, values_buffer)
     end
   end
 
@@ -628,8 +628,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      BinaryArray.new(self,
-                      size,
+      BinaryArray.new(size,
                       validity_buffer,
                       offsets_buffer,
                       values_buffer)
@@ -660,8 +659,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      LargeBinaryArray.new(self,
-                           size,
+      LargeBinaryArray.new(size,
                            validity_buffer,
                            offsets_buffer,
                            values_buffer)
@@ -692,7 +690,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      UTF8Array.new(self, size, validity_buffer, offsets_buffer, values_buffer)
+      UTF8Array.new(size, validity_buffer, offsets_buffer, values_buffer)
     end
 
     def to_flatbuffers
@@ -720,8 +718,7 @@ module ArrowFormat
     end
 
     def build_array(size, validity_buffer, offsets_buffer, values_buffer)
-      LargeUTF8Array.new(self,
-                         size,
+      LargeUTF8Array.new(size,
                          validity_buffer,
                          offsets_buffer,
                          values_buffer)

@@ -16,6 +16,7 @@
 # under the License.
 
 require_relative "array"
+require_relative "dictionary"
 require_relative "error"
 require_relative "field"
 require_relative "readable"
@@ -211,7 +212,7 @@ module ArrowFormat
                             header.inspect)
       end
 
-      @schema = read_schema(header)
+      @schema = read_schema(header, message.custom_metadata)
       @dictionaries = {}
       @dictionary_fields = {}
       @schema.fields.each do |field|
@@ -225,24 +226,29 @@ module ArrowFormat
       end
     end
 
-    def process_dictionary_batch_message(message, body)
-      header = message.header
-      if @state == :initial_dictionaries and header.delta?
+    def process_dictionary_batch_message(fb_message, body)
+      fb_header = fb_message.header
+      if @state == :initial_dictionaries and fb_header.delta?
         raise ReadError.new("An initial dictionary batch message must be " +
                             "a non delta dictionary batch message: " +
-                            header.inspect)
+                            fb_header.inspect)
       end
-      field = @dictionary_fields[header.id]
+      field = @dictionary_fields[fb_header.id]
       value_type = field.type.value_type
       schema = Schema.new([Field.new("dummy", value_type)])
-      record_batch = read_record_batch(message.version,
-                                       header.data,
+      record_batch = read_record_batch(fb_message.version,
+                                       fb_header.data,
+                                       nil,
                                        schema,
                                        body)
-      if header.delta?
-        @dictionaries[header.id] << record_batch.columns[0]
+      message_metadata = read_custom_metadata(fb_message.custom_metadata)
+      dictionary = Dictionary.new(fb_header.id,
+                                  record_batch.columns[0],
+                                  message_metadata: message_metadata)
+      if fb_header.delta?
+        @dictionaries[fb_header.id] << dictionary
       else
-        @dictionaries[header.id] = [record_batch.columns[0]]
+        @dictionaries[fb_header.id] = [dictionary]
       end
     end
 
@@ -250,9 +256,14 @@ module ArrowFormat
       @dictionaries[id]
     end
 
-    def process_record_batch_message(message, body)
-      header = message.header
-      @on_read.call(read_record_batch(message.version, header, @schema, body))
+    def process_record_batch_message(fb_message, body)
+      fb_header = fb_message.header
+      record_batch = read_record_batch(fb_message.version,
+                                       fb_header,
+                                       fb_message.custom_metadata,
+                                       @schema,
+                                       body)
+      @on_read.call(record_batch)
     end
   end
 end
