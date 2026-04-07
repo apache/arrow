@@ -128,20 +128,26 @@ ENV CMAKE_BUILD_TYPE=${build_type} `
   VCPKG_DEFAULT_TRIPLET=amd64-windows-static-md-${build_type} `
   VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
-# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
-# ssl related fixes as well as we can patch the vcpkg portfile to support
-# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
-# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
-# previous versions => use bundled S3 build
+
+# We split the dependencies installation into two steps to reduce the size
+# if the intermediate image layers.
+# Install FS dependencies first to avoid hitting the image size limit of
+# the Windows container. GH-49676
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
   --x-feature=azure `
-  --x-feature=flight `
   --x-feature=gcs `
+  --x-feature=s3
+
+# Install the rest of the dependencies.
+RUN vcpkg install `
+  --clean-after-build `
+  --x-install-root=%VCPKG_ROOT%\installed `
+  --x-manifest-root=arrow/ci/vcpkg `
+  --x-feature=flight `
   --x-feature=json `
   --x-feature=opentelemetry `
   --x-feature=orc `
-  --x-feature=parquet `
-  --x-feature=s3
+  --x-feature=parquet

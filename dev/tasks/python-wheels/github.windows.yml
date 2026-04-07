@@ -70,7 +70,7 @@ jobs:
           echo on
           archery docker pull --no-ignore-pull-failures %TEST_IMAGE_PREFIX%-wheel-windows-vs2022
           if errorlevel 1 (
-            archery docker build %TEST_IMAGE_PREFIX%-wheel-windows-vs2022 || exit /B 1
+            archery docker build --no-pull %TEST_IMAGE_PREFIX%-wheel-windows-vs2022 || exit /B 1
           )
           archery docker run --no-build -e SETUPTOOLS_SCM_PRETEND_VERSION={{ arrow.no_rc_version }} %TEST_IMAGE_PREFIX%-wheel-windows-vs2022
 
@@ -85,7 +85,7 @@ jobs:
           cd arrow
           archery docker pull --no-ignore-pull-failures %TEST_IMAGE_PREFIX%-wheel-windows-test
           if errorlevel 1 (
-            archery docker build %TEST_IMAGE_PREFIX%-wheel-windows-test || exit /B 1
+            archery docker build --no-pull %TEST_IMAGE_PREFIX%-wheel-windows-test || exit /B 1
           )
           archery docker run %TEST_IMAGE_PREFIX%-wheel-windows-test
 
