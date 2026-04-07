@@ -143,9 +143,6 @@ const FunctionDoc search_sorted_doc(
 //           |
 //   [meta-function dispatch]
 //
-// The file follows that layout: validation and type helpers first, then value
-// accessors, then needle visitors, then typed search and output helpers, and
-// finally the meta-function dispatch that selects the Arrow type and accessor.
 
 #define VISIT_SEARCH_SORTED_TYPES(VISIT) \
   VISIT(BooleanType)                     \
@@ -338,7 +335,7 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
   if (leading_null_count > 0) {
     if (leading_null_count != null_count) {
       return Status::Invalid(
-          "search_sorted values with nulls must be clustered at the start or end");
+          "search_sorted values with nulls must be clustered at the start or end.");
     }
     non_null_values_range.offset = leading_null_count;
     non_null_values_range.length = values.length - leading_null_count;
@@ -354,7 +351,7 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
 
   if (trailing_null_count == 0 || (trailing_null_count != null_count)) {
     return Status::Invalid(
-        "search_sorted values with nulls must be clustered at the start or end");
+        "search_sorted values with nulls must be clustered at the start or end.");
   }
 
   non_null_values_range.length = values.length - trailing_null_count;
@@ -403,7 +400,7 @@ uint64_t FindInsertionPoint(const Accessor& sorted_values,
   while (count > 0) {
     const int64_t step = count / 2;
     const int64_t it = first + step;
-    const bool advance = side == SearchSortedOptions::Left
+    const bool advance = (side == SearchSortedOptions::Left)
                              ? compare(sorted_values.Value(it), needle) < 0
                              : compare(needle, sorted_values.Value(it)) >= 0;
     if (advance) {
