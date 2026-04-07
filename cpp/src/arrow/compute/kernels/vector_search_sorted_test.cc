@@ -17,6 +17,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 #include <gtest/gtest.h>
 
@@ -39,6 +40,121 @@ Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_
       auto datum, RunEndEncode(array, RunEndEncodeOptions{ree_type_ptr->run_end_type()}));
   return datum.make_array();
 }
+
+void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
+                             const std::string& values_json,
+                             const std::string& needles_json,
+                             const std::string& expected_left_json,
+                             const std::string& expected_right_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto needles = ArrayFromJSON(type, needles_json);
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  AssertArraysEqual(*ArrayFromJSON(uint64(), expected_left_json), *left.make_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), expected_right_json), *right.make_array());
+}
+
+void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
+                                   const std::string& values_json,
+                                   const std::string& needle_json,
+                                   uint64_t expected_left,
+                                   uint64_t expected_right) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto needle = ScalarFromJSON(type, needle_json);
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needle),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needle),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  ASSERT_TRUE(left.is_scalar());
+  ASSERT_TRUE(right.is_scalar());
+  ASSERT_EQ(checked_cast<const UInt64Scalar&>(*left.scalar()).value, expected_left);
+  ASSERT_EQ(checked_cast<const UInt64Scalar&>(*right.scalar()).value, expected_right);
+}
+
+struct SearchSortedSmokeCase {
+  std::string name;
+  std::shared_ptr<DataType> type;
+  std::string values_json;
+  std::string needles_json;
+  std::string expected_left_json;
+  std::string expected_right_json;
+  std::string scalar_needle_json;
+  uint64_t expected_scalar_left;
+  uint64_t expected_scalar_right;
+};
+
+std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
+  return {
+      {"Boolean", boolean(), "[false, false, true, true]", "[false, true]",
+       "[0, 2]", "[2, 4]", "true", 2, 4},
+      {"Int8", int8(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Int16", int16(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Int32", int32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Int64", int64(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"UInt8", uint8(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"UInt16", uint16(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"UInt32", uint32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"UInt64", uint64(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0]", "[0.0, 3.0, 4.0, 6.0]",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3.0", 1, 3},
+      {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0]", "[0.0, 3.0, 4.0, 6.0]",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3.0", 1, 3},
+      {"Date32", date32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Date64", date64(), "[86400000, 259200000, 259200000, 432000000]",
+       "[0, 259200000, 345600000, 518400000]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "259200000", 1, 3},
+      {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3", 1, 3},
+      {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3", 1, 3},
+      {"Timestamp", timestamp(TimeUnit::SECOND),
+       R"(["1970-01-02", "1970-01-04", "1970-01-04", "1970-01-06"])",
+       R"(["1970-01-01", "1970-01-04", "1970-01-05", "1970-01-07"])",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("1970-01-04")", 1, 3},
+      {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3", 1, 3},
+      {"Binary", binary(), R"(["aa", "bb", "bb", "dd"])",
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       R"("bb")", 1, 3},
+      {"String", utf8(), R"(["aa", "bb", "bb", "dd"])",
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       R"("bb")", 1, 3},
+      {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd"])",
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       R"("bb")", 1, 3},
+      {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd"])",
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       R"("bb")", 1, 3},
+      {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd"])",
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       R"("bb")", 1, 3},
+      {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd"])",
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       R"("bb")", 1, 3},
+  };
+}
+
+class SearchSortedSupportedTypesTest
+    : public ::testing::TestWithParam<SearchSortedSmokeCase> {};
 
 TEST(SearchSorted, BasicLeftRight) {
   auto values = ArrayFromJSON(int64(), "[100, 200, 200, 300, 300]");
@@ -276,6 +392,26 @@ TEST(SearchSorted, BinaryValues) {
 
   AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 1, 3, 4]"), *result.make_array());
 }
+
+TEST_P(SearchSortedSupportedTypesTest, ArraySmoke) {
+  const auto& param = GetParam();
+  CheckSimpleSearchSorted(param.type, param.values_json, param.needles_json,
+                          param.expected_left_json, param.expected_right_json);
+}
+
+TEST_P(SearchSortedSupportedTypesTest, ScalarSmoke) {
+  const auto& param = GetParam();
+  CheckSimpleScalarSearchSorted(param.type, param.values_json, param.scalar_needle_json,
+                                param.expected_scalar_left,
+                                param.expected_scalar_right);
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    SupportedTypes, SearchSortedSupportedTypesTest,
+    ::testing::ValuesIn(SupportedTypeSmokeCases()),
+    [](const ::testing::TestParamInfo<SearchSortedSmokeCase>& info) {
+      return info.param.name;
+    });
 
 }  // namespace
 }  // namespace compute
