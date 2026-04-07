@@ -64,11 +64,6 @@ if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
        arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
-  # When Flight tests require static linkage, we must also add Arrow test libs to STATIC_LINK_LIBS
-  # to avoid add_arrow_test from adding shared Arrow test libs
-  if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-    list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
-  endif()
 else()
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
