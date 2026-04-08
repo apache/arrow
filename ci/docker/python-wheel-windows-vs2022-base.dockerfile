@@ -141,12 +141,19 @@ RUN vcpkg install `
   --x-feature=gcs `
   --x-feature=s3
 
-# Install the rest of the dependencies.
+# Install Flight separately as it pulls in grpc, protobuf, abseil which
+# together produce the largest layer.
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=flight `
+  --x-feature=flight
+
+# Install other dependencies.
+RUN vcpkg install `
+  --clean-after-build `
+  --x-install-root=%VCPKG_ROOT%\installed `
+  --x-manifest-root=arrow/ci/vcpkg `
   --x-feature=json `
   --x-feature=orc `
   --x-feature=parquet
