@@ -238,7 +238,7 @@ struct NonNullValuesRange {
 
   /// Return whether the range spans the full searched values input.
   bool is_identity(int64_t full_length) const {
-    return offset == 0 && length == full_length;
+    return (offset == 0) && (length == full_length);
   }
 };
 
@@ -255,7 +255,7 @@ class NonNullValuesAccessor {
         length_(non_null_values_range.length) {}
 
   /// Return the number of accessible non-null values.
-  int64_t length() const { return length_; }
+  int64_t length() const noexcept { return length_; }
 
   /// Return the value at the given index within the non-null subrange.
   auto Value(int64_t index) const { return values_.Value(offset_ + index); }
