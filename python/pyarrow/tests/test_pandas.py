@@ -21,6 +21,7 @@ import json
 import multiprocessing as mp
 import sys
 import warnings
+import zoneinfo
 
 from collections import OrderedDict
 from datetime import date, datetime, time, timedelta, timezone
@@ -1168,10 +1169,20 @@ class TestConvertDateTimeLikeTypes:
     def test_python_datetime_with_pytz_tzinfo(self):
         pytz = pytest.importorskip("pytz")
 
-        for tz in [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]:
-            values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz)]
+        timezones_pytz = [pytz.utc, pytz.timezone('US/Eastern'), pytz.FixedOffset(1)]
+        timezones_zoneinfo = [
+            zoneinfo.ZoneInfo('UTC'),
+            zoneinfo.ZoneInfo('US/Eastern'),
+            timezone(timedelta(minutes=1))
+        ]
+
+        for tz, tz_zoneinfo in zip(timezones_pytz, timezones_zoneinfo):
+            values = [tz.localize(datetime(2018, 1, 1, 12, 23, 45))]
             df = pd.DataFrame({'datetime': values})
-            _check_pandas_roundtrip(df)
+            df_expected = pd.DataFrame(
+                {'datetime': [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_zoneinfo)]}
+            )
+            _check_pandas_roundtrip(df, expected=df_expected)
 
     @h.given(st.none() | past.timezones)
     @h.settings(deadline=None)
@@ -1183,7 +1194,6 @@ class TestConvertDateTimeLikeTypes:
         _check_pandas_roundtrip(df, check_dtype=False)
 
     def test_python_datetime_with_timezone_tzinfo(self):
-        pytz = pytest.importorskip("pytz")
         from datetime import timezone
 
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=timezone.utc)]
@@ -1191,15 +1201,11 @@ class TestConvertDateTimeLikeTypes:
         df = pd.DataFrame({'datetime': values}, index=values)
         _check_pandas_roundtrip(df, preserve_index=True)
 
-        # datetime.timezone is going to be pytz.FixedOffset
         hours = 1
         tz_timezone = timezone(timedelta(hours=hours))
-        tz_pytz = pytz.FixedOffset(hours * 60)
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
-        values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
         df = pd.DataFrame({'datetime': values}, index=values)
-        df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
-        _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
+        _check_pandas_roundtrip(df, preserve_index=True)
 
     def test_python_datetime_subclass(self):
 

@@ -20,6 +20,7 @@ from collections.abc import Iterator, Mapping
 from functools import partial
 import datetime
 import sys
+import zoneinfo
 
 import pytest
 import hypothesis as h
@@ -491,35 +492,29 @@ def test_convert_custom_tzinfo_objects_to_string():
 
 def test_string_to_tzinfo():
     string = ['UTC', 'Europe/Paris', '+03:00', '+01:30', '-02:00']
-    try:
-        import pytz
-        expected = [pytz.utc, pytz.timezone('Europe/Paris'),
-                    pytz.FixedOffset(180), pytz.FixedOffset(90),
-                    pytz.FixedOffset(-120)]
-        result = [pa.lib.string_to_tzinfo(i) for i in string]
-        assert result == expected
-
-    except ImportError:
-        try:
-            import zoneinfo
-            expected = [zoneinfo.ZoneInfo(key='UTC'),
-                        zoneinfo.ZoneInfo(key='Europe/Paris'),
-                        datetime.timezone(datetime.timedelta(hours=3)),
-                        datetime.timezone(
-                            datetime.timedelta(hours=1, minutes=30)),
-                        datetime.timezone(-datetime.timedelta(hours=2))]
-            result = [pa.lib.string_to_tzinfo(i) for i in string]
-            assert result == expected
-
-        except ImportError:
-            pytest.skip('requires pytz or zoneinfo to be installed')
+    result = [pa.lib.string_to_tzinfo(i) for i in string]
+    expected = [
+        zoneinfo.ZoneInfo('UTC'),
+        zoneinfo.ZoneInfo('Europe/Paris'),
+        datetime.timezone(datetime.timedelta(hours=3)),
+        datetime.timezone(datetime.timedelta(hours=1, minutes=30)),
+        datetime.timezone(-datetime.timedelta(hours=2)),
+    ]
+    assert result == expected
 
 
-def test_timezone_string_roundtrip_pytz():
+def test_string_to_tzinfo_pytz_fallback():
     pytz = pytest.importorskip("pytz")
+    result = pa.lib.string_to_tzinfo("europe/brussels")
+    expected = pytz.timezone("Europe/Brussels")
+    assert result == expected
 
-    tz = [pytz.FixedOffset(90), pytz.FixedOffset(-90),
-          pytz.utc, pytz.timezone('America/New_York')]
+
+def test_timezone_string_roundtrip():
+    tz = [datetime.timezone(datetime.timedelta(hours=1, minutes=30)),
+          datetime.timezone(datetime.timedelta(hours=-1, minutes=-30)),
+          zoneinfo.ZoneInfo('UTC'),
+          zoneinfo.ZoneInfo('America/New_York')]
     name = ['+01:30', '-01:30', 'UTC', 'America/New_York']
 
     assert [pa.lib.tzinfo_to_string(i) for i in tz] == name
