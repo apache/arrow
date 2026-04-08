@@ -44,6 +44,12 @@
         "gtest"
       ]
     },
+    "grpc": {
+      "description": "gRPC (isolated for Windows layer sizing)",
+      "dependencies": [
+        "grpc"
+      ]
+    },
     "flight": {
       "description": "Flight RPC support",
       "dependencies": [

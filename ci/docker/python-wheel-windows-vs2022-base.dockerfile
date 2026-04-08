@@ -129,10 +129,18 @@ ENV CMAKE_BUILD_TYPE=${build_type} `
   VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 
-# We split the dependencies installation into two steps to reduce the size
-# if the intermediate image layers.
-# Install FS dependencies first to avoid hitting the image size limit of
-# the Windows container. GH-49676
+# Install gRPC first in isolation to validate it's the problematic layer.
+# gRPC pulls in protobuf, abseil, c-ares, openssl and produces the largest
+# single dependency. GH-49676
+RUN vcpkg install `
+  --clean-after-build `
+  --x-install-root=%VCPKG_ROOT%\installed `
+  --x-manifest-root=arrow/ci/vcpkg `
+  --x-feature=grpc
+
+# We split the dependencies installation into multiple steps to reduce the
+# size of the intermediate image layers.
+# Install FS dependencies. GH-49676
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
@@ -141,8 +149,7 @@ RUN vcpkg install `
   --x-feature=gcs `
   --x-feature=s3
 
-# Install Flight separately as it pulls in grpc, protobuf, abseil which
-# together produce the largest layer.
+# Install Flight (reuses already-installed grpc).
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
