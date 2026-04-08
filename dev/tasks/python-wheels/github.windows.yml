@@ -34,10 +34,9 @@ jobs:
       # note that we don't run docker build since there wouldn't be a cache hit
       # and rebuilding the dependencies takes a fair amount of time
       REPO: ghcr.io/ursacomputing/arrow
-      # BuildKit isn't really supported on Windows for now.
-      # NuGet + GitHub Packages based vcpkg cache is also disabled for now.
-      # Because secret mount requires BuildKit.
-      DOCKER_BUILDKIT: 0
+      # Try BuildKit - was previously disabled due to lack of Windows support,
+      # but Docker 29.x may handle it better. Testing as part of GH-49676.
+      DOCKER_BUILDKIT: 1
 
     steps:
       {{ macros.github_checkout_arrow()|indent }}
