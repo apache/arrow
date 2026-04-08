@@ -51,10 +51,10 @@ function_doc_additions["search_sorted"] = """
     >>> pc.search_sorted(values, pa.array([0, 1, 4, 9]))
     <pyarrow.lib.UInt64Array object at ...>
     [
-        0,
-        0,
-        3,
-        5
+      0,
+      0,
+      3,
+      5
     ]
     >>> with_nulls = pa.array([None, 200, 300, 300], type=pa.int64())
     >>> pc.search_sorted(
@@ -62,18 +62,18 @@ function_doc_additions["search_sorted"] = """
     ... )
     <pyarrow.lib.UInt64Array object at ...>
     [
-        1,
-        1,
-        null,
-        4
+      1,
+      1,
+      null,
+      4
     ]
     >>> pc.search_sorted(values, pa.array([0, 1, 4, 9]), side="right")
     <pyarrow.lib.UInt64Array object at ...>
     [
-        0,
-        2,
-        3,
-        5
+      0,
+      2,
+      3,
+      5
     ]
     """
 
