@@ -44,6 +44,17 @@ jobs:
       {{ macros.github_login_ghcr()|indent }}
       {{ macros.github_install_archery()|indent }}
 
+      - name: Increase Docker storage limit
+        shell: pwsh
+        run: |
+          $configPath = "$env:ProgramData\docker\config\daemon.json"
+          $config = if (Test-Path $configPath) { Get-Content $configPath | ConvertFrom-Json } else { @{} }
+          $config | Add-Member -Force -Name "storage-opts" -Value @("size=80GB") -MemberType NoteProperty
+          $config | ConvertTo-Json -Depth 10 | Set-Content $configPath
+          Restart-Service docker
+          Start-Sleep -Seconds 5
+          docker info
+
       - name: Prepare
         shell: bash
         run: |
