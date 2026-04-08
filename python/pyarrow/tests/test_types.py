@@ -503,6 +503,14 @@ def test_string_to_tzinfo():
     assert result == expected
 
 
+def test_string_to_tzinfo_prefer_zoneinfo_false():
+    pytz = pytest.importorskip("pytz")
+    result = pa.lib.string_to_tzinfo("Europe/Brussels", prefer_zoneinfo=False)
+    assert result == pytz.timezone("Europe/Brussels")
+    result = pa.lib.string_to_tzinfo("+01:30", prefer_zoneinfo=False)
+    assert result == pytz.FixedOffset(90)
+
+
 def test_string_to_tzinfo_pytz_fallback():
     pytz = pytest.importorskip("pytz")
     result = pa.lib.string_to_tzinfo("europe/brussels")

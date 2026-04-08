@@ -368,11 +368,44 @@ Result<std::string> PyTZInfo_utcoffset_hhmm(PyObject* pytzinfo) {
 
 // Converted from python.  See https://github.com/apache/arrow/pull/7604
 // for details.
-Result<PyObject*> StringToTzinfo(const std::string& tz) {
+Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
   std::string_view sign_str, hour_str, minute_str;
   OwnedRef pytz;
   OwnedRef zoneinfo;
   OwnedRef datetime;
+
+  // Legacy behavior: prefer pytz objects when available.
+  if (!prefer_zoneinfo && internal::ImportModule("pytz", &pytz).ok()) {
+    if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
+      int sign = -1;
+      if (sign_str == "+") {
+        sign = 1;
+      }
+      OwnedRef fixed_offset;
+      RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "FixedOffset", &fixed_offset));
+      uint32_t minutes, hours;
+      if (!::arrow::internal::ParseUnsigned(hour_str.data(), hour_str.size(), &hours) ||
+          !::arrow::internal::ParseUnsigned(minute_str.data(), minute_str.size(),
+                                            &minutes)) {
+        return Status::Invalid("Invalid timezone: ", tz);
+      }
+      OwnedRef total_minutes(PyLong_FromLong(
+          sign * ((static_cast<int>(hours) * 60) + static_cast<int>(minutes))));
+      RETURN_IF_PYERROR();
+      auto tzinfo =
+          PyObject_CallFunctionObjArgs(fixed_offset.obj(), total_minutes.obj(), NULL);
+      RETURN_IF_PYERROR();
+      return tzinfo;
+    }
+
+    OwnedRef timezone;
+    RETURN_NOT_OK(internal::ImportFromModule(pytz.obj(), "timezone", &timezone));
+    OwnedRef py_tz_string(
+        PyUnicode_FromStringAndSize(tz.c_str(), static_cast<Py_ssize_t>(tz.size())));
+    auto tzinfo = PyObject_CallFunctionObjArgs(timezone.obj(), py_tz_string.obj(), NULL);
+    RETURN_IF_PYERROR();
+    return tzinfo;
+  }
 
   // Handle fixed offsets with datetime.timezone, independent of pytz availability.
   if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {

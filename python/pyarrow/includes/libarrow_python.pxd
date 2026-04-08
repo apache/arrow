@@ -213,7 +213,7 @@ cdef extern from "arrow/python/api.h" namespace "arrow::py::internal" nogil:
     CTimePoint TimePoint_from_ns(int64_t val)
 
     CResult[c_string] TzinfoToString(PyObject* pytzinfo)
-    CResult[PyObject*] StringToTzinfo(c_string)
+    CResult[PyObject*] StringToTzinfo(c_string, c_bool)
 
 
 cdef extern from "arrow/python/numpy_init.h" namespace "arrow::py":
