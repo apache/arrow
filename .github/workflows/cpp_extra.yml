@@ -372,6 +372,12 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
+      - name: Create Docker Test Network
+        run: docker network create odbc_net
+      - name: Set Up Dremio Instance
+        run: |
+          docker compose -f cpp/src/arrow/flight/sql/odbc/tests/dremio/docker-compose.yml up -d
+          cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v5
         with:

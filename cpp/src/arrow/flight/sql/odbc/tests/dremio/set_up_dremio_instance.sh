@@ -15,8 +15,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# GH-48068 TODO: run remote ODBC tests on Linux
-
 #!/bin/bash
 set -e
 
