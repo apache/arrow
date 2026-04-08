@@ -205,6 +205,11 @@ volumes:
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
 
+networks:
+  # GH-48068 for Flight SQL ODBC Testing
+  odbc_net:
+    external: true
+
 services:
 
   ################################# C++ #######################################
@@ -558,6 +563,7 @@ services:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: "OFF"
       ARROW_FLIGHT_SQL_ODBC: "ON"
+      ARROW_FLIGHT_SQL_ODBC_CONN: "driver={Apache Arrow Flight SQL ODBC Driver};HOST=dremio_container;port=32010;pwd=admin2025;uid=admin;useEncryption=false;UseWideChar=true;"
       ARROW_GANDIVA: "OFF"
       ARROW_GCS: "OFF"
       ARROW_HDFS: "OFF"
@@ -568,6 +574,8 @@ services:
       # GH-49651 Link ODBC tests statically on Linux to fix segfault
       ARROW_TEST_LINKAGE: "static"
     # Register ODBC before running tests
+    networks:
+      - odbc_net
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
