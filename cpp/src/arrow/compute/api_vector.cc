@@ -156,7 +156,7 @@ static auto kArraySortOptionsType = GetFunctionOptionsType<ArraySortOptions>(
     DataMember("order", &ArraySortOptions::order),
     DataMember("null_placement", &ArraySortOptions::null_placement));
 static auto kSearchSortedOptionsType = GetFunctionOptionsType<SearchSortedOptions>(
-  DataMember("side", &SearchSortedOptions::side));
+    DataMember("side", &SearchSortedOptions::side));
 static auto kSortOptionsType = GetFunctionOptionsType<SortOptions>(
     CoercedDataMember("sort_keys", &SortOptions::sort_keys, &SortOptions::GetSortKeys));
 static auto kPartitionNthOptionsType = GetFunctionOptionsType<PartitionNthOptions>(

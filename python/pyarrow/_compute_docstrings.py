@@ -57,7 +57,9 @@ function_doc_additions["search_sorted"] = """
             5
         ]
         >>> with_nulls = pa.array([None, 200, 300, 300], type=pa.int64())
-        >>> pc.search_sorted(with_nulls, pa.array([50, 200, None, 400], type=pa.int64()))
+        >>> pc.search_sorted(
+        ...     with_nulls, pa.array([50, 200, None, 400], type=pa.int64())
+        ... )
         <pyarrow.lib.UInt64Array object at ...>
         [
             1,
