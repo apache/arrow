@@ -62,8 +62,7 @@ void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
 
 void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
                                    const std::string& values_json,
-                                   const std::string& needle_json,
-                                   uint64_t expected_left,
+                                   const std::string& needle_json, uint64_t expected_left,
                                    uint64_t expected_right) {
   auto values = ArrayFromJSON(type, values_json);
   auto needle = ScalarFromJSON(type, needle_json);
@@ -95,61 +94,55 @@ struct SearchSortedSmokeCase {
 
 std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
   return {
-      {"Boolean", boolean(), "[false, false, true, true]", "[false, true]",
-       "[0, 2]", "[2, 4]", "true", 2, 4},
-      {"Int8", int8(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"Int16", int16(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"Int32", int32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"Int64", int64(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"UInt8", uint8(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"UInt16", uint16(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"UInt32", uint32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
-      {"UInt64", uint64(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Boolean", boolean(), "[false, false, true, true]", "[false, true]", "[0, 2]",
+       "[2, 4]", "true", 2, 4},
+      {"Int8", int8(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"Int16", int16(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"Int32", int32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"Int64", int64(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"UInt8", uint8(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"UInt16", uint16(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"UInt32", uint32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
+      {"UInt64", uint64(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
       {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0]", "[0.0, 3.0, 4.0, 6.0]",
        "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3.0", 1, 3},
       {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0]", "[0.0, 3.0, 4.0, 6.0]",
        "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3.0", 1, 3},
-      {"Date32", date32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Date32", date32(), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "3", 1, 3},
       {"Date64", date64(), "[86400000, 259200000, 259200000, 432000000]",
-       "[0, 259200000, 345600000, 518400000]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]", "259200000", 1, 3},
-      {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3", 1, 3},
-      {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3", 1, 3},
+       "[0, 259200000, 345600000, 518400000]", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
+       "259200000", 1, 3},
+      {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
+      {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", "3", 1, 3},
       {"Timestamp", timestamp(TimeUnit::SECOND),
        R"(["1970-01-02", "1970-01-04", "1970-01-04", "1970-01-06"])",
-       R"(["1970-01-01", "1970-01-04", "1970-01-05", "1970-01-07"])",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("1970-01-04")", 1, 3},
+       R"(["1970-01-01", "1970-01-04", "1970-01-05", "1970-01-07"])", "[0, 1, 3, 4]",
+       "[0, 3, 3, 4]", R"("1970-01-04")", 1, 3},
       {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
        "[0, 1, 3, 4]", "[0, 3, 3, 4]", "3", 1, 3},
-      {"Binary", binary(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
-       R"("bb")", 1, 3},
-      {"String", utf8(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
-       R"("bb")", 1, 3},
+      {"Binary", binary(), R"(["aa", "bb", "bb", "dd"])", R"(["a", "bb", "bc", "z"])",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("bb")", 1, 3},
+      {"String", utf8(), R"(["aa", "bb", "bb", "dd"])", R"(["a", "bb", "bc", "z"])",
+       "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("bb")", 1, 3},
       {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
-       R"("bb")", 1, 3},
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("bb")", 1, 3},
       {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
-       R"("bb")", 1, 3},
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("bb")", 1, 3},
       {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
-       R"("bb")", 1, 3},
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("bb")", 1, 3},
       {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]",
-       R"("bb")", 1, 3},
+       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]", R"("bb")", 1, 3},
   };
 }
 
@@ -175,9 +168,8 @@ TEST(SearchSorted, ScalarNeedle) {
   auto values = ArrayFromJSON(int32(), "[1, 3, 5, 7]");
 
   ASSERT_OK_AND_ASSIGN(
-      auto result,
-      SearchSorted(Datum(values), Datum(std::make_shared<Int32Scalar>(5)),
-                   SearchSortedOptions(SearchSortedOptions::Right)));
+      auto result, SearchSorted(Datum(values), Datum(std::make_shared<Int32Scalar>(5)),
+                                SearchSortedOptions(SearchSortedOptions::Right)));
 
   ASSERT_TRUE(result.is_scalar());
   ASSERT_EQ(checked_cast<const UInt64Scalar&>(*result.scalar()).value, 3);
@@ -281,7 +273,8 @@ TEST(SearchSorted, RejectUnclusteredNullValues) {
 
 TEST(SearchSorted, RunEndEncodedNulls) {
   auto values_type = run_end_encoded(int16(), int32());
-  ASSERT_OK_AND_ASSIGN(auto ree_values, REEFromJSON(values_type, "[null, null, 2, 4, 4]"));
+  ASSERT_OK_AND_ASSIGN(auto ree_values,
+                       REEFromJSON(values_type, "[null, null, 2, 4, 4]"));
   auto needles_type = run_end_encoded(int16(), int32());
   ASSERT_OK_AND_ASSIGN(auto ree_needles,
                        REEFromJSON(needles_type, "[null, null, 1, 4, 4, null, 8]"));
@@ -402,16 +395,14 @@ TEST_P(SearchSortedSupportedTypesTest, ArraySmoke) {
 TEST_P(SearchSortedSupportedTypesTest, ScalarSmoke) {
   const auto& param = GetParam();
   CheckSimpleScalarSearchSorted(param.type, param.values_json, param.scalar_needle_json,
-                                param.expected_scalar_left,
-                                param.expected_scalar_right);
+                                param.expected_scalar_left, param.expected_scalar_right);
 }
 
-INSTANTIATE_TEST_SUITE_P(
-    SupportedTypes, SearchSortedSupportedTypesTest,
-    ::testing::ValuesIn(SupportedTypeSmokeCases()),
-    [](const ::testing::TestParamInfo<SearchSortedSmokeCase>& info) {
-      return info.param.name;
-    });
+INSTANTIATE_TEST_SUITE_P(SupportedTypes, SearchSortedSupportedTypesTest,
+                         ::testing::ValuesIn(SupportedTypeSmokeCases()),
+                         [](const ::testing::TestParamInfo<SearchSortedSmokeCase>& info) {
+                           return info.param.name;
+                         });
 
 }  // namespace
 }  // namespace compute
