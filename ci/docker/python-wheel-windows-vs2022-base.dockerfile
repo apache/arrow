@@ -129,9 +129,16 @@ ENV CMAKE_BUILD_TYPE=${build_type} `
   VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 
-# Install gRPC first in isolation to validate it's the problematic layer.
-# gRPC pulls in protobuf, abseil, c-ares, openssl and produces the largest
-# single dependency. GH-49676
+# Install gRPC dependencies first in their own layer, then gRPC itself
+# in a separate layer, to keep each layer small enough for Windows
+# Docker's hcsshim. GH-49676
+RUN vcpkg install `
+  --clean-after-build `
+  --x-install-root=%VCPKG_ROOT%\installed `
+  --x-manifest-root=arrow/ci/vcpkg `
+  --x-feature=grpc-deps
+
+# Install gRPC (reuses already-installed deps).
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
