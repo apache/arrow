@@ -44,22 +44,6 @@
         "gtest"
       ]
     },
-    "grpc-deps": {
-      "description": "gRPC dependencies (isolated for Windows layer sizing)",
-      "dependencies": [
-        "abseil",
-        "c-ares",
-        "openssl",
-        "protobuf",
-        "re2"
-      ]
-    },
-    "grpc": {
-      "description": "gRPC (isolated for Windows layer sizing)",
-      "dependencies": [
-        "grpc"
-      ]
-    },
     "flight": {
       "description": "Flight RPC support",
       "dependencies": [

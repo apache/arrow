@@ -129,45 +129,20 @@ ENV CMAKE_BUILD_TYPE=${build_type} `
   VCPKG_FEATURE_FLAGS="manifests"
 COPY ci/vcpkg/vcpkg.json arrow/ci/vcpkg/
 
-# Install gRPC dependencies first in their own layer, then gRPC itself
-# in a separate layer, to keep each layer small enough for Windows
-# Docker's hcsshim. GH-49676
-RUN vcpkg install `
-  --clean-after-build `
-  --x-install-root=%VCPKG_ROOT%\installed `
-  --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=grpc-deps
-
-# Install gRPC (reuses already-installed deps).
-RUN vcpkg install `
-  --clean-after-build `
-  --x-install-root=%VCPKG_ROOT%\installed `
-  --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=grpc
-
-# We split the dependencies installation into multiple steps to reduce the
-# size of the intermediate image layers.
-# Install FS dependencies. GH-49676
+# cannot use the S3 feature here because while aws-sdk-cpp=1.9.160 contains
+# ssl related fixes as well as we can patch the vcpkg portfile to support
+# arm machines it hits ARROW-15141 where we would need to fall back to 1.8.186
+# but we cannot patch those portfiles since vcpkg-tool handles the checkout of
+# previous versions => use bundled S3 build
 RUN vcpkg install `
   --clean-after-build `
   --x-install-root=%VCPKG_ROOT%\installed `
   --x-manifest-root=arrow/ci/vcpkg `
   --x-feature=azure `
+  --x-feature=flight `
   --x-feature=gcs `
-  --x-feature=s3
-
-# Install Flight (reuses already-installed grpc).
-RUN vcpkg install `
-  --clean-after-build `
-  --x-install-root=%VCPKG_ROOT%\installed `
-  --x-manifest-root=arrow/ci/vcpkg `
-  --x-feature=flight
-
-# Install other dependencies.
-RUN vcpkg install `
-  --clean-after-build `
-  --x-install-root=%VCPKG_ROOT%\installed `
-  --x-manifest-root=arrow/ci/vcpkg `
   --x-feature=json `
+  --x-feature=opentelemetry `
   --x-feature=orc `
-  --x-feature=parquet
+  --x-feature=parquet `
+  --x-feature=s3
