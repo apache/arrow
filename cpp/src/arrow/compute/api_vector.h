@@ -547,9 +547,9 @@ Result<std::shared_ptr<Array>> SelectKUnstable(const Datum& datum,
 /// \return insertion indices as uint64 scalar or array
 ARROW_EXPORT
 Result<Datum> SearchSorted(
-  const Datum& values, const Datum& needles,
-  const SearchSortedOptions& options = SearchSortedOptions::Defaults(),
-  ExecContext* ctx = NULLPTR);
+    const Datum& values, const Datum& needles,
+    const SearchSortedOptions& options = SearchSortedOptions::Defaults(),
+    ExecContext* ctx = NULLPTR);
 
 /// \brief Return the indices that would sort an array.
 ///
