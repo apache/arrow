@@ -259,9 +259,9 @@ template <typename Out>
 struct ConvertArrayToTensorRowMajorVisitor {
   Out*& out_values;
   const ArrayData& in_data;
-  int num_cols;
-  int col_idx;
-  int chunk_idx;
+  int64_t num_cols;
+  int64_t col_idx;
+  int64_t chunk_idx;
 
   template <typename T>
   Status Visit(const T&) {
@@ -269,14 +269,15 @@ struct ConvertArrayToTensorRowMajorVisitor {
       using In = typename T::c_type;
       auto in_values = ArraySpan(in_data).GetSpan<In>(1, in_data.length);
 
+      const int64_t base = chunk_idx * num_cols + col_idx;
+
       if (in_data.null_count == 0) {
         for (int64_t i = 0; i < in_data.length; ++i) {
-          out_values[(i + chunk_idx) * num_cols + col_idx] =
-              static_cast<Out>(in_values[i]);
+          out_values[base + i * num_cols] = static_cast<Out>(in_values[i]);
         }
       } else {
         for (int64_t i = 0; i < in_data.length; ++i) {
-          out_values[(i + chunk_idx) * num_cols + col_idx] =
+          out_values[base + i * num_cols] =
               in_data.IsNull(i) ? static_cast<Out>(NAN) : static_cast<Out>(in_values[i]);
         }
       }
@@ -291,7 +292,7 @@ inline void ConvertColumnsToTensor(const Table& table, uint8_t* out, bool row_ma
   using CType = typename arrow::TypeTraits<DataType>::CType;
   auto* out_values = reinterpret_cast<CType*>(out);
 
-  int col_idx = 0;
+  int64_t col_idx = 0;
   for (const auto& column : table.columns()) {
     int chunk_idx = 0;
     for (const auto& chunk : column->chunks()) {
@@ -299,7 +300,7 @@ inline void ConvertColumnsToTensor(const Table& table, uint8_t* out, bool row_ma
         ConvertArrayToTensorRowMajorVisitor<CType> visitor{
             out_values, *chunk->data(), table.num_columns(), col_idx, chunk_idx};
         DCHECK_OK(VisitTypeInline(*chunk->type(), &visitor));
-        chunk_idx = chunk_idx + static_cast<int>(chunk->length());
+        chunk_idx += chunk->length();
       } else {
         ConvertArrayToTensorVisitor<CType> visitor{out_values, *chunk->data()};
         DCHECK_OK(VisitTypeInline(*chunk->type(), &visitor));
