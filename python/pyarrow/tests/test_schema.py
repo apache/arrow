@@ -785,12 +785,20 @@ def test_schema_merge():
         pa.unify_schemas([a, 1])
 
 
-def test_undecodable_metadata():
-    # ARROW-10214: undecodable metadata shouldn't fail repr()
-    data1 = b'abcdef\xff\x00'
-    data2 = b'ghijkl\xff\x00'
-    schema = pa.schema(
-        [pa.field('ints', pa.int16(), metadata={'key': data1})],
-        metadata={'key': data2})
-    assert 'abcdef' in str(schema)
-    assert 'ghijkl' in str(schema)
+def test_non_utf8_metadata_rejected():
+    # GH-49058: non-UTF-8 bytes in metadata keys/values must be rejected
+    # because Schema.fbs requires metadata strings to be valid UTF-8.
+    invalid = b'\xff\xfe\xfa'
+
+    with pytest.raises(ValueError, match="Metadata values must be valid UTF-8"):
+        pa.schema([pa.field('ints', pa.int16())], metadata={'key': invalid})
+
+    with pytest.raises(ValueError, match="Metadata keys must be valid UTF-8"):
+        pa.schema([pa.field('ints', pa.int16())], metadata={invalid: b'value'})
+
+    with pytest.raises(ValueError, match="Metadata values must be valid UTF-8"):
+        pa.field('ints', pa.int16(), metadata={'key': invalid})
+
+    # valid UTF-8 (including plain ASCII) must continue to work
+    pa.schema([pa.field('ints', pa.int16())], metadata={b'key': b'value'})
+    pa.schema([pa.field('ints', pa.int16())], metadata={'key': 'value \u00e9'})
