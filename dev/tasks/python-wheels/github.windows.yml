@@ -57,6 +57,28 @@ jobs:
           esac
           echo "TEST_IMAGE_PREFIX=${test_image_prefix}" >> ${GITHUB_ENV}
 
+      - name: Configure Docker data-root
+        shell: powershell
+        run: |
+          # The D: drive on windows-2022 GH Actions runners has ~44GB free vs ~14GB on C:.
+          # Moving Docker's data-root to D: prevents hcsshim::ImportLayer failures when
+          # building large Windows container layers (e.g. the vcpkg install layer). GH-49676
+          Stop-Service docker
+          $daemonJson = "C:\ProgramData\Docker\config\daemon.json"
+          New-Item -ItemType Directory -Force -Path (Split-Path $daemonJson) | Out-Null
+          if (Test-Path $daemonJson) {
+            $json = Get-Content $daemonJson | ConvertFrom-Json
+            $json | Add-Member -Force -NotePropertyName "data-root" -NotePropertyValue "D:\docker"
+            $json | ConvertTo-Json -Depth 10 | Set-Content $daemonJson
+          } else {
+            Set-Content $daemonJson -Value '{"data-root":"D:\docker"}'
+          }
+          Start-Service docker
+          Write-Host "=== daemon.json ==="
+          Get-Content $daemonJson
+          Write-Host "=== docker info ==="
+          docker info
+
       - name: Build wheel
         shell: cmd
         run: |
