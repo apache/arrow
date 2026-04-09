@@ -1179,9 +1179,12 @@ class TestConvertDateTimeLikeTypes:
         for tz, tz_zoneinfo in zip(timezones_pytz, timezones_zoneinfo):
             values = [tz.localize(datetime(2018, 1, 1, 12, 23, 45))]
             df = pd.DataFrame({'datetime': values})
-            df_expected = pd.DataFrame(
-                {'datetime': [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_zoneinfo)]}
-            )
+            if Version(pd.__version__) >= Version("3.0.0"):
+                df_expected = pd.DataFrame(
+                    {'datetime': [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_zoneinfo)]}
+                )
+            else:
+                df_expected = None
             _check_pandas_roundtrip(df, expected=df_expected)
 
     @h.given(st.none() | past.timezones)
@@ -1205,7 +1208,16 @@ class TestConvertDateTimeLikeTypes:
         tz_timezone = timezone(timedelta(hours=hours))
         values = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_timezone)]
         df = pd.DataFrame({'datetime': values}, index=values)
-        _check_pandas_roundtrip(df, preserve_index=True)
+        if Version(pd.__version__) < Version("3.0.0"):
+            # datetime.timezone is going to be pytz.FixedOffset
+            pytz = pytest.importorskip("pytz")
+            tz_pytz = pytz.FixedOffset(hours * 60)
+            values_exp = [datetime(2018, 1, 1, 12, 23, 45, tzinfo=tz_pytz)]
+            df_exp = pd.DataFrame({'datetime': values_exp}, index=values_exp)
+        else:
+            df_exp = None
+
+        _check_pandas_roundtrip(df, expected=df_exp, preserve_index=True)
 
     def test_python_datetime_subclass(self):
 

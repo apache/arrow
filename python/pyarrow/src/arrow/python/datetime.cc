@@ -374,7 +374,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
   OwnedRef zoneinfo;
   OwnedRef datetime;
 
-  // Legacy behavior: prefer pytz objects when available.
+  // Legacy behavior: prefer pytz objects when available
   if (!prefer_zoneinfo && internal::ImportModule("pytz", &pytz).ok()) {
     if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
       int sign = -1;
@@ -407,7 +407,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
     return tzinfo;
   }
 
-  // Handle fixed offsets with datetime.timezone, independent of pytz availability.
+  // Handle fixed offsets with datetime.timezone
   if (MatchFixedOffset(tz, &sign_str, &hour_str, &minute_str)) {
     RETURN_NOT_OK(internal::ImportModule("datetime", &datetime));
     int sign = -1;
@@ -448,7 +448,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
     return tzinfo;
   }
 
-  // Prefer zoneinfo for named timezones when available.
+  // Use zoneinfo for named timezones when available
   if (internal::ImportModule("zoneinfo", &zoneinfo).ok()) {
     OwnedRef class_zoneinfo;
     RETURN_NOT_OK(
@@ -461,7 +461,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
       return tzinfo;
     }
 
-    // Keep backwards compatibility for named timezones only available in pytz.
+    // Keep backwards compatibility for named timezones only available in pytz
     PyErr_Clear();
   }
 
@@ -475,8 +475,7 @@ Result<PyObject*> StringToTzinfo(const std::string& tz, bool prefer_zoneinfo) {
     return tzinfo;
   }
 
-  return Status::Invalid(
-      "Python>=3.9 for zoneinfo module or pytz package must be installed.");
+  return Status::Invalid("The zoneinfo module or pytz package must be installed.");
 }
 
 Result<std::string> TzinfoToString(PyObject* tzinfo) {

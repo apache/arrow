@@ -511,6 +511,9 @@ def test_string_to_tzinfo_prefer_zoneinfo_false():
     assert result == pytz.FixedOffset(90)
 
 
+@pytest.mark.skipif(
+    sys.platform == 'darwin', reason="macOS supports those lower-case names"
+)
 def test_string_to_tzinfo_pytz_fallback():
     pytz = pytest.importorskip("pytz")
     result = pa.lib.string_to_tzinfo("europe/brussels")
