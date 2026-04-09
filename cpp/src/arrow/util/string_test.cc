@@ -28,7 +28,6 @@
 #include "arrow/testing/gtest_util.h"
 #include "arrow/util/regex.h"
 #include "arrow/util/string.h"
-#include "arrow/util/base64.h"
 
 namespace arrow {
 namespace internal {

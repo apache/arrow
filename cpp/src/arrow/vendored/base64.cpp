@@ -30,9 +30,7 @@
 */
 
 #include "arrow/util/base64.h"
-#include "arrow/result.h"
 #include <iostream>
-#include <cctype>
 
 namespace arrow {
 namespace util {
@@ -93,7 +91,7 @@ std::string base64_encode(std::string_view string_to_encode) {
 Result<std::string> base64_decode(std::string_view encoded_string) {
   size_t in_len = encoded_string.size();
   int i = 0;
-  int in_ = 0;
+  std::string_view::size_type in_ = 0;
   int padding_count = 0;
   int block_padding = 0;
   bool padding_started = false;
@@ -118,13 +116,11 @@ Result<std::string> base64_decode(std::string_view encoded_string) {
       char_array_4[i++] = 0;
     } else {
       if (padding_started) {
-        return Status::Invalid("Invalid base64 input: padding characters must be at the end");
+        return Status::Invalid("Invalid base64 input: padding in wrong position");
       }
 
       if (base64_chars.find(c) == std::string::npos) {
-        return Status::Invalid(
-            "Invalid base64 input: contains non-base64 byte at position " +
-            std::to_string(in_));
+        return Status::Invalid("Invalid base64 input: character is not valid base64 character");
       }
 
       char_array_4[i++] = c;
