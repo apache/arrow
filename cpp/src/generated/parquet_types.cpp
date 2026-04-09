@@ -3946,6 +3946,7 @@ void ColumnMetaData::__set_encodings(const std::vector<Encoding::type> & val) {
 
 void ColumnMetaData::__set_path_in_schema(const std::vector<std::string> & val) {
   this->path_in_schema = val;
+__isset.path_in_schema = true;
 }
 
 void ColumnMetaData::__set_codec(const CompressionCodec::type val) {
@@ -4047,7 +4048,9 @@ bool ColumnMetaData::operator==(const ColumnMetaData & rhs) const
     return false;
   if (!(encodings == rhs.encodings))
     return false;
-  if (!(path_in_schema == rhs.path_in_schema))
+  if (__isset.path_in_schema != rhs.__isset.path_in_schema)
+    return false;
+  else if (__isset.path_in_schema && !(path_in_schema == rhs.path_in_schema))
     return false;
   if (!(codec == rhs.codec))
     return false;
@@ -4185,7 +4188,7 @@ void ColumnMetaData::printTo(std::ostream& out) const {
   out << "ColumnMetaData(";
   out << "type=" << to_string(type);
   out << ", " << "encodings=" << to_string(encodings);
-  out << ", " << "path_in_schema=" << to_string(path_in_schema);
+  out << ", " << "path_in_schema="; (__isset.path_in_schema ? (out << to_string(path_in_schema)) : (out << "<null>"));
   out << ", " << "codec=" << to_string(codec);
   out << ", " << "num_values=" << to_string(num_values);
   out << ", " << "total_uncompressed_size=" << to_string(total_uncompressed_size);
