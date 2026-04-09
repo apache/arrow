@@ -93,8 +93,10 @@ std::string base64_encode(std::string_view string_to_encode) {
 Result<std::string> base64_decode(std::string_view encoded_string) {
   size_t in_len = encoded_string.size();
   int i = 0;
-  int j = 0;
   int in_ = 0;
+  int padding_count = 0;
+  int block_padding = 0;
+  bool padding_started = false;
   unsigned char char_array_4[4], char_array_3[3];
   std::string ret;
 
@@ -102,52 +104,53 @@ Result<std::string> base64_decode(std::string_view encoded_string) {
     return Status::Invalid("Invalid base64 input: length is not a multiple of 4");
   }
 
-  size_t padding_start = encoded_string.find('=');
-  if (padding_start != std::string_view::npos) {
-    size_t padding_count = encoded_string.size() - padding_start;
-    if (padding_count > 2) {
-      return Status::Invalid("Invalid base64 input: too many padding characters");
-    }
-
-    for (size_t i = padding_start; i < encoded_string.size(); ++i) {
-      if (encoded_string[i] != '=') {
-        return Status::Invalid("Invalid base64 input: padding characters must be at the end");
-      }
-    }
-  }
-
-  while (in_len-- && encoded_string[in_] != '=') {
+  while (in_len--) {
     unsigned char c = encoded_string[in_];
 
-    if (base64_chars.find(c) == std::string::npos) {
-      return Status::Invalid("Invalid base64 input: contains non-base64 byte at position " + std::to_string(in_));
+    if (c == '=') {
+      padding_started = true;
+      padding_count++;
+
+      if (padding_count > 2) {
+        return Status::Invalid("Invalid base64 input: too many padding characters");
+      }
+
+      char_array_4[i++] = 0;
+    } else {
+      if (padding_started) {
+        return Status::Invalid("Invalid base64 input: padding characters must be at the end");
+      }
+
+      if (base64_chars.find(c) == std::string::npos) {
+        return Status::Invalid(
+            "Invalid base64 input: contains non-base64 byte at position " +
+            std::to_string(in_));
+      }
+
+      char_array_4[i++] = c;
     }
 
-    char_array_4[i++] = c;
     in_++;
 
     if (i == 4) {
-      for (i = 0; i < 4; i++)
-        char_array_4[i] = base64_chars.find(char_array_4[i]) & 0xff;
+      for (i = 0; i < 4; i++) {
+        if (char_array_4[i] != 0) {
+          char_array_4[i] = base64_chars.find(char_array_4[i]) & 0xff;
+        }
+      }
 
-      char_array_3[0] = ( char_array_4[0] << 2       ) + ((char_array_4[1] & 0x30) >> 4);
+      char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
       char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-      char_array_3[2] = ((char_array_4[2] & 0x3) << 6) +   char_array_4[3];
+      char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
 
-      for (i = 0; (i < 3); i++)
+      block_padding = padding_count;
+
+      for (i = 0; i < 3 - block_padding; i++) {
         ret += char_array_3[i];
+      }
+
       i = 0;
     }
-  }
-
-  if (i) {
-    for (j = 0; j < i; j++)
-      char_array_4[j] = base64_chars.find(char_array_4[j]) & 0xff;
-
-    char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
-    char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
-
-    for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
   }
 
   return ret;
