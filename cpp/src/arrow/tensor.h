@@ -81,6 +81,10 @@ ARROW_EXPORT
 Status TableToTensor(const Table& table, bool null_to_nan, bool row_major,
                      MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
 
+ARROW_EXPORT
+Status RecordBatchToTensor(const RecordBatch& batch, bool null_to_nan, bool row_major,
+                           MemoryPool* pool, std::shared_ptr<Tensor>* tensor);
+
 }  // namespace internal
 
 class ARROW_EXPORT Tensor {
