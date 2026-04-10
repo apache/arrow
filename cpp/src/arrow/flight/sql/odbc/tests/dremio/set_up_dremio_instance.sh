@@ -1,3 +1,5 @@
+#!/bin/bash
+#
 # Licensed to the Apache Software Foundation (ASF) under one
 # or more contributor license agreements.  See the NOTICE file
 # distributed with this work for additional information
@@ -15,7 +17,6 @@
 # specific language governing permissions and limitations
 # under the License.
 
-#!/bin/bash
 set -e
 
 HOST_URL="http://localhost:9047"
@@ -49,16 +50,29 @@ TOKEN=$(curl -s -X POST "$LOGIN_URL" \
      -d "{ \"userName\": \"$ADMIN_USER\", \"password\": \"$ADMIN_PASSWORD\" }" \
      | grep -oP '(?<="token":")[^"]+')
 
-SQL_QUERY="Create Table \$scratch.ODBCTest As SELECT CAST(2147483647 AS INTEGER) AS sinteger_max, CAST(9223372036854775807 AS BIGINT) AS sbigint_max, CAST(999999999 AS DECIMAL(38,0)) AS decimal_positive, CAST(3.40282347E38 AS FLOAT) AS float_max, CAST(1.7976931348623157E308 AS DOUBLE) AS double_max, CAST(true AS BOOLEAN) AS bit_true, CAST(DATE '9999-12-31' AS DATE) AS date_max, CAST(TIME '23:59:59' AS TIME) AS time_max, CAST(TIMESTAMP '9999-12-31 23:59:59' AS TIMESTAMP) AS timestamp_max;"
-ESCAPED_QUERY=$(printf '%s' "$SQL_QUERY" | sed 's/"/\\"/g')
-
+SQL_QUERY="
+Create Table \$scratch.ODBCTest As
+  SELECT CAST(2147483647 AS INTEGER) AS sinteger_max,
+         CAST(9223372036854775807 AS BIGINT) AS sbigint_max,
+         CAST(999999999 AS DECIMAL(38,0)) AS decimal_positive,
+         CAST(3.40282347E38 AS FLOAT) AS float_max,
+         CAST(1.7976931348623157E308 AS DOUBLE) AS double_max,
+         CAST(true AS BOOLEAN) AS bit_true,
+         CAST(DATE '9999-12-31' AS DATE) AS date_max,
+         CAST(TIME '23:59:59' AS TIME) AS time_max,
+         CAST(TIMESTAMP '9999-12-31 23:59:59' AS TIMESTAMP) AS timestamp_max;
+"
 echo "Creating \$scratch.ODBCTest table."
 
 # Create a new table by sending a SQL query.
 curl -i -X POST "$SQL_URL" \
      -H "Authorization: _dremio$TOKEN" \
      -H "Content-Type: application/json" \
-     -d "{\"sql\": \"$ESCAPED_QUERY\"}"
+     -d "$(python3 - <<EOF
+import json
+print(json.dumps({"sql": """$SQL_QUERY"""}))
+EOF
+)"
 
 echo ""
 echo "Finished setting up dremio docker instance."
