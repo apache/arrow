@@ -1824,7 +1824,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_ = column_chunk;
 
     column_chunk_->meta_data.__set_type(ToThrift(column_->physical_type()));
-    column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
+    if (properties_->write_path_in_schema()) {
+      column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
+    }
     column_chunk_->meta_data.__set_codec(
         ToThrift(properties_->compression(column_->path())));
   }
