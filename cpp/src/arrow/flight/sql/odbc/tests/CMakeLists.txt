@@ -57,18 +57,30 @@ endif()
 # On macOS, link `ODBCINST` first to ensure iodbc take precedence over unixodbc
 set(ARROW_FLIGHT_SQL_ODBC_TEST_LIBS ${ODBCINST} ${ODBC_LIBRARIES} ${SQLite3_LIBRARIES})
 
-# Respect ARROW_FLIGHT_TEST_LINKAGE, default to shared
-if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
-  list(APPEND
-       ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
+# On Windows, dynamic linking ODBC is supported, tests link libraries dynamically.
+# On unix systems, static linking ODBC is supported, thus tests link libraries statically.
+set(ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS "")
+set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  # Static Windows tests
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
        arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS}
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
-else()
+elseif(WIN32)
+  # Dynamic Windows tests (current behavior)
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_EXTRA_LINK_LIBS arrow_odbc_spi_impl
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS})
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS "")
+else()
+  # Unix
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
+       ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+endif()
+
+# When Flight tests require static linkage, we must also add Arrow test libs to STATIC_LINK_LIBS
+# to avoid add_arrow_test from adding shared Arrow test libs
+if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS ${ARROW_TEST_STATIC_LINK_LIBS})
 endif()
 
 add_arrow_test(flight_sql_odbc_test
