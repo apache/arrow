@@ -321,8 +321,18 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline int64_t num_values() const { return column_metadata_->num_values; }
 
+  inline bool is_path_in_schema_set() const {
+    const std::lock_guard<std::mutex> guard(stats_mutex_);
+    if (possible_path_in_schema_ == nullptr && column_metadata_->__isset.path_in_schema) {
+      possible_path_in_schema_ =
+          std::make_shared<schema::ColumnPath>(column_metadata_->path_in_schema);
+    }
+
+    return possible_path_in_schema_ != nullptr;
+  }
+
   std::shared_ptr<schema::ColumnPath> path_in_schema() {
-    return std::make_shared<schema::ColumnPath>(column_metadata_->path_in_schema);
+    return is_path_in_schema_set() ? possible_path_in_schema_ : nullptr;
   }
 
   // Check if statistics are set and are valid
@@ -464,6 +474,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   mutable std::shared_ptr<EncodedStatistics> possible_encoded_stats_;
   mutable std::shared_ptr<Statistics> possible_stats_;
   mutable std::shared_ptr<geospatial::GeoStatistics> possible_geo_stats_;
+  mutable std::shared_ptr<schema::ColumnPath> possible_path_in_schema_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
