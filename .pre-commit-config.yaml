@@ -203,15 +203,12 @@ repos:
         pass_filenames: false
         files: >-
           ^r/.*\.(R|Rmd)$
-  - repo: local
+  - repo: https://github.com/posit-dev/air-pre-commit
+    rev: 0.8.2
     hooks:
       - id: air-format
         alias: r
         name: R Format (Air)
-        language: system
-        entry: air format r --check
-        files: >-
-            ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.8
     hooks:
