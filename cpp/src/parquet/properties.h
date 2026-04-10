@@ -516,13 +516,21 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Enable writing the path_in_schema field to ColumnMetaData in the footer.
     ///
-    /// Writing ....
+    /// Writing path_in_schema is enabled by default, and should be left enabled for
+    /// maximum file compatibility, especially with older readers that expect this field
+    /// to be present.
     Builder* enable_write_path_in_schema() {
       write_path_in_schema_ = true;
       return this;
     }
 
     /// \brief Disable writing the path_in_schema field to ColumnMetaData in the footer.
+    ///
+    /// The path_in_schema field in the Thrift metadata is redundant and wastes a great
+    /// deal of space. Parquet file footers can be made much smaller by omitting this
+    /// field. Because the field was originally a mandatory field, writing of
+    /// path_in_schema is by default enabled. If one knows that all readers one plans to
+    /// use are tolerant of the absence of this field, writing may be safely disabled.
     Builder* disable_write_path_in_schema() {
       write_path_in_schema_ = false;
       return this;
