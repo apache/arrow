@@ -135,14 +135,12 @@ if(WIN32)
   target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
   if(ARROW_BUILD_STATIC)
     target_link_libraries(arrow_odbc_spi_impl
-                          PUBLIC arrow_flight_sql_static
-                                 arrow_compute_static
-                                 Boost::locale
-                                 ${ODBCINST})
+                          PUBLIC arrow_flight_sql_static arrow_compute_static
+                                 Boost::locale ${ODBCINST})
   else()
     target_link_libraries(arrow_odbc_spi_impl
-                          PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
-                                 ${ODBCINST})
+                          PUBLIC arrow_flight_sql_shared arrow_compute_shared
+                                 Boost::locale ${ODBCINST})
   endif()
 else()
   # Unix
@@ -171,8 +169,7 @@ target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Respect ARROW_FLIGHT_TEST_LINKAGE, default to shared
 if(ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
-  set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl
-                                     arrow_flight_testing_static
+  set(ODBC_SPI_IMPL_TEST_STATIC_LIBS arrow_odbc_spi_impl arrow_flight_testing_static
                                      ${ARROW_TEST_STATIC_LINK_LIBS})
   set(ODBC_SPI_IMPL_TEST_EXTRA_LIBS "")
 else()

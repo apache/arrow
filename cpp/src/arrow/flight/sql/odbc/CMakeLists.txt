@@ -137,12 +137,12 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
     if(ARROW_BUILD_STATIC)
       # Static build: only install the self-contained ODBC DLL
       install(TARGETS arrow_flight_sql_odbc_shared
-              RUNTIME_DEPENDENCIES
-              PRE_EXCLUDE_REGEXES
-              "api-ms-.*"
-              "ext-ms-.*"
-              POST_EXCLUDE_REGEXES
-              ".*system32/.*\\.dll"
+                      RUNTIME_DEPENDENCIES
+                      PRE_EXCLUDE_REGEXES
+                      "api-ms-.*"
+                      "ext-ms-.*"
+                      POST_EXCLUDE_REGEXES
+                      ".*system32/.*\\.dll"
               RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
     else()
       # Dynamic build: install ODBC DLL + Arrow dependency DLLs
@@ -151,12 +151,12 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
                       arrow_flight_shared
                       arrow_flight_sql_shared
                       arrow_flight_sql_odbc_shared
-              RUNTIME_DEPENDENCIES
-              PRE_EXCLUDE_REGEXES
-              "api-ms-.*"
-              "ext-ms-.*"
-              POST_EXCLUDE_REGEXES
-              ".*system32/.*\\.dll"
+                      RUNTIME_DEPENDENCIES
+                      PRE_EXCLUDE_REGEXES
+                      "api-ms-.*"
+                      "ext-ms-.*"
+                      POST_EXCLUDE_REGEXES
+                      ".*system32/.*\\.dll"
               RUNTIME DESTINATION bin COMPONENT arrow_flight_sql_odbc)
     endif()
 
