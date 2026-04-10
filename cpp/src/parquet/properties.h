@@ -524,7 +524,7 @@ class PARQUET_EXPORT WriterProperties {
 
     /// \brief Disable writing the path_in_schema field to ColumnMetaData in the footer.
     Builder* disable_write_path_in_schema() {
-      write_path_in_schema_ = true;
+      write_path_in_schema_ = false;
       return this;
     }
 

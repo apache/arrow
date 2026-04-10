@@ -518,6 +518,10 @@ Type::type ColumnChunkMetaData::type() const { return impl_->type(); }
 
 int64_t ColumnChunkMetaData::num_values() const { return impl_->num_values(); }
 
+bool ColumnChunkMetaData::is_path_in_schema_set() const {
+  return impl_->is_path_in_schema_set();
+}
+
 std::shared_ptr<schema::ColumnPath> ColumnChunkMetaData::path_in_schema() const {
   return impl_->path_in_schema();
 }

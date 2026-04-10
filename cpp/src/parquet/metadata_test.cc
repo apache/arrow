@@ -152,6 +152,8 @@ TEST(Metadata, TestBuildAccess) {
 
     auto rg1_column1 = rg1_accessor->ColumnChunk(0);
     auto rg1_column2 = rg1_accessor->ColumnChunk(1);
+    ASSERT_EQ(true, rg1_column1->is_path_in_schema_set());
+    ASSERT_EQ(true, rg1_column2->is_path_in_schema_set());
     ASSERT_EQ(true, rg1_column1->is_stats_set());
     ASSERT_EQ(true, rg1_column2->is_stats_set());
     ASSERT_EQ(stats_float.min(), rg1_column2->statistics()->EncodeMin());
@@ -203,6 +205,8 @@ TEST(Metadata, TestBuildAccess) {
 
     auto rg2_column1 = rg2_accessor->ColumnChunk(0);
     auto rg2_column2 = rg2_accessor->ColumnChunk(1);
+    ASSERT_EQ(true, rg2_column1->is_path_in_schema_set());
+    ASSERT_EQ(true, rg2_column2->is_path_in_schema_set());
     ASSERT_EQ(true, rg2_column1->is_stats_set());
     ASSERT_EQ(true, rg2_column2->is_stats_set());
     ASSERT_EQ(stats_float.min(), rg2_column2->statistics()->EncodeMin());
@@ -468,6 +472,70 @@ TEST(Metadata, TestSortingColumns) {
   auto* row_group_read_metadata = row_group_reader->metadata();
   ASSERT_NE(nullptr, row_group_read_metadata);
   EXPECT_EQ(sorting_columns, row_group_read_metadata->sorting_columns());
+}
+
+TEST(Metadata, TestWritePathInSchema) {
+  parquet::schema::NodeVector fields;
+  parquet::schema::NodePtr root;
+  parquet::SchemaDescriptor schema;
+
+  WriterProperties::Builder prop_builder;
+
+  std::shared_ptr<WriterProperties> props =
+      prop_builder.version(ParquetVersion::PARQUET_2_6)
+          ->disable_write_path_in_schema()
+          ->build();
+
+  fields.push_back(parquet::schema::Int32("int_col", Repetition::REQUIRED));
+  fields.push_back(parquet::schema::Float("float_col", Repetition::REQUIRED));
+  root = parquet::schema::GroupNode::Make("schema", Repetition::REPEATED, fields);
+  schema.Init(root);
+
+  int64_t nrows = 1000;
+  int32_t int_min = 100, int_max = 200;
+  EncodedStatistics stats_int;
+  stats_int.set_null_count(0)
+      .set_distinct_count(nrows)
+      .set_min(std::string(reinterpret_cast<const char*>(&int_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&int_max), 4));
+  EncodedStatistics stats_float;
+  float float_min = 100.100f, float_max = 200.200f;
+  stats_float.set_null_count(0)
+      .set_distinct_count(nrows)
+      .set_min(std::string(reinterpret_cast<const char*>(&float_min), 4))
+      .set_max(std::string(reinterpret_cast<const char*>(&float_max), 4));
+
+  // Generate the metadata
+  auto f_accessor = GenerateTableMetaData(schema, props, nrows, stats_int, stats_float);
+
+  std::string f_accessor_serialized_metadata = f_accessor->SerializeToString();
+  uint32_t expected_len = static_cast<uint32_t>(f_accessor_serialized_metadata.length());
+
+  // decoded_len is an in-out parameter
+  uint32_t decoded_len = expected_len;
+  auto f_accessor_copy =
+      FileMetaData::Make(f_accessor_serialized_metadata.data(), &decoded_len);
+
+  // Check that all of the serialized data is consumed
+  ASSERT_EQ(expected_len, decoded_len);
+
+  // Run this block twice, one for f_accessor, one for f_accessor_copy.
+  // To make sure SerializedMetadata was deserialized correctly.
+  std::vector<FileMetaData*> f_accessors = {f_accessor.get(), f_accessor_copy.get()};
+  for (int loop_index = 0; loop_index < 2; loop_index++) {
+    // path_in_schema should not be present
+    auto rg1_accessor = f_accessors[loop_index]->RowGroup(0);
+    auto rg1_column1 = rg1_accessor->ColumnChunk(0);
+    auto rg1_column2 = rg1_accessor->ColumnChunk(1);
+    ASSERT_EQ(false, rg1_column1->is_path_in_schema_set());
+    ASSERT_EQ(false, rg1_column2->is_path_in_schema_set());
+
+    auto rg2_accessor = f_accessors[loop_index]->RowGroup(1);
+    auto rg2_column1 = rg2_accessor->ColumnChunk(0);
+    auto rg2_column2 = rg2_accessor->ColumnChunk(1);
+    ASSERT_EQ(false, rg2_column1->is_path_in_schema_set());
+    ASSERT_EQ(false, rg2_column2->is_path_in_schema_set());
+  }
 }
 
 TEST(ApplicationVersion, Basics) {
