@@ -150,6 +150,7 @@ else()
                                arrow_compute_static
                                Boost::locale
                                Boost::headers
+                               Boost::variant
                                RapidJSON)
 
   if(NOT APPLE)
