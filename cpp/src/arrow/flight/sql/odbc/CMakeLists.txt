@@ -70,14 +70,16 @@ set(ARROW_FLIGHT_SQL_ODBC_SHARED_PRIVATE_LINK_LIBS "")
 if(WIN32)
   if(ARROW_BUILD_STATIC)
     # Static Arrow deps on Windows — self-contained ODBC DLL
-    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_static
+                                               arrow_odbc_spi_impl)
     set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
     list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
          ArrowFlight::arrow_flight_sql_static)
     list(APPEND ARROW_FLIGHT_SQL_ODBC_STATIC_INSTALL_INTERFACE_LIBS
          ArrowFlight::arrow_flight_sql_static)
   else()
-    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared arrow_odbc_spi_impl)
+    set(ARROW_FLIGHT_SQL_ODBC_SHARED_LINK_LIBS arrow_flight_sql_shared
+                                               arrow_odbc_spi_impl)
     set(ARROW_FLIGHT_SQL_ODBC_STATIC_LINK_LIBS arrow_flight_sql_static)
     list(APPEND ARROW_FLIGHT_SQL_ODBC_SHARED_INSTALL_INTERFACE_LIBS
          ArrowFlight::arrow_flight_sql_shared)
