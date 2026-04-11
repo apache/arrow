@@ -18,6 +18,7 @@
 \alias{boolean}
 \alias{bool}
 \alias{utf8}
+\alias{string_view}
 \alias{large_utf8}
 \alias{binary}
 \alias{large_binary}
@@ -75,6 +76,8 @@ boolean()
 bool()
 
 utf8()
+
+string_view()
 
 large_utf8()
 

@@ -2511,6 +2511,13 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::shared_ptr<arrow::DataType> StringView__initialize();
+extern "C" SEXP _arrow_StringView__initialize(){
+BEGIN_CPP11
+	return cpp11::as_sexp(StringView__initialize());
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::DataType> LargeUtf8__initialize();
 extern "C" SEXP _arrow_LargeUtf8__initialize(){
 BEGIN_CPP11
@@ -5992,6 +5999,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Float64__initialize", (DL_FUNC) &_arrow_Float64__initialize, 0}, 
 		{ "_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0}, 
 		{ "_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0}, 
+		{ "_arrow_StringView__initialize", (DL_FUNC) &_arrow_StringView__initialize, 0}, 
 		{ "_arrow_LargeUtf8__initialize", (DL_FUNC) &_arrow_LargeUtf8__initialize, 0}, 
 		{ "_arrow_Binary__initialize", (DL_FUNC) &_arrow_Binary__initialize, 0}, 
 		{ "_arrow_LargeBinary__initialize", (DL_FUNC) &_arrow_LargeBinary__initialize, 0}, 
@@ -6328,5 +6336,4 @@ extern "C" void R_init_arrow(DllInfo* dll){
 
   _arrow_compute__Initialize();
 }
-
 
