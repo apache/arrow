@@ -241,17 +241,17 @@
 #' * [`dmilliseconds()`][lubridate::dmilliseconds()]
 #' * [`dminutes()`][lubridate::dminutes()]
 #' * [`dmonths()`][lubridate::dmonths()]
-#' * [`dmy()`][lubridate::dmy()]: `locale` argument not supported
-#' * [`dmy_h()`][lubridate::dmy_h()]: `locale` argument not supported
-#' * [`dmy_hm()`][lubridate::dmy_hm()]: `locale` argument not supported
-#' * [`dmy_hms()`][lubridate::dmy_hms()]: `locale` argument not supported
+#' * [`dmy()`][lubridate::dmy()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`dmy_h()`][lubridate::dmy_h()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`dmy_hm()`][lubridate::dmy_hm()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`dmy_hms()`][lubridate::dmy_hms()]: `locale` argument not supported; see `parse_date_time()` for supported formats
 #' * [`dnanoseconds()`][lubridate::dnanoseconds()]
 #' * [`dpicoseconds()`][lubridate::dpicoseconds()]: not supported
 #' * [`dseconds()`][lubridate::dseconds()]
 #' * [`dst()`][lubridate::dst()]
 #' * [`dweeks()`][lubridate::dweeks()]
 #' * [`dyears()`][lubridate::dyears()]
-#' * [`dym()`][lubridate::dym()]: `locale` argument not supported
+#' * [`dym()`][lubridate::dym()]: `locale` argument not supported; see `parse_date_time()` for supported formats
 #' * [`epiweek()`][lubridate::epiweek()]
 #' * [`epiyear()`][lubridate::epiyear()]
 #' * [`fast_strptime()`][lubridate::fast_strptime()]: non-default values of `lt` and `cutoff_2000` not supported
@@ -273,14 +273,14 @@
 #' * [`make_difftime()`][lubridate::make_difftime()]: only supports `units = "secs"` (the default);
 #' providing both `num` and `...` is not supported
 #' * [`mday()`][lubridate::mday()]
-#' * [`mdy()`][lubridate::mdy()]: `locale` argument not supported
-#' * [`mdy_h()`][lubridate::mdy_h()]: `locale` argument not supported
-#' * [`mdy_hm()`][lubridate::mdy_hm()]: `locale` argument not supported
-#' * [`mdy_hms()`][lubridate::mdy_hms()]: `locale` argument not supported
+#' * [`mdy()`][lubridate::mdy()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`mdy_h()`][lubridate::mdy_h()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`mdy_hm()`][lubridate::mdy_hm()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`mdy_hms()`][lubridate::mdy_hms()]: `locale` argument not supported; see `parse_date_time()` for supported formats
 #' * [`minute()`][lubridate::minute()]
 #' * [`month()`][lubridate::month()]
-#' * [`my()`][lubridate::my()]: `locale` argument not supported
-#' * [`myd()`][lubridate::myd()]: `locale` argument not supported
+#' * [`my()`][lubridate::my()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`myd()`][lubridate::myd()]: `locale` argument not supported; see `parse_date_time()` for supported formats
 #' * [`parse_date_time()`][lubridate::parse_date_time()]: `quiet = FALSE` is not supported
 #' Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
 #' On Linux and OS X additionally a, A, b, B, Om, p, r are available.
@@ -295,17 +295,17 @@
 #' * [`week()`][lubridate::week()]
 #' * [`with_tz()`][lubridate::with_tz()]
 #' * [`yday()`][lubridate::yday()]
-#' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported
-#' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported
-#' * [`ydm_hm()`][lubridate::ydm_hm()]: `locale` argument not supported
-#' * [`ydm_hms()`][lubridate::ydm_hms()]: `locale` argument not supported
+#' * [`ydm()`][lubridate::ydm()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ydm_h()`][lubridate::ydm_h()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ydm_hm()`][lubridate::ydm_hm()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ydm_hms()`][lubridate::ydm_hms()]: `locale` argument not supported; see `parse_date_time()` for supported formats
 #' * [`year()`][lubridate::year()]
-#' * [`ym()`][lubridate::ym()]: `locale` argument not supported
-#' * [`ymd()`][lubridate::ymd()]: `locale` argument not supported
-#' * [`ymd_h()`][lubridate::ymd_h()]: `locale` argument not supported
-#' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported
-#' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported
-#' * [`yq()`][lubridate::yq()]: `locale` argument not supported
+#' * [`ym()`][lubridate::ym()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ymd()`][lubridate::ymd()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ymd_h()`][lubridate::ymd_h()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ymd_hm()`][lubridate::ymd_hm()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`ymd_hms()`][lubridate::ymd_hms()]: `locale` argument not supported; see `parse_date_time()` for supported formats
+#' * [`yq()`][lubridate::yq()]: `locale` argument not supported; see `parse_date_time()` for supported formats
 #'
 #' ## methods
 #'

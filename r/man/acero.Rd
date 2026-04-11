@@ -238,17 +238,17 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[lubridate:duration]{dmilliseconds()}}
 \item \code{\link[lubridate:duration]{dminutes()}}
 \item \code{\link[lubridate:duration]{dmonths()}}
-\item \code{\link[lubridate:ymd]{dmy()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{dmy_h()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{dmy_hm()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{dmy_hms()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{dmy()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{dmy_h()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{dmy_hm()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{dmy_hms()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
 \item \code{\link[lubridate:duration]{dnanoseconds()}}
 \item \code{\link[lubridate:duration]{dpicoseconds()}}: not supported
 \item \code{\link[lubridate:duration]{dseconds()}}
 \item \code{\link[lubridate:dst]{dst()}}
 \item \code{\link[lubridate:duration]{dweeks()}}
 \item \code{\link[lubridate:duration]{dyears()}}
-\item \code{\link[lubridate:ymd]{dym()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{dym()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
 \item \code{\link[lubridate:week]{epiweek()}}
 \item \code{\link[lubridate:year]{epiyear()}}
 \item \code{\link[lubridate:parse_date_time]{fast_strptime()}}: non-default values of \code{lt} and \code{cutoff_2000} not supported
@@ -270,14 +270,14 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[lubridate:make_difftime]{make_difftime()}}: only supports \code{units = "secs"} (the default);
 providing both \code{num} and \code{...} is not supported
 \item \code{\link[lubridate:day]{mday()}}
-\item \code{\link[lubridate:ymd]{mdy()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{mdy_h()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{mdy_hm()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{mdy_hms()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{mdy()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{mdy_h()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{mdy_hm()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{mdy_hms()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
 \item \code{\link[lubridate:minute]{minute()}}
 \item \code{\link[lubridate:month]{month()}}
-\item \code{\link[lubridate:ymd]{my()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd]{myd()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{my()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd]{myd()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
 \item \code{\link[lubridate:parse_date_time]{parse_date_time()}}: \code{quiet = FALSE} is not supported
 Available formats are H, I, j, M, S, U, w, W, y, Y, R, T.
 On Linux and OS X additionally a, A, b, B, Om, p, r are available.
@@ -292,17 +292,17 @@ On Linux and OS X additionally a, A, b, B, Om, p, r are available.
 \item \code{\link[lubridate:week]{week()}}
 \item \code{\link[lubridate:with_tz]{with_tz()}}
 \item \code{\link[lubridate:day]{yday()}}
-\item \code{\link[lubridate:ymd]{ydm()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{ydm_h()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{ydm_hm()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{ydm_hms()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{ydm()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{ydm_h()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{ydm_hm()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{ydm_hms()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
 \item \code{\link[lubridate:year]{year()}}
-\item \code{\link[lubridate:ymd]{ym()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd]{ymd()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{ymd_h()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{ymd_hm()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd_hms]{ymd_hms()}}: \code{locale} argument not supported
-\item \code{\link[lubridate:ymd]{yq()}}: \code{locale} argument not supported
+\item \code{\link[lubridate:ymd]{ym()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd]{ymd()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{ymd_h()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{ymd_hm()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd_hms]{ymd_hms()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
+\item \code{\link[lubridate:ymd]{yq()}}: \code{locale} argument not supported; see \code{parse_date_time()} for supported formats
 }
 }
 

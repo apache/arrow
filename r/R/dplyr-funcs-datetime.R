@@ -724,7 +724,7 @@ register_bindings_datetime_parsers <- function() {
     register_binding(
       paste0("lubridate::", tolower(order)),
       parser_map_factory(order),
-      notes = "`locale` argument not supported"
+      notes = "`locale` argument not supported; see `parse_date_time()` for supported formats"
     )
   }
 
