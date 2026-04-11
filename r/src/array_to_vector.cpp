@@ -290,26 +290,29 @@ struct Converter_String : public Converter {
 
   Status Ingest_some_nulls(SEXP data, const std::shared_ptr<arrow::Array>& array,
                            R_xlen_t start, R_xlen_t n, size_t chunk_index) const {
-    auto p_offset = array->data()->GetValues<int32_t>(1);
-    if (!p_offset) {
-      return Status::Invalid("Invalid offset buffer");
-    }
-    auto p_strings = array->data()->GetValues<char>(2, *p_offset);
-    if (!p_strings) {
-      // There is an offset buffer, but the data buffer is null
-      // There is at least one value in the array and not all the values are null
-      // That means all values are either empty strings or nulls so there is nothing to do
+    if constexpr (!std::is_same_v<StringArrayType, arrow::StringViewArray>) {
+      auto p_offset = array->data()->GetValues<int32_t>(1);
+      if (!p_offset) {
+        return Status::Invalid("Invalid offset buffer");
+      }
+      auto p_strings = array->data()->GetValues<char>(2, *p_offset);
+      if (!p_strings) {
+        // There is an offset buffer, but the data buffer is null
+        // There is at least one value in the array and not all the values are null
+        // That means all values are either empty strings or nulls so there is nothing to
+        // do
 
-      if (array->null_count()) {
-        arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
-                                                  array->offset(), n);
-        for (int i = 0; i < n; i++, null_reader.Next()) {
-          if (null_reader.IsNotSet()) {
-            SET_STRING_ELT(data, start + i, NA_STRING);
+        if (array->null_count()) {
+          arrow::internal::BitmapReader null_reader(array->null_bitmap_data(),
+                                                    array->offset(), n);
+          for (int i = 0; i < n; i++, null_reader.Next()) {
+            if (null_reader.IsNotSet()) {
+              SET_STRING_ELT(data, start + i, NA_STRING);
+            }
           }
         }
+        return Status::OK();
       }
-      return Status::OK();
     }
 
     StringArrayType* string_array = static_cast<StringArrayType*>(array.get());
@@ -725,7 +728,8 @@ class Converter_Dictionary : public Converter {
     // TODO (npr): this coercion should be optional, "dictionariesAsFactors" ;)
     // Alternative: preserve the logical type of the dictionary values
     // (e.g. if dict is timestamp, return a POSIXt R vector, not factor)
-    if (dictionary_->type_id() != Type::STRING) {
+    if (dictionary_->type_id() != Type::STRING &&
+        dictionary_->type_id() != Type::STRING_VIEW) {
       cpp11::safe[Rf_warning]("Coercing dictionary values to R character factor levels");
     }
 
@@ -1260,6 +1264,10 @@ std::shared_ptr<Converter> Converter::Make(
 
     case Type::LARGE_STRING:
       return std::make_shared<arrow::r::Converter_String<arrow::LargeStringArray>>(
+          chunked_array);
+
+    case Type::STRING_VIEW:
+      return std::make_shared<arrow::r::Converter_String<arrow::StringViewArray>>(
           chunked_array);
 
     case Type::DICTIONARY:

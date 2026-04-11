@@ -239,6 +239,7 @@ struct MakeConverterImpl {
       DICTIONARY_CASE(DoubleType);
       DICTIONARY_CASE(BinaryType);
       DICTIONARY_CASE(StringType);
+      DICTIONARY_CASE(StringViewType);
       DICTIONARY_CASE(FixedSizeBinaryType);
 #undef DICTIONARY_CASE
       default:
