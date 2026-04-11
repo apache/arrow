@@ -900,6 +900,10 @@ Utf8__initialize <- function() {
   .Call(`_arrow_Utf8__initialize`)
 }
 
+StringView__initialize <- function() {
+  .Call(`_arrow_StringView__initialize`)
+}
+
 LargeUtf8__initialize <- function() {
   .Call(`_arrow_LargeUtf8__initialize`)
 }
@@ -2199,4 +2203,3 @@ SetIOThreadPoolCapacity <- function(threads) {
 Array__infer_type <- function(x) {
   .Call(`_arrow_Array__infer_type`, x)
 }
-

@@ -163,6 +163,17 @@ test_that("utf8 type works as expected", {
   expect_equal(x$fields(), list())
 })
 
+test_that("string_view type works as expected", {
+  x <- string_view()
+  expect_equal(x$id, Type$STRING_VIEW)
+  expect_equal(x$name, "utf8_view")
+  expect_equal(x$ToString(), "string_view")
+  expect_true(x == x)
+  expect_false(x == null())
+  expect_equal(x$num_fields, 0L)
+  expect_equal(x$fields(), list())
+})
+
 test_that("date types work as expected", {
   x <- date32()
   expect_equal(x$id, Type$DATE32)
@@ -556,6 +567,7 @@ test_that("DataType$code()", {
 
   expect_code_roundtrip(boolean())
   expect_code_roundtrip(utf8())
+  expect_code_roundtrip(string_view())
   expect_code_roundtrip(large_utf8())
 
   expect_code_roundtrip(binary())

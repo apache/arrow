@@ -387,6 +387,13 @@ test_that("Table converts dictionary arrays with wider index types back to R", {
   expect_equal_data_frame(tab_uint64, fact)
 })
 
+test_that("Table converts dictionary arrays with string_view values", {
+  expected <- data.frame(foo = factor(c("x", "y", "x")))
+  tab <- Table$create(expected, schema = schema(foo = dictionary(uint32(), string_view())))
+
+  expect_equal_data_frame(tab, expected)
+})
+
 test_that("Table unifies dictionary on conversion back to R (ARROW-8374)", {
   b1 <- record_batch(f = factor(c("a"), levels = c("a", "b")))
   b2 <- record_batch(f = factor(c("c"), levels = c("c", "d")))

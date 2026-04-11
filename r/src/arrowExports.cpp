@@ -2511,6 +2511,13 @@ BEGIN_CPP11
 END_CPP11
 }
 // datatype.cpp
+std::shared_ptr<arrow::DataType> StringView__initialize();
+extern "C" SEXP _arrow_StringView__initialize(){
+BEGIN_CPP11
+	return cpp11::as_sexp(StringView__initialize());
+END_CPP11
+}
+// datatype.cpp
 std::shared_ptr<arrow::DataType> LargeUtf8__initialize();
 extern "C" SEXP _arrow_LargeUtf8__initialize(){
 BEGIN_CPP11
@@ -3238,22 +3245,6 @@ BEGIN_CPP11
 END_CPP11
 }
 // field.cpp
-bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
-extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
-	return cpp11::as_sexp(Field__nullable(field));
-END_CPP11
-}
-// field.cpp
-std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
-extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
-BEGIN_CPP11
-	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
-	return cpp11::as_sexp(Field__type(field));
-END_CPP11
-}
-// field.cpp
 bool Field__HasMetadata(const std::shared_ptr<arrow::Field>& field);
 extern "C" SEXP _arrow_Field__HasMetadata(SEXP field_sexp){
 BEGIN_CPP11
@@ -3284,6 +3275,22 @@ extern "C" SEXP _arrow_Field__RemoveMetadata(SEXP field_sexp){
 BEGIN_CPP11
 	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
 	return cpp11::as_sexp(Field__RemoveMetadata(field));
+END_CPP11
+}
+// field.cpp
+bool Field__nullable(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__nullable(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__nullable(field));
+END_CPP11
+}
+// field.cpp
+std::shared_ptr<arrow::DataType> Field__type(const std::shared_ptr<arrow::Field>& field);
+extern "C" SEXP _arrow_Field__type(SEXP field_sexp){
+BEGIN_CPP11
+	arrow::r::Input<const std::shared_ptr<arrow::Field>&>::type field(field_sexp);
+	return cpp11::as_sexp(Field__type(field));
 END_CPP11
 }
 // filesystem.cpp
@@ -5967,6 +5974,7 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Float64__initialize", (DL_FUNC) &_arrow_Float64__initialize, 0}, 
 		{ "_arrow_Boolean__initialize", (DL_FUNC) &_arrow_Boolean__initialize, 0}, 
 		{ "_arrow_Utf8__initialize", (DL_FUNC) &_arrow_Utf8__initialize, 0}, 
+		{ "_arrow_StringView__initialize", (DL_FUNC) &_arrow_StringView__initialize, 0}, 
 		{ "_arrow_LargeUtf8__initialize", (DL_FUNC) &_arrow_LargeUtf8__initialize, 0}, 
 		{ "_arrow_Binary__initialize", (DL_FUNC) &_arrow_Binary__initialize, 0}, 
 		{ "_arrow_LargeBinary__initialize", (DL_FUNC) &_arrow_LargeBinary__initialize, 0}, 
@@ -6054,12 +6062,12 @@ static const R_CallMethodDef CallEntries[] = {
 		{ "_arrow_Field__ToString", (DL_FUNC) &_arrow_Field__ToString, 1}, 
 		{ "_arrow_Field__name", (DL_FUNC) &_arrow_Field__name, 1}, 
 		{ "_arrow_Field__Equals", (DL_FUNC) &_arrow_Field__Equals, 3}, 
-		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
-		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
 		{ "_arrow_Field__HasMetadata", (DL_FUNC) &_arrow_Field__HasMetadata, 1}, 
 		{ "_arrow_Field__metadata", (DL_FUNC) &_arrow_Field__metadata, 1}, 
 		{ "_arrow_Field__WithMetadata", (DL_FUNC) &_arrow_Field__WithMetadata, 2}, 
 		{ "_arrow_Field__RemoveMetadata", (DL_FUNC) &_arrow_Field__RemoveMetadata, 1}, 
+		{ "_arrow_Field__nullable", (DL_FUNC) &_arrow_Field__nullable, 1}, 
+		{ "_arrow_Field__type", (DL_FUNC) &_arrow_Field__type, 1}, 
 		{ "_arrow_fs___FileInfo__type", (DL_FUNC) &_arrow_fs___FileInfo__type, 1}, 
 		{ "_arrow_fs___FileInfo__set_type", (DL_FUNC) &_arrow_fs___FileInfo__set_type, 2}, 
 		{ "_arrow_fs___FileInfo__path", (DL_FUNC) &_arrow_fs___FileInfo__path, 1}, 
@@ -6302,5 +6310,4 @@ extern "C" void R_init_arrow(DllInfo* dll){
 
   _arrow_compute__Initialize();
 }
-
 
