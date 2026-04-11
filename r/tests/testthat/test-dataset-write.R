@@ -576,6 +576,23 @@ test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file", {
   )
 })
 
+test_that("max_rows_per_file = 0 does not trigger max_rows_per_group adjustment (ARROW-40742)", {
+  skip_if_not_available("parquet")
+  df <- tibble::tibble(
+    int = 1:10,
+    dbl = as.numeric(1:10),
+    lgl = rep(c(TRUE, FALSE, NA, TRUE, FALSE), 2),
+    chr = letters[1:10],
+  )
+
+  # max_rows_per_file = 0 means "no limit" and should not error
+  dst_dir <- make_temp_dir()
+  expect_no_error(
+    write_dataset(df, dst_dir, max_rows_per_file = 0L)
+  )
+  expect_equal(nrow(read_parquet(list.files(dst_dir, full.names = TRUE)[[1]])), 10)
+})
+
 
 test_that("write_dataset checks for format-specific arguments", {
   df <- tibble::tibble(
@@ -889,6 +906,7 @@ test_that("max_rows_per_group is adjusted if at odds with max_rows_per_file in w
     write_tsv_dataset(df, dst_dir, max_rows_per_file = 5)
   )
 })
+
 
 test_that("Writing a flat file dataset without a delimiter throws an error.", {
   df <- tibble(
