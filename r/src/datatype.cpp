@@ -57,6 +57,8 @@ const char* r6_class_name<arrow::DataType>::get(
 
     case Type::STRING:
       return "Utf8";
+    case Type::STRING_VIEW:
+      return "StringView";
     case Type::LARGE_STRING:
       return "LargeUtf8";
 
@@ -164,6 +166,9 @@ std::shared_ptr<arrow::DataType> Boolean__initialize() { return arrow::boolean()
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> Utf8__initialize() { return arrow::utf8(); }
+
+// [[arrow::export]]
+std::shared_ptr<arrow::DataType> StringView__initialize() { return arrow::utf8_view(); }
 
 // [[arrow::export]]
 std::shared_ptr<arrow::DataType> LargeUtf8__initialize() { return arrow::large_utf8(); }
