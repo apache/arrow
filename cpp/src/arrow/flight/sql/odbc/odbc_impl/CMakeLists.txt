@@ -150,7 +150,6 @@ else()
                                arrow_compute_static
                                Boost::locale
                                Boost::headers
-                               Boost::variant
                                arrow::simdjson)
 
   if(NOT APPLE)
