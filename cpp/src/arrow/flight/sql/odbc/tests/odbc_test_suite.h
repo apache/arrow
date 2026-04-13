@@ -55,12 +55,26 @@
 static constexpr std::string_view kTestConnectStr = "ARROW_FLIGHT_SQL_ODBC_CONN";
 static constexpr std::string_view kTestDsn = "Apache Arrow Flight SQL Test DSN";
 
-inline SQLHENV env = 0;
-inline SQLHDBC conn = 0;
-inline SQLHSTMT stmt = 0;
+inline std::string remote_test_connect_str = "";
 
-inline bool skipping_test = false;
-inline bool connected = false;
+struct OdbcHandles {
+  SQLHENV env = SQL_NULL_HENV;
+  SQLHDBC conn = SQL_NULL_HDBC;
+  SQLHSTMT stmt = SQL_NULL_HSTMT;
+};
+
+inline OdbcHandles remote_odbcv3_handles;
+inline OdbcHandles remote_odbcv2_handles;
+inline OdbcHandles remote_non_connection_handles;
+inline OdbcHandles mock_odbcv3_handles;
+inline OdbcHandles mock_odbcv2_handles;
+inline OdbcHandles mock_non_connection_handles;
+
+// These handles are meant to point to to the relevant handle above
+// depending on the test fixture.
+inline SQLHENV env = SQL_NULL_HENV;
+inline SQLHDBC conn = SQL_NULL_HDBC;
+inline SQLHSTMT stmt = SQL_NULL_HSTMT;
 
 inline std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> mock_server;
 inline int mock_server_port = 0;
@@ -75,17 +89,19 @@ namespace arrow::flight::sql::odbc {
 class ODBCTestBase : public ::testing::Test {
  public:
   /// \brief Allocate environment and connection handles
-  static void AllocEnvConnHandles(SQLINTEGER odbc_ver = SQL_OV_ODBC3);
+  static void AllocEnvConnHandles(SQLHENV& env_handle, SQLHDBC& conn_handle,
+                                  SQLINTEGER odbc_ver = SQL_OV_ODBC3);
   /// \brief Free environment and connection handles
-  static void FreeEnvConnHandles();
+  static void FreeEnvConnHandles(SQLHENV& env_handle, SQLHDBC& conn_handle);
   /// \brief Connect to Arrow Flight SQL server using connection string defined in
   /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN", allocate statement handle.
   /// Connects using ODBC Ver 3 by default
-  static void Connect(std::string connect_str, SQLINTEGER odbc_ver = SQL_OV_ODBC3);
+  static void Connect(std::string connect_str, SQLHENV& env_handle, SQLHDBC& conn_handle,
+                      SQLINTEGER odbc_ver = SQL_OV_ODBC3);
   /// \brief Connect to Arrow Flight SQL server using connection string
-  static void ConnectWithString(std::string connection_str);
+  static void ConnectWithString(std::string connect_str, SQLHDBC& conn_handle);
   /// \brief Disconnect from server
-  static void Disconnect();
+  static void Disconnect(SQLHENV& env_handle, SQLHDBC& conn_handle);
   /// \brief Get connection string from environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
   static std::string GetConnectionString();
   /// \brief Get invalid connection string based on connection string defined in
@@ -97,7 +113,6 @@ class ODBCTestBase : public ::testing::Test {
  protected:
   void SetUp() override;
   void TearDown() override;
-  static void TearDownTestSuite();
 };
 
 /// \brief Base test fixture for running tests against a remote server.
@@ -106,9 +121,6 @@ class ODBCTestBase : public ::testing::Test {
 /// The connection string for connecting to this server is defined
 /// in the ARROW_FLIGHT_SQL_ODBC_CONN environment variable.
 class FlightSQLODBCRemoteTestBase : public ODBCTestBase {
- public:
-  static void CheckForRemoteTest();
-
  protected:
   static void SetUpTestSuite();
 };
@@ -125,6 +137,8 @@ class FlightSQLOdbcEnvConnHandleRemoteTestBase : public FlightSQLODBCRemoteTestB
  protected:
   static void SetUpTestSuite();
   static void TearDownTestSuite();
+  void SetUp() override {}
+  void TearDown() override {}
 };
 
 static constexpr std::string_view kAuthorizationHeader = "authorization";
@@ -214,6 +228,8 @@ class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase 
  protected:
   static void SetUpTestSuite();
   static void TearDownTestSuite();
+  void SetUp() override {}
+  void TearDown() override {}
 };
 
 /** ODBC read buffer size. */
