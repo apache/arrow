@@ -104,7 +104,7 @@ garrow_gio_output_stream_new(GOutputStream *gio_output_stream);
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_ALL
-G_GNUC_DEPRECATED
+GARROW_DEPRECATED
 GOutputStream *
 garrow_gio_output_stream_get_raw(GArrowGIOOutputStream *output_stream);
 #endif

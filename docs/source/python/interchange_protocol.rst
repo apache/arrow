@@ -36,6 +36,12 @@ libraries in the Python ecosystem. See more about the
 standard in the
 `protocol documentation <https://data-apis.org/dataframe-protocol/latest/index.html>`_.
 
+.. note::
+
+   The recommended way to convert between dataframe libraries is through
+   the :ref:`arrow-pycapsule-interface`, for example by calling ``pa.table(df)``
+   on a dataframe object that implements it.
+
 From PyArrow to other libraries: ``__dataframe__()`` method
 -----------------------------------------------------------
 
@@ -61,33 +67,8 @@ from any dataframe object that implements the
 ``__dataframe__()`` method via the dataframe interchange
 protocol.
 
-We can for example take a pandas dataframe and construct a
+We can for example take a polars dataframe and construct a
 PyArrow table with the use of the interchange protocol:
-
-.. code-block:: python
-
-    >>> import pyarrow
-    >>> from pyarrow.interchange import from_dataframe
-
-    >>> import pandas as pd
-    >>> df = pd.DataFrame({
-    ...         "n_attendees": [100, 10, 1],
-    ...         "country": ["Italy", "Spain", "Slovenia"],
-    ...     })
-    >>> df
-       n_attendees   country
-    0          100     Italy
-    1           10     Spain
-    2            1  Slovenia
-    >>> from_dataframe(df)
-    pyarrow.Table
-    n_attendees: int64
-    country: large_string
-    ----
-    n_attendees: [[100,10,1]]
-    country: [["Italy","Spain","Slovenia"]]
-
-We can do the same with a polars dataframe:
 
 .. code-block:: python
 
