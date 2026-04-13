@@ -40,7 +40,7 @@ jobs:
       - name: 'Download PR review payload'
         id: 'download'
         if: github.event_name == 'workflow_run'
-        uses: actions/github-script@v8
+        uses: actions/github-script@v9
         with:
           script: |
             const run_id = "${{ github.event.workflow_run.id }}";
