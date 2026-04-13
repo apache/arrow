@@ -168,6 +168,7 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
       }
       permutation.emplace_back(x.GetInt64());
     }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {

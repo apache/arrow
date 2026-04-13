@@ -26,6 +26,13 @@
 
 namespace arrow::internal {
 
+/// \brief Compute the product of the given shape dimensions.
+///
+/// Returns Status::Invalid if the product would overflow int64_t.
+/// An empty shape returns 1 (the multiplicative identity).
+ARROW_EXPORT
+Result<int64_t> ComputeShapeProduct(std::span<const int64_t> shape);
+
 ARROW_EXPORT
 bool IsPermutationTrivial(std::span<const int64_t> permutation);
 

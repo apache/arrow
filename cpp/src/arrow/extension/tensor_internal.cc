@@ -30,6 +30,17 @@
 
 namespace arrow::internal {
 
+Result<int64_t> ComputeShapeProduct(std::span<const int64_t> shape) {
+  int64_t product = 1;
+  for (const auto dim : shape) {
+    if (MultiplyWithOverflow(product, dim, &product)) {
+      return Status::Invalid(
+          "Product of tensor shape dimensions would not fit in 64-bit integer");
+    }
+  }
+  return product;
+}
+
 bool IsPermutationTrivial(std::span<const int64_t> permutation) {
   for (size_t i = 1; i < permutation.size(); ++i) {
     if (permutation[i - 1] + 1 != permutation[i]) {
@@ -105,12 +116,7 @@ Result<std::shared_ptr<Buffer>> SliceTensorBuffer(const Array& data_array,
                                                   const DataType& value_type,
                                                   std::span<const int64_t> shape) {
   const int64_t byte_width = value_type.byte_width();
-  int64_t size = 1;
-  for (const auto dim : shape) {
-    if (MultiplyWithOverflow(size, dim, &size)) {
-      return Status::Invalid("Tensor size would not fit in 64-bit integer");
-    }
-  }
+  ARROW_ASSIGN_OR_RAISE(const int64_t size, ComputeShapeProduct(shape));
   if (size != data_array.length()) {
     return Status::Invalid("Expected data array of length ", size, ", got ",
                            data_array.length());

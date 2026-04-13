@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 #include <sstream>
 
@@ -141,6 +142,7 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     if (shape.size() != permutation.size()) {
       return Status::Invalid("Invalid permutation");
     }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {
@@ -165,9 +167,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   ARROW_ASSIGN_OR_RAISE(auto ext_type, FixedShapeTensorType::Make(
                                            value_type, shape, permutation, dim_names));
   const auto& fst_type = internal::checked_cast<const FixedShapeTensorType&>(*ext_type);
-  const int64_t expected_size =
-      std::accumulate(fst_type.shape().begin(), fst_type.shape().end(),
-                      static_cast<int64_t>(1), std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t expected_size,
+                        internal::ComputeShapeProduct(fst_type.shape()));
   if (expected_size != fsl_type->list_size()) {
     return Status::Invalid("Product of shape dimensions (", expected_size,
                            ") does not match FixedSizeList size (", fsl_type->list_size(),
@@ -342,8 +343,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   }
 
   std::vector<int64_t> shape = ext_type.shape();
-  auto cell_size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                   std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t cell_size, internal::ComputeShapeProduct(shape));
   shape.insert(shape.begin(), 1, this->length());
   internal::Permute<int64_t>(permutation, &shape);
 
@@ -379,8 +379,12 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
-  const int64_t size = std::accumulate(shape.begin(), shape.end(),
-                                       static_cast<int64_t>(1), std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t size, internal::ComputeShapeProduct(shape));
+  if (size > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("Product of shape dimensions (", size,
+                           ") exceeds maximum FixedSizeList size (",
+                           std::numeric_limits<int32_t>::max(), ")");
+  }
   return std::make_shared<FixedShapeTensorType>(value_type, static_cast<int32_t>(size),
                                                 shape, permutation, dim_names);
 }
