@@ -201,6 +201,23 @@ class PARQUET_EXPORT ParquetFileReader {
                  const ::arrow::io::IOContext& ctx,
                  const ::arrow::io::CacheOptions& options);
 
+  /// Release bytes buffered by a previous call to PreBuffer() for the
+  /// specified row groups and column indices.
+  ///
+  /// This releases the memory held by those cached ranges, allowing the
+  /// underlying buffers to be freed as soon as no other owner retains a
+  /// reference. Callers must ensure that the targeted row groups have been
+  /// fully decoded before invoking this method; otherwise subsequent reads
+  /// of the same row groups may fail because the cached bytes are gone.
+  ///
+  /// It is safe to call this concurrently with reads of other row groups:
+  /// cache entries that were coalesced across the targeted row groups and
+  /// unrelated data are left intact.
+  ///
+  /// Calling this method when PreBuffer() has not been called is a no-op.
+  void EvictPreBufferedData(const std::vector<int>& row_groups,
+                            const std::vector<int>& column_indices);
+
   /// Retrieve the list of byte ranges that would need to be read to retrieve
   /// the data for the specified row groups and column indices.
   ///
