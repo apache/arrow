@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <cstring>
+#include <limits>
 #include <memory>
 #include <ostream>
 #include <string>
@@ -430,6 +431,41 @@ class SerializedFile : public ParquetFileReader::Contents {
       }
     }
     return cached_source_->WaitFor(ranges);
+  }
+
+  // Evict cached bytes that were populated by PreBuffer() for the given row
+  // groups and column indices. Callers should only invoke this once the
+  // corresponding row group data has been fully decoded and no readers are
+  // holding a reference to the cached buffers.
+  void EvictPreBufferedData(const std::vector<int>& row_groups,
+                            const std::vector<int>& column_indices) {
+    if (!cached_source_) {
+      return;
+    }
+    for (int row : row_groups) {
+      if (column_indices.empty()) {
+        continue;
+      }
+      // Bounding box of the row group's column chunk ranges. Using the bounding
+      // box (instead of per-column ranges) allows the cache to evict coalesced
+      // entries that cover multiple columns of the same row group, while
+      // leaving alone any entry that may have merged across row groups (in
+      // which case the merged entry extends beyond this bounding box and is
+      // not fully contained).
+      int64_t min_start = std::numeric_limits<int64_t>::max();
+      int64_t max_end = std::numeric_limits<int64_t>::min();
+      for (int col : column_indices) {
+        auto range =
+            ComputeColumnChunkRange(file_metadata_.get(), source_size_, row, col);
+        min_start = std::min(min_start, range.offset);
+        max_end = std::max(max_end, range.offset + range.length);
+      }
+      if (max_end > min_start) {
+        PARQUET_THROW_NOT_OK(
+            cached_source_->EvictEntriesInRange(min_start, max_end - min_start)
+                .status());
+      }
+    }
   }
 
   // Metadata/footer parsing. Divided up to separate sync/async paths, and to use
@@ -903,6 +939,14 @@ void ParquetFileReader::PreBuffer(const std::vector<int>& row_groups,
   SerializedFile* file =
       ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
   file->PreBuffer(row_groups, column_indices, ctx, options);
+}
+
+void ParquetFileReader::EvictPreBufferedData(
+    const std::vector<int>& row_groups, const std::vector<int>& column_indices) {
+  // Access private methods here
+  SerializedFile* file =
+      ::arrow::internal::checked_cast<SerializedFile*>(contents_.get());
+  file->EvictPreBufferedData(row_groups, column_indices);
 }
 
 Result<std::vector<::arrow::io::ReadRange>> ParquetFileReader::GetReadRanges(

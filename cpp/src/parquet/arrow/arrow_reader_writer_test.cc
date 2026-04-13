@@ -2670,6 +2670,116 @@ TEST(TestArrowReadWrite, GetRecordBatchReaderNoColumns) {
   ASSERT_EQ(actual_batch->num_rows(), num_rows);
 }
 
+// GH-39808: bytes cached by PreBuffer() for an already-decoded row group
+// should be released when the caller explicitly evicts them, otherwise
+// Dataset.to_batches accumulates memory across the lifetime of an open
+// FileReader.
+TEST(TestArrowReadWrite, EvictPreBufferedData) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  const int num_rows = 1024;
+  const int row_group_size = 256;
+  const int num_columns = 3;
+  const std::vector<int> row_groups = {0, 1, 2, 3};
+  const std::vector<int> column_indices = {0, 1, 2};
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::unique_ptr<FileReader> reader;
+  FileReaderBuilder builder;
+  ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(builder.properties(properties)->Build(&reader));
+  ASSERT_EQ(reader->num_row_groups(), static_cast<int>(row_groups.size()));
+
+  // Pre-buffer every row group/column so the cache is fully populated.
+  reader->parquet_reader()->PreBuffer(row_groups, column_indices,
+                                      ::arrow::io::IOContext(),
+                                      ::arrow::io::CacheOptions::LazyDefaults());
+  ASSERT_OK(
+      reader->parquet_reader()->WhenBuffered(row_groups, column_indices).status());
+
+  // Decode the first row group; reads go through the cache.
+  std::shared_ptr<Table> rg_table;
+  ASSERT_OK(reader->ReadRowGroup(/*i=*/0, column_indices, &rg_table));
+  ASSERT_EQ(rg_table->num_rows(), row_group_size);
+
+  // Evict only row group 0. The ranges for the other row groups are untouched,
+  // so they must still be readable.
+  reader->parquet_reader()->EvictPreBufferedData({0}, column_indices);
+  ASSERT_OK(reader->ReadRowGroup(/*i=*/1, column_indices, &rg_table));
+  ASSERT_EQ(rg_table->num_rows(), row_group_size);
+
+  // Evicting twice is a no-op (and must not crash).
+  reader->parquet_reader()->EvictPreBufferedData({0}, column_indices);
+
+  // Calling EvictPreBufferedData on a reader that never called PreBuffer is
+  // also a no-op.
+  std::unique_ptr<FileReader> no_prebuffer_reader;
+  FileReaderBuilder no_prebuffer_builder;
+  ASSERT_OK(no_prebuffer_builder.Open(std::make_shared<BufferReader>(buffer)));
+  ASSERT_OK(no_prebuffer_builder.Build(&no_prebuffer_reader));
+  no_prebuffer_reader->parquet_reader()->EvictPreBufferedData(row_groups,
+                                                              column_indices);
+}
+
+// GH-39808: when Dataset.to_batches-style iteration drives the async
+// RecordBatchGenerator, each row group's pre-buffered bytes should be
+// released as soon as the row group has been converted into record batches,
+// so the overall memory footprint is independent of how many row groups the
+// file contains.
+TEST(TestArrowReadWrite, GetRecordBatchGeneratorReleasesPreBufferedRowGroups) {
+  ArrowReaderProperties properties = default_arrow_reader_properties();
+  properties.set_pre_buffer(true);
+  // Read one row group at a time so the test deterministically exercises the
+  // per-row-group eviction path.
+  properties.set_batch_size(256);
+
+  const int num_rows = 1024;
+  const int row_group_size = 256;
+  const int num_columns = 2;
+
+  std::shared_ptr<Table> table;
+  ASSERT_NO_FATAL_FAILURE(MakeDoubleTable(num_columns, num_rows, 1, &table));
+
+  std::shared_ptr<Buffer> buffer;
+  ASSERT_NO_FATAL_FAILURE(WriteTableToBuffer(table, row_group_size,
+                                             default_arrow_writer_properties(), &buffer));
+
+  std::shared_ptr<FileReader> reader;
+  {
+    std::unique_ptr<FileReader> unique_reader;
+    FileReaderBuilder builder;
+    ASSERT_OK(builder.Open(std::make_shared<BufferReader>(buffer)));
+    ASSERT_OK(builder.properties(properties)->Build(&unique_reader));
+    reader = std::move(unique_reader);
+  }
+  ASSERT_EQ(reader->num_row_groups(), num_rows / row_group_size);
+
+  // Drive the generator exactly as ScanBatchesAsync does.
+  ASSERT_OK_AND_ASSIGN(auto batch_generator,
+                       reader->GetRecordBatchGenerator(reader, {0, 1, 2, 3}, {0, 1}));
+  std::vector<std::shared_ptr<::arrow::RecordBatch>> batches;
+  for (int i = 0; i < reader->num_row_groups(); ++i) {
+    auto fut = batch_generator();
+    ASSERT_OK_AND_ASSIGN(auto batch, fut.result());
+    ASSERT_NE(batch, nullptr);
+    batches.push_back(std::move(batch));
+  }
+  // Generator is drained.
+  auto fut_end = batch_generator();
+  ASSERT_OK_AND_ASSIGN(auto end_batch, fut_end.result());
+  ASSERT_EQ(end_batch, nullptr);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto actual, ::arrow::Table::FromRecordBatches(batches[0]->schema(), batches));
+  AssertTablesEqual(*table, *actual, /*same_chunk_layout=*/false);
+}
+
 TEST(TestArrowReadWrite, GetRecordBatchGenerator) {
   ArrowReaderProperties properties = default_arrow_reader_properties();
   const int num_rows = 1024;
