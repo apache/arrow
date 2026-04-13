@@ -87,15 +87,18 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrEnlistInDtcUnsupported)
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrOdbcCursorsDMOnly) {
-  this->AllocEnvConnHandles();
+  SQLHENV test_env = SQL_NULL_HENV;
+  SQLHDBC test_conn = SQL_NULL_HDBC;
+  this->AllocEnvConnHandles(test_env, test_conn);
 
   // Verify DM-only attribute is settable via Driver Manager
   ASSERT_EQ(SQL_SUCCESS,
-            SQLSetConnectAttr(conn, SQL_ATTR_ODBC_CURSORS,
+            SQLSetConnectAttr(test_conn, SQL_ATTR_ODBC_CURSORS,
                               reinterpret_cast<SQLPOINTER>(SQL_CUR_USE_DRIVER), 0));
 
   std::string connect_str = this->GetConnectionString();
-  this->ConnectWithString(connect_str);
+  this->ConnectWithString(connect_str, test_conn);
+  this->Disconnect(test_env, test_conn);
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrQuietModeReadOnly) {
