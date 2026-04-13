@@ -614,7 +614,7 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoAlterTable) {
 TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoCatalogLocation) {
   // GH-49482 TODO: resolve inconsitent return value for SQL_CATALOG_LOCATION and change
   // test type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString());
+  this->ConnectWithString(this->GetConnectionString(), conn);
 
   SQLUSMALLINT value;
   GetInfo(conn, SQL_CATALOG_LOCATION, &value);
@@ -750,7 +750,7 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDropDomain) {
 TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
   // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_SCHEMA and change test
   // type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString());
+  this->ConnectWithString(this->GetConnectionString(), conn);
 
   SQLUINTEGER value;
   GetInfo(conn, SQL_DROP_SCHEMA, &value);
@@ -764,7 +764,7 @@ TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropSchema) {
 TYPED_TEST(ConnectionInfoHandleTest, TestSQLGetInfoDropTable) {
   // GH-49482 TODO: resolve inconsitent return value for SQL_DROP_TABLE and change test
   // type to `ConnectionInfoTest`
-  this->ConnectWithString(this->GetConnectionString());
+  this->ConnectWithString(this->GetConnectionString(), conn);
 
   SQLUINTEGER value;
   GetInfo(conn, SQL_DROP_TABLE, &value);
