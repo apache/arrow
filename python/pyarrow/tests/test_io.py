@@ -17,6 +17,7 @@
 
 import bz2
 from contextlib import contextmanager
+import errno
 from io import (BytesIO, StringIO, TextIOWrapper, BufferedIOBase, IOBase)
 import itertools
 import gc
@@ -1278,6 +1279,28 @@ def test_os_file_writer(tmpdir):
         f4.write(b'bar')
     with pa.OSFile(path) as f5:
         assert f5.size() == 6  # foo + bar
+
+
+def test_os_file_raw_fd(tmpdir):
+    path = os.path.join(str(tmpdir), guid())
+
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o666)
+    with pa.OSFile(fd, mode='wb') as f:
+        assert f.fileno() == fd
+        f.write(b'foo')
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(fd)
+    assert exc.value.errno == errno.EBADF
+
+    fd = os.open(path, os.O_RDONLY)
+    with pa.OSFile(fd, mode='rb') as f:
+        assert f.fileno() == fd
+        assert f.read() == b'foo'
+
+    with pytest.raises(OSError) as exc:
+        os.fstat(fd)
+    assert exc.value.errno == errno.EBADF
 
 
 def test_native_file_write_reject_unicode():

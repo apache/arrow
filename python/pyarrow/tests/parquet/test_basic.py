@@ -133,6 +133,21 @@ def test_memory_map(tempdir):
     assert table_read.equals(table)
 
 
+def test_parquet_read_write_table_raw_fd(tempdir):
+    table = pa.table({'a': [1, 2, 3]})
+    path = str(tempdir / 'raw-fd.parquet')
+
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o666)
+    with pa.OSFile(fd, mode='wb') as sink:
+        pq.write_table(table, sink)
+
+    fd = os.open(path, os.O_RDONLY)
+    with pa.OSFile(fd, mode='rb') as source:
+        result = pq.read_table(source)
+
+    assert result.equals(table)
+
+
 @pytest.mark.pandas
 def test_enable_buffered_stream(tempdir):
     df = alltypes_sample(size=10)
