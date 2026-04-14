@@ -30,6 +30,8 @@
 */
 
 #include "arrow/util/base64.h"
+#include <array>
+#include <cstdint>
 #include <iostream>
 
 namespace arrow {
@@ -39,6 +41,17 @@ static const std::string base64_chars =
              "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
              "abcdefghijklmnopqrstuvwxyz"
              "0123456789+/";
+
+static const std::array<int8_t, 256> kBase64Lookup = [] {
+  std::array<int8_t, 256> table{};
+  table.fill(-1);
+
+  for (size_t i = 0; i < base64_chars.size(); ++i) {
+    table[static_cast<uint8_t>(base64_chars[i])] = static_cast<int8_t>(i);
+  }
+
+  return table;
+}();
 
 static std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
   std::string ret;
@@ -119,22 +132,18 @@ Result<std::string> base64_decode(std::string_view encoded_string) {
         return Status::Invalid("Invalid base64 input: padding in wrong position");
       }
 
-      if (base64_chars.find(c) == std::string::npos) {
+      int8_t val = kBase64Lookup[static_cast<uint8_t>(c)];
+
+      if (val == -1) {
         return Status::Invalid("Invalid base64 input: character is not valid base64 character");
       }
 
-      char_array_4[i++] = c;
+      char_array_4[i++] = val;
     }
 
     in_++;
 
     if (i == 4) {
-      for (i = 0; i < 4; i++) {
-        if (char_array_4[i] != 0) {
-          char_array_4[i] = base64_chars.find(char_array_4[i]) & 0xff;
-        }
-      }
-
       char_array_3[0] = (char_array_4[0] << 2) + ((char_array_4[1] & 0x30) >> 4);
       char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
       char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
