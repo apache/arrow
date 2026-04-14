@@ -92,6 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Run
         run: |
@@ -134,6 +135,8 @@ jobs:
       VERSION: ${{ needs.target.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Run
         run: |
           dev/release/verify-release-candidate.sh ${VERSION} ${RC}
@@ -157,6 +160,8 @@ jobs:
       VERSION: ${{ needs.target.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@v6
         with:
           python-version: 3
@@ -203,6 +208,8 @@ jobs:
       VERSION: ${{ needs.target.outputs.version }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Run
         env:
           GH_TOKEN: ${{ github.token }}
@@ -222,6 +229,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           submodules: recursive
       - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
       - name: Install System Dependencies
@@ -256,6 +264,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Run
         run: |

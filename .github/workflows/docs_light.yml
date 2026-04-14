@@ -52,6 +52,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Cache Docker Volumes
         uses: actions/cache@v5

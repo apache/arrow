@@ -53,6 +53,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
@@ -101,6 +102,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install ninja-build
         run: brew install ninja
@@ -142,6 +144,7 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install MATLAB
         uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
