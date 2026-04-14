@@ -1295,7 +1295,16 @@ cdef class OSFile(NativeFile):
 
     def fileno(self):
         self._assert_open()
-        return self.handle.file_descriptor()
+        cdef:
+            shared_ptr[ReadableFile] readable_handle
+            shared_ptr[FileOutputStream] writable_handle
+
+        if self.is_readable:
+            readable_handle = <shared_ptr[ReadableFile]> self.get_random_access_file()
+            return readable_handle.get().file_descriptor()
+        else:
+            writable_handle = <shared_ptr[FileOutputStream]> self.get_output_stream()
+            return writable_handle.get().file_descriptor()
 
 
 cdef class FixedSizeBufferWriter(NativeFile):
