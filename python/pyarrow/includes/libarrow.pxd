@@ -1691,6 +1691,9 @@ cdef extern from "arrow/io/api.h" namespace "arrow::io" nogil:
         CResult[shared_ptr[ReadableFile]] Open(const c_string& path)
 
         @staticmethod
+        CResult[shared_ptr[ReadableFile]] Open(int fd)
+
+        @staticmethod
         CResult[shared_ptr[ReadableFile]] Open(int fd, CMemoryPool* memory_pool)
 
         @staticmethod
