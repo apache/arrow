@@ -953,7 +953,8 @@ Status GetOriginSchema(const std::shared_ptr<const KeyValueMetadata>& metadata,
   // The original Arrow schema was serialized using the store_schema option.
   // We deserialize it here and use it to inform read options such as
   // dictionary-encoded fields.
-  auto decoded = ::arrow::util::base64_decode(metadata->value(schema_index));
+  ARROW_ASSIGN_OR_RAISE(auto decoded,
+                        ::arrow::util::base64_decode(metadata->value(schema_index)));
   auto schema_buf = std::make_shared<Buffer>(decoded);
 
   ::arrow::ipc::DictionaryMemo dict_memo;

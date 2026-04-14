@@ -19,6 +19,7 @@
 
 #include "arrow/util/utf8.h"
 
+#include "arrow/util/base64.h"
 #include "parquet/encryption/file_key_unwrapper.h"
 #include "parquet/encryption/key_metadata.h"
 
@@ -122,7 +123,10 @@ KeyWithMasterId FileKeyUnwrapper::GetDataEncryptionKey(const KeyMaterial& key_ma
         });
 
     // Decrypt the data key
-    std::string aad = ::arrow::util::base64_decode(encoded_kek_id);
+    PARQUET_ASSIGN_OR_THROW(auto decoded_kek,
+                            ::arrow::util::base64_decode(encoded_kek_id));
+
+    std::string aad = std::move(decoded_kek);
     data_key = internal::DecryptKeyLocally(encoded_wrapped_dek, kek_bytes, aad);
   }
 
