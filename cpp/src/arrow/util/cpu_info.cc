@@ -297,6 +297,12 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
 
 #else
 //------------------------------ LINUX ------------------------------//
+#  if defined(CPUINFO_ARCH_ARM)
+#    include <asm/hwcap.h>
+#    include <sys/auxv.h>
+#    include <sys/prctl.h>
+#  endif
+
 // Get cache size, return 0 on error
 int64_t LinuxGetCacheSize(int level) {
   // get cache size by sysconf()
@@ -413,8 +419,26 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
       }
     }
   }
+
+#  if defined(CPUINFO_ARCH_ARM)
+  // Detect SVE and vector length via getauxval/prctl (more reliable than /proc/cpuinfo)
+#    ifdef HWCAP_SVE
+  const auto hwcap = getauxval(AT_HWCAP);
+  if (hwcap & HWCAP_SVE) {
+    *hardware_flags |= CpuInfo::SVE;
+#      ifdef PR_SVE_GET_VL
+    const int vl = prctl(PR_SVE_GET_VL);
+    assert(vl >= 0);
+    // prctl returns vector length in bytes; mask off status flags
+    const int vl_bytes = vl & PR_SVE_VL_LEN_MASK;
+    if (vl_bytes >= 32) *hardware_flags |= CpuInfo::SVE256;  // 256 bits
+    if (vl_bytes >= 64) *hardware_flags |= CpuInfo::SVE512;  // 512 bits
+#      endif  // PR_SVE_GET_VL
+  }
+#    endif    // HWCAP_SVE
+#  endif      // CPUINFO_ARCH_ARM
 }
-#endif  // WINDOWS, MACOS, LINUX
+#endif        // WINDOWS, MACOS, LINUX
 
 //============================== Arch Dependent ==============================//
 
@@ -473,11 +497,31 @@ void ArchVerifyCpuRequirements(const CpuInfo* ci) {
 #elif defined(CPUINFO_ARCH_ARM)
 //------------------------------ AARCH64 ------------------------------//
 bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_flags) {
-  if (simd_level == "NONE") {
-    *hardware_flags &= ~CpuInfo::ASIMD;
-    return true;
+  enum {
+    USER_SIMD_NONE,
+    USER_SIMD_SVE,
+    USER_SIMD_SVE256,
+    USER_SIMD_SVE512,
+    USER_SIMD_MAX,
+  };
+
+  int level = USER_SIMD_MAX;
+  if (simd_level == "SVE") {
+    level = USER_SIMD_SVE;
+  } else if (simd_level == "SVE512") {
+    level = USER_SIMD_SVE512;
+  } else if (simd_level == "SVE256") {
+    level = USER_SIMD_SVE256;
+  } else if (simd_level == "NONE") {
+    level = USER_SIMD_NONE;
+  } else {
+    return false;
   }
-  return false;
+
+  if (level < USER_SIMD_SVE512) *hardware_flags &= ~CpuInfo::SVE512;
+  if (level < USER_SIMD_SVE256) *hardware_flags &= ~CpuInfo::SVE256;
+  if (level < USER_SIMD_SVE) *hardware_flags &= ~CpuInfo::SVE;
+  return true;
 }
 
 void ArchVerifyCpuRequirements(const CpuInfo* ci) {
