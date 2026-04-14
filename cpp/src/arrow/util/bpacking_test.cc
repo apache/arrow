@@ -27,7 +27,7 @@
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  include "arrow/util/cpu_info.h"
 #endif
 
@@ -347,6 +347,39 @@ TEST_P(TestUnpack, Unpack8Neon) { this->TestAll(&bpacking::unpack_neon<uint8_t>)
 TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&bpacking::unpack_neon<uint16_t>); }
 TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&bpacking::unpack_neon<uint32_t>); }
 TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&bpacking::unpack_neon<uint64_t>); }
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE256)
+TEST_P(TestUnpack, UnpackBoolSve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_sve256<bool>);
+}
+TEST_P(TestUnpack, Unpack8Sve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_sve256<uint8_t>);
+}
+TEST_P(TestUnpack, Unpack16Sve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_sve256<uint16_t>);
+}
+TEST_P(TestUnpack, Unpack32Sve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_sve256<uint32_t>);
+}
+TEST_P(TestUnpack, Unpack64Sve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_sve256<uint64_t>);
+}
 #endif
 
 TEST_P(TestUnpack, UnpackBool) { this->TestAll(&unpack<bool>); }

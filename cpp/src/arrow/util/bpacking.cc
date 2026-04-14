@@ -33,16 +33,26 @@ struct UnpackDynamicFunction {
 
   static constexpr auto implementations() {
     return std::array{
+    // x86 implementations
 #if defined(ARROW_HAVE_SSE4_2)
         Implementation{DispatchLevel::NONE, &bpacking::unpack_sse4_2<Uint>},
+#  if defined(ARROW_HAVE_RUNTIME_AVX2)
+        Implementation{DispatchLevel::AVX2, &bpacking::unpack_avx2<Uint>},
+#  endif
+#  if defined(ARROW_HAVE_RUNTIME_AVX512)
+        Implementation{DispatchLevel::AVX512, &bpacking::unpack_avx512<Uint>},
+#  endif
+
+    // ARM implementations
+#elif defined(ARROW_HAVE_NEON)
+        Implementation{DispatchLevel::NONE, &bpacking::unpack_neon<Uint>},
+#  if defined(ARROW_HAVE_RUNTIME_SVE256)
+        Implementation{DispatchLevel::SVE256, &bpacking::unpack_sve256<Uint>},
+#  endif
+
+    // Other implementations
 #else
         Implementation{DispatchLevel::NONE, &bpacking::unpack_scalar<Uint>},
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, &bpacking::unpack_avx2<Uint>},
-#endif
-#if defined(ARROW_HAVE_RUNTIME_AVX512)
-        Implementation{DispatchLevel::AVX512, &bpacking::unpack_avx512<Uint>},
 #endif
     };
   }
@@ -52,12 +62,14 @@ struct UnpackDynamicFunction {
 
 template <typename Uint>
 void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-#if defined(ARROW_HAVE_NEON)
-  return bpacking::unpack_neon(in, out, opts);
-#else
-  static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
-  return dispatch.func(in, out, opts);
-#endif
+  auto constexpr kImplementations = UnpackDynamicFunction<Uint>::implementations();
+  if constexpr (kImplementations.size() == 1) {
+    constexpr auto func = kImplementations.front().second;
+    func(in, out, opts);
+  } else {
+    static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
+    return dispatch.func(in, out, opts);
+  }
 }
 
 template void unpack<bool>(const uint8_t*, bool*, const UnpackOptions&);

@@ -26,7 +26,7 @@
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  include "arrow/util/cpu_info.h"
 #endif
 
@@ -251,6 +251,33 @@ BENCHMARK_CAPTURE(BM_UnpackUint16, NeonUnaligned, false, &bpacking::unpack_neon<
 BENCHMARK_CAPTURE(BM_UnpackUint32, NeonUnaligned, false, &bpacking::unpack_neon<uint32_t>)
     ->ArgsProduct(kBitWidthsNumValues32);
 BENCHMARK_CAPTURE(BM_UnpackUint64, NeonUnaligned, false, &bpacking::unpack_neon<uint64_t>)
+    ->ArgsProduct(kBitWidthsNumValues64);
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE256)
+BENCHMARK_CAPTURE(BM_UnpackBool, Sve256Unaligned, false, &bpacking::unpack_sve256<bool>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256),
+                  "Sve256 not available")
+    ->ArgsProduct(kBitWidthsNumValuesBool);
+BENCHMARK_CAPTURE(BM_UnpackUint8, Sve256Unaligned, false,
+                  &bpacking::unpack_sve256<uint8_t>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256),
+                  "Sve256 not available")
+    ->ArgsProduct(kBitWidthsNumValues8);
+BENCHMARK_CAPTURE(BM_UnpackUint16, Sve256Unaligned, false,
+                  &bpacking::unpack_sve256<uint16_t>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256),
+                  "Sve256 not available")
+    ->ArgsProduct(kBitWidthsNumValues16);
+BENCHMARK_CAPTURE(BM_UnpackUint32, Sve256Unaligned, false,
+                  &bpacking::unpack_sve256<uint32_t>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256),
+                  "Sve256 not available")
+    ->ArgsProduct(kBitWidthsNumValues32);
+BENCHMARK_CAPTURE(BM_UnpackUint64, Sve256Unaligned, false,
+                  &bpacking::unpack_sve256<uint64_t>,
+                  !CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256),
+                  "Sve256 not available")
     ->ArgsProduct(kBitWidthsNumValues64);
 #endif
 

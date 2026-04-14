@@ -25,68 +25,62 @@
 namespace arrow::internal::bpacking {
 
 #if defined(ARROW_HAVE_NEON)
-
-template <typename Uint>
-ARROW_EXPORT void unpack_neon(const uint8_t* in, Uint* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<bool>(  //
-    const uint8_t* in, bool* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint8_t>(
-    const uint8_t* in, uint8_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint16_t>(
-    const uint8_t* in, uint16_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint32_t>(
-    const uint8_t* in, uint32_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_neon<uint64_t>(
-    const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
-
+#  define UNPACK_ARCH128 unpack_neon
 #elif defined(ARROW_HAVE_SSE4_2)
-
-template <typename Uint>
-ARROW_EXPORT void unpack_sse4_2(const uint8_t* in, Uint* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<bool>(  //
-    const uint8_t* in, bool* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint8_t>(
-    const uint8_t* in, uint8_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint16_t>(
-    const uint8_t* in, uint16_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint32_t>(
-    const uint8_t* in, uint32_t* out, const UnpackOptions& opts);
-
-extern template ARROW_TEMPLATE_EXPORT void unpack_sse4_2<uint64_t>(
-    const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
-
+#  define UNPACK_ARCH128 unpack_sse4_2
 #endif
 
-#if defined(ARROW_HAVE_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(UNPACK_ARCH128)
 
 template <typename Uint>
-ARROW_EXPORT void unpack_avx2(const uint8_t* in, Uint* out, const UnpackOptions& opts);
+ARROW_EXPORT void UNPACK_ARCH128(const uint8_t* in, Uint* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<bool>(  //
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<bool>(  //
     const uint8_t* in, bool* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint8_t>(
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<uint8_t>(
     const uint8_t* in, uint8_t* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint16_t>(
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<uint16_t>(
     const uint8_t* in, uint16_t* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint32_t>(
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<uint32_t>(
     const uint8_t* in, uint32_t* out, const UnpackOptions& opts);
 
-extern template ARROW_TEMPLATE_EXPORT void unpack_avx2<uint64_t>(
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH128<uint64_t>(
     const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
 
+#endif  // UNPACK_ARCH128
+#undef UNPACK_ARCH128
+
+#if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
+#  define UNPACK_ARCH256 unpack_sve256
+#elif defined(UNPACK_ARCH256) || defined(ARROW_HAVE_RUNTIME_AVX2)
+#  define UNPACK_ARCH256 unpack_avx2
 #endif
+
+#if defined(UNPACK_ARCH256)
+
+template <typename Uint>
+ARROW_EXPORT void UNPACK_ARCH256(const uint8_t* in, Uint* out, const UnpackOptions& opts);
+
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH256<bool>(  //
+    const uint8_t* in, bool* out, const UnpackOptions& opts);
+
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH256<uint8_t>(
+    const uint8_t* in, uint8_t* out, const UnpackOptions& opts);
+
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH256<uint16_t>(
+    const uint8_t* in, uint16_t* out, const UnpackOptions& opts);
+
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH256<uint32_t>(
+    const uint8_t* in, uint32_t* out, const UnpackOptions& opts);
+
+extern template ARROW_TEMPLATE_EXPORT void UNPACK_ARCH256<uint64_t>(
+    const uint8_t* in, uint64_t* out, const UnpackOptions& opts);
+
+#endif  // UNPACK_ARCH256
+#undef UNPACK_ARCH256
 
 #if defined(ARROW_HAVE_AVX512) || defined(ARROW_HAVE_RUNTIME_AVX512)
 
