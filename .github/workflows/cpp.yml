@@ -109,6 +109,10 @@ jobs:
       LLVM: ${{ matrix.llvm }}
       UBUNTU: ${{ matrix.ubuntu }}
     steps:
+      - name: Show machine info
+        run: |
+          free -h
+          lscpu
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
