@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 #include <sstream>
 
@@ -109,8 +110,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     return Status::Invalid("Expected FixedSizeList storage type, got ",
                            storage_type->ToString());
   }
-  auto value_type =
-      internal::checked_pointer_cast<FixedSizeListType>(storage_type)->value_type();
+  auto fsl_type = internal::checked_pointer_cast<FixedSizeListType>(storage_type);
+  auto value_type = fsl_type->value_type();
   rj::Document document;
   if (document.Parse(serialized_data.data(), serialized_data.length()).HasParseError() ||
       !document.IsObject() || !document.HasMember("shape") ||
@@ -119,21 +120,45 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   }
 
   std::vector<int64_t> shape;
-  for (auto& x : document["shape"].GetArray()) {
+  for (const auto& x : document["shape"].GetArray()) {
+    if (!x.IsInt64()) {
+      return Status::Invalid("shape must contain integers, got ",
+                             internal::JsonTypeName(x));
+    }
     shape.emplace_back(x.GetInt64());
   }
+
   std::vector<int64_t> permutation;
   if (document.HasMember("permutation")) {
-    for (auto& x : document["permutation"].GetArray()) {
+    const auto& json_permutation = document["permutation"];
+    if (!json_permutation.IsArray()) {
+      return Status::Invalid("permutation must be an array, got ",
+                             internal::JsonTypeName(json_permutation));
+    }
+    for (const auto& x : json_permutation.GetArray()) {
+      if (!x.IsInt64()) {
+        return Status::Invalid("permutation must contain integers, got ",
+                               internal::JsonTypeName(x));
+      }
       permutation.emplace_back(x.GetInt64());
     }
     if (shape.size() != permutation.size()) {
       return Status::Invalid("Invalid permutation");
     }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {
-    for (auto& x : document["dim_names"].GetArray()) {
+    const auto& json_dim_names = document["dim_names"];
+    if (!json_dim_names.IsArray()) {
+      return Status::Invalid("dim_names must be an array, got ",
+                             internal::JsonTypeName(json_dim_names));
+    }
+    for (const auto& x : json_dim_names.GetArray()) {
+      if (!x.IsString()) {
+        return Status::Invalid("dim_names must contain strings, got ",
+                               internal::JsonTypeName(x));
+      }
       dim_names.emplace_back(x.GetString());
     }
     if (shape.size() != dim_names.size()) {
@@ -141,7 +166,20 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
     }
   }
 
-  return fixed_shape_tensor(value_type, shape, permutation, dim_names);
+  // Validate product of shape dimensions matches storage type list_size.
+  // This check is intentionally after field parsing so that metadata-level errors
+  // (type mismatches, size mismatches) are reported first.
+  ARROW_ASSIGN_OR_RAISE(auto ext_type, FixedShapeTensorType::Make(
+                                           value_type, shape, permutation, dim_names));
+  const auto& fst_type = internal::checked_cast<const FixedShapeTensorType&>(*ext_type);
+  ARROW_ASSIGN_OR_RAISE(const int64_t expected_size,
+                        internal::ComputeShapeProduct(fst_type.shape()));
+  if (expected_size != fsl_type->list_size()) {
+    return Status::Invalid("Product of shape dimensions (", expected_size,
+                           ") does not match FixedSizeList size (", fsl_type->list_size(),
+                           ")");
+  }
+  return ext_type;
 }
 
 std::shared_ptr<Array> FixedShapeTensorType::MakeArray(
@@ -310,8 +348,7 @@ const Result<std::shared_ptr<Tensor>> FixedShapeTensorArray::ToTensor() const {
   }
 
   std::vector<int64_t> shape = ext_type.shape();
-  auto cell_size = std::accumulate(shape.begin(), shape.end(), static_cast<int64_t>(1),
-                                   std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t cell_size, internal::ComputeShapeProduct(shape));
   shape.insert(shape.begin(), 1, this->length());
   internal::Permute<int64_t>(permutation, &shape);
 
@@ -330,6 +367,11 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     const std::shared_ptr<DataType>& value_type, const std::vector<int64_t>& shape,
     const std::vector<int64_t>& permutation, const std::vector<std::string>& dim_names) {
   const size_t ndim = shape.size();
+  for (auto dim : shape) {
+    if (dim < 0) {
+      return Status::Invalid("shape must have non-negative values, got ", dim);
+    }
+  }
   if (!permutation.empty() && ndim != permutation.size()) {
     return Status::Invalid("permutation size must match shape size. Expected: ", ndim,
                            " Got: ", permutation.size());
@@ -342,8 +384,12 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Make(
     RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
 
-  const int64_t size = std::accumulate(shape.begin(), shape.end(),
-                                       static_cast<int64_t>(1), std::multiplies<>());
+  ARROW_ASSIGN_OR_RAISE(const int64_t size, internal::ComputeShapeProduct(shape));
+  if (size > std::numeric_limits<int32_t>::max()) {
+    return Status::Invalid("Product of shape dimensions (", size,
+                           ") exceeds maximum FixedSizeList size (",
+                           std::numeric_limits<int32_t>::max(), ")");
+  }
   return std::make_shared<FixedShapeTensorType>(value_type, static_cast<int32_t>(size),
                                                 shape, permutation, dim_names);
 }
