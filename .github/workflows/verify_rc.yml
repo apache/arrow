@@ -52,10 +52,11 @@ jobs:
         id: detect
         env:
           GH_TOKEN: ${{ github.token }}
+          RC_TAG: ${{ inputs.rc_tag }}
         run: |
           case "${GITHUB_EVENT_NAME}" in
             workflow_dispatch)
-              tag="${{ inputs.rc_tag }}"
+              tag="${RC_TAG}"
               ;;
             pull_request)
               tag="$(gh release list \

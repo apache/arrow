@@ -52,6 +52,7 @@ jobs:
         id: check
         env:
           GH_TOKEN: ${{ github.token }}
+          PARENT_WORKFLOW: ${{ inputs.parent-workflow }}
         run: |
           set -ex
           case "${GITHUB_EVENT_NAME}" in
@@ -71,7 +72,7 @@ jobs:
               git diff --stat origin/${GITHUB_BASE_REF}..
               if git diff --stat origin/${GITHUB_BASE_REF}.. | \
                    grep \
-                     --fixed-strings ".github/workflows/${{ inputs.parent-workflow }}.yml" \
+                     --fixed-strings ".github/workflows/${PARENT_WORKFLOW}.yml" \
                      --quiet; then
                 echo "force=true" >> "${GITHUB_OUTPUT}"
               fi
