@@ -40,7 +40,7 @@ jobs:
       - name: 'Download PR review payload'
         id: 'download'
         if: github.event_name == 'workflow_run'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const run_id = "${{ github.event.workflow_run.id }}";
@@ -73,7 +73,7 @@ jobs:
           curl -sL -o committers.yml $url
           echo "committers_path=$(pwd)/committers.yml" >> $GITHUB_OUTPUT
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           path: arrow
           repository: apache/arrow
@@ -82,7 +82,7 @@ jobs:
           # fetch the tags for version number generation
           fetch-depth: 0
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
         with:
           python-version: 3.12
       - name: Install Archery and Crossbow dependencies

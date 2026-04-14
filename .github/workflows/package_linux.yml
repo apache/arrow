@@ -115,7 +115,7 @@ jobs:
       DOCKER_VOLUME_PREFIX: ".docker/"
     steps:
       - name: Checkout Arrow
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 0
           submodules: recursive
@@ -185,7 +185,7 @@ jobs:
             echo "ARROW_VERSION=${version}" >> "${GITHUB_ENV}"
           fi
       - name: Cache Docker Volumes
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
         with:
           path: .docker
           key:  package-linux-${{ matrix.id }}-${{ hashFiles('cpp/**', 'c_glib/**') }}
@@ -281,7 +281,7 @@ jobs:
           tar cvzf ${{ matrix.id }}.tar.gz ${DISTRIBUTION}
           dev/release/utils-generate-checksum.sh ${{ matrix.id }}.tar.gz
       - name: Upload the artifacts to the job
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ matrix.id }}
           path: ${{ matrix.id }}.tar.gz*
