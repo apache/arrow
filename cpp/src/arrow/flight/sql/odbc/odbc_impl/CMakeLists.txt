@@ -15,7 +15,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-add_library(arrow_odbc_spi_impl
+add_library(arrow_odbc_spi_impl STATIC
             accessors/binary_array_accessor.cc
             accessors/binary_array_accessor.h
             accessors/boolean_array_accessor.cc
@@ -45,10 +45,10 @@ add_library(arrow_odbc_spi_impl
             config/connection_string_parser.h
             diagnostics.cc
             diagnostics.h
-            error_codes.h
             encoding.cc
             encoding.h
             encoding_utils.h
+            error_codes.h
             exceptions.cc
             exceptions.h
             flight_sql_auth_method.cc
@@ -104,6 +104,8 @@ add_library(arrow_odbc_spi_impl
             spi/result_set.h
             spi/result_set_metadata.h
             spi/statement.h
+            system_dsn.cc
+            system_dsn.h
             system_trust_store.cc
             system_trust_store.h
             types.h
@@ -125,22 +127,30 @@ if(WIN32)
                          ui/dsn_configuration_window.h
                          ui/window.cc
                          ui/window.h
-                         win_system_dsn.cc
-                         system_dsn.cc
-                         system_dsn.h)
+                         win_system_dsn.cc)
 endif()
 
-target_link_libraries(arrow_odbc_spi_impl
-                      PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
-                             ${ODBCINST})
+if(WIN32)
+  find_package(ODBC REQUIRED)
+  target_include_directories(arrow_odbc_spi_impl PUBLIC ${ODBC_INCLUDE_DIR})
+  target_link_libraries(arrow_odbc_spi_impl
+                        PUBLIC arrow_flight_sql_shared arrow_compute_shared Boost::locale
+                               ${ODBCINST})
+else()
+  # Unix
+  target_include_directories(arrow_odbc_spi_impl SYSTEM BEFORE PUBLIC ${ODBC_INCLUDE_DIR})
+  target_link_libraries(arrow_odbc_spi_impl
+                        PUBLIC arrow_flight_sql_static
+                               arrow_compute_static
+                               Boost::locale
+                               Boost::headers
+                               RapidJSON)
 
-set_target_properties(arrow_odbc_spi_impl
-                      PROPERTIES ARCHIVE_OUTPUT_DIRECTORY
-                                 ${CMAKE_BINARY_DIR}/$<CONFIG>/lib
-                                 LIBRARY_OUTPUT_DIRECTORY
-                                 ${CMAKE_BINARY_DIR}/$<CONFIG>/lib
-                                 RUNTIME_OUTPUT_DIRECTORY
-                                 ${CMAKE_BINARY_DIR}/$<CONFIG>/lib)
+  if(NOT APPLE)
+    # Explicitly link to unix-odbc on Linux
+    target_link_libraries(arrow_odbc_spi_impl PUBLIC ${ODBCINST})
+  endif()
+endif()
 
 # CLI
 add_executable(arrow_odbc_spi_impl_cli main.cc)
@@ -150,6 +160,16 @@ set_target_properties(arrow_odbc_spi_impl_cli
 target_link_libraries(arrow_odbc_spi_impl_cli arrow_odbc_spi_impl)
 
 # Unit tests
+
+# On Windows, dynamic linking ODBC is supported.
+# On unix systems, static linking ODBC is supported, thus the library linking is static.
+if(WIN32)
+  set(ODBC_SPI_IMPL_TEST_LINK_LIBS arrow_flight_testing_shared)
+else()
+  # unix
+  set(ODBC_SPI_IMPL_TEST_LINK_LIBS arrow_flight_testing_static)
+endif()
+
 add_arrow_test(odbc_spi_impl_test
                SOURCES
                accessors/boolean_array_accessor_test.cc
@@ -168,4 +188,4 @@ add_arrow_test(odbc_spi_impl_test
                util_test.cc
                EXTRA_LINK_LIBS
                arrow_odbc_spi_impl
-               arrow_flight_testing_shared)
+               ${ODBC_SPI_IMPL_TEST_LINK_LIBS})

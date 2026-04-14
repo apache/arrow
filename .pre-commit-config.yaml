@@ -203,15 +203,12 @@ repos:
         pass_filenames: false
         files: >-
           ^r/.*\.(R|Rmd)$
-  - repo: local
+  - repo: https://github.com/posit-dev/air-pre-commit
+    rev: 0.8.2
     hooks:
       - id: air-format
         alias: r
         name: R Format (Air)
-        language: system
-        entry: air format r --check
-        files: >-
-            ^r/.*\.R$
   - repo: https://github.com/pre-commit/mirrors-clang-format
     rev: v18.1.8
     hooks:
@@ -268,7 +265,6 @@ repos:
           )
         exclude: >-
           (
-          ?^ci/conan/all/.*CMakeLists\.txt$|
           ?^cpp/cmake_modules/FindNumPy\.cmake$|
           ?^cpp/cmake_modules/FindPythonLibsNew\.cmake$|
           ?^cpp/cmake_modules/UseCython\.cmake$|
@@ -299,8 +295,6 @@ repos:
           ?^ci/scripts/c_glib_build\.sh$|
           ?^ci/scripts/c_glib_test\.sh$|
           ?^ci/scripts/ccache_setup\.sh$|
-          ?^ci/scripts/conan_build\.sh$|
-          ?^ci/scripts/conan_setup\.sh$|
           ?^ci/scripts/cpp_test\.sh$|
           ?^ci/scripts/download_tz_database\.sh$|
           ?^ci/scripts/install_azurite\.sh$|
@@ -337,6 +331,7 @@ repos:
           ?^ci/scripts/python_sdist_build\.sh$|
           ?^ci/scripts/python_sdist_test\.sh$|
           ?^ci/scripts/python_wheel_unix_test\.sh$|
+          ?^ci/scripts/python_test_type_annotations\.sh$|
           ?^ci/scripts/r_build\.sh$|
           ?^ci/scripts/r_revdepcheck\.sh$|
           ?^ci/scripts/release_test\.sh$|
@@ -352,6 +347,7 @@ repos:
           ?^cpp/build-support/update-thrift\.sh$|
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
+          ?^cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/08-binary-verify\.sh$|
           ?^dev/release/binary-recover\.sh$|
@@ -360,8 +356,6 @@ repos:
           ?^dev/release/post-09-python\.sh$|
           ?^dev/release/setup-rhel-rebuilds\.sh$|
           ?^dev/release/utils-generate-checksum\.sh$|
-          ?^python/asv-install\.sh$|
-          ?^python/asv-uninstall\.sh$|
           ?^swift/gen-protobuffers\.sh$|
           )
   - repo: https://github.com/scop/pre-commit-shfmt
@@ -379,6 +373,8 @@ repos:
         # TODO: Remove this when we fix all lint failures
         files: >-
           (
+          ?^ci/scripts/python_test_type_annotations\.sh$|
+          ?^cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|

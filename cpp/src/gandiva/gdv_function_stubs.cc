@@ -67,9 +67,30 @@ double gdv_fn_random(int64_t ptr) {
   return (*holder)();
 }
 
-double gdv_fn_random_with_seed(int64_t ptr, int32_t seed, bool seed_validity) {
+double gdv_fn_random_with_seed(int64_t ptr, int32_t /*seed*/, bool /*seed_validity*/) {
   gandiva::RandomGeneratorHolder* holder =
       reinterpret_cast<gandiva::RandomGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+int32_t gdv_fn_rand_integer(int64_t ptr) {
+  gandiva::RandomIntegerGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+int32_t gdv_fn_rand_integer_with_range(int64_t ptr, int32_t /*range*/,
+                                       bool /*range_validity*/) {
+  gandiva::RandomIntegerGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
+  return (*holder)();
+}
+
+int32_t gdv_fn_rand_integer_with_min_max(int64_t ptr, int32_t /*min*/,
+                                         bool /*min_validity*/, int32_t /*max*/,
+                                         bool /*max_validity*/) {
+  gandiva::RandomIntegerGeneratorHolder* holder =
+      reinterpret_cast<gandiva::RandomIntegerGeneratorHolder*>(ptr);
   return (*holder)();
 }
 
@@ -248,7 +269,15 @@ const char* gdv_fn_base64_decode_utf8(int64_t context, const char* in, int32_t i
     return "";
   }
   // use arrow method to decode base64 string
-  std::string decoded_str = arrow::util::base64_decode(std::string_view(in, in_len));
+  auto result = arrow::util::base64_decode(std::string_view(in, in_len));
+  if (!result.ok()) {
+    gdv_fn_context_set_error_msg(context, result.status().message().c_str());
+    *out_len = 0;
+    return "";
+  }
+
+  std::string decoded_str = *result;
+
   *out_len = static_cast<int32_t>(decoded_str.length());
   // allocate memory for response
   char* ret = reinterpret_cast<char*>(
@@ -863,6 +892,22 @@ arrow::Status ExportedStubFunctions::AddMappings(Engine* engine) const {
   args = {types->i64_type(), types->i32_type(), types->i1_type()};
   engine->AddGlobalMappingForFunc("gdv_fn_random_with_seed", types->double_type(), args,
                                   reinterpret_cast<void*>(gdv_fn_random_with_seed));
+
+  // gdv_fn_rand_integer
+  args = {types->i64_type()};
+  engine->AddGlobalMappingForFunc("gdv_fn_rand_integer", types->i32_type(), args,
+                                  reinterpret_cast<void*>(gdv_fn_rand_integer));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type()};
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_rand_integer_with_range", types->i32_type(), args,
+      reinterpret_cast<void*>(gdv_fn_rand_integer_with_range));
+
+  args = {types->i64_type(), types->i32_type(), types->i1_type(), types->i32_type(),
+          types->i1_type()};
+  engine->AddGlobalMappingForFunc(
+      "gdv_fn_rand_integer_with_min_max", types->i32_type(), args,
+      reinterpret_cast<void*>(gdv_fn_rand_integer_with_min_max));
 
   // gdv_fn_dec_from_string
   args = {

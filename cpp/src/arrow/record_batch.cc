@@ -266,10 +266,13 @@ Result<std::shared_ptr<RecordBatch>> RecordBatch::FromStructArray(
 namespace {
 
 Status ValidateColumnLength(const RecordBatch& batch, int i) {
-  const auto& array = *batch.column(i);
-  if (ARROW_PREDICT_FALSE(array.length() != batch.num_rows())) {
+  // This function is part of the validation code path and should
+  // be robust against invalid data, but `column()` would call MakeArray()
+  // that can abort on invalid data.
+  const auto& array = *batch.column_data(i);
+  if (ARROW_PREDICT_FALSE(array.length != batch.num_rows())) {
     return Status::Invalid("Number of rows in column ", i,
-                           " did not match batch: ", array.length(), " vs ",
+                           " did not match batch: ", array.length, " vs ",
                            batch.num_rows());
   }
   return Status::OK();
@@ -455,11 +458,12 @@ namespace {
 Status ValidateBatch(const RecordBatch& batch, bool full_validation) {
   for (int i = 0; i < batch.num_columns(); ++i) {
     RETURN_NOT_OK(ValidateColumnLength(batch, i));
-    const auto& array = *batch.column(i);
+    // See ValidateColumnLength about avoiding a ArrayData -> Array conversion
+    const auto& array = *batch.column_data(i);
     const auto& schema_type = batch.schema()->field(i)->type();
-    if (!array.type()->Equals(schema_type)) {
+    if (!array.type->Equals(schema_type)) {
       return Status::Invalid("Column ", i,
-                             " type not match schema: ", array.type()->ToString(), " vs ",
+                             " type not match schema: ", array.type->ToString(), " vs ",
                              schema_type->ToString());
     }
     const auto st = full_validation ? internal::ValidateArrayFull(array)

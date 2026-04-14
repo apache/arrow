@@ -99,6 +99,7 @@
 #include "arrow/util/io_util.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/mutex.h"
+#include "arrow/util/value_parsing.h"
 
 // For filename conversion
 #if defined(_WIN32)
@@ -1762,19 +1763,28 @@ Result<std::string> GetEnvVar(std::string_view name) {
 #ifdef _WIN32
   // On Windows, getenv() reads an early copy of the process' environment
   // which doesn't get updated when SetEnvironmentVariable() is called.
-  constexpr int32_t bufsize = 2000;
-  char c_str[bufsize];
-  auto res = GetEnvironmentVariableA(name.data(), c_str, bufsize);
-  if (res >= bufsize) {
-    return Status::CapacityError("environment variable value too long");
-  } else if (res == 0) {
-    return Status::KeyError("environment variable '", name, "'undefined");
+  std::string value(100, '\0');
+
+  uint32_t res = GetEnvironmentVariableA(name.data(), value.data(),
+                                         static_cast<uint32_t>(value.size()));
+  if (res >= value.size()) {
+    // Value buffer too small, need to upsize
+    // (`res` includes the null-terminating character in this case)
+    value.resize(res);
+    res = GetEnvironmentVariableA(name.data(), value.data(),
+                                  static_cast<uint32_t>(value.size()));
   }
-  return std::string(c_str);
+  if (res == 0) {
+    return Status::KeyError("environment variable '", name, "' undefined");
+  }
+  // On success, `res` does not include the null-terminating character
+  DCHECK_EQ(value.data()[res], 0);
+  value.resize(res);
+  return value;
 #else
   char* c_str = getenv(name.data());
   if (c_str == nullptr) {
-    return Status::KeyError("environment variable '", name, "'undefined");
+    return Status::KeyError("environment variable '", name, "' undefined");
   }
   return std::string(c_str);
 #endif
@@ -1782,18 +1792,25 @@ Result<std::string> GetEnvVar(std::string_view name) {
 
 #ifdef _WIN32
 Result<NativePathString> GetEnvVarNative(std::string_view name) {
-  NativePathString w_name;
-  constexpr int32_t bufsize = 2000;
-  wchar_t w_str[bufsize];
+  ARROW_ASSIGN_OR_RAISE(std::wstring w_name, StringToNative(name));
+  std::wstring value(100, '\0');
 
-  ARROW_ASSIGN_OR_RAISE(w_name, StringToNative(name));
-  auto res = GetEnvironmentVariableW(w_name.c_str(), w_str, bufsize);
-  if (res >= bufsize) {
-    return Status::CapacityError("environment variable value too long");
-  } else if (res == 0) {
-    return Status::KeyError("environment variable '", name, "'undefined");
+  uint32_t res = GetEnvironmentVariableW(w_name.data(), value.data(),
+                                         static_cast<uint32_t>(value.size()));
+  if (res >= value.size()) {
+    // Value buffer too small, need to upsize
+    // (`res` includes the null-terminating character in this case)
+    value.resize(res);
+    res = GetEnvironmentVariableW(w_name.data(), value.data(),
+                                  static_cast<uint32_t>(value.size()));
   }
-  return NativePathString(w_str);
+  if (res == 0) {
+    return Status::KeyError("environment variable '", name, "' undefined");
+  }
+  // On success, `res` does not include the null-terminating character
+  DCHECK_EQ(value.data()[res], 0);
+  value.resize(res);
+  return value;
 }
 
 #else
@@ -1803,6 +1820,18 @@ Result<NativePathString> GetEnvVarNative(std::string_view name) {
 }
 
 #endif
+
+Result<int64_t> GetEnvVarInteger(std::string_view name, std::optional<int64_t> min_value,
+                                 std::optional<int64_t> max_value) {
+  ARROW_ASSIGN_OR_RAISE(auto env_string, GetEnvVar(name));
+  int64_t value;
+  if (!ParseValue<Int64Type>(env_string.data(), env_string.length(), &value) ||
+      (min_value.has_value() && value < *min_value) ||
+      (max_value.has_value() && value > *max_value)) {
+    return Status::Invalid("Invalid value for ", name, ": '", env_string, "'");
+  }
+  return value;
+}
 
 Status SetEnvVar(std::string_view name, std::string_view value) {
 #ifdef _WIN32

@@ -703,6 +703,13 @@ TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithStatsAndZstdCompression) {
   this->TestRequiredWithSettings(Encoding::PLAIN, Compression::ZSTD, false, true,
                                  LARGE_SIZE);
 }
+TYPED_TEST(TestPrimitiveWriter, RequiredPlainWithZstdCodecOptions) {
+  constexpr int ZSTD_c_windowLog = 101;
+  auto codec_options = std::make_shared<::arrow::util::ZstdCodecOptions>();
+  codec_options->compression_context_params = {{ZSTD_c_windowLog, 23}};
+  this->TestRequiredWithCodecOptions(Encoding::PLAIN, Compression::ZSTD, false, false,
+                                     LARGE_SIZE, codec_options);
+}
 #endif
 
 TYPED_TEST(TestPrimitiveWriter, Optional) {
@@ -1046,8 +1053,10 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(WriteLargeDictEncodedPage)) {
                       {
                           PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
                       }));
-  auto properties =
-      WriterProperties::Builder().data_pagesize(1024 * 1024 * 1024)->build();
+  auto properties = WriterProperties::Builder()
+                        .data_pagesize(1024 * 1024 * 1024)
+                        ->max_rows_per_page(std::numeric_limits<int64_t>::max())
+                        ->build();
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 
@@ -1117,8 +1126,10 @@ TEST(TestColumnWriter, LARGE_MEMORY_TEST(ThrowsOnDictIndicesTooLarge)) {
                       {
                           PrimitiveNode::Make("item", Repetition::REQUIRED, Type::INT32),
                       }));
-  auto properties =
-      WriterProperties::Builder().data_pagesize(4 * 1024LL * 1024 * 1024)->build();
+  auto properties = WriterProperties::Builder()
+                        .data_pagesize(4 * 1024LL * 1024 * 1024)
+                        ->max_rows_per_page(std::numeric_limits<int64_t>::max())
+                        ->build();
   auto file_writer = ParquetFileWriter::Open(sink, schema, properties);
   auto rg_writer = file_writer->AppendRowGroup();
 

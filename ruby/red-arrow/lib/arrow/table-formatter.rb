@@ -80,7 +80,11 @@ module Arrow
         when nil
           "%*s" % [width, FORMATTED_NULL]
         else
-          "%-*s" % [width, value.to_s]
+          value = value.to_s
+          if value.encoding == Encoding::ASCII_8BIT
+            value = value.each_byte.collect {|byte| "%X" % byte}.join
+          end
+          "%-*s" % [width, value]
         end
       end
 

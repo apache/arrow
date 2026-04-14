@@ -218,7 +218,8 @@ test_apt() {
                     "debian:trixie" \
                     "debian:forky" \
                     "ubuntu:jammy" \
-                    "ubuntu:noble"; do \
+                    "ubuntu:noble" \
+                    "ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/x86_64 \
                --rm \
@@ -238,7 +239,8 @@ test_apt() {
                     "arm64v8/debian:trixie" \
                     "arm64v8/debian:forky" \
                     "arm64v8/ubuntu:jammy" \
-                    "arm64v8/ubuntu:noble"; do \
+                    "arm64v8/ubuntu:noble" \
+                    "arm64v8/ubuntu:resolute"; do \
         if ! docker run \
                --platform=linux/arm64 \
                --rm \
@@ -536,14 +538,14 @@ test_python() {
   show_header "Build and test Python libraries"
 
   # Build and test Python
-  maybe_setup_virtualenv
+  maybe_setup_virtualenv -r python/requirements-build.txt
   maybe_setup_conda --file ci/conda_env_python.txt
 
   if [ "${USE_CONDA}" -gt 0 ]; then
     CMAKE_PREFIX_PATH="${CONDA_BACKUP_CMAKE_PREFIX_PATH}:${CMAKE_PREFIX_PATH}"
   fi
 
-  export PYARROW_PARALLEL=$NPROC
+  export CMAKE_BUILD_PARALLEL_LEVEL=$NPROC
   export PYARROW_WITH_DATASET=1
   export PYARROW_WITH_HDFS=1
   export PYARROW_WITH_ORC=1
@@ -568,7 +570,9 @@ test_python() {
   pushd python
 
   # Build pyarrow
-  python -m pip install -e .
+  python -m pip install --no-build-isolation .
+
+  popd
 
   # Check mandatory and optional imports
   python -c "
@@ -599,12 +603,10 @@ import pyarrow.parquet
 
 
   # Install test dependencies
-  pip install -r requirements-test.txt
+  pip install -r python/requirements-test.txt
 
   # Execute pyarrow unittests
-  pytest pyarrow -v
-
-  popd
+  pytest --pyargs pyarrow -v
 }
 
 test_glib() {

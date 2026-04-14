@@ -19,6 +19,7 @@ import os
 import sys
 from collections import OrderedDict
 import io
+import re
 import warnings
 from shutil import copytree
 from decimal import Decimal
@@ -612,6 +613,81 @@ def test_compression_level():
                          compression_level=level)
 
 
+def test_lz4_raw_compression_alias():
+    # GH-41863: lz4_raw should be accepted as a compression name alias
+    arr = pa.array(list(map(int, range(1000))))
+    table = pa.Table.from_arrays([arr, arr], names=['a', 'b'])
+    _check_roundtrip(table, expected=table, compression="lz4_raw")
+    _check_roundtrip(table, expected=table, compression="LZ4_RAW")
+
+
+def test_bloom_filter_options():
+    arr_int = pa.array(list(map(int, range(100))))
+    arr_bin = pa.array([str(x) for x in range(100)], type=pa.binary())
+    data = [arr_int, arr_bin]
+    table = pa.Table.from_arrays(data, names=['a', 'b'])
+
+    # bloom filter for one column
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': 0.05}})
+
+    # bloom filter for two columns
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': 0.05}, 'b': {'ndv': 10, 'fpp': 0.1}})
+
+    # bloom filter for one column with default ndv
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'fpp': 0.05}})
+
+    # bloom filter for one column with default fpp
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {'ndv': 100}})
+
+    # bloom filter for one column with default ndv and fpp
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': {}})
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': True})
+
+    # should remain disabled
+    _check_roundtrip(table, expected=table, bloom_filter_options={
+                     'a': False})
+
+    # wrong type for ndv
+    buf = io.BytesIO()
+    expect = "'bloom_filter_options:ndv' for column 'a' must be an int"
+    with pytest.raises(TypeError, match=expect):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': '100', 'fpp': 0.05}})
+
+    # wrong type for fpp
+    expect = "'bloom_filter_options:fpp' for column 'a' must be a float"
+    with pytest.raises(TypeError, match=expect):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': 100, 'fpp': '0.05'}})
+
+    # wrong type for options
+    with pytest.raises(TypeError, match="'bloom_filter_options' must be a dictionary"):
+        _write_table(table, buf, bloom_filter_options=True)
+
+    # invalid ndv value
+    expect = \
+        "'bloom_filter_options:ndv' for column 'a' must be greater than zero, got -10"
+    with pytest.raises(ValueError, match=expect):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'ndv': -10}})
+
+    # invalid fpp values
+    expect = "'bloom_filter_options:fpp' for column 'a' must be in (0.0, 1.0), got 2.0"
+    with pytest.raises(ValueError, match=re.escape(expect)):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'fpp': 2.0}})
+    expect = "'bloom_filter_options:fpp' for column 'a' must be in (0.0, 1.0), got -0.5"
+    with pytest.raises(ValueError, match=re.escape(expect)):
+        _write_table(table, buf, bloom_filter_options={
+                     'a': {'fpp': -0.5}})
+
+
 def test_sanitized_spark_field_names():
     a0 = pa.array([0, 1, 2, 3, 4])
     name = 'prohib; ,\t{}'
@@ -728,6 +804,7 @@ def test_parquet_file_too_small(tempdir):
 @pytest.mark.fastparquet
 @pytest.mark.filterwarnings("ignore:RangeIndex:FutureWarning")
 @pytest.mark.filterwarnings("ignore:tostring:DeprecationWarning:fastparquet")
+@pytest.mark.filterwarnings("ignore:unclosed file:ResourceWarning")
 def test_fastparquet_cross_compatibility(tempdir):
     fp = pytest.importorskip('fastparquet')
 
@@ -751,17 +828,19 @@ def test_fastparquet_cross_compatibility(tempdir):
 
     fp_file = fp.ParquetFile(file_arrow)
     df_fp = fp_file.to_pandas()
-    tm.assert_frame_equal(df, df_fp)
+    # pandas 3 defaults to StringDtype for strings, fastparquet still returns object
+    # TODO: remove astype casts once fastparquet supports pandas 3 StringDtype
+    tm.assert_frame_equal(df_fp, df.astype({"a": object}))
 
     # Fastparquet -> arrow
     file_fastparquet = str(tempdir / "cross_compat_fastparquet.parquet")
-    fp.write(file_fastparquet, df)
+    # fastparquet doesn't support writing pandas 3 StringDtype yet
+    fp.write(file_fastparquet, df.astype({"a": object}))
 
     table_fp = pq.read_pandas(file_fastparquet)
     # for fastparquet written file, categoricals comes back as strings
     # (no arrow schema in parquet metadata)
-    df['f'] = df['f'].astype(object)
-    tm.assert_frame_equal(table_fp.to_pandas(), df)
+    tm.assert_frame_equal(table_fp.to_pandas(), df.astype({"f": object}))
 
 
 @pytest.mark.parametrize('array_factory', [

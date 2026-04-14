@@ -33,13 +33,12 @@ jobs:
           - { r_image: "ubuntu-clang" }  # ~ r-devel-linux-x86_64-debian-clang
           - { r_image: "ubuntu-next" }  # ~ r-patched-linux-x86_64
           - { r_image: "ubuntu-release" }  # ~ r-release-linux-x86_64
-          - { r_image: "clang20", skip_vignettes: true, r_update_clang: true }  # ~ r-devel-linux-x86_64-fedora-clang
+          - { r_image: "clang22", skip_vignettes: true }  # ~ r-devel-linux-x86_64-fedora-clang
     env:
       R_ORG: "rhub"
       R_IMAGE: {{ '${{ matrix.config.r_image }}' }}
       R_TAG: "latest"
       ARROW_R_DEV: "FALSE"
-      R_UPDATE_CLANG: {{ '${{ matrix.config.r_update_clang }}' }}
     steps:
       {{ macros.github_checkout_arrow()|indent }}
       {{ macros.github_install_archery()|indent }}
@@ -49,13 +48,25 @@ jobs:
         env:
         {{ macros.github_set_sccache_envvars()|indent(8)}}
         # setting ARROW_SOURCE_HOME='' here ensures that we use the cpp source copied into tools/
-        run: archery docker run -e ARROW_SOURCE_HOME='' -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }} r
+        run: >
+          archery docker run
+          -e ARROW_SOURCE_HOME=''
+          -e SKIP_VIGNETTES={{ '${{ matrix.config.skip_vignettes }}' }}
+          -e _R_CHECK_CRAN_INCOMING_=false
+          r
       - name: Dump install logs
         run: cat arrow/r/check/arrow.Rcheck/00install.out
         if: always()
       - name: Dump test logs
         run: cat arrow/r/check/arrow.Rcheck/tests/testthat.Rout*
         if: always()
+      - name: Check for R CMD check NOTES
+        run: |
+          if grep -q "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log; then
+            echo "Found R CMD check NOTE(s) in output:"
+            grep -n -A8 "^.* checking .* \\.\\.\\. NOTE$" arrow/r/check/arrow.Rcheck/00check.log
+            exit 1
+          fi
       - name: Save the test output
         if: always()
         uses: actions/upload-artifact@v4

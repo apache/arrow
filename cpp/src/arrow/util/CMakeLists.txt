@@ -49,6 +49,7 @@ add_arrow_test(utility-test
                SOURCES
                align_util_test.cc
                atfork_test.cc
+               base64_test.cc
                byte_size_test.cc
                byte_stream_split_test.cc
                cache_test.cc
@@ -74,7 +75,6 @@ add_arrow_test(utility-test
                rows_to_batches_test.cc
                secure_string_test.cc
                small_vector_test.cc
-               span_test.cc
                stl_util_test.cc
                string_test.cc
                tdigest_test.cc

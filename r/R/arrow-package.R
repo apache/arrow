@@ -18,7 +18,7 @@
 #' @importFrom stats quantile median na.omit na.exclude na.pass na.fail
 #' @importFrom R6 R6Class
 #' @importFrom purrr as_mapper map map2 map_chr map2_chr map_dbl map_dfr map_int map_lgl keep imap imap_chr
-#' @importFrom purrr flatten reduce walk
+#' @importFrom purrr compact flatten reduce walk
 #' @importFrom assertthat assert_that is.string
 #' @importFrom rlang list2 %||% is_false abort dots_n warn enquo quo_is_null enquos is_integerish quos quo
 #' @importFrom rlang eval_tidy new_data_mask syms env new_environment env_bind set_names exec
@@ -38,6 +38,7 @@
 supported_dplyr_methods <- list(
   select = NULL,
   filter = NULL,
+  filter_out = NULL,
   collect = NULL,
   summarise = c(
     "window functions not currently supported;",
@@ -152,9 +153,6 @@ s3_finalizer <- new.env(parent = emptyenv())
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
-
-    # Try to set timezone database
-    configure_tzdb()
   }
 
   # Set interrupt handlers
@@ -169,20 +167,6 @@ s3_finalizer <- new.env(parent = emptyenv())
   reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
 
   invisible()
-}
-
-configure_tzdb <- function() {
-  # This is needed on Windows to support timezone-aware calculations
-  if (requireNamespace("tzdb", quietly = TRUE)) {
-    tzdb::tzdb_initialize()
-    set_timezone_database(tzdb::tzdb_path("text"))
-  } else {
-    msg <- paste(
-      "The tzdb package is not installed.",
-      "Timezones will not be available to Arrow compute functions."
-    )
-    packageStartupMessage(msg)
-  }
 }
 
 .onAttach <- function(libname, pkgname) {

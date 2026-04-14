@@ -15,6 +15,7 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <limits>
 #include <numeric>
 
 #include <gtest/gtest.h>
@@ -26,6 +27,7 @@
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/compute/registry.h"
 #include "arrow/testing/gtest_util.h"
+#include "arrow/util/bitmap_builders.h"
 #include "arrow/util/checked_cast.h"
 
 namespace arrow {
@@ -606,6 +608,142 @@ TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryRand) {
   ASSERT_OK_AND_ASSIGN(auto expected_data, builder.Finish());
 
   CheckIfElseOutput(cond, left, right, expected_data);
+}
+
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinarySliced) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+
+  auto full_arr = ArrayFromJSON(type, R"(["not used", null, "x", "x"])");
+  auto sliced = full_arr->Slice(1);
+  auto expected = ArrayFromJSON(type, R"([null, "x", "x"])");
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), sliced}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, sliced, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
+}
+
+// array offset=0 but offsets[0] != 0
+TYPED_TEST(TestIfElseBaseBinary, IfElseBaseBinaryNonZeroFirst) {
+  auto type = TypeTraits<TypeParam>::type_singleton();
+  using OffsetType = typename TypeTraits<TypeParam>::OffsetType::c_type;
+
+  std::vector<OffsetType> raw_offsets = {8, 8, 9, 10};
+  std::string raw_data(8, 'p');
+  raw_data += "ab";
+  auto offsets_buf = Buffer::Wrap(raw_offsets.data(), raw_offsets.size());
+  auto data_buf = Buffer::Wrap(raw_data.data(), raw_data.size());
+  auto array_data = ArrayData::Make(type, /*length=*/3, {nullptr, offsets_buf, data_buf},
+                                    /*null_count=*/1, /*offset=*/0);
+  std::vector<uint8_t> validity_bytes = {0, 1, 1};
+  ASSERT_OK_AND_ASSIGN(array_data->buffers[0],
+                       internal::BytesToBits(validity_bytes, default_memory_pool()));
+  auto arr = MakeArray(array_data);
+  ASSERT_OK(arr->ValidateFull());
+  auto expected = ArrayFromJSON(type, R"([null, "a", "b"])");
+
+  auto cond_asa = ArrayFromJSON(boolean(), "[true, false, false]");
+  ASSERT_OK_AND_ASSIGN(auto result_asa,
+                       CallFunction("if_else", {cond_asa, MakeNullScalar(type), arr}));
+  ASSERT_OK(result_asa.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_asa.make_array(), true);
+
+  auto cond_aas = ArrayFromJSON(boolean(), "[false, true, true]");
+  ASSERT_OK_AND_ASSIGN(auto result_aas,
+                       CallFunction("if_else", {cond_aas, arr, MakeNullScalar(type)}));
+  ASSERT_OK(result_aas.make_array()->ValidateFull());
+  AssertArraysEqual(*expected, *result_aas.make_array(), true);
+}
+
+Result<std::shared_ptr<Array>> MakeBinaryArrayWithData(
+    const std::shared_ptr<DataType>& type, const std::shared_ptr<Buffer>& data_buffer) {
+  // Make a (large-)binary array with a single item backed by the given data
+  const auto data_length = data_buffer->size();
+  if (type->id() == Type::STRING || type->id() == Type::BINARY) {
+    if (data_length > std::numeric_limits<int32_t>::max()) {
+      return Status::Invalid("data_length exceeds int32 offset range");
+    }
+    auto offsets =
+        Buffer::FromVector(std::vector<int32_t>{0, static_cast<int32_t>(data_length)});
+    return MakeArray(
+        ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(data_buffer)}));
+  }
+  if (type->id() != Type::LARGE_STRING && type->id() != Type::LARGE_BINARY) {
+    return Status::TypeError("unsupported var-binary type for helper: ", *type);
+  }
+  auto offsets = Buffer::FromVector(std::vector<int64_t>{0, data_length});
+  return MakeArray(
+      ArrayData::Make(type, 1, {nullptr, std::move(offsets), std::move(data_buffer)}));
+}
+
+void CheckIfElseCapacityBehavior(const Datum& cond, const Datum& left, const Datum& right,
+                                 bool expect_capacity_error) {
+  auto maybe_out = CallFunction("if_else", {cond, left, right});
+  if (expect_capacity_error) {
+    EXPECT_RAISES_WITH_MESSAGE_THAT(
+        CapacityError,
+        ::testing::HasSubstr("Result may exceed offset capacity for this type"),
+        maybe_out);
+  } else {
+    ASSERT_OK(maybe_out);
+  }
+}
+
+TEST_F(TestIfElseKernel, LARGE_MEMORY_TEST(IfElseBinaryAAANear2GB)) {
+  // See GH-49310.
+  // `kPerSide` is below the capacity limit for a single binary array,
+  // but trying to allocate twice `kPerSide` would overflow the capacity limit.
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> large_buffer, AllocateBuffer(kPerSide));
+
+  ASSERT_OK_AND_ASSIGN(auto binary_left, MakeBinaryArrayWithData(binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto binary_right,
+                       MakeBinaryArrayWithData(binary(), large_buffer));
+  // The if_else heuristic for preallocation is too crude and fails with
+  // a capacity error as it would like to pre-allocate more than 2GiB
+  // of binary data.
+  CheckIfElseCapacityBehavior(cond, binary_left, binary_right,
+                              /*expect_capacity_error=*/true);
+  ASSERT_OK_AND_ASSIGN(auto large_binary_left,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto large_binary_right,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, large_binary_left, large_binary_right,
+                              /*expect_capacity_error=*/false);
+}
+
+TEST_F(TestIfElseKernel, LARGE_MEMORY_TEST(IfElseBinaryASANear2GB)) {
+  constexpr int64_t kPerSide =
+      static_cast<int64_t>(std::numeric_limits<int32_t>::max() / 2) + 4096;
+  auto cond = ArrayFromJSON(boolean(), "[true]");
+
+  ASSERT_OK_AND_ASSIGN(std::shared_ptr<Buffer> large_buffer, AllocateBuffer(kPerSide));
+  ASSERT_OK_AND_ASSIGN(auto binary_array,
+                       MakeBinaryArrayWithData(binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto binary_scalar, MakeScalar(binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, binary_scalar, binary_array,
+                              /*expect_capacity_error=*/true);
+  CheckIfElseCapacityBehavior(cond, binary_array, binary_scalar,
+                              /*expect_capacity_error=*/true);
+
+  ASSERT_OK_AND_ASSIGN(auto large_binary_array,
+                       MakeBinaryArrayWithData(large_binary(), large_buffer));
+  ASSERT_OK_AND_ASSIGN(auto large_binary_scalar,
+                       MakeScalar(large_binary(), large_buffer));
+  CheckIfElseCapacityBehavior(cond, large_binary_scalar, large_binary_array,
+                              /*expect_capacity_error=*/false);
+  CheckIfElseCapacityBehavior(cond, large_binary_array, large_binary_scalar,
+                              /*expect_capacity_error=*/false);
 }
 
 TEST_F(TestIfElseKernel, IfElseFSBinary) {

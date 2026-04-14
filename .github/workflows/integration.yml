@@ -33,6 +33,7 @@ on:
       - 'integration/**'
       - 'cpp/**'
       - 'format/**'
+      - 'ruby/red-arrow-format/**'
   pull_request:
     paths:
       - '.dockerignore'
@@ -43,6 +44,7 @@ on:
       - 'integration/**'
       - 'cpp/**'
       - 'format/**'
+      - 'ruby/red-arrow-format/**'
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -66,36 +68,43 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Checkout Arrow Rust
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-rs
           path: rust
       - name: Checkout Arrow nanoarrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-nanoarrow
           path: nanoarrow
       - name: Checkout Arrow Go
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-go
           path: go
       - name: Checkout Arrow Java
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-java
           path: java
       - name: Checkout Arrow JS
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-js
           path: js
       - name: Checkout Arrow .NET
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-dotnet
           path: dotnet
       - name: Free up disk space

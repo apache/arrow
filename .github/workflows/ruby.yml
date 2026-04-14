@@ -83,6 +83,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
@@ -124,7 +125,7 @@ jobs:
         run: archery docker push ubuntu-ruby
 
   macos:
-    name: ARM64 macOS 14 GLib & Ruby
+    name: ARM64 macOS GLib & Ruby
     runs-on: macos-latest
     if: ${{ !contains(github.event.pull_request.title, 'WIP') }}
     timeout-minutes: 60
@@ -152,6 +153,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install Homebrew Dependencies
@@ -250,6 +252,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Setup Ruby
@@ -368,6 +371,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Install meson
@@ -398,6 +402,7 @@ jobs:
       - name: Checkout vcpkg
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           path: vcpkg
           repository: microsoft/vcpkg

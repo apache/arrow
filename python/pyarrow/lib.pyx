@@ -85,6 +85,13 @@ def set_cpu_count(int count):
     check_status(SetCpuThreadPoolCapacity(count))
 
 
+def is_opentelemetry_enabled() -> bool:
+    """
+    Returns True if OpenTelemetry is enabled in libarrow.
+    """
+    return libarrow_python.IsOpenTelemetryEnabled()
+
+
 def is_threading_enabled() -> bool:
     """
     Returns True if threading is enabled in libarrow.

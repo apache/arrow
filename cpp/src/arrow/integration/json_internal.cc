@@ -22,6 +22,7 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <span>
 #include <string>
 #include <type_traits>
 #include <utility>
@@ -48,7 +49,6 @@
 #include "arrow/util/key_value_metadata.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/range.h"
-#include "arrow/util/span.h"
 #include "arrow/util/string.h"
 #include "arrow/util/value_parsing.h"
 #include "arrow/visit_array_inline.h"
@@ -1461,11 +1461,10 @@ class ArrayReader {
                           GetMemberArray(obj_, "VARIADIC_DATA_BUFFERS"));
 
     using internal::Zip;
-    using util::span;
 
     BufferVector buffers;
     buffers.resize(json_variadic_bufs.Size() + 2);
-    for (auto [json_buf, buf] : Zip(json_variadic_bufs, span{buffers}.subspan(2))) {
+    for (auto [json_buf, buf] : Zip(json_variadic_bufs, std::span{buffers}.subspan(2))) {
       ARROW_ASSIGN_OR_RAISE(auto hex_string, GetStringView(json_buf));
       ARROW_ASSIGN_OR_RAISE(
           buf, AllocateBuffer(static_cast<int64_t>(hex_string.size()) / 2, pool_));
@@ -1482,8 +1481,8 @@ class ArrayReader {
     ARROW_ASSIGN_OR_RAISE(
         buffers[1], AllocateBuffer(length_ * sizeof(BinaryViewType::c_type), pool_));
 
-    span views{buffers[1]->mutable_data_as<BinaryViewType::c_type>(),
-               static_cast<size_t>(length_)};
+    std::span views{buffers[1]->mutable_data_as<BinaryViewType::c_type>(),
+                    static_cast<size_t>(length_)};
 
     int64_t null_count = 0;
     for (auto [json_view, out_view, is_valid] : Zip(json_views, views, is_valid_)) {

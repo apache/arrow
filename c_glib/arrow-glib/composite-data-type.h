@@ -142,6 +142,9 @@ garrow_map_data_type_get_key_type(GArrowMapDataType *map_data_type);
 GARROW_AVAILABLE_IN_0_17
 GArrowDataType *
 garrow_map_data_type_get_item_type(GArrowMapDataType *map_data_type);
+GARROW_AVAILABLE_IN_24_0
+gboolean
+garrow_map_data_type_is_keys_sorted(GArrowMapDataType *map_data_type);
 
 #define GARROW_TYPE_UNION_DATA_TYPE (garrow_union_data_type_get_type())
 GARROW_AVAILABLE_IN_ALL

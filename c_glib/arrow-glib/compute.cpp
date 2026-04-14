@@ -1274,9 +1274,71 @@ garrow_source_node_options_new_table(GArrowTable *table)
   return options;
 }
 
-G_DEFINE_TYPE(GArrowFilterNodeOptions,
-              garrow_filter_node_options,
-              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+enum {
+  PROP_EXPRESSION = 1,
+};
+
+struct GArrowFilterNodeOptionsPrivate
+{
+  GArrowExpression *expression;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowFilterNodeOptions,
+                           garrow_filter_node_options,
+                           GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+#define GARROW_FILTER_NODE_OPTIONS_GET_PRIVATE(object)                                   \
+  static_cast<GArrowFilterNodeOptionsPrivate *>(                                         \
+    garrow_filter_node_options_get_instance_private(GARROW_FILTER_NODE_OPTIONS(object)))
+
+static void
+garrow_filter_node_options_dispose(GObject *object)
+{
+  auto priv = GARROW_FILTER_NODE_OPTIONS_GET_PRIVATE(object);
+
+  if (priv->expression) {
+    g_object_unref(priv->expression);
+    priv->expression = nullptr;
+  }
+
+  G_OBJECT_CLASS(garrow_filter_node_options_parent_class)->dispose(object);
+}
+
+static void
+garrow_filter_node_options_set_property(GObject *object,
+                                        guint prop_id,
+                                        const GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_FILTER_NODE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_EXPRESSION:
+    priv->expression = GARROW_EXPRESSION(g_value_dup_object(value));
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
+
+static void
+garrow_filter_node_options_get_property(GObject *object,
+                                        guint prop_id,
+                                        GValue *value,
+                                        GParamSpec *pspec)
+{
+  auto priv = GARROW_FILTER_NODE_OPTIONS_GET_PRIVATE(object);
+
+  switch (prop_id) {
+  case PROP_EXPRESSION:
+    g_value_set_object(value, priv->expression);
+    break;
+  default:
+    G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+    break;
+  }
+}
 
 static void
 garrow_filter_node_options_init(GArrowFilterNodeOptions *object)
@@ -1286,6 +1348,28 @@ garrow_filter_node_options_init(GArrowFilterNodeOptions *object)
 static void
 garrow_filter_node_options_class_init(GArrowFilterNodeOptionsClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_filter_node_options_dispose;
+  gobject_class->set_property = garrow_filter_node_options_set_property;
+  gobject_class->get_property = garrow_filter_node_options_get_property;
+
+  GParamSpec *spec;
+
+  /**
+   * GArrowFilterNodeOptions:expression:
+   *
+   * The expression of this filter.
+   *
+   * Since: 24.0.0
+   */
+  spec = g_param_spec_object(
+    "expression",
+    "Expression",
+    "The expression of this filter",
+    GARROW_TYPE_EXPRESSION,
+    static_cast<GParamFlags>(G_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY));
+  g_object_class_install_property(gobject_class, PROP_EXPRESSION, spec);
 }
 
 /**
@@ -1301,14 +1385,39 @@ garrow_filter_node_options_new(GArrowExpression *expression)
 {
   auto arrow_expression = garrow_expression_get_raw(expression);
   auto arrow_options = new arrow::acero::FilterNodeOptions(*arrow_expression);
-  auto options =
-    g_object_new(GARROW_TYPE_FILTER_NODE_OPTIONS, "options", arrow_options, NULL);
+  auto options = g_object_new(GARROW_TYPE_FILTER_NODE_OPTIONS,
+                              "options",
+                              arrow_options,
+                              "expression",
+                              expression,
+                              nullptr);
   return GARROW_FILTER_NODE_OPTIONS(options);
 }
 
-G_DEFINE_TYPE(GArrowProjectNodeOptions,
-              garrow_project_node_options,
-              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+struct GArrowProjectNodeOptionsPrivate
+{
+  GList *expressions;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowProjectNodeOptions,
+                           garrow_project_node_options,
+                           GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+#define GARROW_PROJECT_NODE_OPTIONS_GET_PRIVATE(object)                                  \
+  static_cast<GArrowProjectNodeOptionsPrivate *>(                                        \
+    garrow_project_node_options_get_instance_private(                                    \
+      GARROW_PROJECT_NODE_OPTIONS(object)))
+
+static void
+garrow_project_node_options_dispose(GObject *object)
+{
+  auto priv = GARROW_PROJECT_NODE_OPTIONS_GET_PRIVATE(object);
+
+  g_list_free_full(priv->expressions, g_object_unref);
+  priv->expressions = nullptr;
+
+  G_OBJECT_CLASS(garrow_project_node_options_parent_class)->dispose(object);
+}
 
 static void
 garrow_project_node_options_init(GArrowProjectNodeOptions *object)
@@ -1318,6 +1427,9 @@ garrow_project_node_options_init(GArrowProjectNodeOptions *object)
 static void
 garrow_project_node_options_class_init(GArrowProjectNodeOptionsClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_project_node_options_dispose;
 }
 
 /**
@@ -1354,7 +1466,26 @@ garrow_project_node_options_new(GList *expressions, gchar **names, gsize n_names
     new arrow::acero::ProjectNodeOptions(arrow_expressions, arrow_names);
   auto options =
     g_object_new(GARROW_TYPE_PROJECT_NODE_OPTIONS, "options", arrow_options, NULL);
+  auto priv = GARROW_PROJECT_NODE_OPTIONS_GET_PRIVATE(options);
+  priv->expressions =
+    g_list_copy_deep(expressions, reinterpret_cast<GCopyFunc>(g_object_ref), nullptr);
   return GARROW_PROJECT_NODE_OPTIONS(options);
+}
+
+/**
+ * garrow_project_node_options_get_expressions:
+ * @options: A #GArrowProjectNodeOptions.
+ *
+ * Returns: (transfer none) (element-type GArrowExpression): Expressions
+ *   of the @options.
+ *
+ * Since: 24.0.0
+ */
+GList *
+garrow_project_node_options_get_expressions(GArrowProjectNodeOptions *options)
+{
+  auto priv = GARROW_PROJECT_NODE_OPTIONS_GET_PRIVATE(options);
+  return priv->expressions;
 }
 
 typedef struct GArrowAggregationPrivate_
@@ -1558,9 +1689,28 @@ garrow_aggregation_new(const gchar *function,
                                          NULL));
 }
 
-G_DEFINE_TYPE(GArrowAggregateNodeOptions,
-              garrow_aggregate_node_options,
-              GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+struct GArrowAggregateNodeOptionsPrivate
+{
+  GList *aggregations;
+};
+
+G_DEFINE_TYPE_WITH_PRIVATE(GArrowAggregateNodeOptions,
+                           garrow_aggregate_node_options,
+                           GARROW_TYPE_EXECUTE_NODE_OPTIONS)
+
+#define GARROW_AGGREGATE_NODE_OPTIONS_GET_PRIVATE(object)                                \
+  static_cast<GArrowAggregateNodeOptionsPrivate *>(                                      \
+    garrow_aggregate_node_options_get_instance_private(                                  \
+      GARROW_AGGREGATE_NODE_OPTIONS(object)))
+
+static void
+garrow_aggregate_node_options_dispose(GObject *object)
+{
+  auto priv = GARROW_AGGREGATE_NODE_OPTIONS_GET_PRIVATE(object);
+  g_list_free_full(priv->aggregations, g_object_unref);
+  priv->aggregations = nullptr;
+  G_OBJECT_CLASS(garrow_aggregate_node_options_parent_class)->dispose(object);
+}
 
 static void
 garrow_aggregate_node_options_init(GArrowAggregateNodeOptions *object)
@@ -1570,6 +1720,9 @@ garrow_aggregate_node_options_init(GArrowAggregateNodeOptions *object)
 static void
 garrow_aggregate_node_options_class_init(GArrowAggregateNodeOptionsClass *klass)
 {
+  auto gobject_class = G_OBJECT_CLASS(klass);
+
+  gobject_class->dispose = garrow_aggregate_node_options_dispose;
 }
 
 /**
@@ -1623,8 +1776,27 @@ garrow_aggregate_node_options_new(GList *aggregations,
   auto arrow_options = new arrow::acero::AggregateNodeOptions(std::move(arrow_aggregates),
                                                               std::move(arrow_keys));
   auto options =
-    g_object_new(GARROW_TYPE_AGGREGATE_NODE_OPTIONS, "options", arrow_options, NULL);
+    g_object_new(GARROW_TYPE_AGGREGATE_NODE_OPTIONS, "options", arrow_options, nullptr);
+  auto priv = GARROW_AGGREGATE_NODE_OPTIONS_GET_PRIVATE(options);
+  priv->aggregations =
+    g_list_copy_deep(aggregations, reinterpret_cast<GCopyFunc>(g_object_ref), nullptr);
   return GARROW_AGGREGATE_NODE_OPTIONS(options);
+}
+
+/**
+ * garrow_aggregate_node_options_get_aggregations:
+ * @options: A #GArrowAggregateNodeOptions.
+ *
+ * Returns: (transfer none) (element-type GArrowAggregation): Aggregations
+ *   of the @options.
+ *
+ * Since: 24.0.0
+ */
+GList *
+garrow_aggregate_node_options_get_aggregations(GArrowAggregateNodeOptions *options)
+{
+  auto priv = GARROW_AGGREGATE_NODE_OPTIONS_GET_PRIVATE(options);
+  return priv->aggregations;
 }
 
 typedef struct GArrowSinkNodeOptionsPrivate_

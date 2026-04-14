@@ -121,7 +121,9 @@ RUN apt-get update -y -q && \
         rsync \
         tzdata \
         tzdata-legacy \
+        unixodbc-dev \
         uuid-runtime \
+        unzip \
         wget && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists*

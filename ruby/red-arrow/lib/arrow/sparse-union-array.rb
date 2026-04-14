@@ -19,7 +19,7 @@ module Arrow
   class SparseUnionArray
     def get_value(i)
       child_id = get_child_id(i)
-      field = get_field(child_id)
+      field = fields[child_id]
       field[i]
     end
   end

@@ -129,7 +129,6 @@ x-hierarchy:
         - conda-python-no-numpy
         - conda-python-spark
   - conda-verify-rc
-  - conan
   - cpp-jni
   - debian-cpp:
     - debian-c-glib:
@@ -138,6 +137,7 @@ x-hierarchy:
       - debian-docs
   - fedora-cpp:
     - fedora-python
+  - fedora-r-clang
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -150,6 +150,7 @@ x-hierarchy:
     - ubuntu-r-only-r
   - ubuntu-cpp-bundled
   - ubuntu-cpp-bundled-offline
+  - ubuntu-cpp-odbc
   - ubuntu-cpp-minimal
   - ubuntu-cuda-cpp:
     - ubuntu-cuda-python
@@ -370,7 +371,7 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
-  ubuntu-cpp:
+  ubuntu-cpp: &ubuntu-cpp-base
     # Usage:
     #   docker compose build ubuntu-cpp
     #   docker compose run --rm ubuntu-cpp
@@ -440,7 +441,9 @@ services:
       ARROW_HOME: /arrow
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       LIBARROW_MINIMAL: "false"
-      ARROW_MIMALLOC: "ON"
+      # explicitly enable GCS when we build libarrow so that binary libarrow
+      # users get more fully-featured builds
+      ARROW_GCS: "ON"
     volumes: *ubuntu-volumes
     command: &cpp-static-command
       /bin/bash -c "
@@ -492,6 +495,33 @@ services:
       CMAKE_GENERATOR: "Unix Makefiles"
     volumes: *ubuntu-volumes
     command: *cpp-command
+
+  ubuntu-cpp-odbc:
+    # Arrow Flight SQL ODBC build with BUNDLED dependencies with downloaded dependencies.
+    <<: *ubuntu-cpp-base
+    environment:
+      <<: [*common, *ccache, *sccache, *cpp]
+      ARROW_ACERO: "OFF"
+      ARROW_AZURE: "OFF"
+      ARROW_BUILD_TYPE: RELEASE
+      ARROW_CSV: "OFF"
+      ARROW_DATASET: "OFF"
+      ARROW_DEPENDENCY_SOURCE: BUNDLED
+      ARROW_DEPENDENCY_USE_SHARED: "OFF"
+      ARROW_FLIGHT_SQL_ODBC: "ON"
+      ARROW_GANDIVA: "OFF"
+      ARROW_GCS: "OFF"
+      ARROW_HDFS: "OFF"
+      ARROW_ORC: "OFF"
+      ARROW_PARQUET: "OFF"
+      ARROW_S3: "OFF"
+      ARROW_SUBSTRAIT: "OFF"
+    # Register ODBC before running tests
+    command: >
+      /bin/bash -c "
+        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        sudo /arrow/cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /usr/local/lib/libarrow_flight_sql_odbc.so &&
+        /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
   ubuntu-cpp-minimal:
     # Arrow build with minimal components/dependencies
@@ -725,30 +755,6 @@ services:
       - .:/arrow:delegated
       - ${DOCKER_VOLUME_PREFIX}fedora-ccache:/ccache:delegated
     command: *cpp-command
-
-  conan:
-    # Base service for Conan.
-    #
-    # Usage:
-    #   docker compose run --rm conan
-    # Parameters:
-    #   CONAN_BASE: gcc11-ubuntu16.04, ...
-    #   CONAN_VERSION: 2.12.1, ...
-    #   See https://github.com/conan-io/conan-docker-tools#readme for
-    #   available images.
-    image: conanio/${CONAN_BASE}:${CONAN_VERSION}
-    user: root:root
-    shm_size: *shm-size
-    ulimits: *ulimits
-    environment:
-      <<: [*common, *sccache]
-    volumes:
-      - .:/arrow:delegated
-    command: >-
-      /bin/bash -c "
-        sudo /arrow/ci/scripts/install_sccache.sh unknown-linux-musl /usr/local/bin &&
-        /arrow/ci/scripts/conan_setup.sh &&
-        /arrow/ci/scripts/conan_build.sh /arrow /build"
 
   cpp-jni:
     # Test for the build configuration for JNI.
@@ -1388,7 +1394,6 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        python_variant: default
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -1405,7 +1410,7 @@ services:
       args:
         base: ${REPO}:python-wheel-windows-vs2022-base-vcpkg-${VCPKG}-${PYTHON_WHEEL_WINDOWS_IMAGE_REVISION}
         python: ${PYTHON}
-        python_variant: freethreaded
+        python_variant_suffix: t
       context: .
       dockerfile: ci/docker/python-wheel-windows-vs2022.dockerfile
       # This should make the pushed images reusable, but the image gets rebuilt.
@@ -1530,13 +1535,15 @@ services:
       BUILD_DOCS_CPP: "ON"
       BUILD_DOCS_PYTHON: "ON"
       PYTEST_ARGS: "--doctest-modules --doctest-cython"
+      PYTEST_RST_ARGS: "--doctest-glob=*.rst"
     volumes: *conda-volumes
     command:
       ["/arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/python_build.sh /arrow /build &&
         pip install -e /arrow/dev/archery[numpydoc] &&
         archery numpydoc --allow-rule GL10,PR01,PR03,PR04,PR05,PR10,RT03,YD01 &&
-        /arrow/ci/scripts/python_test.sh /arrow"]
+        /arrow/ci/scripts/python_test.sh /arrow &&
+        /arrow/ci/scripts/python_test_type_annotations.sh /arrow/python"]
 
   conda-python-dask:
     # Possible $DASK parameters:
@@ -1663,7 +1670,6 @@ services:
         tz: ${TZ}
         r_prune_deps: ${R_PRUNE_DEPS}
         r_custom_ccache: ${R_CUSTOM_CCACHE}
-        r_update_clang: ${R_UPDATE_CLANG}
     shm_size: *shm-size
     environment:
       <<: [*common, *sccache]
@@ -1746,7 +1752,7 @@ services:
       cache_from:
         - ${REPO}:r-rstudio-r-base-4.2-focal-revdepcheck
       args:
-        base: rstudio/r-base:4.2-focal
+        base: posit/r-base:4.2-focal
         r_dev: ${ARROW_R_DEV}
         tz: ${TZ}
     shm_size: *shm-size
@@ -1788,6 +1794,37 @@ services:
       NOT_CRAN: "false"
     volumes:
       - .:/arrow:delegated
+    command: /arrow/ci/scripts/r_test.sh /arrow
+
+  fedora-r-clang:
+    # Usage:
+    #   docker compose build fedora-r-clang
+    #   docker compose run fedora-r-clang
+    # Tests R package on Fedora with Clang, simulating CRAN's
+    # r-devel-linux-x86_64-fedora-clang environment.
+    # R-devel is built from source with Clang and uses CRAN's compiler flags.
+    # See: https://www.stats.ox.ac.uk/pub/bdr/Rconfig/r-devel-linux-x86_64-fedora-clang
+    # Parameters:
+    #   FEDORA: 42
+    #   ARCH: amd64
+    image: ${REPO}:${ARCH}-fedora-${FEDORA}-r-clang
+    build:
+      context: .
+      dockerfile: ci/docker/fedora-${FEDORA}-r-clang.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-fedora-${FEDORA}-r-clang
+      args:
+        arch: ${ARCH}
+    shm_size: *shm-size
+    environment:
+      <<: [*common, *sccache]
+      LIBARROW_BINARY: "false"
+      ARROW_SOURCE_HOME: "/arrow"
+      ARROW_R_DEV: ${ARROW_R_DEV}
+      ARROW_USE_PKG_CONFIG: "false"
+      SKIP_VIGNETTES: "true"
+      NOT_CRAN: "false"
+    volumes: *fedora-volumes
     command: /arrow/ci/scripts/r_test.sh /arrow
 
   ############################## Integration ##################################

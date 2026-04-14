@@ -1165,13 +1165,13 @@ GArrowTimestampDataType *
 garrow_timestamp_data_type_new(GArrowTimeUnit unit, GTimeZone *time_zone)
 {
   auto arrow_unit = garrow_time_unit_to_raw(unit);
-  std::string arrow_timezone;
+  std::string arrow_time_zone;
 #if GLIB_CHECK_VERSION(2, 58, 0)
   if (time_zone) {
-    arrow_timezone = g_time_zone_get_identifier(time_zone);
+    arrow_time_zone = g_time_zone_get_identifier(time_zone);
   }
 #endif
-  auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_timezone);
+  auto arrow_data_type = arrow::timestamp(arrow_unit, arrow_time_zone);
   auto data_type =
     GARROW_TIMESTAMP_DATA_TYPE(g_object_new(GARROW_TYPE_TIMESTAMP_DATA_TYPE,
                                             "data-type",
@@ -2645,6 +2645,28 @@ garrow_data_type_new_raw(std::shared_ptr<arrow::DataType> *arrow_data_type)
     break;
   case arrow::Type::type::TIMESTAMP:
     type = GARROW_TYPE_TIMESTAMP_DATA_TYPE;
+    {
+      auto arrow_timestamp_data_type =
+        std::static_pointer_cast<arrow::TimestampType>(*arrow_data_type);
+      const auto &arrow_time_zone = arrow_timestamp_data_type->timezone();
+      if (!arrow_time_zone.empty()) {
+#if GLIB_CHECK_VERSION(2, 68, 0)
+        auto time_zone = g_time_zone_new_identifier(arrow_time_zone.c_str());
+#else
+        auto time_zone = g_time_zone_new(arrow_time_zone.c_str());
+#endif
+        data_type = GARROW_DATA_TYPE(g_object_new(type,
+                                                  "data-type",
+                                                  arrow_data_type,
+                                                  "time-zone",
+                                                  time_zone,
+                                                  nullptr));
+        if (time_zone) {
+          g_time_zone_unref(time_zone);
+        }
+        return data_type;
+      }
+    }
     break;
   case arrow::Type::type::TIME32:
     type = GARROW_TYPE_TIME32_DATA_TYPE;

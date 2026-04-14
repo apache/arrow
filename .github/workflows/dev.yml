@@ -49,6 +49,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install pre-commit
         run: |
@@ -64,8 +65,6 @@ jobs:
             ~/.cache/pre-commit
             ~/.local/share/renv/cache
           key: pre-commit-${{ hashFiles('.pre-commit-config.yaml') }}
-      - name: Install Air
-        uses: posit-dev/setup-air@63e80dedb6d275c94a3841e15e5ff8691e1ab237 # v1.0.0
       - name: Run pre-commit
         run: |
           pre-commit run --all-files --color=always --show-diff-on-failure
@@ -90,6 +89,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install Python
         uses: actions/setup-python@v6
@@ -103,7 +103,7 @@ jobs:
         shell: bash
         run: |
           gem install test-unit openssl
-          pip install "cython>=3.1" setuptools pytest requests setuptools-scm
+          pip install build "cython>=3.1" pytest requests scikit-build-core setuptools-scm
       - name: Run Release Test
         shell: bash
         run: |

@@ -566,6 +566,27 @@ bool is_valid_time(const int hours, const int minutes, const int seconds) {
          seconds < 60;
 }
 
+// Normalize sub-seconds value to milliseconds precision (3 digits).
+// Truncates if more than 3 digits are provided, pads with zeros if fewer than 3 digits
+static inline int32_t normalize_subseconds_to_millis(int32_t subseconds,
+                                                     int32_t num_digits) {
+  if (num_digits <= 0 || num_digits == 3) {
+    // No need to adjust
+    return subseconds;
+  }
+  // Calculate the power of 10 adjustment needed
+  int32_t digit_diff = num_digits - 3;
+  while (digit_diff > 0) {
+    subseconds /= 10;
+    digit_diff--;
+  }
+  while (digit_diff < 0) {
+    subseconds *= 10;
+    digit_diff++;
+  }
+  return subseconds;
+}
+
 // MONTHS_BETWEEN returns number of months between dates date1 and date2.
 // If date1 is later than date2, then the result is positive.
 // If date1 is earlier than date2, then the result is negative.
@@ -746,17 +767,8 @@ gdv_timestamp castTIMESTAMP_utf8(int64_t context, const char* input, gdv_int32 l
   }
 
   // adjust the milliseconds
-  if (sub_seconds_len > 0) {
-    if (sub_seconds_len > 3) {
-      const char* msg = "Invalid millis for timestamp value ";
-      set_error_for_date(length, input, msg, context);
-      return 0;
-    }
-    while (sub_seconds_len < 3) {
-      ts_fields[TimeFields::kSubSeconds] *= 10;
-      sub_seconds_len++;
-    }
-  }
+  ts_fields[TimeFields::kSubSeconds] =
+      normalize_subseconds_to_millis(ts_fields[TimeFields::kSubSeconds], sub_seconds_len);
   // handle timezone
   if (encountered_zone) {
     int err = 0;
@@ -866,18 +878,9 @@ gdv_time32 castTIME_utf8(int64_t context, const char* input, int32_t length) {
   }
 
   // adjust the milliseconds
-  if (sub_seconds_len > 0) {
-    if (sub_seconds_len > 3) {
-      const char* msg = "Invalid millis for time value ";
-      set_error_for_date(length, input, msg, context);
-      return 0;
-    }
-
-    while (sub_seconds_len < 3) {
-      time_fields[TimeFields::kSubSeconds - TimeFields::kHours] *= 10;
-      sub_seconds_len++;
-    }
-  }
+  time_fields[TimeFields::kSubSeconds - TimeFields::kHours] =
+      normalize_subseconds_to_millis(
+          time_fields[TimeFields::kSubSeconds - TimeFields::kHours], sub_seconds_len);
 
   int32_t input_hours = time_fields[TimeFields::kHours - TimeFields::kHours];
   int32_t input_minutes = time_fields[TimeFields::kMinutes - TimeFields::kHours];
@@ -920,13 +923,15 @@ gdv_time32 castTIME_int32(int32_t int_val) {
 
 const char* castVARCHAR_timestamp_int64(gdv_int64 context, gdv_timestamp in,
                                         gdv_int64 length, gdv_int32* out_len) {
-  gdv_int64 year = extractYear_timestamp(in);
-  gdv_int64 month = extractMonth_timestamp(in);
-  gdv_int64 day = extractDay_timestamp(in);
-  gdv_int64 hour = extractHour_timestamp(in);
-  gdv_int64 minute = extractMinute_timestamp(in);
-  gdv_int64 second = extractSecond_timestamp(in);
-  gdv_int64 millis = in % MILLIS_IN_SEC;
+  EpochTimePoint tp(in);
+  gdv_int64 year = 1900 + tp.TmYear();
+  gdv_int64 month = 1 + tp.TmMon();
+  gdv_int64 day = tp.TmMday();
+  gdv_int64 hour = tp.TmHour();
+  gdv_int64 minute = tp.TmMin();
+  gdv_int64 second = tp.TmSec();
+  // Use TimeOfDay().subseconds() to correctly handle negative timestamps
+  gdv_int64 millis = tp.TimeOfDay().subseconds().count();
 
   static const int kTimeStampStringLen = 23;
   const int char_buffer_length = kTimeStampStringLen + 1;  // snprintf adds \0

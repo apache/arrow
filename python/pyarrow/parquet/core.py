@@ -768,7 +768,9 @@ use_dictionary : bool or list, default True
     doesn't support dictionary encoding.
 compression : str or dict, default 'snappy'
     Specify the compression codec, either on a general basis or per-column.
-    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'ZSTD'}.
+    Valid values: {'NONE', 'SNAPPY', 'GZIP', 'BROTLI', 'LZ4', 'LZ4_RAW', 'ZSTD'}.
+    'LZ4_RAW' is accepted as an alias for 'LZ4' (both use the LZ4_RAW
+    codec as defined in the Parquet specification).
 write_statistics : bool or list, default True
     Specify if we should write statistics in general (default is True) or only
     for some columns.
@@ -857,6 +859,7 @@ use_compliant_nested_type : bool, default True
                 <element-repetition> <element-type> item;
             }
         }
+
 encryption_properties : FileEncryptionProperties, default None
     File encryption properties for Parquet Modular Encryption.
     If None, no encryption will be done.
@@ -896,6 +899,7 @@ sorting_columns : Sequence of SortingColumn, default None
 store_decimal_as_integer : bool, default False
     Allow decimals with 1 <= precision <= 18 to be stored as integers.
     In Parquet, DECIMAL can be stored in any of the following physical types:
+
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: precision is limited by the array size.
@@ -905,6 +909,7 @@ store_decimal_as_integer : bool, default False
 
     By default, this is DISABLED and all decimal types annotate fixed_len_byte_array.
     When enabled, the writer will use the following physical types to store decimals:
+
     - int32: for 1 <= precision <= 9.
     - int64: for 10 <= precision <= 18.
     - fixed_len_byte_array: for precision > 18.
@@ -925,6 +930,7 @@ use_content_defined_chunking : bool or dict, default False
     before any Parquet encodings).
 
     A `dict` can be passed to adjust the chunker parameters with the following keys:
+
     - `min_chunk_size`: minimum chunk size in bytes, default 256 KiB
       The rolling hash will not be updated until this size is reached for each chunk.
       Note that all data sent through the hash function is counted towards the chunk
@@ -943,12 +949,39 @@ use_content_defined_chunking : bool or dict, default False
       balance between deduplication ratio and fragmentation. Use norm_level=1 or
       norm_level=2 to reach a higher deduplication ratio at the expense of
       fragmentation.
+
 write_time_adjusted_to_utc : bool, default False
     Set the value of isAdjustedTOUTC when writing a TIME column.
     If True, this tells the Parquet reader that the TIME columns
     are expressed in reference to midnight in the UTC timezone.
     If False (the default), the TIME columns are assumed to be expressed
     in reference to midnight in an unknown, presumably local, timezone.
+bloom_filter_options : dict, default None
+    Create Bloom filters for the columns specified by the provided `dict`.
+
+    Bloom filters can be configured with two parameters: number of distinct values
+    (NDV), and false-positive probability (FPP).
+
+    Bloom filters are most effective for high-cardinality columns. A good default
+    is to set NDV equal to the number of rows. Lower values reduce disk usage but
+    may not be worthwhile for very small NDVs. Increasing NDV (without increasing FPP)
+    increases disk and memory usage.
+
+    Lower FPP values require more disk and memory space. For a fixed NDV, the
+    space requirement grows roughly proportional to log(1/FPP). Recommended
+    values are 0.1, 0.05, or 0.01. Very small values are counterproductive as
+    the bitset may exceed the size of the actual data. Set NDV appropriately
+    to minimize space usage.
+
+    The keys of the `dict` are column paths. For each path, the value can be either:
+
+    - A dictionary, with keys `ndv` and `fpp`. The value for `ndv` must be a positive
+      integer. If the 'ndv' key is not present, the default value of `1048576` will be
+      used. The value for `fpp` must be a float between 0.0 and 1.0. If the `fpp` key
+      is not present, the default value of `0.05` will be used.
+    - A boolean, with ``True`` indicating that a Bloom filter should be produced with
+      the above mentioned default values of `ndv=1048576` and `fpp=0.05`. This is
+      equivalent to passing an empty dict.
 """
 
 _parquet_writer_example_doc = """\
@@ -1978,6 +2011,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=False,
                 write_time_adjusted_to_utc=False,
                 max_rows_per_page=None,
+                bloom_filter_options=None,
                 **kwargs):
     # Implementor's note: when adding keywords here / updating defaults, also
     # update it in write_to_dataset and _dataset_parquet.pyx ParquetFileWriteOptions
@@ -2011,6 +2045,7 @@ def write_table(table, where, row_group_size=None, version='2.6',
                 store_decimal_as_integer=store_decimal_as_integer,
                 write_time_adjusted_to_utc=write_time_adjusted_to_utc,
                 max_rows_per_page=max_rows_per_page,
+                bloom_filter_options=bloom_filter_options,
                 **kwargs) as writer:
             writer.write_table(table, row_group_size=row_group_size)
     except Exception:

@@ -16,6 +16,7 @@
 # under the License.
 
 import contextlib
+import datetime
 import os
 import shutil
 import subprocess
@@ -1399,6 +1400,147 @@ def test_uuid_extension():
     assert isinstance(array[0], pa.UuidScalar)
 
 
+def test_uuid_scalar_from_python():
+    # Test with explicit type
+    py_uuid = uuid4()
+    scalar = pa.scalar(py_uuid, type=pa.uuid())
+    assert isinstance(scalar, pa.UuidScalar)
+    assert scalar.type == pa.uuid()
+    assert scalar.as_py() == py_uuid
+
+    # Test with specific UUID value
+    specific_uuid = UUID("12345678-1234-5678-1234-567812345678")
+    scalar = pa.scalar(specific_uuid, type=pa.uuid())
+    assert scalar.as_py() == specific_uuid
+    assert scalar.value.as_py() == specific_uuid.bytes
+
+    scalar = pa.scalar(None, type=pa.uuid())
+    assert scalar.is_valid is False
+    assert scalar.as_py() is None
+
+    # Test type inference from uuid.UUID
+    py_uuid = uuid4()
+    scalar = pa.scalar(py_uuid)
+    assert isinstance(scalar, pa.UuidScalar)
+    assert scalar.type == pa.uuid()
+    assert scalar.as_py() == py_uuid
+
+
+def test_uuid_array_from_python():
+    # Test array with explicit type
+    uuids = [uuid4() for _ in range(3)]
+    uuids.append(None)
+
+    arr = pa.array(uuids, type=pa.uuid())
+    assert arr.type == pa.uuid()
+    assert len(arr) == 4
+    assert arr.null_count == 1
+    for i, u in enumerate(uuids):
+        assert arr[i].as_py() == u
+
+    # Test type inference for arrays
+    arr = pa.array(uuids)
+    assert arr.type == pa.uuid()
+    for i, u in enumerate(uuids):
+        assert arr[i].as_py() == u
+
+
+@pytest.mark.parametrize("bytes_value,exc_type,match", [
+    (b"0123456789abcde", pa.ArrowInvalid, "expected to be length 16 was 15"),
+    (
+        "0123456789abcdef", TypeError,
+        "Expected uuid.UUID.bytes to return bytes, got 'str'"
+    ),
+    (None, TypeError, "Expected uuid.UUID.bytes to return bytes, got 'NoneType'"),
+])
+def test_uuid_bytes_property_not_bytes(bytes_value, exc_type, match):
+    class BadUuid(UUID):
+        @property
+        def bytes(self):
+            return bytes_value
+
+    bad = BadUuid(uuid4().hex)
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad], type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad, type=pa.uuid())
+    with pytest.raises(exc_type, match=match):
+        pa.array([bad])
+    with pytest.raises(exc_type, match=match):
+        pa.scalar(bad)
+
+
+def test_uuid_bytes_property_raises():
+    class BadUuid(UUID):
+        @property
+        def bytes(self):
+            raise RuntimeError("broken")
+
+    bad = BadUuid(uuid4().hex)
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad], type=pa.uuid())
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.scalar(bad, type=pa.uuid())
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.array([bad])
+    with pytest.raises(RuntimeError, match="broken"):
+        pa.scalar(bad)
+
+
+def test_array_from_extension_scalars():
+    # One case per C++ converter: FixedSizeBinary, Binary/String
+    builtin_cases = [
+        (pa.uuid(), [b"0123456789abcdef"]),
+        (pa.opaque(pa.binary(), "t", "v"), [b"x", b"y"]),
+    ]
+    for ext_type, values in builtin_cases:
+        scalars = [pa.scalar(v, type=ext_type) for v in values]
+        result = pa.array(scalars, type=ext_type)
+        assert result.equals(pa.array(values, type=ext_type))
+
+    # One case per C++ converter: Numeric, Timestamp/Duration, Struct
+    custom_cases = [
+        (IntegerType(), [100, 200]),
+        (AnnotatedType(pa.timestamp("us"), "ts"),
+         [datetime.datetime(2023, 1, 1)]),
+        (MyStructType(), [{"left": 1, "right": 2}]),
+    ]
+    for ext_type, values in custom_cases:
+        with registered_extension_type(ext_type):
+            scalars = [pa.scalar(v, type=ext_type) for v in values]
+            result = pa.array(scalars, type=ext_type)
+            assert result.equals(pa.array(values, type=ext_type))
+
+    # Null handling
+    uuid_type = pa.uuid()
+    scalars = [pa.scalar(b"0123456789abcdef", type=uuid_type),
+               pa.scalar(None, type=uuid_type)]
+    result = pa.array(scalars, type=uuid_type)
+    assert result[0].is_valid and not result[1].is_valid
+
+    # ExtensionScalar.from_storage path
+    scalars = [
+        pa.ExtensionScalar.from_storage(uuid_type, b"0123456789abcdef"),
+        pa.ExtensionScalar.from_storage(uuid_type, None),
+    ]
+    result = pa.array(scalars, type=uuid_type)
+    expected = pa.array([b"0123456789abcdef", None], type=uuid_type)
+    assert result.equals(expected)
+
+    # Type inference without explicit type
+    u = uuid4()
+    scalars = [pa.scalar(u, type=pa.uuid()), None]
+    result = pa.array(scalars)
+    assert result.type == pa.uuid()
+    assert result[0].as_py() == u
+    assert not result[1].is_valid
+
+    # Mixed extension scalars and raw Python objects
+    u1, u2 = uuid4(), uuid4()
+    result = pa.array([pa.scalar(u1, type=pa.uuid()), u2], type=pa.uuid())
+    assert result.equals(pa.array([u1, u2], type=pa.uuid()))
+
+
 def test_tensor_type():
     tensor_type = pa.fixed_shape_tensor(pa.int8(), [2, 3])
     assert tensor_type.extension_name == "arrow.fixed_shape_tensor"
@@ -1481,6 +1623,17 @@ def test_tensor_class_methods(np_type_str):
     assert result.type.shape == [2, 2, 3]
     assert result.to_tensor().shape == (1, 3, 2, 2)
     assert result.to_tensor().strides == (12 * bw, 1 * bw, 6 * bw, 2 * bw)
+
+    tensor_type = pa.fixed_shape_tensor(arrow_type, [2, 2, 3], permutation=[2, 1, 0])
+    result = pa.ExtensionArray.from_storage(tensor_type, storage)
+    expected = as_strided(flat_arr, shape=(1, 3, 2, 2),
+                          strides=(bw * 12, bw, bw * 3, bw * 6))
+    np.testing.assert_array_equal(result.to_numpy_ndarray(), expected)
+
+    assert result.type.permutation == [2, 1, 0]
+    assert result.type.shape == [2, 2, 3]
+    assert result.to_tensor().shape == (1, 3, 2, 2)
+    assert result.to_tensor().strides == (12 * bw, 1 * bw, 3 * bw, 6 * bw)
 
 
 @pytest.mark.numpy

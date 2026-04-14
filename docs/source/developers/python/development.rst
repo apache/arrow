@@ -90,7 +90,7 @@ The test groups currently include:
 
 * ``dataset``: Apache Arrow Dataset tests
 * ``flight``: Flight RPC tests
-* ``gandiva``: tests for Gandiva expression compiler (uses LLVM)
+* ``gandiva``: tests for Gandiva expression compiler (uses LLVM, deprecated since version 24.0.0)
 * ``hdfs``: tests that use libhdfs to access the Hadoop filesystem
 * ``hypothesis``: tests that use the ``hypothesis`` module for generating
   random test cases. Note that ``--hypothesis`` doesn't work due to a quirk
@@ -100,6 +100,74 @@ The test groups currently include:
 * ``parquet``: Apache Parquet tests
 * ``s3``: Tests for Amazon S3
 * ``tensorflow``: Tests that involve TensorFlow
+
+Type Checking
+=============
+
+PyArrow provides type stubs (``*.pyi`` files) for static type checking. These
+stubs are located in the ``pyarrow-stubs/`` directory and are automatically
+included in the distributed wheel packages.
+
+Running Type Checkers
+---------------------
+
+We support multiple type checkers. Their configurations are in
+``pyproject.toml``.
+
+**mypy**
+
+To run mypy on the PyArrow codebase:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ mypy
+
+The mypy configuration is in the ``[tool.mypy]`` section of ``pyproject.toml``.
+
+**pyright**
+
+To run pyright:
+
+.. code-block::
+
+   $ cd arrow/python
+   $ pyright
+
+The pyright configuration is in the ``[tool.pyright]`` section of ``pyproject.toml``.
+
+**ty**
+
+To run ty (note: currently only partially configured):
+
+.. code-block::
+
+   $ cd arrow/python
+   $ ty check
+
+Maintaining Type Stubs
+-----------------------
+
+Type stubs for PyArrow are maintained in the ``pyarrow-stubs/``
+directory. These stubs mirror the structure of the main ``pyarrow/`` package.
+
+When adding or modifying public APIs:
+
+1. **Update the corresponding ``.pyi`` stub file** in ``pyarrow-stubs/``
+   to reflect the new or changed function/class signatures.
+
+2. **Include type annotations** where possible. For Cython modules or
+   dynamically generated APIs such as compute kernels add the corresponding
+   stub in ``pyarrow-stubs/``.
+
+3. **Run type checkers** to ensure the stubs are correct and complete.
+
+The stub files are automatically copied into the built wheel during the build
+process and will be included when users install PyArrow, enabling type checking
+in downstream projects and for users' IDEs.
+
+Note: ``py.typed`` marker file in the ``pyarrow/`` directory indicates to type
+checkers that PyArrow supports type checking according to :pep:`561`.
 
 Doctest
 =======
@@ -127,6 +195,35 @@ for ``.py`` files or
 for ``.pyx`` and ``.pxi`` files. In this case you will also need to
 install the `pytest-cython <https://github.com/lgpage/pytest-cython>`_ plugin.
 
+.. note::
+   Cython ``.pxi`` files are included in ``.pyx`` files at compile time,
+   so ``--doctest-cython`` cannot be run directly on ``.pxi`` files.
+   In PyArrow, all ``.pxi`` files are included into ``lib.pyx``, so run
+   doctests on that file::
+
+      $ python -m pytest --doctest-cython path/to/lib.pyx
+
+   Any doctest errors originating from ``.pxi`` files will appear under
+   ``lib.pyx``, not the original ``.pxi`` filename.
+
+Testing Documentation Examples
+-------------------------------
+
+Documentation examples in ``.rst`` files under ``docs/source/python/`` use
+doctest syntax and can be tested locally using:
+
+.. code-block::
+
+   $ pushd arrow/python
+   $ pytest --doctest-glob="*.rst" docs/source/python/file.rst # checking single file
+   $ pytest --doctest-glob="*.rst" docs/source/python # checking entire directory
+   $ popd
+
+The examples use standard doctest syntax with ``>>>`` for Python prompts and
+``...`` for continuation lines. The ``conftest.py`` fixture automatically
+handles temporary directory setup for examples that create files.
+
+
 Debugging
 =========
 
@@ -136,7 +233,8 @@ Debug build
 Since PyArrow depends on the Arrow C++ libraries, debugging can
 frequently involve crossing between Python and C++ shared libraries.
 For the best experience, make sure you've built both Arrow C++
-(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow (``export PYARROW_BUILD_TYPE=debug``)
+(``-DCMAKE_BUILD_TYPE=Debug``) and PyArrow
+(``pip install --no-build-isolation -C cmake.build-type=Debug .``)
 in debug mode.
 
 Using gdb on Linux
@@ -168,4 +266,4 @@ Similarly, use lldb when debugging on macOS.
 Benchmarking
 ============
 
-For running the benchmarks, see :ref:`python-benchmarks`.
+For running the benchmarks, see :ref:`benchmarks`.

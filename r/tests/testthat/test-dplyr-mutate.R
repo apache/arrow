@@ -152,6 +152,9 @@ test_that("transmute() with unsupported arguments", {
 })
 
 test_that("transmute() defuses dots arguments (ARROW-13262)", {
+  # There is a sanitizer issue when stringi compiles with bundled ICU
+  # see https://github.com/gagolews/stringi/issues/525
+  skip_on_linux_devel()
   expect_snapshot(
     tbl |>
       Table$create() |>

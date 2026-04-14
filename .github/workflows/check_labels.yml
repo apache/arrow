@@ -48,6 +48,8 @@ jobs:
       - name: Checkout Arrow
         if: github.event_name == 'pull_request'
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
       - name: Check
         id: check
         env:

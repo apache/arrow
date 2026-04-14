@@ -5,11 +5,24 @@
 \alias{Message}
 \title{Message class}
 \description{
-Message class
+\code{Message} holds an Arrow IPC message, which includes metadata and
+an optional message body.
 }
-\section{Methods}{
+\section{R6 Methods}{
 
+\itemize{
+\item \verb{$Equals(other)}: Check if this \code{Message} is equal to another \code{Message}
+\item \verb{$body_length()}: Return the length of the message body in bytes
+\item \verb{$Verify()}: Check if the \code{Message} metadata is valid Flatbuffer format
+}
+}
 
-TODO
+\section{Active bindings}{
+
+\itemize{
+\item \verb{$type}: The message type
+\item \verb{$metadata}: The message metadata
+\item \verb{$body}: The message body as a \link{Buffer}
+}
 }
 

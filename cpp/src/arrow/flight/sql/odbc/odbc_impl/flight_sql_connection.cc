@@ -27,6 +27,7 @@
 #include "arrow/flight/sql/odbc/odbc_impl/util.h"
 #include "arrow/flight/types.h"
 
+#define BOOST_NO_CXX98_FUNCTION_BASE  // ARROW-17805
 #include <boost/algorithm/string.hpp>
 #include <boost/algorithm/string/join.hpp>
 #include <boost/asio/ip/address.hpp>
@@ -156,9 +157,6 @@ void FlightSqlConnection::Connect(const ConnPropertyMap& properties,
     Location location = BuildLocation(properties, missing_attr, flight_ssl_configs);
     client_options_ =
         BuildFlightClientOptions(properties, missing_attr, flight_ssl_configs);
-
-    const std::shared_ptr<ClientMiddlewareFactory>& cookie_factory = GetCookieFactory();
-    client_options_.middleware.push_back(cookie_factory);
 
     std::unique_ptr<FlightClient> flight_client;
     ThrowIfNotOK(FlightClient::Connect(location, client_options_).Value(&flight_client));
@@ -300,7 +298,7 @@ FlightClientOptions FlightSqlConnection::BuildFlightClientOptions(
     }
   }
 
-  return std::move(options);
+  return options;
 }
 
 Location FlightSqlConnection::BuildLocation(
@@ -412,9 +410,9 @@ Connection::Info FlightSqlConnection::GetInfo(uint16_t info_type) {
 
 FlightSqlConnection::FlightSqlConnection(OdbcVersion odbc_version,
                                          const std::string& driver_version)
-    : diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
+    : info_(client_options_, call_options_, sql_client_, driver_version),
+      diagnostics_("Apache Arrow", "Flight SQL", odbc_version),
       odbc_version_(odbc_version),
-      info_(client_options_, call_options_, sql_client_, driver_version),
       closed_(true) {
   attribute_[CONNECTION_DEAD] = static_cast<uint32_t>(SQL_TRUE);
   attribute_[LOGIN_TIMEOUT] = static_cast<uint32_t>(0);

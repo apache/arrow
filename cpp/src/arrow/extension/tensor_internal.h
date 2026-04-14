@@ -18,27 +18,42 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <vector>
 
-#include "arrow/status.h"
-#include "arrow/util/print_internal.h"
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
+#include "arrow/result.h"
+#include "arrow/type_fwd.h"
+
+#include <rapidjson/document.h>
 
 namespace arrow::internal {
 
-inline Status IsPermutationValid(const std::vector<int64_t>& permutation) {
-  const auto size = static_cast<int64_t>(permutation.size());
-  std::vector<uint8_t> dim_seen(size, 0);
+/// \brief Return the name of a RapidJSON value's type (e.g., "Null", "Array", "Number").
+ARROW_EXPORT
+const char* JsonTypeName(const ::arrow::rapidjson::Value& v);
 
-  for (const auto p : permutation) {
-    if (p < 0 || p >= size || dim_seen[p] != 0) {
-      return Status::Invalid(
-          "Permutation indices for ", size,
-          " dimensional tensors must be unique and within [0, ", size - 1,
-          "] range. Got: ", ::arrow::internal::PrintVector{permutation, ","});
-    }
-    dim_seen[p] = 1;
-  }
-  return Status::OK();
-}
+/// \brief Compute the product of the given shape dimensions.
+///
+/// Returns Status::Invalid if the product would overflow int64_t.
+/// An empty shape returns 1 (the multiplicative identity).
+ARROW_EXPORT
+Result<int64_t> ComputeShapeProduct(std::span<const int64_t> shape);
+
+ARROW_EXPORT
+bool IsPermutationTrivial(std::span<const int64_t> permutation);
+
+ARROW_EXPORT
+Status IsPermutationValid(std::span<const int64_t> permutation);
+
+ARROW_EXPORT
+Result<std::vector<int64_t>> ComputeStrides(const std::shared_ptr<DataType>& value_type,
+                                            std::span<const int64_t> shape,
+                                            std::span<const int64_t> permutation);
+
+ARROW_EXPORT
+Result<std::shared_ptr<Buffer>> SliceTensorBuffer(const Array& data_array,
+                                                  const DataType& value_type,
+                                                  std::span<const int64_t> shape);
 
 }  // namespace arrow::internal

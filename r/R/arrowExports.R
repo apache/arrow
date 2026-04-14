@@ -468,8 +468,8 @@ ExecNode_Scan <- function(plan, dataset, filter, projection) {
   .Call(`_arrow_ExecNode_Scan`, plan, dataset, filter, projection)
 }
 
-ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory) {
-  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory))
+ExecPlan_Write <- function(plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order) {
+  invisible(.Call(`_arrow_ExecPlan_Write`, plan, final_node, schema, file_write_options, filesystem, base_dir, partitioning, basename_template, existing_data_behavior, max_partitions, max_open_files, max_rows_per_file, min_rows_per_group, max_rows_per_group, create_directory, preserve_order))
 }
 
 ExecNode_Filter <- function(input, filter) {
@@ -550,10 +550,6 @@ build_info <- function() {
 
 runtime_info <- function() {
   .Call(`_arrow_runtime_info`)
-}
-
-set_timezone_database <- function(path) {
-  invisible(.Call(`_arrow_set_timezone_database`, path))
 }
 
 csv___WriteOptions__initialize <- function(options) {
@@ -1244,8 +1240,8 @@ Field__name <- function(field) {
   .Call(`_arrow_Field__name`, field)
 }
 
-Field__Equals <- function(field, other) {
-  .Call(`_arrow_Field__Equals`, field, other)
+Field__Equals <- function(field, other, check_metadata) {
+  .Call(`_arrow_Field__Equals`, field, other, check_metadata)
 }
 
 Field__nullable <- function(field) {
@@ -1254,6 +1250,22 @@ Field__nullable <- function(field) {
 
 Field__type <- function(field) {
   .Call(`_arrow_Field__type`, field)
+}
+
+Field__HasMetadata <- function(field) {
+  .Call(`_arrow_Field__HasMetadata`, field)
+}
+
+Field__metadata <- function(field) {
+  .Call(`_arrow_Field__metadata`, field)
+}
+
+Field__WithMetadata <- function(field, metadata) {
+  .Call(`_arrow_Field__WithMetadata`, field, metadata)
+}
+
+Field__RemoveMetadata <- function(field) {
+  .Call(`_arrow_Field__RemoveMetadata`, field)
 }
 
 fs___FileInfo__type <- function(x) {

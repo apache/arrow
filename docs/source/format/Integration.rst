@@ -561,6 +561,8 @@ in ``datagen.py``):
 * Extension Types
 
 
+.. _format-gold-integration-files:
+
 Gold File Integration Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -255,13 +255,21 @@ check_allowlist <- function(
   any(grepl(paste(allowlist, collapse = "|"), os))
 }
 
+normalise_arch <- function(arch) {
+  if (arch %in% c("aarch64", "arm64")) {
+    return("arm64")
+  }
+  arch
+}
+
 select_binary <- function(
   os = tolower(Sys.info()[["sysname"]]),
   arch = tolower(Sys.info()[["machine"]]),
   test_program = test_for_curl_and_openssl
 ) {
-  if (identical(os, "darwin") || (identical(os, "linux") && identical(arch, "x86_64"))) {
-    # We only host x86 linux binaries and x86 & arm64 macos today
+  arch <- normalise_arch(arch)
+
+  if (identical(os, "darwin") || identical(os, "linux")) {
     binary <- tryCatch(
       # Somehow the test program system2 call errors on the sanitizer builds
       # so globally handle the possibility that this could fail
@@ -597,7 +605,7 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(
       env_var_list,
       ARROW_S3 = Sys.getenv("ARROW_S3", "ON"),
-      ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
+      # ARROW_GCS = Sys.getenv("ARROW_GCS", "ON"),
       ARROW_WITH_ZSTD = Sys.getenv("ARROW_WITH_ZSTD", "ON")
     )
   }

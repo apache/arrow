@@ -17,6 +17,7 @@
 
 #include "arrow/util/bitmap_ops.h"
 
+#include <array>
 #include <cstdint>
 #include <cstring>
 #include <functional>
@@ -55,13 +56,15 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
     constexpr int64_t kCountUnrollFactor = 4;
     const int64_t words_rounded =
         bit_util::RoundDown(p.aligned_words, kCountUnrollFactor);
-    int64_t count_unroll[kCountUnrollFactor] = {0};
+    std::array<int64_t, kCountUnrollFactor> count_unroll{};
 
     // Unroll the loop for better performance
     for (int64_t i = 0; i < words_rounded; i += kCountUnrollFactor) {
-      for (int64_t k = 0; k < kCountUnrollFactor; k++) {
-        count_unroll[k] += bit_util::PopCount(u64_data[k]);
-      }
+      // (hand-unrolled as some gcc versions would unnest a nested `for` loop)
+      count_unroll[0] += std::popcount(u64_data[0]);
+      count_unroll[1] += std::popcount(u64_data[1]);
+      count_unroll[2] += std::popcount(u64_data[2]);
+      count_unroll[3] += std::popcount(u64_data[3]);
       u64_data += kCountUnrollFactor;
     }
     for (int64_t k = 0; k < kCountUnrollFactor; k++) {
@@ -70,7 +73,7 @@ int64_t CountSetBits(const uint8_t* data, int64_t bit_offset, int64_t length) {
 
     // The trailing part
     for (; u64_data < end; ++u64_data) {
-      count += bit_util::PopCount(*u64_data);
+      count += std::popcount(*u64_data);
     }
   }
 

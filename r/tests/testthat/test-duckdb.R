@@ -190,6 +190,18 @@ test_that("to_arrow roundtrip, with dataset (without wrapping)", {
   expect_r6_class(out, "RecordBatchReader")
 })
 
+test_that("to_arrow preserves grouping from duckdb tables", {
+  ds <- InMemoryDataset$create(example_data)
+
+  out <- ds |>
+    to_duckdb() |>
+    group_by(lgl) |>
+    to_arrow()
+
+  expect_s3_class(out, "arrow_dplyr_query")
+  expect_equal(dplyr::group_vars(out), "lgl")
+})
+
 # The next set of tests use an already-extant connection to test features of
 # persistence and querying against the table without using the `tbl` itself, so
 # we need to create a connection separate from the ephemeral one that is made
@@ -223,10 +235,10 @@ test_that("Joining, auto-cleanup enabled", {
   expect_identical(dim(res), c(9L, 14L))
 
   # clean up cleans up the tables
-  expect_true(all(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
+  expect_all_true(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con))
   rm(table_one, table_two)
   gc()
-  expect_false(any(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con)))
+  expect_all_false(c(table_one_name, table_two_name) %in% duckdb::duckdb_list_arrow(con))
 })
 
 test_that("Joining, auto-cleanup disabled", {

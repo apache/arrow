@@ -190,6 +190,9 @@ TEST_F(TestAtFork, SingleThread) {
   ASSERT_THAT(child_after_, ElementsAre());
 }
 
+// XXX we would like to test the ARROW_REGISTER_ATFORK environment variable,
+// but that would require spawning a test subprocess
+
 #  if !(defined(ARROW_VALGRIND) || defined(ADDRESS_SANITIZER) || \
         defined(THREAD_SANITIZER))
 

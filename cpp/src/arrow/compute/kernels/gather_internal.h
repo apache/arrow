@@ -35,6 +35,11 @@
 
 namespace arrow::internal {
 
+template <typename IndexType>
+constexpr int64_t FixedWidthByteOffset(IndexType index, int64_t value_width) {
+  return static_cast<int64_t>(index) * value_width;
+}
+
 // CRTP [1] base class for Gather that provides a gathering loop in terms of
 // Write*() methods that must be implemented by the derived class.
 //
@@ -185,8 +190,8 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
       memcpy(out_ + position * scaled_factor, src_ + idx_[position] * scaled_factor,
              scaled_factor);
     } else {
-      memcpy(out_ + position * kValueWidth, src_ + idx_[position] * kValueWidth,
-             kValueWidth);
+      memcpy(out_ + FixedWidthByteOffset(position, kValueWidth),
+             src_ + FixedWidthByteOffset(idx_[position], kValueWidth), kValueWidth);
     }
   }
 
@@ -195,7 +200,7 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
       const int64_t scaled_factor = kValueWidth * factor_;
       memset(out_ + position * scaled_factor, 0, scaled_factor);
     } else {
-      memset(out_ + position * kValueWidth, 0, kValueWidth);
+      memset(out_ + FixedWidthByteOffset(position, kValueWidth), 0, kValueWidth);
     }
   }
 
@@ -204,7 +209,8 @@ class Gather : public GatherBaseCRTP<Gather<kValueWidthInBits, IndexCType, kWith
       const int64_t scaled_factor = kValueWidth * factor_;
       memset(out_ + position * scaled_factor, 0, length * scaled_factor);
     } else {
-      memset(out_ + position * kValueWidth, 0, length * kValueWidth);
+      memset(out_ + FixedWidthByteOffset(position, kValueWidth), 0,
+             FixedWidthByteOffset(length, kValueWidth));
     }
   }
 
