@@ -122,7 +122,8 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   std::vector<int64_t> shape;
   for (const auto& x : document["shape"].GetArray()) {
     if (!x.IsInt64()) {
-      return Status::Invalid("shape must contain integers");
+      return Status::Invalid("shape must contain integers, got ",
+                             internal::JsonTypeName(x));
     }
     shape.emplace_back(x.GetInt64());
   }
@@ -131,11 +132,13 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   if (document.HasMember("permutation")) {
     const auto& json_permutation = document["permutation"];
     if (!json_permutation.IsArray()) {
-      return Status::Invalid("permutation must be an array");
+      return Status::Invalid("permutation must be an array, got ",
+                             internal::JsonTypeName(json_permutation));
     }
     for (const auto& x : json_permutation.GetArray()) {
       if (!x.IsInt64()) {
-        return Status::Invalid("permutation must contain integers");
+        return Status::Invalid("permutation must contain integers, got ",
+                               internal::JsonTypeName(x));
       }
       permutation.emplace_back(x.GetInt64());
     }
@@ -148,11 +151,13 @@ Result<std::shared_ptr<DataType>> FixedShapeTensorType::Deserialize(
   if (document.HasMember("dim_names")) {
     const auto& json_dim_names = document["dim_names"];
     if (!json_dim_names.IsArray()) {
-      return Status::Invalid("dim_names must be an array");
+      return Status::Invalid("dim_names must be an array, got ",
+                             internal::JsonTypeName(json_dim_names));
     }
     for (const auto& x : json_dim_names.GetArray()) {
       if (!x.IsString()) {
-        return Status::Invalid("dim_names must contain strings");
+        return Status::Invalid("dim_names must contain strings, got ",
+                               internal::JsonTypeName(x));
       }
       dim_names.emplace_back(x.GetString());
     }

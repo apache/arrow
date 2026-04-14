@@ -21,10 +21,17 @@
 #include <span>
 #include <vector>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
+#include <rapidjson/document.h>
+
 namespace arrow::internal {
+
+/// \brief Return the name of a RapidJSON value's type (e.g., "Null", "Array", "Number").
+ARROW_EXPORT
+const char* JsonTypeName(const ::arrow::rapidjson::Value& v);
 
 /// \brief Compute the product of the given shape dimensions.
 ///

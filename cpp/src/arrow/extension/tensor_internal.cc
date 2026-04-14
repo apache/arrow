@@ -30,6 +30,20 @@
 
 namespace arrow::internal {
 
+namespace {
+
+// Names indexed by rapidjson::Type enum value:
+// kNullType=0, kFalseType=1, kTrueType=2, kObjectType=3,
+// kArrayType=4, kStringType=5, kNumberType=6.
+constexpr const char* kJsonTypeNames[] = {"Null",  "False",  "True",  "Object",
+                                          "Array", "String", "Number"};
+
+}  // namespace
+
+const char* JsonTypeName(const ::arrow::rapidjson::Value& v) {
+  return kJsonTypeNames[v.GetType()];
+}
+
 Result<int64_t> ComputeShapeProduct(std::span<const int64_t> shape) {
   int64_t product = 1;
   for (const auto dim : shape) {
