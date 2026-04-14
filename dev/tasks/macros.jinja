@@ -34,6 +34,7 @@ env:
     with:
       fetch-depth: {{ fetch_depth }}
       path: arrow
+      persist-credentials: false
       repository: {{ arrow.github_repo }}
       ref: {{ arrow.head }}
       submodules: {{ submodules }}
@@ -84,6 +85,7 @@ env:
     uses: actions/checkout@v4
     with:
       path: crossbow
+      persist-credentials: false
       ref: {{ job.branch }}
   - name: Setup Crossbow
     shell: bash
