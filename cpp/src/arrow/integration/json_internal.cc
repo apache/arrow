@@ -1497,8 +1497,11 @@ class ArrayReader {
 
       auto json_size = json_view_obj.FindMember("SIZE");
       RETURN_NOT_INT("SIZE", json_size, json_view_obj);
-      DCHECK_GE(json_size->value.GetInt64(), 0);
-      auto size = static_cast<int32_t>(json_size->value.GetInt64());
+      auto size = json_size->value.GetInt();
+      if (size < 0) {
+        return Status::Invalid("Invalid binary view SIZE: ", size,
+                               ". Expected a non-negative value");
+      }
 
       if (size <= BinaryViewType::kInlineSize) {
         auto json_inlined = json_view_obj.FindMember("INLINED");
@@ -1506,11 +1509,19 @@ class ArrayReader {
         out_view.inlined = {size, {}};
 
         if constexpr (ViewType::is_utf8) {
-          DCHECK_LE(json_inlined->value.GetStringLength(), BinaryViewType::kInlineSize);
+          if (json_inlined->value.GetStringLength() != static_cast<rj::SizeType>(size)) {
+            return Status::Invalid("Invalid binary view INLINED length: ",
+                                   json_inlined->value.GetStringLength(),
+                                   ". Expected exactly ", size, " bytes");
+          }
           memcpy(&out_view.inlined.data, json_inlined->value.GetString(), size);
         } else {
-          DCHECK_LE(json_inlined->value.GetStringLength(),
-                    BinaryViewType::kInlineSize * 2);
+          if (json_inlined->value.GetStringLength() !=
+              static_cast<rj::SizeType>(size * 2)) {
+            return Status::Invalid("Invalid binary view INLINED hex length: ",
+                                   json_inlined->value.GetStringLength(),
+                                   ". Expected exactly ", size * 2, " characters");
+          }
           ARROW_ASSIGN_OR_RAISE(auto inlined, GetStringView(json_inlined->value));
           RETURN_NOT_OK(ParseHexValues(inlined, out_view.inlined.data.data()));
         }
@@ -1524,20 +1535,46 @@ class ArrayReader {
       RETURN_NOT_INT("BUFFER_INDEX", json_buffer_index, json_view_obj);
       RETURN_NOT_INT("OFFSET", json_offset, json_view_obj);
 
+      const auto buffer_index = json_buffer_index->value.GetInt();
+      const auto offset = json_offset->value.GetInt();
+      if (buffer_index < 0) {
+        return Status::Invalid("Invalid binary view BUFFER_INDEX: ", buffer_index,
+                               ". Expected a non-negative value");
+      }
+      if (offset < 0) {
+        return Status::Invalid("Invalid binary view OFFSET: ", offset,
+                               ". Expected a non-negative value");
+      }
+      if (json_prefix->value.GetStringLength() != BinaryViewType::kPrefixSize * 2) {
+        return Status::Invalid("Invalid binary view PREFIX_HEX length: ",
+                               json_prefix->value.GetStringLength(),
+                               ". Expected exactly ", BinaryViewType::kPrefixSize * 2,
+                               " characters");
+      }
+
+      const int64_t num_variadic_buffers = static_cast<int64_t>(buffers.size()) - 2;
+      if (buffer_index >= num_variadic_buffers) {
+        return Status::Invalid("Invalid binary view BUFFER_INDEX: ", buffer_index,
+                               ". Expected < ", num_variadic_buffers);
+      }
+
+      const int64_t data_buffer_size = buffers[buffer_index + 2]->size();
+      if (static_cast<int64_t>(offset) > data_buffer_size ||
+          static_cast<int64_t>(size) > data_buffer_size - static_cast<int64_t>(offset)) {
+        return Status::Invalid("Invalid binary view range [offset=", offset,
+                               ", size=", size,
+                               "] for data buffer of size ", data_buffer_size);
+      }
+
       out_view.ref = {
           size,
           {},
-          static_cast<int32_t>(json_buffer_index->value.GetInt64()),
-          static_cast<int32_t>(json_offset->value.GetInt64()),
+          buffer_index,
+          offset,
       };
 
-      DCHECK_EQ(json_prefix->value.GetStringLength(), BinaryViewType::kPrefixSize * 2);
       ARROW_ASSIGN_OR_RAISE(auto prefix, GetStringView(json_prefix->value));
       RETURN_NOT_OK(ParseHexValues(prefix, out_view.ref.prefix.data()));
-
-      DCHECK_LE(static_cast<size_t>(out_view.ref.buffer_index), buffers.size() - 2);
-      DCHECK_LE(static_cast<int64_t>(out_view.ref.offset) + out_view.size(),
-                buffers[out_view.ref.buffer_index + 2]->size());
     }
 
     data_ = ArrayData::Make(type_, length_, std::move(buffers), null_count);
