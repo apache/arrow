@@ -1283,8 +1283,10 @@ def test_os_file_writer(tmpdir):
 
 def test_os_file_raw_fd(tmpdir):
     path = os.path.join(str(tmpdir), guid())
+    binary_flag = getattr(os, "O_BINARY", 0)
 
-    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC, 0o666)
+    fd = os.open(path, os.O_CREAT | os.O_WRONLY | os.O_TRUNC | binary_flag,
+                 0o666)
     with pa.OSFile(fd, mode='wb') as f:
         assert f.fileno() == fd
         f.write(b'foo')
@@ -1293,7 +1295,7 @@ def test_os_file_raw_fd(tmpdir):
         os.fstat(fd)
     assert exc.value.errno == errno.EBADF
 
-    fd = os.open(path, os.O_RDONLY)
+    fd = os.open(path, os.O_RDONLY | binary_flag)
     with pa.OSFile(fd, mode='rb') as f:
         assert f.fileno() == fd
         assert f.read() == b'foo'
