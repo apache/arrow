@@ -56,39 +56,27 @@ You should read this document if you belong to either of these two categories:
 Bugs vs. Security Vulnerabilities
 =================================
 
-The Arrow project aims for robustness when processing data from untrusted
-sources. However, it is important to distinguish between functional bugs
-and security vulnerabilities.
+Arrow aims for robustness when processing untrusted data, but it is important to
+distinguish functional bugs from security vulnerabilities.
 
-Invalid input files (such as malformed IPC streams or Parquet files) that
-cause an Arrow implementation to misbehave (for example, by triggering
-a segmentation fault or an infinite loop) are generally considered **bugs**,
-not security vulnerabilities, unless the behavior is **exploitable**.
+Unexpected behavior (e.g., crashes or infinite loops) triggered by malformed
+input is generally considered a **bug**, not a security vulnerability, unless it
+is **exploitable**. An issue is exploitable if an attacker can:
 
-Such uncontrolled behavior is considered **exploitable** if it
-can be leveraged by an attacker to:
+* Execute arbitrary code (RCE);
+* Exfiltrate sensitive information from process memory (Information Disclosure);
+* Cause a sustained Denial of Service (DoS) affecting the broader system.
 
-* Perform arbitrary code execution (e.g. Remote Code Execution);
-* Access or exfiltrate sensitive information from the process memory
-  (Information Disclosure);
-* Cause a sustained Denial of Service (DoS) affecting the broader system
-  (beyond the individual process processing the data).
+Examples of bugs that are typically **not** security vulnerabilities:
 
-Examples of behaviors that are bugs but generally **not** security vulnerabilities:
+* Process-local crashes (SIGSEGV, null pointer dereference, or `std::abort`)
+  that cannot be leveraged for code execution or information disclosure;
+* Resource exhaustion (infinite loops, high CPU/memory usage) that only
+  affects the local process.
 
-* A segmentation fault (SIGSEGV) or null pointer dereference occurring within
-  the process parsing an invalid file, provided it cannot be leveraged for
-  code execution or information disclosure;
-* An assertion failure or abortion (`std::abort`) triggered by an internal
-  sanity check when encountering malformed data;
-* An infinite loop or excessive CPU/memory usage that only affects the local
-  process and does not impact the availability of the overall system.
-
-We encourage users to report such uncontrolled behavior on invalid data as
-regular bugs in our `public issue tracker <https://github.com/apache/arrow/issues>`_ so they can be fixed. If you suspect
-an issue is exploitable, please follow the
-`ASF security reporting process <https://apache.org/security/#reporting-a-vulnerability>`_
-and report it privately.
+Report such issues on our `public issue tracker <https://github.com/apache/arrow/issues>`_.
+If you suspect an issue is exploitable, report it privately via the
+`ASF security process <https://apache.org/security/#reporting-a-vulnerability>`_.
 
 
 Columnar Format

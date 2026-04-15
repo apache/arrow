@@ -63,8 +63,8 @@ is always assumed to be :ref:`valid <format-invalid-data>`. If your program may
 encounter invalid data, it must explicitly check its validity by calling one of
 the following validation APIs.
 
-Note that even if a library crashes or hangs when encountering invalid data, it is
-generally considered a bug rather than a security vulnerability, unless the behavior
+Note that library crashes or hangs triggered by invalid data are generally
+considered bugs rather than security vulnerabilities, unless the behavior
 is exploitable (see :ref:`Bugs vs. Security Vulnerabilities <bugs_vs_security>`).
 
 Structural validity
