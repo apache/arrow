@@ -65,7 +65,7 @@ the following validation APIs.
 
 Note that even if a library crashes or hangs when encountering invalid data, it is
 generally considered a bug rather than a security vulnerability, unless the behavior
-is exploitable (see :ref:`Bugs vs. Security Vulnerabilities <format_security>`).
+is exploitable (see :ref:`Bugs vs. Security Vulnerabilities <bugs_vs_security>`).
 
 Structural validity
 '''''''''''''''''''

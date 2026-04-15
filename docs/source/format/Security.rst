@@ -51,6 +51,8 @@ You should read this document if you belong to either of these two categories:
    documented on https://arrow.apache.org.
 
 
+.. _bugs_vs_security:
+
 Bugs vs. Security Vulnerabilities
 =================================
 
@@ -59,7 +61,7 @@ sources. However, it is important to distinguish between functional bugs
 and security vulnerabilities.
 
 Invalid input files (such as malformed IPC streams or Parquet files) that
-cause an Arrow implementation to misbehave, (for example, by triggering
+cause an Arrow implementation to misbehave (for example, by triggering
 a segmentation fault or an infinite loop) are generally considered **bugs**,
 not security vulnerabilities, unless the behavior is **exploitable**.
 
