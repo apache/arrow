@@ -1,0 +1,1 @@
+Apache Arrow Flight SQL ODBC Driver is a read-only ODBC driver for connecting to data sources that support Arrow Flight SQL.

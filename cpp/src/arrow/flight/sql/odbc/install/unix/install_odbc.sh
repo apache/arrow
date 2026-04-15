@@ -17,7 +17,7 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Used by macOS ODBC installer script `install_odbc_ini.sh` and macOS ODBC testing
+# Used by arrow/cpp/src/arrow/flight/sql/odbc/install/mac/postinstall
 
 set -euo pipefail
 
@@ -46,8 +46,8 @@ case "$(uname)" in
     ;;
   *)
     # macOS
-    USER_ODBCINST_FILE="$HOME/Library/ODBC/odbcinst.ini"
-    mkdir -p "$HOME"/Library/ODBC
+    USER_ODBCINST_FILE="/Library/ODBC/odbcinst.ini"
+    mkdir -p /Library/ODBC
     ;;
 esac
 
