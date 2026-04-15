@@ -112,7 +112,7 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
   }
 
   auto result_buffer =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size));
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size + 1));
 
   if (result_buffer == nullptr) {
     gdv_fn_context_set_error_msg(context,
@@ -131,8 +131,8 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
 
     unsigned char hex_number = result[j];
     result_buff_index +=
-        snprintf(result_buffer + result_buff_index, result_buf_size - result_buff_index,
-                 "%02x", hex_number);
+        snprintf(result_buffer + result_buff_index,
+                 result_buf_size + 1 - result_buff_index, "%02x", hex_number);
   }
 
   // Free the resources used by the EVP to avoid memory leaks
