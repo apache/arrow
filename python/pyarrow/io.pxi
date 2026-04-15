@@ -1300,10 +1300,12 @@ cdef class OSFile(NativeFile):
             shared_ptr[FileOutputStream] writable_handle
 
         if self.is_readable:
-            readable_handle = <shared_ptr[ReadableFile]> self.get_random_access_file()
+            readable_handle = static_pointer_cast[ReadableFile, CRandomAccessFile](
+                self.get_random_access_file())
             return readable_handle.get().file_descriptor()
         else:
-            writable_handle = <shared_ptr[FileOutputStream]> self.get_output_stream()
+            writable_handle = static_pointer_cast[FileOutputStream, COutputStream](
+                self.get_output_stream())
             return writable_handle.get().file_descriptor()
 
 
