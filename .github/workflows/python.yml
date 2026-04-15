@@ -300,8 +300,10 @@ jobs:
           CACHE_VERSION: "2025-09-16.1"
       - name: Build Arrow C++ and PyArrow
         shell: cmd
+        env:
+          USR_WINDOWS_DIR: ${{ steps.path-info.outputs.usr-windows-dir }}
         run: |
-          call "ci\scripts\python_build.bat" %cd% "${{ steps.path-info.outputs.usr-windows-dir }}"
+          call "ci\scripts\python_build.bat" %cd% "%USR_WINDOWS_DIR%"
       - name: Test PyArrow
         shell: cmd
         run: |

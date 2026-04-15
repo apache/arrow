@@ -54,8 +54,8 @@ jobs:
           CROSSBOW_GITHUB_TOKEN: ${{ secrets.CROSSBOW_GITHUB_TOKEN }}
         run: |
           archery --debug trigger-bot \
-            --event-name ${{ github.event_name }} \
-            --event-payload ${{ github.event_path }}
+            --event-name "${GITHUB_EVENT_NAME}" \
+            --event-payload "${GITHUB_EVENT_PATH}"
 
   issue_assign:
     name: "Assign issue"

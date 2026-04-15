@@ -115,13 +115,18 @@ jobs:
           restore-keys: cpp-ccache-windows-${{ inputs.arch }}-
       - name: Build
         shell: cmd
+        env:
+          VCVARS_ARCH: ${{ inputs.arch }}
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %VCVARS_ARCH%
           bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
       - name: Test
         shell: cmd
+        env:
+          VCVARS_ARCH: ${{ inputs.arch }}
+          MSYS2_LOCATION: ${{ steps.setup-msys2.outputs.msys2-location }}
         run: |
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" ${{ inputs.arch }}
+          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" %VCVARS_ARCH%
           # For ORC
-          set TZDIR=${{ steps.setup-msys2.outputs.msys2-location }}\usr\share\zoneinfo
+          set TZDIR=%MSYS2_LOCATION%\usr\share\zoneinfo
           bash -c "ci/scripts/cpp_test.sh $(pwd) $(pwd)/build"
