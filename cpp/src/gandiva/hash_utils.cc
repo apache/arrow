@@ -63,7 +63,6 @@ const char* gdv_md5_hash(int64_t context, const void* message, size_t message_le
 /// It uses the EVP API in the OpenSSL library to generate
 /// the hash. The type of the hash is defined by the
 /// \b hash_type \b parameter.
-GANDIVA_EXPORT
 const char* gdv_hash_using_openssl(int64_t context, const void* message,
                                    size_t message_length, const EVP_MD* hash_type,
                                    uint32_t result_buf_size, int32_t* out_length) {
@@ -102,7 +101,7 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
   unsigned int result_length;
   EVP_DigestFinal_ex(md_ctx, result, &result_length);
 
-  if (result_length != hash_digest_size && result_buf_size != (2 * hash_digest_size)) {
+  if (result_length != hash_digest_size || result_buf_size != (2 * hash_digest_size)) {
     gdv_fn_context_set_error_msg(context,
                                  "Could not obtain the hash for the defined value");
     EVP_MD_CTX_free(md_ctx);
@@ -132,7 +131,8 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
 
     unsigned char hex_number = result[j];
     result_buff_index +=
-        snprintf(result_buffer + result_buff_index, result_buf_size, "%02x", hex_number);
+        snprintf(result_buffer + result_buff_index, result_buf_size - result_buff_index,
+                 "%02x", hex_number);
   }
 
   // Free the resources used by the EVP to avoid memory leaks
