@@ -458,6 +458,7 @@ jobs:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /tmp/local
       ARROW_MIMALLOC: OFF
     steps:
@@ -533,6 +534,19 @@ jobs:
             --allow libresolv \
             --allow libz \
             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
+      - name: Generate macOS Installer
+        if: matrix.build-type == 'release'
+        shell: bash
+        run: |
+            cd $(pwd)/build/cpp
+            cpack
+      - name: Upload ODBC PKG to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
+          path: build/cpp/ArrowFlightSqlOdbcODBC-*.pkg
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
