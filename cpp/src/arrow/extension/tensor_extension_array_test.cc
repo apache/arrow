@@ -1008,7 +1008,7 @@ TEST_F(TestVariableShapeTensorType, ComputeStridesWithNonTrivialPermutation) {
                            internal::checked_pointer_cast<ExtensionScalar>(scalar)));
 
   ASSERT_EQ(tensor->shape(), (std::vector<int64_t>{3, 2, 1}));
-  ASSERT_EQ(tensor->strides(), (std::vector<int64_t>{sizeof(int64_t), sizeof(int64_t) * 2,
+  ASSERT_EQ(tensor->strides(), (std::vector<int64_t>{sizeof(int64_t), sizeof(int64_t) * 3,
                                                      sizeof(int64_t)}));
   ASSERT_EQ(tensor->dim_names(), (std::vector<std::string>{"y", "x", "z"}));
 }
