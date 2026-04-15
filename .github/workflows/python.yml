@@ -30,6 +30,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
   pull_request:
     paths:
@@ -38,6 +39,7 @@ on:
       - 'ci/**'
       - 'cpp/**'
       - 'compose.yaml'
+      - 'docs/source/python/**'
       - 'python/**'
 
 concurrency:
