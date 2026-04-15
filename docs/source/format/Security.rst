@@ -51,6 +51,44 @@ You should read this document if you belong to either of these two categories:
    documented on https://arrow.apache.org.
 
 
+Bugs vs. Security Vulnerabilities
+=================================
+
+The Arrow project aims for robustness when processing data from untrusted
+sources. However, it is important to distinguish between functional bugs
+and security vulnerabilities.
+
+Invalid input files (such as malformed IPC streams or Parquet files) that
+cause an Arrow implementation to misbehave, (for example, by triggering
+a segmentation fault or an infinite loop) are generally considered **bugs**,
+not security vulnerabilities, unless the behavior is **exploitable**.
+
+Such uncontrolled behavior is considered **exploitable** if it
+can be leveraged by an attacker to:
+
+* Perform arbitrary code execution (e.g. Remote Code Execution);
+* Access or exfiltrate sensitive information from the process memory
+  (Information Disclosure);
+* Cause a sustained Denial of Service (DoS) affecting the broader system
+  (beyond the individual process processing the data).
+
+Examples of behaviors that are bugs but generally **not** security vulnerabilities:
+
+* A segmentation fault (SIGSEGV) or null pointer dereference occurring within
+  the process parsing an invalid file, provided it cannot be leveraged for
+  code execution or information disclosure;
+* An assertion failure or abortion (`std::abort`) triggered by an internal
+  sanity check when encountering malformed data;
+* An infinite loop or excessive CPU/memory usage that only affects the local
+  process and does not impact the availability of the overall system.
+
+We encourage users to report such uncontrolled behavior on invalid data as
+regular bugs in our `public issue tracker <https://github.com/apache/arrow/issues>`_ so they can be fixed. If you suspect
+an issue is exploitable, please follow the
+`ASF security reporting process <https://apache.org/security/#reporting-a-vulnerability>`_
+and report it privately.
+
+
 Columnar Format
 ===============
 
