@@ -108,6 +108,7 @@ jobs:
             -e ARROW_FLIGHT=ON \
             -e ARROW_FLIGHT_SQL=ON \
             -e ARROW_GCS=ON \
+            -e nlohmann_json_SOURCE=BUNDLED \
             -e Protobuf_SOURCE=BUNDLED \
             -e gRPC_SOURCE=BUNDLED \
             ubuntu-ruby

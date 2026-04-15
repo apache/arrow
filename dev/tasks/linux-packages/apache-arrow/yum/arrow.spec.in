@@ -46,6 +46,7 @@
 %define arrow_cmake_install DESTDIR="%{buildroot}" make -C %{arrow_cmake_builddir} install
 %endif
 
+%define use_bundled_absl (%{_rhel} < 10)
 %define use_bundled_nlohmann_json (%{_rhel} == 8)
 %define use_gcs (!%{is_amazon_linux})
 %define use_gflags (!%{is_amazon_linux})
@@ -163,6 +164,9 @@ cd cpp
   -DCMAKE_BUILD_TYPE=$cpp_build_type \
   -DPARQUET_BUILD_EXECUTABLES=ON \
   -DPARQUET_REQUIRE_ENCRYPTION=ON \
+%if %{use_bundled_absl}
+  -Dabsl_SOURCE=BUNDLED \
+%endif
 %if %{use_bundled_nlohmann_json}
   -Dnlohmann_json_SOURCE=BUNDLED \
 %endif
