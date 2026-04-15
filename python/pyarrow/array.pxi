@@ -5057,8 +5057,7 @@ cdef class VariableShapeTensorArray(ExtensionArray):
     """
 
     @staticmethod
-    def from_numpy_ndarray(obj, dim_names=None, permutation=None, uniform_shape=None,
-                           value_type=None, ndim=None):
+    def from_numpy_ndarray(obj, dim_names=None, permutation=None, uniform_shape=None):
         """
         Convert a sequence of numpy.ndarrays to a variable shape tensor extension array.
         The length of the input sequence becomes the length of the output array.
@@ -5066,17 +5065,14 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         Parameters
         ----------
         obj : Sequence[numpy.ndarray]
-            Sequence of ndarrays with matching dtype, ndim, and memory permutation.
+            Non-empty sequence of ndarrays with matching dtype, ndim, and
+            memory permutation.
         dim_names : tuple or list of strings, default None
             Explicit names to tensor dimensions.
         permutation : tuple or list of integers, default None
             Physical permutation for all input arrays. If None, inferred from strides.
         uniform_shape : tuple or list of integers or None, default None
             Optional known uniform dimensions in physical order. If None, inferred.
-        value_type : pyarrow.DataType or numpy dtype, default None
-            Optional explicit tensor value type. Required with empty input.
-        ndim : int, default None
-            Optional explicit tensor rank. Required with empty input.
 
         Returns
         -------
@@ -5095,56 +5091,23 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         cdef:
             list arrays
             list shape_rows
-            int array_ndim
+            int ndim
             int i
             object base_dtype
             DataType arrow_type
             list normalized_permutation
             list permutation_metadata
-            DataType shape_type
             Array values
             Array shapes
             StructArray struct_arr
             VariableShapeTensorType ext_type
 
-        if isinstance(obj, np.ndarray):
-            raise TypeError("obj must be a sequence of numpy arrays")
         if not isinstance(obj, Sequence) or isinstance(obj, (str, bytes)):
             raise TypeError("obj must be a sequence of numpy arrays")
         arrays = list(obj)
 
-        if value_type is not None and not isinstance(value_type, DataType):
-            try:
-                value_type = from_numpy_dtype(np.dtype(value_type))
-            except (TypeError, ValueError) as exc:
-                raise TypeError(
-                    "value_type must be a pyarrow.DataType or numpy dtype"
-                ) from exc
-
         if len(arrays) == 0:
-            if value_type is None or ndim is None:
-                raise ValueError(
-                    "For empty input, both value_type and ndim must be provided")
-            if ndim < 0:
-                raise ValueError("ndim must be non-negative")
-
-            _validate_dim_names(dim_names, ndim)
-            permutation = _validate_permutation(permutation, ndim)
-            _validate_uniform_shape(uniform_shape, ndim)
-
-            shape_type = list_(int32(), list_size=ndim)
-            values = array([], list_(value_type))
-            shapes = array([], shape_type)
-            struct_arr = StructArray.from_arrays(
-                [values, shapes], names=["data", "shape"])
-            ext_type = variable_shape_tensor(
-                value_type,
-                ndim,
-                dim_names=dim_names,
-                permutation=permutation,
-                uniform_shape=uniform_shape
-            )
-            return ExtensionArray.from_storage(ext_type, struct_arr)
+            raise ValueError("Expected a non-empty sequence of ndarrays")
 
         for i, arr in enumerate(arrays):
             if not isinstance(arr, np.ndarray):
@@ -5153,17 +5116,8 @@ cdef class VariableShapeTensorArray(ExtensionArray):
                 raise ValueError("Cannot convert scalar to variable shape tensor array")
 
         base_dtype = arrays[0].dtype
-        array_ndim = arrays[0].ndim
+        ndim = arrays[0].ndim
         arrow_type = from_numpy_dtype(base_dtype)
-
-        if value_type is not None and value_type != arrow_type:
-            raise TypeError(
-                f"numpy array dtype {base_dtype} does not match value_type {value_type}")
-
-        if ndim is not None and ndim != array_ndim:
-            raise ValueError(
-                f"ndim must match numpy arrays ndim ({array_ndim}). Got {ndim}.")
-        ndim = array_ndim
 
         for i, arr in enumerate(arrays[1:], start=1):
             if arr.dtype != base_dtype:

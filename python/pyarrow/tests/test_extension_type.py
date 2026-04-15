@@ -1978,23 +1978,8 @@ def test_variable_shape_tensor_roundtrip_2d(dtype):
 
 
 @pytest.mark.numpy
-def test_variable_shape_tensor_from_numpy_empty_input_schema():
-    arr = pa.VariableShapeTensorArray.from_numpy_ndarray(
-        [],
-        value_type=pa.int32(),
-        ndim=2,
-        dim_names=["H", "W"],
-        permutation=[1, 0],
-        uniform_shape=[None, None],
-    )
-    assert len(arr) == 0
-    assert arr.type.value_type == pa.int32()
-    assert arr.type.ndim == 2
-    assert arr.type.dim_names == ["H", "W"]
-    assert arr.type.permutation == [1, 0]
-    assert arr.type.uniform_shape == [None, None]
-
-    with pytest.raises(ValueError, match="both value_type and ndim must be provided"):
+def test_variable_shape_tensor_from_numpy_empty_input_rejected():
+    with pytest.raises(ValueError, match="non-empty sequence of ndarrays"):
         pa.VariableShapeTensorArray.from_numpy_ndarray([])
 
 
