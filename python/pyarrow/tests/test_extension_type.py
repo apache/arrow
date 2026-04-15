@@ -1723,6 +1723,14 @@ def test_tensor_array_from_numpy(np_type_str):
     assert tensor_array_from_numpy.type.dim_names is None
     assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
 
+    arr = np.arange(48, dtype=np.dtype(np_type_str)).reshape((2, 2, 3, 4))
+    arr = np.transpose(arr, (0, 2, 3, 1))
+    tensor_array_from_numpy = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
+    assert tensor_array_from_numpy.type.shape == [2, 3, 4]
+    assert tensor_array_from_numpy.type.permutation == [1, 2, 0]
+    assert tensor_array_from_numpy.type.dim_names is None
+    assert tensor_array_from_numpy.to_tensor() == pa.Tensor.from_numpy(arr)
+
     arr = flat_arr.reshape(1, 2, 3, 2)
     result = pa.FixedShapeTensorArray.from_numpy_ndarray(arr)
     expected = np.array(
@@ -1902,12 +1910,9 @@ def test_variable_shape_tensor_array_from_numpy(value_type):
     arr = np.arange(24, dtype=value_type).reshape((2, 3, 4))
     arr = np.transpose(arr, (2, 0, 1))
     result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])
-    assert result.type.permutation == [1, 2, 0]
-    expected_tensor_view = np.transpose(arr, np.argsort(result.type.permutation))
-    tensor = result[0].to_tensor()
-    assert list(tensor.shape) == list(expected_tensor_view.shape)
-    result_ndarray = result[0].to_numpy()
-    assert list(result_ndarray.shape) == list(expected_tensor_view.shape)
+    assert result.type.permutation == [2, 0, 1]
+    assert result[0].to_tensor() == pa.Tensor.from_numpy(arr)
+    np.testing.assert_array_equal(result[0].to_numpy(), arr)
 
     arr = np.array([1, 2, 3, 4], dtype=value_type)
     result = pa.VariableShapeTensorArray.from_numpy_ndarray([arr])

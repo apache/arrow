@@ -4795,12 +4795,13 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = np.take(obj.shape, permutation)
+        permutation = _invert_permutation(permutation[1:] - 1)
         values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
             fixed_shape_tensor(arrow_type, shape[1:],
                                dim_names=dim_names,
-                               permutation=permutation[1:] - 1),
+                               permutation=permutation),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
@@ -4998,15 +4999,20 @@ def _infer_uniform_shape(shape_rows, ndim):
     return inferred
 
 
+def _invert_permutation(permutation):
+    return [int(x) for x in
+            np.argsort(np.array(permutation, dtype=np.int64), kind="stable")]
+
+
 def _permutation_from_strides(arr):
-    """Infer the dimension permutation from array strides.
+    """Infer the logical-to-physical permutation from array strides.
 
     Note: for arrays with size-1 dimensions, the inferred permutation
     may be unreliable since size-1 strides are unconstrained. Callers
     should skip permutation validation for such arrays.
     """
-    return [int(x) for x in
-            (-np.array(arr.strides, dtype=np.int64)).argsort(kind="stable")]
+    return _invert_permutation(
+        (-np.array(arr.strides, dtype=np.int64)).argsort(kind="stable"))
 
 
 cdef class VariableShapeTensorArray(ExtensionArray):
@@ -5070,7 +5076,8 @@ cdef class VariableShapeTensorArray(ExtensionArray):
         dim_names : tuple or list of strings, default None
             Explicit names to tensor dimensions.
         permutation : tuple or list of integers, default None
-            Physical permutation for all input arrays. If None, inferred from strides.
+            Logical-to-physical permutation for all input arrays. If None,
+            inferred from strides.
         uniform_shape : tuple or list of integers or None, default None
             Optional known uniform dimensions in physical order. If None, inferred.
 
@@ -5151,8 +5158,9 @@ cdef class VariableShapeTensorArray(ExtensionArray):
                     (f"obj[{i}] has permutation {ndarray_permutation_list}; "
                      f"expected {list(normalized_permutation)}"))
 
+        physical_to_logical = _invert_permutation(normalized_permutation)
         shape_rows = [
-            [int(x) for x in np.take(arr.shape, normalized_permutation)]
+            [int(x) for x in np.take(arr.shape, physical_to_logical)]
             for arr in arrays
         ]
 
@@ -5173,10 +5181,10 @@ cdef class VariableShapeTensorArray(ExtensionArray):
             if arr.size > 0:
                 raveled = np.ravel(arr, order="K")
                 physical_shape = tuple(
-                    np.take(arr.shape, normalized_permutation))
+                    np.take(arr.shape, physical_to_logical))
                 reconstructed = raveled.reshape(physical_shape)
-                inv_perm = list(np.argsort(normalized_permutation))
-                reconstructed_logical = np.transpose(reconstructed, inv_perm)
+                reconstructed_logical = np.transpose(reconstructed,
+                                                     normalized_permutation)
                 if not np.array_equal(reconstructed_logical, arr):
                     raise ValueError(
                         "Array memory layout is incompatible with variable "
