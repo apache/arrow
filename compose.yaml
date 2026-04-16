@@ -2056,10 +2056,9 @@ services:
       CMAKE_GENERATOR: Ninja
       TEST_APT: 0  # would require docker-in-docker
       TEST_YUM: 0
+      SSL_CERT_FILE: /etc/ssl/certs/ca-bundle.crt  # required due to issue in RHEL-8 based images. See GH-49757
     command: >
       /bin/bash -c "
-        # SSL_CERT_FILE required due to issue in RHEL-8 based images. See GH-49757
-        export SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt &&
         /arrow/dev/release/verify-release-candidate.sh $${VERIFY_VERSION} $${VERIFY_RC}"
 
   ubuntu-verify-rc:
