@@ -372,7 +372,8 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoServerName) {
   SQLWCHAR value[kOdbcBufferSize] = {};
   GetInfoSQLWCHAR(this->conn, SQL_SERVER_NAME, value);
 
-  EXPECT_GT(wcslen(reinterpret_cast<wchar_t*>(value)), 0);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_GT(result.length(), 0);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoStaticCursorAttributes1) {
@@ -403,14 +404,16 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDbmsName) {
   SQLWCHAR value[kOdbcBufferSize] = {};
   GetInfoSQLWCHAR(this->conn, SQL_DBMS_NAME, value);
 
-  EXPECT_GT(wcslen(reinterpret_cast<wchar_t*>(value)), 0);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_GT(result.length(), 0);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoDbmsVer) {
   SQLWCHAR value[kOdbcBufferSize] = {};
   GetInfoSQLWCHAR(this->conn, SQL_DBMS_VER, value);
 
-  EXPECT_GT(wcslen(reinterpret_cast<wchar_t*>(value)), 0);
+  std::wstring result = ConvertToWString(value);
+  EXPECT_GT(result.length(), 0);
 }
 
 // Data Source Information
@@ -850,7 +853,8 @@ TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoKeywords) {
   SQLWCHAR value[info_len] = {};
   GetInfoSQLWCHAR(this->conn, SQL_KEYWORDS, value, info_len);
 
-  EXPECT_GT(wcslen(reinterpret_cast<wchar_t*>(value)), 0);
+  std::wstring result = ConvertToWString(value, -1, info_len);
+  EXPECT_GT(result.length(), 0);
 }
 
 TYPED_TEST(ConnectionInfoTest, TestSQLGetInfoLikeEscapeClause) {
