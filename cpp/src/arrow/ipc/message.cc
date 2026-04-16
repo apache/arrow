@@ -571,11 +571,10 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
     if (metadata->size() >= static_cast<int64_t>(remaining_magic.size()) &&
         std::string_view(reinterpret_cast<const char*>(metadata->data()),
                          remaining_magic.size()) == remaining_magic) {
-      return Status::Invalid(
-          "Expected to read ", metadata_length, " metadata bytes, but only read ",
-          metadata->size(),
-          ". This appears to be an Arrow IPC File format file. "
-          "Try open_file() instead of open_stream().");
+      return Status::Invalid("Expected to read ", metadata_length,
+                             " metadata bytes, but only read ", metadata->size(),
+                             ". This appears to be an Arrow IPC File format file. "
+                             "Try open_file() instead of open_stream().");
     }
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
