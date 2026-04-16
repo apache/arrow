@@ -1079,6 +1079,7 @@ def test_recordbatch_to_tensor_uniform_float_16():
     check_tensors(result, expected, pa.float16(), 27)
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize(
     ('cls'),
     [
@@ -1275,6 +1276,7 @@ def test_recordbatch_to_tensor_unsupported():
         batch.to_tensor()
 
 
+@pytest.mark.numpy
 @pytest.mark.parametrize('typ', [
     np.uint8, np.uint16, np.uint32, np.uint64,
     np.int8, np.int16, np.int32, np.int64,
