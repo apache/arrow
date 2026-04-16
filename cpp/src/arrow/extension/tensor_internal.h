@@ -21,10 +21,24 @@
 #include <span>
 #include <vector>
 
+#include "arrow/json/rapidjson_defs.h"  // IWYU pragma: keep
 #include "arrow/result.h"
 #include "arrow/type_fwd.h"
 
+#include <rapidjson/document.h>
+
 namespace arrow::internal {
+
+/// \brief Return the name of a RapidJSON value's type (e.g., "Null", "Array", "Number").
+ARROW_EXPORT
+const char* JsonTypeName(const ::arrow::rapidjson::Value& v);
+
+/// \brief Compute the product of the given shape dimensions.
+///
+/// Returns Status::Invalid if the product would overflow int64_t.
+/// An empty shape returns 1 (the multiplicative identity).
+ARROW_EXPORT
+Result<int64_t> ComputeShapeProduct(std::span<const int64_t> shape);
 
 ARROW_EXPORT
 bool IsPermutationTrivial(std::span<const int64_t> permutation);

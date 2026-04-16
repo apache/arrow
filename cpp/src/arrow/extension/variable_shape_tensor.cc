@@ -159,26 +159,31 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
   if (document.HasMember("permutation")) {
     const auto& json_permutation = document["permutation"];
     if (!json_permutation.IsArray()) {
-      return Status::Invalid("permutation must be an array");
+      return Status::Invalid("permutation must be an array, got ",
+                             internal::JsonTypeName(json_permutation));
     }
     permutation.reserve(ndim);
     for (const auto& x : json_permutation.GetArray()) {
       if (!x.IsInt64()) {
-        return Status::Invalid("permutation must contain integers");
+        return Status::Invalid("permutation must contain integers, got ",
+                               internal::JsonTypeName(x));
       }
       permutation.emplace_back(x.GetInt64());
     }
+    RETURN_NOT_OK(internal::IsPermutationValid(permutation));
   }
   std::vector<std::string> dim_names;
   if (document.HasMember("dim_names")) {
     const auto& json_dim_names = document["dim_names"];
     if (!json_dim_names.IsArray()) {
-      return Status::Invalid("dim_names must be an array");
+      return Status::Invalid("dim_names must be an array, got ",
+                             internal::JsonTypeName(json_dim_names));
     }
     dim_names.reserve(ndim);
     for (const auto& x : json_dim_names.GetArray()) {
       if (!x.IsString()) {
-        return Status::Invalid("dim_names must contain strings");
+        return Status::Invalid("dim_names must contain strings, got ",
+                               internal::JsonTypeName(x));
       }
       dim_names.emplace_back(x.GetString());
     }
@@ -188,7 +193,8 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
   if (document.HasMember("uniform_shape")) {
     const auto& json_uniform_shape = document["uniform_shape"];
     if (!json_uniform_shape.IsArray()) {
-      return Status::Invalid("uniform_shape must be an array");
+      return Status::Invalid("uniform_shape must be an array, got ",
+                             internal::JsonTypeName(json_uniform_shape));
     }
     uniform_shape.reserve(ndim);
     for (const auto& x : json_uniform_shape.GetArray()) {
@@ -197,7 +203,8 @@ Result<std::shared_ptr<DataType>> VariableShapeTensorType::Deserialize(
       } else if (x.IsInt64()) {
         uniform_shape.emplace_back(x.GetInt64());
       } else {
-        return Status::Invalid("uniform_shape must contain integers or nulls");
+        return Status::Invalid("uniform_shape must contain integers or nulls, got ",
+                               internal::JsonTypeName(x));
       }
     }
   }

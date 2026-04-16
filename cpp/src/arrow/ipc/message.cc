@@ -423,10 +423,12 @@ static Result<std::unique_ptr<Message>> ReadMessageInternal(
             body, file->ReadAt(offset + metadata_length, decoder.next_required_size()));
       }
 
-      if (body->size() < decoder.next_required_size()) {
-        return Status::IOError("Expected to be able to read ",
-                               decoder.next_required_size(),
-                               " bytes for message body, got ", body->size());
+      if (body->size() != decoder.next_required_size()) {
+        // The streaming decoder got out of sync with the actual advertised
+        // metadata and body size, which signals an invalid IPC file.
+        return Status::IOError("Invalid IPC file: advertised body size is ", body->size(),
+                               ", but message decoder expects to read ",
+                               decoder.next_required_size(), " bytes instead");
       }
       RETURN_NOT_OK(decoder.Consume(body));
       return result;
