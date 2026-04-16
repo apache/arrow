@@ -378,10 +378,16 @@ jobs:
       matrix:
         include:
           - image: ubuntu-cpp-odbc
-            title: AMD64 Ubuntu
+            title: AMD64 Ubuntu Release
+            build-type: release
           # GH-49582: TODO Enable Debian build for ODBC
           # - image: debian-cpp-odbc
           #   title: AMD64 Debian
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu Debug
+            build-type: debug
+            run-options: >-
+              -e ARROW_BUILD_TYPE=DEBUG
     env:
       ARCH: amd64
       ARCHERY_DEBUG: 1
@@ -405,8 +411,8 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .docker
-          key: ${{ matrix.image }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.image }}-
+          key: ${{ matrix.image }}-${{ matrix.build-type }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-${{ matrix.build-type }}-
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
@@ -421,7 +427,7 @@ jobs:
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ${{ matrix.image }}
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
       - name: Docker Push
         if: >-
           success() &&
