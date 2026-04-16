@@ -295,7 +295,7 @@ inline void ConvertColumnsToTensor(const Container& container, uint8_t* out,
 
   for (int col_idx = 0; col_idx < container.num_columns(); ++col_idx) {
     if constexpr (std::is_same_v<Container, Table>) {
-      int chunk_idx = 0;
+      int64_t chunk_idx = 0;
 
       for (const auto& chunk : container.column(col_idx)->chunks()) {
         if (row_major) {
