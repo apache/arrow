@@ -1,5 +1,5 @@
-#ifndef DATE_H
-#define DATE_H
+#ifndef ARROW_VENDORED_DATE_H
+#define ARROW_VENDORED_DATE_H
 
 // The MIT License (MIT)
 //
@@ -8242,4 +8242,4 @@ operator<<(std::basic_ostream<CharT, Traits>& os,
 # pragma GCC diagnostic pop
 #endif
 
-#endif  // DATE_H
+#endif  // ARROW_VENDORED_DATE_H

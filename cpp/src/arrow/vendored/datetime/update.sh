@@ -47,6 +47,12 @@ sed -i.bak -E \
     -e 's,include "date/,include ",g' \
     *.{cpp,h,mm}
 sed -i.bak -E \
+    -e 's/(#ifndef |#define |#endif.*\/\/ )(DATE_H)/\1ARROW_VENDORED_\2/g' \
+    -e 's/(#ifndef |#define |#endif.*\/\/ )(ios_hpp)/\1ARROW_VENDORED_\2/g' \
+    -e 's/(#ifndef |#define |#endif.*\/\/ )(TZ_H)/\1ARROW_VENDORED_\2/g' \
+    -e 's/(#ifndef |#define |#endif.*\/\/ )(TZ_PRIVATE_H)/\1ARROW_VENDORED_\2/g' \
+    *.h
+sed -i.bak -E \
     -e "s/changeset [0-9a-f]+/changeset ${commit_id}/g" \
     README.md
 rm *.bak
