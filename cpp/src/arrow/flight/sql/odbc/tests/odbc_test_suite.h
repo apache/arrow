@@ -39,17 +39,20 @@
 #include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
 
 #ifdef __linux__
-#  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal)                         \
-    auto name##_vec = ODBC::ToSqlWCharVector(std::wstring(wstring_literal)); \
+#  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal)                           \
+    auto name##_vec = ODBC::ToSqlWCharVector(std::wstring(wstring_literal));   \
+    if (name##_vec.empty() || name##_vec.back() != static_cast<SQLWCHAR>(0)) { \
+      name##_vec.push_back(static_cast<SQLWCHAR>(0));                          \
+    }                                                                          \
     SQLWCHAR* name = name##_vec.data();
 #  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_literal) \
     ASSIGN_SQLWCHAR_ARR(name, wstring_literal)               \
-    size_t name##_len = std::wstring(wstring_literal).length();
+    SQLSMALLINT name##_len = static_cast<SQLSMALLINT>(name##_vec.size() - 1);
 #else  // Windows & Mac
 #  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal) SQLWCHAR name[] = wstring_literal;
 #  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_literal) \
     ASSIGN_SQLWCHAR_ARR(name, wstring_literal)               \
-    size_t name##_len = std::wcslen(name);
+    SQLSMALLINT name##_len = static_cast<SQLSMALLINT>(std::wcslen(name));
 #endif
 
 static constexpr std::string_view kTestConnectStr = "ARROW_FLIGHT_SQL_ODBC_CONN";
@@ -289,14 +292,18 @@ size_t SqlWCharArrLen(const SQLWCHAR* str_val);
 /// \brief Check wide char array and convert into wstring
 /// \param[in] str_val Array of SQLWCHAR.
 /// \param[in] str_len length of string, in number of characters.
+/// \param[in] buffer_size size of underlying buffer, in number of characters.
 /// \return wstring
-std::wstring ConvertToWString(const SQLWCHAR* str_val, SQLSMALLINT str_len = -1);
+std::wstring ConvertToWString(const SQLWCHAR* str_val, SQLSMALLINT str_len = -1,
+                              SQLSMALLINT buffer_size = kOdbcBufferSize);
 
 /// \brief Check wide char vector and convert into wstring
 /// \param[in] str_val Vector of SQLWCHAR.
 /// \param[in] str_len length of string, in bytes.
+/// \param[in] buffer_size size of underlying buffer, in number of characters.
 /// \return wstring
-std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len);
+std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len,
+                              SQLSMALLINT buffer_size = kOdbcBufferSize);
 
 /// \brief Check wide string column.
 /// \param[in] stmt Statement.

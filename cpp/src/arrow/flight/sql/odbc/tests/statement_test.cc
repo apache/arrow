@@ -2007,8 +2007,7 @@ TYPED_TEST(StatementTest, TestSQLNativeSqlReturnsTruncatedString) {
 
   // Create expected return string based on buf size
   SQLWCHAR expected_string_buf[small_buf_size_in_char];
-  wcsncpy(reinterpret_cast<wchar_t*>(expected_string_buf),
-          reinterpret_cast<const wchar_t*>(input_str), 10);
+  std::copy(input_str, input_str + 10, expected_string_buf);
   expected_string_buf[10] = L'\0';
   std::wstring expected_string(expected_string_buf,
                                expected_string_buf + small_buf_size_in_char);
