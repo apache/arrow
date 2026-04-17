@@ -347,6 +347,7 @@ repos:
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/install/mac/postinstall$|
+          ?^cpp/src/arrow/flight/sql/odbc/install/linux/rpm/postinstall$|
           ?^cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc_ini\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance\.sh$|
