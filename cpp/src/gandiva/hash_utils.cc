@@ -113,8 +113,8 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
 
   // Allocate one extra byte beyond result_buf_size so that the null terminator
   // written by the final snprintf call does not land past the end of the buffer.
-  auto result_buffer = reinterpret_cast<char*>(
-      gdv_fn_context_arena_malloc(context, result_buf_size + 1));
+  auto result_buffer =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size + 1));
 
   if (result_buffer == nullptr) {
     gdv_fn_context_set_error_msg(context,
