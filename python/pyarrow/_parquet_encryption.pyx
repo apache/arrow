@@ -723,25 +723,32 @@ def create_decryption_properties(
     """
     Create FileDecryptionProperties using a direct footer key.
 
-    This bypasses the KMS-based :class:`CryptoFactory` API and directly
-    constructs decryption properties from a plaintext key. This is useful
-    when the caller manages key wrapping externally (e.g. via an
-    application-level envelope encryption scheme).
+    This is a low-level API that constructs decryption properties directly
+    from a plaintext key, bypassing the KMS-based :class:`CryptoFactory`.
+    It is intended for callers that manage key wrapping and storage
+    themselves (e.g. an application-level scheme).
 
     For most use cases, prefer the higher-level :class:`CryptoFactory`
-    with :class:`DecryptionConfiguration`, which handles envelope
-    encryption and key rotation automatically.
+    with :class:`DecryptionConfiguration`, which implements the full
+    Parquet key management specification and is interoperable with
+    other tools and frameworks.
+
+    .. note::
+       Currently only uniform encryption (single key for footer and all
+       columns) is supported with this method. Per-column keys are not
+       yet available; files encrypted with per-column keys cannot be
+       decrypted using this function.
 
     Parameters
     ----------
     footer_key : bytes
-        The decryption key for the file footer (and all columns if
-        uniform encryption was used). Must be 16, 24, or 32 bytes
-        for AES-128, AES-192, or AES-256 respectively.
+        The decryption key for the file footer and all columns (uniform
+        encryption). Must be 16, 24, or 32 bytes for AES-128, AES-192,
+        or AES-256 respectively.
     aad_prefix : bytes, optional
         Additional Authenticated Data prefix. Must match the AAD prefix
-        that was used during encryption. Required if the file was written
-        with ``store_aad_prefix=False``.
+        that was used during encryption. Required if the AAD prefix was
+        not stored in the file metadata during encryption.
     check_footer_integrity : bool, default True
         Whether to verify footer integrity using the signature stored
         in the file. Set to False only for debugging.
@@ -752,8 +759,8 @@ def create_decryption_properties(
     Returns
     -------
     FileDecryptionProperties
-        Properties that can be passed to :func:`read_table`,
-        :class:`ParquetFile`, or
+        Properties that can be passed to :func:`~pyarrow.parquet.read_table`,
+        :class:`~pyarrow.parquet.ParquetFile`, or
         :class:`~pyarrow.dataset.ParquetFragmentScanOptions`.
 
     Examples
@@ -762,7 +769,7 @@ def create_decryption_properties(
     >>> import pyarrow.parquet.encryption as pe
     >>> props = pe.create_decryption_properties(
     ...     footer_key=b'0123456789abcdef',
-    ...     aad_prefix=b'table_id'
+    ...     aad_prefix=b'table_id',
     ... )
     >>> table = pq.read_table('encrypted.parquet', decryption_properties=props)
     """
@@ -812,22 +819,32 @@ def create_encryption_properties(
     """
     Create FileEncryptionProperties using a direct footer key.
 
-    This bypasses the KMS-based :class:`CryptoFactory` API and directly
-    constructs encryption properties from a plaintext key. This is useful
-    when the caller manages key wrapping externally (e.g. via an
-    application-level envelope encryption scheme).
+    This is a low-level API that constructs encryption properties directly
+    from a plaintext key, bypassing the KMS-based :class:`CryptoFactory`.
+    It is intended for callers that manage key wrapping and storage
+    themselves (e.g. an application-level scheme).
 
-    For most use cases, prefer the higher-level :class:`CryptoFactory`
-    with :class:`EncryptionConfiguration`, which handles envelope
-    encryption, key rotation, and unique-per-file data keys
-    automatically.
+    .. warning::
+       The caller is responsible for key management best practices.
+       Reusing the same key for multiple files without unique data keys
+       weakens AES-GCM security. The higher-level :class:`CryptoFactory`
+       with :class:`EncryptionConfiguration` handles this automatically
+       and is interoperable with other tools and frameworks --
+       prefer it unless you have a specific reason to manage
+       keys yourself.
+
+    .. note::
+       Currently only uniform encryption (single key for footer and all
+       columns) is supported with this method. Per-column keys are not
+       yet available; the provided key encrypts both the footer and
+       every column.
 
     Parameters
     ----------
     footer_key : bytes
-        The encryption key for the file footer (and all columns unless
-        per-column keys are specified). Must be 16, 24, or 32 bytes
-        for AES-128, AES-192, or AES-256 respectively.
+        The encryption key for the file footer and all columns (uniform
+        encryption). Must be 16, 24, or 32 bytes for AES-128, AES-192,
+        or AES-256 respectively.
     aad_prefix : bytes, optional
         Additional Authenticated Data prefix for cryptographic binding.
     store_aad_prefix : bool, default True
@@ -845,18 +862,19 @@ def create_encryption_properties(
     Returns
     -------
     FileEncryptionProperties
-        Properties that can be passed to :func:`write_table` or
-        :class:`ParquetWriter`.
+        Properties that can be passed to :func:`~pyarrow.parquet.write_table` or
+        :class:`~pyarrow.parquet.ParquetWriter`.
 
     Examples
     --------
     >>> import pyarrow as pa
     >>> import pyarrow.parquet as pq
     >>> import pyarrow.parquet.encryption as pe
+    >>> table = pa.table({'col': [1, 2, 3]})
     >>> props = pe.create_encryption_properties(
     ...     footer_key=b'0123456789abcdef',
     ...     aad_prefix=b'table_id',
-    ...     store_aad_prefix=False
+    ...     store_aad_prefix=False,
     ... )
     >>> pq.write_table(table, 'encrypted.parquet', encryption_properties=props)
     """
