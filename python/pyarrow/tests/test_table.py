@@ -1277,20 +1277,20 @@ def test_recordbatch_to_tensor_unsupported():
 
 
 @pytest.mark.numpy
-@pytest.mark.parametrize('typ', [
-    np.uint8, np.uint16, np.uint32, np.uint64,
-    np.int8, np.int16, np.int32, np.int64,
-    np.float32, np.float64,
+@pytest.mark.parametrize('typ_str', [
+    "uint8", "uint16", "uint32", "uint64",
+    "int8", "int16", "int32", "int64",
+    "float32", "float64",
 ])
-def test_table_to_tensor_uniform_type(typ):
+def test_table_to_tensor_uniform_type(typ_str):
     arr1 = [[1, 2, 3], [4, 5, 6, 7, 8, 9]]
     arr2 = [[10, 20], [30, 40, 50, 60, 70, 80, 90]]
     arr3 = [[100, 100, 100, 100, 100, 100], [100, 100, 100]]
     table = pa.Table.from_arrays(
         [
-            pa.chunked_array(arr1, type=pa.from_numpy_dtype(typ)),
-            pa.chunked_array(arr2, type=pa.from_numpy_dtype(typ)),
-            pa.chunked_array(arr3, type=pa.from_numpy_dtype(typ)),
+            pa.chunked_array(arr1, type=pa.from_numpy_dtype(typ_str)),
+            pa.chunked_array(arr2, type=pa.from_numpy_dtype(typ_str)),
+            pa.chunked_array(arr3, type=pa.from_numpy_dtype(typ_str)),
         ], ["a", "b", "c"]
     )
 
@@ -1299,14 +1299,14 @@ def test_table_to_tensor_uniform_type(typ):
     arr3_f = [100, 100, 100, 100, 100, 100, 100, 100, 100]
 
     result = table.to_tensor(row_major=False)
-    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="F")
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ_str, order="F")
     expected = pa.Tensor.from_numpy(x)
-    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ_str), 27)
 
     result = table.to_tensor()
-    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="C")
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ_str, order="C")
     expected = pa.Tensor.from_numpy(x)
-    check_tensors(result, expected, pa.from_numpy_dtype(typ), 27)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ_str), 27)
 
     # Test offset
     table1 = table.slice(1)
@@ -1315,14 +1315,14 @@ def test_table_to_tensor_uniform_type(typ):
     arr3_f = [100, 100, 100, 100, 100, 100, 100, 100]
 
     result = table1.to_tensor(row_major=False)
-    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="F")
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ_str, order="F")
     expected = pa.Tensor.from_numpy(x)
-    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ_str), 24)
 
     result = table1.to_tensor()
-    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="C")
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ_str, order="C")
     expected = pa.Tensor.from_numpy(x)
-    check_tensors(result, expected, pa.from_numpy_dtype(typ), 24)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ_str), 24)
 
     table2 = table.slice(1, 5)
     arr1_f = [2, 3, 4, 5, 6]
@@ -1330,14 +1330,14 @@ def test_table_to_tensor_uniform_type(typ):
     arr3_f = [100, 100, 100, 100, 100]
 
     result = table2.to_tensor(row_major=False)
-    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="F")
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ_str, order="F")
     expected = pa.Tensor.from_numpy(x)
-    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ_str), 15)
 
     result = table2.to_tensor()
-    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ, order="C")
+    x = np.column_stack([arr1_f, arr2_f, arr3_f]).astype(typ_str, order="C")
     expected = pa.Tensor.from_numpy(x)
-    check_tensors(result, expected, pa.from_numpy_dtype(typ), 15)
+    check_tensors(result, expected, pa.from_numpy_dtype(typ_str), 15)
 
 
 def _table_like_slice_tests(factory):
