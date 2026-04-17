@@ -571,14 +571,17 @@ services:
       ARROW_PARQUET: "OFF"
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
-    # Register ODBC before running tests
     networks:
       - odbc_net
+    # Use `/arrow/build` so build artifacts are visible on the CI host
+    # Generate ODBC installer before testing
+    # Register ODBC before running tests
     command: >
       /bin/bash -c "
-        /arrow/ci/scripts/cpp_build.sh /arrow /build &&
+        /arrow/ci/scripts/cpp_build.sh /arrow /arrow/build &&
+        (cd /arrow/build/cpp && cpack) &&
         sudo /arrow/cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh /usr/local/lib/libarrow_flight_sql_odbc.so &&
-        /arrow/ci/scripts/cpp_test.sh /arrow /build"
+        /arrow/ci/scripts/cpp_test.sh /arrow /arrow/build"
 
   ubuntu-cpp-minimal:
     # Arrow build with minimal components/dependencies

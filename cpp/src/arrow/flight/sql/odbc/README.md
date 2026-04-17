@@ -125,6 +125,22 @@ After ODBC has been registered, you can run the ODBC tests. It is recommended to
       .\cpp\build\< release | debug >\< Release | Debug>\arrow-flight-sql-odbc-test.exe
       ```
 
+## Installers
+
+ODBC installers are uploaded to the CI artifacts.
+
+| Operating System | Package Format |
+|------------------|----------------|
+| Windows          | MSI            |
+| macOS            | PKG            |
+| Linux            | DEB / RPM      |
+
+### Install `.RPM` on Ubuntu
+While installing via `.DEB` installer on Ubuntu is the recommended approach, users may install `.RPM` on Ubuntu using below command
+```
+alien -i --scripts ArrowFlightSqlOdbcODBC-<version>.rpm
+```
+
 ## Known Limitations
 
 - Conversion from timestamp data type with specified time zone value to strings is not supported at the moment. This doesn't impact driver's usage of retrieving timestamp data from Power BI on Windows, and Excel on macOS and Windows. See GH-47504 for more context.
