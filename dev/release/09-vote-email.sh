@@ -20,10 +20,10 @@
 
 set -eu
 
-: ${SOURCE_DEFAULT:=1}
-: ${SOURCE_CLEANUP:=${SOURCE_DEFAULT}}
-: ${SOURCE_DOWNLOAD:=${SOURCE_DEFAULT}}
-: ${SOURCE_VOTE:=${SOURCE_DEFAULT}}
+: ${VOTE_DEFAULT:=1}
+: ${VOTE_CLEANUP:=${VOTE_DEFAULT}}
+: ${VOTE_DOWNLOAD:=${VOTE_DEFAULT}}
+: ${VOTE_TEMPLATE:=${VOTE_DEFAULT}}
 
 SOURCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SOURCE_TOP_DIR="$(cd "${SOURCE_DIR}/../../" && pwd)"
@@ -47,21 +47,18 @@ rc_url="https://dist.apache.org/repos/dist/dev/arrow/${tag}"
 
 echo "Using commit $release_hash"
 
-tarball=apache-arrow-${version}.tar.gz
+tarball_sha512=apache-arrow-${version}.tar.gz.sha512
 
-if [ ${SOURCE_DOWNLOAD} -gt 0 ]; then
-  echo "Downloading tarball and checksums for ${tag}"
-  # Wait for the release candidate workflow to finish before attempting
-  # to download the tarball from the GitHub Release.
-  . $SOURCE_DIR/utils-watch-gh-workflow.sh ${tag} "release_candidate.yml"
+if [ ${VOTE_DOWNLOAD} -gt 0 ]; then
+  echo "Downloading tarball checksum for ${tag}"
   rm -rf artifacts
   gh release download ${tag} \
     --dir artifacts \
     --repo "${GITHUB_REPOSITORY}" \
-    --pattern "${tarball}.*"
+    --pattern "${tarball_sha512}"
 fi
 
-if [ ${SOURCE_VOTE} -gt 0 ]; then
+if [ ${VOTE_TEMPLATE} -gt 0 ]; then
   curl_common_options=(--header "Authorization: Bearer ${GH_TOKEN}")
 
   curl_options=("${curl_common_options[@]}")
@@ -77,7 +74,7 @@ if [ ${SOURCE_VOTE} -gt 0 ]; then
   curl_options+=(https://api.github.com/repos/${GITHUB_REPOSITORY}/pulls)
   verify_pr_url=$(curl "${curl_options[@]}" | jq -r ".[0].html_url")
   # Read the checksum so we can include it in the vote thread email.
-  sha512_path="artifacts/${tarball}.sha512"
+  sha512_path="artifacts/${tarball_sha512}"
   [[ -f "${sha512_path}" ]] || { echo "Error: ${sha512_path} must exist"; exit 1; }
   tarball_hash=$(cat "${sha512_path}" | awk '{print $1}')
 
@@ -131,6 +128,6 @@ MAIL
   echo "---------------------------------------------------------"
 fi
 
-if [ ${SOURCE_CLEANUP} -gt 0 ]; then
+if [ ${VOTE_CLEANUP} -gt 0 ]; then
   rm -rf artifacts
 fi
