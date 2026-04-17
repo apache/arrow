@@ -18,6 +18,7 @@
 #include "./arrow_types.h"
 
 #include <arrow/type.h>
+#include <arrow/util/key_value_metadata.h>
 
 // [[arrow::export]]
 std::shared_ptr<arrow::Field> Field__initialize(
@@ -38,8 +39,46 @@ std::string Field__name(const std::shared_ptr<arrow::Field>& field) {
 
 // [[arrow::export]]
 bool Field__Equals(const std::shared_ptr<arrow::Field>& field,
-                   const std::shared_ptr<arrow::Field>& other) {
-  return field->Equals(other);
+                   const std::shared_ptr<arrow::Field>& other, bool check_metadata) {
+  return field->Equals(other, check_metadata);
+}
+
+// [[arrow::export]]
+bool Field__HasMetadata(const std::shared_ptr<arrow::Field>& field) {
+  return field->HasMetadata();
+}
+
+// [[arrow::export]]
+cpp11::writable::list Field__metadata(const std::shared_ptr<arrow::Field>& field) {
+  auto meta = field->metadata();
+  int64_t n = 0;
+  if (field->HasMetadata()) {
+    n = meta->size();
+  }
+  cpp11::writable::list out(n);
+  std::vector<std::string> names_out(n);
+  for (int i = 0; i < n; i++) {
+    out[i] = cpp11::as_sexp(meta->value(i));
+    names_out[i] = meta->key(i);
+  }
+  out.names() = names_out;
+  return out;
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> Field__WithMetadata(
+    const std::shared_ptr<arrow::Field>& field, cpp11::strings metadata) {
+  auto values = cpp11::as_cpp<std::vector<std::string>>(metadata);
+  auto names = cpp11::as_cpp<std::vector<std::string>>(metadata.attr("names"));
+  auto kv =
+      std::make_shared<arrow::KeyValueMetadata>(std::move(names), std::move(values));
+  return field->WithMetadata(std::move(kv));
+}
+
+// [[arrow::export]]
+std::shared_ptr<arrow::Field> Field__RemoveMetadata(
+    const std::shared_ptr<arrow::Field>& field) {
+  return field->RemoveMetadata();
 }
 
 // [[arrow::export]]

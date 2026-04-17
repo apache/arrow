@@ -180,7 +180,7 @@ garrow_gio_input_stream_new(GInputStream *gio_input_stream);
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_ALL
-G_GNUC_DEPRECATED
+GARROW_DEPRECATED
 GInputStream *
 garrow_gio_input_stream_get_raw(GArrowGIOInputStream *input_stream);
 #endif

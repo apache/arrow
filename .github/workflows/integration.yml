@@ -68,36 +68,43 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Checkout Arrow Rust
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-rs
           path: rust
       - name: Checkout Arrow nanoarrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-nanoarrow
           path: nanoarrow
       - name: Checkout Arrow Go
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-go
           path: go
       - name: Checkout Arrow Java
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-java
           path: java
       - name: Checkout Arrow JS
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-js
           path: js
       - name: Checkout Arrow .NET
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           repository: apache/arrow-dotnet
           path: dotnet
       - name: Free up disk space
@@ -119,10 +126,11 @@ jobs:
         env:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         run: |
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run \
-            -e ARCHERY_DEFAULT_BRANCH=${{ github.event.repository.default_branch }} \
+            -e ARCHERY_DEFAULT_BRANCH="${DEFAULT_BRANCH}" \
             -e ARCHERY_INTEGRATION_WITH_DOTNET=1 \
             -e ARCHERY_INTEGRATION_WITH_GO=1 \
             -e ARCHERY_INTEGRATION_WITH_JAVA=1 \

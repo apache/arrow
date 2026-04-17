@@ -9,7 +9,7 @@
 \description{
 The \code{arrow} package contains methods for 38 \code{dplyr} table functions, many of
 which are "verbs" that do transformations to one or more tables.
-The package also has mappings of 226 R functions to the corresponding
+The package also has mappings of 229 R functions to the corresponding
 functions in the Arrow compute library. These allow you to write code inside
 of \code{dplyr} methods that call R functions, including many in packages like
 \code{stringr} and \code{lubridate}, and they will get translated to Arrow and run
@@ -72,7 +72,7 @@ can assume that the function works in Acero just as it does in R.
 Functions can be called either as \code{pkg::fun()} or just \code{fun()}, i.e. both
 \code{str_sub()} and \code{stringr::str_sub()} work.
 
-In addition to these functions, you can call any of Arrow's 281 compute
+In addition to these functions, you can call any of Arrow's 253 compute
 functions directly. Arrow has many functions that don't map to an existing R
 function. In other cases where there is an R function mapping, you can still
 call the Arrow function directly if you don't want the adaptations that the R
@@ -207,6 +207,9 @@ Valid values are "s", "ms" (default), "us", "ns".
 \item \code{\link[dplyr:if_else]{if_else()}}
 \item \code{\link[dplyr:context]{n()}}
 \item \code{\link[dplyr:n_distinct]{n_distinct()}}
+\item \code{\link[dplyr:recode-and-replace-values]{recode_values()}}: \code{ptype} argument and \code{unmatched = "error"} not supported
+\item \code{\link[dplyr:recode-and-replace-values]{replace_values()}}
+\item \code{\link[dplyr:case-and-replace-when]{replace_when()}}
 \item \code{\link[dplyr:when-any-all]{when_all()}}
 \item \code{\link[dplyr:when-any-all]{when_any()}}
 }

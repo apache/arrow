@@ -21,7 +21,7 @@
 #'
 #' The `arrow` package contains methods for 38 `dplyr` table functions, many of
 #' which are "verbs" that do transformations to one or more tables.
-#' The package also has mappings of 226 R functions to the corresponding
+#' The package also has mappings of 229 R functions to the corresponding
 #' functions in the Arrow compute library. These allow you to write code inside
 #' of `dplyr` methods that call R functions, including many in packages like
 #' `stringr` and `lubridate`, and they will get translated to Arrow and run
@@ -214,6 +214,9 @@
 #' * [`if_else()`][dplyr::if_else()]
 #' * [`n()`][dplyr::n()]
 #' * [`n_distinct()`][dplyr::n_distinct()]
+#' * [`recode_values()`][dplyr::recode_values()]: `ptype` argument and `unmatched = "error"` not supported
+#' * [`replace_values()`][dplyr::replace_values()]
+#' * [`replace_when()`][dplyr::replace_when()]
 #' * [`when_all()`][dplyr::when_all()]
 #' * [`when_any()`][dplyr::when_any()]
 #'

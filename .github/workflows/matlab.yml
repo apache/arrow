@@ -53,11 +53,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install ninja-build
         run: sudo apt-get install ninja-build
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@aa8bbc7b76daa63c5d456d1430cbd6cb5b626ab4 # v2.7.0
+        uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
         with:
           release: R2025b
       - name: Install ccache
@@ -82,7 +83,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4a3d2e8bdc811f72defb8122e46a009312acc198 # v2.3.1
+        uses: matlab-actions/run-tests@4be3345d41da8b1bf8cc5cb01a5e19c4611cb15d # v3.0.0
         with:
           select-by-folder: matlab/test
           strict: true
@@ -101,11 +102,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install ninja-build
         run: brew install ninja
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@aa8bbc7b76daa63c5d456d1430cbd6cb5b626ab4 # v2.7.0
+        uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
         with:
           release: R2025b
       - name: Install ccache
@@ -130,7 +132,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4a3d2e8bdc811f72defb8122e46a009312acc198 # v2.3.1
+        uses: matlab-actions/run-tests@4be3345d41da8b1bf8cc5cb01a5e19c4611cb15d # v3.0.0
         with:
           select-by-folder: matlab/test
           strict: true
@@ -142,9 +144,10 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Install MATLAB
-        uses: matlab-actions/setup-matlab@aa8bbc7b76daa63c5d456d1430cbd6cb5b626ab4 # v2.7.0
+        uses: matlab-actions/setup-matlab@a0180c939fb1a28de13f44f7b778b912384ced1f # v3.0.1
         with:
           release: R2025b
       - name: Install ccache
@@ -174,7 +177,7 @@ jobs:
           # Add the installation directory to the MATLAB Search Path by
           # setting the MATLABPATH environment variable.
           MATLABPATH: matlab/install/arrow_matlab
-        uses: matlab-actions/run-tests@4a3d2e8bdc811f72defb8122e46a009312acc198 # v2.3.1
+        uses: matlab-actions/run-tests@4be3345d41da8b1bf8cc5cb01a5e19c4611cb15d # v3.0.0
         with:
           select-by-folder: matlab/test
           strict: true

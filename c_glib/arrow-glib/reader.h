@@ -60,14 +60,14 @@ garrow_record_batch_reader_get_schema(GArrowRecordBatchReader *reader);
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_ALL
-G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
+GARROW_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
 GArrowRecordBatch *
 garrow_record_batch_reader_get_next_record_batch(GArrowRecordBatchReader *reader,
                                                  GError **error);
 #endif
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_ALL
-G_GNUC_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
+GARROW_DEPRECATED_FOR(garrow_record_batch_reader_read_next)
 GArrowRecordBatch *
 garrow_record_batch_reader_read_next_record_batch(GArrowRecordBatchReader *reader,
                                                   GError **error);
@@ -153,7 +153,7 @@ garrow_record_batch_file_reader_get_version(GArrowRecordBatchFileReader *reader)
 
 #ifndef GARROW_DISABLE_DEPRECATED
 GARROW_AVAILABLE_IN_ALL
-G_GNUC_DEPRECATED_FOR(garrow_record_batch_file_reader_read_record_batch)
+GARROW_DEPRECATED_FOR(garrow_record_batch_file_reader_read_record_batch)
 GArrowRecordBatch *
 garrow_record_batch_file_reader_get_record_batch(GArrowRecordBatchFileReader *reader,
                                                  guint i,
@@ -183,18 +183,22 @@ struct _GArrowFeatherFileReaderClass
 };
 
 GARROW_AVAILABLE_IN_ALL
+GARROW_DEPRECATED_IN_24_0_FOR(garrow_record_batch_file_reader_new)
 GArrowFeatherFileReader *
 garrow_feather_file_reader_new(GArrowSeekableInputStream *file, GError **error);
 
 GARROW_AVAILABLE_IN_ALL
+GARROW_DEPRECATED_IN_24_0
 gint
 garrow_feather_file_reader_get_version(GArrowFeatherFileReader *reader);
 
 GARROW_AVAILABLE_IN_ALL
+GARROW_DEPRECATED_IN_24_0_FOR(garrow_record_batch_reader_read_all)
 GArrowTable *
 garrow_feather_file_reader_read(GArrowFeatherFileReader *reader, GError **error);
 
 GARROW_AVAILABLE_IN_ALL
+GARROW_DEPRECATED_IN_24_0
 GArrowTable *
 garrow_feather_file_reader_read_indices(GArrowFeatherFileReader *reader,
                                         const gint *indices,
@@ -202,6 +206,7 @@ garrow_feather_file_reader_read_indices(GArrowFeatherFileReader *reader,
                                         GError **error);
 
 GARROW_AVAILABLE_IN_ALL
+GARROW_DEPRECATED_IN_24_0
 GArrowTable *
 garrow_feather_file_reader_read_names(GArrowFeatherFileReader *reader,
                                       const gchar **names,

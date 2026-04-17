@@ -18,12 +18,17 @@
 name: Docs
 
 on:
+  push:
+    branches:
+      - '**'
+      - '!dependabot/**'
+    tags:
+      - '**'
   pull_request:
     paths:
       - '.github/workflows/docs.yml'
       - 'cpp/apidoc/**'
       - 'docs/**'
-  push:
 
 permissions:
   contents: read
@@ -46,6 +51,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
       - name: Free up disk space
         run: |

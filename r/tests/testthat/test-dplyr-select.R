@@ -228,3 +228,16 @@ test_that("multiple select/rename and group_by", {
     tbl
   )
 })
+
+
+test_that("rename_with does not warn on columns with names metadata - GH48712", {
+  issue_tbl <- mutate(mtcars, cyl = setNames(cyl, nm = cyl))
+
+  out <- expect_no_warning(
+    arrow_table(issue_tbl) |>
+      rename_with(toupper) |>
+      collect()
+  )
+
+  expect_named(out, toupper(names(issue_tbl)))
+})

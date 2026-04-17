@@ -130,21 +130,27 @@ jobs:
             image: r
             runs-on: ubuntu-latest
             title: Rhub
-          - envs:
-              - R_CUSTOM_CCACHE=true
-              - R_IMAGE=ubuntu-gcc12
-              - R_ORG=rhub
-            image: r
-            runs-on: ubuntu-latest
-            title: Rhub GCC 12
-          - envs:
-              - R_IMAGE=gcc13
-              - R_ORG=rhub
-            image: r
-            runs-on: ubuntu-latest
-            run-options: >-
-              -e INSTALL_ARGS=--use-LTO
-            title: Rhub GCC 13 with LTO
+          # Disabled: rhub/ubuntu-gcc12 image uses GCC 12 but CRAN now uses GCC 15.
+          # See https://github.com/apache/arrow/issues/49737
+          # Re-enable once r-hub/containers provides a GCC 15 image (#49738).
+          # - envs:
+          #     - R_CUSTOM_CCACHE=true
+          #     - R_IMAGE=ubuntu-gcc12
+          #     - R_ORG=rhub
+          #   image: r
+          #   runs-on: ubuntu-latest
+          #   title: Rhub GCC 12
+          # Disabled: rhub/gcc13 image uses GCC 13 but CRAN now uses GCC 15.
+          # See https://github.com/apache/arrow/issues/49737
+          # Re-enable once r-hub/containers provides a GCC 15 image (#49738).
+          # - envs:
+          #     - R_IMAGE=gcc13
+          #     - R_ORG=rhub
+          #   image: r
+          #   runs-on: ubuntu-latest
+          #   run-options: >-
+          #     -e INSTALL_ARGS=--use-LTO
+          #   title: Rhub GCC 13 with LTO
           - envs:
               - R_IMAGE=r-base
               - R_ORG=rstudio
@@ -160,6 +166,7 @@ jobs:
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
           submodules: recursive
       - name: Cache Docker Volumes
