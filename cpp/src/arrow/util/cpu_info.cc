@@ -431,6 +431,7 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
     assert(vl >= 0);
     // prctl returns vector length in bytes; mask off status flags
     const int vl_bytes = vl & PR_SVE_VL_LEN_MASK;
+    if (vl_bytes >= 16) *hardware_flags |= CpuInfo::SVE128;  // 128 bits
     if (vl_bytes >= 32) *hardware_flags |= CpuInfo::SVE256;  // 256 bits
     if (vl_bytes >= 64) *hardware_flags |= CpuInfo::SVE512;  // 512 bits
 #      endif  // PR_SVE_GET_VL
@@ -500,6 +501,7 @@ bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_fla
   enum {
     USER_SIMD_NONE,
     USER_SIMD_SVE,
+    USER_SIMD_SVE128,
     USER_SIMD_SVE256,
     USER_SIMD_SVE512,
     USER_SIMD_MAX,
@@ -508,10 +510,12 @@ bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_fla
   int level = USER_SIMD_MAX;
   if (simd_level == "SVE") {
     level = USER_SIMD_SVE;
-  } else if (simd_level == "SVE512") {
-    level = USER_SIMD_SVE512;
+  } else if (simd_level == "SVE128") {
+    level = USER_SIMD_SVE128;
   } else if (simd_level == "SVE256") {
     level = USER_SIMD_SVE256;
+  } else if (simd_level == "SVE512") {
+    level = USER_SIMD_SVE512;
   } else if (simd_level == "NONE") {
     level = USER_SIMD_NONE;
   } else {
@@ -520,6 +524,7 @@ bool ArchParseUserSimdLevel(const std::string& simd_level, int64_t* hardware_fla
 
   if (level < USER_SIMD_SVE512) *hardware_flags &= ~CpuInfo::SVE512;
   if (level < USER_SIMD_SVE256) *hardware_flags &= ~CpuInfo::SVE256;
+  if (level < USER_SIMD_SVE128) *hardware_flags &= ~CpuInfo::SVE128;
   if (level < USER_SIMD_SVE) *hardware_flags &= ~CpuInfo::SVE;
   return true;
 }

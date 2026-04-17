@@ -33,6 +33,7 @@ enum class DispatchLevel : int {
   AVX2,
   AVX512,
   NEON,
+  SVE128,
   SVE256,
   SVE512,
   MAX

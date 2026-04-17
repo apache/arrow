@@ -567,6 +567,7 @@ append_runtime_avx2_src(ARROW_UTIL_SRCS util/byte_stream_split_internal_avx2.cc)
 append_runtime_avx2_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 append_runtime_avx512_src(ARROW_UTIL_SRCS util/bpacking_simd_avx512.cc)
 
+append_runtime_sve128_src(ARROW_UTIL_SRCS util/bpacking_simd_128_alt.cc)
 append_runtime_sve256_src(ARROW_UTIL_SRCS util/bpacking_simd_256.cc)
 
 if(ARROW_WITH_BROTLI)
