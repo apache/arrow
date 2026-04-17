@@ -430,13 +430,13 @@ cdef class CryptoFactory(_Weakrefable):
         parquet_file_path : str, pathlib.Path, or None, default None
             Path to the parquet file to be encrypted. Only required when the
             internal_key_material attribute of EncryptionConfiguration is set
-            to False. Used to derive the path for storing key material
+            to False. Used to derive the path for storing key material 
             specific to this parquet file.
 
         filesystem : FileSystem or None, default None
-            Used only when internal_key_material is set to False on
+            Used only when internal_key_material is set to False on 
             EncryptionConfiguration. If None, the file system will be inferred
-            based on parquet_file_path.
+            based on parquet_file_path. 
 
         Returns
         -------
@@ -491,7 +491,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
-            None, the file system will be inferred based on parquet_file_path.
+            None, the file system will be inferred based on parquet_file_path. 
 
         Returns
         -------
@@ -552,7 +552,7 @@ cdef class CryptoFactory(_Weakrefable):
 
         filesystem : FileSystem or None, default None
             Used only when the parquet file uses external key material. If
-            None, the file system will be inferred based on parquet_file_path.
+            None, the file system will be inferred based on parquet_file_path. 
 
         double_wrapping : bool, default True
             In the single wrapping mode, encrypts data encryption keys with
@@ -665,7 +665,7 @@ cdef class FileSystemKeyMaterialStore(_Weakrefable):
 
         filesystem : FileSystem, default None
             FileSystem where the parquet file is located. If None,
-            will be inferred based on parquet_file_path.
+            will be inferred based on parquet_file_path. 
 
         Returns
         -------
