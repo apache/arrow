@@ -378,8 +378,12 @@ jobs:
       matrix:
         include:
           - image: ubuntu-cpp-odbc
-            title: AMD64 Ubuntu Release
+            title: AMD64 Ubuntu RPM Release
             build-type: release
+            format: rpm
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=RPM
           # GH-49582: TODO Enable Debian build for ODBC
           # - image: debian-cpp-odbc
           #   title: AMD64 Debian
@@ -428,6 +432,15 @@ jobs:
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
           archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+
+      - name: Upload ODBC ${{ matrix.format }} to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-${{ matrix.format }}
+          path: build/cpp/ArrowFlightSqlOdbcODBC-*.${{ matrix.format }}
+          if-no-files-found: error
+
       - name: Docker Push
         if: >-
           success() &&
