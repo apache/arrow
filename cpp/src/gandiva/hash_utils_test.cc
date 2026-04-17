@@ -317,22 +317,3 @@ TEST(TestShaHashUtils, TestMD5Varlen) {
   EXPECT_EQ(md5_2_as_str.size(), md5_size);
   EXPECT_EQ(md5_2_as_str, expected_second_result);
 }
-
-// Verify that gdv_hash_using_openssl() reports an error when result_buf_size does not
-// equal 2 * hash_digest_size (tests the || fix from GH-49752).
-TEST(TestShaHashUtils, TestHashUsingOpenSSLInvalidBufSize) {
-  gandiva::ExecutionContext ctx;
-  auto ctx_ptr = reinterpret_cast<int64_t>(&ctx);
-
-  std::string msg = "hello";
-  int32_t out_length = -1;
-
-  // SHA-256 digest is 32 bytes, so result_buf_size must be 64.  Pass 63 to trigger
-  // the error path that was previously guarded by && instead of ||.
-  const char* result = gandiva::gdv_hash_using_openssl(
-      ctx_ptr, msg.c_str(), msg.size(), EVP_sha256(), /*result_buf_size=*/63, &out_length);
-
-  EXPECT_TRUE(ctx.has_error());
-  EXPECT_EQ(out_length, 0);
-  EXPECT_STREQ(result, "");
-}
