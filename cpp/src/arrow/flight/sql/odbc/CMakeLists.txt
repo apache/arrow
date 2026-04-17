@@ -159,10 +159,11 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
     set(CPACK_WIX_UI_BANNER
         "${CMAKE_CURRENT_SOURCE_DIR}/install/windows/arrow-wix-banner.bmp")
   else()
+    set(ODBC_UNIX_FILE_NAME
+        "ArrowFlightSqlOdbc-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
+    )
     if(APPLE)
-      set(CPACK_PACKAGE_FILE_NAME
-          "ArrowFlightSqlOdbc-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
-      )
+      set(CPACK_PACKAGE_FILE_NAME "${ODBC_UNIX_FILE_NAME}")
       set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
 
       set(CPACK_SET_DESTDIR ON)
@@ -178,10 +179,28 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
       set(ODBC_DOC_INSTALL_DIR "arrow-odbc/doc")
     else()
       # Linux
-      # GH-49595: TODO implement DEB installer
-      # GH-47977: TODO implement RPM installer
-      message(STATUS "ODBC_PACKAGE_FORMAT DEB not implemented, see GH-49595")
-      message(STATUS "ODBC_PACKAGE_FORMAT RPM not implemented, see GH-47977")
+      set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
+      if(${ODBC_PACKAGE_FORMAT} STREQUAL "DEB")
+        # GH-49595 TODO: implement DEB installer
+        message(STATUS "ODBC_PACKAGE_FORMAT DEB not implemented, see GH-49595")
+      elseif(${ODBC_PACKAGE_FORMAT} STREQUAL "RPM")
+        set(CPACK_RPM_PACKAGE_ARCHITECTURE x86_64)
+        set(CPACK_GENERATOR RPM)
+        set(CPACK_RPM_POST_INSTALL_SCRIPT_FILE
+            "${CMAKE_CURRENT_SOURCE_DIR}/install/linux/postinst")
+        set(CPACK_RPM_FILE_NAME "${ODBC_UNIX_FILE_NAME}.rpm")
+        # Disable dependency check as ODBC embeds all third party dependencies
+        set(CPACK_RPM_PACKAGE_AUTOREQPROV "no")
+        set(CPACK_COMPONENTS_ALL_IN_ONE_PACKAGE 1)
+        set(CPACK_RPM_COMPONENT_INSTALL ON)
+      else()
+        message(FATAL_ERROR "ODBC_PACKAGE_FORMAT '${ODBC_PACKAGE_FORMAT}' must be DEB or RPM for Linux installer."
+        )
+      endif()
+
+      # By default, Linux installs under /usr
+      set(ODBC_INSTALL_DIR "lib64/arrow-odbc/lib")
+      set(ODBC_DOC_INSTALL_DIR "lib64/arrow-odbc/doc")
     endif()
 
     # Install ODBC
