@@ -156,8 +156,8 @@ if [ ${PHASE_BUILD_MSI} -gt 0 ]; then
   fi
   echo "Triggered run: ${run_url}"
 
-  echo "[6/9] Waiting for workflow to complete..."
-  gh run watch "${run_id}" --repo "${GITHUB_REPOSITORY}" --exit-status
+  echo "[6/9] Waiting for workflow to complete. This can take a very long time..."
+  gh run watch "${run_id}" --repo "${GITHUB_REPOSITORY}" --exit-status --interval 60
   echo "Run id ${run_id} completed."
 fi
 
