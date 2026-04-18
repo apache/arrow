@@ -129,34 +129,21 @@ jobs:
             image: r
             runs-on: ubuntu-latest
             title: Rhub
-          # Disabled: rhub/ubuntu-gcc12 image uses GCC 12 but CRAN now uses GCC 15.
-          # See https://github.com/apache/arrow/issues/49737
-          # Re-enable once r-hub/containers provides a GCC 15 image (#49738).
-          # - envs:
-          #     - R_CUSTOM_CCACHE=true
-          #     - R_IMAGE=ubuntu-gcc12
-          #     - R_ORG=rhub
-          #   image: r
-          #   runs-on: ubuntu-latest
-          #   title: Rhub GCC 12
-          # Disabled: rhub/gcc13 image uses GCC 13 but CRAN now uses GCC 15.
-          # See https://github.com/apache/arrow/issues/49737
-          # Re-enable once r-hub/containers provides a GCC 15 image (#49738).
-          # - envs:
-          #     - R_IMAGE=gcc13
-          #     - R_ORG=rhub
-          #   image: r
-          #   runs-on: ubuntu-latest
-          #   run-options: >-
-          #     -e INSTALL_ARGS=--use-LTO
-          #   title: Rhub GCC 13 with LTO
+          - envs:
+              - R_IMAGE=ubuntu-gcc15
+              - R_ORG=rhub
+            image: r
+            runs-on: ubuntu-latest
+            run-options: >-
+              -e INSTALL_ARGS=--use-LTO
+            title: Rhub GCC 15 with LTO
           - envs:
               - R_IMAGE=r-base
               - R_ORG=rstudio
-              - R_TAG=4.2-jammy
+              - R_TAG=4.4-jammy
             image: r
             runs-on: ubuntu-latest
-            title: RStudio R-Base 4.2
+            title: RStudio R-Base 4.4
     env:
       ARCHERY_DEBUG: 1
       ARROW_ENABLE_TIMING_TESTS: OFF
