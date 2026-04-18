@@ -73,12 +73,12 @@ dll_signed="arrow_flight_sql_odbc.dll"
 
 : "${GITHUB_REPOSITORY:=apache/arrow}"
 
-: ${PHASE_DEFAULT=1}
-: ${PHASE_SIGN_DLL=${PHASE_DEFAULT}}
-: ${PHASE_BUILD_MSI=${PHASE_DEFAULT}}
-: ${PHASE_SIGN_MSI=${PHASE_DEFAULT}}
+: "${PHASE_DEFAULT=1}"
+: "${PHASE_SIGN_DLL=${PHASE_DEFAULT}}"
+: "${PHASE_BUILD_MSI=${PHASE_DEFAULT}}"
+: "${PHASE_SIGN_MSI=${PHASE_DEFAULT}}"
 
-if [ ${PHASE_SIGN_DLL} -eq 0 ] && [ ${PHASE_BUILD_MSI} -eq 0 ] && [ ${PHASE_SIGN_MSI} -eq 0 ]; then
+if [ "${PHASE_SIGN_DLL}" -eq 0 ] && [ "${PHASE_BUILD_MSI}" -eq 0 ] && [ "${PHASE_SIGN_MSI}" -eq 0 ]; then
   echo "No phases specified. Exiting."
   exit 1
 fi
@@ -86,9 +86,8 @@ fi
 # Utility function to use jsign to check if a file is signed or not
 is_signed() {
   local file="$1"
-  local output
   local exit_code
-  output=$(jsign extract --format PEM "${file}" 2>&1)
+  jsign extract --format PEM "${file}" > /dev/null 2>&1
   exit_code=$?
   # jsign writes a PEM file even though it also prints to stdout. Clean up after
   # it. Use -f since so it still runs on unsigned files without error.
@@ -104,7 +103,7 @@ if [ -e "${tmp_dir}" ]; then
   exit 1
 fi
 
-if [ ${PHASE_SIGN_DLL} -gt 0 ]; then
+if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
   echo "[1/9] Downloading ${dll_unsigned} from release..."
   gh release download "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
@@ -143,7 +142,7 @@ if [ ${PHASE_SIGN_DLL} -gt 0 ]; then
     "${dll_unsigned}"
 fi
 
-if [ ${PHASE_BUILD_MSI} -gt 0 ]; then
+if [ "${PHASE_BUILD_MSI}" -gt 0 ]; then
   echo "[5/9] Triggering odbc_release_step in cpp_extra.yml workflow..."
   run_url=$(gh workflow run cpp_extra.yml \
     --repo "${GITHUB_REPOSITORY}" \
@@ -161,7 +160,7 @@ if [ ${PHASE_BUILD_MSI} -gt 0 ]; then
   echo "Run id ${run_id} completed."
 fi
 
-if [ ${PHASE_SIGN_MSI} -gt 0 ]; then
+if [ "${PHASE_SIGN_MSI}" -gt 0 ]; then
   echo "[7/9] Downloading unsigned MSI..."
   gh release download "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
