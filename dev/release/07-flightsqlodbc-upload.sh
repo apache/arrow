@@ -28,6 +28,8 @@
 #   ESIGNER_STOREPASS - The ssl.com credentials in "username|password" format
 #   ESIGNER_KEYPASS   - The ssl.com eSigner secret code (not the PIN)
 #
+# Set these in .env.
+#
 # How to get ESIGNER_KEYPASS:
 #
 # 1. Log into ssl.com
