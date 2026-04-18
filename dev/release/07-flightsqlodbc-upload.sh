@@ -146,7 +146,7 @@ if [ "${PHASE_BUILD_MSI}" -gt 0 ]; then
   run_url=$(gh workflow run cpp_extra.yml \
     --repo "${GITHUB_REPOSITORY}" \
     --ref "${tag}" \
-    --field odbc_release_step=true 2>&1 | grep -oE 'https://[^ ]+')
+    --field odbc_release_step=true 2>&1 | grep -oE 'https://[^ ]+' || true)
   run_id=${run_url##*/} # Extract the run ID from the URL (the part after the last slash)
   if [ -z "${run_id}" ]; then
     echo "ERROR: failed to get run ID from workflow trigger" >&2
