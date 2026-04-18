@@ -1563,8 +1563,8 @@ class ArrayReader {
       if (static_cast<int64_t>(offset) > data_buffer_size ||
           static_cast<int64_t>(size) > data_buffer_size - static_cast<int64_t>(offset)) {
         return Status::Invalid("Invalid binary view range [offset=", offset,
-                               ", size=", size,
-                               "] for data buffer of size ", data_buffer_size);
+                               ", size=", size, "] for data buffer of size ",
+                               data_buffer_size);
       }
 
       out_view.ref = {
