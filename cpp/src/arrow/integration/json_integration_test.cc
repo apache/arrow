@@ -1112,6 +1112,51 @@ TEST(TestJsonFileReadWrite, JsonExample6) {
   AssertArraysEqual(*batch->column(0), *expected_array);
 }
 
+static void AssertInvalidBinaryViewJson(const std::string& json_array) {
+  rj::Document d;
+  // Pass explicit size to avoid ASAN issues with SIMD loads in RapidJson.
+  d.Parse(json_array.data(), json_array.size());
+  ASSERT_FALSE(d.HasParseError());
+
+  ASSERT_RAISES(Invalid,
+                json::ReadArray(default_memory_pool(), d, field("f", binary_view())));
+}
+
+TEST(TestJsonFileReadWrite, BinaryViewRejectsNegativeSize) {
+  AssertInvalidBinaryViewJson(R"({
+    "name": "f",
+    "count": 1,
+    "VALIDITY": [1],
+    "VIEWS": [{"SIZE": -1, "INLINED": ""}],
+    "VARIADIC_DATA_BUFFERS": []
+  })");
+}
+
+TEST(TestJsonFileReadWrite, BinaryViewRejectsInlineLengthMismatch) {
+  AssertInvalidBinaryViewJson(R"({
+    "name": "f",
+    "count": 1,
+    "VALIDITY": [1],
+    "VIEWS": [{"SIZE": 4, "INLINED": "x"}],
+    "VARIADIC_DATA_BUFFERS": []
+  })");
+}
+
+TEST(TestJsonFileReadWrite, BinaryViewRejectsOutOfBoundsReference) {
+  AssertInvalidBinaryViewJson(R"({
+    "name": "f",
+    "count": 1,
+    "VALIDITY": [1],
+    "VIEWS": [{
+      "SIZE": 20,
+      "PREFIX_HEX": "00010203",
+      "BUFFER_INDEX": 0,
+      "OFFSET": 0
+    }],
+    "VARIADIC_DATA_BUFFERS": ["0001020304050607"]
+  })");
+}
+
 class TestJsonRoundTrip : public ::testing::TestWithParam<MakeRecordBatch*> {
  public:
   void SetUp() {}
