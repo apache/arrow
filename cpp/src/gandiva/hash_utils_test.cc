@@ -20,7 +20,6 @@
 
 #include "gandiva/execution_context.h"
 #include "gandiva/hash_utils.h"
-#include "openssl/evp.h"
 
 TEST(TestShaHashUtils, TestSha1Numeric) {
   gandiva::ExecutionContext ctx;

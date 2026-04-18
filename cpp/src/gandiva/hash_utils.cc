@@ -21,6 +21,96 @@
 #include "gandiva/gdv_function_stubs.h"
 #include "openssl/evp.h"
 
+
+namespace {
+/// \brief Hashes a generic message using SHA algorithm.
+///
+/// It uses the EVP API in the OpenSSL library to generate
+/// the hash. The type of the hash is defined by the
+/// \b hash_type \b parameter.
+  static const char* gdv_hash_using_openssl(int64_t context, const void* message,
+                                    size_t message_length, const EVP_MD* hash_type,
+                                    uint32_t result_buf_size, int32_t* out_length) {
+    EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
+
+    if (md_ctx == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                  "Could not create the context for SHA processing.");
+      *out_length = 0;
+      return "";
+    }
+
+    int evp_success_status = 1;
+
+    if (EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_success_status ||
+        EVP_DigestUpdate(md_ctx, message, message_length) != evp_success_status) {
+      gdv_fn_context_set_error_msg(context,
+                                  "Could not obtain the hash for the defined value.");
+      EVP_MD_CTX_free(md_ctx);
+
+      *out_length = 0;
+      return "";
+    }
+
+    // Create the temporary buffer used by the EVP to generate the hash
+    unsigned int hash_digest_size = EVP_MD_size(hash_type);
+    auto* result = static_cast<unsigned char*>(OPENSSL_malloc(hash_digest_size));
+
+    if (result == nullptr) {
+      gdv_fn_context_set_error_msg(context, "Could not allocate memory for SHA processing");
+      EVP_MD_CTX_free(md_ctx);
+      *out_length = 0;
+      return "";
+    }
+
+    unsigned int result_length;
+    EVP_DigestFinal_ex(md_ctx, result, &result_length);
+
+    if (result_length != hash_digest_size || result_buf_size != (2 * hash_digest_size)) {
+      gdv_fn_context_set_error_msg(context,
+                                  "Could not obtain the hash for the defined value");
+      EVP_MD_CTX_free(md_ctx);
+      OPENSSL_free(result);
+
+      *out_length = 0;
+      return "";
+    }
+
+    // Allocate one extra byte beyond result_buf_size so that the null terminator
+    // written by the final snprintf call does not land past the end of the buffer.
+    auto result_buffer =
+        reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size + 1));
+
+    if (result_buffer == nullptr) {
+      gdv_fn_context_set_error_msg(context,
+                                  "Could not allocate memory for the result buffer");
+      // Free the resources used by the EVP
+      EVP_MD_CTX_free(md_ctx);
+      OPENSSL_free(result);
+
+      *out_length = 0;
+      return "";
+    }
+
+    unsigned int result_buff_index = 0;
+    for (unsigned int j = 0; j < result_length; j++) {
+      DCHECK(result_buff_index >= 0 && result_buff_index < result_buf_size);
+
+      unsigned char hex_number = result[j];
+      result_buff_index +=
+          snprintf(result_buffer + result_buff_index,
+                  result_buf_size - result_buff_index + 1, "%02x", hex_number);
+    }
+
+    // Free the resources used by the EVP to avoid memory leaks
+    EVP_MD_CTX_free(md_ctx);
+    OPENSSL_free(result);
+
+    *out_length = result_buf_size;
+    return result_buffer;
+  }
+}
+
 namespace gandiva {
 
 /// Hashes a generic message using the SHA512 algorithm
@@ -56,93 +146,6 @@ const char* gdv_md5_hash(int64_t context, const void* message, size_t message_le
   constexpr int md5_result_length = 32;
   return gdv_hash_using_openssl(context, message, message_length, EVP_md5(),
                                 md5_result_length, out_length);
-}
-
-/// \brief Hashes a generic message using SHA algorithm.
-///
-/// It uses the EVP API in the OpenSSL library to generate
-/// the hash. The type of the hash is defined by the
-/// \b hash_type \b parameter.
-const char* gdv_hash_using_openssl(int64_t context, const void* message,
-                                   size_t message_length, const EVP_MD* hash_type,
-                                   uint32_t result_buf_size, int32_t* out_length) {
-  EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
-
-  if (md_ctx == nullptr) {
-    gdv_fn_context_set_error_msg(context,
-                                 "Could not create the context for SHA processing.");
-    *out_length = 0;
-    return "";
-  }
-
-  int evp_success_status = 1;
-
-  if (EVP_DigestInit_ex(md_ctx, hash_type, nullptr) != evp_success_status ||
-      EVP_DigestUpdate(md_ctx, message, message_length) != evp_success_status) {
-    gdv_fn_context_set_error_msg(context,
-                                 "Could not obtain the hash for the defined value.");
-    EVP_MD_CTX_free(md_ctx);
-
-    *out_length = 0;
-    return "";
-  }
-
-  // Create the temporary buffer used by the EVP to generate the hash
-  unsigned int hash_digest_size = EVP_MD_size(hash_type);
-  auto* result = static_cast<unsigned char*>(OPENSSL_malloc(hash_digest_size));
-
-  if (result == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for SHA processing");
-    EVP_MD_CTX_free(md_ctx);
-    *out_length = 0;
-    return "";
-  }
-
-  unsigned int result_length;
-  EVP_DigestFinal_ex(md_ctx, result, &result_length);
-
-  if (result_length != hash_digest_size || result_buf_size != (2 * hash_digest_size)) {
-    gdv_fn_context_set_error_msg(context,
-                                 "Could not obtain the hash for the defined value");
-    EVP_MD_CTX_free(md_ctx);
-    OPENSSL_free(result);
-
-    *out_length = 0;
-    return "";
-  }
-
-  // Allocate one extra byte beyond result_buf_size so that the null terminator
-  // written by the final snprintf call does not land past the end of the buffer.
-  auto result_buffer =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size + 1));
-
-  if (result_buffer == nullptr) {
-    gdv_fn_context_set_error_msg(context,
-                                 "Could not allocate memory for the result buffer");
-    // Free the resources used by the EVP
-    EVP_MD_CTX_free(md_ctx);
-    OPENSSL_free(result);
-
-    *out_length = 0;
-    return "";
-  }
-
-  unsigned int result_buff_index = 0;
-  for (unsigned int j = 0; j < result_length; j++) {
-    DCHECK(result_buff_index >= 0 && result_buff_index < result_buf_size);
-
-    unsigned char hex_number = result[j];
-    result_buff_index +=
-        snprintf(result_buffer + result_buff_index,
-                 result_buf_size - result_buff_index + 1, "%02x", hex_number);
-  }
-
-  // Free the resources used by the EVP to avoid memory leaks
-  EVP_MD_CTX_free(md_ctx);
-  OPENSSL_free(result);
-
-  *out_length = result_buf_size;
-  return result_buffer;
 }
 
 GANDIVA_EXPORT
