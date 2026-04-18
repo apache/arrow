@@ -159,7 +159,7 @@ if [ ${PHASE_SIGN_MSI} -gt 0 ]; then
   echo "[7/9] Downloading unsigned MSI..."
   gh release download "${tag}" \
     --repo "${GITHUB_REPOSITORY}" \
-    --pattern "Apache-Arrow-Flight-SQL-ODBC-*-win64.msi" \
+    --pattern "Apache-Arrow-Flight-SQL-ODBC-${version}-win64.msi" \
     --dir "${tmp_dir}"
   msi="${tmp_dir}/Apache-Arrow-Flight-SQL-ODBC-${version}-win64.msi"
   if is_signed "${msi}"; then
