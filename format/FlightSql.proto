@@ -835,37 +835,74 @@ enum SqlInfo {
   SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576;
 
   /*
-   * Retrieves an int32 describing the syntax accepted for combined row limiting
-   * and offset in SELECT statements.
+   * Retrieves the supported row-limit and offset grammars. Variants differ
+   * in their offset behavior: SQL_LIMIT_OFFSET_LIMIT accepts an optional
+   * OFFSET, SQL_LIMIT_OFFSET_FETCH requires a preceding OFFSET clause, and
+   * SQL_LIMIT_OFFSET_TOP is limit-only and does not compose with offset.
    *
-   * The possible values are listed in `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
+   * Returns an int32 bitmask value representing the supported grammars.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * grammars.
+   *
+   * For instance:
+   * - return 0 (\b0)    => [] (no row-limit grammar is supported);
+   * - return 1 (\b1)    => [SQL_LIMIT_OFFSET_LIMIT];
+   * - return 2 (\b10)   => [SQL_LIMIT_OFFSET_FETCH];
+   * - return 3 (\b11)   => [SQL_LIMIT_OFFSET_LIMIT, SQL_LIMIT_OFFSET_FETCH];
+   * - return 4 (\b100)  => [SQL_LIMIT_OFFSET_TOP];
+   * - return 6 (\b110)  => [SQL_LIMIT_OFFSET_FETCH, SQL_LIMIT_OFFSET_TOP].
+   * Valid grammars are described under `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
    */
-  SQL_LIMIT_OFFSET_SYNTAX = 577;
+  SQL_SUPPORTED_LIMIT_OFFSET = 577;
 
   /*
-   * Retrieves an int32 describing the syntax accepted for explicit null
-   * ordering in ORDER BY (e.g. `NULLS FIRST` / `NULLS LAST`). Distinct from
-   * SQL_NULL_ORDERING (507), which reports the server's default null
-   * ordering rather than which explicit syntax parses.
+   * Retrieves the supported syntaxes for explicit null ordering in ORDER BY.
+   * Distinct from SQL_NULL_ORDERING (507), which reports the server's default
+   * null ordering rather than which explicit syntax parses.
    *
-   * The possible values are listed in `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0) => [] (no explicit null-ordering syntax is supported);
+   * - return 1 (\b1) => [SQL_NULLS_ORDERING_FIRST_LAST].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
    */
-  SQL_NULLS_ORDERING_SYNTAX = 578;
+  SQL_SUPPORTED_NULLS_ORDERING = 578;
 
   /*
-   * Retrieves an int32 describing the accepted literal syntax for boolean values.
+   * Retrieves the supported literal syntaxes for boolean values.
    *
-   * The possible values are listed in `arrow.flight.protocol.sql.SqlBooleanLiteralSyntax`.
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no boolean literal syntax is supported);
+   * - return 1 (\b1)   => [SQL_BOOLEAN_LITERAL_TRUE_FALSE];
+   * - return 2 (\b10)  => [SQL_BOOLEAN_LITERAL_INT_ONE_ZERO];
+   * - return 3 (\b11)  => [SQL_BOOLEAN_LITERAL_TRUE_FALSE, SQL_BOOLEAN_LITERAL_INT_ONE_ZERO].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlBooleanLiteralSyntax`.
    */
-  SQL_BOOLEAN_LITERAL_SYNTAX = 579;
+  SQL_SUPPORTED_BOOLEAN_LITERAL = 579;
 
   /*
-   * Retrieves an int32 describing the accepted literal syntax for date,
-   * time, and timestamp values.
+   * Retrieves the supported literal syntaxes for date, time, and timestamp
+   * values.
    *
-   * The possible values are listed in `arrow.flight.protocol.sql.SqlDatetimeLiteralSyntax`.
+   * Returns an int32 bitmask value representing the supported syntaxes.
+   * The returned bitmask should be parsed in order to retrieve the supported
+   * syntaxes.
+   *
+   * For instance:
+   * - return 0 (\b0)   => [] (no datetime literal syntax is supported);
+   * - return 1 (\b1)   => [SQL_DATETIME_LITERAL_ANSI_KEYWORD];
+   * - return 2 (\b10)  => [SQL_DATETIME_LITERAL_BARE_STRING];
+   * - return 3 (\b11)  => [SQL_DATETIME_LITERAL_ANSI_KEYWORD, SQL_DATETIME_LITERAL_BARE_STRING].
+   * Valid syntaxes are described under `arrow.flight.protocol.sql.SqlDatetimeLiteralSyntax`.
    */
-  SQL_DATETIME_LITERAL_SYNTAX = 580;
+  SQL_SUPPORTED_DATETIME_LITERAL = 580;
 }
 
 // The level of support for Flight SQL transaction RPCs.
@@ -992,15 +1029,17 @@ enum SqlSupportsConvert {
 
 enum SqlLimitOffsetSyntax {
   // LIMIT n [OFFSET m]  (PostgreSQL, MySQL, SQLite, DuckDB, Snowflake, ...)
-  SQL_LIMIT_OFFSET_SYNTAX_LIMIT_OFFSET = 0;
+  SQL_LIMIT_OFFSET_LIMIT = 0;
   // OFFSET m ROWS FETCH NEXT n ROWS ONLY  (SQL Server, Oracle, ANSI)
-  SQL_LIMIT_OFFSET_SYNTAX_OFFSET_FETCH = 1;
+  SQL_LIMIT_OFFSET_FETCH = 1;
+  // SELECT TOP n ...  (SQL Server, Sybase, Snowflake). Limit-only; does not
+  // compose with offset.
+  SQL_LIMIT_OFFSET_TOP = 2;
 }
 
 enum SqlNullsOrderingSyntax {
-  SQL_NULLS_ORDERING_SYNTAX_UNSUPPORTED = 0;
   // ORDER BY col [ASC|DESC] NULLS FIRST|LAST
-  SQL_NULLS_ORDERING_SYNTAX_NULLS_FIRST_LAST = 1;
+  SQL_NULLS_ORDERING_FIRST_LAST = 0;
 }
 
 enum SqlBooleanLiteralSyntax {
