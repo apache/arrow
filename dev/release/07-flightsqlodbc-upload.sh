@@ -112,7 +112,7 @@ if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
     exit 1
   fi
 
-  echo "[2/9] Signing ${dll_signed}..."
+  echo "[2/9] Signing ${dll_unsigned}..."
   echo "NOTE: Running jsign. You may be prompted for your OTP PIN..."
   jsign --storetype ESIGNER \
     --alias d97c5110-c66a-4c0c-ac0c-1cd6af812ee6 \
@@ -122,6 +122,7 @@ if [ "${PHASE_SIGN_DLL}" -gt 0 ]; then
     --tsmode RFC3161 \
     --alg SHA256 \
     "${tmp_dir}/${dll_unsigned}"
+  mv "${tmp_dir}/${dll_unsigned}" "${tmp_dir}/${dll_signed}"
   if ! is_signed "${tmp_dir}/${dll_signed}"; then
     echo "ERROR: ${dll_signed} is not signed" >&2
     exit 1
