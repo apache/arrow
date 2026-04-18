@@ -849,6 +849,36 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     /// escape syntax is supported.
     SQL_STORED_FUNCTIONS_USING_CALL_SYNTAX_SUPPORTED = 576,
 
+    /// Retrieves an int32 describing the syntax accepted for combined row
+    /// limiting and offset in SELECT statements.
+    ///
+    /// The possible values are listed in
+    /// `arrow.flight.protocol.sql.SqlLimitOffsetSyntax`.
+    SQL_LIMIT_OFFSET_SYNTAX = 577,
+
+    /// Retrieves an int32 describing the syntax accepted for explicit null
+    /// ordering in ORDER BY (e.g. NULLS FIRST / NULLS LAST). Distinct from
+    /// SQL_NULL_ORDERING (507), which reports the server's default null
+    /// ordering rather than which explicit syntax parses.
+    ///
+    /// The possible values are listed in
+    /// `arrow.flight.protocol.sql.SqlNullsOrderingSyntax`.
+    SQL_NULLS_ORDERING_SYNTAX = 578,
+
+    /// Retrieves an int32 describing the accepted literal syntax for boolean
+    /// values.
+    ///
+    /// The possible values are listed in
+    /// `arrow.flight.protocol.sql.SqlBooleanLiteralSyntax`.
+    SQL_BOOLEAN_LITERAL_SYNTAX = 579,
+
+    /// Retrieves an int32 describing the accepted literal syntax for date,
+    /// time, and timestamp values.
+    ///
+    /// The possible values are listed in
+    /// `arrow.flight.protocol.sql.SqlDatetimeLiteralSyntax`.
+    SQL_DATETIME_LITERAL_SYNTAX = 580,
+
     /// @}
   };
 
@@ -899,6 +929,37 @@ struct ARROW_FLIGHT_SQL_EXPORT SqlInfoOptions {
     SQL_CONVERT_TINYINT = 17,
     SQL_CONVERT_VARBINARY = 18,
     SQL_CONVERT_VARCHAR = 19,
+  };
+
+  /// Syntax for combined row limiting and offset.
+  enum SqlLimitOffsetSyntax {
+    /// LIMIT n [OFFSET m]  (PostgreSQL, MySQL, SQLite, DuckDB, Snowflake, ...)
+    SQL_LIMIT_OFFSET_SYNTAX_LIMIT_OFFSET = 0,
+    /// OFFSET m ROWS FETCH NEXT n ROWS ONLY  (SQL Server, Oracle, ANSI)
+    SQL_LIMIT_OFFSET_SYNTAX_OFFSET_FETCH = 1,
+  };
+
+  /// Syntax accepted for explicit null ordering in ORDER BY.
+  enum SqlNullsOrderingSyntax {
+    SQL_NULLS_ORDERING_SYNTAX_UNSUPPORTED = 0,
+    /// ORDER BY col [ASC|DESC] NULLS FIRST|LAST
+    SQL_NULLS_ORDERING_SYNTAX_NULLS_FIRST_LAST = 1,
+  };
+
+  /// Accepted literal syntax for boolean values.
+  enum SqlBooleanLiteralSyntax {
+    /// TRUE / FALSE keywords.
+    SQL_BOOLEAN_LITERAL_TRUE_FALSE = 0,
+    /// Integer 1 / 0.
+    SQL_BOOLEAN_LITERAL_INT_ONE_ZERO = 1,
+  };
+
+  /// Accepted literal syntax for date, time, and timestamp values.
+  enum SqlDatetimeLiteralSyntax {
+    /// DATE '2026-01-01', TIME '12:00:00', TIMESTAMP '2026-01-01 12:00:00'.
+    SQL_DATETIME_LITERAL_ANSI_KEYWORD = 0,
+    /// Bare quoted string, e.g. '2026-01-01' or '2026-01-01 12:00:00'.
+    SQL_DATETIME_LITERAL_BARE_STRING = 1,
   };
 };
 
