@@ -97,8 +97,12 @@ is_signed() {
   return ${exit_code}
 }
 
-# All work with release artifacts happens in a temp dir
-tmp_dir="$(mktemp -d)"
+# Use dev/release/tmp for temporary files
+tmp_dir="${SOURCE_DIR}/tmp"
+if [ -e "${tmp_dir}" ]; then
+  echo "ERROR: temp dir already exists: ${tmp_dir}. Remove it manually and run again." >&2
+  exit 1
+fi
 
 if [ ${PHASE_SIGN_DLL} -gt 0 ]; then
   echo "[1/9] Downloading ${dll_unsigned} from release..."
