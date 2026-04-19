@@ -1323,6 +1323,12 @@ cdef class Array(_PandasConvertible):
 
         The concrete type returned depends on the datatype.
 
+        .. warning::
+
+           The caller is responsible for ensuring that the buffers contain
+           valid Arrow data matching the given type. Passing invalid data
+           may lead to crashes or undefined behavior when using the result.
+
         Parameters
         ----------
         type : DataType
