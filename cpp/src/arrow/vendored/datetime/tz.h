@@ -1,5 +1,5 @@
-#ifndef TZ_H
-#define TZ_H
+#ifndef ARROW_VENDORED_TZ_H
+#define ARROW_VENDORED_TZ_H
 
 // The MIT License (MIT)
 //
@@ -2805,4 +2805,4 @@ to_gps_time(const tai_time<Duration>& t)
 
 }  // namespace arrow_vendored::date
 
-#endif  // TZ_H
+#endif  // ARROW_VENDORED_TZ_H
