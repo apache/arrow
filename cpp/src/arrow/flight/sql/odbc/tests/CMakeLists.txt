@@ -42,12 +42,14 @@ set(ARROW_FLIGHT_SQL_ODBC_TEST_SRCS
     # GH-46889: move protobuf_test_util to a more common location
     ../../../../engine/substrait/protobuf_test_util.cc)
 
-if(ARROW_TEST_LINKAGE STREQUAL "static")
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
-                                           ${ARROW_TEST_STATIC_LINK_LIBS})
-else()
+# GH-49651 Link ODBC tests statically on Linux and dynamically on macOS/Windows
+if(WIN32 OR APPLE)
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
                                            ${ARROW_TEST_SHARED_LINK_LIBS})
+else()
+  # GH-49651 Link ODBC tests statically on Linux to fix segfault
+  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
+                                           ${ARROW_TEST_STATIC_LINK_LIBS})
 endif()
 
 # On macOS, link `ODBCINST` first to ensure iodbc take precedence over unixodbc
@@ -65,6 +67,13 @@ else()
   # Unix
   list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS
        ${ARROW_FLIGHT_SQL_ODBC_TEST_LIBS} ${ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS})
+
+  if(NOT APPLE)
+    # Links static dependencies on Linux to support ARROW_TEST_LINKAGE=static
+    list(APPEND ARROW_FLIGHT_SQL_ODBC_TEST_STATIC_LINK_LIBS arrow_odbc_spi_impl
+         ${ARROW_PROTOBUF_LIBPROTOBUF})
+  endif()
+
 endif()
 
 add_arrow_test(flight_sql_odbc_test
