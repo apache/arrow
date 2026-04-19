@@ -18,6 +18,26 @@
 -->
 
 # arrow 24.0.0
+# arrow 24.0.0.9000
+
+# arrow 24.0.0
+
+## New features
+
+- `dplyr::when_any()` and `dplyr::when_all()` helper bindings (#49535).
+- `dplyr::filter_out()` binding (@larry77, #49256).
+- `dplyr::recode_values()`, `dplyr::replace_values()`, and `dplyr::replace_when()` bindings (#49536).
+- `write_dataset()` gains a `preserve_order` argument to preserve row ordering within partitions (@marberts, #49343).
+
+## Minor improvements and fixes
+
+- Zero-length `POSIXct` objects with integer storage (as created by `as.POSIXct(NULL)` in R 4.5.2+) are now correctly mapped to timestamp type instead of integer (#49619).
+- `all.equal()` S3 method is now correctly registered (@MichaelChirico, #49481).
+
+## Installation
+
+- arm64 (aarch64) Linux binaries are now available (#48574).
+
 # arrow 23.0.1.2
 
 ## Minor improvements and fixes
