@@ -4433,4 +4433,25 @@ TEST_F(TestDayTimeIntervalBuilder, TestConstructors) {
   ASSERT_TRUE(builder3.type()->Equals(type));
 }
 
+TEST(ArrayTest, MakeEmptyPreservesDictionaryOrderedFlagInArray) {
+  auto dict_type = arrow::dictionary(arrow::int32(), arrow::utf8(), /*ordered=*/true);
+  auto schema = arrow::schema({arrow::field("col", dict_type)});
+
+  ASSERT_OK_AND_ASSIGN(auto batch, arrow::RecordBatch::MakeEmpty(schema));
+
+  ASSERT_EQ(batch->num_rows(), 0);
+  ASSERT_EQ(batch->num_columns(), 1);
+
+  // Schema should be correct
+  auto schema_type =
+      std::static_pointer_cast<arrow::DictionaryType>(batch->schema()->field(0)->type());
+  // Ensure array type preserves the ordered flag
+  auto array_type =
+      std::static_pointer_cast<arrow::DictionaryType>(batch->column(0)->type());
+
+  ASSERT_TRUE(schema_type->ordered());
+  ASSERT_TRUE(array_type->ordered()) << "MakeEmpty() lost ordered flag in array type";
+  ASSERT_TRUE(array_type->Equals(*schema_type));
+}
+
 }  // namespace arrow
