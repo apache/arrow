@@ -377,6 +377,7 @@ repos:
           ?^ci/scripts/python_test_type_annotations\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/install/mac/install_odbc\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
+          ?^dev/release/07-flightsqlodbc-upload\.sh$|
           ?^dev/release/binary-recover\.sh$|
           ?^dev/release/post-03-binary\.sh$|
           ?^dev/release/post-08-docs\.sh$|

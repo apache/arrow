@@ -87,7 +87,7 @@ fi
 is_signed() {
   local file="$1"
   local exit_code=0
-  jsign extract --format PEM "${file}" > /dev/null 2>&1 || exit_code=$?
+  jsign extract --format PEM "${file}" >/dev/null 2>&1 || exit_code=$?
   # jsign writes a PEM file even though it also prints to stdout. Clean up after
   # it. Use -f since so it still runs on unsigned files without error.
   rm -f "${file}.sig.pem"
