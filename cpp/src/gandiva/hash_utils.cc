@@ -28,8 +28,8 @@ namespace {
 /// the hash. The type of the hash is defined by the
 /// \b hash_type \b parameter.
 const char* gdv_hash_using_openssl(int64_t context, const void* message,
-                                          size_t message_length, const EVP_MD* hash_type,
-                                          uint32_t result_buf_size, int32_t* out_length) {
+                                   size_t message_length, const EVP_MD* hash_type,
+                                   uint32_t result_buf_size, int32_t* out_length) {
   EVP_MD_CTX* md_ctx = EVP_MD_CTX_new();
 
   if (md_ctx == nullptr) {
