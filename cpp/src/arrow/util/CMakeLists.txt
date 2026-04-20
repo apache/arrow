@@ -118,6 +118,12 @@ add_arrow_test(threading-utility-test
                test_common.cc
                thread_pool_test.cc)
 
+add_arrow_test(pfor-test
+               SOURCES
+               pfor/pfor_test.cc
+               pfor/pfor.cc
+               pfor/pfor_wrapper.cc)
+
 add_arrow_benchmark(bit_block_counter_benchmark)
 add_arrow_benchmark(bit_util_benchmark)
 add_arrow_benchmark(bitmap_reader_benchmark)
