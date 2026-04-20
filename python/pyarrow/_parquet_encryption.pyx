@@ -857,7 +857,7 @@ def create_encryption_properties(
         ``"AES_GCM_CTR_V1"``.
     plaintext_footer : bool, default False
         Whether to leave the file footer unencrypted. When True, file
-        schema and column statistics are readable without a key.
+        schema and metadata are readable without a key.
 
     Returns
     -------
