@@ -56,7 +56,7 @@ inline OdbcHandles mock_odbcv3_handles;
 inline OdbcHandles mock_odbcv2_handles;
 inline OdbcHandles mock_non_connection_handles;
 
-// These handles are meant to point to to the relevant handle above
+// These handles are meant to point to the relevant handle above
 // depending on the test fixture.
 inline SQLHENV env = SQL_NULL_HENV;
 inline SQLHDBC conn = SQL_NULL_HDBC;
