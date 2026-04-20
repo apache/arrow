@@ -291,7 +291,7 @@ Verify the Release
 
     # Once the automatic verification has passed start the vote thread
     # on dev@arrow.apache.org. To regenerate the email template use
-    dev/release/09-vote-email.sh <version> <rc-number>
+    dev/release/10-vote-email.sh <version> <rc-number>
 
 See :ref:`release_verification` for details.
 
