@@ -2431,6 +2431,7 @@ if(ARROW_MIMALLOC)
   set(MIMALLOC_C_FLAGS ${EP_C_FLAGS})
   if(MINGW)
     # Workaround https://github.com/microsoft/mimalloc/issues/910 on RTools40
+    # This is still required as of mimalloc 3.3.0, tested as part of GH-49772
     set(MIMALLOC_C_FLAGS "${MIMALLOC_C_FLAGS} -DERROR_COMMITMENT_MINIMUM=635")
   endif()
 
