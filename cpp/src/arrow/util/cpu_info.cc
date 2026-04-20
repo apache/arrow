@@ -431,9 +431,12 @@ void OsRetrieveCpuInfo(int64_t* hardware_flags, CpuInfo::Vendor* vendor,
     assert(vl >= 0);
     // prctl returns vector length in bytes; mask off status flags
     const int vl_bytes = vl & PR_SVE_VL_LEN_MASK;
-    if (vl_bytes >= 16) *hardware_flags |= CpuInfo::SVE128;  // 128 bits
-    if (vl_bytes >= 32) *hardware_flags |= CpuInfo::SVE256;  // 256 bits
-    if (vl_bytes >= 64) *hardware_flags |= CpuInfo::SVE512;  // 512 bits
+    // Running SVE128 on a SVE256 machine is more tricky than the x86 equivalent of
+    // running SSE code on an AVX machine and requires to explicitly change the
+    // vector length using `prctl` (per thread setting).
+    if (vl_bytes == 16) *hardware_flags |= CpuInfo::SVE128;  // 128 bits
+    if (vl_bytes == 32) *hardware_flags |= CpuInfo::SVE256;  // 256 bits
+    if (vl_bytes == 64) *hardware_flags |= CpuInfo::SVE512;  // 512 bits
 #      endif  // PR_SVE_GET_VL
   }
 #    endif    // HWCAP_SVE
