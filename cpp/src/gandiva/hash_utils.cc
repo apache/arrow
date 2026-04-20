@@ -63,9 +63,10 @@ static const char* gdv_hash_using_openssl(int64_t context, const void* message,
   }
 
   unsigned int result_length;
-  EVP_DigestFinal_ex(md_ctx, result, &result_length);
+  int evp_result = EVP_DigestFinal_ex(md_ctx, result, &result_length);
 
-  if (result_length != hash_digest_size || result_buf_size != (2 * hash_digest_size)) {
+  if (evp_result != evp_success_status || result_length != hash_digest_size ||
+      result_buf_size != (2 * hash_digest_size)) {
     gdv_fn_context_set_error_msg(context,
                                  "Could not obtain the hash for the defined value");
     EVP_MD_CTX_free(md_ctx);
