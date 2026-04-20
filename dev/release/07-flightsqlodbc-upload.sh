@@ -137,20 +137,14 @@ fi
 
 if [ "${PHASE_BUILD_MSI}" -gt 0 ]; then
   echo "[4/8 Triggering odbc_release_step in cpp_extra.yml workflow..."
-  run_url=$(gh workflow run cpp_extra.yml \
+  gh workflow run cpp_extra.yml \
     --repo "${GITHUB_REPOSITORY}" \
     --ref "${tag}" \
-    --field odbc_release_step=true 2>&1 | grep -oE 'https://[^ ]+' || true)
-  run_id=${run_url##*/} # Extract the run ID from the URL (the part after the last slash)
-  if [ -z "${run_id}" ]; then
-    echo "ERROR: failed to get run ID from workflow trigger" >&2
-    exit 1
-  fi
-  echo "Triggered run: ${run_url}"
+    --field odbc_release_step=true
 
   echo "[5/8 Waiting for workflow to complete. This can take a very long time..."
-  gh run watch "${run_id}" --repo "${GITHUB_REPOSITORY}" --exit-status --interval 60
-  echo "Run id ${run_id} completed."
+  REPOSITORY="${GITHUB_REPOSITORY}" \
+    "${SOURCE_DIR}/utils-watch-gh-workflow.sh" "${tag}" cpp_extra.yml
 fi
 
 if [ "${PHASE_SIGN_MSI}" -gt 0 ]; then
