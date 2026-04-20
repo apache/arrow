@@ -51,6 +51,8 @@ if [ "$#" -ne 2 ]; then
   exit 1
 fi
 
+. "${SOURCE_DIR}/utils-env.sh"
+
 if [ -z "${ESIGNER_STOREPASS:-}" ]; then
   echo "ERROR: ESIGNER_STOREPASS is not set" >&2
   exit 1
@@ -59,8 +61,6 @@ if [ -z "${ESIGNER_KEYPASS:-}" ]; then
   echo "ERROR: ESIGNER_KEYPASS is not set" >&2
   exit 1
 fi
-
-. "${SOURCE_DIR}/utils-env.sh"
 
 version=$1
 rc=$2
