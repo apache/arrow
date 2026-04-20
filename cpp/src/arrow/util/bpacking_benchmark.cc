@@ -107,10 +107,10 @@ void BM_Unpack(benchmark::State& state, bool aligned, UnpackFunc<Int> unpack, bo
 // will not emit runs larger than 512 (though other implementation might), so we biased
 // the benchmarks towards a rather small scale.
 static const auto kNumValuesRange = benchmark::CreateRange(32, 512, 2);
-constexpr std::initializer_list<int64_t> kBitWidths8 = {1, 2, 8};
-constexpr std::initializer_list<int64_t> kBitWidths16 = {1, 2, 8, 13};
-constexpr std::initializer_list<int64_t> kBitWidths32 = {1, 2, 8, 20};
-constexpr std::initializer_list<int64_t> kBitWidths64 = {1, 2, 8, 20, 47};
+constexpr auto kBitWidths8 = std::initializer_list<int64_t>{1, 2, 8};
+constexpr auto kBitWidths16 = std::initializer_list<int64_t>{1, 2, 8, 13};
+constexpr auto kBitWidths32 = std::initializer_list<int64_t>{1, 2, 8, 20};
+constexpr auto kBitWidths64 = std::initializer_list<int64_t>{1, 2, 8, 20, 47};
 
 static const std::vector<std::vector<int64_t>> kBitWidthsNumValuesBool = {
     {0, 1},
