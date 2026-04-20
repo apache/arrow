@@ -17,8 +17,10 @@
 
 #if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  define UNPACK_PLATFORM unpack_sve256
+#  define KERNEL_PLATFORM KernelSve256
 #elif defined(ARROW_HAVE_RUNTIME_AVX2)
 #  define UNPACK_PLATFORM unpack_avx2
+#  define KERNEL_PLATFORM KernelAvx2
 #endif
 
 #if defined(UNPACK_PLATFORM)
@@ -31,11 +33,11 @@
 namespace arrow::internal::bpacking {
 
 template <typename UnpackedUint, int kPackedBitSize>
-using Simd256Kernel = Kernel<UnpackedUint, kPackedBitSize, 256>;
+using KERNEL_PLATFORM = Kernel<UnpackedUint, kPackedBitSize, xsimd::default_arch>;
 
 template <typename Uint>
 void UNPACK_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-  return unpack_jump<Simd256Kernel>(in, out, opts);
+  return unpack_jump<KERNEL_PLATFORM>(in, out, opts);
 }
 
 template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, const UnpackOptions&);

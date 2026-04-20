@@ -382,10 +382,18 @@ struct KernelShape {
 };
 
 /// Packing all useful and derived information about a kernel in a single type.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
+template <typename UnpackedUint, int kPackedBitSize, typename Arch>
 struct KernelTraits {
+  using unpacked_type = UnpackedUint;
+  /// The integer type to work with, `unpacked_type` or an appropriate type for bool.
+  using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
+                                       SizedUint<sizeof(bool)>, unpacked_type>;
+  using arch_type = Arch;
+  using simd_batch = xsimd::batch<uint_type, arch_type>;
+  using simd_bytes = xsimd::batch<uint8_t, arch_type>;
+
   static constexpr KernelShape kShape = {
-      .simd_bit_size_ = kSimdBitSize,
+      .simd_bit_size_ = 8 * simd_bytes ::size,
       .unpacked_bit_size_ = 8 * sizeof(UnpackedUint),
       .packed_bit_size_ = kPackedBitSize,
   };
@@ -393,20 +401,12 @@ struct KernelTraits {
   static_assert(kShape.simd_bit_size() % kShape.unpacked_bit_size() == 0);
   static_assert(0 < kShape.packed_bit_size());
   static_assert(kShape.packed_bit_size() < kShape.simd_bit_size());
-
-  using unpacked_type = UnpackedUint;
-  /// The integer type to work with, `unpacked_type` or an appropriate type for bool.
-  using uint_type = std::conditional_t<std::is_same_v<unpacked_type, bool>,
-                                       SizedUint<sizeof(bool)>, unpacked_type>;
-  using simd_batch = xsimd::make_sized_batch_t<uint_type, kShape.unpacked_per_simd()>;
-  using simd_bytes = xsimd::make_sized_batch_t<uint8_t, kShape.simd_byte_size()>;
-  using arch_type = typename simd_batch::arch_type;
 };
 
 /// Return similar kernel traits but with a different integer unpacking type.
 template <typename KerTraits, typename Uint>
 using KernelTraitsWithUnpackUint = KernelTraits<Uint, KerTraits::kShape.packed_bit_size(),
-                                                KerTraits::kShape.simd_bit_size()>;
+                                                typename KerTraits::arch_type>;
 
 /******************
  *  MediumKernel  *
@@ -1131,8 +1131,7 @@ template <typename Traits>
 using KernelDispatch = decltype(KernelDispatchImpl<Traits>());
 
 /// The public kernel exposed for any size.
-template <typename UnpackedUint, int kPackedBitSize, int kSimdBitSize>
-struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, kSimdBitSize>> {
-};
+template <typename UnpackedUint, int kPackedBitSize, typename Arch>
+struct Kernel : KernelDispatch<KernelTraits<UnpackedUint, kPackedBitSize, Arch>> {};
 
 }  // namespace arrow::internal::bpacking

@@ -17,6 +17,7 @@
 
 #if defined(ARROW_HAVE_RUNTIME_SVE128)
 #  define UNPACK_PLATFORM unpack_sve128
+#  define KERNEL_PLATFORM KernelSve128
 #endif
 
 #if defined(UNPACK_PLATFORM)
@@ -30,12 +31,12 @@
 namespace arrow::internal::bpacking {
 
 template <typename UnpackedUint, int kPackedBitSize>
-using Simd128Kernel = Kernel<UnpackedUint, kPackedBitSize, 128>;
+using KERNEL_PLATFORM = Kernel<UnpackedUint, kPackedBitSize, xsimd::default_arch>;
 
 template <typename Uint>
 void UNPACK_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
   static_assert(std::is_same_v<xsimd::default_arch, xsimd::detail::sve<128>>);
-  return unpack_jump<Simd128Kernel>(in, out, opts);
+  return unpack_jump<KERNEL_PLATFORM>(in, out, opts);
 }
 
 template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, const UnpackOptions&);
