@@ -64,19 +64,19 @@ concurrency:
 
 permissions:
   actions: read
-  # Upload to GitHub Release
-  contents: write
   pull-requests: read
 
 jobs:
   check-labels:
     if: github.event_name != 'schedule' || github.repository == 'apache/arrow'
     uses: ./.github/workflows/check_labels.yml
-    secrets: inherit
     with:
       parent-workflow: package_linux
 
   package:
+    permissions:
+      # Upload to GitHub Release
+      contents: write
     name: ${{ matrix.id }}
     runs-on: ${{ contains(matrix.id, 'amd64') && 'ubuntu-latest' || 'ubuntu-24.04-arm' }}
     needs: check-labels
@@ -333,4 +333,6 @@ jobs:
     needs:
       - package
     uses: ./.github/workflows/report_ci.yml
-    secrets: inherit
+    secrets:
+      ARROW_SMTP_PASSWORD: ${{ secrets.ARROW_SMTP_PASSWORD }}
+      ARROW_ZULIP_WEBHOOK: ${{ secrets.ARROW_ZULIP_WEBHOOK }}
