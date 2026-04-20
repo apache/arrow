@@ -73,10 +73,10 @@ dll_signed="arrow_flight_sql_odbc.dll"
 
 : "${GITHUB_REPOSITORY:=apache/arrow}"
 
-: "${PHASE_DEFAULT=1}"
-: "${PHASE_SIGN_DLL=${PHASE_DEFAULT}}"
-: "${PHASE_BUILD_MSI=${PHASE_DEFAULT}}"
-: "${PHASE_SIGN_MSI=${PHASE_DEFAULT}}"
+: "${PHASE_DEFAULT:=1}"
+: "${PHASE_SIGN_DLL:=${PHASE_DEFAULT}}"
+: "${PHASE_BUILD_MSI:=${PHASE_DEFAULT}}"
+: "${PHASE_SIGN_MSI:=${PHASE_DEFAULT}}"
 
 if [ "${PHASE_SIGN_DLL}" -eq 0 ] && [ "${PHASE_BUILD_MSI}" -eq 0 ] && [ "${PHASE_SIGN_MSI}" -eq 0 ]; then
   echo "No phases specified. Exiting."
