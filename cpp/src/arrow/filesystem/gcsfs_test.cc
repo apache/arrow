@@ -37,6 +37,7 @@
 #include "arrow/testing/util.h"
 #include "arrow/util/future.h"
 #include "arrow/util/key_value_metadata.h"
+#include "arrow/util/thread_pool.h"
 
 namespace arrow {
 namespace fs {
@@ -423,22 +424,45 @@ TEST(GcsFileSystem, OptionsAsGoogleCloudOptions) {
   a.retry_limit_seconds = 40.5;
   a.project_id = "test-only-invalid-project-id";
 
-  const auto o1 = internal::AsGoogleCloudOptions(a);
+  auto io_context = io::default_io_context();
+  const auto o1 = internal::AsGoogleCloudOptions(a, &io_context);
   EXPECT_TRUE(o1.has<google::cloud::UnifiedCredentialsOption>());
   EXPECT_TRUE(o1.has<gcs::RetryPolicyOption>());
   EXPECT_EQ(o1.get<gcs::RestEndpointOption>(), "http://localhost:8080");
   EXPECT_EQ(o1.get<gcs::ProjectIdOption>(), "test-only-invalid-project-id");
+  EXPECT_TRUE(o1.has<gcs::ConnectionPoolSizeOption>());
+  EXPECT_EQ(o1.get<gcs::ConnectionPoolSizeOption>(), std::max(io_context.executor()->GetCapacity(), 4));
 
   a.scheme.clear();
   a.endpoint_override.clear();
   a.retry_limit_seconds.reset();
   a.project_id.reset();
 
-  const auto o2 = internal::AsGoogleCloudOptions(a);
+  const auto o2 = internal::AsGoogleCloudOptions(a, &io_context);
   EXPECT_TRUE(o2.has<google::cloud::UnifiedCredentialsOption>());
   EXPECT_FALSE(o2.has<gcs::RetryPolicyOption>());
   EXPECT_FALSE(o2.has<gcs::RestEndpointOption>());
   EXPECT_FALSE(o2.has<gcs::ProjectIdOption>());
+  EXPECT_TRUE(o2.has<gcs::ConnectionPoolSizeOption>());
+  EXPECT_EQ(o2.get<gcs::ConnectionPoolSizeOption>(), std::max(io_context.executor()->GetCapacity(), 4));
+}
+
+TEST(GcsFileSystem, OptionsConnectionPoolSizeFallback) {
+  auto a = GcsOptions::Anonymous();
+
+  // Without passing io_context, it should fallback to arrow::io::GetIOThreadPoolCapacity()
+  int initial_capacity = arrow::io::GetIOThreadPoolCapacity();
+  const auto o1 = internal::AsGoogleCloudOptions(a);
+  EXPECT_TRUE(o1.has<gcs::ConnectionPoolSizeOption>());
+  EXPECT_EQ(o1.get<gcs::ConnectionPoolSizeOption>(), std::max(initial_capacity, 4));
+
+  // Change the thread pool capacity and verify mapping reflects changes
+  ASSERT_OK(arrow::io::SetIOThreadPoolCapacity(initial_capacity + 10));
+  const auto o2 = internal::AsGoogleCloudOptions(a);
+  EXPECT_EQ(o2.get<gcs::ConnectionPoolSizeOption>(), std::max(initial_capacity + 10, 4));
+
+  // Restore the original pool capacity
+  ASSERT_OK(arrow::io::SetIOThreadPoolCapacity(initial_capacity));
 }
 
 TEST(GcsFileSystem, ToArrowStatusOK) {
