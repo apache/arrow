@@ -18,6 +18,7 @@
 #include "parquet/encoding.h"
 
 #include <algorithm>
+#include <array>
 #include <cstdint>
 #include <cstdlib>
 #include <cstring>
@@ -1478,40 +1479,57 @@ class DeltaBitPackDecoder : public TypedDecoderImpl<DType> {
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::Accumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
-    }
-    std::vector<T> values(num_values);
-    int decoded_count = GetInternal(values.data(), num_values);
-    if (decoded_count < num_values) {
-      ParquetException::EofException("Not enough values in data page");
-    }
-    PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
-    return decoded_count;
+    auto reserve = [out](int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    };
+    auto append_values = [out](T* values, int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->AppendValues(values, num_values));
+    };
+    return DecodeArrowInternal(num_values, null_count, valid_bits, valid_bits_offset,
+                               reserve, append_values);
   }
 
   int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
                   int64_t valid_bits_offset,
                   typename EncodingTraits<DType>::DictAccumulator* out) override {
-    if (null_count != 0) {
-      // TODO(ARROW-34660): implement DecodeArrow with null slots.
-      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
-    }
-    std::vector<T> values(num_values);
-    int decoded_count = GetInternal(values.data(), num_values);
-    if (decoded_count < num_values) {
-      ParquetException::EofException("Not enough values in data page");
-    }
-    PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
-    for (int i = 0; i < decoded_count; ++i) {
-      PARQUET_THROW_NOT_OK(out->Append(values[i]));
-    }
-    return decoded_count;
+    auto reserve = [out](int64_t num_values) {
+      PARQUET_THROW_NOT_OK(out->Reserve(num_values));
+    };
+    auto append_values = [out](T* values, int64_t num_values) {
+      for (int i = 0; i < num_values; ++i) {
+        PARQUET_THROW_NOT_OK(out->Append(values[i]));
+      }
+    };
+    return DecodeArrowInternal(num_values, null_count, valid_bits, valid_bits_offset,
+                               reserve, append_values);
   }
 
  private:
   static constexpr int kMaxDeltaBitWidth = static_cast<int>(sizeof(T) * 8);
+
+  template <typename ReserveFunc, typename AppendValuesFunc>
+  int DecodeArrowInternal(int num_values, int null_count, const uint8_t* valid_bits,
+                          int64_t valid_bits_offset, ReserveFunc&& reserve_func,
+                          AppendValuesFunc&& append_values_func) {
+    if (null_count != 0) {
+      // TODO(ARROW-34660): implement DecodeArrow with null slots.
+      ParquetException::NYI("Delta bit pack DecodeArrow with null slots");
+    }
+    reserve_func(num_values);
+    constexpr int kBatchSize = 1024;
+    std::array<T, kBatchSize> values;
+    int offset = 0;
+    while (offset < num_values) {
+      const int batch_size = std::min(num_values - offset, kBatchSize);
+      int decoded_count = GetInternal(values.data(), batch_size);
+      if (decoded_count != batch_size) {
+        ParquetException::EofException("Not enough values in data page");
+      }
+      append_values_func(values.data(), batch_size);
+      offset += batch_size;
+    }
+    return num_values;
+  }
 
   void InitHeader() {
     if (!decoder_->GetVlqInt(&values_per_block_) ||
