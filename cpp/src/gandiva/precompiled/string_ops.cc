@@ -1924,9 +1924,19 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
     *out_len = 0;
     return "";
   }
+
+  int32_t alloc_length = 0;
+  // Check overflow: 2 * in_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::MultiplyWithOverflow(2, in_len, &alloc_length))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return "";
+  }
+
   // try to allocate double size output string (worst case)
   auto out =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, (in_len * 2) + 2));
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length + 2));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -2829,8 +2839,17 @@ const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
     return "";
   }
 
+  int32_t alloc_length = 0;
+  // Check overflow: 2 * in_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::MultiplyWithOverflow(2, in_len, &alloc_length))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return "";
+  }
+
   auto ret =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len * 2 + 1));
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length + 1));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");

@@ -1165,6 +1165,11 @@ TEST(TestStringOps, TestQuote) {
   out_str = quote_utf8(ctx_ptr, "'''''''''", 9, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "'\\'\\'\\'\\'\\'\\'\\'\\'\\''");
   EXPECT_FALSE(ctx.has_error());
+
+  int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 20;
+  out_str = quote_utf8(ctx_ptr, "ABCDE", bad_in_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_str, "");
 }
 
 TEST(TestStringOps, TestLtrim) {
@@ -2498,6 +2503,11 @@ TEST(TestStringOps, TestToHex) {
   output = std::string(out_str, out_len);
   EXPECT_EQ(out_len, 2 * in_len);
   EXPECT_EQ(output, "090A090A090A090A0A0A092061206C657474405D6572");
+
+  int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 2 + 20;
+  out_str = to_hex_binary(ctx_ptr, binary_string, bad_in_len, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_EQ(out_str, "");
 }
 
 TEST(TestStringOps, TestToHexInt64) {

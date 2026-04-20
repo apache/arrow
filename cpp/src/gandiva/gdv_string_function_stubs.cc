@@ -213,6 +213,25 @@ int32_t gdv_fn_utf8_char_length(char c) {
   return 0;
 }
 
+static inline bool compute_alloc_len(int64_t context, int32_t data_len,
+                                     int32_t* alloc_len, int32_t* out_len) {
+  // Reject negative lengths
+  if (ARROW_PREDICT_FALSE(data_len < 0)) {
+    gdv_fn_context_set_error_msg(context, "Invalid (negative) data length");
+    *out_len = 0;
+    return false;
+  }
+
+  // Check overflow: 2 * data_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::MultiplyWithOverflow(2, data_len, alloc_len))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return false;
+  }
+  return true;
+}
+
 // Convert an utf8 string to its corresponding lowercase string
 GANDIVA_EXPORT
 const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_len,
@@ -222,10 +241,16 @@ const char* gdv_fn_lower_utf8(int64_t context, const char* data, int32_t data_le
     return "";
   }
 
+  int32_t alloc_length = 0;
+  if (ARROW_PREDICT_FALSE(
+          !compute_alloc_len(context, data_len, &alloc_length, out_len))) {
+    return "";
+  }
+
   // If it is a single-byte character (ASCII), corresponding lowercase is always 1-byte
   // long; if it is >= 2 bytes long, lowercase can be at most 4 bytes long, so length of
   // the output can be at most twice the length of the input
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2 * data_len));
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -294,10 +319,16 @@ const char* gdv_fn_upper_utf8(int64_t context, const char* data, int32_t data_le
     return "";
   }
 
+  int32_t alloc_length = 0;
+  if (ARROW_PREDICT_FALSE(
+          !compute_alloc_len(context, data_len, &alloc_length, out_len))) {
+    return "";
+  }
+
   // If it is a single-byte character (ASCII), corresponding uppercase is always 1-byte
   // long; if it is >= 2 bytes long, uppercase can be at most 4 bytes long, so length of
   // the output can be at most twice the length of the input
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2 * data_len));
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -480,10 +511,16 @@ const char* gdv_fn_initcap_utf8(int64_t context, const char* data, int32_t data_
     return "";
   }
 
+  int32_t alloc_length = 0;
+  if (ARROW_PREDICT_FALSE(
+          !compute_alloc_len(context, data_len, &alloc_length, out_len))) {
+    return "";
+  }
+
   // If it is a single-byte character (ASCII), corresponding uppercase is always 1-byte
   // long; if it is >= 2 bytes long, uppercase can be at most 4 bytes long, so length of
   // the output can be at most twice the length of the input
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, 2 * data_len));
+  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -579,15 +616,24 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
     return in;
   }
 
+  int32_t alloc_length = 0;
+  // Check overflow: 4 * in_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::MultiplyWithOverflow(4, in_len, &alloc_length))) {
+    gdv_fn_context_set_error_msg(context, "Would overflow maximum output size");
+    *out_len = 0;
+    return "";
+  }
+
   // This variable is to control if there are multi-byte utf8 entries
   bool has_multi_byte = false;
 
   // This variable is to store the final result
   char* result;
-  int result_len;
+  int32_t result_len;
 
   // Searching multi-bytes in In
-  for (int i = 0; i < in_len; i++) {
+  for (int32_t i = 0; i < in_len; i++) {
     unsigned char char_single_byte = in[i];
     if (char_single_byte > 127) {
       // found a multi-byte utf-8 char
@@ -598,7 +644,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
   // Searching multi-bytes in From
   if (!has_multi_byte) {
-    for (int i = 0; i < from_len; i++) {
+    for (int32_t i = 0; i < from_len; i++) {
       unsigned char char_single_byte = from[i];
       if (char_single_byte > 127) {
         // found a multi-byte utf-8 char
@@ -610,7 +656,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
   // Searching multi-bytes in To
   if (!has_multi_byte) {
-    for (int i = 0; i < to_len; i++) {
+    for (int32_t i = 0; i < to_len; i++) {
       unsigned char char_single_byte = to[i];
       if (char_single_byte > 127) {
         // found a multi-byte utf-8 char
@@ -638,7 +684,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
     // This variable is for controlling the position in entry TO, for never repeat the
     // changes
-    int start_compare;
+    int32_t start_compare;
 
     if (to_len > 0) {
       start_compare = 0;
@@ -650,7 +696,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
     // list, to mark deletion positions
     const char empty = '\0';
 
-    for (int in_for = 0; in_for < in_len; in_for++) {
+    for (int32_t in_for = 0; in_for < in_len; in_for++) {
       if (subs_list.find(in[in_for]) != subs_list.end()) {
         if (subs_list[in[in_for]] != empty) {
           // If exist in map, only add the correspondent value in result
@@ -658,7 +704,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
           result_len++;
         }
       } else {
-        for (int from_for = 0; from_for <= from_len; from_for++) {
+        for (int32_t from_for = 0; from_for <= from_len; from_for++) {
           if (from_for == from_len) {
             // If it's not in the FROM list, just add it to the map and the result.
             subs_list.insert(std::pair<char, char>(in[in_for], in[in_for]));
@@ -686,10 +732,11 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
         }
       }
     }
-  } else {  // If there are no multibytes in the input, work with std::strings
+  } else {
+    // If there are no multibytes in the input, work with std::strings
     // This variable is for receive the substitutions, malloc is in_len * 4 to receive
     // possible inputs with 4 bytes
-    result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, in_len * 4));
+    result = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
 
     if (result == nullptr) {
       gdv_fn_context_set_error_msg(context,
@@ -704,7 +751,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
 
     // This variable is for controlling the position in entry TO, for never repeat the
     // changes
-    int start_compare;
+    int32_t start_compare;
 
     if (to_len > 0) {
       start_compare = 0;
@@ -717,11 +764,11 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
     const std::string empty = "";
 
     // This variables is to control len of multi-bytes entries
-    int len_char_in = 0;
-    int len_char_from = 0;
-    int len_char_to = 0;
+    int32_t len_char_in = 0;
+    int32_t len_char_from = 0;
+    int32_t len_char_to = 0;
 
-    for (int in_for = 0; in_for < in_len; in_for += len_char_in) {
+    for (int32_t in_for = 0; in_for < in_len; in_for += len_char_in) {
       // Updating len to char in this position
       len_char_in = gdv_fn_utf8_char_length(in[in_for]);
       // Making copy to std::string with length for this char position
@@ -734,7 +781,7 @@ const char* translate_utf8_utf8_utf8(int64_t context, const char* in, int32_t in
           result_len += static_cast<int>(subs_list[insert_copy_key].length());
         }
       } else {
-        for (int from_for = 0; from_for <= from_len; from_for += len_char_from) {
+        for (int32_t from_for = 0; from_for <= from_len; from_for += len_char_from) {
           // Updating len to char in this position
           len_char_from = gdv_fn_utf8_char_length(from[from_for]);
           // Making copy to std::string with length for this char position
