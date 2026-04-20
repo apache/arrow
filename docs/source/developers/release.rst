@@ -273,7 +273,7 @@ Build source and binaries and submit them
     # signing.
     # Note: The script requires setup of ssl.com environment variables.
     # Note: Invoking this script costs money.
-    dev/release/07-flightsqlodbc-upload.sh <version> <rc_number>
+    dev/release/07-flightsqlodbc-upload.sh <version> <rc-number>
 
     # Move the Release Candidate GitHub Release from draft to published state
     # This will update the artifacts download URL which will be available for the
