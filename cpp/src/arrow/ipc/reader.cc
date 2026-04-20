@@ -2867,19 +2867,26 @@ Status FuzzIpcFile(const uint8_t* data, int64_t size) {
     auto maybe_stream_result = do_stream_read();
     final_status &= maybe_stream_result.status();
     if (maybe_stream_result.ok()) {
-      if (maybe_read_result->schema->Equals(maybe_stream_result->schema,
-                                            /*check_metadata=*/true)) {
-        // XXX: in some rare cases, an IPC file might read unequal to the enclosed
-        // IPC stream, for example if the footer skips some batches or orders the
-        // batches differently. We should revisit this if the fuzzer generates such
-        // files.
-        compare_result(*maybe_stream_result);
-      } else {
-        // The fuzzer might have mutated the schema definition that is duplicated
-        // in the IPC file footer, in which case the comparison above would fail.
+      if (!maybe_read_result->schema->Equals(maybe_stream_result->schema,
+                                             /*check_metadata=*/true)) {
+        // The fuzzer may have mutated the schema definition that is duplicated
+        // in the IPC file footer, in which case the comparison would fail.
         final_status &= Status::TypeError(
             "Schema mismatch between IPC stream and IPC file footer, skipping "
             "comparison");
+      } else if (maybe_read_result->batches.size() !=
+                 maybe_stream_result->batches.size()) {
+        // The footer of a fuzzer-mutated IPC file might have added or removed some
+        // batches that are physically present in the IPC stream. In this case we
+        // don't want to abort with a comparison failure.
+        // XXX There might be more elaborate cases where the fuzzer reorders
+        // batches in the IPC file without adding or removing any, which is going
+        // to be considerably more difficult to detect.
+        final_status &= Status::Invalid(
+            "Different number of batches between IPC stream and IPC file footer, "
+            "skipping comparison");
+      } else {
+        compare_result(*maybe_stream_result);
       }
     }
   }
