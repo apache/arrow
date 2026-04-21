@@ -46,6 +46,7 @@
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/spaced_internal.h"
+#include "arrow/util/pfor/pfor_wrapper.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
@@ -2372,6 +2373,79 @@ class ByteStreamSplitDecoder<FLBAType> : public ByteStreamSplitDecoderBase<FLBAT
   }
 };
 
+// ----------------------------------------------------------------------
+// PFOR Decoder
+
+template <typename DType>
+class PforDecoder : public TypedDecoderImpl<DType> {
+ public:
+  using T = typename DType::c_type;
+
+  explicit PforDecoder(const ColumnDescriptor* descr,
+                       MemoryPool* pool = ::arrow::default_memory_pool())
+      : TypedDecoderImpl<DType>(descr, Encoding::PFOR), pool_(pool) {}
+
+  void SetData(int num_values, const uint8_t* data, int len) override {
+    this->num_values_ = num_values;
+    data_ = data;
+    data_len_ = len;
+    values_decoded_ = 0;
+  }
+
+  int Decode(T* buffer, int max_values) override {
+    int values_to_decode = std::min(max_values, this->num_values_);
+    if (values_to_decode == 0) return 0;
+
+    // Decode all values on first call, cache for subsequent calls
+    if (decoded_values_.empty() && this->num_values_ > 0) {
+      decoded_values_.resize(this->num_values_);
+      arrow::util::pfor::PforWrapper<T>::Decode(
+          decoded_values_.data(), static_cast<uint32_t>(this->num_values_),
+          reinterpret_cast<const char*>(data_), static_cast<size_t>(data_len_));
+    }
+
+    std::memcpy(buffer, decoded_values_.data() + values_decoded_,
+                values_to_decode * sizeof(T));
+    values_decoded_ += values_to_decode;
+    this->num_values_ -= values_to_decode;
+    return values_to_decode;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::Accumulator* out) override {
+    if (null_count != 0) {
+      ParquetException::NYI("PFOR DecodeArrow with null slots");
+    }
+    std::vector<T> values(num_values);
+    int decoded_count = Decode(values.data(), num_values);
+    PARQUET_THROW_NOT_OK(out->AppendValues(values.data(), decoded_count));
+    return decoded_count;
+  }
+
+  int DecodeArrow(int num_values, int null_count, const uint8_t* valid_bits,
+                  int64_t valid_bits_offset,
+                  typename EncodingTraits<DType>::DictAccumulator* out) override {
+    if (null_count != 0) {
+      ParquetException::NYI("PFOR DecodeArrow with null slots");
+    }
+    std::vector<T> values(num_values);
+    int decoded_count = Decode(values.data(), num_values);
+    PARQUET_THROW_NOT_OK(out->Reserve(decoded_count));
+    for (int i = 0; i < decoded_count; ++i) {
+      PARQUET_THROW_NOT_OK(out->Append(values[i]));
+    }
+    return decoded_count;
+  }
+
+ private:
+  MemoryPool* pool_;
+  const uint8_t* data_ = nullptr;
+  int data_len_ = 0;
+  int values_decoded_ = 0;
+  std::vector<T> decoded_values_;
+};
+
 }  // namespace
 
 // ----------------------------------------------------------------------
@@ -2448,6 +2522,15 @@ std::unique_ptr<Decoder> MakeDecoder(Type::type type_num, Encoding::type encodin
       return std::make_unique<RleBooleanDecoder>(descr);
     }
     throw ParquetException("RLE encoding only supports BOOLEAN");
+  } else if (encoding == Encoding::PFOR) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::make_unique<PforDecoder<Int32Type>>(descr, pool);
+      case Type::INT64:
+        return std::make_unique<PforDecoder<Int64Type>>(descr, pool);
+      default:
+        throw ParquetException("PFOR decoder only supports INT32 and INT64");
+    }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
   }

@@ -42,6 +42,7 @@
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/rle_encoding_internal.h"
 #include "arrow/util/spaced_internal.h"
+#include "arrow/util/pfor/pfor_wrapper.h"
 #include "arrow/util/ubsan.h"
 #include "arrow/visit_data_inline.h"
 
@@ -1764,6 +1765,82 @@ std::shared_ptr<Buffer> RleBooleanEncoder::FlushValues() {
 }  // namespace
 
 // ----------------------------------------------------------------------
+// PFOR Encoder
+
+template <typename DType>
+class PforEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
+ public:
+  using T = typename DType::c_type;
+  using TypedEncoder<DType>::Put;
+
+  explicit PforEncoder(const ColumnDescriptor* descr, MemoryPool* pool)
+      : EncoderImpl(descr, Encoding::PFOR, pool), pool_(pool) {}
+
+  std::shared_ptr<Buffer> FlushValues() override {
+    if (values_.empty()) {
+      PARQUET_ASSIGN_OR_THROW(auto empty_buf, ::arrow::AllocateBuffer(0, pool_));
+      return std::move(empty_buf);
+    }
+
+    const uint32_t num_values = static_cast<uint32_t>(values_.size());
+    size_t max_size =
+        arrow::util::pfor::PforWrapper<T>::GetMaxCompressedSize(num_values);
+    PARQUET_ASSIGN_OR_THROW(auto buffer, ::arrow::AllocateResizableBuffer(
+                                             static_cast<int64_t>(max_size), pool_));
+
+    size_t comp_size = max_size;
+    arrow::util::pfor::PforWrapper<T>::Encode(
+        values_.data(), num_values,
+        reinterpret_cast<char*>(buffer->mutable_data()), &comp_size);
+
+    PARQUET_THROW_NOT_OK(buffer->Resize(static_cast<int64_t>(comp_size)));
+    values_.clear();
+    return std::move(buffer);
+  }
+
+  int64_t EstimatedDataEncodedSize() override {
+    return static_cast<int64_t>(values_.size() * sizeof(T));
+  }
+
+  void Put(const ::arrow::Array& values) override {
+    const auto& data = *values.data();
+    if (data.length > std::numeric_limits<int32_t>::max()) {
+      throw ParquetException("Array cannot be longer than ",
+                             std::numeric_limits<int32_t>::max());
+    }
+    if (values.null_count() == 0) {
+      Put(data.template GetValues<T>(1), static_cast<int>(data.length));
+    } else {
+      PutSpaced(data.template GetValues<T>(1), static_cast<int>(data.length),
+                data.GetValues<uint8_t>(0, 0), data.offset);
+    }
+  }
+
+  void Put(const T* buffer, int num_values) override {
+    values_.insert(values_.end(), buffer, buffer + num_values);
+  }
+
+  void PutSpaced(const T* src, int num_values, const uint8_t* valid_bits,
+                 int64_t valid_bits_offset) override {
+    if (valid_bits != NULLPTR) {
+      PARQUET_ASSIGN_OR_THROW(auto buffer,
+                              ::arrow::AllocateBuffer(num_values * sizeof(T), pool_));
+      T* dest = reinterpret_cast<T*>(buffer->mutable_data());
+      int num_valid =
+          ::arrow::util::internal::SpacedCompress<T>(src, num_values, valid_bits,
+                                                     valid_bits_offset, dest);
+      Put(dest, num_valid);
+    } else {
+      Put(src, num_values);
+    }
+  }
+
+ private:
+  MemoryPool* pool_;
+  std::vector<T> values_;
+};
+
+// ----------------------------------------------------------------------
 // Factory function
 
 std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encoding,
@@ -1861,6 +1938,15 @@ std::unique_ptr<Encoder> MakeEncoder(Type::type type_num, Encoding::type encodin
       default:
         throw ParquetException(
             "DELTA_BYTE_ARRAY only supports BYTE_ARRAY and FIXED_LEN_BYTE_ARRAY");
+    }
+  } else if (encoding == Encoding::PFOR) {
+    switch (type_num) {
+      case Type::INT32:
+        return std::make_unique<PforEncoder<Int32Type>>(descr, pool);
+      case Type::INT64:
+        return std::make_unique<PforEncoder<Int64Type>>(descr, pool);
+      default:
+        throw ParquetException("PFOR encoder only supports INT32 and INT64");
     }
   } else {
     ParquetException::NYI("Selected encoding is not supported");
