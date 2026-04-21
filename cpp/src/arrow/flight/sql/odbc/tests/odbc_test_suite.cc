@@ -100,6 +100,10 @@ class ComputeKernelEnvironment : public ::testing::Environment {
 ::testing::Environment* odbc_test_env =
     ::testing::AddGlobalTestEnvironment(new OdbcTestEnvironment);
 
+SQLHENV ODBCTestBase::env = SQL_NULL_HENV;
+SQLHDBC ODBCTestBase::conn = SQL_NULL_HDBC;
+SQLHSTMT ODBCTestBase::stmt = SQL_NULL_HSTMT;
+
 void ODBCTestBase::AllocEnvConnHandles(SQLHENV& env_handle, SQLHDBC& conn_handle,
                                        SQLINTEGER odbc_ver) {
   // Allocate an environment handle
@@ -262,11 +266,7 @@ void FlightSQLOdbcEnvConnHandleRemoteTestBase::SetUpTestSuite() {
     return;
   }
 
-  AllocEnvConnHandles(remote_non_connection_handles.env,
-                      remote_non_connection_handles.conn);
-  env = remote_non_connection_handles.env;
-  conn = remote_non_connection_handles.conn;
-  stmt = remote_non_connection_handles.stmt;
+  AllocEnvConnHandles(env, conn);
 }
 
 void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDownTestSuite() {
@@ -274,8 +274,7 @@ void FlightSQLOdbcEnvConnHandleRemoteTestBase::TearDownTestSuite() {
     return;
   }
 
-  FreeEnvConnHandles(remote_non_connection_handles.env,
-                     remote_non_connection_handles.conn);
+  FreeEnvConnHandles(env, conn);
 }
 
 std::string FindTokenInCallHeaders(const CallHeaders& incoming_headers) {
@@ -458,14 +457,11 @@ void FlightSQLOdbcV2MockTestBase::SetUpTestSuite() {
 }
 
 void FlightSQLOdbcEnvConnHandleMockTestBase::SetUpTestSuite() {
-  AllocEnvConnHandles(mock_non_connection_handles.env, mock_non_connection_handles.conn);
-  env = mock_non_connection_handles.env;
-  conn = mock_non_connection_handles.conn;
-  stmt = mock_non_connection_handles.stmt;
+  AllocEnvConnHandles(env, conn);
 }
 
 void FlightSQLOdbcEnvConnHandleMockTestBase::TearDownTestSuite() {
-  FreeEnvConnHandles(mock_non_connection_handles.env, mock_non_connection_handles.conn);
+  FreeEnvConnHandles(env, conn);
 }
 
 bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
