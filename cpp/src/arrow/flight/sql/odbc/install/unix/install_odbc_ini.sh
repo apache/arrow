@@ -17,17 +17,23 @@
 # specific language governing permissions and limitations
 # under the License.
 
-SYSTEM_ODBC_FILE="$1"
+set -euo pipefail
+
+SYSTEM_ODBC_FILE="${1:-}"
 
 if [[ -z "$SYSTEM_ODBC_FILE" ]]; then
-  echo "error: path to system ODBC DSN is not specified. Call format: install_odbc_ini abs_path_to_odbc_dsn_ini"
+  echo "ERROR: path to system ODBC DSN is not specified." >&2
+  echo "Usage: install_odbc_ini.sh <abs_path_to_odbc_dsn_ini>" >&2
   exit 1
 fi
 
 DRIVER_NAME="Apache Arrow Flight SQL ODBC Driver"
 DSN_NAME="Apache Arrow Flight SQL ODBC DSN"
 
-touch "$SYSTEM_ODBC_FILE"
+if ! touch "$SYSTEM_ODBC_FILE"; then
+  echo "ERROR: Cannot access or create $SYSTEM_ODBC_FILE" >&2
+  exit 1
+fi
 
 if grep -q "^\[$DSN_NAME\]" "$SYSTEM_ODBC_FILE"; then
   echo "DSN [$DSN_NAME] already exists in $SYSTEM_ODBC_FILE"
@@ -37,7 +43,7 @@ else
 
 [$DSN_NAME]
 Description = An ODBC Driver DSN for Apache Arrow Flight SQL
-Driver      = Apache Arrow Flight SQL ODBC Driver
+Driver      = $DRIVER_NAME
 Host        =
 Port        =
 UID         =
@@ -48,8 +54,9 @@ fi
 # Check if [ODBC Data Sources] section exists
 if grep -q '^\[ODBC Data Sources\]' "$SYSTEM_ODBC_FILE"; then
   # Section exists: check if DSN entry exists
-  if ! grep -q "^${DSN_NAME}=" "$SYSTEM_ODBC_FILE"; then
+  if ! grep -Eq "^${DSN_NAME}[[:space:]]*=" "$SYSTEM_ODBC_FILE"; then
     # Add DSN entry under [ODBC Data Sources] section
+    tmp_file="$(mktemp "${SYSTEM_ODBC_FILE}.XXXX")"
 
     # Use awk to insert the line immediately after [ODBC Data Sources]
     awk -v dsn="$DSN_NAME" -v driver="$DRIVER_NAME" '
@@ -60,7 +67,9 @@ if grep -q '^\[ODBC Data Sources\]' "$SYSTEM_ODBC_FILE"; then
         next
       }
       { print }
-    ' "$SYSTEM_ODBC_FILE" > "${SYSTEM_ODBC_FILE}.tmp" && mv "${SYSTEM_ODBC_FILE}.tmp" "$SYSTEM_ODBC_FILE"
+    ' "$SYSTEM_ODBC_FILE" > "$tmp_file"
+
+    mv "$tmp_file" "$SYSTEM_ODBC_FILE"
   fi
 else
   # Section doesn't exist, append section and DSN entry at end

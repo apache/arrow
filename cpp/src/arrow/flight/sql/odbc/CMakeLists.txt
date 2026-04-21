@@ -161,7 +161,7 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
   else()
     if(APPLE)
       set(CPACK_PACKAGE_FILE_NAME
-          "ArrowFlightSqlOdbcODBC-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
+          "ArrowFlightSqlOdbc-${CPACK_PACKAGE_VERSION_MAJOR}.${ODBC_PACKAGE_VERSION_MINOR}.${ODBC_PACKAGE_VERSION_PATCH}"
       )
       set(CPACK_PACKAGE_INSTALL_DIRECTORY "${CPACK_PACKAGE_NAME}")
 
@@ -172,10 +172,10 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
           "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/postinstall")
       set(CPACK_RESOURCE_FILE_README "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/README.txt")
       set(CPACK_RESOURCE_FILE_WELCOME
-          "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/Welcome.txt")
+          "${CMAKE_CURRENT_SOURCE_DIR}/install/mac/welcome.txt")
 
       set(ODBC_INSTALL_DIR "arrow-odbc/lib")
-      set(DOC_INSTALL_DIR "arrow-odbc/doc")
+      set(ODBC_DOC_INSTALL_DIR "arrow-odbc/doc")
     else()
       # Linux
       # GH-49595: TODO implement DEB installer
@@ -213,10 +213,10 @@ if(ARROW_FLIGHT_SQL_ODBC_INSTALLER)
 
     # Install documentation files
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/../../../../../../LICENSE.txt"
-            DESTINATION "${DOC_INSTALL_DIR}"
+            DESTINATION "${ODBC_DOC_INSTALL_DIR}"
             COMPONENT Docs)
-    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/Connection-Options.md"
-            DESTINATION "${DOC_INSTALL_DIR}"
+    install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/connection-options.md"
+            DESTINATION "${ODBC_DOC_INSTALL_DIR}"
             COMPONENT Docs)
   endif()
 
