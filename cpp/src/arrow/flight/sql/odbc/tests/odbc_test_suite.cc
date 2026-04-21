@@ -19,6 +19,7 @@
 // with windows.h
 #include "arrow/flight/sql/odbc/odbc_impl/flight_sql_connection.h"
 
+#include "arrow/compute/api.h"
 #include "arrow/flight/sql/odbc/tests/odbc_test_suite.h"
 
 // For DSN registration
@@ -81,6 +82,17 @@ class OdbcTestEnvironment : public ::testing::Environment {
     ODBCTestBase::Disconnect(mock_odbcv2_handles.env, mock_odbcv2_handles.conn);
   }
 };
+
+#ifdef _WIN32
+// A global test "environment", to ensure Arrow compute kernel functions are registered
+class ComputeKernelEnvironment : public ::testing::Environment {
+ public:
+  void SetUp() override { ASSERT_OK(arrow::compute::Initialize()); }
+};
+
+::testing::Environment* compute_kernel_env =
+    ::testing::AddGlobalTestEnvironment(new ComputeKernelEnvironment);
+#endif  // _WIN32
 
 ::testing::Environment* mock_server_env =
     ::testing::AddGlobalTestEnvironment(new MockServerEnvironment);
