@@ -879,6 +879,16 @@ Status DecimalFromString(const char* type_name, std::string_view s, Decimal* out
   }
   int32_t parsed_precision = static_cast<int32_t>(significant_digits);
 
+  // Reject precisions that exceed the target decimal's bit width. ShiftAndAdd
+  // only carries through the limbs of the output array and silently drops
+  // the overflow; callers that ignore the out-parameter would get a corrupted
+  // (mod 2^kBitWidth) value with Status::OK. See GH-49817.
+  if (parsed_precision > Decimal::kMaxPrecision) {
+    return Status::Invalid("The string '", s, "' has precision ", parsed_precision,
+                           " which exceeds the ", type_name, " maximum of ",
+                           Decimal::kMaxPrecision);
+  }
+
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
     auto adjusted_exponent = dec.exponent;
@@ -942,6 +952,14 @@ Status SimpleDecimalFromString(const char* type_name, std::string_view s,
     significant_digits += dec.whole_digits.size() - first_non_zero;
   }
   int32_t parsed_precision = static_cast<int32_t>(significant_digits);
+
+  // Reject precisions that exceed the target decimal's max; ShiftAndAdd into
+  // a single uint64_t would silently wrap on overflow (GH-49817).
+  if (parsed_precision > DecimalClass::kMaxPrecision) {
+    return Status::Invalid("The string '", s, "' has precision ", parsed_precision,
+                           " which exceeds the ", type_name, " maximum of ",
+                           DecimalClass::kMaxPrecision);
+  }
 
   int32_t parsed_scale = 0;
   if (dec.has_exponent) {
