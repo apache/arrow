@@ -46,6 +46,10 @@ gh release download \
 TWINE_ARGS=()
 if [ "${TEST_PYPI}" -gt 0 ]; then
   TWINE_ARGS+=("--repository-url" "https://test.pypi.org/legacy/")
+else
+  "${SOURCE_DIR}/../../ci/scripts/python_check_pypi_quota.py" \
+    --path "${tmp}" \
+    --project pyarrow
 fi
 
 twine upload "${TWINE_ARGS[@]}" "${tmp}"/*
