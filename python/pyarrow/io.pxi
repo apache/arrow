@@ -1187,6 +1187,7 @@ cdef class OSFile(NativeFile):
     ----------
     path : str or int
         A file path or an open file descriptor.
+        Passed file descriptors are owned and closed by OSFile.
 
     Examples
     --------
