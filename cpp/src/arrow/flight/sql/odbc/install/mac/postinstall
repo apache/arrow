@@ -17,14 +17,32 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# Use temporary driver registration script to register ODBC driver in system DSN
-odbc_install_script="/Library/ODBC/arrow-odbc/lib/install_odbc.sh"
-"$odbc_install_script" /Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc.dylib
+set -euo pipefail
 
-# Use temporary DSN registration script to register sample system DSN
+odbc_install_script="/Library/ODBC/arrow-odbc/lib/install_odbc.sh"
 dsn_install_script="/Library/ODBC/arrow-odbc/lib/install_odbc_ini.sh"
-"$dsn_install_script" /Library/ODBC/odbc.ini
+driver_lib="/Library/ODBC/arrow-odbc/lib/libarrow_flight_sql_odbc.dylib"
+dsn_file="/Library/ODBC/odbc.ini"
+
+if [[ ! -x "$odbc_install_script" ]]; then
+  echo "ERROR: ODBC install script $odbc_install_script not found" >&2
+  exit 1
+fi
+
+"$odbc_install_script" "$driver_lib" || {
+  echo "ERROR: Failed to register ODBC driver ($driver_lib)" >&2
+  exit 1
+}
+
+if [[ ! -x "$dsn_install_script" ]]; then
+  echo "ERROR: DSN install script $dsn_install_script not found" >&2
+  exit 1
+fi
+
+"$dsn_install_script" "$dsn_file" || {
+  echo "ERROR: Failed to register DSN to ($dsn_file)" >&2
+  exit 1
+}
 
 # clean temporary script
-rm -f "$odbc_install_script"
-rm -f "$dsn_install_script"
+rm -f "$odbc_install_script" "$dsn_install_script"
