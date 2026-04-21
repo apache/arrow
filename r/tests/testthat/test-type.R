@@ -61,9 +61,8 @@ test_that("infer_type() errors clearly for POSIXct with invalid tzone", {
     infer_type(x),
     "`tzone` attribute of a `POSIXct` vector must be a character vector"
   )
-})
 
-test_that("infer_type() errors clearly for zero-length POSIXct with invalid tzone", {
+  # Also check zero-length POSIXct
   x <- as.POSIXct(x = NULL)
   attr(x, "tzone") <- 123
 
