@@ -51,16 +51,8 @@ struct OdbcHandles {
 
 inline OdbcHandles remote_odbcv3_handles;
 inline OdbcHandles remote_odbcv2_handles;
-inline OdbcHandles remote_non_connection_handles;
 inline OdbcHandles mock_odbcv3_handles;
 inline OdbcHandles mock_odbcv2_handles;
-inline OdbcHandles mock_non_connection_handles;
-
-// These handles are meant to point to the relevant handle above
-// depending on the test fixture.
-inline SQLHENV env = SQL_NULL_HENV;
-inline SQLHDBC conn = SQL_NULL_HDBC;
-inline SQLHSTMT stmt = SQL_NULL_HSTMT;
 
 inline std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> mock_server;
 inline int mock_server_port = 0;
@@ -99,6 +91,10 @@ class ODBCTestBase : public ::testing::Test {
  protected:
   void SetUp() override;
   void TearDown() override;
+
+  static SQLHENV env;
+  static SQLHDBC conn;
+  static SQLHSTMT stmt;
 };
 
 /// \brief Base test fixture for running tests against a remote server.
