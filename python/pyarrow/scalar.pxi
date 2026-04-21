@@ -199,37 +199,48 @@ cdef class Scalar(_Weakrefable):
         return _pc().call_function('abs_checked', [self])
 
     def __add__(self, object other):
-        return _pc().call_function('add_checked', [self, other])
+        return _binop_or_notimplemented('add_checked', self, other)
 
     def __truediv__(self, object other):
-        return _pc().call_function('divide_checked', [self, other])
+        return _binop_or_notimplemented('divide_checked', self, other)
 
     def __mul__(self, object other):
-        return _pc().call_function('multiply_checked', [self, other])
+        return _binop_or_notimplemented('multiply_checked', self, other)
 
     def __neg__(self):
         return _pc().call_function('negate_checked', [self])
 
     def __pow__(self, object other):
-        return _pc().call_function('power_checked', [self, other])
+        return _binop_or_notimplemented('power_checked', self, other)
 
     def __sub__(self, object other):
-        return _pc().call_function('subtract_checked', [self, other])
+        return _binop_or_notimplemented('subtract_checked', self, other)
 
     def __and__(self, object other):
-        return _pc().call_function('bit_wise_and', [self, other])
+        return _binop_or_notimplemented('bit_wise_and', self, other)
 
     def __or__(self, object other):
-        return _pc().call_function('bit_wise_or', [self, other])
+        return _binop_or_notimplemented('bit_wise_or', self, other)
 
     def __xor__(self, object other):
-        return _pc().call_function('bit_wise_xor', [self, other])
+        return _binop_or_notimplemented('bit_wise_xor', self, other)
 
     def __lshift__(self, object other):
-        return _pc().call_function('shift_left_checked', [self, other])
+        return _binop_or_notimplemented('shift_left_checked', self, other)
 
     def __rshift__(self, object other):
-        return _pc().call_function('shift_right_checked', [self, other])
+        return _binop_or_notimplemented('shift_right_checked', self, other)
+
+
+def _binop_or_notimplemented(op_name, left, right):
+    # Scalar arithmetic dunders must return NotImplemented for argument types
+    # pyarrow.compute does not recognize so Python's reflected-operator
+    # fallback (__radd__ etc.) kicks in on user-defined classes.
+    # See GH-49826.
+    try:
+        return _pc().call_function(op_name, [left, right])
+    except TypeError:
+        return NotImplemented
 
 
 _NULL = NA = None
