@@ -50,31 +50,32 @@ TYPED_TEST(TablesTest, SQLTablesTestInputData) {
   SQLWCHAR table_type[] = L"";
 
   // All values populated
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, catalog_name, sizeof(catalog_name), schema_name,
-                                   sizeof(schema_name), table_name, sizeof(table_name),
-                                   table_type, sizeof(table_type)));
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, catalog_name, sizeof(catalog_name),
+                                   schema_name, sizeof(schema_name), table_name,
+                                   sizeof(table_name), table_type, sizeof(table_type)));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   // Sizes are zeros
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, catalog_name, 0, schema_name, 0, table_name, 0,
-                                   table_type, 0));
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, catalog_name, 0, schema_name, 0,
+                                   table_name, 0, table_type, 0));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   // Names are nulls
-  EXPECT_EQ(SQL_SUCCESS,
-            SQLTables(stmt, nullptr, sizeof(catalog_name), nullptr, sizeof(schema_name),
-                      nullptr, sizeof(table_name), nullptr, sizeof(table_type)));
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, sizeof(catalog_name), nullptr,
+                                   sizeof(schema_name), nullptr, sizeof(table_name),
+                                   nullptr, sizeof(table_type)));
 
-  ValidateFetch(stmt, SQL_SUCCESS);
+  ValidateFetch(this->stmt, SQL_SUCCESS);
   // Close statement cursor to avoid leaving in an invalid state
-  SQLFreeStmt(stmt, SQL_CLOSE);
+  SQLFreeStmt(this->stmt, SQL_CLOSE);
 
   // Names are nulls and sizes are zeros
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLTables(this->stmt, nullptr, 0, nullptr, 0, nullptr, 0, nullptr, 0));
 
-  ValidateFetch(stmt, SQL_SUCCESS);
+  ValidateFetch(this->stmt, SQL_SUCCESS);
 }
 
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForAllCatalogs) {
@@ -83,18 +84,18 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForAllCatalogs) {
   std::wstring expected_catalog_name = std::wstring(L"main");
 
   // Get Catalog metadata
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, SQL_ALL_CATALOGS_W, SQL_NTS, empty, SQL_NTS,
-                                   empty, SQL_NTS, empty, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, SQL_ALL_CATALOGS_W, SQL_NTS, empty,
+                                   SQL_NTS, empty, SQL_NTS, empty, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_SUCCESS);
+  ValidateFetch(this->stmt, SQL_SUCCESS);
 
-  CheckStringColumnW(stmt, 1, expected_catalog_name);
-  CheckNullColumnW(stmt, 2);
-  CheckNullColumnW(stmt, 3);
-  CheckNullColumnW(stmt, 4);
-  CheckNullColumnW(stmt, 5);
+  CheckStringColumnW(this->stmt, 1, expected_catalog_name);
+  CheckNullColumnW(this->stmt, 2);
+  CheckNullColumnW(this->stmt, 3);
+  CheckNullColumnW(this->stmt, 4);
+  CheckNullColumnW(this->stmt, 5);
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForNamedCatalog) {
@@ -110,21 +111,21 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForNamedCatalog) {
 
   // Get named Catalog metadata - Mock server returns the system table sqlite_sequence as
   // type "table"
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, catalog_name, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, nullptr, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, catalog_name, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(table_names) / sizeof(*table_names); ++i) {
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
-    CheckStringColumnW(stmt, 1, expected_catalog_name);
+    CheckStringColumnW(this->stmt, 1, expected_catalog_name);
     // Mock server does not support table schema
-    CheckNullColumnW(stmt, 2);
-    CheckStringColumnW(stmt, 3, table_names[i]);
-    CheckStringColumnW(stmt, 4, expected_table_type);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 2);
+    CheckStringColumnW(this->stmt, 3, table_names[i]);
+    CheckStringColumnW(this->stmt, 4, expected_table_type);
+    CheckNullColumnW(this->stmt, 5);
   }
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   DropTestTable();
 }
@@ -133,10 +134,10 @@ TEST_F(TablesMockTest, SQLTablesTestGetSchemaHasNoData) {
   SQLWCHAR SQL_ALL_SCHEMAS_W[] = L"%";
 
   // Validate that no schema data is available for Mock server
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, SQL_ALL_SCHEMAS_W, SQL_NTS,
-                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, SQL_ALL_SCHEMAS_W,
+                                   SQL_NTS, nullptr, SQL_NTS, nullptr, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TEST_F(TablesRemoteTest, SQLTablesTestGetMetadataForAllSchemas) {
@@ -148,19 +149,19 @@ TEST_F(TablesRemoteTest, SQLTablesTestGetMetadataForAllSchemas) {
 
   // Return is unordered and contains user specific schemas, so collect schema names for
   // comparison with a known list
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, empty, SQL_NTS, SQL_ALL_SCHEMAS_W, SQL_NTS,
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, empty, SQL_NTS, SQL_ALL_SCHEMAS_W, SQL_NTS,
                                    empty, SQL_NTS, empty, SQL_NTS));
 
   while (true) {
-    SQLRETURN ret = SQLFetch(stmt);
+    SQLRETURN ret = SQLFetch(this->stmt);
     if (ret == SQL_NO_DATA) break;
     ASSERT_EQ(SQL_SUCCESS, ret);
 
-    CheckNullColumnW(stmt, 1);
-    std::wstring schema = GetStringColumnW(stmt, 2);
-    CheckNullColumnW(stmt, 3);
-    CheckNullColumnW(stmt, 4);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 1);
+    std::wstring schema = GetStringColumnW(this->stmt, 2);
+    CheckNullColumnW(this->stmt, 3);
+    CheckNullColumnW(this->stmt, 4);
+    CheckNullColumnW(this->stmt, 5);
 
     // Skip user-specific schemas like "@UserName"
     if (!schema.empty() && schema[0] != L'@') {
@@ -209,11 +210,11 @@ TEST_F(TablesRemoteTest, SQLTablesTestFilterByAllSchema) {
   std::wstring expected_system_table_type = std::wstring(L"SYSTEM_TABLE");
   std::wstring expected_user_table_type = std::wstring(L"TABLE");
 
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, SQL_ALL_SCHEMAS_W, SQL_NTS,
-                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, SQL_ALL_SCHEMAS_W,
+                                   SQL_NTS, nullptr, SQL_NTS, nullptr, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(schema_names) / sizeof(*schema_names); ++i) {
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
     const std::wstring& expected_table_type =
         (std::wstring(schema_names[i]).rfind(L"sys", 0) == 0 ||
@@ -221,14 +222,14 @@ TEST_F(TablesRemoteTest, SQLTablesTestFilterByAllSchema) {
             ? expected_system_table_type
             : expected_user_table_type;
 
-    CheckNullColumnW(stmt, 1);
-    CheckStringColumnW(stmt, 2, schema_names[i]);
+    CheckNullColumnW(this->stmt, 1);
+    CheckStringColumnW(this->stmt, 2, schema_names[i]);
     // Ignore table name
-    CheckStringColumnW(stmt, 4, expected_table_type);
-    CheckNullColumnW(stmt, 5);
+    CheckStringColumnW(this->stmt, 4, expected_table_type);
+    CheckNullColumnW(this->stmt, 5);
   }
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TEST_F(TablesRemoteTest, SQLTablesGetMetadataForNamedSchema) {
@@ -238,18 +239,18 @@ TEST_F(TablesRemoteTest, SQLTablesGetMetadataForNamedSchema) {
   std::wstring expected_table_name = std::wstring(L"ODBCTest");
   std::wstring expected_table_type = std::wstring(L"TABLE");
 
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, schema_name, SQL_NTS, nullptr,
-                                   SQL_NTS, nullptr, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, schema_name, SQL_NTS,
+                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_SUCCESS);
+  ValidateFetch(this->stmt, SQL_SUCCESS);
 
-  CheckNullColumnW(stmt, 1);
-  CheckStringColumnW(stmt, 2, expected_schema_name);
+  CheckNullColumnW(this->stmt, 1);
+  CheckStringColumnW(this->stmt, 2, expected_schema_name);
   // Ignore table name
-  CheckStringColumnW(stmt, 4, expected_table_type);
-  CheckNullColumnW(stmt, 5);
+  CheckStringColumnW(this->stmt, 4, expected_table_type);
+  CheckNullColumnW(this->stmt, 5);
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TEST_F(TablesMockTest, SQLTablesTestGetMetadataForAllTables) {
@@ -265,21 +266,21 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForAllTables) {
 
   // Get all Table metadata - Mock server returns the system table sqlite_sequence as type
   // "table"
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                    SQL_ALL_TABLES_W, SQL_NTS, nullptr, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(table_names) / sizeof(*table_names); ++i) {
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
-    CheckStringColumnW(stmt, 1, expected_catalog_name);
+    CheckStringColumnW(this->stmt, 1, expected_catalog_name);
     // Mock server does not support table schema
-    CheckNullColumnW(stmt, 2);
-    CheckStringColumnW(stmt, 3, table_names[i]);
-    CheckStringColumnW(stmt, 4, expected_table_type);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 2);
+    CheckStringColumnW(this->stmt, 3, table_names[i]);
+    CheckStringColumnW(this->stmt, 4, expected_table_type);
+    CheckNullColumnW(this->stmt, 5);
   }
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   DropTestTable();
 }
@@ -300,19 +301,19 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForTableName) {
 
   for (size_t i = 0; i < sizeof(table_names) / sizeof(*table_names); ++i) {
     //  Get specific Table metadata
-    ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+    ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                      table_names[i], SQL_NTS, nullptr, SQL_NTS));
 
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
-    CheckStringColumnW(stmt, 1, expected_catalog_name);
+    CheckStringColumnW(this->stmt, 1, expected_catalog_name);
     // Mock server does not support table schema
-    CheckNullColumnW(stmt, 2);
-    CheckStringColumnW(stmt, 3, table_names[i]);
-    CheckStringColumnW(stmt, 4, expected_table_type);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 2);
+    CheckStringColumnW(this->stmt, 3, table_names[i]);
+    CheckStringColumnW(this->stmt, 4, expected_table_type);
+    CheckNullColumnW(this->stmt, 5);
 
-    ValidateFetch(stmt, SQL_NO_DATA);
+    ValidateFetch(this->stmt, SQL_NO_DATA);
   }
 
   DropTestTable();
@@ -327,19 +328,19 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForUnicodeTableByTableName) {
   std::wstring expected_table_type = std::wstring(L"table");
 
   //  Get specific Table metadata
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                    unicodetable_name, SQL_NTS, nullptr, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_SUCCESS);
+  ValidateFetch(this->stmt, SQL_SUCCESS);
 
-  CheckStringColumnW(stmt, 1, expected_catalog_name);
+  CheckStringColumnW(this->stmt, 1, expected_catalog_name);
   // Mock server does not support table schema
-  CheckNullColumnW(stmt, 2);
-  CheckStringColumnW(stmt, 3, expected_table_name);
-  CheckStringColumnW(stmt, 4, expected_table_type);
-  CheckNullColumnW(stmt, 5);
+  CheckNullColumnW(this->stmt, 2);
+  CheckStringColumnW(this->stmt, 3, expected_table_name);
+  CheckStringColumnW(this->stmt, 4, expected_table_type);
+  CheckNullColumnW(this->stmt, 5);
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   DropUnicodeTable();
 }
@@ -350,10 +351,10 @@ TEST_F(TablesMockTest, SQLTablesTestGetMetadataForInvalidTableNameNoData) {
   SQLWCHAR invalid_table_name[] = L"NonExistenttable_name";
 
   //  Try to get metadata for a non-existent table name
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
                                    invalid_table_name, SQL_NTS, nullptr, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   DropTestTable();
 }
@@ -374,37 +375,39 @@ TEST_F(TablesMockTest, SQLTablesGetMetadataForTableType) {
   std::wstring expected_table_name = std::wstring(L"TestTable");
   std::wstring expected_table_type = std::wstring(table_type_table_lowercase);
 
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, table_type_table_uppercase, SQL_NTS));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                      table_type_table_uppercase, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, table_type_view, SQL_NTS));
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, table_type_view, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, table_type_table_view, SQL_NTS));
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, table_type_table_view, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   // Returns user table as well as system tables, even though only type table requested
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, table_type_table_lowercase, SQL_NTS));
+  EXPECT_EQ(SQL_SUCCESS,
+            SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                      table_type_table_lowercase, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(table_names) / sizeof(*table_names); ++i) {
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
-    CheckStringColumnW(stmt, 1, expected_catalog_name);
+    CheckStringColumnW(this->stmt, 1, expected_catalog_name);
     // Mock server does not support table schema
-    CheckNullColumnW(stmt, 2);
-    CheckStringColumnW(stmt, 3, table_names[i]);
-    CheckStringColumnW(stmt, 4, expected_table_type);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 2);
+    CheckStringColumnW(this->stmt, 3, table_names[i]);
+    CheckStringColumnW(this->stmt, 4, expected_table_type);
+    CheckNullColumnW(this->stmt, 5);
   }
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
   DropTestTable();
 }
@@ -423,18 +426,18 @@ TEST_F(TablesRemoteTest, SQLTablesGetMetadataForTableTypeTable) {
   std::wstring expected_table_type = std::wstring(L"TABLE");
 
   for (size_t i = 0; i < sizeof(type_list) / sizeof(*type_list); ++i) {
-    ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                     SQL_NTS, type_list[i], SQL_NTS));
+    ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                     nullptr, SQL_NTS, type_list[i], SQL_NTS));
 
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
-    CheckNullColumnW(stmt, 1);
-    CheckStringColumnW(stmt, 2, expected_schema_name);
-    CheckStringColumnW(stmt, 3, expected_table_name);
-    CheckStringColumnW(stmt, 4, expected_table_type);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 1);
+    CheckStringColumnW(this->stmt, 2, expected_schema_name);
+    CheckStringColumnW(this->stmt, 3, expected_table_name);
+    CheckStringColumnW(this->stmt, 4, expected_table_type);
+    CheckNullColumnW(this->stmt, 5);
 
-    ValidateFetch(stmt, SQL_NO_DATA);
+    ValidateFetch(this->stmt, SQL_NO_DATA);
   }
 }
 
@@ -442,15 +445,15 @@ TEST_F(TablesRemoteTest, SQLTablesGetMetadataForTableTypeViewHasNoData) {
   SQLWCHAR empty[] = L"";
   SQLWCHAR type_view[] = L"VIEW";
 
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, empty,
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, empty,
                                    SQL_NTS, type_view, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 
-  EXPECT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, type_view, SQL_NTS));
+  EXPECT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, type_view, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TEST_F(TablesMockTest, SQLTablesGetSupportedTableTypes) {
@@ -459,18 +462,18 @@ TEST_F(TablesMockTest, SQLTablesGetSupportedTableTypes) {
   std::wstring expected_table_type = std::wstring(L"table");
 
   // Mock server returns lower case for supported type of "table"
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, empty, SQL_NTS, empty, SQL_NTS, empty, SQL_NTS,
-                                   SQL_ALL_TABLE_TYPES_W, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, empty, SQL_NTS, empty, SQL_NTS, empty,
+                                   SQL_NTS, SQL_ALL_TABLE_TYPES_W, SQL_NTS));
 
-  ValidateFetch(stmt, SQL_SUCCESS);
+  ValidateFetch(this->stmt, SQL_SUCCESS);
 
-  CheckNullColumnW(stmt, 1);
-  CheckNullColumnW(stmt, 2);
-  CheckNullColumnW(stmt, 3);
-  CheckStringColumnW(stmt, 4, expected_table_type);
-  CheckNullColumnW(stmt, 5);
+  CheckNullColumnW(this->stmt, 1);
+  CheckNullColumnW(this->stmt, 2);
+  CheckNullColumnW(this->stmt, 3);
+  CheckStringColumnW(this->stmt, 4, expected_table_type);
+  CheckNullColumnW(this->stmt, 5);
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TEST_F(TablesRemoteTest, SQLTablesGetSupportedTableTypes) {
@@ -480,20 +483,20 @@ TEST_F(TablesRemoteTest, SQLTablesGetSupportedTableTypes) {
                                   static_cast<const SQLWCHAR*>(L"SYSTEM_TABLE"),
                                   static_cast<const SQLWCHAR*>(L"VIEW")};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, empty, SQL_NTS, empty, SQL_NTS, empty, SQL_NTS,
-                                   SQL_ALL_TABLE_TYPES_W, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, empty, SQL_NTS, empty, SQL_NTS, empty,
+                                   SQL_NTS, SQL_ALL_TABLE_TYPES_W, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(type_lists) / sizeof(*type_lists); ++i) {
-    ValidateFetch(stmt, SQL_SUCCESS);
+    ValidateFetch(this->stmt, SQL_SUCCESS);
 
-    CheckNullColumnW(stmt, 1);
-    CheckNullColumnW(stmt, 2);
-    CheckNullColumnW(stmt, 3);
-    CheckStringColumnW(stmt, 4, type_lists[i]);
-    CheckNullColumnW(stmt, 5);
+    CheckNullColumnW(this->stmt, 1);
+    CheckNullColumnW(this->stmt, 2);
+    CheckNullColumnW(this->stmt, 3);
+    CheckStringColumnW(this->stmt, 4, type_lists[i]);
+    CheckNullColumnW(this->stmt, 5);
   }
 
-  ValidateFetch(stmt, SQL_NO_DATA);
+  ValidateFetch(this->stmt, SQL_NO_DATA);
 }
 
 TYPED_TEST(TablesTest, SQLTablesGetMetadataBySQLDescribeCol) {
@@ -516,15 +519,15 @@ TYPED_TEST(TablesTest, SQLTablesGetMetadataBySQLDescribeCol) {
                                      SQL_WVARCHAR, SQL_WVARCHAR};
   SQLULEN column_sizes[] = {1024, 1024, 1024, 1024, 1024};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, nullptr, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(column_names) / sizeof(*column_names); ++i) {
     column_index = i + 1;
 
-    ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(stmt, column_index, column_name, buf_char_len,
-                                          &name_length, &column_data_type, &column_size,
-                                          &decimal_digits, &nullable));
+    ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, column_index, column_name,
+                                          buf_char_len, &name_length, &column_data_type,
+                                          &column_size, &decimal_digits, &nullable));
 
     EXPECT_EQ(wcslen(column_names[i]), name_length);
 
@@ -563,15 +566,15 @@ TYPED_TEST(TablesOdbcV2Test, SQLTablesGetMetadataBySQLDescribeColODBCVer2) {
                                      SQL_WVARCHAR, SQL_WVARCHAR};
   SQLULEN column_sizes[] = {1024, 1024, 1024, 1024, 1024};
 
-  ASSERT_EQ(SQL_SUCCESS, SQLTables(stmt, nullptr, SQL_NTS, nullptr, SQL_NTS, nullptr,
-                                   SQL_NTS, nullptr, SQL_NTS));
+  ASSERT_EQ(SQL_SUCCESS, SQLTables(this->stmt, nullptr, SQL_NTS, nullptr, SQL_NTS,
+                                   nullptr, SQL_NTS, nullptr, SQL_NTS));
 
   for (size_t i = 0; i < sizeof(column_names) / sizeof(*column_names); ++i) {
     column_index = i + 1;
 
-    ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(stmt, column_index, column_name, buf_char_len,
-                                          &name_length, &column_data_type, &column_size,
-                                          &decimal_digits, &nullable));
+    ASSERT_EQ(SQL_SUCCESS, SQLDescribeCol(this->stmt, column_index, column_name,
+                                          buf_char_len, &name_length, &column_data_type,
+                                          &column_size, &decimal_digits, &nullable));
 
     EXPECT_EQ(wcslen(column_names[i]), name_length);
 
