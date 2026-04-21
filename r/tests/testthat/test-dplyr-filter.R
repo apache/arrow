@@ -294,7 +294,7 @@ test_that("Filtering on a column that doesn't exist errors correctly", {
   expect_warning(
     expect_error(
       tbl |> record_batch() |> filter(not_a_col == 42) |> collect(),
-      class = "validation_error"
+      "object 'not_a_col' not found"
     ),
     NA
   )
