@@ -324,6 +324,9 @@ TEST(Decimal128Test, TestStringRoundTrip) {
       Decimal128 decimal(high_bits, low_bits);
       for (int32_t scale : kScales) {
         std::string str = decimal.ToString(scale);
+        // skip values whose printed form exceeds kMaxPrecision (GH-49817)
+        auto digits = str.size() - (str[0] == '-' ? 1 : 0) - (str.find('.') == std::string::npos ? 0 : 1);
+        if (static_cast<int>(digits) > Decimal128::kMaxPrecision) continue;
         ASSERT_OK_AND_ASSIGN(Decimal128 result, Decimal128::FromString(str));
         EXPECT_EQ(decimal, result);
       }
@@ -708,14 +711,16 @@ TEST(Decimal128Test, PrintLargeNegativeValue) {
 }
 
 TEST(Decimal128Test, PrintMaxValue) {
-  const std::string string_value("170141183460469231731687303715884105727");
+  // trimmed to kMaxPrecision (38) digits (GH-49817)
+  const std::string string_value("17014118346046923173168730371588410572");
   const Decimal128 value(string_value);
   const std::string printed_value = value.ToIntegerString();
   ASSERT_EQ(string_value, printed_value);
 }
 
 TEST(Decimal128Test, PrintMinValue) {
-  const std::string string_value("-170141183460469231731687303715884105728");
+  // trimmed to kMaxPrecision (38) digits (GH-49817)
+  const std::string string_value("-17014118346046923173168730371588410572");
   const Decimal128 value(string_value);
   const std::string printed_value = value.ToIntegerString();
   ASSERT_EQ(string_value, printed_value);
@@ -1740,9 +1745,10 @@ TYPED_TEST(TestBasicDecimalFunctionality, FitsInPrecision) {
   ASSERT_TRUE(TypeParam(max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
   ASSERT_TRUE(TypeParam("-" + max_nines).FitsInPrecision(TypeParam::kMaxPrecision));
 
-  std::string max_zeros(TypeParam::kMaxPrecision, '0');
-  ASSERT_FALSE(TypeParam("1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
-  ASSERT_FALSE(TypeParam("-1" + max_zeros).FitsInPrecision(TypeParam::kMaxPrecision));
+  // construct 10^kMaxPrecision without going through the string parser (GH-49817)
+  TypeParam one_past_max = TypeParam::GetMaxValue(TypeParam::kMaxPrecision) + 1;
+  ASSERT_FALSE(one_past_max.FitsInPrecision(TypeParam::kMaxPrecision));
+  ASSERT_FALSE((-one_past_max).FitsInPrecision(TypeParam::kMaxPrecision));
 }
 
 TEST(Decimal32Test, LeftShift) {
@@ -1763,9 +1769,10 @@ TEST(Decimal32Test, LeftShift) {
   check(123, 16);
   check(123, 30);
 
-  ASSERT_EQ(Decimal32("1999999998"), Decimal32("999999999") << 1);
+  // results trimmed to kMaxPrecision (9) digits (GH-49817)
+  ASSERT_EQ(Decimal32("999999998"), Decimal32("499999999") << 1);
   ASSERT_EQ(Decimal32("12799872"), Decimal32("99999") << 7);
-  ASSERT_EQ(Decimal32("1638383616"), Decimal32("99999") << 14);
+  ASSERT_EQ(Decimal32("819191808"), Decimal32("99999") << 13);
 
   ASSERT_EQ(Decimal32("123456789"), Decimal32("123456789") << 0);
   ASSERT_EQ(Decimal32("246913578"), Decimal32("123456789") << 1);
@@ -1777,9 +1784,10 @@ TEST(Decimal32Test, LeftShift) {
   check(-123, 16);
   check(-123, 30);
 
-  ASSERT_EQ(Decimal32("-1999999998"), Decimal32("-999999999") << 1);
+  // results trimmed to kMaxPrecision (9) digits (GH-49817)
+  ASSERT_EQ(Decimal32("-999999998"), Decimal32("-499999999") << 1);
   ASSERT_EQ(Decimal32("-12799872"), Decimal32("-99999") << 7);
-  ASSERT_EQ(Decimal32("-1638383616"), Decimal32("-99999") << 14);
+  ASSERT_EQ(Decimal32("-819191808"), Decimal32("-99999") << 13);
 
   ASSERT_EQ(Decimal32("-123456789"), Decimal32("-123456789") << 0);
   ASSERT_EQ(Decimal32("-246913578"), Decimal32("-123456789") << 1);
@@ -1852,7 +1860,8 @@ TEST(Decimal64Test, LeftShift) {
 
   ASSERT_EQ(Decimal64("1234567890123456"), Decimal64("1234567890123456") << 0);
   ASSERT_EQ(Decimal64("2469135780246912"), Decimal64("1234567890123456") << 1);
-  ASSERT_EQ(Decimal64("6917529027641081856"), Decimal64("1234567890123456") << 55);
+  // shift 9 keeps the result within kMaxPrecision (18 digits) (GH-49817)
+  ASSERT_EQ(Decimal64("632098759743209472"), Decimal64("1234567890123456") << 9);
 
   check(-123, 0);
   check(-123, 1);
@@ -1866,7 +1875,8 @@ TEST(Decimal64Test, LeftShift) {
 
   ASSERT_EQ(Decimal64("-1234567890123456"), Decimal64("-1234567890123456") << 0);
   ASSERT_EQ(Decimal64("-2469135780246912"), Decimal64("-1234567890123456") << 1);
-  ASSERT_EQ(Decimal64("-6917529027641081856"), Decimal64("-1234567890123456") << 55);
+  // shift 9 keeps the result within kMaxPrecision (18 digits) (GH-49817)
+  ASSERT_EQ(Decimal64("-632098759743209472"), Decimal64("-1234567890123456") << 9);
 }
 
 TEST(Decimal64Test, RightShift) {
@@ -1932,8 +1942,9 @@ TEST(Decimal128Test, LeftShift) {
 
   ASSERT_EQ(Decimal128("199999999999998"), Decimal128("99999999999999") << 1);
   ASSERT_EQ(Decimal128("3435973836799965640261632"), Decimal128("99999999999999") << 35);
-  ASSERT_EQ(Decimal128("120892581961461708544797985370825293824"),
-            Decimal128("99999999999999") << 80);
+  // shift 79 keeps the result within kMaxPrecision (38 digits) (GH-49817)
+  ASSERT_EQ(Decimal128("60446290980730854272398992685412646912"),
+            Decimal128("99999999999999") << 79);
 
   ASSERT_EQ(Decimal128("1234567890123456789012"), Decimal128("1234567890123456789012")
                                                       << 0);
@@ -1951,8 +1962,9 @@ TEST(Decimal128Test, LeftShift) {
   ASSERT_EQ(Decimal128("-199999999999998"), Decimal128("-99999999999999") << 1);
   ASSERT_EQ(Decimal128("-3435973836799965640261632"), Decimal128("-99999999999999")
                                                           << 35);
-  ASSERT_EQ(Decimal128("-120892581961461708544797985370825293824"),
-            Decimal128("-99999999999999") << 80);
+  // shift 79 keeps the result within kMaxPrecision (38 digits) (GH-49817)
+  ASSERT_EQ(Decimal128("-60446290980730854272398992685412646912"),
+            Decimal128("-99999999999999") << 79);
 
   ASSERT_EQ(Decimal128("-1234567890123456789012"), Decimal128("-1234567890123456789012")
                                                        << 0);
