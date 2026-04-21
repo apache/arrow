@@ -1894,10 +1894,10 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInvalidDataType) {
 TYPED_TEST(TypeInfoTest, TestSQLGetTypeInfoUnsupportedDataType) {
   // Assumes mock and remote server don't support GUID data type
 
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_GUID));
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(this->stmt, SQL_GUID));
 
   // Result set is empty with valid data type that is unsupported by the server
-  ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
+  ASSERT_EQ(SQL_NO_DATA, SQLFetch(this->stmt));
 }
 
 }  // namespace arrow::flight::sql::odbc
