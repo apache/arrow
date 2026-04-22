@@ -307,6 +307,41 @@ TEST(SearchSorted, ChunkedNeedles) {
                     *right.make_array());
 }
 
+TEST(SearchSorted, ChunkedRunEndEncodedValues) {
+  auto values_type = run_end_encoded(int16(), int32());
+  ASSERT_OK_AND_ASSIGN(auto left_chunk, REEFromJSON(values_type, "[1, 1, 1]"));
+  ASSERT_OK_AND_ASSIGN(auto right_chunk, REEFromJSON(values_type, "[3, 3, 5]"));
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{left_chunk, right_chunk});
+  auto needles = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4, 5, 6]");
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 3, 3, 5, 5, 6]"),
+                    *left.make_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 3, 5, 5, 6, 6]"),
+                    *right.make_array());
+}
+
+TEST(SearchSorted, ChunkedRunEndEncodedNeedles) {
+  auto values = ArrayFromJSON(int32(), "[1, 1, 3, 5, 8]");
+  auto needles_type = run_end_encoded(int32(), int32());
+  ASSERT_OK_AND_ASSIGN(auto left_chunk, REEFromJSON(needles_type, "[0, 0, 1, 1]"));
+  ASSERT_OK_AND_ASSIGN(auto right_chunk, REEFromJSON(needles_type, "[4, 4, 9]"));
+  auto needles = std::make_shared<ChunkedArray>(ArrayVector{left_chunk, right_chunk});
+
+  ASSERT_OK_AND_ASSIGN(auto result,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 2, 2, 3, 3, 5]"),
+                    *result.make_array());
+}
+
 TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
   auto values = std::make_shared<ChunkedArray>(ArrayVector{
       ArrayFromJSON(int32(), "[]"),
