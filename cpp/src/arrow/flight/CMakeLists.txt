@@ -371,6 +371,23 @@ if(ARROW_BUILD_BENCHMARKS)
 
 endif(ARROW_BUILD_BENCHMARKS)
 
+# Workaround for issue found in GH-49585. When building in Debug mode only, the
+# linker complains about duplicate absl symbols. This seems to have started
+# after GH-48964. Any new Flight tests probably need this.
+if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  set(FLIGHT_TEST_EXES
+      arrow-flight-internals-test
+      arrow-flight-test
+      flight-test-server
+      arrow-flight-perf-server
+      arrow-flight-benchmark)
+  foreach(test_exe ${FLIGHT_TEST_EXES})
+    if(TARGET ${test_exe})
+      target_link_options(${test_exe} PRIVATE "/FORCE:MULTIPLE")
+    endif()
+  endforeach()
+endif()
+
 if(ARROW_FLIGHT_SQL)
   add_subdirectory(sql)
 
