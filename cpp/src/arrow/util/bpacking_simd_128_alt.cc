@@ -20,22 +20,23 @@
 #  define KERNEL_PLATFORM KernelSve128
 #endif
 
-#if defined(UNPACK_PLATFORM)
+#if !defined(UNPACK_PLATFORM)
+#  error "This file must be compiled with a known SIMD micro architecture"
+#endif
 
-#  include <xsimd/xsimd.hpp>
+#include <xsimd/xsimd.hpp>
 
-#  include "arrow/util/bpacking_dispatch_internal.h"
-#  include "arrow/util/bpacking_simd_internal.h"
-#  include "arrow/util/bpacking_simd_kernel_internal.h"
+#include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/bpacking_simd_internal.h"
+#include "arrow/util/bpacking_simd_kernel_internal.h"
 
 namespace arrow::internal::bpacking {
 
 template <typename UnpackedUint, int kPackedBitSize>
-using KERNEL_PLATFORM = Kernel<UnpackedUint, kPackedBitSize, xsimd::default_arch>;
+using KERNEL_PLATFORM = Kernel<UnpackedUint, kPackedBitSize, xsimd::detail::sve<128>>;
 
 template <typename Uint>
 void UNPACK_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-  static_assert(std::is_same_v<xsimd::default_arch, xsimd::detail::sve<128>>);
   return unpack_jump<KERNEL_PLATFORM>(in, out, opts);
 }
 
@@ -47,5 +48,4 @@ template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackO
 
 }  // namespace arrow::internal::bpacking
 
-#  undef UNPACK_PLATFORM
-#endif  // UNPACK_PLATFORM
+#undef UNPACK_PLATFORM

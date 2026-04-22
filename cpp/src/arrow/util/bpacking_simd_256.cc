@@ -23,12 +23,14 @@
 #  define KERNEL_PLATFORM KernelAvx2
 #endif
 
-#if defined(UNPACK_PLATFORM)
+#if !defined(UNPACK_PLATFORM)
+#  error "This file must be compiled with a known SIMD micro architecture"
+#endif
 
-#  include "arrow/util/bpacking_dispatch_internal.h"
-#  include "arrow/util/bpacking_internal.h"
-#  include "arrow/util/bpacking_simd_internal.h"
-#  include "arrow/util/bpacking_simd_kernel_internal.h"
+#include "arrow/util/bpacking_dispatch_internal.h"
+#include "arrow/util/bpacking_internal.h"
+#include "arrow/util/bpacking_simd_internal.h"
+#include "arrow/util/bpacking_simd_kernel_internal.h"
 
 namespace arrow::internal::bpacking {
 
@@ -48,5 +50,4 @@ template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackO
 
 }  // namespace arrow::internal::bpacking
 
-#  undef UNPACK_PLATFORM
-#endif  // UNPACK_PLATFORM
+#undef UNPACK_PLATFORM
