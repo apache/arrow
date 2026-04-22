@@ -42,17 +42,11 @@ int64_t current_time_ms() {
 // This file just print some information using the logging macro.
 
 void PrintLog() {
-  ARROW_LOG(DEBUG) << "This is the"
-                   << " DEBUG"
-                   << " message";
-  ARROW_LOG(INFO) << "This is the"
-                  << " INFO message";
-  ARROW_LOG(WARNING) << "This is the"
-                     << " WARNING message";
-  ARROW_LOG(ERROR) << "This is the"
-                   << " ERROR message";
-  ARROW_CHECK(true) << "This is a ARROW_CHECK"
-                    << " message but it won't show up";
+  ARROW_LOG(DEBUG) << "This is the" << " DEBUG" << " message";
+  ARROW_LOG(INFO) << "This is the" << " INFO message";
+  ARROW_LOG(WARNING) << "This is the" << " WARNING message";
+  ARROW_LOG(ERROR) << "This is the" << " ERROR message";
+  ARROW_CHECK(true) << "This is a ARROW_CHECK" << " message but it won't show up";
   // The following 2 lines should not run since it will cause program failure.
   // ARROW_LOG(FATAL) << "This is the FATAL message";
   // ARROW_CHECK(false) << "This is a ARROW_CHECK message but it won't show up";
@@ -98,6 +92,8 @@ TEST(ArrowCheck, PayloadEvaluatedOnFailure) {
 }
 
 TEST(ArrowLog, MultiThreadedLogging) {
+  // This is mostly a visual test that logging from multiple threads produces
+  // a clean output without interleaving messages (GH-49433).
   constexpr int kNumThreads = 10;
   constexpr int kNumMessges = 10;
   std::vector<std::thread> threads;
@@ -107,7 +103,7 @@ TEST(ArrowLog, MultiThreadedLogging) {
   for (int i = 0; i < kNumThreads; ++i) {
     threads.emplace_back([i]() {
       for (int j = 0; j < kNumMessges; ++j) {
-        ARROW_LOG(INFO) << "Thread" << i << " message " << j
+        ARROW_LOG(INFO) << "Thread " << i << " message " << j
                         << " - testing thread safety.";
       }
     });
