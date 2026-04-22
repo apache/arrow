@@ -110,6 +110,8 @@ class DynamicDispatch {
         return cpu_info->IsSupported(CpuInfo::AVX512);
       case DispatchLevel::NEON:
         return cpu_info->IsSupported(CpuInfo::ASIMD);
+      case DispatchLevel::SVE128:
+        return cpu_info->IsSupported(CpuInfo::SVE128);
       case DispatchLevel::SVE256:
         return cpu_info->IsSupported(CpuInfo::SVE256);
       case DispatchLevel::SVE512:

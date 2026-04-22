@@ -46,6 +46,9 @@ struct UnpackDynamicFunction {
     // ARM implementations
 #elif defined(ARROW_HAVE_NEON)
         Implementation{DispatchLevel::NONE, &bpacking::unpack_neon<Uint>},
+#  if defined(ARROW_HAVE_RUNTIME_SVE128)
+        Implementation{DispatchLevel::SVE128, &bpacking::unpack_sve128<Uint>},
+#  endif
 #  if defined(ARROW_HAVE_RUNTIME_SVE256)
         Implementation{DispatchLevel::SVE256, &bpacking::unpack_sve256<Uint>},
 #  endif
