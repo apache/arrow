@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
+
 #include "parquet/level_comparison.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -24,8 +26,6 @@
 #define PARQUET_IMPL_NAMESPACE standard
 #include "parquet/level_comparison_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
-
-#include <vector>
 
 #include "arrow/util/dispatch_internal.h"
 
@@ -40,12 +40,13 @@ using ::arrow::internal::DynamicDispatch;
 
 struct GreaterThanDynamicFunction {
   using FunctionType = decltype(&GreaterThanBitmap);
+  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
-  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {{DispatchLevel::NONE, standard::GreaterThanBitmapImpl}
+  static constexpr auto implementations() {
+    return std::array{
+        Implementation{DispatchLevel::NONE, standard::GreaterThanBitmapImpl},
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-            ,
-            {DispatchLevel::AVX2, GreaterThanBitmapAvx2}
+        Implementation{DispatchLevel::AVX2, GreaterThanBitmapAvx2},
 #endif
     };
   }
@@ -53,12 +54,13 @@ struct GreaterThanDynamicFunction {
 
 struct MinMaxDynamicFunction {
   using FunctionType = decltype(&FindMinMax);
+  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
-  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {{DispatchLevel::NONE, standard::FindMinMaxImpl}
+  static constexpr auto implementations() {
+    return std::array{
+        Implementation{DispatchLevel::NONE, standard::FindMinMaxImpl},
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-            ,
-            {DispatchLevel::AVX2, FindMinMaxAvx2}
+        Implementation{DispatchLevel::AVX2, FindMinMaxAvx2},
 #endif
     };
   }

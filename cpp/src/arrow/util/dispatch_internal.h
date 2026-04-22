@@ -18,7 +18,6 @@
 #pragma once
 
 #include <utility>
-#include <vector>
 
 #include "arrow/status.h"
 #include "arrow/util/cpu_info.h"
