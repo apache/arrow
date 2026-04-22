@@ -55,10 +55,19 @@ class AlpConstants {
   using PositionType = uint16_t;
 
   /// Threshold for early exit during sampling when compression quality is poor.
+  /// Used in FindBestExponentAndFactor to stop early if this many consecutive
+  /// combinations yield worse compression than the current best.
   static constexpr uint8_t kSamplingEarlyExitThreshold = 4;
 
   /// Maximum number of exponent-factor combinations to try during compression.
+  /// Must be > kSamplingEarlyExitThreshold for the early-exit logic in
+  /// FindBestExponentAndFactor to be reachable. These are intentionally
+  /// independent constants: kMaxCombinations bounds preset storage size, while
+  /// kSamplingEarlyExitThreshold bounds wasted CPU during per-vector selection.
   static constexpr uint8_t kMaxCombinations = 5;
+  static_assert(kMaxCombinations > kSamplingEarlyExitThreshold,
+                "kMaxCombinations must exceed kSamplingEarlyExitThreshold for "
+                "early-exit to be reachable");
 
   /// Loop unroll factor for tight loops in ALP compression/decompression.
   /// ALP has multiple tight loops that profit from unrolling. Setting this

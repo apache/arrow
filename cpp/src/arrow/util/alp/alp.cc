@@ -647,6 +647,8 @@ AlpEncodingPreset AlpCompression<T>::CreateEncodingPreset(
             CompareAlpCombinations);
 
   std::vector<AlpExponentAndFactor> combinations;
+  combinations.reserve(
+      std::min(kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size())));
   // Save k' best combinations.
   for (uint64_t i = 0;
        i < std::min(kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size()));

@@ -533,8 +533,8 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
 
   // Decode zero elements
   std::vector<TypeParam> output;
-  AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), 0,
-                                                    buffer.data(), comp_size);
+  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), 0,
+                                                              buffer.data(), comp_size));
 
   // Both should be empty
   EXPECT_EQ(input.size(), output.size());
@@ -995,8 +995,8 @@ class AlpWrapperTest : public ::testing::Test {
 
     // Decode
     std::vector<T> output(input.size());
-    AlpWrapper<T>::template Decode<T>(output.data(), input.size(),
-                                      comp_buffer.data(), comp_size);
+    ASSERT_OK(AlpWrapper<T>::template Decode<T>(output.data(), input.size(),
+                                               comp_buffer.data(), comp_size));
 
     // Verify
     EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(T)),
@@ -1083,8 +1083,8 @@ TYPED_TEST(AlpWrapperTest, WideningDecode) {
 
     // Decode as double
     std::vector<double> output(input.size());
-    AlpWrapper<float>::template Decode<double>(output.data(), input.size(),
-                                               comp_buffer.data(), comp_size);
+    ASSERT_OK(AlpWrapper<float>::template Decode<double>(output.data(), input.size(),
+                                                        comp_buffer.data(), comp_size));
 
     // Verify values match (as double)
     for (size_t i = 0; i < input.size(); ++i) {
@@ -1225,8 +1225,8 @@ TYPED_TEST(AlpWrapperTest, EncodeWithPreset) {
 
   // Verify the preset-based encoding can be decoded correctly
   std::vector<TypeParam> output(input.size());
-  AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), input.size(),
-                                                    comp_buffer2.data(), comp_size2);
+  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+      output.data(), input.size(), comp_buffer2.data(), comp_size2));
 
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)), 0);
 }
@@ -1267,10 +1267,10 @@ TYPED_TEST(AlpWrapperTest, PresetReuseAcrossBatches) {
 
   // Decode and verify both batches
   std::vector<TypeParam> output1(kBatchSize), output2(kBatchSize);
-  AlpWrapper<TypeParam>::template Decode<TypeParam>(output1.data(), kBatchSize,
-                                                    comp1.data(), comp_size1);
-  AlpWrapper<TypeParam>::template Decode<TypeParam>(output2.data(), kBatchSize,
-                                                    comp2.data(), comp_size2);
+  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+      output1.data(), kBatchSize, comp1.data(), comp_size1));
+  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+      output2.data(), kBatchSize, comp2.data(), comp_size2));
 
   EXPECT_EQ(std::memcmp(output1.data(), batch1.data(), kBatchSize * sizeof(TypeParam)), 0);
   EXPECT_EQ(std::memcmp(output2.data(), batch2.data(), kBatchSize * sizeof(TypeParam)), 0);
@@ -1389,8 +1389,8 @@ TYPED_TEST(AlpWrapperTest, EmptyInput) {
 
   // Decode 0 elements
   std::vector<TypeParam> output;
-  AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), 0,
-                                                     comp_buffer.data(), comp_size);
+  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+      output.data(), 0, comp_buffer.data(), comp_size));
   // No crash = success
 }
 
@@ -1398,19 +1398,15 @@ TYPED_TEST(AlpWrapperTest, EmptyInput) {
 // Corrupted Data Handling Tests
 // ============================================================================
 
-// Note: Arrow's ARROW_CHECK macro aborts on failure, not throws.
-// These tests use EXPECT_DEATH_IF_SUPPORTED where applicable.
+// Decode returns Status for invalid/corrupted compressed data.
 
-#if GTEST_HAS_DEATH_TEST
 TEST(AlpRobustnessTest, TruncatedHeader) {
   // Test with buffer too small for header
   std::vector<char> tiny_buffer(5);  // Less than header size (7 bytes)
 
   std::vector<double> output(100);
-  // Should abort due to ARROW_CHECK
-  EXPECT_DEATH_IF_SUPPORTED(
-      AlpWrapper<double>::Decode(output.data(), 100, tiny_buffer.data(), tiny_buffer.size()),
-      "");
+  ASSERT_NOT_OK(
+      AlpWrapper<double>::Decode(output.data(), 100, tiny_buffer.data(), tiny_buffer.size()));
 }
 
 TEST(AlpRobustnessTest, TruncatedData) {
@@ -1427,15 +1423,15 @@ TEST(AlpRobustnessTest, TruncatedData) {
   AlpWrapper<double>::Encode(input.data(), input.size() * sizeof(double),
                              buffer.data(), &comp_size);
 
-  // The truncated data case doesn't necessarily fail with a check in the current
-  // implementation. Instead, let's verify that valid data works properly.
+  // Verify that valid data decodes successfully.
   std::vector<double> output(input.size());
-  AlpWrapper<double>::Decode(output.data(), input.size(), buffer.data(), comp_size);
+  ASSERT_OK(AlpWrapper<double>::Decode(output.data(), input.size(), buffer.data(), comp_size));
 
   // Verify successful decode
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(double)), 0);
 }
 
+#if GTEST_HAS_DEATH_TEST
 TEST(AlpRobustnessTest, MetadataCacheOutOfBounds) {
   // Test that AlpMetadataCache properly checks bounds on vector access
   // Create a cache with 2 vectors
@@ -1530,10 +1526,10 @@ TYPED_TEST(AlpEdgeCaseTest, DecompressionDeterminism) {
   std::vector<TypeParam> output2(input.size());
 
   // Decompress twice
-  AlpWrapper<TypeParam>::Decode(output1.data(), input.size(),
-                                buffer.data(), comp_size);
-  AlpWrapper<TypeParam>::Decode(output2.data(), input.size(),
-                                buffer.data(), comp_size);
+  ASSERT_OK(AlpWrapper<TypeParam>::Decode(output1.data(), input.size(),
+                                          buffer.data(), comp_size));
+  ASSERT_OK(AlpWrapper<TypeParam>::Decode(output2.data(), input.size(),
+                                          buffer.data(), comp_size));
 
   // Outputs should be identical
   EXPECT_EQ(std::memcmp(output1.data(), output2.data(),
