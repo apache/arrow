@@ -143,14 +143,21 @@ time_types = st.sampled_from([
     pa.time64('ns')
 ])
 
+fixed_offset_timezones = st.builds(
+    lambda h, m: datetime.timezone(datetime.timedelta(hours=h, minutes=m)),
+    h=st.integers(min_value=-12, max_value=14),
+    m=st.sampled_from([0, 30, 45]),
+)
+
 if tzst and zoneinfo:
-    timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
+    timezones = st.one_of(
+        st.none(), tzst.timezones(), st.timezones(), fixed_offset_timezones)
 elif tzst:
-    timezones = st.one_of(st.none(), tzst.timezones())
+    timezones = st.one_of(st.none(), tzst.timezones(), fixed_offset_timezones)
 elif zoneinfo:
-    timezones = st.one_of(st.none(), st.timezones())
+    timezones = st.one_of(st.none(), st.timezones(), fixed_offset_timezones)
 else:
-    timezones = st.none()
+    timezones = st.one_of(st.none(), fixed_offset_timezones)
 timestamp_types = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
