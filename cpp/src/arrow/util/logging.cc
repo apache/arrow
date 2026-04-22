@@ -24,6 +24,8 @@
 #endif
 #include <cstdlib>
 #include <iostream>
+#include <mutex>
+#include <sstream>
 
 #ifdef ARROW_USE_GLOG
 
@@ -67,7 +69,9 @@ class CerrLog {
 
   virtual ~CerrLog() {
     if (has_logged_) {
-      std::cerr << std::endl;
+      static std::mutex cerr_mutex;
+      std::lock_guard<std::mutex> lock(cerr_mutex);
+      std::cerr << std::move(buffer_).str() << std::endl;
     }
     if (severity_ == ArrowLogLevel::ARROW_FATAL) {
       PrintBackTrace();
@@ -77,14 +81,14 @@ class CerrLog {
 
   std::ostream& Stream() {
     has_logged_ = true;
-    return std::cerr;
+    return buffer_;
   }
 
   template <class T>
   CerrLog& operator<<(const T& t) {
     if (severity_ != ArrowLogLevel::ARROW_DEBUG) {
       has_logged_ = true;
-      std::cerr << t;
+      buffer_ << t;
     }
     return *this;
   }
@@ -92,6 +96,7 @@ class CerrLog {
  protected:
   const ArrowLogLevel severity_;
   bool has_logged_;
+  std::ostringstream buffer_;
 
   void PrintBackTrace() {
 #ifdef ARROW_WITH_BACKTRACE
