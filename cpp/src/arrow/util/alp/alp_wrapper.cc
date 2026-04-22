@@ -20,6 +20,8 @@
 #include <cmath>
 #include <optional>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/alp/alp_sampler.h"
@@ -116,11 +118,7 @@ struct AlpHeader {
   static uint8_t Log2(uint32_t value) {
     ARROW_CHECK(value > 0 && (value & (value - 1)) == 0)
         << "value_must_be_power_of_2: " << value;
-    uint8_t log = 0;
-    while ((1u << log) < value) {
-      ++log;
-    }
-    return log;
+    return static_cast<uint8_t>(__builtin_ctz(value));
   }
 
   /// \brief Calculate the number of elements for a given vector index
@@ -136,7 +134,9 @@ struct AlpHeader {
     } else if (vector_index == num_full_vectors && remainder > 0) {
       return static_cast<uint16_t>(remainder);  // Last partial vector
     }
-    return 0;  // Invalid index
+    ARROW_CHECK(false) << "alp_invalid_vector_index: " << vector_index
+                       << " (num_vectors=" << GetNumVectors() << ")";
+    return 0;  // Unreachable, but silences compiler warning
   }
 
   /// \brief Get the AlpMode enum from the stored uint8_t
@@ -163,9 +163,12 @@ struct AlpWrapper<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
 // AlpWrapper implementation
 
 template <typename T>
-typename AlpWrapper<T>::AlpHeader AlpWrapper<T>::LoadHeader(
-    const char* comp, size_t comp_size) {
-  ARROW_CHECK(comp_size >= AlpHeader::kSize) << "alp_loadHeader_compSize_too_small";
+auto AlpWrapper<T>::LoadHeader(const char* comp, size_t comp_size)
+    -> Result<AlpHeader> {
+  if (comp_size < AlpHeader::kSize) {
+    return Status::Invalid("ALP compressed buffer too small for header: ", comp_size,
+                           " < ", AlpHeader::kSize);
+  }
   AlpHeader header{};
   std::memcpy(&header.compression_mode, comp, 3);
   std::memcpy(&header.num_elements, comp + 3, sizeof(header.num_elements));
@@ -219,30 +222,37 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
 template <typename T>
 template <typename TargetType>
-void AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
-                           size_t comp_size) {
-  const AlpHeader header = LoadHeader(comp, comp_size);
+Status AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
+                             size_t comp_size) {
+  ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(comp, comp_size));
   const uint32_t vector_size = header.GetVectorSize();
-  ARROW_CHECK(vector_size == AlpConstants::kAlpVectorSize)
-      << "unsupported_vector_size: " << vector_size;
+  if (vector_size != AlpConstants::kAlpVectorSize) {
+    return Status::Invalid("Unsupported ALP vector_size: ", vector_size,
+                           " (only ", AlpConstants::kAlpVectorSize, " is supported)");
+  }
 
   const char* compression_body = comp + AlpHeader::kSize;
   const uint64_t compression_body_size = comp_size - AlpHeader::kSize;
 
-  ARROW_CHECK(header.GetCompressionMode() == AlpMode::kAlp)
-      << "alp_decode_unsupported_mode";
+  if (header.GetCompressionMode() != AlpMode::kAlp) {
+    return Status::Invalid("Unsupported ALP compression mode: ",
+                           static_cast<int>(header.compression_mode));
+  }
 
-  DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
-                        header.GetIntegerEncoding(), vector_size,
-                        header.num_elements);
+  ARROW_RETURN_NOT_OK(
+      DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
+                            header.GetIntegerEncoding(), vector_size,
+                            header.num_elements)
+          .status());
+  return Status::OK();
 }
 
-template void AlpWrapper<float>::Decode(float* decomp, uint32_t num_elements,
-                                        const char* comp, size_t comp_size);
-template void AlpWrapper<float>::Decode(double* decomp, uint32_t num_elements,
-                                        const char* comp, size_t comp_size);
-template void AlpWrapper<double>::Decode(double* decomp, uint32_t num_elements,
-                                         const char* comp, size_t comp_size);
+template Status AlpWrapper<float>::Decode(float* decomp, uint32_t num_elements,
+                                          const char* comp, size_t comp_size);
+template Status AlpWrapper<float>::Decode(double* decomp, uint32_t num_elements,
+                                          const char* comp, size_t comp_size);
+template Status AlpWrapper<double>::Decode(double* decomp, uint32_t num_elements,
+                                           const char* comp, size_t comp_size);
 
 template <typename T>
 uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
@@ -375,7 +385,7 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                               const char* comp, size_t comp_size,
                               AlpIntegerEncoding integer_encoding,
                               uint32_t vector_size, uint32_t total_elements)
-    -> DecompressionProgress {
+    -> Result<DecompressionProgress> {
   // OFFSET-BASED LAYOUT:
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
   // [AlpInfo₀ | ForInfo₀ | Data₀]             ← Vector 0 (interleaved)
@@ -397,9 +407,10 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
 
   const uint64_t offsets_section_size =
       static_cast<uint64_t>(num_vectors) * sizeof(AlpConstants::OffsetType);
-  ARROW_CHECK(comp_size >= offsets_section_size)
-      << "alp_decode_comp_size_too_small_for_offsets: " << comp_size << " vs "
-      << offsets_section_size;
+  if (comp_size < offsets_section_size) {
+    return Status::Invalid("ALP compressed buffer too small for offsets section: ",
+                           comp_size, " < ", offsets_section_size);
+  }
 
   // Read all offsets
   std::vector<AlpConstants::OffsetType> vector_offsets(num_vectors);
@@ -423,9 +434,17 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
       this_vector_elements = 0;
     }
 
-    ARROW_CHECK(output_offset + this_vector_elements <= decomp_element_count)
-        << "alp_decode_output_too_small: " << output_offset << " vs "
-        << this_vector_elements << " vs " << decomp_element_count;
+    if (output_offset + this_vector_elements > decomp_element_count) {
+      return Status::Invalid("ALP decode output buffer too small: offset=",
+                             output_offset, " + elements=", this_vector_elements,
+                             " > capacity=", decomp_element_count);
+    }
+
+    // Validate offset is within bounds
+    if (vector_offsets[vector_index] >= comp_size) {
+      return Status::Invalid("ALP vector offset out of bounds: ",
+                             vector_offsets[vector_index], " >= ", comp_size);
+    }
 
     // Jump directly to this vector using its offset
     const char* vector_start = comp + vector_offsets[vector_index];
@@ -460,9 +479,8 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
       } break;
 
       default:
-        ARROW_CHECK(false) << "unsupported_integer_encoding: "
-                           << static_cast<int>(integer_encoding);
-        break;
+        return Status::Invalid("Unsupported ALP integer encoding: ",
+                               static_cast<int>(integer_encoding));
     }
 
     output_offset += this_vector_elements;

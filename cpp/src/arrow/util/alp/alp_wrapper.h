@@ -22,6 +22,8 @@
 #include <cstddef>
 #include <optional>
 
+#include "arrow/result.h"
+#include "arrow/status.h"
 #include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_sampler.h"
 
@@ -102,11 +104,12 @@ class AlpWrapper {
   ///            Uses uint32_t since Parquet page headers use i32 for num_values.
   /// \param[in] comp pointer to the input that is to be decoded
   /// \param[in] comp_size size of the input in bytes (from page header)
+  /// \return Status::OK on success, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static void Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
-                     size_t comp_size);
+  static Status Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
+                       size_t comp_size);
 
   /// \brief Get the maximum compressed size of an uncompressed buffer
   ///
@@ -159,21 +162,23 @@ class AlpWrapper {
   /// \param[in] vector_size the number of elements per vector (from header)
   /// \param[in] total_elements the total number of elements in the page (from header).
   ///            Uses uint32_t since Parquet page headers use i32 for num_values.
-  /// \return the decompression progress
+  /// \return the decompression progress, or an error if the compressed data is malformed
   /// \tparam TargetType the type that is used to store the output.
   ///         May not be a narrowing conversion from T.
   template <typename TargetType>
-  static DecompressionProgress DecodeAlp(TargetType* decomp, size_t decomp_element_count,
-                                         const char* comp, size_t comp_size,
-                                         AlpIntegerEncoding integer_encoding,
-                                         uint32_t vector_size, uint32_t total_elements);
+  static Result<DecompressionProgress> DecodeAlp(TargetType* decomp,
+                                                  size_t decomp_element_count,
+                                                  const char* comp, size_t comp_size,
+                                                  AlpIntegerEncoding integer_encoding,
+                                                  uint32_t vector_size,
+                                                  uint32_t total_elements);
 
   /// \brief Load the AlpHeader from compressed data
   ///
   /// \param[in] comp the compressed buffer
   /// \param[in] comp_size the size of the compressed data
-  /// \return the AlpHeader from comp
-  static AlpHeader LoadHeader(const char* comp, size_t comp_size);
+  /// \return the AlpHeader, or an error if the buffer is too small
+  static Result<AlpHeader> LoadHeader(const char* comp, size_t comp_size);
 };
 
 }  // namespace alp
