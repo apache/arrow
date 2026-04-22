@@ -2352,9 +2352,9 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   int Decode(T* buffer, int max_values) override {
     // Fast path: decode directly into output buffer if requesting all values
     if (needs_decode_ && max_values >= this->num_values_) {
-      ::arrow::util::alp::AlpWrapper<T>::Decode(
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpWrapper<T>::Decode(
           buffer, static_cast<uint64_t>(this->num_values_),
-          reinterpret_cast<const char*>(this->data_), this->len_);
+          reinterpret_cast<const char*>(this->data_), this->len_));
 
       const int decoded = this->num_values_;
       this->num_values_ = 0;
@@ -2366,9 +2366,9 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // ALP Bit unpacker needs batches of 64
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
-      ::arrow::util::alp::AlpWrapper<T>::Decode(
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpWrapper<T>::Decode(
           decoded_buffer_.data(), static_cast<uint64_t>(this->num_values_),
-          reinterpret_cast<const char*>(this->data_), this->len_);
+          reinterpret_cast<const char*>(this->data_), this->len_));
       needs_decode_ = false;
     }
 
@@ -2400,9 +2400,9 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // Decode if needed (DecodeArrow always needs intermediate buffer for nulls)
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
-      ::arrow::util::alp::AlpWrapper<T>::Decode(
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpWrapper<T>::Decode(
           decoded_buffer_.data(), static_cast<uint64_t>(this->num_values_),
-          reinterpret_cast<const char*>(this->data_), this->len_);
+          reinterpret_cast<const char*>(this->data_), this->len_));
       needs_decode_ = false;
     }
 

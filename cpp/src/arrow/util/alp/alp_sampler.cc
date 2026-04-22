@@ -112,6 +112,10 @@ typename AlpSampler<T>::AlpSamplingParameters AlpSampler<T>::GetAlpSamplingParam
   const uint64_t num_sampled_values =
       std::ceil(static_cast<double>(num_lookup_values) / num_sampled_increments);
 
+  // Safety: num_lookup_values is capped at kAlpVectorSize (line 105-106), and
+  // num_sampled_increments >= 1 (line 109), so num_sampled_values =
+  // ceil(num_lookup_values / num_sampled_increments) <= kAlpVectorSize.
+  // This check is a defensive invariant, not a runtime error path.
   ARROW_CHECK(num_sampled_values < AlpConstants::kAlpVectorSize) << "alp_sample_too_large";
 
   return AlpSamplingParameters{num_lookup_values, num_sampled_increments,
