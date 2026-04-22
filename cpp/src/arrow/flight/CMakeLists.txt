@@ -374,7 +374,7 @@ endif(ARROW_BUILD_BENCHMARKS)
 # Workaround for issue found in GH-49585. When building in Debug mode only, the
 # linker complains about duplicate absl symbols. It's not clear when this
 # started but it may be related to the mixed dynamic and static linkage used in
-# GH-49585. Flight tests probably need this.
+# GH-49585 or to switching from /MT to /MD linkage.
 if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(FLIGHT_TEST_EXES
       arrow-flight-internals-test
