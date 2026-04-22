@@ -52,9 +52,11 @@ void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
   ASSERT_OK_AND_ASSIGN(auto left,
                        SearchSorted(Datum(values), Datum(needles),
                                     SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK(left.make_array()->ValidateFull());
   ASSERT_OK_AND_ASSIGN(auto right,
                        SearchSorted(Datum(values), Datum(needles),
                                     SearchSortedOptions(SearchSortedOptions::Right)));
+  ASSERT_OK(right.make_array()->ValidateFull());
 
   AssertArraysEqual(*ArrayFromJSON(uint64(), expected_left_json), *left.make_array());
   AssertArraysEqual(*ArrayFromJSON(uint64(), expected_right_json), *right.make_array());
@@ -150,18 +152,8 @@ class SearchSortedSupportedTypesTest
     : public ::testing::TestWithParam<SearchSortedSmokeCase> {};
 
 TEST(SearchSorted, BasicLeftRight) {
-  auto values = ArrayFromJSON(int64(), "[100, 200, 200, 300, 300]");
-  auto needles = ArrayFromJSON(int64(), "[50, 200, 250, 400]");
-
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 1, 3, 5]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 3, 5]"), *right.make_array());
+  CheckSimpleSearchSorted(int64(), "[100, 200, 200, 300, 300]", "[50, 200, 250, 400]",
+                          "[0, 1, 3, 5]", "[0, 3, 3, 5]");
 }
 
 TEST(SearchSorted, ScalarNeedle) {
@@ -262,6 +254,100 @@ TEST(SearchSorted, NullNeedlesEmitNull) {
   ASSERT_TRUE(scalar_result.is_scalar());
   ASSERT_FALSE(scalar_result.scalar()->is_valid);
   ASSERT_TRUE(scalar_result.scalar()->type->Equals(uint64()));
+}
+
+TEST(SearchSorted, ChunkedValues) {
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[1, 1]"),
+      ArrayFromJSON(int32(), "[1, 3, 5]"),
+  });
+  auto needles = ArrayFromJSON(int32(), "[1, 2, 6]");
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  ASSERT_TRUE(left.is_array());
+  ASSERT_TRUE(right.is_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 5]"), *left.make_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[3, 3, 5]"), *right.make_array());
+}
+
+TEST(SearchSorted, ChunkedNeedles) {
+  auto values = ArrayFromJSON(int32(), "[1, 1, 3, 5, 8]");
+  auto needles = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[null, 0, 1]"),
+      ArrayFromJSON(int32(), "[4, null, 9]"),
+  });
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  ASSERT_TRUE(left.is_array());
+  ASSERT_TRUE(right.is_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 0, 0, 3, null, 5]"),
+                    *left.make_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 0, 2, 3, null, 5]"),
+                    *right.make_array());
+}
+
+TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[null, null]"),
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[2, 4, 4]"),
+  });
+  auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[2, 3, 5]"), *left.make_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[2, 5, 5]"), *right.make_array());
+}
+
+TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[2, 4, 4]"),
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[null, null]"),
+      ArrayFromJSON(int32(), "[]"),
+  });
+  auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
+
+  ASSERT_OK_AND_ASSIGN(auto left,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Left)));
+  ASSERT_OK_AND_ASSIGN(auto right,
+                       SearchSorted(Datum(values), Datum(needles),
+                                    SearchSortedOptions(SearchSortedOptions::Right)));
+
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 1, 3]"), *left.make_array());
+  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 3]"), *right.make_array());
+}
+
+TEST(SearchSorted, RejectChunkedValuesUnclusteredNullsAcrossEmptyChunks) {
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[null, 1]"),
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[null, 3]"),
+  });
+  auto needles = ArrayFromJSON(int32(), "[2]");
+
+  ASSERT_RAISES(Invalid, SearchSorted(Datum(values), Datum(needles)));
 }
 
 TEST(SearchSorted, RejectUnclusteredNullValues) {
