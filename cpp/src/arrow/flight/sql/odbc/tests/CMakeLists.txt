@@ -48,10 +48,6 @@ if(ARROW_TEST_LINKAGE STREQUAL "static")
 else()
   set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_shared
                                            ${ARROW_TEST_SHARED_LINK_LIBS})
-else()
-  # GH-49651 Link ODBC tests statically on Linux to fix segfault
-  set(ARROW_FLIGHT_SQL_ODBC_TEST_LINK_LIBS arrow_flight_sql_odbc_static
-                                           ${ARROW_TEST_STATIC_LINK_LIBS})
 endif()
 
 # On macOS, link `ODBCINST` first to ensure iodbc take precedence over unixodbc
