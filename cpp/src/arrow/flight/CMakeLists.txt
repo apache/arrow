@@ -245,6 +245,12 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_flight_static PUBLIC ARROW_FLIGHT_STATIC)
 endif()
 
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug")
+  foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
+    target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
+  endforeach()
+endif()
+
 foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
   target_compile_definitions(${LIB_TARGET} PRIVATE ARROW_FLIGHT_EXPORTING)
 endforeach()
@@ -372,10 +378,9 @@ if(ARROW_BUILD_BENCHMARKS)
 endif(ARROW_BUILD_BENCHMARKS)
 
 # Workaround for issue found in GH-49585. When building in Debug mode only, the
-# linker complains about duplicate absl symbols. It's not clear when this
-# started but it may be related to the mixed dynamic and static linkage used in
-# GH-49585 or to switching from /MT to /MD linkage.
-if(WIN32 AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+# linker complains about duplicate absl symbols. This seems to have started
+# after GH-48964. Any new Flight tests probably need this.
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(FLIGHT_TEST_EXES
       arrow-flight-internals-test
       arrow-flight-test
