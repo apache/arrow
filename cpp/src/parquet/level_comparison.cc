@@ -35,33 +35,28 @@ namespace {
 
 using ::arrow::internal::DispatchLevel;
 using ::arrow::internal::DynamicDispatch;
+using ::arrow::internal::DynamicDispatchTarget;
 
 // defined in level_comparison_avx2.cc
 
 struct GreaterThanDynamicFunction {
   using FunctionType = decltype(&GreaterThanBitmap);
-  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static constexpr auto implementations() {
     return std::array{
-        Implementation{DispatchLevel::NONE, standard::GreaterThanBitmapImpl},
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, GreaterThanBitmapAvx2},
-#endif
+        ARROW_DISPATCH_TARGET_NONE(&standard::GreaterThanBitmapImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&GreaterThanBitmapAvx2)            //
     };
   }
 };
 
 struct MinMaxDynamicFunction {
   using FunctionType = decltype(&FindMinMax);
-  using Implementation = std::pair<DispatchLevel, FunctionType>;
 
   static constexpr auto implementations() {
     return std::array{
-        Implementation{DispatchLevel::NONE, standard::FindMinMaxImpl},
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-        Implementation{DispatchLevel::AVX2, FindMinMaxAvx2},
-#endif
+        ARROW_DISPATCH_TARGET_NONE(&standard::FindMinMaxImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&FindMinMaxAvx2)            //
     };
   }
 };
@@ -70,12 +65,12 @@ struct MinMaxDynamicFunction {
 
 uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels, int16_t rhs) {
   static DynamicDispatch<GreaterThanDynamicFunction> dispatch;
-  return dispatch.func(levels, num_levels, rhs);
+  return dispatch(levels, num_levels, rhs);
 }
 
 MinMax FindMinMax(const int16_t* levels, int64_t num_levels) {
   static DynamicDispatch<MinMaxDynamicFunction> dispatch;
-  return dispatch.func(levels, num_levels);
+  return dispatch(levels, num_levels);
 }
 
 }  // namespace parquet::internal
