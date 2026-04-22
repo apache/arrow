@@ -71,7 +71,7 @@ class CerrLog {
     if (has_logged_) {
       static std::mutex cerr_mutex;
       std::lock_guard<std::mutex> lock(cerr_mutex);
-      std::cerr << buffer_.view() << std::endl;
+      std::cerr << std::move(buffer_).str() << std::endl;
     }
     if (severity_ == ArrowLogLevel::ARROW_FATAL) {
       PrintBackTrace();
