@@ -51,7 +51,7 @@ void SetSearchSortedQuickArgs(benchmark::internal::Benchmark* bench) {
 
 void SetSearchSortedArgs(benchmark::internal::Benchmark* bench) {
   bench->Unit(benchmark::kMicrosecond);
-  for (const auto size : kMemorySizes) {
+  for (const auto size : {kL1Size, kL2Size}) {
     bench->Arg(size);
   }
 }
@@ -115,33 +115,6 @@ std::shared_ptr<StringArray> BuildStringNeedles(int64_t size_bytes) {
   const auto length = std::max<int64_t>(1, StringLengthFromBytes(size_bytes) / 4);
   return std::static_pointer_cast<StringArray>(
       rand.String(length, kStringMinLength, kStringMaxLength, 0.0));
-}
-
-std::shared_ptr<BinaryArray> BuildSortedBinaryValues(int64_t size_bytes) {
-  random::RandomArrayGenerator rand(kSeed + 4);
-  const auto length = StringLengthFromBytes(size_bytes);
-  const auto unique = std::max<int64_t>(1, length / 8);
-  auto values = std::static_pointer_cast<BinaryArray>(
-      rand.BinaryWithRepeats(length, unique, kStringMinLength, kStringMaxLength, 0.0));
-
-  std::vector<std::string> data;
-  data.reserve(static_cast<size_t>(values->length()));
-  for (int64_t index = 0; index < values->length(); ++index) {
-    data.emplace_back(values->GetView(index));
-  }
-  std::ranges::sort(data);
-
-  BinaryBuilder builder;
-  ABORT_NOT_OK(builder.AppendValues(data));
-  return std::static_pointer_cast<BinaryArray>(builder.Finish().ValueOrDie());
-}
-
-std::shared_ptr<BinaryArray> BuildBinaryNeedles(int64_t size_bytes) {
-  random::RandomArrayGenerator rand(kSeed + 5);
-  const auto length = std::max<int64_t>(1, StringLengthFromBytes(size_bytes) / 4);
-  const auto unique = std::max<int64_t>(1, length / 2);
-  return std::static_pointer_cast<BinaryArray>(
-      rand.BinaryWithRepeats(length, unique, kStringMinLength, kStringMaxLength, 0.0));
 }
 
 std::shared_ptr<Int64Array> BuildRunHeavyInt64Values(int64_t logical_length,
@@ -231,14 +204,6 @@ static void BM_SearchSortedInt64ArrayNeedles(benchmark::State& state,
   RunSearchSortedBenchmark(state, values, needles, side);
 }
 
-static void BM_SearchSortedInt64ScalarNeedle(benchmark::State& state,
-                                             SearchSortedOptions::Side side) {
-  const auto values_array = BuildSortedInt64Values(state.range(0));
-  const auto scalar_index = values_array->length() / 2;
-  const Datum values(values_array);
-  const Datum needles(std::make_shared<Int64Scalar>(values_array->Value(scalar_index)));
-  RunSearchSortedBenchmark(state, values, needles, side);
-}
 
 static void BM_SearchSortedRunEndEncodedValues(benchmark::State& state,
                                                SearchSortedOptions::Side side) {
@@ -354,29 +319,30 @@ BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, left, SearchSortedOptions::
 BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, right, SearchSortedOptions::Right)
     ->Apply(SetSearchSortedArgs);
 
-// String and binary scalar cases specifically exercise the direct scalar fast path that
-// avoids boxing a scalar needle into a temporary one-element array.
-BENCHMARK_CAPTURE(BM_SearchSortedStringScalarNeedle, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedStringScalarNeedle, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedBinaryScalarNeedle, left, SearchSortedOptions::Left)
-    ->Apply(SetSearchSortedQuickArgs);
-BENCHMARK_CAPTURE(BM_SearchSortedBinaryScalarNeedle, right, SearchSortedOptions::Right)
-    ->Apply(SetSearchSortedQuickArgs);
-
 // Lightweight L1/L2 regressions keep a fast local loop for future optimization work.
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedlesQuick, left, SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
+BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedlesQuick, right,
+          SearchSortedOptions::Right)
+  ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRunsQuick, left,
                   SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
+BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRunsQuick, right,
+          SearchSortedOptions::Right)
+  ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick, left,
                   SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
+BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick, right,
+          SearchSortedOptions::Right)
+  ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick, left,
                   SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
+BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick, right,
+          SearchSortedOptions::Right)
+  ->Apply(SetSearchSortedQuickArgs);
 
 }  // namespace compute
 }  // namespace arrow
