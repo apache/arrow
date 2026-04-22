@@ -138,13 +138,15 @@ elseif(ARROW_CPU_FLAG STREQUAL "aarch64")
   set(ARROW_SVE128_FLAGS "${ARROW_SVE_FLAGS}" "-msve-vector-bits=128")
   set(ARROW_SVE256_FLAGS "${ARROW_SVE_FLAGS}" "-msve-vector-bits=256")
   set(ARROW_SVE512_FLAGS "${ARROW_SVE_FLAGS}" "-msve-vector-bits=512")
-  if(APPLE)
-    # Clang on MacOS may support SVE but it is not tested anywhere, especially
-    # in xsimd, therefore there currently are issues.
-    set(CXX_SUPPORTS_SVE OFF)
-  else()
-    check_cxx_compiler_flag("${ARROW_SVE_FLAGS}" CXX_SUPPORTS_SVE)
+  # We only have a way to do SVE dynamic dispatch on Linux (BSD may be possible
+  # but is currently not implemented).
+  # We still support explicitly setting runtime SIMD level to some SVE values
+  # on these platforms as this can be useful in development for building SVE
+  # code locally. The compiler supports it but the code won't run.
+  if((APPLE OR WIN32) AND ARROW_RUNTIME_SIMD_LEVEL STREQUAL "MAX")
+    set(ARROW_RUNTIME_SIMD_LEVEL "NONE")
   endif()
+  check_cxx_compiler_flag("${ARROW_SVE_FLAGS}" CXX_SUPPORTS_SVE)
   if(CXX_SUPPORTS_SVE AND ARROW_RUNTIME_SIMD_LEVEL MATCHES "^(SVE128|SVE256|SVE512|MAX)$")
     set(ARROW_HAVE_RUNTIME_SVE128 ON)
     add_definitions(-DARROW_HAVE_RUNTIME_SVE128)
