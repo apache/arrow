@@ -21,6 +21,7 @@ import decimal
 import hypothesis as h
 import hypothesis.strategies as st
 import itertools
+import operator
 import pytest
 import struct
 import subprocess
@@ -4612,3 +4613,25 @@ def test_dictionary_uint64_index_to_pandas():
     result = arr.to_pandas()
     assert list(result.cat.categories) == ["a", "b"]
     assert result.cat.codes.tolist() == [0, 1, -1, 0]
+@pytest.mark.parametrize("op", [
+    operator.add,
+    operator.sub,
+    operator.mul,
+    operator.truediv,
+    operator.pow,
+    operator.and_,
+    operator.or_,
+    operator.xor,
+    operator.lshift,
+    operator.rshift,
+])
+def test_dunders_return_notimplemented_for_unknown_types(op):
+    # GH-49826
+    class MyObj:
+        def __radd__(self, other):
+            return "reflected"
+
+        __rsub__ = __rmul__ = __rtruediv__ = __rpow__ = __radd__
+        __rand__ = __ror__ = __rxor__ = __rlshift__ = __rrshift__ = __radd__
+
+    assert op(pa.array([1, 2, 3]), MyObj()) == "reflected"
