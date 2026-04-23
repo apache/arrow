@@ -543,6 +543,13 @@ class ARROW_EXPORT StringHeapBuilder {
     blocks_.clear();
   }
 
+  /// \brief Register a pre-populated buffer as a new heap block.
+  ///
+  /// Returns the buffer_index that out-of-line BinaryView headers should use
+  /// to reference data in this buffer. The caller is responsible for ensuring
+  /// that offsets used in BinaryView headers are valid within this buffer.
+  Result<int32_t> AppendHeapBuffer(std::shared_ptr<ResizableBuffer> buffer);
+
   int64_t current_remaining_bytes() const { return current_remaining_bytes_; }
 
   Result<std::vector<std::shared_ptr<ResizableBuffer>>> Finish() {
@@ -643,6 +650,27 @@ class ARROW_EXPORT BinaryViewBuilder : public ArrayBuilder {
 
   void UnsafeAppend(std::string_view value) {
     UnsafeAppend(value.data(), static_cast<int64_t>(value.size()));
+  }
+
+  /// \brief Append a pre-constructed BinaryView header without copying data.
+  void UnsafeAppendView(BinaryViewType::c_type view) {
+    UnsafeAppendToBitmap(true);
+    data_builder_.UnsafeAppend(view);
+  }
+
+  /// \brief Append a value and return the BinaryView header that was created.
+  Result<BinaryViewType::c_type> AppendAndGetView(const uint8_t* value, int64_t length) {
+    ARROW_RETURN_NOT_OK(Reserve(1));
+    UnsafeAppendToBitmap(true);
+    ARROW_ASSIGN_OR_RAISE(auto v,
+                          data_heap_builder_.Append</*Safe=*/true>(value, length));
+    data_builder_.UnsafeAppend(v);
+    return v;
+  }
+
+  /// \brief Register an external buffer as a data buffer for out-of-line views.
+  Result<int32_t> AppendBuffer(std::shared_ptr<ResizableBuffer> buffer) {
+    return data_heap_builder_.AppendHeapBuffer(std::move(buffer));
   }
 
   /// \brief Ensures there is enough allocated available capacity in the

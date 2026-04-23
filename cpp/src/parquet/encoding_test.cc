@@ -2660,4 +2660,295 @@ TEST(DeltaByteArrayEncodingAdHoc, ArrowDirectPut) {
   }
 }
 
+// ----------------------------------------------------------------------
+// BinaryView value reuse tests
+
+TEST(DictEncodingBinaryViewReuse, ReusesHeapForRepeatedValues) {
+  auto node = schema::ByteArray("name");
+  auto descr = std::make_unique<ColumnDescriptor>(node, 0, 0);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
+                                                 descr.get());
+
+  auto values =
+      ::arrow::ArrayFromJSON(::arrow::utf8(),
+                             R"(["a_very_long_string_one", "a_very_long_string_two",
+          "a_very_long_string_one", "a_very_long_string_two",
+          "a_very_long_string_one", "a_very_long_string_two",
+          "a_very_long_string_one", "a_very_long_string_two"])");
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto buf = encoder->FlushValues();
+
+  auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder.get());
+  ASSERT_NE(dict_encoder, nullptr);
+  auto dict_buffer =
+      AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
+  dict_encoder->WriteDict(dict_buffer->mutable_data());
+
+  auto plain_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr.get());
+  plain_decoder->SetData(dict_encoder->num_entries(), dict_buffer->data(),
+                         static_cast<int>(dict_buffer->size()));
+
+  auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr.get());
+  dict_decoder->SetDict(plain_decoder.get());
+  int num_values = static_cast<int>(values->length());
+  dict_decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+  auto* decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::binary_view()));
+  auto actual_num_values = decoder->DecodeArrow(num_values, 0, nullptr, 0, &acc);
+  ASSERT_EQ(actual_num_values, num_values);
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ::arrow::compute::Cast(*values, ::arrow::binary_view()));
+  ASSERT_ARRAYS_EQUAL(*result, *expected);
+
+  auto* array_data = result->data().get();
+  int num_heap_buffers = static_cast<int>(array_data->buffers.size()) - 2;
+  ASSERT_EQ(num_heap_buffers, 1);
+  ASSERT_LE(array_data->buffers[2]->size(), 60);
+}
+
+TEST(DictEncodingBinaryViewReuse, InlineStringsNoHeapBuffer) {
+  auto node = schema::ByteArray("name");
+  auto descr = std::make_unique<ColumnDescriptor>(node, 0, 0);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
+                                                 descr.get());
+
+  auto values =
+      ::arrow::ArrayFromJSON(::arrow::utf8(), R"(["short", "tiny", "short", "tiny"])");
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto buf = encoder->FlushValues();
+
+  auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder.get());
+  auto dict_buffer =
+      AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
+  dict_encoder->WriteDict(dict_buffer->mutable_data());
+
+  auto plain_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr.get());
+  plain_decoder->SetData(dict_encoder->num_entries(), dict_buffer->data(),
+                         static_cast<int>(dict_buffer->size()));
+
+  auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr.get());
+  dict_decoder->SetDict(plain_decoder.get());
+  int num_values = static_cast<int>(values->length());
+  dict_decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+  auto* decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::binary_view()));
+  auto actual_num_values = decoder->DecodeArrow(num_values, 0, nullptr, 0, &acc);
+  ASSERT_EQ(actual_num_values, num_values);
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ::arrow::compute::Cast(*values, ::arrow::binary_view()));
+  ASSERT_ARRAYS_EQUAL(*result, *expected);
+
+  auto* array_data = result->data().get();
+  ASSERT_EQ(static_cast<int>(array_data->buffers.size()) - 2, 0);
+}
+
+TEST(DictEncodingBinaryViewReuse, WithNulls) {
+  auto node = schema::ByteArray("name");
+  auto descr = std::make_unique<ColumnDescriptor>(node, 0, 0);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
+                                                 descr.get());
+
+  auto values = ::arrow::ArrayFromJSON(
+      ::arrow::utf8(),
+      R"(["a_very_long_string_one", null, "a_very_long_string_one", null,
+          "a_very_long_string_two", null])");
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto buf = encoder->FlushValues();
+
+  auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder.get());
+  auto dict_buffer =
+      AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
+  dict_encoder->WriteDict(dict_buffer->mutable_data());
+
+  auto plain_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr.get());
+  plain_decoder->SetData(dict_encoder->num_entries(), dict_buffer->data(),
+                         static_cast<int>(dict_buffer->size()));
+
+  auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr.get());
+  dict_decoder->SetDict(plain_decoder.get());
+  int num_values = static_cast<int>(values->length());
+  int null_count = static_cast<int>(values->null_count());
+  dict_decoder->SetData(num_values - null_count, buf->data(),
+                        static_cast<int>(buf->size()));
+  auto* decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::binary_view()));
+  auto actual_num_values =
+      decoder->DecodeArrow(num_values, null_count, values->null_bitmap_data(), 0, &acc);
+  ASSERT_EQ(actual_num_values, num_values - null_count);
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ::arrow::compute::Cast(*values, ::arrow::binary_view()));
+  ASSERT_ARRAYS_EQUAL(*result, *expected);
+}
+
+TEST(DeltaByteArrayBinaryViewReuse, ReusesViewForRepeatedValues) {
+  auto values = ::arrow::ArrayFromJSON(::arrow::utf8(),
+                                       R"(["a_very_long_repeated_str",
+          "a_very_long_repeated_str",
+          "a_very_long_repeated_str",
+          "different_long_str_here_",
+          "different_long_str_here_"])");
+
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto buf = encoder->FlushValues();
+
+  int num_values = static_cast<int>(values->length());
+  auto decoder = MakeTypedDecoder<ByteArrayType>(Encoding::DELTA_BYTE_ARRAY);
+  decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::binary_view()));
+  ASSERT_EQ(num_values, decoder->DecodeArrow(num_values, 0, nullptr, 0, &acc));
+
+  std::shared_ptr<::arrow::Array> result;
+  ASSERT_OK(acc.builder->Finish(&result));
+  ASSERT_OK(result->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ::arrow::compute::Cast(*values, ::arrow::binary_view()));
+  ASSERT_ARRAYS_EQUAL(*result, *expected);
+
+  auto* array_data = result->data().get();
+  int64_t total_heap = 0;
+  for (size_t i = 2; i < array_data->buffers.size(); ++i) {
+    if (array_data->buffers[i]) {
+      total_heap += array_data->buffers[i]->size();
+    }
+  }
+  ASSERT_LE(total_heap, 60);
+}
+
+TEST(DictEncodingBinaryViewReuse, MultiBatchDecodingAfterBuilderReset) {
+  auto node = schema::ByteArray("name");
+  auto descr = std::make_unique<ColumnDescriptor>(node, 0, 0);
+  auto encoder = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN, /*use_dictionary=*/true,
+                                                 descr.get());
+
+  auto values =
+      ::arrow::ArrayFromJSON(::arrow::utf8(),
+                             R"(["a_very_long_string_one", "a_very_long_string_two",
+          "a_very_long_string_one", "a_very_long_string_two"])");
+  ASSERT_NO_THROW(encoder->Put(*values));
+  auto buf = encoder->FlushValues();
+
+  auto dict_encoder = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder.get());
+  ASSERT_NE(dict_encoder, nullptr);
+  auto dict_buffer =
+      AllocateBuffer(default_memory_pool(), dict_encoder->dict_encoded_size());
+  dict_encoder->WriteDict(dict_buffer->mutable_data());
+
+  auto plain_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr.get());
+  plain_decoder->SetData(dict_encoder->num_entries(), dict_buffer->data(),
+                         static_cast<int>(dict_buffer->size()));
+
+  auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr.get());
+  dict_decoder->SetDict(plain_decoder.get());
+  int num_values = static_cast<int>(values->length());
+  dict_decoder->SetData(num_values, buf->data(), static_cast<int>(buf->size()));
+  auto* decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::binary_view()));
+
+  auto actual = decoder->DecodeArrow(2, 0, nullptr, 0, &acc);
+  ASSERT_EQ(actual, 2);
+  std::shared_ptr<::arrow::Array> result1;
+  ASSERT_OK(acc.builder->Finish(&result1));
+  ASSERT_OK(result1->ValidateFull());
+
+  actual = decoder->DecodeArrow(2, 0, nullptr, 0, &acc);
+  ASSERT_EQ(actual, 2);
+  std::shared_ptr<::arrow::Array> result2;
+  ASSERT_OK(acc.builder->Finish(&result2));
+  ASSERT_OK(result2->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto expected,
+                       ::arrow::compute::Cast(*values, ::arrow::binary_view()));
+  ASSERT_OK_AND_ASSIGN(auto expected1, expected->Slice(0, 2)->View(expected->type()));
+  ASSERT_OK_AND_ASSIGN(auto expected2, expected->Slice(2, 2)->View(expected->type()));
+  ASSERT_ARRAYS_EQUAL(*result1, *expected1);
+  ASSERT_ARRAYS_EQUAL(*result2, *expected2);
+}
+
+TEST(DictEncodingBinaryViewReuse, NewDictionaryDoesNotCorruptPreviousArray) {
+  auto node = schema::ByteArray("name");
+  auto descr = std::make_unique<ColumnDescriptor>(node, 0, 0);
+
+  auto encoder1 = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+                                                  /*use_dictionary=*/true, descr.get());
+  auto values1 = ::arrow::ArrayFromJSON(
+      ::arrow::utf8(), R"(["first_dict_long_val_a", "first_dict_long_val_b"])");
+  ASSERT_NO_THROW(encoder1->Put(*values1));
+  auto buf1 = encoder1->FlushValues();
+  auto dict_enc1 = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder1.get());
+  auto dict_buf1 = AllocateBuffer(default_memory_pool(), dict_enc1->dict_encoded_size());
+  dict_enc1->WriteDict(dict_buf1->mutable_data());
+
+  auto encoder2 = MakeTypedEncoder<ByteArrayType>(Encoding::PLAIN,
+                                                  /*use_dictionary=*/true, descr.get());
+  auto values2 = ::arrow::ArrayFromJSON(
+      ::arrow::utf8(), R"(["second_dict_long_vl_x", "second_dict_long_vl_y"])");
+  ASSERT_NO_THROW(encoder2->Put(*values2));
+  auto buf2 = encoder2->FlushValues();
+  auto dict_enc2 = dynamic_cast<DictEncoder<ByteArrayType>*>(encoder2.get());
+  auto dict_buf2 = AllocateBuffer(default_memory_pool(), dict_enc2->dict_encoded_size());
+  dict_enc2->WriteDict(dict_buf2->mutable_data());
+
+  auto dict_decoder = MakeDictDecoder<ByteArrayType>(descr.get());
+  auto plain_decoder = MakeTypedDecoder<ByteArrayType>(Encoding::PLAIN, descr.get());
+
+  plain_decoder->SetData(dict_enc1->num_entries(), dict_buf1->data(),
+                         static_cast<int>(dict_buf1->size()));
+  dict_decoder->SetDict(plain_decoder.get());
+  dict_decoder->SetData(static_cast<int>(values1->length()), buf1->data(),
+                        static_cast<int>(buf1->size()));
+  auto* decoder = dynamic_cast<ByteArrayDecoder*>(dict_decoder.get());
+
+  typename EncodingTraits<ByteArrayType>::Accumulator acc;
+  ASSERT_OK_AND_ASSIGN(acc.builder, ::arrow::MakeBuilder(::arrow::binary_view()));
+  ASSERT_EQ(2, decoder->DecodeArrow(2, 0, nullptr, 0, &acc));
+  std::shared_ptr<::arrow::Array> result1;
+  ASSERT_OK(acc.builder->Finish(&result1));
+  ASSERT_OK(result1->ValidateFull());
+
+  plain_decoder->SetData(dict_enc2->num_entries(), dict_buf2->data(),
+                         static_cast<int>(dict_buf2->size()));
+  dict_decoder->SetDict(plain_decoder.get());
+  dict_decoder->SetData(static_cast<int>(values2->length()), buf2->data(),
+                        static_cast<int>(buf2->size()));
+
+  ASSERT_EQ(2, decoder->DecodeArrow(2, 0, nullptr, 0, &acc));
+  std::shared_ptr<::arrow::Array> result2;
+  ASSERT_OK(acc.builder->Finish(&result2));
+  ASSERT_OK(result2->ValidateFull());
+
+  ASSERT_OK_AND_ASSIGN(auto expected1,
+                       ::arrow::compute::Cast(*values1, ::arrow::binary_view()));
+  ASSERT_OK_AND_ASSIGN(auto expected2,
+                       ::arrow::compute::Cast(*values2, ::arrow::binary_view()));
+  ASSERT_ARRAYS_EQUAL(*result1, *expected1);
+  ASSERT_ARRAYS_EQUAL(*result2, *expected2);
+}
+
 }  // namespace parquet::test

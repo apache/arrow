@@ -96,6 +96,19 @@ Status BinaryViewBuilder::ReserveData(int64_t length) {
   return data_heap_builder_.Reserve(length);
 }
 
+Result<int32_t> internal::StringHeapBuilder::AppendHeapBuffer(
+    std::shared_ptr<ResizableBuffer> buffer) {
+  if (!blocks_.empty() && current_remaining_bytes_ > 0) {
+    ARROW_RETURN_NOT_OK(FinishLastBlock());
+  }
+  current_remaining_bytes_ = 0;
+  current_out_buffer_ = nullptr;
+  current_offset_ = 0;
+  int32_t index = static_cast<int32_t>(blocks_.size());
+  blocks_.emplace_back(std::move(buffer));
+  return index;
+}
+
 void BinaryViewBuilder::Reset() {
   ArrayBuilder::Reset();
   data_builder_.Reset();
