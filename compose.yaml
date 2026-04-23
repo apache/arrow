@@ -138,6 +138,8 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - fedora-r-clang
+  - pixi-cpp:
+    - pixi-python
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -201,6 +203,8 @@ volumes:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
     name: python-wheel-musllinux-1-2-ccache
+  pixi-cpp-build:
+    name: ${ARCH}-pixi-cpp-build
   ubuntu-ccache:
     name: ${ARCH}-ubuntu-${UBUNTU}-ccache
 
@@ -1157,6 +1161,31 @@ services:
       ARROW_WITH_OPENTELEMETRY: "OFF"
     volumes: *ubuntu-volumes
     command: *python-command
+
+  ############################  Pixi builds  ##################################
+
+  pixi-cpp:
+    # C++ build with pixi
+    #
+    # Usage:
+    #   docker compose build pixi-cpp
+    #   docker compose run --rm pixi-cpp
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    build:
+      context: .
+      dockerfile: ci/docker/pixi-cpp.dockerfile
+      cache_from:
+        - ${REPO}:${ARCH}-pixi-cpp
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-cpp-build:/arrow/ci/pixi/.pixi:delegated
+    command:  >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi test"
 
   ############################ Python wheels ##################################
 
