@@ -204,7 +204,6 @@ static void BM_SearchSortedInt64ArrayNeedles(benchmark::State& state,
   RunSearchSortedBenchmark(state, values, needles, side);
 }
 
-
 static void BM_SearchSortedRunEndEncodedValues(benchmark::State& state,
                                                SearchSortedOptions::Side side) {
   const Datum values(BuildRunEndEncodedInt64Values(state.range(0), kValuesRunLength));
@@ -323,26 +322,26 @@ BENCHMARK_CAPTURE(BM_SearchSortedStringArrayNeedles, right, SearchSortedOptions:
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedlesQuick, left, SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64ArrayNeedlesQuick, right,
-          SearchSortedOptions::Right)
-  ->Apply(SetSearchSortedQuickArgs);
+                  SearchSortedOptions::Right)
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRunsQuick, left,
                   SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedInt64NeedlesWithNullRunsQuick, right,
-          SearchSortedOptions::Right)
-  ->Apply(SetSearchSortedQuickArgs);
+                  SearchSortedOptions::Right)
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick, left,
                   SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedValuesAndNeedlesQuick, right,
-          SearchSortedOptions::Right)
-  ->Apply(SetSearchSortedQuickArgs);
+                  SearchSortedOptions::Right)
+    ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick, left,
                   SearchSortedOptions::Left)
     ->Apply(SetSearchSortedQuickArgs);
 BENCHMARK_CAPTURE(BM_SearchSortedRunEndEncodedNeedlesWithNullRunsQuick, right,
-          SearchSortedOptions::Right)
-  ->Apply(SetSearchSortedQuickArgs);
+                  SearchSortedOptions::Right)
+    ->Apply(SetSearchSortedQuickArgs);
 
 }  // namespace compute
 }  // namespace arrow
