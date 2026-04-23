@@ -83,11 +83,12 @@ the timezone information is silently dropped:
 
 .. code-block:: python
 
-   >>> arr = pa.array([1735689600, 1735689600], type=pa.timestamp("s", tz="UTC"))
-   >>> arr.type
+   >>> arr = pa.array([1735689600, 1735689600], type=pa.timestamp("s", tz="UTC"))  # doctest: +SKIP
+   >>> arr.type  # doctest: +SKIP
    TimestampType(timestamp[s, tz=UTC])
-   >>> arr.to_numpy()
-   array(['2025-01-01T00:00:00', '2025-01-01T00:00:00'], dtype='datetime64[s]')
+   >>> arr.to_numpy()  # doctest: +SKIP
+   array(['2025-01-01T00:00:00', '2025-01-01T00:00:00'],
+         dtype='datetime64[s]')
 
 If you need to preserve timezone information, there are two alternatives:
 
@@ -95,14 +96,22 @@ If you need to preserve timezone information, there are two alternatives:
 
   .. code-block:: python
 
-     >>> arr.to_pandas()
+     >>> arr.to_pandas()  # doctest: +SKIP
      0   2025-01-01 00:00:00+00:00
      1   2025-01-01 00:00:00+00:00
      dtype: datetime64[s, UTC]
+
+  .. note::
+
+     For nested types (e.g., list arrays containing timestamps),
+     ``to_pandas()`` may not preserve timezone information. Structs and maps
+     do retain timezones, but lists currently do not. See
+     `GH-41162 <https://github.com/apache/arrow/issues/41162>`_ for details.
 
 * Convert to Python ``datetime`` objects, which carry ``tzinfo``:
 
   .. code-block:: python
 
-     >>> arr.to_pylist()
-     [datetime.datetime(2025, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key='UTC')), datetime.datetime(2025, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key='UTC'))]
+     >>> arr.to_pylist()  # doctest: +SKIP
+     [datetime.datetime(2025, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key='UTC')),
+      datetime.datetime(2025, 1, 1, 0, 0, tzinfo=zoneinfo.ZoneInfo(key='UTC'))]
