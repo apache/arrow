@@ -143,10 +143,13 @@ time_types = st.sampled_from([
     pa.time64('ns')
 ])
 
+# UTC-12 to UTC+14, minute offsets 0/30/45 cover all real-world IANA offsets
 fixed_offset_timezones = st.builds(
     lambda h, m: datetime.timezone(datetime.timedelta(hours=h, minutes=m)),
     h=st.integers(min_value=-12, max_value=14),
     m=st.sampled_from([0, 30, 45]),
+).filter(
+    lambda tz: tz.utcoffset(None) <= datetime.timedelta(hours=14)
 )
 
 if tzst and zoneinfo:
