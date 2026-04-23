@@ -1924,9 +1924,17 @@ const char* quote_utf8(gdv_int64 context, const char* in, gdv_int32 in_len,
     *out_len = 0;
     return "";
   }
+
+  int32_t alloc_length = 0;
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::AddWithOverflow(2, (2 * in_len), &alloc_length))) {
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    *out_len = 0;
+    return "";
+  }
+
   // try to allocate double size output string (worst case)
-  auto out =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, (in_len * 2) + 2));
+  auto out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -2444,6 +2452,66 @@ void concat_word(char* out_buf, int* out_idx, const char* in_buf, int in_len,
   *out_idx += in_len;
 }
 
+// Helper structure to maintain state during safe length accumulation
+struct SafeLengthState {
+  int32_t total_len = 0;
+  int32_t num_valid = 0;
+  bool overflow = false;
+};
+
+// Helper to safely add a word length
+static inline bool safe_accumulate_word(SafeLengthState* state, int32_t word_len,
+                                        bool word_validity) {
+  if (!word_validity) return true;
+
+  int32_t temp = 0;
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::AddWithOverflow(state->total_len, word_len, &temp))) {
+    state->overflow = true;
+    return false;
+  }
+  state->total_len = temp;
+  state->num_valid++;
+  return true;
+}
+
+// Helper to safely add separators based on number of valid words
+static inline bool safe_add_separators(SafeLengthState* state, int32_t separator_len) {
+  if (state->num_valid <= 1) return true;
+
+  int32_t sep_total = 0;
+  int32_t temp = 0;
+
+  if (ARROW_PREDICT_FALSE(arrow::internal::MultiplyWithOverflow(
+          separator_len, state->num_valid - 1, &sep_total))) {
+    state->overflow = true;
+    return false;
+  }
+
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::AddWithOverflow(state->total_len, sep_total, &temp))) {
+    state->overflow = true;
+    return false;
+  }
+
+  state->total_len = temp;
+  return true;
+}
+
+// Helper to handle overflow failure (sets output parameters and returns nullptr)
+static inline const char* handle_overflow_failure(bool* out_valid, int32_t* out_len) {
+  *out_len = 0;
+  *out_valid = false;
+  return "";
+}
+
+// Helper to handle empty result (all words invalid)
+static inline const char* handle_empty_result(bool* out_valid, int32_t* out_len) {
+  *out_len = 0;
+  *out_valid = true;
+  return "";
+}
+
 FORCE_INLINE
 const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
                                 int32_t separator_len, bool separator_validity,
@@ -2451,7 +2519,6 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
                                 const char* word2, int32_t word2_len, bool word2_validity,
                                 bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
@@ -2459,22 +2526,34 @@ const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
     return "";
   }
 
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
+  // If separator is null, always return null
+  if (!separator_validity) {
+    return handle_overflow_failure(out_valid, out_len);
   }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
-  if (*out_len == 0) {
-    *out_valid = true;
-    return "";
+  SafeLengthState state;
+
+  // Accumulate word lengths safely
+  safe_accumulate_word(&state, word1_len, word1_validity);
+  safe_accumulate_word(&state, word2_len, word2_validity);
+
+  if (state.overflow) {
+    return handle_overflow_failure(out_valid, out_len);
   }
 
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  // Add separator lengths
+  if (!safe_add_separators(&state, separator_len)) {
+    return handle_overflow_failure(out_valid, out_len);
+  }
+
+  // Handle case with no valid words
+  if (state.total_len == 0) {
+    return handle_empty_result(out_valid, out_len);
+  }
+
+  // Allocate and concatenate
+  char* out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -2503,36 +2582,30 @@ const char* concat_ws_utf8_utf8_utf8(
     const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
     int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
-  // If separator is null, always return null
   if (!separator_validity) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
+    return handle_overflow_failure(out_valid, out_len);
   }
 
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
-  }
-  if (word3_validity) {
-    *out_len += word3_len;
-    numValidInput++;
+  SafeLengthState state;
+
+  safe_accumulate_word(&state, word1_len, word1_validity);
+  safe_accumulate_word(&state, word2_len, word2_validity);
+  safe_accumulate_word(&state, word3_len, word3_validity);
+
+  if (state.overflow) {
+    return handle_overflow_failure(out_valid, out_len);
   }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
-
-  if (*out_len == 0) {
-    *out_len = 0;
-    *out_valid = true;
-    return "";
+  if (!safe_add_separators(&state, separator_len)) {
+    return handle_overflow_failure(out_valid, out_len);
   }
 
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  if (state.total_len == 0) {
+    return handle_empty_result(out_valid, out_len);
+  }
+
+  char* out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -2564,39 +2637,44 @@ const char* concat_ws_utf8_utf8_utf8_utf8(
     int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
     bool word4_validity, bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
-  }
-  if (word3_validity) {
-    *out_len += word3_len;
-    numValidInput++;
-  }
-  if (word4_validity) {
-    *out_len += word4_len;
-    numValidInput++;
+
+  SafeLengthState state;
+
+  // Accumulate all word lengths with overflow checking
+  safe_accumulate_word(&state, word1_len, word1_validity);
+  safe_accumulate_word(&state, word2_len, word2_validity);
+  safe_accumulate_word(&state, word3_len, word3_validity);
+  safe_accumulate_word(&state, word4_len, word4_validity);
+
+  if (state.overflow) {
+    *out_len = 0;
+    *out_valid = false;
+    return "";
   }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+  // Add separator lengths with overflow checking
+  if (!safe_add_separators(&state, separator_len)) {
+    *out_len = 0;
+    *out_valid = false;
+    return "";
+  }
 
-  if (*out_len == 0) {
+  // Handle case with no valid words
+  if (state.total_len == 0) {
     *out_len = 0;
     *out_valid = true;
     return "";
   }
 
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  // Allocate memory
+  char* out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_valid = false;
@@ -2631,43 +2709,45 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
     bool word4_validity, const char* word5, int32_t word5_len, bool word5_validity,
     bool* out_valid, int32_t* out_len) {
   *out_len = 0;
-  int numValidInput = 0;
   // If separator is null, always return null
   if (!separator_validity) {
     *out_len = 0;
     *out_valid = false;
     return "";
   }
-  if (word1_validity) {
-    *out_len += word1_len;
-    numValidInput++;
-  }
-  if (word2_validity) {
-    *out_len += word2_len;
-    numValidInput++;
-  }
-  if (word3_validity) {
-    *out_len += word3_len;
-    numValidInput++;
-  }
-  if (word4_validity) {
-    *out_len += word4_len;
-    numValidInput++;
-  }
-  if (word5_validity) {
-    *out_len += word5_len;
-    numValidInput++;
+
+  SafeLengthState state;
+
+  // Accumulate all word lengths with overflow checking
+  safe_accumulate_word(&state, word1_len, word1_validity);
+  safe_accumulate_word(&state, word2_len, word2_validity);
+  safe_accumulate_word(&state, word3_len, word3_validity);
+  safe_accumulate_word(&state, word4_len, word4_validity);
+  safe_accumulate_word(&state, word5_len, word5_validity);
+
+  if (state.overflow) {
+    *out_len = 0;
+    *out_valid = false;
+    return "";
   }
 
-  *out_len += separator_len * (numValidInput > 1 ? numValidInput - 1 : 0);
+  // Add separator lengths with overflow checking
+  if (!safe_add_separators(&state, separator_len)) {
+    *out_len = 0;
+    *out_valid = false;
+    return "";
+  }
 
-  if (*out_len == 0) {
+  // Handle case with no valid words
+  if (state.total_len == 0) {
     *out_len = 0;
     *out_valid = true;
     return "";
   }
 
-  char* out = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, *out_len));
+  // Allocate memory
+  char* out =
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
   if (out == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
     *out_len = 0;
@@ -2824,13 +2904,22 @@ const char* elt_int32_utf8_utf8_utf8_utf8_utf8(
 FORCE_INLINE
 const char* to_hex_binary(int64_t context, const char* text, int32_t text_len,
                           int32_t* out_len) {
-  if (text_len == 0) {
+  if (ARROW_PREDICT_FALSE(text_len <= 0)) {
     *out_len = 0;
     return "";
   }
 
-  auto ret =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, text_len * 2 + 1));
+  int32_t alloc_length = 0;
+
+  // Check overflow for text_len
+  if (ARROW_PREDICT_FALSE(
+          arrow::internal::AddWithOverflow(1, (2 * text_len), &alloc_length))) {
+    gdv_fn_context_set_error_msg(context, "Memory allocation size too large");
+    *out_len = 0;
+    return "";
+  }
+
+  auto ret = reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, alloc_length));
 
   if (ret == nullptr) {
     gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
