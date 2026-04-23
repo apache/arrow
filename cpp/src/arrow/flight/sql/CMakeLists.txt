@@ -190,6 +190,8 @@ if(ARROW_BUILD_TESTS OR ARROW_BUILD_EXAMPLES)
     endforeach()
   endif()
 
+  # NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
+  # ../CMakeLists.txt.
   if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
     foreach(TEST_TARGET arrow-flight-sql-test flight-sql-test-server flight-sql-test-app)
       if(TARGET ${TEST_TARGET})
