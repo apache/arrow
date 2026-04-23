@@ -301,6 +301,78 @@ struct NonNullValuesRange {
   }
 };
 
+constexpr std::string_view kClusteredNullValuesError =
+    "search_sorted values with nulls must be clustered at the start or end.";
+
+template <typename IsNullAt>
+int64_t CountLeadingNulls(int64_t length, IsNullAt&& is_null_at) {
+  auto indices = std::views::iota(int64_t{0}, length);
+  auto first_non_null = std::ranges::find_if_not(indices, std::forward<IsNullAt>(is_null_at));
+  return std::ranges::distance(indices.begin(), first_non_null);
+}
+
+template <typename IsNullAt>
+int64_t CountTrailingNulls(int64_t length, IsNullAt&& is_null_at) {
+  auto indices = std::views::iota(int64_t{0}, length) | std::views::reverse;
+  auto first_non_null = std::ranges::find_if_not(indices, std::forward<IsNullAt>(is_null_at));
+  return std::ranges::distance(indices.begin(), first_non_null);
+}
+
+template <typename ChunkRange, typename CountPartialNulls>
+int64_t CountEdgeNullsInChunks(ChunkRange&& chunks,
+                               CountPartialNulls&& count_partial_nulls) {
+  auto non_empty_chunks = std::forward<ChunkRange>(chunks) |
+                          std::views::filter([](const std::shared_ptr<Array>& chunk) {
+                            return chunk->length() != 0;
+                          });
+
+  auto first_not_all_null = std::ranges::find_if(
+      non_empty_chunks, [](const std::shared_ptr<Array>& chunk) {
+        return chunk->null_count() != chunk->length();
+      });
+
+  int64_t edge_null_count = 0;
+  for (auto it = non_empty_chunks.begin(); it != first_not_all_null; ++it) {
+    edge_null_count += (*it)->length();
+  }
+
+  if (first_not_all_null != non_empty_chunks.end() &&
+      (*first_not_all_null)->null_count() != 0) {
+    edge_null_count += count_partial_nulls(**first_not_all_null);
+  }
+
+  return edge_null_count;
+}
+
+inline Result<NonNullValuesRange> MakeNonNullValuesRange(int64_t full_length,
+                                                         int64_t null_count,
+                                                         int64_t leading_null_count,
+                                                         int64_t trailing_null_count) {
+  NonNullValuesRange non_null_values_range{.offset = 0, .length = full_length};
+
+  if (leading_null_count == full_length) {
+    non_null_values_range.offset = full_length;
+    non_null_values_range.length = 0;
+    return non_null_values_range;
+  }
+
+  if (leading_null_count > 0) {
+    if (leading_null_count != null_count) {
+      return Status::Invalid(kClusteredNullValuesError);
+    }
+    non_null_values_range.offset = leading_null_count;
+    non_null_values_range.length = full_length - leading_null_count;
+    return non_null_values_range;
+  }
+
+  if (trailing_null_count == 0 || trailing_null_count != null_count) {
+    return Status::Invalid(kClusteredNullValuesError);
+  }
+
+  non_null_values_range.length = full_length - trailing_null_count;
+  return non_null_values_range;
+}
+
 /// Present a contiguous non-null slice of the searched values through the same
 /// accessor interface as the original values container.
 template <typename ValuesAccessor>
@@ -385,43 +457,16 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return non_null_values_range;
   }
 
-  const int64_t leading_null_count = [&] {
-    auto indices = std::ranges::views::iota(int64_t{0}, values.length);
-    auto it =
-        std::ranges::find_if_not(indices, [&](int64_t i) { return values.IsNull(i); });
-    return it == indices.end() ? values.length : *it;
-  }();
+  const int64_t leading_null_count =
+      CountLeadingNulls(values.length, [&](int64_t index) { return values.IsNull(index); });
+  const int64_t trailing_null_count =
+      leading_null_count > 0
+          ? 0
+          : CountTrailingNulls(values.length,
+                               [&](int64_t index) { return values.IsNull(index); });
 
-  if (leading_null_count == values.length) {
-    non_null_values_range.offset = values.length;
-    non_null_values_range.length = 0;
-    return non_null_values_range;
-  }
-
-  if (leading_null_count > 0) {
-    if (leading_null_count != null_count) {
-      return Status::Invalid(
-          "search_sorted values with nulls must be clustered at the start or end.");
-    }
-    non_null_values_range.offset = leading_null_count;
-    non_null_values_range.length = values.length - leading_null_count;
-    return non_null_values_range;
-  }
-
-  const int64_t trailing_null_count = [&] {
-    auto indices = std::ranges::views::iota(int64_t{0}, values.length);
-    auto it = std::ranges::find_if_not(
-        indices, [&](int64_t i) { return values.IsNull(values.length - 1 - i); });
-    return it == indices.end() ? values.length : *it;
-  }();
-
-  if (trailing_null_count == 0 || (trailing_null_count != null_count)) {
-    return Status::Invalid(
-        "search_sorted values with nulls must be clustered at the start or end.");
-  }
-
-  non_null_values_range.length = values.length - trailing_null_count;
-  return non_null_values_range;
+  return MakeNonNullValuesRange(values.length, null_count, leading_null_count,
+                                trailing_null_count);
 }
 
 /// Validate the searched values input shape and supported encoding.
@@ -462,67 +507,23 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& val
     return non_null_values_range;
   }
 
-  int64_t leading_null_count = 0;
-  for (const auto& chunk : values.chunks()) {
-    if (chunk->length() == 0) {
-      continue;
-    }
-    if (chunk->null_count() == 0) {
-      break;
-    }
-    if (chunk->null_count() == chunk->length()) {
-      leading_null_count += chunk->length();
-      continue;
-    }
-    for (int64_t index = 0; index < chunk->length() && chunk->IsNull(index); ++index) {
-      ++leading_null_count;
-    }
-    break;
-  }
-
-  if (leading_null_count == values.length()) {
-    non_null_values_range.offset = values.length();
-    non_null_values_range.length = 0;
-    return non_null_values_range;
-  }
-
-  if (leading_null_count > 0) {
-    if (leading_null_count != null_count) {
-      return Status::Invalid(
-          "search_sorted values with nulls must be clustered at the start or end.");
-    }
-    non_null_values_range.offset = leading_null_count;
-    non_null_values_range.length = values.length() - leading_null_count;
-    return non_null_values_range;
-  }
+  const int64_t leading_null_count = CountEdgeNullsInChunks(
+      values.chunks(), [](const Array& chunk) {
+        return CountLeadingNulls(chunk.length(),
+                                 [&](int64_t index) { return chunk.IsNull(index); });
+      });
 
   int64_t trailing_null_count = 0;
-  for (auto it = values.chunks().rbegin(); it != values.chunks().rend(); ++it) {
-    const auto& chunk = *it;
-    if (chunk->length() == 0) {
-      continue;
-    }
-    if (chunk->null_count() == 0) {
-      break;
-    }
-    if (chunk->null_count() == chunk->length()) {
-      trailing_null_count += chunk->length();
-      continue;
-    }
-    for (int64_t index = chunk->length() - 1; index >= 0 && chunk->IsNull(index);
-         --index) {
-      ++trailing_null_count;
-    }
-    break;
+  if (leading_null_count == 0) {
+    trailing_null_count = CountEdgeNullsInChunks(
+        values.chunks() | std::views::reverse, [](const Array& chunk) {
+          return CountTrailingNulls(chunk.length(),
+                                    [&](int64_t index) { return chunk.IsNull(index); });
+        });
   }
 
-  if (trailing_null_count == 0 || (trailing_null_count != null_count)) {
-    return Status::Invalid(
-        "search_sorted values with nulls must be clustered at the start or end.");
-  }
-
-  non_null_values_range.length = values.length() - trailing_null_count;
-  return non_null_values_range;
+  return MakeNonNullValuesRange(values.length(), null_count, leading_null_count,
+                                trailing_null_count);
 }
 
 /// Perform a lower- or upper-bound binary search over already sorted values.
