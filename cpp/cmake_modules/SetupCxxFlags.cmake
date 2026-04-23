@@ -563,7 +563,7 @@ if(ARROW_CPU_FLAG STREQUAL "aarch64")
         set(ARROW_HAVE_SVE_SIZELESS ON)
         add_definitions(-DARROW_HAVE_SVE_SIZELESS)
       endif()
-    else() # ARM v8 not SVE
+    else() # ARM v8 without SVE
       set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -march=${ARROW_ARMV8_MARCH}")
     endif()
   elseif(NOT ARROW_SIMD_LEVEL STREQUAL "NONE")
