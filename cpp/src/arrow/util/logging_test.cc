@@ -23,6 +23,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/util/config.h"
 #include "arrow/util/logging_internal.h"
 
 // This code is adapted from
@@ -92,6 +93,9 @@ TEST(ArrowCheck, PayloadEvaluatedOnFailure) {
 }
 
 TEST(ArrowLog, MultiThreadedLogging) {
+#ifndef ARROW_ENABLE_THREADING
+  GTEST_SKIP() << "Test requires threading support";
+#endif
   // This is mostly a visual test that logging from multiple threads produces
   // a clean output without interleaving messages (GH-49433).
   constexpr int kNumThreads = 10;
