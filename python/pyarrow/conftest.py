@@ -123,7 +123,10 @@ except ImportError:
     pass
 
 try:
-    import pyarrow.gandiva  # noqa
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", FutureWarning)
+        import pyarrow.gandiva  # noqa
     defaults['gandiva'] = True
 except ImportError:
     pass
