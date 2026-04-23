@@ -21,11 +21,23 @@ from uuid import UUID
 from collections.abc import Sequence, Mapping
 
 
-def _compute_binary_op(func_name, left, right):
+def _is_valid_compute_operand(value):
+    if isinstance(value, (Scalar, Array, ChunkedArray, RecordBatch, Table,
+                          list, tuple)):
+        return True
+    if np is not None and isinstance(value, np.ndarray):
+        return True
     try:
-        return _pc().call_function(func_name, [left, right])
-    except TypeError:
+        scalar(value)
+    except Exception:
+        return False
+    return True
+
+
+def _compute_binary_op(func_name, left, right):
+    if not _is_valid_compute_operand(right):
         return NotImplemented
+    return _pc().call_function(func_name, [left, right])
 
 
 cdef class Scalar(_Weakrefable):
