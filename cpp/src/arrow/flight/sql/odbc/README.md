@@ -17,19 +17,25 @@
   under the License.
 -->
 
-## Steps to Register the 64-bit Apache Arrow ODBC driver on Windows
+## Steps to Register the Apache Arrow Flight SQL ODBC driver
 
-After the build succeeds, the ODBC DLL will be located in 
-`build\debug\Debug` for a debug build and `build\release\Release` for a release build.
+After building the repository you will find the built ODBC binaries in the build artifacts.
 
-1. Open Windows Power Shell as administrator.
+On Windows, the driver binary will be located at `build\debug\Debug\arrow_flight_sql_odbc.dll` for a debug build and `build\release\Release\arrow_flight_sql_odbc.dll` for a release build.
 
-2. Register your ODBC DLL:
+On MacOS, the driver binary will be located at `build/debug/libarrow_flight_sql_odbc.dylib` for a debug build and `build/release/libarrow_flight_sql_odbc.dylib` for a release build.
 
-   Need to replace `<path\to\repo>` with actual path to repository in the commands.
+On Linux, the driver binary will be located at `build/debug/libarrow_flight_sql_odbc.so` for a debug build and `build/release/libarrow_flight_sql_odbc.so` for a release build.
 
-   1. `cd <path\to\repo>`
-   2. Run script to register your ODBC DLL as Apache Arrow Flight SQL ODBC Driver
+1. Open your system terminal. On Windows this should be Power Shell in administrator mode.
+
+2. Register your ODBC binary:
+
+   These commands need `<path/to/repo>` to be replaced with the actual path to the repository.
+
+   1. `cd <path/to/repo>`
+   2. Run script to register your ODBC driver binary as Apache Arrow Flight SQL ODBC Driver.<br>
+      On Windows:
       ```
       .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd <path\to\repo>\cpp\build\< release | debug >\< Release | Debug>\arrow_flight_sql_odbc.dll
       ```
@@ -37,9 +43,24 @@ After the build succeeds, the ODBC DLL will be located in
       ```
       .\cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd C:\path\to\arrow\cpp\build\release\Release\arrow_flight_sql_odbc.dll
       ```
+      On MacOS:
+      ```
+      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/repo>/cpp/build/< release | debug >/libarrow_flight_sql_odbc.dylib
+      ```
+      Example command for reference:
+      ```
+      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/arrow>/cpp/build/release/libarrow_flight_sql_odbc.dylib
+      ```
+      On Linux:
+      ```
+      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/repo>/cpp/build/< release | debug >/libarrow_flight_sql_odbc.so
+      ```
+      Example command for reference:
+      ```
+      ./cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh <path/to/arrow>/cpp/build/release/libarrow_flight_sql_odbc.so
+      ```
 
-If the registration is successful, then Apache Arrow Flight SQL ODBC Driver 
-should show as an available ODBC driver in the x64 ODBC Driver Manager.
+If the registration is successful, then Apache Arrow Flight SQL ODBC Driver should show as an available ODBC driver. On Windows this should be visible in the x64 ODBC Driver Manager. On MacOS & Linux this should be visible in your system odbc.ini.
 
 ## Steps to Generate Windows Installer
 1. Install WiX toolset v6 from [GitHub](https://github.com/wixtoolset/wix/releases/).
@@ -138,10 +159,11 @@ ODBC installers are uploaded to the CI artifacts.
 ### Install `.RPM` on Ubuntu
 While installing via `.DEB` installer on Ubuntu is the recommended approach, users may install `.RPM` on Ubuntu using below command
 ```
-alien -i --scripts ArrowFlightSqlOdbcODBC-<version>.rpm
+alien -i --scripts ArrowFlightSqlOdbc-<version>.rpm
 ```
 
 ## Known Limitations
 
 - Conversion from timestamp data type with specified time zone value to strings is not supported at the moment. This doesn't impact driver's usage of retrieving timestamp data from Power BI on Windows, and Excel on macOS and Windows. See GH-47504 for more context.
 - Conversion from strings to big int data type has a limit range of -9007199254740992 to 9007199254740992.
+- On Linux, `isql` commands `tables` and `columns` don’t work due to GH-49702. Users are not blocked from fetching data tables.
