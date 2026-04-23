@@ -149,7 +149,9 @@ fixed_offset_timezones = st.builds(
     h=st.integers(min_value=-12, max_value=14),
     m=st.sampled_from([0, 30, 45]),
 ).filter(
-    lambda tz: tz.utcoffset(None) <= datetime.timedelta(hours=14)
+    lambda tz: datetime.timedelta(hours=-12)
+    <= tz.utcoffset(None)
+    <= datetime.timedelta(hours=14)
 )
 
 if tzst and zoneinfo:
