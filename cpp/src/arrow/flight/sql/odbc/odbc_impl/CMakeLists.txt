@@ -207,7 +207,9 @@ add_arrow_test(odbc_spi_impl_test
 
 # NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
 # ../../../CMakeLists.txt.
-if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   if(TARGET arrow_odbc_spi_impl_cli)
     target_link_options(arrow_odbc_spi_impl_cli PRIVATE "/FORCE:MULTIPLE")
   endif()

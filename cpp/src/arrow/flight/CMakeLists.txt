@@ -246,7 +246,9 @@ if(ARROW_BUILD_STATIC AND WIN32)
 endif()
 
 # NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" below.
-if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   foreach(LIB_TARGET ${ARROW_FLIGHT_LIBRARIES})
     target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
   endforeach()
@@ -399,7 +401,9 @@ endif(ARROW_BUILD_BENCHMARKS)
 # LNK1169: one or more multiply defined symbols found [C:\path\to\arrow\cpp\static-debug-build\src\arrow\flight\flight-test-server.vcxproj]
 #
 # If you build in Release mode w/ /MD linkage you don't get these errors.
-if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   set(FLIGHT_TEST_EXES
       arrow-flight-internals-test
       arrow-flight-test
