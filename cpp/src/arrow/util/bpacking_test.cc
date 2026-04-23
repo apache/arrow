@@ -198,7 +198,7 @@ class TestUnpack : public ::testing::Test {
       constexpr int kMaxBitWidth = std::is_same_v<Int, bool> ? 1 : 8 * sizeof(Int);
 
       // Given how many edge cases there are in unpacking integers, it is best to test all
-      // sizes
+      // bit widths.
       for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
         SCOPED_TRACE(::testing::Message() << "Testing bit_width=" << bit_width);
 
