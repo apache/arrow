@@ -138,8 +138,7 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - fedora-r-clang
-  - pixi-cpp:
-    - pixi-python
+  - pixi-cpp
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
