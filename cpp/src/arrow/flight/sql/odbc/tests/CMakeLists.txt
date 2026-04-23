@@ -94,3 +94,9 @@ target_link_libraries(arrow-flight-sql-odbc-test PRIVATE ODBC::ODBC)
 
 # Disable unity build due to sqlite_sql_info.cc conflict with sql.h and sqlext.h headers.
 set_target_properties(arrow-flight-sql-odbc-test PROPERTIES UNITY_BUILD OFF)
+
+if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+  if(TARGET arrow-flight-sql-odbc-test)
+    target_link_options(arrow-flight-sql-odbc-test PRIVATE "/FORCE:MULTIPLE")
+  endif()
+endif()
