@@ -348,10 +348,11 @@ inline bool DatumHasNulls(const Datum& datum) {
     if (chunked_array.type()->id() != Type::RUN_END_ENCODED) {
       return false;
     }
-    return std::ranges::any_of(chunked_array.chunks(), [](const std::shared_ptr<Array>& chunk) {
-      const auto& ree_chunk = checked_cast<const RunEndEncodedArray&>(*chunk);
-      return ree_chunk.values()->null_count() != 0;
-    });
+    return std::ranges::any_of(
+        chunked_array.chunks(), [](const std::shared_ptr<Array>& chunk) {
+          const auto& ree_chunk = checked_cast<const RunEndEncodedArray&>(*chunk);
+          return ree_chunk.values()->null_count() != 0;
+        });
   }
 
   const auto& array_data = datum.array();
@@ -508,7 +509,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& val
       trailing_null_count += chunk->length();
       continue;
     }
-    for (int64_t index = chunk->length() - 1; index >= 0 && chunk->IsNull(index); --index) {
+    for (int64_t index = chunk->length() - 1; index >= 0 && chunk->IsNull(index);
+         --index) {
       ++trailing_null_count;
     }
     break;
@@ -559,11 +561,11 @@ uint64_t FindInsertionPoint(const Accessor& sorted_values,
                             SearchSortedOptions::Side side) {
   switch (side) {
     case SearchSortedOptions::Left:
-      return FindInsertionPointImpl<SearchSortedOptions::Left, ArrowType>(
-          sorted_values, needle);
+      return FindInsertionPointImpl<SearchSortedOptions::Left, ArrowType>(sorted_values,
+                                                                          needle);
     case SearchSortedOptions::Right:
-      return FindInsertionPointImpl<SearchSortedOptions::Right, ArrowType>(
-          sorted_values, needle);
+      return FindInsertionPointImpl<SearchSortedOptions::Right, ArrowType>(sorted_values,
+                                                                           needle);
   }
   DCHECK(false) << "Unexpected SearchSortedOptions::Side value";
   return FindInsertionPointImpl<SearchSortedOptions::Left, ArrowType>(sorted_values,
@@ -865,8 +867,7 @@ class SearchSortedMetaFunction : public MetaFunction {
           values_type.ToString(), " and ", needles_type.ToString());
     }
 
-    ARROW_ASSIGN_OR_RAISE(auto non_null_values_range,
-                          FindNonNullValuesRange(args[0]));
+    ARROW_ASSIGN_OR_RAISE(auto non_null_values_range, FindNonNullValuesRange(args[0]));
     auto result = DispatchByType(args[0], non_null_values_range, args[1],
                                  static_cast<const SearchSortedOptions&>(*options), ctx);
     return result;
@@ -906,18 +907,18 @@ class SearchSortedMetaFunction : public MetaFunction {
                                  const Datum& needles, SearchSortedOptions::Side side,
                                  ExecContext* ctx) const {
     if (values.is_chunked_array()) {
-      return VisitValuesAccessor<ArrowType>(*values.chunked_array(),
-                                            [&](const auto& values_accessor) {
-                                              return SearchWithAccessor<ArrowType>(
-                                                  values_accessor, non_null_values_range,
-                                                  needles, side, ctx);
-                                            });
+      return VisitValuesAccessor<ArrowType>(
+          *values.chunked_array(), [&](const auto& values_accessor) {
+            return SearchWithAccessor<ArrowType>(values_accessor, non_null_values_range,
+                                                 needles, side, ctx);
+          });
     }
 
-    return VisitValuesAccessor<ArrowType>(values.array(), [&](const auto& values_accessor) {
-      return SearchWithAccessor<ArrowType>(values_accessor, non_null_values_range,
-                                           needles, side, ctx);
-    });
+    return VisitValuesAccessor<ArrowType>(
+        values.array(), [&](const auto& values_accessor) {
+          return SearchWithAccessor<ArrowType>(values_accessor, non_null_values_range,
+                                               needles, side, ctx);
+        });
   }
 };
 
