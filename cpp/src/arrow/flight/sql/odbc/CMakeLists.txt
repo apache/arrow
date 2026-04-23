@@ -120,7 +120,9 @@ add_arrow_lib(arrow_flight_sql_odbc
 
 # NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
 # ../../CMakeLists.txt.
-if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug" AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
+if(WIN32
+   AND CMAKE_BUILD_TYPE STREQUAL "Debug"
+   AND ARROW_FLIGHT_TEST_LINKAGE STREQUAL "static")
   foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_ODBC_LIBRARIES})
     target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
   endforeach()
