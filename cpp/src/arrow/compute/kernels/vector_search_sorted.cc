@@ -307,14 +307,16 @@ constexpr std::string_view kClusteredNullValuesError =
 template <typename IsNullAt>
 int64_t CountLeadingNulls(int64_t length, IsNullAt&& is_null_at) {
   auto indices = std::views::iota(int64_t{0}, length);
-  auto first_non_null = std::ranges::find_if_not(indices, std::forward<IsNullAt>(is_null_at));
+  auto first_non_null =
+      std::ranges::find_if_not(indices, std::forward<IsNullAt>(is_null_at));
   return std::ranges::distance(indices.begin(), first_non_null);
 }
 
 template <typename IsNullAt>
 int64_t CountTrailingNulls(int64_t length, IsNullAt&& is_null_at) {
   auto indices = std::views::iota(int64_t{0}, length) | std::views::reverse;
-  auto first_non_null = std::ranges::find_if_not(indices, std::forward<IsNullAt>(is_null_at));
+  auto first_non_null =
+      std::ranges::find_if_not(indices, std::forward<IsNullAt>(is_null_at));
   return std::ranges::distance(indices.begin(), first_non_null);
 }
 
@@ -326,8 +328,8 @@ int64_t CountEdgeNullsInChunks(ChunkRange&& chunks,
                             return chunk->length() != 0;
                           });
 
-  auto first_not_all_null = std::ranges::find_if(
-      non_empty_chunks, [](const std::shared_ptr<Array>& chunk) {
+  auto first_not_all_null =
+      std::ranges::find_if(non_empty_chunks, [](const std::shared_ptr<Array>& chunk) {
         return chunk->null_count() != chunk->length();
       });
 
@@ -457,13 +459,12 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values
     return non_null_values_range;
   }
 
-  const int64_t leading_null_count =
-      CountLeadingNulls(values.length, [&](int64_t index) { return values.IsNull(index); });
+  const int64_t leading_null_count = CountLeadingNulls(
+      values.length, [&](int64_t index) { return values.IsNull(index); });
   const int64_t trailing_null_count =
-      leading_null_count > 0
-          ? 0
-          : CountTrailingNulls(values.length,
-                               [&](int64_t index) { return values.IsNull(index); });
+      leading_null_count > 0 ? 0 : CountTrailingNulls(values.length, [&](int64_t index) {
+        return values.IsNull(index);
+      });
 
   return MakeNonNullValuesRange(values.length, null_count, leading_null_count,
                                 trailing_null_count);
@@ -507,8 +508,8 @@ inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& val
     return non_null_values_range;
   }
 
-  const int64_t leading_null_count = CountEdgeNullsInChunks(
-      values.chunks(), [](const Array& chunk) {
+  const int64_t leading_null_count =
+      CountEdgeNullsInChunks(values.chunks(), [](const Array& chunk) {
         return CountLeadingNulls(chunk.length(),
                                  [&](int64_t index) { return chunk.IsNull(index); });
       });
