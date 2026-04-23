@@ -93,6 +93,8 @@ if(ARROW_BUILD_STATIC AND WIN32)
   target_compile_definitions(arrow_flight_sql_static PUBLIC ARROW_FLIGHT_SQL_STATIC)
 endif()
 
+# NOTE-49585: Workaround for issue found in GH-49585. See "NOTE-49585" in
+# ../CMakeLists.txt.
 if(WIN32 AND CMAKE_BUILD_TYPE STREQUAL "Debug")
   foreach(LIB_TARGET ${ARROW_FLIGHT_SQL_LIBRARIES})
     target_link_options(${LIB_TARGET} PRIVATE "/FORCE:MULTIPLE")
