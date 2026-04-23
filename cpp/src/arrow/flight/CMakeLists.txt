@@ -123,9 +123,9 @@ function(arrow_set_generated_proto_files_properties)
   set(GENERATED_FILES ${ARGN})
   set_source_files_properties(${GENERATED_FILES} PROPERTIES GENERATED TRUE)
   if(MSVC)
-    # Suppress missing dll-interface warning
+    # Suppress missing dll-interface warnings
     set_source_files_properties(${GENERATED_FILES}
-                                PROPERTIES COMPILE_OPTIONS "/wd4251"
+                                PROPERTIES COMPILE_OPTIONS "/wd4251;/wd4275"
                                            SKIP_UNITY_BUILD_INCLUSION TRUE)
   elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # Disable -Wmissing-declarations
