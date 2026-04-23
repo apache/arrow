@@ -587,6 +587,10 @@ TEST(TestGdvFnStubs, TestSubstringIndex) {
                                    std::numeric_limits<int32_t>::min(), &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "a.b.c");
   EXPECT_FALSE(ctx.has_error());
+
+  out_str = gdv_fn_substring_index(ctx_ptr, "a", -2, ".", -1, -50, &out_len);
+  EXPECT_STREQ(out_str, "");
+  EXPECT_EQ(out_len, 0);
 }
 
 TEST(TestGdvFnStubs, TestUpper) {
@@ -640,6 +644,26 @@ TEST(TestGdvFnStubs, TestUpper) {
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
                   "unexpected byte \\c3 encountered while decoding utf8 string"));
+
+  ctx.Reset();
+
+  // Max Len Test
+  out_len = -1;
+  int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  const char* out = gdv_fn_upper_utf8(ctx_ptr, "dummy", bad_len, &out_len);
+  // Expect failure
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  // Negative length test
+  out_len = -1;
+  out = gdv_fn_upper_utf8(ctx_ptr, "abc", -105, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
   ctx.Reset();
 
   std::string e(
@@ -697,6 +721,26 @@ TEST(TestGdvFnStubs, TestLower) {
   out_str = gdv_fn_lower_utf8(ctx_ptr, "", 0, &out_len);
   EXPECT_EQ(std::string(out_str, out_len), "");
   EXPECT_FALSE(ctx.has_error());
+  ctx.Reset();
+
+  // Max Len Test
+  out_len = -1;
+  int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  const char* out = gdv_fn_lower_utf8(ctx_ptr, "dummy", bad_len, &out_len);
+  // Expect failure
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  // Negative length test
+  out_len = -1;
+  out = gdv_fn_lower_utf8(ctx_ptr, "abc", -105, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
+  ctx.Reset();
 
   std::string d("AbOJjÜoß\xc3");
   out_str = gdv_fn_lower_utf8(ctx_ptr, d.data(), static_cast<int>(d.length()), &out_len);
@@ -794,6 +838,25 @@ TEST(TestGdvFnStubs, TestInitCap) {
   EXPECT_THAT(ctx.get_error(),
               ::testing::HasSubstr(
                   "unexpected byte \\c3 encountered while decoding utf8 string"));
+  ctx.Reset();
+
+  // Max Len Test
+  out_len = -1;
+  int32_t bad_len = std::numeric_limits<int32_t>::max() / 2 + 1;
+  const char* out = gdv_fn_initcap_utf8(ctx_ptr, "dummy", bad_len, &out_len);
+  // Expect failure
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
+  ctx.Reset();
+
+  // Negative length test
+  out_len = -1;
+  out = gdv_fn_initcap_utf8(ctx_ptr, "abc", -105, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(out, "");
+  EXPECT_THAT(ctx.get_error(), ::testing::HasSubstr("Invalid (negative) data length"));
   ctx.Reset();
 
   std::string e(
@@ -1127,6 +1190,15 @@ TEST(TestGdvFnStubs, TestTranslate) {
   result = translate_utf8_utf8_utf8(ctx_ptr, "987654321", 9, "123456789", 9, "0123456789",
                                     10, &out_len);
   EXPECT_EQ(expected, std::string(result, out_len));
+
+  int32_t bad_in_len = std::numeric_limits<int32_t>::max() / 4 + 1;
+  out_len = -1;
+  result =
+      translate_utf8_utf8_utf8(ctx_ptr, "ABCDE", bad_in_len, "B", 1, "C", 1, &out_len);
+  EXPECT_EQ(out_len, 0);
+  EXPECT_STREQ(result, "");
+  EXPECT_THAT(ctx.get_error(),
+              ::testing::HasSubstr("Would overflow maximum output size"));
 }
 
 TEST(TestGdvFnStubs, TestToUtcTimezone) {
