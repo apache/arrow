@@ -69,13 +69,9 @@ void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
   CheckSearchSorted(Datum(values), Datum(needles), expected_left_json, expected_right_json);
 }
 
-void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
-                                   const std::string& values_json,
-                                   const std::string& needles_json,
-                                   const std::string& expected_left_json,
-                                   const std::string& expected_right_json) {
-  auto values = ArrayFromJSON(type, values_json);
-  auto needles = ArrayFromJSON(type, needles_json);
+void CheckScalarSearchSorted(const Datum& values, const std::shared_ptr<Array>& needles,
+                             const std::string& expected_left_json,
+                             const std::string& expected_right_json) {
   auto expected_left = ArrayFromJSON(uint64(), expected_left_json);
   auto expected_right = ArrayFromJSON(uint64(), expected_right_json);
 
@@ -85,10 +81,10 @@ void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
   for (int64_t index = 0; index < needles->length(); ++index) {
     ASSERT_OK_AND_ASSIGN(auto needle, needles->GetScalar(index));
     ASSERT_OK_AND_ASSIGN(auto left,
-                         SearchSorted(Datum(values), Datum(needle),
+                         SearchSorted(values, Datum(needle),
                                       SearchSortedOptions(SearchSortedOptions::Left)));
     ASSERT_OK_AND_ASSIGN(auto right,
-                         SearchSorted(Datum(values), Datum(needle),
+                         SearchSorted(values, Datum(needle),
                                       SearchSortedOptions(SearchSortedOptions::Right)));
 
     ASSERT_TRUE(left.is_scalar());
@@ -99,6 +95,29 @@ void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
     AssertScalarsEqual(*expected_left_scalar, *left.scalar());
     AssertScalarsEqual(*expected_right_scalar, *right.scalar());
   }
+}
+
+void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
+                                   const std::string& values_json,
+                                   const std::string& needles_json,
+                                   const std::string& expected_left_json,
+                                   const std::string& expected_right_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto needles = ArrayFromJSON(type, needles_json);
+  CheckScalarSearchSorted(Datum(values), needles, expected_left_json, expected_right_json);
+}
+
+void CheckSimpleSearchSortedAndScalar(const std::shared_ptr<DataType>& type,
+                                      const std::string& values_json,
+                                      const std::string& needles_json,
+                                      const std::string& expected_left_json,
+                                      const std::string& expected_right_json) {
+  auto values = ArrayFromJSON(type, values_json);
+  auto needles = ArrayFromJSON(type, needles_json);
+
+  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json, expected_right_json);
+  CheckScalarSearchSorted(Datum(values), needles, expected_left_json,
+                          expected_right_json);
 }
 
 struct SearchSortedSmokeCase {
@@ -272,6 +291,20 @@ TEST(SearchSorted, ValuesWithTrailingNulls) {
   CheckSimpleSearchSorted(int32(), "[200, 300, 300, null, null]",
                           "[50, 200, 250, 400]", "[0, 0, 1, 3]",
                           "[0, 1, 1, 3]");
+}
+
+TEST(SearchSorted, FloatValuesWithTrailingNaNsAndNulls) {
+  CheckSimpleSearchSortedAndScalar(float64(),
+                                   "[1.0, 3.0, 3.0, 5.0, NaN, NaN, null]",
+                                   "[0.0, 3.0, 4.0, NaN]", "[0, 1, 3, 4]",
+                                   "[0, 3, 3, 6]");
+}
+
+TEST(SearchSorted, FloatValuesWithLeadingNullsAndTrailingNaNs) {
+  CheckSimpleSearchSortedAndScalar(float64(),
+                                   "[null, 1.0, 3.0, 3.0, 5.0, NaN, NaN]",
+                                   "[0.0, 3.0, 4.0, NaN]", "[1, 2, 4, 5]",
+                                   "[1, 4, 4, 7]");
 }
 
 TEST(SearchSorted, NullNeedlesEmitNull) {
