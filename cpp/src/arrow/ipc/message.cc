@@ -573,8 +573,8 @@ Status DecodeMessage(MessageDecoder* decoder, io::InputStream* file) {
                          remaining_magic.size()) == remaining_magic) {
       return Status::Invalid("Expected to read ", metadata_length,
                              " metadata bytes, but only read ", metadata->size(),
-                             ". This appears to be an Arrow IPC File format file. "
-                             "Try open_file() instead of open_stream().");
+                             ". This appears to be an Arrow IPC file. "
+                             "Try the IPC file reader instead of the IPC stream reader.");
     }
     return Status::Invalid("Expected to read ", metadata_length, " metadata bytes, but ",
                            "only read ", metadata->size());
