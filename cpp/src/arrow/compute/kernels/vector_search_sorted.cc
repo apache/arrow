@@ -336,12 +336,8 @@ class ChunkedArrayAccessor {
 
  private:
   static ValueType ReadChunkValue(const std::shared_ptr<Array>& chunk, int64_t index) {
-    if (chunk->type_id() == Type::RUN_END_ENCODED) {
-      const auto& ree_chunk = checked_cast<const RunEndEncodedArray&>(*chunk);
-      RunEndEncodedValuesAccessor<ArrowType> values_accessor(ree_chunk);
-      return values_accessor.LogicalValue(index);
-    }
 
+    DCHECK_NE(chunk->type_id(), Type::RUN_END_ENCODED);
     PlainArrayAccessor<ArrowType> values_accessor(chunk->data());
     return values_accessor.Value(index);
   }
