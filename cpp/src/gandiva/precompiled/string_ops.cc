@@ -2460,18 +2460,18 @@ struct SafeLengthState {
 };
 
 // Helper to safely add a word length
-static inline bool safe_accumulate_word(SafeLengthState* state, int32_t word_len,
+static inline bool safe_accumulate_word(SafeLengthState& state, int32_t word_len,
                                         bool word_validity) {
-  if (!word_validity) return true;
+  if (not word_validity) return true;
 
   int32_t temp = 0;
   if (ARROW_PREDICT_FALSE(
-          arrow::internal::AddWithOverflow(state->total_len, word_len, &temp))) {
-    state->overflow = true;
+          arrow::internal::AddWithOverflow(state.total_len, word_len, &temp))) {
+    state.overflow = true;
     return false;
   }
-  state->total_len = temp;
-  state->num_valid++;
+  state.total_len = temp;
+  state.num_valid++;
   return true;
 }
 
@@ -2512,163 +2512,47 @@ static inline const char* handle_empty_result(bool* out_valid, int32_t* out_len)
   return "";
 }
 
-FORCE_INLINE
-const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
-                                int32_t separator_len, bool separator_validity,
-                                const char* word1, int32_t word1_len, bool word1_validity,
-                                const char* word2, int32_t word2_len, bool word2_validity,
-                                bool* out_valid, int32_t* out_len) {
+struct WordArg {
+  const char* data;
+  int32_t len;
+  bool valid;
+};
+
+static inline const char* concat_ws_impl(int64_t context, const char* separator,
+                                         int32_t separator_len, bool separator_validity,
+                                         bool* out_valid, int32_t* out_len,
+                                         std::initializer_list<WordArg> words) {
   *out_len = 0;
-  // If separator is null, always return null
-  if (!separator_validity) {
-    *out_len = 0;
+
+  // Separator validity check
+  if (not separator_validity) {
     *out_valid = false;
     return "";
   }
 
-  // If separator is null, always return null
-  if (!separator_validity) {
-    return handle_overflow_failure(out_valid, out_len);
-  }
-
   SafeLengthState state;
 
-  // Accumulate word lengths safely
-  safe_accumulate_word(&state, word1_len, word1_validity);
-  safe_accumulate_word(&state, word2_len, word2_validity);
-
-  if (state.overflow) {
-    return handle_overflow_failure(out_valid, out_len);
+  // Accumulate all word lengths safely
+  for (const WordArg& w : words) {
+    safe_accumulate_word(state, w.len, w.valid);
+    if (state.overflow) {
+      *out_valid = false;
+      *out_len = 0;
+      return "";
+    }
   }
 
   // Add separator lengths
-  if (!safe_add_separators(&state, separator_len)) {
-    return handle_overflow_failure(out_valid, out_len);
+  if (not safe_add_separators(&state, separator_len)) {
+    *out_valid = false;
+    *out_len = 0;
+    return "";
   }
 
-  // Handle case with no valid words
+  // Empty result
   if (state.total_len == 0) {
-    return handle_empty_result(out_valid, out_len);
-  }
-
-  // Allocate and concatenate
-  char* out =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  char* tmp = out;
-  int out_idx = 0;
-  bool seenAnyValidInput = false;
-
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
-              &seenAnyValidInput);
-
-  *out_valid = true;
-  *out_len = out_idx;
-  return out;
-}
-
-FORCE_INLINE
-const char* concat_ws_utf8_utf8_utf8(
-    int64_t context, const char* separator, int32_t separator_len,
-    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
-    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
-    int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len) {
-  *out_len = 0;
-  if (!separator_validity) {
-    return handle_overflow_failure(out_valid, out_len);
-  }
-
-  SafeLengthState state;
-
-  safe_accumulate_word(&state, word1_len, word1_validity);
-  safe_accumulate_word(&state, word2_len, word2_validity);
-  safe_accumulate_word(&state, word3_len, word3_validity);
-
-  if (state.overflow) {
-    return handle_overflow_failure(out_valid, out_len);
-  }
-
-  if (!safe_add_separators(&state, separator_len)) {
-    return handle_overflow_failure(out_valid, out_len);
-  }
-
-  if (state.total_len == 0) {
-    return handle_empty_result(out_valid, out_len);
-  }
-
-  char* out =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  char* tmp = out;
-  int out_idx = 0;
-  bool seenAnyValidInput = false;
-
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
-              &seenAnyValidInput);
-
-  *out_valid = true;
-  *out_len = out_idx;
-  return out;
-}
-
-FORCE_INLINE
-const char* concat_ws_utf8_utf8_utf8_utf8(
-    int64_t context, const char* separator, int32_t separator_len,
-    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
-    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
-    int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
-    bool word4_validity, bool* out_valid, int32_t* out_len) {
-  *out_len = 0;
-  // If separator is null, always return null
-  if (!separator_validity) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  SafeLengthState state;
-
-  // Accumulate all word lengths with overflow checking
-  safe_accumulate_word(&state, word1_len, word1_validity);
-  safe_accumulate_word(&state, word2_len, word2_validity);
-  safe_accumulate_word(&state, word3_len, word3_validity);
-  safe_accumulate_word(&state, word4_len, word4_validity);
-
-  if (state.overflow) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  // Add separator lengths with overflow checking
-  if (!safe_add_separators(&state, separator_len)) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  // Handle case with no valid words
-  if (state.total_len == 0) {
-    *out_len = 0;
     *out_valid = true;
+    *out_len = 0;
     return "";
   }
 
@@ -2682,22 +2566,58 @@ const char* concat_ws_utf8_utf8_utf8_utf8(
     return "";
   }
 
+  // Concatenate all words
   char* tmp = out;
   int out_idx = 0;
   bool seenAnyValidInput = false;
 
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len,
-              &seenAnyValidInput);
+  for (const WordArg& w : words) {
+    concat_word(tmp, &out_idx, w.data, w.len, w.valid, separator, separator_len,
+                &seenAnyValidInput);
+  }
 
   *out_valid = true;
   *out_len = out_idx;
   return out;
+}
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8(int64_t context, const char* separator,
+                                int32_t separator_len, bool separator_validity,
+                                const char* word1, int32_t word1_len, bool word1_validity,
+                                const char* word2, int32_t word2_len, bool word2_validity,
+                                bool* out_valid, int32_t* out_len) {
+  return concat_ws_impl(
+      context, separator, separator_len, separator_validity, out_valid, out_len,
+      {{word1, word1_len, word1_validity}, {word2, word2_len, word2_validity}});
+}
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, bool* out_valid, int32_t* out_len) {
+  return concat_ws_impl(context, separator, separator_len, separator_validity, out_valid,
+                        out_len,
+                        {{word1, word1_len, word1_validity},
+                         {word2, word2_len, word2_validity},
+                         {word3, word3_len, word3_validity}});
+}
+
+FORCE_INLINE
+const char* concat_ws_utf8_utf8_utf8_utf8(
+    int64_t context, const char* separator, int32_t separator_len,
+    bool separator_validity, const char* word1, int32_t word1_len, bool word1_validity,
+    const char* word2, int32_t word2_len, bool word2_validity, const char* word3,
+    int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
+    bool word4_validity, bool* out_valid, int32_t* out_len) {
+  return concat_ws_impl(context, separator, separator_len, separator_validity, out_valid,
+                        out_len,
+                        {{word1, word1_len, word1_validity},
+                         {word2, word2_len, word2_validity},
+                         {word3, word3_len, word3_validity},
+                         {word4, word4_len, word4_validity}});
 }
 
 FORCE_INLINE
@@ -2708,71 +2628,13 @@ const char* concat_ws_utf8_utf8_utf8_utf8_utf8(
     int32_t word3_len, bool word3_validity, const char* word4, int32_t word4_len,
     bool word4_validity, const char* word5, int32_t word5_len, bool word5_validity,
     bool* out_valid, int32_t* out_len) {
-  *out_len = 0;
-  // If separator is null, always return null
-  if (!separator_validity) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  SafeLengthState state;
-
-  // Accumulate all word lengths with overflow checking
-  safe_accumulate_word(&state, word1_len, word1_validity);
-  safe_accumulate_word(&state, word2_len, word2_validity);
-  safe_accumulate_word(&state, word3_len, word3_validity);
-  safe_accumulate_word(&state, word4_len, word4_validity);
-  safe_accumulate_word(&state, word5_len, word5_validity);
-
-  if (state.overflow) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  // Add separator lengths with overflow checking
-  if (!safe_add_separators(&state, separator_len)) {
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  // Handle case with no valid words
-  if (state.total_len == 0) {
-    *out_len = 0;
-    *out_valid = true;
-    return "";
-  }
-
-  // Allocate memory
-  char* out =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, state.total_len));
-  if (out == nullptr) {
-    gdv_fn_context_set_error_msg(context, "Could not allocate memory for output string");
-    *out_len = 0;
-    *out_valid = false;
-    return "";
-  }
-
-  char* tmp = out;
-  int out_idx = 0;
-  bool seenAnyValidInput = false;
-
-  concat_word(tmp, &out_idx, word1, word1_len, word1_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word2, word2_len, word2_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word3, word3_len, word3_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word4, word4_len, word4_validity, separator, separator_len,
-              &seenAnyValidInput);
-  concat_word(tmp, &out_idx, word5, word5_len, word5_validity, separator, separator_len,
-              &seenAnyValidInput);
-
-  *out_valid = true;
-  *out_len = out_idx;
-  return out;
+  return concat_ws_impl(context, separator, separator_len, separator_validity, out_valid,
+                        out_len,
+                        {{word1, word1_len, word1_validity},
+                         {word2, word2_len, word2_validity},
+                         {word3, word3_len, word3_validity},
+                         {word4, word4_len, word4_validity},
+                         {word5, word5_len, word5_validity}});
 }
 
 FORCE_INLINE
