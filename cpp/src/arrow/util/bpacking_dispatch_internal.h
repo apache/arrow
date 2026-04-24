@@ -97,8 +97,8 @@ using SpreadBufferUint = std::conditional_t<
 /// In prolog mode, instead of unpacking all required element, the function will
 /// stop if it finds a byte aligned value start.
 template <int kPackedBitWidth, bool kIsProlog, typename Uint>
-ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, Uint* out, int batch_size,
-                                    int bit_offset) {
+ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, const uint8_t* in_end, Uint* out,
+                                    int batch_size, int bit_offset) {
   static_assert(kPackedBitWidth > 0);
 
   // For the epilog we adapt the max spread since better alignment give shorter spreads
@@ -128,15 +128,28 @@ ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, Uint* out, int batch_size
     ARROW_COMPILER_ASSUME(spread_bytes <= kMaxSpreadBytes);
 
     // Reading the bytes for the current value.
-    // Must be careful not to read out of input bounds.
     buffer_uint buffer = 0;
-    if constexpr (kLarge) {
-      // We read the max possible bytes in the first pass and handle the rest after.
-      // Even though the worst spread does not happen on all iterations we can still read
-      // all bytes because we will mask them.
-      std::memcpy(&buffer, in + start_byte, std::min(kBufferSize, spread_bytes));
+    if (ARROW_PREDICT_TRUE(in + start_byte + kBufferSize < in_end)) {
+      // Fast path we read the whole buffer. In all but few last reads (plural!) we will
+      // always have enough bytes left in the buffer to avoid out-of-bounds reads. On top
+      // of this, in Arrow, `unpack` is always called with `max_read_bytes` set, meaning
+      // this will often be the *only* path taken.
+      // We added this special case because `std::memcpy` without a compile time constant
+      // was not inlined and optimized properly by the compiler, resulting to a function
+      // call on each iteration.
+      // This also handles the `kLarge` case detailed below.
+      std::memcpy(&buffer, in + start_byte, kBufferSize);
     } else {
-      std::memcpy(&buffer, in + start_byte, spread_bytes);
+      // Slow path, we need to read exactly the correct number of bytes to avoid
+      // out-of-bounds reads.
+      if constexpr (kLarge) {
+        // We read the max possible bytes in the first pass and handle the rest after.
+        // Even though the worst spread does not happen on all iterations we can still
+        // read all bytes because we will mask them.
+        std::memcpy(&buffer, in + start_byte, std::min(kBufferSize, spread_bytes));
+      } else {
+        std::memcpy(&buffer, in + start_byte, spread_bytes);
+      }
     }
 
     buffer = bit_util::FromLittleEndian(buffer);
@@ -193,7 +206,8 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
     const uint8_t* in_end = in + (max_read_bytes >= 0 ? max_read_bytes : bytes_batch);
 
     // In case of misalignment, we need to run the prolog until aligned.
-    int extracted = unpack_exact<kPackedBitWidth, true>(in, out, batch_size, bit_offset);
+    int extracted =
+        unpack_exact<kPackedBitWidth, true>(in, in_end, out, batch_size, bit_offset);
     // We either extracted everything or found a alignment
     const int start_bit = extracted * kPackedBitWidth + bit_offset;
     ARROW_DCHECK((extracted == batch_size) || ((start_bit) % 8 == 0));
@@ -231,7 +245,8 @@ void unpack_width(const uint8_t* in, UnpackedUInt* out, int batch_size, int bit_
       // Running the epilog for the remaining values that don't fit in a kernel
       ARROW_DCHECK_GE(batch_size, 0);
       ARROW_COMPILER_ASSUME(batch_size >= 0);
-      unpack_exact<kPackedBitWidth, false>(in, out, batch_size, /* bit_offset= */ 0);
+      unpack_exact<kPackedBitWidth, false>(in, in_end, out, batch_size,
+                                           /* bit_offset= */ 0);
     }
   }
 }
