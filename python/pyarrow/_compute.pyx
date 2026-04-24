@@ -81,9 +81,15 @@ cdef vector[CSortKey] unwrap_sort_keys(sort_keys, allow_str=True):
             CSortKey(_ensure_field_ref(""), unwrap_sort_order(sort_keys))
         )
     else:
-        for name, order in sort_keys:
+        for item in sort_keys:
+            if len(item) == 2:
+                name, order = item
+                null_placement = "at_end"
+            else:
+                name, order, null_placement = item
             c_sort_keys.push_back(
-                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order))
+                CSortKey(_ensure_field_ref(name), unwrap_sort_order(order),
+                         unwrap_null_placement(null_placement))
             )
     return c_sort_keys
 
@@ -2245,9 +2251,13 @@ class ArraySortOptions(_ArraySortOptions):
 
 cdef class _SortOptions(FunctionOptions):
     def _set_options(self, sort_keys, null_placement):
-        self.wrapped.reset(new CSortOptions(
-            unwrap_sort_keys(sort_keys, allow_str=False),
-            unwrap_null_placement(null_placement)))
+        if null_placement is None:
+            self.wrapped.reset(new CSortOptions(
+                unwrap_sort_keys(sort_keys, allow_str=False)))
+        else:
+            self.wrapped.reset(new CSortOptions(
+                unwrap_sort_keys(sort_keys, allow_str=False),
+                unwrap_null_placement(null_placement)))
 
 
 class SortOptions(_SortOptions):
@@ -2256,18 +2266,24 @@ class SortOptions(_SortOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order) tuples
+    sort_keys : sequence of (name, order, null_placement) tuples
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        Accepted values for `null_placement` are "at_start", "at_end".
         The field name can be a string column name or expression.
-    null_placement : str, default "at_end"
-        Where nulls in input should be sorted, only applying to
-        columns/fields mentioned in `sort_keys`.
+    null_placement : str | None, default None
+        Where nulls in input should be sorted, overwrites
+         `null_placement` in `sort_keys`.
         Accepted values are "at_start", "at_end".
     """
 
-    def __init__(self, sort_keys=(), *, null_placement="at_end"):
+    def __init__(self, sort_keys=(), *, null_placement=None):
+        if null_placement is not None:
+            warnings.warn(
+                "Specifying null_placement in SortOptions is deprecated "
+                "as of 24.0.0. Specify null_placement per sort_key instead."
+            )
         self._set_options(sort_keys, null_placement)
 
 
@@ -2461,11 +2477,21 @@ cdef class _RankOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement, tiebreaker):
         try:
-            self.wrapped.reset(
-                new CRankOptions(unwrap_sort_keys(sort_keys),
-                                 unwrap_null_placement(null_placement),
-                                 self._tiebreaker_map[tiebreaker])
-            )
+            if null_placement is None:
+                self.wrapped.reset(
+                    new CRankOptions(
+                        unwrap_sort_keys(sort_keys),
+                        self._tiebreaker_map[tiebreaker]
+                    )
+                )
+            else:
+                self.wrapped.reset(
+                    new CRankOptions(
+                        unwrap_sort_keys(sort_keys),
+                        unwrap_null_placement(null_placement),
+                        self._tiebreaker_map[tiebreaker]
+                    )
+                )
         except KeyError:
             _raise_invalid_function_option(tiebreaker, "tiebreaker")
 
@@ -2476,16 +2502,18 @@ class RankOptions(_RankOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+    sort_keys : sequence of (name, order, null_placement) tuples or str, default "ascending"
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        Accepted values for `null_placement` are "at_start", "at_end".
         The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
-    null_placement : str, default "at_end"
+    null_placement : str | None, default None
         Where nulls in input should be sorted.
         Accepted values are "at_start", "at_end".
+        Overwrites the null_placement inside sort_keys
     tiebreaker : str, default "first"
         Configure how ties between equal values are handled.
         Accepted values are:
@@ -2499,17 +2527,26 @@ class RankOptions(_RankOptions):
                    number of distinct values in the input.
     """
 
-    def __init__(self, sort_keys="ascending", *, null_placement="at_end", tiebreaker="first"):
+    def __init__(self, sort_keys="ascending", *, null_placement=None, tiebreaker="first"):
         self._set_options(sort_keys, null_placement, tiebreaker)
 
 
 cdef class _RankQuantileOptions(FunctionOptions):
 
     def _set_options(self, sort_keys, null_placement):
-        self.wrapped.reset(
-            new CRankQuantileOptions(unwrap_sort_keys(sort_keys),
-                                     unwrap_null_placement(null_placement))
-        )
+        if null_placement is None:
+            self.wrapped.reset(
+                new CRankQuantileOptions(
+                    unwrap_sort_keys(sort_keys)
+                )
+            )
+        else:
+            self.wrapped.reset(
+                new CRankQuantileOptions(
+                    unwrap_sort_keys(sort_keys),
+                    unwrap_null_placement(null_placement)
+                )
+            )
 
 
 class RankQuantileOptions(_RankQuantileOptions):
@@ -2518,19 +2555,20 @@ class RankQuantileOptions(_RankQuantileOptions):
 
     Parameters
     ----------
-    sort_keys : sequence of (name, order) tuples or str, default "ascending"
+    sort_keys : sequence of (name, order, null_placement) tuples or str, default "ascending"
         Names of field/column keys to sort the input on,
         along with the order each field/column is sorted in.
         Accepted values for `order` are "ascending", "descending".
+        Accepted values for `null_placement` are "at_start", "at_end".
         The field name can be a string column name or expression.
         Alternatively, one can simply pass "ascending" or "descending" as a string
         if the input is array-like.
-    null_placement : str, default "at_end"
+    null_placement : str | None, default None
         Where nulls in input should be sorted.
         Accepted values are "at_start", "at_end".
     """
 
-    def __init__(self, sort_keys="ascending", *, null_placement="at_end"):
+    def __init__(self, sort_keys="ascending", *, null_placement=None):
         self._set_options(sort_keys, null_placement)
 
 
