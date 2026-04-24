@@ -42,7 +42,7 @@ register_bindings_type <- function() {
 #'   arrow_table() |>
 #'   mutate(cyl = cast(cyl, string()))
 #' }
-#' @keywords internal
+#' @export
 #' @seealso [`data-type`] for a list of [DataType] to be used with `to`.
 #' @seealso [Arrow C++ CastOptions documentation](https://arrow.apache.org/docs/cpp/api/compute.html?highlight=castoptions#arrow%3A%3Acompute%3A%3ACastOptions) # nolint
 #' for the list of supported CastOptions.
