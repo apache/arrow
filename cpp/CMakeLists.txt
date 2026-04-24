@@ -700,6 +700,13 @@ install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/../LICENSE.txt
 
 install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/gdb_arrow.py DESTINATION "${ARROW_GDB_DIR}")
 
+# Install generated Thrift and FlatBuffers headers
+install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/src/generated/
+        DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/generated"
+        FILES_MATCHING
+        PATTERN "*.h"
+        PATTERN "*.tcc")
+
 #
 # Validate and print out Arrow configuration options
 #
