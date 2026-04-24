@@ -83,10 +83,10 @@ the timezone information is silently dropped:
 
 .. code-block:: python
 
-   >>> arr = pa.array([1735689600, 1735689600], type=pa.timestamp("s", tz="UTC"))  # doctest: +SKIP
-   >>> arr.type  # doctest: +SKIP
+   >>> arr = pa.array([1735689600, 1735689600], type=pa.timestamp("s", tz="UTC"))
+   >>> arr.type
    TimestampType(timestamp[s, tz=UTC])
-   >>> arr.to_numpy()  # doctest: +SKIP
+   >>> arr.to_numpy()
    array(['2025-01-01T00:00:00', '2025-01-01T00:00:00'],
          dtype='datetime64[s]')
 
@@ -96,7 +96,7 @@ If you need to preserve timezone information, there are two alternatives:
 
   .. code-block:: python
 
-     >>> arr.to_pandas()  # doctest: +SKIP
+     >>> arr.to_pandas()
      0   2025-01-01 00:00:00+00:00
      1   2025-01-01 00:00:00+00:00
      dtype: datetime64[s, UTC]
