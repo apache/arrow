@@ -1081,7 +1081,7 @@ class SearchSortedMetaFunction : public MetaFunction {
   }
 
  private:
-  Result<NonNullValuesRange> FindNonNullValuesRange(const Datum& values) const {
+  [[nodiscard]] Result<NonNullValuesRange> FindNonNullValuesRange(const Datum& values) const {
     if (values.is_chunked_array()) {
       return ::arrow::compute::internal::FindNonNullValuesRange(*values.chunked_array());
     }
