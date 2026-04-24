@@ -354,6 +354,18 @@ TEST(SearchSorted, ChunkedRunEndEncodedValues) {
                     "[0, 3, 3, 5, 5, 6, 6]");
 }
 
+TEST(SearchSorted, SlicedChunkedRunEndEncodedValues) {
+  auto values_type = run_end_encoded(int16(), int32());
+  ASSERT_OK_AND_ASSIGN(auto left_chunk, REEFromJSON(values_type, "[10, 10, 10]"));
+  ASSERT_OK_AND_ASSIGN(auto right_chunk, REEFromJSON(values_type, "[30, 30, 50]"));
+  auto values = std::make_shared<ChunkedArray>(
+      ArrayVector{left_chunk->Slice(1, 2), right_chunk->Slice(0, 2)});
+  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 50]");
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, 2, 2, 4, 4]",
+                    "[0, 2, 2, 4, 4, 4]");
+}
+
 TEST(SearchSorted, ChunkedRunEndEncodedNeedles) {
   auto values = ArrayFromJSON(int32(), "[1, 1, 3, 5, 8]");
   auto needles_type = run_end_encoded(int32(), int32());
@@ -387,6 +399,18 @@ TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
   auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
+}
+
+TEST(SearchSorted, ChunkedValuesAllNullAcrossEmptyChunks) {
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[null, null]"),
+      ArrayFromJSON(int32(), "[]"),
+      ArrayFromJSON(int32(), "[null]"),
+  });
+  auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[3, 3, null]", "[3, 3, null]");
 }
 
 TEST(SearchSorted, RunEndEncodedNulls) {
@@ -458,6 +482,17 @@ TEST(SearchSorted, SlicedRunEndEncodedValues) {
 
   CheckSearchSorted(Datum(sliced), Datum(needles), SearchSortedOptions::Left,
                     "[0, 0, 1, 4, 4, 5]");
+}
+
+TEST(SearchSorted, SlicedRunEndEncodedValuesRight) {
+  auto values_type = run_end_encoded(int32(), int32());
+  ASSERT_OK_AND_ASSIGN(auto ree_values,
+                       REEFromJSON(values_type, "[10, 10, 20, 20, 20, 40, 40, 90]"));
+  auto sliced = ree_values->Slice(1, 5);
+  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 90]");
+
+  CheckSearchSorted(Datum(sliced), Datum(needles), SearchSortedOptions::Right,
+                    "[0, 1, 4, 4, 5, 5]");
 }
 
 TEST_P(SearchSortedSupportedTypesTest, ArraySmoke) {
