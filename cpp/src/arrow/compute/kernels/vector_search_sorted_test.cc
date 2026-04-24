@@ -21,6 +21,7 @@
 
 #include <gtest/gtest.h>
 
+#include "arrow/array/concatenate.h"
 #include "arrow/compute/api.h"
 #include "arrow/compute/kernels/test_util_internal.h"
 #include "arrow/testing/gtest_util.h"
@@ -341,6 +342,29 @@ TEST(SearchSorted, ChunkedNeedles) {
 
   CheckSearchSorted(Datum(values), Datum(needles), "[null, 0, 0, 3, null, 5]",
                     "[null, 0, 2, 3, null, 5]");
+}
+
+TEST(SearchSorted, ChunkedValuesChunkedNeedles) {
+  auto values = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[1, 1]"),
+      ArrayFromJSON(int32(), "[3]"),
+      ArrayFromJSON(int32(), "[5, 8]"),
+  });
+  auto needles = std::make_shared<ChunkedArray>(ArrayVector{
+      ArrayFromJSON(int32(), "[null, 0, 1]"),
+      ArrayFromJSON(int32(), "[4]"),
+      ArrayFromJSON(int32(), "[null, 9]"),
+  });
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[null, 0, 0, 3, null, 5]",
+                    "[null, 0, 2, 3, null, 5]");
+
+  // Verify against concatenated non-chunked inputs
+  ASSERT_OK_AND_ASSIGN(auto concatenated_values, Concatenate(values->chunks()));
+  ASSERT_OK_AND_ASSIGN(auto concatenated_needles, Concatenate(needles->chunks()));
+
+  CheckSearchSorted(Datum(concatenated_values), Datum(concatenated_needles),
+                    "[null, 0, 0, 3, null, 5]", "[null, 0, 2, 3, null, 5]");
 }
 
 TEST(SearchSorted, ChunkedRunEndEncodedValues) {
