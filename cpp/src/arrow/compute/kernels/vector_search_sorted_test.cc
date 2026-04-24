@@ -41,6 +41,23 @@ Result<std::shared_ptr<Array>> REEFromJSON(const std::shared_ptr<DataType>& ree_
   return datum.make_array();
 }
 
+void CheckSearchSorted(const Datum& values, const Datum& needles,
+                       SearchSortedOptions::Side side,
+                       const std::string& expected_json) {
+  ASSERT_OK_AND_ASSIGN(auto result, SearchSorted(values, needles, SearchSortedOptions(side)));
+  ASSERT_TRUE(result.is_array());
+  ASSERT_OK(result.make_array()->ValidateFull());
+
+  AssertArraysEqual(*ArrayFromJSON(uint64(), expected_json), *result.make_array());
+}
+
+void CheckSearchSorted(const Datum& values, const Datum& needles,
+                       const std::string& expected_left_json,
+                       const std::string& expected_right_json) {
+  CheckSearchSorted(values, needles, SearchSortedOptions::Left, expected_left_json);
+  CheckSearchSorted(values, needles, SearchSortedOptions::Right, expected_right_json);
+}
+
 void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
                              const std::string& values_json,
                              const std::string& needles_json,
@@ -49,17 +66,7 @@ void CheckSimpleSearchSorted(const std::shared_ptr<DataType>& type,
   auto values = ArrayFromJSON(type, values_json);
   auto needles = ArrayFromJSON(type, needles_json);
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK(left.make_array()->ValidateFull());
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-  ASSERT_OK(right.make_array()->ValidateFull());
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), expected_left_json), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), expected_right_json), *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json, expected_right_json);
 }
 
 void CheckSimpleScalarSearchSorted(const std::shared_ptr<DataType>& type,
@@ -105,114 +112,114 @@ struct SearchSortedSmokeCase {
 
 std::vector<SearchSortedSmokeCase> SupportedTypeSmokeCases() {
   return {
-      {"Boolean", boolean(), "[false, false, true, true]", "[false, true]", "[0, 2]",
-       "[2, 4]"},
+    {"Boolean", boolean(), "[false, false, false, true, true]", "[false, true]",
+     "[0, 3]", "[3, 5]"},
       {
           "Int8",
           int8(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "Int16",
           int16(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "Int32",
           int32(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "Int64",
           int64(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "UInt8",
           uint8(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "UInt16",
           uint16(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "UInt32",
           uint32(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "UInt64",
           uint64(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
-      {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0]", "[0.0, 3.0, 4.0, 6.0]",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0]", "[0.0, 3.0, 4.0, 6.0]",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
+    {"Float32", float32(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]",
+     "[0, 1, 5]", "[0, 3, 5]"},
+    {"Float64", float64(), "[1.0, 3.0, 3.0, 5.0, 8.0]", "[0.0, 3.0, 9.0]",
+     "[0, 1, 5]", "[0, 3, 5]"},
       {
           "Date32",
           date32(),
-          "[1, 3, 3, 5]",
-          "[0, 3, 4, 6]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[1, 3, 3, 5, 8]",
+      "[0, 3, 9]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
       {
           "Date64",
           date64(),
-          "[86400000, 259200000, 259200000, 432000000]",
-          "[0, 259200000, 345600000, 518400000]",
-          "[0, 1, 3, 4]",
-          "[0, 3, 3, 4]",
+      "[86400000, 259200000, 259200000, 432000000, 691200000]",
+      "[0, 259200000, 777600000]",
+      "[0, 1, 5]",
+      "[0, 3, 5]",
       },
-      {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]"},
-      {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]"},
+    {"Time32", time32(TimeUnit::SECOND), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
+     "[0, 3, 5]"},
+    {"Time64", time64(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]", "[0, 1, 5]",
+     "[0, 3, 5]"},
       {"Timestamp", timestamp(TimeUnit::SECOND),
-       R"(["1970-01-02", "1970-01-04", "1970-01-04", "1970-01-06"])",
-       R"(["1970-01-01", "1970-01-04", "1970-01-05", "1970-01-07"])", "[0, 1, 3, 4]",
-       "[0, 3, 3, 4]"},
-      {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5]", "[0, 3, 4, 6]",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"Binary", binary(), R"(["aa", "bb", "bb", "dd"])", R"(["a", "bb", "bc", "z"])",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"String", utf8(), R"(["aa", "bb", "bb", "dd"])", R"(["a", "bb", "bc", "z"])",
-       "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
-      {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd"])",
-       R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]", "[0, 3, 3, 4]"},
+     R"(["1970-01-02", "1970-01-04", "1970-01-04", "1970-01-06", "1970-01-09"])",
+     R"(["1970-01-01", "1970-01-04", "1970-01-10"])", "[0, 1, 5]",
+     "[0, 3, 5]"},
+    {"Duration", duration(TimeUnit::NANO), "[1, 3, 3, 5, 8]", "[0, 3, 9]",
+     "[0, 1, 5]", "[0, 3, 5]"},
+    {"Binary", binary(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
+     "[0, 1, 5]", "[0, 3, 5]"},
+    {"String", utf8(), R"(["aa", "bb", "bb", "dd", "ff"])", R"(["a", "bb", "z"])",
+     "[0, 1, 5]", "[0, 3, 5]"},
+    {"LargeBinary", large_binary(), R"(["aa", "bb", "bb", "dd", "ff"])",
+     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+    {"LargeString", large_utf8(), R"(["aa", "bb", "bb", "dd", "ff"])",
+     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+    {"BinaryView", binary_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
+     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
+    {"StringView", utf8_view(), R"(["aa", "bb", "bb", "dd", "ff"])",
+     R"(["a", "bb", "z"])", "[0, 1, 5]", "[0, 3, 5]"},
   };
 }
 
@@ -248,73 +255,31 @@ TEST(SearchSorted, ScalarStringNeedle) {
 }
 
 TEST(SearchSorted, EmptyHaystack) {
-  auto values = ArrayFromJSON(int16(), "[]");
-  auto needles = ArrayFromJSON(int16(), "[1, 2, 3]");
-
-  ASSERT_OK_AND_ASSIGN(auto result, SearchSorted(Datum(values), Datum(needles)));
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 0]"), *result.make_array());
+  CheckSimpleSearchSorted(int16(), "[]", "[1, 2, 3]", "[0, 0, 0]", "[0, 0, 0]");
 }
 
 TEST(SearchSorted, ValuesWithLeadingNulls) {
-  auto values = ArrayFromJSON(int32(), "[null, 200, 300, 300]");
-  auto needles = ArrayFromJSON(int32(), "[50, 200, 250, 400]");
-
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[1, 1, 2, 4]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[1, 2, 2, 4]"), *right.make_array());
+  CheckSimpleSearchSorted(int32(), "[null, 200, 300, 300]", "[50, 200, 250, 400]",
+                          "[1, 1, 2, 4]", "[1, 2, 2, 4]");
 }
 
 TEST(SearchSorted, ValuesAllNull) {
-  auto values = ArrayFromJSON(int32(), "[null, null, null]");
-  auto needles = ArrayFromJSON(int32(), "[50, 200, null]");
-
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[3, 3, null]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[3, 3, null]"), *right.make_array());
+  CheckSimpleSearchSorted(int32(), "[null, null, null]", "[50, 200, null]",
+                          "[3, 3, null]", "[3, 3, null]");
 }
 
 TEST(SearchSorted, ValuesWithTrailingNulls) {
-  auto values = ArrayFromJSON(int32(), "[200, 300, 300, null, null]");
-  auto needles = ArrayFromJSON(int32(), "[50, 200, 250, 400]");
-
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 1, 3]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 1, 1, 3]"), *right.make_array());
+  CheckSimpleSearchSorted(int32(), "[200, 300, 300, null, null]",
+                          "[50, 200, 250, 400]", "[0, 0, 1, 3]",
+                          "[0, 1, 1, 3]");
 }
 
 TEST(SearchSorted, NullNeedlesEmitNull) {
+  CheckSimpleSearchSorted(int32(), "[null, 200, 300, 300]",
+                          "[null, 50, 200, null, 400]", "[null, 1, 1, null, 4]",
+                          "[null, 1, 2, null, 4]");
+
   auto values = ArrayFromJSON(int32(), "[null, 200, 300, 300]");
-  auto needles = ArrayFromJSON(int32(), "[null, 50, 200, null, 400]");
-
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 1, 1, null, 4]"),
-                    *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 1, 2, null, 4]"),
-                    *right.make_array());
 
   ASSERT_OK_AND_ASSIGN(auto scalar_result,
                        SearchSorted(Datum(values), Datum(std::make_shared<Int32Scalar>()),
@@ -331,17 +296,7 @@ TEST(SearchSorted, ChunkedValues) {
   });
   auto needles = ArrayFromJSON(int32(), "[1, 2, 6]");
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  ASSERT_TRUE(left.is_array());
-  ASSERT_TRUE(right.is_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 5]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[3, 3, 5]"), *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 3, 5]", "[3, 3, 5]");
 }
 
 TEST(SearchSorted, ChunkedNeedles) {
@@ -351,19 +306,8 @@ TEST(SearchSorted, ChunkedNeedles) {
       ArrayFromJSON(int32(), "[4, null, 9]"),
   });
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  ASSERT_TRUE(left.is_array());
-  ASSERT_TRUE(right.is_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 0, 0, 3, null, 5]"),
-                    *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 0, 2, 3, null, 5]"),
-                    *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), "[null, 0, 0, 3, null, 5]",
+                    "[null, 0, 2, 3, null, 5]");
 }
 
 TEST(SearchSorted, ChunkedRunEndEncodedValues) {
@@ -373,17 +317,8 @@ TEST(SearchSorted, ChunkedRunEndEncodedValues) {
   auto values = std::make_shared<ChunkedArray>(ArrayVector{left_chunk, right_chunk});
   auto needles = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4, 5, 6]");
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 3, 3, 5, 5, 6]"),
-                    *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 3, 5, 5, 6, 6]"),
-                    *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, 3, 3, 5, 5, 6]",
+                    "[0, 3, 3, 5, 5, 6, 6]");
 }
 
 TEST(SearchSorted, ChunkedRunEndEncodedNeedles) {
@@ -393,12 +328,8 @@ TEST(SearchSorted, ChunkedRunEndEncodedNeedles) {
   ASSERT_OK_AND_ASSIGN(auto right_chunk, REEFromJSON(needles_type, "[4, 4, 9]"));
   auto needles = std::make_shared<ChunkedArray>(ArrayVector{left_chunk, right_chunk});
 
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 2, 2, 3, 3, 5]"),
-                    *result.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), SearchSortedOptions::Right,
+                    "[0, 0, 2, 2, 3, 3, 5]");
 }
 
 TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
@@ -410,15 +341,7 @@ TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
   });
   auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[2, 3, 5]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[2, 5, 5]"), *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), "[2, 3, 5]", "[2, 5, 5]");
 }
 
 TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
@@ -430,15 +353,7 @@ TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
   });
   auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 1, 3]"), *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 3]"), *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
 }
 
 TEST(SearchSorted, RejectChunkedValuesUnclusteredNullsAcrossEmptyChunks) {
@@ -468,12 +383,8 @@ TEST(SearchSorted, RunEndEncodedNulls) {
   ASSERT_OK_AND_ASSIGN(auto ree_needles,
                        REEFromJSON(needles_type, "[null, null, 1, 4, 4, null, 8]"));
 
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       SearchSorted(Datum(ree_values), Datum(ree_needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, null, 2, 3, 3, null, 5]"),
-                    *result.make_array());
+  CheckSearchSorted(Datum(ree_values), Datum(ree_needles), SearchSortedOptions::Left,
+                    "[null, null, 2, 3, 3, null, 5]");
 }
 
 TEST(SearchSorted, RunEndEncodedNeedlesWithNullRuns) {
@@ -483,19 +394,9 @@ TEST(SearchSorted, RunEndEncodedNeedlesWithNullRuns) {
       auto ree_needles,
       REEFromJSON(needles_type, "[null, null, 0, 0, 0, 1, 1, 4, 4, 4, null, 9, 9]"));
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(values), Datum(ree_needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(values), Datum(ree_needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(
-      *ArrayFromJSON(uint64(), "[null, null, 0, 0, 0, 0, 0, 3, 3, 3, null, 5, 5]"),
-      *left.make_array());
-  AssertArraysEqual(
-      *ArrayFromJSON(uint64(), "[null, null, 0, 0, 0, 2, 2, 3, 3, 3, null, 5, 5]"),
-      *right.make_array());
+  CheckSearchSorted(Datum(values), Datum(ree_needles),
+          "[null, null, 0, 0, 0, 0, 0, 3, 3, 3, null, 5, 5]",
+          "[null, null, 0, 0, 0, 2, 2, 3, 3, 3, null, 5, 5]");
 }
 
 TEST(SearchSorted, RunEndEncodedAllNullValues) {
@@ -504,11 +405,8 @@ TEST(SearchSorted, RunEndEncodedAllNullValues) {
                        REEFromJSON(values_type, "[null, null, null, null]"));
   auto needles = ArrayFromJSON(int32(), "[null, 1, 8]");
 
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       SearchSorted(Datum(ree_values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[null, 4, 4]"), *result.make_array());
+  CheckSearchSorted(Datum(ree_values), Datum(needles), SearchSortedOptions::Left,
+                    "[null, 4, 4]");
 }
 
 TEST(SearchSorted, RejectMismatchedTypes) {
@@ -523,17 +421,8 @@ TEST(SearchSorted, RunEndEncodedValues) {
   ASSERT_OK_AND_ASSIGN(auto ree_values, REEFromJSON(values_type, "[1, 1, 1, 3, 3, 5]"));
   auto needles = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4, 5, 6]");
 
-  ASSERT_OK_AND_ASSIGN(auto left,
-                       SearchSorted(Datum(ree_values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-  ASSERT_OK_AND_ASSIGN(auto right,
-                       SearchSorted(Datum(ree_values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 3, 3, 5, 5, 6]"),
-                    *left.make_array());
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 3, 3, 5, 5, 6, 6]"),
-                    *right.make_array());
+  CheckSearchSorted(Datum(ree_values), Datum(needles), "[0, 0, 3, 3, 5, 5, 6]",
+                    "[0, 3, 3, 5, 5, 6, 6]");
 }
 
 TEST(SearchSorted, RunEndEncodedNeedles) {
@@ -542,12 +431,8 @@ TEST(SearchSorted, RunEndEncodedNeedles) {
   ASSERT_OK_AND_ASSIGN(auto ree_needles,
                        REEFromJSON(needles_type, "[0, 0, 1, 1, 4, 4, 9]"));
 
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       SearchSorted(Datum(values), Datum(ree_needles),
-                                    SearchSortedOptions(SearchSortedOptions::Right)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 2, 2, 3, 3, 5]"),
-                    *result.make_array());
+  CheckSearchSorted(Datum(values), Datum(ree_needles), SearchSortedOptions::Right,
+                    "[0, 0, 2, 2, 3, 3, 5]");
 }
 
 TEST(SearchSorted, SlicedRunEndEncodedValues) {
@@ -557,22 +442,14 @@ TEST(SearchSorted, SlicedRunEndEncodedValues) {
   auto sliced = ree_values->Slice(2, 5);
   auto needles = ArrayFromJSON(int32(), "[0, 1, 2, 4, 9]");
 
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       SearchSorted(Datum(sliced), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 0, 3, 3, 5]"), *result.make_array());
+  CheckSearchSorted(Datum(sliced), Datum(needles), SearchSortedOptions::Left,
+                    "[0, 0, 3, 3, 5]");
 }
 
 TEST(SearchSorted, BinaryValues) {
-  auto values = ArrayFromJSON(utf8(), R"(["aa", "bb", "bb", "cc"])");
-  auto needles = ArrayFromJSON(utf8(), R"(["a", "bb", "bc", "z"])");
-
-  ASSERT_OK_AND_ASSIGN(auto result,
-                       SearchSorted(Datum(values), Datum(needles),
-                                    SearchSortedOptions(SearchSortedOptions::Left)));
-
-  AssertArraysEqual(*ArrayFromJSON(uint64(), "[0, 1, 3, 4]"), *result.make_array());
+  CheckSimpleSearchSorted(utf8(), R"(["aa", "bb", "bb", "cc"])",
+                          R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]",
+                          "[0, 3, 3, 4]");
 }
 
 TEST_P(SearchSortedSupportedTypesTest, ArraySmoke) {
