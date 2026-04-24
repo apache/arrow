@@ -368,6 +368,13 @@ jobs:
             run-options: >-
               -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
               -e ODBC_PACKAGE_FORMAT=RPM
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu DEB
+            build-type: release
+            format: deb
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=DEB
     env:
       ARCH: amd64
       ARCHERY_DEBUG: 1
