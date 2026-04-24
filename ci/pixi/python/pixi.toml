@@ -24,39 +24,62 @@ preview = ["pixi-build"]
 default = []
 test    = ["test"]
 
-[feature.test.activation.env]                                                                                                                                                                                       
+[feature.test]
+platforms = ["linux-64"]
+
+[feature.test.activation.env]
 ARROW_TEST_DATA = "/arrow/testing/data"
+PARQUET_TEST_DATA = "/arrow/cpp/submodules/parquet-testing/data"
 
 [feature.test.dependencies]
-binutils = "*"
-cmake = "*"
-python = "*"
-                                                                                                                                                                                           
+hypothesis = "*"
+pyarrow = { path = "." }
+pytest = "*"
+pytest-timeout = "*"
+
 [feature.test.tasks]
-# This path mangling feels extremely finicky. Investigate alternatives to make this more robust.
-test = "cd $(ls -d /arrow/ci/pixi/.pixi/build/work/arrow-cpp-*/work/build | head -n 1) && ctest --output-on-failure"
-                                                                                                                                                                                                                      
+test = "pytest -r s --pyargs pyarrow --timeout=60"
+
 [package]
-name = "arrow-cpp"
+name = "pyarrow"
 # TODO: Incorporate this to the bump version script and tests
 version = "25.0.0.dev"
 authors = ["Apache Arrow"]
 
 [package.build]
-source.path = "../../cpp"
+source.path = "../../../python"
 
 [package.build.backend]
-name = "pixi-build-cmake"
+name = "pixi-build-python"
 version = "*"
 
 [package.build.config]
-extra-args = ["-DCMAKE_BUILD_TYPE=Release",
-              "-DARROW_BUILD_TESTS=ON"]
+noarch = false
+compilers = ["c", "cxx"]
+env = {
+  PYARROW_BUNDLE_ARROW_CPP = "0",
+  CMAKE_GENERATOR = "Ninja",
+  ARROW_HOME = "$PREFIX",
+}
 
 [package.host-dependencies]
-gflags = "*"
-gmock  = ">=1.10.0"
-gtest  = ">=1.10.0"
-libboost-devel = "*"
-rapidjson = "*"
-xsimd = ">=14.0"
+arrow-cpp = { path = "../cpp" }   # source-dep on the arrow-cpp manifest
+cmake = "*"
+cython = ">=3.0"
+gcc_linux-64 = "*"
+git = "*"
+gxx_linux-64 = "*"
+ninja = "*"
+numpy = "*"
+pip = "*"
+pkg-config = "*"
+python = ">=3.10,<3.14"
+scikit-build-core = "*"
+setuptools-scm = "*"
+sysroot_linux-64 = "*"
+zlib = "*"
+
+[package.run-dependencies]
+arrow-cpp = { path = "../cpp" }
+python = ">=3.10,<3.14"
+numpy = "*"

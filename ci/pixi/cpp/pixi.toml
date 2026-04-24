@@ -1,0 +1,89 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[workspace]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
+preview = ["pixi-build"]
+
+[environments]
+default = []
+test    = ["test"]
+
+[feature.test.activation.env]                                                                                                                                                                                       
+ARROW_TEST_DATA = "/arrow/testing/data"
+
+[feature.test.dependencies]
+binutils = "*"
+cmake = "*"
+python = "*"
+                                                                                                                                                                                           
+[feature.test.tasks]
+# This path mangling feels extremely finicky. Investigate alternatives to make this more robust.
+test = "cd $(ls -d /arrow/ci/pixi/cpp/.pixi/build/work/arrow-cpp-*/work/build | head -n 1) && ctest --output-on-failure"
+                                                                                                                                                                                                                      
+[package]
+name = "arrow-cpp"
+# TODO: Incorporate this to the bump version script and tests
+version = "25.0.0.dev"
+authors = ["Apache Arrow"]
+
+[package.build]
+source.path = "../../../cpp"
+
+[package.build.backend]
+name = "pixi-build-cmake"
+version = "*"
+
+[package.build.config]
+extra-args = [
+  "-DCMAKE_BUILD_TYPE=Release",
+  "-DARROW_BUILD_TESTS=ON",
+  "-DARROW_COMPUTE=ON",
+  "-DARROW_CSV=ON",
+  "-DARROW_DATASET=ON",
+  "-DARROW_FILESYSTEM=ON",
+  "-DARROW_JSON=ON",
+  "-DARROW_PARQUET=ON",
+  "-DARROW_WITH_BROTLI=ON",
+  "-DARROW_WITH_BZ2=ON",
+  "-DARROW_WITH_LZ4=ON",
+  "-DARROW_WITH_SNAPPY=ON",
+  "-DARROW_WITH_ZLIB=ON",
+  "-DARROW_WITH_ZSTD=ON",
+  # libutf8proc on package-host-dependencies seems to fail.
+  # More investigation needed. In the meantime use bundled.
+  "-Dutf8proc_SOURCE=BUNDLED",
+  "-DOPENSSL_ROOT_DIR=$PREFIX",
+]
+
+[package.host-dependencies]
+brotli = "*"
+bzip2 = "*"
+gflags = "*"
+gmock  = ">=1.10.0"
+gtest  = ">=1.10.0"
+libboost-devel = "*"
+lz4-c = "*"
+openssl = "*"
+rapidjson = "*"
+re2 = "*"
+snappy = "*"
+thrift-cpp = ">=0.11.0"
+xsimd = ">=14.0"
+zlib = "*"
+zstd = "*"
