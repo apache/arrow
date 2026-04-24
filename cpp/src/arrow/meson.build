@@ -214,6 +214,7 @@ arrow_util_srcs = [
     'util/time.cc',
     'util/tracing.cc',
     'util/trie.cc',
+    'util/ulp_distance.cc',
     'util/union_util.cc',
     'util/unreachable.cc',
     'util/uri.cc',

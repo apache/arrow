@@ -353,6 +353,11 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_FALSE(scalar_nan_->Equals(*scalar_val_, options));
     ASSERT_TRUE(scalar_nan_->Equals(*scalar_nan_, options));
     ASSERT_TRUE(scalar_nan_->Equals(*scalar_other_nan_, options));
+
+    options = options.nans_equal(false).use_ulp_distance(true);
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_val_, options));
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_nan_, options));
+    ASSERT_FALSE(scalar_nan_->Equals(*scalar_other_nan_, options));
   }
 
   void TestSignedZeroEquals() {
@@ -362,6 +367,11 @@ class TestRealScalar : public ::testing::Test {
     ASSERT_TRUE(scalar_zero_->Equals(*scalar_neg_zero_, options));
 
     options = options.signed_zeros_equal(false);
+    ASSERT_FALSE(scalar_zero_->Equals(*scalar_val_, options));
+    ASSERT_TRUE(scalar_zero_->Equals(*scalar_other_zero_, options));
+    ASSERT_FALSE(scalar_zero_->Equals(*scalar_neg_zero_, options));
+
+    options = options.signed_zeros_equal(false).use_ulp_distance(true);
     ASSERT_FALSE(scalar_zero_->Equals(*scalar_val_, options));
     ASSERT_TRUE(scalar_zero_->Equals(*scalar_other_zero_, options));
     ASSERT_FALSE(scalar_zero_->Equals(*scalar_neg_zero_, options));
@@ -561,6 +571,134 @@ TYPED_TEST(TestRealScalar, LargeListOf) { this->TestLargeListOf(); }
 TYPED_TEST(TestRealScalar, ListViewOf) { this->TestListViewOf(); }
 
 TYPED_TEST(TestRealScalar, LargeListViewOf) { this->TestLargeListViewOf(); }
+
+namespace {
+template <typename ScalarType, typename CType>
+std::shared_ptr<ScalarType> CreateScalar(CType value) {
+  return std::make_shared<ScalarType>(value);
+}
+
+template <typename CType>
+bool IsScalarEqual(CType left, CType right, const EqualOptions& options) {
+  std::shared_ptr<Scalar> scalar_left =
+      CreateScalar<typename CTypeTraits<CType>::ScalarType>(left);
+  std::shared_ptr<Scalar> scalar_right =
+      CreateScalar<typename CTypeTraits<CType>::ScalarType>(right);
+  return scalar_left->Equals(*scalar_right, options);
+}
+
+template <typename CType>
+void AssertScalarEquals(CType left, CType right, const EqualOptions& options) {
+  ASSERT_TRUE(IsScalarEqual(left, right, options));
+}
+
+template <typename CType>
+void AssertScalarNotEquals(CType left, CType right, const EqualOptions& options) {
+  ASSERT_FALSE(IsScalarEqual(left, right, options));
+}
+
+}  // namespace
+
+TEST(TestRealScalarUlpDistance, Double) {
+  auto options = EqualOptions::Defaults().use_ulp_distance(true);
+
+  // Check for different value
+  AssertScalarEquals(1.0, 1.0000000000000002, options.ulp_distance(1));
+  AssertScalarEquals(1.0, 1.0000000000000007, options.ulp_distance(3));
+  AssertScalarNotEquals(1.0, 1.0000000000000002, options.ulp_distance(0));
+  AssertScalarNotEquals(1.0, 1.0000000000000007, options.ulp_distance(2));
+  AssertScalarNotEquals(1.0, 1.0000000000000007, options.ulp_distance(1));
+  AssertScalarEquals(123.4567, 123.45670000000015, options.ulp_distance(11));
+  AssertScalarNotEquals(123.4567, 123.45670000000015,
+                        options.use_ulp_distance(false).ulp_distance(11));
+  AssertScalarNotEquals(123.4567, 123.45670000000015, options.ulp_distance(10));
+
+  // Left and right have a different exponent but are still very close
+  AssertScalarEquals(1.0, 0.9999999999999999, options.ulp_distance(1));
+  AssertScalarEquals(1.0, 0.9999999999999988, options.ulp_distance(11));
+  AssertScalarNotEquals(1.0, 0.9999999999999988, options.ulp_distance(10));
+  AssertScalarEquals(1.0000000000000002, 0.9999999999999999, options.ulp_distance(2));
+  AssertScalarNotEquals(1.0000000000000002, 0.9999999999999999, options.ulp_distance(1));
+  AssertScalarEquals(0.9999999999999988, 1.0000000000000007, options.ulp_distance(14));
+  AssertScalarNotEquals(0.9999999999999988, 1.0000000000000007,
+                        options.ulp_distance(14).use_ulp_distance(false));
+  AssertScalarNotEquals(0.9999999999999988, 1.0000000000000007, options.ulp_distance(13));
+
+  // Check for infinity
+  double max = std::numeric_limits<double>::max();
+  double positive_infinity = std::numeric_limits<double>::infinity();
+  double negative_infinity = -1 * std::numeric_limits<double>::infinity();
+  AssertScalarNotEquals(max, positive_infinity, options.ulp_distance(0));
+  AssertScalarEquals(max, positive_infinity, options.ulp_distance(1));
+  AssertScalarNotEquals(max, positive_infinity,
+                        options.use_ulp_distance(false).ulp_distance(1));
+  AssertScalarNotEquals(positive_infinity, negative_infinity, options);
+}
+
+TEST(TestRealScalarUlpDistance, Float) {
+  auto options = EqualOptions::Defaults().use_ulp_distance(true);
+
+  // Check for different value
+  AssertScalarEquals(1.0f, 1.0000001f, options.ulp_distance(1));
+  AssertScalarEquals(1.0f, 1.0000013f, options.ulp_distance(11));
+  AssertScalarNotEquals(1.0f, 1.0000001f, options.ulp_distance(0));
+  AssertScalarNotEquals(1.0f, 1.0000013f, options.ulp_distance(10));
+  AssertScalarEquals(123.456f, 123.456085f, options.ulp_distance(11));
+  AssertScalarNotEquals(123.456f, 123.456085f, options.ulp_distance(10));
+
+  // Left and right have a different exponent but are still very close
+  AssertScalarEquals(1.0f, 0.99999994f, options.ulp_distance(1));
+  AssertScalarEquals(1.0f, 0.99999934f, options.ulp_distance(11));
+  AssertScalarNotEquals(1.0f, 0.99999934f, options.ulp_distance(10));
+  AssertScalarEquals(1.0000001f, 0.99999994f, options.ulp_distance(2));
+  AssertScalarNotEquals(1.0000001f, 0.99999994f, options.ulp_distance(1));
+  AssertScalarEquals(1.0000013f, 0.99999934f, options.ulp_distance(22));
+  AssertScalarNotEquals(1.0000013f, 0.99999934f, options.ulp_distance(21));
+
+  // Check for infinity
+  float max = std::numeric_limits<float>::max();
+  float positive_infinity = std::numeric_limits<float>::infinity();
+  float negative_infinity = -1 * std::numeric_limits<float>::infinity();
+  AssertScalarNotEquals(max, positive_infinity, options.ulp_distance(0));
+  AssertScalarEquals(max, positive_infinity, options.ulp_distance(1));
+  AssertScalarNotEquals(max, positive_infinity,
+                        options.use_ulp_distance(false).ulp_distance(1));
+  AssertScalarNotEquals(positive_infinity, negative_infinity, options);
+}
+
+TEST(TestRealScalarUlpDistance, HalfFloat) {
+  auto options = EqualOptions::Defaults().use_ulp_distance(true);
+
+  // Check for different value
+  AssertScalarEquals(Float16(1.0f), Float16(1.00097656f), options.ulp_distance(1));
+  AssertScalarEquals(Float16(1.0f), Float16(1.01074219f), options.ulp_distance(11));
+  AssertScalarNotEquals(Float16(1.0f), Float16(1.00097656f), options.ulp_distance(0));
+  AssertScalarNotEquals(Float16(1.0f), Float16(1.01074219f), options.ulp_distance(10));
+  AssertScalarNotEquals(Float16(123.456f), Float16(124.143501f),
+                        options.ulp_distance(10));
+
+  // Left and right have a different exponent but are still very close
+  AssertScalarEquals(Float16(1.0f), Float16(0.999511719f), options.ulp_distance(1));
+  AssertScalarEquals(Float16(1.0f), Float16(0.994628906f), options.ulp_distance(11));
+  AssertScalarNotEquals(Float16(1.0f), Float16(0.994628906f), options.ulp_distance(10));
+  AssertScalarEquals(Float16(1.00097656), Float16(0.999511719f), options.ulp_distance(2));
+  AssertScalarNotEquals(Float16(1.00097656), Float16(0.999511719f),
+                        options.ulp_distance(1));
+  AssertScalarEquals(Float16(1.01074219f), Float16(0.994628906f),
+                     options.ulp_distance(22));
+  AssertScalarNotEquals(Float16(1.01074219f), Float16(0.994628906f),
+                        options.ulp_distance(21));
+
+  // Check for infinity
+  Float16 max = std::numeric_limits<Float16>::max();
+  Float16 positive_infinity = std::numeric_limits<Float16>::infinity();
+  Float16 negative_infinity = -std::numeric_limits<Float16>::infinity();
+  AssertScalarNotEquals(max, positive_infinity, options.ulp_distance(0));
+  AssertScalarEquals(max, positive_infinity, options.ulp_distance(1));
+  AssertScalarNotEquals(max, positive_infinity,
+                        options.use_ulp_distance(false).ulp_distance(1));
+  AssertScalarNotEquals(positive_infinity, negative_infinity, options);
+}
 
 template <typename T>
 class TestDecimalScalar : public ::testing::Test {
