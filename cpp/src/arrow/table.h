@@ -51,18 +51,18 @@ class ARROW_EXPORT Table {
   /// \param[in] schema The table schema (column types)
   /// \param[in] columns The table's columns as chunked arrays
   /// \param[in] num_rows number of rows in table, -1 (default) to infer from columns
-  static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema,
-                                     std::vector<std::shared_ptr<ChunkedArray>> columns,
-                                     int64_t num_rows = -1);
+  static Result<std::shared_ptr<Table>> Make(std::shared_ptr<Schema> schema,
+                                             std::vector<std::shared_ptr<ChunkedArray>> columns,
+                                             int64_t num_rows = -1);
 
   /// \brief Construct a Table from schema and arrays
   ///
   /// \param[in] schema The table schema (column types)
   /// \param[in] arrays The table's columns as arrays
   /// \param[in] num_rows number of rows in table, -1 (default) to infer from columns
-  static std::shared_ptr<Table> Make(std::shared_ptr<Schema> schema,
-                                     const std::vector<std::shared_ptr<Array>>& arrays,
-                                     int64_t num_rows = -1);
+  static Result<std::shared_ptr<Table>> Make(std::shared_ptr<Schema> schema,
+                                             const std::vector<std::shared_ptr<Array>>& arrays,
+                                             int64_t num_rows = -1);
 
   /// \brief Create an empty Table of a given schema
   ///

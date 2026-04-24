@@ -906,7 +906,7 @@ std::shared_ptr<Table> HashJoinSimple(
     fields[i] = std::make_shared<Field>("a" + std::to_string(i), result[i]->type(), true);
   }
   std::shared_ptr<Schema> schema = std::make_shared<Schema>(std::move(fields));
-  return Table::Make(schema, result, result[0]->length());
+  return Table::Make(schema, result, result[0]->length()).ValueOrDie();
 }
 
 Result<std::vector<ExecBatch>> HashJoinWithExecPlan(

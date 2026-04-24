@@ -97,7 +97,7 @@ TEST(TotalBufferSize, Table) {
   ASSERT_OK_AND_ASSIGN(std::shared_ptr<ChunkedArray> c2,
                        ChunkedArray::Make(std::move(c2_arrays)));
   std::shared_ptr<Schema> schm = schema({field("a", int32()), field("b", int64())});
-  std::shared_ptr<Table> table = Table::Make(std::move(schm), {c1, c2});
+  std::shared_ptr<Table> table = Table::Make(std::move(schm), {c1, c2}).ValueOrDie();
   ASSERT_EQ(5 * 10 * 4 + 10 * 5 * 8, TotalBufferSize(*table));
 }
 

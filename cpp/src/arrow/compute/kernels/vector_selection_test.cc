@@ -2831,11 +2831,11 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
     ChunkedArrayVector table_content_w_slices{
         std::make_shared<ChunkedArray>(std::move(slices_a)),
         std::make_shared<ChunkedArray>(std::move(slices_b))};
-    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size);
+    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size).ValueOrDie();
 
     ChunkedArrayVector table_content_wo_slices{std::make_shared<ChunkedArray>(col_a),
                                                std::make_shared<ChunkedArray>(col_b)};
-    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
+    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size).ValueOrDie();
   });
 
   // Without Null Arrays
@@ -2854,11 +2854,11 @@ TEST_F(TestDropNullKernelWithTable, DropNullTableWithSlices) {
     ChunkedArrayVector table_content_w_slices{
         std::make_shared<ChunkedArray>(std::move(slices_a)),
         std::make_shared<ChunkedArray>(std::move(slices_b))};
-    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size);
+    *out_table_w_slices = Table::Make(schm, std::move(table_content_w_slices), size).ValueOrDie();
 
     ChunkedArrayVector table_content_wo_slices{std::make_shared<ChunkedArray>(col_a),
                                                std::make_shared<ChunkedArray>(col_b)};
-    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size);
+    *out_table_wo_slices = Table::Make(schm, std::move(table_content_wo_slices), size).ValueOrDie();
   });
 }
 
