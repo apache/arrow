@@ -32,14 +32,14 @@ namespace arrow::internal::bpacking {
 
 /// Unpack a zero bit packed array.
 template <typename Uint>
-ARROW_FORCE_INLINE void unpack_null(const uint8_t* in, Uint* out, int batch_size) {
+ARROW_FORCE_INLINE inline void unpack_null(const uint8_t* in, Uint* out, int batch_size) {
   std::memset(out, 0, batch_size * sizeof(Uint));
 }
 
 /// Unpack a packed array where packed and unpacked values have exactly the same number of
 /// bits.
 template <typename Uint>
-ARROW_FORCE_INLINE void unpack_full(const uint8_t* in, Uint* out, int batch_size) {
+ARROW_FORCE_INLINE inline void unpack_full(const uint8_t* in, Uint* out, int batch_size) {
   if constexpr (ARROW_LITTLE_ENDIAN == 1) {
     std::memcpy(out, in, batch_size * sizeof(Uint));
   } else {
@@ -60,7 +60,7 @@ ARROW_FORCE_INLINE void unpack_full(const uint8_t* in, Uint* out, int batch_size
 /// will be split on the first byte boundary (hence having a spread of two bytes) while
 /// four bit integer will be well behaved and never spread over byte boundary (hence
 /// having a spread of one).
-ARROW_FORCE_INLINE constexpr int PackedMaxSpreadBytes(int width, int bit_offset) {
+ARROW_FORCE_INLINE inline constexpr int PackedMaxSpreadBytes(int width, int bit_offset) {
   int max = static_cast<int>(bit_util::BytesForBits(width));
   int start = bit_offset;
   do {
@@ -75,7 +75,7 @@ ARROW_FORCE_INLINE constexpr int PackedMaxSpreadBytes(int width, int bit_offset)
 
 /// Compute the maximum spread in bytes that a packed integer can cover across all bit
 /// offsets.
-ARROW_FORCE_INLINE constexpr int PackedMaxSpreadBytes(int width) {
+ARROW_FORCE_INLINE inline constexpr int PackedMaxSpreadBytes(int width) {
   int max = 0;
   for (int offset = 0; offset < 8; ++offset) {
     const int spread = PackedMaxSpreadBytes(width, offset);
@@ -97,8 +97,8 @@ using SpreadBufferUint = std::conditional_t<
 /// In prolog mode, instead of unpacking all required element, the function will
 /// stop if it finds a byte aligned value start.
 template <int kPackedBitWidth, bool kIsProlog, typename Uint>
-ARROW_FORCE_INLINE int unpack_exact(const uint8_t* in, const uint8_t* in_end, Uint* out,
-                                    int batch_size, int bit_offset) {
+ARROW_FORCE_INLINE inline int unpack_exact(const uint8_t* in, const uint8_t* in_end,
+                                           Uint* out, int batch_size, int bit_offset) {
   static_assert(kPackedBitWidth > 0);
 
   // For the epilog we adapt the max spread since better alignment give shorter spreads
