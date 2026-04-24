@@ -2290,15 +2290,15 @@ cdef class Array(_PandasConvertible):
 
     def __add__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('add_checked', [self, other])
+        return _compute_binary_op('add_checked', self, other)
 
     def __truediv__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('divide_checked', [self, other])
+        return _compute_binary_op('divide_checked', self, other)
 
     def __mul__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('multiply_checked', [self, other])
+        return _compute_binary_op('multiply_checked', self, other)
 
     def __neg__(self):
         self._assert_cpu()
@@ -2306,31 +2306,31 @@ cdef class Array(_PandasConvertible):
 
     def __pow__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('power_checked', [self, other])
+        return _compute_binary_op('power_checked', self, other)
 
     def __sub__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('subtract_checked', [self, other])
+        return _compute_binary_op('subtract_checked', self, other)
 
     def __and__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_and', [self, other])
+        return _compute_binary_op('bit_wise_and', self, other)
 
     def __or__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_or', [self, other])
+        return _compute_binary_op('bit_wise_or', self, other)
 
     def __xor__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('bit_wise_xor', [self, other])
+        return _compute_binary_op('bit_wise_xor', self, other)
 
     def __lshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_left_checked', [self, other])
+        return _compute_binary_op('shift_left_checked', self, other)
 
     def __rshift__(self, object other):
         self._assert_cpu()
-        return _pc().call_function('shift_right_checked', [self, other])
+        return _compute_binary_op('shift_right_checked', self, other)
 
 
 cdef _array_like_to_pandas(obj, options, types_mapper):
