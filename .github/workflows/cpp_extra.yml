@@ -384,6 +384,13 @@ jobs:
             run-options: >-
               -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
               -e ODBC_PACKAGE_FORMAT=RPM
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu DEB Release
+            build-type: release
+            format: deb
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=DEB
           # GH-49582: TODO Enable Debian build for ODBC
           # - image: debian-cpp-odbc
           #   title: AMD64 Debian
@@ -415,8 +422,8 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .docker
-          key: ${{ matrix.image }}-${{ matrix.build-type }}-${{ hashFiles('cpp/**') }}
-          restore-keys: ${{ matrix.image }}-${{ matrix.build-type }}-
+          key: ${{ matrix.image }}-${{ matrix.build-type }}-${{ matrix.format }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-${{ matrix.build-type }}-${{ matrix.format }}-
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
@@ -437,8 +444,8 @@ jobs:
         if: matrix.build-type == 'release'
         uses: actions/upload-artifact@v7
         with:
-          name: flight-sql-odbc-pkg-installer-${{ matrix.format }}
-          path: build/cpp/ArrowFlightSqlOdbcODBC-*.${{ matrix.format }}
+          name: flight-sql-odbc-${{ matrix.format }}-installer
+          path: build/cpp/ArrowFlightSqlOdbc-*.${{ matrix.format }}
           if-no-files-found: error
 
       - name: Docker Push
@@ -564,7 +571,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
-          path: build/cpp/ArrowFlightSqlOdbcODBC-*.pkg
+          path: build/cpp/ArrowFlightSqlOdbc-*.pkg
           if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
