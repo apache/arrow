@@ -204,6 +204,15 @@ static void BM_SearchSortedInt64ArrayNeedles(benchmark::State& state,
   RunSearchSortedBenchmark(state, values, needles, side);
 }
 
+static void BM_SearchSortedInt64ScalarNeedle(benchmark::State& state,
+                                             SearchSortedOptions::Side side) {
+  const auto values_array = BuildSortedInt64Values(state.range(0));
+  const auto scalar_index = values_array->length() / 2;
+  const Datum values(values_array);
+  const Datum needles(std::make_shared<Int64Scalar>(values_array->Value(scalar_index)));
+  RunSearchSortedBenchmark(state, values, needles, side);
+}
+
 static void BM_SearchSortedRunEndEncodedValues(benchmark::State& state,
                                                SearchSortedOptions::Side side) {
   const Datum values(BuildRunEndEncodedInt64Values(state.range(0), kValuesRunLength));
@@ -237,26 +246,6 @@ static void BM_SearchSortedStringArrayNeedles(benchmark::State& state,
                                               SearchSortedOptions::Side side) {
   const Datum values(BuildSortedStringValues(state.range(0)));
   const Datum needles(BuildStringNeedles(state.range(0)));
-  RunSearchSortedBenchmark(state, values, needles, side);
-}
-
-static void BM_SearchSortedStringScalarNeedle(benchmark::State& state,
-                                              SearchSortedOptions::Side side) {
-  const auto values_array = BuildSortedStringValues(state.range(0));
-  const auto scalar_index = values_array->length() / 2;
-  const Datum values(values_array);
-  const Datum needles(
-      std::make_shared<StringScalar>(values_array->GetString(scalar_index)));
-  RunSearchSortedBenchmark(state, values, needles, side);
-}
-
-static void BM_SearchSortedBinaryScalarNeedle(benchmark::State& state,
-                                              SearchSortedOptions::Side side) {
-  const auto values_array = BuildSortedBinaryValues(state.range(0));
-  const auto scalar_index = values_array->length() / 2;
-  const Datum values(values_array);
-  const Datum needles(
-      std::make_shared<BinaryScalar>(std::string(values_array->GetView(scalar_index))));
   RunSearchSortedBenchmark(state, values, needles, side);
 }
 
