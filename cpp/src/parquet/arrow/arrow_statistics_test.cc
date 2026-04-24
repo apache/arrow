@@ -89,7 +89,7 @@ TEST_P(ParameterizedStatisticsTest, NoNullCountWrittenForRepeatedFields) {
   auto parquet_reader = ParquetFileReader::Open(std::move(buffer_reader));
   std::shared_ptr<FileMetaData> metadata = parquet_reader->metadata();
   std::shared_ptr<Statistics> stats = metadata->RowGroup(0)->ColumnChunk(0)->statistics();
-  EXPECT_EQ(stats->null_count(), GetParam().expected_null_count);
+  EXPECT_EQ(stats->NullCount(), GetParam().expected_null_count);
   EXPECT_EQ(stats->num_values(), GetParam().expected_value_count);
   ASSERT_TRUE(stats->HasMinMax());
   EXPECT_EQ(stats->EncodeMin(), GetParam().expected_min);
