@@ -70,6 +70,7 @@ RUN apt-get update -y -q && \
         ccache \
         cmake \
         curl \
+        file \
         gdb \
         git \
         libbenchmark-dev \
