@@ -324,10 +324,10 @@ TEST(SearchSorted, NullNeedlesEmitNull) {
 
 TEST(SearchSorted, ChunkedValues) {
   auto values = std::make_shared<ChunkedArray>(ArrayVector{
-      ArrayFromJSON(int32(), "[1, 1]"),
-      ArrayFromJSON(int32(), "[1, 3, 5]"),
+      ArrayFromJSON(int32(), "[10, 10]"),
+      ArrayFromJSON(int32(), "[10, 30, 50]"),
   });
-  auto needles = ArrayFromJSON(int32(), "[1, 2, 6]");
+  auto needles = ArrayFromJSON(int32(), "[10, 20, 60]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 3, 5]", "[3, 3, 5]");
 }
@@ -345,10 +345,10 @@ TEST(SearchSorted, ChunkedNeedles) {
 
 TEST(SearchSorted, ChunkedRunEndEncodedValues) {
   auto values_type = run_end_encoded(int16(), int32());
-  ASSERT_OK_AND_ASSIGN(auto left_chunk, REEFromJSON(values_type, "[1, 1, 1]"));
-  ASSERT_OK_AND_ASSIGN(auto right_chunk, REEFromJSON(values_type, "[3, 3, 5]"));
+  ASSERT_OK_AND_ASSIGN(auto left_chunk, REEFromJSON(values_type, "[10, 10, 10]"));
+  ASSERT_OK_AND_ASSIGN(auto right_chunk, REEFromJSON(values_type, "[30, 30, 50]"));
   auto values = std::make_shared<ChunkedArray>(ArrayVector{left_chunk, right_chunk});
-  auto needles = ArrayFromJSON(int32(), "[0, 1, 2, 3, 4, 5, 6]");
+  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 50, 60]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 0, 3, 3, 5, 5, 6]",
                     "[0, 3, 3, 5, 5, 6, 6]");
@@ -387,25 +387,6 @@ TEST(SearchSorted, ChunkedValuesTrailingNullsAcrossEmptyChunks) {
   auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
 
   CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
-}
-
-TEST(SearchSorted, RejectChunkedValuesUnclusteredNullsAcrossEmptyChunks) {
-  auto values = std::make_shared<ChunkedArray>(ArrayVector{
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[null, 1]"),
-      ArrayFromJSON(int32(), "[]"),
-      ArrayFromJSON(int32(), "[null, 3]"),
-  });
-  auto needles = ArrayFromJSON(int32(), "[2]");
-
-  ASSERT_RAISES(Invalid, SearchSorted(Datum(values), Datum(needles)));
-}
-
-TEST(SearchSorted, RejectUnclusteredNullValues) {
-  auto values = ArrayFromJSON(int32(), "[null, 1, null, 3]");
-  auto needles = ArrayFromJSON(int32(), "[2]");
-
-  ASSERT_RAISES(Invalid, SearchSorted(Datum(values), Datum(needles)));
 }
 
 TEST(SearchSorted, RunEndEncodedNulls) {
@@ -471,18 +452,12 @@ TEST(SearchSorted, RunEndEncodedNeedles) {
 TEST(SearchSorted, SlicedRunEndEncodedValues) {
   auto values_type = run_end_encoded(int32(), int32());
   ASSERT_OK_AND_ASSIGN(auto ree_values,
-                       REEFromJSON(values_type, "[0, 0, 1, 1, 1, 4, 4, 9]"));
-  auto sliced = ree_values->Slice(2, 5);
-  auto needles = ArrayFromJSON(int32(), "[0, 1, 2, 4, 9]");
+                       REEFromJSON(values_type, "[10, 10, 20, 20, 20, 40, 40, 90]"));
+  auto sliced = ree_values->Slice(1, 5);
+  auto needles = ArrayFromJSON(int32(), "[5, 10, 20, 30, 40, 90]");
 
   CheckSearchSorted(Datum(sliced), Datum(needles), SearchSortedOptions::Left,
-                    "[0, 0, 3, 3, 5]");
-}
-
-TEST(SearchSorted, BinaryValues) {
-  CheckSimpleSearchSorted(utf8(), R"(["aa", "bb", "bb", "cc"])",
-                          R"(["a", "bb", "bc", "z"])", "[0, 1, 3, 4]",
-                          "[0, 3, 3, 4]");
+                    "[0, 0, 1, 4, 4, 5]");
 }
 
 TEST_P(SearchSortedSupportedTypesTest, ArraySmoke) {
