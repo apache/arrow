@@ -76,6 +76,9 @@ parquet::ReaderProperties MakeReaderProperties(
     properties.disable_buffered_stream();
   }
   properties.set_buffer_size(parquet_scan_options->reader_properties->buffer_size());
+  if (format.reader_options.max_page_header_size != 0) {
+    properties.set_max_page_header_size(format.reader_options.max_page_header_size);
+  }
 
   auto file_decryption_prop =
       parquet_scan_options->reader_properties->file_decryption_properties();
