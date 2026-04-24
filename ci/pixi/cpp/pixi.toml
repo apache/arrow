@@ -26,6 +26,7 @@ test    = ["test"]
 
 [feature.test.activation.env]                                                                                                                                                                                       
 ARROW_TEST_DATA = "/arrow/testing/data"
+PARQUET_TEST_DATA = "/arrow/cpp/submodules/parquet-testing/data"
 
 [feature.test.dependencies]
 binutils = "*"
