@@ -2253,6 +2253,8 @@ cdef class CsvFileFormat(FileFormat):
         """
         cdef CsvFileWriteOptions opts = \
             <CsvFileWriteOptions> FileFormat.make_write_options(self)
+        if 'delimiter' not in kwargs:
+            kwargs['delimiter'] = opts.write_options.delimiter
         opts.write_options = WriteOptions(**kwargs)
         return opts
 
