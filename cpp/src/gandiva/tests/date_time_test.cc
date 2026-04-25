@@ -795,10 +795,12 @@ TEST_F(DateTimeTestProjector, TestFromUtcTimestamp) {
   time_t epoch = Epoch();
 
   // Create a row-batch with some sample data
+  // Avoid using timestamps around DST transition boundaries, as behavior
+  // may vary across platforms and environments.
   std::vector<int64_t> f0_data = {MillisSince(epoch, 1970, 1, 1, 0, 30, 0, 0),
                                   MillisSince(epoch, 2001, 1, 4, 21, 30, 0, 0),
                                   MillisSince(epoch, 2018, 3, 12, 8, 0, 0, 0),
-                                  MillisSince(epoch, 2018, 3, 11, 9, 0, 0, 0)};
+                                  MillisSince(epoch, 2018, 3, 11, 12, 0, 0, 0)};
 
   int64_t num_records = f0_data.size();
   std::vector<bool> validity(num_records, true);
@@ -813,7 +815,7 @@ TEST_F(DateTimeTestProjector, TestFromUtcTimestamp) {
   std::vector<int64_t> exp_output_data = {MillisSince(epoch, 1970, 1, 1, 6, 0, 0, 0),
                                           MillisSince(epoch, 2001, 1, 5, 3, 0, 0, 0),
                                           MillisSince(epoch, 2018, 3, 12, 1, 0, 0, 0),
-                                          MillisSince(epoch, 2018, 3, 11, 1, 0, 0, 0)};
+                                          MillisSince(epoch, 2018, 3, 11, 5, 0, 0, 0)};
   auto exp_output = MakeArrowTypeArray<arrow::TimestampType, int64_t>(
       arrow::timestamp(arrow::TimeUnit::MILLI), exp_output_data, validity);
 
