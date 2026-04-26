@@ -911,6 +911,49 @@ class RPrimitiveConverter<T, enable_if_string_like<T>>
 };
 
 template <typename T>
+class RPrimitiveConverter<T, enable_if_string_view<T>>
+    : public PrimitiveConverter<T, RConverter> {
+ public:
+  Status Extend(SEXP x, int64_t size, int64_t offset = 0) override {
+    RVectorType rtype = GetVectorType(x);
+    if (rtype != STRING) {
+      return Status::Invalid("Expecting a character vector");
+    }
+    return UnsafeAppendUtf8Strings(arrow::r::utf8_strings(x), size, offset);
+  }
+
+  void DelayedExtend(SEXP values, int64_t size, RTasks& tasks) override {
+    auto task = [this, values, size]() { return this->Extend(values, size); };
+    tasks.Append(false, std::move(task));
+  }
+
+ private:
+  Status UnsafeAppendUtf8Strings(const cpp11::strings& s, int64_t size, int64_t offset) {
+    RETURN_NOT_OK(this->primitive_builder_->Reserve(s.size()));
+    const SEXP* p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+
+    int64_t total_length = 0;
+    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+      SEXP si = *p_strings;
+      total_length += si == NA_STRING ? 0 : LENGTH(si);
+    }
+    RETURN_NOT_OK(this->primitive_builder_->ReserveData(total_length));
+
+    p_strings = reinterpret_cast<const SEXP*>(DATAPTR_RO(s));
+    for (R_xlen_t i = offset; i < size; i++, ++p_strings) {
+      SEXP si = *p_strings;
+      if (si == NA_STRING) {
+        this->primitive_builder_->UnsafeAppendNull();
+      } else {
+        this->primitive_builder_->UnsafeAppend(CHAR(si), LENGTH(si));
+      }
+    }
+
+    return Status::OK();
+  }
+};
+
+template <typename T>
 class RPrimitiveConverter<T, enable_if_t<is_duration_type<T>::value>>
     : public PrimitiveConverter<T, RConverter> {
  public:
@@ -1029,8 +1072,8 @@ class RDictionaryConverter<ValueType, enable_if_has_string_view<ValueType>>
 
     // first we need to handle the levels
     SEXP levels = Rf_getAttrib(x, R_LevelsSymbol);
-    auto memo_chunked_chunked_array =
-        arrow::r::vec_to_arrow_ChunkedArray(levels, utf8(), false);
+    auto memo_chunked_chunked_array = arrow::r::vec_to_arrow_ChunkedArray(
+        levels, this->dict_type_->value_type(), false);
     for (const auto& chunk : memo_chunked_chunked_array->chunks()) {
       RETURN_NOT_OK(this->value_builder_->InsertMemoValues(*chunk));
     }
@@ -1062,7 +1105,13 @@ struct RConverterTrait<
 };
 
 template <typename T>
-struct RConverterTrait<T, enable_if_binary_view_like<T>> {
+struct RConverterTrait<T, enable_if_string_view<T>> {
+  using type = RPrimitiveConverter<T>;
+};
+
+template <typename T>
+struct RConverterTrait<T, enable_if_t<is_binary_view_like_type<T>::value &&
+                                      !is_string_view_type<T>::value>> {
   // not implemented
 };
 

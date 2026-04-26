@@ -203,6 +203,13 @@ Utf8 <- R6Class(
     code = function(namespace = FALSE) call2("utf8", .ns = if (namespace) "arrow")
   )
 )
+StringView <- R6Class(
+  "StringView",
+  inherit = DataType,
+  public = list(
+    code = function(namespace = FALSE) call2("string_view", .ns = if (namespace) "arrow")
+  )
+)
 LargeUtf8 <- R6Class(
   "LargeUtf8",
   inherit = DataType,
@@ -507,6 +514,10 @@ utf8 <- function() Utf8__initialize()
 
 #' @rdname data-type
 #' @export
+string_view <- function() StringView__initialize()
+
+#' @rdname data-type
+#' @export
 large_utf8 <- function() LargeUtf8__initialize()
 
 #' @rdname data-type
@@ -806,6 +817,8 @@ canonical_type_str <- function(type_str) {
     boolean = "bool",
     bool = "bool",
     utf8 = "string",
+    utf8_view = "string_view",
+    string_view = "string_view",
     large_utf8 = "large_string",
     large_string = "large_string",
     binary = "binary",
