@@ -925,7 +925,11 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
   cleanup(td)
   find_package <- paste0(
     "cmake_minimum_required(VERSION 3.10)\n",
-    "find_package(", pkg, " ", version, " REQUIRED)"
+    "find_package(",
+    pkg,
+    " ",
+    version,
+    " REQUIRED)"
   )
   writeLines(find_package, file.path(td, "CMakeLists.txt"))
   env_vars <- env_vars_as_string(env_var_list)
