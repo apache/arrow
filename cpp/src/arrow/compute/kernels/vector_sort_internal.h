@@ -49,7 +49,8 @@ namespace arrow::compute::internal {
   VISIT(LargeBinaryType)                     \
   VISIT(FixedSizeBinaryType)                 \
   VISIT(Decimal128Type)                      \
-  VISIT(Decimal256Type)
+  VISIT(Decimal256Type)                      \
+  VISIT(DictionaryType)
 
 // NOTE: std::partition is usually faster than std::stable_partition.
 
