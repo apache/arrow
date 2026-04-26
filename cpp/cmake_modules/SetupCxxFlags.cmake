@@ -330,6 +330,7 @@ if("${BUILD_WARNING_LEVEL}" STREQUAL "CHECKIN")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wdate-time")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wimplicit-fallthrough")
     string(APPEND CXX_ONLY_FLAGS " -Wredundant-move")
+    string(APPEND CXX_ONLY_FLAGS " -Wself-move")
     set(CXX_COMMON_FLAGS "${CXX_COMMON_FLAGS} -Wunused-result")
     # Flag non-static functions that don't have corresponding declaration in a .h file.
     # Only for Arrow libraries, since this is not a problem in tests or utilities.
