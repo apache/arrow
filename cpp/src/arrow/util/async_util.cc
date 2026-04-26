@@ -466,7 +466,16 @@ Future<> AsyncTaskScheduler::Make(FnOnce<Status(AsyncTaskScheduler*)> initial_ta
   auto scope = START_SCOPED_SPAN_SV(span, "AsyncTaskScheduler::InitialTask"sv);
   auto scheduler = std::make_unique<AsyncTaskSchedulerImpl>(std::move(stop_token),
                                                             std::move(abort_callback));
-  Status initial_task_st = std::move(initial_task)(scheduler.get());
+  Status initial_task_st;
+  try {
+    initial_task_st = std::move(initial_task)(scheduler.get());
+  } catch (const std::exception& e) {
+    initial_task_st =
+        Status::UnknownError("Initial task threw an exception: ", e.what());
+  } catch (...) {
+    initial_task_st =
+        Status::UnknownError("Initial task threw an unknown exception");
+  }
   scheduler->OnTaskFinished(std::move(initial_task_st));
   // Keep scheduler alive until finished
   return scheduler->OnFinished().Then([scheduler = std::move(scheduler)] {});
