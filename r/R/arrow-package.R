@@ -153,14 +153,6 @@ s3_finalizer <- new.env(parent = emptyenv())
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
-
-    # MinGW/GCC builds (e.g. CRAN's winbuilder) use the vendored Howard Hinnant
-    # date library and need an IANA tzdata path. MSVC builds use std::chrono
-    # with the Windows system timezone database and don't need this.
-    # See https://github.com/apache/arrow/issues/48593
-    if (!identical(build_info()[[2]], "MSVC")) {
-      configure_tzdb()
-    }
   }
 
   # Set interrupt handlers
@@ -175,18 +167,6 @@ s3_finalizer <- new.env(parent = emptyenv())
   reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
 
   invisible()
-}
-
-configure_tzdb <- function() {
-  if (requireNamespace("tzdb", quietly = TRUE)) {
-    tzdb::tzdb_initialize()
-    set_timezone_database(tzdb::tzdb_path("text"))
-  } else {
-    packageStartupMessage(
-      "The tzdb package is not installed. ",
-      "Timezones will not be available to Arrow compute functions."
-    )
-  }
 }
 
 .onAttach <- function(libname, pkgname) {
