@@ -15,7 +15,9 @@
 # specific language governing permissions and limitations
 # under the License.
 
-# flake8: noqa
+def encode_file_path(path: str | bytes) -> bytes: ...
+def tobytes(o: str | bytes) -> bytes: ...
+def frombytes(o: bytes, *, safe: bool = False): ...
 
 
-from pyarrow.lib import benchmark_PandasObjectIsNull  # type: ignore[attr-defined]
+__all__ = ["encode_file_path", "tobytes", "frombytes"]
