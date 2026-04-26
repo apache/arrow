@@ -211,8 +211,8 @@ TEST(AsyncTaskScheduler, InitialTaskThrowsException) {
   // See https://github.com/apache/arrow/issues/47642
 
   // Case 1: initial task throws with no other tasks
-  Future<> finished = AsyncTaskScheduler::Make(
-      [&](AsyncTaskScheduler* scheduler) -> Status {
+  Future<> finished =
+      AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) -> Status {
         throw std::runtime_error("some exception");
       });
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
@@ -220,11 +220,10 @@ TEST(AsyncTaskScheduler, InitialTaskThrowsException) {
 
   // Case 2: initial task throws while another task is still running
   Future<> task = Future<>::Make();
-  finished = AsyncTaskScheduler::Make(
-      [&](AsyncTaskScheduler* scheduler) -> Status {
-        EXPECT_TRUE(scheduler->AddSimpleTask([&]() { return task; }, kDummyName));
-        throw std::runtime_error("some exception after adding task");
-      });
+  finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) -> Status {
+    EXPECT_TRUE(scheduler->AddSimpleTask([&]() { return task; }, kDummyName));
+    throw std::runtime_error("some exception after adding task");
+  });
   AssertNotFinished(finished);
   task.MarkFinished();
   EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(

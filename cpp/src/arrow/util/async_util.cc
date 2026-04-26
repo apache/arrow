@@ -470,11 +470,9 @@ Future<> AsyncTaskScheduler::Make(FnOnce<Status(AsyncTaskScheduler*)> initial_ta
   try {
     initial_task_st = std::move(initial_task)(scheduler.get());
   } catch (const std::exception& e) {
-    initial_task_st =
-        Status::UnknownError("Initial task threw an exception: ", e.what());
+    initial_task_st = Status::UnknownError("Initial task threw an exception: ", e.what());
   } catch (...) {
-    initial_task_st =
-        Status::UnknownError("Initial task threw an unknown exception");
+    initial_task_st = Status::UnknownError("Initial task threw an unknown exception");
   }
   scheduler->OnTaskFinished(std::move(initial_task_st));
   // Keep scheduler alive until finished
