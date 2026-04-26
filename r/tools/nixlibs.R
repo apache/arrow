@@ -939,7 +939,7 @@ cmake_find_package <- function(pkg, version = NULL, env_var_list) {
     " -DCMAKE_FIND_PACKAGE_NO_PACKAGE_REGISTRY=ON",
     " ."
   )
-  system(cmake_cmd, ignore.stdout = TRUE, ignore.stderr = TRUE) == 0
+  system(cmake_cmd, ignore.stdout = quietly, ignore.stderr = quietly) == 0
 }
 
 ############### Main logic #############
