@@ -321,8 +321,18 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
 
   inline int64_t num_values() const { return column_metadata_->num_values; }
 
+  inline bool is_path_in_schema_set() const {
+    const std::lock_guard<std::mutex> guard(stats_mutex_);
+    if (possible_path_in_schema_ == nullptr && column_metadata_->__isset.path_in_schema) {
+      possible_path_in_schema_ =
+          std::make_shared<schema::ColumnPath>(column_metadata_->path_in_schema);
+    }
+
+    return possible_path_in_schema_ != nullptr;
+  }
+
   std::shared_ptr<schema::ColumnPath> path_in_schema() {
-    return std::make_shared<schema::ColumnPath>(column_metadata_->path_in_schema);
+    return is_path_in_schema_set() ? possible_path_in_schema_ : nullptr;
   }
 
   // Check if statistics are set and are valid
@@ -464,6 +474,7 @@ class ColumnChunkMetaData::ColumnChunkMetaDataImpl {
   mutable std::shared_ptr<EncodedStatistics> possible_encoded_stats_;
   mutable std::shared_ptr<Statistics> possible_stats_;
   mutable std::shared_ptr<geospatial::GeoStatistics> possible_geo_stats_;
+  mutable std::shared_ptr<schema::ColumnPath> possible_path_in_schema_;
   std::vector<Encoding::type> encodings_;
   std::vector<PageEncodingStats> encoding_stats_;
   const format::ColumnChunk* column_;
@@ -506,6 +517,10 @@ const std::string& ColumnChunkMetaData::file_path() const { return impl_->file_p
 Type::type ColumnChunkMetaData::type() const { return impl_->type(); }
 
 int64_t ColumnChunkMetaData::num_values() const { return impl_->num_values(); }
+
+bool ColumnChunkMetaData::is_path_in_schema_set() const {
+  return impl_->is_path_in_schema_set();
+}
 
 std::shared_ptr<schema::ColumnPath> ColumnChunkMetaData::path_in_schema() const {
   return impl_->path_in_schema();
@@ -1813,7 +1828,9 @@ class ColumnChunkMetaDataBuilder::ColumnChunkMetaDataBuilderImpl {
     column_chunk_ = column_chunk;
 
     column_chunk_->meta_data.__set_type(ToThrift(column_->physical_type()));
-    column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
+    if (properties_->write_path_in_schema()) {
+      column_chunk_->meta_data.__set_path_in_schema(column_->path()->ToDotVector());
+    }
     column_chunk_->meta_data.__set_codec(
         ToThrift(properties_->compression(column_->path())));
   }

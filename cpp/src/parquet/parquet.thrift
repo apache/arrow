@@ -882,7 +882,7 @@ struct ColumnMetaData {
   2: required list<Encoding> encodings
 
   /** Path in schema **/
-  3: required list<string> path_in_schema
+  3: optional list<string> path_in_schema
 
   /** Compression codec **/
   4: required CompressionCodec codec

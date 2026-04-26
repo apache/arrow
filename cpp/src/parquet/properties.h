@@ -166,6 +166,7 @@ static constexpr Encoding::type DEFAULT_ENCODING = Encoding::UNKNOWN;
 static const char DEFAULT_CREATED_BY[] = CREATED_BY_VERSION;
 static constexpr Compression::type DEFAULT_COMPRESSION_TYPE = Compression::UNCOMPRESSED;
 static constexpr bool DEFAULT_IS_PAGE_INDEX_ENABLED = true;
+static constexpr bool DEFAULT_WRITE_PATH_IN_SCHEMA = true;
 static constexpr SizeStatisticsLevel DEFAULT_SIZE_STATISTICS_LEVEL =
     SizeStatisticsLevel::PageAndColumnChunk;
 
@@ -350,6 +351,7 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(DEFAULT_CREATED_BY),
           store_decimal_as_integer_(false),
           page_checksum_enabled_(false),
+          write_path_in_schema_(DEFAULT_WRITE_PATH_IN_SCHEMA),
           size_statistics_level_(DEFAULT_SIZE_STATISTICS_LEVEL),
           content_defined_chunking_enabled_(false),
           content_defined_chunking_options_({}) {}
@@ -366,6 +368,7 @@ class PARQUET_EXPORT WriterProperties {
           created_by_(properties.created_by()),
           store_decimal_as_integer_(properties.store_decimal_as_integer()),
           page_checksum_enabled_(properties.page_checksum_enabled()),
+          write_path_in_schema_(properties.write_path_in_schema()),
           size_statistics_level_(properties.size_statistics_level()),
           sorting_columns_(properties.sorting_columns()),
           default_column_properties_(properties.default_column_properties()),
@@ -508,6 +511,28 @@ class PARQUET_EXPORT WriterProperties {
 
     Builder* disable_page_checksum() {
       page_checksum_enabled_ = false;
+      return this;
+    }
+
+    /// \brief Enable writing the path_in_schema field to ColumnMetaData in the footer.
+    ///
+    /// Writing path_in_schema is enabled by default, and should be left enabled for
+    /// maximum file compatibility, especially with older readers that expect this field
+    /// to be present.
+    Builder* enable_write_path_in_schema() {
+      write_path_in_schema_ = true;
+      return this;
+    }
+
+    /// \brief Disable writing the path_in_schema field to ColumnMetaData in the footer.
+    ///
+    /// The path_in_schema field in the Thrift metadata is redundant and wastes a great
+    /// deal of space. Parquet file footers can be made much smaller by omitting this
+    /// field. Because the field was originally a mandatory field, writing of
+    /// path_in_schema is by default enabled. If one knows that all readers one plans to
+    /// use are tolerant of the absence of this field, writing may be safely disabled.
+    Builder* disable_write_path_in_schema() {
+      write_path_in_schema_ = false;
       return this;
     }
 
@@ -868,10 +893,11 @@ class PARQUET_EXPORT WriterProperties {
       return std::shared_ptr<WriterProperties>(new WriterProperties(
           pool_, dictionary_pagesize_limit_, write_batch_size_, max_row_group_length_,
           pagesize_, max_rows_per_page_, version_, created_by_, page_checksum_enabled_,
-          size_statistics_level_, std::move(file_encryption_properties_),
-          default_column_properties_, column_properties, data_page_version_,
-          store_decimal_as_integer_, std::move(sorting_columns_),
-          content_defined_chunking_enabled_, content_defined_chunking_options_));
+          write_path_in_schema_, size_statistics_level_,
+          std::move(file_encryption_properties_), default_column_properties_,
+          column_properties, data_page_version_, store_decimal_as_integer_,
+          std::move(sorting_columns_), content_defined_chunking_enabled_,
+          content_defined_chunking_options_));
     }
 
    private:
@@ -888,6 +914,7 @@ class PARQUET_EXPORT WriterProperties {
     std::string created_by_;
     bool store_decimal_as_integer_;
     bool page_checksum_enabled_;
+    bool write_path_in_schema_;
     SizeStatisticsLevel size_statistics_level_;
 
     std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;
@@ -932,6 +959,8 @@ class PARQUET_EXPORT WriterProperties {
   inline bool store_decimal_as_integer() const { return store_decimal_as_integer_; }
 
   inline bool page_checksum_enabled() const { return page_checksum_enabled_; }
+
+  inline bool write_path_in_schema() const { return write_path_in_schema_; }
 
   inline bool content_defined_chunking_enabled() const {
     return content_defined_chunking_enabled_;
@@ -1048,7 +1077,8 @@ class PARQUET_EXPORT WriterProperties {
       MemoryPool* pool, int64_t dictionary_pagesize_limit, int64_t write_batch_size,
       int64_t max_row_group_length, int64_t pagesize, int64_t max_rows_per_page,
       ParquetVersion::type version, const std::string& created_by,
-      bool page_write_checksum_enabled, SizeStatisticsLevel size_statistics_level,
+      bool page_write_checksum_enabled, bool write_path_in_schema,
+      SizeStatisticsLevel size_statistics_level,
       std::shared_ptr<FileEncryptionProperties> file_encryption_properties,
       const ColumnProperties& default_column_properties,
       const std::unordered_map<std::string, ColumnProperties>& column_properties,
@@ -1066,6 +1096,7 @@ class PARQUET_EXPORT WriterProperties {
         parquet_created_by_(created_by),
         store_decimal_as_integer_(store_short_decimal_as_integer),
         page_checksum_enabled_(page_write_checksum_enabled),
+        write_path_in_schema_(write_path_in_schema),
         size_statistics_level_(size_statistics_level),
         file_encryption_properties_(file_encryption_properties),
         sorting_columns_(std::move(sorting_columns)),
@@ -1085,6 +1116,7 @@ class PARQUET_EXPORT WriterProperties {
   std::string parquet_created_by_;
   bool store_decimal_as_integer_;
   bool page_checksum_enabled_;
+  bool write_path_in_schema_;
   SizeStatisticsLevel size_statistics_level_;
 
   std::shared_ptr<FileEncryptionProperties> file_encryption_properties_;

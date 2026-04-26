@@ -2688,7 +2688,8 @@ void swap(PageEncodingStats &a, PageEncodingStats &b);
 std::ostream& operator<<(std::ostream& out, const PageEncodingStats& obj);
 
 typedef struct _ColumnMetaData__isset {
-  _ColumnMetaData__isset() : key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false) {}
+  _ColumnMetaData__isset() : path_in_schema(false), key_value_metadata(false), index_page_offset(false), dictionary_page_offset(false), statistics(false), encoding_stats(false), bloom_filter_offset(false), bloom_filter_length(false), size_statistics(false), geospatial_statistics(false) {}
+  bool path_in_schema :1;
   bool key_value_metadata :1;
   bool index_page_offset :1;
   bool dictionary_page_offset :1;
