@@ -1,7 +1,7 @@
 # write_dataset checks for format-specific arguments
 
     Code
-      write_dataset(df, dst_dir, format = "feather", compression = "snappy")
+      write_dataset(df, dst_dir, format = "ipc", compression = "snappy")
     Condition
       Error in `check_additional_args()`:
       ! `compression` is not a valid argument for your chosen `format`.
@@ -11,7 +11,7 @@
 ---
 
     Code
-      write_dataset(df, dst_dir, format = "feather", nonsensical_arg = "blah-blah")
+      write_dataset(df, dst_dir, format = "ipc", nonsensical_arg = "blah-blah")
     Condition
       Error in `check_additional_args()`:
       ! `nonsensical_arg` is not a valid argument for your chosen `format`.

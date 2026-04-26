@@ -17,8 +17,8 @@ file formats (\code{ParquetFileFormat} and \code{IpcFileFormat}).
 \item \code{format}: A string identifier of the file format. Currently supported values:
 \itemize{
 \item "parquet"
-\item "ipc"/"arrow"/"feather", all aliases for each other; for Feather, note that
-only version 2 files are supported
+\item "ipc"/"arrow" for the Arrow IPC format (also supported as "feather" but
+this is deprecated)
 \item "csv"/"text", aliases for the same thing (because comma is the default
 delimiter for text files
 \item "tsv", equivalent to passing \verb{format = "text", delimiter = "\\t"}

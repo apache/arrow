@@ -4,7 +4,7 @@
 \alias{read_ipc_stream}
 \title{Read Arrow IPC stream format}
 \usage{
-read_ipc_stream(file, as_data_frame = TRUE, ...)
+read_ipc_stream(file, as_data_frame = TRUE)
 }
 \arguments{
 \item{file}{A character file name or URI, connection, \code{raw} vector, an
@@ -15,8 +15,6 @@ open.}
 
 \item{as_data_frame}{Should the function return a \code{tibble} (default) or
 an Arrow \link{Table}?}
-
-\item{...}{extra parameters passed to \code{read_feather()}.}
 }
 \value{
 A \code{tibble} if \code{as_data_frame} is \code{TRUE} (the default), or an
@@ -24,8 +22,8 @@ Arrow \link{Table} otherwise
 }
 \description{
 Apache Arrow defines two formats for \href{https://arrow.apache.org/docs/format/Columnar.html#serialization-and-interprocess-communication-ipc}{serializing data for interprocess communication (IPC)}:
-a "stream" format and a "file" format, known as Feather. \code{read_ipc_stream()}
-and \code{\link[=read_feather]{read_feather()}} read those formats, respectively.
+a "stream" format and a "file" format. \code{read_ipc_stream()}
+and \code{\link[=read_ipc_file]{read_ipc_file()}} read those formats, respectively.
 }
 \section{Untrusted data}{
 
@@ -35,6 +33,6 @@ before processing.
 }
 
 \seealso{
-\code{\link[=write_feather]{write_feather()}} for writing IPC files. \link{RecordBatchReader} for a
+\code{\link[=write_ipc_file]{write_ipc_file()}} for writing IPC files. \link{RecordBatchReader} for a
 lower-level interface.
 }

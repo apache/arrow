@@ -43,11 +43,11 @@ test_that("Setup (putting data in the dirs)", {
 test_that("Writing a dataset: CSV->IPC", {
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "ipc")
 
   expect_equal(
     new_ds |>
@@ -62,7 +62,7 @@ test_that("Writing a dataset: CSV->IPC", {
   )
 
   # Check whether "int" is present in the files or just in the dirs
-  first <- read_feather(
+  first <- read_ipc_file(
     dir(dst_dir, pattern = ".arrow$", recursive = TRUE, full.names = TRUE)[1],
     as_data_frame = FALSE
   )
@@ -74,11 +74,11 @@ test_that("Writing a dataset: Parquet->IPC", {
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "ipc")
 
   expect_equal(
     new_ds |>
@@ -160,7 +160,7 @@ test_that("Writing a dataset: `basename_template` default behavior", {
     "basename_template did not contain '\\{i\\}'"
   )
   feather_dir <- make_temp_dir()
-  write_dataset(ds, feather_dir, format = "feather", partitioning = "int")
+  write_dataset(ds, feather_dir, format = "ipc", partitioning = "int")
   expect_identical(
     dir(feather_dir, full.names = FALSE, recursive = TRUE),
     sort(paste(paste("int", c(1:10, 101:110), sep = "="), "part-0.arrow", sep = "/"))
@@ -179,11 +179,11 @@ test_that("Writing a dataset: existing data behavior", {
   skip_on_os("windows")
   ds <- open_dataset(csv_dir, partitioning = "part", format = "csv")
   dst_dir <- make_temp_dir()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int")
   expect_true(dir.exists(dst_dir))
 
   check_dataset <- function() {
-    new_ds <- open_dataset(dst_dir, format = "feather")
+    new_ds <- open_dataset(dst_dir, format = "ipc")
 
     expect_equal(
       new_ds |>
@@ -200,16 +200,16 @@ test_that("Writing a dataset: existing data behavior", {
 
   check_dataset()
   # By default we should overwrite
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int")
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int")
   check_dataset()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "overwrite")
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int", existing_data_behavior = "overwrite")
   check_dataset()
   expect_error(
-    write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "error"),
+    write_dataset(ds, dst_dir, format = "ipc", partitioning = "int", existing_data_behavior = "error"),
     "directory is not empty"
   )
   unlink(dst_dir, recursive = TRUE)
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", existing_data_behavior = "error")
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int", existing_data_behavior = "error")
   check_dataset()
 })
 
@@ -237,7 +237,7 @@ test_that("Dataset writing: dplyr methods", {
   # Specify partition vars by group_by
   ds |>
     group_by(int) |>
-    write_dataset(dst_dir, format = "feather")
+    write_dataset(dst_dir, format = "ipc")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
@@ -246,8 +246,8 @@ test_that("Dataset writing: dplyr methods", {
   ds |>
     group_by(int) |>
     select(chr, dubs = dbl) |>
-    write_dataset(dst_dir2, format = "feather")
-  new_ds <- open_dataset(dst_dir2, format = "feather")
+    write_dataset(dst_dir2, format = "ipc")
+  new_ds <- open_dataset(dst_dir2, format = "ipc")
 
   expect_equal(
     collect(new_ds) |> arrange(int),
@@ -258,8 +258,8 @@ test_that("Dataset writing: dplyr methods", {
   dst_dir3 <- tempfile()
   ds |>
     filter(int == 4) |>
-    write_dataset(dst_dir3, format = "feather")
-  new_ds <- open_dataset(dst_dir3, format = "feather")
+    write_dataset(dst_dir3, format = "ipc")
+  new_ds <- open_dataset(dst_dir3, format = "ipc")
 
   expect_equal(
     new_ds |> select(names(df1)) |> collect(),
@@ -271,8 +271,8 @@ test_that("Dataset writing: dplyr methods", {
   ds |>
     filter(int == 4) |>
     mutate(twice = int * 2) |>
-    write_dataset(dst_dir3, format = "feather")
-  new_ds <- open_dataset(dst_dir3, format = "feather")
+    write_dataset(dst_dir3, format = "ipc")
+  new_ds <- open_dataset(dst_dir3, format = "ipc")
 
   expect_equal(
     new_ds |> select(c(names(df1), "twice")) |> collect(),
@@ -285,8 +285,8 @@ test_that("Dataset writing: dplyr methods", {
     mutate(twice = int * 2) |>
     arrange(int) |>
     head(3) |>
-    write_dataset(dst_dir4, format = "feather")
-  new_ds <- open_dataset(dst_dir4, format = "feather")
+    write_dataset(dst_dir4, format = "ipc")
+  new_ds <- open_dataset(dst_dir4, format = "ipc")
 
   expect_equal(
     new_ds |>
@@ -302,7 +302,7 @@ test_that("Dataset writing: non-hive", {
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = "int", hive_style = FALSE)
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = "int", hive_style = FALSE)
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(as.character(c(1:10, 101:110))))
 })
@@ -311,7 +311,7 @@ test_that("Dataset writing: no partitioning", {
   skip_if_not_available("parquet")
   ds <- open_dataset(hive_dir)
   dst_dir <- tempfile()
-  write_dataset(ds, dst_dir, format = "feather", partitioning = NULL)
+  write_dataset(ds, dst_dir, format = "ipc", partitioning = NULL)
   expect_true(dir.exists(dst_dir))
   expect_true(length(dir(dst_dir)) > 0)
 })
@@ -350,11 +350,11 @@ test_that("Dataset writing: from data.frame", {
   stacked <- rbind(df1, df2)
   stacked |>
     group_by(int) |>
-    write_dataset(dst_dir, format = "feather")
+    write_dataset(dst_dir, format = "ipc")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "ipc")
 
   expect_equal(
     new_ds |>
@@ -375,11 +375,11 @@ test_that("Dataset writing: from RecordBatch", {
   stacked |>
     mutate(twice = int * 2) |>
     group_by(int) |>
-    write_dataset(dst_dir, format = "feather")
+    write_dataset(dst_dir, format = "ipc")
   expect_true(dir.exists(dst_dir))
   expect_identical(dir(dst_dir), sort(paste("int", c(1:10, 101:110), sep = "=")))
 
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "ipc")
 
   expect_equal(
     new_ds |>
@@ -403,10 +403,10 @@ test_that("Writing a dataset: Ipc format options & compression", {
     codec <- Codec$create("zstd")
   }
 
-  write_dataset(ds, dst_dir, format = "feather", codec = codec)
+  write_dataset(ds, dst_dir, format = "ipc", codec = codec)
   expect_true(dir.exists(dst_dir))
 
-  new_ds <- open_dataset(dst_dir, format = "feather")
+  new_ds <- open_dataset(dst_dir, format = "ipc")
   expect_equal(
     new_ds |>
       select(string = chr, integer = int) |>
@@ -586,11 +586,11 @@ test_that("write_dataset checks for format-specific arguments", {
   )
   dst_dir <- make_temp_dir()
   expect_snapshot(
-    write_dataset(df, dst_dir, format = "feather", compression = "snappy"),
+    write_dataset(df, dst_dir, format = "ipc", compression = "snappy"),
     error = TRUE
   )
   expect_snapshot(
-    write_dataset(df, dst_dir, format = "feather", nonsensical_arg = "blah-blah"),
+    write_dataset(df, dst_dir, format = "ipc", nonsensical_arg = "blah-blah"),
     error = TRUE
   )
   expect_snapshot(
@@ -608,6 +608,15 @@ test_that("write_dataset checks for format-specific arguments", {
   expect_snapshot(
     write_dataset(df, dst_dir, format = "parquet", nonsensical_arg = "blah-blah"),
     error = TRUE
+  )
+})
+
+test_that("write_dataset format = 'feather' is deprecated", {
+  df <- tibble::tibble(x = 1:5)
+  dst_dir <- make_temp_dir()
+  expect_warning(
+    write_dataset(df, dst_dir, format = "feather"),
+    "deprecated"
   )
 })
 
