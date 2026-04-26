@@ -31,6 +31,7 @@
 #include "arrow/tensor.h"
 #include "arrow/testing/gtest_util.h"
 #include "arrow/type.h"
+#include "arrow/util/float16.h"
 
 namespace arrow {
 
@@ -505,8 +506,18 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
 
   std::vector<int64_t> shape = {4, 4};
 
-  std::vector<c_data_type> c_values = {1, 2,  3,  4,  5,  6,  7,  8,
+  constexpr int c_vals_as_int_arr[] = {1, 2,  3,  4,  5,  6,  7,  8,
                                        9, 10, 11, 12, 13, 14, 15, 16};
+  std::vector<c_data_type> c_values;
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    for (int i : c_vals_as_int_arr) {
+      c_values.push_back(util::Float16::FromFloat(static_cast<float>(i)).bits());
+    }
+  } else {
+    for (int i : c_vals_as_int_arr) {
+      c_values.push_back(static_cast<c_data_type>(i));
+    }
+  }
   std::vector<int64_t> c_strides = {unit_size * shape[1], unit_size};
   Tensor tc1(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(c_values), shape,
              c_strides);
@@ -515,8 +526,18 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   Tensor tc2(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(c_values_2), shape,
              c_strides);
 
-  std::vector<c_data_type> f_values = {1, 5, 9,  13, 2, 6, 10, 14,
+  constexpr int f_vals_as_int_arr[] = {1, 5, 9,  13, 2, 6, 10, 14,
                                        3, 7, 11, 15, 4, 8, 12, 16};
+  std::vector<c_data_type> f_values;
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    for (int i : f_vals_as_int_arr) {
+      f_values.push_back(util::Float16::FromFloat(static_cast<float>(i)).bits());
+    }
+  } else {
+    for (int i : f_vals_as_int_arr) {
+      f_values.push_back(static_cast<c_data_type>(i));
+    }
+  }
   Tensor tc3(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(f_values), shape,
              c_strides);
 
@@ -531,9 +552,19 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   Tensor tf3(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(c_values), shape,
              f_strides);
 
-  std::vector<c_data_type> nc_values = {1,  0,  5, 0,  9, 0, 13, 0, 2,  0,  6,
+  constexpr int nc_vals_as_int_arr[] = {1,  0,  5, 0,  9, 0, 13, 0, 2,  0,  6,
                                         0,  10, 0, 14, 0, 3, 0,  7, 0,  11, 0,
                                         15, 0,  4, 0,  8, 0, 12, 0, 16, 0};
+  std::vector<c_data_type> nc_values;
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    for (int i : nc_vals_as_int_arr) {
+      nc_values.push_back(util::Float16::FromFloat(static_cast<float>(i)).bits());
+    }
+  } else {
+    for (int i : nc_vals_as_int_arr) {
+      nc_values.push_back(static_cast<c_data_type>(i));
+    }
+  }
   std::vector<int64_t> nc_strides = {unit_size * 2, unit_size * 2 * shape[0]};
   Tensor tnc(TypeTraits<DataType>::type_singleton(), Buffer::Wrap(nc_values), shape,
              nc_strides);
@@ -569,29 +600,54 @@ TYPED_TEST_P(TestFloatTensor, Equals) {
   EXPECT_FALSE(tf3.Equals(tnc));
 
   // signed zeros
-  c_values[0] = -0.0;
-  c_values_2[0] = 0.0;
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    c_values[0] = 0x8000;    // -0.0
+    c_values_2[0] = 0x0000;  // +0.0
+  } else {
+    c_values[0] = -0.0;
+    c_values_2[0] = 0.0;
+  }
   EXPECT_TRUE(tc1.Equals(tc2));
   EXPECT_FALSE(tc1.Equals(tc2, EqualOptions().signed_zeros_equal(false)));
 
   // tensors with NaNs
-  const c_data_type nan_value = static_cast<c_data_type>(NAN);
+  c_data_type nan_value;
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    nan_value = 0x7e00;  // NaN
+  } else {
+    nan_value = static_cast<c_data_type>(NAN);
+  }
+
   c_values[0] = nan_value;
-  EXPECT_TRUE(std::isnan(tc1.Value<DataType>({0, 0})));
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    EXPECT_TRUE(util::Float16::FromBits(tc1.Value<DataType>({0, 0})).is_nan());
+  } else {
+    EXPECT_TRUE(std::isnan(tc1.Value<DataType>({0, 0})));
+  }
   EXPECT_FALSE(tc1.Equals(tc1));                                  // same object
   EXPECT_TRUE(tc1.Equals(tc1, EqualOptions().nans_equal(true)));  // same object
-  EXPECT_FALSE(std::isnan(tc2.Value<DataType>({0, 0})));
+
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    EXPECT_FALSE(util::Float16::FromBits(tc2.Value<DataType>({0, 0})).is_nan());
+  } else {
+    EXPECT_FALSE(std::isnan(tc2.Value<DataType>({0, 0})));
+  }
   EXPECT_FALSE(tc1.Equals(tc2));                                   // different memory
   EXPECT_FALSE(tc1.Equals(tc2, EqualOptions().nans_equal(true)));  // different memory
 
   c_values_2[0] = nan_value;
-  EXPECT_TRUE(std::isnan(tc2.Value<DataType>({0, 0})));
+  if constexpr (std::is_same_v<DataType, HalfFloatType>) {
+    EXPECT_TRUE(util::Float16::FromBits(tc2.Value<DataType>({0, 0})).is_nan());
+  } else {
+    EXPECT_TRUE(std::isnan(tc2.Value<DataType>({0, 0})));
+  }
   EXPECT_FALSE(tc1.Equals(tc2));                                  // different memory
   EXPECT_TRUE(tc1.Equals(tc2, EqualOptions().nans_equal(true)));  // different memory
 }
 
 REGISTER_TYPED_TEST_SUITE_P(TestFloatTensor, Equals);
 
+INSTANTIATE_TYPED_TEST_SUITE_P(Float16, TestFloatTensor, HalfFloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float32, TestFloatTensor, FloatType);
 INSTANTIATE_TYPED_TEST_SUITE_P(Float64, TestFloatTensor, DoubleType);
 
