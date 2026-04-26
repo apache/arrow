@@ -2314,8 +2314,23 @@ cdef class KeyValueMetadata(_Metadata, Mapping):
 
         keys.reserve(len(items))
         for key, value in items:
-            keys.push_back(tobytes(key))
-            values.push_back(tobytes(value))
+            v = tobytes(value)
+            if isinstance(key, bytes):
+                try:
+                    key.decode('utf-8')
+                except UnicodeDecodeError:
+                    raise ValueError(
+                        f"Metadata keys must be valid UTF-8, got {key!r}"
+                    )
+            if isinstance(v, bytes):
+                try:
+                    v.decode('utf-8')
+                except UnicodeDecodeError:
+                    raise ValueError(
+                        f"Metadata values must be valid UTF-8, got {value!r}"
+                    )
+            keys.push_back(key)
+            values.push_back(v)
         result.reset(new CKeyValueMetadata(move(keys), move(values)))
         self.init(result)
 
