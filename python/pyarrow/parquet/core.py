@@ -715,32 +715,80 @@ def _sanitized_spark_field_name(name):
     return _SPARK_DISALLOWED_CHARS.sub('_', name)
 
 
+def _sanitize_spark_field_recursive(field):
+    """
+    Recursively sanitize field names in struct types for Spark compatibility.
+
+    Returns
+    -------
+    tuple
+        (sanitized_field, changed) where changed is True if any sanitization occurred
+    """
+    sanitized_name = _sanitized_spark_field_name(field.name)
+    sanitized_type = field.type
+    type_changed = False
+
+    if pa.types.is_struct(field.type):
+        sanitized_fields, changed = zip(
+            *[_sanitize_spark_field_recursive(f) for f in field.type])
+        if any(changed):
+            sanitized_type = pa.struct(sanitized_fields)
+            type_changed = True
+    elif pa.types.is_list(field.type) or pa.types.is_large_list(field.type):
+        # Sanitize the value field of list types
+        value_field = field.type.value_field
+        sanitized_value_field, value_changed = _sanitize_spark_field_recursive(
+            value_field)
+        if value_changed:
+            if pa.types.is_list(field.type):
+                sanitized_type = pa.list_(sanitized_value_field)
+            else:  # large_list
+                sanitized_type = pa.large_list(sanitized_value_field)
+            type_changed = True
+    elif pa.types.is_fixed_size_list(field.type):
+        # Sanitize the value field of fixed_size_list types
+        value_field = field.type.value_field
+        list_size = field.type.list_size
+        sanitized_value_field, value_changed = _sanitize_spark_field_recursive(
+            value_field)
+        if value_changed:
+            sanitized_type = pa.list_(sanitized_value_field, list_size)
+            type_changed = True
+    elif pa.types.is_map(field.type):
+        # Sanitize both key and item fields of map types
+        key_field = field.type.key_field
+        item_field = field.type.item_field
+        sanitized_key_field, key_changed = _sanitize_spark_field_recursive(key_field)
+        sanitized_item_field, item_changed = _sanitize_spark_field_recursive(item_field)
+        if key_changed or item_changed:
+            sanitized_type = pa.map_(sanitized_key_field, sanitized_item_field,
+                                     keys_sorted=field.type.keys_sorted)
+            type_changed = True
+
+    name_changed = sanitized_name != field.name
+    if name_changed or type_changed:
+        return pa.field(sanitized_name, sanitized_type, field.nullable,
+                        field.metadata), True
+    return field, False
+
+
 def _sanitize_schema(schema, flavor):
-    if 'spark' in flavor:
-        sanitized_fields = []
-
-        schema_changed = False
-
-        for field in schema:
-            name = field.name
-            sanitized_name = _sanitized_spark_field_name(name)
-
-            if sanitized_name != name:
-                schema_changed = True
-                sanitized_field = pa.field(sanitized_name, field.type,
-                                           field.nullable, field.metadata)
-                sanitized_fields.append(sanitized_field)
-            else:
-                sanitized_fields.append(field)
-
-        new_schema = pa.schema(sanitized_fields, metadata=schema.metadata)
-        return new_schema, schema_changed
-    else:
+    if 'spark' not in flavor:
         return schema, False
+
+    sanitized_fields = []
+    schema_changed = False
+
+    for field in schema:
+        sanitized_field, changed = _sanitize_spark_field_recursive(field)
+        sanitized_fields.append(sanitized_field)
+        schema_changed = schema_changed or changed
+
+    new_schema = pa.schema(sanitized_fields, metadata=schema.metadata)
+    return new_schema, schema_changed
 
 
 def _sanitize_table(table, new_schema, flavor):
-    # TODO: This will not handle prohibited characters in nested field names
     if 'spark' in flavor:
         column_data = [table[i] for i in range(table.num_columns)]
         return pa.Table.from_arrays(column_data, schema=new_schema)
