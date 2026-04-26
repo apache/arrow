@@ -18,7 +18,7 @@
 #' Parse logical condition formulas
 #'
 #' Converts condition ~ value formulas into Arrow expressions. Unlike
-#' [parse_value_mapping()], the LHS must be a logical expression (not a value
+#' `parse_value_mapping()`, the LHS must be a logical expression (not a value
 #' to match against).
 #'
 #' @param formulas A list of two-sided formulas where LHS is a logical condition
