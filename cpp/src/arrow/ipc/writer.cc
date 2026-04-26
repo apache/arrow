@@ -821,6 +821,41 @@ Status GetDictionaryPayload(int64_t id, bool is_delta,
   return assembler.Assemble(dictionary);
 }
 
+Result<std::vector<std::shared_ptr<Buffer>>> CollectAndSerializeDictionaries(
+    const RecordBatch& batch, DictionaryMemo* dictionary_memo,
+    const IpcWriteOptions& options) {
+  DictionaryFieldMapper mapper(*batch.schema());
+  ARROW_ASSIGN_OR_RAISE(auto dictionaries, CollectDictionaries(batch, mapper));
+
+  std::vector<std::shared_ptr<Buffer>> result;
+  for (const auto& pair : dictionaries) {
+    int64_t id = pair.first;
+    const auto& dictionary = pair.second;
+
+    if (dictionary_memo->HasDictionary(id)) {
+      ARROW_ASSIGN_OR_RAISE(auto existing,
+                            dictionary_memo->GetDictionary(id, options.memory_pool));
+      if (existing.get() == dictionary->data().get()) {
+        continue;
+      }
+    }
+
+    IpcPayload payload;
+    RETURN_NOT_OK(GetDictionaryPayload(id, dictionary, options, &payload));
+
+    ARROW_ASSIGN_OR_RAISE(auto stream,
+                          io::BufferOutputStream::Create(1024, options.memory_pool));
+    int32_t metadata_length = 0;
+    RETURN_NOT_OK(WriteIpcPayload(payload, options, stream.get(), &metadata_length));
+    ARROW_ASSIGN_OR_RAISE(auto buffer, stream->Finish());
+    result.push_back(std::move(buffer));
+
+    ARROW_ASSIGN_OR_RAISE(
+        std::ignore, dictionary_memo->AddOrReplaceDictionary(id, dictionary->data()));
+  }
+  return result;
+}
+
 Status GetRecordBatchPayload(const RecordBatch& batch, const IpcWriteOptions& options,
                              IpcPayload* out) {
   return GetRecordBatchPayload(batch, NULLPTR, options, out);

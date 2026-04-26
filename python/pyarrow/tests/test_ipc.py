@@ -1429,3 +1429,256 @@ def read_options_args(request):
 def test_read_options_repr(read_options_args):
     # https://github.com/apache/arrow/issues/47358
     check_ipc_options_repr(pa.ipc.IpcReadOptions, read_options_args)
+
+
+def test_dictionary_memo_on_readers():
+    # Create data with dictionary-encoded columns
+    arr = pa.array(["foo", "bar", "foo", "baz"]).dictionary_encode()
+    batch = pa.record_batch([arr], names=["dict_col"])
+
+    # Write to stream format
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_stream(sink, batch.schema) as writer:
+        writer.write_batch(batch)
+    stream_buf = sink.getvalue()
+
+    # Test RecordBatchStreamReader.dictionary_memo
+    reader = pa.ipc.open_stream(stream_buf)
+    memo = reader.dictionary_memo
+    assert isinstance(memo, pa.DictionaryMemo)
+
+    # Write to file format
+    sink = pa.BufferOutputStream()
+    with pa.ipc.new_file(sink, batch.schema) as writer:
+        writer.write_batch(batch)
+    file_buf = sink.getvalue()
+
+    # Test RecordBatchFileReader.dictionary_memo: use it to read a batch
+    file_reader = pa.ipc.open_file(file_buf)
+    file_memo = file_reader.dictionary_memo
+    assert isinstance(file_memo, pa.DictionaryMemo)
+    # The file reader populates its memo on open; use it to read back
+    file_batch = file_reader.get_batch(0)
+    assert file_batch.equals(batch)
+    # Feed a dictionary message from a separately-written stream into
+    # the file reader's memo (cross-population).
+    sink_extra = pa.BufferOutputStream()
+    arr_extra = pa.array(["p", "q", "r"]).dictionary_encode()
+    batch_extra = pa.record_batch([arr_extra], names=["dict_col"])
+    with pa.ipc.new_stream(sink_extra, batch_extra.schema) as writer:
+        writer.write_batch(batch_extra)
+    extra_buf = sink_extra.getvalue()
+    msg_reader_extra = pa.ipc.MessageReader.open_stream(extra_buf)
+    next(msg_reader_extra)  # skip schema
+    dict_msg_extra = next(msg_reader_extra)
+    pa.ipc.read_dictionary_message(dict_msg_extra, file_memo)
+
+    # Demonstrate cross-population with read_dictionary_message:
+    # Open a stream reader, extract its memo, then feed a dictionary message
+    # from a separately-written stream into that memo.
+    sink2 = pa.BufferOutputStream()
+    arr2 = pa.array(["alpha", "beta", "gamma"]).dictionary_encode()
+    batch2 = pa.record_batch([arr2], names=["dict_col"])
+    with pa.ipc.new_stream(sink2, batch2.schema) as writer:
+        writer.write_batch(batch2)
+    stream_buf2 = sink2.getvalue()
+
+    # Read dictionary messages from the second stream
+    msg_reader = pa.ipc.MessageReader.open_stream(stream_buf2)
+    schema_msg = next(msg_reader)
+    assert schema_msg.type == "schema"
+    dict_msg = next(msg_reader)
+    assert dict_msg.type == "dictionary"
+
+    # Use read_dictionary_message with the first reader's memo
+    reader1 = pa.ipc.open_stream(stream_buf)
+    memo1 = reader1.dictionary_memo
+    pa.ipc.read_dictionary_message(dict_msg, memo1)
+
+
+def test_serialize_dictionaries_basic():
+    arr = pa.array(["a", "b", "a"]).dictionary_encode()
+    batch = pa.record_batch([arr], names=["col"])
+    memo = pa.DictionaryMemo()
+
+    # First call should return dictionary buffers
+    buffers = pa.ipc.serialize_dictionaries(batch, memo)
+    assert len(buffers) == 1
+    assert isinstance(buffers[0], pa.Buffer)
+    assert len(buffers[0]) > 0
+
+    # Second call with the same memo should return nothing (already tracked)
+    buffers2 = pa.ipc.serialize_dictionaries(batch, memo)
+    assert len(buffers2) == 0
+
+
+def test_serialize_dictionaries_roundtrip():
+    arr = pa.array(["a", "b", "a"]).dictionary_encode()
+    batch = pa.record_batch([arr], names=["col"])
+
+    # Serialize
+    write_memo = pa.DictionaryMemo()
+    dict_bufs = pa.ipc.serialize_dictionaries(batch, write_memo)
+    batch_buf = batch.serialize()
+
+    # Read back
+    read_memo = pa.DictionaryMemo()
+    schema = pa.ipc.read_schema(batch.schema.serialize(), read_memo)
+    for buf in dict_bufs:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result = pa.ipc.read_record_batch(batch_buf, schema, read_memo)
+    assert result.equals(batch)
+
+
+def test_serialize_dictionaries_no_dict_columns():
+    arr = pa.array([1, 2, 3])
+    batch = pa.record_batch([arr], names=["col"])
+    memo = pa.DictionaryMemo()
+
+    buffers = pa.ipc.serialize_dictionaries(batch, memo)
+    assert len(buffers) == 0
+
+
+def test_serialize_dictionaries_multiple_dict_columns():
+    arr1 = pa.array(["a", "b", "a"]).dictionary_encode()
+    arr2 = pa.array(["x", "y", "z"]).dictionary_encode()
+    batch = pa.record_batch([arr1, arr2], names=["col1", "col2"])
+    memo = pa.DictionaryMemo()
+
+    buffers = pa.ipc.serialize_dictionaries(batch, memo)
+    assert len(buffers) == 2
+
+    # Full roundtrip with multiple dict columns
+    batch_buf = batch.serialize()
+    read_memo = pa.DictionaryMemo()
+    schema = pa.ipc.read_schema(batch.schema.serialize(), read_memo)
+    for buf in buffers:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result = pa.ipc.read_record_batch(batch_buf, schema, read_memo)
+    assert result.equals(batch)
+
+
+def test_serialize_dictionaries_multi_batch_memo_dedup():
+    # Multiple batches sharing the same dictionary object (same pointer).
+    # serialize_dictionaries deduplicates by pointer — the second batch
+    # skips serialization because its dictionary is the same object.
+    dictionary = pa.array(["a", "b", "c"])
+    arr1 = pa.DictionaryArray.from_arrays(
+        pa.array([0, 1, 0], type=pa.int8()), dictionary)
+    arr2 = pa.DictionaryArray.from_arrays(
+        pa.array([2, 1, 0], type=pa.int8()), dictionary)
+    batch1 = pa.record_batch([arr1], names=["col"])
+    batch2 = pa.record_batch([arr2], names=["col"])
+
+    memo = pa.DictionaryMemo()
+
+    # First batch emits the dictionary
+    bufs1 = pa.ipc.serialize_dictionaries(batch1, memo)
+    assert len(bufs1) == 1
+
+    # Second batch shares the same dictionary object — skipped
+    bufs2 = pa.ipc.serialize_dictionaries(batch2, memo)
+    assert len(bufs2) == 0
+
+    # Roundtrip both batches using only batch1's dictionary messages
+    read_memo = pa.DictionaryMemo()
+    schema = pa.ipc.read_schema(batch1.schema.serialize(), read_memo)
+    for buf in bufs1:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+
+    result1 = pa.ipc.read_record_batch(batch1.serialize(), schema, read_memo)
+    assert result1.equals(batch1)
+
+    result2 = pa.ipc.read_record_batch(batch2.serialize(), schema, read_memo)
+    assert result2.equals(batch2)
+
+
+def test_serialize_dictionaries_nested_in_struct():
+    # Dictionary-encoded field nested inside a struct type
+    dict_arr = pa.array(["x", "y", "x"]).dictionary_encode()
+    int_arr = pa.array([1, 2, 3])
+    struct_arr = pa.StructArray.from_arrays(
+        [int_arr, dict_arr], names=["i", "d"])
+    batch = pa.record_batch([struct_arr], names=["s"])
+
+    memo = pa.DictionaryMemo()
+    bufs = pa.ipc.serialize_dictionaries(batch, memo)
+    assert len(bufs) == 1
+
+    # Second call: already tracked
+    assert len(pa.ipc.serialize_dictionaries(batch, memo)) == 0
+
+    # Roundtrip
+    batch_buf = batch.serialize()
+    read_memo = pa.DictionaryMemo()
+    schema = pa.ipc.read_schema(batch.schema.serialize(), read_memo)
+    for buf in bufs:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result = pa.ipc.read_record_batch(batch_buf, schema, read_memo)
+    assert result.equals(batch)
+
+
+def test_serialize_dictionaries_changed_values_across_batches():
+    # When batch2 has a different dictionary object than batch1,
+    # serialize_dictionaries detects the difference (by pointer) and
+    # emits a replacement dictionary message.
+    arr1 = pa.array(["a", "b", "a"]).dictionary_encode()
+    batch1 = pa.record_batch([arr1], names=["col"])
+
+    arr2 = pa.array(["x", "y", "z"]).dictionary_encode()
+    batch2 = pa.record_batch([arr2], names=["col"])
+
+    memo = pa.DictionaryMemo()
+    bufs1 = pa.ipc.serialize_dictionaries(batch1, memo)
+    assert len(bufs1) == 1
+
+    # batch2 has a different dictionary object — new message emitted
+    bufs2 = pa.ipc.serialize_dictionaries(batch2, memo)
+    assert len(bufs2) == 1
+
+    # Sequential roundtrip with a single read memo: batch2's dictionary
+    # replaces batch1's via read_dictionary_message (AddOrReplace).
+    read_memo = pa.DictionaryMemo()
+    schema = pa.ipc.read_schema(batch1.schema.serialize(), read_memo)
+
+    for buf in bufs1:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result1 = pa.ipc.read_record_batch(batch1.serialize(), schema, read_memo)
+    assert result1.equals(batch1)
+
+    # Feed batch2's replacement dictionary into the same memo
+    for buf in bufs2:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result2 = pa.ipc.read_record_batch(batch2.serialize(), schema, read_memo)
+    assert result2.equals(batch2)
+
+
+def test_serialize_dictionaries_same_values_different_objects():
+    # Dedup is by pointer identity, not by value equality.
+    # Two independently-created arrays with identical values are different
+    # objects, so both get serialized.
+    arr1 = pa.array(["a", "b", "a"]).dictionary_encode()
+    arr2 = pa.array(["a", "b", "a"]).dictionary_encode()
+    batch1 = pa.record_batch([arr1], names=["col"])
+    batch2 = pa.record_batch([arr2], names=["col"])
+
+    memo = pa.DictionaryMemo()
+    bufs1 = pa.ipc.serialize_dictionaries(batch1, memo)
+    assert len(bufs1) == 1
+
+    # Same values, but different Python/C++ objects — not deduplicated
+    bufs2 = pa.ipc.serialize_dictionaries(batch2, memo)
+    assert len(bufs2) == 1
+
+    # Both round-trip correctly
+    read_memo = pa.DictionaryMemo()
+    schema = pa.ipc.read_schema(batch1.schema.serialize(), read_memo)
+    for buf in bufs1:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result1 = pa.ipc.read_record_batch(batch1.serialize(), schema, read_memo)
+    assert result1.equals(batch1)
+
+    for buf in bufs2:
+        pa.ipc.read_dictionary_message(buf, read_memo)
+    result2 = pa.ipc.read_record_batch(batch2.serialize(), schema, read_memo)
+    assert result2.equals(batch2)
