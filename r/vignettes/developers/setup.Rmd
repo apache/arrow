@@ -100,9 +100,9 @@ _Special instructions on Linux:_ You will need to set `LD_LIBRARY_PATH` to the `
 
 ```{bash, save=run & ubuntu & !sys_install}
 export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH
-export R_LD_LIBRARY_PATH=$ARROW_HOME/lib:$R_LD_LIBRARY_PATH
+export R_LD_LIBRARY_PATH=$LD_LIBRARY_PATH
 echo "export LD_LIBRARY_PATH=$ARROW_HOME/lib:$LD_LIBRARY_PATH" >> ~/.bash_profile
-echo "export R_LD_LIBRARY_PATH=$ARROW_HOME/lib:$R_LD_LIBRARY_PATH" >> ~/.bash_profile
+echo "export R_LD_LIBRARY_PATH=$LD_LIBRARY_PATH" >> ~/.bash_profile
 ```
 
 Start by navigating in a terminal to the arrow repository. You will need to create a directory into which the C++ build will put its contents. We recommend that you make a `build` directory inside of the `cpp` directory of the Arrow git repository (it is git-ignored, so you won't accidentally check it in). Next, change directories to be inside `cpp/build`:
