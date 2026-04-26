@@ -4468,3 +4468,19 @@ def test_dunders_checked_overflow():
         arr ** pa.scalar(2, type=pa.int8())
     with pytest.raises(pa.ArrowInvalid, match=error_match):
         arr / (-arr)
+
+
+def test_dictionary_large_string_and_binary():
+    # Test dictionary with large_string values
+    arr_str = pa.array(
+        ["a", "b", "a"], type=pa.dictionary(pa.int32(), pa.large_string())
+    )
+    assert arr_str.type.value_type == pa.large_string()
+    assert arr_str.to_pylist() == ["a", "b", "a"]
+
+    # Test dictionary with large_binary values
+    arr_bin = pa.array(
+        [b"x", b"y", b"x"], type=pa.dictionary(pa.int32(), pa.large_binary())
+    )
+    assert arr_bin.type.value_type == pa.large_binary()
+    assert arr_bin.to_pylist() == [b"x", b"y", b"x"]
