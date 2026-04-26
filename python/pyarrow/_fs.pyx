@@ -84,6 +84,14 @@ def _file_type_to_string(ty):
     return f"{ty.__class__.__name__}.{ty._name_}"
 
 
+def _is_likely_uri(path):
+    cdef c_string c_path
+    if not isinstance(path, str):
+        raise TypeError("Path must be a string")
+    c_path = tobytes(path)
+    return CIsLikelyUri(cpp_string_view(c_path))
+
+
 cdef class FileInfo(_Weakrefable):
     """
     FileSystem entry info.
