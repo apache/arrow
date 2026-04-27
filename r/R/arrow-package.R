@@ -153,6 +153,14 @@ s3_finalizer <- new.env(parent = emptyenv())
     # Disable multithreading on Windows
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
+
+    # Use the tzdata package to configure the tzdata database on non-MSVC (i.e.
+    # MinGW) systems. This fix was put in specifically for Winbuilder (See
+    # GH-49866) but is needed for all non-MSVC systems. This code assumes the
+    # tzdata package is in Suggests.
+    if (!identical(build_info()[[2]], "MSVC")) {
+      configure_tzdb()
+    }
   }
 
   # Set interrupt handlers
@@ -167,6 +175,18 @@ s3_finalizer <- new.env(parent = emptyenv())
   reg.finalizer(s3_finalizer, finalize_s3, onexit = TRUE)
 
   invisible()
+}
+
+configure_tzdb <- function() {
+  if (requireNamespace("tzdb", quietly = TRUE)) {
+    tzdb::tzdb_initialize()
+    set_timezone_database(tzdb::tzdb_path("text"))
+  } else {
+    packageStartupMessage(
+      "The tzdb package is not installed. ",
+      "Timezones will not be available to Arrow compute functions."
+    )
+  }
 }
 
 .onAttach <- function(libname, pkgname) {
