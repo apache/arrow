@@ -232,7 +232,7 @@ jobs:
         with:
           persist-credentials: false
           submodules: recursive
-      - uses: conda-incubator/setup-miniconda@835234971496cad1653abb28a638a281cf32541f # v3.2.0
+      - uses: conda-incubator/setup-miniconda@8ee1f361103df19b6f8c8655fd3967a8ecb162d5 # v4.0.1
       - name: Install System Dependencies
         run: |
           choco install --no-progress --yes boost-msvc-14.1
