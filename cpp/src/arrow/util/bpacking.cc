@@ -56,7 +56,7 @@ void unpack(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
   return bpacking::unpack_neon(in, out, opts);
 #else
   static DynamicDispatch<UnpackDynamicFunction<Uint> > dispatch;
-  return dispatch.func(in, out, opts);
+  return dispatch(in, out, opts);
 #endif
 }
 

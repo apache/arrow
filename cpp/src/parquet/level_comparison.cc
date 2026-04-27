@@ -15,6 +15,8 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#include <array>
+
 #include "parquet/level_comparison.h"
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
@@ -25,8 +27,6 @@
 #include "parquet/level_comparison_inc.h"
 #undef PARQUET_IMPL_NAMESPACE
 
-#include <vector>
-
 #include "arrow/util/dispatch_internal.h"
 
 namespace parquet::internal {
@@ -35,18 +35,17 @@ namespace {
 
 using ::arrow::internal::DispatchLevel;
 using ::arrow::internal::DynamicDispatch;
+using ::arrow::internal::DynamicDispatchTarget;
 
 // defined in level_comparison_avx2.cc
 
 struct GreaterThanDynamicFunction {
   using FunctionType = decltype(&GreaterThanBitmap);
 
-  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {{DispatchLevel::NONE, standard::GreaterThanBitmapImpl}
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-            ,
-            {DispatchLevel::AVX2, GreaterThanBitmapAvx2}
-#endif
+  static constexpr auto implementations() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&standard::GreaterThanBitmapImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&GreaterThanBitmapAvx2)            //
     };
   }
 };
@@ -54,12 +53,10 @@ struct GreaterThanDynamicFunction {
 struct MinMaxDynamicFunction {
   using FunctionType = decltype(&FindMinMax);
 
-  static std::vector<std::pair<DispatchLevel, FunctionType>> implementations() {
-    return {{DispatchLevel::NONE, standard::FindMinMaxImpl}
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
-            ,
-            {DispatchLevel::AVX2, FindMinMaxAvx2}
-#endif
+  static constexpr auto implementations() {
+    return std::array{
+        ARROW_DISPATCH_TARGET_NONE(&standard::FindMinMaxImpl)  //
+        ARROW_DISPATCH_TARGET_AVX2(&FindMinMaxAvx2)            //
     };
   }
 };
@@ -68,12 +65,12 @@ struct MinMaxDynamicFunction {
 
 uint64_t GreaterThanBitmap(const int16_t* levels, int64_t num_levels, int16_t rhs) {
   static DynamicDispatch<GreaterThanDynamicFunction> dispatch;
-  return dispatch.func(levels, num_levels, rhs);
+  return dispatch(levels, num_levels, rhs);
 }
 
 MinMax FindMinMax(const int16_t* levels, int64_t num_levels) {
   static DynamicDispatch<MinMaxDynamicFunction> dispatch;
-  return dispatch.func(levels, num_levels);
+  return dispatch(levels, num_levels);
 }
 
 }  // namespace parquet::internal
