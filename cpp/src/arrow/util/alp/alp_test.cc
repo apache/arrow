@@ -533,8 +533,8 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
 
   // Decode zero elements
   std::vector<TypeParam> output;
-  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(output.data(), 0,
-                                                              buffer.data(), comp_size));
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(0, buffer.data(),
+                                                              comp_size, output.data()));
 
   // Both should be empty
   EXPECT_EQ(input.size(), output.size());
@@ -995,8 +995,8 @@ class AlpCodecTest : public ::testing::Test {
 
     // Decode
     std::vector<T> output(input.size());
-    ASSERT_OK(AlpCodec<T>::template Decode<T>(output.data(), input.size(),
-                                               comp_buffer.data(), comp_size));
+    ASSERT_OK(AlpCodec<T>::template Decode<T>(input.size(), comp_buffer.data(),
+                                               comp_size, output.data()));
 
     // Verify
     EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(T)),
@@ -1083,8 +1083,9 @@ TYPED_TEST(AlpCodecTest, WideningDecode) {
 
     // Decode as double
     std::vector<double> output(input.size());
-    ASSERT_OK(AlpCodec<float>::template Decode<double>(output.data(), input.size(),
-                                                        comp_buffer.data(), comp_size));
+    ASSERT_OK(AlpCodec<float>::template Decode<double>(
+        static_cast<int32_t>(input.size()), comp_buffer.data(), comp_size,
+        output.data()));
 
     // Verify values match (as double)
     for (size_t i = 0; i < input.size(); ++i) {
@@ -1226,7 +1227,8 @@ TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
   // Verify the preset-based encoding can be decoded correctly
   std::vector<TypeParam> output(input.size());
   ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
-      output.data(), input.size(), comp_buffer2.data(), comp_size2));
+      static_cast<int32_t>(input.size()), comp_buffer2.data(), comp_size2,
+      output.data()));
 
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)), 0);
 }
@@ -1268,9 +1270,9 @@ TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   // Decode and verify both batches
   std::vector<TypeParam> output1(kBatchSize), output2(kBatchSize);
   ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
-      output1.data(), kBatchSize, comp1.data(), comp_size1));
+      static_cast<int32_t>(kBatchSize), comp1.data(), comp_size1, output1.data()));
   ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
-      output2.data(), kBatchSize, comp2.data(), comp_size2));
+      static_cast<int32_t>(kBatchSize), comp2.data(), comp_size2, output2.data()));
 
   EXPECT_EQ(std::memcmp(output1.data(), batch1.data(), kBatchSize * sizeof(TypeParam)), 0);
   EXPECT_EQ(std::memcmp(output2.data(), batch2.data(), kBatchSize * sizeof(TypeParam)), 0);
@@ -1390,7 +1392,7 @@ TYPED_TEST(AlpCodecTest, EmptyInput) {
   // Decode 0 elements
   std::vector<TypeParam> output;
   ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
-      output.data(), 0, comp_buffer.data(), comp_size));
+      0, comp_buffer.data(), comp_size, output.data()));
   // No crash = success
 }
 
