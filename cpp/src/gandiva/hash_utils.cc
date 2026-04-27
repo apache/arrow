@@ -21,49 +21,12 @@
 #include "gandiva/gdv_function_stubs.h"
 #include "openssl/evp.h"
 
-namespace gandiva {
-
-/// Hashes a generic message using the SHA512 algorithm
-GANDIVA_EXPORT
-const char* gdv_sha512_hash(int64_t context, const void* message, size_t message_length,
-                            int32_t* out_length) {
-  constexpr int sha512_result_length = 128;
-  return gdv_hash_using_openssl(context, message, message_length, EVP_sha512(),
-                                sha512_result_length, out_length);
-}
-
-/// Hashes a generic message using the SHA256 algorithm
-GANDIVA_EXPORT
-const char* gdv_sha256_hash(int64_t context, const void* message, size_t message_length,
-                            int32_t* out_length) {
-  constexpr int sha256_result_length = 64;
-  return gdv_hash_using_openssl(context, message, message_length, EVP_sha256(),
-                                sha256_result_length, out_length);
-}
-
-/// Hashes a generic message using the SHA1 algorithm
-GANDIVA_EXPORT
-const char* gdv_sha1_hash(int64_t context, const void* message, size_t message_length,
-                          int32_t* out_length) {
-  constexpr int sha1_result_length = 40;
-  return gdv_hash_using_openssl(context, message, message_length, EVP_sha1(),
-                                sha1_result_length, out_length);
-}
-
-GANDIVA_EXPORT
-const char* gdv_md5_hash(int64_t context, const void* message, size_t message_length,
-                         int32_t* out_length) {
-  constexpr int md5_result_length = 32;
-  return gdv_hash_using_openssl(context, message, message_length, EVP_md5(),
-                                md5_result_length, out_length);
-}
-
+namespace {
 /// \brief Hashes a generic message using SHA algorithm.
 ///
 /// It uses the EVP API in the OpenSSL library to generate
 /// the hash. The type of the hash is defined by the
 /// \b hash_type \b parameter.
-GANDIVA_EXPORT
 const char* gdv_hash_using_openssl(int64_t context, const void* message,
                                    size_t message_length, const EVP_MD* hash_type,
                                    uint32_t result_buf_size, int32_t* out_length) {
@@ -100,9 +63,10 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
   }
 
   unsigned int result_length;
-  EVP_DigestFinal_ex(md_ctx, result, &result_length);
+  int evp_result = EVP_DigestFinal_ex(md_ctx, result, &result_length);
 
-  if (result_length != hash_digest_size && result_buf_size != (2 * hash_digest_size)) {
+  if (evp_result != evp_success_status || result_length != hash_digest_size ||
+      result_buf_size != (2 * hash_digest_size)) {
     gdv_fn_context_set_error_msg(context,
                                  "Could not obtain the hash for the defined value");
     EVP_MD_CTX_free(md_ctx);
@@ -112,8 +76,10 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
     return "";
   }
 
+  // Allocate one extra byte beyond result_buf_size so that the null terminator
+  // written by the final snprintf call does not land past the end of the buffer.
   auto result_buffer =
-      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size));
+      reinterpret_cast<char*>(gdv_fn_context_arena_malloc(context, result_buf_size + 1));
 
   if (result_buffer == nullptr) {
     gdv_fn_context_set_error_msg(context,
@@ -132,7 +98,8 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
 
     unsigned char hex_number = result[j];
     result_buff_index +=
-        snprintf(result_buffer + result_buff_index, result_buf_size, "%02x", hex_number);
+        snprintf(result_buffer + result_buff_index,
+                 result_buf_size - result_buff_index + 1, "%02x", hex_number);
   }
 
   // Free the resources used by the EVP to avoid memory leaks
@@ -141,6 +108,44 @@ const char* gdv_hash_using_openssl(int64_t context, const void* message,
 
   *out_length = result_buf_size;
   return result_buffer;
+}
+}  // namespace
+
+namespace gandiva {
+
+/// Hashes a generic message using the SHA512 algorithm
+GANDIVA_EXPORT
+const char* gdv_sha512_hash(int64_t context, const void* message, size_t message_length,
+                            int32_t* out_length) {
+  constexpr int sha512_result_length = 128;
+  return gdv_hash_using_openssl(context, message, message_length, EVP_sha512(),
+                                sha512_result_length, out_length);
+}
+
+/// Hashes a generic message using the SHA256 algorithm
+GANDIVA_EXPORT
+const char* gdv_sha256_hash(int64_t context, const void* message, size_t message_length,
+                            int32_t* out_length) {
+  constexpr int sha256_result_length = 64;
+  return gdv_hash_using_openssl(context, message, message_length, EVP_sha256(),
+                                sha256_result_length, out_length);
+}
+
+/// Hashes a generic message using the SHA1 algorithm
+GANDIVA_EXPORT
+const char* gdv_sha1_hash(int64_t context, const void* message, size_t message_length,
+                          int32_t* out_length) {
+  constexpr int sha1_result_length = 40;
+  return gdv_hash_using_openssl(context, message, message_length, EVP_sha1(),
+                                sha1_result_length, out_length);
+}
+
+GANDIVA_EXPORT
+const char* gdv_md5_hash(int64_t context, const void* message, size_t message_length,
+                         int32_t* out_length) {
+  constexpr int md5_result_length = 32;
+  return gdv_hash_using_openssl(context, message, message_length, EVP_md5(),
+                                md5_result_length, out_length);
 }
 
 GANDIVA_EXPORT
