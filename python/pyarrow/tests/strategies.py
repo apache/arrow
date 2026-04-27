@@ -143,14 +143,26 @@ time_types = st.sampled_from([
     pa.time64('ns')
 ])
 
+# UTC-12 to UTC+14, minute offsets 0/30/45 cover all real-world IANA offsets
+fixed_offset_timezones = st.builds(
+    lambda h, m: datetime.timezone(datetime.timedelta(hours=h, minutes=m)),
+    h=st.integers(min_value=-12, max_value=14),
+    m=st.sampled_from([0, 30, 45]),
+).filter(
+    lambda tz: datetime.timedelta(hours=-12)
+    <= tz.utcoffset(None)
+    <= datetime.timedelta(hours=14)
+)
+
 if tzst and zoneinfo:
-    timezones = st.one_of(st.none(), tzst.timezones(), st.timezones())
+    timezones = st.one_of(
+        st.none(), tzst.timezones(), st.timezones(), fixed_offset_timezones)
 elif tzst:
-    timezones = st.one_of(st.none(), tzst.timezones())
+    timezones = st.one_of(st.none(), tzst.timezones(), fixed_offset_timezones)
 elif zoneinfo:
-    timezones = st.one_of(st.none(), st.timezones())
+    timezones = st.one_of(st.none(), st.timezones(), fixed_offset_timezones)
 else:
-    timezones = st.none()
+    timezones = st.one_of(st.none(), fixed_offset_timezones)
 timestamp_types = st.builds(
     pa.timestamp,
     unit=st.sampled_from(['s', 'ms', 'us', 'ns']),
@@ -337,10 +349,11 @@ def arrays(draw, type, size=None, nullable=True):
         max_datetime = datetime.datetime.fromtimestamp(
             max_int64 // 10**9) - datetime.timedelta(hours=12)
         try:
-            offset = ty.tz.split(":")
-            offset_hours = int(offset[0])
-            offset_min = int(offset[1])
-            tz = datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            offset_hours, offset_min = ty.tz.split(":")
+            sign = -1 if offset_hours.startswith("-") else 1
+            offset = datetime.timedelta(
+                hours=abs(int(offset_hours)), minutes=int(offset_min))
+            tz = datetime.timezone(sign * offset)
         except ValueError:
             tz = zoneinfo.ZoneInfo(ty.tz)
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,

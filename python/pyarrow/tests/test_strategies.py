@@ -16,6 +16,7 @@
 # under the License.
 
 import hypothesis as h
+import hypothesis.strategies as st
 
 import pytest
 
@@ -42,6 +43,14 @@ def test_schemas(schema):
 @h.given(past.all_arrays)
 def test_arrays(array):
     assert isinstance(array, pa.lib.Array)
+
+
+@h.given(st.sampled_from(['+01:30', '-00:30']), st.data())
+def test_timestamp_array_fixed_offset_timezones(timezone, data):
+    array = data.draw(
+        past.arrays(st.just(pa.timestamp('s', timezone)), size=1))
+    assert isinstance(array, pa.lib.Array)
+    assert array.type.tz == timezone
 
 
 @pytest.mark.numpy
