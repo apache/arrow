@@ -3063,6 +3063,26 @@ cdef extern from "arrow/extension/fixed_shape_tensor.h" namespace "arrow::extens
         const CResult[shared_ptr[CTensor]] ToTensor() const
 
 
+cdef extern from "arrow/extension/variable_shape_tensor.h" namespace "arrow::extension" nogil:
+    cdef cppclass CVariableShapeTensorType \
+            " arrow::extension::VariableShapeTensorType"(CExtensionType):
+
+        CResult[shared_ptr[CTensor]] MakeTensor(const shared_ptr[CExtensionScalar]& scalar) const
+
+        @staticmethod
+        CResult[shared_ptr[CDataType]] Make(const shared_ptr[CDataType]& value_type,
+                                            const int32_t ndim,
+                                            const vector[int64_t] permutation,
+                                            const vector[c_string] dim_names,
+                                            const vector[optional[int64_t]] uniform_shape)
+
+        const shared_ptr[CDataType] value_type()
+        const int32_t ndim()
+        const vector[int64_t] permutation()
+        const vector[c_string] dim_names()
+        const vector[optional[int64_t]] uniform_shape()
+
+
 cdef extern from "arrow/extension/opaque.h" namespace "arrow::extension" nogil:
     cdef cppclass COpaqueType \
             " arrow::extension::OpaqueType"(CExtensionType):

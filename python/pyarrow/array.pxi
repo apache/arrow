@@ -4702,7 +4702,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
         and the rest of the dimensions will match the permuted shape of the fixed
         shape tensor.
 
-        The conversion is zero-copy.
+        The conversion is zero-copy if data is primitive numeric and without nulls.
 
         Returns
         -------
@@ -4786,17 +4786,7 @@ cdef class FixedShapeTensorArray(ExtensionArray):
                 "Cannot convert 1D array or scalar to fixed shape tensor array")
         if np.prod(obj.shape) == 0:
             raise ValueError("Expected a non-empty ndarray")
-        if dim_names is not None:
-            if not isinstance(dim_names, Sequence):
-                raise TypeError("dim_names must be a tuple or list")
-            if len(dim_names) != len(obj.shape[1:]):
-                raise ValueError(
-                    (f"The length of dim_names ({len(dim_names)}) does not match"
-                     f"the number of tensor dimensions ({len(obj.shape[1:])})."
-                     )
-                )
-            if not all(isinstance(name, str) for name in dim_names):
-                raise TypeError("Each element of dim_names must be a string")
+        _validate_dim_names(dim_names, len(obj.shape[1:]))
 
         permutation = (-np.array(obj.strides)).argsort(kind='stable')
         if permutation[0] != 0:
@@ -4805,12 +4795,13 @@ cdef class FixedShapeTensorArray(ExtensionArray):
 
         arrow_type = from_numpy_dtype(obj.dtype)
         shape = np.take(obj.shape, permutation)
+        permutation = _invert_permutation(permutation[1:] - 1)
         values = np.ravel(obj, order="K")
 
         return ExtensionArray.from_storage(
             fixed_shape_tensor(arrow_type, shape[1:],
                                dim_names=dim_names,
-                               permutation=permutation[1:] - 1),
+                               permutation=permutation),
             FixedSizeListArray.from_arrays(values, shape[1:].prod())
         )
 
@@ -4953,6 +4944,282 @@ cdef class Bool8Array(ExtensionArray):
 
         storage_arr = array(obj.view(np.int8), type=int8())
         return Bool8Array.from_storage(storage_arr)
+
+
+def _check_sequence_param(value, ndim, name):
+    if value is None:
+        return False
+    if not isinstance(value, Sequence):
+        raise TypeError(f"{name} must be a tuple or list")
+    if len(value) != ndim:
+        raise ValueError(
+            (f"The length of {name} ({len(value)}) does not match"
+             f" the number of tensor dimensions ({ndim})."))
+    return True
+
+
+def _validate_dim_names(dim_names, ndim):
+    if not _check_sequence_param(dim_names, ndim, "dim_names"):
+        return
+    if not all(isinstance(name, str) for name in dim_names):
+        raise TypeError("Each element of dim_names must be a string")
+
+
+def _validate_permutation(permutation, ndim):
+    if not _check_sequence_param(permutation, ndim, "permutation"):
+        return None
+    normalized = [int(x) for x in permutation]
+    if sorted(normalized) != list(range(ndim)):
+        raise ValueError(
+            "permutation must contain each dimension index exactly once")
+    return normalized
+
+
+def _validate_uniform_shape(uniform_shape, ndim):
+    if not _check_sequence_param(uniform_shape, ndim, "uniform_shape"):
+        return
+    for value in uniform_shape:
+        if value is not None and value < 0:
+            raise ValueError(
+                "uniform_shape must contain non-negative values")
+
+
+def _infer_uniform_shape(shape_rows, ndim):
+    if len(shape_rows) == 0:
+        return None
+    inferred = []
+    for i in range(ndim):
+        axis_size = shape_rows[0][i]
+        if all(shape[i] == axis_size for shape in shape_rows):
+            inferred.append(axis_size)
+        else:
+            inferred.append(None)
+    if all(x is None for x in inferred):
+        return None
+    return inferred
+
+
+def _invert_permutation(permutation):
+    return [int(x) for x in
+            np.argsort(np.array(permutation, dtype=np.int64), kind="stable")]
+
+
+def _permutation_from_strides(arr):
+    """Infer the logical-to-physical permutation from array strides.
+
+    Note: for arrays with size-1 dimensions, the inferred permutation
+    may be unreliable since size-1 strides are unconstrained. Callers
+    should skip permutation validation for such arrays.
+    """
+    return _invert_permutation(
+        (-np.array(arr.strides, dtype=np.int64)).argsort(kind="stable"))
+
+
+cdef class VariableShapeTensorArray(ExtensionArray):
+    """
+    Concrete class for variable shape tensor extension arrays.
+
+    Examples
+    --------
+    Define the extension type for tensor array
+
+    >>> import pyarrow as pa
+    >>> tensor_type = pa.variable_shape_tensor(pa.float64(), 2)
+
+    Create an extension array
+
+    >>> shapes = pa.array([[2, 3], [1, 2]], pa.list_(pa.int32(), 2))
+    >>> values = pa.array([[1, 2, 3, 4, 5, 6], [7, 8]], pa.list_(pa.float64()))
+    >>> arr = pa.StructArray.from_arrays([values, shapes], names=["data", "shape"])
+    >>> pa.ExtensionArray.from_storage(tensor_type, arr)
+    <pyarrow.lib.VariableShapeTensorArray object at ...>
+    -- is_valid: all not null
+    -- child 0 type: list<item: double>
+      [
+        [
+          1,
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        [
+          7,
+          8
+        ]
+      ]
+    -- child 1 type: fixed_size_list<item: int32>[2]
+      [
+        [
+          2,
+          3
+        ],
+        [
+          1,
+          2
+        ]
+      ]
+    """
+
+    @staticmethod
+    def from_numpy_ndarray(obj, dim_names=None, permutation=None, uniform_shape=None):
+        """
+        Convert a sequence of numpy.ndarrays to a variable shape tensor extension array.
+        The length of the input sequence becomes the length of the output array.
+
+        Parameters
+        ----------
+        obj : Sequence[numpy.ndarray]
+            Non-empty sequence of ndarrays with matching dtype, ndim, and
+            memory permutation.
+        dim_names : tuple or list of strings, default None
+            Explicit names to tensor dimensions.
+        permutation : tuple or list of integers, default None
+            Logical-to-physical permutation for all input arrays. If None,
+            inferred from strides.
+        uniform_shape : tuple or list of integers or None, default None
+            Optional known uniform dimensions in physical order. If None, inferred.
+
+        Returns
+        -------
+        VariableShapeTensorArray
+
+        Examples
+        --------
+        >>> import pyarrow as pa
+        >>> import numpy as np
+        >>> arrays = [np.array([[1, 2, 3], [4, 5, 6]], dtype=np.int32),
+        ...           np.array([[7, 8]], dtype=np.int32)]
+        >>> pa.VariableShapeTensorArray.from_numpy_ndarray(arrays)
+        <pyarrow.lib.VariableShapeTensorArray object at ...>
+        ...
+        """
+        cdef:
+            list arrays
+            list shape_rows
+            int ndim
+            int i
+            object base_dtype
+            DataType arrow_type
+            list normalized_permutation
+            list permutation_metadata
+            Array values
+            Array shapes
+            StructArray struct_arr
+            VariableShapeTensorType ext_type
+
+        if not isinstance(obj, Sequence) or isinstance(obj, (str, bytes)):
+            raise TypeError("obj must be a sequence of numpy arrays")
+        arrays = list(obj)
+
+        if len(arrays) == 0:
+            raise ValueError("Expected a non-empty sequence of ndarrays")
+
+        for i, arr in enumerate(arrays):
+            if not isinstance(arr, np.ndarray):
+                raise TypeError(f"obj[{i}] must be a numpy.ndarray")
+            if arr.ndim == 0:
+                raise ValueError("Cannot convert scalar to variable shape tensor array")
+
+        base_dtype = arrays[0].dtype
+        ndim = arrays[0].ndim
+        arrow_type = from_numpy_dtype(base_dtype)
+
+        for i, arr in enumerate(arrays[1:], start=1):
+            if arr.dtype != base_dtype:
+                raise TypeError(
+                    f"obj[{i}] has dtype {arr.dtype}; expected {base_dtype}")
+            if arr.ndim != ndim:
+                raise ValueError(f"obj[{i}] has ndim {arr.ndim}; expected {ndim}")
+
+        _validate_dim_names(dim_names, ndim)
+        normalized_permutation = _validate_permutation(permutation, ndim)
+
+        # Infer permutation if not provided by the user. Prefer arrays
+        # without size-1 dimensions since their strides are unambiguous.
+        if normalized_permutation is None:
+            for arr in arrays:
+                if all(s > 1 for s in arr.shape):
+                    normalized_permutation = _permutation_from_strides(arr)
+                    break
+            else:
+                # All arrays have size-1 dims; use first array's strides
+                normalized_permutation = _permutation_from_strides(arrays[0])
+
+        # Validate permutation consistency for arrays without size-1
+        # dims (size-1 strides are unconstrained, so skip those).
+        for i, arr in enumerate(arrays):
+            if any(s <= 1 for s in arr.shape):
+                continue
+            ndarray_permutation_list = _permutation_from_strides(arr)
+            if ndarray_permutation_list != normalized_permutation:
+                raise ValueError(
+                    (f"obj[{i}] has permutation {ndarray_permutation_list}; "
+                     f"expected {list(normalized_permutation)}"))
+
+        physical_to_logical = _invert_permutation(normalized_permutation)
+        shape_rows = [
+            [int(x) for x in np.take(arr.shape, physical_to_logical)]
+            for arr in arrays
+        ]
+
+        if uniform_shape is not None:
+            _validate_uniform_shape(uniform_shape, ndim)
+            for i, value in enumerate(uniform_shape):
+                if value is not None:
+                    if any(shape[i] != value for shape in shape_rows):
+                        raise ValueError(
+                            (f"uniform_shape[{i}]={value} does not match input shape "
+                             f"dimension values"))
+        else:
+            uniform_shape = _infer_uniform_shape(shape_rows, ndim)
+
+        # Verify that ravel(order="K") + inferred permutation are consistent
+        # by round-tripping the first non-empty array.
+        for arr in arrays:
+            if arr.size > 0:
+                raveled = np.ravel(arr, order="K")
+                physical_shape = tuple(
+                    np.take(arr.shape, physical_to_logical))
+                reconstructed = raveled.reshape(physical_shape)
+                reconstructed_logical = np.transpose(reconstructed,
+                                                     normalized_permutation)
+                if not np.array_equal(reconstructed_logical, arr):
+                    raise ValueError(
+                        "Array memory layout is incompatible with variable "
+                        "shape tensor representation. Consider making the "
+                        "array contiguous first with np.ascontiguousarray().")
+                break
+
+        values = array([np.ravel(arr, order="K") for arr in arrays], list_(arrow_type))
+        shapes = array(shape_rows, list_(int32(), list_size=ndim))
+        struct_arr = StructArray.from_arrays([values, shapes], names=["data", "shape"])
+
+        if np.array_equal(normalized_permutation, np.arange(ndim)):
+            permutation_metadata = None
+        else:
+            permutation_metadata = normalized_permutation
+
+        ext_type = variable_shape_tensor(
+            arrow_type,
+            ndim,
+            dim_names=dim_names,
+            permutation=permutation_metadata,
+            uniform_shape=uniform_shape,
+        )
+        return ExtensionArray.from_storage(ext_type, struct_arr)
+
+    def to_numpy_ndarray_list(self):
+        """
+        Convert variable shape tensor extension array to a list of numpy.ndarrays.
+
+        Returns
+        -------
+        list
+            List containing one ndarray per valid element and None for null elements.
+        """
+        return [x.to_numpy() if x.is_valid else None for x in self]
 
 
 cdef dict _array_classes = {
