@@ -1761,4 +1761,93 @@ TEST(TestDictionaryUnifier, TableZeroColumns) {
   AssertTablesEqual(*table, *unified);
 }
 
+// GH-41017: DictionaryBuilder should preserve the ordered flag
+TEST(TestDictionaryBuilder, MakeBuilderPreservesOrdered) {
+  auto ordered_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
+
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+  ASSERT_OK(builder.Append("a"));
+  ASSERT_OK(builder.Append("b"));
+  ASSERT_OK(builder.Append("a"));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  const auto& result_type = checked_cast<const DictionaryType&>(*result->type());
+  ASSERT_TRUE(result_type.ordered())
+      << "DictionaryBuilder should preserve ordered=true from the input type";
+}
+
+TEST(TestDictionaryBuilder, MakeBuilderUnorderedByDefault) {
+  auto unordered_type = dictionary(int8(), utf8(), /*ordered=*/false);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), unordered_type, &boxed_builder));
+
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+  ASSERT_OK(builder.Append("x"));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(builder.Finish(&result));
+
+  const auto& result_type = checked_cast<const DictionaryType&>(*result->type());
+  ASSERT_FALSE(result_type.ordered());
+}
+
+TEST(TestDictionaryBuilder, MakeDictionaryBuilderPreservesOrdered) {
+  auto ordered_type = dictionary(int8(), int32(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> builder;
+  ASSERT_OK(
+      MakeDictionaryBuilder(default_memory_pool(), ordered_type, nullptr, &builder));
+
+  auto& dict_builder = checked_cast<DictionaryBuilder<Int32Type>&>(*builder);
+  ASSERT_OK(dict_builder.Append(10));
+  ASSERT_OK(dict_builder.Append(20));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(dict_builder.Finish(&result));
+
+  const auto& result_type = checked_cast<const DictionaryType&>(*result->type());
+  ASSERT_TRUE(result_type.ordered());
+}
+
+// GH-41017: NullType dictionary builder should also preserve the ordered flag
+TEST(TestDictionaryBuilder, MakeBuilderNullTypePreservesOrdered) {
+  auto ordered_type = dictionary(int8(), null(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
+
+  std::shared_ptr<Array> result;
+  ASSERT_OK(boxed_builder->Resize(0));
+  ASSERT_OK(boxed_builder->Finish(&result));
+
+  const auto& result_type = checked_cast<const DictionaryType&>(*result->type());
+  ASSERT_TRUE(result_type.ordered())
+      << "NullType DictionaryBuilder should preserve ordered=true";
+}
+
+// GH-41017: ordered_ should survive Reset() + second Finish()
+TEST(TestDictionaryBuilder, OrderedFlagSurvivesReset) {
+  auto ordered_type = dictionary(int8(), utf8(), /*ordered=*/true);
+  std::unique_ptr<ArrayBuilder> boxed_builder;
+  ASSERT_OK(MakeBuilder(default_memory_pool(), ordered_type, &boxed_builder));
+
+  auto& builder = checked_cast<DictionaryBuilder<StringType>&>(*boxed_builder);
+
+  // First finish
+  ASSERT_OK(builder.Append("a"));
+  std::shared_ptr<Array> result1;
+  ASSERT_OK(builder.Finish(&result1));
+  ASSERT_TRUE(checked_cast<const DictionaryType&>(*result1->type()).ordered());
+
+  // After Reset(), ordered_ must still be true
+  ASSERT_OK(builder.Resize(1));
+  ASSERT_OK(builder.Append("b"));
+  std::shared_ptr<Array> result2;
+  ASSERT_OK(builder.Finish(&result2));
+  ASSERT_TRUE(checked_cast<const DictionaryType&>(*result2->type()).ordered())
+      << "ordered_ should survive Reset()";
+}
+
 }  // namespace arrow
