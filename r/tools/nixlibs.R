@@ -617,6 +617,11 @@ build_libarrow <- function(src_dir, dst_dir) {
     env_var_list <- c(env_var_list, ARROW_MIMALLOC = Sys.getenv("ARROW_MIMALLOC", "OFF"))
   }
 
+  if (on_windows) {
+    # Disable azure on windows due to issues building azure c++ sdk with mingw.
+    env_var_list <- c(env_var_list, ARROW_AZURE = Sys.getenv("ARROW_AZURE", "OFF"))
+  }
+
   env_var_list <- with_cloud_support(env_var_list)
   env_var_list <- with_wasm_support(env_var_list)
 
@@ -928,7 +933,7 @@ with_cloud_support <- function(env_var_list) {
 
   if (arrow_s3 || arrow_gcs || arrow_azure) {
     # User wants S3 or GCS or Azure support.
-    # Make sure that we have curl and openssl system libs
+    # Make sure that we have curl, openssl, and libxml2 system libs
     feats <- c(
       if (arrow_s3) "S3",
       if (arrow_gcs) "GCS",
