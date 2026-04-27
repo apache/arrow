@@ -36,10 +36,12 @@
 #include "arrow/record_batch.h"
 #include "arrow/result.h"
 #include "arrow/status.h"
+#include "arrow/tensor.h"
 #include "arrow/type.h"
 #include "arrow/type_fwd.h"
 #include "arrow/type_traits.h"
 #include "arrow/util/checked_cast.h"
+#include "arrow/util/logging.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/vector.h"
 
@@ -344,6 +346,14 @@ Result<std::shared_ptr<Table>> Table::FromChunkedStructArray(
 
   return Table::Make(::arrow::schema(type->fields()), std::move(columns),
                      array->length());
+}
+
+Result<std::shared_ptr<Tensor>> Table::ToTensor(bool null_to_nan, bool row_major,
+                                                MemoryPool* pool) const {
+  std::shared_ptr<Tensor> tensor;
+  ARROW_RETURN_NOT_OK(
+      internal::TableToTensor(*this, null_to_nan, row_major, pool, &tensor));
+  return tensor;
 }
 
 std::vector<std::string> Table::ColumnNames() const {
