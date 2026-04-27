@@ -30,7 +30,8 @@ namespace internal {
 template <typename T>
 class AlignedStorage {
  public:
-  static constexpr bool can_memcpy = std::is_trivial<T>::value;
+  static constexpr bool can_memcpy = std::is_trivially_copyable<T>::value &&
+                                     std::is_trivially_default_constructible<T>::value;
 
   constexpr T* get() noexcept {
     return arrow::internal::launder(reinterpret_cast<T*>(&data_));
