@@ -1108,19 +1108,10 @@ function(build_boost)
   endif()
   if(ARROW_FLIGHT_SQL_ODBC)
     # GH-49244: Replace boost beast with alternatives in ODBC
-    # GH-49243: Replace boost variant with std::variant in ODBC
     # GH-49245: Replace boost xpressive with alternatives in ODBC
-    list(APPEND
-         BOOST_INCLUDE_LIBRARIES
-         beast
-         variant
-         xpressive)
+    list(APPEND BOOST_INCLUDE_LIBRARIES beast xpressive)
   else()
-    list(APPEND
-         BOOST_EXCLUDE_LIBRARIES
-         beast
-         variant
-         xpressive)
+    list(APPEND BOOST_EXCLUDE_LIBRARIES beast xpressive)
   endif()
   set(BOOST_SKIP_INSTALL_RULES ON)
   if(NOT ARROW_ENABLE_THREADING)
@@ -2754,51 +2745,53 @@ macro(build_zlib)
   # bundled. We need to do this for all packages
   # not just zlib as some depend on zlib, but we don't rebuild
   # if it exists already
-  if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
-    # build zlib using Emscripten ports
-    if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
-      execute_process(COMMAND embuilder --pic --force build zlib)
-    endif()
-    add_library(ZLIB::ZLIB STATIC IMPORTED)
-    set_property(TARGET ZLIB::ZLIB
-                 PROPERTY IMPORTED_LOCATION
-                          "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
-    target_include_directories(ZLIB::ZLIB INTERFACE "${EMSCRIPTEN_SYSROOT}/include")
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
-  else()
-    set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
-    if(MSVC)
-      if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
-        set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
-      else()
-        set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+  if(NOT TARGET ZLIB::ZLIB)
+    if(CMAKE_SYSTEM_NAME STREQUAL "Emscripten")
+      # build zlib using Emscripten ports
+      if(NOT EXISTS ${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a)
+        execute_process(COMMAND embuilder --pic --force build zlib)
       endif()
+      add_library(ZLIB::ZLIB STATIC IMPORTED)
+      set_property(TARGET ZLIB::ZLIB
+                   PROPERTY IMPORTED_LOCATION
+                            "${EMSCRIPTEN_SYSROOT}/lib/wasm32-emscripten/pic/libz.a")
+      target_include_directories(ZLIB::ZLIB INTERFACE "${EMSCRIPTEN_SYSROOT}/include")
+      list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
     else()
-      set(ZLIB_STATIC_LIB_NAME libz.a)
+      set(ZLIB_PREFIX "${CMAKE_CURRENT_BINARY_DIR}/zlib_ep/src/zlib_ep-install")
+      if(MSVC)
+        if(${UPPERCASE_BUILD_TYPE} STREQUAL "DEBUG")
+          set(ZLIB_STATIC_LIB_NAME zlibstaticd.lib)
+        else()
+          set(ZLIB_STATIC_LIB_NAME zlibstatic.lib)
+        endif()
+      else()
+        set(ZLIB_STATIC_LIB_NAME libz.a)
+      endif()
+      set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
+      set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}")
+
+      externalproject_add(zlib_ep
+                          ${EP_COMMON_OPTIONS}
+                          URL ${ZLIB_SOURCE_URL}
+                          URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
+                          BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
+                          CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
+
+      file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
+
+      add_library(ZLIB::ZLIB STATIC IMPORTED)
+      set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
+      set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
+      set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
+      target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
+
+      add_dependencies(ZLIB::ZLIB zlib_ep)
+      list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
     endif()
-    set(ZLIB_STATIC_LIB "${ZLIB_PREFIX}/lib/${ZLIB_STATIC_LIB_NAME}")
-    set(ZLIB_CMAKE_ARGS ${EP_COMMON_CMAKE_ARGS} "-DCMAKE_INSTALL_PREFIX=${ZLIB_PREFIX}")
 
-    externalproject_add(zlib_ep
-                        ${EP_COMMON_OPTIONS}
-                        URL ${ZLIB_SOURCE_URL}
-                        URL_HASH "SHA256=${ARROW_ZLIB_BUILD_SHA256_CHECKSUM}"
-                        BUILD_BYPRODUCTS "${ZLIB_STATIC_LIB}"
-                        CMAKE_ARGS ${ZLIB_CMAKE_ARGS})
-
-    file(MAKE_DIRECTORY "${ZLIB_PREFIX}/include")
-
-    add_library(ZLIB::ZLIB STATIC IMPORTED)
-    set(ZLIB_LIBRARIES ${ZLIB_STATIC_LIB})
-    set(ZLIB_INCLUDE_DIRS "${ZLIB_PREFIX}/include")
-    set_target_properties(ZLIB::ZLIB PROPERTIES IMPORTED_LOCATION ${ZLIB_LIBRARIES})
-    target_include_directories(ZLIB::ZLIB BEFORE INTERFACE "${ZLIB_INCLUDE_DIRS}")
-
-    add_dependencies(ZLIB::ZLIB zlib_ep)
-    list(APPEND ARROW_BUNDLED_STATIC_LIBS ZLIB::ZLIB)
+    set(ZLIB_VENDORED TRUE)
   endif()
-
-  set(ZLIB_VENDORED TRUE)
 endmacro()
 
 if(ARROW_WITH_ZLIB)

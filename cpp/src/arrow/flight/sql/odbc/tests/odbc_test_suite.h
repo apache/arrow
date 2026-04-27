@@ -38,15 +38,38 @@
 // For DSN registration
 #include "arrow/flight/sql/odbc/odbc_impl/system_dsn.h"
 
+#ifdef __linux__
+#  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal)                           \
+    auto name##_vec = ODBC::ToSqlWCharVector(std::wstring(wstring_literal));   \
+    if (name##_vec.empty() || name##_vec.back() != static_cast<SQLWCHAR>(0)) { \
+      name##_vec.push_back(static_cast<SQLWCHAR>(0));                          \
+    }                                                                          \
+    SQLWCHAR* name = name##_vec.data();
+#  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_literal) \
+    ASSIGN_SQLWCHAR_ARR(name, wstring_literal)               \
+    SQLSMALLINT name##_len = static_cast<SQLSMALLINT>(name##_vec.size() - 1);
+#else  // Windows & Mac
+#  define ASSIGN_SQLWCHAR_ARR(name, wstring_literal) SQLWCHAR name[] = wstring_literal;
+#  define ASSIGN_SQLWCHAR_ARR_AND_LEN(name, wstring_literal) \
+    ASSIGN_SQLWCHAR_ARR(name, wstring_literal)               \
+    SQLSMALLINT name##_len = static_cast<SQLSMALLINT>(std::wcslen(name));
+#endif
+
 static constexpr std::string_view kTestConnectStr = "ARROW_FLIGHT_SQL_ODBC_CONN";
 static constexpr std::string_view kTestDsn = "Apache Arrow Flight SQL Test DSN";
 
-inline SQLHENV env = 0;
-inline SQLHDBC conn = 0;
-inline SQLHSTMT stmt = 0;
+inline std::string remote_test_connect_str = "";
 
-inline bool skipping_test = false;
-inline bool connected = false;
+struct OdbcHandles {
+  SQLHENV env = SQL_NULL_HENV;
+  SQLHDBC conn = SQL_NULL_HDBC;
+  SQLHSTMT stmt = SQL_NULL_HSTMT;
+};
+
+inline OdbcHandles remote_odbcv3_handles;
+inline OdbcHandles remote_odbcv2_handles;
+inline OdbcHandles mock_odbcv3_handles;
+inline OdbcHandles mock_odbcv2_handles;
 
 inline std::shared_ptr<arrow::flight::sql::example::SQLiteFlightSqlServer> mock_server;
 inline int mock_server_port = 0;
@@ -61,17 +84,19 @@ namespace arrow::flight::sql::odbc {
 class ODBCTestBase : public ::testing::Test {
  public:
   /// \brief Allocate environment and connection handles
-  static void AllocEnvConnHandles(SQLINTEGER odbc_ver = SQL_OV_ODBC3);
+  static void AllocEnvConnHandles(SQLHENV& env_handle, SQLHDBC& conn_handle,
+                                  SQLINTEGER odbc_ver = SQL_OV_ODBC3);
   /// \brief Free environment and connection handles
-  static void FreeEnvConnHandles();
+  static void FreeEnvConnHandles(SQLHENV& env_handle, SQLHDBC& conn_handle);
   /// \brief Connect to Arrow Flight SQL server using connection string defined in
   /// environment variable "ARROW_FLIGHT_SQL_ODBC_CONN", allocate statement handle.
   /// Connects using ODBC Ver 3 by default
-  static void Connect(std::string connect_str, SQLINTEGER odbc_ver = SQL_OV_ODBC3);
+  static void Connect(std::string connect_str, SQLHENV& env_handle, SQLHDBC& conn_handle,
+                      SQLINTEGER odbc_ver = SQL_OV_ODBC3);
   /// \brief Connect to Arrow Flight SQL server using connection string
-  static void ConnectWithString(std::string connection_str);
+  static void ConnectWithString(std::string connect_str, SQLHDBC& conn_handle);
   /// \brief Disconnect from server
-  static void Disconnect();
+  static void Disconnect(SQLHENV& env_handle, SQLHDBC& conn_handle);
   /// \brief Get connection string from environment variable "ARROW_FLIGHT_SQL_ODBC_CONN"
   static std::string GetConnectionString();
   /// \brief Get invalid connection string based on connection string defined in
@@ -83,7 +108,10 @@ class ODBCTestBase : public ::testing::Test {
  protected:
   void SetUp() override;
   void TearDown() override;
-  static void TearDownTestSuite();
+
+  static SQLHENV env;
+  static SQLHDBC conn;
+  static SQLHSTMT stmt;
 };
 
 /// \brief Base test fixture for running tests against a remote server.
@@ -92,9 +120,6 @@ class ODBCTestBase : public ::testing::Test {
 /// The connection string for connecting to this server is defined
 /// in the ARROW_FLIGHT_SQL_ODBC_CONN environment variable.
 class FlightSQLODBCRemoteTestBase : public ODBCTestBase {
- public:
-  static void CheckForRemoteTest();
-
  protected:
   static void SetUpTestSuite();
 };
@@ -111,6 +136,8 @@ class FlightSQLOdbcEnvConnHandleRemoteTestBase : public FlightSQLODBCRemoteTestB
  protected:
   static void SetUpTestSuite();
   static void TearDownTestSuite();
+  void SetUp() override {}
+  void TearDown() override {}
 };
 
 static constexpr std::string_view kAuthorizationHeader = "authorization";
@@ -200,6 +227,8 @@ class FlightSQLOdbcEnvConnHandleMockTestBase : public FlightSQLODBCMockTestBase 
  protected:
   static void SetUpTestSuite();
   static void TearDownTestSuite();
+  void SetUp() override {}
+  void TearDown() override {}
 };
 
 /** ODBC read buffer size. */
@@ -218,6 +247,7 @@ bool CompareConnPropertyMap(Connection::ConnPropertyMap map1,
 /// Get error message from ODBC driver using SQLGetDiagRec
 std::string GetOdbcErrorMessage(SQLSMALLINT handle_type, SQLHANDLE handle);
 
+static constexpr std::string_view kErrorState00000 = "00000";
 static constexpr std::string_view kErrorState01004 = "01004";
 static constexpr std::string_view kErrorState01S02 = "01S02";
 static constexpr std::string_view kErrorState01S07 = "01S07";
@@ -267,11 +297,26 @@ bool WriteDSN(Connection::ConnPropertyMap properties);
 /// \return wstring
 std::wstring GetStringColumnW(SQLHSTMT stmt, int col_id);
 
+/// \brief Get length of wide char array.
+/// \param[in] str_val Array of SQLWCHAR.
+/// \return number of wide characters in array
+size_t SqlWCharArrLen(const SQLWCHAR* str_val);
+
+/// \brief Check wide char array and convert into wstring
+/// \param[in] str_val Array of SQLWCHAR.
+/// \param[in] str_len length of string, in number of characters.
+/// \param[in] buffer_size size of underlying buffer, in number of characters.
+/// \return wstring
+std::wstring ConvertToWString(const SQLWCHAR* str_val, SQLSMALLINT str_len = -1,
+                              SQLSMALLINT buffer_size = kOdbcBufferSize);
+
 /// \brief Check wide char vector and convert into wstring
 /// \param[in] str_val Vector of SQLWCHAR.
 /// \param[in] str_len length of string, in bytes.
+/// \param[in] buffer_size size of underlying buffer, in number of characters.
 /// \return wstring
-std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len);
+std::wstring ConvertToWString(const std::vector<SQLWCHAR>& str_val, SQLSMALLINT str_len,
+                              SQLSMALLINT buffer_size = kOdbcBufferSize);
 
 /// \brief Check wide string column.
 /// \param[in] stmt Statement.

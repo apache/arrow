@@ -73,6 +73,16 @@ on:
   schedule:
     - cron: |
         0 0 * * *
+  workflow_dispatch:
+    inputs:
+      odbc_upload:
+        description: 'ODBC Component Upload'
+        required: true
+        default: 'dll'
+        type: choice
+        options:
+          - dll
+          - msi
 
 concurrency:
   group: ${{ github.repository }}-${{ github.head_ref || github.sha }}-${{ github.workflow }}
@@ -95,9 +105,10 @@ jobs:
     name: ${{ matrix.title }}
     runs-on: ${{ matrix.runs-on }}
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++'))
     timeout-minutes: 75
     strategy:
       fail-fast: false
@@ -106,16 +117,17 @@ jobs:
           - image: alpine-linux-cpp
             runs-on: ubuntu-latest
             title: AMD64 Alpine Linux
-          - image: ubuntu-cpp
-            run-options: >-
-              -e ARROW_CTEST_TIMEOUT=2000
-              -e ARROW_C_FLAGS_DEBUG="-O1"
-              -e ARROW_CXX_FLAGS_DEBUG="-O1"
-              -e ARROW_GANDIVA=OFF
-              -e ARROW_LARGE_MEMORY_TESTS=ON
-              -e BUILD_WARNING_LEVEL=PRODUCTION
-            runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
-            title: AMD64 Ubuntu Large Memory Tests
+          # Disable Large Memory Tests locally
+          # - image: ubuntu-cpp
+          #   run-options: >-
+          #     -e ARROW_CTEST_TIMEOUT=2000
+          #     -e ARROW_C_FLAGS_DEBUG="-O1"
+          #     -e ARROW_CXX_FLAGS_DEBUG="-O1"
+          #     -e ARROW_GANDIVA=OFF
+          #     -e ARROW_LARGE_MEMORY_TESTS=ON
+          #     -e BUILD_WARNING_LEVEL=PRODUCTION
+          #   runs-on: "runs-on=${{ github.run_id }}/family=x8i.2xlarge/volume=80gb/spot=capacity-optimized"
+          #   title: AMD64 Ubuntu Large Memory Tests
           - image: conda-cpp
             run-options: >-
               -e ARROW_USE_MESON=ON
@@ -184,9 +196,10 @@ jobs:
   msvc-arm64:
     needs: check-labels
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++'))
     name: ARM64 Windows 11 MSVC
     uses: ./.github/workflows/cpp_windows.yml
     with:
@@ -199,9 +212,10 @@ jobs:
     name: JNI ${{ matrix.platform.runs-on }} ${{ matrix.platform.arch }}
     runs-on: ${{ matrix.platform.runs-on }}
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++'))
     timeout-minutes: 240
     permissions:
       # This is for using GitHub Packages for vcpkg cache
@@ -264,9 +278,10 @@ jobs:
     name: JNI macOS
     runs-on: macos-14
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++'))
     timeout-minutes: 45
     env:
       MACOSX_DEPLOYMENT_TARGET: "14.0"
@@ -350,15 +365,40 @@ jobs:
 
   odbc-linux:
     needs: check-labels
-    name: ODBC Linux
+    name: ODBC ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++'))
     timeout-minutes: 75
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu RPM Release
+            build-type: release
+            format: rpm
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=RPM
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu DEB Release
+            build-type: release
+            format: deb
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=DEB
+          # GH-49582: TODO Enable Debian build for ODBC
+          # - image: debian-cpp-odbc
+          #   title: AMD64 Debian
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu Debug
+            build-type: debug
+            run-options: >-
+              -e ARROW_BUILD_TYPE=DEBUG
     env:
       ARCH: amd64
       ARCHERY_DEBUG: 1
@@ -372,12 +412,18 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
+      - name: Create Docker Test Network
+        run: docker network create odbc_net
+      - name: Set Up Dremio Instance
+        run: |
+          docker compose -f cpp/src/arrow/flight/sql/odbc/tests/dremio/docker-compose.yml up -d
+          cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance.sh
       - name: Cache Docker Volumes
         uses: actions/cache@v5
         with:
           path: .docker
-          key: ubuntu-cpp-odbc-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-cpp-odbc-
+          key: ${{ matrix.image }}-${{ matrix.build-type }}-${{ matrix.format }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-${{ matrix.build-type }}-${{ matrix.format }}-
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
@@ -392,7 +438,16 @@ jobs:
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ubuntu-cpp-odbc
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+
+      - name: Upload ODBC ${{ matrix.format }} to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-${{ matrix.format }}-installer
+          path: build/cpp/ArrowFlightSqlOdbc-*.${{ matrix.format }}
+          if-no-files-found: error
+
       - name: Docker Push
         if: >-
           success() &&
@@ -403,16 +458,17 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ubuntu-cpp-odbc
+        run: archery docker push ${{ matrix.image }}
 
   odbc-macos:
     needs: check-labels
     name: ODBC ${{ matrix.build-type }} ${{ matrix.architecture }} macOS ${{ matrix.macos-version }}
     runs-on: macos-${{ matrix.macos-version }}
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
-      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++'))
     timeout-minutes: 120
     strategy:
       fail-fast: false
@@ -428,6 +484,7 @@ jobs:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /tmp/local
       ARROW_MIMALLOC: OFF
     steps:
@@ -503,6 +560,19 @@ jobs:
             --allow libresolv \
             --allow libz \
             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
+      - name: Generate macOS Installer
+        if: matrix.build-type == 'release'
+        shell: bash
+        run: |
+            cd $(pwd)/build/cpp
+            cpack
+      - name: Upload ODBC PKG to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
+          path: build/cpp/ArrowFlightSqlOdbc-*.pkg
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
@@ -522,13 +592,15 @@ jobs:
     name: ODBC Windows
     runs-on: windows-2022
     if: >-
+      github.event_name != 'workflow_dispatch' && (
       needs.check-labels.outputs.force == 'true' ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra') ||
       contains(fromJSON(needs.check-labels.outputs.ci-extra-labels || '[]'), 'CI: Extra: C++')
+      )
     timeout-minutes: 240
     permissions:
       packages: write
-    env:
+    env: &odbc_msvc_env
       ARROW_BUILD_SHARED: ON
       ARROW_BUILD_STATIC: OFF
       ARROW_BUILD_TESTS: ON
@@ -545,81 +617,16 @@ jobs:
       VCPKG_BINARY_SOURCES: 'clear;nugettimeout,600;nuget,GitHub,readwrite'
       VCPKG_DEFAULT_TRIPLET: x64-windows
     steps:
-      - name: Disable Crash Dialogs
-        run: |
-          reg add `
-            "HKCU\SOFTWARE\Microsoft\Windows\Windows Error Reporting" `
-            /v DontShowUI `
-            /t REG_DWORD `
-            /d 1 `
-            /f
       - name: Checkout Arrow
         uses: actions/checkout@v6
         with:
           persist-credentials: false
           fetch-depth: 0
           submodules: recursive
-      - name: Download Timezone Database
-        shell: bash
-        run: ci/scripts/download_tz_database.sh
-      - name: Install ccache
-        shell: bash
-        run: |
-          ci/scripts/install_ccache.sh 4.12.1 /usr
-      - name: Setup ccache
-        shell: bash
-        run: |
-          ci/scripts/ccache_setup.sh
-      - name: ccache info
-        id: ccache-info
-        shell: bash
-        run: |
-          echo "cache-dir=$(ccache --get-config cache_dir)" >> $GITHUB_OUTPUT
-      - name: Cache ccache
-        uses: actions/cache@v5
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
         with:
-          path: ${{ steps.ccache-info.outputs.cache-dir }}
-          key: cpp-odbc-ccache-windows-x64-${{ hashFiles('cpp/**') }}
-          restore-keys: cpp-odbc-ccache-windows-x64-
-      - name: Checkout vcpkg
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          path: vcpkg
-          repository: microsoft/vcpkg
-      - name: Bootstrap vcpkg
-        run: |
-          vcpkg\bootstrap-vcpkg.bat
-          $VCPKG_ROOT = $(Resolve-Path -LiteralPath "vcpkg").ToString()
-          Write-Output ${VCPKG_ROOT} | `
-            Out-File -FilePath ${Env:GITHUB_PATH} -Encoding utf8 -Append
-          Write-Output "VCPKG_ROOT=${VCPKG_ROOT}" | `
-            Out-File -FilePath ${Env:GITHUB_ENV} -Encoding utf8 -Append
-      - name: Setup NuGet credentials for vcpkg caching
-        shell: bash
-        run: |
-          $(vcpkg fetch nuget | tail -n 1) \
-            sources add \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json" \
-            -storepasswordincleartext \
-            -name "GitHub" \
-            -username "$GITHUB_REPOSITORY_OWNER" \
-            -password "${{ secrets.GITHUB_TOKEN }}"
-          $(vcpkg fetch nuget | tail -n 1) \
-            setapikey "${{ secrets.GITHUB_TOKEN }}" \
-            -source "https://nuget.pkg.github.com/$GITHUB_REPOSITORY_OWNER/index.json"
-      - name: Build
-        shell: cmd
-        run: |
-          set VCPKG_ROOT_KEEP=%VCPKG_ROOT%
-          call "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\VC\Auxiliary\Build\vcvarsall.bat" x64
-          set VCPKG_ROOT=%VCPKG_ROOT_KEEP%
-          bash -c "ci/scripts/cpp_build.sh $(pwd) $(pwd)/build"
-      - name: Register Flight SQL ODBC Driver
-        shell: cmd
-        run: |
-          call "cpp\src\arrow\flight\sql\odbc\tests\install_odbc.cmd" ${{ github.workspace }}\build\cpp\%ARROW_BUILD_TYPE%\arrow_flight_sql_odbc.dll
+          github-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Test
         shell: cmd
         run: |
@@ -642,7 +649,7 @@ jobs:
           wix --version
           cd build/cpp
           cpack
-      - name: Upload the artifacts to the job
+      - name: Upload ODBC MSI to the job
         uses: actions/upload-artifact@v7
         with:
           name: flight-sql-odbc-msi-installer
@@ -683,6 +690,125 @@ jobs:
 
           Write-Error "ODBC DLL not found"
           exit 1
+
+  odbc-msvc-upload-dll:
+    needs: check-labels
+    name: ODBC Windows Upload Unsigned DLL
+    runs-on: windows-2022
+    if: inputs.odbc_upload == 'dll'
+    timeout-minutes: 240
+    permissions:
+      packages: write
+    env: *odbc_msvc_env
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Name Unsigned ODBC DLL
+        run: |
+          Rename-Item `
+            -Path build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc.dll `
+            -NewName arrow_flight_sql_odbc_unsigned.dll
+      - name: Upload ODBC DLL to the job
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-dll
+          path: build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc_unsigned.dll
+          if-no-files-found: error
+
+  odbc-dll-release:
+    needs: odbc-msvc-upload-dll
+    name: Upload Unsigned ODBC DLL
+    runs-on: ubuntu-latest
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download the artifacts
+        uses: actions/download-artifact@v8
+        with:
+          name: flight-sql-odbc-dll
+      - name: Wait for creating GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          dev/release/utils-watch-gh-workflow.sh \
+            ${GITHUB_REF_NAME} \
+            release_candidate.yml
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${GITHUB_REF_NAME} \
+            --clobber \
+            arrow_flight_sql_odbc_unsigned.dll
+
+  odbc-msvc-upload-msi:
+    needs: check-labels
+    name: ODBC Windows Upload Unsigned MSI
+    runs-on: windows-2022
+    if: inputs.odbc_upload == 'msi'
+    timeout-minutes: 240
+    permissions:
+      # Upload to GitHub Release
+      contents: write
+      packages: write
+    env: *odbc_msvc_env
+    steps:
+      - name: Checkout Arrow
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
+      - name: Download signed ODBC DLL
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download $env:GITHUB_REF_NAME `
+          --pattern arrow_flight_sql_odbc.dll `
+          --clobber
+      - name: Build ODBC Windows
+        uses: ./.github/actions/odbc-windows
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Replace signed DLL with unsigned DLL
+        run: |
+          Move-Item `
+          -Path ./arrow_flight_sql_odbc.dll `
+          -Destination build/cpp/${{ env.ARROW_BUILD_TYPE }}/arrow_flight_sql_odbc.dll `
+          -Force
+      - name: Install WiX Toolset
+        shell: pwsh
+        run: |
+          Invoke-WebRequest -Uri https://github.com/wixtoolset/wix/releases/download/v6.0.0/wix-cli-x64.msi -OutFile wix-cli-x64.msi
+          Start-Process -FilePath wix-cli-x64.msi -ArgumentList '/quiet', 'Include_freethreaded=1' -Wait
+          echo "C:\Program Files\WiX Toolset v6.0\bin\" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+      - name: Build MSI ODBC installer
+        shell: pwsh
+        run: |
+          # Verify WiX version
+          wix --version
+          cd build/cpp
+          cpack
+      - name: Upload the artifacts to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          cd build/cpp
+          gh release upload $env:GITHUB_REF_NAME `
+            --clobber `
+            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
 
   odbc-nightly:
     needs: odbc-msvc
@@ -731,40 +857,6 @@ jobs:
           remote_key: ${{ secrets.NIGHTLIES_RSYNC_KEY }}
           remote_host_key: ${{ secrets.NIGHTLIES_RSYNC_HOST_KEY }}
 
-  odbc-release:
-    needs: odbc-msvc
-    name: ODBC release
-    runs-on: ubuntu-latest
-    if: ${{ startsWith(github.ref_name, 'apache-arrow-') && contains(github.ref_name, '-rc') }}
-    permissions:
-      # Upload to GitHub Release
-      contents: write
-    steps:
-      - name: Checkout Arrow
-        uses: actions/checkout@v6
-        with:
-          persist-credentials: false
-          fetch-depth: 0
-          submodules: recursive
-      - name: Download the artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: flight-sql-odbc-msi-installer
-      - name: Wait for creating GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          dev/release/utils-watch-gh-workflow.sh \
-            ${GITHUB_REF_NAME} \
-            release_candidate.yml
-      - name: Upload the artifacts to GitHub Release
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release upload ${GITHUB_REF_NAME} \
-            --clobber \
-            Apache-Arrow-Flight-SQL-ODBC-*-win64.msi
-
   report-extra-cpp:
     if: github.event_name == 'schedule' && always()
     needs:
@@ -775,6 +867,8 @@ jobs:
       - odbc-linux
       - odbc-macos
       - odbc-msvc
+      - odbc-msvc-upload-dll
+      - odbc-msvc-upload-msi
       - odbc-nightly
     uses: ./.github/workflows/report_ci.yml
     secrets:

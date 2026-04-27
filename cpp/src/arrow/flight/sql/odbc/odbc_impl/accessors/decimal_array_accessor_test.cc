@@ -19,7 +19,8 @@
 #include "arrow/builder.h"
 #include "arrow/testing/builder.h"
 #include "arrow/util/decimal.h"
-#include "gtest/gtest.h"
+
+#include <gtest/gtest.h>
 
 namespace arrow::flight::sql::odbc {
 namespace {
@@ -93,7 +94,7 @@ void AssertNumericOutput(int input_precision, int input_scale,
   }
 }
 
-TEST(DecimalArrayFlightSqlAccessor, Test_Decimal128Array_CDataType_NUMERIC_SameScale) {
+TEST(DecimalArrayFlightSqlAccessor, TestDecimal128ArrayCDataTypeNumericSameScale) {
   const std::vector<std::string>& input_values = {"25.212", "-25.212", "-123456789.123",
                                                   "123456789.123"};
   const std::vector<std::string>& output_values =
