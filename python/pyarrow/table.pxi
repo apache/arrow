@@ -4915,10 +4915,13 @@ cdef class Table(_Tabular):
         if isinstance(struct_array, Array):
             return Table.from_batches([RecordBatch.from_struct_array(struct_array)])
         else:
-            return Table.from_batches([
-                RecordBatch.from_struct_array(chunk)
-                for chunk in struct_array.chunks
-            ])
+            return Table.from_batches(
+                [
+                    RecordBatch.from_struct_array(chunk)
+                    for chunk in struct_array.chunks
+                ],
+                schema=schema(struct_array.type.fields),
+            )
 
     def to_struct_array(self, max_chunksize=None):
         """
