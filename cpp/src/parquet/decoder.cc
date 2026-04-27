@@ -2345,16 +2345,20 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
   void SetData(int num_values, const uint8_t* data, int len) final {
     Base::SetData(num_values, data, len);
     current_offset_ = 0;
-    needs_decode_ = (len > 0 && num_values > 0);
+    if (num_values > 0 && len <= 0) {
+      throw ParquetException("ALP SetData: num_values=" + std::to_string(num_values) +
+                             " but len=" + std::to_string(len));
+    }
+    needs_decode_ = (num_values > 0);
     decoded_buffer_.clear();
   }
 
   int Decode(T* buffer, int max_values) override {
     // Fast path: decode directly into output buffer if requesting all values
     if (needs_decode_ && max_values >= this->num_values_) {
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpWrapper<T>::Decode(
-          buffer, static_cast<uint64_t>(this->num_values_),
-          reinterpret_cast<const char*>(this->data_), this->len_));
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
+          this->num_values_, reinterpret_cast<const char*>(this->data_), this->len_,
+          buffer));
 
       const int decoded = this->num_values_;
       this->num_values_ = 0;
@@ -2366,9 +2370,9 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // ALP Bit unpacker needs batches of 64
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpWrapper<T>::Decode(
-          decoded_buffer_.data(), static_cast<uint64_t>(this->num_values_),
-          reinterpret_cast<const char*>(this->data_), this->len_));
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
+          this->num_values_, reinterpret_cast<const char*>(this->data_), this->len_,
+          decoded_buffer_.data()));
       needs_decode_ = false;
     }
 
@@ -2400,9 +2404,9 @@ class AlpDecoder : public TypedDecoderImpl<DType> {
     // Decode if needed (DecodeArrow always needs intermediate buffer for nulls)
     if (needs_decode_) {
       decoded_buffer_.resize(this->num_values_);
-      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpWrapper<T>::Decode(
-          decoded_buffer_.data(), static_cast<uint64_t>(this->num_values_),
-          reinterpret_cast<const char*>(this->data_), this->len_));
+      PARQUET_THROW_NOT_OK(::arrow::util::alp::AlpCodec<T>::Decode(
+          this->num_values_, reinterpret_cast<const char*>(this->data_), this->len_,
+          decoded_buffer_.data()));
       needs_decode_ = false;
     }
 

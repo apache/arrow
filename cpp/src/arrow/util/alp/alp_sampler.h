@@ -47,7 +47,7 @@ class AlpSampler {
 
   /// \brief Helper struct containing the preset for ALP compression
   struct AlpSamplerResult {
-    AlpEncodingPreset alp_preset;
+    AlpEncodingParameters alp_parameters;
   };
 
   /// \brief Add a sample of arbitrary size

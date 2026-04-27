@@ -1026,15 +1026,15 @@ class AlpEncoder : public EncoderImpl, virtual public TypedEncoder<DType> {
       return buf;
     }
 
-    // Call AlpWrapper::Encode() - it handles sampling, preset selection, and compression
+    // Call AlpCodec::Encode() - it handles sampling, preset selection, and compression
     const size_t decompSize = sink_.length();
-    size_t compSize = ::arrow::util::alp::AlpWrapper<T>::GetMaxCompressedSize(decompSize);
+    size_t compSize = ::arrow::util::alp::AlpCodec<T>::GetMaxCompressedSize(decompSize);
 
     PARQUET_ASSIGN_OR_THROW(
         auto compressed_buffer,
         ::arrow::AllocateResizableBuffer(compSize, this->memory_pool()));
 
-    ::arrow::util::alp::AlpWrapper<T>::Encode(
+    ::arrow::util::alp::AlpCodec<T>::Encode(
         reinterpret_cast<const T*>(sink_.data()),
         decompSize,
         reinterpret_cast<char*>(compressed_buffer->mutable_data()),
