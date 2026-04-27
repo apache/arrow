@@ -1189,12 +1189,22 @@ class RowGroupGenerator {
       const int row_group, const std::vector<int>& column_indices) {
     // Skips bound checks/pre-buffering, since we've done that already
     const int64_t batch_size = self->properties().batch_size();
+    const bool pre_buffered = self->properties().pre_buffer();
     return self->DecodeRowGroups(self, {row_group}, column_indices, cpu_executor)
-        .Then([batch_size](const std::shared_ptr<Table>& table)
+        .Then([batch_size, self, row_group, column_indices = column_indices,
+               pre_buffered](const std::shared_ptr<Table>& table)
                   -> ::arrow::Result<RecordBatchGenerator> {
           ::arrow::TableBatchReader table_reader(*table);
           table_reader.set_chunksize(batch_size);
           ARROW_ASSIGN_OR_RAISE(auto batches, table_reader.ToRecordBatches());
+          // GH-39808: once a row group has been fully decoded into Arrow
+          // arrays, the bytes cached by PreBuffer() for that row group are no
+          // longer needed. Release them so memory usage stays bounded while
+          // iterating a large dataset instead of growing until the whole file
+          // has been read.
+          if (pre_buffered) {
+            self->parquet_reader()->EvictPreBufferedData({row_group}, column_indices);
+          }
           return ::arrow::MakeVectorGenerator(std::move(batches));
         });
   }
