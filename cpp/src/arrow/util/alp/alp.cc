@@ -25,6 +25,7 @@
 
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_stream_utils_internal.h"
+#include "arrow/util/bit_util.h"
 #include "arrow/util/endian.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
@@ -557,19 +558,19 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
   SignedExactType min_encoded_value = std::numeric_limits<SignedExactType>::max();
 
   uint64_t num_exceptions = 0;
-  uint64_t num_non_exceptions = 0;
   for (const T& value : input_vector) {
     const SignedExactType encoded_value =
         AlpInlines<T>::EncodeValue(value, exponent_and_factor);
     T decoded_value = AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
     if (decoded_value == value) {
-      num_non_exceptions++;
       max_encoded_value = std::max(encoded_value, max_encoded_value);
       min_encoded_value = std::min(encoded_value, min_encoded_value);
       continue;
     }
     num_exceptions++;
   }
+
+  const uint64_t num_non_exceptions = input_vector.size() - num_exceptions;
 
   // We penalize combinations which yield almost all exceptions.
   if (penalize_exceptions && num_non_exceptions < 2) {
@@ -581,7 +582,7 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
                            static_cast<ExactType>(min_encoded_value));
 
   const uint32_t estimated_bits_per_value =
-      static_cast<uint32_t>(std::ceil(std::log2(delta + 1)));
+      static_cast<uint32_t>(bit_util::NumRequiredBits(delta));
   uint64_t estimated_compression_size = input_vector.size() * estimated_bits_per_value;
   estimated_compression_size +=
       num_exceptions * (kExactTypeBitSize + (sizeof(PositionType) * 8));
@@ -589,7 +590,7 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
 }
 
 template <typename T>
-AlpEncodingPreset AlpCompression<T>::CreateEncodingPreset(
+AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
     const std::vector<std::vector<T>>& vectors_sampled) {
   // Find the best combinations of factor-exponent from each sampled vector.
   // This function is called once per segment.
@@ -599,42 +600,45 @@ AlpEncodingPreset AlpCompression<T>::CreateEncodingPreset(
 
   std::map<AlpExponentAndFactor, uint64_t> best_k_combinations_hash;
 
-  uint64_t best_compressed_size_bits = std::numeric_limits<uint64_t>::max();
-  // For each vector sampled.
-  for (const std::vector<T>& sampled_vector : vectors_sampled) {
+  // Find the best exponent/factor combination for a single sampled vector by
+  // trying all (exponent, factor) pairs and picking the one that minimizes
+  // estimated compression size. Returns {best_combination, best_size_bits}.
+  auto find_best_for_vector = [](const std::vector<T>& sampled_vector)
+      -> std::pair<AlpCombination, uint64_t> {
     const uint64_t num_samples = sampled_vector.size();
-    const AlpExponentAndFactor best_encoding_options{Constants::kMaxExponent,
-                                                     Constants::kMaxExponent};
-
-    // Start optimization with worst possible total bits from compression.
-    const uint64_t best_total_bits =
+    const AlpExponentAndFactor worst_case{Constants::kMaxExponent,
+                                          Constants::kMaxExponent};
+    // Start with worst possible total bits.
+    const uint64_t worst_total_bits =
         (num_samples * (kExactTypeBitSize + sizeof(PositionType) * 8)) +
         (num_samples * kExactTypeBitSize);
 
-    // N of appearances is irrelevant at this phase; we search for best compression.
-    AlpCombination best_combination{best_encoding_options, 0, best_total_bits};
-    // Try all combinations to find the one which minimizes compression size.
+    AlpCombination best{worst_case, 0, worst_total_bits};
+    uint64_t best_size_bits = std::numeric_limits<uint64_t>::max();
+
     for (uint8_t exp_idx = 0; exp_idx <= Constants::kMaxExponent; exp_idx++) {
       for (uint8_t factor_idx = 0; factor_idx <= exp_idx; factor_idx++) {
-        const AlpExponentAndFactor current_exponent_and_factor{exp_idx, factor_idx};
-        std::optional<uint64_t> estimated_compression_size = EstimateCompressedSize(
-            sampled_vector, current_exponent_and_factor, /*penalize_exceptions=*/true);
-
-        // Skip comparison for values that are not compressible.
-        if (!estimated_compression_size.has_value()) {
+        const AlpExponentAndFactor current{exp_idx, factor_idx};
+        std::optional<uint64_t> size = EstimateCompressedSize(
+            sampled_vector, current, /*penalize_exceptions=*/true);
+        if (!size.has_value()) {
           continue;
         }
-
-        const AlpCombination current_combination{current_exponent_and_factor, 0,
-                                                 *estimated_compression_size};
-        if (CompareAlpCombinations(current_combination, best_combination)) {
-          best_combination = current_combination;
-          best_compressed_size_bits =
-              std::min(best_compressed_size_bits, *estimated_compression_size);
+        const AlpCombination candidate{current, 0, *size};
+        if (CompareAlpCombinations(candidate, best)) {
+          best = candidate;
+          best_size_bits = std::min(best_size_bits, *size);
         }
       }
     }
-    best_k_combinations_hash[best_combination.exponent_and_factor]++;
+    return {best, best_size_bits};
+  };
+
+  uint64_t best_compressed_size_bits = std::numeric_limits<uint64_t>::max();
+  for (const std::vector<T>& sampled_vector : vectors_sampled) {
+    auto [best, size_bits] = find_best_for_vector(sampled_vector);
+    best_k_combinations_hash[best.exponent_and_factor]++;
+    best_compressed_size_bits = std::min(best_compressed_size_bits, size_bits);
   }
 
   // Convert our hash to a Combination vector to be able to sort.
@@ -642,28 +646,26 @@ AlpEncodingPreset AlpCompression<T>::CreateEncodingPreset(
   std::vector<AlpCombination> best_k_combinations;
   best_k_combinations.reserve(
       std::min(best_k_combinations_hash.size(), kMaxCombinationCount));
-  for (const auto& combination : best_k_combinations_hash) {
+  for (const auto& [exponent_and_factor, num_appearances] : best_k_combinations_hash) {
     best_k_combinations.emplace_back(AlpCombination{
-        combination.first,   // Encoding Indices
-        combination.second,  // N of times it appeared (hash value)
+        exponent_and_factor, num_appearances,
         0  // Compression size is irrelevant since we compare different vectors.
     });
   }
   std::sort(best_k_combinations.begin(), best_k_combinations.end(),
             CompareAlpCombinations);
 
-  std::vector<AlpExponentAndFactor> combinations;
-  combinations.reserve(
-      std::min(kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size())));
   // Save k' best combinations.
-  for (uint64_t i = 0;
-       i < std::min(kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size()));
-       i++) {
+  const uint8_t num_combinations_to_keep =
+      std::min(kMaxCombinations, static_cast<uint8_t>(best_k_combinations.size()));
+  std::vector<AlpExponentAndFactor> combinations;
+  combinations.reserve(num_combinations_to_keep);
+  for (uint8_t i = 0; i < num_combinations_to_keep; i++) {
     combinations.push_back(best_k_combinations[i].exponent_and_factor);
   }
 
   const uint64_t best_compressed_size_bytes =
-      std::ceil(best_compressed_size_bits / 8.0);
+      static_cast<uint64_t>(bit_util::BytesForBits(best_compressed_size_bits));
   return {combinations, best_compressed_size_bytes};
 }
 
@@ -698,6 +700,9 @@ AlpExponentAndFactor AlpCompression<T>::FindBestExponentAndFactor(
   uint64_t worse_total_bits_counter = 0;
 
   // Try each K combination to find the one which minimizes compression size.
+  // penalize_exceptions=false because this is second-level sampling: the preset
+  // already filtered out bad combinations during first-level sampling, so we
+  // just pick whichever pre-vetted combination compresses this vector best.
   for (const AlpExponentAndFactor& exponent_and_factor : combinations) {
     std::optional<uint64_t> estimated_compression_size = EstimateCompressedSize(
         sample_vector, exponent_and_factor, /*penalize_exceptions=*/false);
@@ -790,15 +795,11 @@ auto AlpCompression<T>::BitPackIntegers(
     -> BitPackingResult {
   uint8_t bit_width = 0;
 
-  if (min_max_diff == 0) {
-    bit_width = 0;
-  } else if constexpr (std::is_same_v<T, float>) {
-    bit_width = sizeof(T) * 8 - __builtin_clz(min_max_diff);
-  } else if constexpr (std::is_same_v<T, double>) {
-    bit_width = sizeof(T) * 8 - __builtin_clzll(min_max_diff);
+  if (min_max_diff > 0) {
+    bit_width = static_cast<uint8_t>(bit_util::NumRequiredBits(min_max_diff));
   }
-  const uint16_t bit_packed_size =
-      static_cast<uint16_t>(std::ceil((bit_width * integers.size()) / 8.0));
+  const uint16_t bit_packed_size = static_cast<uint16_t>(
+      bit_util::BytesForBits(bit_width * static_cast<int64_t>(integers.size())));
 
   arrow::internal::StaticVector<uint8_t, kAlpVectorSize * sizeof(T)> packed_integers;
   // Use unsafe resize to avoid zero-initialization. Zero initialization was
@@ -819,7 +820,7 @@ auto AlpCompression<T>::BitPackIntegers(
 template <typename T>
 AlpEncodedVector<T> AlpCompression<T>::CompressVector(const T* input_vector,
                                                       uint16_t num_elements,
-                                                      const AlpEncodingPreset& preset) {
+                                                      const AlpEncodingParameters& preset) {
   // Compress by finding a fitting exponent/factor, encode input, and bitpack.
   const arrow::util::span<const T> input_span{input_vector, num_elements};
   const AlpExponentAndFactor exponent_and_factor =
@@ -868,46 +869,10 @@ auto AlpCompression<T>::BitUnpackIntegers(
   encoded_integers.UnsafeResize(num_elements);
 
   if (for_info.bit_width > 0) {
-    // Arrow's SIMD unpack works in fixed batch sizes. All SIMD implementations
-    // (SIMD128/NEON, SIMD256/AVX2, SIMD512/AVX512) have identical batch sizes:
-    // - uint32_t (float): Simd*UnpackerForWidth::kValuesUnpacked = 32
-    // - uint64_t (double): Simd*UnpackerForWidth::kValuesUnpacked = 64
-    // These constants are in anonymous namespaces (internal implementation detail),
-    // so we hardcode them here.
-    constexpr int kMinBatchSize = std::is_same_v<T, float> ? 32 : 64;
-    const int num_elems = static_cast<int>(num_elements);
-    const int num_complete_batches = num_elems / kMinBatchSize;
-    const int num_complete_elements = num_complete_batches * kMinBatchSize;
-
-    // Use Arrow's SIMD-optimized unpack for complete batches.
-    if (num_complete_elements > 0) {
-      arrow::internal::unpack(packed_integers.data(), encoded_integers.data(),
-                              num_complete_elements, for_info.bit_width);
-    }
-
-    // Handle remaining elements (<64) with BitReader to match BitWriter format.
-    const int remaining = num_elems - num_complete_elements;
-    if (remaining > 0) {
-      // Calculate byte offset where SIMD unpack finished
-      const uint64_t bits_consumed_by_simd =
-          static_cast<uint64_t>(num_complete_elements) * for_info.bit_width;
-      // Round up to next byte
-      const uint64_t bytes_consumed_by_simd = (bits_consumed_by_simd + 7) / 8;
-
-      // Use BitReader for remaining elements starting from where SIMD left off
-      arrow::bit_util::BitReader reader(
-          packed_integers.data() + bytes_consumed_by_simd,
-          static_cast<int>(packed_integers.size() - bytes_consumed_by_simd));
-
-      for (int i = 0; i < remaining; ++i) {
-        uint64_t value = 0;
-        if (reader.GetValue(for_info.bit_width, &value)) {
-          encoded_integers[num_complete_elements + i] = static_cast<ExactType>(value);
-        } else {
-          encoded_integers[num_complete_elements + i] = 0;
-        }
-      }
-    }
+    // Arrow's unpack handles arbitrary sizes: SIMD for complete batches,
+    // then unpack_exact for the remainder. No need to manually split.
+    arrow::internal::unpack(packed_integers.data(), encoded_integers.data(),
+                            static_cast<int>(num_elements), for_info.bit_width);
   } else {
     std::memset(encoded_integers.data(), 0, num_elements * sizeof(ExactType));
   }
@@ -932,8 +897,7 @@ void AlpCompression<T>::DecodeVector(TargetType* output_vector,
     // 1. Apply frame of reference (unFOR) - unsigned arithmetic
     const ExactType unfored_value = data[i] + frame_of_ref;
     // 2. Reinterpret as signed integer for decode
-    SignedExactType signed_value;
-    std::memcpy(&signed_value, &unfored_value, sizeof(SignedExactType));
+    const SignedExactType signed_value = util::SafeCopy<SignedExactType>(unfored_value);
     // 3. Decode using original function to preserve exact floating-point behavior
     output_vector[i] =
         AlpInlines<T>::DecodeValue(signed_value, alp_info.GetExponentAndFactor());

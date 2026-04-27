@@ -70,7 +70,7 @@ class AlpCompressionFloatTest : public ::testing::Test {
     AlpCompression<float> compressor;
 
     // Compress
-    AlpEncodingPreset preset{};  // Default preset
+    AlpEncodingParameters preset{};  // Default preset
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     // Decompress
@@ -138,7 +138,7 @@ class AlpCompressionDoubleTest : public ::testing::Test {
     AlpCompression<double> compressor;
 
     // Compress
-    AlpEncodingPreset preset{};  // Default preset
+    AlpEncodingParameters preset{};  // Default preset
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     // Decompress
@@ -191,7 +191,7 @@ TEST(AlpIntegrationTest, LargeFloatDataset) {
   }
 
   AlpCompression<float> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<float> output(input.size());
@@ -212,7 +212,7 @@ TEST(AlpIntegrationTest, LargeDoubleDataset) {
   }
 
   AlpCompression<double> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<double> output(input.size());
@@ -498,7 +498,7 @@ class AlpEdgeCaseTest : public ::testing::Test {
  protected:
   void TestCompressDecompress(const std::vector<T>& input) {
     AlpCompression<T> compressor;
-    AlpEncodingPreset preset{};
+    AlpEncodingParameters preset{};
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     std::vector<T> output(input.size());
@@ -525,15 +525,15 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInput) {
   // and 0 is a valid multiple. This tests the boundary condition.
   std::vector<TypeParam> input;
 
-  uint64_t max_size = AlpWrapper<TypeParam>::GetMaxCompressedSize(0);
+  uint64_t max_size = AlpCodec<TypeParam>::GetMaxCompressedSize(0);
   std::vector<char> buffer(max_size > 0 ? max_size : 8);  // Ensure some buffer
   size_t comp_size = buffer.size();
 
-  AlpWrapper<TypeParam>::Encode(input.data(), 0, buffer.data(), &comp_size);
+  AlpCodec<TypeParam>::Encode(input.data(), 0, buffer.data(), &comp_size);
 
   // Decode zero elements
   std::vector<TypeParam> output;
-  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(output.data(), 0,
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(output.data(), 0,
                                                               buffer.data(), comp_size));
 
   // Both should be empty
@@ -573,7 +573,7 @@ TYPED_TEST(AlpEdgeCaseTest, JustOverVectorSize) {
   }
   // For multi-vector, we need to process in chunks
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   // Process first vector
   auto encoded1 = compressor.CompressVector(input.data(),
@@ -748,7 +748,7 @@ TYPED_TEST_SUITE(AlpEncodedVectorTest, EdgeCaseTestTypes);
 TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
   // Create a sample encoded vector
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   std::vector<TypeParam> input(64);
   for (size_t i = 0; i < input.size(); ++i) {
@@ -779,7 +779,7 @@ TYPED_TEST(AlpEncodedVectorTest, StoreLoadRoundTrip) {
 
 TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   std::vector<TypeParam> input(128);
   for (size_t i = 0; i < input.size(); ++i) {
@@ -808,7 +808,7 @@ TYPED_TEST(AlpEncodedVectorTest, GetStoredSizeConsistency) {
 // The fix copies these into aligned StaticVector storage.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   // Create data with exceptions to ensure exception handling code path is hit.
   // NaN, Inf, and -0.0 all become exceptions.
@@ -862,7 +862,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithExceptions) {
 // starts at an odd offset (14 + odd = odd), violating uint16_t alignment.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   // Create a small vector with specific size to get odd bit_packed_size.
   // 5 elements with bit_width=8 -> bit_packed_size=5 (odd)
@@ -931,7 +931,7 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadWithMisalignedExceptions) {
 // chance of hitting misalignment issues on systems that don't crash.
 TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   // Data with exceptions
   std::vector<TypeParam> input(32);
@@ -973,21 +973,21 @@ TYPED_TEST(AlpEncodedVectorTest, ViewLoadFromMisalignedBuffer) {
 }
 
 // ============================================================================
-// AlpWrapper Tests
+// AlpCodec Tests
 // ============================================================================
 
 template <typename T>
-class AlpWrapperTest : public ::testing::Test {
+class AlpCodecTest : public ::testing::Test {
  protected:
   void TestEncodeDecodeWrapper(const std::vector<T>& input) {
     // Get max compressed size
     uint64_t max_comp_size =
-        AlpWrapper<T>::GetMaxCompressedSize(input.size() * sizeof(T));
+        AlpCodec<T>::GetMaxCompressedSize(input.size() * sizeof(T));
     std::vector<char> comp_buffer(max_comp_size);
 
     // Encode
     size_t comp_size = comp_buffer.size();
-    AlpWrapper<T>::Encode(input.data(), input.size() * sizeof(T),
+    AlpCodec<T>::Encode(input.data(), input.size() * sizeof(T),
                           comp_buffer.data(), &comp_size);
 
     EXPECT_GT(comp_size, 0);
@@ -995,7 +995,7 @@ class AlpWrapperTest : public ::testing::Test {
 
     // Decode
     std::vector<T> output(input.size());
-    ASSERT_OK(AlpWrapper<T>::template Decode<T>(output.data(), input.size(),
+    ASSERT_OK(AlpCodec<T>::template Decode<T>(output.data(), input.size(),
                                                comp_buffer.data(), comp_size));
 
     // Verify
@@ -1004,9 +1004,9 @@ class AlpWrapperTest : public ::testing::Test {
   }
 };
 
-TYPED_TEST_SUITE(AlpWrapperTest, EdgeCaseTestTypes);
+TYPED_TEST_SUITE(AlpCodecTest, EdgeCaseTestTypes);
 
-TYPED_TEST(AlpWrapperTest, SimpleSequence) {
+TYPED_TEST(AlpCodecTest, SimpleSequence) {
   std::vector<TypeParam> input(1024);
   for (size_t i = 0; i < input.size(); ++i) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.1);
@@ -1014,7 +1014,7 @@ TYPED_TEST(AlpWrapperTest, SimpleSequence) {
   this->TestEncodeDecodeWrapper(input);
 }
 
-TYPED_TEST(AlpWrapperTest, MultipleVectors) {
+TYPED_TEST(AlpCodecTest, MultipleVectors) {
   // Test with multiple vectors worth of data
   std::vector<TypeParam> input(3 * AlpConstants::kAlpVectorSize);
   for (size_t i = 0; i < input.size(); ++i) {
@@ -1023,7 +1023,7 @@ TYPED_TEST(AlpWrapperTest, MultipleVectors) {
   this->TestEncodeDecodeWrapper(input);
 }
 
-TYPED_TEST(AlpWrapperTest, SpecialValues) {
+TYPED_TEST(AlpCodecTest, SpecialValues) {
   std::vector<TypeParam> input = {
       static_cast<TypeParam>(0.0),
       static_cast<TypeParam>(-0.0),
@@ -1036,7 +1036,7 @@ TYPED_TEST(AlpWrapperTest, SpecialValues) {
   this->TestEncodeDecodeWrapper(input);
 }
 
-TYPED_TEST(AlpWrapperTest, GetMaxCompressedSizeAdequate) {
+TYPED_TEST(AlpCodecTest, GetMaxCompressedSizeAdequate) {
   // Verify GetMaxCompressedSize always provides enough space
   const std::vector<size_t> test_sizes = {1, 10, 100, 1023, 1024, 1025, 2048, 5000};
 
@@ -1051,11 +1051,11 @@ TYPED_TEST(AlpWrapperTest, GetMaxCompressedSizeAdequate) {
     }
 
     uint64_t max_comp_size =
-        AlpWrapper<TypeParam>::GetMaxCompressedSize(size * sizeof(TypeParam));
+        AlpCodec<TypeParam>::GetMaxCompressedSize(size * sizeof(TypeParam));
     std::vector<char> comp_buffer(max_comp_size);
     size_t comp_size = comp_buffer.size();
 
-    AlpWrapper<TypeParam>::Encode(input.data(), size * sizeof(TypeParam),
+    AlpCodec<TypeParam>::Encode(input.data(), size * sizeof(TypeParam),
                                   comp_buffer.data(), &comp_size);
 
     EXPECT_LE(comp_size, max_comp_size)
@@ -1065,7 +1065,7 @@ TYPED_TEST(AlpWrapperTest, GetMaxCompressedSizeAdequate) {
   }
 }
 
-TYPED_TEST(AlpWrapperTest, WideningDecode) {
+TYPED_TEST(AlpCodecTest, WideningDecode) {
   // Test decoding float data to double (widening conversion)
   if constexpr (std::is_same_v<TypeParam, float>) {
     std::vector<float> input(256);
@@ -1074,16 +1074,16 @@ TYPED_TEST(AlpWrapperTest, WideningDecode) {
     }
 
     uint64_t max_comp_size =
-        AlpWrapper<float>::GetMaxCompressedSize(input.size() * sizeof(float));
+        AlpCodec<float>::GetMaxCompressedSize(input.size() * sizeof(float));
     std::vector<char> comp_buffer(max_comp_size);
     size_t comp_size = comp_buffer.size();
 
-    AlpWrapper<float>::Encode(input.data(), input.size() * sizeof(float),
+    AlpCodec<float>::Encode(input.data(), input.size() * sizeof(float),
                               comp_buffer.data(), &comp_size);
 
     // Decode as double
     std::vector<double> output(input.size());
-    ASSERT_OK(AlpWrapper<float>::template Decode<double>(output.data(), input.size(),
+    ASSERT_OK(AlpCodec<float>::template Decode<double>(output.data(), input.size(),
                                                         comp_buffer.data(), comp_size));
 
     // Verify values match (as double)
@@ -1103,7 +1103,7 @@ TYPED_TEST(AlpEdgeCaseTest, ZeroBitWidth) {
   std::fill(input.begin(), input.end(), static_cast<TypeParam>(123.456));
 
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   // bit_width should be 0 for constant values
@@ -1128,7 +1128,7 @@ TYPED_TEST(AlpEdgeCaseTest, SmallBitWidths) {
     }
 
     AlpCompression<TypeParam> compressor;
-    AlpEncodingPreset preset{};
+    AlpEncodingParameters preset{};
     auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
     std::vector<TypeParam> output(input.size());
@@ -1149,7 +1149,7 @@ TYPED_TEST(AlpEdgeCaseTest, LargeBitWidths) {
   }
 
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
   auto encoded = compressor.CompressVector(input.data(), input.size(), preset);
 
   std::vector<TypeParam> output(input.size());
@@ -1163,7 +1163,7 @@ TYPED_TEST(AlpEdgeCaseTest, LargeBitWidths) {
 // Large Dataset Tests
 // ============================================================================
 
-TYPED_TEST(AlpWrapperTest, VeryLargeDataset) {
+TYPED_TEST(AlpCodecTest, VeryLargeDataset) {
   // Test with 1 million elements
   constexpr size_t kLargeSize = 1024 * 1024;
   std::vector<TypeParam> input(kLargeSize);
@@ -1179,7 +1179,7 @@ TYPED_TEST(AlpWrapperTest, VeryLargeDataset) {
   this->TestEncodeDecodeWrapper(input);
 }
 
-TYPED_TEST(AlpWrapperTest, MultiplePages) {
+TYPED_TEST(AlpCodecTest, MultiplePages) {
   // Test with data spanning multiple pages (each page has multiple vectors)
   constexpr size_t kMultiPageSize = 100000;  // ~100 vectors worth
   std::vector<TypeParam> input(kMultiPageSize);
@@ -1191,7 +1191,7 @@ TYPED_TEST(AlpWrapperTest, MultiplePages) {
   this->TestEncodeDecodeWrapper(input);
 }
 
-TYPED_TEST(AlpWrapperTest, EncodeWithPreset) {
+TYPED_TEST(AlpCodecTest, EncodeWithPreset) {
   // Test that encoding with a pre-computed preset produces identical results
   constexpr size_t kTestSize = 4096;  // 4 vectors worth
   std::vector<TypeParam> input(kTestSize);
@@ -1202,21 +1202,21 @@ TYPED_TEST(AlpWrapperTest, EncodeWithPreset) {
 
   // First, encode normally
   uint64_t max_comp_size =
-      AlpWrapper<TypeParam>::GetMaxCompressedSize(input.size() * sizeof(TypeParam));
+      AlpCodec<TypeParam>::GetMaxCompressedSize(input.size() * sizeof(TypeParam));
   std::vector<char> comp_buffer1(max_comp_size);
   size_t comp_size1 = comp_buffer1.size();
 
-  AlpWrapper<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
                                 comp_buffer1.data(), &comp_size1);
 
   // Now, use the preset-based API
-  auto preset = AlpWrapper<TypeParam>::CreateSamplingPreset(
+  auto preset = AlpCodec<TypeParam>::CreateSamplingPreset(
       input.data(), input.size() * sizeof(TypeParam));
 
   std::vector<char> comp_buffer2(max_comp_size);
   size_t comp_size2 = comp_buffer2.size();
 
-  AlpWrapper<TypeParam>::EncodeWithPreset(input.data(), input.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::EncodeWithPreset(input.data(), input.size() * sizeof(TypeParam),
                                           comp_buffer2.data(), &comp_size2, preset);
 
   // Both should produce identical output
@@ -1225,13 +1225,13 @@ TYPED_TEST(AlpWrapperTest, EncodeWithPreset) {
 
   // Verify the preset-based encoding can be decoded correctly
   std::vector<TypeParam> output(input.size());
-  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
       output.data(), input.size(), comp_buffer2.data(), comp_size2));
 
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(TypeParam)), 0);
 }
 
-TYPED_TEST(AlpWrapperTest, PresetReuseAcrossBatches) {
+TYPED_TEST(AlpCodecTest, PresetReuseAcrossBatches) {
   // Test that a preset can be reused for multiple encode calls
   constexpr size_t kBatchSize = 1024;
   std::vector<TypeParam> batch1(kBatchSize), batch2(kBatchSize);
@@ -1243,22 +1243,22 @@ TYPED_TEST(AlpWrapperTest, PresetReuseAcrossBatches) {
   }
 
   // Create preset from first batch
-  auto preset = AlpWrapper<TypeParam>::CreateSamplingPreset(
+  auto preset = AlpCodec<TypeParam>::CreateSamplingPreset(
       batch1.data(), batch1.size() * sizeof(TypeParam));
 
   uint64_t max_comp_size =
-      AlpWrapper<TypeParam>::GetMaxCompressedSize(kBatchSize * sizeof(TypeParam));
+      AlpCodec<TypeParam>::GetMaxCompressedSize(kBatchSize * sizeof(TypeParam));
 
   // Encode batch1 with preset
   std::vector<char> comp1(max_comp_size);
   size_t comp_size1 = comp1.size();
-  AlpWrapper<TypeParam>::EncodeWithPreset(batch1.data(), batch1.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::EncodeWithPreset(batch1.data(), batch1.size() * sizeof(TypeParam),
                                           comp1.data(), &comp_size1, preset);
 
   // Encode batch2 with same preset (reuse)
   std::vector<char> comp2(max_comp_size);
   size_t comp_size2 = comp2.size();
-  AlpWrapper<TypeParam>::EncodeWithPreset(batch2.data(), batch2.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::EncodeWithPreset(batch2.data(), batch2.size() * sizeof(TypeParam),
                                           comp2.data(), &comp_size2, preset);
 
   // Both should encode successfully
@@ -1267,9 +1267,9 @@ TYPED_TEST(AlpWrapperTest, PresetReuseAcrossBatches) {
 
   // Decode and verify both batches
   std::vector<TypeParam> output1(kBatchSize), output2(kBatchSize);
-  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
       output1.data(), kBatchSize, comp1.data(), comp_size1));
-  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
       output2.data(), kBatchSize, comp2.data(), comp_size2));
 
   EXPECT_EQ(std::memcmp(output1.data(), batch1.data(), kBatchSize * sizeof(TypeParam)), 0);
@@ -1299,7 +1299,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationDecimalData) {
   // Use AddSample with span
   sampler.AddSample({data.data(), data.size()});
   auto result = sampler.Finalize();
-  auto preset = result.alp_preset;
+  auto preset = result.alp_parameters;
 
   // Preset should have at least one combination
   EXPECT_GT(preset.combinations.size(), 0);
@@ -1331,7 +1331,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationMixedData) {
 
   sampler.AddSample({data.data(), data.size()});
   auto result = sampler.Finalize();
-  auto preset = result.alp_preset;
+  auto preset = result.alp_parameters;
 
   EXPECT_GT(preset.combinations.size(), 0);
 }
@@ -1339,7 +1339,7 @@ TYPED_TEST(AlpSamplerTest, PresetGenerationMixedData) {
 TYPED_TEST(AlpSamplerTest, EmptySample) {
   AlpSampler<TypeParam> sampler;
   auto result = sampler.Finalize();
-  auto preset = result.alp_preset;
+  auto preset = result.alp_parameters;
 
   // Should have default preset even without sampling
   // (may be empty or have default combination)
@@ -1354,7 +1354,7 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInputViaCompression) {
   // Test compressing zero elements via AlpCompression directly
   std::vector<TypeParam> empty_input;
   AlpCompression<TypeParam> compressor;
-  AlpEncodingPreset preset{};
+  AlpEncodingParameters preset{};
 
   // Compress 0 elements - should produce a valid (minimal) encoded vector
   auto encoded = compressor.CompressVector(empty_input.data(), 0, preset);
@@ -1371,25 +1371,25 @@ TYPED_TEST(AlpEdgeCaseTest, EmptyInputViaCompression) {
   // No crash = success for empty case
 }
 
-TYPED_TEST(AlpWrapperTest, EmptyInput) {
+TYPED_TEST(AlpCodecTest, EmptyInput) {
   // Test wrapper with zero elements
   std::vector<TypeParam> empty_input;
 
-  uint64_t max_comp_size = AlpWrapper<TypeParam>::GetMaxCompressedSize(0);
+  uint64_t max_comp_size = AlpCodec<TypeParam>::GetMaxCompressedSize(0);
   EXPECT_GT(max_comp_size, 0);  // Should at least have header space
 
   std::vector<char> comp_buffer(max_comp_size);
   size_t comp_size = comp_buffer.size();
 
   // Encode 0 bytes (0 elements)
-  AlpWrapper<TypeParam>::Encode(empty_input.data(), 0, comp_buffer.data(), &comp_size);
+  AlpCodec<TypeParam>::Encode(empty_input.data(), 0, comp_buffer.data(), &comp_size);
 
   // Should produce at least the header
   EXPECT_GT(comp_size, 0);
 
   // Decode 0 elements
   std::vector<TypeParam> output;
-  ASSERT_OK(AlpWrapper<TypeParam>::template Decode<TypeParam>(
+  ASSERT_OK(AlpCodec<TypeParam>::template Decode<TypeParam>(
       output.data(), 0, comp_buffer.data(), comp_size));
   // No crash = success
 }
@@ -1406,7 +1406,7 @@ TEST(AlpRobustnessTest, TruncatedHeader) {
 
   std::vector<double> output(100);
   ASSERT_NOT_OK(
-      AlpWrapper<double>::Decode(output.data(), 100, tiny_buffer.data(), tiny_buffer.size()));
+      AlpCodec<double>::Decode(100, tiny_buffer.data(), tiny_buffer.size(), output.data()));
 }
 
 TEST(AlpRobustnessTest, TruncatedData) {
@@ -1416,16 +1416,17 @@ TEST(AlpRobustnessTest, TruncatedData) {
     input[i] = static_cast<double>(i) * 0.123;
   }
 
-  uint64_t max_size = AlpWrapper<double>::GetMaxCompressedSize(input.size() * sizeof(double));
+  uint64_t max_size = AlpCodec<double>::GetMaxCompressedSize(input.size() * sizeof(double));
   std::vector<char> buffer(max_size);
   size_t comp_size = buffer.size();
 
-  AlpWrapper<double>::Encode(input.data(), input.size() * sizeof(double),
+  AlpCodec<double>::Encode(input.data(), input.size() * sizeof(double),
                              buffer.data(), &comp_size);
 
   // Verify that valid data decodes successfully.
   std::vector<double> output(input.size());
-  ASSERT_OK(AlpWrapper<double>::Decode(output.data(), input.size(), buffer.data(), comp_size));
+  ASSERT_OK(AlpCodec<double>::Decode(static_cast<int32_t>(input.size()), buffer.data(),
+                                    comp_size, output.data()));
 
   // Verify successful decode
   EXPECT_EQ(std::memcmp(output.data(), input.data(), input.size() * sizeof(double)), 0);
@@ -1486,7 +1487,7 @@ TYPED_TEST(AlpEdgeCaseTest, CompressionDeterminism) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.123);
   }
 
-  uint64_t max_size = AlpWrapper<TypeParam>::GetMaxCompressedSize(
+  uint64_t max_size = AlpCodec<TypeParam>::GetMaxCompressedSize(
       input.size() * sizeof(TypeParam));
 
   std::vector<char> buffer1(max_size);
@@ -1495,9 +1496,9 @@ TYPED_TEST(AlpEdgeCaseTest, CompressionDeterminism) {
   size_t size2 = buffer2.size();
 
   // Compress twice
-  AlpWrapper<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
                                 buffer1.data(), &size1);
-  AlpWrapper<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
                                 buffer2.data(), &size2);
 
   // Sizes should match
@@ -1514,22 +1515,22 @@ TYPED_TEST(AlpEdgeCaseTest, DecompressionDeterminism) {
     input[i] = static_cast<TypeParam>(i) * static_cast<TypeParam>(0.5);
   }
 
-  uint64_t max_size = AlpWrapper<TypeParam>::GetMaxCompressedSize(
+  uint64_t max_size = AlpCodec<TypeParam>::GetMaxCompressedSize(
       input.size() * sizeof(TypeParam));
   std::vector<char> buffer(max_size);
   size_t comp_size = buffer.size();
 
-  AlpWrapper<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
+  AlpCodec<TypeParam>::Encode(input.data(), input.size() * sizeof(TypeParam),
                                 buffer.data(), &comp_size);
 
   std::vector<TypeParam> output1(input.size());
   std::vector<TypeParam> output2(input.size());
 
   // Decompress twice
-  ASSERT_OK(AlpWrapper<TypeParam>::Decode(output1.data(), input.size(),
-                                          buffer.data(), comp_size));
-  ASSERT_OK(AlpWrapper<TypeParam>::Decode(output2.data(), input.size(),
-                                          buffer.data(), comp_size));
+  ASSERT_OK(AlpCodec<TypeParam>::Decode(static_cast<int32_t>(input.size()),
+                                          buffer.data(), comp_size, output1.data()));
+  ASSERT_OK(AlpCodec<TypeParam>::Decode(static_cast<int32_t>(input.size()),
+                                          buffer.data(), comp_size, output2.data()));
 
   // Outputs should be identical
   EXPECT_EQ(std::memcmp(output1.data(), output2.data(),

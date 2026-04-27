@@ -991,10 +991,10 @@ For performance-critical applications, the encoding can be split into two phases
 
 ```cpp
 // Phase 1: Pre-compute preset (can be done once, outside hot path)
-auto preset = AlpWrapper<double>::CreateSamplingPreset(data, data_size);
+auto preset = AlpCodec<double>::CreateSamplingPreset(data, data_size);
 
 // Phase 2: Encode using preset (fast, no sampling overhead)
-AlpWrapper<double>::EncodeWithPreset(data, data_size, 
+AlpCodec<double>::EncodeWithPreset(data, data_size, 
                                      comp_buf, &comp_size, preset);
 ```
 
