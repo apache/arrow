@@ -179,17 +179,25 @@ struct ScalarHashImpl {
 
     // Hash the relevant child arrays for each type taking offset and length
     // from the parent array into account if necessary.
+    // - STRUCT: children share parent's offset/length
+    // - FIXED_SIZE_LIST: children use offset*list_size, length*list_size
+    // - Others (LIST, MAP, UNION, LIST_VIEW): have their own offset mechanisms
     switch (a.type->id()) {
       case Type::STRUCT:
         for (const auto& child : a.child_data) {
           RETURN_NOT_OK(ArrayHash(child, offset, length));
         }
         break;
-        // TODO(GH-35830): Investigate what should be the correct behavior for
-        // each nested type.
+      case Type::FIXED_SIZE_LIST: {
+        const auto& list_type = checked_cast<const FixedSizeListType&>(*a.type);
+        const int32_t list_size = list_type.list_size();
+        for (const auto& child : a.child_data) {
+          RETURN_NOT_OK(ArrayHash(child, offset * list_size, length * list_size));
+        }
+        break;
+      }
       default:
-        // By default, just hash the arrays without considering
-        // the offset and length of the parent.
+        // LIST, MAP, UNION, LIST_VIEW have their own offset mechanisms
         for (const auto& child : a.child_data) {
           RETURN_NOT_OK(ArrayHash(child));
         }
