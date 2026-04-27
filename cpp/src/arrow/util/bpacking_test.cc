@@ -27,7 +27,8 @@
 #include "arrow/util/bpacking_scalar_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
 
-#if defined(ARROW_HAVE_RUNTIME_AVX2)
+#if defined(ARROW_HAVE_RUNTIME_AVX2) || defined(ARROW_HAVE_RUNTIME_AVX512) || \
+    defined(ARROW_HAVE_RUNTIME_SVE128) || defined(ARROW_HAVE_RUNTIME_SVE256)
 #  include "arrow/util/cpu_info.h"
 #endif
 
@@ -104,9 +105,9 @@ std::vector<uint8_t> PackValues(const std::vector<Int>& values, int num_values,
   return out;
 }
 
-class TestUnpack : public ::testing::TestWithParam<int> {
+template <typename Int>
+class TestUnpack : public ::testing::Test {
  protected:
-  template <typename Int>
   void TestRoundtripAlignment(UnpackFunc<Int> unpack, const UnpackOptions& opts) {
     const auto original =
         GenerateRandomValuesForPacking<Int>(opts.batch_size, opts.bit_width);
@@ -129,7 +130,6 @@ class TestUnpack : public ::testing::TestWithParam<int> {
                                   << val_original << " but unpacked " << val_unpacked;
   }
 
-  template <typename Int>
   void TestUnpackZeros(UnpackFunc<Int> unpack, const UnpackOptions& opts) {
     const auto num_bytes = GetNumBytes(opts.batch_size, opts.bit_width, opts.bit_offset);
 
@@ -140,7 +140,6 @@ class TestUnpack : public ::testing::TestWithParam<int> {
     EXPECT_EQ(unpacked, expected);
   }
 
-  template <typename Int>
   void TestUnpackOnes(UnpackFunc<Int> unpack, const UnpackOptions& opts) {
     const auto num_bytes = GetNumBytes(opts.batch_size, opts.bit_width, opts.bit_offset);
 
@@ -161,7 +160,6 @@ class TestUnpack : public ::testing::TestWithParam<int> {
     EXPECT_EQ(unpacked, expected);
   }
 
-  template <typename Int>
   void TestUnpackAlternating(UnpackFunc<Int> unpack, const UnpackOptions& opts) {
     const auto num_bytes = GetNumBytes(opts.batch_size, opts.bit_width, opts.bit_offset);
 
@@ -191,168 +189,136 @@ class TestUnpack : public ::testing::TestWithParam<int> {
     EXPECT_EQ(unpacked, expected);
   }
 
-  template <typename Int>
   void TestAll(UnpackFunc<Int> unpack) {
-    const int num_values_base = GetParam();
+    // There are actually many differences across the different sizes.
+    // It is best to test them all.
+    for (int num_values_base : {64, 128, 2048}) {
+      SCOPED_TRACE(::testing::Message() << "Testing num_values=" << num_values_base);
 
-    constexpr int kMaxBitWidth = std::is_same_v<Int, bool> ? 1 : 8 * sizeof(Int);
+      constexpr int kMaxBitWidth = std::is_same_v<Int, bool> ? 1 : 8 * sizeof(Int);
 
-    // Given how many edge cases there are in unpacking integers, it is best to test all
-    // sizes
-    for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
-      SCOPED_TRACE(::testing::Message() << "Testing bit_width=" << bit_width);
+      // Given how many edge cases there are in unpacking integers, it is best to test all
+      // bit widths.
+      for (int bit_width = 0; bit_width <= kMaxBitWidth; ++bit_width) {
+        SCOPED_TRACE(::testing::Message() << "Testing bit_width=" << bit_width);
 
-      // We test all bit offset within a byte / misalignments to change how the
-      // prolog.
-      for (int bit_offset = 0; bit_offset < 8; ++bit_offset) {
-        SCOPED_TRACE(::testing::Message() << "Testing bit_offset=" << bit_offset);
+        // We test all bit offset within a byte / misalignments to change how the
+        // prolog.
+        for (int bit_offset = 0; bit_offset < 8; ++bit_offset) {
+          SCOPED_TRACE(::testing::Message() << "Testing bit_offset=" << bit_offset);
 
-        const UnpackOptions opts{
-            .batch_size = num_values_base,
-            .bit_width = bit_width,
-            .bit_offset = bit_offset,
-            .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
-        };
+          const UnpackOptions opts{
+              .batch_size = num_values_base,
+              .bit_width = bit_width,
+              .bit_offset = bit_offset,
+              .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
+          };
 
-        // Known values
-        TestUnpackZeros(unpack, opts);
-        TestUnpackOnes(unpack, opts);
-        TestUnpackAlternating(unpack, opts);
+          // Known values
+          TestUnpackZeros(unpack, opts);
+          TestUnpackOnes(unpack, opts);
+          TestUnpackAlternating(unpack, opts);
 
-        // Roundtrips
-        TestRoundtripAlignment(unpack, opts);
+          // Roundtrips
+          TestRoundtripAlignment(unpack, opts);
 
-        if (testing::Test::HasFailure()) return;
-      }
+          if (testing::Test::HasFailure()) return;
+        }
 
-      // Similarly, we test all epilog sizes. That is extra values that could make it
-      // fall outside of an SIMD register
-      for (int epilogue_size = 0; epilogue_size <= kMaxBitWidth; ++epilogue_size) {
-        SCOPED_TRACE(::testing::Message() << "Testing epilog_size=" << epilogue_size);
+        // Similarly, we test all epilog sizes. That is extra values that could make it
+        // fall outside of an SIMD register
+        for (int epilogue_size = 0; epilogue_size <= kMaxBitWidth; ++epilogue_size) {
+          SCOPED_TRACE(::testing::Message() << "Testing epilog_size=" << epilogue_size);
 
-        const int num_values = num_values_base + epilogue_size;
+          const int num_values = num_values_base + epilogue_size;
 
-        const UnpackOptions opts{
-            .batch_size = num_values,
-            .bit_width = bit_width,
-            .bit_offset = 0,
-            .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
-        };
+          const UnpackOptions opts{
+              .batch_size = num_values,
+              .bit_width = bit_width,
+              .bit_offset = 0,
+              .max_read_bytes = -1,  // No over-reading in testing (strict ASAN)
+          };
 
-        // Known values
-        TestUnpackZeros(unpack, opts);
-        TestUnpackOnes(unpack, opts);
-        TestUnpackAlternating(unpack, opts);
+          // Known values
+          TestUnpackZeros(unpack, opts);
+          TestUnpackOnes(unpack, opts);
+          TestUnpackAlternating(unpack, opts);
 
-        // Roundtrips
-        TestRoundtripAlignment(unpack, opts);
+          // Roundtrips
+          TestRoundtripAlignment(unpack, opts);
 
-        if (testing::Test::HasFailure()) return;
+          if (testing::Test::HasFailure()) return;
+        }
       }
     }
   }
 };
 
-// There are actually many differences across the different sizes.
-// It is best to test them all.
-INSTANTIATE_TEST_SUITE_P(UnpackMultiplesOf64Values, TestUnpack,
-                         ::testing::Values(64, 128, 2048),
-                         [](const ::testing::TestParamInfo<TestUnpack::ParamType>& info) {
-                           return "Length" + std::to_string(info.param);
-                         });
+using UnpackTypes = ::testing::Types<bool, uint8_t, uint16_t, uint32_t, uint64_t>;
 
-TEST_P(TestUnpack, UnpackBoolScalar) { this->TestAll(&bpacking::unpack_scalar<bool>); }
-TEST_P(TestUnpack, Unpack8Scalar) { this->TestAll(&bpacking::unpack_scalar<uint8_t>); }
-TEST_P(TestUnpack, Unpack16Scalar) { this->TestAll(&bpacking::unpack_scalar<uint16_t>); }
-TEST_P(TestUnpack, Unpack32Scalar) { this->TestAll(&bpacking::unpack_scalar<uint32_t>); }
-TEST_P(TestUnpack, Unpack64Scalar) { this->TestAll(&bpacking::unpack_scalar<uint64_t>); }
+struct UnpackTypeNames {
+  template <typename T>
+  static std::string GetName(int) {
+    if constexpr (std::is_same_v<T, bool>) return "bool";
+    if constexpr (std::is_same_v<T, uint8_t>) return "uint8_t";
+    if constexpr (std::is_same_v<T, uint16_t>) return "uint16_t";
+    if constexpr (std::is_same_v<T, uint32_t>) return "uint32_t";
+    if constexpr (std::is_same_v<T, uint64_t>) return "uint64_t";
+  }
+};
+
+TYPED_TEST_SUITE(TestUnpack, UnpackTypes, UnpackTypeNames);
+
+TYPED_TEST(TestUnpack, UnpackScalar) {
+  this->TestAll(&bpacking::unpack_scalar<TypeParam>);
+}
 
 #if defined(ARROW_HAVE_SSE4_2)
-TEST_P(TestUnpack, UnpackBoolSse4_2) { this->TestAll(&bpacking::unpack_sse4_2<bool>); }
-TEST_P(TestUnpack, Unpack8Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint8_t>); }
-TEST_P(TestUnpack, Unpack16Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint16_t>); }
-TEST_P(TestUnpack, Unpack32Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint32_t>); }
-TEST_P(TestUnpack, Unpack64Sse4_2) { this->TestAll(&bpacking::unpack_sse4_2<uint64_t>); }
+TYPED_TEST(TestUnpack, UnpackSse4_2) {
+  this->TestAll(&bpacking::unpack_sse4_2<TypeParam>);
+}
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX2)
-TEST_P(TestUnpack, UnpackBoolAvx2) {
+TYPED_TEST(TestUnpack, UnpackAvx2) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
     GTEST_SKIP() << "Test requires AVX2";
   }
-  this->TestAll(&bpacking::unpack_avx2<bool>);
-}
-TEST_P(TestUnpack, Unpack8Avx2) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
-    GTEST_SKIP() << "Test requires AVX2";
-  }
-  this->TestAll(&bpacking::unpack_avx2<uint8_t>);
-}
-TEST_P(TestUnpack, Unpack16Avx2) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
-    GTEST_SKIP() << "Test requires AVX2";
-  }
-  this->TestAll(&bpacking::unpack_avx2<uint16_t>);
-}
-TEST_P(TestUnpack, Unpack32Avx2) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
-    GTEST_SKIP() << "Test requires AVX2";
-  }
-  this->TestAll(&bpacking::unpack_avx2<uint32_t>);
-}
-TEST_P(TestUnpack, Unpack64Avx2) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX2)) {
-    GTEST_SKIP() << "Test requires AVX2";
-  }
-  this->TestAll(&bpacking::unpack_avx2<uint64_t>);
+  this->TestAll(&bpacking::unpack_avx2<TypeParam>);
 }
 #endif
 
 #if defined(ARROW_HAVE_RUNTIME_AVX512)
-TEST_P(TestUnpack, UnpackBoolAvx512) {
+TYPED_TEST(TestUnpack, UnpackAvx512) {
   if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
     GTEST_SKIP() << "Test requires AVX512";
   }
-  this->TestAll(&bpacking::unpack_avx512<bool>);
-}
-TEST_P(TestUnpack, Unpack8Avx512) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
-    GTEST_SKIP() << "Test requires AVX512";
-  }
-  this->TestAll(&bpacking::unpack_avx512<uint8_t>);
-}
-TEST_P(TestUnpack, Unpack16Avx512) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
-    GTEST_SKIP() << "Test requires AVX512";
-  }
-  this->TestAll(&bpacking::unpack_avx512<uint16_t>);
-}
-TEST_P(TestUnpack, Unpack32Avx512) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
-    GTEST_SKIP() << "Test requires AVX512";
-  }
-  this->TestAll(&bpacking::unpack_avx512<uint32_t>);
-}
-TEST_P(TestUnpack, Unpack64Avx512) {
-  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::AVX512)) {
-    GTEST_SKIP() << "Test requires AVX512";
-  }
-  this->TestAll(&bpacking::unpack_avx512<uint64_t>);
+  this->TestAll(&bpacking::unpack_avx512<TypeParam>);
 }
 #endif
 
 #if defined(ARROW_HAVE_NEON)
-TEST_P(TestUnpack, UnpackBoolNeon) { this->TestAll(&bpacking::unpack_neon<bool>); }
-TEST_P(TestUnpack, Unpack8Neon) { this->TestAll(&bpacking::unpack_neon<uint8_t>); }
-TEST_P(TestUnpack, Unpack16Neon) { this->TestAll(&bpacking::unpack_neon<uint16_t>); }
-TEST_P(TestUnpack, Unpack32Neon) { this->TestAll(&bpacking::unpack_neon<uint32_t>); }
-TEST_P(TestUnpack, Unpack64Neon) { this->TestAll(&bpacking::unpack_neon<uint64_t>); }
+TYPED_TEST(TestUnpack, UnpackNeon) { this->TestAll(&bpacking::unpack_neon<TypeParam>); }
 #endif
 
-TEST_P(TestUnpack, UnpackBool) { this->TestAll(&unpack<bool>); }
-TEST_P(TestUnpack, Unpack8) { this->TestAll(&unpack<uint8_t>); }
-TEST_P(TestUnpack, Unpack16) { this->TestAll(&unpack<uint16_t>); }
-TEST_P(TestUnpack, Unpack32) { this->TestAll(&unpack<uint32_t>); }
-TEST_P(TestUnpack, Unpack64) { this->TestAll(&unpack<uint64_t>); }
+#if defined(ARROW_HAVE_RUNTIME_SVE128)
+TYPED_TEST(TestUnpack, UnpackSve128) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE128)) {
+    GTEST_SKIP() << "Test requires SVE128";
+  }
+  this->TestAll(&bpacking::unpack_sve128<TypeParam>);
+}
+#endif
+
+#if defined(ARROW_HAVE_RUNTIME_SVE256)
+TYPED_TEST(TestUnpack, UnpackSve256) {
+  if (!CpuInfo::GetInstance()->IsSupported(CpuInfo::SVE256)) {
+    GTEST_SKIP() << "Test requires SVE256";
+  }
+  this->TestAll(&bpacking::unpack_sve256<TypeParam>);
+}
+#endif
+
+TYPED_TEST(TestUnpack, Unpack) { this->TestAll(&unpack<TypeParam>); }
 
 }  // namespace arrow::internal

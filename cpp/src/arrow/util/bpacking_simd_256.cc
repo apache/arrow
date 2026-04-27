@@ -15,6 +15,18 @@
 // specific language governing permissions and limitations
 // under the License.
 
+#if defined(ARROW_HAVE_SVE256) || defined(ARROW_HAVE_RUNTIME_SVE256)
+#  define UNPACK_PLATFORM unpack_sve256
+#  define KERNEL_PLATFORM KernelSve256
+#elif defined(ARROW_HAVE_RUNTIME_AVX2)
+#  define UNPACK_PLATFORM unpack_avx2
+#  define KERNEL_PLATFORM KernelAvx2
+#endif
+
+#if !defined(UNPACK_PLATFORM)
+#  error "This file must be compiled with a known SIMD micro architecture"
+#endif
+
 #include "arrow/util/bpacking_dispatch_internal.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/bpacking_simd_internal.h"
@@ -23,17 +35,19 @@
 namespace arrow::internal::bpacking {
 
 template <typename UnpackedUint, int kPackedBitSize>
-using Simd256Kernel = Kernel<UnpackedUint, kPackedBitSize, 256>;
+using KERNEL_PLATFORM = Kernel<UnpackedUint, kPackedBitSize, xsimd::default_arch>;
 
 template <typename Uint>
-void unpack_avx2(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-  return unpack_jump<Simd256Kernel>(in, out, opts);
+void UNPACK_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
+  return unpack_jump<KERNEL_PLATFORM>(in, out, opts);
 }
 
-template void unpack_avx2<bool>(const uint8_t*, bool*, const UnpackOptions&);
-template void unpack_avx2<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
-template void unpack_avx2<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
-template void unpack_avx2<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
-template void unpack_avx2<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint8_t>(const uint8_t*, uint8_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint16_t>(const uint8_t*, uint16_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint32_t>(const uint8_t*, uint32_t*, const UnpackOptions&);
+template void UNPACK_PLATFORM<uint64_t>(const uint8_t*, uint64_t*, const UnpackOptions&);
 
 }  // namespace arrow::internal::bpacking
+
+#undef UNPACK_PLATFORM

@@ -17,8 +17,10 @@
 
 #if defined(ARROW_HAVE_NEON)
 #  define UNPACK_PLATFORM unpack_neon
+#  define KERNEL_PLATFORM KernelNeon
 #elif defined(ARROW_HAVE_SSE4_2)
 #  define UNPACK_PLATFORM unpack_sse4_2
+#  define KERNEL_PLATFORM KernelSse42
 #endif
 
 #if defined(UNPACK_PLATFORM)
@@ -30,11 +32,11 @@
 namespace arrow::internal::bpacking {
 
 template <typename UnpackedUint, int kPackedBitSize>
-using Simd128Kernel = Kernel<UnpackedUint, kPackedBitSize, 128>;
+using KERNEL_PLATFORM = Kernel<UnpackedUint, kPackedBitSize, xsimd::default_arch>;
 
 template <typename Uint>
 void UNPACK_PLATFORM(const uint8_t* in, Uint* out, const UnpackOptions& opts) {
-  return unpack_jump<Simd128Kernel>(in, out, opts);
+  return unpack_jump<KERNEL_PLATFORM>(in, out, opts);
 }
 
 template void UNPACK_PLATFORM<bool>(const uint8_t*, bool*, const UnpackOptions&);

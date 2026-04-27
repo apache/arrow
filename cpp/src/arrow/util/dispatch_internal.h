@@ -23,8 +23,7 @@
 #include "arrow/status.h"
 #include "arrow/util/cpu_info.h"
 
-namespace arrow {
-namespace internal {
+namespace arrow::internal {
 
 enum class DispatchLevel : int {
   // These dispatch levels, corresponding to instruction set features,
@@ -34,6 +33,9 @@ enum class DispatchLevel : int {
   AVX2,
   AVX512,
   NEON,
+  SVE128,
+  SVE256,
+  SVE512,
   MAX
 };
 
@@ -106,11 +108,18 @@ class DynamicDispatch {
         return cpu_info->IsSupported(CpuInfo::AVX2);
       case DispatchLevel::AVX512:
         return cpu_info->IsSupported(CpuInfo::AVX512);
+      case DispatchLevel::NEON:
+        return cpu_info->IsSupported(CpuInfo::ASIMD);
+      case DispatchLevel::SVE128:
+        return cpu_info->IsSupported(CpuInfo::SVE128);
+      case DispatchLevel::SVE256:
+        return cpu_info->IsSupported(CpuInfo::SVE256);
+      case DispatchLevel::SVE512:
+        return cpu_info->IsSupported(CpuInfo::SVE512);
       default:
         return false;
     }
   }
 };
 
-}  // namespace internal
-}  // namespace arrow
+}  // namespace arrow::internal
