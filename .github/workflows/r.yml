@@ -286,9 +286,7 @@ jobs:
         run: |
           # RTools 40 uses GCC 8.x which does not support C++20 chrono timezones,
           # so Arrow uses the vendored date library which requires tzdata
-
-          # TESTING: Use this workflow to fake an env without tzdata
-          # ci/scripts/download_tz_database.sh
+          ci/scripts/download_tz_database.sh
       - run: mkdir r/windows
       - name: Download artifacts
         uses: actions/download-artifact@v8
