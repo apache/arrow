@@ -787,7 +787,7 @@ def _reconstruct_block(item, columns=None, extension_columns=None, return_block=
 def make_datetimetz(unit, tz):
     if _pandas_api.is_v1():
         unit = 'ns'  # ARROW-3789: Coerce date/timestamp types to datetime64[ns]
-    tz = pa.lib.string_to_tzinfo(tz)
+    tz = pa.lib.string_to_tzinfo(tz, prefer_zoneinfo=_pandas_api.is_ge_v3())
     return _pandas_api.datetimetz_type(unit, tz=tz)
 
 
@@ -1183,7 +1183,8 @@ def _reconstruct_columns_from_metadata(columns, column_indexes):
         # ARROW-13756: if index is timezone aware DataTimeIndex
         elif pandas_dtype == "datetimetz":
             tz = pa.lib.string_to_tzinfo(
-                column_indexes[0]['metadata']['timezone'])
+                column_indexes[0]['metadata']['timezone'],
+                prefer_zoneinfo=_pandas_api.is_ge_v3())
             level = pd.to_datetime(level, utc=True).tz_convert(tz)
             if _pandas_api.is_ge_v3():
                 # with pandas 3+, to_datetime returns a unit depending on the string
@@ -1289,7 +1290,7 @@ def make_tz_aware(series, tz):
     """
     Make a datetime64 Series timezone-aware for the given tz
     """
-    tz = pa.lib.string_to_tzinfo(tz)
+    tz = pa.lib.string_to_tzinfo(tz, prefer_zoneinfo=_pandas_api.is_ge_v3())
     series = (series.dt.tz_localize('utc')
                     .dt.tz_convert(tz))
     return series

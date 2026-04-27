@@ -822,7 +822,14 @@ cdef class TimestampScalar(Scalar):
             return None
 
         if not dtype.timezone().empty():
-            tzinfo = string_to_tzinfo(frombytes(dtype.timezone()))
+            prefer_zoneinfo = True
+            # only we this method would return a pandas.Timestamp, prefer
+            # zoneinfo depending on the pandas version
+            if _pandas_api.have_pandas and dtype.unit() == TimeUnit_NANO:
+                prefer_zoneinfo = _pandas_api.is_ge_v3()
+            tzinfo = string_to_tzinfo(
+                frombytes(dtype.timezone()), prefer_zoneinfo=prefer_zoneinfo
+            )
         else:
             tzinfo = None
 
