@@ -276,8 +276,8 @@ class RunEndEncodedValuesAccessor {
         array_span_(*array.data()),
         absolute_offset_(array.offset() + logical_offset),
         logical_length_(logical_length),
-        physical_range_(ree_util::FindPhysicalRange(
-            array_span_, absolute_offset_, logical_length_)) {}
+        physical_range_(ree_util::FindPhysicalRange(array_span_, absolute_offset_,
+                                                    logical_length_)) {}
 
   /// Return the number of physical runs used as the search domain.
   int64_t length() const { return physical_range_.second; }
@@ -289,8 +289,8 @@ class RunEndEncodedValuesAccessor {
   }
 
   ValueType LogicalValue(int64_t index) const {
-    const auto physical_index = ree_util::FindPhysicalIndex(array_span_, index,
-                                                            absolute_offset_);
+    const auto physical_index =
+        ree_util::FindPhysicalIndex(array_span_, index, absolute_offset_);
     return GetViewType<ArrowType>::LogicalValue(values_.GetView(physical_index));
   }
 
@@ -311,10 +311,10 @@ class RunEndEncodedValuesAccessor {
 
  private:
   int64_t LogicalRunEnd(int64_t physical_index) const {
-    const int64_t logical_run_end =
-        std::max<int64_t>(GetRunEndValue(ree_util::RunEndsArray(array_span_), physical_index) -
-                              absolute_offset_,
-                          0);
+    const int64_t logical_run_end = std::max<int64_t>(
+        GetRunEndValue(ree_util::RunEndsArray(array_span_), physical_index) -
+            absolute_offset_,
+        0);
     return std::min(logical_run_end, logical_length_);
   }
 
@@ -385,8 +385,8 @@ class ChunkedRunEndEncodedValuesAccessor {
 
     for (const auto& chunk : chunked_array_.chunks()) {
       const int64_t chunk_logical_end = chunk_logical_start + chunk->length();
-      const int64_t local_offset = std::max<int64_t>(logical_offset, chunk_logical_start) -
-                                   chunk_logical_start;
+      const int64_t local_offset =
+          std::max<int64_t>(logical_offset, chunk_logical_start) - chunk_logical_start;
       const int64_t local_end =
           std::min<int64_t>(logical_end, chunk_logical_end) - chunk_logical_start;
       const int64_t local_length = local_end - local_offset;
@@ -440,7 +440,8 @@ class ChunkedRunEndEncodedValuesAccessor {
     DCHECK_LT(index, total_run_count_);
     const auto it = std::upper_bound(run_offsets_.begin(), run_offsets_.end(), index);
     DCHECK_NE(it, run_offsets_.begin());
-    const auto chunk_index = static_cast<size_t>(std::distance(run_offsets_.begin(), it) - 1);
+    const auto chunk_index =
+        static_cast<size_t>(std::distance(run_offsets_.begin(), it) - 1);
     return {chunk_index, index - run_offsets_[chunk_index]};
   }
 
@@ -492,10 +493,9 @@ inline Result<NonNullValuesRange> MakeNonNullValuesRangeFromNullPlacement(
 }
 
 inline const std::shared_ptr<Array>* FindFirstNonEmptyChunk(const ChunkedArray& values) {
-  const auto it =
-      std::ranges::find_if(values.chunks(), [](const std::shared_ptr<Array>& chunk) {
-        return chunk->length() != 0;
-      });
+  const auto it = std::ranges::find_if(
+      values.chunks(),
+      [](const std::shared_ptr<Array>& chunk) { return chunk->length() != 0; });
   return it == values.chunks().end() ? nullptr : &*it;
 }
 
@@ -515,8 +515,8 @@ inline int64_t GetLogicalNullCount(const ChunkedArray& values) {
   }
 
   auto chunk_null_counts = values.chunks() | std::views::transform([](const auto& chunk) {
-                            return GetLogicalNullCount(*chunk->data());
-                          });
+                             return GetLogicalNullCount(*chunk->data());
+                           });
   return std::reduce(chunk_null_counts.begin(), chunk_null_counts.end(), int64_t{0});
 }
 
@@ -530,8 +530,8 @@ class NonNullValuesAccessor {
                                  const NonNullValuesRange& non_null_values_range)
       : values_(values),
         offset_(non_null_values_range.offset),
-  length_(non_null_values_range.length),
-  base_insertion_index_(values_.LogicalInsertionIndex(offset_)) {}
+        length_(non_null_values_range.length),
+        base_insertion_index_(values_.LogicalInsertionIndex(offset_)) {}
 
   /// Return the number of accessible non-null values.
   int64_t length() const noexcept { return length_; }
@@ -854,8 +854,7 @@ Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
 
   if (needles.is_chunked_array()) {
     for (const auto& chunk : needles.chunked_array()->chunks()) {
-      ARROW_RETURN_NOT_OK(
-          (VisitNeedleRuns<ArrowType, EmitNulls>(Datum(chunk), visitor)));
+      ARROW_RETURN_NOT_OK((VisitNeedleRuns<ArrowType, EmitNulls>(Datum(chunk), visitor)));
     }
     return Status::OK();
   }
@@ -881,7 +880,8 @@ Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
 /// sharing the same EmitInsertionIndices traversal used by the nullable path.
 class PreallocatedInsertionIndexOutput {
  public:
-  explicit PreallocatedInsertionIndexOutput(uint64_t* out_values) : out_values_(out_values) {}
+  explicit PreallocatedInsertionIndexOutput(uint64_t* out_values)
+      : out_values_(out_values) {}
 
   Status AppendValue(uint64_t insertion_index, int64_t run_length) {
     std::ranges::fill(
@@ -923,10 +923,10 @@ class BuilderInsertionIndexOutput {
 /// the preallocated no-null fast path and the builder-backed nullable path.
 template <typename ArrowType, bool EmitNulls, typename ValuesAccessor, typename Output>
 Status EmitInsertionIndices(const ValuesAccessor& sorted_values, const Datum& needles,
-                            SearchSortedOptions::Side side,
-                            uint64_t insertion_offset, Output* output) {
-  auto emit_search_result =
-      [&](const VisitedNeedle<ArrowType, EmitNulls>& needle, int64_t run_length) -> Status {
+                            SearchSortedOptions::Side side, uint64_t insertion_offset,
+                            Output* output) {
+  auto emit_search_result = [&](const VisitedNeedle<ArrowType, EmitNulls>& needle,
+                                int64_t run_length) -> Status {
     if constexpr (EmitNulls) {
       if (!needle.has_value()) {
         return output->AppendNulls(run_length);
@@ -961,7 +961,7 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
     }
 
     const auto insertion_index = FindLogicalInsertionIndex<ArrowType>(
-      sorted_values, ExtractScalarValue<ArrowType>(*scalar), side, insertion_offset);
+        sorted_values, ExtractScalarValue<ArrowType>(*scalar), side, insertion_offset);
     return Datum(std::make_shared<UInt64Scalar>(insertion_index));
   }
 
@@ -1096,7 +1096,8 @@ class SearchSortedMetaFunction : public MetaFunction {
   }
 
  private:
-  [[nodiscard]] Result<NonNullValuesRange> FindNonNullValuesRange(const Datum& values) const {
+  [[nodiscard]] Result<NonNullValuesRange> FindNonNullValuesRange(
+      const Datum& values) const {
     if (values.is_chunked_array()) {
       return ::arrow::compute::internal::FindNonNullValuesRange(*values.chunked_array());
     }
