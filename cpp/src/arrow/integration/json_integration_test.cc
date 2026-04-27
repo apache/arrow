@@ -927,7 +927,7 @@ TEST(TestJsonArrayWriter, NestedTypes) {
 
 TEST(TestJsonArrayWriter, Unions) {
   std::shared_ptr<RecordBatch> batch;
-  ASSERT_OK(MakeUnion(&batch));
+  ASSERT_OK(ipc::test::MakeUnion(&batch));
 
   for (int i = 0; i < batch->num_columns(); ++i) {
     TestArrayRoundTrip(*batch->column(i));
@@ -1200,7 +1200,7 @@ const std::vector<ipc::test::MakeRecordBatch*> kBatchCases = {
     &MakeDeeplyNestedListView,
     &MakeStringTypesRecordBatchWithNulls,
     &MakeStruct,
-    &MakeUnion,
+    &ipc::test::MakeUnion,
     &MakeDictionary,
     &MakeNestedDictionary,
     &MakeMap,
