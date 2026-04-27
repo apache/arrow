@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <memory>
+#include <numeric>
 #include <optional>
 #include <ranges>
 #include <span>
@@ -72,20 +73,25 @@ const FunctionDoc search_sorted_doc(
 // Arrow input shapes and then runs one typed binary-search core on logical
 // values.
 //
-// Plain arrays, run-end encoded arrays, and scalar needles are all
-// adapted into the same accessor and visitor model so the search logic does
-// not care about physical layout.
+// Plain arrays, run-end encoded arrays, chunked arrays, and scalar needles are
+// all adapted into a common accessor and run-visitor model so the search logic
+// does not care about physical layout.
 //
-// After validation, the kernel isolates the contiguous non-null window of the searched
-// values, because nulls are only supported when clustered at one end.
-// Needles are then visited either as single values or as logical runs, and each non-null
-// needle is resolved with a lower-bound or upper-bound binary search over the sorted
-// non-null range.
+// After validation, the kernel isolates the contiguous non-null window of the
+// searched values, because nulls are only supported when clustered at one end.
+// That window uses logical null counting for run-end encoded inputs, whose
+// nulls live in the values child rather than in a top-level validity bitmap.
 //
-// Output materialization is split by null handling: non-null-only needles write directly
-// into a preallocated uint64 buffer, while nullable needles append null and non-null
-// spans through a UInt64Builder. That builder path is optimized for repeated runs by
-// bulk-filling reserved memory instead of appending one insertion index at a time.
+// Needles are then visited as logical runs. Scalars become a single run, plain
+// arrays become one-element runs, and run-end encoded inputs preserve their
+// logical run lengths. Each non-null needle run is resolved with a lower-bound
+// or upper-bound binary search over the sorted non-null range.
+//
+// Output materialization is unified behind small output sinks. Non-null-only
+// needles write directly into a preallocated uint64 buffer, while nullable
+// needles append null and non-null runs through a UInt64Builder. The builder
+// path is optimized for repeated runs by bulk-filling reserved memory instead
+// of appending one insertion index at a time.
 //
 // High-level flow:
 //
@@ -99,7 +105,11 @@ const FunctionDoc search_sorted_doc(
 //             |
 //             +--> PlainArrayAccessor
 //             |
-//             `--> RunEndEncodedValuesAccessor
+//             +--> RunEndEncodedValuesAccessor
+//             |
+//             +--> ChunkedArrayAccessor
+//             |
+//             `--> ChunkedRunEndEncodedValuesAccessor
 //
 //   needles datum
 //       |
@@ -107,15 +117,17 @@ const FunctionDoc search_sorted_doc(
 //       |
 //       +--> DatumHasNulls
 //       |
-//       `--> VisitNeedles
+//       `--> VisitNeedleRuns
 //             |
-//             +--> scalar needle -> one logical span
+//             +--> scalar needle  -> one logical run
 //             |
-//             +--> plain array   -> one span per element
+//             +--> plain array    -> one-element runs
 //             |
-//             `--> REE array     -> one span per logical run
+//             +--> REE array      -> one logical run per encoded run
+//             |
+//             `--> chunked input  -> recurse chunk by chunk
 //
-//   normalized values accessor + normalized needle spans
+//   normalized values accessor + normalized needle runs
 //       |
 //       `--> FindInsertionPoint<T>
 //             |
@@ -126,11 +138,13 @@ const FunctionDoc search_sorted_doc(
 //   result materialization
 //       |
 //       +--> no needle nulls
-//       |     `--> MakeMutableUInt64Array
+//       |     +--> MakeMutableUInt64Array
+//       |     `--> PreallocatedInsertionIndexOutput
 //       |           `--> fill output buffer directly
 //       |
 //       `--> nullable needles
-//             `--> UInt64Builder
+//             +--> UInt64Builder
+//             `--> BuilderInsertionIndexOutput
 //                   +--> AppendNulls for null runs
 //                   `--> bulk fill + UnsafeAdvance for repeated indices
 //
@@ -316,18 +330,25 @@ class RunEndEncodedValuesAccessor {
 template <typename ArrowType>
 class ChunkedArrayAccessor {
  public:
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
   using ValueType = SearchValue<ArrowType>;
 
   explicit ChunkedArrayAccessor(const ChunkedArray& chunked_array)
-      : chunked_array_(chunked_array), resolver_(chunked_array.chunks()) {}
+      : chunked_array_(chunked_array), resolver_(chunked_array.chunks()) {
+    chunks_.reserve(static_cast<size_t>(chunked_array_.num_chunks()));
+    for (const auto& chunk : chunked_array_.chunks()) {
+      DCHECK_NE(chunk->type_id(), Type::RUN_END_ENCODED);
+      chunks_.emplace_back(chunk->data());
+    }
+  }
 
   int64_t length() const { return chunked_array_.length(); }
 
   ValueType Value(int64_t index) const {
     const auto location = resolver_.Resolve(index);
     DCHECK_LT(location.chunk_index, chunked_array_.num_chunks());
-    return ReadChunkValue(chunked_array_.chunk(static_cast<int>(location.chunk_index)),
-                          location.index_in_chunk);
+    return GetViewType<ArrowType>::LogicalValue(
+        chunks_[location.chunk_index].GetView(location.index_in_chunk));
   }
 
   uint64_t LogicalInsertionIndex(int64_t index) const {
@@ -335,15 +356,9 @@ class ChunkedArrayAccessor {
   }
 
  private:
-  static ValueType ReadChunkValue(const std::shared_ptr<Array>& chunk, int64_t index) {
-
-    DCHECK_NE(chunk->type_id(), Type::RUN_END_ENCODED);
-    PlainArrayAccessor<ArrowType> values_accessor(chunk->data());
-    return values_accessor.Value(index);
-  }
-
   const ChunkedArray& chunked_array_;
   ChunkResolver resolver_;
+  std::vector<ArrayType> chunks_;
 };
 
 template <typename ArrowType>
@@ -484,6 +499,27 @@ inline const std::shared_ptr<Array>* FindFirstNonEmptyChunk(const ChunkedArray& 
   return it == values.chunks().end() ? nullptr : &*it;
 }
 
+inline int64_t GetLogicalNullCount(const ArrayData& values) {
+  if (!values.MayHaveLogicalNulls()) {
+    return 0;
+  }
+  if (values.type->id() == Type::RUN_END_ENCODED) {
+    return values.ComputeLogicalNullCount();
+  }
+  return values.GetNullCount();
+}
+
+inline int64_t GetLogicalNullCount(const ChunkedArray& values) {
+  if (values.type()->id() != Type::RUN_END_ENCODED) {
+    return values.null_count();
+  }
+
+  auto chunk_null_counts = values.chunks() | std::views::transform([](const auto& chunk) {
+                            return GetLogicalNullCount(*chunk->data());
+                          });
+  return std::reduce(chunk_null_counts.begin(), chunk_null_counts.end(), int64_t{0});
+}
+
 /// Present a contiguous non-null slice of the searched values through the same
 /// accessor interface as the original values container.
 template <typename ValuesAccessor>
@@ -494,7 +530,8 @@ class NonNullValuesAccessor {
                                  const NonNullValuesRange& non_null_values_range)
       : values_(values),
         offset_(non_null_values_range.offset),
-        length_(non_null_values_range.length) {}
+  length_(non_null_values_range.length),
+  base_insertion_index_(values_.LogicalInsertionIndex(offset_)) {}
 
   /// Return the number of accessible non-null values.
   int64_t length() const noexcept { return length_; }
@@ -503,14 +540,14 @@ class NonNullValuesAccessor {
   auto Value(int64_t index) const { return values_.Value(offset_ + index); }
 
   uint64_t LogicalInsertionIndex(int64_t index) const {
-    return values_.LogicalInsertionIndex(offset_ + index) -
-           values_.LogicalInsertionIndex(offset_);
+    return values_.LogicalInsertionIndex(offset_ + index) - base_insertion_index_;
   }
 
  private:
   const ValuesAccessor& values_;
   int64_t offset_;
   int64_t length_;
+  uint64_t base_insertion_index_;
 };
 
 /// Return the logical type of a datum, unwrapping run-end encoding when present.
@@ -568,7 +605,7 @@ inline Status ValidateRunEndEncodedLogicalValueType(const DataType& type,
 inline Result<NonNullValuesRange> FindNonNullValuesRange(const ArrayData& values) {
   NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length};
 
-  const auto null_count = values.GetNullCount();
+  const auto null_count = GetLogicalNullCount(values);
   if (null_count == 0) {
     return non_null_values_range;
   }
@@ -611,7 +648,7 @@ inline Status ValidateNeedleInput(const Datum& datum) {
 inline Result<NonNullValuesRange> FindNonNullValuesRange(const ChunkedArray& values) {
   NonNullValuesRange non_null_values_range{.offset = 0, .length = values.length()};
 
-  const auto null_count = values.null_count();
+  const auto null_count = GetLogicalNullCount(values);
   if (null_count == 0) {
     return non_null_values_range;
   }
@@ -752,16 +789,15 @@ VisitedNeedle<ArrowType, EmitNulls> ReadVisitedNeedle(const ArrayType& array,
   return MakeVisitedNeedle<ArrowType, EmitNulls>(needle);
 }
 
-/// Visit each plain-array needle as a single-value logical span.
+/// Visit each plain-array needle as single-element logical runs.
 template <typename ArrowType, bool EmitNulls, typename Visitor>
-Status VisitArrayNeedles(const std::shared_ptr<ArrayData>& needles_data,
-                         Visitor&& visitor) {
+Status VisitArrayNeedleRuns(const std::shared_ptr<ArrayData>& needles_data,
+                            Visitor&& visitor) {
   using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
 
   ArrayType array(needles_data);
   for (int64_t index = 0; index < array.length(); ++index) {
-    RETURN_NOT_OK(
-        visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(array, index), index, index + 1));
+    RETURN_NOT_OK(visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(array, index), 1));
   }
   return Status::OK();
 }
@@ -801,19 +837,27 @@ Status VisitRunEndEncodedNeedleValues(const RunEndEncodedArray& needles,
   return Status::OK();
 }
 
-/// Visit scalar, plain-array, or run-end encoded needles through a uniform
-/// callback interface of [begin, end) logical spans.
+/// Visit scalar, plain-array, run-end encoded, or chunked needles through a
+/// uniform callback interface of logical run lengths.
 template <typename ArrowType, bool EmitNulls, typename Visitor>
-Status VisitNeedles(const Datum& needles, Visitor&& visitor) {
+Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
   if (needles.is_scalar()) {
     if constexpr (EmitNulls) {
       if (!needles.scalar()->is_valid) {
-        return visitor(std::optional<SearchValue<ArrowType>>{}, 0, 1);
+        return visitor(std::optional<SearchValue<ArrowType>>{}, 1);
       }
     }
     return visitor(MakeVisitedNeedle<ArrowType, EmitNulls>(
                        ExtractScalarValue<ArrowType>(*needles.scalar())),
-                   0, 1);
+                   1);
+  }
+
+  if (needles.is_chunked_array()) {
+    for (const auto& chunk : needles.chunked_array()->chunks()) {
+      ARROW_RETURN_NOT_OK(
+          (VisitNeedleRuns<ArrowType, EmitNulls>(Datum(chunk), visitor)));
+    }
+    return Status::OK();
   }
 
   const auto& needle_data = needles.array();
@@ -822,113 +866,86 @@ Status VisitNeedles(const Datum& needles, Visitor&& visitor) {
     return DispatchRunEndEncodedByRunEndType<Status>(
         ree, "needles",
         [&]<typename RunEndCType>(const RunEndEncodedArray& run_end_encoded_needles) {
-          return VisitRunEndEncodedNeedleRuns<ArrowType, RunEndCType, EmitNulls>(
+          return VisitRunEndEncodedNeedleValues<ArrowType, RunEndCType, EmitNulls>(
               run_end_encoded_needles, visitor);
         });
   }
 
-  return VisitArrayNeedles<ArrowType, EmitNulls>(needle_data, visitor);
+  return VisitArrayNeedleRuns<ArrowType, EmitNulls>(needle_data, visitor);
 }
 
-/// Search all needle values and write insertion indices into the preallocated output.
-template <typename ArrowType, typename ValuesAccessor>
-Status SearchNeedleValues(const ValuesAccessor& sorted_values, const Datum& needles,
-                          SearchSortedOptions::Side side, uint64_t insertion_offset,
-                          uint64_t* out) {
-  if (needles.is_chunked_array()) {
-    int64_t chunk_offset = 0;
-    for (const auto& chunk : needles.chunked_array()->chunks()) {
-      RETURN_NOT_OK(SearchNeedleValues<ArrowType>(sorted_values, Datum(chunk), side,
-                                                  insertion_offset, out + chunk_offset));
-      chunk_offset += chunk->length();
+/// Output sink for the no-null needle path.
+///
+/// This preserves the cheapest materialization strategy: write repeated
+/// insertion indices directly into the preallocated result buffer, while still
+/// sharing the same EmitInsertionIndices traversal used by the nullable path.
+class PreallocatedInsertionIndexOutput {
+ public:
+  explicit PreallocatedInsertionIndexOutput(uint64_t* out_values) : out_values_(out_values) {}
+
+  Status AppendValue(uint64_t insertion_index, int64_t run_length) {
+    std::ranges::fill(
+        std::span<uint64_t>(out_values_ + length_, static_cast<size_t>(run_length)),
+        insertion_index);
+    length_ += run_length;
+    return Status::OK();
+  }
+
+ private:
+  uint64_t* out_values_;
+  int64_t length_ = 0;
+};
+
+/// Output sink for the nullable needle path.
+///
+/// This keeps null emission and repeated-value appends behind the same output
+/// interface as the preallocated fast path, so the search loop itself does not
+/// need separate nullable and non-null implementations.
+class BuilderInsertionIndexOutput {
+ public:
+  explicit BuilderInsertionIndexOutput(UInt64Builder* builder) : builder_(builder) {}
+
+  Status AppendNulls(int64_t run_length) { return builder_->AppendNulls(run_length); }
+
+  Status AppendValue(uint64_t insertion_index, int64_t run_length) {
+    AppendInsertionIndex(*builder_, insertion_index, run_length);
+    return Status::OK();
+  }
+
+ private:
+  UInt64Builder* builder_;
+};
+
+/// Visit normalized needle runs and emit insertion indices through an output
+/// policy object.
+///
+/// The output sink abstraction keeps the binary-search traversal shared between
+/// the preallocated no-null fast path and the builder-backed nullable path.
+template <typename ArrowType, bool EmitNulls, typename ValuesAccessor, typename Output>
+Status EmitInsertionIndices(const ValuesAccessor& sorted_values, const Datum& needles,
+                            SearchSortedOptions::Side side,
+                            uint64_t insertion_offset, Output* output) {
+  auto emit_search_result =
+      [&](const VisitedNeedle<ArrowType, EmitNulls>& needle, int64_t run_length) -> Status {
+    if constexpr (EmitNulls) {
+      if (!needle.has_value()) {
+        return output->AppendNulls(run_length);
+      }
     }
-    return Status::OK();
-  }
 
-  if (needles.array()->type->id() == Type::RUN_END_ENCODED) {
-    RunEndEncodedArray ree(needles.array());
-    int64_t out_offset = 0;
-    return DispatchRunEndEncodedByRunEndType<Status>(
-        ree, "needles",
-        [&]<typename RunEndCType>(const RunEndEncodedArray& run_end_encoded_needles) {
-          auto emit_search_result = [&](const SearchValue<ArrowType>& needle,
-                                        int64_t run_length) -> Status {
-            const auto insertion_index = FindLogicalInsertionIndex<ArrowType>(
-                sorted_values, needle, side, insertion_offset);
-            std::ranges::fill(
-                std::span<uint64_t>(out + out_offset, static_cast<size_t>(run_length)),
-                insertion_index);
-            out_offset += run_length;
-            return Status::OK();
-          };
-
-          return VisitRunEndEncodedNeedleValues<ArrowType, RunEndCType, false>(
-              run_end_encoded_needles, emit_search_result);
-        });
-  }
-
-  auto emit_search_result = [&](const SearchValue<ArrowType>& needle, int64_t begin,
-                                int64_t end) -> Status {
-    const auto insertion_index = FindLogicalInsertionIndex<ArrowType>(
-        sorted_values, needle, side, insertion_offset);
-    std::ranges::fill(std::span<uint64_t>(out + begin, static_cast<size_t>(end - begin)),
-                      insertion_index);
-    return Status::OK();
+    const auto insertion_index = [&] {
+      if constexpr (EmitNulls) {
+        return FindLogicalInsertionIndex<ArrowType>(sorted_values, *needle, side,
+                                                    insertion_offset);
+      } else {
+        return FindLogicalInsertionIndex<ArrowType>(sorted_values, needle, side,
+                                                    insertion_offset);
+      }
+    }();
+    return output->AppendValue(insertion_index, run_length);
   };
 
-  return VisitNeedles<ArrowType, false>(needles, emit_search_result);
-}
-
-/// Search needle values while emitting nulls for null needles.
-template <typename ArrowType, typename ValuesAccessor>
-Status AppendInsertionIndicesWithNulls(const ValuesAccessor& sorted_values,
-                                       const Datum& needles,
-                                       SearchSortedOptions::Side side,
-                                       uint64_t insertion_offset,
-                                       UInt64Builder& builder) {
-  if (needles.is_chunked_array()) {
-    for (const auto& chunk : needles.chunked_array()->chunks()) {
-      RETURN_NOT_OK(AppendInsertionIndicesWithNulls<ArrowType>(
-          sorted_values, Datum(chunk), side, insertion_offset, builder));
-    }
-    return Status::OK();
-  }
-
-  if (needles.array()->type->id() == Type::RUN_END_ENCODED) {
-    RunEndEncodedArray ree(needles.array());
-    return DispatchRunEndEncodedByRunEndType<Status>(
-        ree, "needles",
-        [&]<typename RunEndCType>(const RunEndEncodedArray& run_end_encoded_needles) {
-          auto emit_search_result =
-              [&](const std::optional<SearchValue<ArrowType>>& needle,
-                  int64_t run_length) -> Status {
-            if (!needle.has_value()) {
-              return builder.AppendNulls(run_length);
-            }
-            const auto insertion_index = FindLogicalInsertionIndex<ArrowType>(
-                sorted_values, *needle, side, insertion_offset);
-            AppendInsertionIndex(builder, insertion_index, run_length);
-            return Status::OK();
-          };
-
-          return VisitRunEndEncodedNeedleValues<ArrowType, RunEndCType, true>(
-              run_end_encoded_needles, emit_search_result);
-        });
-  }
-
-  auto emit_search_result = [&](const std::optional<SearchValue<ArrowType>>& needle,
-                                int64_t begin, int64_t end) -> Status {
-    const auto span_length = end - begin;
-    if (!needle.has_value()) {
-      return builder.AppendNulls(span_length);
-    }
-    const auto insertion_index = FindLogicalInsertionIndex<ArrowType>(
-        sorted_values, *needle, side, insertion_offset);
-    AppendInsertionIndex(builder, insertion_index, span_length);
-    return Status::OK();
-  };
-
-  return VisitNeedles<ArrowType, true>(needles, emit_search_result);
+  return VisitNeedleRuns<ArrowType, EmitNulls>(needles, emit_search_result);
 }
 
 /// Materialize output for scalar or array needles.
@@ -951,8 +968,9 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
   if (DatumHasNulls(needles)) {
     UInt64Builder builder(ctx->memory_pool());
     ARROW_RETURN_NOT_OK(builder.Reserve(needles.length()));
-    RETURN_NOT_OK(AppendInsertionIndicesWithNulls<ArrowType>(sorted_values, needles, side,
-                                                             insertion_offset, builder));
+    BuilderInsertionIndexOutput output(&builder);
+    ARROW_RETURN_NOT_OK((EmitInsertionIndices<ArrowType, true>(
+        sorted_values, needles, side, insertion_offset, &output)));
     ARROW_ASSIGN_OR_RAISE(auto out, builder.Finish());
     return Datum(std::move(out));
   }
@@ -960,9 +978,10 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
   ARROW_ASSIGN_OR_RAISE(auto out,
                         MakeMutableUInt64Array(needles.length(), ctx->memory_pool()));
   auto* out_values = out->GetMutableValues<uint64_t>(1);
+  PreallocatedInsertionIndexOutput output(out_values);
 
-  RETURN_NOT_OK(SearchNeedleValues<ArrowType>(sorted_values, needles, side,
-                                              insertion_offset, out_values));
+  ARROW_RETURN_NOT_OK((EmitInsertionIndices<ArrowType, false>(
+      sorted_values, needles, side, insertion_offset, &output)));
   return Datum(MakeArray(std::move(out)));
 }
 

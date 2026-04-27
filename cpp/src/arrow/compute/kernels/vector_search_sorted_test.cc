@@ -121,6 +121,20 @@ void CheckSimpleSearchSortedAndScalar(const std::shared_ptr<DataType>& type,
                           expected_right_json);
 }
 
+void CheckChunkedSearchSortedAndConcatenated(
+    const std::shared_ptr<ChunkedArray>& values,
+    const std::shared_ptr<ChunkedArray>& needles, const std::string& expected_left_json,
+    const std::string& expected_right_json) {
+  CheckSearchSorted(Datum(values), Datum(needles), expected_left_json,
+                    expected_right_json);
+
+  ASSERT_OK_AND_ASSIGN(auto concatenated_values, Concatenate(values->chunks()));
+  ASSERT_OK_AND_ASSIGN(auto concatenated_needles, Concatenate(needles->chunks()));
+
+  CheckSearchSorted(Datum(concatenated_values), Datum(concatenated_needles),
+                    expected_left_json, expected_right_json);
+}
+
 struct SearchSortedSmokeCase {
   std::string name;
   std::shared_ptr<DataType> type;
@@ -356,15 +370,9 @@ TEST(SearchSorted, ChunkedValuesChunkedNeedles) {
       ArrayFromJSON(int32(), "[null, 9]"),
   });
 
-  CheckSearchSorted(Datum(values), Datum(needles), "[null, 0, 0, 3, null, 5]",
-                    "[null, 0, 2, 3, null, 5]");
-
-  // Verify against concatenated non-chunked inputs
-  ASSERT_OK_AND_ASSIGN(auto concatenated_values, Concatenate(values->chunks()));
-  ASSERT_OK_AND_ASSIGN(auto concatenated_needles, Concatenate(needles->chunks()));
-
-  CheckSearchSorted(Datum(concatenated_values), Datum(concatenated_needles),
-                    "[null, 0, 0, 3, null, 5]", "[null, 0, 2, 3, null, 5]");
+  CheckChunkedSearchSortedAndConcatenated(values, needles,
+                                          "[null, 0, 0, 3, null, 5]",
+                                          "[null, 0, 2, 3, null, 5]");
 }
 
 TEST(SearchSorted, ChunkedRunEndEncodedValues) {
@@ -399,6 +407,42 @@ TEST(SearchSorted, ChunkedRunEndEncodedNeedles) {
 
   CheckSearchSorted(Datum(values), Datum(needles), SearchSortedOptions::Right,
                     "[0, 0, 2, 2, 3, 3, 5]");
+}
+
+TEST(SearchSorted, ChunkedRunEndEncodedValuesLeadingNullsAcrossEmptyChunks) {
+  auto values_type = run_end_encoded(int16(), int32());
+  ASSERT_OK_AND_ASSIGN(auto empty_chunk, REEFromJSON(values_type, "[]"));
+  ASSERT_OK_AND_ASSIGN(auto null_chunk, REEFromJSON(values_type, "[null, null]"));
+  ASSERT_OK_AND_ASSIGN(auto data_chunk, REEFromJSON(values_type, "[2, 4, 4]"));
+  auto values = std::make_shared<ChunkedArray>(
+      ArrayVector{empty_chunk, null_chunk, empty_chunk, data_chunk});
+  auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[2, 3, 5]", "[2, 5, 5]");
+}
+
+TEST(SearchSorted, ChunkedRunEndEncodedValuesTrailingNullsAcrossEmptyChunks) {
+  auto values_type = run_end_encoded(int16(), int32());
+  ASSERT_OK_AND_ASSIGN(auto empty_chunk, REEFromJSON(values_type, "[]"));
+  ASSERT_OK_AND_ASSIGN(auto data_chunk, REEFromJSON(values_type, "[2, 4, 4]"));
+  ASSERT_OK_AND_ASSIGN(auto null_chunk, REEFromJSON(values_type, "[null, null]"));
+  auto values = std::make_shared<ChunkedArray>(
+      ArrayVector{data_chunk, empty_chunk, null_chunk, empty_chunk});
+  auto needles = ArrayFromJSON(int32(), "[1, 4, 8]");
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[0, 1, 3]", "[0, 3, 3]");
+}
+
+TEST(SearchSorted, ChunkedRunEndEncodedAllNullValuesAcrossEmptyChunks) {
+  auto values_type = run_end_encoded(int16(), int32());
+  ASSERT_OK_AND_ASSIGN(auto empty_chunk, REEFromJSON(values_type, "[]"));
+  ASSERT_OK_AND_ASSIGN(auto null_chunk, REEFromJSON(values_type, "[null, null]"));
+  ASSERT_OK_AND_ASSIGN(auto last_null_chunk, REEFromJSON(values_type, "[null]"));
+  auto values = std::make_shared<ChunkedArray>(
+      ArrayVector{empty_chunk, null_chunk, empty_chunk, last_null_chunk});
+  auto needles = ArrayFromJSON(int32(), "[1, 4, null]");
+
+  CheckSearchSorted(Datum(values), Datum(needles), "[3, 3, null]", "[3, 3, null]");
 }
 
 TEST(SearchSorted, ChunkedValuesLeadingNullsAcrossEmptyChunks) {
