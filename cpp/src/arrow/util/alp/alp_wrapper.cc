@@ -25,12 +25,18 @@
 #include "arrow/util/alp/alp.h"
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/alp/alp_sampler.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/ubsan.h"
 
 namespace arrow {
 namespace util {
 namespace alp {
+
+// ALP serialization uses memcpy for multi-byte integers (header fields,
+// offsets, frame_of_reference) and assumes little-endian byte order on disk.
+static_assert(ARROW_LITTLE_ENDIAN,
+              "ALP serialization assumes little-endian byte order");
 
 namespace {
 
@@ -225,6 +231,12 @@ template <typename TargetType>
 Status AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
                              size_t comp_size) {
   ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(comp, comp_size));
+  if (header.log_vector_size > AlpConstants::kMaxLogVectorSize) {
+    return Status::Invalid("ALP log_vector_size too large: ",
+                           static_cast<int>(header.log_vector_size),
+                           " > ", static_cast<int>(AlpConstants::kMaxLogVectorSize),
+                           " (would overflow uint16_t element count)");
+  }
   const uint32_t vector_size = header.GetVectorSize();
   if (vector_size != AlpConstants::kAlpVectorSize) {
     return Status::Invalid("Unsupported ALP vector_size: ", vector_size,
@@ -440,18 +452,24 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
                              " > capacity=", decomp_element_count);
     }
 
-    // Validate offset is within bounds
-    if (vector_offsets[vector_index] >= comp_size) {
-      return Status::Invalid("ALP vector offset out of bounds: ",
-                             vector_offsets[vector_index], " >= ", comp_size);
+    // Validate offset is within bounds and enough buffer remains for metadata
+    const uint64_t vector_offset = vector_offsets[vector_index];
+    constexpr uint64_t kMinVectorMetadataSize =
+        AlpEncodedVectorInfo::kStoredSize + AlpEncodedForVectorInfo<T>::kStoredSize;
+    if (vector_offset + kMinVectorMetadataSize > comp_size) {
+      return Status::Invalid("ALP vector offset out of bounds or insufficient buffer "
+                             "for metadata: offset=", vector_offset,
+                             ", metadata_size=", kMinVectorMetadataSize,
+                             ", buffer_size=", comp_size);
     }
 
     // Jump directly to this vector using its offset
-    const char* vector_start = comp + vector_offsets[vector_index];
+    const char* vector_start = comp + vector_offset;
+    const uint64_t remaining = comp_size - vector_offset;
 
     // Read AlpInfo (interleaved)
     const AlpEncodedVectorInfo alp_info =
-        AlpEncodedVectorInfo::Load({vector_start, AlpEncodedVectorInfo::kStoredSize});
+        AlpEncodedVectorInfo::Load({vector_start, remaining});
     const char* ptr = vector_start + AlpEncodedVectorInfo::kStoredSize;
 
     // Decode based on integer encoding type
@@ -459,13 +477,24 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
       case AlpIntegerEncoding::kForBitPack: {
         // Read ForInfo (interleaved)
         const AlpEncodedForVectorInfo<T> for_info =
-            AlpEncodedForVectorInfo<T>::Load({ptr, AlpEncodedForVectorInfo<T>::kStoredSize});
+            AlpEncodedForVectorInfo<T>::Load(
+                {ptr, remaining - AlpEncodedVectorInfo::kStoredSize});
         ptr += AlpEncodedForVectorInfo<T>::kStoredSize;
+
+        // Validate enough buffer remains for the data section
+        const uint64_t data_remaining = comp_size - static_cast<uint64_t>(ptr - comp);
+        const uint64_t data_size =
+            for_info.GetDataStoredSize(this_vector_elements, alp_info.num_exceptions);
+        if (data_size > data_remaining) {
+          return Status::Invalid("ALP insufficient buffer for vector data: need=",
+                                 data_size, ", remaining=", data_remaining,
+                                 ", vector_index=", vector_index);
+        }
 
         // Load view from data section (packed values + exceptions)
         const AlpEncodedVectorView<T> encoded_view =
             AlpEncodedVectorView<T>::LoadViewDataOnly(
-                {ptr, comp_size - (ptr - comp)},
+                {ptr, data_remaining},
                 alp_info, for_info, this_vector_elements);
 
         AlpCompression<T>::DecompressVectorView(encoded_view, integer_encoding,

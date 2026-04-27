@@ -25,6 +25,7 @@
 
 #include "arrow/util/alp/alp_constants.h"
 #include "arrow/util/bit_stream_utils_internal.h"
+#include "arrow/util/endian.h"
 #include "arrow/util/bpacking_internal.h"
 #include "arrow/util/logging.h"
 #include "arrow/util/small_vector.h"
@@ -34,6 +35,11 @@
 namespace arrow {
 namespace util {
 namespace alp {
+
+// ALP serialization uses memcpy for multi-byte integers (frame_of_reference,
+// num_exceptions, offsets) and assumes little-endian byte order on disk.
+static_assert(ARROW_LITTLE_ENDIAN,
+              "ALP serialization assumes little-endian byte order");
 
 // ----------------------------------------------------------------------
 // AlpEncodedVectorInfo implementation (non-templated, 4 bytes)
