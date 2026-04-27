@@ -349,10 +349,11 @@ def arrays(draw, type, size=None, nullable=True):
         max_datetime = datetime.datetime.fromtimestamp(
             max_int64 // 10**9) - datetime.timedelta(hours=12)
         try:
-            offset = ty.tz.split(":")
-            offset_hours = int(offset[0])
-            offset_min = int(offset[1])
-            tz = datetime.timedelta(hours=offset_hours, minutes=offset_min)
+            offset_hours, offset_min = ty.tz.split(":")
+            sign = -1 if offset_hours.startswith("-") else 1
+            offset = datetime.timedelta(
+                hours=abs(int(offset_hours)), minutes=int(offset_min))
+            tz = datetime.timezone(sign * offset)
         except ValueError:
             tz = zoneinfo.ZoneInfo(ty.tz)
         value = st.datetimes(timezones=st.just(tz), min_value=min_datetime,
