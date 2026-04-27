@@ -557,17 +557,49 @@ std::optional<uint64_t> AlpCompression<T>::EstimateCompressedSize(
   SignedExactType max_encoded_value = std::numeric_limits<SignedExactType>::min();
   SignedExactType min_encoded_value = std::numeric_limits<SignedExactType>::max();
 
+  // Split encode/decode/compare into separate passes over small batches so the
+  // compiler can vectorize the encode and decode passes independently.
+  static constexpr int kBatchSize = 8;
+  const size_t n = input_vector.size();
   uint64_t num_exceptions = 0;
-  for (const T& value : input_vector) {
+
+  size_t i = 0;
+  for (; i + kBatchSize <= n; i += kBatchSize) {
+    SignedExactType encoded_values[kBatchSize];
+    T decoded_values[kBatchSize];
+
+    // Pass 1: Encode (vectorizable: multiply + magic-number round)
+    for (int j = 0; j < kBatchSize; j++) {
+      encoded_values[j] =
+          AlpInlines<T>::EncodeValue(input_vector[i + j], exponent_and_factor);
+    }
+    // Pass 2: Decode (vectorizable: int->float cast + multiply)
+    for (int j = 0; j < kBatchSize; j++) {
+      decoded_values[j] =
+          AlpInlines<T>::DecodeValue(encoded_values[j], exponent_and_factor);
+    }
+    // Pass 3: Compare and accumulate min/max/exceptions
+    for (int j = 0; j < kBatchSize; j++) {
+      if (decoded_values[j] == input_vector[i + j]) {
+        max_encoded_value = std::max(encoded_values[j], max_encoded_value);
+        min_encoded_value = std::min(encoded_values[j], min_encoded_value);
+      } else {
+        num_exceptions++;
+      }
+    }
+  }
+  // Scalar tail for remaining elements
+  for (; i < n; i++) {
     const SignedExactType encoded_value =
-        AlpInlines<T>::EncodeValue(value, exponent_and_factor);
-    T decoded_value = AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
-    if (decoded_value == value) {
+        AlpInlines<T>::EncodeValue(input_vector[i], exponent_and_factor);
+    const T decoded_value =
+        AlpInlines<T>::DecodeValue(encoded_value, exponent_and_factor);
+    if (decoded_value == input_vector[i]) {
       max_encoded_value = std::max(encoded_value, max_encoded_value);
       min_encoded_value = std::min(encoded_value, min_encoded_value);
-      continue;
+    } else {
+      num_exceptions++;
     }
-    num_exceptions++;
   }
 
   const uint64_t num_non_exceptions = input_vector.size() - num_exceptions;
