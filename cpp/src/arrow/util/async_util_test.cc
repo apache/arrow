@@ -26,6 +26,7 @@
 #include <thread>
 #include <unordered_set>
 
+#include <gmock/gmock-matchers.h>
 #include <gtest/gtest.h>
 
 #include "arrow/result.h"
@@ -202,6 +203,31 @@ TEST(AsyncTaskScheduler, InitialTaskFails) {
   finished = AsyncTaskScheduler::Make(
       [&](AsyncTaskScheduler* scheduler) { return Status::Invalid("XYZ"); });
   ASSERT_FINISHES_AND_RAISES(Invalid, finished);
+}
+
+TEST(AsyncTaskScheduler, InitialTaskThrowsException) {
+  // If the initial task throws a C++ exception (not a Status), the scheduler
+  // should catch it, convert to a failed Status, and not hang indefinitely.
+  // See https://github.com/apache/arrow/issues/47642
+
+  // Case 1: initial task throws with no other tasks
+  Future<> finished =
+      AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) -> Status {
+        throw std::runtime_error("some exception");
+      });
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      UnknownError, ::testing::HasSubstr("some exception"), finished);
+
+  // Case 2: initial task throws while another task is still running
+  Future<> task = Future<>::Make();
+  finished = AsyncTaskScheduler::Make([&](AsyncTaskScheduler* scheduler) -> Status {
+    EXPECT_TRUE(scheduler->AddSimpleTask([&]() { return task; }, kDummyName));
+    throw std::runtime_error("some exception after adding task");
+  });
+  AssertNotFinished(finished);
+  task.MarkFinished();
+  EXPECT_FINISHES_AND_RAISES_WITH_MESSAGE_THAT(
+      UnknownError, ::testing::HasSubstr("some exception after adding task"), finished);
 }
 
 TEST(AsyncTaskScheduler, TaskDestroyedBeforeSchedulerEnds) {
