@@ -989,6 +989,56 @@ TEST_F(TestByteArrayValuesWriter, CheckDefaultStats) {
   ASSERT_TRUE(this->metadata_is_stats_set());
 }
 
+// GH-47995: Test that empty strings are correctly handled in statistics.
+TEST_F(TestByteArrayValuesWriter, EmptyStringStats) {
+  this->SetUpSchema(Repetition::REQUIRED);
+  auto writer = this->BuildWriter();
+
+  // Empty string with valid pointer (from string literal)
+  ByteArray empty_string("");
+  ByteArray non_empty_aaa("aaa");
+  ByteArray non_empty_zzz("zzz");
+
+  std::vector<ByteArray> values = {empty_string, non_empty_aaa, non_empty_zzz};
+  writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                     values.data());
+  writer->Close();
+
+  // Statistics should be set and capture the empty string as minimum
+  ASSERT_TRUE(this->metadata_is_stats_set());
+  auto stats = this->metadata_stats();
+  ASSERT_TRUE(stats->HasMinMax()) << "Statistics should have min/max";
+
+  auto typed_stats = std::dynamic_pointer_cast<TypedStatistics<ByteArrayType>>(stats);
+  ASSERT_NE(typed_stats, nullptr);
+  EXPECT_EQ(typed_stats->min().len, 0) << "Min should be empty string (len=0)";
+  EXPECT_EQ(typed_stats->max(), ByteArray("zzz")) << "Max should be 'zzz'";
+}
+
+// GH-47995: Test that statistics work when all values are empty strings.
+TEST_F(TestByteArrayValuesWriter, AllEmptyStringsStats) {
+  this->SetUpSchema(Repetition::REQUIRED);
+  auto writer = this->BuildWriter();
+
+  // All values are empty strings
+  ByteArray empty_string("");
+  std::vector<ByteArray> values = {empty_string, empty_string, empty_string};
+  writer->WriteBatch(static_cast<int64_t>(values.size()), nullptr, nullptr,
+                     values.data());
+  writer->Close();
+
+  // Statistics should be set even when all values are empty strings
+  ASSERT_TRUE(this->metadata_is_stats_set());
+  auto stats = this->metadata_stats();
+  ASSERT_TRUE(stats->HasMinMax())
+      << "Statistics should have min/max even with all empty strings";
+
+  auto typed_stats = std::dynamic_pointer_cast<TypedStatistics<ByteArrayType>>(stats);
+  ASSERT_NE(typed_stats, nullptr);
+  EXPECT_EQ(typed_stats->min().len, 0) << "Min should be empty string";
+  EXPECT_EQ(typed_stats->max().len, 0) << "Max should be empty string";
+}
+
 // Test for https://github.com/apache/arrow/issues/47027.
 // When writing a repeated column with page indexes enabled
 // and batches that are aligned with list boundaries,
