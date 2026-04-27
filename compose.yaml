@@ -135,6 +135,7 @@ x-hierarchy:
       - debian-ruby
     - debian-python:
       - debian-docs
+  - dremio
   - fedora-cpp:
     - fedora-python
   - fedora-r-clang
@@ -371,6 +372,22 @@ services:
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&
         /arrow/ci/scripts/cpp_test.sh /arrow /build"
 
+  dremio:
+    platform: linux/x86_64
+    image: dremio/dremio-oss:latest
+    ports:
+      - 9047:9047  # REST API
+      - 31010:31010  # JDBC/ODBC
+      - 32010:32010
+    container_name: dremio_container
+    environment:
+    - DREMIO_JAVA_SERVER_EXTRA_OPTS=-Dsaffron.default.charset=UTF-8 -Dsaffron.default.nationalcharset=UTF-8 -Dsaffron.default.collation.name=UTF-8$$en_US
+    healthcheck:
+      test: curl --fail http://localhost:9047 || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 30
+
   ubuntu-cpp: &ubuntu-cpp-base
     # Usage:
     #   docker compose build ubuntu-cpp
@@ -509,6 +526,7 @@ services:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: "OFF"
       ARROW_FLIGHT_SQL_ODBC: "ON"
+      ARROW_FLIGHT_SQL_ODBC_CONN: "driver={Apache Arrow Flight SQL ODBC Driver};HOST=dremio_container;port=32010;pwd=admin2025;uid=admin;useEncryption=false;UseWideChar=true;"
       ARROW_GANDIVA: "OFF"
       ARROW_GCS: "OFF"
       ARROW_HDFS: "OFF"
@@ -517,6 +535,8 @@ services:
       ARROW_S3: "OFF"
       ARROW_SUBSTRAIT: "OFF"
     # Register ODBC before running tests
+    depends_on:
+      - dremio
     command: >
       /bin/bash -c "
         /arrow/ci/scripts/cpp_build.sh /arrow /build &&

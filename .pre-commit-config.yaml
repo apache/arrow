@@ -348,6 +348,7 @@ repos:
           ?^cpp/examples/minimal_build/run\.sh$|
           ?^cpp/examples/tutorial_examples/run\.sh$|
           ?^cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc\.sh$|
+          ?^cpp/src/arrow/flight/sql/odbc/tests/dremio/set_up_dremio_instance\.sh$|
           ?^dev/release/05-binary-upload\.sh$|
           ?^dev/release/07-flightsqlodbc-upload\.sh$|
           ?^dev/release/09-binary-verify\.sh$|
