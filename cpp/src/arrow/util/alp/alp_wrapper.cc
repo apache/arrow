@@ -159,17 +159,17 @@ struct AlpHeader {
 }  // namespace
 
 // ----------------------------------------------------------------------
-// AlpWrapper::AlpHeader definition
+// AlpCodec::AlpHeader definition
 
 template <typename T>
-struct AlpWrapper<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
+struct AlpCodec<T>::AlpHeader : public ::arrow::util::alp::AlpHeader {
 };
 
 // ----------------------------------------------------------------------
-// AlpWrapper implementation
+// AlpCodec implementation
 
 template <typename T>
-auto AlpWrapper<T>::LoadHeader(const char* comp, size_t comp_size)
+auto AlpCodec<T>::LoadHeader(const char* comp, size_t comp_size)
     -> Result<AlpHeader> {
   if (comp_size < AlpHeader::kSize) {
     return Status::Invalid("ALP compressed buffer too small for header: ", comp_size,
@@ -182,7 +182,7 @@ auto AlpWrapper<T>::LoadHeader(const char* comp, size_t comp_size)
 }
 
 template <typename T>
-auto AlpWrapper<T>::CreateSamplingPreset(const T* decomp, size_t decomp_size)
+auto AlpCodec<T>::CreateSamplingPreset(const T* decomp, size_t decomp_size)
     -> AlpSamplerResult {
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
@@ -193,7 +193,7 @@ auto AlpWrapper<T>::CreateSamplingPreset(const T* decomp, size_t decomp_size)
 }
 
 template <typename T>
-void AlpWrapper<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* comp,
+void AlpCodec<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* comp,
                                      size_t* comp_size, const AlpSamplerResult& preset) {
   ARROW_CHECK(decomp_size % sizeof(T) == 0) << "alp_encode_input_must_be_multiple_of_T";
   const uint64_t element_count = decomp_size / sizeof(T);
@@ -205,7 +205,7 @@ void AlpWrapper<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* 
 
   const CompressionProgress compression_progress =
       EncodeAlp(decomp, element_count, comp, remaining_compressed_size,
-                preset.alp_preset);
+                preset.alp_parameters);
 
   AlpHeader header{};
   header.compression_mode = static_cast<uint8_t>(AlpMode::kAlp);
@@ -219,7 +219,7 @@ void AlpWrapper<T>::EncodeWithPreset(const T* decomp, size_t decomp_size, char* 
 }
 
 template <typename T>
-void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
+void AlpCodec<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
                            size_t* comp_size, std::optional<AlpMode> enforce_mode) {
   // Sample the data and encode with the preset
   auto sampling_result = CreateSamplingPreset(decomp, decomp_size);
@@ -228,8 +228,8 @@ void AlpWrapper<T>::Encode(const T* decomp, size_t decomp_size, char* comp,
 
 template <typename T>
 template <typename TargetType>
-Status AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const char* comp,
-                             size_t comp_size) {
+Status AlpCodec<T>::Decode(int32_t num_elements, const char* comp, size_t comp_size,
+                             TargetType* decomp) {
   ARROW_ASSIGN_OR_RAISE(const AlpHeader header, LoadHeader(comp, comp_size));
   if (header.log_vector_size > AlpConstants::kMaxLogVectorSize) {
     return Status::Invalid("ALP log_vector_size too large: ",
@@ -252,25 +252,25 @@ Status AlpWrapper<T>::Decode(TargetType* decomp, uint32_t num_elements, const ch
   }
 
   ARROW_RETURN_NOT_OK(
-      DecodeAlp<TargetType>(decomp, num_elements, compression_body, compression_body_size,
+      DecodeAlp<TargetType>(num_elements, compression_body, compression_body_size,
                             header.GetIntegerEncoding(), vector_size,
-                            header.num_elements)
+                            header.num_elements, decomp)
           .status());
   return Status::OK();
 }
 
-template Status AlpWrapper<float>::Decode(float* decomp, uint32_t num_elements,
-                                          const char* comp, size_t comp_size);
-template Status AlpWrapper<float>::Decode(double* decomp, uint32_t num_elements,
-                                          const char* comp, size_t comp_size);
-template Status AlpWrapper<double>::Decode(double* decomp, uint32_t num_elements,
-                                           const char* comp, size_t comp_size);
+template Status AlpCodec<float>::Decode(int32_t num_elements, const char* comp,
+                                          size_t comp_size, float* decomp);
+template Status AlpCodec<float>::Decode(int32_t num_elements, const char* comp,
+                                          size_t comp_size, double* decomp);
+template Status AlpCodec<double>::Decode(int32_t num_elements, const char* comp,
+                                           size_t comp_size, double* decomp);
 
 template <typename T>
-uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
-  ARROW_CHECK(decomp_size % sizeof(T) == 0)
+int64_t AlpCodec<T>::GetMaxCompressedSize(int64_t uncompressed_size) {
+  ARROW_CHECK(uncompressed_size >= 0 && uncompressed_size % sizeof(T) == 0)
       << "alp_decompressed_size_not_multiple_of_T";
-  const uint64_t element_count = decomp_size / sizeof(T);
+  const uint64_t element_count = static_cast<uint64_t>(uncompressed_size) / sizeof(T);
   uint64_t max_alp_size = AlpHeader::kSize;
 
   const uint64_t vectors_count =
@@ -292,12 +292,12 @@ uint64_t AlpWrapper<T>::GetMaxCompressedSize(uint64_t decomp_size) {
   // Exception positions.
   max_alp_size += element_count * sizeof(AlpConstants::PositionType);
 
-  return max_alp_size;
+  return static_cast<int64_t>(max_alp_size);
 }
 
 template <typename T>
-auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
-                              size_t comp_size, const AlpEncodingPreset& combinations)
+auto AlpCodec<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
+                              size_t comp_size, const AlpEncodingParameters& combinations)
     -> CompressionProgress {
   // OFFSET-BASED LAYOUT
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
@@ -393,10 +393,11 @@ auto AlpWrapper<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* com
 
 template <typename T>
 template <typename TargetType>
-auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
+auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
                               const char* comp, size_t comp_size,
                               AlpIntegerEncoding integer_encoding,
-                              uint32_t vector_size, uint32_t total_elements)
+                              uint32_t vector_size, uint32_t total_elements,
+                              TargetType* decomp)
     -> Result<DecompressionProgress> {
   // OFFSET-BASED LAYOUT:
   // [Offset₀ | Offset₁ | ... | Offsetₙ₋₁]    ← Byte offsets to each vector (4B each)
@@ -521,8 +522,8 @@ auto AlpWrapper<T>::DecodeAlp(TargetType* decomp, size_t decomp_element_count,
 // ----------------------------------------------------------------------
 // Template instantiations
 
-template class AlpWrapper<float>;
-template class AlpWrapper<double>;
+template class AlpCodec<float>;
+template class AlpCodec<double>;
 
 }  // namespace alp
 }  // namespace util
