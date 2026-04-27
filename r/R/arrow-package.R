@@ -154,10 +154,10 @@ s3_finalizer <- new.env(parent = emptyenv())
     # See https://issues.apache.org/jira/browse/ARROW-8379
     options(arrow.use_threads = FALSE)
 
-    # MinGW/GCC builds (e.g. CRAN's winbuilder) use the vendored Howard Hinnant
-    # date library and need an IANA tzdata path. MSVC builds use std::chrono
-    # with the Windows system timezone database and don't need this.
-    # See https://github.com/apache/arrow/issues/48593
+    # Use the tzdata package to configure the tzdata database on non-MSVC (i.e.
+    # MinGW) systems. This fix was put in specifically for Winbuilder (See
+    # GH-49866) but is needed for all non-MSVC systems. This code assumes the
+    # tzdata package is in Suggests.
     if (!identical(build_info()[[2]], "MSVC")) {
       configure_tzdb()
     }
