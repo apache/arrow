@@ -33,6 +33,13 @@ using TestTypes =
     ::testing::Types<FlightSQLODBCMockTestBase, FlightSQLODBCRemoteTestBase>;
 TYPED_TEST_SUITE(ConnectionAttributeTest, TestTypes);
 
+template <typename T>
+class ConnectionAttributePreConnectTest : public T {};
+
+using TestTypesHandle = ::testing::Types<FlightSQLOdbcEnvConnHandleMockTestBase,
+                                         FlightSQLOdbcEnvConnHandleRemoteTestBase>;
+TYPED_TEST_SUITE(ConnectionAttributePreConnectTest, TestTypesHandle);
+
 #ifdef SQL_ATTR_ASYNC_DBC_EVENT
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrAsyncDbcEventUnsupported) {
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(conn, SQL_ATTR_ASYNC_DBC_EVENT, 0, 0));
@@ -114,31 +121,33 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTraceDMOnly) {
 }
 #endif  // __APPLE__
 
-TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTracefileDMOnly) {
+TYPED_TEST(ConnectionAttributePreConnectTest, TestSQLSetConnectAttrTracefileDMOnly) {
   // Verify DM-only attribute is handled by Driver Manager
 
   // Use placeholder value as we want the call to fail, or else
   // the driver manager will produce a trace file.
   std::wstring trace_file = L"invalid/file/path";
   std::vector<SQLWCHAR> trace_file0(trace_file.begin(), trace_file.end());
+
+#ifdef _WIN32
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(conn, SQL_ATTR_TRACEFILE, &trace_file0[0],
                                          static_cast<SQLINTEGER>(trace_file0.size())));
-#ifdef __APPLE__
-  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorStateHYC00);
-#else
   VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorStateHY000);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLSetConnectAttr(conn, SQL_ATTR_TRACEFILE, &trace_file0[0],
+                                           static_cast<SQLINTEGER>(trace_file0.size())));
+#endif
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTranslateLabDMOnly) {
   // Verify DM-only attribute is handled by Driver Manager
   ASSERT_EQ(SQL_ERROR, SQLSetConnectAttr(conn, SQL_ATTR_TRANSLATE_LIB, 0, 0));
   // Checks for invalid argument return error
-#ifdef __APPLE__
-  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorStateHYC00);
-#else
+#ifdef _WIN32
   VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorStateHY024);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorStateHYC00);
+#endif
 }
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrTranslateOptionUnsupported) {
@@ -162,8 +171,8 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrDbcInfoTokenSetOnly) {
 }
 #endif
 
-// iODBC does not treat SQL_ATTR_ODBC_CURSORS as DM-only
-#ifndef __APPLE__
+// Driver Manager behavior tests for Windows only.
+#ifdef _WIN32
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrOdbcCursorsDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLULEN cursor_attr;
@@ -172,7 +181,6 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrOdbcCursorsDMOnly) {
   EXPECT_EQ(SQL_CUR_USE_DRIVER, cursor_attr);
 }
 
-// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACE
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLUINTEGER trace;
@@ -180,7 +188,6 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceDMOnly) {
   EXPECT_EQ(SQL_OPT_TRACE_OFF, trace);
 }
 
-// iODBC needs to be compiled with tracing enabled to handle SQL_ATTR_TRACEFILE
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
   // Verify that DM-only attribute is handled by driver manager
   SQLWCHAR out_str[kOdbcBufferSize];
@@ -194,7 +201,7 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTraceFileDMOnly) {
       ODBC::SqlWcharToString(out_str, static_cast<SQLSMALLINT>(out_str_len));
   EXPECT_FALSE(out_connection_string.empty());
 }
-#endif  // __APPLE__
+#endif  // _WIN32
 
 TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTranslateLibUnsupported) {
   SQLWCHAR out_str[kOdbcBufferSize];
@@ -221,11 +228,16 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLGetConnectAttrTxnIsolationUnsupported
 #ifdef SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE
 TYPED_TEST(ConnectionAttributeTest,
            TestSQLGetConnectAttrAsyncDbcFunctionsEnableUnsupported) {
-  // Verifies that the Windows driver manager returns HY114 for unsupported functionality
   SQLUINTEGER enable;
+#  ifdef _WIN32
+  // Verifies that the Windows driver manager returns HY114 for unsupported functionality
   ASSERT_EQ(SQL_ERROR,
             SQLGetConnectAttr(conn, SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE, &enable, 0, 0));
   VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorStateHY114);
+#  else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS,
+            SQLGetConnectAttr(conn, SQL_ATTR_ASYNC_DBC_FUNCTIONS_ENABLE, &enable, 0, 0));
+#  endif
 }
 #endif
 
@@ -350,14 +362,23 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrLoginTimeoutValid) {
   EXPECT_EQ(42, timeout);
 }
 
+#ifdef __linux__
+// On Linux, SQL_ATTR_PACKET_SIZE can only be set before connection
+// which is why use a different test fixture for Linux.
+TYPED_TEST(ConnectionAttributePreConnectTest, TestSQLSetConnectAttrPacketSizeValid) {
+#else  // Windows & Mac
 TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrPacketSizeValid) {
-  // The driver always returns 0. PACKET_SIZE value is unused by the driver.
-
+#endif
   // Check default value first
   SQLUINTEGER size = -1;
+#ifdef __linux__
+  ASSERT_EQ(SQL_ERROR, SQLGetConnectAttr(conn, SQL_ATTR_PACKET_SIZE, &size, 0, nullptr));
+  VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorState08003);
+#else  // Windows & Mac
   ASSERT_EQ(SQL_SUCCESS,
             SQLGetConnectAttr(conn, SQL_ATTR_PACKET_SIZE, &size, 0, nullptr));
   EXPECT_EQ(0, size);
+#endif
 
   ASSERT_EQ(SQL_SUCCESS, SQLSetConnectAttr(conn, SQL_ATTR_PACKET_SIZE,
                                            reinterpret_cast<SQLPOINTER>(0), 0));
@@ -367,12 +388,18 @@ TYPED_TEST(ConnectionAttributeTest, TestSQLSetConnectAttrPacketSizeValid) {
             SQLGetConnectAttr(conn, SQL_ATTR_PACKET_SIZE, &size, 0, nullptr));
   EXPECT_EQ(0, size);
 
-  // Attempt to set to non-zero value, driver should return warning and not error
+  // Attempt to set to non-zero value,
+#ifdef __linux__
+  EXPECT_EQ(SQL_SUCCESS, SQLSetConnectAttr(conn, SQL_ATTR_PACKET_SIZE,
+                                           reinterpret_cast<SQLPOINTER>(2), 0));
+#else  // Windows & Mac
+  // driver should return warning and not error
   EXPECT_EQ(SQL_SUCCESS_WITH_INFO, SQLSetConnectAttr(conn, SQL_ATTR_PACKET_SIZE,
                                                      reinterpret_cast<SQLPOINTER>(2), 0));
 
   // Verify warning status
   VerifyOdbcErrorState(SQL_HANDLE_DBC, conn, kErrorState01S02);
+#endif
 }
 
 }  // namespace arrow::flight::sql::odbc

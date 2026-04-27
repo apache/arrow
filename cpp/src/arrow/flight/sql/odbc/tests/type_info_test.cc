@@ -70,25 +70,25 @@ void CheckSQLDescribeCol(SQLHSTMT stmt, const SQLUSMALLINT column_index,
 }
 
 void CheckSQLDescribeColODBCVer2(SQLHSTMT stmt) {
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"PRECISION"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_PREFIX"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_SUFFIX"),
-                                    static_cast<const SQLWCHAR*>(L"CREATE_PARAMS"),
-                                    static_cast<const SQLWCHAR*>(L"NULLABLE"),
-                                    static_cast<const SQLWCHAR*>(L"CASE_SENSITIVE"),
-                                    static_cast<const SQLWCHAR*>(L"SEARCHABLE"),
-                                    static_cast<const SQLWCHAR*>(L"UNSIGNED_ATTRIBUTE"),
-                                    static_cast<const SQLWCHAR*>(L"MONEY"),
-                                    static_cast<const SQLWCHAR*>(L"AUTO_INCREMENT"),
-                                    static_cast<const SQLWCHAR*>(L"LOCAL_TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"MINIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"MAXIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATETIME_SUB"),
-                                    static_cast<const SQLWCHAR*>(L"NUM_PREC_RADIX"),
-                                    static_cast<const SQLWCHAR*>(L"INTERVAL_PRECISION")};
+  const std::wstring column_names[] = {L"TYPE_NAME",
+                                       L"DATA_TYPE",
+                                       L"PRECISION",
+                                       L"LITERAL_PREFIX",
+                                       L"LITERAL_SUFFIX",
+                                       L"CREATE_PARAMS",
+                                       L"NULLABLE",
+                                       L"CASE_SENSITIVE",
+                                       L"SEARCHABLE",
+                                       L"UNSIGNED_ATTRIBUTE",
+                                       L"MONEY",
+                                       L"AUTO_INCREMENT",
+                                       L"LOCAL_TYPE_NAME",
+                                       L"MINIMUM_SCALE",
+                                       L"MAXIMUM_SCALE",
+                                       L"SQL_DATA_TYPE",
+                                       L"SQL_DATETIME_SUB",
+                                       L"NUM_PREC_RADIX",
+                                       L"INTERVAL_PRECISION"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_SMALLINT, SQL_INTEGER,  SQL_WVARCHAR, SQL_WVARCHAR,
       SQL_WVARCHAR, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT,
@@ -112,25 +112,14 @@ void CheckSQLDescribeColODBCVer2(SQLHSTMT stmt) {
 }
 
 void CheckSQLDescribeColODBCVer3(SQLHSTMT stmt) {
-  const SQLWCHAR* column_names[] = {static_cast<const SQLWCHAR*>(L"TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"COLUMN_SIZE"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_PREFIX"),
-                                    static_cast<const SQLWCHAR*>(L"LITERAL_SUFFIX"),
-                                    static_cast<const SQLWCHAR*>(L"CREATE_PARAMS"),
-                                    static_cast<const SQLWCHAR*>(L"NULLABLE"),
-                                    static_cast<const SQLWCHAR*>(L"CASE_SENSITIVE"),
-                                    static_cast<const SQLWCHAR*>(L"SEARCHABLE"),
-                                    static_cast<const SQLWCHAR*>(L"UNSIGNED_ATTRIBUTE"),
-                                    static_cast<const SQLWCHAR*>(L"FIXED_PREC_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"AUTO_UNIQUE_VALUE"),
-                                    static_cast<const SQLWCHAR*>(L"LOCAL_TYPE_NAME"),
-                                    static_cast<const SQLWCHAR*>(L"MINIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"MAXIMUM_SCALE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATA_TYPE"),
-                                    static_cast<const SQLWCHAR*>(L"SQL_DATETIME_SUB"),
-                                    static_cast<const SQLWCHAR*>(L"NUM_PREC_RADIX"),
-                                    static_cast<const SQLWCHAR*>(L"INTERVAL_PRECISION")};
+  const std::wstring column_names[] = {
+      L"TYPE_NAME",          L"DATA_TYPE",        L"COLUMN_SIZE",
+      L"LITERAL_PREFIX",     L"LITERAL_SUFFIX",   L"CREATE_PARAMS",
+      L"NULLABLE",           L"CASE_SENSITIVE",   L"SEARCHABLE",
+      L"UNSIGNED_ATTRIBUTE", L"FIXED_PREC_SCALE", L"AUTO_UNIQUE_VALUE",
+      L"LOCAL_TYPE_NAME",    L"MINIMUM_SCALE",    L"MAXIMUM_SCALE",
+      L"SQL_DATA_TYPE",      L"SQL_DATETIME_SUB", L"NUM_PREC_RADIX",
+      L"INTERVAL_PRECISION"};
   SQLSMALLINT column_data_types[] = {
       SQL_WVARCHAR, SQL_SMALLINT, SQL_INTEGER,  SQL_WVARCHAR, SQL_WVARCHAR,
       SQL_WVARCHAR, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT, SQL_SMALLINT,
@@ -221,16 +210,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,          // expected_nullable
                       SQL_FALSE,             // expected_case_sensitive
                       SQL_SEARCHABLE,        // expected_searchable
-                      NULL,                  // expected_unsigned_attr
+                      0,                     // expected_unsigned_attr
                       SQL_FALSE,             // expected_fixed_prec_scale
-                      NULL,                  // expected_auto_unique_value
+                      0,                     // expected_auto_unique_value
                       std::wstring(L"bit"),  // expected_local_type_name
-                      NULL,                  // expected_min_scale
-                      NULL,                  // expected_max_scale
+                      0,                     // expected_min_scale
+                      0,                     // expected_max_scale
                       SQL_BIT,               // expected_sql_data_type
-                      NULL,                  // expected_sql_datetime_sub
-                      NULL,                  // expected_num_prec_radix
-                      NULL);                 // expected_interval_prec
+                      0,                     // expected_sql_datetime_sub
+                      0,                     // expected_num_prec_radix
+                      0);                    // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -249,14 +238,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"tinyint"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_TINYINT,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -275,14 +264,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"bigint"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_BIGINT,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -299,16 +288,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_FALSE,                       // expected_case_sensitive
                       SQL_SEARCHABLE,                  // expected_searchable
-                      NULL,                            // expected_unsigned_attr
+                      0,                               // expected_unsigned_attr
                       SQL_FALSE,                       // expected_fixed_prec_scale
-                      NULL,                            // expected_auto_unique_value
+                      0,                               // expected_auto_unique_value
                       std::wstring(L"longvarbinary"),  // expected_local_type_name
-                      NULL,                            // expected_min_scale
-                      NULL,                            // expected_max_scale
+                      0,                               // expected_min_scale
+                      0,                               // expected_max_scale
                       SQL_LONGVARBINARY,               // expected_sql_data_type
-                      NULL,                            // expected_sql_datetime_sub
-                      NULL,                            // expected_num_prec_radix
-                      NULL);                           // expected_interval_prec
+                      0,                               // expected_sql_datetime_sub
+                      0,                               // expected_num_prec_radix
+                      0);                              // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -325,16 +314,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,                // expected_nullable
                       SQL_FALSE,                   // expected_case_sensitive
                       SQL_SEARCHABLE,              // expected_searchable
-                      NULL,                        // expected_unsigned_attr
+                      0,                           // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"varbinary"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_VARBINARY,               // expected_sql_data_type
-                      NULL,                        // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_sql_datetime_sub
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -352,16 +341,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"text"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WLONGVARCHAR,         // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -378,16 +367,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,                  // expected_nullable
                       SQL_FALSE,                     // expected_case_sensitive
                       SQL_SEARCHABLE,                // expected_searchable
-                      NULL,                          // expected_unsigned_attr
+                      0,                             // expected_unsigned_attr
                       SQL_FALSE,                     // expected_fixed_prec_scale
-                      NULL,                          // expected_auto_unique_value
+                      0,                             // expected_auto_unique_value
                       std::wstring(L"longvarchar"),  // expected_local_type_name
-                      NULL,                          // expected_min_scale
-                      NULL,                          // expected_max_scale
+                      0,                             // expected_min_scale
+                      0,                             // expected_max_scale
                       SQL_WLONGVARCHAR,              // expected_sql_data_type
-                      NULL,                          // expected_sql_datetime_sub
-                      NULL,                          // expected_num_prec_radix
-                      NULL);                         // expected_interval_prec
+                      0,                             // expected_sql_datetime_sub
+                      0,                             // expected_num_prec_radix
+                      0);                            // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -405,16 +394,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"char"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WCHAR,                // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -433,14 +422,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"integer"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_INTEGER,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -459,14 +448,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,             // expected_searchable
                       SQL_FALSE,                  // expected_unsigned_attr
                       SQL_FALSE,                  // expected_fixed_prec_scale
-                      NULL,                       // expected_auto_unique_value
+                      0,                          // expected_auto_unique_value
                       std::wstring(L"smallint"),  // expected_local_type_name
-                      NULL,                       // expected_min_scale
-                      NULL,                       // expected_max_scale
+                      0,                          // expected_min_scale
+                      0,                          // expected_max_scale
                       SQL_SMALLINT,               // expected_sql_data_type
-                      NULL,                       // expected_sql_datetime_sub
-                      NULL,                       // expected_num_prec_radix
-                      NULL);                      // expected_interval_prec
+                      0,                          // expected_sql_datetime_sub
+                      0,                          // expected_num_prec_radix
+                      0);                         // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -485,14 +474,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,          // expected_searchable
                       SQL_FALSE,               // expected_unsigned_attr
                       SQL_FALSE,               // expected_fixed_prec_scale
-                      NULL,                    // expected_auto_unique_value
+                      0,                       // expected_auto_unique_value
                       std::wstring(L"float"),  // expected_local_type_name
-                      NULL,                    // expected_min_scale
-                      NULL,                    // expected_max_scale
+                      0,                       // expected_min_scale
+                      0,                       // expected_max_scale
                       SQL_FLOAT,               // expected_sql_data_type
-                      NULL,                    // expected_sql_datetime_sub
-                      NULL,                    // expected_num_prec_radix
-                      NULL);                   // expected_interval_prec
+                      0,                       // expected_sql_datetime_sub
+                      0,                       // expected_num_prec_radix
+                      0);                      // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -511,14 +500,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"double"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_DOUBLE,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -538,14 +527,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"numeric"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_DOUBLE,                // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -565,14 +554,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"varchar"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_WVARCHAR,              // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -591,14 +580,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_DATE,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -617,14 +606,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_TIME,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -643,14 +632,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoAllTypes) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
                       SQL_CODE_TIMESTAMP,          // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 }
@@ -671,16 +660,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,          // expected_nullable
                       SQL_FALSE,             // expected_case_sensitive
                       SQL_SEARCHABLE,        // expected_searchable
-                      NULL,                  // expected_unsigned_attr
+                      0,                     // expected_unsigned_attr
                       SQL_FALSE,             // expected_fixed_prec_scale
-                      NULL,                  // expected_auto_unique_value
+                      0,                     // expected_auto_unique_value
                       std::wstring(L"bit"),  // expected_local_type_name
-                      NULL,                  // expected_min_scale
-                      NULL,                  // expected_max_scale
+                      0,                     // expected_min_scale
+                      0,                     // expected_max_scale
                       SQL_BIT,               // expected_sql_data_type
-                      NULL,                  // expected_sql_datetime_sub
-                      NULL,                  // expected_num_prec_radix
-                      NULL);                 // expected_interval_prec
+                      0,                     // expected_sql_datetime_sub
+                      0,                     // expected_num_prec_radix
+                      0);                    // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -699,14 +688,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"tinyint"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_TINYINT,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -725,14 +714,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"bigint"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_BIGINT,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -749,16 +738,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_FALSE,                       // expected_case_sensitive
                       SQL_SEARCHABLE,                  // expected_searchable
-                      NULL,                            // expected_unsigned_attr
+                      0,                               // expected_unsigned_attr
                       SQL_FALSE,                       // expected_fixed_prec_scale
-                      NULL,                            // expected_auto_unique_value
+                      0,                               // expected_auto_unique_value
                       std::wstring(L"longvarbinary"),  // expected_local_type_name
-                      NULL,                            // expected_min_scale
-                      NULL,                            // expected_max_scale
+                      0,                               // expected_min_scale
+                      0,                               // expected_max_scale
                       SQL_LONGVARBINARY,               // expected_sql_data_type
-                      NULL,                            // expected_sql_datetime_sub
-                      NULL,                            // expected_num_prec_radix
-                      NULL);                           // expected_interval_prec
+                      0,                               // expected_sql_datetime_sub
+                      0,                               // expected_num_prec_radix
+                      0);                              // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -775,16 +764,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,                // expected_nullable
                       SQL_FALSE,                   // expected_case_sensitive
                       SQL_SEARCHABLE,              // expected_searchable
-                      NULL,                        // expected_unsigned_attr
+                      0,                           // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"varbinary"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_VARBINARY,               // expected_sql_data_type
-                      NULL,                        // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_sql_datetime_sub
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -802,16 +791,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"text"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WLONGVARCHAR,         // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -828,16 +817,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,                  // expected_nullable
                       SQL_FALSE,                     // expected_case_sensitive
                       SQL_SEARCHABLE,                // expected_searchable
-                      NULL,                          // expected_unsigned_attr
+                      0,                             // expected_unsigned_attr
                       SQL_FALSE,                     // expected_fixed_prec_scale
-                      NULL,                          // expected_auto_unique_value
+                      0,                             // expected_auto_unique_value
                       std::wstring(L"longvarchar"),  // expected_local_type_name
-                      NULL,                          // expected_min_scale
-                      NULL,                          // expected_max_scale
+                      0,                             // expected_min_scale
+                      0,                             // expected_max_scale
                       SQL_WLONGVARCHAR,              // expected_sql_data_type
-                      NULL,                          // expected_sql_datetime_sub
-                      NULL,                          // expected_num_prec_radix
-                      NULL);                         // expected_interval_prec
+                      0,                             // expected_sql_datetime_sub
+                      0,                             // expected_num_prec_radix
+                      0);                            // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -855,16 +844,16 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"char"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WCHAR,                // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -883,14 +872,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"integer"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_INTEGER,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -909,14 +898,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,             // expected_searchable
                       SQL_FALSE,                  // expected_unsigned_attr
                       SQL_FALSE,                  // expected_fixed_prec_scale
-                      NULL,                       // expected_auto_unique_value
+                      0,                          // expected_auto_unique_value
                       std::wstring(L"smallint"),  // expected_local_type_name
-                      NULL,                       // expected_min_scale
-                      NULL,                       // expected_max_scale
+                      0,                          // expected_min_scale
+                      0,                          // expected_max_scale
                       SQL_SMALLINT,               // expected_sql_data_type
-                      NULL,                       // expected_sql_datetime_sub
-                      NULL,                       // expected_num_prec_radix
-                      NULL);                      // expected_interval_prec
+                      0,                          // expected_sql_datetime_sub
+                      0,                          // expected_num_prec_radix
+                      0);                         // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -935,14 +924,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,          // expected_searchable
                       SQL_FALSE,               // expected_unsigned_attr
                       SQL_FALSE,               // expected_fixed_prec_scale
-                      NULL,                    // expected_auto_unique_value
+                      0,                       // expected_auto_unique_value
                       std::wstring(L"float"),  // expected_local_type_name
-                      NULL,                    // expected_min_scale
-                      NULL,                    // expected_max_scale
+                      0,                       // expected_min_scale
+                      0,                       // expected_max_scale
                       SQL_FLOAT,               // expected_sql_data_type
-                      NULL,                    // expected_sql_datetime_sub
-                      NULL,                    // expected_num_prec_radix
-                      NULL);                   // expected_interval_prec
+                      0,                       // expected_sql_datetime_sub
+                      0,                       // expected_num_prec_radix
+                      0);                      // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -961,14 +950,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"double"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_DOUBLE,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -988,14 +977,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"numeric"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_DOUBLE,                // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1015,14 +1004,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"varchar"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_WVARCHAR,              // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1041,14 +1030,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1067,14 +1057,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1093,14 +1084,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoAllTypesODBCVer2) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                           // 0, driver
+                                                   // returns NULL for Ver2
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 }
@@ -1121,16 +1113,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBit) {
                       SQL_NULLABLE,          // expected_nullable
                       SQL_FALSE,             // expected_case_sensitive
                       SQL_SEARCHABLE,        // expected_searchable
-                      NULL,                  // expected_unsigned_attr
+                      0,                     // expected_unsigned_attr
                       SQL_FALSE,             // expected_fixed_prec_scale
-                      NULL,                  // expected_auto_unique_value
+                      0,                     // expected_auto_unique_value
                       std::wstring(L"bit"),  // expected_local_type_name
-                      NULL,                  // expected_min_scale
-                      NULL,                  // expected_max_scale
+                      0,                     // expected_min_scale
+                      0,                     // expected_max_scale
                       SQL_BIT,               // expected_sql_data_type
-                      NULL,                  // expected_sql_datetime_sub
-                      NULL,                  // expected_num_prec_radix
-                      NULL);                 // expected_interval_prec
+                      0,                     // expected_sql_datetime_sub
+                      0,                     // expected_num_prec_radix
+                      0);                    // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1156,14 +1148,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoTinyInt) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"tinyint"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_TINYINT,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1189,14 +1181,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoBigInt) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"bigint"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_BIGINT,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1220,16 +1212,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarbinary) {
                       SQL_NULLABLE,                    // expected_nullable
                       SQL_FALSE,                       // expected_case_sensitive
                       SQL_SEARCHABLE,                  // expected_searchable
-                      NULL,                            // expected_unsigned_attr
+                      0,                               // expected_unsigned_attr
                       SQL_FALSE,                       // expected_fixed_prec_scale
-                      NULL,                            // expected_auto_unique_value
+                      0,                               // expected_auto_unique_value
                       std::wstring(L"longvarbinary"),  // expected_local_type_name
-                      NULL,                            // expected_min_scale
-                      NULL,                            // expected_max_scale
+                      0,                               // expected_min_scale
+                      0,                               // expected_max_scale
                       SQL_LONGVARBINARY,               // expected_sql_data_type
-                      NULL,                            // expected_sql_datetime_sub
-                      NULL,                            // expected_num_prec_radix
-                      NULL);                           // expected_interval_prec
+                      0,                               // expected_sql_datetime_sub
+                      0,                               // expected_num_prec_radix
+                      0);                              // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1253,16 +1245,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarbinary) {
                       SQL_NULLABLE,                // expected_nullable
                       SQL_FALSE,                   // expected_case_sensitive
                       SQL_SEARCHABLE,              // expected_searchable
-                      NULL,                        // expected_unsigned_attr
+                      0,                           // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"varbinary"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_VARBINARY,               // expected_sql_data_type
-                      NULL,                        // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_sql_datetime_sub
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   // No more data
   ASSERT_EQ(SQL_NO_DATA, SQLFetch(stmt));
@@ -1285,16 +1277,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"text"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WLONGVARCHAR,         // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1311,16 +1303,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoLongVarchar) {
                       SQL_NULLABLE,                  // expected_nullable
                       SQL_FALSE,                     // expected_case_sensitive
                       SQL_SEARCHABLE,                // expected_searchable
-                      NULL,                          // expected_unsigned_attr
+                      0,                             // expected_unsigned_attr
                       SQL_FALSE,                     // expected_fixed_prec_scale
-                      NULL,                          // expected_auto_unique_value
+                      0,                             // expected_auto_unique_value
                       std::wstring(L"longvarchar"),  // expected_local_type_name
-                      NULL,                          // expected_min_scale
-                      NULL,                          // expected_max_scale
+                      0,                             // expected_min_scale
+                      0,                             // expected_max_scale
                       SQL_WLONGVARCHAR,              // expected_sql_data_type
-                      NULL,                          // expected_sql_datetime_sub
-                      NULL,                          // expected_num_prec_radix
-                      NULL);                         // expected_interval_prec
+                      0,                             // expected_sql_datetime_sub
+                      0,                             // expected_num_prec_radix
+                      0);                            // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1345,16 +1337,16 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoChar) {
                       SQL_NULLABLE,             // expected_nullable
                       SQL_FALSE,                // expected_case_sensitive
                       SQL_SEARCHABLE,           // expected_searchable
-                      NULL,                     // expected_unsigned_attr
+                      0,                        // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"char"),    // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_WCHAR,                // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1380,14 +1372,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInteger) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"integer"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_INTEGER,               // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1413,14 +1405,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSmallInt) {
                       SQL_SEARCHABLE,             // expected_searchable
                       SQL_FALSE,                  // expected_unsigned_attr
                       SQL_FALSE,                  // expected_fixed_prec_scale
-                      NULL,                       // expected_auto_unique_value
+                      0,                          // expected_auto_unique_value
                       std::wstring(L"smallint"),  // expected_local_type_name
-                      NULL,                       // expected_min_scale
-                      NULL,                       // expected_max_scale
+                      0,                          // expected_min_scale
+                      0,                          // expected_max_scale
                       SQL_SMALLINT,               // expected_sql_data_type
-                      NULL,                       // expected_sql_datetime_sub
-                      NULL,                       // expected_num_prec_radix
-                      NULL);                      // expected_interval_prec
+                      0,                          // expected_sql_datetime_sub
+                      0,                          // expected_num_prec_radix
+                      0);                         // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1446,14 +1438,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoFloat) {
                       SQL_SEARCHABLE,          // expected_searchable
                       SQL_FALSE,               // expected_unsigned_attr
                       SQL_FALSE,               // expected_fixed_prec_scale
-                      NULL,                    // expected_auto_unique_value
+                      0,                       // expected_auto_unique_value
                       std::wstring(L"float"),  // expected_local_type_name
-                      NULL,                    // expected_min_scale
-                      NULL,                    // expected_max_scale
+                      0,                       // expected_min_scale
+                      0,                       // expected_max_scale
                       SQL_FLOAT,               // expected_sql_data_type
-                      NULL,                    // expected_sql_datetime_sub
-                      NULL,                    // expected_num_prec_radix
-                      NULL);                   // expected_interval_prec
+                      0,                       // expected_sql_datetime_sub
+                      0,                       // expected_num_prec_radix
+                      0);                      // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1479,14 +1471,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
                       SQL_SEARCHABLE,           // expected_searchable
                       SQL_FALSE,                // expected_unsigned_attr
                       SQL_FALSE,                // expected_fixed_prec_scale
-                      NULL,                     // expected_auto_unique_value
+                      0,                        // expected_auto_unique_value
                       std::wstring(L"double"),  // expected_local_type_name
-                      NULL,                     // expected_min_scale
-                      NULL,                     // expected_max_scale
+                      0,                        // expected_min_scale
+                      0,                        // expected_max_scale
                       SQL_DOUBLE,               // expected_sql_data_type
-                      NULL,                     // expected_sql_datetime_sub
-                      NULL,                     // expected_num_prec_radix
-                      NULL);                    // expected_interval_prec
+                      0,                        // expected_sql_datetime_sub
+                      0,                        // expected_num_prec_radix
+                      0);                       // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1506,14 +1498,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoDouble) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"numeric"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_DOUBLE,                // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1540,14 +1532,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoVarchar) {
                       SQL_SEARCHABLE,            // expected_searchable
                       SQL_FALSE,                 // expected_unsigned_attr
                       SQL_FALSE,                 // expected_fixed_prec_scale
-                      NULL,                      // expected_auto_unique_value
+                      0,                         // expected_auto_unique_value
                       std::wstring(L"varchar"),  // expected_local_type_name
-                      NULL,                      // expected_min_scale
-                      NULL,                      // expected_max_scale
+                      0,                         // expected_min_scale
+                      0,                         // expected_max_scale
                       SQL_WVARCHAR,              // expected_sql_data_type
-                      NULL,                      // expected_sql_datetime_sub
-                      NULL,                      // expected_num_prec_radix
-                      NULL);                     // expected_interval_prec
+                      0,                         // expected_sql_datetime_sub
+                      0,                         // expected_num_prec_radix
+                      0);                        // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1573,14 +1565,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeDate) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_DATE,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1607,14 +1599,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLDate) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_DATE,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1640,14 +1632,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"date"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1656,15 +1649,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoDateODBCVer2) {
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeDate) {
-#ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
-#else
+#ifdef _WIN32
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_DATE));
+#endif
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
@@ -1685,14 +1678,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTime) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_TIME,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1719,14 +1712,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTime) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
                       SQL_CODE_TIME,          // expected_sql_datetime_sub
-                      NULL,                   // expected_num_prec_radix
-                      NULL);                  // expected_interval_prec
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1752,14 +1745,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
                       SQL_SEARCHABLE,         // expected_searchable
                       SQL_FALSE,              // expected_unsigned_attr
                       SQL_FALSE,              // expected_fixed_prec_scale
-                      NULL,                   // expected_auto_unique_value
+                      0,                      // expected_auto_unique_value
                       std::wstring(L"time"),  // expected_local_type_name
-                      NULL,                   // expected_min_scale
-                      NULL,                   // expected_max_scale
+                      0,                      // expected_min_scale
+                      0,                      // expected_max_scale
                       SQL_DATETIME,           // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,                      // 0, driver
+                                              // returns NULL for Ver2
+                      0,                      // expected_num_prec_radix
+                      0);                     // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1768,15 +1762,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoTimeODBCVer2) {
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTime) {
-#ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
-#else
+#ifdef _WIN32
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIME));
+#endif
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
@@ -1797,14 +1791,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
                       SQL_CODE_TIMESTAMP,          // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1831,14 +1825,14 @@ TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoSQLTimestamp) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
                       SQL_CODE_TIMESTAMP,          // expected_sql_datetime_sub
-                      NULL,                        // expected_num_prec_radix
-                      NULL);                       // expected_interval_prec
+                      0,                           // expected_num_prec_radix
+                      0);                          // expected_interval_prec
 
   CheckSQLDescribeColODBCVer3(stmt);
 
@@ -1864,14 +1858,14 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
                       SQL_SEARCHABLE,              // expected_searchable
                       SQL_FALSE,                   // expected_unsigned_attr
                       SQL_FALSE,                   // expected_fixed_prec_scale
-                      NULL,                        // expected_auto_unique_value
+                      0,                           // expected_auto_unique_value
                       std::wstring(L"timestamp"),  // expected_local_type_name
-                      NULL,                        // expected_min_scale
-                      NULL,                        // expected_max_scale
+                      0,                           // expected_min_scale
+                      0,                           // expected_max_scale
                       SQL_DATETIME,                // expected_sql_data_type
-                      NULL,   // expected_sql_datetime_sub, driver returns NULL for Ver2
-                      NULL,   // expected_num_prec_radix
-                      NULL);  // expected_interval_prec
+                      0,   // expected_sql_datetime_sub, driver returns NULL for Ver2
+                      0,   // expected_num_prec_radix
+                      0);  // expected_interval_prec
 
   CheckSQLDescribeColODBCVer2(stmt);
 
@@ -1880,15 +1874,15 @@ TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTimestampODBCVer2) {
 }
 
 TEST_F(TypeInfoOdbcV2MockTest, TestSQLGetTypeInfoSQLTypeTimestamp) {
-#ifdef __APPLE__
-  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
-#else
+#ifdef _WIN32
   // Pass ODBC Ver 3 data type
   ASSERT_EQ(SQL_ERROR, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
 
   // Driver manager returns SQL data type out of range error state
   VerifyOdbcErrorState(SQL_HANDLE_STMT, stmt, kErrorStateS1004);
-#endif  // __APPLE__
+#else  // Mac & Linux
+  ASSERT_EQ(SQL_SUCCESS, SQLGetTypeInfo(stmt, SQL_TYPE_TIMESTAMP));
+#endif
 }
 
 TEST_F(TypeInfoMockTest, TestSQLGetTypeInfoInvalidDataType) {

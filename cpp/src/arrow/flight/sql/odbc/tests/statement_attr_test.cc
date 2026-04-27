@@ -332,8 +332,7 @@ TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowBindType) {
 }
 
 TYPED_TEST(StatementAttributeTest, TestSQLGetStmtAttrRowNumber) {
-  SQLWCHAR wsql[] = L"SELECT 1;";
-  SQLINTEGER wsql_len = std::wcslen(wsql);
+  ASSIGN_SQLWCHAR_ARR_AND_LEN(wsql, L"SELECT 1;");
 
   ASSERT_EQ(SQL_SUCCESS, SQLExecDirect(stmt, wsql, wsql_len));
 
@@ -425,7 +424,11 @@ TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncEnableUnsupported) {
 TYPED_TEST(StatementAttributeTest, TestSQLSetStmtAttrAsyncStmtEventUnsupported) {
   // Driver does not support asynchronous notification
   ValidateSetStmtAttrErrorCode(stmt, SQL_ATTR_ASYNC_STMT_EVENT, 0, SQL_ERROR,
+#  ifdef __linux__
+                               kErrorStateHYC00);
+#  else  // Windows & Mac
                                kErrorStateHY118);
+#  endif
 }
 #endif
 
