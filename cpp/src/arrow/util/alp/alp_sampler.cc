@@ -88,11 +88,11 @@ typename AlpSampler<T>::AlpSamplerResult AlpSampler<T>::Finalize() {
                    << " total";
 
   AlpSamplerResult result;
-  result.alp_preset = AlpCompression<T>::CreateEncodingPreset(rowgroup_sample_);
+  result.alp_parameters = AlpCompression<T>::CreateEncodingParameters(rowgroup_sample_);
 
-  ARROW_LOG(DEBUG) << "AlpSampler preset: " << result.alp_preset.combinations.size()
+  ARROW_LOG(DEBUG) << "AlpSampler preset: " << result.alp_parameters.combinations.size()
                    << " exponent/factor combinations"
-                   << ", estimatedSize=" << result.alp_preset.best_compressed_size
+                   << ", estimatedSize=" << result.alp_parameters.best_compressed_size
                    << " bytes";
 
   return result;
