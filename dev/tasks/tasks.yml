@@ -364,6 +364,18 @@ tasks:
     params:
       image: conda-cpp-valgrind
 
+  test-pixi-cpp:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: pixi-cpp
+
+  test-pixi-python:
+    ci: github
+    template: docker-tests/github.linux.yml
+    params:
+      image: pixi-python
+
   test-ubuntu-22.04-cpp:
     ci: github
     template: docker-tests/github.linux.yml

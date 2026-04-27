@@ -138,6 +138,8 @@ x-hierarchy:
   - fedora-cpp:
     - fedora-python
   - fedora-r-clang
+  - pixi-cpp
+  - pixi-python
   - python-sdist
   - ubuntu-cpp:
     - ubuntu-cpp-static
@@ -197,6 +199,10 @@ volumes:
     name: ${ARCH}-fedora-${FEDORA}-ccache
   maven-cache:
     name: maven-cache
+  pixi-cpp-build:
+    name: ${ARCH}-pixi-cpp-build
+  pixi-python-build:
+    name: ${ARCH}-pixi-python-build
   python-wheel-manylinux-2-28-ccache:
     name: python-wheel-manylinux-2-28-ccache
   python-wheel-musllinux-1-2-ccache:
@@ -1157,6 +1163,50 @@ services:
       ARROW_WITH_OPENTELEMETRY: "OFF"
     volumes: *ubuntu-volumes
     command: *python-command
+
+  ############################  Pixi builds  ##################################
+
+  pixi-cpp:
+    # C++ build with pixi
+    #
+    # Usage:
+    #   docker compose build pixi-cpp
+    #   docker compose run --rm pixi-cpp
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-cpp-build:/arrow/ci/pixi/cpp/.pixi:delegated
+    command:  >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/cpp &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/cpp test"
+
+  pixi-python:
+    # CPython build with pixi
+    #
+    # Usage:
+    #   docker compose build pixi-python
+    #   docker compose run --rm pixi-python
+    # Parameters:
+    #   ARCH: amd64, arm32v7
+    image: ${REPO}:${ARCH}-pixi
+    build:
+      context: .
+      dockerfile: ci/docker/pixi.dockerfile
+      args:
+        arch: ${ARCH}
+    volumes:
+      - .:/arrow:delegated
+      - ${DOCKER_VOLUME_PREFIX}pixi-python-build:/arrow/ci/pixi/python/.pixi:delegated
+    command: >
+      /bin/sh -c "pixi build --path /arrow/ci/pixi/python &&
+        pixi run --environment test --manifest-path /arrow/ci/pixi/python test"
 
   ############################ Python wheels ##################################
 

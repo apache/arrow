@@ -1,0 +1,85 @@
+# Licensed to the Apache Software Foundation (ASF) under one
+# or more contributor license agreements.  See the NOTICE file
+# distributed with this work for additional information
+# regarding copyright ownership.  The ASF licenses this file
+# to you under the Apache License, Version 2.0 (the
+# "License"); you may not use this file except in compliance
+# with the License.  You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing,
+# software distributed under the License is distributed on an
+# "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+# KIND, either express or implied.  See the License for the
+# specific language governing permissions and limitations
+# under the License.
+
+[workspace]
+channels = ["https://prefix.dev/conda-forge"]
+platforms = ["linux-64", "linux-aarch64", "osx-arm64"]
+preview = ["pixi-build"]
+
+[environments]
+default = []
+test    = ["test"]
+
+[feature.test]
+platforms = ["linux-64"]
+
+[feature.test.activation.env]
+ARROW_TEST_DATA = "/arrow/testing/data"
+PARQUET_TEST_DATA = "/arrow/cpp/submodules/parquet-testing/data"
+
+[feature.test.dependencies]
+hypothesis = "*"
+pyarrow = { path = "." }
+pytest = "*"
+pytest-timeout = "*"
+
+[feature.test.tasks]
+test = "pytest -r s --pyargs pyarrow --timeout=60"
+
+[package]
+name = "pyarrow"
+# TODO: Incorporate this to the bump version script and tests
+version = "25.0.0.dev"
+authors = ["Apache Arrow"]
+
+[package.build]
+source.path = "../../../python"
+
+[package.build.backend]
+name = "pixi-build-python"
+version = "*"
+
+[package.build.config]
+noarch = false
+compilers = ["c", "cxx"]
+env = {
+  PYARROW_BUNDLE_ARROW_CPP = "0",
+  CMAKE_GENERATOR = "Ninja",
+  ARROW_HOME = "$PREFIX",
+}
+
+[package.host-dependencies]
+arrow-cpp = { path = "../cpp" }   # source-dep on the arrow-cpp manifest
+cmake = "*"
+cython = ">=3.0"
+gcc_linux-64 = "*"
+git = "*"
+gxx_linux-64 = "*"
+ninja = "*"
+numpy = "*"
+pip = "*"
+pkg-config = "*"
+python = ">=3.10,<3.14"
+scikit-build-core = "*"
+setuptools-scm = "*"
+sysroot_linux-64 = "*"
+zlib = "*"
+
+[package.run-dependencies]
+arrow-cpp = { path = "../cpp" }
+python = ">=3.10,<3.14"
+numpy = "*"
