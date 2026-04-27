@@ -388,7 +388,8 @@ auto AlpCodec<T>::EncodeAlp(const T* decomp, uint64_t element_count, char* comp,
     vec.StoreDataOnly({ptr, data_size});
   }
 
-  return CompressionProgress{total_size, element_count};
+  return CompressionProgress{static_cast<int64_t>(total_size),
+                             static_cast<int64_t>(element_count)};
 }
 
 template <typename T>
@@ -516,7 +517,8 @@ auto AlpCodec<T>::DecodeAlp(size_t decomp_element_count,
     output_offset += this_vector_elements;
   }
 
-  return DecompressionProgress{output_offset, bytes_consumed};
+  return DecompressionProgress{static_cast<int64_t>(output_offset),
+                               static_cast<int64_t>(bytes_consumed)};
 }
 
 // ----------------------------------------------------------------------

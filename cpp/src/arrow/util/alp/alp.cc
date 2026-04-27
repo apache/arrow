@@ -664,8 +664,8 @@ AlpEncodingParameters AlpCompression<T>::CreateEncodingParameters(
     combinations.push_back(best_k_combinations[i].exponent_and_factor);
   }
 
-  const uint64_t best_compressed_size_bytes =
-      static_cast<uint64_t>(bit_util::BytesForBits(best_compressed_size_bits));
+  const int64_t best_compressed_size_bytes =
+      bit_util::BytesForBits(best_compressed_size_bits);
   return {combinations, best_compressed_size_bytes};
 }
 
