@@ -75,7 +75,7 @@
 #if defined(__GNUC__)  // GCC and compatible compilers (clang, Intel ICC)
 #  define ARROW_NORETURN __attribute__((noreturn))
 #  define ARROW_NOINLINE __attribute__((noinline))
-#  define ARROW_FORCE_INLINE __attribute__((always_inline))
+#  define ARROW_FORCE_INLINE __attribute__((always_inline)) inline
 #  define ARROW_PREDICT_FALSE(x) (__builtin_expect(!!(x), 0))
 #  define ARROW_PREDICT_TRUE(x) (__builtin_expect(!!(x), 1))
 #  define ARROW_RESTRICT __restrict

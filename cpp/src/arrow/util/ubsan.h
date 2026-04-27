@@ -54,7 +54,7 @@ inline T* MakeNonNull(T* maybe_null = NULLPTR) {
 }
 
 template <typename T>
-ARROW_FORCE_INLINE inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoadAs(
+ARROW_FORCE_INLINE std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoadAs(
     const uint8_t* unaligned) {
   using Type = std::remove_const_t<T>;
   arrow::internal::AlignedStorage<Type> raw_data;
@@ -65,7 +65,7 @@ ARROW_FORCE_INLINE inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> S
 }
 
 template <typename T>
-ARROW_FORCE_INLINE inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoad(
+ARROW_FORCE_INLINE std::enable_if_t<std::is_trivially_copyable_v<T>, T> SafeLoad(
     const T* unaligned) {
   using Type = std::remove_const_t<T>;
   arrow::internal::AlignedStorage<Type> raw_data;
@@ -76,11 +76,11 @@ ARROW_FORCE_INLINE inline std::enable_if_t<std::is_trivially_copyable_v<T>, T> S
 }
 
 template <typename U, typename T>
-ARROW_FORCE_INLINE inline std::enable_if_t<std::is_trivially_copyable_v<T> &&
-                                               std::is_trivially_copyable_v<U> &&
-                                               sizeof(T) == sizeof(U),
-                                           U>
-SafeCopy(T value) {
+ARROW_FORCE_INLINE
+    std::enable_if_t<std::is_trivially_copyable_v<T> && std::is_trivially_copyable_v<U> &&
+                         sizeof(T) == sizeof(U),
+                     U>
+    SafeCopy(T value) {
   using TypeU = std::remove_const_t<U>;
   arrow::internal::AlignedStorage<TypeU> raw_data;
   std::memcpy(raw_data.get(), static_cast<const void*>(&value), sizeof(T));
@@ -90,8 +90,8 @@ SafeCopy(T value) {
 }
 
 template <typename T>
-ARROW_FORCE_INLINE inline std::enable_if_t<std::is_trivially_copyable_v<T>, void>
-SafeStore(void* unaligned, T value) {
+ARROW_FORCE_INLINE std::enable_if_t<std::is_trivially_copyable_v<T>, void> SafeStore(
+    void* unaligned, T value) {
   std::memcpy(unaligned, &value, sizeof(T));
 }
 
