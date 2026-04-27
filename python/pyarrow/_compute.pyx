@@ -2074,6 +2074,14 @@ cdef CNullPlacement unwrap_null_placement(null_placement) except *:
     _raise_invalid_function_option(null_placement, "null placement")
 
 
+cdef CSearchSortedSide unwrap_search_sorted_side(side) except *:
+    if side == "left":
+        return CSearchSortedSide_Left
+    elif side == "right":
+        return CSearchSortedSide_Right
+    _raise_invalid_function_option(side, "search sorted side")
+
+
 cdef class _PartitionNthOptions(FunctionOptions):
     def _set_options(self, pivot, null_placement):
         self.wrapped.reset(new CPartitionNthOptions(
@@ -2241,6 +2249,27 @@ class ArraySortOptions(_ArraySortOptions):
 
     def __init__(self, order="ascending", *, null_placement="at_end"):
         self._set_options(order, null_placement)
+
+
+cdef class _SearchSortedOptions(FunctionOptions):
+    def _set_options(self, side):
+        self.wrapped.reset(new CSearchSortedOptions(
+            unwrap_search_sorted_side(side)))
+
+
+class SearchSortedOptions(_SearchSortedOptions):
+    """
+    Options for the `search_sorted` function.
+
+    Parameters
+    ----------
+    side : str, default "left"
+        Whether to return the leftmost or rightmost insertion point.
+        Accepted values are "left", "right".
+    """
+
+    def __init__(self, side="left"):
+        self._set_options(side)
 
 
 cdef class _SortOptions(FunctionOptions):
