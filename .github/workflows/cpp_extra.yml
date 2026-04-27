@@ -350,7 +350,7 @@ jobs:
 
   odbc-linux:
     needs: check-labels
-    name: ODBC Linux
+    name: ODBC ${{ matrix.build-type }} ${{ matrix.title }}
     runs-on: ubuntu-latest
     if: >-
       needs.check-labels.outputs.force == 'true' ||
@@ -359,6 +359,22 @@ jobs:
     timeout-minutes: 75
     strategy:
       fail-fast: false
+      matrix:
+        include:
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu RPM
+            build-type: release
+            format: rpm
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=RPM
+          - image: ubuntu-cpp-odbc
+            title: AMD64 Ubuntu DEB
+            build-type: release
+            format: deb
+            run-options: >-
+              -e ARROW_FLIGHT_SQL_ODBC_INSTALLER=ON
+              -e ODBC_PACKAGE_FORMAT=DEB
     env:
       ARCH: amd64
       ARCHERY_DEBUG: 1
@@ -376,8 +392,8 @@ jobs:
         uses: actions/cache@v5
         with:
           path: .docker
-          key: ubuntu-cpp-odbc-${{ hashFiles('cpp/**') }}
-          restore-keys: ubuntu-cpp-odbc-
+          key: ${{ matrix.image }}-${{ matrix.format }}-${{ hashFiles('cpp/**') }}
+          restore-keys: ${{ matrix.image }}-${{ matrix.format }}-
       - name: Setup Python on hosted runner
         uses: actions/setup-python@v6
         with:
@@ -392,7 +408,14 @@ jobs:
           # GH-40558: reduce ASLR to avoid ASAN/LSAN crashes
           sudo sysctl -w vm.mmap_rnd_bits=28
           source ci/scripts/util_enable_core_dumps.sh
-          archery docker run ubuntu-cpp-odbc
+          archery docker run ${{ matrix.run-options || '' }} ${{ matrix.image }}
+      - name: Upload ODBC ${{ matrix.format }} to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-${{ matrix.format }}-installer
+          path: build/cpp/ArrowFlightSqlOdbc-*.${{ matrix.format }}
+          if-no-files-found: error
       - name: Docker Push
         if: >-
           success() &&
@@ -403,7 +426,7 @@ jobs:
           ARCHERY_DOCKER_USER: ${{ secrets.DOCKERHUB_USER }}
           ARCHERY_DOCKER_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}
         continue-on-error: true
-        run: archery docker push ubuntu-cpp-odbc
+        run: archery docker push ${{ matrix.image }}
 
   odbc-macos:
     needs: check-labels
@@ -428,6 +451,7 @@ jobs:
       ARROW_DEPENDENCY_SOURCE: BUNDLED
       ARROW_DEPENDENCY_USE_SHARED: OFF
       ARROW_FLIGHT_SQL_ODBC: ON
+      ARROW_FLIGHT_SQL_ODBC_INSTALLER: ON
       ARROW_HOME: /tmp/local
       ARROW_MIMALLOC: OFF
     steps:
@@ -503,6 +527,19 @@ jobs:
             --allow libresolv \
             --allow libz \
             "$(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib"
+      - name: Generate macOS Installer
+        if: matrix.build-type == 'release'
+        shell: bash
+        run: |
+            cd $(pwd)/build/cpp
+            cpack
+      - name: Upload ODBC PKG to the job
+        if: matrix.build-type == 'release'
+        uses: actions/upload-artifact@v7
+        with:
+          name: flight-sql-odbc-pkg-installer-${{ matrix.architecture }}
+          path: build/cpp/ArrowFlightSqlOdbc-*.pkg
+          if-no-files-found: error
       - name: Register Flight SQL ODBC Driver
         run: |
           sudo cpp/src/arrow/flight/sql/odbc/install/unix/install_odbc.sh $(pwd)/build/cpp/${{ matrix.build-type }}/libarrow_flight_sql_odbc.dylib
