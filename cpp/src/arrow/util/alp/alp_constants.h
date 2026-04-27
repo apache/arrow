@@ -34,7 +34,13 @@ namespace alp {
 class AlpConstants {
  public:
   /// Number of elements compressed together as a unit. Fixed for compatibility.
+  /// Must fit in uint16_t (max 65535), so log_vector_size must be <= 15.
   static constexpr uint64_t kAlpVectorSize = 1024;
+
+  /// Maximum supported log_vector_size value. Capped at 15 because per-vector
+  /// element counts are stored as uint16_t (max 65535), and 2^16 = 65536
+  /// would overflow. This allows vector sizes up to 32768.
+  static constexpr uint8_t kMaxLogVectorSize = 15;
 
   /// Number of elements to use when determining sampling parameters.
   static constexpr uint64_t kSamplerVectorSize = 4096;
