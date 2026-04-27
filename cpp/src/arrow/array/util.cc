@@ -43,6 +43,7 @@
 #include "arrow/util/checked_cast.h"
 #include "arrow/util/decimal.h"
 #include "arrow/util/endian.h"
+#include "arrow/util/int_util_overflow.h"
 #include "arrow/util/logging_internal.h"
 #include "arrow/util/sort_internal.h"
 #include "arrow/visit_data_inline.h"
@@ -925,6 +926,62 @@ Result<std::shared_ptr<Array>> MakeEmptyArray(std::shared_ptr<DataType> type,
   RETURN_NOT_OK(MakeBuilder(memory_pool, type, &builder));
   RETURN_NOT_OK(builder->Resize(0));
   return builder->Finish();
+}
+
+Result<std::shared_ptr<Array>> Arange(int64_t start, int64_t stop, int64_t step,
+                                      MemoryPool* pool) {
+  if (step == 0) {
+    return Status::Invalid("Arange step cannot be zero");
+  }
+
+  auto error = [&]() {
+    return Status::Invalid("Arange: range [", start, ", ", stop, ") with step ", step,
+                           " would produce an array that is too large");
+  };
+
+  int64_t size;
+  if (step > 0 && stop > start) {
+    // size = (stop - start + step - 1) / step
+    int64_t range;
+    if (internal::SubtractWithOverflow(stop, start, &range)) {
+      return error();
+    }
+    int64_t range_adjusted;
+    if (internal::AddWithOverflow(range, step, &range_adjusted) ||
+        internal::SubtractWithOverflow(range_adjusted, 1, &range_adjusted)) {
+      return error();
+    }
+    size = range_adjusted / step;
+
+  } else if (step < 0 && stop < start) {
+    if (step == INT64_MIN) {
+      return Status::Invalid("Arange step cannot be INT64_MIN");
+    }
+    // size = (start - stop - step - 1) / -step
+    int64_t range;
+    if (internal::SubtractWithOverflow(start, stop, &range)) {
+      return error();
+    }
+    int64_t range_adjusted;
+    if (internal::SubtractWithOverflow(range, step, &range_adjusted) ||
+        internal::SubtractWithOverflow(range_adjusted, 1, &range_adjusted)) {
+      return error();
+    }
+    size = range_adjusted / -step;
+
+  } else {
+    return MakeEmptyArray(int64(), pool);
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto data_buffer, AllocateBuffer(size * sizeof(int64_t), pool));
+
+  auto values = reinterpret_cast<int64_t*>(data_buffer->mutable_data());
+  for (int64_t i = 0; i < size; ++i) {
+    values[i] = start + i * step;
+  }
+
+  auto data = ArrayData::Make(int64(), size, {nullptr, std::move(data_buffer)}, 0);
+  return MakeArray(data);
 }
 
 namespace internal {
