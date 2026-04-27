@@ -27,6 +27,7 @@
 #include <utility>
 
 #include "arrow/array/array_primitive.h"
+#include "arrow/array/concatenate.h"
 #include "arrow/array/array_run_end.h"
 #include "arrow/array/builder_primitive.h"
 #include "arrow/array/util.h"
@@ -82,10 +83,12 @@ const FunctionDoc search_sorted_doc(
 // That window uses logical null counting for run-end encoded inputs, whose
 // nulls live in the values child rather than in a top-level validity bitmap.
 //
-// Needles are then visited as logical runs. Scalars become a single run, plain
-// arrays become one-element runs, and run-end encoded inputs preserve their
-// logical run lengths. Each non-null needle run is resolved with a lower-bound
-// or upper-bound binary search over the sorted non-null range.
+// Needles then follow one of two paths. Scalars and plain arrays go through a
+// shared logical-run visitor: scalars become a single run, plain arrays become
+// one-element runs, and chunked inputs recurse chunk by chunk. Run-end encoded
+// needles take a simpler physical-run path: search each physical needle once,
+// rebuild a temporary run-end encoded uint64 result with the same run ends,
+// and run-end decode it back to the dense output shape.
 //
 // Output materialization is unified behind small output sinks. Non-null-only
 // needles write directly into a preallocated uint64 buffer, while nullable
@@ -117,13 +120,16 @@ const FunctionDoc search_sorted_doc(
 //       |
 //       +--> DatumHasNulls
 //       |
+//       +--> REE needles
+//       |     +--> search physical runs once
+//       |     +--> rebuild temporary REE uint64 result
+//       |     `--> RunEndDecode back to dense output
+//       |
 //       `--> VisitNeedleRuns
 //             |
 //             +--> scalar needle  -> one logical run
 //             |
 //             +--> plain array    -> one-element runs
-//             |
-//             +--> REE array      -> one logical run per encoded run
 //             |
 //             `--> chunked input  -> recurse chunk by chunk
 //
@@ -198,11 +204,6 @@ struct NonNullValuesRange {
     return (offset == 0) && (length == full_length);
   }
 };
-
-template <typename ReturnType, typename Visitor>
-ReturnType DispatchRunEndEncodedByRunEndType(const RunEndEncodedArray& array,
-                                             const char* argument_name,
-                                             Visitor&& visitor);
 
 inline int64_t GetRunEndValue(const ArraySpan& run_ends, int64_t physical_index) {
   switch (run_ends.type->id()) {
@@ -742,25 +743,6 @@ inline void AppendInsertionIndex(UInt64Builder& builder, uint64_t insertion_inde
   builder.UnsafeAdvance(count);
 }
 
-/// Dispatch a run-end encoded array to the matching run-end physical type.
-template <typename ReturnType, typename Visitor>
-ReturnType DispatchRunEndEncodedByRunEndType(const RunEndEncodedArray& array,
-                                             const char* argument_name,
-                                             Visitor&& visitor) {
-  const auto& ree_type = checked_cast<const RunEndEncodedType&>(*array.type());
-  switch (ree_type.run_end_type()->id()) {
-    case Type::INT16:
-      return std::forward<Visitor>(visitor).template operator()<int16_t>(array);
-    case Type::INT32:
-      return std::forward<Visitor>(visitor).template operator()<int32_t>(array);
-    case Type::INT64:
-      return std::forward<Visitor>(visitor).template operator()<int64_t>(array);
-    default:
-      return ReturnType(Status::TypeError("Unsupported run-end type for search_sorted ",
-                                          argument_name, ": ", array.type()->ToString()));
-  }
-}
-
 template <typename ArrowType, bool EmitNulls>
 using VisitedNeedle = std::conditional_t<EmitNulls, std::optional<SearchValue<ArrowType>>,
                                          SearchValue<ArrowType>>;
@@ -802,41 +784,6 @@ Status VisitArrayNeedleRuns(const std::shared_ptr<ArrayData>& needles_data,
   return Status::OK();
 }
 
-/// Visit each run of a run-end encoded needle array as one logical span.
-template <typename ArrowType, typename RunEndCType, bool EmitNulls, typename Visitor>
-Status VisitRunEndEncodedNeedleRuns(const RunEndEncodedArray& needles,
-                                    Visitor&& visitor) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-
-  ArrayType values(needles.values()->data());
-  ArraySpan array_span(*needles.data());
-  ::arrow::ree_util::RunEndEncodedArraySpan<RunEndCType> span(array_span);
-
-  for (auto it = span.begin(); !it.is_end(span); ++it) {
-    RETURN_NOT_OK(
-        visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(values, it.index_into_array()),
-                it.logical_position(), it.run_end()));
-  }
-  return Status::OK();
-}
-
-template <typename ArrowType, typename RunEndCType, bool EmitNulls, typename Visitor>
-Status VisitRunEndEncodedNeedleValues(const RunEndEncodedArray& needles,
-                                      Visitor&& visitor) {
-  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
-
-  ArrayType values(needles.values()->data());
-  ArraySpan array_span(*needles.data());
-  ::arrow::ree_util::RunEndEncodedArraySpan<RunEndCType> span(array_span);
-
-  for (auto it = span.begin(); !it.is_end(span); ++it) {
-    RETURN_NOT_OK(
-        visitor(ReadVisitedNeedle<ArrowType, EmitNulls>(values, it.index_into_array()),
-                it.run_length()));
-  }
-  return Status::OK();
-}
-
 /// Visit scalar, plain-array, run-end encoded, or chunked needles through a
 /// uniform callback interface of logical run lengths.
 template <typename ArrowType, bool EmitNulls, typename Visitor>
@@ -860,16 +807,6 @@ Status VisitNeedleRuns(const Datum& needles, Visitor&& visitor) {
   }
 
   const auto& needle_data = needles.array();
-  if (needle_data->type->id() == Type::RUN_END_ENCODED) {
-    RunEndEncodedArray ree(needle_data);
-    return DispatchRunEndEncodedByRunEndType<Status>(
-        ree, "needles",
-        [&]<typename RunEndCType>(const RunEndEncodedArray& run_end_encoded_needles) {
-          return VisitRunEndEncodedNeedleValues<ArrowType, RunEndCType, EmitNulls>(
-              run_end_encoded_needles, visitor);
-        });
-  }
-
   return VisitArrayNeedleRuns<ArrowType, EmitNulls>(needle_data, visitor);
 }
 
@@ -948,6 +885,51 @@ Status EmitInsertionIndices(const ValuesAccessor& sorted_values, const Datum& ne
   return VisitNeedleRuns<ArrowType, EmitNulls>(needles, emit_search_result);
 }
 
+template <typename ArrowType, typename ValuesAccessor>
+Result<Datum> ComputeRunEndEncodedNeedleInsertionIndices(
+    const ValuesAccessor& sorted_values, const RunEndEncodedArray& needles,
+    SearchSortedOptions::Side side, uint64_t insertion_offset, ExecContext* ctx) {
+  using ArrayType = typename TypeTraits<ArrowType>::ArrayType;
+
+  ArrayType physical_needles(needles.LogicalValues()->data());
+  const int64_t physical_length = physical_needles.length();
+
+  std::shared_ptr<Array> physical_results;
+  if (physical_needles.null_count() > 0) {
+    UInt64Builder builder(ctx->memory_pool());
+    ARROW_RETURN_NOT_OK(builder.Reserve(physical_length));
+    for (int64_t index = 0; index < physical_length; ++index) {
+      if (physical_needles.IsNull(index)) {
+        ARROW_RETURN_NOT_OK(builder.AppendNull());
+        continue;
+      }
+
+      ARROW_RETURN_NOT_OK(builder.Append(FindLogicalInsertionIndex<ArrowType>(
+          sorted_values,
+          GetViewType<ArrowType>::LogicalValue(physical_needles.GetView(index)), side,
+          insertion_offset)));
+    }
+    ARROW_ASSIGN_OR_RAISE(physical_results, builder.Finish());
+  } else {
+    ARROW_ASSIGN_OR_RAISE(auto out,
+                          MakeMutableUInt64Array(physical_length, ctx->memory_pool()));
+    auto* out_values = out->GetMutableValues<uint64_t>(1);
+    for (int64_t index = 0; index < physical_length; ++index) {
+      out_values[index] = FindLogicalInsertionIndex<ArrowType>(
+          sorted_values,
+          GetViewType<ArrowType>::LogicalValue(physical_needles.GetView(index)), side,
+          insertion_offset);
+    }
+    physical_results = MakeArray(std::move(out));
+  }
+
+  ARROW_ASSIGN_OR_RAISE(auto logical_run_ends, needles.LogicalRunEnds(ctx->memory_pool()));
+  ARROW_ASSIGN_OR_RAISE(auto ree_result,
+                        RunEndEncodedArray::Make(needles.length(), logical_run_ends,
+                                                 physical_results));
+  return RunEndDecode(Datum(ree_result), ctx);
+}
+
 /// Materialize output for scalar or array needles.
 template <typename ArrowType, typename ValuesAccessor>
 Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
@@ -963,6 +945,26 @@ Result<Datum> ComputeInsertionIndices(const ValuesAccessor& sorted_values,
     const auto insertion_index = FindLogicalInsertionIndex<ArrowType>(
         sorted_values, ExtractScalarValue<ArrowType>(*scalar), side, insertion_offset);
     return Datum(std::make_shared<UInt64Scalar>(insertion_index));
+  }
+
+  if (needles.type()->id() == Type::RUN_END_ENCODED) {
+    if (needles.is_array()) {
+      return ComputeRunEndEncodedNeedleInsertionIndices<ArrowType>(
+          sorted_values, RunEndEncodedArray(needles.array()), side, insertion_offset, ctx);
+    }
+
+    std::vector<std::shared_ptr<Array>> decoded_chunks;
+    decoded_chunks.reserve(static_cast<size_t>(needles.chunked_array()->num_chunks()));
+    for (const auto& chunk : needles.chunked_array()->chunks()) {
+      ARROW_ASSIGN_OR_RAISE(
+          auto decoded_chunk,
+          ComputeRunEndEncodedNeedleInsertionIndices<ArrowType>(
+              sorted_values, checked_cast<const RunEndEncodedArray&>(*chunk), side,
+              insertion_offset, ctx));
+      decoded_chunks.push_back(decoded_chunk.make_array());
+    }
+    ARROW_ASSIGN_OR_RAISE(auto out, Concatenate(decoded_chunks, ctx->memory_pool()));
+    return Datum(std::move(out));
   }
 
   if (DatumHasNulls(needles)) {
